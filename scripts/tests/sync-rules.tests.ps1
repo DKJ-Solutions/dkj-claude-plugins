@@ -117,6 +117,40 @@ function Add-Commit {
     return ([string](& git -C $Dir rev-parse HEAD)).Trim()
 }
 
+function New-ReconcileTree {
+    <# The state inbound #1945 starts from: a sync took the path once, the trunk has moved on since, and
+       a third party has edited the same path on live. That is the both-sides-moved conflict, and the
+       four shapes below differ only in what the operator commits next. #>
+    param([Parameter(Mandatory = $true)][string]$Label)
+    $dir = New-GitTree -Label $Label
+    Add-Commit -Dir $dir -Message 'initial' -Write @{ 'sections/x.liquid' = 'v1' } | Out-Null
+    Add-Commit -Dir $dir -Message 'sync: mirror the section from live' -Write @{ 'sections/x.liquid' = 'L1' } | Out-Null
+    Add-Commit -Dir $dir -Message 'fix: trunk work on the section, merged but not pushed to live' -Write @{ 'sections/x.liquid' = 'T2' } | Out-Null
+    return $dir
+}
+
+function Get-ReconcileVerdict {
+    <# The three queries sync-main.ps1 asks per differing path, in its own order, so these asserts walk
+       the real decision rather than Get-SyncFileVerdict's parameters chosen by hand. #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Dir,
+        [Parameter(Mandatory = $true)][string]$Live,
+        [string]$Path = 'sections/x.liquid'
+    )
+    Push-Location -LiteralPath $Dir
+    try {
+        $ours    = Test-LiveContentIsOurs -Path $Path -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes($Live))
+        $base    = $null
+        $touched = $false
+        if (-not $ours) {
+            $base = Get-SyncPathReferencePoint -Path $Path
+            if ($base) { $touched = Test-MainTouchedSince -Since $base -Path $Path }
+        }
+        return (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $ours `
+            -MainTouchedSinceFloor $touched -PathAgreementKnown ([bool]$base)).Action
+    } finally { Pop-Location }
+}
+
 try {
     # --- The default pattern ------------------------------------------------------------------------
     Write-Host 'the default reference pattern'
@@ -386,6 +420,70 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
         Assert-True ($null -eq (Get-SyncPathReferencePoint -Path 'sections/header.liquid' -Pattern '^mirror:')) `
             'perpath/pattern: the -Pattern seam applies per path as well'
     } finally { Pop-Location }
+
+    # --- Inbound #1945: what an operator commits after a conflict, and what it is worth --------------
+    # THE REFUSAL SENDS A PERSON AWAY TO MERGE BY HAND, AND THESE FOUR ASSERTS ARE WHAT THEY COME BACK
+    # TO. Three of them are the reported table, reproduced against these functions; the fourth is the
+    # shape that actually settles the path. Pinned together because the difference between them is one
+    # commit subject and one extra commit, which is exactly the kind of distinction a later repair
+    # flattens without noticing.
+    Write-Host ''
+    Write-Host 'the reconciliation shapes (inbound #1945)'
+
+    $live = 'L2'   # what the third party has on live now: content this repo has never held
+
+    $recStart = New-ReconcileTree -Label 'rec-start'
+    Assert-Equal 'conflict' (Get-ReconcileVerdict -Dir $recStart -Live $live) `
+        'rec/start: both sides moved, so the run refuses and sends the operator away to merge by hand'
+
+    # ROW 1. A single reconciliation commit with an ordinary subject. The merged bytes are neither side,
+    # so provenance never answers yes, and the base stays where it was with the trunk ahead of it.
+    $recPlain = New-ReconcileTree -Label 'rec-plain'
+    Add-Commit -Dir $recPlain -Message 'fix: reconcile the section by hand' -Write @{ 'sections/x.liquid' = 'MERGED' } | Out-Null
+    Assert-Equal 'conflict' (Get-ReconcileVerdict -Dir $recPlain -Live $live) `
+        'rec/plain: one commit, ordinary subject -- the same conflict comes back on every future run'
+
+    # ROW 2. THE DAMAGING ONE, AND IT IS PINNED AS A DEFECT RATHER THAN AS A DESIGN. Spelling the commit
+    # the way this repo spells its sync commits makes it the path's own agreement point; nothing has
+    # touched the path since it, so the trunk reads as stationary and live is taken over the
+    # reconciliation. This assert exists so the day somebody changes it, they change it on purpose --
+    # Get-SyncPathReferencePoint carries why it is not repairable on that side.
+    $recSync = New-ReconcileTree -Label 'rec-sync'
+    Add-Commit -Dir $recSync -Message 'sync: reconcile the section by hand' -Write @{ 'sections/x.liquid' = 'MERGED' } | Out-Null
+    Assert-Equal 'take-live' (Get-ReconcileVerdict -Dir $recSync -Live $live) `
+        'rec/sync-subject: one commit spelled like a sync becomes the base, and the next run reverts it'
+
+    # THE DURABLE SHAPE -- what -ReconcileBase writes. Live verbatim, then the trunk content back on top:
+    # no file changes, and live's bytes are now in the path's history, which is the only thing the rule
+    # reads. Live's content being ours is answered BEFORE the base is consulted, so the subject of
+    # everything after this stops mattering.
+    $recPair = New-ReconcileTree -Label 'rec-pair'
+    Add-Commit -Dir $recPair -Message 'sync: live verbatim as the reconciliation base for 1 conflicted path(s)' -Write @{ 'sections/x.liquid' = $live } | Out-Null
+    Add-Commit -Dir $recPair -Message 'fix: put the trunk content back over the reconciliation base (no file changes)' -Write @{ 'sections/x.liquid' = 'T2' } | Out-Null
+    Assert-Equal 'keep-trunk' (Get-ReconcileVerdict -Dir $recPair -Live $live) `
+        'rec/pair: live verbatim then the trunk back on top settles the path -- held back, the trunk wins'
+
+    # AND THE OPERATOR'S OWN MERGE LANDS ON TOP OF IT IN ANY SPELLING, which is the promise the refusal
+    # now prints. Both subjects are asserted because the whole defect above was a subject deciding a
+    # verdict, and 'it no longer does' is only worth having if it is checked on the spelling that used to.
+    Add-Commit -Dir $recPair -Message 'fix: merge the two sides of the section' -Write @{ 'sections/x.liquid' = 'MERGED' } | Out-Null
+    Assert-Equal 'keep-trunk' (Get-ReconcileVerdict -Dir $recPair -Live $live) `
+        'rec/pair: the reconciliation commit on top of it changes nothing -- provenance already decided'
+
+    # THE REPAIR MUST NOT BLIND THE RULE, which is the half a fix like this gets wrong. A NEW third-party
+    # edit after all of that is foreign again, the base is the reconciliation base, and the trunk has
+    # moved since it -- so it is a conflict, correctly, and the operator is sent round the same loop.
+    Assert-Equal 'conflict' (Get-ReconcileVerdict -Dir $recPair -Live 'L3') `
+        'rec/pair: a later third-party edit on live is still caught as a fresh both-sides-moved conflict'
+
+    # AND THE ROW-2 HOLE IS STILL OPEN ONE LOOP LATER, which is the whole reason the refusal warns rather
+    # than the verdict refusing. Spell that next reconciliation like a sync and the same silent take
+    # returns -- so the guard is the printed shape and -ReconcileBase, not anything this lib can decide.
+    # Ordered last on purpose: this commit poisons the base for every assert after it.
+    Add-Commit -Dir $recPair -Message 'sync: reconcile the later drift by hand' -Write @{ 'sections/x.liquid' = 'MERGED2' } | Out-Null
+    Assert-Equal 'take-live' (Get-ReconcileVerdict -Dir $recPair -Live 'L3') `
+        'rec/again: a sync-spelled reconciliation of the NEXT conflict is reverted exactly as the first was'
+
     # --- The quoted path, decoded off the wire ------------------------------------------------------
     # WHY THESE ARE UNIT ASSERTS AND NOT AN INTEGRATION CASE (inbound #821). The bug they pin is that a
     # git-reported path used to be decoded with whatever console code page the RUN inherited -- so the
@@ -538,6 +636,45 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
         Assert-True $stillOurs 'prov/deleted: a path the trunk DELETED is still recognised as ours (the ''--'' case)'
         Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'A' -LiveContentIsOurs $stillOurs).Action `
             'prov/deleted: and the verdict for it is keep-trunk, not resurrection'
+    } finally { Pop-Location }
+
+    # THE SIMPLIFIED-HISTORY CASE, which is '--full-history' and nothing else (inbound #1945). A merged
+    # branch whose NET effect on a path is zero is TREESAME to the first parent there, so default history
+    # simplification prunes the whole side and every blob on it -- and this function's question is 'EVER
+    # held', which is not a question a simplified walk can answer. The ordinary sync branch is never
+    # TREESAME (it changes the path and nothing puts it back), which is why no take-live ever tripped on
+    # it; -ReconcileBase writes a net-zero branch on purpose, so here it is load-bearing.
+    $simp = New-GitTree -Label 'simplified'
+    Add-Commit -Dir $simp -Message 'initial' -Write @{ 'sections/x.liquid' = 'v1' } | Out-Null
+    Add-Commit -Dir $simp -Message 'fix: the trunk moves on' -Write @{ 'sections/x.liquid' = 'T2' } | Out-Null
+    # Read rather than assumed: 'git init' names the initial branch from the machine's own config, so a
+    # hard-coded 'main' here would fail on a machine that still defaults to 'master' and for a reason
+    # that has nothing to do with the property under test.
+    $simpTrunk = ([string](& git -C $simp rev-parse --abbrev-ref HEAD)).Trim()
+    Invoke-FixtureGitJudged @('-C', $simp, 'checkout', '-q', '-b', 'reconcile')
+    Add-Commit -Dir $simp -Message 'sync: live verbatim as the reconciliation base' -Write @{ 'sections/x.liquid' = 'LIVE' } | Out-Null
+    Add-Commit -Dir $simp -Message 'fix: put the trunk content back' -Write @{ 'sections/x.liquid' = 'T2' } | Out-Null
+    Invoke-FixtureGitJudged @('-C', $simp, 'checkout', '-q', $simpTrunk)
+    Invoke-FixtureGitJudged @('-C', $simp, 'merge', '-q', '--no-ff', '-m', 'merge: reconcile', 'reconcile')
+
+    Push-Location -LiteralPath $simp
+    try {
+        $liveBytes = [System.Text.Encoding]::ASCII.GetBytes('LIVE')
+        # The assert is worth having only against the walk it repairs, so both are measured here: the
+        # simplified walk cannot see the commit, the full one can, on the same repo in the same breath.
+        Assert-True (@(& git log --format='%H' 'HEAD' '--' 'sections/x.liquid').Count -lt `
+                     @(& git log --full-history --format='%H' 'HEAD' '--' 'sections/x.liquid').Count) `
+            'prov/simplified: the default walk really does prune the merged side -- the premise of the flag'
+        Assert-True (Test-LiveContentIsOurs -Path 'sections/x.liquid' -LiveBytes $liveBytes) `
+            'prov/simplified: and live''s bytes are still recognised as ours through that merge'
+        Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs `
+            (Test-LiveContentIsOurs -Path 'sections/x.liquid' -LiveBytes $liveBytes)).Action `
+            'prov/simplified: so the path is held back rather than reported as a conflict for ever'
+        # The trunk's own content is still there too, so the widened walk has not blurred the two sides.
+        Assert-True (Test-LiveContentIsOurs -Path 'sections/x.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('T2'))) `
+            'prov/simplified: the mainline content is unaffected by the flag'
+        Assert-True (-not (Test-LiveContentIsOurs -Path 'sections/x.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('L3')))) `
+            'prov/simplified: and content nobody ever committed is still foreign -- the walk widened, the test did not'
     } finally { Pop-Location }
 
     # --- The verdict table, every cell --------------------------------------------------------------

@@ -544,6 +544,63 @@ try {
     Assert-True ([System.IO.File]::ReadAllText((Join-Path $clash 'sections\both.liquid')) -eq 'trunk-b2') 'conflict: the trunk''s version is untouched on disk'
     $branchNow = ([string](& git -C $clash rev-parse --abbrev-ref HEAD)).Trim()
     Assert-True ($branchNow -eq 'main') 'conflict: and no sync branch was created'
+    # THE REFUSAL NOW SAYS WHAT TO DO WITH THE MERGE, NOT ONLY HOW TO SEE IT (inbound #1945). "Compare
+    # them by hand" is complete about the content and silent about the shape, and the shape is where a
+    # single reconciliation commit fails -- in one of two ways chosen by nothing but its subject.
+    Assert-True ($r.Out -match 'NOT DURABLE, IN EITHER SPELLING') 'conflict: and it warns that one reconciliation commit settles nothing'
+    Assert-True ($r.Out -match '-ReconcileBase') 'conflict: and names the switch that writes the durable shape'
+
+    # --- -ReconcileBase: the durable shape, written --------------------------------------------------
+    # THE ASSERT THAT MATTERS IS THE LAST ONE: after this branch, the same run that refused reports the
+    # path as held back. Everything above it is there because the way this repair fails is by writing a
+    # HALF of the pair -- one commit in, the branch holds live's content for those paths, which is the
+    # wholesale overwrite the whole script exists to prevent.
+    Write-Host ''
+    Write-Host 'the reconciliation base'
+    $rec = New-Consumer -Label 'recbase' -ThemeId '123456' -StoreDomain 'a-store.myshopify.com'
+    Add-FixtureCommit -Dir $rec -Message 'sync: the floor' -Write @{ 'sections/both.liquid' = 'b1' }
+    Add-FixtureCommit -Dir $rec -Message 'fix: the trunk changes it too' -Write @{ 'sections/both.liquid' = 'trunk-b2' }
+    $recMirror = New-Mirror -Label 'recbase' -Files @{
+        'sections/theme.liquid' = 'v1'
+        'sections/both.liquid'  = 'a third party changed it as well'
+    }
+
+    # A DRY RUN WRITES NOTHING, INCLUDING THIS. The switch is the only write on the refusing path, so the
+    # two compose the one way they can -- report and stop.
+    $r = Invoke-Sync -Dir $rec -Mirror $recMirror -Extra @('-DryRun', '-ReconcileBase')
+    Assert-True ($r.Out -match 'DRY RUN -- -ReconcileBase would put') 'recbase/dry: a dry run reports the base it would write'
+    Assert-True ((([string](& git -C $rec rev-parse --abbrev-ref HEAD)).Trim()) -eq 'main') 'recbase/dry: and writes no branch'
+
+    $r = Invoke-Sync -Dir $rec -Mirror $recMirror -Extra @('-ReconcileBase')
+    Assert-True ($r.Code -eq 1) 'recbase: the run still refuses -- nothing was taken from live'
+    $recBranch = ([string](& git -C $rec rev-parse --abbrev-ref HEAD)).Trim()
+    Assert-True ($recBranch -like 'sync/live-*') 'recbase: and it leaves the operator on the sync branch it wrote'
+    $subjects = @(& git -C $rec log --format='%s' 'main..HEAD')
+    Assert-True ($subjects.Count -eq 2) 'recbase: two commits, not one -- the half-written pair is the way this fails'
+    Assert-True ($subjects[1] -match '^sync: live verbatim as the reconciliation base') 'recbase: the first takes live verbatim, spelled as the agreement point it genuinely is'
+    Assert-True ($subjects[0] -match '^fix: put the trunk content back') 'recbase: the second puts the trunk content back'
+    # NO FILE CHANGES AT ALL, which is what makes merging it safe at every point.
+    Assert-True ([System.IO.File]::ReadAllText((Join-Path $rec 'sections\both.liquid')) -eq 'trunk-b2') 'recbase: the trunk''s content is what sits on disk afterwards'
+    Assert-True (@(& git -C $rec diff --name-only 'main..HEAD').Where({ $_ }).Count -eq 0) 'recbase: so the branch changes no file against the trunk'
+
+    # AND THE POINT OF ALL OF IT. Merge the pair and re-run the very run that refused: the path is settled
+    # by provenance, so it reads as held back rather than as the same conflict or as drift to take.
+    # THE BRANCH IS DELETED ON BOTH SIDES BECAUSE THAT IS WHAT MERGING ITS PR DOES. It is a sync branch
+    # like any other, so until it lands the standing-predecessor guard refuses the next run by name --
+    # correctly, and deliberately not special-cased: a second way for a sync branch to be ignored is the
+    # direction that loses work, and that guard's instruction (merge or close it) is already the right one
+    # here. Leaving it standing in this fixture is what made the assert below read a DIFFERENT refusal.
+    Invoke-Git -C $rec checkout -q main
+    Invoke-Git -C $rec merge -q --no-ff -m "merge: $recBranch" $recBranch
+    Invoke-Git -C $rec push -q origin --delete $recBranch
+    Invoke-Git -C $rec branch -q -D $recBranch
+    $r = Invoke-Sync -Dir $rec -Mirror $recMirror
+    # 'REFUSING TO SYNC' ALONE IS NOT ENOUGH TO ASSERT, and this is the assert catching itself: the run
+    # above refused on the standing predecessor, whose wording is 'Refusing: 1 sync branch(es)', so a
+    # notmatch on the conflict banner passed while the run had refused for another reason entirely.
+    Assert-True ($r.Out -notmatch 'REFUSING TO SYNC' -and $r.Out -notmatch 'Refusing:') 'recbase: after the merge the same run no longer refuses, for any reason'
+    Assert-True ($r.Out -match 'held back .* wins\): 1') 'recbase: the path is held back -- the trunk wins, permanently'
+    Assert-True ([System.IO.File]::ReadAllText((Join-Path $rec 'sections\both.liquid')) -eq 'trunk-b2') 'recbase: and live never overwrote the trunk on the way through'
 
     # --- Nothing foreign at all --------------------------------------------------------------------
     Write-Host ''
@@ -812,17 +869,17 @@ try {
     Assert-True ($src -notmatch '\$poll\.ExitCode') `
         'net/poll: and the exit code is deliberately not judged -- gh exits 8 on pending and 1 on red'
 
-    # EVERY Invoke-NativeCapture HERE CARRIES THE SHARED BOUND, and the count is pinned at ten so an
-    # eleventh network call added without one fails this assert rather than passing unnoticed. The number
-    # rather than a ratio: 10 == 10 would also hold if somebody deleted a call and its bound together.
+    # EVERY Invoke-NativeCapture HERE CARRIES THE SHARED BOUND, and the count is pinned at eleven so a
+    # twelfth network call added without one fails this assert rather than passing unnoticed. The number
+    # rather than a ratio: 11 == 11 would also hold if somebody deleted a call and its bound together.
     # '-FilePath' IS PART OF THE PATTERN rather than the bare function name, because the banner at the
     # top of the script names the function in prose -- and a bare-name count read 6 against 5 real calls.
-    # WAS FIVE UNTIL #1184 added the four gh calls and NINE UNTIL #1187 routed the poll; the git half is
-    # unchanged throughout.
+    # WAS FIVE UNTIL #1184 added the four gh calls, NINE UNTIL #1187 routed the poll, and TEN UNTIL #1945
+    # added -ReconcileBase's push; the git half is otherwise unchanged throughout.
     $calls  = @([regex]::Matches($src, 'Invoke-NativeCapture\s+-FilePath\b')).Count
     $bounds = @([regex]::Matches($src, [regex]::Escape('-TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds'))).Count
-    Assert-True ($calls -eq 10) "net: ten network calls go through the lib (found $calls)"
-    Assert-True ($bounds -eq 10) "net: and all ten pass the shared bound (found $bounds)"
+    Assert-True ($calls -eq 11) "net: eleven network calls go through the lib (found $calls)"
+    Assert-True ($bounds -eq 11) "net: and all eleven pass the shared bound (found $bounds)"
 
     # THE FIVE gh CALLS BY NAME, because the count above is blind to WHICH ten they are: it would still
     # read 10 if a gh call went back to being bare and a git call were split in two.

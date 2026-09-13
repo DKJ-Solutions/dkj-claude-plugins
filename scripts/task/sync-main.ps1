@@ -198,6 +198,32 @@
     How long to wait for CI on the sync PR before giving up and leaving it unmerged. Only used when the
     seam says to merge. Default: 15.
 
+.PARAMETER ReconcileBase
+    On a run that REFUSES for conflicts, write the reconciliation base for those paths instead of only
+    printing the diff commands: a sync branch carrying two commits, live's bytes verbatim and then the
+    trunk's own bytes put straight back on top. The tree ends byte-identical to the trunk, so the branch
+    changes no file and only the history moves -- which is the whole point, because the history is what
+    Test-LiveContentIsOurs reads.
+
+    WHAT IT IS FOR, AND WHY A HAND-MERGE COULD NOT REACH IT (inbound #1945). The refusal tells an
+    operator to merge the two sides deliberately, and a single commit holding that merge is durable in
+    NEITHER spelling: an ordinary subject leaves the path conflicted on every future run, and a subject
+    matching the sync pattern becomes that path's own agreement point, so the next run reads the trunk as
+    stationary and takes live over the reconciliation -- silently. The merged bytes belong to neither
+    side, so nothing in them is live's content, and provenance is the thing the rule actually asks about.
+    The pair above is what establishes it; after it the path reads keep-trunk, permanently, which is the
+    same state every ordinary held-back file is in.
+
+    IT DOES NOT MERGE ANYTHING, deliberately. The content reconciliation is ordinary work on an ordinary
+    branch, and this switch only makes the ground it lands on durable. The merge is the operator's next
+    commit, in any spelling they like, because by then the path's verdict no longer depends on the
+    subject of anything.
+
+    DO NOT SQUASH THE BRANCH IT WRITES. A squash collapses the two commits into one whose blob is the
+    trunk's content, so live's bytes never enter the trunk's history and the repair buys nothing. That
+    failure costs the repair and not the work -- the tree is unchanged either way -- but it costs it
+    silently, so the run says so out loud when the seam's merge method is 'squash'.
+
 .EXAMPLE
     powershell -NoProfile -File scripts/task/sync-main.ps1 -DryRun
 
@@ -212,6 +238,11 @@ param(
     [switch]$KeepMirror,
     [switch]$StopBeforeMerge,
     [switch]$AllowStacking,
+    # OFF BY DEFAULT BECAUSE IT WRITES, and it is the only switch on this script that writes on the
+    # REFUSING path. Everything else about a refused run is a report; this one commits, so it is asked
+    # for by name rather than offered as a default helpfulness. Under -DryRun it reports what it would
+    # write and writes nothing, like every other write on this page.
+    [switch]$ReconcileBase,
     [int]$ChecksTimeoutMinutes = 15,
     [string]$RootOverride = '',
     # RETIRED, AND ACCEPTED ONLY TO REFUSE IT BY NAME. -SkipPull meant "run the rule over whatever is
@@ -527,6 +558,143 @@ function Write-SyncLogEntry {
         Write-Host "Could not write the sync-log entry to '$rel', so this sync leaves no record in the tree: $($_.Exception.Message)" -ForegroundColor Yellow
         return ''
     }
+}
+
+function Write-SyncReconciliationBase {
+    <#
+    .SYNOPSIS
+        Put the reconciliation base for the conflicted paths on the sync branch: live verbatim, then the
+        trunk's own content straight back on top. Two commits, no file changed.
+
+    .DESCRIPTION
+        INBOUND #1945. The refusal one screen down tells an operator to merge the two sides by hand, and
+        a single commit holding that merge is durable in neither spelling -- the caller's own comment
+        carries the two failures and the measurement. What settles a path is PROVENANCE: has this path
+        ever held live's exact bytes in this branch's history? Merged bytes are neither side, so they
+        never answer yes, and no commit subject can make them.
+
+        SO THE FIRST COMMIT IS THE WHOLE REPAIR AND THE SECOND IS WHAT MAKES IT SAFE. Commit 1 puts live's
+        bytes into the path's history, which is the only thing Test-LiveContentIsOurs reads. Commit 2 puts
+        the trunk's bytes straight back, so the branch's net effect on every file is zero and there is no
+        moment at which merging it could lose the trunk's work. After it the path reads keep-trunk
+        permanently -- 'live holds a version this repo has had before' -- which is where every ordinary
+        held-back file already sits.
+
+        WHY THE SCRIPT AND NOT THE OPERATOR. Commit 1 is byte-exact copying out of a mirror for N paths
+        and committing those paths alone; done by hand it is the kind of step that half-succeeds, and a
+        half-made base is indistinguishable from the single-commit shape it was meant to replace.
+
+        THE TRUNK'S BYTES COME FROM GIT, NOT FROM THE WORKING TREE. By the time commit 2 is written the
+        tree holds live's content, so the only surviving copy of the trunk's version is the commit this
+        run started on -- which is read by sha rather than by 'HEAD~1' so that a failure anywhere in
+        between cannot make the restore quietly relative to the wrong commit.
+
+        CR NORMALISATION NEEDS NO HANDLING HERE, and that is a property of the reader rather than luck.
+        Whatever git stores for commit 1 -- the raw bytes with autocrlf off, or the LF form with it on --
+        Test-LiveContentIsOurs compares live's raw id AND its CR-stripped id against the stored ids, so
+        one of the two matches either way. That is the same pair of candidates that makes the ordinary
+        take-live path work.
+
+        IT NEITHER MERGES NOR OPENS A PR. The content reconciliation is the operator's next commit and
+        this switch has no opinion about it; what it does is make the ground durable first. A PR command
+        is printed rather than run for the same reason the refusing run prints diffs rather than running
+        them: the operator is mid-decision, not mid-pipeline.
+
+        NO SYNC-LOG ENTRY, deliberately. The log records what was taken from live and what was held back,
+        and this branch does neither -- it takes nothing and changes no file. An entry claiming otherwise
+        would be the one record of this sync in the tree and it would be false.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Conflict,
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][string]$BranchShown,
+        [Parameter(Mandatory = $true)][object]$BranchPaste,
+        [Parameter(Mandatory = $true)][object]$TrunkPaste,
+        [string]$MergeMethod = 'merge',
+        [switch]$DryRun
+    )
+
+    $basePaths = @($Conflict | ForEach-Object { [string]$_.Path })
+
+    Write-Host ''
+    if ($DryRun) {
+        # A DRY RUN WRITES NOTHING, INCLUDING THIS. The switch is a write and the dry run's whole promise
+        # is that no write happens, so the two compose the only way they can: report and stop.
+        Write-Host "DRY RUN -- -ReconcileBase would put the reconciliation base for $($Conflict.Count) path(s) on $BranchShown. Nothing written." -ForegroundColor Magenta
+        return
+    }
+
+    $trunkSha = ([string](& git rev-parse HEAD)).Trim()
+    if ($trunkSha -notmatch '^[0-9a-f]{40}$') {
+        Write-Host 'Could not read the current commit, so the trunk content could not be put back afterwards. Nothing written.' -ForegroundColor Red
+        return
+    }
+
+    Write-Host "Writing the reconciliation base for $($Conflict.Count) path(s) on $BranchShown." -ForegroundColor Cyan
+    & git checkout -b $Branch | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "Could not create $BranchShown. Nothing written." -ForegroundColor Red; return }
+
+    foreach ($r in $Conflict) {
+        $dest    = Join-Path $RepoRoot ([string]$r.Path -replace '/', '\')
+        $destDir = Split-Path -Parent $dest
+        if ($destDir -and -not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+        Copy-Item -LiteralPath $r.Source -Destination $dest -Force
+    }
+    Invoke-SyncGitQuiet @(@('add', '--') + $basePaths) | Out-Null
+    # THE SUBJECT MATCHES THE SYNC PATTERN ON PURPOSE, and this is the one commit in the shape for which
+    # that is TRUE rather than merely conventional: it holds live's bytes, so it is a moment at which the
+    # trunk and live are known to have agreed for these paths -- which is exactly what an agreement point
+    # is. The commit the inbound report warns about carries the same spelling over content that was never
+    # on live; the spelling was never the defect, the missing provenance was.
+    & git commit --quiet -m "sync: live verbatim as the reconciliation base for $($Conflict.Count) conflicted path(s)" -- @basePaths
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'Could not commit the reconciliation base. The branch is created and the working tree holds live content for those paths.' -ForegroundColor Red
+        Write-Host "  Put the trunk content back with: git checkout $trunkSha -- <path>" -ForegroundColor Red
+        return
+    }
+
+    Invoke-SyncGitQuiet @(@('checkout', $trunkSha, '--') + $basePaths) | Out-Null
+    & git commit --quiet -m 'fix: put the trunk content back over the reconciliation base (no file changes)' -- @basePaths
+    if ($LASTEXITCODE -ne 0) {
+        # THE ONE STATE THIS FUNCTION MUST NOT LEAVE SILENTLY. One commit in, the branch holds live's
+        # content for those paths, which is the wholesale overwrite the whole script exists to prevent --
+        # so it is named, with the command that undoes it, rather than reported as a failed step.
+        Write-Host 'Could not commit the restore, so the branch holds LIVE content for those paths. Do not merge it.' -ForegroundColor Red
+        Write-Host "  git checkout $trunkSha -- <path>   then commit, or delete $BranchShown." -ForegroundColor Red
+        return
+    }
+
+    $push = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '-u', 'origin', $Branch) `
+                                 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    $push.Output | ForEach-Object { Write-Host $_ }
+    if ($push.ExitCode -ne 0) {
+        # NOT FATAL, AND NOT THE SAME BARGAIN AS THE TAKE-LIVE PUSH. That one is bounded because until it
+        # lands the only copy of a third party's work is a local branch; here both commits' content
+        # already exists on live and in the trunk, so an unpushed branch costs a push and nothing else.
+        Write-Host "Push failed -- both commits are local on $BranchShown." -ForegroundColor Yellow
+        if ($push.TimedOut) { Write-Host "  'git push' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds." -ForegroundColor Yellow }
+        Write-Host "  Push it by hand: git push -u origin $($BranchPaste.Token)" -ForegroundColor Yellow
+        if ($BranchPaste.Note) { Write-Host $BranchPaste.Note -ForegroundColor Yellow }
+    }
+
+    Write-Host ''
+    Write-Host "$BranchShown holds two commits and changes no file: live verbatim, then the trunk content back on top." -ForegroundColor Green
+    Write-Host '  Open it, and merge it with a MERGE COMMIT:' -ForegroundColor Green
+    Write-Host "  gh pr create --base $($TrunkPaste.Token) --head $($BranchPaste.Token) --title `"sync: reconciliation base for $($Conflict.Count) conflicted path(s)`"" -ForegroundColor Cyan
+    if ($TrunkPaste.Note)  { Write-Host $TrunkPaste.Note -ForegroundColor DarkYellow }
+    if ($BranchPaste.Note) { Write-Host $BranchPaste.Note -ForegroundColor DarkYellow }
+    if ($MergeMethod -eq 'squash') {
+        # SAID OUT LOUD BECAUSE THIS REPO HAS ASKED FOR THE ONE METHOD THAT DEFEATS THE REPAIR. A squash
+        # collapses both commits into one whose blob is the trunk's content, so live's bytes never enter
+        # the trunk's history and the next run reports the same conflict. It costs the repair, not the
+        # work -- the tree is identical either way -- but nothing else would ever say so.
+        Write-Host '  Get-ShopifySyncMergeMethod answers "squash", which would collapse both commits into' -ForegroundColor Red
+        Write-Host '  one holding the trunk content: live never enters the history and the conflict returns.' -ForegroundColor Red
+        Write-Host '  Merge THIS branch with a merge commit (or rebase), whatever the seam says for the rest.' -ForegroundColor Red
+    }
+    Write-Host '  Then reconcile the content itself in an ordinary commit, in any spelling: the path is' -ForegroundColor Green
+    Write-Host '  settled by provenance from here on, not by what a subject line says.' -ForegroundColor Green
 }
 
 function Write-SyncPredecessorVerdict {
@@ -1186,8 +1354,49 @@ try {
             Write-Host "  git diff --no-index -- $($pathPaste.Token) `"$mirrorFile`"" -ForegroundColor Yellow
             if (-not $pathPaste.IsSafe) { Write-Host $pathPaste.Note -ForegroundColor DarkYellow }
         }
+
+        # WHAT TO DO WITH THE MERGE ONCE IT IS MADE, WHICH THE REFUSAL ABOVE USED TO LEAVE OUT
+        # (inbound #1945). "Compare them by hand and merge deliberately" is complete advice about the
+        # CONTENT and silent about the shape, and the shape is where it fails: merged bytes are neither
+        # side, so they are not live's content, and provenance is the only thing this rule reads. Follow
+        # the line above literally, commit once, and the path is not settled -- it is one of two failures
+        # chosen by nothing but the commit subject, and neither announces itself.
+        #
+        # MEASURED IN A CONSUMER on seven conflicted paths (five locale files, a section and a context
+        # template) and reproduced here against the real functions, all four cells:
+        #
+        #   ordinary subject   -> the base stays where it was, the trunk has moved since it, and every
+        #                         future run reports the same conflict. Permanently unsyncable.
+        #   subject matching   -> the reconciliation commit BECOMES that path's agreement point, nothing
+        #   the sync pattern      has touched the path since it, and the next run takes live over the
+        #                         reconciliation. Silent, and the same failure class as inbound #1535.
+        #
+        # The second is the damaging one, and it is reached by spelling a commit the way this repo spells
+        # its sync commits -- which is what a careful operator does.
+        Write-Host ''
+        Write-Host 'ONE RECONCILIATION COMMIT IS NOT DURABLE, IN EITHER SPELLING (inbound #1945):' -ForegroundColor Red
+        Write-Host '  * an ordinary subject leaves the path conflicted on every run from now on;' -ForegroundColor Red
+        Write-Host "  * a subject matching $pattern becomes this path's own agreement point, so the next" -ForegroundColor Red
+        Write-Host '    run reads the trunk as stationary and takes live OVER your reconciliation.' -ForegroundColor Red
+        Write-Host '  Merged bytes are neither side, so they carry no provenance -- and provenance is the' -ForegroundColor Red
+        Write-Host '  whole of what this rule reads.' -ForegroundColor Red
+        Write-Host ''
+        Write-Host 'THE DURABLE SHAPE IS TWO COMMITS, and -ReconcileBase writes them for you:' -ForegroundColor Yellow
+        Write-Host '  powershell -NoProfile -File scripts/task/sync-main.ps1 -ReconcileBase' -ForegroundColor Yellow
+        Write-Host '    1. live verbatim -- the only thing that puts live content into the path history;' -ForegroundColor Yellow
+        Write-Host '    2. the trunk content straight back on top, so no file changes at all.' -ForegroundColor Yellow
+        Write-Host '  Merge that branch (never squash) and the path reads keep-trunk from then on -- the' -ForegroundColor Yellow
+        Write-Host '  same state every ordinary held-back file is in. Your own reconciliation is then' -ForegroundColor Yellow
+        Write-Host '  ordinary work in an ordinary commit, whatever its subject says.' -ForegroundColor Yellow
+
+        if ($ReconcileBase) { Write-SyncReconciliationBase -Conflict $conflict -RepoRoot $repoRoot -Branch $branch -BranchShown $branchShown -BranchPaste $branchPaste -TrunkPaste $trunkPaste -MergeMethod $mergeMethod -DryRun:$DryRun }
+
         # The mirror is what those commands read, so a refused run keeps it whatever the switch says.
         $KeepMirror = $true
+        # STILL 1, AND -ReconcileBase DOES NOT CHANGE IT. The sync did not happen: the conflicts stand,
+        # nothing was taken from live, and the branch just written carries no content change. A caller
+        # that reads an exit code is asking whether live was mirrored into the trunk, and the answer is
+        # no in both cases.
         exit 1
     }
 

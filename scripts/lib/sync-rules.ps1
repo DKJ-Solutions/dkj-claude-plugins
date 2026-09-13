@@ -270,6 +270,41 @@ function Get-SyncPathReferencePoint {
         COST: one 'git log' per differing path whose content is foreign, bounded by that path's own
         history. It sits beside Test-LiveContentIsOurs, which already spends one 'git rev-parse' per
         commit touching the path, so it does not change the shape of what a run costs.
+
+        THE SUBJECT PATTERN IS A HEURISTIC FOR AUTHORSHIP, AND IT CANNOT BE MADE INTO A PROOF (inbound
+        #1945, September 13, 2026). This lookup answers "the most recent commit whose SUBJECT matches the
+        pattern and which touched this path", and #1535 adopted that pattern from the repo-wide floor,
+        where it was chosen to recognise HAND-RUN historical syncs -- six of them in one consumer, spelled
+        'Sync main with live theme (<store>)', written by a person before this script existed. So it is
+        deliberately loose about who wrote the commit, and the take-live arm it feeds is the one arm that
+        DISCARDS trunk content.
+
+        THE SHAPE THAT EXPLOITS IT. An operator hand-reconciles a conflicted path and spells the commit
+        the way this repo spells its sync commits. That commit becomes the path's agreement point, nothing
+        has touched the path since it, live's content is still foreign -- and the next run verdicts
+        take-live and deletes the reconciliation. Measured in a consumer on seven paths and reproduced
+        against these functions; sync-main.ps1's refusal block carries the full table.
+
+        AND IT IS DECLINED HERE RATHER THAN REPAIRED, WHICH IS A MEASUREMENT AND NOT A SHRUG. The obvious
+        repair is to recognise a genuine sync commit, and nothing in the content can:
+
+          * at a genuine agreement commit S the path holds live's bytes AS OF THEN, and this run knows
+            only live's bytes NOW. Where the two are equal Test-LiveContentIsOurs has already answered
+            and this cell is never reached -- so every case that gets here is one where they differ, for
+            a genuine base and a hand-written one alike.
+          * a genuine sync commit and a hand-reconciliation both change the path, both may touch nothing
+            else, and both leave the path's current content equal to their own. Every comparison this
+            function can afford returns the same answer for the two.
+
+        So a proof would have to be DECLARED -- a trailer this script writes and a hand-written commit
+        lacks. That closes the hole for commits written from now on and says nothing about the ones
+        already in a consumer's history, and reading an undeclared sync commit as no agreement point
+        turns every legacy path's third-party drift into a conflict on the first run after the upgrade.
+        One conflict refuses the whole run, so that upgrade would take a quiet working mechanism and stop
+        it dead in every consumer at once, to close a hole that needs the operator to ignore a printed
+        warning first. The repair therefore lands where the hazard is created rather than where it is
+        detected: sync-main.ps1's refusal now names the durable two-commit shape and -ReconcileBase writes
+        it, which removes the reason to hand-write such a commit at all.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -498,6 +533,29 @@ function Test-LiveContentIsOurs {
         DIFFERENT path's history, making live's copy of file B read as ours because file A once held those
         bytes. Under-matching here is safe (the file reads as foreign, so a human sees it); over-matching
         is not.
+
+        '--full-history' IS, AND WITHOUT IT THIS FUNCTION ANSWERS A NARROWER QUESTION THAN ITS OWN NAME
+        (inbound #1945, September 13, 2026). 'git log -- <path>' does not list every commit that touched
+        the path: it applies history simplification, so at a MERGE whose result for that path equals the
+        first parent's, the entire merged side is pruned -- every blob on it included. The synopsis says
+        'EVER held', and the query said 'held, on the simplified mainline'.
+
+        WHAT IT COSTS IN PRACTICE, which is why it survived this long. The ordinary sync branch changes
+        the path and nothing puts it back, so its merge is not TREESAME and the branch is walked: every
+        take-live this rule has ever made is unaffected. The shape that hits it is a branch whose NET
+        effect on the path is zero, and -ReconcileBase writes exactly that one on purpose -- live's bytes,
+        then the trunk's back on top, so that merging it can lose nothing. Measured: after that merge the
+        reconciliation base was invisible here and the path reported the same conflict it had before.
+
+        AND IT MOVES ONLY IN THE PROTECTIVE DIRECTION. More history seen means more content recognised as
+        ours, which means keep-trunk where the answer would otherwise have been take-live; it cannot turn
+        a held-back file into a taken one. The '--follow' warning above is about matching a DIFFERENT
+        path's history, which this does not do -- the pathspec is unchanged and only the walk widens.
+
+        THE BASE LOOKUP DELIBERATELY DOES NOT TAKE IT. Get-SyncCommitShas answers "the most recent sync
+        commit touching this path", and there simplification errs the safe way: a pruned sync commit makes
+        the base older or absent, which reports a conflict. Widening it would move the base FORWARD, and a
+        base that is too recent is the failure inbound #1535 was filed for.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -522,7 +580,7 @@ function Test-LiveContentIsOurs {
     # function sees no history and answers "foreign" -- restoring live's copy over a deliberate deletion.
     # Measured in the consumer: 23 deleted locale files about to be resurrected. The 'A' case is the one
     # that needs the '--', and the 'A' case is where getting it wrong undoes a deliberate deletion.
-    $logArgs = @('log', '--format=%H', $Ref, '--', $Path)
+    $logArgs = @('log', '--full-history', '--format=%H', $Ref, '--', $Path)
     $commits = @(Invoke-SyncGitQuiet @logArgs | Where-Object { $_ })
     foreach ($c in $commits) {
         $stored = Get-GitStoredBlobId -Rev "$c" -Path $Path
@@ -555,6 +613,15 @@ function Get-SyncFileVerdict {
 
             BOTH SIDES MOVED -- there is a per-path agreement point and the trunk has changed the path
             since it. Taking either side would lose the other, so nothing is decided.
+
+            AND NOTHING THE OPERATOR DOES NEXT IS DECIDED BY THIS FUNCTION EITHER, which is the half
+            inbound #1945 found missing. A hand-merge of the two sides produces bytes that are neither,
+            so the path stays foreign under Test-LiveContentIsOurs and this cell keeps firing -- unless
+            the reconciliation commit's subject happens to match the sync pattern, in which case it
+            becomes the path's own agreement point and the run after it verdicts take-live instead.
+            The durable shape is to put live's bytes in the history first and the trunk's back on top;
+            see -ReconcileBase in sync-main.ps1, and Get-SyncPathReferencePoint above for why the
+            recognition cannot be fixed on this side.
 
             NOTHING IS KNOWN TO HAVE AGREED -- no sync ever took this path, so there is no moment at
             which the trunk and live are known to have matched (-PathAgreementKnown $false). Live's
