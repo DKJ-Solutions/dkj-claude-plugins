@@ -1139,12 +1139,26 @@ try {
     # the check climbed straight through the ConvertExpressionAst without noticing the cast, so this
     # exact shape reached the implicit-return arm and was cleared as a READ -- 0 findings here, against
     # 1 for the same call one line further up. [void] is precisely what stops a last statement being a
-    # return value, so the two positions have to agree, and a check whose arms disagree about wrapping
-    # teaches the shape that gets past it (check 35's lesson, one level up).
-    Write-Host "check 41 -- a [void] cast is a discard in both positions" -ForegroundColor Cyan
+    # return value, so the two positions have to agree, and a check whose three arms disagree about
+    # wrapping teaches the shape that gets past it (check 35's lesson, one level up).
+    #
+    # FOUR POSITIONS RATHER THAN THE TWO THE REPAIR WAS ABOUT. Answering the discard FIRST reaches every
+    # arm, not only the implicit-return one, and the two below are the arms that would otherwise CLEAR a
+    # cast-away verdict: an explicit 'return', and an assignment to a variable that is read later. The
+    # cast is what throws the value away, so no shape it wears afterwards can give it back -- but that
+    # is reasoning, and reasoning is what these scenarios exist to stop standing in for a measurement.
+    Write-Host "check 41 -- a [void] cast is a discard in every position" -ForegroundColor Cyan
     foreach ($fsVoid in @(
-        @{ Label = 'as the last statement'; Tail = @() }
-        @{ Label = 'one line further up';   Tail = @('    Write-Host ''done''') }
+        @{ Label = 'as the last statement'
+           Body  = @('    [void](Write-FixtureScriptSummary -Subject ''child.ps1'')') }
+        @{ Label = 'one line further up'
+           Body  = @('    [void](Write-FixtureScriptSummary -Subject ''child.ps1'')'
+                     '    Write-Host ''done''') }
+        @{ Label = 'behind an explicit return'
+           Body  = @('    return [void](Write-FixtureScriptSummary -Subject ''child.ps1'')') }
+        @{ Label = 'assigned to a variable that IS read later'
+           Body  = @('    $loadBroken = [void](Write-FixtureScriptSummary -Subject ''child.ps1'')'
+                     '    if ($loadBroken) { exit 1 }') }
     )) {
         [System.IO.File]::WriteAllText($fsPath, ((@(
             '$ErrorActionPreference = ''Stop'''
@@ -1152,13 +1166,12 @@ try {
             '$out = & powershell -NoProfile -File $child 2>&1'
             'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
             'function Close-Suite {'
-            '    [void](Write-FixtureScriptSummary -Subject ''child.ps1'')'
-        ) + $fsVoid.Tail + @(
+        ) + $fsVoid.Body + @(
             '}'
             'Close-Suite'
         ) -join "`n") + "`n"), $Utf8NoBom)
         $rC78b = Invoke-Integrity -FixtureRoot $Fixture
-        Assert-Equal 1 ([regex]::Matches($rC78b.Out, $FsFindingPattern).Count) "scenario 78b/$($fsVoid.Label): a [void] cast is a discard, not an implicit return"
+        Assert-Equal 1 ([regex]::Matches($rC78b.Out, $FsFindingPattern).Count) "scenario 78b/$($fsVoid.Label): a [void] cast is a discard, whatever shape it wears"
         Assert-True ($rC78b.Out -match 'is never read, so nothing turns it into an exit code') "scenario 78b/$($fsVoid.Label): and the finding says what is missing"
     }
 

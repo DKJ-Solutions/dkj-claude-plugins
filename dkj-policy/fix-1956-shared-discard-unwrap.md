@@ -80,12 +80,23 @@ copies.
 
 ### TEST
 
-- [x] scenario 78b pins the repaired arm in both positions -- a `[void]` cast is a discard as a
-      function's last statement and one line further up, and the two have to agree
+- [x] scenario 78b pins the repaired arm in **four** positions -- a `[void]` cast is a discard as a
+      function's last statement, one line further up, behind an explicit `return`, and assigned to a
+      variable that IS read later. The last two came out of the code review: answering the discard first
+      reaches every arm, not only the implicit-return one, and that reach was reasoning until it was
+      measured
 - [x] the lint gate is green and both coverage lines report the same counts as before the extraction
       (`[fixture-git]` 108 files / 0 findings, `[fixture-script]` 108 files / 7 wired / 0 findings), so
       the change is behaviour-preserving on the real tree apart from the repaired arm
-- [x] all suites green
+- [x] all suites green -- 117 asserts in the commands suite
+
+#### What the review chain changed
+
+- [x] the returned `VoidCast` field is gone: neither caller read it, and neither finding names which
+      spelling it was, so it was surface this gate would have had to keep true for nobody
+- [x] two places quoted check 35's header as *"a check whose arms disagree"* where it says
+      *"a check whose **three** arms disagree"*; the quotes are restored and the one deliberate
+      generalisation is no longer dressed as a quotation
 
 ### DEPLOY: fix/1956-shared-discard-unwrap
 

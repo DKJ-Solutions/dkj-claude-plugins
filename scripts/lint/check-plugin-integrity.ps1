@@ -1239,7 +1239,7 @@ function Get-DiscardedOuterPipeline {
         thrown away -- and check 41's own comment said so in as many words. The unwrap rule has already
         had to be repaired ONCE: check 35 was first written with only its [void] arm walking out of
         '(...)', so '$null = (& git ...)' and '(& git ...) | Out-Null' were both silently skipped, and its
-        header draws the lesson that a check whose arms disagree about wrapping teaches the shape that
+        header draws the lesson that a check whose three arms disagree about wrapping teaches the shape that
         gets past it. With two copies that lesson applies one level up -- the next repair has to be made
         twice, and the copy that misses it fails exactly the way the original bug did.
 
@@ -1258,8 +1258,11 @@ function Get-DiscardedOuterPipeline {
           * Outer     -- the outermost pipeline/expression the call sits in, which is the node a caller
                          then walks up from to find the enclosing statement.
           * Discarded -- $true when the result is thrown away in any of the three spellings.
-          * VoidCast  -- whether a [void] cast was crossed on the way out, for a caller that wants to
-                         tell the spellings apart in a finding.
+
+        DELIBERATELY NOT A THIRD FIELD SAYING WHICH SPELLING IT WAS. The first draft returned the [void]
+        flag as well and nothing read it: neither finding names the spelling, because what a reader has to
+        repair is the same in all three. A field kept for a caller nobody has is surface this gate then
+        has to keep true. Add it on the day a finding wants to say it.
 
         Takes the CommandAst's own parent pipeline; returns $null when the call does not sit in a
         pipeline at all, which both callers treat as 'not a subject'.
@@ -1299,7 +1302,6 @@ function Get-DiscardedOuterPipeline {
     return [pscustomobject]@{
         Outer     = $outer
         Discarded = $discarded
-        VoidCast  = $voidCast
     }
 }
 
@@ -5019,7 +5021,7 @@ foreach ($fsFile in $fsFiles) {
         # statement fell into the implicit-return arm below and was cleared as a READ -- while [void] is
         # precisely what stops it being one. Measured against the real check before the extraction: as a
         # last statement 0 findings, one line further up 1 finding. The same call, the same cast, two
-        # answers. That is check 35's own lesson -- a check whose arms disagree about wrapping teaches
+        # answers. That is check 35's own lesson, generalised -- arms that disagree about wrapping teach
         # the shape that gets past it -- arriving one level up, which is why the rule is now one
         # function rather than two implementations of it.
         $fsDiscard = Get-DiscardedOuterPipeline -Call $fsCall
@@ -5037,6 +5039,12 @@ foreach ($fsFile in $fsFiles) {
             # '$null =' assignment, and a '[void]' cast. It is asked FIRST rather than subtracted from
             # the arms afterwards, because the implicit-return arm cannot tell a cast-away last statement
             # from a handed-back one: that is exactly the false negative the extraction repaired.
+            #
+            # AND ASKING IT FIRST REACHES EVERY POSITION, NOT ONLY THAT ARM, which is worth stating
+            # because it is the part a reader would assume is untouched. '[void]' behind an explicit
+            # 'return', or in front of an assignment to a variable that is read later, is a discard too
+            # -- the cast is what throws the value away, so the shape it wears afterwards cannot give it
+            # back. Both are pinned by scenario 78b rather than left to be inferred from this comment.
             $fsRead = $false
         } elseif ($fsUp -is [System.Management.Automation.Language.AssignmentStatementAst] -and
             $fsUp.Left -is [System.Management.Automation.Language.VariableExpressionAst]) {
