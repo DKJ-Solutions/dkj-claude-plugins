@@ -23,9 +23,18 @@
     behaviour is park-cycle.tests.ps1's subject, and duplicating it here would be a second answer to a
     question that already has one.
 
-    THE STUB MUST ACCEPT -Quiet AND -RepoRoot, because the hook passes them. A stub that did not would
-    fail on parameter binding and every assert below would go green for the wrong reason -- so case (a)
-    asserts a stdout line arrives, which is what proves the stub ran at all.
+    THE STUB MUST ACCEPT -Quiet, -UnderHook AND -RepoRoot, because the hook passes them. A stub that did
+    not would fail on parameter binding and every assert below would go green for the wrong reason -- so
+    case (a) asserts a stdout line arrives, which is what proves the stub ran at all.
+
+    AND SECTION (g) IS THE ONE ASSERT HERE THAT IS NOT ABOUT STREAMS (issue #1958, September 13, 2026).
+    park-cycle.ps1 promises it ALWAYS EXITS 0, and that promise is worth nothing past this hook's
+    "timeout" in hooks.json, where the harness kills the process from outside and no arm of the script
+    runs. So the hook declares -UnderHook and park-cycle spends at most
+    $NativeCaptureHookNetworkBudgetSeconds on the network -- two numbers in two files, one of which is
+    JSON and can carry no comment saying what it implies. This suite is where they are held together:
+    that the hook still passes the switch, and that the budget still leaves room under the registered
+    ceiling for the timed-out child to be killed and its report printed.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -78,8 +87,9 @@ function New-Stub {
     )
     $path = Join-Path $Fixture "stub-$Label.ps1"
     $body = @"
-param([switch]`$Quiet, [string]`$RepoRoot = '')
+param([switch]`$Quiet, [switch]`$UnderHook, [string]`$RepoRoot = '')
 `$ErrorActionPreference = 'Continue'
+if (`$UnderHook) { Write-Host 'STUB-SAW-UNDERHOOK' }
 if ('$StdOut') { Write-Host '$StdOut' }
 if ('$StdErr') { Write-Error '$StdErr' -ErrorAction Continue }
 $Body
@@ -243,6 +253,36 @@ Write-Output 'an output object nobody used to see'
     $rJ = Invoke-Hook -ScriptOverride (New-Stub -Label 'j' -StdOut 'said before the throw' -Body 'throw "park-cycle fell over"')
     Assert-True ($rJ.Code -eq 0) 'throw: the hook exits 0 -- a Stop hook never fails a turn'
     Assert-Says $rJ.Out 'said before the throw' 'throw: the earlier line is not lost with the failure'
+
+    # --- (k) THE NETWORK BUDGET AND THE REGISTERED CEILING, PINNED TOGETHER (issue #1958) ----------
+    # WHY A SUITE AND NOT A COMMENT. The ceiling is "timeout" in hooks.json and the budget is a constant
+    # in native-capture-lib.ps1: two files, one of them JSON, which carries no comment saying that the
+    # other exists. Raise the budget past the ceiling and nothing anywhere reports it -- the hook simply
+    # goes back to being killed from outside, which is invisible until a slow network, which is the exact
+    # state #1958 was filed about. So the relationship is asserted rather than written down.
+    #
+    # THE MARGIN IS ASSERTED, NOT JUST THE ORDER. A budget EQUAL to the ceiling is the same defect one
+    # layer in: Stop-NativeProcessTree is best-effort and is deliberately given time, the fail-safe arm
+    # then has to run, and its report has to be printed and relayed -- all after the budget is spent. Ten
+    # seconds is the floor on that margin, comfortably under the 15 the constant currently leaves.
+    Write-Host "cycle-autopark.ps1 -- the network budget fits inside the registered hook timeout" -ForegroundColor Cyan
+    . (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1')
+    $hooksJson = Get-Content -Raw -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\hooks\hooks.json') | ConvertFrom-Json
+    $stopEntry = @($hooksJson.hooks.Stop.hooks | Where-Object { $_.command -match 'cycle-autopark\.ps1' })
+    Assert-True ($stopEntry.Count -eq 1) 'budget: cycle-autopark is registered exactly once as a Stop hook'
+    $ceiling = [int]$stopEntry[0].timeout
+    Assert-True ($ceiling -gt 0) "budget: that registration carries a timeout ($ceiling s)"
+    Assert-True ($NativeCaptureHookNetworkBudgetSeconds -le ($ceiling - 10)) `
+        "budget: $NativeCaptureHookNetworkBudgetSeconds s leaves at least 10 s under the $ceiling s ceiling to kill the child and print"
+    Assert-True ($NativeCaptureHookNetworkFloorSeconds -gt 0 -and $NativeCaptureHookNetworkFloorSeconds -lt $NativeCaptureHookNetworkBudgetSeconds) `
+        'budget: the floor is positive and smaller than the budget it is a floor on'
+
+    # AND THE HOOK STILL DECLARES IT. The budget above is worth nothing if the switch carrying it is
+    # dropped from $parkArgs, and nothing else in this suite would notice -- every other case here uses a
+    # stub that ignores its parameters. The stub prints a line when it sees the switch, so this asserts
+    # the declaration arrived rather than that the hook's source contains a word.
+    $rK = Invoke-Hook -ScriptOverride (New-Stub -Label 'k' -StdOut 'the park ran')
+    Assert-Says $rK.Out 'STUB-SAW-UNDERHOOK' 'budget: the hook passes -UnderHook to park-cycle'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }

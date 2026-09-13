@@ -689,6 +689,15 @@ function Invoke-GitPark {
         `return $false` is unchanged, so a caller that passes this still learns the push failed and still
         decides what it costs. park-branch.ps1 does not pass it and is byte-for-byte unaffected -- there
         the sentence IS the report, and the run stops on it.
+
+        -PushTimeoutSeconds IS FOR THE CALLER RUNNING UNDER A HOOK'S CEILING (issue #1958). The push below
+        is bounded by the shared per-call network number, which is TWICE the whole CEILING the Stop hook
+        that drives park-cycle.ps1 runs under -- so this one call could legitimately outrun the hook and be
+        killed from outside, taking every fail-safe arm and every printed line with it. The caller that
+        knows it is on a clock passes what its budget has left; 0 (the default) keeps the shared number,
+        so park-branch.ps1 and new-branch.ps1 are byte-for-byte unaffected. Named for what it bounds
+        rather than 'Budget', because this function makes exactly one network call and a per-call number
+        is the honest thing to hand it -- the deadline arithmetic belongs to the run that HAS the deadline.
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
@@ -697,7 +706,8 @@ function Invoke-GitPark {
         [string[]]$Paths = @(),
         [string]$Intent = '',
         [string]$BodyNote = '',
-        [switch]$NoFailureMessage
+        [switch]$NoFailureMessage,
+        [int]$PushTimeoutSeconds = 0
     )
 
     $commit = Invoke-GitParkCommit -RepoRoot $RepoRoot -Branch $Branch -Scope $Scope -Paths $Paths `
@@ -720,8 +730,12 @@ function Invoke-GitPark {
     # objects. The Write-Host loop is indifferent, and Get-GitPushFailureMessage is handed
     # ($pushRes.Output | Out-String) -- already flattened, for the array reason the comment below gives.
     # stderr stays merged (no -DiscardStderr), because git's own words are the answer here (#1143).
+    #
+    # AND THE NUMBER IS THE CALLER'S WHERE THE CALLER IS ON A CLOCK (#1958). 0 means "use the shared one",
+    # which is every caller but park-cycle.ps1 under its Stop hook -- see -PushTimeoutSeconds above.
+    $pushBound = if ($PushTimeoutSeconds -gt 0) { $PushTimeoutSeconds } else { $NativeCaptureNetworkTimeoutSeconds }
     $pushRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'push', '-u', 'origin', $Branch) `
-                                    -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+                                    -TimeoutSeconds $pushBound
     $pushRes.Output | ForEach-Object { Write-Host $_ }
     if ($pushRes.ExitCode -ne 0) {
         # Flattened before it is matched: with stderr merged in (2>&1) the captured output is an ARRAY that

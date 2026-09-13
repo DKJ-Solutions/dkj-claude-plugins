@@ -138,6 +138,11 @@ function New-Fixture {
         [Parameter(Mandatory = $true)][string]$Label,
         [ValidateSet('none', 'pr', 'merged', 'closed', 'pr-nostate', 'fail')][string]$GhAnswer = 'none',
         [switch]$NoOrigin,
+        # SPENDS $GhDelaySeconds BEFORE ANSWERING (#1958), so a case can put a run's network budget in a
+        # state no assert could otherwise reach: enough left at the PR check, spent by the look after it.
+        # `ping` and not `timeout`: Invoke-NativeCapture redirects stdin, and timeout.exe refuses to run
+        # when it is redirected. -n N sends N packets one second apart, so the wait is about N-1 seconds.
+        [int]$GhDelaySeconds = 0,
         # Writes a scripts/repo-config.ps1 answering the OPTIONAL trunk seam with this name. Omitted:
         # no repo-config at all, which is the unadopted repo every other fixture here models.
         [string]$TrunkName = ''
@@ -184,6 +189,10 @@ function New-Fixture {
         'merged'     { & $stateAware "[{`"number`":1027,`"state`":`"MERGED`"}]" }
         'closed'     { & $stateAware "[{`"number`":969,`"state`":`"CLOSED`"}]" }
         'fail'       { "@echo off`r`nexit /b 1`r`n" }
+    }
+    if ($GhDelaySeconds -gt 0) {
+        # After '@echo off' and before whatever the shim answers, so every variant above can be delayed.
+        $ghBody = $ghBody -replace '^@echo off\r\n', "@echo off`r`nping -n $($GhDelaySeconds + 1) 127.0.0.1 >nul`r`n"
     }
     [System.IO.File]::WriteAllText((Join-Path $dir '_bin\gh.cmd'), $ghBody, (New-Object System.Text.ASCIIEncoding))
 
@@ -247,11 +256,13 @@ function Invoke-ParkCycle {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Dir,
-        [switch]$Quiet
+        [switch]$Quiet,
+        [int]$BudgetSeconds = 0
     )
     $scriptPath = Join-Path $Dir 'scripts\task\park-cycle.ps1'
     $callArgs = @()
     if ($Quiet) { $callArgs += '-Quiet' }
+    if ($BudgetSeconds -gt 0) { $callArgs += @('-BudgetSeconds', "$BudgetSeconds") }
 
     $prevPd   = $env:CLAUDE_PROJECT_DIR
     $prevPath = $env:PATH
@@ -829,6 +840,71 @@ try {
         $ErrorActionPreference = 'Continue'
         Assert-Equal $peerTipS ((((& git -C "$fixS.git" rev-parse 'refs/heads/fix/state-unknown-v1') | Out-String).Trim())) 'unknown PR state: origin still carries the other session tip'
     } finally { $ErrorActionPreference = $prevEap }
+
+    # --- (t) A SPENT NETWORK BUDGET SKIPS THE FIRST CALL AND SAYS SO (issue #1958) -----------------
+    # WHY A BUDGET AT ALL. Under the Stop hook this script has a 60-second ceiling, and past it the
+    # harness kills the process from OUTSIDE -- so the "ALWAYS EXITS 0" contract in the header holds only
+    # while this script is the thing deciding to stop. It made up to three sequential network calls, two
+    # bounded at the shared 120 s per-call number and `gh pr list` bounded at nothing at all.
+    #
+    # -BudgetSeconds 1 IS DETERMINISTIC AND NOT A RACE. The floor below which a remaining budget buys
+    # nothing is 5 s, so a 1 s budget has no room at the FIRST check whatever the machine is doing -- no
+    # sleep, no timing window, and the same verdict on a loaded 30-lane gate as on an idle box.
+    #
+    # AND THE PUSH IS THE ASSERT THAT MATTERS. A skip that still pushed would be worse than no budget:
+    # the push is the only call here that WRITES, and one interrupted by the harness is the outcome this
+    # whole mechanism exists to avoid.
+    Write-Host "park-cycle.ps1 -- a spent network budget skips the PR check rather than being killed mid-call" -ForegroundColor Cyan
+    $fixT = New-Fixture -Label 't' -GhAnswer 'none'
+    Switch-ToBranch -Dir $fixT -Name 'feat/budget-spent-v1'
+    $null = New-CycleDocument -Dir $fixT -Branch 'feat/budget-spent-v1'
+
+    $rT = Invoke-ParkCycle -Dir $fixT -BudgetSeconds 1
+    Assert-Equal 0 $rT.Code 'spent budget: exit 0 -- a refusal is a normal outcome, not a failure'
+    Assert-Says $rT.Out 'network budget for this turn is spent' 'spent budget: it says the budget is why, not that gh failed'
+    Assert-Says $rT.Out 'not pushing' 'spent budget: and that it did not push'
+    Assert-Equal 1 (Get-CommitCount -Dir $fixT) 'spent budget: nothing was committed'
+    Assert-True (-not (Test-RefOnRemote -Bare "$fixT.git" -Ref 'refs/heads/feat/budget-spent-v1')) 'spent budget: and nothing reached origin'
+
+    # --- (u) ROOM FOR THE PR CHECK, NONE FOR THE LOOK AFTER IT -------------------------------------
+    # THE CASE ABOVE ONLY PROVES THE FIRST GUARD. What a run-wide deadline is FOR is that the calls after
+    # the first one get what is LEFT rather than a fresh 120 s each, and that arm is unreachable without a
+    # budget that is healthy at one call and spent at the next. The gh shim spends 8 of the 12 seconds,
+    # so both directions have margin measured in seconds rather than milliseconds: ~11 left at the PR
+    # check (needs 5), ~3 left at the look (needs 5). A slower machine only pushes both lower, which is
+    # the direction that keeps the assert true.
+    #
+    # AND THE SKIPPED LOOK IS SAID OUT LOUD. '' from the collision reader means "nothing to report", and a
+    # look that never happened is not that -- reporting them the same way would be #1953's silence coming
+    # back through the budget instead of through the bound.
+    #
+    # THE 8 SECONDS WERE COSTED AND KEPT, so nobody has to re-argue it. A cost review read this suite at
+    # 26s -> 37s on a workstation and called it a new contributor to the gate's critical path. It is not:
+    # suite-durations.json records THIS suite at 79.1s ON CI against new-branch.tests.ps1 at 290.2s, and
+    # Invoke-TestSuiteGate dequeues longest-first -- so 8s of extra WORK lands in a pool whose tail is
+    # nearly four times this suite, and changes the gate's wall-clock by nothing. That same file's own
+    # note says a local reading does not convert into a CI one and that the sign is not even fixed, which
+    # is exactly the trap the workstation number fell into.
+    #
+    # THE ALTERNATIVE WAS A CLOCK SEAM in native-capture-lib.ps1 -- overridable time, so this arm is
+    # reachable at 0s. Declined: that is test-only machinery in a lib every script here loads, to save a
+    # cost measured at zero. WHAT THE MARGINS ACTUALLY ARE, since the numbers look arbitrary: the budget
+    # minus the delay is 4, which is under the 5s floor whatever the machine does -- so the SECOND check
+    # fails structurally rather than on timing. The 12 is the FIRST check's headroom: it tolerates up to
+    # 7s of process start-up before the PR check would wrongly read as spent. Shrinking both by the same
+    # amount keeps the second margin and spends the first, which is the one that protects a loaded runner.
+    Write-Host "park-cycle.ps1 -- a budget healthy at the PR check and spent by the look says which it was" -ForegroundColor Cyan
+    $fixU = New-Fixture -Label 'u' -GhAnswer 'pr' -GhDelaySeconds 8
+    Switch-ToBranch -Dir $fixU -Name 'feat/budget-mid-run-v1'
+    $relU = New-CycleDocument -Dir $fixU -Branch 'feat/budget-mid-run-v1'
+    $null = New-PeerDivergence -Dir $fixU -Branch 'feat/budget-mid-run-v1' -Rel $relU `
+                               -PeerSubject 'park: feat/budget-mid-run-v1 (all outstanding work)'
+
+    $rU = Invoke-ParkCycle -Dir $fixU -BudgetSeconds 12
+    Assert-Equal 0 $rU.Code 'mid-run budget: exit 0'
+    Assert-Says $rU.Out 'PR #42' 'mid-run budget: the PR check itself ran -- it had room'
+    Assert-Says $rU.Out 'did NOT check whether another session is on' 'mid-run budget: and the look after it is reported as skipped, not as empty'
+    Assert-True (-not (Test-Says -Text $rU.Out -Phrase 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH')) 'mid-run budget: no collision report is invented for a look that did not happen'
 } finally {
     foreach ($f in $script:fixtures) {
         if (Test-Path -LiteralPath $f) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }

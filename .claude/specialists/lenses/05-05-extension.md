@@ -740,7 +740,7 @@ Derek prefers not to touch the git commands by hand. His toolbox:
   nothing, and is there so a consumer's typed habit does not fail on a missing parameter. A repo with no
   `origin` creates the branch as before and says why nothing was pushed. See
   [Step 3 above](#classifying-naming-and-creating-a-branch).
-- `scripts/task/park-cycle.ps1 [-Quiet]` — **Derek does not run this**, and it is here so he recognises its
+- `scripts/task/park-cycle.ps1 [-Quiet] [-UnderHook] [-BudgetSeconds <n>]` — **Derek does not run this**, and it is here so he recognises its
   commits. A Stop hook (`cycle-autopark.ps1`) invokes it after every turn and it pushes
   `dkj-policy/<branch>.md`, and only that file, for the life of the branch — the plan
   and the phase state being what another device actually needs. **It stops PUSHING the moment a PR
@@ -752,6 +752,16 @@ Derek prefers not to touch the git commands by hand. His toolbox:
   still reads `origin/<branch>` and reports a collision, naming the other side's author and subject.
   Whether it may WRITE is the DEPLOY lock's question; whether somebody else is on this branch is a read,
   and it owes the lock nothing.
+  **`-UnderHook` is what the Stop hook passes, and it is a deadline for the whole run**
+  ([#1958](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1958)): the hook is registered at a
+  60-second ceiling, and past it the harness kills the process from OUTSIDE — where the script's
+  always-exits-0 contract is worth nothing, because no fail-safe arm runs and nothing it already printed
+  is delivered. So every network call takes what is LEFT of one budget rather than a fresh per-call two
+  minutes, and a call with nothing left is skipped and named. **Which is why a `park:` commit can be
+  absent without anything being wrong** — and why the skip line says so rather than staying silent.
+  `-BudgetSeconds` is the explicit form, for a suite; a run typed by hand passes neither and behaves
+  exactly as it always did. The portable half of the rule is in
+  [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md).
 - `scripts/task/park-branch.ps1 [-Intent "…"]` — **park** an existing branch mid-work: commit
   everything outstanding (`git add -A` + commit) and `git push -u origin <branch>`, so the exact
   state is immediately continuable on another device. Refuses on `main`, opens **no PR**, and does

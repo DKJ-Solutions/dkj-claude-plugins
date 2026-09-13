@@ -86,11 +86,45 @@
     ALWAYS EXITS 0. It runs on a hook, and a hook that fails is a hook that interrupts the work it was
     added to protect. Every refusal above is a normal outcome, not an error.
 
+    AND THAT PROMISE ONLY HOLDS WHILE THIS SCRIPT IS THE THING THAT DECIDES TO STOP (issue #1958,
+    September 13, 2026). The Stop hook is registered at a 60-second ceiling; past it the harness kills
+    the process from OUTSIDE, so none of the fail-safe arms above runs and nothing already printed is
+    delivered -- including the collision report, which is the one thing this script is positioned to say
+    that nothing else says often enough. The script cannot report the single state it is least able to
+    reason about.
+
+    THREE NETWORK CALLS, AND THE ARITHMETIC DID NOT FIT. The no-PR path makes `gh pr list`, then
+    Invoke-GitPark's push, then (on a refusal) a fetch; the open-PR path added by #1953 makes `gh pr
+    list` then a fetch. Two of the three were bounded at the shared PER-CALL network number, which is
+    120s -- twice the whole ceiling on its own -- and the third, `gh pr list`, carried NO bound at all,
+    which is the half the issue did not have: it was the one `gh` call in this family never given one.
+    So the worst case was unbounded, and even the bounded worst case was 240s against 60.
+
+    SO -UnderHook: ONE DEADLINE FOR THE WHOLE RUN, and every network call gets what is LEFT of it.
+    That is what makes the contract provable rather than likely -- three calls cannot outrun a budget the
+    first one could have spent entirely. Where the budget runs out, the call is SKIPPED and named, which
+    is the same fail-quiet direction every bound above already takes: being one turn stale is a nuisance,
+    a killed hook is a turn that reports nothing at all. The mechanism, the numbers and why a smaller
+    per-call bound is not the same repair are in native-capture-lib.ps1's own
+    $NativeCaptureHookNetworkBudgetSeconds block.
+
     Pure ASCII (repo convention for .ps1).
 
 .PARAMETER RepoRoot
     (Optional) the tree to act on, when that is NOT the tree resolved from CLAUDE_PROJECT_DIR or the
     git root. Used by the suite, and by a caller acting on a worktree lane.
+
+.PARAMETER UnderHook
+    (Optional switch) this run is a hook's, so it must finish inside a hook's ceiling: the network
+    deadline becomes $NativeCaptureHookNetworkBudgetSeconds. It is a SWITCH and not the number because
+    the caller that knows about the ceiling -- cycle-autopark.ps1 -- does not otherwise load the lib that
+    holds it, and dot-sourcing 190 KB per turn to carry one integer is the kind of cost #1641 removed
+    from that same hook. -BudgetSeconds wins where both are given, so a test can still pin an exact value.
+
+.PARAMETER BudgetSeconds
+    (Optional) the TOTAL this run may spend on the network, as an explicit number. 0 (the default) means
+    no budget: every call keeps the shared per-call bound, so a run typed by hand behaves exactly as it
+    did before this existed. A suite passes a small number to reach the skip arms without waiting for them.
 
 .PARAMETER Quiet
     (Optional switch) print nothing when there is nothing to do. What the hook passes: a turn in which
@@ -107,7 +141,9 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = '',
-    [switch]$Quiet
+    [switch]$Quiet,
+    [switch]$UnderHook,
+    [int]$BudgetSeconds = 0
 )
 
 Set-StrictMode -Version Latest
@@ -129,10 +165,19 @@ function Write-CycleParkNote {
 #
 # A FETCH THAT CANNOT ANSWER COSTS THE NOTE AND NEVER THE RUN. This script always exits 0, and both
 # callers treat '' as "nothing to say" -- which is the same fail-quiet direction the bounds above take.
+#
+# AND IT IS THE LAST CALL ON EITHER PATH, so it is the one likeliest to meet a spent budget (#1958). A
+# skipped look is NOT the same answer as a look that found nothing, and both callers are told which they
+# got: '' means nothing to report, and the caller prints the skip line itself when there was no room to
+# ask. The bound it passes is whatever the budget has left -- see Get-NativeCaptureBudgetBound.
 function Get-BranchCollisionNote {
-    param([Parameter(Mandatory = $true)][string]$RepoRoot, [Parameter(Mandatory = $true)][string]$Branch)
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        $Budget = $null
+    )
     $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'fetch', 'origin', $Branch) `
-                                  -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+                                  -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $Budget)
     if ($fetch.ExitCode -ne 0) { return '' }
     return Get-RemoteAheadNote -RepoRoot $RepoRoot -LocalRef 'HEAD' -RemoteRef 'FETCH_HEAD' `
                                -BranchLabel $Branch -FreshLabel "origin/$Branch" -StaleLabel "origin/$Branch" -Fresh $true
@@ -169,6 +214,18 @@ function Write-CycleCollisionReport {
 # gate rather than composed a fourth time (issue #1450 extracted it; #1600 added this caller). What it
 # strips out of somebody else's %an and %s is the whole reason it is one definition -- see its header.
 . (Join-Path $PSScriptRoot '..\lib\remote-ahead-lib.ps1')
+
+# THE RUN'S NETWORK DEADLINE (#1958), STARTED HERE AND NOT AT THE FIRST NETWORK CALL. What the hook's
+# ceiling bounds is the whole process, not the part of it that touches the network, so the local git
+# plumbing between here and the first `gh` call spends the budget too -- which is conservative in the one
+# direction that matters. With neither -UnderHook nor -BudgetSeconds this is the no-budget shape and
+# every call below takes the shared per-call bound, exactly as before.
+#
+# -BudgetSeconds WINS OVER -UnderHook where both are given: an explicit number is a deliberate statement
+# and a switch is a category, so the number is the more specific of the two. That ordering is what lets a
+# suite exercise the hook path AND pin a small budget in the same run.
+$budget = if ($BudgetSeconds -gt 0) { $BudgetSeconds } elseif ($UnderHook) { $NativeCaptureHookNetworkBudgetSeconds } else { 0 }
+$netBudget = New-NativeCaptureBudget -TotalSeconds $budget
 
 # Dual-context repo root: a consumer running the plugin mirror gets it from CLAUDE_PROJECT_DIR, the
 # source root copy falls back to the git root. Same resolution as every other mirrored script -- but via
@@ -323,11 +380,31 @@ if (-not (Test-GitOriginConfigured -RepoRoot $root)) {
 # closed and whose work genuinely resumed is parked by hand, deliberately, which is where that judgement
 # belongs -- and is why widening this cannot strand anyone.
 #
-# FAIL-SAFE DIRECTION. gh missing, gh not logged in, no network, an unparseable payload -- every one of
-# them means the answer is unknown, and unknown does not push. See the lock paragraph in the header.
-$prList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--state', 'all', '--json', 'number,state', '--limit', '1') -DiscardStderr
+# FAIL-SAFE DIRECTION. gh missing, gh not logged in, no network, an unparseable payload, a stall -- every
+# one of them means the answer is unknown, and unknown does not push. See the lock paragraph in the header.
+#
+# AND IT IS BOUNDED NOW, WHICH IT NEVER WAS (#1958). This was the one `gh` call in this family with no
+# -TimeoutSeconds at all -- native-capture-lib's bound is opt-in per call site, and this site never opted
+# in -- so on a Stop hook with a 60-second ceiling, a stalled `gh` here was a turn ended by the harness
+# with nothing printed. A budget that is already spent is the same verdict as a `gh` that did not answer,
+# and it is worded as itself rather than folded into that sentence: one says the question failed, the
+# other says it was never asked.
+if (-not (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+    Write-CycleParkNote "the network budget for this turn is spent before the PR check -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
+    exit 0
+}
+$prList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--state', 'all', '--json', 'number,state', '--limit', '1') `
+                               -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
 if ($prList.ExitCode -ne 0) {
-    Write-CycleParkNote "could not ask gh whether '$branch' has a PR -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
+    # THE NAME IS STRIPPED HERE TOO, for the reason the arm below already states at its own
+    # interpolation (#1623): `git check-ref-format` accepts \p{Cf}, so a fetched or hand-made branch can
+    # carry U+202E or a zero-width run into a sentence a terminal AND an agent session both read. This
+    # line printed it raw while its neighbour twelve lines down went through the strip -- one report with
+    # one half hardened, which is the shape #1953 already had to repair once in this same file. Low risk
+    # (this is the checkout's OWN branch, not somebody else's ref) and repaired anyway, because the line
+    # was being reworded regardless and leaving it would say the strip is optional.
+    $why = if ($prList.TimedOut) { "did not answer in time" } else { "could not be asked" }
+    Write-CycleParkNote "gh $why whether '$(Get-DisplayRef -Ref $branch)' has a PR -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
     exit 0
 }
 $prRecord = Get-ExistingPrRecord -Json (($prList.Output | Out-String))
@@ -404,8 +481,16 @@ if ($null -ne $prRecord) {
     # found either a dirty document or a local commit origin does not have, and then means the `gh pr
     # list` directly above answered -- so the ordinary turn the DELIBERATELY-NO-FETCH rule protects, the
     # one where nothing changed, still returns further up without touching the network at all.
+    #
+    # AND WHERE THE BUDGET IS SPENT THE LOOK IS SKIPPED AND SAID (#1958). Loudly, not through
+    # Write-CycleParkNote: -Quiet exists so a turn that did nothing adds no line, and "I did not look for
+    # the collision" is not nothing -- it is the absence of the one report this arm exists for.
     if ($prState -ne 'MERGED' -and $prState -ne 'CLOSED') {
-        $openNote = Get-BranchCollisionNote -RepoRoot $root -Branch $branch
+        if (-not (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+            Write-Host "park-cycle: the network budget for this turn is spent, so this run did NOT check whether another session is on '$shownBranch'. Nothing is lost; the next turn asks again." -ForegroundColor DarkYellow
+            exit 0
+        }
+        $openNote = Get-BranchCollisionNote -RepoRoot $root -Branch $branch -Budget $netBudget
         if ($openNote) {
             Write-CycleCollisionReport `
                 -Lead "PR #$($prRecord.number) is open for '$shownBranch', so this run pushes nothing" `
@@ -444,8 +529,19 @@ try {
 # -NoFailureMessage: this caller reports its own failure below, with more than that sentence can know,
 # and cycle-autopark.ps1 now merges the child's stderr into what it prints -- so leaving it in would put
 # a PowerShell error banner above the report, in a hook whose contract is that it never fails (#1600).
+#
+# -PushTimeoutSeconds IS THIS RUN'S REMAINING BUDGET (#1958), not the shared per-call number: the push is
+# the second network call on this path and the fetch below is the third, so the one that is reached first
+# must not be allowed to spend the whole ceiling. A spent budget skips the push rather than starting one
+# the harness would kill halfway -- and an interrupted push is the one outcome worth avoiding above the
+# others, because it is the only call here that WRITES.
+if (-not (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+    Write-CycleParkNote "the network budget for this turn is spent before the push -- '$cycleRel' stays local, and the next turn parks it." 'DarkYellow'
+    exit 0
+}
 $ok = Invoke-GitPark -RepoRoot $root -Branch $branch -Scope 'BranchFiles' -Paths @($cycleRel) `
-                     -BodyNote $backingNote -NoFailureMessage
+                     -BodyNote $backingNote -NoFailureMessage `
+                     -PushTimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
 if (-not $ok) {
     # --- A FAILED PUSH HERE IS THE COLLISION SIGNAL, SO IT IS NAMED (issue #1600) -----------------
     #
@@ -480,7 +576,17 @@ if (-not $ok) {
     # is on the other side. One ref, bounded by the shared network timeout, and a fetch that fails costs
     # the tip line and never the report. THE SECOND PLACE THAT HOLDS IS THE OPEN-PR ARM ABOVE (#1953),
     # which pays for it on the same terms and for the same question -- hence the shared reader.
-    $note = Get-BranchCollisionNote -RepoRoot $root -Branch $branch
+    #
+    # AND THE BUDGET IS ASKED BEFORE THE FETCH, for the reason the open-PR arm gives one screen up: this
+    # is the third network call on this path, so it is the one a spent budget actually reaches, and a
+    # skipped look must not be reported as a look that found nothing. git's own '[rejected]' plumbing is
+    # already on screen above either way -- what is missing is the half that names who is on the far side.
+    $note = if (Test-NativeCaptureBudgetHasRoom -Budget $netBudget) {
+        Get-BranchCollisionNote -RepoRoot $root -Branch $branch -Budget $netBudget
+    } else {
+        Write-Host "park-cycle: the network budget for this turn is spent, so this run did NOT read who is on the far side of the refused push." -ForegroundColor Yellow
+        ''
+    }
 
     # Reported, never fatal -- see the always-exits-0 paragraph. Write-Host rather than Write-Warning
     # so it lands on the stdout cycle-autopark.ps1 captures and re-prints: a Stop hook's report IS this
