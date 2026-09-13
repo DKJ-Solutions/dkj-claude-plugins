@@ -754,6 +754,75 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $rpSubCache 'm\dkj-subagents-alpha\2.0.0') -Force | Out-Null
     $d = Resolve-PluginDir -Name 'dkj-subagents-alpha' -Marketplace 'm' -CacheRoot $rpSubCache
     Assert-Equal '1.10.0' (Split-Path $d -Leaf) 'cache scan: the semantically highest version shipping subagents/ (1.10.0 over 1.9.0, 2.0.0 skipped for shipping neither)'
+
+    # --- Resolve-CheckRoot's git verdict + Resolve-RepoRootOrFail (issue #1917) ---------------------
+    #     The 37 acting scripts used to resolve their root with an unjudged
+    #     (git rev-parse --show-toplevel).Trim(), which is $null.Trim() wherever git answers nothing --
+    #     and under $ErrorActionPreference = 'Stop' that is "You cannot call a method on a null-valued
+    #     expression", exit 1, with no statement of the cause. These pin the two halves of the repair:
+    #     that Resolve-CheckRoot now CARRIES git's verdict, and that the refusing sibling SPEAKS it.
+    Write-Host "Resolve-CheckRoot -- git's exit code and stderr travel with the result" -ForegroundColor Cyan
+    $rrPrevPd = $env:CLAUDE_PROJECT_DIR
+    try {
+        Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+
+        # Inside this repo the git branch answers, so the exit code is 0 and stderr is empty. The
+        # assertion is on the FIELDS existing and being right, not merely on Path -- a refusal that
+        # cannot name the exit code is the defect #1917 is about.
+        $s = Resolve-CheckRoot
+        Assert-Equal 'git-root' $s.Source 'Resolve-CheckRoot: falls back to the git root with no override and no env var'
+        Assert-Equal 0 $s.GitExitCode 'Resolve-CheckRoot: a git that answered reports GitExitCode 0'
+        Assert-Equal '' $s.GitError 'Resolve-CheckRoot: a git that answered reports no stderr'
+
+        # The two branches that never run git report GitExitCode = $null -- "git was not asked", which
+        # is a different fact from "git answered 0" and is what the refusal's wording turns on.
+        $rrDir = Join-Path $Fixture 'orfail-root'
+        New-Item -ItemType Directory -Path $rrDir -Force | Out-Null
+        $s = Resolve-CheckRoot -Override $rrDir
+        Assert-True ($null -eq $s.GitExitCode) 'Resolve-CheckRoot: an override does not run git, so GitExitCode is $null (not 0)'
+        $env:CLAUDE_PROJECT_DIR = $rrDir
+        $s = Resolve-CheckRoot
+        Assert-True ($null -eq $s.GitExitCode) 'Resolve-CheckRoot: the env-var branch does not run git either'
+        Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+
+        # Resolve-RepoRootOrFail, the happy path: it returns the SAME path Resolve-CheckRoot resolves,
+        # and it returns a plain string rather than the scope object -- the 37 call sites assign it
+        # straight to $repoRoot and index into it with Join-Path.
+        $ok = Resolve-RepoRootOrFail -Override $rrDir
+        Assert-Equal (Resolve-Path -LiteralPath $rrDir).Path $ok 'Resolve-RepoRootOrFail: returns the resolved path on success'
+        Assert-True ($ok -is [string]) 'Resolve-RepoRootOrFail: returns a plain string, not the scope object'
+    } finally {
+        if ($null -eq $rrPrevPd) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue }
+        else { $env:CLAUDE_PROJECT_DIR = $rrPrevPd }
+    }
+
+    # THE REFUSAL RUNS IN A CHILD, because it ends in `exit 1` -- the whole point of it. Called in
+    # process it would take this suite down with it, so the assertion that matters most is the one
+    # that cannot be made inline. The child is pointed at a directory that is deliberately not a
+    # repository, with CLAUDE_PROJECT_DIR cleared, which is exactly the measured condition in #1917.
+    Write-Host "Resolve-RepoRootOrFail -- the refusal, measured in a child process" -ForegroundColor Cyan
+    $notARepo = Join-Path $Fixture 'not-a-repo'
+    New-Item -ItemType Directory -Path $notARepo -Force | Out-Null
+    $libPath = Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1'
+    $childScript = Join-Path $Fixture 'orfail-child.ps1'
+    Set-Content -LiteralPath $childScript -Encoding ascii -Value @"
+`$ErrorActionPreference = 'Stop'
+Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+. '$libPath'
+Set-Location -LiteralPath '$notARepo'
+Resolve-RepoRootOrFail -ScriptName 'demo-caller.ps1'
+Write-Host 'REACHED-PAST-THE-REFUSAL'
+"@
+    $childOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $childScript 2>&1) | Out-String
+    $childCode = $LASTEXITCODE
+    Assert-Equal 1 $childCode 'Resolve-RepoRootOrFail: refuses with exit 1 outside a work tree'
+    Assert-True ($childOut -notmatch 'REACHED-PAST-THE-REFUSAL') 'Resolve-RepoRootOrFail: the refusal really stops the caller'
+    Assert-True ($childOut -notmatch 'null-valued expression') 'Resolve-RepoRootOrFail: no null dereference -- the failure #1917 is about is gone'
+    Assert-True ($childOut -match 'REFUSED') 'Resolve-RepoRootOrFail: the refusal is stated, not merely exited'
+    Assert-True ($childOut -match 'demo-caller\.ps1') 'Resolve-RepoRootOrFail: the refusal names the CALLER, not this lib'
+    Assert-True ($childOut -match 'git exit code:\s*128') "Resolve-RepoRootOrFail: the refusal names git's exit code"
+    Assert-True ($childOut -match 'not a git repository') "Resolve-RepoRootOrFail: the refusal quotes what git actually said"
+    Assert-True ($childOut -match 'CLAUDE_PROJECT_DIR') 'Resolve-RepoRootOrFail: the refusal names the way out'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
