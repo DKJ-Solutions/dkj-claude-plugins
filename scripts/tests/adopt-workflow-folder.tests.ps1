@@ -170,7 +170,7 @@ try {
     # dependency points the wrong way and this suite is the only end of it this repo can hold.
     #
     # THE PATH IS DERIVED FROM THE EMITTED FILE, NEVER RESTATED HERE, and that is the whole point of the
-    # assert rather than a style preference. adopt-merge-queue.tests.ps1 pins its three paths as literal
+    # assert rather than a style preference. adopt-ci-floor.tests.ps1 pins its three paths as literal
     # strings -- `$fold -like '*.workflow-scripts/plugins/dkj-policy/...*'` -- which compares the
     # scaffolder's output against itself and stays green when the script moves in this tree. It did move
     # (plugins/workflows/contributing-davekjohn/ -> plugins/dkj-policy/), every suite stayed green, and

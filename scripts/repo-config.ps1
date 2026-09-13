@@ -1115,7 +1115,7 @@ function Get-ReleasePageTheme {
 #
 # WHAT IT DOES *NOT* DO: nothing here changes a setting, and the checker never writes to GitHub.
 # Repo settings are the owner's surface under this repo's constitution, exactly as
-# adopt-merge-queue.ps1 states for the ruleset command it composes and refuses to run.
+# adopt-ci-floor.ps1 states for the ruleset command it composes and refuses to run.
 #
 # TO REPAIR A REPORTED DRIFT, decide which side is wrong FIRST. If the live value is wrong, change it
 # at GitHub. If the declaration is wrong -- the setting was changed deliberately -- update the value

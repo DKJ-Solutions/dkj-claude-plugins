@@ -445,7 +445,7 @@ infrastructure.
 
   **The lesson is about where a capability check is performed, not about queues.** The claim was
   verified in the one repo whose own answer could not reveal the constraint, and a capability that is
-  *present* announces nothing about why. `adopt-merge-queue` then carried the generalisation outward as
+  *present* announces nothing about why. `adopt-ci-floor` then carried the generalisation outward as
   a closable `[gap]`, so a consumer built the whole floor before meeting a checkbox that does not exist
   ([#1540](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1540)). Where a finding will
   travel to a consumer, measure it on the axis the consumer differs on — here `private`/`public` and the
@@ -879,7 +879,7 @@ infrastructure.
   check whose subject *is* the ruleset, required *by* that ruleset, would be self-referential — and it
   would stop the trunk over a switch only Dave can flip, so a drift would block every merge instead of
   reporting one. **And it writes nothing to GitHub**, ever: repo settings are Dave's surface, the same
-  rule `adopt-merge-queue.ps1` follows when it composes its ruleset command and refuses to run it. It
+  rule `adopt-ci-floor.ps1` follows when it composes its ruleset command and refuses to run it. It
   holds `contents: read` and borrows no standing credential, which is the whole difference from
   `fold-on-merge.yml` two bullets up.
 
@@ -906,7 +906,7 @@ infrastructure.
   The queue became this workflow's policy for every repo running it, and a queue reaches a consumer as
   a *policy* rather than as a release: the setting is theirs to flip, and neither runner is plugin
   payload — a plugin install writes nothing into a repo. So
-  [`scripts/task/adopt-merge-queue.ps1`](../../../scripts/task/adopt-merge-queue.ps1) carries derived
+  [`scripts/task/adopt-ci-floor.ps1`](../../../scripts/task/adopt-ci-floor.ps1) carries derived
   copies of both, as generated line arrays, and places them on `-Apply`. They differ from the originals
   in exactly two structural ways: they reach their scripts through a checked-out `.workflow-scripts`
   clone of the plugin tree instead of through this repo's in-repo paths, and they set
@@ -917,7 +917,7 @@ infrastructure.
   **That restatement is the drift risk, and it is stated here rather than gated because no gate fits.**
   A byte comparison would be wrong (the two paths genuinely differ), and a property gate would be a
   third statement of the same rules. What holds today is
-  [`scripts/tests/adopt-merge-queue.tests.ps1`](../../../scripts/tests/adopt-merge-queue.tests.ps1),
+  [`scripts/tests/adopt-ci-floor.tests.ps1`](../../../scripts/tests/adopt-ci-floor.tests.ps1),
   which pins the properties that would break a consumer silently — the plugin paths, the
   `CLAUDE_PROJECT_DIR`, and the credential split in both directions. **So: change either workflow on
   this page and read that script in the same movement.** The script itself refuses to run here, which
@@ -928,7 +928,7 @@ infrastructure.
   [#1542](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1542),
   [#1543](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1543),
   [#1544](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1544)), and all four applied
-  to both this repo's own two workflows and the `adopt-merge-queue.ps1` twins:
+  to both this repo's own two workflows and the `adopt-ci-floor.ps1` twins:
   - **#1542 — the merge stamp is UTC.** `Format-EntryMergeStamp` rendered it with `.ToLocalTime()`,
     which was a display string until #1280 made `Get-EntryInsertOffset` derive the entry's *insert
     position* from it. A sort key cannot be local time: a repo that folds from both a UTC GitHub runner
@@ -984,7 +984,7 @@ infrastructure.
   - **#1539 — the red-run triage names three causes, not two.** An absent or under-scoped
     `FOLD_PUSH_TOKEN` fails `actions/checkout` and leaves every later step `skipped`, with no fold step
     to read — the cause a consumer meets first, on adoption day, and the one to rule out first. The
-    workflow headers, `adopt-dkj-policy`'s SKILL, and `adopt-merge-queue.ps1`'s own console note now say
+    workflow headers, `adopt-dkj-policy`'s SKILL, and `adopt-ci-floor.ps1`'s own console note now say
     so; a fine-grained PAT lists repositories one by one, so a repo *created* rather than transferred
     (an org move with no GitHub transfer) falls outside an existing token's selection silently.
 - **`scripts/lint/check-git-identity.ps1`** — the split-identity check (issue

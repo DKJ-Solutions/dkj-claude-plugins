@@ -1496,7 +1496,7 @@ $rS = Invoke-Fold -Dir $dirS -Branch 'feat/stale-thing-v1' -ExtraArgs @('-Push')
 # code into a stood-down green, because a job re-triggered by the very push that made the checkout stale
 # has a successor run already queued to answer the same question. Pinned here rather than left as
 # "non-zero" -- which is what this assert said while pinning 1 -- because the workflow and the
-# adopt-merge-queue template now BOTH read it, across a release boundary each.
+# adopt-ci-floor template now BOTH read it, across a release boundary each.
 Assert-Equal 2 $rS.ExitCode                                             'stale trunk: the run ends on 2 -- the code fold-on-merge.yml stands down on (#1586)'
 Assert-True ($rS.Output -match 'Refused')                               'stale trunk: and says it refused rather than half-folding'
 Assert-True ($rS.Output -match '1 behind origin/main')                  'stale trunk: naming HOW FAR behind, as a number'
@@ -1577,7 +1577,7 @@ $rR = Invoke-Fold -Dir $dirR -Branch 'feat/raced-thing-v1' -ExtraArgs @('-Push',
 #
 # AND IT HAS A SECOND READER, WHICH IS WHY THE PIN MATTERS MORE THAN ITS FIRST OWNER SAID (issue #1796).
 # fold-on-merge.yml loses the SAME race from the other side and stands down on the same code -- so this
-# one number is now read across two independent boundaries, ship-pr's and adopt-merge-queue.ps1's emitted
+# one number is now read across two independent boundaries, ship-pr's and adopt-ci-floor.ps1's emitted
 # template, each reaching consumers by its own route. Both readers are asserted below.
 Assert-Equal 3 $rR.ExitCode                                             'raced fold: the run ends on 3 -- the code ship-pr.ps1 (#1792) and fold-on-merge.yml (#1796) both stand down on'
 # The five facts that had to be established BY HAND in the measured incident -- a fetch, a log of
@@ -1628,7 +1628,7 @@ Assert-True ($shipSrcText -like '*#1792*')                              'raced f
 
 # AND THE SECOND READER OF THAT SAME CODE, ACROSS A DIFFERENT BOUNDARY (issue #1796). ship-pr.ps1 loses
 # this race from the session's side; fold-on-merge.yml loses it from the runner's, and stands down on the
-# same 3. Its half was asserted nowhere -- only the emitted template in adopt-merge-queue.tests.ps1 was,
+# same 3. Its half was asserted nowhere -- only the emitted template in adopt-ci-floor.tests.ps1 was,
 # and that reaches consumers by a plugin release while THIS file reaches them by that template, so the two
 # ends drift independently. A code is only a contract while every end that reads it is pinned.
 $foldYml = Join-Path $RepoRoot '.github\workflows\fold-on-merge.yml'

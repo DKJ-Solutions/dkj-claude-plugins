@@ -21,7 +21,7 @@
                          "method":  "mean of the per-suite durations the gate printed in each shard log"
                      },
     "seconds":  {
-                    "adopt-merge-queue.tests.ps1":  21.5,
+                    "adopt-ci-floor.tests.ps1":  21.5,
                     "adopt-shopify-floor.tests.ps1":  8.4,
                     "adopt-workflow-folder.tests.ps1":  40.6,
                     "backing-gate.tests.ps1":  6.8,

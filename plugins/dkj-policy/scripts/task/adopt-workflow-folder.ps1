@@ -473,7 +473,7 @@ $releasesReadme = @(
 # this file can reach a repo that adopted in August. What can: check-connectors.ps1's check 6, which
 # reads the runners a registered consumer actually has and reports a path this tree no longer holds; and
 # this command's own suite, which now DERIVES the emitted path from the emitted file and asserts it
-# exists here, where the three literal asserts in adopt-merge-queue.tests.ps1 compared the output
+# exists here, where the three literal asserts in adopt-ci-floor.tests.ps1 compared the output
 # against itself and stayed green through the move.
 $entryGateWorkflow = @(
     '# Every PR into the trunk carries a WRITTEN changelog entry.',

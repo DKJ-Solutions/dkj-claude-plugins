@@ -7,7 +7,7 @@
 .DESCRIPTION
     WHAT BROKE, AND WHY NOTHING SAID SO. Three runners this workflow scaffolds into a consumer --
     branch-entry.yml from adopt-workflow-folder.ps1, fold-on-merge.yml and verify-resolved.yml from
-    adopt-merge-queue.ps1 -- do not vendor the script they run. They check THIS repository out beside
+    adopt-ci-floor.ps1 -- do not vendor the script they run. They check THIS repository out beside
     the consumer's own tree and run a path into it:
 
         - uses: actions/checkout@v5
@@ -51,7 +51,7 @@
     stale convention and exposes it to a moved SCRIPT. This lib is what covers that exposure, which
     is why the pin can stay.
 
-    AND THE TESTS DID NOT CATCH IT BECAUSE THEY PINNED THE LITERAL. adopt-merge-queue.tests.ps1
+    AND THE TESTS DID NOT CATCH IT BECAUSE THEY PINNED THE LITERAL. adopt-ci-floor.tests.ps1
     asserted `$fold -like '*.workflow-scripts/plugins/dkj-policy/scripts/...*'` -- that the scaffolder
     EMITS that string. Moving the script in this tree leaves that assertion green: it compares the
     emitted text against itself. The two callers of this lib close both ends of that:
@@ -259,7 +259,7 @@ function Test-SharedScriptReference {
         under scripts/, and the mirror under plugins/<plugin>/scripts/ that a release carries. Both
         answer the file-name search and only the second is the one an outside caller may run -- the
         source copy is this repo's own path, correct here and absent from every consumer, which is the
-        mistake adopt-merge-queue.tests.ps1 already asserts against in the other direction. So a
+        mistake adopt-ci-floor.tests.ps1 already asserts against in the other direction. So a
         candidate under a plugin folder sorts first, and a reader who takes the first suggestion takes
         the right one. Both are still listed: which plugin publishes it is a question this lib has no
         business answering, and hiding the alternative would make a genuinely ambiguous case look

@@ -4,7 +4,7 @@
     on itself, and that it is a SHA rather than a tag (issue #1904).
 
 .DESCRIPTION
-    WHY THIS SUITE EXISTS. adopt-merge-queue.ps1 composes two WRITE-CAPABLE runners into a consumer's
+    WHY THIS SUITE EXISTS. adopt-ci-floor.ps1 composes two WRITE-CAPABLE runners into a consumer's
     .github/ -- fold-on-merge.yml, which spends a fine-grained PAT belonging to somebody who bypasses
     the trunk ruleset, and verify-resolved.yml, which holds issues: write. Both were composed with a
     mutable `actions/checkout@v5` until #1904, while this repo's own committed copies of the same two
@@ -79,8 +79,8 @@ Write-Host ''
 # so asserting both would be asserting that lint twice; if the mirror ever diverges, that gate is the
 # one that must say so.
 Write-Host '-- 1. the generator pins by SHA rather than by tag --' -ForegroundColor Cyan
-$genPath = Join-Path $RepoRoot 'scripts\task\adopt-merge-queue.ps1'
-Assert-True (Test-Path -LiteralPath $genPath) 'adopt-merge-queue.ps1 is where this suite expects it'
+$genPath = Join-Path $RepoRoot 'scripts\task\adopt-ci-floor.ps1'
+Assert-True (Test-Path -LiteralPath $genPath) 'adopt-ci-floor.ps1 is where this suite expects it'
 $gen = Get-Content -LiteralPath $genPath -Raw
 
 $genSha = Get-CheckoutSha $gen

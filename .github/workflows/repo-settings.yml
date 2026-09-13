@@ -50,7 +50,7 @@
 #
 # LEAST PRIVILEGE, AND THE READ IS THE WHOLE JOB. `contents: read` is all it holds: the script never
 # writes to GitHub, because repo settings are the owner's surface under this repo's constitution --
-# the same rule adopt-merge-queue.ps1 follows when it composes its ruleset command and stops. No
+# the same rule adopt-ci-floor.ps1 follows when it composes its ruleset command and stops. No
 # standing token, unlike fold-on-merge.yml, and nothing to borrow one for.
 #
 # WINDOWS, like ci.yml, branch-entry.yml and unfolded-entry.yml, and for the same reason: the scripts

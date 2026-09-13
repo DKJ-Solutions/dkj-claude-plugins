@@ -4,9 +4,18 @@
     verification alive across a merge this session never observes, place the scheduled check that a
     GitHub-side repo setting has not silently drifted, report whether a required status check exists at
     all -- the one detect-and-rebase reads -- and, for a repo that has CHOSEN a merge queue, print the
-    ruleset command WITHOUT running it. Issues #1516, #1546, #1843.
+    ruleset command WITHOUT running it. Issues #1516, #1546, #1843, #1903.
 
 .DESCRIPTION
+    NAMED adopt-merge-queue.ps1 UNTIL SEPTEMBER 13, 2026 (#1903), AND THE OLD NAME IS GONE RATHER THAN
+    FORWARDED. Nothing machine-side ever called it -- the one executable reference is the run line on
+    adopt-dkj-policy's Part 3 page, and that page ships in the same plugin release as this file, so the
+    two cannot disagree in a consumer's tree. A shim at the old path would need its own registry entry
+    and its own test: two maintained names for one script, which is precisely the ambiguity the rename
+    removes. A consumer who had automated the old path gets a loud file-not-found instead of a second
+    silent name. The queue is the last and least reachable thing this command covers -- see the next
+    paragraph -- and the name now says what the rest of it does.
+
     A MERGE QUEUE IS NO LONGER THIS WORKFLOW'S POLICY (Dave, September 7, 2026, #1546). It was, from
     September 6 (#1492) -- and the policy was set in the one repo where its central constraint cannot
     be felt. GitHub offers merge queue on a PRIVATE repo only under Enterprise Cloud, and otherwise
@@ -26,9 +35,11 @@
     step, so the staleness guard is simply off. That is now this script's headline finding, where it
     used to read as a precondition for a switch a reader might never be able to flip.
 
-    THE TWO RUNNERS ARE EVERY REPO'S, QUEUE OR NO QUEUE, and this is the half most easily mis-read as
-    queue machinery. What breaks the fold is a merge THE SHIPPING SESSION DOES NOT OBSERVE, and the
-    GitHub UI merge button produces one in every repo on earth. A queue only makes it the normal case.
+    THE FOLD AND RESOLVES RUNNERS ARE EVERY REPO'S, QUEUE OR NO QUEUE, and this is the half most easily
+    mis-read as queue machinery. What breaks the fold is a merge THE SHIPPING SESSION DOES NOT OBSERVE,
+    and the GitHub UI merge button produces one in every repo on earth. A queue only makes it the normal
+    case. The THIRD runner this command places -- the repo-settings drift check (#1843) -- is not queue-
+    related at all, which is why $targets carries a QueueRelated flag per entry rather than a count.
 
       1. THE MERGE. Under a queue `gh pr merge` does not merge -- gh's own help: "When targeting a
          branch that requires a merge queue ... the pull request will be added to the merge queue."
@@ -101,8 +112,8 @@
 
     RUN IT FROM THE ROOT OF THE CONSUMING REPO:
 
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-merge-queue.ps1"
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-merge-queue.ps1" -Apply
+        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
+        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1" -Apply
 
     Exit 0 while the queue is off and the floor is merely unbuilt -- that is a to-do, not a defect.
     Exit 1 when the queue is ACTIVE on the trunk and a piece of the floor is missing, because that is a
@@ -120,8 +131,8 @@
     consumer never types it.
 
 .EXAMPLE
-    .\scripts\task\adopt-merge-queue.ps1
-    .\scripts\task\adopt-merge-queue.ps1 -Apply
+    .\scripts\task\adopt-ci-floor.ps1
+    .\scripts\task\adopt-ci-floor.ps1 -Apply
 #>
 
 [CmdletBinding()]
@@ -314,7 +325,7 @@ function Get-WorkflowFacts {
 $workflowDir = Join-Path $repoRoot '.github\workflows'
 $workflows = Get-WorkflowFacts -WorkflowDir $workflowDir
 
-# --- The two runners, consumer-shaped ---------------------------------------------------------------
+# --- The runners, consumer-shaped ---------------------------------------------------------------
 # DERIVED FROM THE SOURCE'S OWN, NOT COPIED. Two things differ, both of them structural rather than
 # stylistic: the scripts are reached through a checkout of the plugin's tree instead of the repo's own
 # (there is one definition of the fold in this system and this must not become a second), and
@@ -717,7 +728,7 @@ $targets = @(
 $foldRunnerRel = '.github/workflows/fold-on-merge.yml'
 
 # --- Report ------------------------------------------------------------------------------------------
-Write-Host "== adopt-merge-queue -- $repoRoot ==" -ForegroundColor Cyan
+Write-Host "== adopt-ci-floor -- $repoRoot ==" -ForegroundColor Cyan
 if (-not $Apply) { Write-Host '  DRY RUN -- nothing is written. Re-run with -Apply to place the files below.' -ForegroundColor Yellow }
 Write-Host ''
 
