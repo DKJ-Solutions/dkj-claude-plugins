@@ -362,7 +362,14 @@ Assert-True ($ncLibText -match '\$ErrorActionPreference = \$prevEap') 'native-ca
 $openPrSrc = ($pairs | Where-Object { $_.Name -eq 'open-pr' }).SourcePath
 $openPrText = [System.IO.File]::ReadAllText($openPrSrc)
 Assert-True ($openPrText -match "Invoke-NativeCapture -FilePath 'git' -Arguments @\('push'") 'open-pr runs the push via Invoke-NativeCapture'
-Assert-True ($openPrText -match "Invoke-NativeCapture -FilePath 'gh' -Arguments \(@\('pr', 'create'") 'open-pr runs gh pr create via Invoke-NativeCapture'
+# THE FLAGS BETWEEN THE CMDLET AND -FilePath ARE NOT PINNED, and that is the repair rather than a
+# loosening (issue #1963). This assert used to require `Invoke-NativeCapture -FilePath 'gh'` adjacent,
+# which made it fail the moment that call gained -Utf8 -- a flag it NEEDS, because $prTitle is free
+# text and the & arm mis-delivers a title carrying a quote or a trailing backslash. What the assert is
+# for is that the call goes through the helper at all, which is exactly what the two halves below say;
+# pinning the flag list in between asserted a spelling nobody chose.
+Assert-True ($openPrText -match "Invoke-NativeCapture[^\r\n]*-FilePath 'gh' -Arguments \(@\('pr', 'create'") 'open-pr runs gh pr create via Invoke-NativeCapture'
+Assert-True ($openPrText -match "Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments \(@\('pr', 'create'") 'and it does so on the -Utf8 arm, which quotes the title itself instead of leaving it to PowerShell 5.1 (#1963)'
 Assert-True (-not ($openPrText -match "ErrorActionPreference = 'Continue'")) 'open-pr no longer re-derives the EAP dance inline (centralized in the helper)'
 
 Write-Host "native-command stderr pitfall -- repo-wide guard over every call site" -ForegroundColor Cyan

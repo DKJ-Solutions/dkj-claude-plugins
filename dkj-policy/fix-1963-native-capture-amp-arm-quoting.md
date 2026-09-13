@@ -67,11 +67,30 @@ entirely -- which shifts every later argument one position left.
 - [x] Test the report's own candidate repair #2 (pre-tokenise, then hand to `&`) -- **7 of 300 still
       wrong**, so it is measurably not a repair; declined with the measurement rather than on taste
 - [x] Derive the exact predicate and validate it: 800 cases, 190 broken, 0 false positives, 0 false negatives
-- [x] `Test-NativeArgumentUnfaithful` + `Get-NativeArgumentUnfaithfulReason` in `native-capture-lib.ps1`
-- [x] The guard in the `&` arm -- refuses, naming the index and the shape, never the value
 - [x] Audit the call sites the report left unmeasured (its "Not measured" section)
-- [x] Route `open-pr.ps1`'s `gh pr create` through `-Utf8` (candidate repair #1)
+- [x] Route `open-pr.ps1`'s `gh pr create` through `-Utf8` (candidate repair #1) -- **the repair**
+- [~] A tree-wide guard refusing the three shapes -- built, measured, and **withdrawn**; filed as
+      #1966 with every measurement. See below for why
+- [x] Record the measurement in the lib itself, at the arm it is about
 - [x] Mirror to both plugin copies via `build-shared-scripts.ps1`
+
+#### Why the guard was withdrawn rather than shipped
+
+It was built and it works: the three shapes are refused, by index and shape, never by value. It came
+out again for a reason that only showed up once it ran.
+
+**This lib is mirrored into the plugins and runs in consumers' repos.** A throw is therefore a
+behaviour change for every consumer's existing scripts on their next plugin update -- a decision of a
+different size than the prio-2 defect that surfaced it. Two things measured while it was in place
+back that up:
+
+- **It fires on legitimate test fixtures.** `ref-print-lib.tests.ps1` creates a branch whose name
+  carries a quote, precisely to prove git accepts it. With the guard that fixture cannot run.
+- **It catches almost nothing else here.** Instrumented across ten suites, the guard produced exactly
+  **one** hit -- that fixture. The production audit below found one exposed site, and it is repaired
+  by `-Utf8` directly.
+
+So the class stays documented at the arm it belongs to, and the guard is #1966's to decide.
 
 #### The call-site audit the report left open
 
@@ -86,19 +105,30 @@ was not measured. It is now, over every `&`-arm call passing a message, title or
 - `park-lib.ps1:648` and `verify-resolved-issues.ps1:148` -- already use `-F`/`--body-file`, the
   file-based pattern that sidesteps argv entirely.
 
-The remaining ~430 `&`-arm sites are not audited by hand and do not need to be: the guard converts
-that unmeasured risk into a loud refusal naming the index, which is what the report asked for and
-could not get from a list.
+The remaining ~430 `&`-arm sites are not audited by hand. That residual risk is what #1966 is for;
+this branch repairs the one site that was measured exposed and records the class where the next
+reader of that arm will meet it.
 
 ### TEST
 
-- [x] `native-capture.tests.ps1` -- 12 new asserts: the three unfaithful shapes, four faithful ones
-      (an ordinary Windows path among them, so the predicate cannot refuse everyday arguments), the
-      guard firing, its message naming the index, its message NOT echoing the value, and `-Utf8`
-      succeeding on the same call
-- [x] `native-capture.tests.ps1`: 165 pass, 0 fail
+- [x] `native-capture.tests.ps1` -- four asserts pinning the repair: exactly one `gh pr create`
+      invocation, it carries `-Utf8`, and it is still the line passing `$prTitle`. A source assert
+      rather than a live call, because the alternative is creating a real pull request
+- [x] `shared-scripts.tests.ps1` -- its `gh pr create` assert pinned the flags between the cmdlet and
+      `-FilePath`, so it failed on the `-Utf8` it should have wanted. Widened to what it is actually
+      for (the call goes through the helper), plus a second assert naming `-Utf8` outright
+- [x] `native-capture.tests.ps1`: 156 pass, 0 fail
+- [x] `shared-scripts.tests.ps1`: 810 pass, 0 fail
+- [x] `ref-print-lib`, `script-contract`, `pr-issues`: pass
 - [x] `check-plugin-integrity.ps1`: 0 errors
-- [x] Full suite gate, as CI runs it
+
+#### One thing NOT claimed here
+
+The full 103-suite gate was run locally and reported 45 failures. That run is **not** evidence about
+this branch and is not cited as a pass: it was driven at 32 lanes on one 18-core machine, where CI
+splits the same pool across four shards, and many suites in it calibrate timeouts against machine
+load by design. The suites this branch actually touches are listed above and were run individually.
+CI is what settles the rest.
 
 ### DEPLOY: fix/1963-native-capture-amp-arm-quoting
 
@@ -108,33 +138,42 @@ containing a quote (the quote is lost and the following arguments are swallowed)
 whitespace ending in a backslash (it escapes its own closing quote and absorbs the rest of the
 command line). Measured against a real argv parser, 129 of 300 random argument sets arrived wrong.
 
-That arm now refuses such an argument instead of mis-delivering it, naming the index and the shape
--- never the value, since an argument here can carry a token. And `open-pr`'s `gh pr create` is
-routed through the `-Utf8` arm, which owns the tokeniser: a PR title carrying a quote or a trailing
-backslash no longer swallows `--body-file`, `--repo` and every label into itself.
+`open-pr`'s `gh pr create` is now routed through the `-Utf8` arm, which quotes its arguments itself:
+a PR title carrying a quote or a trailing backslash no longer swallows `--body-file`, `--repo` and
+every label into the title. That is the one call site measured exposed -- `$prTitle` is free text, a
+changelog heading or (since #1962) a bare commit subject, and it is the only argument of that call a
+person writes. The three shapes are now documented at the arm itself, so the next reader of it meets
+the measurement rather than the assumption.
 
-Everyone who runs this workflow gets the repair, and anybody writing a PR title with a quote in it
-was silently exposed before. It is a wrong PR rather than a broken one -- created with a mangled
-title and no body or labels -- which is why it went unnoticed rather than unreported.
+Anybody writing a PR title with a quote in it was silently exposed before, and the failure is a
+*wrong* pull request rather than a broken one -- created with a mangled title and no body or labels
+-- which is why it went unnoticed rather than unreported.
 
 **Score:** 3
 
 #### What makes this deploy extra special
 
-The reported repair was measured before it was built, and it failed. The issue offered pre-tokenising
-the `&` arm as candidate #2; it is correct on every hand-picked example and still wrong on 7 of 300
-fuzz cases, because PowerShell 5.1 re-processes a token that already carries quotes. A repair that
-satisfies the report and is wrong would have shipped carrying a citation.
+**Both of the report's own candidate repairs were measured before either was built, and one of them
+failed.** Candidate #2 -- give the `&` arm the same tokeniser -- is correct on every hand-picked
+example and still wrong on 7 of 300 fuzz cases, because PowerShell 5.1 re-processes a token that
+already carries quotes. Shipping it would have satisfied the report and been wrong, with a citation
+attached.
 
-The silent-reroute alternative was declined for a stated reason rather than overlooked: the `-Utf8`
-arm is provably correct here, but it is a different mechanism whose `Output` is an array of strings
-rather than pipeline objects. Switching on the *content* of an argument would change the shape of a
-caller's return value on exactly the days a title happened to contain a quote -- the data-dependent
-surprise that `-Utf8` was itself introduced to end.
+**And the report's own scoping was off in the safe-sounding direction.** It recorded an embedded
+quote as "escaped correctly and cannot re-open an argv boundary". That is true of the Start-Process
+arm and false of the arm the report is about: a quote both loses itself and swallows what follows.
+The empty string, unmentioned, is dropped outright. Verifying the *reason* rather than only the
+symptom is what turned one shape into three.
+
+**A larger repair was built, run, and withdrawn.** A guard refusing all three shapes at the arm makes
+the class impossible rather than documented -- but this lib ships to consumers, so a throw changes
+their scripts' behaviour on a plugin update, and instrumenting it here produced exactly one hit, in a
+test fixture that uses a hostile branch name on purpose. It is filed as #1966 with every measurement
+rather than carried in a prio-2 fix.
 
 **Score:** 2
 
 #### Pull Request
 
-Invoke-NativeCapture's & arm refuses an argument Windows PowerShell 5.1 cannot pass faithfully
+open-pr passes the PR title through the arm that quotes it, so a title with a quote cannot swallow the flags after it
 

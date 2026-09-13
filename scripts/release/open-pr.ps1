@@ -2119,7 +2119,21 @@ try {
     # so a stderr line cannot become a terminating error before the exit-code check (#107, the same
     # pitfall as the push above). The optional label/assignee/milestone args are appended to the fixed
     # argument list. The temp body file is cleaned up in finally, whether or not gh succeeds.
-    $create = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('pr', 'create', '--base', 'main', '--head', $branch, '--title', $prTitle, '--body-file', $bodyFile, '--repo', $repo) + $labelArgs + $extraGhArgs)
+    # -Utf8 BECAUSE OF $prTitle, AND IT IS THE FIX RATHER THAN A TIDY-UP (issue #1963). The title is
+    # free text -- a changelog entry's heading, or since #1962 a bare commit subject -- and it is the
+    # one argument here a person writes. On the & arm Windows PowerShell 5.1 mis-delivers three
+    # shapes, and a title can hold all three: a quote, or whitespace before a trailing backslash,
+    # swallows --body-file, --repo and every label into the title. The comment above the body file
+    # names the same mechanism and solved it for --body only; the title had no such cover.
+    # The Start-Process arm quotes its arguments itself (ConvertTo-NativeArgumentToken), and the
+    # guard in Invoke-NativeCapture now refuses those shapes outright rather than corrupting them.
+    #
+    # THE SHAPE CHANGE IS WANTED HERE, not merely tolerated: Output becomes an array of decoded lines,
+    # which is what the two consumers below already want -- Write-Host per line, and
+    # Get-PrCreateFailureReason/Test-GhMutationTransient matching gh's words. That is the same
+    # argument #907 made for the DEPLOY lock, where a console code page turned an intact body into a
+    # refusal.
+    $create = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments (@('pr', 'create', '--base', 'main', '--head', $branch, '--title', $prTitle, '--body-file', $bodyFile, '--repo', $repo) + $labelArgs + $extraGhArgs)
     $create.Output | ForEach-Object { Write-Host $_ }
     if ($create.ExitCode -ne 0) {
         # GH'S OWN MESSAGE IS THE REASON; THE LOGIN HINT IS A SUFFIX (inbound #1077). This line used to
