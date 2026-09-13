@@ -28,6 +28,12 @@ $RepoRoot  = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # JUDGING THIS SUITE'S OWN FIXTURE git CALLS -- issue #1635. See the lib for why an unjudged fixture
 # command is worse than an unjudged production one, and why the count decides the exit code.
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+
+# JUDGING THIS SUITE'S OWN FIXTURE CHILD -- issues #1934 and #1954. This suite copies the acting script
+# into a fixture tree and runs it there, so a lib its copy list has gone stale on kills the child during
+# LOAD, before it writes anything. What the asserts below would then report is the absence of the
+# document the child never got far enough to write, naming the absent lib not at all.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
 $ScriptSrc = Join-Path $RepoRoot 'scripts\sync\find-specialist-mentions.ps1'
 # The script dot-sources this sibling lib unconditionally for Get-DisplayName, so the fixture must
 # carry it too -- the same arrangement park-branch.tests.ps1 makes for native-capture-lib.
@@ -208,8 +214,19 @@ function Invoke-Script {
     $prev = $env:CLAUDE_PROJECT_DIR
     $env:CLAUDE_PROJECT_DIR = $Fixture
     try {
-        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $copied @ScriptArgs 2>&1
-        return [pscustomobject]@{ Out = (Get-FlatOutput $out); Code = $LASTEXITCODE }
+        # EAP LOWERED FOR THE CALL, AND THE VERDICT DEPENDS ON IT (#1954). Under '& powershell ... 2>&1'
+        # the parent re-renders the child's stderr as its own NativeCommandError, which at 'Stop' is
+        # TERMINATING -- so a child that died on load killed this suite at the invocation and the verdict
+        # below never ran. Measured here by dropping check-report-lib.ps1 from the copy list above: the
+        # run ended at the first case with a truncated NativeCommandError and no headline at all. This is
+        # function-scoped, so it reverts on return, and it is the same arrangement the six suites #1934
+        # wired already make.
+        $ErrorActionPreference = 'Continue'
+        $out  = & powershell -NoProfile -ExecutionPolicy Bypass -File $copied @ScriptArgs 2>&1
+        $code = $LASTEXITCODE
+        # #1934: a load failure is not a refusal -- say so before the asserts read a document nothing wrote.
+        Assert-FixtureScriptLoaded -Code $code -Script $copied -Output $out
+        return [pscustomobject]@{ Out = (Get-FlatOutput $out); Code = $code }
     } finally {
         $env:CLAUDE_PROJECT_DIR = $prev
     }
@@ -328,9 +345,17 @@ Write-Host ''
 # ABOVE THE VERDICT AND EVEN ON A GREEN RUN: a clean sweep over a fixture repo that was never built
 # proves less than it appears to, so the count decides the exit code too (issue #1635).
 $fixtureBroken = Write-FixtureGitSummary -Subject 'find-specialist-mentions.ps1'
+# AND THE SAME FOR A CHILD THAT DIED ON LOAD (issues #1934 and #1954): a run where every assert happened
+# to pass is still a run that measured a fixture rather than the script, so the count decides the exit
+# code here too.
+$loadBroken = Write-FixtureScriptSummary -Subject 'find-specialist-mentions.ps1'
 Write-Host ("  {0} passed, {1} failed" -f $script:pass, $script:fail)
 Write-Host ''
 if ($script:fail -gt 0) { exit 1 }
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the script." -ForegroundColor Red
+    exit 1
+}
 if ($fixtureBroken) {
     Write-Host "FAILED: every assert passed, but $(Get-FixtureGitFailureCount) fixture git command(s) did not -- this run proves less than it appears to." -ForegroundColor Red
     exit 1
