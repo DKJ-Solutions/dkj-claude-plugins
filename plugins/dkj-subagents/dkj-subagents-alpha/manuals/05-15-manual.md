@@ -111,6 +111,32 @@ and safe hook construction.
 - **Pipe-test hooks before they go live** — test the raw command (pipe the hook JSON in, check the
   exit code), then put it in `settings.json`; a hook that silently does nothing is worse than no
   hook.
+- **A hook's registered `timeout` is a CEILING on the whole script, and every bound inside it has to
+  fit underneath — sequentially.** A hook script that promises never to fail (and the ones worth
+  writing all do: a hook that fails interrupts the work it was added to protect) keeps that promise
+  only while it is the thing that decides to stop. Past the ceiling the harness kills the process from
+  outside, so no fail-safe arm runs, no refusal is worded, and nothing the script had already written
+  is delivered — it goes silent on precisely the turn it had something to report. **The trap is that
+  per-call bounds do not compose.** A generous per-call network timeout is correct in a script somebody
+  typed and wrong under a ceiling: three sequential calls at two minutes apiece cannot fit under one
+  minute, however honest each of them is. So add them up against the registered number, and remember
+  that an *unbounded* call is the same defect with no arithmetic at all — a bound that is opt-in per
+  call site is a bound some call site has not opted into.
+  **The repair is a deadline for the RUN, not a smaller number per call**: give each call what is left
+  of one budget, and where nothing is left, skip the call and say which one was skipped. A shorter
+  per-call bound looks like the cheaper fix and is worse in both directions — it caps an honest lone
+  call for no reason and still breaks the moment a fourth call is added. And "a call cut off early
+  reports nothing either" is not an argument against it: the comparison is never *short bound versus
+  generous bound*, it is *short bound versus the harness's kill*, and both lose that one answer while
+  only the kill also loses the rest of the run.
+  **Leave real margin under the ceiling** — killing a timed-out child's process tree is best-effort and
+  takes time, then the fail-safe arm runs, then its report has to be printed and relayed, all *after*
+  the budget is spent. **And pin the two numbers together in a test**: the ceiling lives in a hooks
+  manifest, which is JSON and can carry no comment saying that a constant somewhere else depends on it.
+  Measured in this system's own source repo, September 13, 2026
+  ([#1958](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1958)): a Stop hook registered at
+  60 seconds drove a script making up to three sequential network calls, two bounded at 120 seconds
+  each and one bounded at nothing at all.
 - **The exit code says the hook RAN; only the receiver says it ARRIVED.** A pipe test proves the
   command works, and a hook whose transport is sound can still deliver nothing, because the event
   also has to reach a channel somebody is actually watching. So the last step of putting a hook live

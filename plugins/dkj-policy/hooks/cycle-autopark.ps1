@@ -74,6 +74,19 @@
     added to protect, and nothing this does is important enough to strand a turn: the worst outcome of
     a silent failure is a document one turn stale on the remote.
 
+    AND THE CEILING IS WHAT MAKES THAT PROMISE KEEPABLE (issue #1958, September 13, 2026). This hook is
+    registered at "timeout": 60 in hooks.json, and past it the harness kills the process from OUTSIDE --
+    where an always-exits-0 contract is worth nothing, because no arm of park-cycle.ps1 runs and no line
+    it had already written is delivered. park-cycle made up to three sequential network calls, two of
+    them bounded at the shared PER-CALL 120s and one (`gh pr list`) not bounded at all, so the ceiling
+    was outrunnable by a factor of four on the honest path and without limit on the other.
+    THE DECLARATION IS PASSED FROM HERE AND THE NUMBER IS NOT: this file knows there IS a ceiling, which
+    is the fact JSON cannot carry a comment about, and -UnderHook says exactly that. The share of the
+    ceiling a run may spend is $NativeCaptureHookNetworkBudgetSeconds in native-capture-lib.ps1, which
+    holds the reasoning beside it, and cycle-autopark.tests.ps1 pins that number against the "timeout"
+    above so the two cannot be raised apart. A script somebody types has no ceiling and passes neither,
+    which is why this is a parameter rather than park-cycle's default.
+
     Read-only with respect to the working tree: it commits and pushes the one document park-cycle
     resolves, and changes nothing else.
 
@@ -114,7 +127,14 @@ try {
     # A HASHTABLE, NEVER AN ARRAY. In-process an array splats POSITIONALLY, so the string '-Quiet' would
     # bind to park-cycle's -RepoRoot and -Quiet would stay false -- a hook printing park-cycle's entire
     # report on every turn, with nothing anywhere failing to say so. Trap 1 in hook-check-lib.ps1's header.
-    $parkArgs = @{ Quiet = $true }
+    # -UnderHook SAYS WHAT THIS FILE KNOWS AND NOTHING MORE (#1958): that there is a ceiling. The share of
+    # it a run may spend is $NativeCaptureHookNetworkBudgetSeconds, which park-cycle reads from the lib it
+    # already loads. Passing the NUMBER from here was written first and thrown away: it meant dot-sourcing
+    # native-capture-lib.ps1 in this file as well, ~28 ms of parse per turn measured on this machine, to
+    # carry one integer into a script that has the constant in scope anyway -- in a hook where #1641 went
+    # to the trouble of removing a whole interpreter start-up for 102 ms. A switch costs nothing and the
+    # number still lives in exactly one place.
+    $parkArgs = @{ Quiet = $true; UnderHook = $true }
     if ($RepoRootOverride) { $parkArgs['RepoRoot'] = $RepoRootOverride }
 
     # -MergeAllStreams because this hook RELAYS park-cycle rather than filtering it; see the header.

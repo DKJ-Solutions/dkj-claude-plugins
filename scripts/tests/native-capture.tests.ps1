@@ -970,6 +970,69 @@ foreach ($expected in @('park-lib.ps1', 'open-pr.ps1', 'ship-pr.ps1', 'verify-re
     Assert-True (@($scratchCallers | Where-Object { $_.Name -eq $expected }).Count -eq 1) "$expected composes its temp path through New-ScratchPath"
 }
 
+# --- THE HOOK NETWORK BUDGET (issue #1958) --------------------------------------------------------
+# The four functions exist so a script running under a hook's ceiling can give each network call what is
+# LEFT of one deadline rather than the shared per-call bound -- three calls bounded at 120 s apiece
+# cannot fit under a 60 s ceiling however honest each of them is.
+#
+# THE NO-BUDGET SHAPE IS ASSERTED FIRST AND HARDEST, because it is what every by-hand run gets: if it
+# ever stopped resolving to the standing bound, park-branch, new-branch and a typed park-cycle would all
+# quietly acquire a deadline nobody asked them to finish inside.
+Write-Host "== hook network budget ==" -ForegroundColor Cyan
+
+$noBudget = New-NativeCaptureBudget
+Assert-True (-not (Test-NativeCaptureBudgetSet -Budget $noBudget))        'no budget: an unspecified budget is not set'
+Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $noBudget)           'no budget: every call has room'
+Assert-Equal (Get-NativeCaptureBudgetBound -Budget $noBudget) $NativeCaptureNetworkTimeoutSeconds 'no budget: the bound is the standing per-call number'
+Assert-Equal (Get-NativeCaptureBudgetBound -Budget $null)     $NativeCaptureNetworkTimeoutSeconds '$null is treated as no budget, not as a spent one'
+Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $null)              '$null has room -- a missing budget must never block a call'
+
+# A LIVE BUDGET, GENEROUS. Larger than the standing bound, so the standing bound is what caps the call:
+# a budget is a ceiling on the RUN, never a licence to exceed the per-call number.
+$wide = New-NativeCaptureBudget -TotalSeconds ($NativeCaptureNetworkTimeoutSeconds + 60)
+Assert-True (Test-NativeCaptureBudgetSet -Budget $wide)                  'live budget: it is set'
+Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $wide)              'live budget: it has room'
+Assert-Equal (Get-NativeCaptureBudgetBound -Budget $wide) $NativeCaptureNetworkTimeoutSeconds 'live budget: a budget wider than the per-call bound does not raise it'
+
+# A LIVE BUDGET, NARROWER THAN THE PER-CALL BOUND -- the hook's own case, where the budget is what caps.
+$narrow = New-NativeCaptureBudget -TotalSeconds 30
+Assert-True ((Get-NativeCaptureBudgetBound -Budget $narrow) -le 30)      'narrow budget: the bound is no more than what is left'
+Assert-True ((Get-NativeCaptureBudgetBound -Budget $narrow) -ge 25)      'narrow budget: and it is very nearly all of it'
+
+# A SPENT BUDGET, BUILT BY HAND RATHER THAN WAITED FOR. The object is a plain expiry instant precisely so
+# a test can reach this arm without sleeping through it.
+$spent = [pscustomobject]@{ TotalSeconds = 45; Expires = (Get-Date).ToUniversalTime().AddSeconds(-5) }
+Assert-True (Test-NativeCaptureBudgetSet -Budget $spent)                 'spent budget: it is still a budget'
+Assert-Equal (Get-NativeCaptureBudgetSecondsLeft -Budget $spent) 0       'spent budget: nothing is left, and it is not negative'
+Assert-True (-not (Test-NativeCaptureBudgetHasRoom -Budget $spent))      'spent budget: there is no room, so the caller skips the call'
+
+# AND THE BOUND IT WOULD HAND OUT IS NEVER 0. 0 is Invoke-NativeCapture's UNBOUNDED value, so a guard
+# failing open here would turn a spent budget into the unbounded call the whole mechanism exists to stop.
+Assert-True ((Get-NativeCaptureBudgetBound -Budget $spent) -gt 0)        'spent budget: the bound is never 0 -- 0 means unbounded'
+Assert-Equal (Get-NativeCaptureBudgetBound -Budget $spent) $NativeCaptureHookNetworkFloorSeconds 'spent budget: it falls back to the floor'
+
+# A BUDGET INSIDE THE FLOOR HAS NO ROOM EITHER -- the half the issue asked about: a call given two
+# seconds reports no more than a call never made, and it spends the margin the kill and the report need.
+$sliver = [pscustomobject]@{ TotalSeconds = 45; Expires = (Get-Date).ToUniversalTime().AddSeconds($NativeCaptureHookNetworkFloorSeconds - 1) }
+Assert-True (-not (Test-NativeCaptureBudgetHasRoom -Budget $sliver))     'sliver budget: under the floor there is no room'
+
+# A MALFORMED BUDGET COSTS THE BOUND, NEVER THE RUN. Set-StrictMode -Version Latest throws on a property
+# an object does not carry, and these functions are loaded by scripts whose whole contract is never to
+# fail -- so an object with no Expires must read as "no budget" rather than as an exception.
+$malformed = [pscustomobject]@{ TotalSeconds = 45 }
+Assert-True (-not (Test-NativeCaptureBudgetSet -Budget $malformed))      'malformed budget: it reads as unset rather than throwing'
+Assert-Equal (Get-NativeCaptureBudgetBound -Budget $malformed) $NativeCaptureNetworkTimeoutSeconds 'malformed budget: and the call keeps the standing bound'
+
+# THE CALLERS, PINNED. park-cycle.ps1 is the reason all of this exists, and an edit that dropped the
+# budget from one of its three network calls would leave every assert above green.
+$parkCycleText = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot 'task\park-cycle.ps1')
+Assert-True (@([regex]::Matches($parkCycleText, 'Get-NativeCaptureBudgetBound')).Count -ge 3) `
+    'park-cycle bounds all three of its network calls by the budget (gh pr list, the push, the fetch)'
+Assert-True ($parkCycleText -notmatch "gh'[^\r\n]*'--limit', '1'\) -DiscardStderr\s*$") `
+    'park-cycle no longer makes the unbounded `gh pr list` call #1958 found'
+Assert-True (@([regex]::Matches($parkCycleText, 'Test-NativeCaptureBudgetHasRoom')).Count -ge 3) `
+    'park-cycle asks whether there is room before each of them, rather than making a call it cannot finish'
+
 if ($script:fail -eq 0) {
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green
     exit 0

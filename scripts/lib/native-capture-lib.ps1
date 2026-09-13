@@ -119,6 +119,49 @@ $script:NativeCaptureNonInteractiveEnv = @{
 # say why beside it.
 $script:NativeCaptureNetworkTimeoutSeconds = 120
 
+# THE TOTAL A HOOK-INVOKED RUN MAY SPEND ON THE NETWORK (issue #1958, September 13, 2026). The bound
+# above is PER CALL, and per-call bounds DO NOT COMPOSE: a script making three of them in sequence may
+# legitimately spend 360 seconds, which is fine in a script somebody typed and fatal in one a hook
+# invoked. A hook has a CEILING -- cycle-autopark.ps1 is registered at 60 seconds in
+# plugins/dkj-policy/hooks/hooks.json -- and past it the harness kills the process FROM OUTSIDE.
+#
+# THAT IS THE WORST WAY FOR THESE SCRIPTS TO END, and it is why this is a defect rather than a slow run.
+# park-cycle.ps1's header promises it ALWAYS EXITS 0, because a hook that fails interrupts the work it
+# was added to protect, and every refusal in it is written to fail safe. NOT ONE of those arms runs when
+# the kill comes from outside: the DEPLOY-lock refusal is not printed, the failed-push diagnosis is not
+# composed, and the collision report -- the one urgent thing this workflow's earliest detector exists to
+# say -- is lost. The script cannot report the single state it is least able to reason about.
+#
+# SO A HOOK PASSES A DEADLINE FOR THE WHOLE RUN, not a smaller number per call. Get-NativeCaptureBudgetBound
+# hands each call what is LEFT, so the first call may still take the lot and three of them together
+# cannot exceed the budget. A smaller per-call number was the obvious repair and is worse in both
+# directions: it caps an honest lone fetch for no reason, and it still does not compose once a fourth
+# call is added. THE OTHER CANDIDATE -- raise the hook's timeout -- moves the ceiling without ever making
+# it reachable, because the number the script may spend would still be nowhere stated.
+#
+# 45 SECONDS AGAINST A 60-SECOND CEILING, AND THE 15 IS NOT PADDING. The run has to survive its own
+# bound, and everything that makes a bounded call SAFE happens after it expires: Stop-NativeProcessTree
+# is best-effort and is deliberately given time, the fail-safe arm then runs, and its report has to be
+# printed and relayed by cycle-autopark.ps1. A budget equal to the ceiling would hand the harness exactly
+# the kill this constant exists to prevent, one layer further in.
+#
+# IT IS A SHARED CONSTANT AND THE HOOK IS WHAT PASSES IT, because the ceiling lives beside the hook in
+# hooks.json and JSON cannot carry a comment saying what it implies. cycle-autopark.tests.ps1 pins the
+# two together, so raising one without the other fails a suite instead of waiting for a slow network.
+$script:NativeCaptureHookNetworkBudgetSeconds = 45
+
+# THE FLOOR BELOW WHICH A REMAINING BUDGET BUYS NOTHING. This is the half of the repair the issue warned
+# about -- "a fetch cut off at 20s reports nothing either" -- and it is answered rather than dismissed: a
+# call given two seconds reports no more than a call never made, AND it spends the margin the paragraph
+# above is about. So a budget with less than this left is SPENT. Test-NativeCaptureBudgetHasRoom says so,
+# and the caller names the call it skipped instead of making one it cannot finish.
+#
+# THE COMPARISON THAT SETTLES THE ISSUE'S DOUBT is not "short bound versus generous bound" but "short
+# bound versus the harness's kill". Both lose the answer to that one call; only the kill also loses the
+# rest of the run and everything already printed. There is no third option in which the call gets its
+# full two minutes AND the hook reports anything.
+$script:NativeCaptureHookNetworkFloorSeconds = 5
+
 # 124 is `timeout(1)`'s conventional "the command timed out" code, borrowed rather than invented so a
 # reader who greps it lands on an answer. Neither git nor gh uses it, so it cannot be confused with a
 # real verdict -- but a caller who needs certainty reads TimedOut instead of the number.
@@ -610,6 +653,90 @@ function Stop-NativeProcessTree {
 
     Get-Process -Id $ProcessId -ErrorAction SilentlyContinue |
         Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
+function New-NativeCaptureBudget {
+    <#
+        A RUN-WIDE DEADLINE FOR NETWORK CALLS -- issue #1958. See the
+        $NativeCaptureHookNetworkBudgetSeconds block above for why a hook needs one and why a smaller
+        per-call bound is not the same thing.
+
+        $TotalSeconds of 0 (the default) is the NO-BUDGET shape, and it is the ordinary one: a script
+        somebody typed has no ceiling to finish inside, so every call keeps the standing per-call bound.
+        That is what makes this safe to thread through a script's network calls unconditionally -- the
+        by-hand run is byte-for-byte the behaviour it had before the budget existed.
+
+        A PLAIN OBJECT WITH AN ABSOLUTE EXPIRY, not a Stopwatch. The three readers below only ever ask
+        "how much is left", a UTC instant answers that with no state to start, stop or forget to pass on,
+        and a test can build one by hand to exercise the exhausted arm without waiting for it.
+    #>
+    param([int]$TotalSeconds = 0)
+
+    $expires = $null
+    if ($TotalSeconds -gt 0) { $expires = (Get-Date).ToUniversalTime().AddSeconds($TotalSeconds) }
+    return [pscustomobject]@{ TotalSeconds = $TotalSeconds; Expires = $expires }
+}
+
+function Test-NativeCaptureBudgetSet {
+    <#
+        Is there a budget at all? Separated from "is there room in it" because the two mean OPPOSITE
+        things at the call site: no budget means every call proceeds under the standing bound, and an
+        exhausted budget means the call must not be made. A single function returning seconds would
+        answer 0 to both -- which is precisely the two-opposite-facts-in-one-boolean shape #1628 took out
+        of claim-issue's read-back, and it is not being reintroduced here.
+
+        READ THROUGH PSObject.Properties, not $Budget.Expires: Set-StrictMode -Version Latest THROWS on a
+        property an object does not carry, and this lib is loaded by scripts whose whole contract is that
+        they never fail. A malformed budget must cost the bound, never the run.
+    #>
+    param($Budget)
+
+    if ($null -eq $Budget) { return $false }
+    $prop = $Budget.PSObject.Properties['Expires']
+    return [bool]($prop -and $null -ne $prop.Value)
+}
+
+function Get-NativeCaptureBudgetSecondsLeft {
+    <#
+        Seconds left on a budget, floored at 0 and never negative. Answers 0 for a budget that is not set
+        as well as for one that is spent, which is why every caller asks Test-NativeCaptureBudgetSet
+        first -- see its own note.
+    #>
+    param($Budget)
+
+    if (-not (Test-NativeCaptureBudgetSet -Budget $Budget)) { return 0 }
+    $left = ($Budget.PSObject.Properties['Expires'].Value - (Get-Date).ToUniversalTime()).TotalSeconds
+    if ($left -le 0) { return 0 }
+    return [int][math]::Floor($left)
+}
+
+function Test-NativeCaptureBudgetHasRoom {
+    <#
+        MAY THIS CALL BE MADE AT ALL? $true when there is no budget (nothing constrains the call) and when
+        at least $NativeCaptureHookNetworkFloorSeconds remain; $false when the budget is spent, which the
+        caller reports as a skipped call rather than making one it cannot finish.
+    #>
+    param($Budget)
+
+    if (-not (Test-NativeCaptureBudgetSet -Budget $Budget)) { return $true }
+    return ((Get-NativeCaptureBudgetSecondsLeft -Budget $Budget) -ge $script:NativeCaptureHookNetworkFloorSeconds)
+}
+
+function Get-NativeCaptureBudgetBound {
+    <#
+        THE -TimeoutSeconds A NETWORK CALL SHOULD PASS RIGHT NOW: the standing bound where there is no
+        budget, and otherwise whatever is smaller -- the standing bound or what the budget has left. Ask
+        Test-NativeCaptureBudgetHasRoom first; on a spent budget this returns the floor rather than 0,
+        deliberately, because 0 is Invoke-NativeCapture's UNBOUNDED value and a guard that fails open into
+        an unbounded network call inside a hook would reinstate the exact defect #1958 is about.
+    #>
+    param($Budget)
+
+    if (-not (Test-NativeCaptureBudgetSet -Budget $Budget)) { return $script:NativeCaptureNetworkTimeoutSeconds }
+    $left = Get-NativeCaptureBudgetSecondsLeft -Budget $Budget
+    if ($left -lt $script:NativeCaptureHookNetworkFloorSeconds) { return $script:NativeCaptureHookNetworkFloorSeconds }
+    if ($left -lt $script:NativeCaptureNetworkTimeoutSeconds) { return $left }
+    return $script:NativeCaptureNetworkTimeoutSeconds
 }
 
 function Invoke-NativeCapture {
