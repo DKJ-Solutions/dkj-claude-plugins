@@ -43,7 +43,55 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 15 minor entries** <!-- pending-tally -->
+**14 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1925-plugin-own-lib-gate · 20260913-111649
+
+The lint gate now proves that a script a plugin SHIPS can actually load the libs it names -- closes
+#1925. Check 8 holds a registered mirror byte-identical to its source and check 39 holds a
+depth-crossing `$PSScriptRoot` resolution to a declared suite; between them sat the class where the
+text is right, the folder is right, and the file is simply not there. A lib registered for two
+plugins and dot-sourced by a script that mirrors into a third resolves inside that third plugin and
+finds nothing -- check 8 has no entry to compare against, and check 39's subject is a two-hop ascent
+while `..\lib\` is one hop. Measured on the `fix/1917-judge-repo-root-resolution` branch:
+`adopt-shopify-floor.ps1`, `archive-theme.ps1`, `push-preview.ps1` and `sync-main.ps1` each gained
+`. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')`, that lib was registered for `dkj-policy`
+and `dkj-subagents-alpha`, and all four mirror into `dkj-subagents-shopify`, which ships no such file. Four
+scripts dead ON LOAD in a consumer, at their first statement, and this gate reported `0 error(s)`.
+
+Two arms, because they fail differently and only one of them is visible from here. The file must
+EXIST, and the path must stay INSIDE the plugin root -- an escaping path resolves in this tree,
+which holds every path a plugin script could climb to, and is gone in the installed copy where the
+`plugins/` level, the family level and every sibling plugin are stripped away. That is check 30's
+lesson one layer over, and existence alone is structurally blind to it. The second arm was found by
+probing rather than by measuring, which is check 35's own rule applied to its neighbour.
+
+A load GUARDED by `Test-Path` is counted and not judged: that is the author declaring the absence
+expected, and this tree means it -- `release-lib`'s `branch-info` sibling is repo-owned and travels
+in no mirror. 70 of the 224 references are guarded, so judging them would have arrived needing an
+exemption list on day one, the shape this repo declined at 124. Only `$PSScriptRoot` is a subject,
+bound through the AST: a `$repoRoot`-relative path names a file in the consumer's own root by design,
+and reading those as plugin-relative reports 14 findings here, all 14 false and all 14 that same
+seam. Born green at 154 unguarded loads across 104 plugin scripts, 0 findings -- and born green by
+one hour, since it had four an hour earlier.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber notices nothing on the day, and that is the point: the gate runs here, on the repo that
+SHIPS the plugins, and what it buys them is that a script which would die at its first statement in
+their install can no longer reach a release. The failure it prevents is not hypothetical -- it was
+sitting on a branch when this was written, four scripts deep, with every existing gate green over it.
+Nothing to migrate, nothing to run, no new refusal in any consumer-side script.
+**Score:** 2
+
+#### Pull Request
+
+A plugin script may only dot-source a lib its own plugin ships
+
+[PR #1929](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1929)
+
+---
 
 ### DEPLOY: fix/1917-judge-repo-root-resolution · 20260913-110717
 
