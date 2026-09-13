@@ -135,6 +135,82 @@ try {
     Assert-Equal '[a b\] [next]'      (Invoke-ArgProbe -Values @('a b\', 'next'))   'a quoted argument ending in a backslash does not escape its own closing quote'
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'Get-NativeArgumentDefect -- the exact predicate behind the & arm refusal (issue #1966)' -ForegroundColor Cyan
+
+    # THE NEAR-MISSES ARE THE HALF THAT MATTERS. A guard that over-refuses makes the & arm unusable for
+    # ordinary text, so every shape that LOOKS dangerous and is not is pinned here explicitly -- a bare
+    # trailing backslash above all, because 'C:\repo\' is an everyday argument and a "refuse every
+    # backslash" reading would take it out.
+    Assert-Equal 'empty'              (Get-NativeArgumentDefect -Value '')            'the empty string is refused -- the & arm DROPS it, shifting every later argument left'
+    Assert-Equal 'quote'              (Get-NativeArgumentDefect -Value 'has"quote')   'a quote is refused wherever it sits'
+    Assert-Equal 'quote'              (Get-NativeArgumentDefect -Value 'a "b" c')     '...including one already surrounded by whitespace'
+    Assert-Equal 'trailing-backslash' (Get-NativeArgumentDefect -Value 'a b\')        'whitespace plus a trailing backslash is refused -- it escapes the closing quote'
+    Assert-Equal 'trailing-backslash' (Get-NativeArgumentDefect -Value 'a b\\')       '...and so is a trailing RUN of them'
+    Assert-Equal ''                   (Get-NativeArgumentDefect -Value 'plain')       'a plain value is deliverable'
+    Assert-Equal ''                   (Get-NativeArgumentDefect -Value 'a b')         'whitespace alone is deliverable -- PowerShell quotes it correctly'
+    Assert-Equal ''                   (Get-NativeArgumentDefect -Value 'trailing\')   'a trailing backslash WITHOUT whitespace is deliverable -- nothing quotes it, so nothing mis-escapes it'
+    Assert-Equal ''                   (Get-NativeArgumentDefect -Value 'C:\repo\')    '...which is the everyday case that clause exists to protect'
+    Assert-Equal ''                   (Get-NativeArgumentDefect -Value "it's fine")   'a single quote is deliverable'
+    Assert-Equal ''                   (Get-NativeArgumentDefect -Value 'a>b&c|d')     'shell metacharacters are deliverable -- CreateProcess has no shell to interpret them'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host 'Get-NativeArgumentRefusal -- what the message says, and what it must never say' -ForegroundColor Cyan
+
+    Assert-Equal '' (Get-NativeArgumentRefusal -Arguments @('pr', 'create', '--title', 'a normal title')) 'a deliverable list produces no refusal'
+    Assert-Equal '' (Get-NativeArgumentRefusal -Arguments @())                                            'an empty LIST is not an empty ARGUMENT -- nothing to refuse'
+
+    $secret = 'https://user:s3cr3t-token@example.invalid/o/r.git"'
+    $msg = Get-NativeArgumentRefusal -Arguments @('push', $secret, 'next')
+    Assert-True ([bool]$msg)                        'a list carrying an undeliverable argument produces a refusal'
+    Assert-True ($msg.Contains('index 1'))          '...naming the INDEX, so the caller can find it in their own code'
+    Assert-True ($msg.Contains('quote'))            '...and the SHAPE, so they know what to change'
+    Assert-True (-not $msg.Contains('s3cr3t'))      '...and never the VALUE: an argument here can carry a token or a remote URL (#1313)'
+    Assert-True (-not $msg.Contains('example.invalid')) '...not even the harmless-looking half of it'
+    Assert-True ($msg.Contains('-Utf8'))            '...and it names the way out rather than only the problem'
+
+    $multi = Get-NativeArgumentRefusal -Arguments @('', 'ok', 'a b\')
+    Assert-True ($multi.Contains('index 0') -and $multi.Contains('index 2')) 'every undeliverable argument is named, not just the first'
+    Assert-True (-not $multi.Contains('index 1'))                            '...and the deliverable one in between is not'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host 'The & arm refuses the three shapes, and -Utf8 still carries them (issue #1966)' -ForegroundColor Cyan
+
+    function Test-AmpArmThrows {
+        param([string]$Value)
+        try {
+            Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-File', $argProbe, $Value) | Out-Null
+            return ''
+        } catch {
+            return [string]$_.Exception.Message
+        }
+    }
+
+    foreach ($shape in @(
+        @{ Value = '';           Label = 'the empty string' },
+        @{ Value = 'has"quote';  Label = 'a value carrying a quote' },
+        @{ Value = 'a b\';       Label = 'whitespace plus a trailing backslash' }
+    )) {
+        $thrown = Test-AmpArmThrows -Value $shape.Value
+        Assert-True ([bool]$thrown) ("the & arm refuses " + $shape.Label + " rather than mis-delivering it")
+        # THE ESCAPE ROUTE IS ASSERTED BESIDE EACH REFUSAL, because a guard whose remedy does not work is
+        # a wall. The round-trip block above already proves -Utf8 delivers these; this proves the SAME
+        # value that was just refused goes through it.
+        $viaUtf8 = Invoke-ArgProbe -Values @($shape.Value, 'next')
+        Assert-Equal ('[' + $shape.Value + '] [next]') $viaUtf8 ("...and -Utf8 carries " + $shape.Label + " intact, so the refusal names a remedy that works")
+    }
+
+    # NO FALSE NEGATIVES, MEASURED AGAINST A REAL ARGV PARSER RATHER THAN AGAINST THE PREDICATE ITSELF.
+    # This is the assert that would catch a shape the predicate misses: every value it calls deliverable
+    # is put through the & arm for real and must come back byte-identical. The mirror-image direction --
+    # no false positives -- cannot be measured here by construction, because the arm now throws on
+    # exactly those; the classification table above is what pins it.
+    foreach ($fine in @('plain', 'a b', 'trailing\', 'C:\repo\', "it's fine", 'a>b&c|d', 'a b c d', '--flag=value')) {
+        Assert-Equal '' (Get-NativeArgumentDefect -Value $fine) "the predicate calls '$fine' deliverable"
+        $r = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-File', $argProbe, $fine, 'next')
+        Assert-Equal ('[' + $fine + '] [next]') ((@($r.Output) | ForEach-Object { [string]$_ }) -join ' ') "...and the & arm really does deliver '$fine' intact"
+    }
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- exit codes and stderr' -ForegroundColor Cyan
 
     $ok  = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'exit', '0')
