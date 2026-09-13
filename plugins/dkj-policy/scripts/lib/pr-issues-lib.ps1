@@ -496,6 +496,71 @@ function Get-PrCreateFailureReason {
     return $reason
 }
 
+function Test-GhMutationTransient {
+    <#
+    .SYNOPSIS
+        Whether a failed gh MUTATION's own output looks like a 5xx / transport failure rather than a
+        refusal -- true means the request may have reached GitHub and landed anyway, false means gh
+        actually read an answer and it was no.
+
+    .DESCRIPTION
+        Inbound #1916. `open-pr.ps1`'s `gh pr create` and `ship-pr.ps1`'s `gh pr merge` both turned
+        every non-zero exit into a hard failure, unconditionally -- while `claim-issue` already carries
+        the doctrine for exactly this shape, for its own write (its SKILL.md, "Every gh call is
+        bounded"): a write that reached the network and never reported back may have landed anyway, so
+        that case is reported as "this run does not know", never as "the write failed".
+
+        A 5xx (or a transport failure in front of one) is the same shape as that timed-out write: gh's
+        request reached GitHub, and the response describes gh's OWN uncertainty about what GitHub did
+        with it, not GitHub's answer. A 4xx is not that -- GitHub read the request and refused it, which
+        is a real answer -- so it is deliberately NOT matched here and stays a hard failure in the
+        caller, exactly as before.
+
+        Measured in a consumer (BWJ-Development/smartwatchbanden, dkj-policy 5.1.0, September 13, 2026):
+        a `gh pr create` that answered 'GraphQL: Something went wrong while executing your query' and
+        two more that answered 'HTTP 502: 502 Bad Gateway' had each actually created the PR; a
+        `gh pr merge` that answered 'non-200 OK status code: 502 Bad Gateway' had actually merged it.
+        All three were read back as landed only after the caller had already reported them as failed.
+
+        DELIBERATELY CONSERVATIVE: the patterns below are gh's own wording for a server error or a
+        transport failure in front of one, not a guess at what "sounds transient". Anything this
+        function does not recognise -- including a 4xx, an auth refusal, or gh printing nothing at all
+        -- returns false and the caller's existing hard-failure path is unchanged. Widening the list is
+        cheap and safe; narrowing a false positive back out after it has told a caller to skip a real
+        refusal is not, so a pattern is added here only against a message actually seen, the same
+        discipline Get-PrCreateFailureReason next to it was built under.
+
+        '5\d\d' ALONE IS TOO LOOSE, because a PR or issue number can read as three digits starting with
+        5 -- so a bare number is required to sit next to one of the words gh/GitHub actually use for a
+        server error before it counts.
+
+        PURE, so the classification can be asserted without a remote. Same move as
+        Get-PrCreateFailureReason and Get-ExistingPrRecord above it in this file.
+
+    .PARAMETER OutputLines
+        The captured output of the failed `gh` call (stdout + stderr merged, as Invoke-NativeCapture
+        returns it).
+    #>
+    param([AllowNull()][string[]]$OutputLines)
+
+    if ($null -eq $OutputLines) { return $false }
+    $text = (($OutputLines | Where-Object { $_ -ne $null } | ForEach-Object { [string]$_ }) -join "`n")
+    if (-not $text.Trim()) { return $false }
+
+    # An HTTP status line, however gh happens to have printed it -- 'HTTP 502: ...',
+    # 'non-200 OK status code: 502 Bad Gateway' -- or the bare phrase on its own.
+    if ($text -match '(?i)HTTP\s+5\d\d\b') { return $true }
+    if ($text -match '(?i)status code:\s*5\d\d\b') { return $true }
+    if ($text -match '(?i)(Bad Gateway|Service Unavailable|Internal Server Error|Gateway Time-?out)') { return $true }
+
+    # GraphQL's own 500-shaped answer carries no HTTP status text at all: gh's mutation reached the
+    # query executor and failed inside it. This is GitHub's own wording for exactly that, not this
+    # repo's guess at one -- the phrase measured verbatim in inbound #1916.
+    if ($text -match '(?i)GraphQL:\s*Something went wrong while executing your query') { return $true }
+
+    return $false
+}
+
 function New-ResolvesBlock {
     <#
     .SYNOPSIS
