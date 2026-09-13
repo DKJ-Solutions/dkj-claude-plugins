@@ -247,12 +247,38 @@ header's no-fetch rule is about.
 turn, sees the other side arrive mid-work.
 
 It is silent unless it does something, and it never fails a turn -- it exits 0 on every outcome, including
-the ones it refuses on. Two parameters, both for callers rather than for you:
+the ones it refuses on.
+
+**That last promise holds only while the script is the thing deciding to stop, which is what
+[#1958](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1958) repaired.** The Stop hook is
+registered at a 60-second ceiling, and past it the harness kills the process from *outside* -- so no
+refusal is worded, no fail-safe arm runs, and nothing already printed is delivered. The script made up to
+three sequential network calls under that ceiling: two bounded at the shared per-call **120 seconds**, and
+`gh pr list` bounded at nothing at all, because that bound is opt-in per call site and this one had never
+opted in. **Per-call bounds do not compose**, so the repair is a deadline for the whole run: every call
+takes what is *left* of one budget rather than a fresh two minutes.
+
+**So a `park:` commit can be legitimately absent, and the run says so rather than going quiet.** Where the
+budget is spent, the call is skipped and named -- `the network budget for this turn is spent before the
+push`, or `did NOT check whether another session is on '<branch>'`. That wording is deliberate: a look that
+never happened and a look that found nothing are different answers, and reporting them alike would put
+#1953's silence back through a new door. **Nothing is lost either way** -- the next turn asks again.
+
+Four parameters, all for callers rather than for you:
 
 - **`-Quiet`** -- print nothing when there is nothing to do. What the hook passes, so an ordinary turn adds
   no line to the session. A push still reports itself, and so does a **collision**: a refusal is "nothing
   to do", another session on this branch is not, and under the hook this switch is the only reader there
   is.
+- **`-UnderHook`** -- this run is a hook's, so it must finish inside a hook's ceiling. What the Stop hook
+  passes, and the whole of what it passes: it says only that a ceiling *exists*, which is the fact a hooks
+  manifest cannot carry a comment about. How much of that ceiling a run may spend is a constant in the
+  shared capture lib, pinned against the registered timeout by the hook's own suite so the two cannot be
+  raised apart. **You do not type this** -- a run you type has no ceiling, passes nothing, and behaves
+  exactly as it did before the budget existed.
+- **`-BudgetSeconds <n>`** -- the same deadline as an explicit number, for a suite that needs to reach a
+  skip arm without waiting for it. Wins over `-UnderHook` where both are given, an explicit number being
+  the more specific of the two. `0` (the default) means no budget at all.
 - **`-RepoRoot <path>`** -- act on that tree instead of the one resolved from `${CLAUDE_PROJECT_DIR}` or the
   git root. For the suite, and for a caller acting on a worktree lane.
 
