@@ -139,4 +139,3 @@ operator to ignore a printed warning first. The repair lands where the hazard is
 
 A hand-reconciled sync conflict gets a durable form
 
-Plugins: dkj-subagents-shopify
