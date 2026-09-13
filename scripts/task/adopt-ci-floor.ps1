@@ -1,9 +1,10 @@
 <#
 .SYNOPSIS
-    The CI floor, in a consuming repo: place the two runners that keep the fold and the resolves
-    verification alive across a merge this session never observes, report whether a required status
-    check exists at all -- the one detect-and-rebase reads -- and, for a repo that has CHOSEN a merge
-    queue, print the ruleset command WITHOUT running it. Issues #1516, #1546, #1903.
+    The CI floor, in a consuming repo: place the runners that keep the fold and the resolves
+    verification alive across a merge this session never observes, place the scheduled check that a
+    GitHub-side repo setting has not silently drifted, report whether a required status check exists at
+    all -- the one detect-and-rebase reads -- and, for a repo that has CHOSEN a merge queue, print the
+    ruleset command WITHOUT running it. Issues #1516, #1546, #1843, #1903.
 
 .DESCRIPTION
     NAMED adopt-merge-queue.ps1 UNTIL SEPTEMBER 13, 2026 (#1903), AND THE OLD NAME IS GONE RATHER THAN
@@ -34,9 +35,11 @@
     step, so the staleness guard is simply off. That is now this script's headline finding, where it
     used to read as a precondition for a switch a reader might never be able to flip.
 
-    THE TWO RUNNERS ARE EVERY REPO'S, QUEUE OR NO QUEUE, and this is the half most easily mis-read as
-    queue machinery. What breaks the fold is a merge THE SHIPPING SESSION DOES NOT OBSERVE, and the
-    GitHub UI merge button produces one in every repo on earth. A queue only makes it the normal case.
+    THE FOLD AND RESOLVES RUNNERS ARE EVERY REPO'S, QUEUE OR NO QUEUE, and this is the half most easily
+    mis-read as queue machinery. What breaks the fold is a merge THE SHIPPING SESSION DOES NOT OBSERVE,
+    and the GitHub UI merge button produces one in every repo on earth. A queue only makes it the normal
+    case. The THIRD runner this command places -- the repo-settings drift check (#1843) -- is not queue-
+    related at all, which is why $targets carries a QueueRelated flag per entry rather than a count.
 
       1. THE MERGE. Under a queue `gh pr merge` does not merge -- gh's own help: "When targeting a
          branch that requires a merge queue ... the pull request will be added to the merge queue."
@@ -56,6 +59,17 @@
          same way for the same reason (#1511). The closing itself is not at risk -- GitHub honours a
          body's keywords on any merge -- but the verification is, and so is the repair when a keyword
          missed, which is the case the script was built for.
+
+    A FOURTH FILE THIS SCRIPT PLACES IS NOT ABOUT AN UNOBSERVED MERGE AT ALL (issue #1843):
+    .github/workflows/repo-settings.yml, a SCHEDULED leg that asks whether a GitHub-side repo setting --
+    a bypass actor, allow_auto_merge, which check is required -- still matches what scripts/repo-config.ps1
+    declares (Get-ExpectedRepoSettings). It rides along in this same command because this is already the
+    one place a consumer runs to build their CI floor, and the source repo measured three such drifts in
+    eight days with nothing in its own tree saying so before it built the check this places
+    (check-repo-settings.ps1). "The reachable goal is identical scripts available, not identical rules
+    enforced" (Dave, September 12, 2026, on #1843) is why the VALUES stay the consumer's own to declare --
+    an empty or absent declaration is a harmless [SKIP], never a refusal -- while the SCRIPT that compares
+    them against GitHub is shared.
 
     AND ONE PREREQUISITE BELONGS TO THE QUEUE ALONE (#1325): every workflow carrying a REQUIRED check
     context must trigger on `merge_group`. A required workflow without it never runs for a queue entry,
@@ -181,6 +195,28 @@ $sharedRef  = 'main'
 $sharedPath = '.workflow-scripts'
 $pluginDir  = "$sharedPath/plugins/dkj-policy/scripts"
 
+# ACTIONS/CHECKOUT IS PINNED BY SHA IN THE TWO WRITE-CAPABLE RUNNERS BELOW (issue #1904).
+# This repo's own .github/workflows/fold-on-merge.yml and verify-resolved.yml have carried this pin
+# since they were written, and the comment on the first of them states the reason: a mutable tag on
+# that line could otherwise retag its way into exfiltrating a 366-day standing write token instead of
+# an hour-lived one. The generator was handing every ADOPTING CONSUMER the same two jobs behind a
+# floating tag -- the repo that wrote the warning protected, the repos that took its advice not.
+#
+# BOTH checkout steps in each of those jobs are pinned, not only the one holding the credential. The
+# first checks out with persist-credentials on, so the token sits in the workspace git config for every
+# later step of the same job; verify-resolved's job likewise holds issues: write for its whole length.
+# An action is pinned because of the JOB it runs in, not because of the line it sits on.
+#
+# repo-settings.yml, the read-only runner scaffolded below, is deliberately NOT pinned -- it holds
+# contents: read and no secret, and this repo's own copy of it is unpinned for that same reason.
+#
+# HOW THIS PIN GETS REFRESHED, which is the half a generated pin does not get for free. It is ONE
+# variable rather than four literals, and pin-parity.tests.ps1 asserts it still equals the SHA in this
+# repo's own fold-on-merge.yml. So the pin has a single refresh point and a gate that fails the moment
+# a hand-maintained workflow here is bumped and the scaffolder is not -- a consumer's floor cannot
+# quietly fall behind the floor this repo runs on itself.
+$checkoutPin = 'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5'
+
 # --- What the trunk's own rules say -----------------------------------------------------------------
 # READ, NEVER WRITTEN, and read once: both questions below (is there a queue, and which contexts are
 # required) come off the same payload, which is the same economy ship-pr's step 0b makes.
@@ -289,7 +325,7 @@ function Get-WorkflowFacts {
 $workflowDir = Join-Path $repoRoot '.github\workflows'
 $workflows = Get-WorkflowFacts -WorkflowDir $workflowDir
 
-# --- The two runners, consumer-shaped ---------------------------------------------------------------
+# --- The runners, consumer-shaped ---------------------------------------------------------------
 # DERIVED FROM THE SOURCE'S OWN, NOT COPIED. Two things differ, both of them structural rather than
 # stylistic: the scripts are reached through a checkout of the plugin's tree instead of the repo's own
 # (there is one definition of the fold in this system and this must not become a second), and
@@ -403,13 +439,13 @@ $foldRunner = @(
     '      # ref: the trunk tip, not the pushed SHA -- see the header comment (inbound #1543). This job',
     '      # asks whether the trunk carries a leftover NOW, and a fold ship-pr already pushed on top of',
     '      # the merge commit must not read as still-unfolded here.',
-    '      - uses: actions/checkout@v5',
+    ('      - uses: ' + $checkoutPin),
     '        with:',
     ('          ref: ' + $trunk),
     '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
     '',
     '      - name: Fetch the shared workflow scripts',
-    '        uses: actions/checkout@v5',
+    ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
     ('          ref: ' + $sharedRef),
@@ -543,12 +579,12 @@ $resolvesRunner = @(
     '    steps:',
     '      # persist-credentials: false -- this job reads and calls the API, and never pushes. Nothing',
     '      # here needs a git credential left in the workspace.',
-    '      - uses: actions/checkout@v5',
+    ('      - uses: ' + $checkoutPin),
     '        with:',
     '          persist-credentials: false',
     '',
     '      - name: Fetch the shared workflow scripts',
-    '        uses: actions/checkout@v5',
+    ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
     ('          ref: ' + $sharedRef),
@@ -573,10 +609,123 @@ $resolvesRunner = @(
     '          exit $LASTEXITCODE'
 )
 
-$targets = @(
-    @{ Rel = '.github/workflows/fold-on-merge.yml';   Content = (($foldRunner -join $nl) + $nl);     What = 'the fold, which the queue takes away from the shipping session' },
-    @{ Rel = '.github/workflows/verify-resolved.yml'; Content = (($resolvesRunner -join $nl) + $nl); What = 'the resolves verification, which the queue takes away too' }
+# A THIRD RUNNER, NOT ABOUT AN UNOBSERVED MERGE AT ALL (issue #1843): does a GitHub-side repo setting
+# still match what scripts/repo-config.ps1 declares? It rides along in this same command because this
+# is already the one place a consumer builds their CI floor, and it needs no queue and no merge to be
+# worth having -- it runs on a schedule, not on a push.
+$repoSettingsRunner = @(
+    '# Checks whether GitHub-side repo settings still match what this tree declares -- scheduled, not',
+    '# merge-triggered, because its subject is a repo setting drifting on its own rather than a PR (issue',
+    '# #1843, derived from the source repo''s own .github/workflows/repo-settings.yml, issue #1726).',
+    '#',
+    '# WHAT THIS CLOSES. A ruleset and a repo''s merge switches are GitHub-side state: nothing in this',
+    '# tree changes when they change -- no commit, no gate, no session. Yet scripts/repo-config.ps1''s',
+    '# Get-ExpectedRepoSettings is load-bearing for whatever this repo''s own constitution rests on it --',
+    '# a direct-on-trunk exception, a fold, a staleness guard -- so the record and the live state could',
+    '# disagree indefinitely with nothing saying so. The source repo measured three such drifts in eight',
+    '# days before building this: bypass_actors emptied by an org transfer, a merge_queue rule added and',
+    '# removed with no trace, and allow_auto_merge left on against its own tree''s record.',
+    '#',
+    '# A SCHEDULE, NOT A SessionStart HOOK: a hook only reaches whoever happens to open a session, and if',
+    '# nobody does, nothing is written down. A scheduled run leaves a DATED record -- every future answer',
+    '# is bounded to how long ago this last ran, whether or not anyone was looking.',
+    '#',
+    '# NOT A REQUIRED CHECK, deliberately. Its subject IS the ruleset, so requiring it would be',
+    '# self-referential, and it would stop merges on a switch only the repo owner can flip. A red run plus',
+    '# GitHub''s failure e-mail is the signal -- the same non-membership this floor''s other two runners and',
+    '# the plugin''s branch-entry gate all keep, each for their own reason.',
+    '#',
+    '# workflow_dispatch IS NOT DECORATION -- it is how the answer is obtained the day a setting changes on',
+    '# purpose, without waiting for the next cron.',
+    '#',
+    '# THE CHECK NEVER WRITES TO GITHUB. Repo settings are the owner''s surface; this script reads and',
+    '# reports, exactly as this same command''s own ruleset instruction (further down this file) composes',
+    '# and stops rather than applying anything.',
+    '#',
+    '# ONE FIELD (bypass_actors) IS ADMIN-ONLY AND READS AS UNREADABLE, NOT AS GREEN -- the check''s own',
+    '# third verdict. -RequireRead is the floor under that: without it, a token that cannot reach the two',
+    '# non-admin endpoints would report every field as not-read and still exit 0 -- a detector reporting',
+    '# success while checking nothing.',
+    '#',
+    '# LEAST PRIVILEGE, AND READ-ONLY: contents: read is the whole permission. The checkout is UNPINNED --',
+    '# this job never holds a credential worth pinning against. Contrast the source repo''s OWN tree:',
+    '# fold-on-merge.yml and verify-resolved.yml (write-capable) are pinned; repo-settings.yml itself,',
+    '# branch-entry.yml and unfolded-entry.yml (read-only, like this job) are not. persist-credentials:',
+    '# false because this job never pushes.',
+    '#',
+    '# THIS COMMAND''S OWN FOLD/RESOLVES RUNNERS ARE UNPINNED TOO, though -- despite each carrying a',
+    '# standing push credential or a write scope, unlike their pinned source-repo counterparts above.',
+    '# That gap is filed as #1904 and is deliberately out of scope here.',
+    '#',
+    '# THE SECOND CHECKOUT reaches the check through the plugin''s own tree rather than a copy kept here,',
+    '# so this repo shares one definition of "what GitHub-side drift looks like" with the workflow''s',
+    '# source instead of holding a second copy free to drift from it -- same reasoning, same shape, as the',
+    '# other two runners this command places.',
+    '#',
+    '# THE TRUNK IS BAKED IN AT SCAFFOLD TIME, from the same Get-TrunkBranchName seam this whole command',
+    '# already reads for the other two runners'' triggers. The check ALSO resolves that seam itself at run',
+    '# time (given CLAUDE_PROJECT_DIR), so passing it here is not a requirement -- an explicit -Trunk',
+    '# always wins over the seam, and the two cannot disagree because they read the same function.',
+    '#',
+    '# CLAUDE_PROJECT_DIR IS NOT OPTIONAL, on the other two runners'' own reasoning: a mirrored script',
+    '# resolves the tree it judges from that variable first, and without it a workspace holding two',
+    '# checkouts (this one, and the plugin''s under the path above) leaves which root it reads to chance',
+    '# rather than to the consumer''s repo by construction.',
+    '#',
+    '# WINDOWS: the shared script targets Windows PowerShell 5.1, which is what ''shell: powershell'' is.',
+    'name: Repo settings',
+    '',
+    'permissions:',
+    '  contents: read',
+    '',
+    'on:',
+    '  schedule:',
+    '    - cron: ''30 6 * * *''',
+    '  workflow_dispatch:',
+    '',
+    'concurrency:',
+    '  group: repo-settings',
+    '  cancel-in-progress: true',
+    '',
+    'jobs:',
+    '  repo-settings:',
+    '    runs-on: windows-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v5',
+    '        with:',
+    '          persist-credentials: false',
+    '',
+    '      - name: Fetch the shared workflow scripts',
+    '        uses: actions/checkout@v5',
+    '        with:',
+    ('          repository: ' + $sharedRepo),
+    ('          ref: ' + $sharedRef),
+    ('          path: ' + $sharedPath),
+    '',
+    '      - name: GitHub-side settings still match what the tree declares',
+    '        shell: powershell',
+    '        env:',
+    '          GH_TOKEN: ${{ github.token }}',
+    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
+    '        run: |',
+    ('          powershell -NoProfile -ExecutionPolicy Bypass -File ' + $pluginDir + '/lint/check-repo-settings.ps1 -RequireRead -Trunk ' + $trunk),
+    '          exit $LASTEXITCODE'
 )
+
+# QueueRelated MARKS THE TWO TARGETS AN ACTIVE QUEUE MAKES URGENT (fold, resolves-verification) AGAINST
+# THE ONE THAT ISN'T (repo-settings). Without this flag, a missing repo-settings.yml would be reported
+# as a live defect purely because a queue happens to be active elsewhere in the same repo -- a setting
+# drifting has nothing to do with whether this repo runs a merge queue.
+$targets = @(
+    @{ Rel = '.github/workflows/fold-on-merge.yml';   Content = (($foldRunner -join $nl) + $nl);     What = 'the fold, which the queue takes away from the shipping session'; QueueRelated = $true },
+    @{ Rel = '.github/workflows/verify-resolved.yml'; Content = (($resolvesRunner -join $nl) + $nl); What = 'the resolves verification, which the queue takes away too'; QueueRelated = $true },
+    @{ Rel = '.github/workflows/repo-settings.yml';   Content = (($repoSettingsRunner -join $nl) + $nl); What = 'does a GitHub-side repo setting still match what the tree declares'; QueueRelated = $false }
+)
+
+# THE ONLY TARGET THAT NEEDS FOLD_PUSH_TOKEN. Tracked by name rather than by "was anything created this
+# run", because with three targets that counter no longer says which file is missing: a repo that is
+# only missing repo-settings.yml (no secret involved at all) would otherwise be told to go create one.
+$foldRunnerRel = '.github/workflows/fold-on-merge.yml'
 
 # --- Report ------------------------------------------------------------------------------------------
 Write-Host "== adopt-ci-floor -- $repoRoot ==" -ForegroundColor Cyan
@@ -641,11 +790,13 @@ if (-not $queueReadable) {
 }
 Write-Host ''
 
-# 2 + 3. THE TWO RUNNERS. These this command CAN place: they are new files beside yours, not edits to
-#        one of them, which is the same line adopt-workflow-folder draws.
-Write-Host '-- 2. the two runners ANY unobserved merge takes away (queue, or the UI button) --' -ForegroundColor Cyan
+# 2. THE RUNNERS THIS COMMAND CAN PLACE: new files beside yours, not edits to one of them, which is the
+#    same line adopt-workflow-folder draws. Two answer an unobserved merge; the third (repo-settings)
+#    answers a GitHub-side setting drifting on its own, and needs neither a queue nor a merge to matter.
+Write-Host '-- 2. the runners this floor places (an unobserved merge; and, on a schedule, GitHub-side drift) --' -ForegroundColor Cyan
 $created = 0
 $kept = 0
+$foldRunnerCreated = $false
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
     if (Test-Path -LiteralPath $abs) {
@@ -653,20 +804,31 @@ foreach ($t in $targets) {
         Write-Host "  [exists]  $($t.Rel) -- left as it is" -ForegroundColor DarkGray
         continue
     }
-    if ($queueActive -and -not $Apply) { $liveDefects++ }
+    # QUEUE-RELATED ONLY: repo-settings.yml missing is an ordinary to-do regardless of queue state, so
+    # it must never count toward the ACTIVE-QUEUE-AND-INCOMPLETE-FLOOR exit code below.
+    if ($queueActive -and -not $Apply -and $t.QueueRelated) { $liveDefects++ }
     $created++
+    if ($t.Rel -eq $foldRunnerRel) { $foldRunnerCreated = $true }
     if ($Apply) {
         $dir = Split-Path -Parent $abs
         if (-not (Test-Path -LiteralPath $dir)) { $null = New-Item -ItemType Directory -Path $dir -Force }
         [System.IO.File]::WriteAllText($abs, $t.Content, $Utf8NoBom)
         Write-Host "  [created] $($t.Rel) -- $($t.What)" -ForegroundColor Green
     } else {
-        $marker = if ($queueActive) { '[MISSING]' } else { '[create] ' }
-        $colour = if ($queueActive) { 'Red' } else { 'Green' }
+        $marker = if ($queueActive -and $t.QueueRelated) { '[MISSING]' } else { '[create] ' }
+        $colour = if ($queueActive -and $t.QueueRelated) { 'Red' } else { 'Green' }
         Write-Host "  $marker $($t.Rel) -- $($t.What)" -ForegroundColor $colour
     }
 }
-if ($created -gt 0) {
+Write-Host '  [note]    repo-settings.yml runs on a SCHEDULE, not per merge -- it answers a different' -ForegroundColor DarkGray
+Write-Host '            question (has a GitHub-side setting drifted since it was declared) and reports' -ForegroundColor DarkGray
+Write-Host '            nothing unless scripts/repo-config.ps1 declares Get-ExpectedRepoSettings; an' -ForegroundColor DarkGray
+Write-Host '            empty or absent declaration is the default and is a [SKIP] there, not a gap here.' -ForegroundColor DarkGray
+# THE SECRET REMINDER NAMES THE FOLD RUNNER SPECIFICALLY, and only fires when THAT target is the one
+# missing -- not on the generic $created count, which with three targets no longer says which file that
+# was. A repo missing only repo-settings.yml (no secret involved at all) must never be told to go create
+# a FOLD_PUSH_TOKEN it does not need.
+if ($foldRunnerCreated) {
     Write-Host ''
     Write-Host '  THE FOLD RUNNER NEEDS A SECRET YOU HAVE TO CREATE: FOLD_PUSH_TOKEN.' -ForegroundColor Yellow
     Write-Host '  A merge_queue rule blocks every direct push to the trunk, and the default GITHUB_TOKEN' -ForegroundColor Yellow

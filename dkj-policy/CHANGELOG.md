@@ -43,7 +43,112 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**6 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1904-pin-checkout-in-scaffolded-runners · 20260913-063623
+
+The two write-capable runners this workflow scaffolds into a consumer -- `fold-on-merge.yml`, which spends a
+366-day `FOLD_PUSH_TOKEN`, and `verify-resolved.yml`, which holds `issues: write` -- were composed with a
+mutable `actions/checkout@v5`, while this repo's own committed copies of the same two jobs have always been
+SHA-pinned against exactly that risk. The repo that wrote the warning was protected; the repos that took its
+advice were not. All four composed checkout lines are now pinned to `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09`
+(`v5`) through a single `$checkoutPin` seam, and `pin-parity.tests.ps1` asserts that seam still equals the SHA
+in this repo's own fold runner -- so a bump here that forgets the generator fails a gate instead of quietly
+leaving every consumer's floor behind. Both steps of each job are pinned, not only the one carrying the
+credential, because `persist-credentials` puts the token in the workspace for the whole job; a read-only
+runner stays unpinned for the same reason this repo's own does.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It closes a gap that pointed the wrong way round: the hardening was written down, implemented and enforced
+here, and the generator handed every adopting consumer the weaker template of the same job. And it answers
+the follow-up #1904 raised rather than leaving it -- a pin in a *generated* file has no maintainer, so the
+refresh point was made singular and put under a parity gate in the same change.
+
+**Score:** 2
+
+#### Pull Request
+
+Pin actions/checkout by SHA in the fold and resolves runners the scaffolder writes
+
+Plugins: dkj-policy
+
+[PR #1911](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1911)
+
+---
+
+### DEPLOY: fix/1902-xoxowildhearts-live-repo · 20260913-053851
+
+`connectors/xoxowildhearts.json` now names `BWJ-Development/xoxowildhearts`, the repository this
+consumer actually works in. The old slug is **not archived** and still resolves, so nothing was
+failing and nothing would have started failing -- which is the hazard: a register pointing at an
+abandoned repo reads healthy indefinitely. Two checks have learned to *resolve* this field since the
+last such correction was made (`-RemoteRunners` reads that repository's CI over the API, #1850; check
+1b compares it against a checkout's own `origin`, #1821), so it is no longer the display-only
+bookkeeping #1553 measured it as.
+
+**Score:** 2 -- one data field in the consumer register, plus its note. Nobody outside this repo's
+own maintenance runs into it, and it is latent even here: no machine currently resolves a
+`localCheckout` for this consumer, so the connector block is a `[SKIP]` either way. It is noticed the
+moment somebody registers a checkout path, or runs `-RemoteRunners`.
+
+#### What makes this deploy extra special
+
+N/A -- the consumer register is this repo's own bookkeeping about who consumes the plugins. Nothing
+here ships, and nobody running an upgrade takes anything from it.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors/xoxowildhearts.json points at the live repo
+
+[PR #1908](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1908)
+
+---
+
+### DEPLOY: feat/1843-portable-repo-settings-runner · 20260913-053153
+
+The repo-settings drift detector stops being this repo's private tool. `check-repo-settings.ps1` is now
+a shared script in `dkj-policy`, `Get-ExpectedRepoSettings` is a contract record marked `decide` -- the
+comparison travels, the values stay the consumer's own -- and Part 3 of the adoption scaffolds
+`.github/workflows/repo-settings.yml` over the second-checkout mechanism the fold and resolves runners
+already use. It reads `gh api` and reports; it never writes a setting, because repo settings are the
+owner's surface. `-Trunk` now comes from `Get-TrunkBranchName`, which is what makes the check usable at
+all in a repo whose trunk is not `main`: every read was previously aimed at a branch that does not exist
+there, and `-RequireRead` turned that into a red run naming the wrong cause. Adding the third target also
+exposed that the `FOLD_PUSH_TOKEN` reminder and the queue-defect count both hung on one generic
+"something is missing" counter, so each now keys on the thing it is actually about.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer's ruleset, its bypass actors and its merge switches are GitHub-side state: nothing in their
+tree changes when one moves, so a record and the live state can disagree indefinitely with nothing saying
+so. This repo learned that the expensive way -- three drifts in eight days, two of them with mechanical
+consequences: the org transfer emptied `bypass_actors` and every fold was dead for a day (#1244), and
+`merge_queue` was added and removed with no trace at all (#1499, #1720). Until now the detector built from
+that experience ran here and nowhere else. After the next release an adopting repo gets the same dated,
+daily answer about its own settings, against its own declared values.
+
+What it deliberately does not get is enforcement. Rulesets and required checks remain the repo owner's
+surface, so the runner reports and stops -- the reachable goal being identical scripts available, not
+identical rules enforced.
+
+**Score:** 3
+
+#### Pull Request
+
+The repo-settings drift detector travels: check-repo-settings into the plugin, a Get-ExpectedRepoSettings seam, and a scaffolded repo-settings.yml
+
+Plugins: dkj-policy
+
+[PR #1909](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1909)
+
+---
 
 ### DEPLOY: fix/1848-retire-legacy-prio-labels · 20260913-052224
 

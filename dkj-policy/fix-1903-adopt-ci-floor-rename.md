@@ -46,13 +46,16 @@ recommendation. Sylvester's verdict: **rename, clean break, no shim.**
 
 Two things were checked before writing anything, because the report is a snapshot:
 
-- **The third runner is not in the tree.** #1903 was filed from
-  `feat/1843-portable-repo-settings-runner`, which sits on origin as a park commit carrying only its
-  branch document -- `repo-settings.yml` is that branch's *plan*, not a state. So the "three runners
-  under a two-runner name" half of the report does not stand yet.
-- **The rest of it stands without that half.** `.SYNOPSIS` already opened with *"The CI floor"*, and
-  the queue stopped being the policy on September 7 (#1546) and came off the source's own ruleset on
-  September 9 (#1720). The name was the last part still saying "queue", independently of #1843.
+- **The third runner was not in the tree when this branch opened -- and it is now.** #1903 was filed
+  from `feat/1843-portable-repo-settings-runner`, which at that moment sat on origin as a park commit
+  carrying only its branch document, so `repo-settings.yml` was that branch's *plan* rather than a
+  state. It merged as #1909 while this branch was in review, and #1904 pinned `actions/checkout` in the
+  scaffolded runners on top of it. So the report's first half now stands in full: `$targets` holds
+  three entries, one of them flagged `QueueRelated = $false`.
+- **The rest of it stood without that half, which is why the branch did not wait for it.** `.SYNOPSIS`
+  already opened with *"The CI floor"*, and the queue stopped being the policy on September 7 (#1546)
+  and came off the source's own ruleset on September 9 (#1720). The name was the last part still
+  saying "queue", independently of #1843.
 
 #### Why no shim at the old path
 
@@ -79,24 +82,47 @@ consumer who had wrapped the old path gets a loud file-not-found instead of a se
 - [x] `dkj-policy/releases/**` deliberately untouched -- the archived release history is historical by
       the carve-out in `CLAUDE.md`
 - [x] mirrors regenerated with `scripts/sync/build-shared-scripts.ps1` (6 updated)
+- [x] `main` merged in after #1843 (#1909) and #1904 (#1911) landed mid-branch, which is what made the
+      PR conflicting and left it with no check suite at all. Three conflicts, all in the renamed
+      script's `.SYNOPSIS`, its mirror and the scripts README row -- resolved by taking the merged
+      three-runner wording under the new name
+- [x] `scripts/tests/pin-parity.tests.ps1` (arrived with #1904) resolved the script by a hard-coded
+      `scripts\task\adopt-merge-queue.ps1` -- a NEW executable reference the rename would have broken,
+      and the only one in the tree
+- [x] the docstring's own runner count corrected while here, which is the other half of what #1903
+      reported: `$targets` holds three entries with a `QueueRelated` flag, while the header still said
+      "THE TWO RUNNERS" and the section comment "The two runners, consumer-shaped". Same for the skill
+      page's heading and the registry comment
+- [x] `config-blueprint.json` regenerated (`build-config-blueprint.ps1`), since `repo-config.ps1`'s
+      #1726 seam names this script in its own comment
 
 ### TEST
 
 - [x] `check-plugin-integrity.ps1` -- 0 errors, including the shared-script mirror, skill-param,
       skill-command and shared-script-list checks that all read the registry name
-- [x] `adopt-ci-floor.tests.ps1` -- 76 passed, 0 failed
+- [x] `adopt-ci-floor.tests.ps1` -- 103 passed, 0 failed (76 before the merge brought #1843's in)
 - [x] `merge-queue-prereq.tests.ps1` -- 36 asserts, including the one pinning the registered pair name
 - [x] `check-script-contract.ps1` -- 0 errors
-- [x] full suite run via `open-pr.ps1`'s own gate
+- [x] `pin-parity.tests.ps1` -- 15 passed, and `config-blueprint.tests.ps1` -- 196 passed, both of
+      them suites the merge-forward touched
+- [x] full suite run via `open-pr.ps1`'s own gate -- all 101 suites passed in 1,512s at 4 lanes.
+      The default lane count exhausted the machine on the first attempt and the harness killed it at
+      31 suites; nothing failed, and `-MaxParallel 4` was the answer rather than `-SkipTests`
 
 ### DEPLOY: fix/1903-adopt-ci-floor-rename
 
 `adopt-merge-queue.ps1` is now `adopt-ci-floor.ps1`, in both copies, with the test suite, the
-shared-scripts registry entry, the durations key and 16 source-side files of prose following it -- closes #1903.
+shared-scripts registry entry, the durations key and the tree's prose following it -- closes #1903.
 The queue stopped being this workflow's policy on September 7 (#1546) and came off the source's own
 ruleset on September 9 (#1720); most repos running this workflow cannot have one at all (#1540). The
 name was the last part that still promised it. No shim: the old path is gone rather than forwarded,
 and the reasoning for that is in the script's own header rather than here.
+
+**And the docstring's runner count went with it**, which is #1903's other half. #1843 landed while this
+branch was in review, so `$targets` now holds three entries carrying a `QueueRelated` flag -- while the
+header still read *"THE TWO RUNNERS ARE EVERY REPO'S"* and the section comment *"The two runners,
+consumer-shaped"*. The claim was only ever about the fold and resolves pair; the third runner is a
+scheduled drift check that has nothing to do with a queue, and the text now says so.
 
 For this repo's maintainers the change is a name that finally matches the file plus a registry comment
 that no longer states retired policy as current -- noticed the moment somebody reaches for the Part 3
