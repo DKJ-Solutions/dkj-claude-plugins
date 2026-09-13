@@ -50,7 +50,8 @@ tree before routing:
 - **Reason** -- stands. Every entry gate in `open-pr` sits behind `Test-Path $entryPath`, so an
   entry-less branch passes all of them and dies at the nameless-PR refusal, which is *after* the push.
 - **Repair** -- both proposed shapes name mechanisms that exist. Both were taken: the commit subject is
-  the default so a caller passing nothing still gets a named PR, and `-Title` is the override.
+  the default so a caller passing nothing still gets a named PR, and `-Title` is the explicit source where
+  one is passed -- not an override, since such a branch has no entry title for it to override.
 - **Size, subject, repo** -- one defect, in this repo's own shared script, reaching every consumer.
 - **The side observation** -- also stands, and is repaired here: the legacy root fallback was
   unconditional, so a branch with no entry in either place ended up quoting `<repo>/<branch>.md`, a
