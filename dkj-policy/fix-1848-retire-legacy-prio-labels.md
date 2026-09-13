@@ -43,17 +43,44 @@ Both BWJ-Development/smartwatchbanden and BWJ-Development/xoxowildhearts have mi
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verified both stores against the tracker and the repos themselves: #1848's own comments show
+  neither had started as of 2026-09-11/12; both have since migrated (additively, not by rename) and
+  carry no legacy label at all any more -- confirmed live via `gh label list` / `gh issue list` on
+  `BWJ-Development/smartwatchbanden` and `BWJ-Development/xoxowildhearts`.
+- [x] Dropped `$script:LegacyPrioLabels` and its comment block from
+  `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1`, and narrowed the `$stale` line in
+  `Set-IssuePrioLabel` back to `$script:PrioLabels` alone.
+- [x] Dropped the two asserts in `scripts/tests/dkj-policy-bwj.tests.ps1` that pinned
+  `LegacyPrioLabels`' count and its disjointness from `PrioLabels`, and the comment block explaining
+  them.
+- [x] Grepped the tree for any other reference to `LegacyPrioLabels` -- none remain outside this
+  branch's own document.
 
 ### TEST
 
+- [x] `scripts/tests/dkj-policy-bwj.tests.ps1` runs clean with the two asserts removed (the loop
+  asserting every score maps to a `PrioLabels` name already covers the disjointness that mattered).
+- [x] `open-pr.ps1`'s own lint + full test-suite gate (`check-plugin-integrity.ps1` + all suites)
+  before the push.
+
 ### DEPLOY: fix/1848-retire-legacy-prio-labels
 
-**Score:**
+Removes dead code from the BWJ Asana-mirror template: `$script:LegacyPrioLabels` existed only to
+bridge the window while `smartwatchbanden` and `xoxowildhearts` still carried the pre-#1842 label
+names. Both have now migrated and carry no legacy name at all, so the array guards a state that can
+no longer arise -- closes #1848.
+
+Only this repo's own maintainers notice: a reader of the sweep logic no longer has to reason about a
+legacy-name bridge that no BWJ store still needs, and a future consumer adopting dkj-policy-bwj fresh
+never sees the old names at all. Internal script hygiene.
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+No subscriber of a service is affected -- this is internal script hygiene in a template two already-
+migrated consumer repos already run their own copy of; nothing here reaches past this repo's own
+maintainers.
+**Score:** N/A
 
 #### Pull Request
 
