@@ -639,6 +639,21 @@ $script:DotSourceConditionalAstType = @(
     'ScriptBlockExpressionAst', 'TrapStatementAst'
 )
 
+function Test-AstInvokedInPlace {
+    <# Is this script block the one being invoked by the '&' or '.' command it belongs to -- i.e. is it
+       `& { ... }` rather than a block that is stored and called later? Then the statements in it run
+       exactly when the invocation does, and the invocation's OWN ancestry is what decides whether that is
+       at load. #>
+    param([Parameter(Mandatory)]$Ast)
+
+    $parent = $Ast.Parent
+    if ($parent -isnot [System.Management.Automation.Language.CommandAst]) { return $false }
+    if (@($parent.CommandElements).Count -lt 1) { return $false }
+    if (-not [object]::ReferenceEquals($parent.CommandElements[0], $Ast)) { return $false }
+    return $parent.InvocationOperator -in @([System.Management.Automation.Language.TokenKind]::Ampersand,
+                                            [System.Management.Automation.Language.TokenKind]::Dot)
+}
+
 function Test-AstRunsAtLoad {
     <# Does this AST node run unconditionally when the file is dot-sourced or executed -- i.e. is every
        ancestor up to the root an ordinary top-level statement? Walks the parent chain and answers $false
@@ -647,12 +662,30 @@ function Test-AstRunsAtLoad {
        A NAME MISSING FROM THE TYPE LIST COSTS A FALSE $true, which over-reports rather than under-reports
        -- the opposite bias from Copy-Item's switch list in fixture-dep-lib.ps1, and deliberately so: the
        list is closed by PowerShell's own grammar rather than by a command's parameter set, so a gap here
-       is a grammar construct nobody in this tree writes. #>
+       is a grammar construct nobody in this tree writes.
+
+       THE ONE EXCEPTION IS `& { ... }`, AND IT IS IN THIS TREE RATHER THAN HYPOTHETICAL. A script block is
+       in the list because its statements normally run when something CALLS it, which is not load. An
+       immediately-invoked one is the opposite: it runs exactly where it is written, and this repo uses the
+       idiom deliberately, to keep a seam's temporary variables out of the caller's scope. So the block is
+       stepped THROUGH rather than stopped at, and the invocation's own ancestry decides -- which keeps an
+       `& { ... }` sitting inside an `if` correctly conditional.
+
+       MEASURED, and by the code review rather than by me: check-plugin-integrity.ps1 resolves its
+       changelog seam that way at top level, with an unguarded `. seam-lib.ps1` inside the block. Without
+       this, a fixture that copied that script and not that lib was exactly the #1917 shape and the gate
+       read clean -- the case being silent for the same reason the founding one was. The comment standing
+       above that block spells the failure out by hand, which is what a missing mechanism looks like. #>
     param([Parameter(Mandatory)]$Ast)
 
     $node = $Ast.Parent
     while ($null -ne $node) {
-        if ($script:DotSourceConditionalAstType -contains $node.GetType().Name) { return $false }
+        if ($script:DotSourceConditionalAstType -contains $node.GetType().Name) {
+            if (-not ($node -is [System.Management.Automation.Language.ScriptBlockExpressionAst] -and
+                      (Test-AstInvokedInPlace -Ast $node))) {
+                return $false
+            }
+        }
         $node = $node.Parent
     }
     return $true

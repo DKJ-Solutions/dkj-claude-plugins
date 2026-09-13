@@ -113,6 +113,13 @@ $script:FixtureDepOptOutPattern = '(?m)^\s*#\s*fixture-dep:\s*script-not-loaded\
 # purpose; see Get-FixtureCopiedLibName for why that needs an opt-out on the suite instead.
 $script:FixtureDepRepoOwnedSeam = @('branch-info.ps1')
 
+# The destination-literal memo -- see Get-FixtureCopyDestinationLiteral for what it is worth and why its
+# key carries the file's identity. Declared at load time rather than lazily, which is a strict-mode
+# requirement rather than a style choice: every caller runs under Set-StrictMode -Version Latest, where
+# even the "is it initialised yet" test would throw. Same reasoning, same shape, as the walker's own memo
+# in script-contract-lib.ps1.
+$script:FixtureDepDestinationCache = @{}
+
 
 function Get-FixtureDepRepoOwnedSeam {
     <# The repo-owned seam files a fixture does not owe a copy of. Exposed so a suite can assert the
@@ -319,8 +326,22 @@ function Get-FixtureCopyDestinationLiteral {
         Split out for #1924, when the second reader arrived. Before that the walk and the 'scripts/lib/'
         filter were one function, which reads fine with one caller and would have meant a second copy of
         Get-CopyItemDestinationAst's contract with two.
+
+        AND MEMOISED, BECAUSE FACTORING IT OUT DID NOT BY ITSELF MAKE THE PARSE SHARED. Both readers call
+        this, so Get-FixtureDepReport asking its two questions about one file read and parsed that file
+        TWICE -- the copy review caught the comment claiming otherwise, which was the honest description of
+        an optimisation that had only been half made. Keyed exactly as Get-ScriptDotSourceTargets' memo is,
+        on the file's identity rather than its path alone: this lib's own suite writes a fixture, reads it
+        and writes another at the same path, and a path-only key is the one that goes stale under precisely
+        that caller (#1693, where it cost two red asserts reading as a bug in the walk).
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stat = Get-Item -LiteralPath $Path
+    $cacheKey = "$($stat.FullName)|$($stat.LastWriteTimeUtc.Ticks)|$($stat.Length)"
+    if ($script:FixtureDepDestinationCache.ContainsKey($cacheKey)) {
+        return @($script:FixtureDepDestinationCache[$cacheKey])
+    }
 
     # THE PREFILTER IS FREE AND IT IS NOT A MICRO-OPTIMISATION EITHER. This runs over EVERY suite in the
     # directory to decide which ones are subjects, and only 18 of 84 files contain the string
@@ -329,24 +350,26 @@ function Get-FixtureCopyDestinationLiteral {
     # line, a 2.6x cut for one substring test. It cannot change the answer: a file with no occurrence of
     # the string cannot hold a Copy-Item CommandAst, and a file that only mentions it in a comment costs
     # one harmless parse.
-    if (([System.IO.File]::ReadAllText($Path)).IndexOf('Copy-Item', [System.StringComparison]::Ordinal) -lt 0) {
-        return @()
-    }
-
-    $ast = Get-FixtureDepAst -Path $Path
+    # THE EMPTY ANSWER IS CACHED TOO, and the early return is inside the walk rather than above the memo
+    # for that reason: 'this file has no Copy-Item' is an answer, and re-reading 66 files to reach it a
+    # second time is the same waste one line down.
     $found = @()
-    foreach ($node in @($ast.FindAll({
-                $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))) {
-        if ($node.GetCommandName() -ne 'Copy-Item') { continue }
+    if (([System.IO.File]::ReadAllText($Path)).IndexOf('Copy-Item', [System.StringComparison]::Ordinal) -ge 0) {
+        $ast = Get-FixtureDepAst -Path $Path
+        foreach ($node in @($ast.FindAll({
+                    $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))) {
+            if ($node.GetCommandName() -ne 'Copy-Item') { continue }
 
-        foreach ($valueAst in (Get-CopyItemDestinationAst -Command $node)) {
-            foreach ($lit in @($valueAst.FindAll({
-                        $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true))) {
-                $found += ([string]$lit.Value).Replace($script:FixtureDepBackslash, $script:FixtureDepForwardSlash)
+            foreach ($valueAst in (Get-CopyItemDestinationAst -Command $node)) {
+                foreach ($lit in @($valueAst.FindAll({
+                            $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true))) {
+                    $found += ([string]$lit.Value).Replace($script:FixtureDepBackslash, $script:FixtureDepForwardSlash)
+                }
             }
         }
     }
 
+    $script:FixtureDepDestinationCache[$cacheKey] = @($found)
     return @($found)
 }
 

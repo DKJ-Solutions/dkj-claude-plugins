@@ -858,7 +858,7 @@ if (Test-Path -LiteralPath $memoProbeDep -PathType Leaf) { . $memoProbeDep }
     $uncondDir = Join-Path $Fixture 'uncond'
     New-Item -ItemType Directory -Path (Join-Path $uncondDir 'scripts\lib') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $uncondDir 'scripts\task') -Force | Out-Null
-    foreach ($n in @('top-lib', 'guarded-lib', 'infunc-lib', 'inloop-lib')) {
+    foreach ($n in @('top-lib', 'guarded-lib', 'infunc-lib', 'inloop-lib', 'inblock-lib', 'blockinif-lib')) {
         [System.IO.File]::WriteAllText((Join-Path $uncondDir "scripts\lib\$n.ps1"), "function Get-$n { }`n")
     }
     $uncondScript = Join-Path $uncondDir 'scripts\task\uncond-probe.ps1'
@@ -872,16 +872,38 @@ function Invoke-Later {
 foreach ($i in 1..2) {
     . (Join-Path $PSScriptRoot '..\lib\inloop-lib.ps1')
 }
+$scoped = & {
+    . (Join-Path $PSScriptRoot '..\lib\inblock-lib.ps1')
+    'value'
+}
+if ($scoped -eq 'never') {
+    $null = & {
+        . (Join-Path $PSScriptRoot '..\lib\blockinif-lib.ps1')
+    }
+}
 '@)
-    $allFour = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir |
+    $allSix = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir |
                     ForEach-Object { Split-Path -Leaf $_ } | Sort-Object)
-    Assert-Equal 'guarded-lib.ps1,infunc-lib.ps1,inloop-lib.ps1,top-lib.ps1' ($allFour -join ',') `
-        'unconditional: the default answer is unchanged -- all four shapes are dot-sources'
+    Assert-Equal 'blockinif-lib.ps1,guarded-lib.ps1,inblock-lib.ps1,infunc-lib.ps1,inloop-lib.ps1,top-lib.ps1' `
+        ($allSix -join ',') 'unconditional: the default answer is unchanged -- all six shapes are dot-sources'
 
     $loadOnly = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir -UnconditionalOnly |
                     ForEach-Object { Split-Path -Leaf $_ } | Sort-Object)
-    Assert-Equal 'top-lib.ps1' ($loadOnly -join ',') `
-        'unconditional: only the top-level one -- a Test-Path guard, a function body and a loop all drop out'
+
+    # THE IMMEDIATELY-INVOKED BLOCK IS LOAD-TIME, and this assert exists because the first version got it
+    # wrong. A script block is normally NOT load-time -- its statements run when something calls it -- so
+    # the type was in the conditional list outright, and `& { ... }` fell through the gap. That idiom is in
+    # this tree on purpose: check-plugin-integrity.ps1 resolves its changelog seam that way at top level,
+    # with an unguarded `. seam-lib.ps1` inside, and the hand-written comment above it describes the exact
+    # fixture failure this gate is meant to catch. Found by the code review on this branch.
+    Assert-Equal 'inblock-lib.ps1,top-lib.ps1' ($loadOnly -join ',') `
+        'unconditional: the top-level one AND an immediately-invoked `& { }` -- guard, function and loop drop out'
+
+    # And the exception does not swallow the rule: the SAME idiom inside an `if` is still conditional,
+    # because the block is stepped through and the invocation's own ancestry decides. That shape is in the
+    # same real file, one check further down.
+    Assert-True ($loadOnly -notcontains 'blockinif-lib.ps1') `
+        'unconditional: an `& { }` inside an if stays conditional -- the block is stepped through, not stopped at'
 
     # AND THE MEMO MUST TELL THE TWO QUESTIONS APART. Both calls above read the same file at the same
     # timestamp, so on a key that did not carry the mode the second would have been served the first's
@@ -889,8 +911,8 @@ foreach ($i in 1..2) {
     # REVERSE order, which is the order that was never exercised above.
     $reverseLoadOnly = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir -UnconditionalOnly)
     $reverseAll = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir)
-    Assert-Equal 1 $reverseLoadOnly.Count 'unconditional: the memo carries the mode -- the narrow answer stays narrow'
-    Assert-Equal 4 $reverseAll.Count 'unconditional: and the wide answer stays wide, at the same timestamp'
+    Assert-Equal 2 $reverseLoadOnly.Count 'unconditional: the memo carries the mode -- the narrow answer stays narrow'
+    Assert-Equal 6 $reverseAll.Count 'unconditional: and the wide answer stays wide, at the same timestamp'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }

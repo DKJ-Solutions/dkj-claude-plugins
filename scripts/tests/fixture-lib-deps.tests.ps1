@@ -75,12 +75,17 @@
     answer and two asserts went red.
 
     WALL-CLOCK, THREE RUNS EACH, BECAUSE THE COST REVIEW ASKED FOR IT: 11.0-13.2s for the first
-    working version, 8.2-8.7s after memoising and splitting the AST walk, and 2.51-2.54s as it stands
-    -- the last cut coming from delegating (one shared memo instead of two engines), skipping the parse
-    of any suite whose text has no 'Copy-Item' in it at all (18 of them do, of the whole pool), and
-    reading each subject's copy list once rather than twice. For scale, the gate's own slowest suites
-    run 155-237s, so none of this was ever visible there; it is taken because it is correct and free,
-    not because it was urgent.
+    working version, 8.2-8.7s after memoising and splitting the AST walk, and 2.51-2.54s once it
+    delegated (one shared memo instead of two engines), skipped the parse of any suite whose text has no
+    'Copy-Item' in it at all, and read each subject's copy list once rather than twice.
+    #1924 TOOK IT BACK UP to 3.07-3.11s, and the whole of that is the twelve acting scripts the script
+    half now parses and the old one never read -- the work rather than an overhead. For scale, the gate's
+    own slowest suites run 155-237s, so none of this was ever visible there.
+    MEASURE IT ONE CALL PER PROCESS, which is how the gate below uses it. Three calls inside one process
+    reads 731 ms before against 471 ms after -- i.e. the widening as an IMPROVEMENT -- because the
+    destination memo serves the second and third. Nothing calls it twice in a process, so that figure
+    describes a path this repo does not take; it is recorded here because it is the flattering one and
+    somebody will measure it again.
 
     THE SYNTHETIC FIXTURES BELOW ARE NOT DECORATION. They were written while the gate had nothing at
     all to check -- no lib in scripts/lib dot-sourced a sibling -- so nothing but a shape assert could
@@ -365,6 +370,24 @@ if (Test-Path -LiteralPath $cacheDep -PathType Leaf) { . $cacheDep }
     Assert-Equal '' ((Get-DotSourcedLibName -Path (Join-Path $LibDir 'cache-lib.ps1') -RepoRoot $SandRoot) -join ',') `
         'and a rewrite at the SAME path is read again rather than served from the memo'
 
+    # THE DESTINATION READER HAS A MEMO OF ITS OWN NOW, and it needs the identical assert for the
+    # identical reason. It was added when the copy review found the docstring claiming the two readers
+    # shared one parse while each was doing its own -- so the claim became true rather than the comment
+    # becoming weaker. A memo is only safe here if it survives this suite's own habit of writing a
+    # fixture, reading it, and writing another at the same path.
+    $memoSuite = Set-Suite -Name 'destmemo.tests.ps1' -Body @'
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\lib\first-lib.ps1') -Force
+'@
+    Assert-Equal 'first-lib.ps1' ((Get-FixtureCopiedLibName -Path $memoSuite) -join ',') `
+        'the destination memo: the first read answers from the file'
+
+    Start-Sleep -Milliseconds 20
+    $null = Set-Suite -Name 'destmemo.tests.ps1' -Body @'
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\lib\second-lib.ps1') -Force
+'@
+    Assert-Equal 'second-lib.ps1' ((Get-FixtureCopiedLibName -Path $memoSuite) -join ',') `
+        'and a rewrite at the SAME path is read again -- the key carries the file, not the path'
+
     # ---------------------------------------------------------------------------------------------
     Write-Host ''
     Write-Host 'An unparseable file throws rather than reading as "no dependencies"' -ForegroundColor Cyan
@@ -527,9 +550,9 @@ Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1'
     # leaving again: check-plugin-integrity-fixture.ps1 is the fixture builder four lint suites share,
     # is not named '*.tests.ps1', and a filter narrowed back to that pattern still passes both asserts.
     # So this compares what was READ against what is THERE, which no later suite can blur.
-    $testDir = Join-Path $RepoRoot 'scripts\tests'
-    $allPs1 = @(Get-ChildItem -Path $testDir -Filter '*.ps1' -File).Count
-    $suiteNamed = @(Get-ChildItem -Path $testDir -Filter '*.tests.ps1' -File).Count
+    $realTestsDir = Join-Path $RepoRoot 'scripts\tests'
+    $allPs1 = @(Get-ChildItem -Path $realTestsDir -Filter '*.ps1' -File).Count
+    $suiteNamed = @(Get-ChildItem -Path $realTestsDir -Filter '*.tests.ps1' -File).Count
     Assert-Equal $allPs1 $report.Files `
         "every .ps1 in scripts/tests was read, not only the $suiteNamed named '*.tests.ps1' (#1865)"
     Assert-True ($allPs1 -gt $suiteNamed) `
@@ -537,7 +560,7 @@ Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1'
 
     # The builder itself is the reason, so it is named rather than left to the count. It copies its libs
     # by -Destination like every suite does, so being in the scan set is the whole of what it needed.
-    $builderCopies = @(Get-FixtureCopiedLibName -Path (Join-Path $testDir 'check-plugin-integrity-fixture.ps1'))
+    $builderCopies = @(Get-FixtureCopiedLibName -Path (Join-Path $realTestsDir 'check-plugin-integrity-fixture.ps1'))
     Assert-True ($builderCopies.Count -ge 10) `
         "the shared integrity fixture builder is a subject ($($builderCopies.Count) libs copied), though its name is not a suite's"
 
@@ -545,7 +568,7 @@ Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1'
     # at all: the whole widening is silent when it reads nothing, and 'zero findings' looks identical
     # either way. A threshold rather than a count, on this file's own standing rule that a pinned number
     # goes stale the day somebody adds a suite.
-    $copiedScripts = @(Get-ChildItem -Path $testDir -Filter '*.ps1' -File |
+    $copiedScripts = @(Get-ChildItem -Path $realTestsDir -Filter '*.ps1' -File |
                         ForEach-Object { Get-FixtureCopiedScriptPath -Path $_.FullName })
     Assert-True ($copiedScripts.Count -ge 8) `
         "and $($copiedScripts.Count) acting scripts are copied into fixtures, so the script half has subjects too"
@@ -554,7 +577,7 @@ Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1'
     # a later reader could quietly start leaning on. One today: source-repo-guard.tests.ps1. A tree that
     # grows a dozen is one where the asymmetry in Get-FixtureDepFinding stopped fitting, and that is worth
     # noticing as a number rather than discovering as a habit.
-    $optOuts = @(Get-ChildItem -Path $testDir -Filter '*.ps1' -File |
+    $optOuts = @(Get-ChildItem -Path $realTestsDir -Filter '*.ps1' -File |
                     ForEach-Object { Get-FixtureDepScriptOptOut -Path $_.FullName })
     Assert-True ($optOuts.Count -le 3) `
         "the declared opt-out stays rare ($($optOuts.Count) in the tree) -- it is an exception, not a way of passing the gate"

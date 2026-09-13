@@ -43,8 +43,8 @@
 
 `fixture-lib-deps.tests.ps1` exists to stop a hand-listed fixture lib copy going stale against what is
 dot-sourced. Its own synopsis states the scope: *"no hand-listed fixture lib copies ... may go stale
-against what **those libs** dot-source"* -- for each copied **lib**, were that lib's own siblings copied
-too. It never asked the same question about the **script under test**.
+against what **those libs** dot-source"* -- for each copied **lib**, whether that lib's own siblings were
+copied too. It never asked the same question about the **script under test**.
 
 On the #1917 branch that cost six suites: ~25 acting scripts gained
 `. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')`, unguarded, and `fold-changelog` went 155
@@ -93,18 +93,36 @@ the exemption list"*. #1924 is the first instance, so the mechanism is built to 
 - [x] The reconstruction, which is this suite's standing way of proving a widening catches what it was
       built for rather than merely staying quiet: a synthetic acting script with an unguarded top-level
       dot-source, a guarded one and an in-function one beside it. Reported: the unguarded one, alone.
-- [x] `fixture-lib-deps.tests.ps1` -- 47 asserts pass (was 26). The tree-wide pass reports 13 subjects,
+- [x] **A correctness bug the code review found, in the load-time rule itself.** A script block was in
+      the conditional list outright, which is right for one that is stored and called later and wrong for
+      `& { ... }` -- invoked where it stands, and an idiom this tree uses on purpose to keep a seam's
+      temporaries out of the caller's scope. `check-plugin-integrity.ps1` resolves its changelog seam that
+      way at top level with an unguarded `. seam-lib.ps1` inside, so the gate read clean over exactly the
+      #1917 shape. The block is now stepped THROUGH and the invocation's own ancestry decides, which keeps
+      the same idiom inside an `if` correctly conditional -- both shapes are in that one real file, and
+      both are now asserted. Verified on it: `seam-lib.ps1` is load-time, `entry-scaffold-lib.ps1` is not.
+- [x] **A false claim the copy edit found**, in a comment of mine: the two readers were said to share one
+      parse while each was doing its own read-and-parse. Repaired by making the claim true -- a
+      destination memo keyed on the file's identity, the same shape and the same #1693 lesson as the
+      walker's own -- rather than by weakening the comment. Asserted with the rewrite-at-the-same-path
+      case that memo can fail on.
+- [x] `fixture-lib-deps.tests.ps1` -- 49 asserts pass (was 26). The tree-wide pass reports 13 subjects,
       **0 findings**, 14 copied acting scripts and 1 declared opt-out.
 - [x] A red the opt-out reader actually had: matched on raw text first, so this suite's own here-string
       fixtures counted and the tree-wide figure read **3** where the tree holds **1**. Comment tokens
       separate a declaration from data; the assert that pins it is written to that shape.
-- [x] `script-contract.tests.ps1` -- 315 pass (was 311): the four dot-source shapes, that the default
+- [x] `script-contract.tests.ps1` -- 316 pass (was 311): the six dot-source shapes, that the default
       answer is unchanged, and that the memo tells the two questions apart at one timestamp.
 - [x] `source-repo-guard.tests.ps1` 46, `shared-scripts.tests.ps1` 809 -- unchanged and green.
 - [x] `check-plugin-integrity.ps1` -- 0 errors.
-- [x] Cost, three warm runs each over the tree-wide report: **719-764 ms** before, **1169-1196 ms**
-      after. The whole of it is parsing the twelve acting scripts that were never read before, which is
-      the work rather than an overhead. For scale, the gate's slowest suites run 155-237s.
+- [x] Cost, **one report call per fresh process**, three processes each -- which is how the suite
+      actually uses it: **2162-2169 ms** before, **3073-3110 ms** after. The whole of the difference is
+      parsing the twelve acting scripts nothing read before, which is the work rather than an overhead.
+      For scale, the gate's slowest suites run 155-237s.
+- [x] The first cost figure written here was **wrong, and wrong in the flattering direction**: three
+      calls in ONE process, where the memos are warm from the second call on. Read that way the change
+      looked like an improvement (731 ms to 471 ms) because the new destination memo serves runs 2 and 3.
+      Nothing calls it twice in a process, so that figure measured a path this repo does not take.
 
 ### DEPLOY: fix/1924-fixture-dep-seed-from-script
 
