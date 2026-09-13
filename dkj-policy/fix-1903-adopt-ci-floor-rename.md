@@ -117,4 +117,3 @@ error.
 
 The CI-floor adopter is named for the floor, not for the merge queue
 
-Plugins: dkj-policy
