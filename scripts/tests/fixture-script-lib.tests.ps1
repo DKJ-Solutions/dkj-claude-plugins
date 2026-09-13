@@ -75,14 +75,18 @@ Write-Host 'REACHED-THE-BODY'
 
     # AND IT NAMES NOTHING THAT IS NOT A FILE. Two artefacts of how PowerShell renders an ErrorRecord
     # used to reach this list: a console WRAP splitting the path ('preten' / 'd-acting.ps1') and the
-    # CategoryInfo ELLIPSIS ('...-helper-lib.ps1'). Both matched the leaf pattern and neither exists.
-    # This is #1936's lesson one layer over -- a headline that names a file nobody can find costs the
-    # reader exactly what the missing headline did.
-    Assert-Equal 1 $found.MissingLeaves.Count 'exactly ONE file is named -- no wrap artefact, no ellipsis artefact'
-    Assert-True (-not (@($found.MissingLeaves) | Where-Object { $_ -like '.*' })) 'no reported leaf is an ellipsis fragment'
-    foreach ($leaf in $found.MissingLeaves) {
-        Assert-True ($leaf -eq 'absent-helper-lib.ps1') "the named leaf is a real filename from the dot-source, not a fragment: '$leaf'"
-    }
+    # CategoryInfo ELLIPSIS. Both matched the leaf pattern and neither exists. This is #1936's lesson
+    # one layer over -- a headline naming a file nobody can find costs the reader what the missing
+    # headline did.
+    #
+    # THESE ARE INVARIANTS, NOT AN EXACT COUNT, because every artefact above is a property of the HOST:
+    # how wide its console is, and how long the temp path under its home directory happens to be. An
+    # exact-count assert here passed on the machine that wrote it and failed on the CI runner, whose
+    # longer user name moved PowerShell's truncation point. What must hold everywhere is that nothing
+    # reported is a fragment; the exact counts are asserted below against CANNED text this suite owns.
+    Assert-True ($found.MissingLeaves -contains 'absent-helper-lib.ps1') 'the real capture names the absent lib on any host'
+    Assert-True (-not (@($found.MissingLeaves) | Where-Object { $_ -like '*...*' })) 'no reported leaf carries an ellipsis -- a real filename never does'
+    Assert-True (-not (@($found.MissingLeaves) | Where-Object { $_ -eq 'pretend-acting.ps1' })) 'the containing script is never reported as the missing dependency'
 
     # THE COUNTER AND THE PRINTED VERDICT.
     Assert-Equal 0 (Get-FixtureScriptLoadFailureCount) 'nothing counted before the verdict is asked for'
@@ -156,6 +160,24 @@ d-acting.ps1' is not recognized as the name of a cmdlet, function, script file, 
     Assert-True ($null -ne $wrapFound) 'a wrapped message is still recognised as the class'
     Assert-True ($wrapFound.MissingLeaves -notcontains 'd-acting.ps1') 'the wrap orphan is NOT reported as a file -- it sits at a line start, behind no separator'
     Assert-Equal 0 $wrapFound.MissingLeaves.Count 'a capture whose only .ps1 token is a wrap orphan names nothing at all'
+
+    Write-Host "fixture-script-lib.tests: BOTH ellipsis shapes, on controlled input" -ForegroundColor Cyan
+
+    # WHERE PowerShell CUTS A LONG CategoryInfo TARGET DEPENDS ON THE PATH, so the artefact has two
+    # shapes. The first was the only one the real child produced on the machine this was written on; the
+    # second is what the CI runner produced, and it slipped through a leading-dot test and turned the
+    # suite red on the only other host that has run it. Both are canned here so neither depends on whose
+    # home directory the run happens to sit under.
+    $ellipsisShapes = @(
+        @{ Label = 'cut right after a separator'; Text = "(C:\Users\maike\...-helper-lib.ps1:String)" },
+        @{ Label = 'cut mid-segment';             Text = "(C:\Users\runner...-helper-lib.ps1:String)" }
+    )
+    foreach ($shape in $ellipsisShapes) {
+        $canned = ". : The term 'x' is not recognized.`n    + CategoryInfo : ObjectNotFound: $($shape.Text) []`n    + FullyQualifiedErrorId : CommandNotFoundException"
+        $ef = Get-FixtureScriptLoadFailure -Output $canned -Script 'pretend-acting.ps1'
+        Assert-True ($null -ne $ef) "the class is still recognised when the target is truncated ($($shape.Label))"
+        Assert-Equal 0 $ef.MissingLeaves.Count "a truncated target names no file at all ($($shape.Label))"
+    }
 
     # AND THAT EMPTY CASE TAKES THE OTHER HEADLINE. CommandNotFoundException with no .ps1 behind it is
     # most likely a mistyped cmdlet INSIDE the acting script -- a bug in that script, not a gap in the

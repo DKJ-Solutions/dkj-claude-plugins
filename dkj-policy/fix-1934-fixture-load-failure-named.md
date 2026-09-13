@@ -93,7 +93,7 @@ script that had died, for two weeks. Capturing is one line there, and still not 
 
 ### TEST
 
-- [x] `scripts/tests/fixture-script-lib.tests.ps1` -- **30 pass, 0 fail.** The load-failure case runs
+- [x] `scripts/tests/fixture-script-lib.tests.ps1` -- **34 pass, 0 fail.** The load-failure case runs
       a REAL child that dot-sources a lib that is not there, rather than feeding the matcher a canned
       string: the signature is produced by PowerShell, not by this repo, so a hand-written fixture
       would only prove the regex matches itself. Both silence cases are asserted with a real child
@@ -132,6 +132,28 @@ Victor, Edith and Tycho ran in parallel on the diff.
   string beside the canned localized one, so a wider console cannot turn that proof green by absence.
 - **Edith** reproduced every number in this document independently -- 155 red asserts, 53 headlines,
   264 pass restored, 0 lint errors -- and found one capitalisation typo, repaired.
+
+#### And CI caught the thing Tycho had warned about, in the place he pointed at
+
+The first push of this branch went **red on CI while green locally**, and it was this suite. Tycho's
+review had already named the risk in the abstract -- an assertion resting on what a real host happens
+to render, rather than on input the suite owns -- and the failure landed on exactly that, one artefact
+over from the one he cited.
+
+The ellipsis filter was written as a **leading**-dot test, because that is the shape the author's own
+machine produced: `(C:\Users\maike\...-helper-lib.ps1:String)`. PowerShell shortens a long
+`CategoryInfo` target in the middle, and where it cuts depends on how long the path is -- so the CI
+runner's longer home directory produced `(C:\Users\runner...-helper-lib.ps1:String)`, whose tail is
+`runner...-helper-lib.ps1`: a separator in front of it, no leading dot, and straight past the filter
+into the headline. The rule now keys on the **ellipsis itself** (no real filename carries three
+consecutive dots) rather than on where it happens to land.
+
+**The test changed further than the filter did, and that is the durable half.** The exact-count assert
+on the REAL child was itself the host-dependent thing -- it could only ever be right about whichever
+machine ran it -- so the real capture is now held to invariants that are true anywhere (it names the
+absent lib; nothing it names carries an ellipsis; it never names the containing script), and the exact
+counts moved to canned text this suite owns, with **both** cut shapes written out. The same correction
+Tycho asked for on the wrap guard, applied to the artefact nobody had noticed was environment-shaped.
 
 Tycho's third point is filed as **#1948** rather than built: nothing asserts the wiring itself is
 present, so a future edit that drops an `Assert-FixtureScriptLoaded` call would silently restore this

@@ -127,10 +127,19 @@ function Get-FixtureScriptLoadFailure {
     foreach ($m in [regex]::Matches($text, $script:FixtureScriptPs1Leaf)) {
         $leaf = $m.Groups[1].Value
         if ($ownLeaf -and $leaf -eq $ownLeaf) { continue }
-        # A LEADING DOT IS POWERSHELL'S OWN ELLIPSIS, never a filename. The CategoryInfo line truncates a
-        # long target in the middle -- '(C:\Users\maike\...-helper-lib.ps1:String)' -- and the tail of that
-        # matches the leaf pattern cleanly. Reported, it sends a reader looking for a file nobody named.
-        if ($leaf -like '.*') { continue }
+        # AN ELLIPSIS ANYWHERE IN THE LEAF IS POWERSHELL'S TRUNCATION, never a filename: no real name
+        # carries three consecutive dots. The CategoryInfo line shortens a long target in the middle, and
+        # WHERE it cuts depends on the path, so the tail takes two different shapes -- both matching the
+        # leaf pattern cleanly, and neither of them a file:
+        #
+        #     (C:\Users\maike\...-helper-lib.ps1:String)   -> '...-helper-lib.ps1'
+        #     (C:\Users\runner...-helper-lib.ps1:String)   -> 'runner...-helper-lib.ps1'
+        #
+        # This was first written as a LEADING-dot test, which catches the first and misses the second.
+        # The second is the CI runner's own home directory, so the suite passed on the machine that wrote
+        # it and failed on the only other host that has ever run it. The cut point is a property of the
+        # path, not of this repo, so the rule keys on the ellipsis itself rather than on where it lands.
+        if ($leaf -like '*...*') { continue }
         if ($leaves -notcontains $leaf) { $leaves += $leaf }
     }
     return [pscustomobject]@{
