@@ -436,6 +436,26 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE THIRD MIRROR OF THE SAME SOURCE (issue #1917), on the precedent the entry above sets
+            # and for the same mechanical reason: a script may only dot-source a lib that ships in ITS
+            # OWN plugin, because the mirror resolves '..\lib\' inside the plugin it landed in.
+            #
+            # WHY dkj-subagents-shopify NEEDS ITS OWN COPY: four of its shared scripts -- adopt-shopify-floor,
+            # archive-theme, push-preview and sync-main -- resolve their repo root through
+            # Resolve-RepoRootOrFail, which lives here. Without this entry each of them ships pointing at
+            # a file that plugin does not have, and every one fails ON LOAD in a consumer: strictly worse
+            # than the unjudged .Trim() #1917 is about, which at least ran wherever git could answer.
+            #
+            # MEASURED RATHER THAN REASONED: the four mirrors were generated, shipped and read back
+            # before this entry existed, and plugins/dkj-subagents/dkj-subagents-shopify/scripts/lib/ held no
+            # check-report-lib.ps1. The lint gate passed over it -- check 8 proves a registered mirror
+            # matches its source and has no opinion about a dot-source naming a file no entry produces.
+            Name    = 'check-report-lib-shopify'
+            Source  = 'scripts\lib\check-report-lib.ps1'
+            Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
             Name    = 'native-capture-lib'
             Source  = 'scripts\lib\native-capture-lib.ps1'
             Plugin = 'dkj-policy'

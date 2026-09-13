@@ -94,7 +94,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
 # -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'claim-issue.ps1'
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'claim-issue.ps1' -OverrideName '-RootOverride'
 
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1')

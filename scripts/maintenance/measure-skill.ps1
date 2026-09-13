@@ -150,7 +150,7 @@ $script:infos  = 0
 # -- same three-source precedence, but it names git's exit code and stderr instead of dying on
 # $null.Trim() where git answers nothing.
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'measure-skill.ps1'
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'measure-skill.ps1' -OverrideName '-RootOverride'
 
 if (-not $BaselinePath) {
     $BaselinePath = Join-Path $repoRoot 'scripts\maintenance\baselines\skill-cost.json'

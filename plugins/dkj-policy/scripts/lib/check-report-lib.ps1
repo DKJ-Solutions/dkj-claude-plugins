@@ -405,8 +405,20 @@ function Resolve-CheckRoot {
        be standing -- a test suite passing $PSScriptRoot, say, in a tree that stands up throwaway git
        repos mid-run and changes directory into them (#1917). Default '' keeps the cwd behaviour,
        which is the correct one for the session checks: their whole point is to report the repo the
-       session is in. It changes nothing about precedence -- an override or CLAUDE_PROJECT_DIR still
-       wins, and neither runs git at all. #>
+       session is in.
+
+       AND -From BEATS CLAUDE_PROJECT_DIR, which is the one place it does touch precedence. An
+       explicit anchor is a caller saying "resolve relative to THIS FILE, wherever the session
+       thinks it is"; the env var is ambient context set by whoever launched the session. Letting
+       the ambient value win would defeat the anchor exactly where it is needed most: worktree-lane
+       deliberately keeps CLAUDE_PROJECT_DIR pinned at the PRIMARY checkout while the work happens in
+       a lane, so a suite run from that lane would resolve to the primary tree -- a different repo
+       than the file asking, which is the failure -From exists to prevent. Caught in review; the six
+       converted suites consulted the env var not at all before this, so honouring it here would have
+       been new coupling rather than preserved behaviour.
+
+       An explicit -Override still wins over both: it is the caller naming the tree outright, which
+       is a stronger statement than naming a file to resolve from. #>
     param(
         [string]$Override = '',
         [string]$From = ''
@@ -421,7 +433,8 @@ function Resolve-CheckRoot {
         }
     }
 
-    if ($env:CLAUDE_PROJECT_DIR) {
+    # -not $From: an explicit anchor outranks the ambient session variable -- see the docstring.
+    if ($env:CLAUDE_PROJECT_DIR -and -not $From) {
         $resolved = Resolve-Path -LiteralPath $env:CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
         return [pscustomobject]@{
             Path   = $(if ($resolved) { $resolved.Path } else { $null })
@@ -503,11 +516,19 @@ function Resolve-RepoRootOrFail {
         -ScriptName is the caller's own name for the refusal's first line. It is not derived from
         $MyInvocation here: inside a dot-sourced function that reports this lib, not the script the
         reader ran.
+
+        -OverrideName IS THE FLAG THIS CALLER ACTUALLY EXPOSES, and it is a parameter for the same
+        reason -ScriptName is: the lib cannot know it. Two converted scripts spell that seam
+        -RepoRoot (new-branch, fold-changelog-entry) and ten spell it -RootOverride. A refusal that
+        hardcoded either one would, on the majority of callers, tell the reader to pass a flag
+        PowerShell then rejects outright -- naming a remedy that does not exist, which is the one
+        thing a refusal must never do. Caught in review before this shipped.
     #>
     param(
         [string]$Override = '',
         [string]$ScriptName = '',
-        [string]$From = ''
+        [string]$From = '',
+        [string]$OverrideName = '-RepoRoot'
     )
 
     $scope = Resolve-CheckRoot -Override $Override -From $From
@@ -519,7 +540,7 @@ function Resolve-RepoRootOrFail {
     Write-Host ''
     switch ($scope.Source) {
         'override' {
-            Write-Host ("  -RepoRoot was given as '{0}', and that path does not exist." -f $Override) -ForegroundColor Yellow
+            Write-Host ("  {0} was given as '{1}', and that path does not exist." -f $OverrideName, $Override) -ForegroundColor Yellow
         }
         'CLAUDE_PROJECT_DIR' {
             Write-Host ("  CLAUDE_PROJECT_DIR is set to '{0}', and that path does not exist." -f $env:CLAUDE_PROJECT_DIR) -ForegroundColor Yellow
@@ -527,7 +548,7 @@ function Resolve-RepoRootOrFail {
             Write-Host '  so a stale or mistyped value points every shared script at nothing.'
         }
         default {
-            Write-Host '  No -RepoRoot was given and CLAUDE_PROJECT_DIR is not set, so the root had to come from'
+            Write-Host ("  No {0} was given and CLAUDE_PROJECT_DIR is not set, so the root had to come from" -f $OverrideName)
             # The directory git was actually ASKED about -- which is -From when anchored, and only
             # otherwise the working directory. Naming the cwd on an anchored call would send the
             # reader to look at the wrong place.
@@ -536,7 +557,7 @@ function Resolve-RepoRootOrFail {
             Write-Host ("  git exit code: {0}" -f $(if ($null -ne $scope.GitExitCode) { $scope.GitExitCode } else { '(git could not be run at all)' }))
             Write-Host ("  git said:      {0}" -f $(if ($scope.GitError) { $scope.GitError } else { '(nothing on stderr)' }))
             Write-Host ''
-            Write-Host '  Run this from inside the checkout, or pass -RepoRoot, or set CLAUDE_PROJECT_DIR.' -ForegroundColor Green
+            Write-Host ("  Run this from inside the checkout, or pass {0}, or set CLAUDE_PROJECT_DIR." -f $OverrideName) -ForegroundColor Green
         }
     }
     Write-Host ''

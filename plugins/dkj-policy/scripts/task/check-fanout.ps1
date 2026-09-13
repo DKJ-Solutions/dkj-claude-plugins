@@ -110,7 +110,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # -- same three-source precedence, but it names git's exit code and stderr instead of dying on
 # $null.Trim() where git answers nothing.
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'check-fanout.ps1'
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'check-fanout.ps1' -OverrideName '-RootOverride'
 
 # Both $PSScriptRoot-relative, not $repoRoot: neither lib is repo-owned -- they travel with the SAME
 # plugin/mirror payload as this script.

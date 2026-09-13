@@ -101,7 +101,6 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
 $repoRoot = Resolve-RepoRootOrFail -ScriptName 'adopt-workflow-folder.ps1'
 
-
 # The scaffolded branch files come from the same formatters new-branch and the fold call, so this
 # command cannot write a shape of its own. repo-config.ps1 first and optional, exactly as new-branch
 # loads it: it only supplies wording overrides here, and every string has a built-in default.

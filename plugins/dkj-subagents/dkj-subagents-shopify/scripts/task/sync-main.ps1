@@ -337,7 +337,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
 # -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'sync-main.ps1'
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'sync-main.ps1' -OverrideName '-RootOverride'
 
 # A repo that publishes plugins is this script's SOURCE, not a Shopify store: there is no live theme
 # here to mirror. Same one-file test adopt-shopify-floor uses for the same distinction.

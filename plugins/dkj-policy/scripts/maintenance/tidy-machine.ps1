@@ -170,7 +170,13 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
 # -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
 $repoRoot = Resolve-RepoRootOrFail -ScriptName 'tidy-machine.ps1'
-if (-not $repoRoot) { $repoRoot = (Get-Location).Path }
+# THE cwd FALLBACK THAT USED TO SIT HERE IS GONE, and it was already dead before this branch (#1917).
+# It read `if (-not $repoRoot) { $repoRoot = (Get-Location).Path }`, which could only fire on an EMPTY
+# STRING -- and the line above it never produced one: outside a work tree the old
+# (git rev-parse --show-toplevel).Trim() threw on $null before the guard was reached. So it caught a
+# state that could not occur, and this script has always failed outside a checkout. What changed is
+# only that it now says so. Whether -MachineOnly OUGHT to run without a checkout is a separate
+# question and a real one -- it is filed, not decided here.
 
 if ($CheckoutOnly -and $MachineOnly) {
     Write-Error "-CheckoutOnly and -MachineOnly are mutually exclusive -- pass neither to run both halves."

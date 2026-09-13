@@ -126,7 +126,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # -- same three-source precedence, but it names git's exit code and stderr instead of dying on
 # $null.Trim() where git answers nothing.
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'build-release-notes-page.ps1'
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'build-release-notes-page.ps1' -OverrideName '-RootOverride'
 
 $templatePath = Join-Path $PSScriptRoot 'release-notes-page-template.html'
 if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) {

@@ -807,6 +807,26 @@ try {
             $unanchored = Resolve-CheckRoot
             Assert-True ($null -eq $unanchored.Path) '-From control: without the anchor the same cwd resolves nothing'
             Assert-Equal 128 $unanchored.GitExitCode '-From control: git really declined there (exit 128)'
+
+            # -From BEATS AN AMBIENT CLAUDE_PROJECT_DIR, and this is the case the anchor exists for:
+            # worktree-lane pins that variable at the PRIMARY checkout while work happens in a lane, so
+            # a suite run from the lane would otherwise resolve to a different repo than the file
+            # asking. The decoy is a real directory, so this proves precedence rather than a failure
+            # to resolve it.
+            $env:CLAUDE_PROJECT_DIR = $rrDir
+            $vsEnv = Resolve-CheckRoot -From $PSScriptRoot
+            Assert-Equal $RepoRoot $vsEnv.Path '-From beats an ambient CLAUDE_PROJECT_DIR pointing at another tree'
+            Assert-Equal 'git-root' $vsEnv.Source '-From: the answer really came from the anchored git call, not the env var'
+            # ...and without the anchor the same env var still wins, so the override above is scoped
+            # to -From and has not quietly disabled the variable for everybody else.
+            $envStillWins = Resolve-CheckRoot
+            Assert-Equal 'CLAUDE_PROJECT_DIR' $envStillWins.Source '-From scoping: with no anchor the env var still wins, as every session check relies on'
+            Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+
+            # An explicit -Override still outranks the anchor: naming the tree is stronger than
+            # naming a file to resolve from.
+            $ovr = Resolve-CheckRoot -Override $rrDir -From $PSScriptRoot
+            Assert-Equal (Resolve-Path -LiteralPath $rrDir).Path $ovr.Path '-Override still beats -From'
         } finally { Pop-Location }
     } finally {
         if ($null -eq $rrPrevPd) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue }
