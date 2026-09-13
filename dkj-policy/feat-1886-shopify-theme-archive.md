@@ -146,7 +146,10 @@ the sibling check could match on, is gone -- both calls go through the plugin's 
 receipt, reads it back and re-merges -- the shape no unit assert can see, and the one that caught the
 phantom event.
 
-Resolves [#1886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1886) candidate 4.
+Candidate 4 of [#1886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1886), which stays
+open: candidate 2 (`lint-brain.ps1`, a translation plus a merge) and candidate 3 (`plugin-scripts.ps1`,
+whose question is now *what kind of artefact* rather than *which plugin*) are each still their own
+pickup.
 
 **Score:** 3
 
