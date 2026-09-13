@@ -43,7 +43,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**22 / 28 minor entries** <!-- pending-tally -->
+**23 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1951-sync-rules-single-log-walk · 20260913-145911
+
+`Test-LiveContentIsOurs` -- the rule deciding whether live's copy of a file is content this repo has held
+before, and therefore whether the trunk is kept or overwritten -- asked git one question per commit, as a
+separate `git rev-parse` **process** each time. On Windows that spawn was the dominant cost of the whole
+rule, and #1945's `--full-history` had just multiplied the commit count by a measured 2.0-4.0x, so it
+multiplied the process count by the same factor. It now reads one `git log --raw` for the whole walk.
+
+Measured over 12 real paths here: identical blob sets, **6.5x to 99x faster**. `dkj-policy/CHANGELOG.md`
+goes 10,306 ms to 107 ms over 558 commits; `CLAUDE.md` 6,584 ms to 77 ms over 358. The win lands exactly
+where it matters, because the walk runs to the end only when nothing matches -- the foreign case this
+rule exists for.
+
+That range is against the old **worst** case, which is the honest way to read it: the old loop could
+return early on a match and this one cannot, so a path whose first commit matches goes ~15 ms to ~70 ms.
+On the single-digit history a theme repo actually has, the two measure equal at ~14-15 ms -- so the
+intended domain pays nothing, and everything longer is where the range lives.
+
+`-m` is what makes the swap safe rather than merely fast, and it was the whole of the design problem: a
+plain `--raw` prints nothing for a merge commit, silently dropping every blob whose only home is a merge
+-- measured at 62 lost blobs, in the direction that overwrites the trunk. The premise #1951 left
+unmeasured, that a theme repo's per-path history stays single-digit, has stopped being load-bearing: the
+cost no longer scales with the history at all.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+`sync-rules.ps1` is mirrored into `dkj-subagents-shopify`, so a store repo running `sync-main` gets this on
+the next release. Nothing changes in what the sync decides -- the blob sets are identical on every path
+measured -- so there is no behaviour for an operator to re-learn; a `sync-main` run over a long-lived path
+simply stops taking seconds per file.
+
+**Score:** 2
+
+#### Pull Request
+
+Test-LiveContentIsOurs answers its walk in one git call instead of one subprocess per commit
+
+Plugins: dkj-subagents-shopify
+
+[PR #1955](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1955)
+
+---
 
 ### DEPLOY: fix/1934-fixture-load-failure-named · 20260913-143729
 
