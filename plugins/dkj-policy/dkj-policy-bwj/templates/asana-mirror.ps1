@@ -195,24 +195,6 @@ $script:AsanaApiBase = 'https://app.asana.com/api/1.0'
 # mapping helper and the enforcer cannot drift apart.
 $script:PrioLabels = @('prio-1', 'prio-2', 'prio-3', 'prio-4')
 
-# The names these four carried until September 11, 2026, when Dave unified the axis across the whole
-# family (#1842, reversing half 1 of #1686). They are read on the REMOVAL side only -- never written
-# -- and that asymmetry is the whole point. A repo is migrated with `gh label edit --name`, which
-# renames in place and leaves no issue carrying both; but adopt-dkj-policy-bwj's step 4 is additive
-# and never rewrites an existing label, so a repo brought over by re-running that step instead ends
-# up holding all eight, with the old name still sitting on every issue. Without this list the sweep
-# would then add 'prio-4' beside a standing 'very high' -- an issue claiming two priorities at once,
-# which is the exact failure Set-IssuePrioLabel exists to prevent.
-#
-# THE COST, AND WHY IT IS BOUNDED RATHER THAN PERMANENT (#1848): these four are generic English
-# words. While they WERE the prio labels nobody would reuse them, but once both stores are
-# migrated the names are free again -- and an unrelated label somebody later creates named e.g.
-# low is then stripped by a daily job holding issues: write, with nothing reporting it. Not new
-# behaviour: the same four strings sat in PrioLabels before the rename and were swept the same
-# way. Only the likelihood changes, and only upward. Retire this array once neither store
-# carries a legacy name -- #1848 holds the check and the removal.
-$script:LegacyPrioLabels = @('very low', 'low', 'high', 'very high')
-
 # The stage map, resolved once per run from the repo's own seam -- see Resolve-AsanaStageMap.
 $script:StageMap = $null
 
@@ -1665,7 +1647,7 @@ function Set-IssuePrioLabel {
         [string[]]$Current = @()
     )
 
-    $stale = @(($script:PrioLabels + $script:LegacyPrioLabels) |
+    $stale = @($script:PrioLabels |
                 Where-Object { $_ -ne $Label -and $Current -contains $_ })
     $needsAdd = ($Current -notcontains $Label)
     if (-not $needsAdd -and $stale.Count -eq 0) { return $false }
