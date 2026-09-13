@@ -318,6 +318,23 @@
          (measured #1857: 3 of 34 entry points, all three already correct, and the single suite that
          ran a mirror at all covered none of them). Whether the run ASSERTS anything is the suite's
          job, the same line check 18 draws between this gate and a skill page.
+     40. a plugin script's $PSScriptRoot-bound load of another .ps1, against the plugin that has to
+         carry it. Check 8 proves the two copies are the same TEXT and check 39 that the text means
+         the same FOLDER; neither asks whether the file it names is THERE. A lib registered for two
+         plugins and dot-sourced by a script that mirrors into a third names a file its destination
+         does not have -- check 8 has no third entry to compare against, and check 39's subject is a
+         TWO-hop ascent while '..\lib\' is one. Measured (#1925): four shopify scripts shipped that
+         way on the #1917 branch, all four dead ON LOAD in a consumer at their first statement, and
+         this gate reported 0 error(s). The subject is the PLUGIN copy, since a source script's
+         neighbours are all present here, and every .ps1 under a plugin root is read, hooks and
+         plugin-native scripts included. TWO ARMS: the file must exist, AND the path must stay inside
+         that plugin root -- an escaping path resolves in this tree and is gone in the install, which
+         is check 30's lesson one layer over and invisible to existence alone. A reference GUARDED by
+         Test-Path is counted, not judged: that is the author declaring the absence expected, which
+         this tree means (release-lib's branch-info sibling is repo-owned and travels in no mirror),
+         and judging the 70 of them would arrive with an exemption list. Only $PSScriptRoot is a
+         subject, bound through the AST -- a $repoRoot-relative path names a file in the CONSUMER'S
+         root by design, and reading those as plugin-relative yields 14 findings here, all false.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -4709,6 +4726,106 @@ Write-Coverage -Category 'mirror-depth' -Checked $msChecked `
         "shared script(s) scanned for a `$PSScriptRoot resolution ascending two or more levels -- the ONE class where a byte-identical mirror can behave differently, because the two copies sit at different depths: $msCrossing crossing, $msDeclared with a declared suite, $msFindings finding(s). One hop is not asked about and that is the point: '..\lib\...' is the same folder relative to the file in both copies, so asking about it would bury the crossings above under the thirty-odd that cannot. What this proves is that no such resolution is UNDECLARED, and what it deliberately leaves to the suite is whether the run asserts anything -- the same line check 18 draws between this gate and a skill page"
     })
 
+
+# --- 40. a plugin script's $PSScriptRoot-bound load, against the plugin that has to carry it --------
+# CHECK 8 PROVES THE TWO COPIES ARE THE SAME TEXT, CHECK 39 THAT THE TEXT MEANS THE SAME FOLDER, AND
+# NEITHER ASKS WHETHER THE FILE IT NAMES IS THERE (issue #1925). A shared script is generated into the
+# plugin it is registered for, and the mirror resolves '..\lib\<name>.ps1' inside THAT plugin -- so a
+# lib registered for two plugins and dot-sourced by a script that mirrors into a third names a file
+# its destination does not have. Check 8 has nothing to compare, because there is no third entry to
+# compare against; check 39 asks about a TWO-hop ascent and one hop is deliberately outside its
+# subject. The gap between them is the one class where a byte-perfect mirror is simply broken where it
+# lands.
+#
+# MEASURED, September 13, 2026, on the #1917 branch: adopt-shopify-floor.ps1, archive-theme.ps1,
+# push-preview.ps1 and sync-main.ps1 each gained '. (Join-Path $PSScriptRoot ''..\lib\check-report-lib.ps1'')',
+# check-report-lib was registered for dkj-policy and dkj-subagents-alpha, and those four mirror into
+# dkj-subagents-shopify, whose scripts\lib\ held no such file. All four would have died ON LOAD in a
+# consumer, at their first statement, before any of their own logic ran -- and this gate reported
+# 0 error(s) over them.
+#
+# THE SUBJECT IS THE PLUGIN COPY, NOT THE SOURCE, and that is the whole point. A source script's
+# neighbours are all present in this tree, which is exactly why the defect is invisible from there;
+# the copy a consumer installs is where the reference either resolves or does not. Every .ps1 under a
+# published plugin root is read, hooks included -- they dot-source libs too -- so a plugin-NATIVE
+# script that names an absent lib is caught by the same pass rather than needing a rule of its own.
+#
+# TWO ARMS, BECAUSE THEY FAIL DIFFERENTLY AND ONLY ONE IS VISIBLE FROM HERE. An ABSENT file is absent
+# in both copies, so a probe of this tree finds it. A reference that ESCAPES the plugin root resolves
+# to a real file HERE -- the repo has every path a plugin script could climb to -- and is gone in the
+# installed copy, where the 'plugins/' level, the family level and every sibling are stripped away.
+# That is check 30's lesson one layer over: the tree a link is validated in is not the tree it ships
+# to, and existence alone is the test that cannot see it. Probed rather than measured (check 35's
+# rule): an escaping reference planted in a shopify mirror pointed at scripts\lib\release-lib.ps1,
+# passed existence, and only the containment arm reported it.
+#
+# GUARDED REFERENCES ARE COUNTED AND NOT JUDGED. 'if (Test-Path $lib) { . $lib }' is the author saying
+# the absence is expected, and this tree means it: release-lib's branch-info sibling is repo-owned and
+# deliberately absent from every mirror, and several libs are guarded so a mirror older than the lib
+# does not crash on load. 70 of the 224 references are guarded, so judging them would have arrived
+# with 70 findings and an exemption list -- the shape this repo declined at 124 (the stale-path check,
+# in the system-administration lens). The unguarded reference is the opposite statement: it runs at
+# load, so a missing file is not a degradation but a crash at statement one.
+#
+# ONLY $PSScriptRoot IS A SUBJECT. 'Join-Path $repoRoot ''scripts\lib\branch-info.ps1''' names a file
+# in the CONSUMER'S root by design -- branch-info is repo-owned and does not travel -- so reading a
+# $repoRoot-relative path as plugin-relative reports 14 findings here, all 14 false and all 14 that
+# same seam. The binding is done through the AST by Resolve-ScriptRootRelativePath rather than by a
+# regex over 'lib\<name>.ps1', which cannot tell the two bases apart at all.
+$plRoots    = @($publishedPlugins)
+$plFiles    = 0
+$plRefs     = 0
+$plGuarded  = 0
+$plFindings = 0
+foreach ($plPlugin in $plRoots) {
+    $plPrefix = $plPlugin.Root.TrimEnd('\') + '\'
+    $plRel    = $plPlugin.Root.Replace($RepoRoot, '.')
+    foreach ($plFile in (Get-ChildItem -LiteralPath $plPlugin.Root -Recurse -Filter *.ps1 -File -ErrorAction SilentlyContinue)) {
+        $plFiles++
+        $plFileRel = $plFile.FullName.Replace($RepoRoot, '.')
+        foreach ($plRef in (Get-ScriptRootRelativeLoads -Path $plFile.FullName)) {
+            if ($plRef.Guarded) { $plGuarded++; continue }
+            $plRefs++
+            $plResolved = $null
+            try { $plResolved = [System.IO.Path]::GetFullPath((Join-Path $plFile.Directory.FullName $plRef.RelativePath)) } catch {}
+            if (-not $plResolved) { continue }
+            if (-not $plResolved.StartsWith($plPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $plFindings++
+                Add-Error ("[plugin-lib] ${plFileRel}: loads '$($plRef.Text)', which climbs OUT of" +
+                    " '$plRel'. It resolves here, because this tree holds every path a plugin script" +
+                    " could climb to -- and in the installed copy under" +
+                    " ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/ the 'plugins/' level," +
+                    " the family level and every sibling plugin are gone, so it resolves nowhere. A" +
+                    " load runs before the script's own logic, so this is a crash at statement one" +
+                    " rather than a degradation. Give the lib a mirror into THIS plugin (the" +
+                    " shared-scripts registry in scripts\lib\shared-scripts-lib.ps1), or guard the" +
+                    " dot-source with Test-Path if its absence is genuinely expected.")
+                continue
+            }
+            if (-not (Test-Path -LiteralPath $plResolved -PathType Leaf)) {
+                $plFindings++
+                Add-Error ("[plugin-lib] ${plFileRel}: loads '$($plRef.Text)', and '$plRel' ships no" +
+                    " such file. Nothing else here can see that: check 8 holds a REGISTERED mirror to" +
+                    " its source and there is no entry for this plugin to compare, and check 39 asks" +
+                    " about a two-hop ascent while this is one hop. In a consumer the script dies ON" +
+                    " LOAD, at its first statement, before any of its own logic runs. Register the lib" +
+                    " for this plugin too in the shared-scripts registry" +
+                    " (scripts\lib\shared-scripts-lib.ps1) and rebuild with" +
+                    " scripts\sync\build-shared-scripts.ps1 -- or guard the dot-source with Test-Path" +
+                    " if its absence is genuinely expected, which is what this check reads as a" +
+                    " declaration rather than a defect.")
+            }
+        }
+    }
+}
+Write-Coverage -Category 'plugin-lib' -Checked $plFiles `
+    -Note $(if ($plRoots.Count -eq 0) {
+        'no published plugin root resolved at all, so not one script was read -- read this as a broken gate rather than a clean one, the way checks 38 and 39 read their own empty sets'
+    } elseif ($plRefs -eq 0) {
+        "script(s) under $($plRoots.Count) published plugin root(s) read, and NOT ONE carries an unguarded `$PSScriptRoot-bound load of another .ps1 ($plGuarded guarded). That is a pass with nothing measured in it -- every lib is reached some other way -- so it says as little as an empty scan does"
+    } else {
+        ".ps1 file(s) under $($plRoots.Count) published plugin root(s), carrying $plRefs unguarded `$PSScriptRoot-bound load(s) of another .ps1, each resolved against the plugin it would land in and held BOTH ways -- the file exists, and the path stays inside that plugin root: $plFindings finding(s). $plGuarded further reference(s) are guarded by a Test-Path and are counted rather than judged, which is the author declaring the absence expected (release-lib's branch-info sibling is repo-owned and absent from every mirror on purpose). The escape arm is not redundant with the existence arm: an escaping path resolves HERE, because this tree holds everything a plugin script could climb to, and is gone in the install -- check 30's lesson one layer over. Only `$PSScriptRoot is a subject, bound through the AST: a `$repoRoot-relative path names a file in the CONSUMER'S root by design, and reading those as plugin-relative reports 14 findings on this tree, all false"
+    })
 # --- Report ---------------------------------------------------------------------------------------------
 if ($errors.Count -eq 0) {
     Write-Host "  No findings." -ForegroundColor Green
