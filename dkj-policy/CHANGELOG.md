@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**27 / 35 minor entries** <!-- pending-tally -->
+**27 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1954-widen-fixture-load-guard · 20260913-211822
+
+A fixture whose acting script dies during **load** writes nothing, and what the suite then reports is
+the absence of the document the child never got far enough to write -- naming the absent lib, the
+dot-source and load failure not at all. Worse, a case that only checks something is ABSENT *passes*.
+#1934 built the reader for that and wired it into the six suites #1924 had measured failing; #1954 asked
+how far it should reach.
+
+Filed as 71 findings in ~65 suites, the answer is **six**. The probe behind that number counts every
+captured child invocation, and the hazard needs a **copied** child: a script run from the repo in place
+resolves its libs against the real tree and has no copy list to go stale. Of the 17 suites that do copy
+one, six were already wired and five are out of scope for three separate reasons -- the acting script
+runs from the repo, the missing lib is the behaviour under test, or the tree's own
+`fixture-dep: script-not-loaded` opt-out already covers it.
+
+The six are wired in five edits, because `check-plugin-integrity-fixture.ps1` shares both its invocation
+and its close-out across four suites.
+
+And the wiring turned out to be four parts rather than three. Under `$ErrorActionPreference = 'Stop'`
+the child's stderr comes back as a terminating `NativeCommandError`, so the suite dies at the invocation
+and the verdict never runs: the three documented parts alone produce a guard that is present and inert.
+Measured by breaking a copy list on purpose -- a truncated `NativeCommandError` and no headline before,
+three headlines naming the missing lib after.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing here ships to a consumer: `scripts/tests/` is mirrored into no plugin. The reader served is
+whoever next edits one of these fixtures, and what they get is a headline naming the file to add
+instead of a wall of asserts about a document that was never written.
+
+**Score:** N/A
+
+#### Pull Request
+
+The fixture load guard reaches every suite that copies an acting script
+
+[PR #1968](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1968)
+
+---
 
 ### DEPLOY: fix/1963-native-capture-amp-arm-quoting · 20260913-210344
 
