@@ -26,6 +26,11 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot  = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $ScriptSrc = Join-Path $RepoRoot 'scripts\release\new-internal-note.ps1'
 
+# JUDGING THIS SUITE'S OWN FIXTURE CHILD -- issues #1934 and #1954. This suite copies new-internal-note.ps1
+# and the libs it dot-sources into a fixture tree, so a copy list that has gone stale kills the child
+# during LOAD and the asserts below then read a note nothing wrote.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
+
 $script:pass = 0
 $script:fail = 0
 
@@ -147,10 +152,13 @@ function Invoke-Script {
         # Kept as records, so both readings are available: Out preserves the line structure, Flat is
         # the wrap-proof one every phrase assert in this suite uses.
         $captured = @(& powershell @psArgs 2>&1)
+        $code = $LASTEXITCODE
+        # #1934: a load failure is not a refusal -- say so before the asserts read a note nothing wrote.
+        Assert-FixtureScriptLoaded -Code $code -Script (Join-Path $Dir 'scripts\release\new-internal-note.ps1') -Output $captured
         return [pscustomobject]@{
             Out  = ($captured | Out-String)
             Flat = (Get-FlatOutput $captured)
-            Code = $LASTEXITCODE
+            Code = $code
         }
     } finally { $ErrorActionPreference = $prevEap }
 }
@@ -875,8 +883,15 @@ Assert-True ($r.Flat -notmatch 'dkj-policy/legacy/stale') 'both seam names defin
 Remove-Item -Recurse -Force -LiteralPath $both -ErrorAction SilentlyContinue
 
 Write-Host ""
+# ABOVE THE VERDICT AND EVEN ON A GREEN RUN (issues #1934 and #1954): a child that never reached its
+# first statement wrote no note, so the asserts measured the fixture rather than the script.
+$loadBroken = Write-FixtureScriptSummary -Subject 'new-internal-note.ps1'
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
+    exit 1
+}
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the script." -ForegroundColor Red
     exit 1
 }
 Write-Host "OK: all $($script:pass) asserts passed." -ForegroundColor Green

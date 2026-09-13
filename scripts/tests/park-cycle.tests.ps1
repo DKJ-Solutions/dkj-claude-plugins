@@ -32,6 +32,11 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # command is worse than an unjudged production one, and why the count decides the exit code.
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 
+# JUDGING THIS SUITE'S OWN FIXTURE CHILD -- issues #1934 and #1954. This suite copies park-cycle.ps1 and
+# the libs it dot-sources into a fixture tree, so a copy list that has gone stale kills the child during
+# LOAD and every assert below then reads a document nothing wrote.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
+
 # Every lib park-cycle.ps1 dot-sources $PSScriptRoot-relative. A fixture missing one has no script at
 # all, so they are named here rather than globbed: a lib that is added to the script and forgotten here
 # must fail loudly in this suite, not be silently supplied by a wildcard.
@@ -264,6 +269,8 @@ function Invoke-ParkCycle {
         $ErrorActionPreference = 'Continue'
         $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @callArgs 2>&1
         $code = $LASTEXITCODE
+        # #1934: a load failure is not a refusal -- say so before the asserts read a document nothing wrote.
+        Assert-FixtureScriptLoaded -Code $code -Script $scriptPath -Output $out
         return [pscustomobject]@{ Code = $code; Out = (Get-FlatOutput $out) }
     } finally {
         $ErrorActionPreference = $prevEap
@@ -839,8 +846,15 @@ Write-Host ""
 # A BROKEN FIXTURE IS SAID BEFORE THE VERDICT AND FAILS THE RUN (issue #1635) -- including when every
 # assert passed, because a clean sweep over a repo that was never built proves less than it appears to.
 $fixtureBroken = Write-FixtureGitSummary -Subject 'park-cycle.ps1'
+# AND THE SAME FOR A CHILD THAT DIED ON LOAD (issues #1934 and #1954): a run where every assert happened
+# to pass still measured a fixture rather than the script, if the child never reached its first statement.
+$loadBroken = Write-FixtureScriptSummary -Subject 'park-cycle.ps1'
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
+    exit 1
+}
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the script." -ForegroundColor Red
     exit 1
 }
 if ($fixtureBroken) {

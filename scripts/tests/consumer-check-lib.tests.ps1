@@ -36,6 +36,10 @@
 #>
 $ErrorActionPreference = 'Stop'
 
+# JUDGING THIS SUITE'S OWN FIXTURE CHILD -- issues #1934 and #1954. The probe below runs a COPY of the
+# lib in a child process, so a load this copy cannot resolve kills it before it writes anything.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
+
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\consumer-check-lib.ps1')
 
@@ -138,7 +142,19 @@ Set-Text -Dir $loneDir -Rel 'probe.ps1' -Text @"
 . (Join-Path `$PSScriptRoot 'consumer-check-lib.ps1')
 Write-Output ("COUNT=" + (@(Get-CheckProseCorpus -RepoRoot '$docDir')).Count)
 "@
-$probeOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1 | Out-String
+# EAP LOWERED FOR THE CALL AND THE VERDICT READ AFTER IT (issues #1934 and #1954). The probe dot-sources
+# a COPY of the lib, so an unguarded load this copy cannot resolve kills the child before it writes
+# COUNT= at all -- and the assert below would then report a missing measure-context-lib sibling, which is
+# the one thing that is working as designed here. At 'Stop' the child's stderr is terminating, so the
+# verdict has to be reachable before it can say so.
+$prevEap = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $probeOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1 | Out-String
+    Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Script $probe -Output $probeOut
+} finally {
+    $ErrorActionPreference = $prevEap
+}
 Assert-True ($probeOut -match 'COUNT=0') `
     'no measure-context-lib sibling -- @() and no throw, so a pre-#1422 mirror degrades instead of failing'
 
@@ -168,6 +184,13 @@ Remove-Item -Recurse -Force -LiteralPath $override, $fromEnv, $notARepo, $noDoc,
 }
 
 Write-Host ''
+# ABOVE THE VERDICT AND EVEN ON A GREEN RUN (issues #1934 and #1954): a child that died on load made
+# this run a measurement of the fixture rather than of the lib.
+$loadBroken = Write-FixtureScriptSummary -Subject 'consumer-check-lib.ps1'
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the lib." -ForegroundColor Red
+    exit 1
+}
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1
