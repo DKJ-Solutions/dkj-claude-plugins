@@ -43,7 +43,56 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 30 minor entries** <!-- pending-tally -->
+**24 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1953-collision-blind-under-open-pr · 20260913-161943
+
+`park-cycle.ps1` runs on a Stop hook every turn and is documented as this workflow's earliest detector of
+two sessions on one branch. That claim rested entirely on the push being attempted and refused -- detection
+was a side effect of the refusal -- and bound 3, the DEPLOY lock, stops the run the moment a PR exists. So
+on every branch from `open-pr` until the merge it ran to that bound and stopped: no push, no refusal, no
+fetch, nothing to interpret, and under `-Quiet` -- which is what the hook passes -- in silence.
+
+**That is the worst branch to be blind on.** A branch with an open PR and a red required check is the
+single most likely object for two sessions to reach for independently: the work is well-defined, visible on
+the PR list, and obviously owed. Measured September 13, 2026
+([#1953](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1953)): two sessions repaired the same
+red check on PR #1950 about 90 seconds apart, produced the same three-file change, and learned of each
+other from git's non-fast-forward refusal at the push -- after the diagnosis, the repair, the suite run and
+the lint gate had each been paid for twice.
+
+The bound had fused two questions. *May this script write?* is the DEPLOY lock's, and the answer is still
+no -- nothing is committed and nothing is pushed. *Is somebody else on this branch?* is a read, and it owes
+the lock nothing. So the open-PR arm now reads the same one ref and prints the same report, naming the
+other side's author and subject. A merged or closed PR still buys no fetch, and neither arm touches the
+ordinary turn: both sit past the gate that returns early when the document is unchanged and origin holds
+everything this branch has.
+
+**The repair #1953 proposed was not taken, and the reason is inside the issue.** It asks for a check at the
+entry moment -- `git checkout <branch>` by hand. That would not have caught what it measured: the second
+session stepped onto the branch *before* the first had pushed, so there was nothing on origin to find. Only
+a check that runs again, every turn, sees the other side arrive mid-work.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It ships in `dkj-policy` and reaches every consumer running this workflow through the Stop hook they
+already have -- no adoption step and nothing to configure. What they get is a collision named minutes into
+the duplicated work instead of at the push, on the branch state where a collision is likeliest. The cost is
+one network round trip, only on a turn that already made one.
+
+**Score:** 3
+
+#### Pull Request
+
+park-cycle is blind to a collision on exactly the branch two sessions collide on
+
+Plugins: dkj-policy
+
+[PR #1959](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1959)
+
+---
 
 ### DEPLOY: feat/1948-assert-fixture-script-wiring · 20260913-153306
 
