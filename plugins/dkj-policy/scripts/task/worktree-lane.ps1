@@ -189,7 +189,10 @@ function Resolve-LanePath {
 # The first version skipped the anchor and let cwd carry it. The shared-scripts suite failed it for
 # breaking the dual-context invariant, and it was right on a point beyond the convention: a caller
 # standing outside the tree got a confusing git error instead of an answer.
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'worktree-lane.ps1'
 
 # The primary worktree: `git worktree list --porcelain` lists the MAIN worktree first, and that
 # ordering is what makes this reliable no matter which worktree the anchor above resolved to.

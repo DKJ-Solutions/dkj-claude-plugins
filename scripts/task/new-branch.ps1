@@ -208,41 +208,53 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # root. This way the SAME file works in both locations, and the root copy and the plugin mirror
 # stay byte-identical (guarded by the shared-scripts drift lint).
 # -RepoRoot, when supplied, wins over both -- see the param comment above. Note: PowerShell variable
-# names are case-insensitive, so $RepoRoot (the param) and $repoRoot (used below) are the same
-# variable; the guard below only computes the dual-context fallback when it is still empty. Same shape
-# as fold-changelog-entry.ps1, deliberately, so the two read alike.
-if (-not $repoRoot) {
-    if ($env:CLAUDE_PROJECT_DIR) {
-        $repoRoot = $env:CLAUDE_PROJECT_DIR
-    } else {
-        # THE FALLBACK IS JUDGED, NOT DEREFERENCED (issue #1913). This was
-        # `(git rev-parse --show-toplevel).Trim()`, and it is the FIRST thing this script does -- so a
-        # git that answers nothing does not produce a refusal here, it produces
-        # "You cannot call a method on a null-valued expression" and exit 1, with nothing created and
-        # no statement of what went wrong. Measured directly: run from a directory that is not a
-        # repository, that is the whole of the output.
-        #
-        # WHY IT MATTERS IN A PLACE NOBODY RUNS BY HAND. A suite exercises this script as a child
-        # process dozens of times, sixteen lanes at a time under the test gate, and a git that fails to
-        # start once under that load lands exactly here. That is the shape #1913 reported -- red under
-        # the gate, green standalone, exit 1, no document -- and the reason the report could name no
-        # cause is that this line has none to give. Judging it does not make git more reliable; it
-        # makes the one-in-many failure say which of the two it was.
-        $prevEapRoot = $ErrorActionPreference
-        try {
-            $ErrorActionPreference = 'Continue'
-            $topLevel = & git rev-parse --show-toplevel 2>&1
-            $topLevelCode = $LASTEXITCODE
-        } finally { $ErrorActionPreference = $prevEapRoot }
-        $repoRoot = if ($topLevelCode -eq 0) { "$(@($topLevel) | Select-Object -First 1)".Trim() } else { '' }
-        if (-not $repoRoot) {
-            Write-Host "new-branch cannot run -- it could not work out which repository it is in." -ForegroundColor Red
-            Write-Host "  ``git rev-parse --show-toplevel`` exited $topLevelCode here and named no repository root." -ForegroundColor Red
-            Write-Host "  It said: $((@($topLevel) -join ' ').Trim())" -ForegroundColor Red
-            Write-Host "  Nothing was created: no branch, no document, nothing on origin. Run this from inside" -ForegroundColor Red
-            Write-Host "  the checkout, or set CLAUDE_PROJECT_DIR to its root, and run again." -ForegroundColor Red
-            exit 1
-        }
+# names are case-insensitive, so $RepoRoot (the param) and $repoRoot are the same variable, which is
+# why it can be passed straight back in as the override. Same shape as fold-changelog-entry.ps1,
+# deliberately, so the two read alike.
+#
+# JUDGED THROUGH THE SHARED SEAM (#1917), AND THIS LINE HAS NOW BEEN REPAIRED TWICE. #1913 judged it
+# INLINE here, in this one file, because this is the file that reported the symptom; #1917 then found
+# the same unjudged form on 37 call sites and moved the judgement into check-report-lib, beside the
+# dual-context resolution that already existed there. Resolve-RepoRootOrFail carries the same
+# three-source precedence, so the `if (-not $repoRoot)` guard that used to wrap this is gone --
+# passing the param as -Override IS that guard.
+#
+# WHAT #1913 MEASURED IS WHY THIS MATTERS IN A PLACE NOBODY RUNS BY HAND, and it is kept here rather
+# than lost to the merge: a suite exercises this script as a child process dozens of times, sixteen
+# lanes at a time under the test gate, and a git that fails to start once under that load lands
+# exactly here. That was #1913 -- red under the gate, green standalone, exit 1, no document -- and the
+# reason the report could name no cause is that the old line had none to give. Judging it does not
+# make git more reliable; it makes the one-in-many failure say which of the two it was.
+# THE DOT-SOURCE IS GUARDED HERE AND UNCONDITIONAL EVERYWHERE ELSE (#1913 + #1917), and the asymmetry
+# is deliberate rather than untidy. #1913's inline refusal fired BEFORE a single lib was loaded, which
+# is a real property: this is the first statement of the script, and a refusal that itself needs a file
+# to be present cannot report a tree where that file is missing. Folding the wording into the shared
+# seam would have dropped it silently, so it is kept -- for THIS file, which is the one #1913 measured
+# and the one whose suite pins it.
+#
+# The fallback is deliberately NOT a second copy of the seam's judgement: it says the same three things
+# in the fewest lines that can be checked, and anything richer belongs in the seam where all 37 callers
+# get it.
+$crLib = Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1'
+if (Test-Path -LiteralPath $crLib -PathType Leaf) {
+    . $crLib
+    $repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1' `
+        -Consequence 'Nothing was created: no branch, no document, nothing on origin.'
+} elseif (-not $repoRoot) {
+    $prevEapRoot = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $topLevel = & git rev-parse --show-toplevel 2>&1
+        $topLevelCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prevEapRoot }
+    $repoRoot = if ($topLevelCode -eq 0) { "$(@($topLevel) | Select-Object -First 1)".Trim() } else { '' }
+    if (-not $repoRoot) {
+        Write-Host "new-branch cannot run -- it could not work out which repository it is in." -ForegroundColor Red
+        Write-Host "  git rev-parse --show-toplevel exited $topLevelCode here and named no repository root." -ForegroundColor Red
+        Write-Host "  It said: $((@($topLevel) -join ' ').Trim())" -ForegroundColor Red
+        Write-Host "  Nothing was created: no branch, no document, nothing on origin. Run this from inside" -ForegroundColor Red
+        Write-Host "  the checkout, or set CLAUDE_PROJECT_DIR to its root, and run again." -ForegroundColor Red
+        exit 1
     }
 }
 

@@ -88,9 +88,11 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 
 # Repo root -- dual context: a consumer running the shared plugin mirror gets it from
 # CLAUDE_PROJECT_DIR, a run inside this repo from git itself. RootOverride is the test seam.
-$repoRoot = if ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
-
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'plugin-versions.ps1' -OverrideName '-RootOverride'
+
 . (Join-Path $PSScriptRoot '..\lib\plugin-tree-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 

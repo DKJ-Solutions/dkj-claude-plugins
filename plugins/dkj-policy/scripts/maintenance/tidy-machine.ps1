@@ -167,8 +167,16 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # Repo root -- dual context: if a consumer runs the shared plugin mirror, CLAUDE_PROJECT_DIR supplies
 # its repo root; in the source root (or outside a session) it falls back to the git root. This way the
 # SAME file works in both locations, and the root copy and the plugin mirror stay byte-identical.
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
-if (-not $repoRoot) { $repoRoot = (Get-Location).Path }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'tidy-machine.ps1'
+# THE cwd FALLBACK THAT USED TO SIT HERE IS GONE, and it was already dead before this branch (#1917).
+# It read `if (-not $repoRoot) { $repoRoot = (Get-Location).Path }`, which could only fire on an EMPTY
+# STRING -- and the line above it never produced one: outside a work tree the old
+# (git rev-parse --show-toplevel).Trim() threw on $null before the guard was reached. So it caught a
+# state that could not occur, and this script has always failed outside a checkout. What changed is
+# only that it now says so. Whether -MachineOnly OUGHT to run without a checkout is a separate
+# question and a real one -- filed as #1926, not decided here.
 
 if ($CheckoutOnly -and $MachineOnly) {
     Write-Error "-CheckoutOnly and -MachineOnly are mutually exclusive -- pass neither to run both halves."

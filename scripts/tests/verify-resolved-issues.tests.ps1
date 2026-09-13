@@ -22,7 +22,13 @@
 #>
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = (git rev-parse --show-toplevel).Trim()
+# THE REPO ROOT, judged and ANCHORED (#1917). -From pins the git call to this file's own directory
+# instead of the inherited working directory: this suite tree stands up throwaway git repos and
+# changes into them, so a cwd-relative answer can name the wrong repo. Resolve-RepoRootOrFail
+# refuses with git's exit code and stderr where the old (git rev-parse ...).Trim() died on
+# $null.Trim() -- which here meant a suite testing the wrong file, or none.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$RepoRoot = Resolve-RepoRootOrFail -From $PSScriptRoot -ScriptName 'verify-resolved-issues.tests.ps1'
 $ScriptPath = Join-Path $RepoRoot 'scripts\release\verify-resolved-issues.ps1'
 # For Invoke-NativeCapture -- see the capture note in Invoke-Verify below.
 . (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1')

@@ -74,7 +74,10 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # supplies its repo root; in the workshop root (or outside a session) it falls back to the git
 # root. This way the SAME file works in both locations, and the root copy and the plugin mirror
 # stay byte-identical (guarded by the shared-scripts drift lint).
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'park-branch.ps1'
 
 # Shared native-capture helper (#114 item 1). $PSScriptRoot-relative, not $repoRoot: this lib is not
 # repo-owned -- it travels with the SAME plugin/mirror payload as this script (registered in

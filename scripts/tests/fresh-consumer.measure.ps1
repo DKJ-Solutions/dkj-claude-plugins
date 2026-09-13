@@ -55,7 +55,10 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 
 # Repo root -- same dual-context resolution the shared scripts use.
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'fresh-consumer.measure.ps1'
 if (-not $PluginRoot) {
     $PluginRoot = Join-Path $repoRoot 'plugins\dkj-subagents\dkj-subagents-alpha'
 }

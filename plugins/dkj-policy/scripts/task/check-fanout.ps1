@@ -106,9 +106,11 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # its repo root; in the source root (or outside a session) it falls back to the git root. This way the
 # SAME file works in both locations, and the root copy and the plugin mirror stay byte-identical
 # (guarded by the shared-scripts drift lint).
-$repoRoot = if ($RootOverride) { $RootOverride }
-            elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR }
-            else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same three-source precedence, but it names git's exit code and stderr instead of dying on
+# $null.Trim() where git answers nothing.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'check-fanout.ps1' -OverrideName '-RootOverride'
 
 # Both $PSScriptRoot-relative, not $repoRoot: neither lib is repo-owned -- they travel with the SAME
 # plugin/mirror payload as this script.
