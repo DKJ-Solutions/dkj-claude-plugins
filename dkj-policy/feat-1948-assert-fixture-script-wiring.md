@@ -98,8 +98,8 @@ hand-listed-copy-list failure that #1693, #1865 and #1924 each ended up removing
 
 ### TEST
 
-- [x] Nine scenarios (65-73) added to `check-plugin-integrity-commands.tests.ps1`, the suite that already
-      owns the script-reading checks (31, 33, 34, 37): **101 asserts, 0 fail**, 20 of them new.
+- [x] Fifteen scenarios (65-79) added to `check-plugin-integrity-commands.tests.ps1`, the suite that
+      already owns the script-reading checks (31, 33, 34, 37): **109 asserts, 0 fail**, 28 of them new.
 - [x] Each part dropped **on its own** -- three scenarios rather than one, because they fail differently
       and a single "something is missing" assert would pass while naming the wrong part. Each asserts the
       finding *names* the absent part.
@@ -114,7 +114,28 @@ hand-listed-copy-list failure that #1693, #1865 and #1924 each ended up removing
       the verdict from `fold-changelog.tests.ps1` and the summary from `park-branch.tests.ps1` -- the
       #1948 hazard verbatim -- gives **2 errors**, each naming the file and the missing part. Restored:
       0 errors.
-- [x] Full gate and all suites green.
+- [x] **The review chain probed the check rather than reading it, and found four real answers it was
+      giving wrongly -- three of them FALSE NEGATIVES**, which is the direction that matters for a guard
+      whose whole subject is a guard that stopped guarding. All four are repaired and pinned as scenarios
+      74-79, each with its mirror discriminator so the repair cannot become a false positive:
+      a reference sitting **before** the assignment used to clear it (74); the same variable name inside
+      an **unrelated function** used to clear a dead file-scope assignment (75, with 76 proving a read in
+      the *same* function still clears); a verdict handed back by a function was wrongly **flagged** as
+      discarded, in both the implicit- and explicit-return spellings (77, with 78 proving a bare call at
+      file scope is still a discard); and the dot-source was an **unanchored** substring match, so
+      `my-other-fixture-script-lib.ps1` counted as the wiring (79).
+- [~] **One boundary is stated rather than repaired, and it is in the check's own header.** Part 4 asks
+      whether the verdict is *read*, not whether it reaches an `exit` -- so a suite whose only use of
+      `$loadBroken` is `Write-Host "load broken: $loadBroken"` clears the check while exiting 0. Telling
+      that from a read that *gates* needs data-flow analysis, a different instrument from the AST walk
+      every other check here does. The three cheap narrowings were made because each removes a false
+      answer without changing the instrument; this one would change it. A guard that names its own
+      ceiling is worth more than one assumed to have none.
+- [~] Victor also found checks 35 and 41 each carry their own copy of the unwrap/discard rule, whose
+      arms disagreeing is the bug check 35's own header records. Filed as
+      [#1956](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1956) rather than built here:
+      extracting it means editing a live safety check on a different subject.
+- [x] Full gate and all suites green; check 41 still born green after the narrowings (7 wired, 0 findings).
 
 ### DEPLOY: feat/1948-assert-fixture-script-wiring
 

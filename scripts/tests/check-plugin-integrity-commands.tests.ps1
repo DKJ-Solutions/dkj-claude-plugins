@@ -1050,6 +1050,104 @@ try {
     ) -join "`n") + "`n"), $Utf8NoBom)
     $rC73 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-Equal 0 ([regex]::Matches($rC73.Out, $FsFindingPattern).Count) 'scenario 73: a comment and a string naming the lib are not a dot-source'
+    # THE FOUR PROBES THE CODE REVIEW RAN AGAINST THIS CHECK, pinned so the repairs cannot regress. Each
+    # was a real answer the check gave before it was narrowed, and three of the four were FALSE NEGATIVES
+    # -- the direction that matters for a guard whose whole subject is a guard that stopped guarding.
+    Write-Host "check 41 -- the read search is scoped and ordered" -ForegroundColor Cyan
+
+    # (a) A REFERENCE BEFORE THE ASSIGNMENT is a different variable's life, and used to clear the dead
+    #     assignment that followed it.
+    [System.IO.File]::WriteAllText($fsPath, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '. (Join-Path $PSScriptRoot ''..\lib\fixture-script-lib.ps1'')'
+        '$out = & powershell -NoProfile -File $child 2>&1'
+        'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+        'if ($loadBroken) { Write-Host ''stale reference to a variable that does not exist yet'' }'
+        '$loadBroken = Write-FixtureScriptSummary -Subject ''child.ps1'''
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC74 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-Equal 1 ([regex]::Matches($rC74.Out, $FsFindingPattern).Count) 'scenario 74: a reference BEFORE the assignment does not clear it'
+
+    # (b) THE SAME NAME IN AN UNRELATED FUNCTION used to clear a dead file-scope assignment. PowerShell
+    #     scopes by runtime lookup, so the two are genuinely different values.
+    [System.IO.File]::WriteAllText($fsPath, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '. (Join-Path $PSScriptRoot ''..\lib\fixture-script-lib.ps1'')'
+        '$out = & powershell -NoProfile -File $child 2>&1'
+        'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+        'function Test-Unrelated {'
+        '    $loadBroken = $true'
+        '    if ($loadBroken) { Write-Host ''this is a different variable entirely'' }'
+        '}'
+        '$loadBroken = Write-FixtureScriptSummary -Subject ''child.ps1'''
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC75 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-Equal 1 ([regex]::Matches($rC75.Out, $FsFindingPattern).Count) 'scenario 75: the same name inside an unrelated function does not clear a file-scope assignment'
+
+    # (c) AND THE MIRROR OF (b): a read in the SAME function still clears, so the narrowing did not turn
+    #     into a false positive on a suite that wires its guard inside a helper.
+    [System.IO.File]::WriteAllText($fsPath, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '. (Join-Path $PSScriptRoot ''..\lib\fixture-script-lib.ps1'')'
+        'function Complete-Suite {'
+        '    $out = & powershell -NoProfile -File $child 2>&1'
+        '    Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+        '    $loadBroken = Write-FixtureScriptSummary -Subject ''child.ps1'''
+        '    if ($loadBroken) { exit 1 }'
+        '}'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC76 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-Equal 0 ([regex]::Matches($rC76.Out, $FsFindingPattern).Count) 'scenario 76: a read in the SAME function still clears -- the narrowing is not a false positive'
+
+    # (d) A VERDICT HANDED BACK BY A FUNCTION is not discarded, in both spellings. This was a false
+    #     POSITIVE: the call is the last statement of the body, which is PowerShell's implicit return.
+    Write-Host "check 41 -- a verdict handed back by a function is not a discard" -ForegroundColor Cyan
+    foreach ($fsRet in @(
+        @{ Label = 'an implicit return'; Line = '    Write-FixtureScriptSummary -Subject ''child.ps1''' }
+        @{ Label = 'an explicit return'; Line = '    return Write-FixtureScriptSummary -Subject ''child.ps1''' }
+    )) {
+        [System.IO.File]::WriteAllText($fsPath, ((@(
+            '$ErrorActionPreference = ''Stop'''
+            '. (Join-Path $PSScriptRoot ''..\lib\fixture-script-lib.ps1'')'
+            '$out = & powershell -NoProfile -File $child 2>&1'
+            'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+            'function Get-LoadBroken {'
+            $fsRet.Line
+            '}'
+            'if (Get-LoadBroken) { exit 1 }'
+        ) -join "`n") + "`n"), $Utf8NoBom)
+        $rC77 = Invoke-Integrity -FixtureRoot $Fixture
+        Assert-Equal 0 ([regex]::Matches($rC77.Out, $FsFindingPattern).Count) "scenario 77/$($fsRet.Label): a verdict handed back to the caller is not a discard"
+    }
+
+    # AND A BARE CALL THAT IS *NOT* A RETURN IS STILL A DISCARD -- the discriminator for (d), without
+    # which that arm would clear every dropped verdict at file scope.
+    [System.IO.File]::WriteAllText($fsPath, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '. (Join-Path $PSScriptRoot ''..\lib\fixture-script-lib.ps1'')'
+        '$out = & powershell -NoProfile -File $child 2>&1'
+        'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+        'Write-FixtureScriptSummary -Subject ''child.ps1'''
+        'Write-Host ''done'''
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC78 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-Equal 1 ([regex]::Matches($rC78.Out, $FsFindingPattern).Count) 'scenario 78: a bare call at file scope is still a discard, not an implicit return'
+
+    # (e) THE DOT-SOURCE LEAF IS ANCHORED: a different file whose name merely ends the same way is not
+    #     this lib, and used to count as the wiring.
+    Write-Host "check 41 -- a lookalike lib name is not the dot-source" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($fsPath, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '. (Join-Path $PSScriptRoot ''..\lib\my-other-fixture-script-lib.ps1'')'
+        '$out = & powershell -NoProfile -File $child 2>&1'
+        'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+        '$loadBroken = Write-FixtureScriptSummary -Subject ''child.ps1'''
+        'if ($loadBroken) { exit 1 }'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC79 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-Equal 1 ([regex]::Matches($rC79.Out, $FsFindingPattern).Count) 'scenario 79: a lookalike leaf does not satisfy the dot-source part'
+    Assert-True ($rC79.Out -match 'not the dot-source of scripts/lib/fixture-script-lib\.ps1') 'scenario 79: and the finding names the part that is genuinely absent'
+
     Remove-Item -LiteralPath $fsPath -Force
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

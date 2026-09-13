@@ -1212,6 +1212,24 @@ function Get-PsScriptFiles {
 # An unparseable file yields an EMPTY list, not $null. Both callers counted such a file as covered and
 # then skipped it, so an empty list preserves their coverage numbers exactly.
 $script:PsScriptCommandAstCache = @{}
+function Get-EnclosingFunction {
+    <#
+        The FunctionDefinitionAst a node sits inside, or $null at file scope. Used to keep a
+        variable-read search inside the scope the assignment it clears actually lives in: PowerShell
+        scopes by runtime lookup rather than lexically, so two functions may hold the same name for
+        unrelated values, and a name match across them clears a dead assignment. Identity comparison of
+        the returned node is what the caller wants -- two nodes are in the same scope when this returns
+        the same object (or $null for both).
+    #>
+    param([Parameter(Mandatory)]$Node)
+    $walk = $Node
+    while ($walk) {
+        if ($walk -is [System.Management.Automation.Language.FunctionDefinitionAst]) { return $walk }
+        $walk = $walk.Parent
+    }
+    return $null
+}
+
 function Get-PsScriptCommandAsts {
     param([Parameter(Mandatory)][string]$Path)
     if ($script:PsScriptCommandAstCache.ContainsKey($Path)) { return $script:PsScriptCommandAstCache[$Path] }
@@ -4866,11 +4884,11 @@ Write-Coverage -Category 'plugin-lib' -Checked $plFiles `
 # same-statement-or-the-next rule reports all six of the WIRED suites as findings.
 #
 # SO THE SUBJECT IS THE WIRING, NOT THE INVOCATION, and the rule is self-anchoring: a suite carrying ANY
-# of the three parts must carry all three. That needs no hand-maintained list of which suites are wired --
-# the list #1693, #1865 and #1924 each exist because nobody maintains -- because the file's own content
-# says whether it has adopted the helper. Born green: 7 files carry a part, all 7 carry all three, 0
-# exemptions. Probed against the hazard by dropping one call from fold-changelog and the summary from
-# park-branch: 2 findings, each naming the file and the part.
+# of the three parts must carry all three. That needs no hand-maintained list of which suites are wired,
+# because the file's own content says whether it has adopted the helper -- and a hand-listed set of files
+# is the failure #1693, #1865 and #1924 each ended up removing. Born green: 7 files carry a part, all 7
+# carry all three, 0 exemptions. Probed against the hazard by dropping one call from fold-changelog and
+# the summary from park-branch: 2 findings, each naming the file and the part.
 #
 # THE FOURTH FACT IS THAT THE SUMMARY IS READ, because printing it is not what fails the run.
 # Write-FixtureScriptSummary RETURNS whether something died on load and the caller turns that into an
@@ -4879,6 +4897,17 @@ Write-Coverage -Category 'plugin-lib' -Checked $plFiles `
 # remove, wearing the helper's own output as proof that it is wired. Discarded or never read is therefore
 # a finding in its own right, and the three spellings that count as a read are an assignment whose
 # variable is read later, a direct use in a condition, and a use as an argument -- all three occur here.
+#
+# AND WHAT PART 4 DOES NOT REACH IS STATED HERE RATHER THAN LEFT TO BE DISCOVERED. It asks whether the
+# verdict is READ, not whether it reaches an 'exit': a read is a read, so a suite whose only use of
+# '$loadBroken' is 'Write-Host "load broken: $loadBroken"' clears this check while exiting 0 -- the very
+# silent-success shape the part exists to catch, spelled as an interpolation. Telling that from a read
+# that GATES needs data-flow analysis, which is a different instrument from the AST walk every other
+# check here does, and one nobody has asked this gate to carry. The three cheap narrowings WERE made
+# (after-not-anywhere, same-function, and the implicit-return arm), because each removes a false answer
+# without changing the instrument. This one is the ceiling, and a guard that names its own ceiling is
+# worth more than one that is assumed to have none -- #1948's whole subject is a guard nobody noticed
+# had stopped guarding.
 #
 # ONE DIRECTION ONLY: a suite that carries NONE of the three parts is not a subject. Whether it should be
 # wired is #1954's question, measured at 65 suites, and answering it here would be the 71-finding check
@@ -4897,9 +4926,14 @@ foreach ($fsFile in $fsFiles) {
     # THROUGH THE AST, NOT THE LINE TEXT -- the same rule check 35 states for the same reason. A text
     # match on the lib's name is satisfied by this very comment, by a string, or by a mention in a
     # docstring, any of which would clear a file that has genuinely lost the load.
+    #
+    # THE LEAF IS ANCHORED, because 'contains the substring' is satisfied by a DIFFERENT file whose name
+    # merely ends the same way -- '..\lib\my-other-fixture-script-lib.ps1' dot-sourced instead, and this
+    # counted the suite as wired. No such file exists here; the anchor is what keeps the finding honest
+    # if one ever does. Caught by probing the check rather than by reading it.
     $fsHasSource = @($fsCmds | Where-Object {
         $_.InvocationOperator -eq [System.Management.Automation.Language.TokenKind]::Dot -and
-        $_.Extent.Text -match 'fixture-script-lib\.ps1'
+        $_.Extent.Text -match '[\\/''"]fixture-script-lib\.ps1'
     }).Count -gt 0
 
     # -- parts 2 and 3: the verdict and the summary -----------------------------------------------
@@ -4959,17 +4993,48 @@ foreach ($fsFile in $fsFiles) {
                 # The root is reached by climbing from the node rather than by parsing the file again --
                 # Get-PsScriptCommandAsts holds only CommandAsts, and a second ParseFile here would undo
                 # the shared-parse property checks 31, 33, 35 and this one are built on (issue #1358).
-                $fsRoot = $fsUp
+                #
+                # TWO NARROWINGS, BOTH OF THEM REPAIRS OF A FALSE NEGATIVE, caught by probing this check
+                # rather than by reading it. A bare name match over the whole file cleared an assignment
+                # whose value nothing consults:
+                #   * AFTER, not anywhere. A reference sitting BEFORE the assignment is a different
+                #     variable's life, and it cleared a dead assignment that followed it.
+                #   * IN THE SAME FUNCTION, not anywhere. '$loadBroken' as a local inside an unrelated
+                #     function cleared a dead file-scope assignment of the same name.
+                $fsOwner = Get-EnclosingFunction -Node $fsUp
+                $fsFrom  = $fsUp.Extent.StartOffset
+                $fsRoot  = $fsUp
                 while ($fsRoot.Parent) { $fsRoot = $fsRoot.Parent }
                 $fsRead = @($fsRoot.FindAll({
                     param($n)
                     $n -is [System.Management.Automation.Language.VariableExpressionAst] -and
                     $n.VariablePath.UserPath -eq $fsVar -and
-                    $n.Extent.StartOffset -ne $fsUp.Left.Extent.StartOffset
-                }, $true)).Count -gt 0
+                    $n.Extent.StartOffset -gt $fsFrom
+                }, $true) | Where-Object {
+                    (Get-EnclosingFunction -Node $_) -eq $fsOwner
+                }).Count -gt 0
             }
-        } elseif ($fsUp -isnot [System.Management.Automation.Language.StatementBlockAst] -and
-                  $fsUp -isnot [System.Management.Automation.Language.NamedBlockAst]) {
+        } elseif ($fsUp -is [System.Management.Automation.Language.ReturnStatementAst]) {
+            # 'return Write-FixtureScriptSummary ...' -- the verdict is the caller's to act on.
+            $fsRead = $true
+        } elseif ($fsUp -is [System.Management.Automation.Language.StatementBlockAst] -or
+                  $fsUp -is [System.Management.Automation.Language.NamedBlockAst]) {
+            # A BARE STATEMENT, which is a discard EXCEPT as a function's implicit return -- PowerShell's
+            # last-statement-is-the-value rule, and a false positive until this arm existed: a helper
+            # ending in this call hands the verdict back exactly as an explicit 'return' does. No suite
+            # here spells it that way today; the arm is what keeps a refactor that does from being told
+            # its wiring is missing.
+            $fsOwnerBlock = $fsUp
+            $fsIsLast = $false
+            if ($fsOwnerBlock.Statements -and
+                $fsOwnerBlock.Parent -is [System.Management.Automation.Language.ScriptBlockAst] -and
+                $fsOwnerBlock.Parent.Parent -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
+                $fsStmts  = @($fsOwnerBlock.Statements)
+                $fsIsLast = ($fsStmts.Count -gt 0 -and
+                             $fsStmts[$fsStmts.Count - 1].Extent.StartOffset -eq $fsOuter.Extent.StartOffset)
+            }
+            $fsRead = $fsIsLast
+        } else {
             # Consumed in place -- an if/while condition, or an argument to another command.
             $fsRead = $true
         }
