@@ -43,7 +43,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 19 minor entries** <!-- pending-tally -->
+**16 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1924-fixture-dep-seed-from-script · 20260913-120914
+
+The fixture dependency gate now reads the **script** a fixture copies, not only the libs -- closing the
+one-word gap that let it report 26 green asserts while six suites were broken by exactly the class it
+exists to catch. A copied script is held to its **load-time** dot-sources only, which is measured rather
+than tidy: the wider rule reports ten subjects on a clean tree and all ten are conditional dependencies a
+fixture is right not to carry.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The widening was measured before it was written, and the measurement changed it twice -- first from every
+dot-source to load-time ones, then from a raw text match to the parser's comment tokens, when the opt-out
+reader counted this suite's own fixtures and reported 3 declarations where the tree holds 1. Both reds are
+written into the file as asserts rather than into a commit message. And the opt-out it needed was
+specified in advance, under #1693, by the docstring of the reader it sits beside: this is the first
+instance of a case that was described two issues before it appeared.
+
+**Score:** N/A
+
+#### Pull Request
+
+Seed the fixture dependency walk from the copied SCRIPT, not only the copied libs
+
+Plugins: dkj-policy
+
+[PR #1937](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1937)
+
+---
 
 ### DEPLOY: docs/1933-gitcancommit-docstring-wrong-cause · 20260913-115551
 
