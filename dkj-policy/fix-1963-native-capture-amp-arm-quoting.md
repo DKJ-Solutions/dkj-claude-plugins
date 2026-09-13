@@ -122,13 +122,19 @@ reader of that arm will meet it.
 - [x] `ref-print-lib`, `script-contract`, `pr-issues`: pass
 - [x] `check-plugin-integrity.ps1`: 0 errors
 
-#### One thing NOT claimed here
+- [x] The full gate via `open-pr.ps1`: **all 103 suites passed in 153s (30 lanes)**
 
-The full 103-suite gate was run locally and reported 45 failures. That run is **not** evidence about
-this branch and is not cited as a pass: it was driven at 32 lanes on one 18-core machine, where CI
-splits the same pool across four shards, and many suites in it calibrate timeouts against machine
-load by design. The suites this branch actually touches are listed above and were run individually.
-CI is what settles the rest.
+#### The 45-failure run, and why it is not in the list above
+
+An earlier local run of all 103 suites reported 45 failures, and none of them were this branch's. It
+was driven by hand at 32 lanes on one 18-core machine -- CI splits the same pool across four shards --
+and a number of these suites calibrate their timeouts against machine load by design, so the
+oversubscription is the finding. `open-pr`'s own gate ran the same 103 at 30 lanes and passed all of
+them, which is the run cited above.
+
+Two hours went into establishing that, and the cheap check existed the whole time: **instrumenting
+the guard showed one hit across ten of the "failing" suites**, which already said the failures were
+not the change. Take the baseline before reading a wall of red, not after.
 
 ### DEPLOY: fix/1963-native-capture-amp-arm-quoting
 
