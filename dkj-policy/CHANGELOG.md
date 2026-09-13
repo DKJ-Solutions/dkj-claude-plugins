@@ -43,7 +43,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 33 minor entries** <!-- pending-tally -->
+**26 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1962-exempt-branch-pr-title · 20260913-181123
+
+`open-pr` can now open a pull request for a branch that owes no changelog entry. A prefix listed in
+`Get-EntryGateExemptPrefixes` -- `sync` by default -- is exempt from the entry gate, and
+`check-branch-entry` passes such a branch for exactly that reason; but the PR title has been composed
+from the entry and nothing else since #506, so the one branch shape the CI gate deliberately waves
+through was the one shape `open-pr` could not name. It refused *after* running the lint gate, every
+suite and the push, with a message telling the author to fill in a title section they must not write --
+an entry on a mirror branch folds somebody else's edits into `CHANGELOG.md` as this repo's own work.
+
+The exemption is now one function, `Get-BranchEntryExemptPrefix`, called by both scripts, so they cannot
+disagree again about which branches owe an entry. On an exempt branch the title comes from `-Title` if
+one was passed, otherwise from the branch's oldest commit subject off the trunk -- its own opening
+statement, which a mirror script already writes descriptively. `-Title` is honoured **there and nowhere
+else**: #506 removed a *second* source of the title, and an exempt branch has no entry to be a second
+source of. Where such a branch genuinely has nothing to be named after, the refusal says that in its own
+terms and asks for a commit or a `-Title`.
+
+The report's side observation is repaired with it: the retired root entry path is now taken only when
+that file exists, so a refusal naming a path names one that is merely missing rather than one that
+exists nowhere.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+This closed the only gated route a consumer had for a sync PR. `sync-main.ps1` opens its own PR with a
+bare `gh pr create`, which runs no gates; routing it through `open-pr` instead is the documented reason
+that wrapper exists, and with `open-pr` unable to name such a PR the only remaining option was the
+ungated one. A consumer running mirror branches gets that route back with the next plugin update, with
+nothing to configure -- and a consumer that has never run one is unaffected, since the branch shape this
+touches is the one their prefix list does not contain.
+
+**Score:** 3
+
+#### Pull Request
+
+open-pr names an entry-exempt branch's PR from its own commit subject
+
+Plugins: dkj-policy
+
+[PR #1964](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1964)
+
+---
 
 ### DEPLOY: fix/1958-hook-ceiling-outruns-network-bound · 20260913-171359
 
