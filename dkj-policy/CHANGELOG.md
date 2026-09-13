@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 22 minor entries** <!-- pending-tally -->
+**19 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1926-machineonly-without-checkout · 20260913-123237
+
+`tidy-machine -MachineOnly` now runs with no checkout at all -- from a home directory, a scratch
+directory, anywhere. It never did, despite a fallback that read exactly as though it did: the old
+`if (-not $repoRoot) { $repoRoot = (Get-Location).Path }` could only fire on an empty string, and the
+line above it threw on `$null` first, so the guard caught a state that could not occur. #1917 removed
+that dead line and left the question standing; this answers it.
+
+The root is now resolved per half rather than once up front -- the refusing resolver for the six
+per-checkout lanes, whose subject a checkout genuinely is, and the tolerant one otherwise. Five of the
+six machine lanes need no repo, which was measured rather than assumed: lane 7 delegates to a script
+that already resolves tolerantly, lanes 8, 11 and 12 hand `Get-InstallRecord` a root only to read the
+one field of its answer that is not filtered by it, and lane 10 walks the scratch root. The sixth,
+lane 9, asks how far behind *this checkout's* plugins are, so it is skipped by name and says why --
+rather than left to refuse inside `plugin-versions.ps1`, where the refusal is worded for somebody who
+ran that script directly and would read, from here, as the whole run having failed.
+
+Every other invocation refuses exactly as before, and the suite now pins both directions.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's closing tidy-up no longer has to be run from inside a repository to answer the questions
+that were never about one. `tidy-machine` ships in `dkj-policy`, and `-MachineOnly` is the mode whose
+whole subject is the machine -- stale install records, plugin staleness, extracted payload nothing
+points at, leftover fixture trees. Standing in a home directory and asking for them used to end in a
+raw `You cannot call a method on a null-valued expression`; since #1917 it ended in a stated refusal;
+now it answers.
+
+**Score:** 2
+
+#### Pull Request
+
+tidy-machine -MachineOnly runs without a checkout
+
+Plugins: dkj-policy
+
+[PR #1942](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1942)
+
+---
 
 ### DEPLOY: fix/1931-exit-code-unknown-audit · 20260913-122617
 
