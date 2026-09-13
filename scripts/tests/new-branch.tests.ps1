@@ -31,6 +31,11 @@ $RepoRoot         = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')
 # JUDGING THIS SUITE'S OWN FIXTURE git CALLS -- issue #1635. See the lib for why an unjudged fixture
 # command is worse than an unjudged production one, and why the count decides the exit code.
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+# AND ITS RUNTIME SIBLING -- issue #1934. fixture-git-lib judges the calls that BUILD the fixture; this
+# one judges the child that RUNS in it. A child that dies during load never reaches its first statement,
+# so what the asserts below report is the absence of a document nothing wrote -- naming the missing lib
+# not at all, while the child's own output named it all along.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
 $NewBranchSrc     = Join-Path $RepoRoot 'scripts\task\new-branch.ps1'
 $BranchInfoSrc    = Join-Path $RepoRoot 'scripts\lib\branch-info.ps1'
 # new-branch -Park dot-sources this sibling shared lib for its git push (the #107 stderr guard),
@@ -179,6 +184,13 @@ function Invoke-CapturedChild {
         foreach ($f in @($outFile, $errFile)) {
             if (Test-Path -LiteralPath $f) { $text += [System.IO.File]::ReadAllText($f) }
         }
+        # #1934: name a load failure before the caller reads a document the child never wrote. This
+        # helper serves the refusal cases too, and a refusal carries no CommandNotFoundException, so it
+        # stays silent there. The script is picked out of the argument vector because this helper takes
+        # the whole vector rather than a script path of its own.
+        $childPs1 = @($ChildArgs | Where-Object { "$_" -like '*.ps1' })
+        Assert-FixtureScriptLoaded -Code $proc.ExitCode -Output $text `
+            -Script $(if ($childPs1.Count -gt 0) { $childPs1[0] } else { '' })
         return [pscustomobject]@{ Code = $proc.ExitCode; Out = (Get-FlatOutput $text) }
     } finally {
         foreach ($f in @($outFile, $errFile)) {
@@ -2137,8 +2149,16 @@ Write-Host ""
 # A BROKEN FIXTURE IS SAID BEFORE THE VERDICT AND FAILS THE RUN (issue #1635) -- including when every
 # assert passed, because a clean sweep over a repo that was never built proves less than it appears to.
 $fixtureBroken = Write-FixtureGitSummary -Subject 'new-branch.ps1'
+# AND THE SAME VERDICT FOR A CHILD THAT DIED ON LOAD (#1934). Separate counter, separate line: a
+# fixture git call that failed and a child that never started are different breakages with different
+# repairs, and folding them into one number would name neither.
+$loadBroken = Write-FixtureScriptSummary -Subject 'new-branch.ps1'
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
+    exit 1
+}
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the script." -ForegroundColor Red
     exit 1
 }
 if ($fixtureBroken) {
