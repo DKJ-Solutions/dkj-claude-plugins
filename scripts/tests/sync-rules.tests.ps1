@@ -692,6 +692,60 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
             'prov/simplified: later drift on that path is reported, never taken -- the unwidened base errs safe'
     } finally { Pop-Location }
 
+    # THE BLOB THAT EXISTS ONLY AT A MERGE COMMIT (issue #1951). Since the walk above reads one
+    # 'git log --raw' instead of one 'git rev-parse' per commit, WHAT GIT PRINTS FOR A MERGE became part
+    # of this function's correctness: a plain '--raw' prints NOTHING for a merge, so every blob whose only
+    # home is a merge's own post-image disappears -- and a blob this walk stops seeing makes live's
+    # content read as FOREIGN, which is the arm that overwrites the trunk. '-m' is what restores them.
+    #
+    # THE CASE ABOVE DOES NOT COVER THIS, WHICH IS WHY THIS ONE EXISTS. Measured on the #1951 branch:
+    # dropping '-m' left all 165 asserts of this suite green, while the same drop lost 62 blobs across 12
+    # real paths of this repo. The reconcile fixture above merges a branch whose blobs all sit on ORDINARY
+    # commits, and '--raw' prints those whether or not '-m' is given -- so the merge there is walked, and
+    # nothing is ever read OUT of it. What has no other home is a CONFLICT RESOLUTION: a merge whose
+    # result for the path is neither parent's.
+    $evil = New-GitTree -Label 'merge-postimage'
+    Add-Commit -Dir $evil -Message 'initial' -Write @{ 'sections/y.liquid' = 'BASE' } | Out-Null
+    $evilTrunk = ([string](& git -C $evil rev-parse --abbrev-ref HEAD)).Trim()
+    Invoke-FixtureGitJudged @('-C', $evil, 'checkout', '-q', '-b', 'side')
+    Add-Commit -Dir $evil -Message 'feat: the side takes it one way' -Write @{ 'sections/y.liquid' = 'SIDE' } | Out-Null
+    Invoke-FixtureGitJudged @('-C', $evil, 'checkout', '-q', $evilTrunk)
+    Add-Commit -Dir $evil -Message 'feat: the trunk takes it the other' -Write @{ 'sections/y.liquid' = 'TRUNK' } | Out-Null
+    # The merge CONFLICTS, and the resolution is a THIRD content. A non-zero exit is the expected answer
+    # here rather than a failure, so this is a git QUESTION: the exit code is read on the very next
+    # statement, which is both what clears check 35 and what proves the fixture is the one under test --
+    # a merge that succeeded would leave a parent's blob in the tree and the case would assert nothing.
+    & git -C $evil merge --no-ff -m 'merge: resolve by hand' side 2>&1 | Out-Null
+    Assert-True ($LASTEXITCODE -ne 0) 'merge-postimage: the merge really did conflict, so the resolution is a third content'
+    Set-Content -LiteralPath (Join-Path $evil 'sections/y.liquid') -Value 'RESOLVED' -NoNewline -Encoding ascii
+    Invoke-FixtureGitJudged @('-C', $evil, 'add', 'sections/y.liquid')
+    Invoke-FixtureGitJudged @('-C', $evil, 'commit', '-q', '--no-edit')
+
+    Push-Location -LiteralPath $evil
+    try {
+        # The premise, measured rather than assumed: this content really does live at the merge and
+        # nowhere else. Without it the assert below could pass for the wrong reason on some git version.
+        $atMerge = ([string](& git rev-parse 'HEAD:sections/y.liquid')).Trim()
+        $onParents = @(& git rev-parse 'HEAD^1:sections/y.liquid' 'HEAD^2:sections/y.liquid') |
+            ForEach-Object { ([string]$_).Trim() }
+        Assert-True ($onParents -notcontains $atMerge) `
+            'merge-postimage: the resolved blob really is at the merge and at neither parent -- the premise'
+
+        Assert-True (Test-LiveContentIsOurs -Path 'sections/y.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('RESOLVED'))) `
+            'merge-postimage: a blob whose only home is a merge is still recognised as ours (needs -m)'
+        Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs `
+            (Test-LiveContentIsOurs -Path 'sections/y.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('RESOLVED')))).Action `
+            'merge-postimage: so it is held back rather than taken over the trunk'
+        # Both parents' content is still found, and content nobody committed is still foreign -- the
+        # emission widened, the judgement did not.
+        Assert-True (Test-LiveContentIsOurs -Path 'sections/y.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('SIDE'))) `
+            'merge-postimage: the merged side is still ours'
+        Assert-True (Test-LiveContentIsOurs -Path 'sections/y.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('TRUNK'))) `
+            'merge-postimage: the first parent is still ours'
+        Assert-True (-not (Test-LiveContentIsOurs -Path 'sections/y.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('NEVER')))) `
+            'merge-postimage: and content nobody ever committed is still foreign'
+    } finally { Pop-Location }
+
     # --- The verdict table, every cell --------------------------------------------------------------
     Write-Host ''
     Write-Host 'Get-SyncFileVerdict'
