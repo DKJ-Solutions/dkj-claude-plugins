@@ -43,7 +43,172 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 24 minor entries** <!-- pending-tally -->
+**22 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1945-reconciled-conflict-no-durable-form · 20260913-141747
+
+A sync conflict you reconcile by hand now has a durable form, and the refusal says what it is. It
+used to end at *"compare them by hand and merge deliberately"* -- complete advice about the content
+and silent about the shape, which is where the single commit a person naturally reaches for fails. It
+fails in one of two ways, chosen by nothing but the commit's subject: an ordinary subject leaves the
+path conflicted on every future run, and a subject matching the sync pattern makes that commit the
+path's own agreement point, so the next run reads the trunk as stationary and deletes the
+reconciliation. Neither announces itself. Reported from a consumer on seven conflicted paths, where
+the second would have re-deleted a locale key from five files, reverted seven string fixes and
+dropped an unpushed section.
+
+The cause is that merged bytes are neither side's, so they carry no provenance -- and provenance is
+the whole of what the rule reads. So the refusal now names the durable two-commit shape, and
+`-ReconcileBase` writes it: live's bytes verbatim, then the trunk's own bytes straight back on top.
+The branch changes no file, which is what makes merging it safe at every point, and after it the path
+reads `keep-trunk` permanently -- the same state every ordinary held-back file is in. The
+reconciliation itself is then ordinary work in an ordinary commit, in any spelling.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+**Building the repair found a second defect underneath it, in a function that had been answering a
+narrower question than its own name since it was written.** `Test-LiveContentIsOurs` asks whether a
+path has *ever* held live's exact bytes, and `git log -- <path>` does not answer that: it applies
+history simplification, so at a merge whose result for that path equals the first parent's, the
+entire merged side is pruned, every blob on it included. It survived because the ordinary sync branch
+changes the path and nothing puts it back, so its merge is never TREESAME and the walk follows it --
+every take-live this rule has ever made is unaffected. The shape that hits it is a branch whose net
+effect on a path is zero, which is exactly what `-ReconcileBase` writes on purpose. Measured: after
+that merge the reconciliation base was invisible and the path reported the same conflict it started
+with. `--full-history` is the repair, and it moves only in the protective direction -- more content
+recognised as ours means keep-trunk where the answer would otherwise have been take-live.
+
+**And the third proposed repair is declined rather than deferred**, with the measurement in the code:
+a hand-written `sync...` commit cannot be told from a genuine one by anything in the content, because
+every case that reaches that cell is one where live has moved since the base either way. A proof
+would have to be declared, and no declaration can describe history that is already written -- so the
+strict version would stop the sync dead in every consumer at once, to close a hole that needs the
+operator to ignore a printed warning first. The repair lands where the hazard is created instead.
+
+**Score:** 3
+
+#### Pull Request
+
+A hand-reconciled sync conflict gets a durable form
+
+Plugins: dkj-subagents-shopify
+
+[PR #1952](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1952)
+
+---
+
+### DEPLOY: feat/1941-gate-suite-deadline-and-focus-mode · 20260913-134214
+
+**No test suite runs unbounded any more, and one suite can now be put under the pool's real
+contention.** Two changes to `Invoke-TestSuiteGate`, the gate `open-pr.ps1`, `cut-release.ps1` and CI
+all run.
+
+**The deadline (#1941).** The reap loop had no deadline of any kind: it slept 100 ms and went round
+again for as long as a lane took, whatever had stopped that lane progressing. One wedged suite
+therefore wedged the whole gate, and did it in **silence**, because the pool buffers a suite's output
+until that suite exits -- so a suite that never exits prints nothing after its opening `started` line.
+Measured: **141 minutes**, 61 `powershell.exe` and 29 `git.exe` alive, 0.23 s of CPU between all 29
+git children, no output, no error, no red, and nothing stopping a later gate on that machine starting
+its own 30 lanes on top. Each lane now carries a bound (`$GateSuiteTimeoutSeconds`, 1800s -- about 6x
+the slowest suite this repo has ever recorded); past it the process **tree** is killed, and past a
+further grace window a lane that did not die is **abandoned** rather than waited on, which is the half
+that actually makes the loop terminate under every condition.
+
+**A timeout is a fourth verdict and it is deliberately NOT re-run.** #1723's crash path re-runs a
+suite alone because a killed process measured nothing. A timeout *has* measured something, so
+re-running it alone would remove the contention that is the likeliest cause, pass, and hand back a
+green gate over a run that cost the machine 90 processes -- the exact silence #1941 was filed about.
+
+**What it does not claim.** #1941's own inferred cause -- a blocked-pipe deadlock in the
+`Start-Process` capture -- is marked unverified in the issue and nothing here repairs it. This bounds
+it, names which suite it was, and keeps its capture files. That is also what closes the residual
+[#1704](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1704) was left with: a degraded run
+that keeps no per-suite table.
+
+**Focus mode (#1944).** This repo has a class of defect visible only under the pool -- `#1915` and
+`#1939`, three days apart, different files, different causes, identical discovery path: the gate
+refusing a push on a branch that touched neither suite. Repairing one meant running the whole
+~19-minute gate, because a standalone run is green *by definition of the bug*, and a synthetic
+imitation does not substitute -- measured at 0.47-0.95s launch-to-print against the real gate's 3.25s,
+~3.4x short, with the suite staying green under it. `-FocusSuite` / `-FocusRepeat` now run one named
+suite N times while **real sibling suites** fill every other lane: same pool, same console, same spawn
+model. Only the named suite's repeats decide the verdict, the load's headers say so, and every line
+the run prints says it is a reproduction rather than a gate.
+`scripts/maintenance/reproduce-suite-contention.ps1` is the front door, because a capability reachable
+only by dot-sourcing a lib is one nobody uses -- which is the complaint #1944 actually made.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+**`native-capture-lib.ps1` is mirrored into `dkj-policy` and `dkj-subagents-shopify`, so every
+consuming repo runs this same parallel gate** and inherited both gaps. Nothing is asked of anybody --
+no config, no migration, no new call site: the bound is on by default and the ordinary run is
+byte-identical in every line it prints.
+
+**The asymmetry with `$NativeCaptureNetworkTimeoutSeconds` is the argument for that default.** That
+bound is opt-in because `gh pr checks --watch` is legitimately unbounded, and a default would turn the
+longest correct call in the workflow into a failure. There is no such call here: **no test suite is
+ever legitimately infinite**, so the safe default is the bounded one and the escape valve is the flag
+(`-SuiteTimeoutSeconds -1`).
+
+The half a consumer will actually notice is the silence ending. A wedged gate cost one machine 90
+processes and two and a half hours without printing a character; it now prints a red line naming the
+suite, keeps that suite's output at a path the verdict states, and returns. The focus knob is the
+quieter half and the one that changes a workflow: a consumer repairing a flaky-under-load suite no
+longer has to run their whole gate to find out whether the repair held.
+
+**Score:** 3
+
+#### Pull Request
+
+A test suite that never returns is bounded and named, and one suite can be put under the pool's real contention
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #1949](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1949)
+
+---
+
+### DEPLOY: fix/1936-overridename-default-honest · 20260913-125446
+
+`Resolve-RepoRootOrFail`'s refusal no longer offers `-RepoRoot` to the 15 of 27 callers that have no
+such flag. That parameter exists because the lib cannot know which seam a caller spells -- and it
+defaulted to `-RepoRoot`, right for the two scripts the docstring names and wrong for every script
+meant to be run from inside the checkout, handed out to whoever did not think about it. Reproduced on
+`tidy-machine.ps1`: of the three remedies printed, the middle one was rejected by PowerShell as an
+unknown parameter, and it is the one that reads as the direct fix.
+
+The default is now `''`, so an unnamed seam prints no seam. That closes the **class** rather than the
+15 instances: a caller that says nothing can no longer be given a wrong answer, only a shorter one.
+The two callers that really do expose `-RepoRoot` now pass it explicitly, which is what the
+parameter's own docstring always said it was for.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+**Fourteen of the fifteen are plugin-carried** (all but `build-config-blueprint`, which is
+source-only), so this is a refusal a consumer meets in their own tree, on their own machine, with no
+source checkout to check it against -- `ship-pr`, `open-pr`, `prune-merged`, `tidy-machine`,
+`park-branch`, `worktree-lane`, `cut-release` and the four `adopt-*` scripts among them. Every one
+of them told a reader standing outside a work tree to pass a flag it does not have. Nothing is asked
+of anybody: no re-install, no config, no migration. The remedy simply stops being a dead end, and
+because the fix is a default rather than fifteen edits, the sixteenth script inherits it for free.
+
+**Score:** 2
+
+#### Pull Request
+
+Resolve-RepoRootOrFail no longer names a flag the caller does not expose
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1946](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1946)
+
+---
 
 ### DEPLOY: fix/1939-native-capture-flaky-at-16-lanes · 20260913-124204
 

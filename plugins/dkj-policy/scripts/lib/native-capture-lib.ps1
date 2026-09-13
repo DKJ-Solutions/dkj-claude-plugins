@@ -146,6 +146,40 @@ $script:NativeCaptureSettleMilliseconds = 1000
 # kill that would otherwise look like "the machine is slow today".
 $script:ResidentPowerShellWarnThreshold = 20
 
+# THE DEADLINE A SINGLE SUITE RUNS UNDER inside Invoke-TestSuiteGate's pool (issue #1941,
+# September 13, 2026). Until this existed the reap loop had NO deadline of any kind -- it slept 100 ms
+# and looped for as long as a lane took, whatever had stopped that lane progressing -- so one wedged
+# suite wedged the whole gate. Measured on DAVE-KOK-BWJ: a 30-lane run sat for 141 minutes with 61
+# powershell.exe and 29 git.exe alive and 0.23 s of CPU between all 29, printing nothing, because this
+# function buffers a suite's output until that suite exits and a suite that never exits never prints.
+# No output, no error, no red, and a later gate on the same machine starts its own 30 lanes on top.
+#
+# IT IS ON BY DEFAULT, AND THE ASYMMETRY WITH $NativeCaptureNetworkTimeoutSeconds IS THE ARGUMENT.
+# That bound is opt-in because `gh pr checks --watch` is legitimately unbounded and a default would turn
+# the longest CORRECT call in the workflow into a failure. There is no such call here: NO TEST SUITE IS
+# EVER LEGITIMATELY INFINITE, so the safe default is the bounded one and the escape valve is the flag.
+#
+# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. The slowest suite this repo has ever recorded is
+# new-branch.tests.ps1 at 290.2s on a four-lane hosted runner (scripts/tests/suite-durations.json), so
+# this sits at roughly 6x the worst honest run and no suite can reach it by being slow -- not even one
+# that is 2.6x slower on some other machine, which this file's own notes record as a real reading rather
+# than a hypothetical. It is also a fraction of the 141 minutes the measured wedge sat for, and well
+# inside a hosted runner's own job timeout, so the gate reports WHICH suite wedged instead of the job
+# being killed with no per-suite attribution at all -- which is precisely the residual #1704 was left
+# with. Read it as an upper bound on patience, not as a model of any suite.
+$script:GateSuiteTimeoutSeconds = 1800
+
+# HOW LONG A TIMED-OUT LANE IS GIVEN TO DIE BEFORE THE POOL STOPS WAITING ON IT AT ALL (issue #1941).
+# Stop-NativeProcessTree is best-effort by nature -- its own docstring says so at length: taskkill can be
+# refused, and it can simply be slow to start under load. Every other caller in this file can afford that,
+# because it waits a fixed 5s and then reads the capture files regardless. THIS caller cannot: a lane whose
+# kill did not take has HasExited = $false forever, and a pool that only reaps exited lanes would go
+# straight back to the unbounded wait this whole mechanism exists to end. So past this window the lane is
+# abandoned rather than reaped -- reported, its capture files kept, and removed from the running list with
+# its process left to whatever the OS does with it. That is the honest verdict: the gate has measured that
+# the suite did not finish and that killing it did not work, and both facts belong on the console.
+$script:GateSuiteKillGraceSeconds = 30
+
 function Test-GateSuiteCrashed {
     <#
         DID THIS SUITE FAIL, OR DID ITS PROCESS DIE? -- issue #1723.
@@ -1249,6 +1283,197 @@ function Get-TestSuiteShardOrder {
     return @($bins[$Shard - 1])
 }
 
+function Get-TestSuiteFocusOrder {
+    <#
+    .SYNOPSIS
+        The queue for a FOCUS run: N copies of one suite, spread through enough real sibling suites to
+        keep every other lane busy while they run. Issue #1944.
+
+    .DESCRIPTION
+        WHY THIS EXISTS. Invoke-TestSuiteGate runs its suites across many lanes, and this repo has
+        measured a whole CLASS of defect that is only visible there: a suite that is red under the pool
+        and green standalone. #1915 (a git probe in new-branch.tests.ps1) and #1939 (an unbounded
+        powershell.exe bring-up against a fixed 2s bound in native-capture.tests.ps1) landed three days
+        apart, different files and different causes, with an IDENTICAL discovery path -- the gate refused
+        a push on a branch that touched neither suite, minutes after the same tree had passed it.
+        Until this function there was no way to put ONE suite under that contention, so repairing one
+        meant: change the suite, run it standalone (green BY DEFINITION OF THE BUG, and therefore
+        evidence of nothing), then run the whole ~19-minute gate to learn whether the repair held.
+
+        AND A SYNTHETIC LOAD IS NOT A SUBSTITUTE -- THAT WAS MEASURED, WHICH IS WHY THE LOAD HERE IS REAL
+        SUITES. Building sixteen concurrent PowerShell processes that spawn short-lived PowerShell
+        children got launch-to-print to 0.47-0.95s; the real gate, by native-capture.tests.ps1's own
+        calibration, reaches 3.25s. The imitation falls ~3.4x short of the thing it imitates, and the
+        suite stayed green under it. So the contention has to be the genuine article: the same pool, the
+        same console, the same spawn model, the same siblings.
+
+        WHAT IT RETURNS, and why it is not a list of files. One item per lane-slot the gate will open, in
+        dequeue order, each carrying:
+          - File     : the FileInfo to run
+          - IsTarget : $true for a copy of the suite under test, $false for load
+          - Label    : what the console calls it -- the plain name for load, 'name [focus 2/5]' for a
+                       target copy, so five headers for one file are still told apart
+          - Stem     : the capture-file stem, unique per ITEM. This is the half a bare file list cannot
+                       carry: the pool names its capture files after the suite, and the same suite
+                       appearing five times would have five lanes writing one pair of files.
+
+        THE SIZING RULE, stated because it is the only judgement in here. The run should last about as
+        long as the target's repeats do, with every other lane full for that whole span -- so the load
+        budget is (Lanes - 1) x Repeat x the target's own cost, in lane-seconds, and siblings are cycled
+        until it is met. Cycling rather than taking each sibling once is deliberate: load is load, a
+        repeated load suite contends exactly as well as a fresh one, and a pool of 91 suites would
+        otherwise cap the achievable span at whatever those 91 happen to cost.
+
+        COST COMES FROM THE SAME HINTS THE SHARD PACKER USES, with the same rule for a suite nobody has
+        timed -- charged the maximum. Here that direction is safe for a different reason than it is
+        there: over-charging the target makes the load list LONGER, i.e. the reproduction attempt more
+        thorough, and over-charging a load suite makes it shorter, which the target's own repeats then
+        outlast. With no hints file at all every suite costs the same notional unit, which still fills
+        the lanes -- it just cannot predict the span.
+
+        WHAT IT REFUSES. A target that matches no suite, and a Repeat below 1. Both are refused rather
+        than interpreted, for the reason this file's -Shard validation already gives at length: every
+        wrong input here has a plausible-looking silent reading, and a focus run that quietly measured
+        nothing is the exact shape of a green gate that proved nothing.
+
+    .PARAMETER Suites
+        The pool, in any order. Anything with .Name and .FullName is accepted, so a test can pass fakes.
+
+    .PARAMETER Costs
+        Name -> seconds, from Get-TestSuiteCostHints. Null or empty makes every suite one notional unit.
+
+    .PARAMETER FocusSuite
+        The suite under test. Matched against the file name, the base name, and the name with
+        '.tests.ps1' removed -- all three, because all three are what a person has in their hand at that
+        moment and stripping characters is not something a caller should have to learn.
+
+    .PARAMETER Repeat
+        How many times the target runs under the load.
+
+    .PARAMETER Lanes
+        The resolved lane count, which is what turns Repeat into a load budget.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Suites,
+        [hashtable]$Costs,
+        [Parameter(Mandatory)][string]$FocusSuite,
+        [int]$Repeat = 5,
+        [int]$Lanes = 1
+    )
+
+    if ($Repeat -lt 1) {
+        throw "Get-TestSuiteFocusOrder: -Repeat must be at least 1 -- got $Repeat."
+    }
+
+    # THREE SPELLINGS, ONE TARGET. Exact file name first so a caller who typed the full name cannot be
+    # ambushed by a prefix match; only then the looser forms.
+    $wanted = $FocusSuite.Trim()
+    $target = @($Suites | Where-Object { $_.Name -eq $wanted })
+    if ($target.Count -eq 0) {
+        # THE BASE NAME IS ONE OF THE THREE, and it is the one a shell hands you: tab-completing a
+        # directory and deleting the extension leaves 'roster-sync.tests', which matches neither of the
+        # other two forms. It was missing from the first version of this resolver while the docstring
+        # above already promised it, so the refusal fired on a spelling this function claimed to accept.
+        $target = @($Suites | Where-Object {
+            $_.Name -eq ($wanted + '.tests.ps1') -or
+            $_.Name -eq ($wanted + '.ps1') -or
+            ($_.Name -replace '\.tests\.ps1$', '') -eq $wanted
+        })
+    }
+    if ($target.Count -eq 0) {
+        # THE NEAR MISSES ARE NAMED, because the commonest way to get here is a typo or a half-remembered
+        # name, and a refusal that only says no sends the reader to Get-ChildItem.
+        $near = @($Suites | Where-Object { $_.Name -like "*$wanted*" } | ForEach-Object { $_.Name } | Sort-Object)
+        $hint = if ($near.Count -gt 0) { " Did you mean: $($near -join ', ')?" } else { '' }
+        throw "Get-TestSuiteFocusOrder: no suite matches -FocusSuite '$FocusSuite' among the $($Suites.Count) in the pool.$hint"
+    }
+    $targetFile = $target[0]
+
+    $load = @($Suites | Where-Object { $_.Name -ne $targetFile.Name } | Sort-Object -Property @{Expression = { $_.Name }})
+
+    $unknownCost = 1.0
+    if ($Costs -and $Costs.Count -gt 0) {
+        $unknownCost = [double]($Costs.Values | Measure-Object -Maximum).Maximum
+    }
+    $costOf = {
+        param($suite)
+        if ($Costs -and $Costs.ContainsKey($suite.Name)) { [double]$Costs[$suite.Name] } else { [double]$unknownCost }
+    }
+
+    $items = New-Object System.Collections.ArrayList
+    $stemSeen = @{}
+    $addItem = {
+        param($file, [bool]$isTarget, [string]$label)
+        # THE STEM IS UNIQUE PER ITEM, not per file -- see the docstring. A counter rather than a guid so
+        # a retained capture directory is readable: 'roster-sync.tests.2.out.txt' says which repeat it is.
+        $stem = $file.BaseName
+        if ($stemSeen.ContainsKey($stem)) {
+            $stemSeen[$stem] = $stemSeen[$stem] + 1
+            $stem = "$stem.$($stemSeen[$stem])"
+        } else {
+            $stemSeen[$stem] = 1
+        }
+        $items.Add([pscustomobject]@{
+            File = $file; IsTarget = $isTarget; Label = $label; Stem = $stem
+        }) | Out-Null
+    }
+
+    if ($load.Count -eq 0) {
+        # A ONE-SUITE POOL IS NOT AN ERROR, it is a reproduction with nothing to contend against -- the
+        # caller gets their repeats and the summary says the lane count, which is the honest report.
+        for ($i = 1; $i -le $Repeat; $i++) {
+            & $addItem $targetFile $true "$($targetFile.Name) [focus $i/$Repeat]"
+        }
+        return @($items)
+    }
+
+    $targetCost = & $costOf $targetFile
+    $budget = [Math]::Max(1, $Lanes - 1) * $Repeat * $targetCost
+
+    # AND A FLOOR IN ITEMS, NOT ONLY A BUDGET IN SECONDS. The budget alone under-delivers exactly when
+    # the load is dearer than the target: a cheap target beside expensive siblings meets its
+    # lane-seconds in two or three files, the queue is then shorter than the lane count, and
+    # Invoke-TestSuiteGate's clamp quietly lowers -MaxParallel to fit -- so a run asked for at 16 lanes
+    # is measured at 5. Measured on this repo's own hints while building #1944: -MaxParallel 6 on
+    # check-report-lib produced 3 load items and ran at 5 lanes. The floor is one load item per
+    # non-target lane per repeat, which is what it takes to have something to put in every lane for
+    # every draw; the budget then only ever ADDS to that.
+    $floor = [Math]::Max(1, $Lanes - 1) * $Repeat
+
+    # Cycle the siblings until both are met, so the lanes stay full for the whole span rather than for
+    # however long one pass over the pool happens to last. Cycling rather than one pass is deliberate:
+    # load is load, a repeated load suite contends exactly as well as a fresh one, and a pool of 91
+    # would otherwise cap the achievable span at whatever those 91 happen to cost.
+    #
+    # THE COSTS ARE CI SECONDS READ ON WHATEVER MACHINE THIS RUNS ON, and this file records at length
+    # that such a reading does not convert. It does not have to: both sides of this comparison are in
+    # the same units, so what is used here is a RATIO between suites, which survives the scale being
+    # wrong. Nothing in this function quotes a duration.
+    $loadRun = New-Object System.Collections.ArrayList
+    $spent = 0.0
+    $i = 0
+    while ($spent -lt $budget -or $loadRun.Count -lt $floor) {
+        $s = $load[$i % $load.Count]
+        $loadRun.Add($s) | Out-Null
+        $spent += (& $costOf $s)
+        $i++
+    }
+
+    # ONE TARGET AT THE HEAD OF EACH OF $Repeat EQUAL CHUNKS. That is what spreads the repeats across the
+    # run instead of firing them all into the opening lanes, where they would contend with each other
+    # rather than with the load -- and it is arithmetic a reader can check against the printed queue,
+    # which a cost-weighted placement would not be.
+    $chunk = [Math]::Max(1, [int][Math]::Ceiling($loadRun.Count / [double]$Repeat))
+    for ($r = 1; $r -le $Repeat; $r++) {
+        & $addItem $targetFile $true "$($targetFile.Name) [focus $r/$Repeat]"
+        $from = ($r - 1) * $chunk
+        for ($k = $from; $k -lt [Math]::Min($from + $chunk, $loadRun.Count); $k++) {
+            & $addItem $loadRun[$k] $false $loadRun[$k].Name
+        }
+    }
+    return @($items)
+}
+
 
 function Get-ResidentPowerShellCount {
     <#
@@ -1527,9 +1752,52 @@ function Invoke-TestSuiteGate {
         header is untouched, and why no remaining-time estimate is printed -- is in
         Format-GateProgressLine and Get-GateNestingDepth above, beside the code that shapes the line.
 
+        NO SUITE RUNS UNBOUNDED ANY MORE -- issue #1941, September 13, 2026. Until then this loop had NO
+        deadline of any kind: it slept 100 ms and went round again for as long as a lane took, whatever
+        had stopped that lane progressing. One wedged suite therefore wedged the entire gate, and did it
+        SILENTLY, because this function buffers a suite's output until that suite exits -- a suite that
+        never exits prints nothing after its opening 'started' line. Measured on DAVE-KOK-BWJ: 141
+        minutes, 61 powershell.exe and 29 git.exe alive, 0.23 s of CPU between all 29 git children, no
+        output, no error, no red, and nothing to stop a later gate on that machine starting its own 30
+        lanes on top of them.
+        SO EACH LANE NOW CARRIES A DEADLINE ($script:GateSuiteTimeoutSeconds, -SuiteTimeoutSeconds to
+        override, a NEGATIVE value to turn it off). Past it the lane's process TREE is killed, and past a
+        further grace window a lane that did not die is ABANDONED rather than waited on -- which is the
+        half that actually makes this loop terminate, since Stop-NativeProcessTree is best-effort and a
+        kill that taskkill refuses would otherwise put the pool straight back into the unbounded wait.
+        A TIMEOUT IS A FOURTH VERDICT AND IT IS NOT RE-RUN, which is the one judgement worth arguing.
+        #1723's crash path re-runs a suite alone because a killed process measured nothing, so a re-run
+        is the only way to get a verdict at all. A timeout HAS measured something: this suite did not
+        finish inside a window sized at ~6x the slowest run this repo has ever recorded. Re-running it
+        alone would remove the contention that is the likeliest cause, pass, and hand back a GREEN gate
+        over a run that cost the machine 90 processes -- which is the exact silence #1941 was filed
+        about. So it goes red, its capture files are kept, and the verdict names it.
+        WHAT THIS DOES AND DOES NOT CLAIM: #1941's own inferred cause (a blocked-pipe deadlock in the
+        Start-Process capture) is unverified, and nothing here repairs it. This bounds it, names which
+        suite it was, and keeps the evidence -- which is also what closes the residual #1704 was left
+        with, a degraded run that keeps no per-suite table.
+
+        -FocusSuite PUTS ONE SUITE UNDER THIS POOL'S REAL CONTENTION -- issue #1944. This repo has a
+        whole CLASS of defect visible only here: a suite red under the pool and green standalone (#1915,
+        #1939, three days apart, different files, identical discovery path -- the gate refusing a push on
+        a branch that touched neither). There was no way to reproduce that for ONE suite, so repairing
+        one meant running the whole ~19-minute gate to learn whether the repair held, because a
+        standalone run is green BY DEFINITION OF THE BUG. A synthetic imitation does not substitute and
+        that was measured: sixteen concurrent PowerShell processes spawning short-lived children reached
+        0.47-0.95s launch-to-print against the real gate's 3.25s, ~3.4x short, with the suite staying
+        green under it.
+        SO THE LOAD IS REAL SIBLING SUITES, composed by Get-TestSuiteFocusOrder above -- same pool, same
+        console, same spawn model. Only the named suite's repeats decide the verdict; the load's do not,
+        and its headers say so. A focus run is a REPRODUCTION, not a gate, and every line it prints says
+        which it is -- because 'all 47 suites passed' off one of these would be read as a measurement of
+        the tree, and it is a measurement of one suite, N times.
+        THE TARGET IS NOT RE-RUN ALONE ON A CRASH EITHER, unlike an ordinary run: running it alone is
+        exactly what this mode replaces, so a crash under load is the answer being asked for and is red.
+
         Returns $true when every suite exited 0, $false when any did not, and $true with a warning when
         there is nothing to run -- an empty or missing directory is a repo without suites, not a failure,
-        and neither is a shard that drew none of them.
+        and neither is a shard that drew none of them. In a focus run it returns $true only when every
+        repeat of the named suite passed; the load's verdicts are reported and decide nothing.
     #>
     param(
         [Parameter(Mandatory)][string]$TestsDir,
@@ -1542,7 +1810,20 @@ function Invoke-TestSuiteGate {
         # behaviour every existing caller gets. See the SHARDING banner in the docstring for why the
         # partition is computed HERE from two integers rather than taken as a list of suite names.
         [int]$Shard = 0,
-        [int]$ShardCount = 0
+        [int]$ShardCount = 0,
+        # THE DEADLINE ONE SUITE RUNS UNDER (issue #1941). 0 = resolve $script:GateSuiteTimeoutSeconds,
+        # the same "0 means decide for me" idiom -MaxParallel above already uses in this function, so a
+        # caller that passes neither gets the module's answer to both. A NEGATIVE value turns the bound
+        # OFF -- the escape valve for a deliberately long-running suite, and the only way back to the
+        # unbounded wait this function had until #1941.
+        [int]$SuiteTimeoutSeconds = 0,
+        # PUT ONE SUITE UNDER THE POOL'S REAL CONTENTION (issue #1944). Naming a suite here turns the run
+        # from a gate into a REPRODUCTION: the named suite runs -FocusRepeat times while real sibling
+        # suites fill every other lane, only the named suite's verdicts decide the result, and the
+        # summary reports per repeat. See Get-TestSuiteFocusOrder above for how the queue is composed
+        # and why the load is real suites rather than a synthetic imitation.
+        [string]$FocusSuite = '',
+        [int]$FocusRepeat = 5
     )
 
     # BOTH OR NEITHER, AND IN RANGE -- REFUSED RATHER THAN INTERPRETED. Every wrong combination here has
@@ -1559,6 +1840,24 @@ function Invoke-TestSuiteGate {
     if ($ShardCount -gt 0 -and ($Shard -lt 1 -or $Shard -gt $ShardCount)) {
         throw "Invoke-TestSuiteGate: -Shard must be between 1 and -ShardCount ($ShardCount) -- got $Shard."
     }
+    # FOCUS AND SHARDING ARE TWO ANSWERS TO ONE QUESTION, and the combination has no meaning worth
+    # guessing at -- refused on the same ground as the pair above. Sharding divides the pool so four
+    # runners cover it between them; focus replaces the pool with one suite plus purpose-built load.
+    # A sharded focus run would slice load that was sized for a whole lane count and then report a
+    # reproduction attempt that never reached the contention it was asking about.
+    if ($FocusSuite -and $ShardCount -gt 0) {
+        throw "Invoke-TestSuiteGate: -FocusSuite and -Shard/-ShardCount cannot be combined -- focus replaces the pool, sharding divides it."
+    }
+    if (-not $FocusSuite -and $PSBoundParameters.ContainsKey('FocusRepeat')) {
+        throw "Invoke-TestSuiteGate: -FocusRepeat means nothing without -FocusSuite."
+    }
+    $focusMode = [bool]$FocusSuite
+
+    # THE DEADLINE, RESOLVED ONCE HERE so every site below reads one number (issue #1941). Negative is
+    # the off switch and is carried through as 0, which is what the pool's own checks test for.
+    $suiteDeadline = if ($SuiteTimeoutSeconds -lt 0) { 0 }
+                     elseif ($SuiteTimeoutSeconds -eq 0) { $script:GateSuiteTimeoutSeconds }
+                     else { $SuiteTimeoutSeconds }
 
     # ADVISORY ONLY, AND CHECKED BEFORE THIS RUN ADDS A SINGLE CHILD OF ITS OWN (issue #1464). See
     # $script:ResidentPowerShellWarnThreshold and Get-ResidentPowerShellCount above for the numbers and
@@ -1605,7 +1904,42 @@ function Invoke-TestSuiteGate {
     # suites one at a time for days after both local callers were parallelised). A file that lives beside
     # the suites cannot drift from a workflow it is not written in.
     $costHints = Get-TestSuiteCostHints -TestsDir $TestsDir
-    $suites = @(Get-TestSuiteShardOrder -Suites $suites -Costs $costHints -Shard $Shard -ShardCount $ShardCount)
+
+    # THE LANE COUNT IS RESOLVED BEFORE THE QUEUE IS COMPOSED, not after (issue #1944). It used to sit
+    # inside the pool block below, which was fine while the queue was the directory glob -- nothing about
+    # the order depended on how many lanes would run it. A focus run does: the load is sized in
+    # lane-seconds, so Get-TestSuiteFocusOrder cannot be called before this number exists. Only the
+    # MACHINE half moves here; the clamp to the queue's own length stays below, because in focus mode the
+    # queue is longer than the directory and clamping to the directory would starve the lanes it is
+    # sizing load for.
+    #
+    # Two cores held back: the suites spawn children of their own, and a gate that saturates the machine
+    # it runs on makes every other window on it unusable for two minutes. The floor is 2 and not 1,
+    # because on a four-core machine that reservation would otherwise cost HALF the box and a two-core one
+    # would fall back to the sequential loop this replaced -- and the suites spend most of their time
+    # waiting on children rather than computing, so a little oversubscription is cheap. A runner nobody is
+    # sitting at should pass its own core count instead; ci.yml does.
+    if ($MaxParallel -le 0) {
+        $MaxParallel = [Math]::Max(2, [Environment]::ProcessorCount - 2)
+    }
+
+    # THE QUEUE, AS ITEMS RATHER THAN FILES. Every entry carries File/IsTarget/Label/Stem -- see
+    # Get-TestSuiteFocusOrder for why the stem has to be per-ITEM and not per-file. An ordinary run wraps
+    # the shard order in exactly the same shape, so the pool below has one kind of thing to handle and a
+    # focus run is not a second code path through it.
+    $runItems = @()
+    if ($focusMode) {
+        if ($suites.Count -eq 0) {
+            throw "Invoke-TestSuiteGate: -FocusSuite '$FocusSuite' was asked for, but $TestsDir holds no *.tests.ps1 suites."
+        }
+        $runItems = @(Get-TestSuiteFocusOrder -Suites $suites -Costs $costHints `
+                        -FocusSuite $FocusSuite -Repeat $FocusRepeat -Lanes $MaxParallel)
+    } else {
+        $suites = @(Get-TestSuiteShardOrder -Suites $suites -Costs $costHints -Shard $Shard -ShardCount $ShardCount)
+        $runItems = @($suites | ForEach-Object {
+            [pscustomobject]@{ File = $_; IsTarget = $true; Label = $_.Name; Stem = $_.BaseName }
+        })
+    }
 
     # Get-TestCommands BELONGS TO ONE SHARD, NOT TO EVERY SHARD (issue #1351). These are the repo's own
     # whole-stack commands -- 'npm test' and its kind -- and they are not a per-file pool this function
@@ -1630,7 +1964,7 @@ function Invoke-TestSuiteGate {
     # to the wrong place. Still green -- there is genuinely nothing for THIS shard to run, and the
     # summary job's fail-closed check is what makes an entire pool of empty shards impossible to
     # mistake for a pass.
-    if ($suites.Count -eq 0 -and $extraCommands.Count -eq 0) {
+    if ($runItems.Count -eq 0 -and $extraCommands.Count -eq 0) {
         if (-not (Test-Path -LiteralPath $TestsDir)) {
             Write-Warning "$TestsDir not found - test gate skipped."
         } elseif ($ShardCount -gt 1 -and $poolTotal -gt 0) {
@@ -1667,26 +2001,38 @@ function Invoke-TestSuiteGate {
     # (below) and the line that has to state it is printed after that block has closed. Empty means
     # nothing was kept, which is the green case and also the case where a failing suite wrote nothing.
     $retainedCaptureDir = ''
+    # THE SUITES THE POOL STOPPED WAITING FOR -- issue #1941. Beside $crashedNames and for the same
+    # reason: the verdict is printed after the pool block has closed, and a timeout has to reach it.
+    # They are NOT crashes and are deliberately not routed through the crash path -- see the reap loop.
+    $timedOutNames = New-Object System.Collections.ArrayList
+    # ONE ROW PER FOCUS REPEAT -- issue #1944. Filled in the reap loop, where an item's verdict and its
+    # duration are both in hand, and printed as its own table after the pool: the point of a focus run is
+    # how the SAME suite fared across N draws under load, which the slowest-first table cannot show
+    # because it sorts the draws away from each other.
+    $focusResults = New-Object System.Collections.ArrayList
 
-    if ($suites.Count -gt 0) {
-        if ($MaxParallel -le 0) {
-            # Two cores held back: the suites spawn children of their own, and a gate that saturates the
-            # machine it runs on makes every other window on it unusable for two minutes. The floor is 2 and
-            # not 1, because on a four-core machine that reservation would otherwise cost HALF the box and a
-            # two-core one would fall back to the sequential loop this replaced -- and the suites spend most
-            # of their time waiting on children rather than computing, so a little oversubscription is cheap.
-            # A runner nobody is sitting at should pass its own core count instead; ci.yml does.
-            $MaxParallel = [Math]::Max(2, [Environment]::ProcessorCount - 2)
-        }
-        if ($MaxParallel -gt $suites.Count) { $MaxParallel = $suites.Count }
+    if ($runItems.Count -gt 0) {
+        if ($MaxParallel -gt $runItems.Count) { $MaxParallel = $runItems.Count }
 
         $modeLabel = if ($MaxParallel -eq 1) { 'one at a time' } else { "$MaxParallel at a time" }
         # 'all N' IS A CLAIM, AND UNDER SHARDING IT IS A FALSE ONE. This line and the verdict at the foot
         # of the function are the two a session copies into a branch document or a commit message, so a
         # sliced run has to say so on both -- otherwise 'all 16 test suites' is on the record for a pool
         # of 64, which reads as 48 suites having been deleted rather than as one shard of four.
-        $scopeLabel = if ($ShardCount -gt 1) { "shard $Shard/$ShardCount -- $($suites.Count) of $poolTotal" } else { "all $($suites.Count)" }
+        #
+        # AND A FOCUS RUN IS NOT A GATE AT ALL, so it says what it is on this line rather than claiming a
+        # count of suites it is not measuring: '3 of 91' would be true of the files and a lie about the
+        # verdict, which rests on one of them (issue #1944).
+        $scopeLabel = if ($focusMode) { "$FocusRepeat x $FocusSuite under $($runItems.Count - $FocusRepeat) load" }
+                      elseif ($ShardCount -gt 1) { "shard $Shard/$ShardCount -- $($runItems.Count) of $poolTotal" }
+                      else { "all $($runItems.Count)" }
         Write-Host "test gate: running $scopeLabel test suites for $Context ($modeLabel)..." -ForegroundColor Cyan
+        if ($focusMode) {
+            Write-Host "  FOCUS RUN (issue #1944) -- this is a reproduction, not a gate: only $FocusSuite decides the verdict, the rest is load." -ForegroundColor Yellow
+        }
+        if ($suiteDeadline -gt 0) {
+            Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s (issue #1941); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
+        }
 
         # THE PROGRESS SIGNAL, AND THE DEPTH THAT MAKES IT ATTRIBUTABLE -- issue #1717. The reasoning for
         # both, and for what is deliberately NOT printed, is in Format-GateProgressLine above; here are
@@ -1723,14 +2069,19 @@ function Invoke-TestSuiteGate {
 
         try {
             $queue = New-Object System.Collections.Queue
-            foreach ($s in $suites) { $queue.Enqueue($s) | Out-Null }
+            foreach ($it in $runItems) { $queue.Enqueue($it) | Out-Null }
             $running = New-Object System.Collections.ArrayList
 
             while ($queue.Count -gt 0 -or $running.Count -gt 0) {
                 while ($queue.Count -gt 0 -and $running.Count -lt $MaxParallel) {
-                    $suite   = $queue.Dequeue()
-                    $outFile = Join-Path $captureDir ($suite.BaseName + '.out.txt')
-                    $errFile = Join-Path $captureDir ($suite.BaseName + '.err.txt')
+                    $item    = $queue.Dequeue()
+                    $suite   = $item.File
+                    # THE STEM, NOT THE BASE NAME -- issue #1944. They are the same thing on every
+                    # ordinary run, and they diverge the moment a focus run puts five copies of one file
+                    # in the queue: five lanes writing one pair of capture files would leave the
+                    # retention block below holding whichever copy finished last.
+                    $outFile = Join-Path $captureDir ($item.Stem + '.out.txt')
+                    $errFile = Join-Path $captureDir ($item.Stem + '.err.txt')
                     # The suite path is quoted: Start-Process joins ArgumentList on spaces, so an unquoted
                     # path under a folder with a space in it would arrive as two arguments.
                     $proc = Start-Process -FilePath 'powershell' `
@@ -1748,11 +2099,24 @@ function Invoke-TestSuiteGate {
                     $running.Add([pscustomobject]@{
                         # Path, so a suite whose process died can be launched again without going back
                         # to the pool for it -- issue #1723.
-                        Name = $suite.Name; Path = $suite.FullName
+                        # NAME IS THE ITEM'S LABEL, not the file's -- issue #1944. On every ordinary run
+                        # they are the same string; in a focus run the label is what tells five headers
+                        # for one file apart, and it is what the per-suite table and the verdict print.
+                        Name = $item.Label; Path = $suite.FullName
+                        # WHOSE VERDICT COUNTS. $true for every suite on an ordinary run, and in a focus
+                        # run only for the copies of the suite under test -- the load is there to contend,
+                        # not to be judged (issue #1944).
+                        Decides = $item.IsTarget
                         Process = $proc; OutFile = $outFile; ErrFile = $errFile
                         # WHEN THIS LANE OPENED, off the gate's own stopwatch -- see $suiteTimings for why
                         # the offset is recorded and not just the duration (issue #1358).
                         StartOffset = $sw.Elapsed.TotalSeconds
+                        # THE DEADLINE BOOKKEEPING (issue #1941). TimedOut is set by the sweep below the
+                        # moment this lane passes $suiteDeadline, KilledAt records when its tree was told
+                        # to die, and the pair is what lets the pool abandon a lane whose kill did not
+                        # take instead of waiting on HasExited forever.
+                        TimedOut = $false
+                        KilledAt = 0.0
                     }) | Out-Null
                     # ONE LINE PER LANE OPENING -- issue #1717, and this is the half a done-count alone
                     # cannot report: the queue dequeues longest-first (#1358), so on a truthful hints
@@ -1765,20 +2129,49 @@ function Invoke-TestSuiteGate {
                     # two different things here and in the reap loop below, where a suite already judged
                     # is still in the list until $running.Remove. One identity, both call sites.
                     $startedCount++
-                    Write-Host (Format-GateProgressLine -Action 'started' -Suite $suite.Name `
+                    Write-Host (Format-GateProgressLine -Action 'started' -Suite $item.Label `
                         -Started $startedCount -Done $doneCount -Running ($startedCount - $doneCount) `
-                        -Total $suites.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
+                        -Total $runItems.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
                 }
 
-                $done = @($running | Where-Object { $_.Process.HasExited })
+                # THE DEADLINE SWEEP -- issue #1941, and it runs BEFORE the reap so a lane that has just
+                # passed its bound is killed in the same pass that would otherwise have slept on it.
+                # Two stages, because Stop-NativeProcessTree is best-effort by nature (its own docstring
+                # says so): first tell the tree to die, then, if the lane is STILL not exited a grace
+                # window later, stop waiting on it at all. Without the second stage a kill that taskkill
+                # refused would put the pool straight back into the unbounded wait this exists to end --
+                # which is the 141-minute measurement in #1941, one layer down.
+                if ($suiteDeadline -gt 0) {
+                    foreach ($r in @($running)) {
+                        if ($r.TimedOut -or $r.Process.HasExited) { continue }
+                        if (($sw.Elapsed.TotalSeconds - $r.StartOffset) -le $suiteDeadline) { continue }
+                        $r.TimedOut = $true
+                        $r.KilledAt = $sw.Elapsed.TotalSeconds
+                        Write-Host ("test gate: $($r.Name) passed its $(Format-GateSeconds $suiteDeadline)s bound -- killing its process tree (issue #1941).") -ForegroundColor Red
+                        Stop-NativeProcessTree -ProcessId $r.Process.Id
+                    }
+                }
+
+                # A LANE IS REAPABLE WHEN ITS PROCESS EXITED, OR WHEN THE POOL HAS GIVEN UP ON IT. The
+                # second arm is the one that makes this loop terminate under every condition: it does not
+                # ask the process anything, so a child that ignored its own kill cannot hold it open.
+                $done = @($running | Where-Object {
+                    $_.Process.HasExited -or
+                    ($_.TimedOut -and (($sw.Elapsed.TotalSeconds - $_.KilledAt) -gt $script:GateSuiteKillGraceSeconds))
+                })
                 if ($done.Count -eq 0) {
                     Start-Sleep -Milliseconds 100
                     continue
                 }
 
                 foreach ($d in $done) {
-                    $d.Process.WaitForExit()          # settles ExitCode before it is read
-                    $code = $d.Process.ExitCode
+                    # WaitForExit() IS NOT CALLED ON AN ABANDONED LANE -- issue #1941. It blocks with no
+                    # deadline, so calling it on the one lane the pool has just decided it cannot kill
+                    # would re-open the unbounded wait at the exact point that wait was closed. A lane
+                    # whose process HAS exited is settled the way it always was.
+                    $exited = $d.Process.HasExited
+                    if ($exited) { $d.Process.WaitForExit() }   # settles ExitCode before it is read
+                    $code = if ($exited) { $d.Process.ExitCode } else { $null }
                     # $code CAN COME BACK AS POWERSHELL'S OWN $null HERE, EVEN THOUGH .Handle WAS READ AND
                     # WaitForExit() RETURNED -- issue #1931, and this is the one site in this file where
                     # that race can turn a PASSING suite into a gate-failing one. Reproduced independently
@@ -1790,13 +2183,22 @@ function Invoke-TestSuiteGate {
                     # "not a crash", correctly, since a genuine NTSTATUS is a real negative int) -- it is
                     # the SAME "the pool has measured nothing about this suite yet" state #1723 built the
                     # crash-and-retry path for, so it is routed there instead of a fourth, new branch.
-                    $codeUnknown = ($null -eq $code)
+                    # A TIMED-OUT LANE IS NOT AN UNMEASURABLE ONE, even though both arrive with $code
+                    # $null -- issue #1941. #1931's state is "the process ran and the OS did not hand
+                    # back a verdict this run could read", which is a transient worth a lone re-run;
+                    # this one is "the process was still running when the pool stopped waiting", which
+                    # is a fact about the suite. Checking TimedOut first is what keeps them apart.
+                    $codeUnknown = (-not $d.TimedOut) -and ($null -eq $code)
                     # RECORDED HERE, WHERE BOTH ENDS ARE KNOWN. Reaping is the only moment this loop holds
                     # a suite's start and its finish at once; after $running.Remove the start offset is gone.
                     $suiteTimings.Add([pscustomobject]@{
                         Name        = $d.Name
                         StartOffset = $d.StartOffset
                         Duration    = ($sw.Elapsed.TotalSeconds - $d.StartOffset)
+                        # THE ROW SAYS SO, for the same reason the CRASHED flag below exists: the number
+                        # on a timed-out row is the bound plus the grace window, which is a fact about
+                        # this RUN and says nothing about what the file costs (issue #1941).
+                        TimedOut    = $d.TimedOut
                         # (-not $codeUnknown), FIRST: `$null -ne 0` is $true in PowerShell, so without this
                         # guard an unmeasured code recorded a PASSING suite as Failed in this table before
                         # the crash branch below ever got a chance to correct it on a successful re-run.
@@ -1822,41 +2224,100 @@ function Invoke-TestSuiteGate {
                     $doneCount++
                     Write-Host (Format-GateProgressLine -Action 'done' -Suite $d.Name `
                         -Started $startedCount -Done $doneCount -Running ($startedCount - $doneCount) `
-                        -Total $suites.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
-                    if ($codeUnknown) {
+                        -Total $runItems.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
+                    # WHAT THIS ITEM IS FOR, said on its own header rather than inferred from the queue
+                    # -- issue #1944. On an ordinary run every item decides and this is empty; in a focus
+                    # run it is the difference between a red header that fails the run and one that is
+                    # simply what the load did while the suite under test was being measured.
+                    $loadNote = if ($d.Decides) { '' } else { '  (load -- does not decide this focus run)' }
+                    # THE VERDICT THIS ITEM CONTRIBUTES, recorded for the focus table below. Set by each
+                    # branch rather than derived afterwards, because 'crashed' and 'timed out' are not
+                    # readable off an exit code once the branch that knew has closed.
+                    $itemVerdict = 'passed'
+                    if ($d.TimedOut) {
+                        # THE FOURTH VERDICT -- issue #1941. Deliberately NOT routed into $crashedSuites
+                        # and its lone re-run, and that is the whole judgement in this branch. A crash is
+                        # a process that died having measured nothing, so re-running it is the only way
+                        # to get a verdict at all. A TIMEOUT has measured something: this suite did not
+                        # finish in a window sized at ~6x the slowest run this repo has ever recorded.
+                        # Re-running it alone would remove the contention that is the likeliest cause,
+                        # pass, and leave the gate GREEN over a run that cost the machine 90 processes --
+                        # which is exactly the silence #1941 was filed about.
+                        $itemVerdict = 'timed out'
+                        $killNote = if ($exited) { 'its process tree was killed' }
+                                    else { "its process tree did NOT die within $(Format-GateSeconds $script:GateSuiteKillGraceSeconds)s of the kill and was ABANDONED -- it may still be running" }
+                        Write-Host "== $($d.Name) == TIMED OUT after $(Format-GateSeconds ($sw.Elapsed.TotalSeconds - $d.StartOffset) -Decimals 1)s (bound $(Format-GateSeconds $suiteDeadline)s) -- $killNote; no verdict (issue #1941)$loadNote" -ForegroundColor Red
+                        $timedOutNames.Add($d.Name) | Out-Null
+                        if ($d.Decides) { $failedNames.Add($d.Name) | Out-Null }
+                        $failedCaptureFiles.Add($d.OutFile) | Out-Null
+                        $failedCaptureFiles.Add($d.ErrFile) | Out-Null
+                    } elseif ($codeUnknown) {
                         # CHECKED BEFORE '$code -eq 0' AND BEFORE Test-GateSuiteCrashed, DELIBERATELY:
                         # Format-GateExitCode takes a non-nullable [int], so calling it with $code here
                         # would itself throw inside the gate rather than report anything (issue #1931).
-                        Write-Host "== $($d.Name) == CRASHED (exit code unmeasurable -- issue #1931) -- the process ran, but .NET/the OS did not hand back a verdict this run could read; no verdict" -ForegroundColor Magenta
-                        $crashedNames.Add($d.Name) | Out-Null
+                        $itemVerdict = 'crashed'
+                        Write-Host "== $($d.Name) == CRASHED (exit code unmeasurable -- issue #1931) -- the process ran, but .NET/the OS did not hand back a verdict this run could read; no verdict$loadNote" -ForegroundColor Magenta
                         $crashedTiming = ($suiteTimings | Where-Object { $_.Name -eq $d.Name } | Select-Object -Last 1)
                         if ($null -ne $crashedTiming) { $crashedTiming.Crashed = $true }
-                        $crashedSuites.Add([pscustomobject]@{
-                            Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
-                        }) | Out-Null
+                        # GATED ON Decides, AND OFF IN A FOCUS RUN -- issue #1944, two separate reasons.
+                        # A LOAD suite that crashed is noise from a process that was only there to
+                        # contend, and re-running it would spend a whole suite's runtime deciding
+                        # something no verdict rests on. And the TARGET is not re-run alone either,
+                        # because running it alone is precisely what this mode exists to replace: a
+                        # focus run asks what happens under load, so a crash under load is the answer
+                        # it was looking for and is red.
+                        if ($d.Decides -and -not $focusMode) {
+                            $crashedNames.Add($d.Name) | Out-Null
+                            $crashedSuites.Add([pscustomobject]@{
+                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
+                            }) | Out-Null
+                        } elseif ($d.Decides) {
+                            $failedNames.Add($d.Name) | Out-Null
+                        }
                         $failedCaptureFiles.Add($d.OutFile) | Out-Null
                         $failedCaptureFiles.Add($d.ErrFile) | Out-Null
                     } elseif ($code -eq 0) {
-                        Write-Host "== $($d.Name) ==" -ForegroundColor Cyan
+                        Write-Host "== $($d.Name) ==$loadNote" -ForegroundColor Cyan
                     } elseif (Test-GateSuiteCrashed -ExitCode $code) {
                         # NOT ADDED TO $failedNames HERE -- issue #1723. A killed process returned no
                         # verdict, so the pool has measured nothing about this suite yet; the lone
                         # re-run below is what decides it. The word CRASHED is the point of the branch:
                         # 'FAILED (exit -1073741819)' sent a reader hunting for an assert that never ran.
-                        Write-Host "== $($d.Name) == CRASHED (exit $(Format-GateExitCode -ExitCode $code)) -- the process died; no verdict" -ForegroundColor Magenta
-                        $crashedNames.Add($d.Name) | Out-Null
+                        $itemVerdict = 'crashed'
+                        Write-Host "== $($d.Name) == CRASHED (exit $(Format-GateExitCode -ExitCode $code)) -- the process died; no verdict$loadNote" -ForegroundColor Magenta
                         $crashedTiming = ($suiteTimings | Where-Object { $_.Name -eq $d.Name } | Select-Object -Last 1)
                         if ($null -ne $crashedTiming) { $crashedTiming.Crashed = $true }
-                        $crashedSuites.Add([pscustomobject]@{
-                            Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
-                        }) | Out-Null
+                        # Same two reasons as the unmeasurable-code branch above.
+                        if ($d.Decides -and -not $focusMode) {
+                            $crashedNames.Add($d.Name) | Out-Null
+                            $crashedSuites.Add([pscustomobject]@{
+                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
+                            }) | Out-Null
+                        } elseif ($d.Decides) {
+                            $failedNames.Add($d.Name) | Out-Null
+                        }
                         $failedCaptureFiles.Add($d.OutFile) | Out-Null
                         $failedCaptureFiles.Add($d.ErrFile) | Out-Null
                     } else {
-                        Write-Host "== $($d.Name) == FAILED (exit $code)" -ForegroundColor Red
-                        $failedNames.Add($d.Name) | Out-Null
+                        $itemVerdict = "failed (exit $code)"
+                        Write-Host "== $($d.Name) == FAILED (exit $code)$loadNote" -ForegroundColor Red
+                        if ($d.Decides) { $failedNames.Add($d.Name) | Out-Null }
                         $failedCaptureFiles.Add($d.OutFile) | Out-Null
                         $failedCaptureFiles.Add($d.ErrFile) | Out-Null
+                    }
+                    # ONE ROW PER REPEAT OF THE SUITE UNDER TEST -- issue #1944. Only the deciding items,
+                    # because the load's verdicts are not what the run is asking about.
+                    if ($focusMode -and $d.Decides) {
+                        $focusResults.Add([pscustomobject]@{
+                            Name        = $d.Name
+                            Verdict     = $itemVerdict
+                            StartOffset = $d.StartOffset
+                            Duration    = ($sw.Elapsed.TotalSeconds - $d.StartOffset)
+                            # HOW MANY LANES WERE BUSY BESIDE IT when it finished. The whole question a
+                            # focus run asks is whether contention changes the answer, so a row without
+                            # it cannot be read against the one above it.
+                            Siblings    = ($startedCount - $doneCount)
+                        }) | Out-Null
                     }
                     # THROUGH THE TOLERANT READER, and it says so when a block may be short -- issue
                     # #1731. This is the site most exposed to a grandchild still holding the suite's
@@ -2039,7 +2500,7 @@ function Invoke-TestSuiteGate {
     }
 
     $sw.Stop()
-    $total = $suites.Count + $extraCommands.Count
+    $total = $runItems.Count + $extraCommands.Count
 
     # THE PER-SUITE TABLE, slowest first -- issue #1358. Printed before the verdict so the verdict stays
     # the last line a session copies, and only when there is a pool to describe.
@@ -2066,12 +2527,39 @@ function Invoke-TestSuiteGate {
             # number on the same row: FAILED means the suite ran that long and said no, CRASHED means
             # it died that far in and never answered -- so the duration is a fragment of the file's
             # real cost rather than a measurement of it (issue #1723).
-            $flag   = if ($t.Crashed) { ' CRASHED -- died this far in; real cost is in the lone re-run above' }
+            # TIMED OUT WINS OVER BOTH, for the reason CRASHED wins over FAILED: a timed-out row's
+            # number is the bound plus the grace window, so it is not a reading of the file at all --
+            # and unlike a crash there is no lone re-run below carrying the real cost (issue #1941).
+            $flag   = if ($t.TimedOut) { " TIMED OUT -- this is the bound, not the file's cost; nothing re-ran it" }
+                      elseif ($t.Crashed) { ' CRASHED -- died this far in; real cost is in the lone re-run above' }
                       elseif ($t.Failed) { ' FAILED' } else { '' }
             Write-Host ("  {0,8}s  {1,-$nameWidth}  started +{2}s{3}{4}" -f `
                 (Format-GateSeconds $t.Duration -Decimals 1), $t.Name,
                 (Format-GateSeconds $t.StartOffset -Decimals 1), $flag, $marker) `
                 -ForegroundColor $(if ($t.Failed) { 'Red' } else { 'Gray' })
+        }
+        Write-Host ''
+    }
+
+    # THE FOCUS TABLE -- issue #1944, and it is a different question from the table above. That one sorts
+    # slowest first to find the file that sets the makespan; this one keeps the repeats IN ORDER, because
+    # what a reproduction run asks is whether the answer changed from draw to draw and how loaded the pool
+    # was each time. Sorting them apart would destroy exactly that.
+    if ($focusMode -and $focusResults.Count -gt 0) {
+        $focusFailed = @($focusResults | Where-Object { $_.Verdict -ne 'passed' })
+        Write-Host "test gate: focus run -- $FocusSuite, $($focusResults.Count) repeat(s) under $MaxParallel lanes of real sibling suites (issue #1944)" -ForegroundColor Cyan
+        foreach ($f in ($focusResults | Sort-Object -Property StartOffset)) {
+            $colour = if ($f.Verdict -eq 'passed') { 'Gray' } else { 'Red' }
+            Write-Host ("  {0,8}s  started +{1}s  with {2} sibling lane(s) busy  --  {3}" -f `
+                (Format-GateSeconds $f.Duration -Decimals 1),
+                (Format-GateSeconds $f.StartOffset -Decimals 1), $f.Siblings, $f.Verdict) -ForegroundColor $colour
+        }
+        # THE READING OF THE TABLE, printed rather than left to the reader, because the whole reason this
+        # mode exists is that a standalone green proves nothing -- and so does a focus run of one draw.
+        if ($focusFailed.Count -eq 0) {
+            Write-Host "  $($focusResults.Count)/$($focusResults.Count) passed under load. That is EVIDENCE OF ABSENCE ONLY AS FAR AS THE DRAW COUNT GOES: raise -FocusRepeat or -MaxParallel before concluding a load-triggered defect is gone." -ForegroundColor DarkGray
+        } else {
+            Write-Host "  $($focusFailed.Count)/$($focusResults.Count) did NOT pass under load -- reproduced." -ForegroundColor Red
         }
         Write-Host ''
     }
@@ -2093,7 +2581,7 @@ function Invoke-TestSuiteGate {
     # -MaxParallel ([Environment]::ProcessorCount) while a dev box takes ([Environment]::ProcessorCount - 2),
     # so the lane number already tells a hosted runner from a workstation without naming either.
     $laneNote = ''
-    if ($suites.Count -gt 0) {
+    if ($runItems.Count -gt 0) {
         $laneWord = if ($MaxParallel -eq 1) { 'lane' } else { 'lanes' }
         $laneNote = " ($MaxParallel $laneWord)"
     }
@@ -2102,9 +2590,23 @@ function Invoke-TestSuiteGate {
     # '186s (4 lanes)' say nothing about each other unless the second one also says it ran a quarter of
     # the pool -- and the whole argument of #1351 is a comparison between those two numbers.
     $shardNote = if ($ShardCount -gt 1) { " [shard $Shard/$ShardCount]" } else { '' }
+    # A FOCUS RUN SAYS SO ON THE VERDICT LINE, for the reason the shard does -- this is the line a session
+    # copies, and 'all 47 suites passed' off a reproduction run would be read as a gate that measured the
+    # tree, which it did not: it measured one suite, repeatedly, and ran the other 42 items purely as load
+    # (issue #1944).
+    $focusNote = if ($focusMode) { " [FOCUS RUN -- $FocusSuite x $FocusRepeat, not a gate]" } else { '' }
     if ($failedNames.Count -eq 0) {
-        $passScope = if ($ShardCount -gt 1) { "{0} of $poolTotal" } else { 'all {0}' }
-        Write-Host ("test gate: $passScope suites passed in {1}s{2}{3}." -f $total, $elapsed, $laneNote, $shardNote) -ForegroundColor Green
+        $passScope = if ($focusMode) { "{0} focus repeat(s) of $FocusSuite passed" }
+                     elseif ($ShardCount -gt 1) { "{0} of $poolTotal suites passed" }
+                     else { 'all {0} suites passed' }
+        $passCount = if ($focusMode) { $focusResults.Count } else { $total }
+        Write-Host ("test gate: $passScope in {1}s{2}{3}{4}." -f $passCount, $elapsed, $laneNote, $shardNote, $focusNote) -ForegroundColor Green
+        # NAMED ON THE GREEN VERDICT TOO -- issue #1941. A timeout on a LOAD item cannot fail a focus run
+        # (its verdict decides nothing), and a run that quietly abandoned a process while reporting green
+        # is the silence this whole mechanism was built to end. Same shape as the crash note below it.
+        if ($timedOutNames.Count -gt 0) {
+            Write-Host ("           TIMED OUT and did not decide this run: " + (@($timedOutNames | Sort-Object) -join ', ')) -ForegroundColor Red
+        }
         if ($crashedNames.Count -gt 0) {
             # GREEN, AND NOT SILENT (issue #1723). Every one of these passed on its lone re-run, so the
             # tree is fine and the gate is right to be green -- but a process that died is a fact about
@@ -2118,7 +2620,15 @@ function Invoke-TestSuiteGate {
         return $true
     }
     $namesInOrder = @($failedNames | Sort-Object) -join ', '
-    Write-Host ("test gate: {0} of {1} suites FAILED in {2}s{3}{4}: {5}" -f $failedNames.Count, $total, $elapsed, $laneNote, $shardNote, $namesInOrder) -ForegroundColor Red
+    $redTotal = if ($focusMode) { $focusResults.Count } else { $total }
+    $redUnit  = if ($focusMode) { 'focus repeat(s)' } else { 'suites' }
+    Write-Host ("test gate: {0} of {1} $redUnit FAILED in {2}s{3}{4}{5}: {6}" -f $failedNames.Count, $redTotal, $elapsed, $laneNote, $shardNote, $focusNote, $namesInOrder) -ForegroundColor Red
+    # WHICH OF THE RED ONES DID NOT FINISH, spelled out under the verdict -- issue #1941. A reader who
+    # only has this line cannot otherwise tell a suite that asserted and said no from one that never
+    # answered, and the two send you to completely different places.
+    if ($timedOutNames.Count -gt 0) {
+        Write-Host ("           did not finish within the $(Format-GateSeconds $suiteDeadline)s bound: " + (@($timedOutNames | Sort-Object) -join ', ')) -ForegroundColor Red
+    }
     # THE KEPT OUTPUT IS NAMED ON THE VERDICT, for the reason #1318 put the lane count there: this is the
     # line a session copies into a branch document, a commit message or an issue, so it is the one place a
     # path is certain to travel with the failure it belongs to. Indented under the verdict rather than

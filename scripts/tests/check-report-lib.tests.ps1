@@ -860,6 +860,99 @@ Write-Host 'REACHED-PAST-THE-REFUSAL'
     Assert-True ($childOut -match 'git exit code:\s*128') "Resolve-RepoRootOrFail: the refusal names git's exit code"
     Assert-True ($childOut -match 'not a git repository') "Resolve-RepoRootOrFail: the refusal quotes what git actually said"
     Assert-True ($childOut -match 'CLAUDE_PROJECT_DIR') 'Resolve-RepoRootOrFail: the refusal names the way out'
+
+    # #1936 -- AND IT NAMES NO FLAG THE CALLER DOES NOT HAVE. The child above passes no
+    # -OverrideName, which is the shape 15 of this tree's 27 call sites have: scripts meant to run
+    # from inside the checkout, exposing no root seam at all. The default used to be '-RepoRoot', so
+    # every one of them printed "or pass -RepoRoot" -- a remedy PowerShell then rejects outright.
+    Assert-True ($childOut -notmatch 'or pass') 'Resolve-RepoRootOrFail: with no seam named, no "or pass X" clause is offered'
+    Assert-True ($childOut -notmatch '-RepoRoot') 'Resolve-RepoRootOrFail: with no seam named, the old default flag is not printed at all'
+    Assert-True ($childOut -match 'Run this from inside the checkout, or set CLAUDE_PROJECT_DIR\.') 'Resolve-RepoRootOrFail: the seamless remedy keeps both routes that DO exist'
+    Assert-True ($childOut -match 'CLAUDE_PROJECT_DIR is not set, so the root had to come from') 'Resolve-RepoRootOrFail: the cause line drops the seam too, rather than naming an empty one'
+
+    # The control: a caller that REALLY exposes a seam still gets it quoted back, under its own
+    # spelling. Without this the assertions above are equally satisfied by a function that has simply
+    # stopped offering the flag to anybody -- which would break new-branch and fold-changelog-entry.
+    $namedChild = Join-Path $Fixture 'orfail-child-named.ps1'
+    Set-Content -LiteralPath $namedChild -Encoding ascii -Value @"
+`$ErrorActionPreference = 'Stop'
+Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+. '$libPath'
+Set-Location -LiteralPath '$notARepo'
+Resolve-RepoRootOrFail -ScriptName 'seamed-caller.ps1' -OverrideName '-RootOverride'
+"@
+    $namedOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $namedChild 2>&1) | Out-String
+    Assert-True ($namedOut -match 'or pass -RootOverride') 'Resolve-RepoRootOrFail: a caller that DOES expose a seam still has it quoted back'
+    Assert-True ($namedOut -match 'No -RootOverride was given') 'Resolve-RepoRootOrFail: the cause line names that seam under the caller''s own spelling'
+
+    # AND THE RESIDUAL THE '' DEFAULT CANNOT CLOSE: a call site that names a flag it does not expose.
+    # The default no longer hands anyone a wrong answer, but a caller can still type one. This walks
+    # the real call sites via the PowerShell parser -- the same measurement #1936 reported -- and
+    # holds each named -OverrideName against the calling script's own param block.
+    #
+    # scripts\ only, deliberately. The plugin mirrors carry the same call sites, and holding those to
+    # their source is the shared-scripts drift lint's job, not this suite's.
+    Write-Host "Resolve-RepoRootOrFail -- every named -OverrideName is a flag its caller exposes (#1936)" -ForegroundColor Cyan
+    $siteFiles = Get-ChildItem -Path (Join-Path $RepoRoot 'scripts') -Recurse -Filter *.ps1 |
+        Where-Object { $_.FullName -notmatch '\\scripts\\(lib|tests)\\' }
+    $siteMismatch = @()
+    $siteNamed = 0
+    $siteSilent = 0
+    $siteNonLiteral = 0
+    foreach ($sf in $siteFiles) {
+        $tok = $null; $perr = $null
+        $sast = [System.Management.Automation.Language.Parser]::ParseFile($sf.FullName, [ref]$tok, [ref]$perr)
+        $siteCalls = $sast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Resolve-RepoRootOrFail' }, $true)
+        if (-not $siteCalls) { continue }
+        # THE SCRIPT'S OWN param block, which is the right one BECAUSE every call site in this tree is
+        # at script top level -- this resolution is the first statement of an acting script, by design.
+        # A call nested inside a function with its own param block would be judged against the wrong
+        # list, so if one is ever written, this is the line that has to learn about it.
+        $exposed = @()
+        if ($sast.ParamBlock) { $exposed = @($sast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath }) }
+        foreach ($sc in $siteCalls) {
+            $namedAst = $null
+            for ($i = 0; $i -lt $sc.CommandElements.Count; $i++) {
+                $el = $sc.CommandElements[$i]
+                if ($el -is [System.Management.Automation.Language.CommandParameterAst] -and $el.ParameterName -eq 'OverrideName') {
+                    if ($el.Argument) { $namedAst = $el.Argument }
+                    elseif ($i + 1 -lt $sc.CommandElements.Count) { $namedAst = $sc.CommandElements[$i + 1] }
+                }
+            }
+            if ($null -eq $namedAst) { $siteSilent++; continue }
+            $siteNamed++
+            # ONLY A STRING LITERAL IS JUDGED. A caller writing `-OverrideName $flagVar` yields the
+            # variable's own text here, which matches no param name and would be reported as a
+            # mismatch that is not one -- a gate's false red is worse than the gap it leaves, because
+            # the next person to meet it learns to distrust the check. Counted, so such a call site is
+            # visible rather than silently skipped.
+            if ($namedAst -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) { $siteNonLiteral++; continue }
+            $bare = $namedAst.Value.TrimStart('-')
+            if ($exposed -notcontains $bare) { $siteMismatch += "$($sf.Name) names -$bare, which its param block does not expose" }
+        }
+    }
+    Assert-Equal 0 $siteMismatch.Count "every named -OverrideName is exposed by its caller$(if ($siteMismatch.Count) { " -- $($siteMismatch -join '; ')" })"
+    # Both counts are non-zero on purpose: a sweep that found no call sites at all would pass the
+    # assert above while measuring nothing, and that is the way this kind of test dies silently.
+    Assert-True ($siteNamed -gt 0) "the sweep actually found call sites naming a seam ($siteNamed)"
+    Assert-True ($siteSilent -gt 0) "the sweep actually found call sites naming none ($siteSilent)"
+    if ($siteNonLiteral -gt 0) {
+        Write-Host "  [NOTE] $siteNonLiteral call site(s) pass -OverrideName as a non-literal and were not judged" -ForegroundColor Yellow
+    }
+
+    # THE 'override' ARM'S OWN FALLBACK, which no caller in this tree reaches today: every script that
+    # passes -Override also names its seam. It is reachable the moment one does not, and an untested
+    # branch that composes a message is exactly where an empty string reaches a reader as a blank.
+    $ovrChild = Join-Path $Fixture 'orfail-child-override.ps1'
+    $ghostRoot = Join-Path $Fixture 'no-such-tree'
+    Set-Content -LiteralPath $ovrChild -Encoding ascii -Value @"
+`$ErrorActionPreference = 'Stop'
+. '$libPath'
+Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1'
+"@
+    $ovrOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $ovrChild 2>&1) | Out-String
+    Assert-True ($ovrOut -match 'The repository root was given as') 'Resolve-RepoRootOrFail: a bad -Override with no seam named reads as a root, not as a blank flag'
+    Assert-True ($ovrOut -notmatch '(?m)^\s+was given as') 'Resolve-RepoRootOrFail: the override line never opens with an empty flag name'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
