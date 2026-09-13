@@ -345,10 +345,12 @@
          ended up removing. A fourth fact is that Write-FixtureScriptSummary's verdict is READ, since
          printing it is not what fails the run: dropped, the suite prints the block and exits 0,
          wearing the guard's own output as proof it is wired. Born green: 7 wired, all complete, 0
-         exemptions. #1948's OWN proposed rule -- any captured child invocation with no verdict -- was
-         measured first and NOT built: 71 findings over 82 invocations, which is a proposal to wire 65
-         more suites (#1954), and its check-35 adjacency reports all six WIRED suites as findings
-         because they judge two to four statements after the call.
+         exemptions; 13 since #1954. #1948's OWN proposed rule -- any captured child invocation with
+         no verdict -- was measured first and NOT built: 71 findings over 82 invocations, a proposal
+         to widen rather than a regression guard, and its check-35 adjacency reports all six WIRED
+         suites as findings because they judge two to four statements after the call. #1954 answered
+         the widening at SIX, not the 65 it was filed as: the hazard needs a COPIED child, and a
+         script run from the repo in place has no copy list to go stale.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -4961,8 +4963,14 @@ Write-Coverage -Category 'plugin-lib' -Checked $plFiles `
 # had stopped guarding.
 #
 # ONE DIRECTION ONLY: a suite that carries NONE of the three parts is not a subject. Whether it should be
-# wired is #1954's question, measured at 65 suites, and answering it here would be the 71-finding check
-# under another name.
+# wired was #1954's question, and #1954 ANSWERED it at SIX rather than the 65 it was filed as: the probe
+# behind that number counts every captured child invocation, and the hazard needs a COPIED child -- a
+# script run from the repo in place resolves its libs against the real tree and has no copy list to go
+# stale. Of the 17 suites that do copy one, six were already wired and five are out of scope (the acting
+# script runs from the repo; the missing lib IS the behaviour under test; or the tree's own
+# 'fixture-dep: script-not-loaded' opt-out already covers it). Those six are wired, so this check now
+# reads 13 files. The direction is unchanged and still matters: widening it into a RULE here would be the
+# 71-finding check under another name.
 #
 # NOT SKIPPABLE, and it shares the parse and the walk of the script set with checks 31, 33 and 35 through
 # Get-PsScriptCommandAsts (issue #1358) rather than parsing scripts/tests/ a second time.
@@ -5114,7 +5122,7 @@ Write-Coverage -Category 'fixture-script' -Checked $fsFiles.Count `
     } elseif ($fsWired -eq 0) {
         'script file(s) under scripts/tests/ read, and NOT ONE carries any part of the #1934 fixture load guard. That is a pass with nothing measured in it: the rule is self-anchoring, so a tree where the guard has been removed everywhere is indistinguishable here from one where it was never added. Read it as a broken gate rather than a clean one'
     } else {
-        "script file(s) under scripts/tests/ walked for the three parts of the #1934 fixture load guard -- the dot-source of fixture-script-lib.ps1, an Assert-FixtureScriptLoaded call, and a Write-FixtureScriptSummary call whose verdict is READ rather than printed and dropped -- over the $fsWired file(s) carrying at least one of them: $fsFindings finding(s). SELF-ANCHORING, so no list of wired suites is maintained anywhere: a file's own content says whether it has adopted the helper, which is the hand-listed-copy-list failure #1693, #1865 and #1924 each ended up removing. Born green: 7 wired, all complete, 0 exemptions. #1948's own proposed rule -- any captured child invocation without a verdict -- was measured first and NOT built: 71 findings over 82 invocations, which is a proposal to wire 65 more suites (#1954) rather than a regression guard, and its same-statement adjacency reports all six WIRED suites as findings because they judge two to four statements after the call. A suite carrying none of the three parts is deliberately not a subject"
+        "script file(s) under scripts/tests/ walked for the three parts of the #1934 fixture load guard -- the dot-source of fixture-script-lib.ps1, an Assert-FixtureScriptLoaded call, and a Write-FixtureScriptSummary call whose verdict is READ rather than printed and dropped -- over the $fsWired file(s) carrying at least one of them: $fsFindings finding(s). SELF-ANCHORING, so no list of wired suites is maintained anywhere: a file's own content says whether it has adopted the helper, which is the hand-listed-copy-list failure #1693, #1865 and #1924 each ended up removing. Born green: 7 wired, all complete, 0 exemptions; 13 since #1954 widened it to every suite that copies an acting script. #1948's own proposed rule -- any captured child invocation without a verdict -- was measured first and NOT built: 71 findings over 82 invocations, which is a proposal to widen rather than a regression guard -- and #1954 ANSWERED that at SIX, not 65: the hazard needs a COPIED child, and a script run from the repo in place has no copy list to go stale, and its same-statement adjacency reports all six WIRED suites as findings because they judge two to four statements after the call. A suite carrying none of the three parts is deliberately not a subject"
     })
 
 # --- Report ---------------------------------------------------------------------------------------------
