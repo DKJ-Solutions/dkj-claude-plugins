@@ -132,6 +132,19 @@ function New-FixtureConsumer {
     return $root
 }
 
+function Test-NoLeakedCredential {
+    <#
+        True when neither the FOLD_PUSH_TOKEN secret nor an issues: write grant appears on a CODE line --
+        i.e. any line whose trimmed text does not start with '#'. A comment is free to name either word in
+        prose (this template's own comments do, to explain why this runner needs neither); only a line that
+        could actually take effect at runtime counts as the leak this exists to catch.
+    #>
+    param([string]$Text)
+    $codeLines = ($Text -split "`r?`n") | Where-Object { $_.Trim() -notmatch '^#' }
+    $code = $codeLines -join "`n"
+    return (-not ($code -match '(?m)^\s*issues:\s*write\s*$')) -and (-not ($code -match 'secrets\.FOLD_PUSH_TOKEN'))
+}
+
 function New-RulesFile {
     param([string]$Label, [string]$Json)
     $p = Join-Path $Fixture "rules-$Label.json"
@@ -162,11 +175,12 @@ function Invoke-Adopt {
     }
 }
 
-# Both runners -Apply must place. Read from one list rather than restated per assert, so a target added
+# Every runner -Apply must place. Read from one list rather than restated per assert, so a target added
 # to the script fails ONE list here instead of passing unexamined.
 $ExpectedRunners = @(
     '.github\workflows\fold-on-merge.yml',
-    '.github\workflows\verify-resolved.yml'
+    '.github\workflows\verify-resolved.yml',
+    '.github\workflows\repo-settings.yml'
 )
 
 try {
@@ -186,8 +200,8 @@ try {
     }
     Assert-Equal 0 $r.Code 'and exits 0 -- an unbuilt floor on a queueless trunk is a to-do, not a defect'
 
-    # --- 2. -Apply places both runners, pointing at the PLUGIN tree --------------------------------
-    Write-Host '-- 2. -Apply places both runners, reaching their scripts through the plugin tree --' -ForegroundColor Cyan
+    # --- 2. -Apply places every runner, pointing at the PLUGIN tree --------------------------------
+    Write-Host '-- 2. -Apply places every runner, reaching their scripts through the plugin tree --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'apply'
     $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
     foreach ($f in $ExpectedRunners) {
@@ -195,6 +209,7 @@ try {
     }
     $fold = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\fold-on-merge.yml'))
     $verify = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\verify-resolved.yml'))
+    $repoSettings = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\repo-settings.yml'))
 
     # THE PATH IS THE WHOLE POINT OF THE SCAFFOLD. A runner calling 'scripts/release/...' would be the
     # SOURCE's path -- correct there, absent in every consumer -- and it would fail at the one moment
@@ -205,6 +220,8 @@ try {
         'and the plugin mirror of fold-changelog-entry'
     Assert-True ($verify -like '*.workflow-scripts/plugins/dkj-policy/scripts/release/verify-pushed-merges.ps1*') `
         'the resolves runner calls the plugin mirror of verify-pushed-merges'
+    Assert-True ($repoSettings -like '*.workflow-scripts/plugins/dkj-policy/scripts/lint/check-repo-settings.ps1*') `
+        'the repo-settings runner calls the plugin mirror of check-repo-settings, not an in-repo path'
 
     # AND THE THREE ASSERTS ABOVE CANNOT CATCH A MOVE, which is why the four below exist (#1805). Each
     # of them compares the scaffolder's output against a literal copied out of that same scaffolder --
@@ -216,8 +233,9 @@ try {
     # answer the other question rather than replacing them.
     . (Join-Path $RepoRoot 'scripts\lib\consumer-runner-lib.ps1')
     foreach ($runner in @(
-        @{ Name = 'fold-on-merge.yml';   Text = $fold;   Expect = 2 },
-        @{ Name = 'verify-resolved.yml'; Text = $verify; Expect = 1 }
+        @{ Name = 'fold-on-merge.yml';    Text = $fold;         Expect = 2 },
+        @{ Name = 'verify-resolved.yml';  Text = $verify;       Expect = 1 },
+        @{ Name = 'repo-settings.yml';    Text = $repoSettings; Expect = 1 }
     )) {
         $refs = @(Get-SharedScriptReference -WorkflowText $runner.Text -RepositoryName 'dkj-claude-plugins')
         Assert-Equal $runner.Expect $refs.Count "$($runner.Name): reaches $($runner.Expect) script(s) out of a checkout of this repo"
@@ -226,13 +244,44 @@ try {
         }
     }
 
-    # CLAUDE_PROJECT_DIR IS NOT OPTIONAL IN EITHER. A mirrored script resolves the tree it judges from
-    # that variable first; without it the fold would read whatever `git rev-parse` answered in a
-    # workspace holding two checkouts, which is a coin toss rather than a bug that shows up.
+    # CLAUDE_PROJECT_DIR IS NOT OPTIONAL IN ANY OF THE THREE. A mirrored script resolves the tree it
+    # judges from that variable first; without it a check would read whatever `git rev-parse` answered
+    # in a workspace holding two checkouts, which is a coin toss rather than a bug that shows up.
     Assert-True ($fold -like '*CLAUDE_PROJECT_DIR: ${{ github.workspace }}*') `
         'the fold runner points the mirrored scripts at the consumer tree via CLAUDE_PROJECT_DIR'
     Assert-True ($verify -like '*CLAUDE_PROJECT_DIR: ${{ github.workspace }}*') `
         'and so does the resolves runner'
+    Assert-True ($repoSettings -like '*CLAUDE_PROJECT_DIR: ${{ github.workspace }}*') `
+        'and so does the repo-settings runner'
+
+    # --- 2c. The repo-settings runner (issue #1843) -- a schedule, not a merge, and no secret at all ---
+    Assert-True ($repoSettings -match '(?m)^\s+-\s+cron:') `
+        'the repo-settings runner is scheduled -- the dated record is the whole reason it is CI and not a hook'
+    Assert-True ($repoSettings -like '*workflow_dispatch*') 'and dispatchable, for the day a setting is changed on purpose'
+    Assert-True ($repoSettings -match '(?m)^\s*contents:\s*read\s*$') 'least privilege: it only reads'
+    # THE MATCH IS OVER CODE LINES ONLY, NOT THE WHOLE FILE. A plain substring match over the generated
+    # text also fires on a COMMENT naming these words in prose -- and this template's own comments do,
+    # deliberately: they explain why THIS runner, unlike the other two, needs neither credential. That
+    # is accurate prose describing a fact, not a leak, and a maintainer must be free to write it without
+    # tripping a red assert (measured: editing that comment forced a reword to dodge this exact line).
+    # Excluding comment lines costs nothing against the real defect this assert exists to catch, because
+    # a leaked permission or token has an operational effect only on a CODE line -- a `permissions:` grant
+    # or a `${{ secrets.* }}` reference -- never on a `#`-prefixed one. Proven below against a
+    # deliberately broken fixture rather than by inspection, per Tycho's brief.
+    Assert-True (Test-NoLeakedCredential $repoSettings) `
+        'it borrows no standing credential and no write scope -- unlike the other two runners (comment lines excluded)'
+    # THE TIGHTENED MATCH IS PROVEN, NOT INSPECTED: run it against fixtures nothing above ever produces,
+    # so passing here says something about the FUNCTION rather than about the one real template.
+    Assert-True (Test-NoLeakedCredential "# mentions FOLD_PUSH_TOKEN and issues: write in prose only`npermissions:`n  contents: read`n") `
+        'the tightened match ignores a comment naming both words in prose'
+    Assert-True (-not (Test-NoLeakedCredential "permissions:`n  issues: write`n")) `
+        'and still catches a real issues: write permission line'
+    Assert-True (-not (Test-NoLeakedCredential 'token: ${{ secrets.FOLD_PUSH_TOKEN }}')) `
+        'and a real FOLD_PUSH_TOKEN reference outside a comment'
+    Assert-True ($repoSettings -like '*-RequireRead*') `
+        'and it runs with -RequireRead, so a token that cannot read reports a failure instead of a green nothing'
+    Assert-True ($repoSettings -match '(?m)^\s*persist-credentials:\s*false\s*$') `
+        'its own checkout keeps no credential in the workspace -- this job never pushes'
 
     # THE CREDENTIAL SPLIT, which is the security decision this scaffold inherits: the standing PAT and
     # `issues: write` must never sit in one job.
@@ -243,6 +292,35 @@ try {
     Assert-True ($r.Flat -like '*FOLD_PUSH_TOKEN*') 'and the run TELLS you to create that secret'
     Assert-True ($r.Flat -like '*actions/checkout FAILS*') 'and says an absent/under-scoped token fails the checkout, not the push (inbound #1539)'
     Assert-True ($r.Flat -like '*every later step*skipped*') 'naming the tell -- every later step skipped -- so the checkout is ruled out first'
+
+    # --- 2d. The reminder's NEGATIVE twin: silent when the fold runner is not the one created --------
+    # Section 2 above proves the reminder FIRES when the fold runner is created (all three files fresh
+    # together). That alone is only half the property this flag exists for (the fix behind #1904's
+    # sibling bug: a generic "anything was created" counter would fire this reminder even when the ONLY
+    # gap is repo-settings.yml, which needs no secret at all). This fixture is that other half: fold and
+    # verify-resolved already exist, only repo-settings.yml is missing, and the reminder must stay silent.
+    Write-Host '-- 2d. the FOLD_PUSH_TOKEN reminder stays silent when repo-settings.yml is the only gap --' -ForegroundColor Cyan
+    # A DEDICATED VARIABLE, NOT $dir -- section 3 below reuses $dir from section 2's own 'apply'
+    # consumer, and clobbering it here would silently redirect that later section at this fixture.
+    $onlySettingsDir = New-FixtureConsumer -Label 'onlysettings'
+    $foldSentinel = '# pre-existing fold runner -- not written by this run'
+    $verifySentinel = '# pre-existing resolves runner -- not written by this run'
+    [System.IO.File]::WriteAllText((Join-Path $onlySettingsDir '.github\workflows\fold-on-merge.yml'), $foldSentinel)
+    [System.IO.File]::WriteAllText((Join-Path $onlySettingsDir '.github\workflows\verify-resolved.yml'), $verifySentinel)
+    $r = Invoke-Adopt -Dir $onlySettingsDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True (Test-Path -LiteralPath (Join-Path $onlySettingsDir '.github\workflows\repo-settings.yml')) `
+        'repo-settings.yml is created when it is the only one of the three missing'
+    # CONTENT, NOT JUST PRESENCE OR MTIME -- the additive property (section 3) is that an edited file is
+    # left BYTE-FOR-BYTE as it was, and that is what a sentinel unrelated to the real template proves.
+    Assert-Equal $foldSentinel ([System.IO.File]::ReadAllText((Join-Path $onlySettingsDir '.github\workflows\fold-on-merge.yml'))) `
+        'the pre-existing fold runner is untouched'
+    Assert-Equal $verifySentinel ([System.IO.File]::ReadAllText((Join-Path $onlySettingsDir '.github\workflows\verify-resolved.yml'))) `
+        'and so is the pre-existing resolves runner'
+    Assert-True ($r.Out -match '(?m)\[exists\]\s+\.github/workflows/fold-on-merge\.yml') 'the fold runner is reported as already there, not recreated'
+    Assert-True ($r.Out -match '(?m)\[exists\]\s+\.github/workflows/verify-resolved\.yml') 'and so is the resolves runner'
+    Assert-True ($r.Out -match '(?m)\[created\]\s+\.github/workflows/repo-settings\.yml') 'only the actually-missing repo-settings runner is created'
+    Assert-True ($r.Flat -notlike '*FOLD_PUSH_TOKEN*') `
+        'and the FOLD_PUSH_TOKEN reminder does NOT fire -- the fold runner itself was not the one created, this run''s (#1843) own fix'
 
     # --- 2b. The three corrections that landed together (inbound #1539/#1543/#1544) -----------------
     # THE CONCURRENCY GROUP IS CONSTANT PER TRUNK, NOT PER COMMIT (#1544). A per-SHA group is its own
@@ -296,6 +374,12 @@ try {
     Assert-Equal $edited ([System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\fold-on-merge.yml'))) `
         'a runner somebody edited is left exactly as it is'
     Assert-True ($r.Out -match '(?m)\[exists\]\s+\.github/workflows/fold-on-merge\.yml') 'and is reported as already there rather than silently skipped'
+    $editedSettings = '# my own repo-settings runner'
+    [System.IO.File]::WriteAllText((Join-Path $dir '.github\workflows\repo-settings.yml'), $editedSettings)
+    $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-Equal $editedSettings ([System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\repo-settings.yml'))) `
+        'and the repo-settings runner is additive too -- an edited copy is left exactly as it is'
+    Assert-True ($r.Out -match '(?m)\[exists\]\s+\.github/workflows/repo-settings\.yml') 'and reported as already there rather than silently skipped'
 
     # --- 4. The two vocabularies, and the exit code --------------------------------------------------
     Write-Host '-- 4. a gap on a queueless trunk is a to-do; the same gap under a live queue is a defect --' -ForegroundColor Cyan
@@ -304,6 +388,11 @@ try {
     Assert-Equal 1 $r.Code 'a queue ACTIVE with no runners in the tree exits 1'
     Assert-True ($r.Flat -like '*live defect*') 'and says why in those words'
     Assert-True ($r.Out -match '(?m)\[MISSING\]\s+\.github/workflows/fold-on-merge\.yml') 'the missing fold runner is marked MISSING rather than as a suggestion'
+    # A MISSING repo-settings.yml is NOT a live defect just because a queue happens to be active
+    # elsewhere in the repo -- its subject (a GitHub-side setting drifting) has nothing to do with the
+    # queue, unlike the fold and the resolves verification a queue genuinely takes away.
+    Assert-True ($r.Out -match '(?m)\[create\]\s+\.github/workflows/repo-settings\.yml') `
+        'the missing repo-settings runner is offered as an ordinary [create], not marked MISSING, even with a queue active'
 
     $dir = New-FixtureConsumer -Label 'todo'
     $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOff)
@@ -342,6 +431,9 @@ try {
     Assert-True ($fold -like '*-Branch trunk*') 'and passes that same trunk to the check it runs'
     Assert-True ($fold -match '(?m)^\s*ref:\s*trunk\s*$') 'and its first checkout pins ref to that same trunk, not a hardcoded main (#1543)'
     Assert-True ($fold -match '(?m)^\s*group:\s*fold-on-merge-\$\{\{\s*github\.ref\s*\}\}\s*$') 'the concurrency group is still github.ref-keyed on a non-main trunk (#1544)'
+    $repoSettings = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\repo-settings.yml'))
+    Assert-True ($repoSettings -like '*-Trunk trunk*') `
+        'the repo-settings runner is baked with the same non-main trunk (issue #1843), not a hardcoded main'
 
     # --- 7. The switch is composed, never pulled -----------------------------------------------------
     Write-Host '-- 7. the setting itself is the owner act, and this script does not make it --' -ForegroundColor Cyan

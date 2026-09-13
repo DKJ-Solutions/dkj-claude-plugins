@@ -43,6 +43,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Script   = Join-Path $RepoRoot 'scripts\lint\check-repo-settings.ps1'
+$Mirror   = Join-Path $RepoRoot 'plugins\dkj-policy\scripts\lint\check-repo-settings.ps1'
 $RealCfg  = Join-Path $RepoRoot 'scripts\repo-config.ps1'
 $Workflow = Join-Path $RepoRoot '.github\workflows\repo-settings.yml'
 
@@ -81,7 +82,12 @@ function New-Fixture {
         [Parameter(Mandatory = $true)][string]$Label,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Declared,
         [string]$RepoName = 'Owner/repo',
-        [switch]$NoSeam
+        [switch]$NoSeam,
+        # Appends an optional Get-TrunkBranchName, for the trunk-seam-resolution cases below. Empty
+        # (the default) means the fixture answers the trunk seam exactly like a consumer who never
+        # heard of it -- absent, which is what makes the 'main' fallback case a real one rather than a
+        # tautology.
+        [string]$TrunkSeam = ''
     )
     $dir = New-Tree -Label $Label
     $body = @()
@@ -90,6 +96,9 @@ function New-Fixture {
     if (-not $NoSeam) {
         $body += "`$script:ExpectedRepoSettings = $Declared"
         $body += 'function Get-ExpectedRepoSettings { return $script:ExpectedRepoSettings }'
+    }
+    if ($TrunkSeam) {
+        $body += "function Get-TrunkBranchName { return '$TrunkSeam' }"
     }
     Write-Ascii -Path (Join-Path $dir 'scripts\repo-config.ps1') -Text (($body -join "`r`n") + "`r`n")
     return $dir
@@ -115,7 +124,11 @@ function Invoke-Check {
         [string]$Repo = 'NONE',
         [string]$Ruleset = 'NONE',
         [string]$Trunk = '',
-        [switch]$RequireRead
+        [switch]$RequireRead,
+        # Points a case at the plugin mirror instead of the source, so ONE case (below) can prove the
+        # registered mirror behaves identically rather than only the file this suite happens to sit
+        # beside. Same pattern as git-identity-gate.tests.ps1's own -ScriptPath.
+        [string]$ScriptPath = $Script
     )
     $a = @('-RootOverride', $Root,
            '-BranchRulesJsonOverride', $BranchRules,
@@ -126,7 +139,7 @@ function Invoke-Check {
     $prevEap = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script @a 2>&1
+        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @a 2>&1
     } finally { $ErrorActionPreference = $prevEap }
     return @{ Out = ($out | Out-String); Code = $LASTEXITCODE }
 }
@@ -337,10 +350,27 @@ try {
         'a trunk with NO rules -- a finding, not an unreadable field: every declared rule is gone'
 
     Write-Host ''
-    Write-Host 'the trunk is a parameter, and the check reads no tree state to guess it'
+    Write-Host 'an explicit -Trunk always wins -- over the fixture and over any seam it might carry'
     $dir = New-Fixture -Label 'trunk' -Declared $DeclareRules
     $r = Invoke-Check -Root $dir -BranchRules (New-Payload -Dir $dir -Name 'rules' -Json $RulesOk) -Trunk 'trunk'
     Assert-True ($r.Out -match 'trunk: trunk') 'a non-default trunk is named in the header'
+
+    Write-Host ''
+    Write-Host 'the trunk seam (issue #1843) -- read only when -Trunk is not given at all'
+    # A consumer on a differently-named trunk would otherwise have every branch-rules read aimed at a
+    # branch that does not exist, and -RequireRead would then report a red run whose real cause -- the
+    # wrong branch name -- is never named.
+    $dirSeam = New-Fixture -Label 'trunkseam' -Declared $DeclareRules -TrunkSeam 'develop'
+    $r = Invoke-Check -Root $dirSeam -BranchRules (New-Payload -Dir $dirSeam -Name 'rules' -Json $RulesOk)
+    Assert-True ($r.Out -match 'trunk: develop') `
+        'no -Trunk given, and scripts/repo-config.ps1 answers Get-TrunkBranchName -- the seam is honoured'
+    $dirNoSeam = New-Fixture -Label 'trunknoseam' -Declared $DeclareRules
+    $r = Invoke-Check -Root $dirNoSeam -BranchRules (New-Payload -Dir $dirNoSeam -Name 'rules' -Json $RulesOk)
+    Assert-True ($r.Out -match 'trunk: main') `
+        'no -Trunk given and no seam either -- falls back to ''main'', exactly as before this issue'
+    $r = Invoke-Check -Root $dirSeam -BranchRules (New-Payload -Dir $dirSeam -Name 'rules-explicit' -Json $RulesOk) -Trunk 'override'
+    Assert-True ($r.Out -match 'trunk: override') `
+        'and an explicit -Trunk still wins even where the fixture DOES answer the seam'
 
     Write-Host ''
     Write-Host 'this repo own declaration, and the runner that carries it'
@@ -392,6 +422,14 @@ try {
         'the checkout keeps no credential in the workspace -- this job never pushes (verify-resolved.yml states the reasoning)'
     Assert-True ($wf -match '-RequireRead') `
         'and the run passes -RequireRead, so a token that cannot read reports a failure instead of a green nothing'
+
+    Write-Host ''
+    Write-Host 'the registered mirror (issue #1843) -- one case proves it, not merely the file this suite sits beside'
+    Assert-True (Test-Path -LiteralPath $Mirror -PathType Leaf) 'the plugin mirror exists at the registered path'
+    $dirMirror = New-Fixture -Label 'mirror' -Declared $DeclareRules
+    $r = Invoke-Check -Root $dirMirror -BranchRules (New-Payload -Dir $dirMirror -Name 'rules' -Json $RulesOk) -ScriptPath $Mirror
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'repo settings vs\. what the tree declares -- Owner/repo') `
+        'the mirror runs the happy path exactly like the source'
 }
 finally {
     foreach ($t in $script:trees) {

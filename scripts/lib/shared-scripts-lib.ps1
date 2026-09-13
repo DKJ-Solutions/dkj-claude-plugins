@@ -1246,6 +1246,39 @@ function Get-SharedScriptPairs {
             MirrorRun = 'git-identity-gate.tests.ps1'
         },
         @{
+            # The repo-settings drift detector, now shared (issue #1843). Built here first (#1726) after
+            # three drifts in eight days that nothing in the tree would otherwise have caught: the org
+            # transfer emptying `bypass_actors` (#1244, every direct-on-main exception dead for a day),
+            # `merge_queue` added to the ruleset and removed with no trace (#1499, #1720), and
+            # `allow_auto_merge` left on against four records in this tree saying `false` (#1730).
+            #
+            # A CONSUMER'S GITHUB-SIDE STATE DRIFTS THE SAME WAY, with nothing in their own tree saying
+            # so -- #1843 is the wider question #1726 was declined on the ground of not asking ("#1726
+            # asked about this repo"), and Dave's scope decision on it is what travels: identical
+            # SCRIPTS available, not identical RULES enforced. So the values a consumer declares stay
+            # theirs (see Get-ExpectedRepoSettings's 'decide' record in script-contract-lib.ps1) while
+            # the mechanism that compares them against GitHub is now shared, at no cost, because it was
+            # already reading those values through a seam rather than a literal.
+            #
+            # ITS TWO CALLERS ARE A SCHEDULED WORKFLOW AND A PERSON, on the same reasoning
+            # check-unfolded-entry and check-git-identity give above: nobody invokes this as a procedure,
+            # so there is no skill, and the one command in its .SYNOPSIS answers it early for whoever
+            # wants it before the next cron.
+            Name   = 'check-repo-settings'
+            Source = 'scripts\lint\check-repo-settings.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            # Four fixture-only overrides: the three payload files that stand in for a `gh api` call the
+            # suite cannot make against a moving target, plus the root override that points the read at
+            # a fixture tree instead of the checkout. A consumer never types any of them.
+            SkillParamsExempt = @('RootOverride', 'BranchRulesJsonOverride', 'RepoJsonOverride', 'RulesetJsonOverride')
+            # Timeable with no arguments: it reads GitHub and this tree's own declaration and reports,
+            # no write of any kind -- confirmed against the script itself rather than assumed from its
+            # check- prefix.
+            MeasureArgs = @()
+            MirrorRun = 'repo-settings-gate.tests.ps1'
+        },
+        @{
             # The fixture-pollution check (issue #1609). A throwaway debug script ran without
             # redirecting $env:USERPROFILE and overwrote ~/.claude/plugins/installed_plugins.json with
             # two fixture records, losing the install record of this checkout and both registered
