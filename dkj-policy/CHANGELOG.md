@@ -43,7 +43,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 23 minor entries** <!-- pending-tally -->
+**19 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1939-native-capture-flaky-at-16-lanes · 20260913-124204
+
+`native-capture.tests.ps1`'s flushed-before-the-kill case no longer races `powershell.exe` bring-up
+against a fixed 2s bound. The bound is now measured on the machine at that moment -- one cold startup
+to first output, the same calibration shape the grandchild bounds further down the file already use
+-- and derived at 4x, floored at the old 2s so an idle run pays exactly what it always paid and
+capped at 20s so a pathological reading cannot hang the gate behind one suite. The child's sleep is
+derived from the bound rather than fixed at 30, so the preceding assert's property holds however wide
+the calibration goes, and the failing assert now names the calibrated figure so a reader can tell a
+slow machine from a broken capture.
+
+**The repair is smaller than the report asked for, because one half of its reasoning did not
+survive the check.** #1939's 0.5s and 3.25s are read out of a calibration that times **two** cold
+startups; the quantity this case actually spends is one, so the contended figure is ~1.6s against a
+2s bound rather than 3.25s. Budgeting the reported number would have over-sized this bound by about
+2x. That correction is recorded at the call site, where the next reader of these figures is.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The suite does not travel: only `native-capture-lib.ps1` is mirrored into the plugin payload,
+and the lib is untouched here. No consumer runs this file, no scaffolded CI runner reaches it, and
+nothing is asked of anybody. The cost is paid entirely by this repo's own gate, which is also where
+the flake was.
+
+**Score:** N/A
+
+#### Pull Request
+
+The flushed-before-the-kill case no longer races PowerShell bring-up against a fixed 2s bound
+
+[PR #1943](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1943)
+
+---
 
 ### DEPLOY: fix/1926-machineonly-without-checkout · 20260913-123237
 
