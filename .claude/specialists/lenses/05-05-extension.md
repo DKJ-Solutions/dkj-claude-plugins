@@ -743,11 +743,15 @@ Derek prefers not to touch the git commands by hand. His toolbox:
 - `scripts/task/park-cycle.ps1 [-Quiet]` — **Derek does not run this**, and it is here so he recognises its
   commits. A Stop hook (`cycle-autopark.ps1`) invokes it after every turn and it pushes
   `dkj-policy/<branch>.md`, and only that file, for the life of the branch — the plan
-  and the phase state being what another device actually needs. **It becomes a no-op the moment a PR
+  and the phase state being what another device actually needs. **It stops PUSHING the moment a PR
   exists**, because the DEPLOY lock (#884) refuses the merge once that document diverges from what the PR
   published; a pusher that kept going would block every merge in the repo. Same reason its fail-safe runs
   that way: `gh` unable to answer means no push. So a branch with a PR on it shows no further `park:`
-  commits, by design.
+  commits, by design. **It is not a no-op there, and calling it one is what
+  [#1953](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1953) repaired**: on an open PR it
+  still reads `origin/<branch>` and reports a collision, naming the other side's author and subject.
+  Whether it may WRITE is the DEPLOY lock's question; whether somebody else is on this branch is a read,
+  and it owes the lock nothing.
 - `scripts/task/park-branch.ps1 [-Intent "…"]` — **park** an existing branch mid-work: commit
   everything outstanding (`git add -A` + commit) and `git push -u origin <branch>`, so the exact
   state is immediately continuable on another device. Refuses on `main`, opens **no PR**, and does

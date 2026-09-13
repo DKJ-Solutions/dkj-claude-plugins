@@ -66,9 +66,11 @@ powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" 
 It is idempotent — a document that already belongs to that branch is left exactly as it is — and it is
 **the only pickup route carrying the check that another session is already on the branch**. On a branch
 that exists both locally and on `origin` it counts the gap and names the remote tip's **author and
-subject**, which is what separates a collision from a fast-forward of your own autopark; on one that
+subject**, which is what separates a collision from a fast-forward of your own push; on one that
 exists only on `origin` it creates the local ref **at the remote tip**, carrying the parked work rather
-than a fork of the trunk. `git checkout` does neither, and says nothing while doing it.
+than a fork of the trunk. `git checkout` does neither, and says nothing while doing it — the Stop hook
+below catches that case on the next turn instead, which is later but repeats, and is the only half that
+sees the other session arrive *after* you stepped onto the branch.
 
 **Measured twice, three days apart, and the second time through this exact door.**
 [#1439](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1439) built that check after two
@@ -83,9 +85,12 @@ claim**: it records that a handover is wanted, never that one has been taken.
 branch usually has none. The branch check at the start of an assignment reads `git status`, which is
 local — with no fetch, `## <branch>...origin/<branch>` is the same line for *in sync* and for *never
 looked*. `prune-merged -IncludeRemote` is for branches you are **not** standing on. What does fire is
-`cycle-autopark`, every turn, once you have something to push: its push is refused and it names the other
-session (see [park-cycle](#park-cycle----the-automatic-one-and-you-do-not-run-it) below) — but that is a
-turn or more after the pickup, and the reads below are cheaper than either.
+`cycle-autopark`, every turn, once you have something to push: it names the other session (see
+[park-cycle](#park-cycle----the-automatic-one-and-you-do-not-run-it) below) — on a branch with no PR
+because its push is refused, and on one with an open PR because since
+[#1953](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1953) it reads the remote there too,
+where it used to stop silently. But that is a turn or more after the pickup, and the reads below are
+cheaper than either.
 
 ## Then measure the plan against the main branch
 
@@ -187,30 +192,67 @@ branch* above --
 what is actually behind the plan it is publishing, measured on the machine that holds the work. A note, not
 a gate: it never changes whether the park happens.
 
-**And a REFUSED push is the earliest collision signal this workflow has** ([#1600](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1600)).
+**And this is the earliest collision detector this workflow has** ([#1600](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1600)).
 Running every turn is what makes it that: once a second session pushes to this branch, every turn of yours
-ends in a non-fast-forward refusal. So the failure arm fetches that one ref and names the other side --
+can see it. So it fetches that one ref and names the other side --
 
 ```text
 park-cycle: 'dkj-policy/feat-x.md' could NOT be pushed -- 'feat/x' is 1 commit(s) behind origin/feat/x,
   whose tip is: 73cfa46 Other Session: park: feat/x (all outstanding work).
   ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH. Read what is there before building further
-  (git pull --ff-only); if the tip is your own autopark from another machine, that is the same
+  (git pull --ff-only); if the tip is your own push from another machine, that is the same
   command. Nothing on this branch is lost -- the push was refused, not overwritten.
 ```
 
 It used to say *"run park-cycle by hand for the reason (diverged from origin?)"*, which sent the reader
 for a reason the run already held and hedged the one fact worth stating. The author and the subject are
 the point rather than the count: `park: ... (all outstanding work)` under an identity that is not yours is
-what separates a collision from a fast-forward of your own autopark, and *"1 commit behind"* reads
-identically in both. **This is the one place the script fetches** — the header's no-fetch rule is about
-the ordinary turn, and this arm is reached only after a push has already been refused *by* the remote.
+what separates a collision from a fast-forward of your own push, and *"1 commit behind"* reads
+identically in both.
+
+**It asks at two doors, and for a long time it asked at only one** ([#1953](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1953)).
+The detection above used to be a side effect of the push — a refusal, then a fetch to explain it — so it
+only ever happened where the DEPLOY-lock bound let the push be attempted. **On a branch with an open PR it
+never does**, which means every branch from `open-pr` until the merge ran to that bound and stopped, in
+silence under `-Quiet`. That is the worst branch to be blind on: a branch with an open PR and a red
+required check is the single most likely object for two sessions to reach for independently, because the
+work is well-defined, visible on the PR list, and obviously owed. Measured September 13, 2026 — two
+sessions repaired the same red check on one PR about 90 seconds apart, wrote the same three-file change,
+and learned of each other from git's rejection at the push, after the diagnosis, the repair, the suite run
+and the lint gate had each been paid for twice.
+
+So **the bound still refuses the push and no longer refuses to look**. On an open PR the same one ref is
+read and the same report printed, with a lead saying why nothing moved:
+
+```text
+park-cycle: PR #1950 is open for 'fix/x', so this run pushes nothing -- 'fix/x' is 1 commit(s) behind
+  origin/fix/x, whose tip is: 9f1c2ab Other Session: fix: the same red check, repaired.
+  ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH. ...
+  command. Nothing here is lost -- this run committed nothing and pushed nothing.
+```
+
+Two questions had been fused into one bound, and they are now separate: whether this script may **write**
+belongs to the DEPLOY lock, and the answer is still no — nothing is committed and nothing is pushed.
+Whether somebody else is on this branch is a **read**, and it owes the lock nothing.
+
+**A merged or closed PR buys no fetch**, deliberately: the branch has shipped or its PR ended, so a
+divergence there is not two sessions building the same repair. **And neither arm touches the ordinary
+turn** — both sit past the gate that returns early when the document is unchanged and origin holds
+everything this branch has, so a turn that did nothing still costs no network call. That is what the
+header's no-fetch rule is about.
+
+**What this does NOT repair is the entry moment**, and #1953 proposed it: a check at `git checkout
+<branch>` would not have caught the measured case, because the second session stepped onto the branch
+*before* the first had pushed, so there was nothing on origin to find. Only a check that runs again, every
+turn, sees the other side arrive mid-work.
 
 It is silent unless it does something, and it never fails a turn -- it exits 0 on every outcome, including
 the ones it refuses on. Two parameters, both for callers rather than for you:
 
 - **`-Quiet`** -- print nothing when there is nothing to do. What the hook passes, so an ordinary turn adds
-  no line to the session. A push still reports itself.
+  no line to the session. A push still reports itself, and so does a **collision**: a refusal is "nothing
+  to do", another session on this branch is not, and under the hook this switch is the only reader there
+  is.
 - **`-RepoRoot <path>`** -- act on that tree instead of the one resolved from `${CLAUDE_PROJECT_DIR}` or the
   git root. For the suite, and for a caller acting on a worktree lane.
 
