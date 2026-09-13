@@ -293,6 +293,16 @@ this workflow prints foreign text now has the list, which is what the retired se
 can make it. Where the fetch failed, the sentence says which ref the count came from -- the same
 distinction the stale-base warning draws.
 
+**And where it found NOTHING off an unrefreshed ref, it says that too** (issue #1915). Finding no
+divergence and never having looked produce the same empty answer inside, and printing the second as the
+first is silence -- the guard reporting the shape of a clean branch on the one run where it is blind. So
+a run whose own fetch did not refresh the ref now says so and hands over `git fetch origin <branch>`.
+**The window is wider than a single failed fetch**: this script opts into the freshness seam's
+`-RecentFailureSeconds` (#1860), so one transient failure suppresses the retry for the next 90 seconds --
+which is the interval a claim, a cut and a resume all live in. The trunk-level line above it
+(`Base: ... may be behind origin/<trunk>`) does not cover this: it speaks about the trunk, and is printed
+on a skip only. Nothing is said on the ordinary run, where the fetch did refresh.
+
 **It warns and never refuses, and that is not a position waiting to be hardened** the way #1046's was.
 The legitimate divergence sits on the intended happy path: your own autopark from another device, which
 you then fast-forward. A refusal would land on the route this script exists to serve.

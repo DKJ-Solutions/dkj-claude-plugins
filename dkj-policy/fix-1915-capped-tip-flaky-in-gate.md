@@ -39,19 +39,74 @@
 
 ### PLAN
 
+#### What #1915 reported, and what it turned out to be
+
+`new-branch.tests.ps1` case (y6) went red inside the parallel test gate -- two of its three cap asserts,
+with the negative one passing -- and was green standalone on the identical tree. The report inferred the
+fixture helpers in front of the assert and said so openly: *"Not verified; that is where I would start."*
+
+Reproduced here instead, by reasoning from the failure signature back to its only possible cause and then
+staging that cause by hand. PASS/FAIL/FAIL on those three asserts means one thing and nothing else: the
+divergence warning never fired at all, because `Get-RemoteAheadNote` returned `''`. Its count comes off
+the in-process capture arm, which cannot short-read, so a zero there means the branch's
+remote-tracking ref was never refreshed. A hand-written failed-fetch record between the two
+`Invoke-NewBranch` calls reproduces all three verdicts exactly.
+
+The amplifier is `-RecentFailureSeconds` (#1860): `new-branch` opts into it, so ONE transient `git fetch`
+failure suppresses the retry for the next 90 seconds -- and the fixture's two runs sit seconds apart, as
+does a real claim, cut and resume.
+
+#### The cap was never the subject, and neither were the fixture helpers
+
+`Add-OriginBranchCommits` and the `checkout -q main` between the runs are both correct. The 400-character
+subject is capped to 120, leaving 91 `x`s against an assert asking for 80 -- a fixed margin that does not
+move under load.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `new-branch.ps1`: a count taken against a ref this run did not refresh is SAID, not printed as
+      silence -- gated on `.Measured`, so it cannot land where the question was never asked
+- [x] Mirror synced (`scripts/sync/build-shared-scripts.ps1`)
+- [x] `new-branch` SKILL.md: the new sentence, the 90-second window behind it, and why the trunk-level
+      note does not cover it
 
 ### TEST
 
+- [x] `new-branch.tests.ps1`: `Clear-FixtureFetchStamp`, run from `Invoke-NewBranch` before every run --
+      the flake's own repair, and `-KeepFetchStamp` for the one case whose subject is that state
+- [x] (y6) gains the premise assert, so this class of failure names itself instead of blaming the cap
+- [x] (y7): a run whose fetch did not refresh says so; a run that fetched says nothing
+- [x] Suite green -- 274 asserts
+
 ### DEPLOY: fix/1915-capped-tip-flaky-in-gate
 
-**Score:**
+`new-branch`'s branch-divergence warning (#1439) could report the shape of a clean branch on a run where
+it was blind. `Get-RemoteAheadNote` returns an empty note both for *"origin has nothing you do not have"*
+and for *"the ref I counted against is whatever the last fetch left"*, and `new-branch` printed the second
+as the first. Since #1860 the window is not one run but ninety seconds: the script opts into the freshness
+seam's `-RecentFailureSeconds`, so a single transient fetch failure suppresses the next retry -- which is
+the interval a claim, a cut and a resume all live in. A run whose own fetch did not refresh the ref now
+says so and hands over `git fetch origin <branch>`; the ordinary run, where the fetch succeeded, is
+unchanged and silent. The trunk-level `Base: ...` line does not cover this, because it speaks about the
+trunk and is printed on a skip only.
+
+That same blindness is what made `new-branch.tests.ps1`'s capped-tip case flaky in the 16-lane test gate
+(#1915): the case is two `new-branch` runs seconds apart on one fixture, so a fetch that failed in the
+first silently disarmed the probe the second was asserting on. `Invoke-NewBranch` now clears the
+fetch-attempt record before every run -- which removes no coverage, since the seam has its own suite, and
+can mask no regression, since clearing only ever makes the run fetch. Case (y6) also gains the premise
+assert it was missing, so a warning that never fires reports itself instead of reading as a broken cap.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every consumer of `dkj-policy` runs this `new-branch`. The guard whose whole job is to catch another
+session's push to the branch you are resuming could go quiet for ninety seconds after one bad fetch, and
+say nothing about having gone quiet -- the duplicate-work hazard #1439 exists to prevent, arriving through
+the one route that reports nothing.
+
+**Score:** 3
 
 #### Pull Request
 

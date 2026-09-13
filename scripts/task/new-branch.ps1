@@ -553,6 +553,32 @@ if ($branchExists -and $remoteRef.ExitCode -eq 0) {
     if ($remoteAheadNote) {
         Write-Warning "$remoteAheadNote Another session or another device has pushed work to this branch that this checkout does not have -- read it before you build on top of it."
     }
+    elseif ($gap.Measured -and -not $gap.Fresh) {
+        # A COUNT TAKEN AGAINST A REF NOBODY REFRESHED IS NOT AN ANSWER (issue #1915). Get-RemoteAheadNote
+        # returns '' both for "origin has nothing you do not have" and for "the ref I counted against is
+        # whatever the last fetch left" -- and this caller printed the second as the first, which is
+        # silence. That is the same degradation #1676 repaired one line down for the tip read, arriving
+        # through the count instead: the guard reports the shape of a clean branch on the one run where it
+        # could not look.
+        #
+        # AND THE WINDOW IS WIDER THAN A SINGLE FAILED FETCH. Get-TrunkGap is called with
+        # -RecentFailureSeconds here (#1860), so ONE transient failure suppresses the retry for the next 90
+        # seconds -- which is exactly the interval a session's claim, cut and resume live in. A checkout
+        # that fetched badly once then resumes a branch another session has pushed to, and is told nothing.
+        #
+        # THE TRUNK'S OWN NOTE DOES NOT COVER THIS, which is why a second sentence is worth its noise.
+        # `Base: ... the refs compared here may be behind origin/<trunk>` is printed above on a SKIP only,
+        # and it speaks about the trunk -- a reader has no way to know the branch-divergence probe, whose
+        # whole job is #1439's duplicate-work hazard, went blind on the same reading.
+        #
+        # GATED ON .Measured, so it cannot land where the question was never asked at all: a repo with no
+        # refs/remotes/origin/<trunk> never fetches, and the dim 'Base not compared' line above already
+        # says so. What is left is precisely the run that DID fetch and did not come back fresh.
+        $pasteName = Get-PasteableRef -Ref $Name
+        Write-Warning "'$(Get-DisplayRef -Ref $Name)' was compared against the refs/remotes/origin/$Name this repo last fetched -- this run's fetch did not refresh it. Nothing found here is what this run could not see, not what is on the branch: a push another session made since that fetch is invisible from this checkout."
+        Write-Host "  Fetch it yourself and re-read before you build on this branch: git fetch origin $($pasteName.Token)" -ForegroundColor Yellow
+        if ($pasteName.Note) { Write-Host "  $($pasteName.Note)" -ForegroundColor Yellow }
+    }
 }
 
 # --- HOW FAR BEHIND IS THE BASE? REPORTED ONLY WHEN THERE IS A BASE TO CHOOSE ----------------------
