@@ -28,6 +28,11 @@ $RepoRoot        = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..'))
 # JUDGING THIS SUITE'S OWN FIXTURE git CALLS -- issue #1635. See the lib for why an unjudged fixture
 # command is worse than an unjudged production one, and why the count decides the exit code.
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+# AND ITS RUNTIME SIBLING -- issue #1934. fixture-git-lib judges the calls that BUILD the fixture; this
+# one judges the child that RUNS in it. A child that dies during load never reaches its first statement,
+# so what the asserts below report is the absence of a document nothing wrote -- naming the missing lib
+# not at all, while the child's own output named it all along.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
 $LibSrc          = Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1'
 $NewBranchSrc = Join-Path $RepoRoot 'scripts\task\new-branch.ps1'
 $BranchInfoSrc   = Join-Path $RepoRoot 'scripts\lib\branch-info.ps1'
@@ -240,8 +245,15 @@ try {
     Push-Location $fixture
     try {
         $env:CLAUDE_PROJECT_DIR = $fixture
-        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $fixture 'scripts\task\new-branch.ps1') -Name 'feat/round-trip-v1' 2>$null | Out-Null
+        # #1934: CAPTURED, where this was '2>$null | Out-Null'. The reason for discarding still holds --
+        # this suite measures the FILE, not the chatter, and nothing below asserts on the output. What
+        # changed is the FAILURE path: the exit-code assert below names the CLASS, and the child's own
+        # output is the only thing that names WHICH lib. It costs one variable and is read only on a
+        # load failure.
+        $rtScript = Join-Path $fixture 'scripts\task\new-branch.ps1'
+        $rtOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $rtScript -Name 'feat/round-trip-v1' 2>&1
         $script:roundTripCode = $LASTEXITCODE
+        Assert-FixtureScriptLoaded -Code $script:roundTripCode -Script $rtScript -Output $rtOut
     } finally {
         Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
         Pop-Location
@@ -253,9 +265,13 @@ try {
 # AND THE RUN IS HELD TO ITS EXIT CODE (inbound #1046). Nothing read it, which is how a broken run went
 # unnoticed for two weeks: this fixture was missing native-capture-lib.ps1, new-branch dot-sourced that
 # unconditionally in its push block, and the resulting exit 1 landed AFTER the document was written -- so
-# every assert below passed over a script that had died. The child's stderr goes to $null and its output to
-# Out-Null by design (this suite measures the FILE, not the chatter), which leaves the exit code as the only
-# thing that can say the run finished at all. So it is asserted, once, here.
+# every assert below passed over a script that had died. The exit code is asserted once, here.
+#
+# SINCE #1934 IT IS NO LONGER THE ONLY THING THAT CAN SPEAK. This comment used to close by saying the
+# child's output went to $null and Out-Null by design, leaving the code as the sole witness. The design
+# point survives -- no assert here reads the chatter -- but the code alone can only say THAT the run
+# died, never which lib was missing, and that is the whole of #1934. The output is captured above and
+# read by Assert-FixtureScriptLoaded on the failure path only.
 Assert-Equal 0 $script:roundTripCode 'the round-trip run finished -- a fixture missing one of the shared libs cannot pass silently any more'
 
 # ONE DOCUMENT, AT THE NAME THIS BRANCH OWNS: dkj-policy/development-feat-round-trip-v1.md,
@@ -319,7 +335,11 @@ try {
     Push-Location $fixture
     try {
         $env:CLAUDE_PROJECT_DIR = $fixture
-        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $fixture 'scripts\task\new-branch.ps1') -Name 'feat/round-trip-v1' 2>$null | Out-Null
+        # #1934: same capture as the first run. This one reads no exit code -- the assert below is about
+        # the document being UNCHANGED, which a child that died on load also satisfies, for the wrong reason.
+        $rrScript = Join-Path $fixture 'scripts\task\new-branch.ps1'
+        $rrOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $rrScript -Name 'feat/round-trip-v1' 2>&1
+        Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Script $rrScript -Output $rrOut
     } finally {
         Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
         Pop-Location
@@ -3138,8 +3158,16 @@ Write-Host ""
 # A BROKEN FIXTURE IS SAID BEFORE THE VERDICT AND FAILS THE RUN (issue #1635) -- including when every
 # assert passed, because a clean sweep over a repo that was never built proves less than it appears to.
 $fixtureBroken = Write-FixtureGitSummary -Subject 'entry-scaffold-lib.ps1'
+# AND THE SAME VERDICT FOR A CHILD THAT DIED ON LOAD (#1934). Separate counter, separate line: a
+# fixture git call that failed and a child that never started are different breakages with different
+# repairs, and folding them into one number would name neither.
+$loadBroken = Write-FixtureScriptSummary -Subject 'entry-scaffold-lib.ps1'
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
+    exit 1
+}
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the script." -ForegroundColor Red
     exit 1
 }
 if ($fixtureBroken) {

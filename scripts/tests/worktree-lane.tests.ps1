@@ -33,6 +33,11 @@ $RepoRoot          = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..'
 # JUDGING THIS SUITE'S OWN FIXTURE git CALLS -- issue #1635. See the lib for why an unjudged fixture
 # command is worse than an unjudged production one, and why the count decides the exit code.
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+# AND ITS RUNTIME SIBLING -- issue #1934. fixture-git-lib judges the calls that BUILD the fixture; this
+# one judges the child that RUNS in it. A child that dies during load never reaches its first statement,
+# so what the asserts below report is the absence of a document nothing wrote -- naming the missing lib
+# not at all, while the child's own output named it all along.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
 $WorktreeLaneSrc   = Join-Path $RepoRoot 'scripts\task\worktree-lane.ps1'
 $NewBranchSrc      = Join-Path $RepoRoot 'scripts\task\new-branch.ps1'
 $BranchInfoSrc     = Join-Path $RepoRoot 'scripts\lib\branch-info.ps1'
@@ -246,6 +251,8 @@ function Invoke-WorktreeLane {
         $ErrorActionPreference = 'Continue'
         $out  = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @Arguments 2>&1
         $code = $LASTEXITCODE
+        # #1934: a load failure here is not a refusal -- say so before the asserts read a document nothing wrote.
+        Assert-FixtureScriptLoaded -Code $code -Script $scriptPath -Output $out
         return [pscustomobject]@{ Code = $code; Out = (Get-FlatOutput $out) }
     } finally {
         $ErrorActionPreference = $prevEap
@@ -410,7 +417,15 @@ Write-Host "worktree-lane.tests.ps1: $script:pass passed, $script:fail failed" -
 # A BROKEN FIXTURE IS SAID BEFORE THE VERDICT AND FAILS THE RUN (issue #1635) -- including when every
 # assert passed, because a clean sweep over a repo that was never built proves less than it appears to.
 $fixtureBroken = Write-FixtureGitSummary -Subject 'worktree-lane.ps1'
+# AND THE SAME VERDICT FOR A CHILD THAT DIED ON LOAD (#1934). Separate counter, separate line: a
+# fixture git call that failed and a child that never started are different breakages with different
+# repairs, and folding them into one number would name neither.
+$loadBroken = Write-FixtureScriptSummary -Subject 'worktree-lane.ps1'
 if ($script:fail -gt 0) { exit 1 }
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child script(s) died on load -- this run measured a fixture, not the script." -ForegroundColor Red
+    exit 1
+}
 if ($fixtureBroken) {
     Write-Host "FAILED: every assert passed, but $(Get-FixtureGitFailureCount) fixture git command(s) did not -- this run proves less than it appears to." -ForegroundColor Red
     exit 1
