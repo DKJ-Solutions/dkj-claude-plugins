@@ -101,6 +101,17 @@ harness prints, none of park-cycle's arms run and nothing it wrote is delivered.
         the new parameters and what they mean for a missing `park:` commit are now written there.
       - Sebastian: no blocking findings; his one advisory (a raw `$branch` in a line this branch was
         rewording anyway) is repaired through `Get-DisplayRef` rather than left as pre-existing.
+      - **Nolan, costed and declined.** He read case (u)'s 8s delay as a new contributor to the gate's
+        critical path, measured on a workstation at 26s -> 37s. It is not:
+        `suite-durations.json` records this suite at **79.1s on CI** against `new-branch.tests.ps1` at
+        **290.2s**, and the gate dequeues longest-first -- so it is 8s of *work* in a pool whose tail is
+        nearly 4x this suite. That file's own note says a local reading does not convert into a CI one
+        and the sign is not even fixed, which is the trap the workstation number fell into. The
+        alternative he proposed -- an overridable clock in `native-capture-lib.ps1` -- is test-only
+        machinery in a lib every script loads, to save a cost measured at zero. The reasoning and what
+        the two margins actually protect are written into the case so it is not re-argued.
+      - Nolan's other two items were confirmations, not findings: the ~28 ms dot-source avoided in the
+        hook is real, and the lib's +7.8 KB is unmeasurable at every path that loads it.
 
 ### DEPLOY: fix/1958-hook-ceiling-outruns-network-bound
 

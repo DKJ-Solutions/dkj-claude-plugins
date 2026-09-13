@@ -1024,14 +1024,38 @@ Assert-True (-not (Test-NativeCaptureBudgetSet -Budget $malformed))      'malfor
 Assert-Equal (Get-NativeCaptureBudgetBound -Budget $malformed) $NativeCaptureNetworkTimeoutSeconds 'malformed budget: and the call keeps the standing bound'
 
 # THE CALLERS, PINNED. park-cycle.ps1 is the reason all of this exists, and an edit that dropped the
-# budget from one of its three network calls would leave every assert above green.
+# budget from one of its network calls would leave every assert above green.
+#
+# THE PIN IS SEMANTIC, NOT A TEXT SHAPE, and the first attempt at it is why that is written down. It
+# asserted that one exact spelling of the old unbounded call was absent, anchored with `\s*$` -- and
+# PowerShell's -match has no Multiline option by default, so that `$` anchored to the end of the whole
+# FILE rather than to end-of-line. The assert therefore returned true unconditionally: run against
+# `git show main:scripts/task/park-cycle.ps1`, which still CONTAINS the unbounded call, it passes.
+# A regression guard that goes green on the very defect it names is worse than no guard, because its
+# message asserts coverage nobody has. Caught in review, not by the suite -- which is the point.
+#
+# SO IT ASKS THE QUESTION INSTEAD: does EVERY call in this script that reaches the network carry a
+# bound? Line continuations are joined first, because the bound sits on the second physical line of the
+# call it belongs to and a per-line scan would read the call as unbounded.
 $parkCycleText = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot 'task\park-cycle.ps1')
-Assert-True (@([regex]::Matches($parkCycleText, 'Get-NativeCaptureBudgetBound')).Count -ge 3) `
-    'park-cycle bounds all three of its network calls by the budget (gh pr list, the push, the fetch)'
-Assert-True ($parkCycleText -notmatch "gh'[^\r\n]*'--limit', '1'\) -DiscardStderr\s*$") `
-    'park-cycle no longer makes the unbounded `gh pr list` call #1958 found'
-Assert-True (@([regex]::Matches($parkCycleText, 'Test-NativeCaptureBudgetHasRoom')).Count -ge 3) `
-    'park-cycle asks whether there is room before each of them, rather than making a call it cannot finish'
+$parkCycleJoined = $parkCycleText -replace '`\r?\n\s*', ' '
+$parkNetCalls = @($parkCycleJoined -split '\r?\n' | Where-Object {
+    $_ -match 'Invoke-NativeCapture' -and $_ -match "'gh'|'fetch'"
+})
+Assert-True ($parkNetCalls.Count -ge 2) "park-cycle still makes the network calls this is about (found $($parkNetCalls.Count))"
+$parkUnbounded = @($parkNetCalls | Where-Object { $_ -notmatch '-TimeoutSeconds' })
+Assert-True ($parkUnbounded.Count -eq 0) `
+    ('every network call in park-cycle carries a bound -- the unbounded `gh pr list` is what #1958 found' + $(if ($parkUnbounded.Count) { ' -- unbounded: ' + (($parkUnbounded | ForEach-Object { $_.Trim() }) -join ' | ') } else { '' }))
+$parkBudgeted = @($parkNetCalls | Where-Object { $_ -match 'Get-NativeCaptureBudgetBound' })
+Assert-Equal $parkBudgeted.Count $parkNetCalls.Count 'and every one of them takes what is LEFT of the run budget, not a fresh per-call bound'
+
+# AND THE ROOM CHECK IS COUNTED OVER CODE ONLY. An earlier form counted matches over the raw file with
+# `-ge`, which the file's own comments inflate: four mentions of a name where three are calls means the
+# pin tolerates losing one call and still passes. Comments are stripped and the count is exact, so a
+# dropped guard is a red rather than a silently weaker promise.
+$parkCycleCode = ($parkCycleJoined -split '\r?\n' | Where-Object { $_.TrimStart() -notmatch '^#' }) -join "`n"
+Assert-Equal (@([regex]::Matches($parkCycleCode, 'Test-NativeCaptureBudgetHasRoom')).Count) 4 `
+    'park-cycle asks whether there is room before each call it might make -- the PR check, the open-PR look, the push, and the refused-push look'
 
 if ($script:fail -eq 0) {
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

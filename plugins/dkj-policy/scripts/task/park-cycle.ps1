@@ -396,8 +396,15 @@ if (-not (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
 $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--state', 'all', '--json', 'number,state', '--limit', '1') `
                                -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
 if ($prList.ExitCode -ne 0) {
+    # THE NAME IS STRIPPED HERE TOO, for the reason the arm below already states at its own
+    # interpolation (#1623): `git check-ref-format` accepts \p{Cf}, so a fetched or hand-made branch can
+    # carry U+202E or a zero-width run into a sentence a terminal AND an agent session both read. This
+    # line printed it raw while its neighbour twelve lines down went through the strip -- one report with
+    # one half hardened, which is the shape #1953 already had to repair once in this same file. Low risk
+    # (this is the checkout's OWN branch, not somebody else's ref) and repaired anyway, because the line
+    # was being reworded regardless and leaving it would say the strip is optional.
     $why = if ($prList.TimedOut) { "did not answer in time" } else { "could not be asked" }
-    Write-CycleParkNote "gh $why whether '$branch' has a PR -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
+    Write-CycleParkNote "gh $why whether '$(Get-DisplayRef -Ref $branch)' has a PR -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
     exit 0
 }
 $prRecord = Get-ExistingPrRecord -Json (($prList.Output | Out-String))

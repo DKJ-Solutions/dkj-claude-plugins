@@ -691,8 +691,8 @@ function Invoke-GitPark {
         the sentence IS the report, and the run stops on it.
 
         -PushTimeoutSeconds IS FOR THE CALLER RUNNING UNDER A HOOK'S CEILING (issue #1958). The push below
-        is bounded by the shared per-call network number, which is TWICE the whole budget the Stop hook
-        that drives park-cycle.ps1 has -- so this one call could legitimately outrun the hook and be
+        is bounded by the shared per-call network number, which is TWICE the whole CEILING the Stop hook
+        that drives park-cycle.ps1 runs under -- so this one call could legitimately outrun the hook and be
         killed from outside, taking every fail-safe arm and every printed line with it. The caller that
         knows it is on a clock passes what its budget has left; 0 (the default) keeps the shared number,
         so park-branch.ps1 and new-branch.ps1 are byte-for-byte unaffected. Named for what it bounds

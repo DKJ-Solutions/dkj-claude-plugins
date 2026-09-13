@@ -877,6 +877,22 @@ try {
     # AND THE SKIPPED LOOK IS SAID OUT LOUD. '' from the collision reader means "nothing to report", and a
     # look that never happened is not that -- reporting them the same way would be #1953's silence coming
     # back through the budget instead of through the bound.
+    #
+    # THE 8 SECONDS WERE COSTED AND KEPT, so nobody has to re-argue it. A cost review read this suite at
+    # 26s -> 37s on a workstation and called it a new contributor to the gate's critical path. It is not:
+    # suite-durations.json records THIS suite at 79.1s ON CI against new-branch.tests.ps1 at 290.2s, and
+    # Invoke-TestSuiteGate dequeues longest-first -- so 8s of extra WORK lands in a pool whose tail is
+    # nearly four times this suite, and changes the gate's wall-clock by nothing. That same file's own
+    # note says a local reading does not convert into a CI one and that the sign is not even fixed, which
+    # is exactly the trap the workstation number fell into.
+    #
+    # THE ALTERNATIVE WAS A CLOCK SEAM in native-capture-lib.ps1 -- overridable time, so this arm is
+    # reachable at 0s. Declined: that is test-only machinery in a lib every script here loads, to save a
+    # cost measured at zero. WHAT THE MARGINS ACTUALLY ARE, since the numbers look arbitrary: the budget
+    # minus the delay is 4, which is under the 5s floor whatever the machine does -- so the SECOND check
+    # fails structurally rather than on timing. The 12 is the FIRST check's headroom: it tolerates up to
+    # 7s of process start-up before the PR check would wrongly read as spent. Shrinking both by the same
+    # amount keeps the second margin and spends the first, which is the one that protects a loaded runner.
     Write-Host "park-cycle.ps1 -- a budget healthy at the PR check and spent by the look says which it was" -ForegroundColor Cyan
     $fixU = New-Fixture -Label 'u' -GhAnswer 'pr' -GhDelaySeconds 8
     Switch-ToBranch -Dir $fixU -Name 'feat/budget-mid-run-v1'
