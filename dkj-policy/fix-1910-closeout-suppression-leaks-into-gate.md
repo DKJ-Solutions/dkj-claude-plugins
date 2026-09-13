@@ -61,12 +61,15 @@ The chain is `ship-pr` → `Push-CloseOutSuppression` (process scope, so every d
 - [x] `gate-lib.ps1` dot-sources `command-probe-lib.ps1` (a leaf, for `Test-FunctionDefined`) and
       `closeout-lib.ps1` (guarded on the stale-mirror reasoning open-pr already gives for its own).
       Loaded here rather than asked of the caller because open-pr reaches `Invoke-WorkflowGates` on its
-      `-GatesOnly` path several hundred lines BEFORE it dot-sources closeout-lib -- a caller-supplied
+      `-GatesOnly` short-circuit BEFORE that script dot-sources closeout-lib -- a caller-supplied
       dependency would leave exactly one of the two gate call sites silently uncovered.
 - [x] `closeout-lib.tests.ps1` states its own precondition (#1910's option 1) and `Get-ReceiptLines`
       refuses a meaningless assertion with the cause rather than a null-index crash (#1910's option 2).
-      `-UnderSuppression` marks the two places that deliberately assert the suppressed shape.
+      `-UnderSuppression` marks the one assert that deliberately runs under the variable.
 - [x] Mirrors rebuilt with `build-shared-scripts.ps1` -- both changed libs ship to consumers.
+- [x] `gate-lib.tests.ps1` gains case 15f -- the behavioural half, asking a real spawned child what it
+      inherited. Added on the code review's finding that a structural regex cannot tell a deleted
+      suspend from a moved one.
 
 #### What deliberately did not change
 
@@ -77,11 +80,15 @@ was broken; both suppression assertions on `ship-pr.ps1` in the suite are untouc
 
 - [x] `closeout-lib.tests.ps1`: 83 pass, 0 fail -- and 83 pass, 0 fail with `DKJ_CLOSEOUT_SUPPRESS=1`
       in the environment, which is the exact state that crashed it.
-- [x] `gate-lib.tests.ps1`: 153 pass, 0 fail.
-- [x] The gate layer proved end to end on a scratch tree whose one suite reports what it inherited.
-      With a conductor above: `BEFORE: '1'` / `CHILD SEES: ''` / `AFTER: '1'` -- the child no longer
-      inherits it and the conductor's own suppression survives. With no conductor: `'' / '' / ''` --
-      the gate does not set a flag it did not find.
+- [x] `gate-lib.tests.ps1`: 161 pass, 0 fail -- 153 before, plus eight in a new case 15f.
+- [x] **A real spawned child asserts what it inherited** -- `gate-lib.tests.ps1` case 15f, added after
+      the code review named the gap: the structural regex in `closeout-lib.tests.ps1` catches the
+      suspend being DELETED and misses it being MOVED below the gates, which satisfies every assert
+      and reintroduces #1910 in silence. The fixture lint script -- a genuine child, spawned by the
+      same `Start-Process` the real gate uses -- writes down the value it saw. Under a conductor the
+      child records `[]` and the conductor's own `1` survives; on a FAILING gate it is restored too
+      (the `finally`); with no conductor the gate leaves no flag behind, which is the half an
+      unconditional `Pop` would also satisfy and a naive re-set to `'1'` would not.
 - [x] The full gate run under `DKJ_CLOSEOUT_SUPPRESS=1` (`open-pr -GatesOnly`), which reproduces the
       reported scenario: `closeout-lib.tests.ps1` passed in 1.6s inside it.
 - [x] `check-script-contract.ps1`: 0 errors.
@@ -91,7 +98,7 @@ was broken; both suppression assertions on `ship-pr.ps1` in the suite are untouc
 `new-branch.tests.ps1`, two assertions in its "capped tip" case about a 400-character commit subject
 being truncated. Nothing in this diff is reachable from `new-branch.ps1` or `park-lib.ps1` -- neither
 dot-sources `gate-lib.ps1` or `closeout-lib.ps1`, and the only mention is a comment. Filed separately
-rather than repaired here.
+rather than repaired here, as [#1915](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1915) -- 265/265 green standalone on this same tree, red only at 16 lanes.
 
 ### DEPLOY: fix/1910-closeout-suppression-leaks-into-gate
 

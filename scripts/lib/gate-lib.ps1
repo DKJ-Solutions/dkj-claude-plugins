@@ -88,9 +88,11 @@
 # that lib must not crash on LOAD of the file that gates their push.
 #
 # LOADED HERE RATHER THAN ASKED OF THE CALLER, unlike the two libs the header above does ask for.
-# open-pr.ps1 reaches Invoke-WorkflowGates on its -GatesOnly path several hundred lines BEFORE it
-# dot-sources closeout-lib itself, so a caller-supplied dependency would leave exactly one of the two
-# gate call sites silently uncovered -- and silently is how #1910 got there in the first place.
+# open-pr.ps1's -GatesOnly short-circuit reaches Invoke-WorkflowGates BEFORE that script dot-sources
+# closeout-lib itself -- deliberately, since the short-circuit sits above the branch check and the
+# lib sits below it -- so a caller-supplied dependency would leave exactly one of the two gate call
+# sites silently uncovered, and silently is how #1910 got there in the first place. No line numbers:
+# the ORDER is the load-bearing fact and the distance is not, and a cited number rots on the next edit.
 . (Join-Path $PSScriptRoot 'command-probe-lib.ps1')
 $gateCloseoutLib = Join-Path $PSScriptRoot 'closeout-lib.ps1'
 if (Test-Path -LiteralPath $gateCloseoutLib -PathType Leaf) { . $gateCloseoutLib }

@@ -77,10 +77,10 @@ Assert-True (Test-Path -LiteralPath $LibPath) 'closeout-lib.ps1 exists at its re
 # pointing the reader at the assertion instead of at the cause. The clear above means this can only
 # fire if something re-set the variable mid-suite; then it says which.
 #
-# -UnderSuppression IS THE DELIBERATE CASE, and it is a switch rather than an inference from -Quiet:
-# the two blocks further down assert exactly that a suppressed run prints nothing, so "no lines" is
-# their expected answer rather than a broken precondition. Making the caller say which of the two it
-# means is what keeps the guard from being either useless or in the way.
+# -UnderSuppression IS THE DELIBERATE CASE, and it is a switch rather than an inference from -Quiet,
+# because the two are not the same mechanism: -Quiet is a parameter muting ONE call, and the variable
+# is a conductor muting every descendant. One assert below passes -Quiet and one runs under the
+# variable; only the second is what this guard is about, so only that one carries the switch.
 function Get-ReceiptLines {
     param([hashtable]$CallArgs = @{}, [switch]$UnderSuppression)
     if (-not $UnderSuppression -and -not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) {
