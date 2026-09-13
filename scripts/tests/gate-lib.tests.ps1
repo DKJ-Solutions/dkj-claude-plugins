@@ -557,6 +557,55 @@ try {
     Assert-Equal 1 $shapePass.Count 'a lint script that PRINTS two lines before passing ALSO returns exactly one element'
     Assert-True ($shapePass.Count -eq 1 -and $shapePass[0] -is [bool] -and $shapePass[0] -eq $true) 'and that one element is the boolean $true'
 
+    # 15f. THE GATE'S CHILDREN DO NOT INHERIT THE CHAIN'S CLOSE-OUT SUPPRESSION (issue #1910), and
+    # this case asks a REAL CHILD what it saw rather than reading this function's source text.
+    #
+    # WHY THE STRUCTURAL ASSERT IS NOT ENOUGH -- the point Victor's review made on the branch that
+    # added this. closeout-lib.tests.ps1 greps Invoke-WorkflowGates for Suspend/Restore, which catches
+    # the call being DELETED and misses the call being MOVED: a suspend that landed after the gates
+    # instead of before them satisfies every regex and reintroduces #1910 in silence. What actually
+    # has to hold is a fact about the spawned process, so the fixture lint script -- a genuine child,
+    # spawned by the same Start-Process the real lint gate uses -- writes down the value it inherited.
+    #
+    # THE LINT GATE AND NOT THE TEST GATE, deliberately: both are spawned inside the same try, one
+    # child costs milliseconds where a fixture test-suite run costs seconds, and the property under
+    # test is the environment at the spawn boundary, which is the same boundary for both.
+    $script:FixtureSeenFile = 'closeout-seen.txt'
+    $seenScript = @(
+        "`$v = [Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS')"
+        "Set-Content -LiteralPath (Join-Path `$PSScriptRoot '$script:FixtureSeenFile') -Value ('[' + `$v + ']')"
+        'exit 0'
+    ) -join "`n"
+
+    # Under a conductor: the child sees nothing, and the conductor's own flag survives the gate.
+    $r15sup = New-GitFixture
+    Set-FixtureFile -Dir $r15sup -Name $script:FixtureLintScript -Content ($seenScript + "`n")
+    [Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', '1')
+    try {
+        Assert-True (Invoke-WorkflowGates -RepoRoot $r15sup -SkipTests -Context 'test' -FailureConsequence 'x') 'the gate still passes with a conductor above it'
+        Assert-Equal '[]' ((Get-Content -LiteralPath (Join-Path $r15sup $script:FixtureSeenFile) -Raw).Trim()) 'a child spawned by the gate does NOT inherit DKJ_CLOSEOUT_SUPPRESS -- the failure #1910 was filed about'
+        Assert-Equal '1' ([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS')) "...and the conductor's own suppression is restored, so #1884 is untouched"
+    } finally { [Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', $null) }
+
+    # THE RESTORE IS IN A finally, so a RED gate must leave the chain above it exactly as it found it.
+    # A gate that only restored on success would un-mute a conductor precisely when it stops -- which
+    # is the run that then prints the receipt it was suppressing.
+    $r15supFail = New-GitFixture
+    Set-FixtureFile -Dir $r15supFail -Name $script:FixtureLintScript -Content "exit 1`n"
+    [Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', '1')
+    try {
+        Assert-True (-not (Invoke-WorkflowGates -RepoRoot $r15supFail -SkipTests -Context 'test' -FailureConsequence 'x' 2>$null)) 'a failing lint gate still returns false under a conductor'
+        Assert-Equal '1' ([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS')) '...and the suppression is restored on the failing path too'
+    } finally { [Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', $null) }
+
+    # AND THE MIRROR IMAGE: with no conductor above, the gate must not leave a flag behind it. This is
+    # the half an unconditional Pop would also satisfy and a naive "set it back to '1'" would not.
+    $r15nosup = New-GitFixture
+    Set-FixtureFile -Dir $r15nosup -Name $script:FixtureLintScript -Content ($seenScript + "`n")
+    Assert-True (Invoke-WorkflowGates -RepoRoot $r15nosup -SkipTests -Context 'test' -FailureConsequence 'x') 'the gate passes with no conductor above it'
+    Assert-Equal '[]' ((Get-Content -LiteralPath (Join-Path $r15nosup $script:FixtureSeenFile) -Raw).Trim()) 'the child still sees nothing'
+    Assert-True ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) '...and the gate sets no flag it did not find -- Restore is a restore, not a Push'
+
     # --- 16. the mirror carries Invoke-WorkflowGates too ------------------------------------------
     Write-Host "`n== 16. the function travels to the plugin mirror ==" -ForegroundColor Cyan
     $mirrorLibPath    = Join-Path $RepoRoot 'plugins\dkj-policy\scripts\lib\gate-lib.ps1'
