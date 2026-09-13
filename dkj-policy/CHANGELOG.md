@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 18 minor entries** <!-- pending-tally -->
+**16 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/1933-gitcancommit-docstring-wrong-cause · 20260913-115551
+
+`Test-GitCanCommit` refuses only on git's own `128`, and the reasoning recorded beside that narrowing
+named a cause nobody measured: a git child transiently failing under the parallel gate, cited to
+#1915. #1915 is a different flake -- the capped-tip case, whose mechanism was a fetch-attempt record
+suppressing a retry. What was measured on #1920's branch is the opposite of a failure: at 16 lanes
+the git child **succeeded**, exited, and printed the correct author ident, while `$proc.ExitCode`
+from `Start-Process -PassThru` came back absent in 27 of 960 captures.
+
+That distinction is what the narrowing's safety rests on. A reader who believes it only screens out
+*failed* children may reasonably conclude that a more precise probe, a retry or a `-Utf8` removal
+makes it unnecessary -- and remove it. So the four passages carrying the old cause now state the
+measured one, including the three repairs that were tried and do nothing (the position-1
+confinement, `.Refresh()`, and re-reading the code twenty times over 200ms), and the comparison's
+own shape is written down: `$null -ne 128` is what lets an unreadable capture through, so any
+rewrite to "is it non-zero" silently restores the refusal #1930 removed.
+
+`git-identity-gate.tests.ps1` now pins that state as well. It had asserts for every state around it
+-- `0`, `128`, four non-zero codes, a timeout, a `$null` result -- and none for an absent exit code,
+which is the one the narrowing was written for; both spellings it arrives as (`$null` and `''`) are
+asserted to read as can-commit.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The corrected reasoning ships with the plugin, so a consumer reading the lib their own `new-branch`
+runs no longer receives an explanation that argues for removing a guard they depend on. Nothing they
+do changes; the failure it prevents has not happened yet, which is the whole of its weight.
+
+**Score:** 1
+
+#### Pull Request
+
+Correct the cause recorded beside Test-GitCanCommit's 128 narrowing
+
+Plugins: dkj-policy
+
+[PR #1935](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1935)
+
+---
 
 ### DEPLOY: fix/1916-gh-mutation-5xx-not-hard-fail · 20260913-113457
 
