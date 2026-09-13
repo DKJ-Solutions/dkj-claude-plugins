@@ -43,7 +43,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 24 minor entries** <!-- pending-tally -->
+**20 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1936-overridename-default-honest · 20260913-125446
+
+`Resolve-RepoRootOrFail`'s refusal no longer offers `-RepoRoot` to the 15 of 27 callers that have no
+such flag. That parameter exists because the lib cannot know which seam a caller spells -- and it
+defaulted to `-RepoRoot`, right for the two scripts the docstring names and wrong for every script
+meant to be run from inside the checkout, handed out to whoever did not think about it. Reproduced on
+`tidy-machine.ps1`: of the three remedies printed, the middle one was rejected by PowerShell as an
+unknown parameter, and it is the one that reads as the direct fix.
+
+The default is now `''`, so an unnamed seam prints no seam. That closes the **class** rather than the
+15 instances: a caller that says nothing can no longer be given a wrong answer, only a shorter one.
+The two callers that really do expose `-RepoRoot` now pass it explicitly, which is what the
+parameter's own docstring always said it was for.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+**Fourteen of the fifteen are plugin-carried** (all but `build-config-blueprint`, which is
+source-only), so this is a refusal a consumer meets in their own tree, on their own machine, with no
+source checkout to check it against -- `ship-pr`, `open-pr`, `prune-merged`, `tidy-machine`,
+`park-branch`, `worktree-lane`, `cut-release` and the four `adopt-*` scripts among them. Every one
+of them told a reader standing outside a work tree to pass a flag it does not have. Nothing is asked
+of anybody: no re-install, no config, no migration. The remedy simply stops being a dead end, and
+because the fix is a default rather than fifteen edits, the sixteenth script inherits it for free.
+
+**Score:** 2
+
+#### Pull Request
+
+Resolve-RepoRootOrFail no longer names a flag the caller does not expose
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1946](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1946)
+
+---
 
 ### DEPLOY: fix/1939-native-capture-flaky-at-16-lanes · 20260913-124204
 
