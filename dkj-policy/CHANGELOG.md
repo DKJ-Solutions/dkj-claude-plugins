@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1843-portable-repo-settings-runner · 20260913-053153
+
+The repo-settings drift detector stops being this repo's private tool. `check-repo-settings.ps1` is now
+a shared script in `dkj-policy`, `Get-ExpectedRepoSettings` is a contract record marked `decide` -- the
+comparison travels, the values stay the consumer's own -- and Part 3 of the adoption scaffolds
+`.github/workflows/repo-settings.yml` over the second-checkout mechanism the fold and resolves runners
+already use. It reads `gh api` and reports; it never writes a setting, because repo settings are the
+owner's surface. `-Trunk` now comes from `Get-TrunkBranchName`, which is what makes the check usable at
+all in a repo whose trunk is not `main`: every read was previously aimed at a branch that does not exist
+there, and `-RequireRead` turned that into a red run naming the wrong cause. Adding the third target also
+exposed that the `FOLD_PUSH_TOKEN` reminder and the queue-defect count both hung on one generic
+"something is missing" counter, so each now keys on the thing it is actually about.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer's ruleset, its bypass actors and its merge switches are GitHub-side state: nothing in their
+tree changes when one moves, so a record and the live state can disagree indefinitely with nothing saying
+so. This repo learned that the expensive way -- three drifts in eight days, two of them with mechanical
+consequences: the org transfer emptied `bypass_actors` and every fold was dead for a day (#1244), and
+`merge_queue` was added and removed with no trace at all (#1499, #1720). Until now the detector built from
+that experience ran here and nowhere else. After the next release an adopting repo gets the same dated,
+daily answer about its own settings, against its own declared values.
+
+What it deliberately does not get is enforcement. Rulesets and required checks remain the repo owner's
+surface, so the runner reports and stops -- the reachable goal being identical scripts available, not
+identical rules enforced.
+
+**Score:** 3
+
+#### Pull Request
+
+The repo-settings drift detector travels: check-repo-settings into the plugin, a Get-ExpectedRepoSettings seam, and a scaffolded repo-settings.yml
+
+Plugins: dkj-policy
+
+[PR #1909](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1909)
+
+---
 
 ### DEPLOY: fix/1848-retire-legacy-prio-labels · 20260913-052224
 
