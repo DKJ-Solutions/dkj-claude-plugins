@@ -43,7 +43,61 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 26 minor entries** <!-- pending-tally -->
+**22 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1945-reconciled-conflict-no-durable-form · 20260913-141747
+
+A sync conflict you reconcile by hand now has a durable form, and the refusal says what it is. It
+used to end at *"compare them by hand and merge deliberately"* -- complete advice about the content
+and silent about the shape, which is where the single commit a person naturally reaches for fails. It
+fails in one of two ways, chosen by nothing but the commit's subject: an ordinary subject leaves the
+path conflicted on every future run, and a subject matching the sync pattern makes that commit the
+path's own agreement point, so the next run reads the trunk as stationary and deletes the
+reconciliation. Neither announces itself. Reported from a consumer on seven conflicted paths, where
+the second would have re-deleted a locale key from five files, reverted seven string fixes and
+dropped an unpushed section.
+
+The cause is that merged bytes are neither side's, so they carry no provenance -- and provenance is
+the whole of what the rule reads. So the refusal now names the durable two-commit shape, and
+`-ReconcileBase` writes it: live's bytes verbatim, then the trunk's own bytes straight back on top.
+The branch changes no file, which is what makes merging it safe at every point, and after it the path
+reads `keep-trunk` permanently -- the same state every ordinary held-back file is in. The
+reconciliation itself is then ordinary work in an ordinary commit, in any spelling.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+**Building the repair found a second defect underneath it, in a function that had been answering a
+narrower question than its own name since it was written.** `Test-LiveContentIsOurs` asks whether a
+path has *ever* held live's exact bytes, and `git log -- <path>` does not answer that: it applies
+history simplification, so at a merge whose result for that path equals the first parent's, the
+entire merged side is pruned, every blob on it included. It survived because the ordinary sync branch
+changes the path and nothing puts it back, so its merge is never TREESAME and the walk follows it --
+every take-live this rule has ever made is unaffected. The shape that hits it is a branch whose net
+effect on a path is zero, which is exactly what `-ReconcileBase` writes on purpose. Measured: after
+that merge the reconciliation base was invisible and the path reported the same conflict it started
+with. `--full-history` is the repair, and it moves only in the protective direction -- more content
+recognised as ours means keep-trunk where the answer would otherwise have been take-live.
+
+**And the third proposed repair is declined rather than deferred**, with the measurement in the code:
+a hand-written `sync...` commit cannot be told from a genuine one by anything in the content, because
+every case that reaches that cell is one where live has moved since the base either way. A proof
+would have to be declared, and no declaration can describe history that is already written -- so the
+strict version would stop the sync dead in every consumer at once, to close a hole that needs the
+operator to ignore a printed warning first. The repair lands where the hazard is created instead.
+
+**Score:** 3
+
+#### Pull Request
+
+A hand-reconciled sync conflict gets a durable form
+
+Plugins: dkj-subagents-shopify
+
+[PR #1952](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1952)
+
+---
 
 ### DEPLOY: feat/1941-gate-suite-deadline-and-focus-mode · 20260913-134214
 
