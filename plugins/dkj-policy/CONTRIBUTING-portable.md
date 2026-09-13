@@ -469,6 +469,12 @@ at all — the one detect-and-rebase reads — and, for a repo that has chosen a
 command **without running it**. Switching a queue on is a repo-settings change and therefore the owner's,
 never a script's.
 
+**A fourth file rides along in that same command, and it is unrelated to the queue** (issue #1843): a
+scheduled `repo-settings.yml` runner that checks whether a GitHub-side repo setting still matches what
+your own `scripts/repo-config.ps1` declares (`Get-ExpectedRepoSettings`). It needs neither a queue nor a
+merge to matter — it runs on a schedule — and it never touches `FOLD_PUSH_TOKEN`. See the skill page's
+own section on it for what it checks and why it travels here.
+
 **And it does not report a missing queue as a gap.** Adopting one is a choice, and for most repos it is not
 even an available one, so a repo with no `merge_queue` rule is in the ordinary state rather than an
 unfinished one. `ship-pr` tells you where you stand from the other side: under a queue with no fold runner

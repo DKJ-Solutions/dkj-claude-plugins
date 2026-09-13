@@ -1,6 +1,6 @@
 ---
 name: adopt-dkj-policy
-description: Adopt the dkj-policy workflow in a consuming repo, in four independent parts that can run in any order or alone. Part 1 scaffolds the workflow's own root folder -- dkj-policy/ -- the folder docs (README and CONTRIBUTING), the releases root with this repo's release answers, the branch-entry CI gate, and the PR template open-pr fills in; use this right after installing the plugin, or when the script-contract session check reports the folder missing, since an install alone writes nothing into the repo. Part 2 adopts the source repo's workflow configuration from the shipped blueprint -- placing the values that state the shared way of working into this repo's own seam libs, and proposing the rest for a person to answer; use this after specialists-init has laid down scripts/repo-config.ps1 and scripts/lib/branch-info.ps1, or whenever the script-contract check reports functions this repo has never configured. Part 3 builds the CI floor -- it places the two runners that keep the fold and the resolves verification alive across a merge the shipping session never observes (a merge queue, or the GitHub UI merge button), and reports whether a required status check exists at all, which is the certificate ship-pr dates its staleness guard from; use it after installing the plugin, when ship-pr says the staleness guard is off because no required check is known, or when a merge landed and nothing folded. A merge queue is optional and is not this workflow policy: most repos cannot have one, so a missing queue is reported as the ordinary state rather than as a gap. Part 4 puts the one issue label this workflow prescribes on the tracker -- the reach label, minor by default, which is the tier model read on an issue instead of on a changelog entry; use it after installing the plugin, or when a filing fails because the label does not exist. Parts 1 to 3 are strictly additive and dry-run by default; none overwrites anything, and part 4 is a person's gh call rather than a script.
+description: Adopt the dkj-policy workflow in a consuming repo, in four independent parts that can run in any order or alone. Part 1 scaffolds the workflow's own root folder -- dkj-policy/ -- the folder docs (README and CONTRIBUTING), the releases root with this repo's release answers, the branch-entry CI gate, and the PR template open-pr fills in; use this right after installing the plugin, or when the script-contract session check reports the folder missing, since an install alone writes nothing into the repo. Part 2 adopts the source repo's workflow configuration from the shipped blueprint -- placing the values that state the shared way of working into this repo's own seam libs, and proposing the rest for a person to answer; use this after specialists-init has laid down scripts/repo-config.ps1 and scripts/lib/branch-info.ps1, or whenever the script-contract check reports functions this repo has never configured. Part 3 builds the CI floor -- it places the runners that keep the fold and the resolves verification alive across a merge the shipping session never observes (a merge queue, or the GitHub UI merge button), places a scheduled runner that checks whether a GitHub-side repo setting still matches what this repo declares, and reports whether a required status check exists at all, which is the certificate ship-pr dates its staleness guard from; use it after installing the plugin, when ship-pr says the staleness guard is off because no required check is known, when a merge landed and nothing folded, or when a repo setting may have drifted. A merge queue is optional and is not this workflow policy: most repos cannot have one, so a missing queue is reported as the ordinary state rather than as a gap. Part 4 puts the one issue label this workflow prescribes on the tracker -- the reach label, minor by default, which is the tier model read on an issue instead of on a changelog entry; use it after installing the plugin, or when a filing fails because the label does not exist. Parts 1 to 3 are strictly additive and dry-run by default; none overwrites anything, and part 4 is a person's gh call rather than a script.
 ---
 
 # adopt-dkj-policy -- scaffold the folder, place the config seams, build the CI floor
@@ -11,8 +11,9 @@ each other -- run them in any order, or run only the one you need:
 
 - **Part 1** creates the workflow's own root folder and its CI gate.
 - **Part 2** places or proposes the answers to the repo-owned config seam the shared scripts read.
-- **Part 3** builds the CI floor: the two runners that survive a merge your session never sees, and
-  whether a required check exists for the staleness guard to read. A merge queue is optional here.
+- **Part 3** builds the CI floor: the runners that survive a merge your session never sees, whether a
+  required check exists for the staleness guard to read, and a scheduled check that a GitHub-side repo
+  setting has not silently drifted. A merge queue is optional here.
 - **Part 4** puts the one issue label this workflow prescribes on your tracker.
 
 No part depends on another having run. Parts 1 to 3 are dry-run by default and never overwrite a file
@@ -401,6 +402,11 @@ button produces one in every repo. A queue only makes it the normal case:
 | **the resolves verification** -- `ship-pr`'s step 6 | the issues still close (GitHub honours the keywords), but nothing verifies it and nothing repairs a body that carried a plain mention | `.github/workflows/verify-resolved.yml`, **placed by this command** |
 | **the merge itself** -- under a queue `gh pr merge` *enqueues* and exits 0 | -- | `ship-pr` already handles this; it travels with the plugin |
 
+**This command places a third file too, and it answers a different question entirely** -- see
+[below](#a-third-runner-this-command-places-repo-settingsyml-issue-1843): `.github/workflows/repo-settings.yml`
+checks a GitHub-side setting against your own declaration on a schedule, not on a merge, and needs
+neither a queue nor an unobserved merge to matter.
+
 **And one prerequisite belongs to a queue alone**: every workflow carrying a **required** check must
 trigger on `merge_group`. Without it that check never runs for a queue entry, never reports, and **every
 merge fails** -- a total merge outage, not a degradation, invisible until the first merge afterwards. In
@@ -430,7 +436,7 @@ refuses there, the same way Part 1's does and for the same reason.
 
 | parameter | what it does |
 |---|---|
-| `-Apply` | write the two runners this repo does not have. Without it the command is a dry run that prints the plan and touches nothing -- the same default Parts 1 and 2 use. |
+| `-Apply` | write the runners this repo does not have. Without it the command is a dry run that prints the plan and touches nothing -- the same default Parts 1 and 2 use. |
 
 ### What it will not do, and why
 
@@ -507,6 +513,27 @@ because that is a live defect: entries are being stranded, or merges are about t
 
 `ship-pr` tells you the same thing from the other side. Under a queue with no fold runner in your tree, its
 closing lines say so and print the fold command, instead of promising a fold that is not coming.
+
+### A third runner this command places: repo-settings.yml (issue #1843)
+
+**Not about an unobserved merge at all.** `.github/workflows/repo-settings.yml` is a **scheduled** leg
+that asks whether a GitHub-side repo setting -- a bypass actor, `allow_auto_merge`, which check is
+required -- still matches what your own `scripts/repo-config.ps1` declares
+(`Get-ExpectedRepoSettings`). It rides along in this same command because this is already the one place
+you build your CI floor, not because it needs a queue or a merge to matter: a ruleset drifts on its own,
+with nothing in your tree saying so, exactly as the source repo measured three times in eight days
+before it built the check this places (`check-repo-settings.ps1`).
+
+**"The reachable goal is identical scripts available, not identical rules enforced"** (Dave, September 12,
+2026, on #1843) is why the *values* stay yours to declare -- an empty or absent
+`Get-ExpectedRepoSettings` is a harmless `[SKIP]`, never a refusal -- while the *script* that compares
+them against GitHub is shared. Adopting it costs nothing you have not already paid: the values it reads
+were behind a seam before this command existed.
+
+It never needs `FOLD_PUSH_TOKEN` or any other secret -- it only reads, on `contents: read`, and passes
+`-RequireRead` so a token that cannot read reports a failure instead of a green run that checked nothing.
+A queue being active elsewhere in your repo does not make a missing `repo-settings.yml` a live defect:
+its exit code and its `[create]`/`[MISSING]` marker are independent of Part 3's queue-floor verdict.
 
 ---
 

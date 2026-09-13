@@ -514,6 +514,19 @@ $script:ContractRecords = @(
        Adopt = 'copy'; AdoptWhy = 'empty means the English defaults, which is exactly what a consumer gets without the function. Copying puts the (empty) override map in their own file, where a repo whose colleagues read another language fills in the keys it needs';
        Optional = $true; Default = 'the English headings and hints';
        Returns = "overrides for the internal note's own text, merged over the English defaults: Title, AudienceLabel, Audience, SkeletonNote, SectionChanged, SectionValue, HintValue, SectionOpen, HintOpen, NoEntries and Unknown -- the document is read by this repo's own colleagues, so its language is the repo's rather than the script's. This is new-internal-note.ps1's map, i.e. the two-document flow; cut-release reads Get-ReleaseNoteWording first and only falls back to this one" }
+    # THE REPO-SETTINGS DECLARATION (issue #1843, once check-repo-settings.ps1 became a shared script).
+    # What each record states is GITHUB-SIDE state this repo's constitution depends on -- bypass actors,
+    # required checks, allow_auto_merge -- which is the textbook 'decide' case: the VALUE is a fact about
+    # what THIS repo's ruleset holds, not a portable answer. Copying the source's records into a consumer
+    # would declare another repo's GitHub settings as that consumer's expectation, and produce a red run
+    # on day one over a switch nobody there ever chose -- the same reasoning Get-RepoName and
+    # Get-CiTestCheckName above give for being 'decide'. WHAT TRAVELS IS THE SHAPE OF THE DECLARATION, not
+    # the values in it: check-repo-settings.ps1 is the shared script, and every record it reads is this
+    # repo's own answer to "what should GitHub still say".
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-ExpectedRepoSettings'; Scripts = @('check-repo-settings');
+       Adopt = 'decide'; AdoptWhy = "the values state WHAT THIS REPO'S RULESET HOLDS -- bypass actors, allow_auto_merge, which checks are required -- copying them would assert a consumer's GitHub settings match this repo's rather than their own, and the first drift they never configured would read as a defect rather than as the ordinary state it is";
+       Optional = $true; Default = 'nothing is watched -- an empty or absent declaration is a [SKIP], stated as a choice rather than reported as a gap';
+       Returns = "an array of records, each naming ONE GitHub-side fact to watch: Field (a dotted name the check knows how to read, e.g. 'ruleset.bypass_actor_types' or 'repo.allow_auto_merge'), Expected (the value this repo declares GitHub should still hold), Recorded (the date that value was last measured against GitHub), Where (the document in this tree stating the fact) and Why (the one-line reason it matters) -- Where and Why are both printed on a mismatch, so a red run names which document to repair rather than merely proving something moved" }
 )
 
 # --- Reachability: is a record's Lib in scope for the script that reads it? (inbound #580) ---------
