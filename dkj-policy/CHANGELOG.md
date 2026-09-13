@@ -43,7 +43,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1906-xoxowildhearts-plugin-ids · 20260913-095835
+
+The consumer register recorded five plugin ids the live `xoxowildhearts` repo does not enable. They
+were measured against the repo it replaced, so `check-connectors` would have reported five false
+`[ERROR]`s reading "is NOT (or no longer) enabled" about five plugins that are enabled -- and the
+unlisted-plugin check would have skipped all five as a third-party catalogue, staying silent on
+exactly what it was built to catch. Latent only because no machine currently holds that checkout.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+It is the second field of one fact -- the consumer moved repositories -- and the half that decides
+which way a register follows a consumer that has NOT migrated. Decision A says the register records
+what a consumer has, so this writes the retired marketplace name deliberately, and says in the file
+that it may flip back.
+
+**Score:** 2
+
+#### Pull Request
+
+connectors/xoxowildhearts.json records the plugin ids the live consumer actually enables
+
+[PR #1919](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1919)
+
+---
 
 ### DEPLOY: fix/1910-closeout-suppression-leaks-into-gate · 20260913-094658
 
