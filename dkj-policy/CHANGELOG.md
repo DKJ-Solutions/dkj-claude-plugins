@@ -43,7 +43,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**24 / 31 minor entries** <!-- pending-tally -->
+**24 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1956-shared-discard-unwrap · 20260913-163017
+
+Two checks in the plugin-integrity gate each carried their own copy of the same rule -- climb out of any
+wrapping, then ask whether the result is thrown away. That rule had already been repaired once inside
+check 35, whose header records the bug: only the `[void]` arm walked out of `(...)`, so
+`$null = (& git ...)` and `(& git ...) | Out-Null` were both silently skipped, and it draws the lesson
+that **a check whose three arms disagree about wrapping teaches the shape that gets past it**.
+
+With two copies that lesson applies one level up, and the second copy had already drifted. Check 41
+climbed through a `[void]` cast without noticing one, so `[void](Write-FixtureScriptSummary ...)`
+standing as a function's last statement was cleared as an implicit return -- 0 findings, against 1 for
+the identical call one line further up. A discarded verdict is the failure that check exists to catch,
+and this was it wearing a cast.
+
+Both now call one `Get-DiscardedOuterPipeline`, so the next repair to the rule is made once. On the real
+tree nothing else moves: both coverage lines report exactly the counts they did before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing here ships to a consumer. `scripts/lint/` is not mirrored into any plugin and the checks read
+only this repo's own tree, so the reader served is whoever next edits either check.
+
+**Score:** N/A
+
+#### Pull Request
+
+The discard/unwrap rule is one function, not a copy per check
+
+[PR #1960](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1960)
+
+---
 
 ### DEPLOY: fix/1953-collision-blind-under-open-pr · 20260913-161943
 
