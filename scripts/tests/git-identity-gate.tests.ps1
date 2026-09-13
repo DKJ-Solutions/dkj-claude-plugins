@@ -238,11 +238,22 @@ try {
     #
     # THE DEFECT THIS PINS. Test-GitCanCommit's docstring has said since #1867 that an unknown answer
     # is treated as can-commit -- "a refusal built on a failure to measure would wedge a run for the
-    # wrong reason" -- while its body read `$res.ExitCode -eq 0`, which refuses on every non-zero exit
-    # there is. new-branch.ps1 runs this probe before the checkout on every run and exits 1 on a
-    # refusal with nothing created, and new-branch.tests.ps1 invokes that script some forty times per
-    # gate run across sixteen lanes. One transient git failure -- the class #1915 measured in that same
-    # suite on that same day -- therefore produced a red gate that had measured nothing.
+    # wrong reason" -- while its body read `$res.ExitCode -eq 0`, which refuses on every exit that is
+    # not 0, an ABSENT one included ($null -eq 0 is $false). new-branch.ps1 runs this probe before the
+    # checkout on every run and exits 1 on a refusal with nothing created, and new-branch.tests.ps1
+    # invokes that script some forty times per gate run across sixteen lanes. One capture whose exit
+    # code went missing therefore produced a red gate that had measured nothing.
+    #
+    # AND THE MISSING CODE CAME OFF A GIT CHILD THAT SUCCEEDED (issue #1933, correcting the cause
+    # this comment named at the merge, which cited #1915 -- a different flake, whose mechanism was a
+    # fetch-attempt record suppressing a retry). Measured on #1920's branch at 16 lanes: git ran,
+    # exited, and printed the correct ident, while $proc.ExitCode from Start-Process -PassThru came
+    # back absent in 27 of 960 captures. Invoke-NativeCapture passes that through -- its result always
+    # CARRIES an ExitCode property, whose VALUE is then $null -- so the absent code is what reaches the
+    # comparison here, and it is the one state no `-eq 0` or `-ne 0` test can tell apart from a
+    # measured failure. The cases below feed it directly, because until #1933 this suite pinned every
+    # state around it (0, 128, four non-zero codes, a timeout, a $null result) and not the one the
+    # narrowing was written for.
     #
     # SHADOWED AFTER THE DOT-SOURCE, the idiom remote-ahead-lib.tests.ps1 already uses and that
     # native-capture-lib.ps1 documents for itself: a plain function can be redefined in the scope that
@@ -285,6 +296,19 @@ try {
         $script:stubProbeExit = $code
         Assert-True (Test-GitCanCommit -RepoRoot $RepoRoot) "exit $code : the probe did not answer -- unknown is can-commit, not a refusal"
     }
+
+    # THE STATE THE NARROWING WAS ACTUALLY WRITTEN FOR (issue #1933): a child that SUCCEEDED and whose
+    # exit code did not come back. $proc.ExitCode from Start-Process -PassThru returns empty once the
+    # child has exited -- 27 in 960 captures at 16 lanes, git's own output complete and correct in
+    # every one -- and Invoke-NativeCapture carries that straight through as an ExitCode of $null.
+    # Both spellings are asserted because the emptiness arrives as either, and neither is 0: this is
+    # precisely the state `-eq 0` read as a broken checkout and `-ne 128` lets through.
+    foreach ($empty in @($null, '')) {
+        $script:stubProbeExit = $empty
+        $label = if ($null -eq $empty) { '$null' } else { "''" }
+        Assert-True (Test-GitCanCommit -RepoRoot $RepoRoot) "exit $label : the child succeeded and its code went missing -- can-commit, not a refusal"
+    }
+    $script:stubProbeExit = 0
 
     # A BOUNDED CALL THAT EXPIRED IS READ BEFORE ITS NUMBER IS. Invoke-NativeCapture substitutes its
     # own exit code on a timeout, so the number is not git's at all -- and the substituted one must

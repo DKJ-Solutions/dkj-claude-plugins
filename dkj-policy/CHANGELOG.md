@@ -88,9 +88,11 @@ was read as a checkout that cannot commit.
 
 That probe runs on every `new-branch.ps1` run, before the checkout, and its refusal exits 1 with
 nothing created -- no branch, no document, nothing on origin. Under the parallel test gate
-`new-branch.tests.ps1` invokes that script some forty times per run across sixteen lanes, so one
-transient git child turned into a red gate that had measured nothing, and a red gate that measured
-nothing is what teaches people to reach for `-SkipTests`.
+`new-branch.tests.ps1` invokes that script some forty times per run across sixteen lanes, and there
+the git child *succeeds* while its exit code goes missing -- `$proc.ExitCode` from `Start-Process
+-PassThru` came back absent in 27 of 960 captures, git's output complete and correct in every one.
+An absent code is not 0, so one unreadable capture turned into a red gate that had measured nothing,
+and a red gate that measured nothing is what teaches people to reach for `-SkipTests`.
 
 A refusal is now gated on `128`, which is how git's `die()` reports an unknown author identity and the
 number this suite already pins from git's own side. Everything else -- including a bounded call that

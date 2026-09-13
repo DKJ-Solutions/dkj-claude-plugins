@@ -39,19 +39,66 @@
 
 ### PLAN
 
+#### What the issue asks, and what verifying it added
+
+#1933 says the #1930 repair is correct and its stated *reason* is not: the docstring cites #1915 for
+"a git child in a fixture really does transiently fail under that load", and #1915 measured no such
+thing -- it is the capped-tip flake, whose mechanism turned out to be a fetch-attempt record
+suppressing a retry, reproduced by writing a failed record by hand. Verified against both issues and
+against `scripts/tests/new-branch.tests.ps1`, where that mechanism is written up.
+
+Two things the issue does not name came out of reading the tree for it:
+
+- The same wrong cause sits in **four** places, not two -- the constant comment and the docstring in
+  `git-identity-lib.ps1`, the block comment in `git-identity-gate.tests.ps1`, and the pending
+  `CHANGELOG.md` entry for #1930, which is unreleased and would publish it.
+- `git-identity-gate.tests.ps1` pins every state *around* the absent exit code -- 0, 128, four
+  non-zero codes, a timeout, a `$null` result -- and not the absent code itself, which is the one
+  state the narrowing exists for.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Correct the constant comment and the docstring in `scripts/lib/git-identity-lib.ps1`
+- [x] Correct the block comment in `scripts/tests/git-identity-gate.tests.ps1`
+- [x] Correct the pending `CHANGELOG.md` entry for #1930, which carries the same cause unreleased
+- [x] Rebuild the plugin mirror (`scripts/sync/build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] Pin the absent exit code itself -- `$null` and `''`, both read as can-commit
+- [x] `git-identity-gate.tests.ps1` green: 50 asserts, the two new ones among them
+
 ### DEPLOY: docs/1933-gitcancommit-docstring-wrong-cause
 
-**Score:**
+`Test-GitCanCommit` refuses only on git's own `128`, and the reasoning recorded beside that narrowing
+named a cause nobody measured: a git child transiently failing under the parallel gate, cited to
+#1915. #1915 is a different flake -- the capped-tip case, whose mechanism was a fetch-attempt record
+suppressing a retry. What was measured on #1920's branch is the opposite of a failure: at 16 lanes
+the git child **succeeded**, exited, and printed the correct author ident, while `$proc.ExitCode`
+from `Start-Process -PassThru` came back absent in 27 of 960 captures.
+
+That distinction is what the narrowing's safety rests on. A reader who believes it only screens out
+*failed* children may reasonably conclude that a more precise probe, a retry or a `-Utf8` removal
+makes it unnecessary -- and remove it. So the four passages carrying the old cause now state the
+measured one, including the three repairs that were tried and do nothing (the position-1
+confinement, `.Refresh()`, and re-reading the code twenty times over 200ms), and the comparison's
+own shape is written down: `$null -ne 128` is what lets an unreadable capture through, so any
+rewrite to "is it non-zero" silently restores the refusal #1930 removed.
+
+`git-identity-gate.tests.ps1` now pins that state as well. It had asserts for every state around it
+-- `0`, `128`, four non-zero codes, a timeout, a `$null` result -- and none for an absent exit code,
+which is the one the narrowing was written for; both spellings it arrives as (`$null` and `''`) are
+asserted to read as can-commit.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The corrected reasoning ships with the plugin, so a consumer reading the lib their own `new-branch`
+runs no longer receives an explanation that argues for removing a guard they depend on. Nothing they
+do changes; the failure it prevents has not happened yet, which is the whole of its weight.
+
+**Score:** 1
 
 #### Pull Request
 
