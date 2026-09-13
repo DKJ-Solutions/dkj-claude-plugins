@@ -102,6 +102,12 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # JUDGING THIS SUITE'S OWN FIXTURE git CALLS -- issue #1635. See the lib for why an unjudged fixture
 # command is worse than an unjudged production one, and why the count decides the exit code.
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+
+# JUDGING THIS SUITE'S OWN FIXTURE CHILD -- issues #1934 and #1954. Three of the helpers below copy the
+# hook into a fixture tree and run it there, so a lib the copy list has gone stale on kills the child
+# during LOAD. The hook's own sibling loads are GUARDED, which is why this is dormant today rather than
+# redundant: it catches the first unguarded one, which is exactly how #1917 produced the class.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
 $Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\connector-sessioncheck.ps1'
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "connector-sessioncheck-test-$PID-$([guid]::NewGuid().ToString('n'))"
 $Utf8     = New-Object System.Text.UTF8Encoding $false
@@ -323,9 +329,13 @@ function Invoke-HookWithFakeEngine {
     $env:USERPROFILE = $HomeDir
     Push-Location $EngineDir
     try {
+        # EAP LOWERED AND STDERR MERGED FOR THE CALL -- see Invoke-CountedHook for why (#1954).
+        $ErrorActionPreference = 'Continue'
         $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookCopy `
-            -WorkshopPathOverride (Join-Path $Fixture 'nowhere') @HookArgs
-        return [pscustomobject]@{ Code = $LASTEXITCODE; Lines = @($out); Text = ($out -join "`n") }
+            -WorkshopPathOverride (Join-Path $Fixture 'nowhere') @HookArgs 2>&1
+        $code = $LASTEXITCODE
+        Assert-FixtureScriptLoaded -Code $code -Script $hookCopy -Output $out
+        return [pscustomobject]@{ Code = $code; Lines = @($out); Text = ($out -join "`n") }
     } finally {
         Pop-Location
         $env:CLAUDE_PROJECT_DIR = $prevP
@@ -350,8 +360,12 @@ function Invoke-IsolatedHookNoEngine {
     New-Item -ItemType Directory -Path $CwdDir -Force | Out-Null
     Push-Location $CwdDir
     try {
-        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookCopy -WorkshopPathOverride (Join-Path $CwdDir 'nowhere')
-        return [pscustomobject]@{ Code = $LASTEXITCODE; Lines = @($out); Text = ($out -join "`n") }
+        # EAP LOWERED AND STDERR MERGED FOR THE CALL -- see Invoke-CountedHook for why (#1954).
+        $ErrorActionPreference = 'Continue'
+        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookCopy -WorkshopPathOverride (Join-Path $CwdDir 'nowhere') 2>&1
+        $code = $LASTEXITCODE
+        Assert-FixtureScriptLoaded -Code $code -Script $hookCopy -Output $out
+        return [pscustomobject]@{ Code = $code; Lines = @($out); Text = ($out -join "`n") }
     } finally {
         Pop-Location
     }
@@ -411,11 +425,19 @@ function Invoke-CountedHook {
 
     Push-Location $CaseDir
     try {
-        $out = $Payload | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookCopy -WorkshopPathOverride (Join-Path $CaseDir 'nowhere')
+        # EAP LOWERED AND STDERR MERGED FOR THE CALL (#1954). The verdict below reads the child's OUTPUT
+        # for the load-failure signature, so stderr has to be in it; and at 'Stop' the parent re-renders
+        # that stderr as a TERMINATING NativeCommandError, which would kill this suite at the invocation
+        # before the verdict could run. Function-scoped, so it reverts on return.
+        $ErrorActionPreference = 'Continue'
+        $out = $Payload | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookCopy -WorkshopPathOverride (Join-Path $CaseDir 'nowhere') 2>&1
+        $code = $LASTEXITCODE
+        # #1934: a load failure is not a refusal -- say so before the asserts read a run that never happened.
+        Assert-FixtureScriptLoaded -Code $code -Script $hookCopy -Output $out
         $spawns = 0
         if (Test-Path -LiteralPath $counter) { $spawns = @(Get-Content -LiteralPath $counter).Count }
         return [pscustomobject]@{
-            Code    = $LASTEXITCODE
+            Code    = $code
             Lines   = @($out)
             Text    = ($out -join "`n")
             Spawns  = $spawns
@@ -654,7 +676,13 @@ Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if
 # A BROKEN FIXTURE IS SAID BEFORE THE VERDICT AND FAILS THE RUN (issue #1635) -- including when every
 # assert passed, because a clean sweep over a repo that was never built proves less than it appears to.
 $fixtureBroken = Write-FixtureGitSummary -Subject 'connector-sessioncheck.ps1'
+# AND THE SAME FOR A CHILD THAT DIED ON LOAD (issues #1934 and #1954).
+$loadBroken = Write-FixtureScriptSummary -Subject 'connector-sessioncheck.ps1'
 if ($script:fail -gt 0) { exit 1 }
+if ($loadBroken) {
+    Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child hook run(s) died on load -- this run measured a fixture, not the hook." -ForegroundColor Red
+    exit 1
+}
 if ($fixtureBroken) {
     Write-Host "FAILED: every assert passed, but $(Get-FixtureGitFailureCount) fixture git command(s) did not -- this run proves less than it appears to." -ForegroundColor Red
     exit 1

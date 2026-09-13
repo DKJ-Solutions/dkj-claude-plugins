@@ -30,6 +30,13 @@
 #>
 $ErrorActionPreference = 'Stop'
 
+# JUDGING THIS FIXTURE'S OWN CHILD -- issues #1934 and #1954. Invoke-Integrity copies the gate into a
+# fixture tree together with the libs it dot-sources, so a lib the copy list has gone stale on kills the
+# child during LOAD and every scenario below then measures a gate that never ran. Placed here rather than
+# in each suite because the invocation and the close-out are both shared: this one wiring covers all four
+# check-plugin-integrity suites.
+. (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
+
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $IntegritySrc      = Join-Path $RepoRoot 'scripts\lint\check-plugin-integrity.ps1'
 $AgentSharedLibSrc = Join-Path $RepoRoot 'scripts\lib\subagent-shared-lib.ps1'
@@ -143,6 +150,8 @@ function Invoke-Integrity {
         $ErrorActionPreference = 'Continue'
         $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @skipArgs 2>&1
         $code = $LASTEXITCODE
+        # #1934: a load failure is not a gate crash -- say so before the scenarios read an empty verdict.
+        Assert-FixtureScriptLoaded -Code $code -Script $scriptPath -Output $out
     } finally {
         $ErrorActionPreference = $prevEap
     }
@@ -274,6 +283,14 @@ function New-IntegrityFixture {
 # The closing summary, identical in all four suites: one place, so four files cannot drift on how
 # they report a failure.
 function Complete-IntegritySuite {
+    # ABOVE THE VERDICT AND EVEN ON A GREEN RUN (issues #1934 and #1954): a scenario whose child died
+    # on load measured a fixture rather than the gate, and a case that only checks something is ABSENT
+    # passes while proving nothing. So the count decides the exit code here too, ahead of the asserts.
+    $loadBroken = Write-FixtureScriptSummary -Subject 'check-plugin-integrity.ps1'
+    if ($loadBroken) {
+        Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child gate run(s) died on load -- this run measured a fixture, not the gate." -ForegroundColor Red
+        exit 1
+    }
     Write-Host ""
     if ($script:fail -gt 0) {
         Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
