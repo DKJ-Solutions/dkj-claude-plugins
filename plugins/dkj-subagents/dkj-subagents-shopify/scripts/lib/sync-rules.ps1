@@ -268,8 +268,8 @@ function Get-SyncPathReferencePoint {
         there is none.
 
         COST: one 'git log' per differing path whose content is foreign, bounded by that path's own
-        history. It sits beside Test-LiveContentIsOurs, which already spends one 'git rev-parse' per
-        commit touching the path, so it does not change the shape of what a run costs.
+        history. It sits beside Test-LiveContentIsOurs, which since #1951 also spends exactly one 'git
+        log' on the same question, so the two are the same shape and neither scales with commit count.
 
         THE SUBJECT PATTERN IS A HEURISTIC FOR AUTHORSHIP, AND IT CANNOT BE MADE INTO A PROOF (inbound
         #1945, September 13, 2026). This lookup answers "the most recent commit whose SUBJECT matches the
@@ -526,8 +526,9 @@ function Test-LiveContentIsOurs {
             files come back foreign and are captured. The 11th reverted a single trailing blank line, so
             dropping it is harmless rather than a loss.
 
-        COST: one 'git rev-parse' per commit that touched the path, until a match. Bounded by that path's
-        own history, which in a theme repo is single digits.
+        COST: one 'git log' for the whole question, whatever the path's history (issue #1951). It was one
+        'git rev-parse' SUBPROCESS per commit until September 13, 2026, which made the cost scale with the
+        history and made '--full-history' below a 2.0-4.0x multiplier on wall-clock rather than on output.
 
         '--follow' IS DELIBERATELY NOT USED. It would chase renames and could match content out of a
         DIFFERENT path's history, making live's copy of file B read as ours because file A once held those
@@ -553,19 +554,16 @@ function Test-LiveContentIsOurs {
         path's history, which this does not do -- the pathspec is unchanged and only the walk widens.
 
         WHAT IT COSTS, MEASURED RATHER THAN ASSUMED, over 18 real paths in a 4,910-commit repo with 29%
-        merges: the flag multiplies the commits walked by a stable 2.0-4.0x, median 2.9x. That is also
-        the wall-clock multiplier, because the loop below spends one 'git rev-parse' SUBPROCESS per
-        commit until a match -- and the walk runs to the end exactly when nothing matches, which is the
-        foreign case this cell exists for. In the single-digit histories a theme repo has (measured
-        1->7, 2->8, 3->8) that is 4-8 extra spawns, 100-400ms per foreign path on Windows. On a
-        264-commit path it is 7.3s -> 15.8s.
+        merges: the flag multiplies the commits walked by a stable 2.0-4.0x, median 2.9x.
 
-        SO THE PREMISE TO WATCH IS THE SINGLE-DIGIT ONE, not the flag. A theme's main layout or product
-        template is the kind of file that could accumulate a long history, and there this cost moves
-        from sub-second to multi-second. The architecture underneath is what would answer it -- one
-        'git log --raw' returns every commit AND its blob id in a single process -- and that is issue
-        #1951 rather than a change here: a plain '--raw' prints nothing for a merge commit, which is
-        precisely what this flag went in to stop losing.
+        AND THAT IS NOW A MULTIPLIER ON OUTPUT RATHER THAN ON WALL-CLOCK, which is what #1951 changed one
+        day later. It used to be both: the loop below spent one 'git rev-parse' SUBPROCESS per commit
+        until a match, so 2.9x the commits was 2.9x the spawns -- 7.3s -> 15.8s on a 264-commit path, and
+        the walk runs to the end exactly when nothing matches, which is the foreign case this cell exists
+        for. The loop reads one 'git log --raw' instead now, so widening the walk costs a longer read of
+        one process's output and the premise this paragraph used to end on -- that a theme repo's
+        per-path history stays single-digit -- has stopped being load-bearing. It is still the honest
+        thing to watch, and it is no longer what stands between this rule and a multi-second path.
 
         THE BASE LOOKUP DELIBERATELY DOES NOT TAKE IT. Get-SyncCommitShas answers "the most recent sync
         commit touching this path", and there simplification errs the safe way: a pruned sync commit makes
@@ -595,11 +593,63 @@ function Test-LiveContentIsOurs {
     # function sees no history and answers "foreign" -- restoring live's copy over a deliberate deletion.
     # Measured in the consumer: 23 deleted locale files about to be resurrected. The 'A' case is the one
     # that needs the '--', and the 'A' case is where getting it wrong undoes a deliberate deletion.
-    $logArgs = @('log', '--full-history', '--format=%H', $Ref, '--', $Path)
-    $commits = @(Invoke-SyncGitQuiet @logArgs | Where-Object { $_ })
-    foreach ($c in $commits) {
-        $stored = Get-GitStoredBlobId -Rev "$c" -Path $Path
-        if (-not $stored) { continue }
+    # ONE PROCESS FOR THE WHOLE WALK (issue #1951). '--raw' prints, for every commit the walk lists, the
+    # blob id the path ENDED UP AT there -- which is exactly what this loop used to ask git for one
+    # commit at a time, at one 'rev-parse' SUBPROCESS each. On Windows that spawn was the dominant cost
+    # of the rule, and '--full-history' above multiplies the commit count by a measured 2.0-4.0x, so it
+    # multiplied the spawn count by the same factor.
+    #
+    # MEASURED OVER 12 REAL PATHS IN THIS REPO (4,910 commits, 29% merges), September 13, 2026, against
+    # the per-commit walk it replaces: identical blob sets on every path, and 6.5x to 99x faster. The
+    # two that set the premise: CHANGELOG.md 10,306ms -> 107ms over 558 commits, CLAUDE.md 6,584ms ->
+    # 77ms over 358. The win is largest exactly where it matters, because the walk runs to the END only
+    # when nothing matches -- the foreign case this cell exists for, and the arm that overwrites the
+    # trunk.
+    #
+    # '-m' IS LOAD-BEARING AND IS THE WHOLE DESIGN PROBLEM #1951 NAMED. A plain '--raw' prints NOTHING
+    # for a merge commit, and '--full-history' deliberately includes merges -- so the naive swap silently
+    # drops every merge's post-image. Measured on those same 12 paths: 62 blobs lost, in the dangerous
+    # direction, because a blob this walk stops seeing makes live's content read as FOREIGN. '-m' diffs
+    # the merge against each parent, so the merge's own post-image is printed whenever it differs from
+    # any parent; where it differs from none, that blob is a parent's and the parent is walked. Measured
+    # with '-m': 0 lost and 0 gained, exact set equality. ('--cc' also measured at 0/0 and is NOT used:
+    # it prints only where the result differs from ALL parents, which is a narrower emission for no gain,
+    # and narrower is the wrong direction to be wrong in here.)
+    #
+    # '--no-abbrev' IS LOAD-BEARING TOO: '--raw' abbreviates object ids by default, and the comparison
+    # below is against a full 40-character id from Get-GitRawBlobId. Abbreviated, nothing would ever
+    # match and every path would read as foreign.
+    #
+    # AND NO '-M'. Rename detection would match a DIFFERENT path's history, which is the exact failure
+    # the '--follow' warning above exists to refuse. The pathspec is unchanged; only the output format is.
+    #
+    # ARRAY PLUS SPLATTING FOR THE '--', the pitfall this file's header names, and here it was not
+    # theoretical. Written inline as 'log --format=%H $Ref -- $Path' the '--' never reaches git, so git
+    # reads the path as a revision. For a path still in HEAD it disambiguates and the bug is invisible;
+    # for a path the trunk has DELETED it errors to stderr, Invoke-SyncGitQuiet swallows it, and the
+    # function sees no history and answers "foreign" -- restoring live's copy over a deliberate deletion.
+    # Measured in the consumer: 23 deleted locale files about to be resurrected. The 'A' case is the one
+    # that needs the '--', and the 'A' case is where getting it wrong undoes a deliberate deletion.
+    $logArgs = @('log', '--full-history', '--format=%H', '--raw', '--no-abbrev', '-m', $Ref, '--', $Path)
+    foreach ($line in (Invoke-SyncGitQuiet @logArgs)) {
+        # A raw line starts with ':' and carries its ids BEFORE the tab that introduces the path. Reading
+        # only the pre-tab half is what keeps a path that happens to look like an object id out of the
+        # comparison, and it costs nothing because the pathspec has already limited what is printed.
+        $text = "$line"
+        if ($text -notmatch '^:') { continue }
+        $meta = ($text -split "`t", 2)[0]
+
+        # THE DESTINATION BLOB IS THE LAST ID ON THE LINE, in both raw shapes: ':<m> <m> <src> <dst> <S>'
+        # for an ordinary commit and '::<m> <m> <m> <src> <src> <dst> <SS>' for a combined diff. Taking
+        # the last rather than counting fields is what makes this true of both without a second parser.
+        $ids = [regex]::Matches($meta, '[0-9a-f]{40}')
+        if ($ids.Count -lt 1) { continue }
+        $stored = $ids[$ids.Count - 1].Value
+
+        # AN ALL-ZERO DESTINATION IS A DELETION, not content: the path has no post-image at that commit.
+        # The per-commit walk expressed the same thing as Get-GitStoredBlobId returning '' for a path
+        # absent at that rev, and skipped it identically.
+        if ($stored -match '^0{40}$') { continue }
         if ($stored -eq $rawId -or $stored -eq $strippedId) { return $true }
     }
     return $false
