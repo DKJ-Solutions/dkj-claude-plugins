@@ -238,7 +238,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 $crLib = Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1'
 if (Test-Path -LiteralPath $crLib -PathType Leaf) {
     . $crLib
-    $repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1' `
+    $repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1' -OverrideName '-RepoRoot' `
         -Consequence 'Nothing was created: no branch, no document, nothing on origin.'
 } elseif (-not $repoRoot) {
     $prevEapRoot = $ErrorActionPreference

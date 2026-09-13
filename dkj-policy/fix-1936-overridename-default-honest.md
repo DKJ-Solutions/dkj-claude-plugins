@@ -69,7 +69,7 @@ a wrong answer, only a shorter one.
 
 ### TEST
 
-- [x] `check-report-lib.tests.ps1` -- **252 pass, 0 fail.** Four asserts on the existing seamless
+- [x] `check-report-lib.tests.ps1` -- **254 pass, 0 fail.** Four asserts on the existing seamless
       child (no `or pass` clause, no `-RepoRoot` anywhere in the output, both real routes kept, the
       cause line drops the seam too), plus a **control child** passing `-OverrideName '-RootOverride'`
       so the four above cannot be satisfied by a function that has simply stopped offering the flag
@@ -82,6 +82,20 @@ a wrong answer, only a shorter one.
       tree now prints `Run this from inside the checkout, or set CLAUDE_PROJECT_DIR.` -- the two
       remedies that exist, and not the one PowerShell rejects.
 - [x] Lint gate (`check-plugin-integrity.ps1`): 0 errors.
+
+#### What the review chain changed
+
+Victor, Edith and Sebastian ran in parallel on the diff. Sebastian: no findings -- the resolution
+logic is untouched, so this is a messaging-only change that cannot let a caller reach a root it would
+previously have been refused. Edith caught a wrong citation (`check-report.tests.ps1` for
+`check-report-lib.tests.ps1`) and a comment that read as a contradiction; both repaired. Victor found
+no correctness bug and three cleanup-class observations, and **two of them were false-positive risks
+in the gate this branch adds**, so they were closed rather than shipped: the sweep now judges only a
+STRING LITERAL argument (a future `-OverrideName $var` would otherwise be reported as a mismatch that
+is not one) and states in a comment why the script-level param block is the right one to read. The
+third -- the `'override'` arm's fallback being unreachable from today's tree -- got the two asserts
+that were missing instead of being deleted, since it is reachable the moment a caller passes
+`-Override` without naming a seam.
 
 ### DEPLOY: fix/1936-overridename-default-honest
 

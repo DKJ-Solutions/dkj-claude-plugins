@@ -523,12 +523,30 @@ function Resolve-RepoRootOrFail {
         hardcoded either one would, on the majority of callers, tell the reader to pass a flag
         PowerShell then rejects outright -- naming a remedy that does not exist, which is the one
         thing a refusal must never do. Caught in review before this shipped.
+
+        AND ITS DEFAULT IS '', BECAUSE A DEFAULT FLAG NAME IS THAT SAME DEFECT WEARING THE PARAMETER
+        AS A DISGUISE (#1936). It defaulted to '-RepoRoot' -- right for the two callers named above,
+        wrong for every caller that exposes no root seam at all, and handed out to whoever does not
+        think about it. Measured September 13, 2026 over every .ps1 under scripts\ outside lib\ and
+        tests\: 15 of 27 call sites inherited that default while exposing no such parameter, so
+        `-RepoRoot <path>` on any of those 15 is rejected by PowerShell as an unknown parameter --
+        the exact remedy-that-does-not-exist this parameter was added to prevent, reintroduced by the
+        value it takes when nobody passes one. Those 15 expose no root seam BY DESIGN: they are meant
+        to be run from inside the checkout, full stop.
+
+        So an unnamed seam now prints no seam: every "or pass X" clause below is conditional on this
+        being non-empty, and the two callers that do spell it pass -OverrideName '-RepoRoot'
+        explicitly -- which is what this parameter's own paragraph says it is for. That closes the
+        CLASS rather than the 15 instances, because a caller that says nothing can no longer be given
+        a wrong answer, only a shorter one. The residual -- a call site that DOES name a flag it does
+        not expose -- is held by check-report-lib.tests.ps1, which walks the same 27 call sites.
     #>
     param(
         [string]$Override = '',
         [string]$ScriptName = '',
         [string]$From = '',
-        [string]$OverrideName = '-RepoRoot',
+        # '' on purpose -- see the docstring. A caller passes this ONLY if it really exposes a root flag.
+        [string]$OverrideName = '',
         # WHAT THE REFUSAL COST THE CALLER, in the caller's own words -- "Nothing was created: no branch,
         # no document, nothing on origin." This is #1913's requirement, kept when that repair's inline
         # refusal was folded into this seam: a reader who is about to re-run needs to know whether the
@@ -547,7 +565,10 @@ function Resolve-RepoRootOrFail {
     Write-Host ''
     switch ($scope.Source) {
         'override' {
-            Write-Host ("  {0} was given as '{1}', and that path does not exist." -f $OverrideName, $Override) -ForegroundColor Yellow
+            # With no seam named, the caller resolved the root from something that is not one of its own
+            # flags -- so there is no flag to quote back. Report WHAT was given, not how to pass it.
+            $gave = $(if ($OverrideName) { $OverrideName } else { 'The repository root' })
+            Write-Host ("  {0} was given as '{1}', and that path does not exist." -f $gave, $Override) -ForegroundColor Yellow
         }
         'CLAUDE_PROJECT_DIR' {
             Write-Host ("  CLAUDE_PROJECT_DIR is set to '{0}', and that path does not exist." -f $env:CLAUDE_PROJECT_DIR) -ForegroundColor Yellow
@@ -555,7 +576,15 @@ function Resolve-RepoRootOrFail {
             Write-Host '  so a stale or mistyped value points every shared script at nothing.'
         }
         default {
-            Write-Host ("  No {0} was given and CLAUDE_PROJECT_DIR is not set, so the root had to come from" -f $OverrideName)
+            # BOTH clauses below drop the seam when there is none to name (#1936). A caller that
+            # passes no -OverrideName is not being modest about a flag it has -- it has none at all,
+            # and offering to pass one is exactly the remedy-that-does-not-exist this parameter was
+            # added to prevent.
+            if ($OverrideName) {
+                Write-Host ("  No {0} was given and CLAUDE_PROJECT_DIR is not set, so the root had to come from" -f $OverrideName)
+            } else {
+                Write-Host '  CLAUDE_PROJECT_DIR is not set, so the root had to come from'
+            }
             # The directory git was actually ASKED about -- which is -From when anchored, and only
             # otherwise the working directory. Naming the cwd on an anchored call would send the
             # reader to look at the wrong place.
@@ -564,7 +593,9 @@ function Resolve-RepoRootOrFail {
             Write-Host ("  git exit code: {0}" -f $(if ($null -ne $scope.GitExitCode) { $scope.GitExitCode } else { '(git could not be run at all)' }))
             Write-Host ("  git said:      {0}" -f $(if ($scope.GitError) { $scope.GitError } else { '(nothing on stderr)' }))
             Write-Host ''
-            Write-Host ("  Run this from inside the checkout, or pass {0}, or set CLAUDE_PROJECT_DIR." -f $OverrideName) -ForegroundColor Green
+            $remedy = $(if ($OverrideName) { "  Run this from inside the checkout, or pass $OverrideName, or set CLAUDE_PROJECT_DIR." }
+                        else { '  Run this from inside the checkout, or set CLAUDE_PROJECT_DIR.' })
+            Write-Host $remedy -ForegroundColor Green
         }
     }
     if ($Consequence) {

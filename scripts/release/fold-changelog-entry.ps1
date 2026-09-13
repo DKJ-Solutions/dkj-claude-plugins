@@ -202,7 +202,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # this is gone -- passing the param as -Override IS that guard, and the old inline fallback died on
 # $null.Trim() before any of it could be reported.
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'fold-changelog-entry.ps1'
+$repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'fold-changelog-entry.ps1' -OverrideName '-RepoRoot'
 Set-Location $repoRoot
 
 # Pre-flight (#86): fold relies on scripts\repo-config.ps1 in the consumer's repo root. If that is
