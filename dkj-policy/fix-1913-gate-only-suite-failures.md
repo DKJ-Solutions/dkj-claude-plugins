@@ -39,21 +39,90 @@
 
 ### PLAN
 
-Repair the proven isolation defect in closeout-lib.tests.ps1 and make new-branch.tests.ps1 report WHY a child exited non-zero, so the remaining gate-only failure stops being undiagnosable.
+Repair the proven isolation defect in closeout-lib.tests.ps1 and make new-branch.tests.ps1 report WHY
+a child exited non-zero, so the remaining gate-only failure stops being undiagnosable.
+
+#### What was verified before anything was written
+
+#1913's symptom stands, and reproduced on this repo's own machine: the ship of
+`fix/1912-noresolves-persists-in-body` went red with **two** suites failing under the 16-lane gate --
+`closeout-lib.tests.ps1` and `new-branch.tests.ps1` -- and both are green standalone. That is the
+mirror image the language-layers rule already names, and it implicates shared state rather than the
+subject.
+
+**They turned out to be two different defects wearing one symptom**, which is why this branch does not
+have a single fix in it:
+
+1. `closeout-lib.tests.ps1` is **deterministic**, and the cause is proven rather than inferred.
+2. `new-branch.tests.ps1` is not explained by it -- and it failed in a DIFFERENT place than #1913
+   reported, which is itself evidence: a fixture defect does not move.
+
+#### What was measured and did NOT hold
+
+The obvious shared-state candidate for the second suite was the same environment inheritance as the
+first. It is not: `new-branch.tests.ps1` run with `DKJ_CLOSEOUT_SUPPRESS=1` and `DKJ_TEST_GATE_DEPTH=1`
+set by hand is **265/265 green**. Stated here rather than dropped, so the next reader does not spend
+the measurement again.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `closeout-lib.tests.ps1`: clear `DKJ_CLOSEOUT_SUPPRESS` before the receipt is measured, assert
+      that the guard is in place, and hand the inherited value back at the end.
+- [x] `new-branch.tests.ps1`: `Assert-ExitCode`, which prints the child's captured stdout and stderr
+      when an exit-code assert fails. All 49 exit-code asserts routed through it.
+- [x] `new-branch.ps1`: the repo-root fallback is judged instead of dereferenced. It was
+      `(git rev-parse --show-toplevel).Trim()` -- the first statement of the script -- so a git that
+      answered nothing produced `You cannot call a method on a null-valued expression` and exit 1,
+      with nothing created and no cause named. That is #1913's exact signature, measured directly.
+- [x] Mirror to the plugin copy (`build-shared-scripts.ps1`).
+- [ ] The 36 OTHER scripts carrying that same unjudged spelling are filed as #1917, not swept here --
+      one diff across every layer of the tree is not reviewable, and several of the call sites have
+      their own `-RepoRoot` precedence to read first.
 
 ### TEST
 
+- [x] `closeout-lib.tests.ps1` green in BOTH environments -- clean, and with the variable set, which
+      is the state it was red in.
+- [x] `new-branch.tests.ps1` green standalone after the assert rewrite and after the script change.
+- [x] The refusal asserted: run outside a repository, `new-branch` now names git's exit code and what
+      git said, and still exits 1 creating nothing.
+- [x] Lint gate clean; the full 102-suite gate runs at the PR, which is also the next chance for the
+      remaining flake to speak.
+
 ### DEPLOY: fix/1913-gate-only-suite-failures
 
-**Score:**
+Two suites that go red under the 16-lane test gate and green standalone are repaired, and the second
+one is made capable of saying why -- closes #1913. `closeout-lib.tests.ps1` was the proven half:
+`Write-CloseOutReceipt` returns silently when `DKJ_CLOSEOUT_SUPPRESS` is set, it reads that from the
+environment on purpose so the conductor's declaration crosses a process boundary, and `ship-pr.ps1`
+sets it before spawning `open-pr` -- whose gate spawns every suite as an inheriting child. So the suite
+was green standalone and under a bare `open-pr`, and red under `ship-pr`, dying on `$lines[0]` before
+one assert about the receipt had run. The mechanism is correct; what was missing is that the suite
+never owned the variable its subject keys on. It now clears it, asserts the guard, and hands the
+inherited value back.
+
+`new-branch.tests.ps1` is the half that is not yet explained, and the branch says so rather than
+guessing. What it repairs is the reason nobody could explain it: 49 exit-code asserts went through
+`Assert-Equal`, which reports two numbers and discards the result object -- so a red lane said
+`expected: '0' / got: '1'` about a CHILD PROCESS whose stdout and stderr were already captured two
+lines away. `Assert-ExitCode` prints them. Separately, the one unjudged call that reproduces that exact
+signature is now judged: the script's first statement resolved the repo root with
+`(git rev-parse --show-toplevel).Trim()`, and a git that answers nothing there dies on a null
+dereference -- exit 1, nothing created, no cause named. The other 36 scripts carrying that spelling are
+#1917.
+
+For this repo's maintainers the change is that a red gate stops being a reason to re-run the gate. It
+is noticed the next time one goes red, and invisible otherwise.
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A subscriber running this workflow gets the `new-branch` refusal, which is the half that reaches them
+directly: run from a worktree, from the wrong directory, or from a skill page whose working directory
+is not what they assumed, they used to get a PowerShell null-dereference naming a line number in a
+script they did not write. They now get a sentence naming git's exit code, what git said, that nothing
+was created, and the two ways to fix it. Nothing to migrate; it arrives with the next plugin update.
+**Score:** 2
 
 #### Pull Request
 
