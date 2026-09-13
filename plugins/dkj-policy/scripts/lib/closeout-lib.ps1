@@ -186,3 +186,53 @@ function Pop-CloseOutSuppression {
     param()
     [Environment]::SetEnvironmentVariable($script:CloseOutSuppressVar, $null)
 }
+
+function Suspend-CloseOutSuppression {
+    <#
+    .SYNOPSIS
+        Step a NESTED RUN out of the chain's suppression, reporting what it was so it can be put back.
+
+    .DESCRIPTION
+        THE PAIR ABOVE IS NOT THIS PAIR, and that is why this one exists (issue #1910). Push/Pop are a
+        conductor declaring itself: unconditional in both directions, because a conductor knows it is
+        the top of its chain. This pair is for a run that is UNDER a conductor and has to spawn
+        children that are not part of the chain at all -- a gate running the test suites is the
+        measured case. It has to leave the suppression exactly as it found it, which Pop cannot do:
+        Pop clears, so a run that used it would un-mute the conductor's own remaining children.
+
+        WHY A NESTED RUN NEEDS THIS AT ALL. The suppression travels in the ENVIRONMENT precisely so
+        that every descendant inherits it without anyone forwarding a switch -- see the note above
+        $script:CloseOutSuppressVar. That is exactly right for the descendants #1884 was about, which
+        are chain-ending scripts, and exactly wrong for descendants that are not: they inherit a flag
+        about a chain they are not in. Measured September 13, 2026 -- ship-pr suppressed around its
+        open-pr child, open-pr's test gate spawned scripts\tests\*.tests.ps1, and closeout-lib's own
+        suite read the inherited flag, got nothing back from Write-CloseOutReceipt, and crashed on
+        `$lines[0]`. The gate that failed was only ever the local one: a CI runner has no conductor
+        above it, so the suites there stayed green and the two gates disagreed.
+
+        RETURNS A BOOL rather than writing a saved value into script scope: the caller holds it across
+        its own try/finally, so two nested suspensions cannot overwrite one another's saved state.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+    $wasActive = -not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($script:CloseOutSuppressVar))
+    [Environment]::SetEnvironmentVariable($script:CloseOutSuppressVar, $null)
+    return $wasActive
+}
+
+function Restore-CloseOutSuppression {
+    <#
+    .SYNOPSIS
+        Put back what Suspend-CloseOutSuppression found, so the conductor's own chain is unaffected.
+
+    .PARAMETER WasActive
+        The value Suspend-CloseOutSuppression returned. Mandatory and not defaulted: a restore that
+        guessed would silently pick one of the two failures this pair exists to avoid -- a chain that
+        prints three receipts, or one that prints none.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][bool]$WasActive)
+    if ($WasActive) { [Environment]::SetEnvironmentVariable($script:CloseOutSuppressVar, '1') }
+    else            { [Environment]::SetEnvironmentVariable($script:CloseOutSuppressVar, $null) }
+}
