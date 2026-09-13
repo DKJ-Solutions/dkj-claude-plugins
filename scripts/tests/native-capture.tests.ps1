@@ -216,20 +216,55 @@ try {
     # A TIMED-OUT CAPTURE CAN CARRY THE CHILD'S OWN WORDS, AND THAT IS THE CONTRACT (#1852). The bound
     # firing says nothing about whether the capture is empty: this arm kills the tree and then reads
     # out.txt regardless, so everything the child had already flushed comes back in Output WITH
-    # TimedOut = $true. Pinned deterministically here by a child that PRINTS BEFORE IT SLEEPS -- no kill
-    # race involved -- because the property is what the field exists for and a caller that judges a
-    # bounded call from Output's content alone is reading a document the child never finished.
+    # TimedOut = $true. Pinned here by a child that PRINTS BEFORE IT SLEEPS, because the property is
+    # what the field exists for and a caller that judges a bounded call from Output's content alone is
+    # reading a document the child never finished.
     #
     # IT IS PINNED RATHER THAN REPAIRED, deliberately. Discarding the flushed tail here would take the
     # evidence away from the callers that print it, which is exactly #1252's judgement at the read one
     # function down: for a stalled git push that tail IS the diagnosis. The half that was missing was
     # never in this lib -- it was a caller reading neither field. connector-sessioncheck.ps1 was that
     # caller, and CI is where it surfaced (run 34596638888): a killed version check reported as clean.
+    # THE BOUND IS CALIBRATED, BECAUSE A FIXED 2s WAS RACING A QUANTITY NOTHING BOUNDS (#1939). The
+    # assert above needs only that the bound EXPIRE, which any bound under the child's sleep delivers.
+    # This one additionally needs the child to have REACHED Write-Host first -- so its bound has to
+    # cover powershell.exe bring-up, and that is a property of the machine at this moment rather than
+    # of this code. Measured September 13, 2026: green standalone, red inside the parallel gate at 16
+    # lanes, same tree and same machine minutes apart. "No kill race involved" is what the comment
+    # above used to claim, and it was true only on an idle machine.
+    #
+    # THE REPORT'S OWN FIGURE IS NOT THE QUANTITY THAT HAS TO FIT, which is worth stating because it
+    # changes the size of the repair. #1939 read 0.5s standalone against 3.25s at 16 lanes, both out
+    # of the Stop-NativeProcessTree calibration further down -- but that block times TWO cold startups
+    # (the outer script, then the grandchild it Start-Processes), so the per-startup halves behind
+    # those figures are roughly 0.25s and 1.6s. 1.6s against a 2s bound is thin margin that loses on a
+    # bad sample rather than every time, which is exactly the shape a flake has; budgeting the
+    # two-startup number here would have over-sized this bound by about 2x.
+    #
+    # SO IT IS MEASURED THE WAY THE GRANDCHILD BOUNDS BELOW ALREADY ARE, against ONE cold startup to
+    # first output -- the quantity this case actually spends. The probe is the same child shape with
+    # nothing to stall for, so what it times is bring-up plus Write-Host plus exit plus the capture's
+    # own read: slightly MORE than the bound has to cover, which errs the safe way. It costs about a
+    # quarter-second on an idle machine.
+    #
+    # FLOORED AT THE OLD 2s so an idle run pays exactly what it always paid, and CAPPED at 20s so a
+    # pathological reading cannot hang the gate behind this one suite. The child's sleep is derived
+    # from the bound rather than fixed at 30, so the first assert's property -- this is a timeout and
+    # not a fast exit -- holds however wide the calibration goes.
+    $flushWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $flushCal = Invoke-NativeCapture -FilePath 'powershell' `
+        -Arguments @('-NoProfile', '-Command', "Write-Host 'STARTUP-CALIBRATION'") -TimeoutSeconds 120
+    $flushWatch.Stop()
+    $flushCalSeconds = [Math]::Round($flushWatch.Elapsed.TotalSeconds, 2)
+    Assert-True ((@($flushCal.Output) -join ' ') -like '*STARTUP-CALIBRATION*') "the calibration child really ran and spoke (${flushCalSeconds}s) -- without this the bound below would be derived from a failure"
+    $flushBound = [int][Math]::Min(20, [Math]::Max(2, [Math]::Ceiling($flushWatch.Elapsed.TotalSeconds * 4)))
+    Write-Host "  cold powershell startup to first output measured at ${flushCalSeconds}s on this machine right now -- flush bound ${flushBound}s" -ForegroundColor DarkGray
+
     $flushed = Invoke-NativeCapture -FilePath 'powershell' `
-        -Arguments @('-NoProfile', '-Command', "Write-Host 'FLUSHED-BEFORE-THE-KILL'; Start-Sleep -Seconds 30") -TimeoutSeconds 2
+        -Arguments @('-NoProfile', '-Command', "Write-Host 'FLUSHED-BEFORE-THE-KILL'; Start-Sleep -Seconds $($flushBound + 30)") -TimeoutSeconds $flushBound
     Assert-True $flushed.TimedOut 'the bound still fires on a child that spoke first, so this is a timeout and not a fast exit'
     Assert-Equal 124 $flushed.ExitCode 'and it is reported as one'
-    Assert-True ((@($flushed.Output) -join ' ') -like '*FLUSHED-BEFORE-THE-KILL*') 'yet Output carries what the child managed to say -- so Output is NOT evidence that the call completed, and TimedOut is the only field that answers that'
+    Assert-True ((@($flushed.Output) -join ' ') -like '*FLUSHED-BEFORE-THE-KILL*') "yet Output carries what the child managed to say -- so Output is NOT evidence that the call completed, and TimedOut is the only field that answers that. Calibrated at ${flushCalSeconds}s and bounded at ${flushBound}s: a miss here is the MACHINE, not this code (#1939)"
 
     # A BOUND THAT DOES NOT EXPIRE CHANGES NOTHING. This is the assert that keeps the bound from
     # becoming a second failure mode of its own: the exit code still comes back exactly, which is the
