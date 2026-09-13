@@ -206,13 +206,12 @@ if ($Branch -eq $trunk) {
 }
 
 # --- Exempt prefixes -------------------------------------------------------------------------------
-$exempt = if (Test-FunctionDefined 'Get-EntryGateExemptPrefixes') {
-    @(Get-EntryGateExemptPrefixes)
-} else { @('sync') }
-
-$prefix = if ($Branch -match '/') { ($Branch -split '/')[0] } else { ($Branch -split '-')[0] }
-if ($exempt -contains $prefix) {
-    Write-Host "[OK] '$Branch' carries the exempt prefix '$prefix', which owes no entry."
+# THE RULE LIVES IN entry-scaffold-lib SINCE #1962, not here. It used to be this script's own -- the
+# seam, the default and the prefix split, inline -- and open-pr.ps1 knew nothing about it, so this gate
+# passed a sync/ branch that open-pr then could not name a PR for. One definition, two readers.
+$exemptPrefix = Get-BranchEntryExemptPrefix -Branch $Branch
+if ($exemptPrefix) {
+    Write-Host "[OK] '$Branch' carries the exempt prefix '$exemptPrefix', which owes no entry."
     exit 0
 }
 

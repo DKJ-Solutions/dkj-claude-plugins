@@ -233,10 +233,15 @@ $script:ContractRecords = @(
        ViaLib = 'entry-scaffold-lib';
        Optional = $true; Default = "the five built-in bands, 5 = 'the reader must act' down to 1 = 'cosmetic, or names the failure it prevents'";
        Returns = "a map from significance level to the TEST for that level, e.g. @{ 5 = 'the reader must act -- a breaking change or a required migration' }. Override the bands a repo has to word differently: 'the reader must act' means something else to a marketplace than to a storefront, and a repo whose consumers are not developers needs its own wording. A level left out keeps its built-in text, so one band can be retuned without restating five. The rubric is what makes the number a measurement rather than a mood, and both gates print it when they refuse" },
-    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-EntryGateExemptPrefixes'; Scripts = @('check-branch-entry');
+    # TWO READERS SINCE #1962, and the second one is the repair rather than a note. check-branch-entry
+    # exempted a sync/ branch while open-pr, which composes the PR title from the entry alone, could not
+    # name a PR for that same branch -- two scripts disagreeing about whether a branch owes an entry. Both
+    # now call Get-BranchEntryExemptPrefix, which is why ViaLib names entry-scaffold-lib.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-EntryGateExemptPrefixes'; Scripts = @('check-branch-entry', 'open-pr');
        Adopt = 'copy'; AdoptWhy = "'sync' is the shared answer rather than a fact about a repo, and both existing consumers reached it independently with nothing recording that it was the expected one. The source runs no mirror branches, so it does not declare the function at all and the blueprint carries no text for it -- which is itself the honest report";
+       ViaLib = 'entry-scaffold-lib';
        Optional = $true; Default = 'sync';
-       Returns = "the branch prefixes that owe no changelog entry, as a list of prefixes without their slash. A mirror or sync branch carries somebody else's work rather than this repo's, so there is nothing for it to declare -- which is why the CI gate exempts it instead of refusing it. Everything else owes an entry: an unknown prefix is NOT exempt, deliberately, because a typo in a prefix would then skip the gate silently" },
+       Returns = "the branch prefixes that owe no changelog entry, as a list of prefixes without their slash. A mirror or sync branch carries somebody else's work rather than this repo's, so there is nothing for it to declare -- which is why the CI gate exempts it instead of refusing it. open-pr reads the same answer to NAME such a branch's PR: with no entry to compose a title from it falls back to the branch's own oldest commit subject, and honours -Title there and nowhere else (#1962). Everything else owes an entry: an unknown prefix is NOT exempt, deliberately, because a typo in a prefix would then skip the gate silently" },
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-EntryFallbackType'; Scripts = @('new-branch');
        Adopt = 'copy'; AdoptWhy = "'Chore' has to be a type this repo's own branch table produces, and that table travels under the same marker -- so the pair stays consistent, which it would not if one half were copied and the other decided";
        Optional = $true; Default = 'Chore';

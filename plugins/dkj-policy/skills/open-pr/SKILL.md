@@ -45,9 +45,33 @@ update rather than by choosing to; a removed parameter would turn all of those i
 "A parameter cannot be found" at the end of a finished branch. An **override** was the alternative and was
 declined: an override is a second source of the title, which is the thing this change removes.
 
+**One branch shape has no entry to derive from, and since
+[#1962](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1962) it is named from its own commit
+subject instead.** A branch whose prefix is listed in `Get-EntryGateExemptPrefixes` — `sync` by default —
+**owes no changelog entry**, and [`check-branch-entry`](../check-branch-entry/SKILL.md) passes it for
+exactly that reason. Deriving the title from the entry therefore left this script unable to name the one
+branch shape the CI gate deliberately waves through: measured in a consumer on `sync/live-2026-09-13`, the
+lint gate ran, all 27 suites passed, the branch was pushed, and only `gh pr create` never happened. Both
+scripts now call the one function, `Get-BranchEntryExemptPrefix`.
+
+On such a branch the title is, in order: **`-Title` if you passed one**, otherwise **the oldest commit
+subject off the trunk** — the branch's own opening statement, which a mirror script already writes
+descriptively (`sync: mirror in-flight third-party edits from live (47 file(s))`). `-Title` is honoured
+**here and nowhere else**, and that is not a rollback of #506: what that change removed was a *second*
+source of the title, and an exempt branch has no entry to be a second source **of**.
+
+**Do not write an entry to satisfy the title.** The prefix is exempt precisely so that work this repo is
+mirroring rather than authoring stays out of `CHANGELOG.md`; an entry would fold somebody else's edits in
+as this repo's own. Where such a branch genuinely has nothing to be named after — no commit of its own off
+the trunk — the refusal says so in those terms and asks for a commit or a `-Title`.
+
 **A PR is never created nameless.** If the entry's title section is empty, the script stops and says so —
 the emptiness gate normally catches that earlier, but `-Force` can wave that gate through, and an empty
 title would otherwise reach `gh` as a complaint about a flag rather than about the entry.
+
+That refusal has **two wordings**, because they are two situations: an entry-bearing branch is sent back
+to its title section, and an entry-exempt one is asked for a commit or a `-Title` — telling its author to
+fill in a title section would be telling them to write the entry their prefix exists to excuse.
 
 The script:
 

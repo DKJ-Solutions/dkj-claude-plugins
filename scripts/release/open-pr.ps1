@@ -24,6 +24,12 @@
     lose its type prefix, which the last five PRs before this change all had (#499-#503). Get-PrTitle
     composes it; -Title is still accepted and ignored, see that parameter.
 
+    ONE BRANCH SHAPE HAS NO ENTRY TO DERIVE FROM, and since #1962 it is named from its own commit subject
+    instead. A prefix listed in Get-EntryGateExemptPrefixes ('sync' by default) owes no changelog entry --
+    check-branch-entry.ps1 passes it for exactly that reason -- so deriving from the entry left this script
+    unable to name the one branch shape the CI gate deliberately waves through. On such a branch -Title is
+    honoured too, which is not a second source of truth because there is no first one.
+
     Title and body are LEFT ALONE by default when a PR already exists. The body may have been edited on
     github.com since it was opened, and silently overwriting a reviewer's or the author's edits with a
     freshly generated template is a worse failure than a stale title: the title is visible on the PR, an
@@ -196,9 +202,9 @@
     scripts/tests/pr-issues.tests.ps1.
 
 .PARAMETER Title
-    ACCEPTED AND IGNORED since #506 (August 7, 2026). The PR title is composed from the branch prefix and
-    the entry's 'Branch title' section; passing one here warns and changes nothing. Retitle an open PR with
-    `gh pr edit`, and change a future one by editing the entry.
+    ACCEPTED AND IGNORED since #506 (August 7, 2026), EXCEPT on an entry-exempt branch (#1962). The PR
+    title is composed from the branch prefix and the entry's 'Branch title' section; passing one here warns
+    and changes nothing. Retitle an open PR with `gh pr edit`, and change a future one by editing the entry.
 
     NOT REMOVED, on the standing reason: every branch in flight -- here and in every consumer -- calls this
     script with -Title right now, and consumers receive the new script through a plugin update rather than
@@ -206,6 +212,12 @@
     stop at the end of a finished branch. Accepting it costs one warning; refusing it costs somebody's
     afternoon. An OVERRIDE was the alternative and Dave declined it in the issue: an override is a second
     source of the title, which is the whole thing this change removes.
+
+    THE ONE EXCEPTION IS THE ONE CASE THAT DECLINE DOES NOT COVER. A branch whose prefix is entry-exempt
+    -- 'sync' by default, Get-EntryGateExemptPrefixes -- has no entry by design, so -Title is not a second
+    source of the title: there is no first one. Without it such a branch could not be named at all, and the
+    only remaining route was an ungated `gh pr create`. Ordered behind the branch's own commit subject, so
+    a caller that passes nothing still gets a PR named after the work.
 
 .PARAMETER Body
     (Optional) PR description. Default: the filled-in .github/pull_request_template.md.
@@ -468,8 +480,14 @@ $branchFiles = Get-BranchFilePaths
 # that was created before the rename -- exactly the mid-flight cut-over the paragraph above describes,
 # one rename further on.
 $entryPath = Join-Path $repoRoot (Resolve-BranchFilePath -Kind Deployment -RepoRoot $repoRoot)
+# THE FALLBACK IS TAKEN ONLY WHERE THE LEGACY FILE ACTUALLY EXISTS (issue #1962). It used to be
+# unconditional, so a branch with NO entry in either place ended up holding the retired root path -- and
+# the refusal at the foot of this script then pointed the author at '<repo>/<branch>.md', a location no
+# branch created since August 19, 2026 has ever used. Naming a path that exists nowhere is worse than
+# naming the one that is merely missing: the second is actionable, the first sends the reader hunting.
 if (-not (Test-Path -LiteralPath $entryPath)) {
-    $entryPath = Join-Path $repoRoot ($info.SafeName + '.md')
+    $legacyPath = Join-Path $repoRoot ($info.SafeName + '.md')
+    if (Test-Path -LiteralPath $legacyPath) { $entryPath = $legacyPath }
 } elseif (-not (Test-BranchChangelogIsFilled -Text ([System.IO.File]::ReadAllText($entryPath, [System.Text.Encoding]::UTF8)))) {
     # Present but still in its reset state: this branch never ran the scaffolder, so if a root entry
     # exists it is the real one. The reset file is not an entry and must not be read as an empty one.
@@ -482,6 +500,8 @@ if (-not (Test-Path -LiteralPath $entryPath)) {
 # The same single read now also supplies the PR TITLE (#506) -- one file read, one set of facts.
 $entryDescription = ''
 $prTitle = ''
+# Set by the entry-exempt block below, read by the -Title notice and the nameless-PR refusal (#1962).
+$prTitleFromExemptBranch = $false
 if (Test-Path -LiteralPath $entryPath) {
     # THE ENTRY IS A SECTION OF THE BRANCH DOCUMENT, so the head is dropped here, once, at the read --
     # Get-DevelopmentEntryText. Every reader below is entry-shaped and would otherwise be handed the
@@ -536,6 +556,50 @@ if (Test-Path -LiteralPath $entryPath) {
     # An UNKNOWN prefix is passed as '' -- see Get-PrTitle -- so the title carries a type only where the
     # branch table backs one.
     $prTitle = Get-PrTitle -Prefix $(if ($info.IsKnown) { $info.Prefix } else { '' }) -TitleWords $titleWords
+}
+
+# --- The entry-exempt branch: its title comes from its own commit (issue #1962) --------------------
+#
+# THE TWO SCRIPTS USED TO DISAGREE. check-branch-entry.ps1 exempts a mirror or sync branch from owing an
+# entry -- '[OK] carries the exempt prefix, which owes no entry' -- while everything above composes the
+# PR title from the entry and nothing else (#506). So the one branch shape the CI gate deliberately
+# waves through was the one shape this script could not name a PR for. Measured in a consumer on
+# sync/live-2026-09-13: the lint gate ran, all 27 suites passed, the branch was pushed, and only
+# `gh pr create` never happened. There was no way out from the caller's side either -- -Title was
+# accepted and ignored, and writing an entry to satisfy the title would fold somebody else's mirrored
+# edits into CHANGELOG.md as this repo's own work.
+#
+# ASKED ONLY WHERE THERE IS NOTHING TO ASK THE ENTRY, so an exempt branch that DOES carry a written
+# entry keeps the composed title -- the entry is still the better source, and a repo may well run a
+# sync/ branch that declares its own change. This block is the fallback, not an override.
+#
+# THE OLDEST SUBJECT OFF THE TRUNK, which is the branch's opening statement. --no-merges drops a merge
+# commit's bookkeeping subject, --reverse puts the oldest first, and the trunk is subtracted so a fresh
+# branch does not name itself after the trunk's last commit. A git that cannot answer leaves the words
+# empty and the refusal below carries the reason, which is the same tolerance every other read here has.
+if (-not $prTitle -and (Get-BranchEntryExemptPrefix -Branch $branch)) {
+    $trunkName = if (Test-FunctionDefined 'Get-TrunkBranchName') {
+        $t = ([string](Get-TrunkBranchName)).Trim(); if ($t) { $t } else { 'main' }
+    } else { 'main' }
+
+    $subjects = @()
+    foreach ($base in @("origin/$trunkName", $trunkName)) {
+        $log = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--no-merges',
+                                                                '--reverse', '--format=%s', "$base..$branch") -DiscardStderr -Utf8
+        if ($log.ExitCode -eq 0) {
+            $subjects = @(@($log.Output | Out-String) -split "\r?\n" | Where-Object { $_ -and $_.Trim() })
+            break
+        }
+    }
+
+    # -Title IS HONOURED HERE, AND ONLY HERE. #506 removed a SECOND source of truth -- a title typed at
+    # the PR that could contradict the one CHANGELOG.md and the release documents carry. An exempt branch
+    # has no entry to be a second source OF, so there is nothing here for it to contradict.
+    $titleWords = Get-ExemptBranchTitleWords -Title $Title -CommitSubjects $subjects
+    if ($titleWords) {
+        $prTitle = Get-PrTitle -Prefix $(if ($info.IsKnown) { $info.Prefix } else { '' }) -TitleWords $titleWords
+        $prTitleFromExemptBranch = $true
+    }
 }
 
 # --- Does this branch already have an open PR? ----------------------------------------------------
@@ -598,13 +662,16 @@ if (-not $existingPr) {
     }
 }
 
-# -Title IS ACCEPTED AND IGNORED (#506). Said out loud rather than silently dropped: a caller who passed a
-# title has an expectation about what the PR will be called, and the one thing worse than not honouring it
-# is not honouring it quietly. HERE and not at the parameter, because the answer needs the entry AND the
-# existing-PR lookup: on a resumed branch the title was never going to be touched by any route.
+# -Title IS ACCEPTED AND IGNORED (#506), EXCEPT ON AN ENTRY-EXEMPT BRANCH (#1962). Said out loud rather
+# than silently dropped: a caller who passed a title has an expectation about what the PR will be called,
+# and the one thing worse than not honouring it is not honouring it quietly. HERE and not at the
+# parameter, because the answer needs the entry AND the existing-PR lookup: on a resumed branch the title
+# was never going to be touched by any route.
 if ($Title) {
     if ($existingPr) {
         Write-Warning "-Title is ignored since #506, and this branch already has a PR, which keeps its own title either way. Retitle with 'gh pr edit'."
+    } elseif ($prTitleFromExemptBranch) {
+        Write-Host "-Title honoured: this branch's prefix owes no changelog entry, so there is no entry title for it to contradict (#1962). This PR will be called '$prTitle'." -ForegroundColor DarkGray
     } else {
         Write-Warning "-Title is ignored since #506 - the PR title comes from the entry's title section. This PR will be called '$prTitle'; edit that section (or 'gh pr edit' afterwards) if that is wrong."
     }
@@ -1879,11 +1946,21 @@ if ($existingPr) {
 # that legitimately quotes the scaffold wording, and an empty title would then reach `gh pr create --title ''`
 # and be refused by gh with a message about a flag rather than about the entry. Checked HERE, on the create
 # path only: a resumed PR keeps its own title and has already exited above.
+#
+# TWO REFUSALS, BECAUSE THEY ARE TWO DIFFERENT SITUATIONS (#1962). Telling the author of an entry-exempt
+# branch to fill in a title section is telling them to write the entry their prefix exists to excuse --
+# which folds somebody else's mirrored work into CHANGELOG.md as this repo's own. That branch is nameless
+# only when it has no commit of its own to be named after, so the remedy is a commit or -Title, not an entry.
 if (-not $prTitle) {
-    Write-Error ("open-pr cannot name this PR -- the entry's title section is empty ($entryPath).`n`nThe PR title is composed from the branch prefix and that section (#506), so fill it in and run again. It is what CHANGELOG.md and the release documents will call this change too.")
+    $exemptPrefix = Get-BranchEntryExemptPrefix -Branch $branch
+    if ($exemptPrefix) {
+        Write-Error ("open-pr cannot name this PR -- '$branch' carries the exempt prefix '$exemptPrefix', so it owes no changelog entry, and it has no commit of its own off the trunk to be named after (#1962).`n`nCommit this branch's work and run again, or pass -Title, which IS honoured on an entry-exempt branch. Do not write an entry to satisfy the title: the prefix is exempt precisely so that work this repo is mirroring rather than authoring stays out of CHANGELOG.md.")
+    } else {
+        Write-Error ("open-pr cannot name this PR -- the entry's title section is empty ($entryPath).`n`nThe PR title is composed from the branch prefix and that section (#506), so fill it in and run again. It is what CHANGELOG.md and the release documents will call this change too.")
+    }
     exit 1
 }
-Write-Host "PR title (from the entry): $prTitle" -ForegroundColor DarkGray
+Write-Host "PR title ($(if ($prTitleFromExemptBranch) { 'from this branch, which owes no entry' } else { 'from the entry' })): $prTitle" -ForegroundColor DarkGray
 
 if (-not $Body) {
     $templatePath = Join-Path $repoRoot ".github\pull_request_template.md"
