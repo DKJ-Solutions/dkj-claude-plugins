@@ -136,6 +136,56 @@ function Get-EntryScaffoldWording {
     return [pscustomobject]$out
 }
 
+function Get-BranchEntryExemptPrefix {
+    <#
+        The branch prefix that exempts this branch from owing a changelog entry, or '' when it owes one.
+
+        ONE DEFINITION, READ BY TWO SCRIPTS, AND IT USED TO BE ONE (issue #1962, September 13, 2026).
+        check-branch-entry.ps1 owned the whole rule -- the seam, the default, and the prefix split -- and
+        open-pr.ps1 knew nothing about it. So the CI gate said '[OK] carries the exempt prefix, which owes
+        no entry' about the very branch open-pr then refused to name a PR for, because open-pr composes
+        the title from the entry alone. Measured in a consumer on a sync/ branch: the lint gate ran, all
+        27 suites passed, the branch was pushed, and only `gh pr create` never happened. Two scripts
+        disagreeing about whether a branch owes an entry is exactly the shape one definition prevents.
+
+        THE PREFIX IS ASKED OF Get-BranchPrefix WHERE THAT IS LOADED, and split here otherwise. The two
+        rules are the same one -- the part before the first '/', or before the first '-' where there is no
+        slash -- and branch-info.ps1 is a repo-OWNED seam lib, so a shared library cannot require it. The
+        fallback is what the CI gate did inline before this function existed, unchanged.
+
+        THE SEAM IS Get-EntryGateExemptPrefixes in the consumer's scripts/repo-config.ps1, probed like
+        every other optional knob; absent, the default is 'sync'. A mirror or sync branch carries somebody
+        else's work rather than this repo's, so there is nothing for it to declare.
+
+        AN UNKNOWN PREFIX IS NOT EXEMPT, deliberately, and that is why this returns the MATCHED prefix
+        rather than a boolean: the caller that reports the exemption names the prefix it matched, so a
+        typo cannot read as a rule. A branch with no prefix at all yields '' and owes an entry.
+
+        Comparison is case-insensitive, which is what PowerShell's -contains already does; 'Sync/x' is the
+        same mistake as 'sync/x' spelled with the shift key held.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Branch)
+
+    if ([string]::IsNullOrWhiteSpace($Branch)) { return '' }
+
+    $prefix = if (Test-FunctionDefined 'Get-BranchPrefix') {
+        Get-BranchPrefix -Branch $Branch
+    } elseif ($Branch -match '/') {
+        ($Branch -split '/')[0]
+    } else {
+        ($Branch -split '-')[0]
+    }
+    if ([string]::IsNullOrWhiteSpace($prefix)) { return '' }
+
+    $exempt = if (Test-FunctionDefined 'Get-EntryGateExemptPrefixes') {
+        @(Get-EntryGateExemptPrefixes)
+    } else {
+        @('sync')
+    }
+    if ($exempt -contains $prefix) { return $prefix }
+    return ''
+}
+
 function Get-FencedLineFlags {
     <#
         Returns a bool per input line: is that line inside a fenced code block? The fence MARKER itself is

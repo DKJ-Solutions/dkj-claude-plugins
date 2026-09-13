@@ -373,6 +373,50 @@ function Get-PrTitle {
     return ($Prefix.Trim() + ': ' + $words)
 }
 
+function Get-ExemptBranchTitleWords {
+    <#
+    .SYNOPSIS
+        The title words for a branch that owes no entry: an explicit title, else its own commit subject.
+
+    .DESCRIPTION
+        WHY AN EXEMPT BRANCH NEEDS ITS OWN SOURCE (issue #1962, September 13, 2026). Since #506 the PR
+        title is composed from the entry and nothing else, which is right for every branch that HAS one.
+        A branch whose prefix is entry-exempt has none by design -- Get-BranchEntryExemptPrefix says so,
+        and the CI gate passes it for exactly that reason -- so composing from the entry leaves open-pr
+        with an empty title and no way to be given one. Measured in a consumer: a sync/ branch got through
+        the lint gate, all 27 suites and the push, and could not open its PR.
+
+        THE COMMIT SUBJECT IS THE THING THAT EXISTS. A mirror branch's work arrived as a commit, and the
+        script that made it wrote a descriptive subject ('sync: mirror in-flight third-party edits from
+        live (47 file(s))'). That is the branch's own statement of what it carries, so the PR is named
+        from it rather than from a placeholder or the branch slug.
+
+        THE OLDEST SUBJECT WINS, which is why the caller passes them oldest-first. The opening commit is
+        what the branch was cut for; anything after it is a follow-up, and a park commit -- empty by
+        design -- would name the PR after the bookkeeping instead of the work.
+
+        -Title IS HONOURED HERE AND NOWHERE ELSE, and that bound is the whole of #506 kept intact. What
+        that change removed was a SECOND source of truth: a title typed at the PR that could contradict
+        the one CHANGELOG.md and the release documents carry. An exempt branch has no entry to be a second
+        source OF, so there is nothing here to contradict -- and a caller wrapping this script (a
+        consumer's sync-main does) may well know a better name than the commit subject.
+
+        PURE, and it composes nothing: the type prefix, the first-non-empty-line rule and the whitespace
+        collapse all stay in Get-PrTitle, which the caller applies to this answer. Returns '' when there
+        is neither a title nor a usable subject, which the caller reports as its own refusal.
+    #>
+    param(
+        [AllowEmptyString()][string]$Title = '',
+        [AllowEmptyCollection()][string[]]$CommitSubjects = @()
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Title)) { return $Title.Trim() }
+    foreach ($subject in @($CommitSubjects)) {
+        if (-not [string]::IsNullOrWhiteSpace($subject)) { return ([string]$subject).Trim() }
+    }
+    return ''
+}
+
 function Get-PrTitlePrefixFinding {
     <#
     .SYNOPSIS

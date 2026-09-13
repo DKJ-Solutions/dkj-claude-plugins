@@ -113,6 +113,28 @@ $emptyOverride = Get-EntryScaffoldWording
 Assert-Equal '**To do / where I left off:**' $emptyOverride.BodyHeading 'empty override: ignored, the default stands (a blank marker would match everything)'
 Remove-Item Function:\Get-EntryBodyHeading
 
+# --- Get-BranchEntryExemptPrefix: one definition of "owes no entry" (#1962) ------------------------
+Write-Host "Get-BranchEntryExemptPrefix (the exemption, shared by the CI gate and open-pr)" -ForegroundColor Cyan
+# THE RULE LIVED IN check-branch-entry.ps1 ALONE, and open-pr.ps1 -- which composes a PR title from the
+# entry and nothing else -- knew nothing about it. So the CI gate passed a sync/ branch that open-pr
+# could not then name a PR for. These asserts are on the shared function both now call; the gate's own
+# end-to-end cases in branch-entry-gate.tests.ps1 are what prove the move changed no behaviour.
+Assert-Equal 'sync' (Get-BranchEntryExemptPrefix -Branch 'sync/live-2026-09-13') 'the default exemption is sync, and the MATCHED prefix comes back rather than a bare $true'
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'fix/1962-a-real-branch')  'an ordinary branch owes an entry'
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'syncc/typo')              'a prefix that merely LOOKS exempt is not -- a typo must not skip the gate silently'
+Assert-True ((Get-BranchEntryExemptPrefix -Branch 'Sync/Live') -ceq 'Sync') 'the comparison is case-insensitive -- and what comes back is the branch''s own spelling, so the gate quotes what the author actually typed'
+Assert-Equal 'sync' (Get-BranchEntryExemptPrefix -Branch 'sync-live-2026-09-13')    'without a slash the part before the first hyphen applies, which is Get-BranchPrefix''s rule'
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch '')                        'an empty branch name owes an entry rather than throwing'
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch '   ')                     'and so does a whitespace one'
+
+# The seam REPLACES the default rather than adding to it -- a repo that names its own list has said what
+# its list is, and silently keeping sync would be a rule it never wrote.
+function Get-EntryGateExemptPrefixes { return @('mirror', 'vendor') }
+Assert-Equal 'mirror' (Get-BranchEntryExemptPrefix -Branch 'mirror/upstream')     'the seam answer is honoured'
+Assert-Equal 'vendor' (Get-BranchEntryExemptPrefix -Branch 'vendor/bump-deps')    'every prefix in the seam list counts'
+Assert-Equal ''       (Get-BranchEntryExemptPrefix -Branch 'sync/live-2026-09-13') 'and it REPLACES the default -- sync is no longer exempt here'
+Remove-Item Function:\Get-EntryGateExemptPrefixes
+
 # --- 2. Get-EntryScaffoldFindings: the pure matcher -----------------------------------------------
 Write-Host "Get-EntryScaffoldFindings (the matcher)" -ForegroundColor Cyan
 $midDot = [char]0x00B7

@@ -175,7 +175,7 @@
                         "adoptWhy":  "\u0027sync\u0027 is the shared answer rather than a fact about a repo, and both existing consumers reached it independently with nothing recording that it was the expected one. The source runs no mirror branches, so it does not declare the function at all and the blueprint carries no text for it -- which is itself the honest report",
                         "optional":  true,
                         "default":  "sync",
-                        "returns":  "the branch prefixes that owe no changelog entry, as a list of prefixes without their slash. A mirror or sync branch carries somebody else\u0027s work rather than this repo\u0027s, so there is nothing for it to declare -- which is why the CI gate exempts it instead of refusing it. Everything else owes an entry: an unknown prefix is NOT exempt, deliberately, because a typo in a prefix would then skip the gate silently",
+                        "returns":  "the branch prefixes that owe no changelog entry, as a list of prefixes without their slash. A mirror or sync branch carries somebody else\u0027s work rather than this repo\u0027s, so there is nothing for it to declare -- which is why the CI gate exempts it instead of refusing it. open-pr reads the same answer to NAME such a branch\u0027s PR: with no entry to compose a title from it falls back to the branch\u0027s own oldest commit subject, and honours -Title there and nowhere else (#1962). Everything else owes an entry: an unknown prefix is NOT exempt, deliberately, because a typo in a prefix would then skip the gate silently",
                         "declared":  false,
                         "text":  ""
                     },

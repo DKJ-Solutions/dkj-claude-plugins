@@ -837,6 +837,47 @@ if (Test-Path -LiteralPath $refOnDisk) {
         'and its contents are what Get-PrTemplateReference says they are'
 }
 
+# --- Get-ExemptBranchTitleWords: the branch that owes no entry still needs a name (#1962) ----------
+# The entry-exempt branch was the one shape open-pr could not name a PR for: the title came from the
+# entry and nothing else (#506), and such a branch has no entry by design. These asserts pin the
+# precedence, because getting it backwards would let -Title override an entry-bearing branch's title,
+# which is exactly what #506 removed.
+Write-Host ""
+Write-Host "Get-ExemptBranchTitleWords -- an explicit title, else the branch's own commit subject" -ForegroundColor Cyan
+
+Assert-Equal 'mirror the live theme' `
+    (Get-ExemptBranchTitleWords -CommitSubjects @('mirror the live theme')) `
+    'a single commit subject is the title words'
+Assert-Equal 'sync: mirror in-flight third-party edits from live (47 file(s))' `
+    (Get-ExemptBranchTitleWords -CommitSubjects @('sync: mirror in-flight third-party edits from live (47 file(s))', 'fix a typo in the mirror')) `
+    'the OLDEST subject wins -- the caller passes them oldest-first, and the opening commit is what the branch was cut for'
+Assert-Equal 'the real work' `
+    (Get-ExemptBranchTitleWords -CommitSubjects @('   ', '', 'the real work')) `
+    'blank subjects are skipped rather than winning as an empty title'
+Assert-Equal 'told, not guessed' `
+    (Get-ExemptBranchTitleWords -Title 'told, not guessed' -CommitSubjects @('mirror the live theme')) `
+    '-Title beats the commit subject, which is the whole reason it is honoured here'
+Assert-Equal 'trimmed' `
+    (Get-ExemptBranchTitleWords -Title '   trimmed   ') `
+    'an explicit title is trimmed'
+Assert-Equal 'the commit' `
+    (Get-ExemptBranchTitleWords -Title '   ' -CommitSubjects @('the commit')) `
+    'a whitespace-only -Title is no title at all and falls through to the subject'
+Assert-Equal '' (Get-ExemptBranchTitleWords) `
+    'nothing to name it after yields the empty string, which the caller refuses on rather than shipping'
+Assert-Equal '' (Get-ExemptBranchTitleWords -CommitSubjects @()) `
+    'an empty commit list is the same answer -- a branch with no commit of its own off the trunk'
+
+# COMPOSED, NOT COMPOSING. This function returns WORDS; Get-PrTitle still owns the type prefix and the
+# first-line rule. A sync/ prefix is not in the branch table, so open-pr passes '' and the subject
+# travels through unchanged -- including its own 'sync:' opener, which is not a doubling because no
+# type was put in front of it.
+Assert-Equal 'sync: mirror in-flight third-party edits from live' `
+    (Get-PrTitle -Prefix '' -TitleWords (Get-ExemptBranchTitleWords -CommitSubjects @('sync: mirror in-flight third-party edits from live'))) `
+    'an unknown prefix leaves the commit subject as the whole title'
+Assert-Equal '' `
+    (Get-PrTitlePrefixFinding -Prefix '' -TitleWords (Get-ExemptBranchTitleWords -CommitSubjects @('sync: mirror in-flight third-party edits from live'))) `
+    'and the title gate cannot fire on it either, since there is no branch type for it to double'
 
 # --- The local DEPLOY default and the real matcher must not drift apart ---------------------------
 # Get-PrDescription reads the DEPLOY heading through Get-DevelopmentEntryPattern when the scaffold

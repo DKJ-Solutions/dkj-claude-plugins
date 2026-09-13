@@ -456,6 +456,45 @@ Assert-True ($workflow -match '#1710') `
 # types/branches both at 4.
 Assert-True ($workflow -match "(?m)^on:\r?\n  pull_request:\r?\n    types: \[opened, synchronize, reopened, edited\]\r?\n    branches: \[main\]") `
     'the trigger block is nested on/pull_request/types/branches at columns 0/2/4/4'
+
+# --- open-pr READS THE SAME EXEMPTION, AND NAMES SUCH A BRANCH ANYWAY (#1962) ---------------------
+# The gate above and open-pr.ps1 used to disagree: this gate waved a sync/ branch through as owing no
+# entry, and open-pr -- which composes the PR title from the entry and nothing else -- then refused to
+# name its PR, after running the lint gate, every suite, and the push. There was no way out from the
+# caller's side either: -Title was accepted and ignored.
+#
+# ASSERTED ON THE SOURCE TEXT, which is this repo's convention for proving a wiring that the suite
+# cannot drive end to end -- open-pr pushes and calls gh, so the create path is not reachable from a
+# fixture. The behaviour of each half is under test elsewhere: Get-BranchEntryExemptPrefix in
+# entry-scaffold.tests.ps1, Get-ExemptBranchTitleWords in pr-body.tests.ps1, and the exemption itself
+# in the end-to-end cases above. What is left is that open-pr actually calls them, which is precisely
+# the half that was missing.
+Write-Host ''
+Write-Host 'open-pr reads the same exemption'
+$openPrSrc = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\open-pr.ps1'), [System.Text.Encoding]::UTF8)
+
+Assert-True ($openPrSrc -match 'Get-BranchEntryExemptPrefix -Branch \$branch') `
+    'open-pr asks the SHARED exemption rather than carrying a second copy of the rule'
+Assert-True ($openPrSrc -match 'Get-ExemptBranchTitleWords -Title \$Title -CommitSubjects') `
+    'and names such a branch from -Title or its own commit subject'
+Assert-True ($openPrSrc -match "'--no-merges',[\s\S]{0,120}'--reverse', '--format=%s'") `
+    'the subject is the OLDEST real commit off the trunk -- reversed, and merge bookkeeping dropped'
+Assert-True ($openPrSrc -match 'so it owes no changelog entry, and it has no commit of its own') `
+    'the nameless-PR refusal has its own wording for an exempt branch, instead of demanding an entry it must not write'
+Assert-True ($openPrSrc -match "prTitleFromExemptBranch") `
+    'and the run says which source the title came from, so the two cases are told apart in the output'
+Assert-True ($openPrSrc -match '\$prTitle -and -not \$existingPr -and \(Get-BranchEntryExemptPrefix') `
+    'and only where a PR still has to be named -- a resumed branch keeps its own title, so no git call is spent on one nothing reads'
+Assert-True ($openPrSrc -match '\$trunkName = Get-BranchTrunkName') `
+    'the trunk comes from the shared helper rather than a fourth copy of the seam probe'
+Assert-True ($openPrSrc -match 'if \(Get-PrTitlePrefixFinding -Prefix \$exemptPrefix -TitleWords \$titleWords\) \{ \$exemptPrefix = '''' \}') `
+    'a commit subject already carrying the branch type is not doubled -- stripped here, because an exempt branch has no entry for the strip to falsify'
+
+# THE ONE THING THAT MUST NOT HAVE WIDENED. #506 removed a second source of truth for the title; this
+# change reopens -Title for exempt branches ONLY, where there is no entry for it to contradict. The
+# ignored-elsewhere warning has to survive, or the bound is gone and nothing says so.
+Assert-True ($openPrSrc -match "-Title is ignored since #506 - the PR title comes from the entry's title section") `
+    '-Title is still ignored on an entry-bearing branch: the exception is bounded, not a rollback of #506'
 Write-Host ''
 if ($script:fail -gt 0) {
     Write-Host "FAILED: $($script:fail) of $($script:pass + $script:fail) asserts." -ForegroundColor Red

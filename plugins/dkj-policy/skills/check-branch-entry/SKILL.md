@@ -88,3 +88,12 @@ lines are blank carries no number, so its reach *is* tier 0, which is a complete
 **An unknown prefix is not exempt**, deliberately: a typo in a prefix would otherwise skip the gate in
 silence. And the seam **replaces** the default rather than adding to it, so a repo that names its own list
 keeps `sync` only by including it.
+
+**`open-pr` reads the same answer, and since
+[#1962](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1962) that is one function rather than
+two copies.** It has to: this gate waves an exempt branch through as owing no entry, while `open-pr`
+composes a PR title from the entry and nothing else -- so the one branch shape this gate deliberately
+passes was the one shape `open-pr` could not name a PR for. On an exempt branch it now names the PR from
+`-Title`, or from that branch's own oldest commit subject. Both scripts call
+`Get-BranchEntryExemptPrefix` in `entry-scaffold-lib.ps1`, so they cannot drift apart about which branches
+owe an entry.
