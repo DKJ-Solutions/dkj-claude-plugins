@@ -211,11 +211,52 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # names are case-insensitive, so $RepoRoot (the param) and $repoRoot are the same variable, which is
 # why it can be passed straight back in as the override. Same shape as fold-changelog-entry.ps1,
 # deliberately, so the two read alike.
-# JUDGED (#1917): Resolve-RepoRootOrFail carries the same three-source precedence, so the
-# `if (-not $repoRoot)` guard that used to wrap this is gone -- passing the param as -Override IS
-# that guard, and the old inline fallback died on $null.Trim() before anything could be reported.
-. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
-$repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1'
+#
+# JUDGED THROUGH THE SHARED SEAM (#1917), AND THIS LINE HAS NOW BEEN REPAIRED TWICE. #1913 judged it
+# INLINE here, in this one file, because this is the file that reported the symptom; #1917 then found
+# the same unjudged form on 37 call sites and moved the judgement into check-report-lib, beside the
+# dual-context resolution that already existed there. Resolve-RepoRootOrFail carries the same
+# three-source precedence, so the `if (-not $repoRoot)` guard that used to wrap this is gone --
+# passing the param as -Override IS that guard.
+#
+# WHAT #1913 MEASURED IS WHY THIS MATTERS IN A PLACE NOBODY RUNS BY HAND, and it is kept here rather
+# than lost to the merge: a suite exercises this script as a child process dozens of times, sixteen
+# lanes at a time under the test gate, and a git that fails to start once under that load lands
+# exactly here. That was #1913 -- red under the gate, green standalone, exit 1, no document -- and the
+# reason the report could name no cause is that the old line had none to give. Judging it does not
+# make git more reliable; it makes the one-in-many failure say which of the two it was.
+# THE DOT-SOURCE IS GUARDED HERE AND UNCONDITIONAL EVERYWHERE ELSE (#1913 + #1917), and the asymmetry
+# is deliberate rather than untidy. #1913's inline refusal fired BEFORE a single lib was loaded, which
+# is a real property: this is the first statement of the script, and a refusal that itself needs a file
+# to be present cannot report a tree where that file is missing. Folding the wording into the shared
+# seam would have dropped it silently, so it is kept -- for THIS file, which is the one #1913 measured
+# and the one whose suite pins it.
+#
+# The fallback is deliberately NOT a second copy of the seam's judgement: it says the same three things
+# in the fewest lines that can be checked, and anything richer belongs in the seam where all 37 callers
+# get it.
+$crLib = Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1'
+if (Test-Path -LiteralPath $crLib -PathType Leaf) {
+    . $crLib
+    $repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1' `
+        -Consequence 'Nothing was created: no branch, no document, nothing on origin.'
+} elseif (-not $repoRoot) {
+    $prevEapRoot = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $topLevel = & git rev-parse --show-toplevel 2>&1
+        $topLevelCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prevEapRoot }
+    $repoRoot = if ($topLevelCode -eq 0) { "$(@($topLevel) | Select-Object -First 1)".Trim() } else { '' }
+    if (-not $repoRoot) {
+        Write-Host "new-branch cannot run -- it could not work out which repository it is in." -ForegroundColor Red
+        Write-Host "  git rev-parse --show-toplevel exited $topLevelCode here and named no repository root." -ForegroundColor Red
+        Write-Host "  It said: $((@($topLevel) -join ' ').Trim())" -ForegroundColor Red
+        Write-Host "  Nothing was created: no branch, no document, nothing on origin. Run this from inside" -ForegroundColor Red
+        Write-Host "  the checkout, or set CLAUDE_PROJECT_DIR to its root, and run again." -ForegroundColor Red
+        exit 1
+    }
+}
 
 # Pre-flight (#86): this script relies ONLY on scripts\lib\branch-info.ps1 in the consumer's repo
 # root (no gh, and repo-config is optional below). If that is missing -- typically on a clean
@@ -554,6 +595,32 @@ if ($branchExists -and $remoteRef.ExitCode -eq 0) {
     $remoteAheadNote = Get-RemoteAheadNote -RepoRoot $repoRoot -LocalRef "refs/heads/$Name" -RemoteRef "refs/remotes/origin/$Name" -BranchLabel $Name -FreshLabel "origin/$Name" -StaleLabel $staleRemoteLabel -Fresh $gap.Fresh
     if ($remoteAheadNote) {
         Write-Warning "$remoteAheadNote Another session or another device has pushed work to this branch that this checkout does not have -- read it before you build on top of it."
+    }
+    elseif ($gap.Measured -and -not $gap.Fresh) {
+        # A COUNT TAKEN AGAINST A REF NOBODY REFRESHED IS NOT AN ANSWER (issue #1915). Get-RemoteAheadNote
+        # returns '' both for "origin has nothing you do not have" and for "the ref I counted against is
+        # whatever the last fetch left" -- and this caller printed the second as the first, which is
+        # silence. That is the same degradation #1676 repaired one line down for the tip read, arriving
+        # through the count instead: the guard reports the shape of a clean branch on the one run where it
+        # could not look.
+        #
+        # AND THE WINDOW IS WIDER THAN A SINGLE FAILED FETCH. Get-TrunkGap is called with
+        # -RecentFailureSeconds here (#1860), so ONE transient failure suppresses the retry for the next 90
+        # seconds -- which is exactly the interval a session's claim, cut and resume live in. A checkout
+        # that fetched badly once then resumes a branch another session has pushed to, and is told nothing.
+        #
+        # THE TRUNK'S OWN NOTE DOES NOT COVER THIS, which is why a second sentence is worth its noise.
+        # `Base: ... the refs compared here may be behind origin/<trunk>` is printed above on a SKIP only,
+        # and it speaks about the trunk -- a reader has no way to know the branch-divergence probe, whose
+        # whole job is #1439's duplicate-work hazard, went blind on the same reading.
+        #
+        # GATED ON .Measured, so it cannot land where the question was never asked at all: a repo with no
+        # refs/remotes/origin/<trunk> never fetches, and the dim 'Base not compared' line above already
+        # says so. What is left is precisely the run that DID fetch and did not come back fresh.
+        $pasteName = Get-PasteableRef -Ref $Name
+        Write-Warning "'$(Get-DisplayRef -Ref $Name)' was compared against the refs/remotes/origin/$Name this repo last fetched -- this run's fetch did not refresh it. Nothing found here is what this run could not see, not what is on the branch: a push another session made since that fetch is invisible from this checkout."
+        Write-Host "  Fetch it yourself and re-read before you build on this branch: git fetch origin $($pasteName.Token)" -ForegroundColor Yellow
+        if ($pasteName.Note) { Write-Host "  $($pasteName.Note)" -ForegroundColor Yellow }
     }
 }
 

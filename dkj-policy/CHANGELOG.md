@@ -43,7 +43,162 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 10 minor entries** <!-- pending-tally -->
+**12 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1912-noresolves-persists-in-body · 20260913-103500
+
+`open-pr.ps1 -NoResolves` now WRITES ITS ANSWER DOWN, as `<!-- resolves: none -->` in the PR body, and
+the resolves gate reads it back the same way it already reads a published `Closes #<n>` -- closes #1912.
+The gate folds an open PR's body into what it judges precisely so a resumed branch is not asked to repeat
+a decision GitHub already holds; that recognition was keyed on a closing keyword, which `-NoResolves` by
+definition never writes, so of the two answers the gate's own refusal text calls honest, one was durable
+and the other lasted only as long as the process. Measured on
+`feat/1843-portable-repo-settings-runner`: `open-pr -NoResolves` opened PR #1909, and `ship-pr` -- whose
+step 1 re-runs `open-pr` -- refused the same branch minutes later for a question that had been answered.
+
+A later `-Resolves` on the same branch strips the marker rather than leaving a body that both closes an
+issue and states it closes none, and the marker is re-appended after a `-RefreshBody` for the reason
+#919 gives for the closing block one step up. Recognition ignores code spans and fences, because a
+document explaining the marker necessarily writes the marker and this entry does.
+
+For this repo's maintainers it removes a refusal that cost seconds and taught the wrong reflex: the
+obvious way past it is to pass the flag again, which is how a session learns to pass `-Resolves`
+reflexively -- the exact failure this gate exists to prevent. It lands hardest where it matters most, on
+a PR delivering one step of a multi-step issue, which is the shape #1843 had and which has already been
+closed by accident once.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber running this workflow meets it as one fewer refusal in the two-command flow the skill pages
+prescribe -- `open-pr`, then `ship-pr` -- which is the flow a consumer follows most. Nothing to migrate
+and nothing to undo: a branch whose PR predates this simply gets the marker on its next run. They notice
+it the first time they ship a PR that closes nothing, and are told on the page rather than by a gate.
+**Score:** 2
+
+#### Pull Request
+
+The -NoResolves decision persists in the PR body
+
+Plugins: dkj-policy
+
+[PR #1923](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1923)
+
+---
+
+### DEPLOY: fix/1915-capped-tip-flaky-in-gate · 20260913-102052
+
+`new-branch`'s branch-divergence warning (#1439) could report the shape of a clean branch on a run where
+it was blind. `Get-RemoteAheadNote` returns an empty note both for *"origin has nothing you do not have"*
+and for *"the ref I counted against is whatever the last fetch left"*, and `new-branch` printed the second
+as the first. Since #1860 the window is not one run but ninety seconds: the script opts into the freshness
+seam's `-RecentFailureSeconds`, so a single transient fetch failure suppresses the next retry -- which is
+the interval a claim, a cut and a resume all live in. A run whose own fetch did not refresh the ref now
+says so and hands over `git fetch origin <branch>`; the ordinary run, where the fetch succeeded, is
+unchanged and silent. The trunk-level `Base: ...` line does not cover this, because it speaks about the
+trunk and is printed on a skip only.
+
+That same blindness is what made `new-branch.tests.ps1`'s capped-tip case flaky in the 16-lane test gate
+(#1915): the case is two `new-branch` runs seconds apart on one fixture, so a fetch that failed in the
+first silently disarmed the probe the second was asserting on. `Invoke-NewBranch` now clears the
+fetch-attempt record before every run -- which removes no coverage, since the seam has its own suite, and
+can mask no regression, since clearing only ever makes the run fetch. Case (y6) also gains the premise
+assert it was missing, so a warning that never fires reports itself instead of reading as a broken cap.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every consumer of `dkj-policy` runs this `new-branch`. The guard whose whole job is to catch another
+session's push to the branch you are resuming could go quiet for ninety seconds after one bad fetch, and
+say nothing about having gone quiet -- the duplicate-work hazard #1439 exists to prevent, arriving through
+the one route that reports nothing.
+
+**Score:** 3
+
+#### Pull Request
+
+A stale remote-tracking ref no longer makes the branch-divergence warning read as silence
+
+Plugins: dkj-policy
+
+[PR #1922](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1922)
+
+---
+
+### DEPLOY: fix/1913-gate-only-suite-failures · 20260913-101309
+
+`new-branch.tests.ps1` can now say WHY it went red, and the one call in `new-branch.ps1` that could
+make it go red in silence is judged -- closes #1913. The suite runs the script as a CHILD PROCESS and
+asserted its exit code through `Assert-Equal`, which reports two numbers and discards the result
+object: a red lane said `expected: '0' / got: '1'` about a child whose stdout and stderr were already
+captured two lines away. That is why #1913 could be filed but not diagnosed, and why the same suite
+going red again on September 13 -- in a DIFFERENT place, which is itself evidence that this is not a
+fixture defect -- reported exactly as little. All 49 exit-code asserts go through `Assert-ExitCode`,
+which prints the child's output whole.
+
+**And the one unjudged call that reproduces that signature exactly is repaired.** The script's first
+statement resolved the repo root with `(git rev-parse --show-toplevel).Trim()`: where git answers
+nothing that is `$null.Trim()` -- exit 1, nothing created, and the only thing printed a PowerShell
+error naming a line in a script the reader did not write. Measured directly by running it outside a
+repository. It now names git's exit code, what git said, and that nothing was created. Whether that
+line was #1913's own cause is **not** claimed here and cannot be from what was measured; what is
+claimed is that it produces that exact signature, and that after this the next occurrence names
+itself either way.
+
+The closeout half of #1913 is fixed and is **#1910's**, not this branch's -- diagnosed here
+independently, landed there first and wider, and taken whole. The 36 other scripts carrying the
+unjudged repo-root spelling are #1917.
+
+For this repo's maintainers the change is that a red gate stops being a reason to re-run the gate.
+Noticed the next time one goes red, invisible otherwise.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber running this workflow meets the `new-branch` refusal directly: run from a worktree, from
+the wrong directory, or from a skill page whose working directory is not what they assumed, they used
+to get a PowerShell null-dereference naming a line number in a script they did not write. They now get
+a sentence naming git's exit code, what git said, that nothing was created, and the two ways through.
+Nothing to migrate; it arrives with the next plugin update.
+**Score:** 2
+
+#### Pull Request
+
+The gate-only suite failure names its cause
+
+Plugins: dkj-policy
+
+[PR #1921](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1921)
+
+---
+
+### DEPLOY: fix/1906-xoxowildhearts-plugin-ids · 20260913-095835
+
+The consumer register recorded five plugin ids the live `xoxowildhearts` repo does not enable. They
+were measured against the repo it replaced, so `check-connectors` would have reported five false
+`[ERROR]`s reading "is NOT (or no longer) enabled" about five plugins that are enabled -- and the
+unlisted-plugin check would have skipped all five as a third-party catalogue, staying silent on
+exactly what it was built to catch. Latent only because no machine currently holds that checkout.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+It is the second field of one fact -- the consumer moved repositories -- and the half that decides
+which way a register follows a consumer that has NOT migrated. Decision A says the register records
+what a consumer has, so this writes the retired marketplace name deliberately, and says in the file
+that it may flip back.
+
+**Score:** 2
+
+#### Pull Request
+
+connectors/xoxowildhearts.json records the plugin ids the live consumer actually enables
+
+[PR #1919](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1919)
+
+---
 
 ### DEPLOY: fix/1910-closeout-suppression-leaks-into-gate · 20260913-094658
 

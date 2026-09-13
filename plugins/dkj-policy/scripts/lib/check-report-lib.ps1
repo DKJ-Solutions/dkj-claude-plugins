@@ -528,7 +528,14 @@ function Resolve-RepoRootOrFail {
         [string]$Override = '',
         [string]$ScriptName = '',
         [string]$From = '',
-        [string]$OverrideName = '-RepoRoot'
+        [string]$OverrideName = '-RepoRoot',
+        # WHAT THE REFUSAL COST THE CALLER, in the caller's own words -- "Nothing was created: no branch,
+        # no document, nothing on origin." This is #1913's requirement, kept when that repair's inline
+        # refusal was folded into this seam: a reader who is about to re-run needs to know whether the
+        # failed run left anything behind. The lib cannot know -- a read-only script created nothing by
+        # definition, new-branch created nothing only because it refused this early -- so the caller says
+        # it. Empty prints nothing rather than a vague reassurance this function is not entitled to give.
+        [string]$Consequence = ''
     )
 
     $scope = Resolve-CheckRoot -Override $Override -From $From
@@ -559,6 +566,10 @@ function Resolve-RepoRootOrFail {
             Write-Host ''
             Write-Host ("  Run this from inside the checkout, or pass {0}, or set CLAUDE_PROJECT_DIR." -f $OverrideName) -ForegroundColor Green
         }
+    }
+    if ($Consequence) {
+        Write-Host ''
+        Write-Host "  $Consequence" -ForegroundColor Yellow
     }
     Write-Host ''
     exit 1
