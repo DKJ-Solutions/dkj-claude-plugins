@@ -43,7 +43,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**22 / 27 minor entries** <!-- pending-tally -->
+**22 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1934-fixture-load-failure-named · 20260913-143729
+
+A fixture whose acting script dies during **load** now says so, names the lib it could not load, and
+prints what the child actually said. Before this, what the suite reported was the absence of the
+document the script never got far enough to write -- `Kan een gedeelte van het pad ... niet vinden`
+-- naming the absent lib, the dot-source and load failure not at all. Measured on the #1917 branch,
+six suites failed exactly that way; re-measured here, `fold-changelog` alone turns 155 unexplained red
+asserts into 53 headlines that each name `check-report-lib.ps1`.
+
+Neither repair #1934 proposed was built, and the measurement is why: the diagnosis was already in the
+child's output and already captured by five of the six suites. They never read it. So this adds a
+reader -- `fixture-script-lib.ps1`, the runtime sibling of `fixture-git-lib.ps1` -- rather than a
+probe over the hand-listed copy list that #1693 and #1924 both exist because nobody maintains. The
+sixth suite, which really did discard its output, now captures it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing here ships to a consumer: `scripts/tests/` is not mirrored into any plugin, so this lib has no
+mirror and no release to travel on. It is maintenance-repo tooling, and the reader it serves is
+whoever next meets a red suite in this tree.
+
+**Score:** N/A
+
+#### Pull Request
+
+A fixture script that dies on lib load now says so, instead of reporting a missing document
+
+[PR #1950](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1950)
+
+---
 
 ### DEPLOY: fix/1945-reconciled-conflict-no-durable-form · 20260913-141747
 
