@@ -257,7 +257,11 @@ try {
     # THE FOLD CHECKOUT TAKES THE TRUNK TIP, NOT THE EVENT SHA (#1543). On a push event actions/checkout
     # defaults to github.sha; a fold ship-pr already pushed on top of the merge then reads as unfolded
     # and the trunk-gap guard refuses -- a false red on every ship-pr merge.
-    Assert-True ($fold -match '(?ms)uses:\s*actions/checkout@v5\s*\n\s*with:\s*\n\s*ref:\s*main\s*\n\s*token:\s*\$\{\{\s*secrets\.FOLD_PUSH_TOKEN') `
+    # The checkout ref is matched as a SHA rather than as @v5 (issue #1904): this line is pinned now, and
+    # an assert naming the old tag would fail for the right change. WHAT the pin must be is asserted in
+    # pin-parity.tests.ps1 -- against this repo's own fold runner -- so this one only reads the ORDERING
+    # it was written for, and stays out of the business of choosing a SHA.
+    Assert-True ($fold -match '(?ms)uses:\s*actions/checkout@[0-9a-f]{40}[^\r\n]*\n\s*with:\s*\n\s*ref:\s*main\s*\n\s*token:\s*\$\{\{\s*secrets\.FOLD_PUSH_TOKEN') `
         'the fold runner first checkout pins ref to the trunk, ahead of the token line'
     # The resolves runner keeps the event SHA -- it resolves THIS push''s PRs and has no trunk-gap guard.
     Assert-True ($verify -like '*PUSH_SHA: ${{ github.sha }}*') 'the resolves runner still reads the event SHA -- it resolves the PRs that push carried'

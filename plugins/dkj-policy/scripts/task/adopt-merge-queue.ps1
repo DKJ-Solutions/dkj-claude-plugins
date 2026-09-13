@@ -172,6 +172,28 @@ $sharedRef  = 'main'
 $sharedPath = '.workflow-scripts'
 $pluginDir  = "$sharedPath/plugins/dkj-policy/scripts"
 
+# ACTIONS/CHECKOUT IS PINNED BY SHA IN THE TWO WRITE-CAPABLE RUNNERS BELOW (issue #1904).
+# This repo's own .github/workflows/fold-on-merge.yml and verify-resolved.yml have carried this pin
+# since they were written, and the comment on the first of them states the reason: a mutable tag on
+# that line could otherwise retag its way into exfiltrating a 366-day standing write token instead of
+# an hour-lived one. The generator was handing every ADOPTING CONSUMER the same two jobs behind a
+# floating tag -- the repo that wrote the warning protected, the repos that took its advice not.
+#
+# BOTH checkout steps in each of those jobs are pinned, not only the one holding the credential. The
+# first checks out with persist-credentials on, so the token sits in the workspace git config for every
+# later step of the same job; verify-resolved's job likewise holds issues: write for its whole length.
+# An action is pinned because of the JOB it runs in, not because of the line it sits on.
+#
+# A READ-ONLY runner scaffolded here is deliberately NOT pinned -- it holds contents: read and no
+# secret, and this repo's own copy of such a workflow is unpinned for that same reason.
+#
+# HOW THIS PIN GETS REFRESHED, which is the half a generated pin does not get for free. It is ONE
+# variable rather than four literals, and pin-parity.tests.ps1 asserts it still equals the SHA in this
+# repo's own fold-on-merge.yml. So the pin has a single refresh point and a gate that fails the moment
+# a hand-maintained workflow here is bumped and the scaffolder is not -- a consumer's floor cannot
+# quietly fall behind the floor this repo runs on itself.
+$checkoutPin = 'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5'
+
 # --- What the trunk's own rules say -----------------------------------------------------------------
 # READ, NEVER WRITTEN, and read once: both questions below (is there a queue, and which contexts are
 # required) come off the same payload, which is the same economy ship-pr's step 0b makes.
@@ -394,13 +416,13 @@ $foldRunner = @(
     '      # ref: the trunk tip, not the pushed SHA -- see the header comment (inbound #1543). This job',
     '      # asks whether the trunk carries a leftover NOW, and a fold ship-pr already pushed on top of',
     '      # the merge commit must not read as still-unfolded here.',
-    '      - uses: actions/checkout@v5',
+    ('      - uses: ' + $checkoutPin),
     '        with:',
     ('          ref: ' + $trunk),
     '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
     '',
     '      - name: Fetch the shared workflow scripts',
-    '        uses: actions/checkout@v5',
+    ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
     ('          ref: ' + $sharedRef),
@@ -534,12 +556,12 @@ $resolvesRunner = @(
     '    steps:',
     '      # persist-credentials: false -- this job reads and calls the API, and never pushes. Nothing',
     '      # here needs a git credential left in the workspace.',
-    '      - uses: actions/checkout@v5',
+    ('      - uses: ' + $checkoutPin),
     '        with:',
     '          persist-credentials: false',
     '',
     '      - name: Fetch the shared workflow scripts',
-    '        uses: actions/checkout@v5',
+    ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
     ('          ref: ' + $sharedRef),
