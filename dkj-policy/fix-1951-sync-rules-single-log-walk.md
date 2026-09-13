@@ -98,8 +98,18 @@ and narrower is the wrong direction to be wrong in here.
       first -- the blob is at the merge and at neither parent -- because otherwise it could pass for the
       wrong reason on some git version. Both parents' content is still found and content nobody committed
       is still foreign: the emission widened, the judgement did not.
-- [x] **Negative proof, which the old case could not give**: with `-m` removed this suite fails
-      `2 of 171`, naming the blob and the verdict that moved. Restored: 172 pass.
+- [x] **Negative proof, which the old case could not give**: with `-m` removed this suite reports
+      `FAILED: 2 of 172 asserts` -- the case still runs in full and two of its asserts invert, naming the
+      blob and the verdict that moved (`keep-trunk` becomes `conflict`). Restored: 172 pass.
+- [x] **The review chain ran on the diff.** Victor found no correctness bug and verified the `-m`
+      sufficiency argument against shapes this branch had only reasoned about -- an octopus merge (three
+      ordinary-format lines, each carrying the right destination) and a "took ours" merge (only the
+      differing parent's line is printed, still with the right destination) -- plus that a rename pair
+      from a global `diff.renames=true` cannot leak in, because the single-path pathspec suppresses it.
+      He also named the caveat now written into the docstring and the DEPLOY text: the quoted range is
+      against the old **worst** case, and the old loop's early return makes a first-commit match ~15 ms
+      against this walk's ~70 ms. Edith found the duplicated `ARRAY PLUS SPLATTING` comment block (one
+      copy dropped) and an off-by-one assert count (`2 of 171` -> `2 of 172`), both repaired.
 - [x] Check 35 `[fixture-git]` refused the new fixture's conflicting merge on its first run, correctly --
       the exit code is now read on the next statement, which both clears the check and proves the merge
       really conflicted. A merge that succeeded would leave a parent's blob in the tree and the case would
@@ -117,6 +127,11 @@ Measured over 12 real paths here: identical blob sets, **6.5x to 99x faster**. `
 goes 10,306 ms to 107 ms over 558 commits; `CLAUDE.md` 6,584 ms to 77 ms over 358. The win lands exactly
 where it matters, because the walk runs to the end only when nothing matches -- the foreign case this
 rule exists for.
+
+That range is against the old **worst** case, which is the honest way to read it: the old loop could
+return early on a match and this one cannot, so a path whose first commit matches goes ~15 ms to ~70 ms.
+On the single-digit history a theme repo actually has, the two measure equal at ~14-15 ms -- so the
+intended domain pays nothing, and everything longer is where the range lives.
 
 `-m` is what makes the swap safe rather than merely fast, and it was the whole of the design problem: a
 plain `--raw` prints nothing for a merge commit, silently dropping every blob whose only home is a merge

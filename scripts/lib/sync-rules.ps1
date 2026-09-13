@@ -586,13 +586,6 @@ function Test-LiveContentIsOurs {
     $rawId      = Get-GitRawBlobId -Bytes $LiveBytes
     $strippedId = Get-GitRawBlobId -Bytes (Get-CrStrippedBytes -Bytes $LiveBytes)
 
-    # ARRAY PLUS SPLATTING FOR THE '--', the pitfall this file's header names, and here it was not
-    # theoretical. Written inline as 'log --format=%H $Ref -- $Path' the '--' never reaches git, so git
-    # reads the path as a revision. For a path still in HEAD it disambiguates and the bug is invisible;
-    # for a path the trunk has DELETED it errors to stderr, Invoke-SyncGitQuiet swallows it, and the
-    # function sees no history and answers "foreign" -- restoring live's copy over a deliberate deletion.
-    # Measured in the consumer: 23 deleted locale files about to be resurrected. The 'A' case is the one
-    # that needs the '--', and the 'A' case is where getting it wrong undoes a deliberate deletion.
     # ONE PROCESS FOR THE WHOLE WALK (issue #1951). '--raw' prints, for every commit the walk lists, the
     # blob id the path ENDED UP AT there -- which is exactly what this loop used to ask git for one
     # commit at a time, at one 'rev-parse' SUBPROCESS each. On Windows that spawn was the dominant cost
@@ -605,6 +598,16 @@ function Test-LiveContentIsOurs {
     # 77ms over 358. The win is largest exactly where it matters, because the walk runs to the END only
     # when nothing matches -- the foreign case this cell exists for, and the arm that overwrites the
     # trunk.
+    #
+    # AND THAT RANGE IS AGAINST THE OLD WORST CASE, WHICH IS THE HONEST WAY TO READ IT. The old loop
+    # could RETURN EARLY on a match; this one cannot, because there is no cmdlet pipeline to stream
+    # through -- git runs to completion and its output is captured before the first line is looked at.
+    # So the comparison inverts at the other end: one 'git rev-parse' on a path whose FIRST commit
+    # matches was ~15ms, where this is ~70ms. Measured on a 5-commit fixture -- the single-digit history
+    # a theme repo actually has -- the two come out equal at ~14-15ms, so the intended domain pays
+    # nothing for the change, and everything longer than that is where the range above lives. Caught in
+    # review; stated here because a speedup quoted only against the worst case reads as a speedup
+    # everywhere.
     #
     # '-m' IS LOAD-BEARING AND IS THE WHOLE DESIGN PROBLEM #1951 NAMED. A plain '--raw' prints NOTHING
     # for a merge commit, and '--full-history' deliberately includes merges -- so the naive swap silently
