@@ -92,7 +92,10 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # resolves in the plugin mirror as well as here.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'fix-mojibake.ps1'
 
 if (-not $Path -or @($Path).Count -eq 0) {
     # The repo-owned set (issue #413). repo-config.ps1 is OPTIONAL here, exactly as it is for

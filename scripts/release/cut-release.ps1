@@ -257,7 +257,10 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # runs the plugin mirror, CLAUDE_PROJECT_DIR supplies its repo root; in the workshop root (or outside
 # a session) it falls back to the git root. This is what lets the root copy and the mirror stay
 # byte-identical, which the shared-scripts drift lint enforces.
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'cut-release.ps1'
 Set-Location $repoRoot
 
 # Pre-flight, before the dot-sources below turn a missing file into a raw path-not-found (#86, the
@@ -297,7 +300,9 @@ if ($absent.Count -gt 0) {
 # the same reason as the two above: a dependency a printed instruction rests on is visible at the script
 # that rests on it. The predicate is deliberately the shared one -- "one reader per call site, tightened
 # in none of them" is the sentence #294 was filed about.
-. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+# NO DOT-SOURCE HERE ANY MORE (#1917): check-report-lib is now loaded at the repo-root resolution at the
+# top of this script, which needs Resolve-RepoRootOrFail before anything else runs. This note stays
+# because the REASON this script depends on the lib is still this one, and it is not the reason above.
 
 # THE CLOSE-OUT RECEIPT SHAPE (issue #1884) -- see closeout-lib.ps1
 # for why step 6 of the ritual got a mechanism after losing four times in prose. Guarded on

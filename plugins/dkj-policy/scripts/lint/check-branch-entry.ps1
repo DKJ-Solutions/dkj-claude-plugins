@@ -116,7 +116,16 @@ if (Test-Path -LiteralPath $checkLib -PathType Leaf) { . $checkLib }
 
 $repoRoot = if (Test-FunctionDefined 'Resolve-CheckRepoRoot') {
     Resolve-CheckRepoRoot -RootOverride $RootOverride
-} elseif ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+} elseif ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else {
+    # JUDGED, AND DELIBERATELY TOLERANT (#1917). This branch is the degraded path -- it runs only where
+    # consumer-check-lib is too old to define Resolve-CheckRepoRoot -- so it must answer what that lib
+    # answers: '' for "could not tell", leaving the verdict to the block below, which is the one place
+    # each of these checks decides what '' means for it. It must NOT refuse here, and it must not die on
+    # $null.Trim() either, which is what it used to do before anything could read the guard.
+    $t = ''
+    try { $t = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1) } catch { $t = '' }
+    if ($t) { ([string]$t).Trim() } else { '' }
+}
 
 # '' MEANS "COULD NOT TELL", AND THIS ONE REFUSES -- which is why the lib returns the fact and not the
 # verdict. A CI gate that cannot find the tree it is gating must not pass, because passing is what the

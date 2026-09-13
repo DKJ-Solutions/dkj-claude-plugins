@@ -791,6 +791,23 @@ try {
         $ok = Resolve-RepoRootOrFail -Override $rrDir
         Assert-Equal (Resolve-Path -LiteralPath $rrDir).Path $ok 'Resolve-RepoRootOrFail: returns the resolved path on success'
         Assert-True ($ok -is [string]) 'Resolve-RepoRootOrFail: returns a plain string, not the scope object'
+
+        # -From ANCHORS the git call, which is what the six converted test suites rely on: they stand
+        # up throwaway repos and change into them, so a cwd-relative answer can name the wrong tree.
+        # Proved by making the cwd a NON-repo and the anchor a real one -- without -From this is the
+        # refusal case, with it the answer is this repo.
+        $anchorCwd = Join-Path $Fixture 'anchor-cwd-not-a-repo'
+        New-Item -ItemType Directory -Path $anchorCwd -Force | Out-Null
+        Push-Location $anchorCwd
+        try {
+            $anchored = Resolve-CheckRoot -From $PSScriptRoot
+            Assert-Equal $RepoRoot $anchored.Path '-From: the anchor answers from the script directory, not the (non-repo) working directory'
+            Assert-Equal 0 $anchored.GitExitCode '-From: the anchored git call succeeded'
+            # The control: same cwd, no anchor, and git declines -- so the anchor is doing the work.
+            $unanchored = Resolve-CheckRoot
+            Assert-True ($null -eq $unanchored.Path) '-From control: without the anchor the same cwd resolves nothing'
+            Assert-Equal 128 $unanchored.GitExitCode '-From control: git really declined there (exit 128)'
+        } finally { Pop-Location }
     } finally {
         if ($null -eq $rrPrevPd) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue }
         else { $env:CLAUDE_PROJECT_DIR = $rrPrevPd }

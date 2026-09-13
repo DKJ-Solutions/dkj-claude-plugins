@@ -208,12 +208,14 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # root. This way the SAME file works in both locations, and the root copy and the plugin mirror
 # stay byte-identical (guarded by the shared-scripts drift lint).
 # -RepoRoot, when supplied, wins over both -- see the param comment above. Note: PowerShell variable
-# names are case-insensitive, so $RepoRoot (the param) and $repoRoot (used below) are the same
-# variable; the guard below only computes the dual-context fallback when it is still empty. Same shape
-# as fold-changelog-entry.ps1, deliberately, so the two read alike.
-if (-not $repoRoot) {
-    $repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
-}
+# names are case-insensitive, so $RepoRoot (the param) and $repoRoot are the same variable, which is
+# why it can be passed straight back in as the override. Same shape as fold-changelog-entry.ps1,
+# deliberately, so the two read alike.
+# JUDGED (#1917): Resolve-RepoRootOrFail carries the same three-source precedence, so the
+# `if (-not $repoRoot)` guard that used to wrap this is gone -- passing the param as -Override IS
+# that guard, and the old inline fallback died on $null.Trim() before anything could be reported.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1'
 
 # Pre-flight (#86): this script relies ONLY on scripts\lib\branch-info.ps1 in the consumer's repo
 # root (no gh, and repo-config is optional below). If that is missing -- typically on a clean

@@ -167,7 +167,9 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # Repo root -- dual context: if a consumer runs the shared plugin mirror, CLAUDE_PROJECT_DIR supplies
 # its repo root; in the source root (or outside a session) it falls back to the git root. This way the
 # SAME file works in both locations, and the root copy and the plugin mirror stay byte-identical.
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'tidy-machine.ps1'
 if (-not $repoRoot) { $repoRoot = (Get-Location).Path }
 
 if ($CheckoutOnly -and $MachineOnly) {

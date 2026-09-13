@@ -335,7 +335,10 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # CLAUDE_PROJECT_DIR; in the workshop root (or outside a session) it falls back to the git root. Same
 # resolution as every other mirrored script, and the reason this file can be byte-identical in both
 # places.
-$repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
+# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$repoRoot = Resolve-RepoRootOrFail -ScriptName 'ship-pr.ps1'
 Set-Location $repoRoot
 
 # Pre-flight (#86): this script hard-requires the consumer's repo-config (unlike new-branch,

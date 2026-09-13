@@ -398,8 +398,19 @@ function Resolve-CheckRoot {
        git push whose progress chatter goes to stderr). It CAN legitimately fail -- outside a git
        work tree -- and then a caller under $ErrorActionPreference = 'Stop' used to die on a raw
        .Trim() against $null. Returning Path = $null instead lets the caller report that as one
-       clean line. #>
-    param([string]$Override = '')
+       clean line.
+
+       -From ANCHORS the git call to a directory instead of the inherited working directory, via
+       `git -C`. It exists for a caller whose answer must not depend on where the process happens to
+       be standing -- a test suite passing $PSScriptRoot, say, in a tree that stands up throwaway git
+       repos mid-run and changes directory into them (#1917). Default '' keeps the cwd behaviour,
+       which is the correct one for the session checks: their whole point is to report the repo the
+       session is in. It changes nothing about precedence -- an override or CLAUDE_PROJECT_DIR still
+       wins, and neither runs git at all. #>
+    param(
+        [string]$Override = '',
+        [string]$From = ''
+    )
 
     if ($Override) {
         $resolved = Resolve-Path -LiteralPath $Override -ErrorAction SilentlyContinue
@@ -432,7 +443,10 @@ function Resolve-CheckRoot {
         $prevEap = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            $raw = @(& git rev-parse --show-toplevel 2>&1)
+            # -C goes BEFORE the subcommand, and only when anchored -- an empty -C is not the same as
+            # no -C at all: git reads it as a path and fails.
+            if ($From) { $raw = @(& git -C $From rev-parse --show-toplevel 2>&1) }
+            else       { $raw = @(& git rev-parse --show-toplevel 2>&1) }
             $gitCode = $LASTEXITCODE
         } finally { $ErrorActionPreference = $prevEap }
         $outLines = @($raw | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
@@ -492,10 +506,11 @@ function Resolve-RepoRootOrFail {
     #>
     param(
         [string]$Override = '',
-        [string]$ScriptName = ''
+        [string]$ScriptName = '',
+        [string]$From = ''
     )
 
-    $scope = Resolve-CheckRoot -Override $Override
+    $scope = Resolve-CheckRoot -Override $Override -From $From
     if ($scope.Path) { return $scope.Path }
 
     $who = $(if ($ScriptName) { $ScriptName } else { 'this script' })
@@ -513,7 +528,11 @@ function Resolve-RepoRootOrFail {
         }
         default {
             Write-Host '  No -RepoRoot was given and CLAUDE_PROJECT_DIR is not set, so the root had to come from'
-            Write-Host ("  'git rev-parse --show-toplevel' in {0} -- and git declined." -f (Get-Location).Path) -ForegroundColor Yellow
+            # The directory git was actually ASKED about -- which is -From when anchored, and only
+            # otherwise the working directory. Naming the cwd on an anchored call would send the
+            # reader to look at the wrong place.
+            $asked = $(if ($From) { $From } else { (Get-Location).Path })
+            Write-Host ("  'git rev-parse --show-toplevel' in {0} -- and git declined." -f $asked) -ForegroundColor Yellow
             Write-Host ("  git exit code: {0}" -f $(if ($null -ne $scope.GitExitCode) { $scope.GitExitCode } else { '(git could not be run at all)' }))
             Write-Host ("  git said:      {0}" -f $(if ($scope.GitError) { $scope.GitError } else { '(nothing on stderr)' }))
             Write-Host ''
