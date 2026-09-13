@@ -277,6 +277,7 @@ staring at four sync PRs needs answered. A refusal there would withhold it.
 | `-KeepMirror` | do not delete the pulled mirror afterwards. A **refused** run keeps it regardless, because the conflict report names files inside it. |
 | `-StopBeforeMerge` | push the sync branch and stop, even where `Get-ShopifySyncMerges` says to merge. The escape valve runs in the **safe direction only**: there is no switch that forces a merge the seam has not asked for. |
 | `-AllowStacking` | run even though a sync branch from a previous run is still standing. Without it such a run is refused before the pull. What it is *for* is the one case where the two branches are genuinely independent -- a path a third party **reverted on live** between the runs is no longer drift, so this run never captures it and that branch holds the only copy. The run then still prints the per-branch verdict, so a second candidate is a decision rather than an accident. See [Why a standing sync branch stops the run](#why-a-standing-sync-branch-stops-the-run). |
+| `-ReconcileBase` | on a run that **refuses for conflicts**, write the reconciliation base for those paths instead of only printing the diff commands: a sync branch carrying live's bytes verbatim and then the trunk's own bytes straight back on top. No file changes, and the run still exits 1 -- nothing was taken from live. See [A conflict you reconcile by hand](#a-conflict-you-reconcile-by-hand) for why one commit cannot do this. Under `-DryRun` it reports the base it would write and writes nothing. |
 | `-ChecksTimeoutMinutes` | how long to wait for CI on the sync PR before giving up and leaving it unmerged. Only used when the seam says to merge. Default: `15`. |
 | `-SkipPull` | **retired.** It meant "run the rule over the working tree", which cannot mean anything now that the pull goes to a mirror and the tree is written only for `take-live` paths. It is still accepted, purely so the refusal can name what replaced it: `-DryRun` or `-MirrorPath`. |
 
@@ -338,10 +339,57 @@ otherwise see it arrive as brand-new foreign content on every single run.
 | `Get-ShopifyLiveThemeId` does not answer with a theme id | run `shopify theme list` and answer it -- see the `adopt-shopify-floor` skill. |
 | no store domain | answer `Get-ShopifyStoreDomain`, or pass `-Store` for this run. |
 | **no reference point: no matching commit and no tag** | this repo has no sync history at all, so no path has an agreement point with live and nothing can tell third-party drift from work the trunk has simply not pushed yet. Tag the current state, or sync by hand this once. **Kept as deliberate conservatism since #1535**, not as a guard against data loss: a path with no agreement point is now *reported* rather than taken, so such a run would conflict on everything foreign instead of overwriting it -- but a first-ever reconciliation is better done by a person than read off a hundred-path conflict list. |
-| **REFUSING TO SYNC: both sides changed these paths** | the one case nothing can decide for you. Nothing was written. Run the `git diff --no-index` line it prints for each path, merge the two by hand, commit that, and run the sync again. |
+| **REFUSING TO SYNC: both sides changed these paths** | the one case nothing can decide for you. Nothing was written. Run the `git diff --no-index` line it prints for each path -- and then read the next section before you commit the merge, because **the obvious single commit settles nothing**. |
 | twenty sync branches already exist for today | something is wrong upstream of this; nothing was written. |
 | **a sync branch from a previous run is still standing** | look at what it holds and merge or close it, then run this again. Nothing was pulled and nothing was written. `-DryRun` answers whether *this* run supersedes it without writing anything; `-AllowStacking` runs anyway where the two are genuinely independent. |
 | this repo publishes plugins | you are in the repo this script is maintained in, not a Shopify consumer. There is no live theme here to mirror. |
+
+## A conflict you reconcile by hand
+
+**The refusal used to end at "merge them deliberately", and that is complete advice about the content
+and silent about the shape.** Merge the two sides, commit once, and the path is not settled -- it is in
+one of two failures, and which one you get is decided by nothing but the commit's subject. Reported from
+a consumer as inbound
+[#1945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1945), measured there on seven
+conflicted paths and reproduced against the rule's own functions:
+
+| the reconciliation commit's subject | what the next run does |
+|---|---|
+| ordinary (`fix:`, `feat:` ...) | **`conflict`, for ever.** The base is where it was, the trunk has moved since it, and every future run reports the same path. Permanently unsyncable. |
+| matching `Get-ShopifySyncReferencePattern` (`sync...`) | **`take-live` -- your reconciliation is deleted.** That commit becomes the path's own agreement point, so nothing has touched the path "since the base" and live wins silently. |
+
+**Why neither works, in one sentence:** the rule asks whether this path has ever held live's *exact*
+bytes, and merged bytes are neither side's -- so a hand-merge carries no provenance, and no commit
+subject can give it any.
+
+**The durable shape is two commits**, and `-ReconcileBase` writes them:
+
+```powershell
+powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1" -ReconcileBase
+```
+
+(The same `${CLAUDE_PLUGIN_ROOT}` caveat as [Run it](#run-it) applies: it resolves only inside a
+plugin-owned component. The refusal itself simply tells you to re-run *that* command with the flag
+added, which is true wherever you started it from.)
+
+1. **live verbatim** -- the only thing that puts live's content into the path's history;
+2. **the trunk's content straight back on top** -- so the branch changes no file at all.
+
+Merge that branch and the path reads `keep-trunk` from then on: *"live holds a version this repo has had
+before; the trunk has moved on since"* -- the same state every ordinary held-back file is in. **Your own
+reconciliation is then ordinary work in an ordinary commit**, in any spelling, because the path's verdict
+no longer depends on what a subject line says. A *new* third-party edit after that is caught as a fresh
+conflict, exactly as it should be.
+
+**Do not squash that branch.** A squash collapses both commits into one holding the trunk's content, so
+live's bytes never enter the history and the conflict comes straight back. It costs the repair and not
+the work -- the tree is identical either way -- and the run says so out loud when
+`Get-PrMergeMethod` answers `squash`.
+
+**And it is a sync branch like any other**, so until it is merged or closed the standing-predecessor
+guard refuses the next run by name. That is deliberate rather than an oversight: a second way for a sync
+branch to be invisible is the direction that loses work, and "merge or close it" is already the right
+instruction here.
 
 ## Why this ships instead of being written per repo
 
