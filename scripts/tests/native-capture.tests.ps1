@@ -92,6 +92,26 @@ try {
     Assert-Equal '"a b\\"'        (ConvertTo-NativeArgumentToken -Value 'a b\')         'a trailing backslash run IS doubled once quoting is forced, so it cannot escape the closing quote'
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'open-pr passes a PR TITLE through the arm that quotes it (issue #1963)' -ForegroundColor Cyan
+
+    # THE REGRESSION THIS GUARDS. $prTitle is free text -- a changelog heading, or since #1962 a bare
+    # commit subject -- and it is the one argument of `gh pr create` a person writes. On the & arm
+    # Windows PowerShell 5.1 mis-delivers three shapes, and a title can carry all of them: measured
+    # against a real argv parser, 'a b\' + 'next' arrives as the single argument [a b" next], so
+    # --body-file, --repo and every label are swallowed into the title. The round-trip block below
+    # proves the -Utf8 arm delivers those same shapes intact; this asserts that the call site USES it.
+    #
+    # A SOURCE ASSERT RATHER THAN A LIVE CALL, deliberately: the alternative is creating a real pull
+    # request. The two facts it needs -- which flag the line carries, and that the title is on that
+    # same line -- are both readable, and this suite already reads other scripts' source this way.
+    $openPr = Join-Path $PSScriptRoot '..\release\open-pr.ps1'
+    Assert-True (Test-Path -LiteralPath $openPr) 'open-pr.ps1 is where this suite expects it'
+    $createLine = @(Get-Content -LiteralPath $openPr | Where-Object { $_ -match "'pr',\s*'create'" })
+    Assert-Equal 1 $createLine.Count               'exactly one `gh pr create` invocation, so the assert below cannot read the wrong one'
+    Assert-True  ($createLine[0] -match '-Utf8')   'that invocation carries -Utf8, so a title with a quote or a trailing backslash cannot swallow --body-file, --repo and the labels'
+    Assert-True  ($createLine[0] -match '\$prTitle') '...and it is still the line that passes the title, so the assert above is about the right call'
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- argument round trip through a real argv parser' -ForegroundColor Cyan
 
     # cmd's echo prints its remainder verbatim, quotes included, so it cannot answer this question.

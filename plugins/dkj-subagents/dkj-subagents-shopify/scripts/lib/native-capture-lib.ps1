@@ -867,6 +867,34 @@ function Invoke-NativeCapture {
                                         -DiscardStderr:$DiscardStderr -TimeoutSeconds $TimeoutSeconds
     }
 
+    # THIS ARM LEAVES ARGV QUOTING TO WINDOWS POWERSHELL 5.1, AND THREE SHAPES DO NOT SURVIVE IT
+    # (issue #1963). Measured against a compiled C# probe printing each argv element with its length:
+    # of 300 random argument sets, 129 arrived at the child wrong on this arm and 0 on the -Utf8 one.
+    #
+    #   - THE EMPTY STRING is dropped entirely, shifting every later argument one place left.
+    #   - A VALUE CONTAINING A QUOTE loses the quote AND swallows the arguments after it -- without
+    #     whitespace the bare quote opens an argv region, with whitespace PowerShell's own quoting
+    #     fails to escape the inner one.
+    #   - WHITESPACE PLUS A TRAILING BACKSLASH escapes the closing quote PowerShell added, so the
+    #     region never ends and the rest of the command line is absorbed. A trailing backslash
+    #     WITHOUT whitespace is passed through unquoted and is fine.
+    #
+    # SO A CALLER PASSING FREE TEXT PASSES -Utf8, which routes to Start-Process and quotes the
+    # arguments itself (ConvertTo-NativeArgumentToken). open-pr's `gh pr create --title` is the call
+    # site that was measured exposed, and it does. The file-based idiom -- git's -F, gh's --body-file
+    # -- is the other way out, and is what park-lib and verify-resolved-issues already use.
+    #
+    # REFUSING THE THREE SHAPES HERE WAS BUILT AND THEN WITHDRAWN, deliberately. It is the repair that
+    # makes the class impossible rather than documented, but this lib is mirrored into the plugins and
+    # runs in consumers' repos, so a throw changes behaviour for every consumer's scripts on their next
+    # plugin update -- a decision larger than the prio-2 defect that surfaced it. It is filed as its own
+    # issue with the measurement above. Two facts from building it are worth keeping here: a guard would
+    # fire on legitimate TEST FIXTURES that use hostile names on purpose (ref-print-lib.tests.ps1
+    # creates a branch whose name carries a quote, to prove git accepts it), and a silent reroute to the
+    # -Utf8 arm is NOT the cheap alternative it looks like -- that arm returns Output as an array of
+    # strings where this one returns pipeline objects, so switching on the CONTENT of an argument would
+    # change a caller's result shape on exactly the days a title happened to contain a quote.
+
     $prevEap = $ErrorActionPreference
     $prevEnv = $null
     try {
