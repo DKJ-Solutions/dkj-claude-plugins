@@ -43,7 +43,47 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 29 minor entries** <!-- pending-tally -->
+**23 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1948-assert-fixture-script-wiring · 20260913-153306
+
+`scripts/lib/fixture-script-lib.ps1` (#1934) is what makes a broken test fixture say so: without it, a
+fixture missing a lib the copied acting script dot-sources **unguarded** kills the child during load, and
+the suite reports the absence of the document the child never got far enough to write -- naming the absent
+lib, the dot-source and load failure not at all. Six suites failed exactly that way on the #1917 branch;
+`fold-changelog` alone turned 155 unexplained red asserts into 53 headlines that each named the missing
+file.
+
+It was wired into six suites in three parts, and **nothing asserted that any of the three was still
+there**. An edit to an invocation helper that dropped a call would restore the whole class silently, with
+every suite still green. Check 41 `[fixture-script]` refuses that: a suite carrying any part must carry
+all three, and the summary's verdict must be *read* rather than printed and dropped -- because a run that
+prints the load-failure block and then exits 0 is the worse of the two failures, wearing the guard's own
+output as proof that it is wired.
+
+The rule #1948 proposed was measured before it was built and not used: 71 findings over 82 invocations,
+which is a proposal to wire 65 more suites rather than a regression guard, and its adjacency rule reports
+all six *wired* suites as findings. That widening is real and is [#1954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1954).
+What shipped instead is self-anchoring, so it needs no list of wired suites -- which is the maintenance
+failure #1693, #1865 and #1924 each ended up removing.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing here ships to a consumer: `scripts/tests/` is mirrored into no plugin, and the check reads only
+that directory. It is maintenance-repo tooling, and the reader it serves is whoever next edits one of the
+seven wired suites.
+
+**Score:** N/A
+
+#### Pull Request
+
+The fixture-script load guard cannot be half-removed from a suite
+
+[PR #1957](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1957)
+
+---
 
 ### DEPLOY: fix/1951-sync-rules-single-log-walk · 20260913-145911
 
