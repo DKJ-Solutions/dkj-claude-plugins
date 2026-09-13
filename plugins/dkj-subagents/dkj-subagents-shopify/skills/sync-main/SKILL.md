@@ -365,8 +365,12 @@ subject can give it any.
 **The durable shape is two commits**, and `-ReconcileBase` writes them:
 
 ```powershell
-powershell -NoProfile -File scripts/task/sync-main.ps1 -ReconcileBase
+powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1" -ReconcileBase
 ```
+
+(The same `${CLAUDE_PLUGIN_ROOT}` caveat as [Run it](#run-it) applies: it resolves only inside a
+plugin-owned component. The refusal itself simply tells you to re-run *that* command with the flag
+added, which is true wherever you started it from.)
 
 1. **live verbatim** -- the only thing that puts live's content into the path's history;
 2. **the trunk's content straight back on top** -- so the branch changes no file at all.

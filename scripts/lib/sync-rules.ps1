@@ -552,6 +552,21 @@ function Test-LiveContentIsOurs {
         a held-back file into a taken one. The '--follow' warning above is about matching a DIFFERENT
         path's history, which this does not do -- the pathspec is unchanged and only the walk widens.
 
+        WHAT IT COSTS, MEASURED RATHER THAN ASSUMED, over 18 real paths in a 4,910-commit repo with 29%
+        merges: the flag multiplies the commits walked by a stable 2.0-4.0x, median 2.9x. That is also
+        the wall-clock multiplier, because the loop below spends one 'git rev-parse' SUBPROCESS per
+        commit until a match -- and the walk runs to the end exactly when nothing matches, which is the
+        foreign case this cell exists for. In the single-digit histories a theme repo has (measured
+        1->7, 2->8, 3->8) that is 4-8 extra spawns, 100-400ms per foreign path on Windows. On a
+        264-commit path it is 7.3s -> 15.8s.
+
+        SO THE PREMISE TO WATCH IS THE SINGLE-DIGIT ONE, not the flag. A theme's main layout or product
+        template is the kind of file that could accumulate a long history, and there this cost moves
+        from sub-second to multi-second. The architecture underneath is what would answer it -- one
+        'git log --raw' returns every commit AND its blob id in a single process -- and that is issue
+        #1951 rather than a change here: a plain '--raw' prints nothing for a merge commit, which is
+        precisely what this flag went in to stop losing.
+
         THE BASE LOOKUP DELIBERATELY DOES NOT TAKE IT. Get-SyncCommitShas answers "the most recent sync
         commit touching this path", and there simplification errs the safe way: a pruned sync commit makes
         the base older or absent, which reports a conflict. Widening it would move the base FORWARD, and a

@@ -66,12 +66,30 @@ consumer at once.
 - [x] `Test-LiveContentIsOurs` takes `--full-history` (found while testing; see DEPLOY)
 - [x] the `sync-main` skill page: the parameter, the refusal row, and a section of its own
 - [x] shared-script mirrors rebuilt
+- [x] review chain: 4 findings applied (see TEST)
 
 ### TEST
 
 - [x] `sync-rules.tests.ps1` -- the four reconciliation shapes + the simplification case (164 asserts)
 - [x] `sync-main.tests.ps1` -- `-ReconcileBase` end to end, through the merge and back (155 asserts)
 - [x] `check-plugin-integrity.ps1` -- 0 errors
+
+#### What the review chain changed
+
+Victor, Edith, Sebastian and Nolan in parallel on the diff. Sebastian found nothing. The rest
+are applied, and one of them is the exact failure class this repo files inbound reports for:
+
+- **the squash warning named `Get-ShopifySyncMergeMethod`, which exists nowhere in this tree** (the
+  seam is `Get-PrMergeMethod`). A printed seam name is what an operator searches their repo for, so a
+  wrong one is worse than none -- and nothing reached that arm under the gate, because every fixture
+  left the merge method unanswered. Fixed, with the case that would have caught it.
+- **the printed command named a path a consumer does not have** -- `scripts/task/sync-main.ps1`
+  resolves only in this repo; in a consumer the script lives in the plugin cache. It now says to
+  re-run the same command with the flag added, which is true wherever the run started.
+- a count comment left stale by this branch's own edit (10 -> 11), and the two commit-failure messages
+  describing different halves of one state.
+- Nolan measured `--full-history` at 2.0-4.0x the commits walked (median 2.9x, n=18); the figure and
+  the premise to watch are now in the docstring, and the architecture underneath is filed as #1951.
 
 ### DEPLOY: fix/1945-reconciled-conflict-no-durable-form
 

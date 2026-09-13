@@ -649,8 +649,11 @@ function Write-SyncReconciliationBase {
     # on live; the spelling was never the defect, the missing provenance was.
     & git commit --quiet -m "sync: live verbatim as the reconciliation base for $($Conflict.Count) conflicted path(s)" -- @basePaths
     if ($LASTEXITCODE -ne 0) {
-        Write-Host 'Could not commit the reconciliation base. The branch is created and the working tree holds live content for those paths.' -ForegroundColor Red
-        Write-Host "  Put the trunk content back with: git checkout $trunkSha -- <path>" -ForegroundColor Red
+        # THE SAME TWO FACTS AS THE RESTORE FAILURE BELOW, because the state is the same one: a branch
+        # exists that nobody asked for, and the tree on it holds live's content. Naming only the restore
+        # here and only the branch there left the two failures describing different halves of one state.
+        Write-Host 'Could not commit the reconciliation base, so the branch holds LIVE content for those paths. Do not merge it.' -ForegroundColor Red
+        Write-Host "  git checkout $trunkSha -- <path>   then commit, or delete $BranchShown." -ForegroundColor Red
         return
     }
 
@@ -689,7 +692,12 @@ function Write-SyncReconciliationBase {
         # collapses both commits into one whose blob is the trunk's content, so live's bytes never enter
         # the trunk's history and the next run reports the same conflict. It costs the repair, not the
         # work -- the tree is identical either way -- but nothing else would ever say so.
-        Write-Host '  Get-ShopifySyncMergeMethod answers "squash", which would collapse both commits into' -ForegroundColor Red
+        # THE SEAM IS NAMED BY ITS REAL NAME, and the first spelling of this line invented one --
+        # 'Get-ShopifySyncMergeMethod', which exists nowhere in this tree. A printed message is exactly
+        # where that costs something: an operator debugging their seam config searches the repo for the
+        # name this line gave them and finds nothing. The function read into $mergeMethod is
+        # Get-PrMergeMethod, and it is the workflow plugin's rather than this plugin's.
+        Write-Host '  Get-PrMergeMethod answers "squash", which would collapse both commits into' -ForegroundColor Red
         Write-Host '  one holding the trunk content: live never enters the history and the conflict returns.' -ForegroundColor Red
         Write-Host '  Merge THIS branch with a merge commit (or rebase), whatever the seam says for the rest.' -ForegroundColor Red
     }
@@ -1381,8 +1389,14 @@ try {
         Write-Host '  Merged bytes are neither side, so they carry no provenance -- and provenance is the' -ForegroundColor Red
         Write-Host '  whole of what this rule reads.' -ForegroundColor Red
         Write-Host ''
-        Write-Host 'THE DURABLE SHAPE IS TWO COMMITS, and -ReconcileBase writes them for you:' -ForegroundColor Yellow
-        Write-Host '  powershell -NoProfile -File scripts/task/sync-main.ps1 -ReconcileBase' -ForegroundColor Yellow
+        # 'RE-RUN THIS COMMAND WITH' RATHER THAN A SPELLED-OUT COMMAND LINE, and that is a correctness
+        # point rather than brevity. In a CONSUMER this script lives in the plugin cache, not in the
+        # repo, so 'scripts/task/sync-main.ps1' -- the spelling the first draft printed -- names a path
+        # that is not there. The skill page has the same rule and states it: ${CLAUDE_PLUGIN_ROOT}
+        # resolves only inside a plugin-owned component, so a command a person types by hand needs the
+        # absolute path to their own cache. Naming the FLAG instead is true wherever the run started.
+        Write-Host 'THE DURABLE SHAPE IS TWO COMMITS, and -ReconcileBase writes them for you --' -ForegroundColor Yellow
+        Write-Host '  re-run this same command with -ReconcileBase added, and it puts on a sync branch:' -ForegroundColor Yellow
         Write-Host '    1. live verbatim -- the only thing that puts live content into the path history;' -ForegroundColor Yellow
         Write-Host '    2. the trunk content straight back on top, so no file changes at all.' -ForegroundColor Yellow
         Write-Host '  Merge that branch (never squash) and the path reads keep-trunk from then on -- the' -ForegroundColor Yellow

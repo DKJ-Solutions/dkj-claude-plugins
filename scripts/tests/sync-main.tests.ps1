@@ -602,6 +602,24 @@ try {
     Assert-True ($r.Out -match 'held back .* wins\): 1') 'recbase: the path is held back -- the trunk wins, permanently'
     Assert-True ([System.IO.File]::ReadAllText((Join-Path $rec 'sections\both.liquid')) -eq 'trunk-b2') 'recbase: and live never overwrote the trunk on the way through'
 
+    # THE SQUASH WARNING, WHICH NOTHING REACHED UNTIL THIS CASE EXISTED. Get-PrMergeMethod is unanswered
+    # in every other fixture, so $mergeMethod was always 'merge' and this whole arm never ran under the
+    # gate -- which is how it shipped naming a seam function ('Get-ShopifySyncMergeMethod') that exists
+    # nowhere in the tree. The assert is on the NAME for that reason, not only on the warning firing: a
+    # printed seam name is what an operator searches their repo for, so a wrong one is worse than none.
+    $sq = New-Consumer -Label 'recsquash' -ThemeId '123456' -StoreDomain 'a-store.myshopify.com' `
+        -ExtraSeams "function Get-PrMergeMethod { return 'squash' }"
+    Add-FixtureCommit -Dir $sq -Message 'sync: the floor' -Write @{ 'sections/both.liquid' = 'b1' }
+    Add-FixtureCommit -Dir $sq -Message 'fix: the trunk changes it too' -Write @{ 'sections/both.liquid' = 'trunk-b2' }
+    $sqMirror = New-Mirror -Label 'recsquash' -Files @{
+        'sections/theme.liquid' = 'v1'
+        'sections/both.liquid'  = 'a third party changed it as well'
+    }
+    $r = Invoke-Sync -Dir $sq -Mirror $sqMirror -Extra @('-ReconcileBase')
+    Assert-True ($r.Out -match 'Get-PrMergeMethod answers "squash"') 'recbase/squash: the warning names the seam by the name it actually has'
+    Assert-True ($r.Out -notmatch 'Get-ShopifySyncMergeMethod') 'recbase/squash: and not one that exists nowhere in the tree'
+    Assert-True ($r.Out -match 'Merge THIS branch with a merge commit') 'recbase/squash: with the instruction for this one branch, not a seam change'
+
     # --- Nothing foreign at all --------------------------------------------------------------------
     Write-Host ''
     Write-Host 'the quiet run'
@@ -881,8 +899,8 @@ try {
     Assert-True ($calls -eq 11) "net: eleven network calls go through the lib (found $calls)"
     Assert-True ($bounds -eq 11) "net: and all eleven pass the shared bound (found $bounds)"
 
-    # THE FIVE gh CALLS BY NAME, because the count above is blind to WHICH ten they are: it would still
-    # read 10 if a gh call went back to being bare and a git call were split in two.
+    # THE FIVE gh CALLS BY NAME, because the count above is blind to WHICH eleven they are: it would
+    # still read 11 if a gh call went back to being bare and a git call were split in two.
     foreach ($verb in @('list', 'create', 'view', 'merge', 'checks')) {
         Assert-True ($src -match "Invoke-NativeCapture -FilePath 'gh'(?s).{0,400}?'pr', '$verb'") `
             "net: gh pr $verb goes through the lib"

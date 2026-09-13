@@ -675,6 +675,21 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
             'prov/simplified: the mainline content is unaffected by the flag'
         Assert-True (-not (Test-LiveContentIsOurs -Path 'sections/x.liquid' -LiveBytes ([System.Text.Encoding]::ASCII.GetBytes('L3')))) `
             'prov/simplified: and content nobody ever committed is still foreign -- the walk widened, the test did not'
+
+        # THE TWO WALKS NOW DISAGREE ABOUT THIS COMMIT, AND THAT IS THE DESIGN RATHER THAN AN OVERSIGHT.
+        # Test-LiveContentIsOurs sees the reconciliation base through the merge; the base lookup does not,
+        # because Get-SyncCommitShas is deliberately left unwidened. So for a LATER round of drift on the
+        # same path the base is the older sync or none at all -- and both of those report a conflict,
+        # which is the safe direction and the one #1535 chose. Asserted through a real 'git merge --no-ff'
+        # because that is the only shape where the disagreement exists: the rec/* series above walks
+        # sequential commits on one branch, where nothing is ever pruned.
+        $laterDrift = [System.Text.Encoding]::ASCII.GetBytes('L3')
+        $laterOurs  = Test-LiveContentIsOurs -Path 'sections/x.liquid' -LiveBytes $laterDrift
+        $laterBase  = Get-SyncPathReferencePoint -Path 'sections/x.liquid'
+        $laterTouch = if ($laterBase) { Test-MainTouchedSince -Since $laterBase -Path 'sections/x.liquid' } else { $false }
+        Assert-Equal 'conflict' (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $laterOurs `
+            -MainTouchedSinceFloor $laterTouch -PathAgreementKnown ([bool]$laterBase)).Action `
+            'prov/simplified: later drift on that path is reported, never taken -- the unwidened base errs safe'
     } finally { Pop-Location }
 
     # --- The verdict table, every cell --------------------------------------------------------------
