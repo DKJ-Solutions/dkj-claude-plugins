@@ -43,7 +43,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 16 minor entries** <!-- pending-tally -->
+**14 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1920-new-branch-tests-flaky-at-16-lanes · 20260913-112401
+
+`Test-GitCanCommit` refused on any non-zero exit from its `git var GIT_AUTHOR_IDENT` probe, while its
+own docstring promised the opposite -- that an answer it could not measure is treated as can-commit,
+because "a refusal built on a failure to measure would wedge a run for the wrong reason". Only a throw
+and a `$null` result were honoured; a probe that was killed, timed out, or failed for any other reason
+was read as a checkout that cannot commit.
+
+That probe runs on every `new-branch.ps1` run, before the checkout, and its refusal exits 1 with
+nothing created -- no branch, no document, nothing on origin. Under the parallel test gate
+`new-branch.tests.ps1` invokes that script some forty times per run across sixteen lanes, so one
+transient git child turned into a red gate that had measured nothing, and a red gate that measured
+nothing is what teaches people to reach for `-SkipTests`.
+
+A refusal is now gated on `128`, which is how git's `die()` reports an unknown author identity and the
+number this suite already pins from git's own side. Everything else -- including a bounded call that
+expired -- is the "unknown" the contract always described. `check-git-identity.ps1` reads the same
+function and stops reporting a broken identity on a probe that never answered.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a probe's exit-code reading inside this workflow's own scripts. A consumer sees no change in
+behaviour except the one they should never have seen: a branch refused because a git call under load
+did not answer.
+
+**Score:** N/A
+
+#### Pull Request
+
+new-branch.tests.ps1 no longer false-reds under the parallel test gate at high lane counts
+
+Plugins: dkj-policy
+
+[PR #1930](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1930)
+
+---
 
 ### DEPLOY: feat/1925-plugin-own-lib-gate · 20260913-111649
 
