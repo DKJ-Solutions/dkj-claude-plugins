@@ -43,7 +43,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 7 minor entries** <!-- pending-tally -->
+**6 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1904-pin-checkout-in-scaffolded-runners · 20260913-063623
+
+The two write-capable runners this workflow scaffolds into a consumer -- `fold-on-merge.yml`, which spends a
+366-day `FOLD_PUSH_TOKEN`, and `verify-resolved.yml`, which holds `issues: write` -- were composed with a
+mutable `actions/checkout@v5`, while this repo's own committed copies of the same two jobs have always been
+SHA-pinned against exactly that risk. The repo that wrote the warning was protected; the repos that took its
+advice were not. All four composed checkout lines are now pinned to `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09`
+(`v5`) through a single `$checkoutPin` seam, and `pin-parity.tests.ps1` asserts that seam still equals the SHA
+in this repo's own fold runner -- so a bump here that forgets the generator fails a gate instead of quietly
+leaving every consumer's floor behind. Both steps of each job are pinned, not only the one carrying the
+credential, because `persist-credentials` puts the token in the workspace for the whole job; a read-only
+runner stays unpinned for the same reason this repo's own does.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It closes a gap that pointed the wrong way round: the hardening was written down, implemented and enforced
+here, and the generator handed every adopting consumer the weaker template of the same job. And it answers
+the follow-up #1904 raised rather than leaving it -- a pin in a *generated* file has no maintainer, so the
+refresh point was made singular and put under a parity gate in the same change.
+
+**Score:** 2
+
+#### Pull Request
+
+Pin actions/checkout by SHA in the fold and resolves runners the scaffolder writes
+
+Plugins: dkj-policy
+
+[PR #1911](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1911)
+
+---
 
 ### DEPLOY: fix/1902-xoxowildhearts-live-repo · 20260913-053851
 
