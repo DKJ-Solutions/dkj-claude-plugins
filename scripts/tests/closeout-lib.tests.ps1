@@ -177,14 +177,25 @@ foreach ($c in $callers) {
     Assert-True ($text -notmatch 'Get-Command Write-CloseOutReceipt') "...and does not reintroduce the PATH-scanning probe"
 }
 
-# THREE SCRIPTS HAVE TWO ENDINGS EACH, and every ending closes out. ship-pr's queue arm exits before
-# the foot of the file, open-pr's already-open arm does the same, and fold-changelog-entry refuses on
-# one arm and succeeds on the other. A single call in any of them would leave one real ending silent,
-# which is the failure this suite is for. fold was missing from this list when the suite was first
-# written -- caught by the code review, which is the reason the list is spelled out rather than derived.
-foreach ($two in @('scripts\release\ship-pr.ps1', 'scripts\release\open-pr.ps1', 'scripts\release\fold-changelog-entry.ps1')) {
-    $n = ([regex]::Matches((Get-Content -LiteralPath (Join-Path $RepoRoot $two) -Raw), 'Write-CloseOutReceipt -Cite')).Count
-    Assert-Equal 2 $n "$(Split-Path -Leaf $two) calls it from BOTH of its endings"
+# EACH OF THESE SCRIPTS HAS SEVERAL ENDINGS, and every ending closes out. ship-pr's queue arm exits
+# before the foot of the file, open-pr's already-open arm does the same, and fold-changelog-entry
+# refuses on one arm and succeeds on the other. A single call in any of them would leave one real
+# ending silent, which is the failure this suite is for. fold was missing from this list when the
+# suite was first written -- caught by the code review, which is the reason the list is spelled out
+# rather than derived.
+#
+# OPEN-PR GAINED A THIRD ENDING (inbound #1916): a `gh pr create` that reports a 5xx/transport
+# failure is re-checked before being believed, and where the re-check finds the PR anyway, that arm
+# closes out with its own receipt -- exactly as real an ending as the other two, and just as silent
+# without one.
+$endingCounts = @{
+    'scripts\release\ship-pr.ps1'              = 2
+    'scripts\release\open-pr.ps1'              = 3
+    'scripts\release\fold-changelog-entry.ps1' = 2
+}
+foreach ($path in $endingCounts.Keys) {
+    $n = ([regex]::Matches((Get-Content -LiteralPath (Join-Path $RepoRoot $path) -Raw), 'Write-CloseOutReceipt -Cite')).Count
+    Assert-Equal $endingCounts[$path] $n "$(Split-Path -Leaf $path) calls it from every one of its endings"
 }
 
 # THE BYPASS PHRASE IS BUILT IN ONE PLACE. It was written three times -- a private helper in ship-pr and

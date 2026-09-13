@@ -2316,7 +2316,31 @@ CI has already passed, so a re-run picks up from here. There is no -Force for th
 $mergeSubject = "merge: $branch (#$pr)"
 $merge = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'merge', "$pr", "--$mergeMethod", '--subject', $mergeSubject, '--repo', $repo)
 $merge.Output | ForEach-Object { Write-Host $_ }
-if ($merge.ExitCode -ne 0) { Write-Error "Merge of PR #$pr failed."; exit 1 }
+
+# A NON-ZERO EXIT IS NOT PROOF THE MERGE DID NOT LAND (inbound #1916) -- the same doctrine claim-issue
+# already carries for its own write (its SKILL.md, "Every gh call is bounded"): a write that reached
+# the network and never reported back may have landed anyway. Measured in a consumer
+# (BWJ-Development/smartwatchbanden, dkj-policy 5.1.0): this exact call answered 'non-200 OK status
+# code: 502 Bad Gateway', and PR #591 read back MERGED moments later -- with the fold never run,
+# because this line reported it as failed and stopped. Test-GhMutationTransient (pr-issues-lib.ps1)
+# tells a 5xx/transport failure like that apart from a 4xx, which is a real refusal from GitHub and
+# stays a hard failure below, unchanged.
+#
+# $mergeTransientRecovery IS READ BY THE READ-BACK BELOW (issue #1325's own mechanism, which this
+# reuses rather than duplicates): where it is true, an UNREADABLE or non-MERGED state that the #1325
+# code already treats as harmless (because there gh's exit 0 is itself strong evidence the merge
+# happened) instead means "this run does not know" -- there is no such evidence here, gh's own call
+# already failed, and folding on a guess risks the #1270 trapped-entry state on a merge that never
+# happened.
+$mergeTransientRecovery = $false
+if ($merge.ExitCode -ne 0) {
+    if (-not (Test-GhMutationTransient -OutputLines $merge.Output)) {
+        Write-Error "Merge of PR #$pr failed."
+        exit 1
+    }
+    Write-Warning "Merge of PR #${pr}: gh reported a 5xx/transport failure on the merge call itself -- this may have landed anyway (inbound #1916). Reading PR #$pr's own state back before deciding."
+    $mergeTransientRecovery = $true
+}
 
 # EXIT 0 FROM `gh pr merge` IS NOT PROOF THAT THE PR MERGED -- issue #1325, the second merge-queue
 # prerequisite and a correctness gap in its own right. `gh pr merge --help` says it in so many words:
@@ -2376,6 +2400,21 @@ for ($mergeReadAttempt = 1; $mergeReadAttempt -le 3; $mergeReadAttempt++) {
 # built for -- a non-MERGED state with NO queue read on the trunk -- which is the state that has no
 # explanation and must not fold. What changed is that the explained case now has a name.
 if ($queueActive) {
+    # UNDER A QUEUE, 'OPEN' NO LONGER MEANS 'ENQUEUED' ON ITS OWN (inbound #1916). The $how branch just
+    # below reads OPEN as "gh enqueued the PR and exited 0", which is right when the merge call itself
+    # exited 0 -- but $mergeTransientRecovery means it did NOT, so OPEN here is indistinguishable from
+    # "the enqueue request never reached the queue at all". Read back with nothing to explain it is the
+    # same "this run does not know" as the no-queue branch further down, not the queue's ordinary path.
+    if ($mergeTransientRecovery -and $mergedState -ne 'MERGED') {
+        $mergeUnknownState = if ($mergedState) { "'$mergedState'" } else { 'unreadable' }
+        Write-Error @"
+Merge of PR #${pr}: gh reported a 5xx/transport failure and the merge queue's own state does not confirm
+whether the enqueue happened (state: $mergeUnknownState). This run does not know. Re-running is safe:
+an enqueue that DID land is found the same way step 2 finds an already-open PR, and 'gh pr merge' on a
+PR that is already queued is a no-op gh reports on its own terms.
+"@
+        exit 1
+    }
     $how = if ($mergedState -eq 'MERGED') {
         "already MERGED -- the queue was empty and landed it immediately"
     } elseif ($mergedState) {
@@ -2450,10 +2489,24 @@ if ($queueActive) {
     exit 0
 }
 if (-not $mergedState) {
+    if ($mergeTransientRecovery) {
+        # NO EXIT-0 EVIDENCE TO FALL BACK ON HERE (inbound #1916), unlike the branch this mirrors just
+        # below it: there, gh's own exit 0 is itself strong evidence the merge happened, so an unreadable
+        # follow-up read is harmless. Here gh's own merge call already failed, so an unreadable read-back
+        # leaves NO evidence either way -- falling through to the fold on that would risk the #1270
+        # trapped-entry state on a merge that may never have happened.
+        Write-Error "Merge of PR #${pr}: gh reported a 5xx/transport failure and PR #$pr's state could not be read back either. This run does not know whether the merge happened -- re-run ship-pr; a merge that DID land reads back MERGED and this script then folds against it, same as an ordinary merge."
+        exit 1
+    }
     Write-Host "  Merge state: PR #$pr's state could not be read -- not checked (this is not a finding)." -ForegroundColor DarkGray
 } elseif ($mergedState -ne 'MERGED') {
+    $mergeNotMergedLead = if ($mergeTransientRecovery) {
+        "gh reported a 5xx/transport failure on the merge and PR #$pr reads '$mergedState', not 'MERGED'"
+    } else {
+        "gh pr merge returned 0 but PR #$pr reads '$mergedState', not 'MERGED'"
+    }
     Write-Error @"
-gh pr merge returned 0 but PR #$pr reads '$mergedState', not 'MERGED' -- NOT folded (issue #1325).
+$mergeNotMergedLead -- NOT folded (issue #1325).
 
 The likeliest cause is a merge queue on 'main': gh enqueues the PR and exits 0, and the merge lands
 minutes later. Folding now would put the changelog entry on the trunk ahead of the merge it describes.

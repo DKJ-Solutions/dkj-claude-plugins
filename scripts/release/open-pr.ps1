@@ -1995,6 +1995,34 @@ try {
         # then to their network. The hint is kept for the case it is still the best available answer: a gh
         # that printed nothing at all.
         $reason = Get-PrCreateFailureReason -OutputLines $create.Output
+        $reasonOrExit = if ($reason) { $reason } else { "gh printed no reason (exit $($create.ExitCode))" }
+
+        # A NON-ZERO EXIT IS NOT PROOF THE CREATE DID NOT LAND (inbound #1916) -- the same doctrine
+        # claim-issue already carries for its own write (its SKILL.md, "Every gh call is bounded"): a
+        # write that reached the network and never reported back may have landed anyway. Measured in a
+        # consumer (BWJ-Development/smartwatchbanden, dkj-policy 5.1.0): a create that answered
+        # 'GraphQL: Something went wrong while executing your query', and two more that answered
+        # 'HTTP 502: 502 Bad Gateway', had each actually created the PR -- found only on the FOURTH run,
+        # by 'PR #591 was already open'. Test-GhMutationTransient (pr-issues-lib.ps1) tells a 5xx/
+        # transport failure like that apart from a 4xx, which is a real refusal and stays a hard failure
+        # below unchanged.
+        if (Test-GhMutationTransient -OutputLines $create.Output) {
+            Write-Warning "gh pr create: $reasonOrExit -- this may have landed anyway. Checking whether '$branch' now has an open PR before deciding (inbound #1916)."
+            $recheck = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number,url', '--limit', '1', '--repo', $repo) -DiscardStderr
+            $recheckPr = if ($recheck.ExitCode -eq 0) { Get-ExistingPrRecord -Json ($recheck.Output -join "`n") } else { $null }
+            if ($recheckPr) {
+                # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
+                if ($machineLocalNote) { Write-Warning $machineLocalNote }
+                Write-Host "PR #$($recheckPr.number) for '$branch' exists -- the create landed despite the reported failure. $($recheckPr.url)" -ForegroundColor Green
+                if (Test-FunctionDefined 'Write-CloseOutReceipt') {
+                    Write-CloseOutReceipt -Cite "PR #$($recheckPr.number)" -Bypass (Get-GateBypassNote -SkipLint:$SkipLint -SkipTests:$SkipTests)
+                }
+                exit 0
+            }
+            Write-Error "Creating the PR failed: $reasonOrExit. This run does not know whether it landed -- re-running is safe: a create that DID land is found by the existing-PR check this script runs before the push, and updated instead of duplicated."
+            exit 1
+        }
+
         if ($reason) {
             Write-Error "Creating the PR failed: $reason"
         } else {

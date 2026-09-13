@@ -239,8 +239,11 @@ Assert-Equal 0 ([regex]::Matches($mlBlock, 'exit 1').Count) 'the block never ref
 Assert-True ($mlBlock -match 'Two cases') 'the note states both cases rather than one remedy'
 Assert-True ($mlBlock -match "only THIS clone's own") 'the move is prescribed only for the clone-own edit'
 Assert-Equal 0 ([regex]::Matches($mlBlock, 'machine-local plugin enablement belongs in').Count) 'the retired blanket remedy is gone'
-# said twice: the note variable is re-emitted at both run ends
-Assert-Equal 3 ([regex]::Matches($openPr, 'Write-Warning \$machineLocalNote').Count) 'the note is emitted once at the gate and once from each run end'
+# said twice (issue #1559) at each of open-pr's run ends -- and since inbound #1916 there are THREE
+# of those, not two: a `gh pr create` that reports a 5xx/transport failure and then re-checks itself
+# into finding the PR already there is exactly as real an ending as the other two, and just as far
+# off-screen from the gate by the time it closes out.
+Assert-Equal 4 ([regex]::Matches($openPr, 'Write-Warning \$machineLocalNote').Count) 'the note is emitted once at the gate and once from each of the three run ends'
 # placement: before the scaffold gate and before the push
 Assert-True ($openPr.IndexOf('machine-local path gate:') -lt $openPr.IndexOf('scaffold gate:')) 'the machine-local gate runs before the scaffold gate'
 Assert-True ($openPr.IndexOf('machine-local path gate:') -lt $openPr.IndexOf("'push', '-u', 'origin'")) 'and before the push'
