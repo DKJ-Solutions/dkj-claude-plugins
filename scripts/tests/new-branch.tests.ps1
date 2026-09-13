@@ -2064,6 +2064,15 @@ exit 1
         $rY = Invoke-NewBranch -Dir $fixIdent -Name 'fix/1867-cannot-commit-v1' -Title 'Cannot commit'
         Assert-ExitCode 1 $rY 'no identity: new-branch exits 1 rather than dying at exit 128 in the park'
         Assert-True (Test-Phrase -Text $rY.Out -Phrase 'no usable git author identity') 'no identity: and says which state it is in, in words'
+        # AND IT NAMES THE EXIT CODE ITS OWN GUARD GATED ON (issue #1932). The refusal composes this number
+        # from git-identity-lib.ps1's $GitAuthorIdentityUnknownExitCode rather than carrying a third
+        # hand-typed copy of it, and falls back to wording that claims NO number where a mirror predating
+        # #1920 supplies no constant. That fallback is what this assert is really guarding: the sentence
+        # reads perfectly well without the code, so a composition that silently lost it -- a renamed
+        # constant, a scope the lookup no longer reaches -- would degrade the refusal's only measured
+        # detail with nothing on screen looking wrong. The probe two asserts up is the other half: it
+        # pins that 128 is still what GIT reports, which is the fact the constant encodes.
+        Assert-True (Test-Phrase -Text $rY.Out -Phrase 'exits 128') 'no identity: and states the exit code its own guard gated on, read from the lib constant'
         # THE REPAIR, both keys. Setting only user.name leaves git refusing exactly as hard, which is the
         # whole reason user.name was the wrong thing to read for this question in the first place.
         Assert-True (Test-Phrase -Text $rY.Out -Phrase 'user.name') 'no identity: names user.name as part of the repair'
