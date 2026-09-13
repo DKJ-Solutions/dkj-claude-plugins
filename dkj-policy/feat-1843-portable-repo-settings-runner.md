@@ -81,7 +81,7 @@ is deliberately NOT in this branch: a different subject with a different repair,
 ### TEST
 
 - [x] `check-plugin-integrity.ps1` -- 0 errors. It caught one real omission on the way: the new script
-      was missing its row in the `<!-- shared-scripts:mirror -->` table.
+      was missing its row in the mirror table in the plugin scripts README.
 - [x] `build-shared-scripts.ps1 -Check` and `build-config-blueprint.ps1` -- mirror and blueprint
       byte-consistent with their generators.
 - [x] All 100 suites under `scripts/tests/` -- green, individually and in a sequential sweep.
