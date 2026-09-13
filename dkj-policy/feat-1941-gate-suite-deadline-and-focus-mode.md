@@ -171,4 +171,3 @@ longer has to run their whole gate to find out whether the repair held.
 
 A test suite that never returns is bounded and named, and one suite can be put under the pool's real contention
 
-Plugins: dkj-policy, dkj-subagents-shopify
