@@ -97,10 +97,16 @@ function New-FakeSuite {
 # measured around the CHILD, so it includes one powershell start-up (~0.2s) on top of the gate itself --
 # irrelevant against the multi-second margins the timing cases work with.
 function Invoke-Gate {
-    param([string]$TestsDir, [int]$MaxParallel = 0, [string]$WorkDir = '', [string]$CommandsFile = '', [int]$ResidentCount = -1)
+    param([string]$TestsDir, [int]$MaxParallel = 0, [string]$WorkDir = '', [string]$CommandsFile = '', [int]$ResidentCount = -1,
+          [int]$SuiteTimeoutSeconds = 0, [string]$FocusSuite = '', [int]$FocusRepeat = 0)
     # NOT $args: that is an automatic variable holding a function's unbound arguments, and splatting it
     # after assignment is the kind of collision this repo already documents for $script:-owned names.
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:Driver, '-TestsDir', $TestsDir, '-MaxParallel', "$MaxParallel")
+    # 0 (the default) means "pass nothing", so every existing case still drives the gate through exactly
+    # the parameter set it drove before -- which is what makes a regression in those cases a regression in
+    # the gate and not in this helper (issues #1941, #1944).
+    if ($SuiteTimeoutSeconds -ne 0) { $psArgs += @('-SuiteTimeoutSeconds', "$SuiteTimeoutSeconds") }
+    if ($FocusSuite) { $psArgs += @('-FocusSuite', $FocusSuite, '-FocusRepeat', "$FocusRepeat") }
     if ($WorkDir) { $psArgs += @('-WorkDir', $WorkDir) }
     if ($CommandsFile) { $psArgs += @('-CommandsFile', $CommandsFile) }
     # -1 (the default) means "let the real Get-Process answer" -- OS-wide process state is not
@@ -314,7 +320,8 @@ try {
     # this suite noticing, which is the whole failure mode it exists to catch.
     $script:Driver = Join-Path $Fixture 'drive-gate.ps1'
     $driverBody = @"
-param([string]`$TestsDir, [int]`$MaxParallel = 0, [string]`$WorkDir = '', [string]`$CommandsFile = '', [int]`$ResidentCount = -1)
+param([string]`$TestsDir, [int]`$MaxParallel = 0, [string]`$WorkDir = '', [string]`$CommandsFile = '', [int]`$ResidentCount = -1,
+      [int]`$SuiteTimeoutSeconds = 0, [string]`$FocusSuite = '', [int]`$FocusRepeat = 0)
 `$ErrorActionPreference = 'Stop'
 . '$LibPath'
 if (`$WorkDir) { Set-Location -LiteralPath `$WorkDir }
@@ -336,8 +343,19 @@ if (`$ResidentCount -ge 0) {
 # driver cannot compose the path, and the PID is why a search for it cannot be answered by whichever
 # other gate run happened to be alive, this suite's own outer gate included.
 Write-Host "GATE-PID: `$PID"
-`$r = Invoke-TestSuiteGate -TestsDir `$TestsDir -Context 'the fixture' -MaxParallel `$MaxParallel
-Write-Host "GATE-RESULT: `$r"
+# SPLATTED, so the two newer parameters are only ever PASSED when a case asked for them -- an explicit
+# -SuiteTimeoutSeconds 0 means "resolve the module default" and is not the same call as omitting it
+# (issues #1941, #1944). A refusal is caught and printed rather than thrown, because these cases assert on
+# what the gate SAYS and a driver that died would report nothing at all.
+`$gateArgs = @{ TestsDir = `$TestsDir; Context = 'the fixture'; MaxParallel = `$MaxParallel }
+if (`$SuiteTimeoutSeconds -ne 0) { `$gateArgs['SuiteTimeoutSeconds'] = `$SuiteTimeoutSeconds }
+if (`$FocusSuite) { `$gateArgs['FocusSuite'] = `$FocusSuite; `$gateArgs['FocusRepeat'] = `$FocusRepeat }
+try {
+    `$r = Invoke-TestSuiteGate @gateArgs
+    Write-Host "GATE-RESULT: `$r"
+} catch {
+    Write-Host "GATE-REFUSED: `$(`$_.Exception.Message)"
+}
 "@
     [System.IO.File]::WriteAllText($script:Driver, $driverBody, $Utf8NoBom)
 
@@ -860,6 +878,121 @@ exit -1
     $null = Invoke-TestSuiteGate -TestsDir $leakDir -Context 'the leak check' -MaxParallel 1
     Assert-Equal "$leakHeld" "$([Environment]::GetEnvironmentVariable($depthVar, 'Process'))" `
         'the depth variable is exactly what it was before the run -- restored, not merely cleared'
+
+    # --- 10. A suite that never returns is BOUNDED, not waited out (issue #1941) --------------------
+    #
+    # THE DEFECT THIS PROVES CLOSED. Before #1941 this loop had no deadline of any kind: it slept 100 ms
+    # and went round again for as long as a lane took. One wedged suite therefore wedged the whole gate,
+    # silently -- the pool buffers a suite's output until that suite exits, so a suite that never exits
+    # prints nothing at all. Measured on DAVE-KOK-BWJ at 141 minutes with 90 processes alive and 0.23 s
+    # of CPU between 29 of them.
+    #
+    # THE ASSERT THAT CARRIES THE WHOLE CASE IS THE WALL CLOCK. Every other line here would also pass if
+    # the gate had simply waited the sleeping suite out and then called it a failure; only the elapsed
+    # time distinguishes a bound that fired from one that did not. The margin is deliberately enormous --
+    # a 60s sleeper under a 3s bound, asserted under 30s -- because this suite runs under a 16-to-30-lane
+    # pool where a child's own bring-up has been measured at 3.25s (#1939), and a tight margin here would
+    # be exactly the flaky-under-contention class this branch's other half exists to reproduce.
+    Write-Host "the deadline: a suite that never returns is killed, named, and does not hold the pool" -ForegroundColor Cyan
+    $slowDir = Join-Path $Fixture 'suites-slow'
+    New-FakeSuite -Dir $slowDir -Name 's-quick.tests.ps1' -Body "Write-Host 'MARKER-QUICK'`r`nexit 0`r`n"
+    New-FakeSuite -Dir $slowDir -Name 's-wedged.tests.ps1' -Body "Write-Host 'MARKER-WEDGED'`r`nStart-Sleep -Seconds 60`r`nexit 0`r`n"
+    $to = Invoke-Gate -TestsDir $slowDir -MaxParallel 2 -SuiteTimeoutSeconds 3
+    $script:KeptCaptureDirs += $to.CaptureDir
+    Assert-True ($to.Text -match 'GATE-RESULT: False') 'a suite that outlives its bound fails the gate'
+    Assert-True ($to.Seconds -lt 30) `
+        "and the run does not wait it out -- it took $([math]::Round($to.Seconds,1))s against a 60s sleeper"
+    Assert-True ($to.Text -match '== s-wedged\.tests\.ps1 == TIMED OUT') 'its header says TIMED OUT'
+    Assert-Says $to.Flat 'its process tree was killed' 'and reports that the tree was killed, not merely the process'
+    Assert-True ($to.Text -match '== s-quick\.tests\.ps1 ==\r?\n') 'the sibling that finished keeps its plain header'
+    Assert-Says $to.Flat 'did not finish within the 3s bound: s-wedged.tests.ps1' `
+        'the verdict tells a suite that never answered apart from one that asserted and said no'
+    # NOT A CRASH, AND THEREFORE NOT RE-RUN. The whole judgement in #1941's branch: re-running a wedged
+    # suite alone removes the contention that is the likeliest cause, passes, and leaves the gate green
+    # over a run that cost the machine 90 processes.
+    Assert-True ($to.Flat -notmatch 're-ran ALONE') 'and it is NOT re-run alone -- a timeout is a verdict, unlike a crash'
+    Assert-True ($to.Flat -notmatch 'CRASHED') 'nor reported as a crash'
+    # The evidence survives, the same promise #1636 made for a failing suite.
+    Assert-True ($to.CaptureDir -ne '' -and (Test-Path -LiteralPath $to.CaptureDir)) `
+        'a timed-out run keeps its capture directory'
+    $wedgedOut = Join-Path $to.CaptureDir 's-wedged.tests.out.txt'
+    Assert-True ((Test-Path -LiteralPath $wedgedOut) -and ((Get-Content -LiteralPath $wedgedOut -Raw) -match 'MARKER-WEDGED')) `
+        'and it holds what the suite managed to print before it was killed'
+    # The per-suite table must not report the bound as the file's cost.
+    Assert-Says $to.Flat "TIMED OUT -- this is the bound, not the file's cost" `
+        'the per-suite table says the number is the bound rather than a measurement'
+
+    # 10b. The bound is announced, and a negative value turns it off. The second half cannot be asserted
+    # by running something infinite -- that is the case the bound exists for -- so what is asserted is
+    # that the gate stops CLAIMING a bound and still judges an ordinary suite correctly.
+    Assert-Says $to.Flat 'each suite is bounded at 3s' 'the run states the bound it is holding suites to'
+    $noBoundDir = Join-Path $Fixture 'suites-unbounded'
+    New-FakeSuite -Dir $noBoundDir -Name 'u-one.tests.ps1' -Body "Write-Host 'MARKER-U'`r`nexit 0`r`n"
+    $unbounded = Invoke-Gate -TestsDir $noBoundDir -MaxParallel 1 -SuiteTimeoutSeconds -1
+    Assert-True ($unbounded.Text -match 'GATE-RESULT: True') '-SuiteTimeoutSeconds -1 still runs the suites'
+    Assert-True ($unbounded.Flat -notmatch 'each suite is bounded at') 'and says nothing about a bound, because there is none'
+
+    # --- 11. A focus run: one suite under the pool's real contention (issue #1944) ------------------
+    #
+    # WHAT IT IS FOR. This repo has a class of defect visible only under the pool -- #1915 and #1939,
+    # three days apart, different files, identical discovery path: the gate refusing a push on a branch
+    # that touched neither suite. Reproducing one meant running the whole ~19-minute gate, because a
+    # standalone run is green BY DEFINITION OF THE BUG.
+    Write-Host "focus mode: one suite, repeatedly, under real sibling load" -ForegroundColor Cyan
+    $focusDir = Join-Path $Fixture 'suites-focus'
+    New-FakeSuite -Dir $focusDir -Name 'f-target.tests.ps1' -Body "Write-Host 'MARKER-TARGET'`r`nexit 0`r`n"
+    New-FakeSuite -Dir $focusDir -Name 'f-load-a.tests.ps1' -Body "Write-Host 'MARKER-LOAD-A'`r`nexit 0`r`n"
+    New-FakeSuite -Dir $focusDir -Name 'f-load-b.tests.ps1' -Body "Write-Host 'MARKER-LOAD-B'`r`nexit 0`r`n"
+    $fo = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'f-target' -FocusRepeat 3
+    Assert-True ($fo.Text -match 'GATE-RESULT: True') 'a focus run whose target passes every repeat is green'
+    Assert-Equal 3 (@($fo.Lines | Where-Object { $_ -match '^== f-target\.tests\.ps1 \[focus \d/3\] ==' }).Count) `
+        'the target ran exactly -FocusRepeat times, each with its own header'
+    Assert-Equal 3 (@($fo.Lines | Where-Object { $_ -eq 'MARKER-TARGET' }).Count) 'and each repeat really ran the file'
+    Assert-Says $fo.Flat 'load -- does not decide this focus run' 'the load suites say on their own headers what they are for'
+    Assert-Says $fo.Flat '3 focus repeat(s) of f-target passed' 'the verdict counts repeats, not suites'
+    Assert-Says $fo.Flat 'FOCUS RUN -- f-target x 3, not a gate' `
+        'and the line a session copies says this measured one suite rather than the tree'
+    Assert-Says $fo.Flat '3/3 passed under load' 'the focus table states the draw count'
+    Assert-Says $fo.Flat 'EVIDENCE OF ABSENCE ONLY AS FAR AS THE DRAW COUNT GOES' `
+        'and refuses to let a green focus run read as proof the defect is gone'
+    # The name is matched three ways, because all three are what a person has in hand.
+    $foFull = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'f-target.tests.ps1' -FocusRepeat 1
+    Assert-True ($foFull.Text -match 'GATE-RESULT: True') 'the full file name selects the same target'
+
+    # 11b. WHOSE VERDICT DECIDES. The load is there to contend, not to be judged -- a focus run that went
+    # red because an unrelated suite failed would report the target as broken when it is not.
+    New-FakeSuite -Dir $focusDir -Name 'f-load-b.tests.ps1' -Body "Write-Host 'MARKER-LOAD-B'`r`nexit 9`r`n"
+    $foBadLoad = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'f-target' -FocusRepeat 2
+    $script:KeptCaptureDirs += $foBadLoad.CaptureDir
+    Assert-True ($foBadLoad.Text -match 'GATE-RESULT: True') 'a FAILING LOAD suite does not fail the focus run'
+    Assert-True ($foBadLoad.Text -match '== f-load-b\.tests\.ps1 == FAILED \(exit 9\)') 'though its failure is still printed in full'
+    $foBadTarget = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'f-load-b' -FocusRepeat 2
+    $script:KeptCaptureDirs += $foBadTarget.CaptureDir
+    Assert-True ($foBadTarget.Text -match 'GATE-RESULT: False') 'while the SAME suite as the target does fail it'
+    Assert-Says $foBadTarget.Flat '2/2 did NOT pass under load -- reproduced' 'and the focus table says it reproduced'
+
+    # 11c. The refusals. Every wrong input here has a plausible-looking silent reading, and a focus run
+    # that quietly measured nothing is the shape of a green gate that proved nothing.
+    $foGone = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'f-nothing' -FocusRepeat 1
+    Assert-True ($foGone.Text -match 'GATE-REFUSED:') 'a -FocusSuite matching nothing is refused, not silently ignored'
+    Assert-Says $foGone.Flat 'no suite matches -FocusSuite' 'and the refusal says so in those words'
+    Assert-True ($foGone.Flat -notmatch 'Did you mean') 'with no suggestion where there is genuinely nothing close'
+    # A HALF-REMEMBERED NAME IS THE COMMONEST CAUSE, so a refusal that only says no sends the reader to
+    # Get-ChildItem. 'target' is the shape that keeps happening: the distinctive half of the file name
+    # without the prefix it actually carries.
+    $foNear = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'target' -FocusRepeat 1
+    Assert-True ($foNear.Text -match 'GATE-REFUSED:') 'a partial name is refused rather than guessed at'
+    Assert-Says $foNear.Flat 'Did you mean: f-target.tests.ps1' 'and the refusal names the near miss'
+
+    # 11d. Capture stems are per-ITEM, not per-file. Five lanes running one file would otherwise write
+    # one pair of capture files between them, and the retention block would keep whichever finished last.
+    New-FakeSuite -Dir $focusDir -Name 'f-target.tests.ps1' -Body "Write-Host 'MARKER-TARGET'`r`nexit 5`r`n"
+    $foStems = Invoke-Gate -TestsDir $focusDir -MaxParallel 2 -FocusSuite 'f-target' -FocusRepeat 3
+    $script:KeptCaptureDirs += $foStems.CaptureDir
+    Assert-True ($foStems.Text -match 'GATE-RESULT: False') 'a failing target fails every repeat'
+    Assert-True ($foStems.CaptureDir -ne '' -and (Test-Path -LiteralPath $foStems.CaptureDir)) 'and the run keeps its captures'
+    $stemFiles = @(Get-ChildItem -LiteralPath $foStems.CaptureDir -File -Filter 'f-target.tests*.out.txt' -ErrorAction SilentlyContinue)
+    Assert-Equal 3 $stemFiles.Count 'each repeat kept its OWN capture file -- three copies of one file, three stems'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
@@ -1056,6 +1189,101 @@ Assert-Equal 0 (Test-FakeFresh 'okwidth'  "`$tag = [Guid]::NewGuid().ToString('N
     'and so does the 8-character slice the two real call sites use'
 Assert-Equal 0 (Test-FakeFresh 'okother'  "`$other = 'literal'`n").Count `
     'a variable outside the allowance is not this check subject'
+
+# --- Get-TestSuiteFocusOrder, in-process (issue #1944) ---------------------------------------------
+#
+# WHY IN-PROCESS WHERE EVERY CASE ABOVE GOES THROUGH A CHILD. The cases above assert on what the gate
+# PRINTS, and the gate prints through Write-Host, which never enters the pipeline -- so they have to read
+# a child's console. This function returns a value, so driving it through a child would be reading a
+# formatted table back as text to learn something the object already says. Same split the shard packer's
+# own coverage uses.
+Write-Host "the focus queue, composed directly" -ForegroundColor Cyan
+. $LibPath
+
+function New-FakeSuiteObject {
+    param([string]$Name)
+    return [pscustomobject]@{ Name = $Name; BaseName = ($Name -replace '\.ps1$', ''); FullName = "X:\tests\$Name" }
+}
+$fakePool = @('alpha.tests.ps1', 'beta.tests.ps1', 'gamma.tests.ps1') | ForEach-Object { New-FakeSuiteObject $_ }
+
+# THE THREE SPELLINGS. All three are what a person has in their hand at that moment, and requiring one
+# would only teach the caller to strip characters the function strips itself.
+foreach ($spelling in @('beta', 'beta.tests', 'beta.tests.ps1')) {
+    $q = @(Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite $spelling -Repeat 2 -Lanes 3)
+    Assert-Equal 2 (@($q | Where-Object { $_.IsTarget }).Count) "'$spelling' selects beta, twice"
+    Assert-True (@($q | Where-Object { $_.IsTarget } | ForEach-Object { $_.File.Name }) -notcontains 'alpha.tests.ps1') `
+        "'$spelling' did not select a near neighbour"
+}
+
+# THE TARGET IS NEVER LOAD FOR ITSELF. A repeat contending with another repeat is not the pool
+# contending with it, which is the thing a focus run is asking about.
+$q = @(Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite 'beta' -Repeat 2 -Lanes 3)
+Assert-Equal 0 (@($q | Where-Object { -not $_.IsTarget -and $_.File.Name -eq 'beta.tests.ps1' }).Count) `
+    'the suite under test never appears as its own load'
+Assert-True ($q[0].IsTarget) 'the queue opens with a target, so repeat 1 gets a full pool of lanes behind it'
+
+# THE REPEATS ARE SPREAD, not fired into the opening lanes together -- one at the head of each of
+# $Repeat equal chunks of the load.
+$spread = @(Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite 'beta' -Repeat 3 -Lanes 4)
+$targetAt = @(0..($spread.Count - 1) | Where-Object { $spread[$_].IsTarget })
+Assert-Equal 3 $targetAt.Count 'three repeats are queued'
+Assert-True (($targetAt | Select-Object -Last 1) -gt 2) 'and the last one is NOT in the opening lanes -- they are spread through the load'
+
+# EVERY STEM IS UNIQUE. This is the half a bare file list cannot carry: the pool names its capture files
+# after the item, and three lanes running one file would otherwise share one pair.
+$stems = @($spread | ForEach-Object { $_.Stem })
+Assert-Equal $stems.Count (@($stems | Sort-Object -Unique).Count) 'every queue item has its own capture stem'
+Assert-True (@($spread | Where-Object { $_.IsTarget } | ForEach-Object { $_.Label }) -contains 'beta.tests.ps1 [focus 2/3]') `
+    'and a target copy is labelled with which repeat it is, so three headers for one file are readable'
+
+# MORE LANES MEANS MORE LOAD, because the budget is lane-seconds: the whole point is that every OTHER
+# lane is busy while the target runs.
+$narrow = @(Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite 'beta' -Repeat 2 -Lanes 2)
+$wide   = @(Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite 'beta' -Repeat 2 -Lanes 8)
+Assert-True ($wide.Count -gt $narrow.Count) `
+    "a wider pool is given more load to fill it ($($wide.Count) items at 8 lanes against $($narrow.Count) at 2)"
+
+# THE FLOOR, WHICH THE SECONDS BUDGET ALONE DOES NOT GIVE. A cheap target beside expensive siblings meets
+# its lane-seconds in two or three files; the queue is then shorter than the lane count and the gate's own
+# clamp quietly lowers -MaxParallel to fit, so a run asked for at 8 lanes is measured at 3. Measured on
+# this repo's real hints while building #1944: -MaxParallel 6 produced 3 load items and ran at 5 lanes.
+$cheapTarget = @(Get-TestSuiteFocusOrder -Suites $fakePool `
+    -Costs @{ 'beta.tests.ps1' = 1; 'alpha.tests.ps1' = 500; 'gamma.tests.ps1' = 500 } `
+    -FocusSuite 'beta' -Repeat 2 -Lanes 8)
+Assert-True ($cheapTarget.Count -ge 8) `
+    "a cheap target beside dear load still fills the lanes it was asked for ($($cheapTarget.Count) items for 8 lanes)"
+Assert-True ((@($cheapTarget | Where-Object { -not $_.IsTarget }).Count) -ge 14) `
+    'one load item per non-target lane per repeat, whatever the seconds budget says'
+
+# COSTS ARE HINTS, AND A MISSING FILE IS NOT A FAILURE -- the same contract Get-TestSuiteCostHints
+# already states. With hints, an expensive target buys a longer load list, which is the safe direction:
+# over-charging the target makes the reproduction attempt more thorough, never less.
+$cheap = @(Get-TestSuiteFocusOrder -Suites $fakePool -Costs @{ 'beta.tests.ps1' = 1; 'alpha.tests.ps1' = 10; 'gamma.tests.ps1' = 10 } `
+             -FocusSuite 'beta' -Repeat 2 -Lanes 4)
+$dear  = @(Get-TestSuiteFocusOrder -Suites $fakePool -Costs @{ 'beta.tests.ps1' = 100; 'alpha.tests.ps1' = 10; 'gamma.tests.ps1' = 10 } `
+             -FocusSuite 'beta' -Repeat 2 -Lanes 4)
+Assert-True ($dear.Count -gt $cheap.Count) 'a costlier target is given proportionally more load to outlast'
+
+# A ONE-SUITE POOL IS NOT AN ERROR. There is nothing to contend against, and the honest answer is the
+# repeats plus a lane count the summary states -- not a refusal.
+$lonely = @(Get-TestSuiteFocusOrder -Suites @((New-FakeSuiteObject 'only.tests.ps1')) -FocusSuite 'only' -Repeat 4 -Lanes 8)
+Assert-Equal 4 $lonely.Count 'a pool holding only the target yields exactly the repeats'
+Assert-Equal 4 (@($lonely | Where-Object { $_.IsTarget }).Count) 'and all of them decide the verdict'
+
+# THE REFUSALS, both of them. Refused rather than interpreted, on the same ground as -Shard's validation.
+try {
+    $null = Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite 'delta' -Repeat 1 -Lanes 2
+    Assert-True $false 'a -FocusSuite matching nothing throws'
+} catch {
+    Assert-True ($_.Exception.Message -match 'no suite matches') 'a -FocusSuite matching nothing throws'
+    Assert-True ($_.Exception.Message -match 'among the 3 in the pool') 'and says how large the pool it looked in was'
+}
+try {
+    $null = Get-TestSuiteFocusOrder -Suites $fakePool -FocusSuite 'beta' -Repeat 0 -Lanes 2
+    Assert-True $false '-Repeat below 1 throws'
+} catch {
+    Assert-True ($_.Exception.Message -match 'must be at least 1') '-Repeat below 1 throws rather than selecting nothing'
+}
 
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
