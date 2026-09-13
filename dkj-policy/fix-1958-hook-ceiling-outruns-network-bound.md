@@ -85,6 +85,22 @@ harness prints, none of park-cycle's arms run and nothing it wrote is delivered.
 - [x] `cycle-autopark.tests.ps1`: (k) the budget is pinned against `hooks.json`'s registered `timeout`
       with a 10s margin, and the stub proves `-UnderHook` still arrives.
 - [x] All three suites green locally; the full gate runs from open-pr.
+- [x] Review pass (Victor, Sebastian, Edith, Nolan, in parallel on the diff). Three findings, all
+      repaired on the branch:
+      - **Victor, real bug in the test.** The regression assert naming the unbounded `gh pr list` was
+        anchored `\s*$`, and PowerShell's `-match` has no Multiline by default -- so that `$` anchored to
+        the end of the whole FILE and the assert returned true unconditionally. Run against
+        `git show main:scripts/task/park-cycle.ps1`, which still contains the unbounded call, it passed.
+        Replaced with a semantic pin (line continuations joined; every network call must carry a bound
+        and take it from the budget) and **verified the replacement fails on that same pre-fix file**.
+      - **Victor, loose pin.** The `-ge 3` counts were inflated by the file's own comments, so losing a
+        call site still passed. Comments stripped, counts exact.
+      - **Edith, terminology.** `park-lib.ps1` called the 60s ceiling "the whole budget", blurring the
+        one distinction the fix rests on (120 is twice the *ceiling*, not twice the 45s budget).
+      - **Edith, stale invocation surface.** `05-05-extension.md` documented `park-cycle.ps1 [-Quiet]`;
+        the new parameters and what they mean for a missing `park:` commit are now written there.
+      - Sebastian: no blocking findings; his one advisory (a raw `$branch` in a line this branch was
+        rewording anyway) is repaired through `Get-DisplayRef` rather than left as pre-existing.
 
 ### DEPLOY: fix/1958-hook-ceiling-outruns-network-bound
 
