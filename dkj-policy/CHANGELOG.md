@@ -43,7 +43,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 9 minor entries** <!-- pending-tally -->
+**8 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1910-closeout-suppression-leaks-into-gate · 20260913-094658
+
+A gate run no longer inherits the close-out suppression a conductor sets, so `closeout-lib.tests.ps1`
+stops crashing inside every ship that re-runs `open-pr` with something to push -- closes #1910.
+`Invoke-WorkflowGates` suspends the flag around both gates and restores it in a `finally`; the suite
+also clears it for its own duration and says so, because a test asserting on an ambient global is its
+own defect.
+
+For this repo's maintainers it removes a blocker that sat on the recovery path the staleness guard
+(#1292) itself prescribes: when `main` moves under a certified run, the way out is to bring the branch
+forward and re-run `ship-pr` -- and that re-run is precisely the one where `open-pr` has something to
+push, so it reaches its test gate. The failure also pointed the operator at their own tests while CI
+stayed green, which is the most confusing place for the two gates to disagree.
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every consumer running this workflow ships through the same `ship-pr` → `open-pr` → gate path, and both
+changed libs travel to them as plugin mirrors, so they meet this defect on the same recovery step and
+with the same green CI beside it. They do not have to act: the repair arrives with the next release and
+nothing on their side changes shape -- no new switch, no new file, no behaviour they have to adopt. What
+they get back is the one route out of a stale-base refusal, which is a route they cannot work around
+locally, since `-SkipTests` is the only alternative and that is the switch that says the run did not
+measure.
+**Score:** 3
+
+#### Pull Request
+
+Clear the close-out suppression around a gate run, and make the suite state its own precondition
+
+Plugins: dkj-policy
+
+[PR #1918](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1918)
+
+---
 
 ### DEPLOY: fix/1903-adopt-ci-floor-rename · 20260913-071749
 
