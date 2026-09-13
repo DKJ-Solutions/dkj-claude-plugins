@@ -43,7 +43,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 14 minor entries** <!-- pending-tally -->
+**13 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1917-judge-repo-root-resolution · 20260913-110717
+
+Every workflow script that could not find its repository used to die on
+`You cannot call a method on a null-valued expression.` -- exit 1, no cause, from the first statement
+of the script. That is the line a consumer meets when a skill runs the plugin mirror from a worktree,
+or with the working directory somewhere unexpected, which is exactly where `rev-parse` does not
+answer. It now refuses in words, naming git's exit code, what git said, and the three ways out.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It removes a spelling rather than adding one. The report asked for a new shared helper; the tree
+already had four dual-context resolvers and the repair is the **verdict** the fourth was missing, not
+a fifth resolver. `Resolve-CheckRoot` had described this exact bug in its own docstring for weeks
+while 37 call sites went on committing it -- the correct shape existed and simply was not the one
+that got copied.
+
+Two of the six inbound pickup checks caught something: the model the report told us to lift from
+never landed (#1913 is still open, so `new-branch.ps1` carried the defect, not the cure), and the
+count was low by one file and silently omitted a whole layer.
+
+**Score:** 2
+
+#### Pull Request
+
+Judge the repo-root resolution instead of dereferencing a null
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1927](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1927)
+
+---
 
 ### DEPLOY: fix/1912-noresolves-persists-in-body · 20260913-103500
 

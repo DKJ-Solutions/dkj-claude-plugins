@@ -158,7 +158,13 @@ foreach ($pair in ($pairs | Where-Object { $libOnlyPairs -notcontains $_.Name })
     $src = Get-NormalizedScriptContent -Path $pair.SourcePath
     $inline   = $src -match '\$env:CLAUDE_PROJECT_DIR'
     $delegate = $src -match 'Resolve-CheckRoot\s+-Override'
-    Assert-True ($inline -or $delegate) "$($pair.Name): source resolves the repo root dual-context (inline `$env:CLAUDE_PROJECT_DIR or Resolve-CheckRoot)"
+    # THE THIRD WAY, added with #1917: delegate to Resolve-RepoRootOrFail, check-report-lib's
+    # REFUSING sibling of Resolve-CheckRoot. It is the same dual-context resolution -- it calls
+    # Resolve-CheckRoot itself -- so it satisfies this invariant for exactly the reason the second way
+    # does, and it is a separate alternative here rather than a loosened regex because the two differ
+    # in verdict, not in resolution, and a reader of this assert should see both names.
+    $delegateOrFail = $src -match 'Resolve-RepoRootOrFail'
+    Assert-True ($inline -or $delegate -or $delegateOrFail) "$($pair.Name): source resolves the repo root dual-context (inline `$env:CLAUDE_PROJECT_DIR, Resolve-CheckRoot or Resolve-RepoRootOrFail)"
 }
 
 # The invariant moves with the behavior: check-report-lib now OWNS the dual-context resolution for the
@@ -168,6 +174,12 @@ foreach ($pair in ($pairs | Where-Object { $libOnlyPairs -notcontains $_.Name })
 $reportLibSrc = Get-NormalizedScriptContent -Path (($pairs | Where-Object { $_.Name -eq 'check-report-lib' }).SourcePath)
 Assert-True ($reportLibSrc -match 'function Resolve-CheckRoot') 'check-report-lib defines Resolve-CheckRoot (the shared dual-context resolver)'
 Assert-True ($reportLibSrc -match '\$env:CLAUDE_PROJECT_DIR') 'check-report-lib really reads $env:CLAUDE_PROJECT_DIR (not only the delegating callers)'
+# Same reasoning one function over (#1917): the loop above now accepts Resolve-RepoRootOrFail as
+# proof of dual-context resolution, so the thing it accepts has to exist and has to get its answer
+# from Resolve-CheckRoot rather than re-deriving one. Without these two, deleting the delegation
+# inside the lib would leave every acting script green on the name alone.
+Assert-True ($reportLibSrc -match 'function Resolve-RepoRootOrFail') 'check-report-lib defines Resolve-RepoRootOrFail (the refusing sibling)'
+Assert-True ($reportLibSrc -match 'Resolve-RepoRootOrFail[\s\S]*?Resolve-CheckRoot\s+-Override') 'Resolve-RepoRootOrFail delegates its resolution to Resolve-CheckRoot (it does not re-derive one)'
 
 Write-Host "Get-NormalizedScriptContent" -ForegroundColor Cyan
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("shared-scripts-test-$PID-$([guid]::NewGuid().ToString('n')).ps1")

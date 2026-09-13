@@ -222,6 +222,11 @@ function New-Fixture {
     Copy-Item -LiteralPath $EntryScaffoldSrc -Destination (Join-Path $dir 'scripts\lib\entry-scaffold-lib.ps1')  -Force
     # command-probe-lib.ps1 is a sibling of a sibling (#1729): the three libs above dot-source it for
     # Test-FunctionDefined, so the fixture owes it exactly as it owes ref-print-lib.
+    # check-report-lib.ps1 likewise (#1917): the script under test resolves its repo root through
+    # Resolve-RepoRootOrFail, which lives there -- so the fixture owes it too. UNGUARDED in the script,
+    # deliberately: it is the first statement that runs, and a guarded load would have to fall back to
+    # the very unjudged .Trim() this repair removes.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\check-report-lib.ps1') -Force
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\command-probe-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\command-probe-lib.ps1') -Force
     # document-newline-lib.ps1 likewise (#1832): entry-scaffold-lib.ps1 and pr-body-lib.ps1 dot-source it
     # for Get-DocumentNewline, unconditionally and for the same reason -- so the fixture owes it too.

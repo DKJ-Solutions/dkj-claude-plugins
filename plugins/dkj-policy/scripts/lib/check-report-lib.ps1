@@ -398,8 +398,31 @@ function Resolve-CheckRoot {
        git push whose progress chatter goes to stderr). It CAN legitimately fail -- outside a git
        work tree -- and then a caller under $ErrorActionPreference = 'Stop' used to die on a raw
        .Trim() against $null. Returning Path = $null instead lets the caller report that as one
-       clean line. #>
-    param([string]$Override = '')
+       clean line.
+
+       -From ANCHORS the git call to a directory instead of the inherited working directory, via
+       `git -C`. It exists for a caller whose answer must not depend on where the process happens to
+       be standing -- a test suite passing $PSScriptRoot, say, in a tree that stands up throwaway git
+       repos mid-run and changes directory into them (#1917). Default '' keeps the cwd behaviour,
+       which is the correct one for the session checks: their whole point is to report the repo the
+       session is in.
+
+       AND -From BEATS CLAUDE_PROJECT_DIR, which is the one place it does touch precedence. An
+       explicit anchor is a caller saying "resolve relative to THIS FILE, wherever the session
+       thinks it is"; the env var is ambient context set by whoever launched the session. Letting
+       the ambient value win would defeat the anchor exactly where it is needed most: worktree-lane
+       deliberately keeps CLAUDE_PROJECT_DIR pinned at the PRIMARY checkout while the work happens in
+       a lane, so a suite run from that lane would resolve to the primary tree -- a different repo
+       than the file asking, which is the failure -From exists to prevent. Caught in review; the six
+       converted suites consulted the env var not at all before this, so honouring it here would have
+       been new coupling rather than preserved behaviour.
+
+       An explicit -Override still wins over both: it is the caller naming the tree outright, which
+       is a stronger statement than naming a file to resolve from. #>
+    param(
+        [string]$Override = '',
+        [string]$From = ''
+    )
 
     if ($Override) {
         $resolved = Resolve-Path -LiteralPath $Override -ErrorAction SilentlyContinue
@@ -410,7 +433,8 @@ function Resolve-CheckRoot {
         }
     }
 
-    if ($env:CLAUDE_PROJECT_DIR) {
+    # -not $From: an explicit anchor outranks the ambient session variable -- see the docstring.
+    if ($env:CLAUDE_PROJECT_DIR -and -not $From) {
         $resolved = Resolve-Path -LiteralPath $env:CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
         return [pscustomobject]@{
             Path   = $(if ($resolved) { $resolved.Path } else { $null })
@@ -420,19 +444,135 @@ function Resolve-CheckRoot {
     }
 
     $top = $null
+    $gitCode = $null
+    $gitErr = ''
     try {
-        $out = git rev-parse --show-toplevel
-        $code = $LASTEXITCODE
-        if ($code -eq 0 -and $out) { $top = ([string]$out).Trim() }
+        # Stderr is captured rather than let through, because it is the ONLY thing that says why git
+        # declined and it is what the refusal below quotes (#1917). Without it the reader gets an exit
+        # code and nothing else; git's own line reaches the console by accident at best, and in a
+        # redirected child not at all. 2>&1 merges it into the stream, so the ErrorRecord objects are
+        # split back out by type -- a native command's stderr arrives as ErrorRecord under
+        # $ErrorActionPreference = 'Stop' and would otherwise terminate the call it is explaining.
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            # -C goes BEFORE the subcommand, and only when anchored -- an empty -C is not the same as
+            # no -C at all: git reads it as a path and fails.
+            if ($From) { $raw = @(& git -C $From rev-parse --show-toplevel 2>&1) }
+            else       { $raw = @(& git rev-parse --show-toplevel 2>&1) }
+            $gitCode = $LASTEXITCODE
+        } finally { $ErrorActionPreference = $prevEap }
+        $outLines = @($raw | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
+        $errLines = @($raw | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
+        $gitErr = (($errLines | ForEach-Object { [string]$_ }) -join '; ').Trim()
+        if ($gitCode -eq 0 -and $outLines.Count -gt 0) { $top = ([string]$outLines[0]).Trim() }
     } catch {
         $top = $null
+        if (-not $gitErr) { $gitErr = $_.Exception.Message }
     }
     $resolved = $(if ($top) { Resolve-Path -LiteralPath $top -ErrorAction SilentlyContinue } else { $null })
     return [pscustomobject]@{
         Path   = $(if ($resolved) { $resolved.Path } else { $null })
         Source = 'git-root'
         Note   = 'CLAUDE_PROJECT_DIR was not set -- fell back to the git root of the working directory; inside a session that root can differ from the repo being reported into'
+        # ADDITIVE, and only ever populated on this branch (#1917). The override and env-var branches
+        # above return without them because no git call was made there -- $null means "git was not
+        # asked", which is a different fact from "git answered 0". Every existing caller reads Path,
+        # Source and Note and is untouched.
+        GitExitCode = $gitCode
+        GitError    = $gitErr
     }
+}
+
+function Resolve-RepoRootOrFail {
+    <#
+        THE SAME RESOLUTION AS Resolve-CheckRoot, WITH THE OPPOSITE VERDICT -- and that split is the
+        whole point of this function existing beside it rather than inside it.
+
+        Resolve-CheckRoot returns Path = $null when nothing answers, because its callers are ADVISORY
+        checks: a SessionStart hook must not fail a session over a root it could not resolve, and a
+        fixture tree that is deliberately not a repo is a normal input there. Its own docstring says so,
+        and consumer-check-lib's Resolve-CheckRepoRoot says it again: "THE VERDICT IS NOT SHARED, ONLY
+        THE RESOLUTION."
+
+        An ACTING script is the other case. open-pr, ship-pr, cut-release, claim-issue, new-branch and
+        the rest cannot do anything useful without a tree, so for them '' is not a tolerable answer --
+        but the shape they all carried instead was
+
+            $repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+
+        which never reads git's exit code and dereferences its output. Where git answers nothing that is
+        $null.Trim(), and under $ErrorActionPreference = 'Stop' -- which every one of them sets -- the
+        script dies on "You cannot call a method on a null-valued expression", exit 1, having said
+        nothing about what went wrong. Measured on 37 call sites, September 13, 2026 (#1917). It is the
+        FIRST statement of most of those scripts, so its failure mode is the one a reader meets with no
+        other context, and it is the mode that explains least.
+
+        THE REFUSAL NAMES GIT'S EXIT CODE AND WHAT GIT SAID, because the cause was previously in the
+        output only by accident -- git's own fatal line happens to precede the PowerShell error on a
+        console, and in a redirected child, or where git fails for a reason that prints less, it is not
+        there at all.
+
+        -ScriptName is the caller's own name for the refusal's first line. It is not derived from
+        $MyInvocation here: inside a dot-sourced function that reports this lib, not the script the
+        reader ran.
+
+        -OverrideName IS THE FLAG THIS CALLER ACTUALLY EXPOSES, and it is a parameter for the same
+        reason -ScriptName is: the lib cannot know it. Two converted scripts spell that seam
+        -RepoRoot (new-branch, fold-changelog-entry) and ten spell it -RootOverride. A refusal that
+        hardcoded either one would, on the majority of callers, tell the reader to pass a flag
+        PowerShell then rejects outright -- naming a remedy that does not exist, which is the one
+        thing a refusal must never do. Caught in review before this shipped.
+    #>
+    param(
+        [string]$Override = '',
+        [string]$ScriptName = '',
+        [string]$From = '',
+        [string]$OverrideName = '-RepoRoot',
+        # WHAT THE REFUSAL COST THE CALLER, in the caller's own words -- "Nothing was created: no branch,
+        # no document, nothing on origin." This is #1913's requirement, kept when that repair's inline
+        # refusal was folded into this seam: a reader who is about to re-run needs to know whether the
+        # failed run left anything behind. The lib cannot know -- a read-only script created nothing by
+        # definition, new-branch created nothing only because it refused this early -- so the caller says
+        # it. Empty prints nothing rather than a vague reassurance this function is not entitled to give.
+        [string]$Consequence = ''
+    )
+
+    $scope = Resolve-CheckRoot -Override $Override -From $From
+    if ($scope.Path) { return $scope.Path }
+
+    $who = $(if ($ScriptName) { $ScriptName } else { 'this script' })
+    Write-Host ''
+    Write-Host "REFUSED: $who could not determine which repository to work on." -ForegroundColor Red
+    Write-Host ''
+    switch ($scope.Source) {
+        'override' {
+            Write-Host ("  {0} was given as '{1}', and that path does not exist." -f $OverrideName, $Override) -ForegroundColor Yellow
+        }
+        'CLAUDE_PROJECT_DIR' {
+            Write-Host ("  CLAUDE_PROJECT_DIR is set to '{0}', and that path does not exist." -f $env:CLAUDE_PROJECT_DIR) -ForegroundColor Yellow
+            Write-Host '  That variable is how a session tells a plugin-mirror script which repo it is about,'
+            Write-Host '  so a stale or mistyped value points every shared script at nothing.'
+        }
+        default {
+            Write-Host ("  No {0} was given and CLAUDE_PROJECT_DIR is not set, so the root had to come from" -f $OverrideName)
+            # The directory git was actually ASKED about -- which is -From when anchored, and only
+            # otherwise the working directory. Naming the cwd on an anchored call would send the
+            # reader to look at the wrong place.
+            $asked = $(if ($From) { $From } else { (Get-Location).Path })
+            Write-Host ("  'git rev-parse --show-toplevel' in {0} -- and git declined." -f $asked) -ForegroundColor Yellow
+            Write-Host ("  git exit code: {0}" -f $(if ($null -ne $scope.GitExitCode) { $scope.GitExitCode } else { '(git could not be run at all)' }))
+            Write-Host ("  git said:      {0}" -f $(if ($scope.GitError) { $scope.GitError } else { '(nothing on stderr)' }))
+            Write-Host ''
+            Write-Host ("  Run this from inside the checkout, or pass {0}, or set CLAUDE_PROJECT_DIR." -f $OverrideName) -ForegroundColor Green
+        }
+    }
+    if ($Consequence) {
+        Write-Host ''
+        Write-Host "  $Consequence" -ForegroundColor Yellow
+    }
+    Write-Host ''
+    exit 1
 }
 
 function Write-CheckScope {

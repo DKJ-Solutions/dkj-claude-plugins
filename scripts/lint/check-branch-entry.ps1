@@ -116,7 +116,26 @@ if (Test-Path -LiteralPath $checkLib -PathType Leaf) { . $checkLib }
 
 $repoRoot = if (Test-FunctionDefined 'Resolve-CheckRepoRoot') {
     Resolve-CheckRepoRoot -RootOverride $RootOverride
-} elseif ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+} elseif ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else {
+    # JUDGED, AND DELIBERATELY TOLERANT (#1917). This branch is the degraded path -- it runs only where
+    # consumer-check-lib is too old to define Resolve-CheckRepoRoot -- so it must answer what that lib
+    # answers: '' for "could not tell", leaving the verdict to the block below, which is the one place
+    # each of these checks decides what '' means for it. It must NOT refuse here, and it must not die on
+    # $null.Trim() either, which is what it used to do before anything could read the guard.
+    # EAP NEUTRALISED AROUND THE NATIVE CALL, exactly as Resolve-CheckRoot does it, and for a measured
+    # reason rather than symmetry: under $ErrorActionPreference = 'Stop' -- which this file sets -- a
+    # native command that SUCCEEDS and also writes to stderr throws non-deterministically, depending on
+    # how stdout and stderr interleave. Measured in review: 7 of 8 identical runs threw, and the catch
+    # below then turned a perfectly resolvable root into '' -- "could not tell" about a tree that was
+    # right there. The catch is the backstop; this wrap is what stops it firing on a success.
+    $t = ''
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $t = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1) }
+    catch { $t = '' }
+    finally { $ErrorActionPreference = $prevEap }
+    if ($t) { ([string]$t).Trim() } else { '' }
+}
 
 # '' MEANS "COULD NOT TELL", AND THIS ONE REFUSES -- which is why the lib returns the fact and not the
 # verdict. A CI gate that cannot find the tree it is gating must not pass, because passing is what the

@@ -38,7 +38,13 @@
 #>
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = (git rev-parse --show-toplevel).Trim()
+# THE REPO ROOT, judged and ANCHORED (#1917). -From pins the git call to this file's own directory
+# instead of the inherited working directory: this suite tree stands up throwaway git repos and
+# changes into them, so a cwd-relative answer can name the wrong repo. Resolve-RepoRootOrFail
+# refuses with git's exit code and stderr where the old (git rev-parse ...).Trim() died on
+# $null.Trim() -- which here meant a suite testing the wrong file, or none.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+$RepoRoot = Resolve-RepoRootOrFail -From $PSScriptRoot -ScriptName 'measure-always-on.tests.ps1'
 $Lib = Join-Path $RepoRoot 'scripts\lib\measure-context-lib.ps1'
 $Script = Join-Path $RepoRoot 'scripts\maintenance\measure-always-on.ps1'
 
