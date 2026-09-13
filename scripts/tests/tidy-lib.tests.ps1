@@ -28,6 +28,12 @@
         New-ScratchPath exists to remove (#1659). A decision that lives only in prose is one draft away
         from being made again, so it is pinned here.
 
+    AND ONE SECTION THAT DOES RUN THE SCRIPT, against the grain of everything above (section 11, #1926).
+    -MachineOnly is the one mode that completes outside a checkout, and the machine running this suite is
+    standing in one -- so the promise cannot be read off the text, only off an exit code taken somewhere
+    else. Two child processes in a non-repo fixture, both -DryRun, both with the home and scratch root
+    pinned empty: -MachineOnly must reach the last lane and exit 0, and -CheckoutOnly must still refuse.
+
     Dependency-free: no Pester, only PowerShell. Exit 0 if everything passes, 1 on a failure.
 #>
 $ErrorActionPreference = 'Stop'
@@ -49,6 +55,10 @@ $Script   = Join-Path $RepoRoot 'scripts\maintenance\tidy-machine.ps1'
 # tree-wide, which is how the first draft of this line was caught.
 . (Join-Path $RepoRoot 'scripts\lib\command-probe-lib.ps1')
 . (Join-Path $RepoRoot 'scripts\lib\worktree-lib.ps1')
+# native-capture-lib is for section 11 and for two things only: New-ScratchPath, which builds the
+# non-repo fixture the two runs there stand in, and Invoke-NativeCapture for the git probe that asserts
+# it really is one. Not copied into a fixture, so the fixture-lib-deps gate has no subject here.
+. (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1')
 . (Join-Path $RepoRoot 'scripts\lib\tidy-lib.ps1')
 
 $script:pass = 0
@@ -368,6 +378,74 @@ Assert-True ($codeText -match "'--state', 'merged'") 'and the merged lookup is i
 Assert-True ($codeText -notmatch 'Format-PasteablePathToken') 'the retired literal-quote formatter is not called here'
 Assert-True ($codeText -match "-Kind Path")                   'and the path handover goes through the shared allowlist'
 Assert-True (-not (Test-FunctionDefined 'Format-PasteablePathToken')) 'tidy-lib no longer defines it at all'
+
+# --- 11. -MachineOnly runs without a checkout (#1926) ---------------------------------------------
+Write-Host '-- 11. -MachineOnly outside a checkout --' -ForegroundColor Cyan
+
+# THE STRUCTURAL HALF: both resolvers are wired, each to the half whose verdict it carries -- the
+# refusing one for the lanes that read a branch list, the tolerant one for the lanes that read this
+# machine. And the tolerant answer may be $null, which Get-InstallRecord's Mandatory -RepoRoot would
+# reject outright, so the old spelling is pinned OUT rather than the new one merely pinned in.
+Assert-True ($codeText -match 'Resolve-RepoRootOrFail') 'the refusing resolver is still wired, for the checkout half (#1917)'
+Assert-True ($codeText -match 'Resolve-CheckRoot')      'and the tolerant one for the machine half (#1926)'
+Assert-True ($codeText -notmatch 'Get-InstallRecord -RepoRoot \$repoRoot') 'no possibly-null root reaches Get-InstallRecord''s Mandatory -RepoRoot'
+
+# THE BEHAVIOURAL HALF, and it is the only thing in this file that RUNS the script. That is deliberate
+# rather than a drift from the header's "almost all of it is pure": the promise is about a state the
+# machine running this suite is not in, and no amount of reading the text proves a script exits 0
+# somewhere. One child process per direction, both -DryRun, both with the home and the scratch root
+# pinned at an empty fixture so the six machine lanes have nothing to walk and nothing to report.
+$fixture = New-ScratchPath -Label 'tidy-machine' -Directory
+try {
+    $fixtureHome    = Join-Path $fixture 'home'
+    $fixtureScratch = Join-Path $fixture 'scratch'
+    New-Item -ItemType Directory -Path $fixtureHome    | Out-Null
+    New-Item -ItemType Directory -Path $fixtureScratch | Out-Null
+
+    # ASSERTED, NOT ASSUMED. Everything below depends on the temp root being outside a work tree; if it
+    # ever were not, the run would resolve a root and every assertion after this would fail for a reason
+    # none of them names. Through Invoke-NativeCapture because git's fatal goes to stderr, which under
+    # this file's EAP=Stop is a terminating NativeCommandError before the exit code can be read.
+    $probe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $fixture, 'rev-parse', '--show-toplevel')
+    Assert-True ($probe.ExitCode -ne 0) 'the fixture sits outside a git work tree -- the precondition for the two runs below'
+
+    function Invoke-TidyMachine {
+        param([string[]]$ScriptArgs)
+        $prevProject = $env:CLAUDE_PROJECT_DIR
+        $prevProfile = $env:USERPROFILE
+        # Both, because the two halves of "where is home" are read by different lanes: -UserHomeOverride
+        # reaches lanes 8, 11 and 12, while lane 7 delegates to check-claude-home.ps1 with no arguments
+        # and resolves $env:USERPROFILE itself. Pinning only one would leave that lane on the real home.
+        $env:CLAUDE_PROJECT_DIR = ''
+        $env:USERPROFILE = $fixtureHome
+        Push-Location $fixture
+        try {
+            $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script @ScriptArgs
+            return [pscustomobject]@{ Code = $LASTEXITCODE; Text = (@($out) -join "`n") }
+        } finally {
+            Pop-Location
+            $env:CLAUDE_PROJECT_DIR = $prevProject
+            $env:USERPROFILE = $prevProfile
+        }
+    }
+
+    $machine = Invoke-TidyMachine -ScriptArgs @('-MachineOnly', '-DryRun', '-UserHomeOverride', $fixtureHome, '-ScratchRoot', $fixtureScratch)
+    Assert-True ($machine.Code -eq 0)                  '-MachineOnly completes outside a checkout (#1926)'
+    Assert-True ($machine.Text -notmatch 'REFUSED')    'and refuses nothing there'
+    Assert-True ($machine.Text -match 'no checkout here') 'the first line says so, rather than printing an empty repo root'
+    Assert-True ($machine.Text -match '(?s)Plugin and marketplace staleness.*?there is no checkout here -- lane skipped') 'lane 9 -- the one lane that asks about a CHECKOUT''s plugins -- is skipped by name'
+    # The lane's HEADING, not its summary line: with the cache root pinned at an empty fixture home,
+    # lane 12 correctly says there is no payload to judge and prints no tally at all.
+    Assert-True ($machine.Text -match 'Extracted plugin payload') 'and the run reaches the last lane rather than stopping at the skip'
+
+    # THE MIRROR CASE, asserted in the same place, because what #1926 granted is a tolerance for ONE
+    # mode and the value of that is entirely in the other mode still refusing (#1917).
+    $checkout = Invoke-TidyMachine -ScriptArgs @('-CheckoutOnly', '-DryRun')
+    Assert-True ($checkout.Code -ne 0)              'the per-checkout half still refuses outside a checkout'
+    Assert-True ($checkout.Text -match 'REFUSED')   'and says so, naming git''s own exit code and message'
+} finally {
+    if (Test-Path -LiteralPath $fixture) { Remove-Item -Recurse -Force -LiteralPath $fixture -ErrorAction SilentlyContinue }
+}
 
 Write-Host ''
 Write-Host "tidy-lib.tests: $script:pass passed, $script:fail failed." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })

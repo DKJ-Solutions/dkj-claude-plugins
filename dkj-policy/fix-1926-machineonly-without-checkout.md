@@ -39,21 +39,79 @@
 
 ### PLAN
 
-Measured every machine-half lane for a repo-root use (the issue's own ask). Lane 9 (plugin-versions) genuinely needs a checkout; the other five do not. Next: make the resolution tolerant under -MachineOnly, skip lane 9 with a stated reason, and pin it in tidy-lib.tests.ps1.
+#1926 asks a question rather than reporting a defect: should `tidy-machine -MachineOnly` run without a
+checkout? It also says what answering it costs -- *"whoever takes it should check each machine-half lane
+for a `$repoRoot` use rather than assuming the switch is clean."* That measurement came first, and the
+switch is **not** clean:
+
+| lane | `$repoRoot` use | needs a checkout? |
+|---|---|---|
+| 7 -- `~/.claude` administration | none; delegates to `check-claude-home.ps1`, which resolves tolerantly already and falls back to `$PSScriptRoot` | no |
+| 8 -- orphaned install records | `Get-InstallRecord -RepoRoot`, then reads only `AllRecords`/`Exists`/`Readable` -- never the repo-scoped half | no |
+| 9 -- plugin/marketplace staleness | delegates to `plugin-versions.ps1` -> `Get-EnabledPlugins -RepoRoot`; the question IS "this checkout's plugins" | **yes** |
+| 10 -- fixture trees | none; walks the scratch root | no |
+| 11 -- retired-name records | `Get-InstallRecord` as above, **plus** `$rootKey`, to mark findings belonging to another checkout | degrades honestly |
+| 12 -- payload trees | `Get-InstallRecord` as above | no |
+
+So the answer is yes, with lane 9 named as the exception rather than left to fail inside its child. The
+argument for is the switch's own documented purpose and the skill page calling this *"the closing tidy-up
+of a working session"*; the argument against -- one resolution up front is simpler than a conditional one
+-- is answered by putting the conditional in one place, at the top, rather than in six lanes.
+
+#### What #1917 left, and what this branch does not re-litigate
+
+The dead `if (-not $repoRoot) { $repoRoot = (Get-Location).Path }` is already gone and the behaviour it
+pretended to grant was never granted. Nothing here re-argues that. What is added is the tolerance itself,
+narrowed to the one half that can carry it.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Measure every machine-half lane for a `$repoRoot` use -- the table above; #1926's own precondition
+- [x] Resolve per half: `Resolve-RepoRootOrFail` under `$runCheckout`, `Resolve-CheckRoot` otherwise. The flag block moves above the resolution, since the resolution now depends on it
+- [x] `$recordRoot` -- the `$PSScriptRoot` stand-in for the three lanes that hand `Get-InstallRecord` a root only to read a field that does not depend on it. Copied from `check-claude-home.ps1`, which already answers this exact call the same way
+- [x] Skip lane 9 by name with the reason stated; guard the `repo-config.ps1` read (`Join-Path` refuses an empty `-Path`) and the banner (an empty `repo root:` reads as a failed resolution)
+- [x] Lane 11: `$rootKey` off `$recordRoot`, plus one line so *"another checkout"* does not send the reader hunting for which one is this one
+- [x] Document the new contract -- the `.PARAMETER MachineOnly` block and the skill page
+- [x] Mirror to `plugins/dkj-policy/` via `build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] `tidy-lib.tests.ps1` section 11: three structural asserts (both resolvers wired to their own half; no possibly-null root reaching `Get-InstallRecord`'s Mandatory `-RepoRoot`) and the first two asserts in this file that RUN the script -- `-MachineOnly` reaching lane 12 and exiting 0 in a non-repo fixture, `-CheckoutOnly` still refusing there. 89 passed, 0 failed, 2.8s
+- [x] Ran by hand from a non-repo scratch directory: all six lanes, exit 0, lane 9 skipped with its reason
+- [x] Ran by hand from inside the repo: banner, lane 9 and every tally unchanged
+- [x] Lint gate + all suites green
+
 ### DEPLOY: fix/1926-machineonly-without-checkout
 
-**Score:**
+`tidy-machine -MachineOnly` now runs with no checkout at all -- from a home directory, a scratch
+directory, anywhere. It never did, despite a fallback that read exactly as though it did: the old
+`if (-not $repoRoot) { $repoRoot = (Get-Location).Path }` could only fire on an empty string, and the
+line above it threw on `$null` first, so the guard caught a state that could not occur. #1917 removed
+that dead line and left the question standing; this answers it.
+
+The root is now resolved per half rather than once up front -- the refusing resolver for the six
+per-checkout lanes, whose subject a checkout genuinely is, and the tolerant one otherwise. Five of the
+six machine lanes need no repo, which was measured rather than assumed: lane 7 delegates to a script
+that already resolves tolerantly, lanes 8, 11 and 12 hand `Get-InstallRecord` a root only to read the
+one field of its answer that is not filtered by it, and lane 10 walks the scratch root. The sixth,
+lane 9, asks how far behind *this checkout's* plugins are, so it is skipped by name and says why --
+rather than left to refuse inside `plugin-versions.ps1`, where the refusal is worded for somebody who
+ran that script directly and would read, from here, as the whole run having failed.
+
+Every other invocation refuses exactly as before, and the suite now pins both directions.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's closing tidy-up no longer has to be run from inside a repository to answer the questions
+that were never about one. `tidy-machine` ships in `dkj-policy`, and `-MachineOnly` is the mode whose
+whole subject is the machine -- stale install records, plugin staleness, extracted payload nothing
+points at, leftover fixture trees. Standing in a home directory and asking for them used to end in a
+raw `You cannot call a method on a null-valued expression`; since #1917 it ended in a stated refusal;
+now it answers.
+
+**Score:** 2
 
 #### Pull Request
 
