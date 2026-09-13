@@ -184,7 +184,12 @@
     A `-Body` you supply that already carries a closing keyword satisfies the gate on its own, and so
     does the body of an ALREADY OPEN PR for this branch -- otherwise resuming such a branch would be
     blocked for not repeating a decision that is already published on the PR, where GitHub will honour
-    it at the merge regardless of what this run declares. If the
+    it at the merge regardless of what this run declares. AND SO DOES THE OTHER ANSWER, since #1912:
+    `-NoResolves` writes `<!-- resolves: none -->` into the body, which the gate reads back the same
+    way. Without it the two answers were asymmetric -- one published, one gone the moment the process
+    ended -- and the second run on a branch was blocked for exactly the reason the sentence above says
+    it must not be. A later `-Resolves` on the same branch strips the marker rather than leaving the
+    body claiming both. If the
     open/closed state cannot be determined (gh unavailable or failing), the gate WARNS and lets the PR
     through -- wedging the PR flow on a network hiccup would be worse than the slip it guards against.
     The decision table lives in scripts/lib/pr-issues-lib.ps1 and is covered by
@@ -227,6 +232,9 @@
 
 .PARAMETER NoResolves
     Declare that this PR closes no issue. The deliberate way past the resolves gate.
+    The declaration is RECORDED in the PR body as `<!-- resolves: none -->` (#1912), so a second run on
+    the same branch -- ship-pr.ps1's step 1 being the one that measured this -- reads the answer back
+    instead of asking again. Pass it once, not once per command.
 
 .PARAMETER Force
     Ship an entry the content gates object to -- the escape valve for the scaffold gate, for the rare entry
@@ -604,6 +612,14 @@ if ($Title) {
 # test suites before it is reported, and nothing has left the machine yet at this point.
 $resolveList = @(ConvertTo-IssueNumberList -Value $Resolves)
 $resolveIssues = @()
+# THE OTHER ANSWER GETS WRITTEN DOWN TOO (issue #1912). A -Resolves survives the run because it becomes
+# a closing keyword in the body, which the next run reads back off the open PR; -NoResolves wrote nothing
+# and so evaporated, and the very next run -- ship-pr.ps1's step 1 re-running this script -- refused a
+# branch whose author had already answered. This flag carries that answer down to the two body writers
+# below, which record it as a marker the gate recognises. It is true on both published forms: the flag on
+# this run's command line, and a marker an earlier run left on the PR (the gate's DeclaredNone verdict),
+# the second so a -RefreshBody that swallows the marker restores it rather than losing the decision.
+$resolvesDeclaredNone = [bool]$NoResolves
 if (-not $NoResolves -or $resolveList.Count -gt 0) {
     # What the branch itself mentions: the branch's OWN text out of the development document (always
     # present on a branch) plus a -Body the caller supplied, since either can carry the reference.
@@ -697,6 +713,7 @@ Both are honest answers; the gate only refuses to guess.
         exit 1
     }
     $resolveIssues = @($decision.Issues)
+    if ($decision.DeclaredNone) { $resolvesDeclaredNone = $true }
 
     # Mentioned, open, and covered by nothing the author declared. Reported, never blocking: closing
     # one of two mentioned issues is a legitimate choice, but leaving the second unmentioned in the
@@ -1773,6 +1790,23 @@ if ($existingPr) {
         if ($newBody -ne $beforeResolves) {
             $edits += "closing keyword(s) for $(($resolveIssues | ForEach-Object { "#$_" }) -join ', ')"
         }
+        # A marker left by an earlier -NoResolves run is a claim that is no longer true, and a body
+        # that both closes an issue and says it closes none is worse than one that says nothing: the
+        # gate acts on the keywords while a human reads the contradiction. Idempotent -- almost every
+        # run has no marker to strip.
+        $beforeStrip = $newBody
+        $newBody = Remove-NoResolvesMarker -Body $newBody
+        if ($newBody -ne $beforeStrip) { $edits += 'removal of the stale "closes nothing" marker' }
+    }
+
+    # AND THE MARKER GOES ON LAST, AFTER THE REFRESH, for the reason #919 gives for the closing block
+    # one step up: a refresh of a body whose description is its leading section rewrites everything
+    # below it, so anything appended before the refresh is appended into the part being replaced.
+    # Add-NoResolvesMarker is idempotent, so this restores a swallowed marker and is a no-op otherwise.
+    if ($resolvesDeclaredNone -and $resolveIssues.Count -eq 0) {
+        $beforeMarker = $newBody
+        $newBody = Add-NoResolvesMarker -Body $newBody
+        if ($newBody -ne $beforeMarker) { $edits += 'the "closes nothing" marker, so the next run is not asked again' }
     }
 
     if ($newBody -ne $currentBody) {
@@ -1952,7 +1986,12 @@ if (-not $Body) {
 # closes is not repeated.
 if ($resolveIssues.Count -gt 0) {
     $Body = Add-ResolvesBlock -Body $Body -Issues $resolveIssues
+    $Body = Remove-NoResolvesMarker -Body $Body
     Write-Host ("resolves gate: the PR body closes " + (($resolveIssues | ForEach-Object { "#$_" }) -join ', ') + " on merge.") -ForegroundColor Green
+} elseif ($resolvesDeclaredNone) {
+    # The whole of #1912: this is the line that makes "closes nothing" as durable as "closes #n".
+    $Body = Add-NoResolvesMarker -Body $Body
+    Write-Host "resolves gate: this PR closes no issue -- recorded in the body, so a later run is not asked again." -ForegroundColor DarkGray
 } else {
     Write-Host "resolves gate: this PR closes no issue." -ForegroundColor DarkGray
 }

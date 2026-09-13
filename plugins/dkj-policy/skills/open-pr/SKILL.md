@@ -748,7 +748,19 @@ powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" 
 - **PR references do not count.** `PR #341`, `PRs #341-#343` and `/pull/341` links are excluded, so
   citing the PR you follow on from does not trip the gate. A gate that fires on every branch gets
   bypassed, which is how it would quietly stop working.
-- **A `-Body` you supply that already says `Closes #332`** satisfies the gate on its own.
+- **A `-Body` you supply that already says `Closes #332`** satisfies the gate on its own, and so does
+  the body of a PR that is **already open** for this branch — otherwise resuming a branch would be
+  blocked for not repeating a decision GitHub already holds and will honour at the merge.
+- **`-NoResolves` is remembered the same way**, since
+  [#1912](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1912): it writes
+  `<!-- resolves: none -->` into the body, which the gate reads back on a later run. **Pass it once,
+  not once per command.** Before that it wrote nothing, so the two honest answers were not
+  symmetrical — one published, one gone the moment the process ended — and the very next run refused
+  the branch: measured on `feat/1843-portable-repo-settings-runner`, where `open-pr -NoResolves`
+  opened PR #1909 and `ship-pr` (whose step 1 re-runs `open-pr`) was blocked for a question that had
+  been answered minutes earlier. The cost was never the seconds; it is that the obvious way out —
+  passing a flag again to get past a gate — is the reflex this gate exists to prevent. A later
+  `-Resolves` on the same branch **strips** the marker, so a body never claims both.
 - **If the open/closed state cannot be determined** (no `gh`, or it errors), the gate **warns and
   lets the PR through**. Wedging the PR flow on a network hiccup would be worse than the bookkeeping
   slip it guards against.
