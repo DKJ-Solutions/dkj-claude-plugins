@@ -122,8 +122,8 @@ Write-Host "Get-BranchEntryExemptPrefix (the exemption, shared by the CI gate an
 Assert-Equal 'sync' (Get-BranchEntryExemptPrefix -Branch 'sync/live-2026-09-13') 'the default exemption is sync, and the MATCHED prefix comes back rather than a bare $true'
 Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'fix/1962-a-real-branch')  'an ordinary branch owes an entry'
 Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'syncc/typo')              'a prefix that merely LOOKS exempt is not -- a typo must not skip the gate silently'
-Assert-True ((Get-BranchEntryExemptPrefix -Branch 'Sync/Live') -ceq 'Sync') 'the comparison is case-insensitive -- and what comes back is the BRANCH own spelling, so the gate quotes what the author actually typed'
-Assert-Equal 'sync' (Get-BranchEntryExemptPrefix -Branch 'sync-live-2026-09-13')    'without a slash the part before the first hyphen applies, which is Get-BranchPrefix rule'
+Assert-True ((Get-BranchEntryExemptPrefix -Branch 'Sync/Live') -ceq 'Sync') 'the comparison is case-insensitive -- and what comes back is the branch''s own spelling, so the gate quotes what the author actually typed'
+Assert-Equal 'sync' (Get-BranchEntryExemptPrefix -Branch 'sync-live-2026-09-13')    'without a slash the part before the first hyphen applies, which is Get-BranchPrefix''s rule'
 Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch '')                        'an empty branch name owes an entry rather than throwing'
 Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch '   ')                     'and so does a whitespace one'
 

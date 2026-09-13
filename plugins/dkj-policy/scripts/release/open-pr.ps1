@@ -558,50 +558,6 @@ if (Test-Path -LiteralPath $entryPath) {
     $prTitle = Get-PrTitle -Prefix $(if ($info.IsKnown) { $info.Prefix } else { '' }) -TitleWords $titleWords
 }
 
-# --- The entry-exempt branch: its title comes from its own commit (issue #1962) --------------------
-#
-# THE TWO SCRIPTS USED TO DISAGREE. check-branch-entry.ps1 exempts a mirror or sync branch from owing an
-# entry -- '[OK] carries the exempt prefix, which owes no entry' -- while everything above composes the
-# PR title from the entry and nothing else (#506). So the one branch shape the CI gate deliberately
-# waves through was the one shape this script could not name a PR for. Measured in a consumer on
-# sync/live-2026-09-13: the lint gate ran, all 27 suites passed, the branch was pushed, and only
-# `gh pr create` never happened. There was no way out from the caller's side either -- -Title was
-# accepted and ignored, and writing an entry to satisfy the title would fold somebody else's mirrored
-# edits into CHANGELOG.md as this repo's own work.
-#
-# ASKED ONLY WHERE THERE IS NOTHING TO ASK THE ENTRY, so an exempt branch that DOES carry a written
-# entry keeps the composed title -- the entry is still the better source, and a repo may well run a
-# sync/ branch that declares its own change. This block is the fallback, not an override.
-#
-# THE OLDEST SUBJECT OFF THE TRUNK, which is the branch's opening statement. --no-merges drops a merge
-# commit's bookkeeping subject, --reverse puts the oldest first, and the trunk is subtracted so a fresh
-# branch does not name itself after the trunk's last commit. A git that cannot answer leaves the words
-# empty and the refusal below carries the reason, which is the same tolerance every other read here has.
-if (-not $prTitle -and (Get-BranchEntryExemptPrefix -Branch $branch)) {
-    $trunkName = if (Test-FunctionDefined 'Get-TrunkBranchName') {
-        $t = ([string](Get-TrunkBranchName)).Trim(); if ($t) { $t } else { 'main' }
-    } else { 'main' }
-
-    $subjects = @()
-    foreach ($base in @("origin/$trunkName", $trunkName)) {
-        $log = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--no-merges',
-                                                                '--reverse', '--format=%s', "$base..$branch") -DiscardStderr -Utf8
-        if ($log.ExitCode -eq 0) {
-            $subjects = @(@($log.Output | Out-String) -split "\r?\n" | Where-Object { $_ -and $_.Trim() })
-            break
-        }
-    }
-
-    # -Title IS HONOURED HERE, AND ONLY HERE. #506 removed a SECOND source of truth -- a title typed at
-    # the PR that could contradict the one CHANGELOG.md and the release documents carry. An exempt branch
-    # has no entry to be a second source OF, so there is nothing here for it to contradict.
-    $titleWords = Get-ExemptBranchTitleWords -Title $Title -CommitSubjects $subjects
-    if ($titleWords) {
-        $prTitle = Get-PrTitle -Prefix $(if ($info.IsKnown) { $info.Prefix } else { '' }) -TitleWords $titleWords
-        $prTitleFromExemptBranch = $true
-    }
-}
-
 # --- Does this branch already have an open PR? ----------------------------------------------------
 # Asked ONCE, here, because two later steps need the answer: the resolves gate (an existing body's
 # closing keywords count as a declaration) and the create step (which is skipped, since the push is
@@ -659,6 +615,66 @@ if (-not $existingPr) {
             Write-Host "A follow-up cycle on the same subject gets its own branch -- name it with a -v2 suffix by hand." -ForegroundColor DarkGray
             exit 0
         }
+    }
+}
+
+# --- The entry-exempt branch: its title comes from its own commit (issue #1962) --------------------
+#
+# THE TWO SCRIPTS USED TO DISAGREE. check-branch-entry.ps1 exempts a mirror or sync branch from owing an
+# entry -- '[OK] carries the exempt prefix, which owes no entry' -- while everything above composes the
+# PR title from the entry and nothing else (#506). So the one branch shape the CI gate deliberately
+# waves through was the one shape this script could not name a PR for. Measured in a consumer on
+# sync/live-2026-09-13: the lint gate ran, all 27 suites passed, the branch was pushed, and only
+# `gh pr create` never happened. There was no way out from the caller's side either -- -Title was
+# accepted and ignored, and writing an entry to satisfy the title would fold somebody else's mirrored
+# edits into CHANGELOG.md as this repo's own work.
+#
+# ASKED ONLY WHERE THERE IS NOTHING TO ASK THE ENTRY, so an exempt branch that DOES carry a written
+# entry keeps the composed title -- the entry is still the better source, and a repo may well run a
+# sync/ branch that declares its own change. This block is the fallback, not an override.
+#
+# AND ONLY WHERE A PR STILL HAS TO BE NAMED. A resumed branch keeps the title its PR already has --
+# the create path below is never reached -- so computing one there would spend a git call on an answer
+# nothing reads. That is why this sits BELOW the existing-PR lookup rather than beside the entry read.
+#
+# THE OLDEST SUBJECT OFF THE TRUNK, which is the branch's opening statement. --no-merges drops a merge
+# commit's bookkeeping subject, --reverse puts the oldest first, and the trunk is subtracted so a fresh
+# branch does not name itself after the trunk's last commit. A git that cannot answer leaves the words
+# empty and the refusal below carries the reason, which is the same tolerance every other read here has.
+if (-not $prTitle -and -not $existingPr -and (Get-BranchEntryExemptPrefix -Branch $branch)) {
+    # Get-BranchTrunkName rather than a fourth copy of the seam probe: entry-scaffold-lib is loaded
+    # above and already owns this answer, which is the whole reason it stopped being written inline.
+    $trunkName = Get-BranchTrunkName
+
+    $subjects = @()
+    foreach ($base in @("origin/$trunkName", $trunkName)) {
+        # -Utf8 hands back Output as a string[] of lines already, which is why nothing here joins and
+        # re-splits it -- the idiom claim-issue.ps1 uses on the same call.
+        $log = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--no-merges',
+                                                                '--reverse', '--format=%s', "$base..$branch") -DiscardStderr -Utf8
+        if ($log.ExitCode -eq 0) {
+            $subjects = @(@($log.Output) | Where-Object { $_ -and ([string]$_).Trim() })
+            break
+        }
+    }
+
+    # -Title IS HONOURED HERE, AND ONLY HERE. #506 removed a SECOND source of truth -- a title typed at
+    # the PR that could contradict the one CHANGELOG.md and the release documents carry. An exempt branch
+    # has no entry to be a second source OF, so there is nothing here for it to contradict.
+    $titleWords = Get-ExemptBranchTitleWords -Title $Title -CommitSubjects $subjects
+    if ($titleWords) {
+        # AND HERE THE PREFIX IS STRIPPED RATHER THAN REFUSED, which is the opposite of the title gate
+        # above and rests on that gate's own reasoning. Get-PrTitle deliberately strips nothing because
+        # the entry OUTLIVES the PR title: silently correcting the PR would repair the copy that is
+        # visible for a day and leave the copy that lasts, so the author is sent back to the entry.
+        # An exempt branch has no entry. Nothing outlives this title, there is nobody to send back, and
+        # the words are a commit subject that is already written -- so the only reachable outcome of
+        # doubling here is a PR called 'docs: docs: ...'. Reached only where a repo lists a prefix that
+        # its own branch table also knows; 'sync' is neither, which is why nothing has met this yet.
+        $exemptPrefix = if ($info.IsKnown) { $info.Prefix } else { '' }
+        if (Get-PrTitlePrefixFinding -Prefix $exemptPrefix -TitleWords $titleWords) { $exemptPrefix = '' }
+        $prTitle = Get-PrTitle -Prefix $exemptPrefix -TitleWords $titleWords
+        $prTitleFromExemptBranch = $true
     }
 }
 

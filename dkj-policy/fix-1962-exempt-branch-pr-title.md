@@ -82,6 +82,28 @@ tree before routing:
       gap rather than faked.** The create path is past the push and past `gh`, so no fixture reaches it.
       Both halves are under test as pure functions and the wiring is asserted on the source text, which
       is this repo's existing convention for exactly this.
+- [x] the review round -- Victor, Edith and Sebastian in parallel on the diff. Four of Victor's findings
+      and three of Edith's were applied:
+      - the exempt block moved BELOW the existing-PR lookup and gated on `-not $existingPr`, so a
+        resumed branch spends no git call on a title nothing reads
+      - the trunk name comes from `Get-BranchTrunkName`, which `entry-scaffold-lib` already owned
+      - `Invoke-NativeCapture -Utf8` already returns lines, so the `Out-String`-and-re-split round trip
+        went with it
+      - a commit subject already carrying the branch's own type is **stripped** rather than doubled.
+        That is the opposite of the title gate above it, and rests on that gate's own reasoning: it
+        refuses rather than strips because the entry outlives the PR title, and an exempt branch has no
+        entry. Reachable only where a repo lists a prefix its own branch table also knows.
+- [x] Sebastian's one advisory finding -- **filed, not fixed here**:
+      [#1963](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1963). `Invoke-NativeCapture`'s
+      non-`-Utf8` arm does not run `ConvertTo-NativeArgumentToken`, so an argument ending in a lone
+      trailing backslash swallows every flag after it, and `gh pr create --title` takes that arm. It is
+      **pre-existing** -- `$prTitle` already reached that call from entry text, equally writable by
+      anyone who can push -- so this branch exposes it to a less-curated input rather than creating it.
+      Verified here before filing: the two arms do differ, the call site has no `-Utf8`, and the
+      tokeniser is referenced only from the other arm. No shell is reachable on that path, and an
+      embedded quote cannot re-open an argv boundary, so it corrupts one invocation rather than
+      smuggling flags. The exempt path is protected twice from the multi-line case: `git log --format=%s`
+      already folds the subject to one line, and `Get-PrTitle` takes the first non-empty line regardless.
 - [x] the full lint + test gate
 
 ### DEPLOY: fix/1962-exempt-branch-pr-title
