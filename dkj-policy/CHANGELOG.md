@@ -43,7 +43,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**27 / 36 minor entries** <!-- pending-tally -->
+**28 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1966-native-capture-argv-guard · 20260913-234228
+
+`Invoke-NativeCapture`'s `&` arm now **refuses** the three argument shapes Windows PowerShell 5.1
+cannot hand to a child faithfully -- the empty string, a value containing `"`, and whitespace plus a
+trailing `\` -- instead of silently handing the child a different command line at exit code 0. The
+refusal names the argument's index and shape, never its value, and points at `-Utf8`.
+
+The predicate is exact rather than cautious: fuzzed over 800 random argument sets against a real argv
+parser, 0 false positives and 0 false negatives. A trailing backslash *without* whitespace stays
+deliverable, so ordinary path arguments are untouched.
+
+It fires only on arguments that were **already** being mis-delivered, which is what makes it safe to
+ship to consumers: no call that works today starts throwing. This repo's own suite carried one such
+call -- `ref-print-lib.tests.ps1` was asking git whether `fix/ab` is a legal ref name while claiming to
+ask about `fix/a"b`, and passing -- so the class is demonstrated rather than hypothetical. That fixture
+now goes through `-Utf8` and tests what it claims.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It closes a class rather than a case. #1963 repaired the one call site it could measure and left ~430
+unaudited; this converts that unmeasured risk into a loud refusal at the one place every one of them
+goes through. And the objection that had kept it withdrawn -- that it would break legitimate hostile-name
+fixtures -- was found on measurement to be a false green in this repo's own suite, so building the guard
+repaired a test that had never tested its subject.
+
+**Score:** 2
+
+#### Pull Request
+
+Refuse the three argv shapes the & arm cannot pass faithfully
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #1969](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1969)
+
+---
 
 ### DEPLOY: feat/1954-widen-fixture-load-guard · 20260913-211822
 
