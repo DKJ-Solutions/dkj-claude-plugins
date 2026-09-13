@@ -58,8 +58,23 @@ Assert-True (Test-Path -LiteralPath $LibPath) 'ref-print-lib.ps1 exists at its r
 . (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1')
 
 function Test-GitAcceptsRef {
+    <#
+        -Utf8 IS LOAD-BEARING HERE, NOT AN ENCODING PREFERENCE (issue #1966). The & operator cannot hand
+        a quote-bearing argument to a child faithfully: measured September 14, 2026, this same call with
+        'fix/a"b' asked git about 'fix/ab' and git answered about 'fix/ab' -- exit 0, echoing the
+        stripped name. So the one assert in this file that proves git accepts a QUOTE in a ref name had
+        never tested a quote, and passed for a reason that had nothing to do with its subject.
+
+        -Utf8 routes to Start-Process, which quotes the arguments itself, so every name below now
+        reaches git as written. The premise re-measured under that faithful delivery: all seventeen
+        hostile names are genuinely accepted by git (exit 0, each echoed back intact), so the block below
+        asserts the same thing it always claimed to -- for the first time.
+
+        Invoke-NativeCapture REFUSES the old spelling now rather than mis-delivering it, so this is not a
+        convention anybody has to remember: the & arm throws on the three shapes it cannot pass.
+    #>
     param([string]$Ref)
-    $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('check-ref-format', '--branch', $Ref) -DiscardStderr
+    $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('check-ref-format', '--branch', $Ref) -DiscardStderr -Utf8
     return ($r.ExitCode -eq 0)
 }
 

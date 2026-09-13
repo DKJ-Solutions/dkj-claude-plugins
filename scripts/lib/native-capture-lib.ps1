@@ -566,6 +566,75 @@ function ConvertTo-NativeArgumentToken {
     return '"' + $escaped + '"'
 }
 
+function Get-NativeArgumentDefect {
+    <#
+        The SHAPE of one argument the & operator cannot hand to a child faithfully, or '' where it can.
+        Pure string in, string out -- the whole predicate behind Invoke-NativeCapture's refusal below,
+        in a function a test can hold against a real argv probe rather than against a copy of itself.
+
+        THREE SHAPES, AND THE PREDICATE IS EXACT RATHER THAN CAUTIOUS (issue #1966, measured
+        September 14, 2026 against a compiled C# probe printing each argv element with its length; 800
+        random argument sets, 239 mis-delivered, 0 false positives and 0 false negatives against this
+        function). That matters more than it looks: a guard that over-refuses would make the & arm
+        unusable for ordinary text, and one that under-refuses leaves exactly the silent class it was
+        built to end.
+
+          'empty'              -- the empty string is DROPPED, shifting every later argument one place
+                                  left. The child is handed a different command line, not a shorter one.
+          'quote'              -- a value containing '"' loses the quote AND swallows what follows it:
+                                  without whitespace the bare quote opens an argv region, with
+                                  whitespace PowerShell's own quoting fails to escape the inner one.
+          'trailing-backslash' -- whitespace PLUS a trailing '\' escapes the closing quote PowerShell
+                                  added, so the region never ends and the rest of the line is absorbed.
+
+        A TRAILING BACKSLASH WITHOUT WHITESPACE IS FINE and is deliberately not refused -- nothing
+        quotes it, so nothing mis-escapes it. That is why the third shape is one clause and not two, and
+        it is the clause a "be safe, refuse every backslash" reading would get wrong: 'C:\repo\' is an
+        ordinary path argument and passes through this arm unharmed.
+    #>
+    param([AllowEmptyString()][AllowNull()][Parameter(Mandatory = $true)][string]$Value)
+
+    if ($null -eq $Value -or $Value -eq '') { return 'empty' }
+    if ($Value.Contains('"')) { return 'quote' }
+    if ($Value -match '\s' -and $Value.EndsWith('\')) { return 'trailing-backslash' }
+    return ''
+}
+
+function Get-NativeArgumentRefusal {
+    <#
+        The refusal message for an argument list the & operator cannot pass faithfully, or '' where
+        every element survives it. Pure array in, string out; Invoke-NativeCapture throws whatever this
+        returns, so the wording is testable without starting a process.
+
+        IT NAMES THE INDEX AND THE SHAPE AND NEVER THE VALUE (issue #1313). An argument on this path can
+        carry a token or a remote URL, and what WE compose is what reaches a log unredacted -- git
+        redacts its own output, nobody redacts ours. The index plus the shape is enough for the caller to
+        find the argument in their own code, which is where the value already is.
+
+        IT POINTS AT -Utf8 RATHER THAN AT A WORKAROUND, because that arm quotes the arguments itself
+        (ConvertTo-NativeArgumentToken above) and delivers all three shapes intact -- measured 0/300 in
+        the same run that measured 129/300 here. The file-based idiom -- git's -F, gh's --body-file --
+        is the other way out and is what park-lib and verify-resolved-issues already use.
+    #>
+    param([AllowEmptyCollection()][AllowNull()][string[]]$Arguments)
+
+    if ($null -eq $Arguments -or $Arguments.Count -eq 0) { return '' }
+
+    $bad = @()
+    for ($i = 0; $i -lt $Arguments.Count; $i++) {
+        $shape = Get-NativeArgumentDefect -Value $Arguments[$i]
+        if ($shape) { $bad += "index ${i} (${shape})" }
+    }
+    if ($bad.Count -eq 0) { return '' }
+
+    return ("Invoke-NativeCapture: " + $bad.Count + " argument(s) cannot be passed faithfully by the & " +
+        "operator -- " + ($bad -join ', ') + ". Windows PowerShell 5.1 would hand the child a DIFFERENT " +
+        "command line, silently and at exit code 0. Pass -Utf8 (Start-Process quotes the arguments " +
+        "itself and delivers all three shapes intact), or use the file-based idiom -- git's -F, gh's " +
+        "--body-file. The value is deliberately not printed here: an argument on this path can carry a " +
+        "token or a remote URL (#1313). Measurement and shapes: issue #1966.")
+}
+
 function Push-NativeNonInteractiveEnv {
     <#
         Set the non-interactive environment for the child about to be started and hand back what was
@@ -884,16 +953,36 @@ function Invoke-NativeCapture {
     # site that was measured exposed, and it does. The file-based idiom -- git's -F, gh's --body-file
     # -- is the other way out, and is what park-lib and verify-resolved-issues already use.
     #
-    # REFUSING THE THREE SHAPES HERE WAS BUILT AND THEN WITHDRAWN, deliberately. It is the repair that
-    # makes the class impossible rather than documented, but this lib is mirrored into the plugins and
-    # runs in consumers' repos, so a throw changes behaviour for every consumer's scripts on their next
-    # plugin update -- a decision larger than the prio-2 defect that surfaced it. It is filed as its own
-    # issue with the measurement above. Two facts from building it are worth keeping here: a guard would
-    # fire on legitimate TEST FIXTURES that use hostile names on purpose (ref-print-lib.tests.ps1
-    # creates a branch whose name carries a quote, to prove git accepts it), and a silent reroute to the
-    # -Utf8 arm is NOT the cheap alternative it looks like -- that arm returns Output as an array of
-    # strings where this one returns pipeline objects, so switching on the CONTENT of an argument would
-    # change a caller's result shape on exactly the days a title happened to contain a quote.
+    # SO THE THREE SHAPES ARE REFUSED HERE, and #1966 is the issue that decided it. #1963 repaired the
+    # one call site it had measured exposed and withdrew the guard, because this lib is mirrored into the
+    # plugins and runs in consumers' repos -- a throw is a behaviour change for every consumer rather
+    # than a bug fix, which is a decision of its own rather than a side effect of a prio-2 repair.
+    #
+    # WHAT MAKES IT SAFE TO MAKE THAT CHANGE: the guard fires ONLY on arguments that were ALREADY being
+    # mis-delivered. No consumer call that works today starts throwing -- what changes is that a call
+    # which was silently handing the child a different command line now says so. The refusal is the
+    # first time that class is visible at all.
+    #
+    # AND THE COST IS NOT HYPOTHETICAL, WHICH IS THE ARGUMENT FOR IT. #1963 expected the guard to break
+    # legitimate hostile-name TEST FIXTURES and left that as the open objection. Measured here instead of
+    # assumed, and it ran the other way: ref-print-lib.tests.ps1 passed a branch name carrying a quote to
+    # `git check-ref-format` through THIS arm, so git was asked about 'fix/ab' and answered about
+    # 'fix/ab' -- the assert proving git accepts a quote in a ref name had never once tested a quote. The
+    # fixture's repair is -Utf8, which makes it test what it claims; it was not an exception the guard
+    # needed. A false green is what this refusal turns red.
+    #
+    # A SILENT REROUTE TO THE -Utf8 ARM IS STILL NOT THE CHEAP ALTERNATIVE IT LOOKS LIKE, and that half of
+    # #1963's reasoning stands unchanged: that arm returns Output as an array of strings where this one
+    # returns pipeline objects (ErrorRecords included), so switching on the CONTENT of an argument would
+    # change a caller's result shape on exactly the days a title happened to contain a quote -- the
+    # data-dependent surprise -Utf8 was itself introduced to end. Refusing is loud; rerouting is another
+    # silent difference.
+    #
+    # #1963's CANDIDATE REPAIR #2 IS MEASURABLY WRONG AND IS RECORDED SO IT IS NOT RE-PROPOSED: giving
+    # this arm the same tokeniser is correct on every hand-picked example and still wrong on 7/300,
+    # because PowerShell 5.1 re-processes a token that already carries quotes.
+    $refusal = Get-NativeArgumentRefusal -Arguments $Arguments
+    if ($refusal) { throw $refusal }
 
     $prevEap = $ErrorActionPreference
     $prevEnv = $null
