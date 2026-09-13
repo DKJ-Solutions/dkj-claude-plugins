@@ -43,7 +43,47 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 12 minor entries** <!-- pending-tally -->
+**11 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1915-capped-tip-flaky-in-gate · 20260913-102052
+
+`new-branch`'s branch-divergence warning (#1439) could report the shape of a clean branch on a run where
+it was blind. `Get-RemoteAheadNote` returns an empty note both for *"origin has nothing you do not have"*
+and for *"the ref I counted against is whatever the last fetch left"*, and `new-branch` printed the second
+as the first. Since #1860 the window is not one run but ninety seconds: the script opts into the freshness
+seam's `-RecentFailureSeconds`, so a single transient fetch failure suppresses the next retry -- which is
+the interval a claim, a cut and a resume all live in. A run whose own fetch did not refresh the ref now
+says so and hands over `git fetch origin <branch>`; the ordinary run, where the fetch succeeded, is
+unchanged and silent. The trunk-level `Base: ...` line does not cover this, because it speaks about the
+trunk and is printed on a skip only.
+
+That same blindness is what made `new-branch.tests.ps1`'s capped-tip case flaky in the 16-lane test gate
+(#1915): the case is two `new-branch` runs seconds apart on one fixture, so a fetch that failed in the
+first silently disarmed the probe the second was asserting on. `Invoke-NewBranch` now clears the
+fetch-attempt record before every run -- which removes no coverage, since the seam has its own suite, and
+can mask no regression, since clearing only ever makes the run fetch. Case (y6) also gains the premise
+assert it was missing, so a warning that never fires reports itself instead of reading as a broken cap.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every consumer of `dkj-policy` runs this `new-branch`. The guard whose whole job is to catch another
+session's push to the branch you are resuming could go quiet for ninety seconds after one bad fetch, and
+say nothing about having gone quiet -- the duplicate-work hazard #1439 exists to prevent, arriving through
+the one route that reports nothing.
+
+**Score:** 3
+
+#### Pull Request
+
+A stale remote-tracking ref no longer makes the branch-divergence warning read as silence
+
+Plugins: dkj-policy
+
+[PR #1922](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1922)
+
+---
 
 ### DEPLOY: fix/1913-gate-only-suite-failures · 20260913-101309
 
