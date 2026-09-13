@@ -325,6 +325,54 @@ function Switch-ToBranch {
     finally { $ErrorActionPreference = $prevEap }
 }
 
+function New-PeerDivergence {
+    <#
+        THE INCIDENT, AS A FIXTURE (#1953). Puts a branch on origin, then has a SECOND CLONE under its own
+        identity commit and push to it -- so this checkout is one commit behind a tip that is somebody
+        else's. That second identity is the whole point: an amend or a reset produces the same rejection
+        under the SAME author, which cannot tell a collision from a fast-forward of your own work from
+        another machine, and telling those apart is what the report exists for.
+
+        Written once because three cases below need it (#1953); case (p) predates it and is left as it
+        stands -- it is a long-standing assert about a different arm, and rewriting it would put risk on
+        the one test that already guards the refused-push path.
+
+        Leaves this session's own copy of the document dirty, which is the state the Stop hook fires in,
+        and returns the peer tip so a caller can assert origin was not written over.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Dir,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][string]$Rel,
+        [Parameter(Mandatory = $true)][string]$PeerSubject
+    )
+    $peer = "$Dir-peer"
+    $script:fixtures += $peer
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Invoke-FixtureGitIn $Dir add -- $Rel
+        Invoke-FixtureGitIn $Dir commit -q -m 'the plan'
+        Invoke-FixtureGitIn $Dir push -q -u origin $Branch
+
+        Invoke-FixtureGitJudged @('clone', '-q', "$Dir.git", $peer)
+        Invoke-FixtureGitIn $peer config user.email 'other@local.invalid'
+        Invoke-FixtureGitIn $peer config user.name 'Other Session'
+        Invoke-FixtureGitIn $peer config commit.gpgsign false
+        Invoke-FixtureGitIn $peer checkout -q $Branch
+        Add-Content -LiteralPath (Join-Path $peer ($Rel -replace '/', '\')) -Value 'their repair'
+        Invoke-FixtureGitIn $peer add -A
+        Invoke-FixtureGitIn $peer commit -q -m $PeerSubject
+        Invoke-FixtureGitIn $peer push -q origin $Branch
+
+        # This session edits its own copy and the turn ends -- the state the Stop hook fires in.
+        Add-Content -LiteralPath (Join-Path $Dir ($Rel -replace '/', '\')) -Value 'our repair'
+
+        # NOT judged, and deliberately not Invoke-FixtureGitIn (#1635): a question, not a mutation.
+        return ((& git -C "$Dir.git" rev-parse "refs/heads/$Branch") | Out-String).Trim()
+    } finally { $ErrorActionPreference = $prevEap }
+}
+
 try {
     # --- (a) THE HAPPY PATH: a dirty document, no PR -> committed and pushed, one file only ---------
     Write-Host "park-cycle.ps1 -- pushes the development document when no PR exists" -ForegroundColor Cyan
@@ -691,6 +739,96 @@ try {
     } else {
         $script:pass++; Write-Host '  [PASS] collision: no PowerShell error banner above the report' -ForegroundColor Green
     }
+    # --- (q) THE OPEN-PR ARM LOOKS, THOUGH IT STILL DOES NOT PUSH (#1953) --------------------------
+    # WHAT (p) ABOVE CANNOT SEE, AND WHY THAT MATTERED. (p) proves the collision report is right; it can
+    # only prove it on a branch with NO PR, because the report was a side effect of a refused push and
+    # bound (d) refuses the push the moment a PR exists. So for every branch with an open PR -- which is
+    # every branch from open-pr until the merge -- this script ran to that bound and stopped, and under
+    # -Quiet it stopped in silence. The "earliest detector" claim was true only where the push happened.
+    #
+    # THE BRANCH IT WAS BLIND ON IS THE WORST ONE. Measured September 13, 2026 (#1953): two sessions on
+    # one account repaired the same red required check on one open PR about 90 seconds apart, wrote the
+    # same three-file change, and learned of each other from git's non-fast-forward refusal at the push
+    # -- after the diagnosis, the repair, the suite run and the lint gate had been paid for twice.
+    #
+    # THE FIXTURE IS (p)'s, WITH A PR. Same peer clone under its own identity, because the author line is
+    # what separates a collision from a fast-forward of your own work from another machine -- and this
+    # time the gh shim answers with an open PR, so the run reaches the bound rather than the push.
+    Write-Host "park-cycle.ps1 -- an open PR stops the push, not the looking" -ForegroundColor Cyan
+    $fixQ = New-Fixture -Label 'q' -GhAnswer 'pr'
+    Switch-ToBranch -Dir $fixQ -Name 'fix/red-check-v1'
+    $relQ = New-CycleDocument -Dir $fixQ -Branch 'fix/red-check-v1'
+    $peerTipQ = New-PeerDivergence -Dir $fixQ -Branch 'fix/red-check-v1' -Rel $relQ `
+                                   -PeerSubject 'fix: the same red check, repaired'
+
+    $rQ = Invoke-ParkCycle -Dir $fixQ
+    Assert-Equal 0 $rQ.Code 'open-PR collision: exit 0 -- the Stop-hook contract still holds'
+    Assert-Says $rQ.Out 'PR #42' 'open-PR collision: the report names the PR that is holding the push back'
+    Assert-Says $rQ.Out 'pushes nothing' 'open-PR collision: and says outright that this run pushed nothing'
+    Assert-Says $rQ.Out 'Other Session' 'open-PR collision: the report names WHO is on the other side'
+    Assert-Says $rQ.Out 'the same red check, repaired' 'open-PR collision: and their commit subject, which is what makes it a collision rather than your own push'
+    Assert-Says $rQ.Out 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH' 'open-PR collision: the reader is told what it means, not only what happened'
+    Assert-Says $rQ.Out 'git pull --ff-only' 'open-PR collision: and what to do about it'
+    # THE BOUND IS UNTOUCHED, which is the half that must not regress: the DEPLOY lock refuses the merge
+    # once this document has diverged from what the PR published, so a run that LOOKED and then also
+    # wrote would block every merge in the repo.
+    Assert-Equal 2 (Get-CommitCount -Dir $fixQ) 'open-PR collision: nothing committed -- the bound still refuses the write'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Assert-Equal $peerTipQ ((((& git -C "$fixQ.git" rev-parse 'refs/heads/fix/red-check-v1') | Out-String).Trim())) 'open-PR collision: origin still carries the other session tip -- nothing was pushed over it'
+    } finally { $ErrorActionPreference = $prevEap }
+
+    # AND IT SURVIVES -Quiet, which is the only assert that matters for the hook: -Quiet is what
+    # cycle-autopark passes, so a report suppressed by it is a report nobody ever reads. The bound's own
+    # "PR #42 ... is open" note stays suppressed -- that one IS "nothing to do".
+    $rQ2 = Invoke-ParkCycle -Dir $fixQ -Quiet
+    Assert-Equal 0 $rQ2.Code 'open-PR collision under -Quiet: exit 0'
+    Assert-Says $rQ2.Out 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH' 'open-PR collision under -Quiet: the collision still reports itself -- this is the path the Stop hook runs'
+    Assert-Says $rQ2.Out 'Other Session' 'open-PR collision under -Quiet: with the other side named'
+
+    # --- (r) AND ONLY AN OPEN PR BUYS THE ROUND TRIP -----------------------------------------------
+    # The bound above covers merged and closed PRs too, and there the answer stays silence: the branch
+    # has shipped or its PR ended, so a divergence is not two sessions building the same repair. This
+    # path runs on every turn that has anything to push, so the network call is bought rather than
+    # assumed -- and this is the assert that keeps it bought.
+    Write-Host "park-cycle.ps1 -- a merged PR buys no fetch: the branch shipped, so a divergence is not a collision" -ForegroundColor Cyan
+    $fixR = New-Fixture -Label 'r' -GhAnswer 'merged'
+    Switch-ToBranch -Dir $fixR -Name 'fix/already-shipped-v1'
+    $relR = New-CycleDocument -Dir $fixR -Branch 'fix/already-shipped-v1'
+    $null = New-PeerDivergence -Dir $fixR -Branch 'fix/already-shipped-v1' -Rel $relR `
+                               -PeerSubject 'park: fix/already-shipped-v1 (all outstanding work)'
+
+    $rR = Invoke-ParkCycle -Dir $fixR
+    Assert-Equal 0 $rR.Code 'merged PR, diverged origin: exit 0'
+    Assert-Says $rR.Out 'already MERGED' 'merged PR, diverged origin: the bound still says which refusal this is'
+    Assert-True (-not (Test-Says -Text $rR.Out -Phrase 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH')) 'merged PR, diverged origin: and no collision report -- a shipped branch buys no round trip'
+
+    # --- (s) AN UNKNOWN PR STATE IS TREATED AS OPEN, AND IT REPORTS ---------------------------------
+    # The gh payload may carry no `state` field at all -- an older gh, a changed --json field, a
+    # hand-rolled shim -- and the bound above degrades that to the wording an open PR gets. Case (d4)
+    # already proves the degraded WORDING survives StrictMode; it sets up no divergence, so it says
+    # nothing about whether the arm added here runs. This is the half that decides the direction: an
+    # unknown state must buy the look, because the alternative is the collision going unreported on a
+    # branch this run could not classify -- which is the exact silence #1953 was filed for.
+    Write-Host "park-cycle.ps1 -- a PR whose state gh did not return still buys the look" -ForegroundColor Cyan
+    $fixS = New-Fixture -Label 's' -GhAnswer 'pr-nostate'
+    Switch-ToBranch -Dir $fixS -Name 'fix/state-unknown-v1'
+    $relS = New-CycleDocument -Dir $fixS -Branch 'fix/state-unknown-v1'
+    $peerTipS = New-PeerDivergence -Dir $fixS -Branch 'fix/state-unknown-v1' -Rel $relS `
+                                   -PeerSubject 'fix: their round on the same branch'
+
+    $rS = Invoke-ParkCycle -Dir $fixS
+    Assert-Equal 0 $rS.Code 'unknown PR state: exit 0, not a mid-arm crash'
+    Assert-True ($rS.Out -notmatch 'cannot be found on this object') 'unknown PR state: StrictMode did not throw on the way into the new arm'
+    Assert-Says $rS.Out 'Other Session' 'unknown PR state: the collision is reported -- an unclassifiable PR buys the look rather than losing it'
+    Assert-Says $rS.Out 'their round on the same branch' 'unknown PR state: with their commit subject'
+    Assert-Equal 2 (Get-CommitCount -Dir $fixS) 'unknown PR state: and still nothing committed -- the bound holds whatever the state was'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Assert-Equal $peerTipS ((((& git -C "$fixS.git" rev-parse 'refs/heads/fix/state-unknown-v1') | Out-String).Trim())) 'unknown PR state: origin still carries the other session tip'
+    } finally { $ErrorActionPreference = $prevEap }
 } finally {
     foreach ($f in $script:fixtures) {
         if (Test-Path -LiteralPath $f) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }

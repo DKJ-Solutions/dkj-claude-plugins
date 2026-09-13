@@ -63,16 +63,25 @@
     $LASTEXITCODE), because git writes progress to stderr, which under EAP=Stop would become a
     terminating NativeCommandError before the exit code could be judged (the #96/#97/#107 pitfall).
 
-    AND A REFUSED PUSH IS THE EARLIEST COLLISION SIGNAL THIS WORKFLOW HAS (issue #1600). Running on
-    every turn is what makes it that: from the moment a second session pushes to the same branch, every
-    turn of this one ends in a non-fast-forward refusal. new-branch.ps1's remote-ahead warning (#1439)
-    asks the same question once, at a resume that goes through that script; open-pr.ps1's gate asks it
-    at the very end, when the duplicated work has already been paid for. So the failure path fetches the
-    one ref and names the other side -- its count, author and subject, through the shared
-    Get-RemoteAheadNote -- instead of saying "diverged from origin?" and sending the reader for a reason
-    this run already holds. Measured on feat/plugin-version-overview, September 8, 2026: two sessions
-    ran the same pre-PR review in full, each finding real defects the other missed, and the signal was
-    available for roughly half an hour before open-pr surfaced it.
+    AND THIS IS THE EARLIEST COLLISION DETECTOR THIS WORKFLOW HAS (issue #1600). Running on every turn
+    is what makes it that: from the moment a second session pushes to the same branch, every turn of
+    this one can see it. new-branch.ps1's remote-ahead warning (#1439) asks the same question once, at a
+    resume that goes through that script; open-pr.ps1's gate asks it at the very end, when the duplicated
+    work has already been paid for. So the answer names the other side -- its count, author and subject,
+    through the shared Get-RemoteAheadNote -- instead of saying "diverged from origin?" and sending the
+    reader for a reason this run already holds. Measured on feat/plugin-version-overview,
+    September 8, 2026: two sessions ran the same pre-PR review in full, each finding real defects the
+    other missed, and the signal was available for roughly half an hour before open-pr surfaced it.
+
+    IT ASKS AT TWO DOORS, BECAUSE FOR A YEAR IT ONLY ASKED AT ONE (issue #1953). The detection used to
+    be a side effect of the push: a refused push, then a fetch to explain it. That makes the claim above
+    true only where bound 3 lets the push happen -- and on a branch with an OPEN PR it never does, so
+    this script ended at that bound in silence, on exactly the object two sessions are likeliest to
+    reach for independently. Measured September 13, 2026: two sessions repaired the same red required
+    check on one PR about 90 seconds apart and learned of each other from git's rejection at the push.
+    So the bound still refuses the push and no longer refuses to LOOK -- the open-PR arm reads the same
+    one ref and prints the same report. The two questions were fused and are now separate: whether this
+    script may WRITE is the DEPLOY lock's, whether somebody else is on this branch is nobody's.
 
     ALWAYS EXITS 0. It runs on a hook, and a hook that fails is a hook that interrupts the work it was
     added to protect. Every refusal above is a normal outcome, not an error.
@@ -85,7 +94,9 @@
 
 .PARAMETER Quiet
     (Optional switch) print nothing when there is nothing to do. What the hook passes: a turn in which
-    the document did not change must not add a line to the session. A push still reports itself.
+    the document did not change must not add a line to the session. A push still reports itself, and so
+    does a COLLISION (#1953) -- a refusal is "nothing to do", another session on this branch is not, and
+    under the hook this switch is the only reader there is.
 
 .EXAMPLE
     ./scripts/task/park-cycle.ps1
@@ -106,6 +117,44 @@ $ErrorActionPreference = 'Stop'
 function Write-CycleParkNote {
     param([string]$Message, [string]$Colour = 'DarkGray')
     if (-not $Quiet) { Write-Host "park-cycle: $Message" -ForegroundColor $Colour }
+}
+
+# THE COLLISION READ, IN ONE PLACE BECAUSE IT NOW HAS TWO CALLERS (issue #1953). Both of them ask the
+# same question -- is there a commit on origin/<branch> that this HEAD does not have, and whose is it --
+# and the answer is one bounded fetch plus the shared sentence. Written as a function rather than twice
+# so the two reports cannot drift on the ref they read: FETCH_HEAD, not refs/remotes/origin/<branch>,
+# because `git fetch origin <branch>` writes the fetched tip there in every git version while whether it
+# also moves the remote-tracking ref depends on the remote's refspec configuration -- and a ref that did
+# not move reads 0 on exactly the branch being asked about.
+#
+# A FETCH THAT CANNOT ANSWER COSTS THE NOTE AND NEVER THE RUN. This script always exits 0, and both
+# callers treat '' as "nothing to say" -- which is the same fail-quiet direction the bounds above take.
+function Get-BranchCollisionNote {
+    param([Parameter(Mandatory = $true)][string]$RepoRoot, [Parameter(Mandatory = $true)][string]$Branch)
+    $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'fetch', 'origin', $Branch) `
+                                  -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if ($fetch.ExitCode -ne 0) { return '' }
+    return Get-RemoteAheadNote -RepoRoot $RepoRoot -LocalRef 'HEAD' -RemoteRef 'FETCH_HEAD' `
+                               -BranchLabel $Branch -FreshLabel "origin/$Branch" -StaleLabel "origin/$Branch" -Fresh $true
+}
+
+# AND THE INTERPRETATION IS ONE TEXT, for the reason #1600 filed in the first place: what a collision
+# report is FOR is the sentence after the facts, and two copies of it are two chances for one of them to
+# degrade back into plumbing. The lead differs per caller -- one is a refused push, the other a push that
+# was never attempted -- so that half is passed in; what it MEANS and what to do about it is not.
+#
+# Write-Host, NOT Write-CycleParkNote: -Quiet exists so a turn that did nothing adds no line, and a
+# collision is the opposite of that. The push report already bypasses it for the same reason.
+function Write-CycleCollisionReport {
+    param(
+        [Parameter(Mandatory = $true)][string]$Lead,
+        [Parameter(Mandatory = $true)][string]$Note,
+        [Parameter(Mandatory = $true)][string]$Reassurance
+    )
+    Write-Host "park-cycle: $Lead -- $Note" -ForegroundColor Yellow
+    Write-Host '  ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH. Read what is there before building further' -ForegroundColor Yellow
+    Write-Host '  (git pull --ff-only); if the tip is your own push from another machine, that is the same' -ForegroundColor Yellow
+    Write-Host "  command. $Reassurance" -ForegroundColor Yellow
 }
 
 # $PSScriptRoot-relative, not $root: these libs are not repo-owned -- they travel with the SAME
@@ -221,12 +270,13 @@ $statusRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $root, 'sta
 $dirty = $false
 if ($statusRes.ExitCode -eq 0) { $dirty = [bool](($statusRes.Output | Out-String).Trim()) }
 
-# DELIBERATELY NO FETCH. The remote-tracking ref is read as it stands: a fetch on every turn costs the
-# network call this gate exists to avoid, and a ref that has gone stale because the other device pushed
-# is exactly the case where the push below fails loudly -- which is the right outcome, not a defect.
-# THE FAILURE PATH DOES FETCH, and that is this rule rather than an exception to it (#1600): "loudly"
-# has to mean the session learns WHOSE work is on the other side, and only a fetch can say. It sits
-# after a refused push, so it never touches the ordinary turn this gate is protecting.
+# DELIBERATELY NO FETCH HERE. The remote-tracking ref is read as it stands: a fetch on every turn costs
+# the network call this gate exists to avoid, and a ref that has gone stale because the other device
+# pushed is exactly the case the paths below report on.
+# TWO PATHS BELOW DO FETCH, and both are this rule rather than exceptions to it: the refused push (#1600)
+# and the open-PR arm (#1953). Each sits BEYOND this gate, so a turn that touched nothing still returns
+# from here without touching the network -- which is the turn this gate is protecting. What they buy is
+# the half a stale ref cannot give: WHOSE work is on the other side, and only a fetch can say.
 $aheadOrAbsent = $true
 $remoteRef = "refs/remotes/origin/$branch"
 $refRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $root, 'rev-parse', '--verify', '--quiet', $remoteRef) -DiscardStderr
@@ -306,7 +356,63 @@ if ($null -ne $prRecord) {
     $valve = if ($prState -eq 'MERGED' -or $prState -eq 'CLOSED') {
         " If the work genuinely resumed on this branch, park it by hand with park-branch.ps1 -- that decision is deliberate, and this bound is the automatic park's alone."
     } else { '' }
-    Write-CycleParkNote "PR #$($prRecord.number) for '$branch' $why$valve"
+
+    # THE BRANCH NAME IS STRIPPED BEFORE IT IS PRINTED, for the reason remote-ahead-lib.ps1 states at the
+    # same interpolation one layer down (#1623): `git check-ref-format` accepts \p{Cf}, so a fetched or
+    # hand-made branch really can carry U+202E or a zero-width run into a sentence a terminal AND an agent
+    # session both read. Until #1953 this line printed it raw while the sentence directly below it -- built
+    # from the SAME value -- went through the strip, which is one report with one half hardened.
+    # $prRecord.number is a GitHub-assigned integer from `gh pr list --json number` and is not text anybody
+    # chose, so it is not a subject.
+    $shownBranch = Get-DisplayRef -Ref $branch
+    Write-CycleParkNote "PR #$($prRecord.number) for '$shownBranch' $why$valve"
+
+    # --- THE BOUND REFUSES THE PUSH; IT MUST NOT ALSO REFUSE TO LOOK (issue #1953) ------------------
+    #
+    # WHAT THIS BOUND SILENTLY TOOK WITH IT. The header above calls this script the earliest collision
+    # detector in the workflow, and it is -- but only on a branch with no PR, because that claim rests
+    # entirely on the push below being ATTEMPTED and REFUSED. From the line above, on every branch that
+    # has an open PR, this run ended here: no push, so no refusal, so no fetch, so nothing to interpret.
+    # Under -Quiet, which is what the Stop hook passes, it ended here in complete silence.
+    #
+    # AND THAT IS THE WORST BRANCH TO BE BLIND ON. A branch with an open PR and a red required check is
+    # the single most likely object for two sessions to reach for independently: the work is
+    # well-defined, visible on the PR list, and obviously owed. Measured September 13, 2026 (#1953): two
+    # sessions on one account repaired the same red check on PR #1950 about 90 seconds apart, produced
+    # the same three-file change, and learned of each other from git's non-fast-forward refusal at the
+    # push -- after the diagnosis, the repair, the suite run and the lint gate had all been paid for
+    # twice.
+    #
+    # THE REPAIR IS TO SEPARATE TWO QUESTIONS THE BOUND HAD FUSED. "May this script push?" is the DEPLOY
+    # lock's question and the answer stays no -- nothing below writes, commits or pushes. "Is somebody
+    # else on this branch?" is a READ, it owes the lock nothing, and it is the one thing this script is
+    # positioned to ask that no other gate asks often enough: new-branch's warning (#1439) fires once at
+    # a resume that goes through the script, open-pr's gate (#1446) fires at the end when the duplicated
+    # work is already paid for, and neither is reached by a session that steps onto an existing branch by
+    # hand -- which is what #1953 was filed for.
+    #
+    # WHY THE ENTRY MOMENT IS NOT WHAT THIS REPAIRS, stated because the issue proposes it. A check at
+    # `git checkout <branch>` would not have caught the measured case: the second session stepped onto
+    # the branch BEFORE the first had pushed, so there was nothing on origin to find. Only a check that
+    # runs again, every turn, sees the other side arrive mid-work.
+    #
+    # OPEN PRs ONLY. A merged or closed PR means the branch has shipped or ended; a divergence there is
+    # not two sessions building the same repair, and this path runs on every turn that has anything to
+    # push, so a network call is bought rather than assumed.
+    #
+    # IT COSTS ONE ROUND TRIP ON A PATH THAT ALREADY MADE ONE. Reaching this line means the gate above
+    # found either a dirty document or a local commit origin does not have, and then means the `gh pr
+    # list` directly above answered -- so the ordinary turn the DELIBERATELY-NO-FETCH rule protects, the
+    # one where nothing changed, still returns further up without touching the network at all.
+    if ($prState -ne 'MERGED' -and $prState -ne 'CLOSED') {
+        $openNote = Get-BranchCollisionNote -RepoRoot $root -Branch $branch
+        if ($openNote) {
+            Write-CycleCollisionReport `
+                -Lead "PR #$($prRecord.number) is open for '$shownBranch', so this run pushes nothing" `
+                -Note $openNote `
+                -Reassurance 'Nothing here is lost -- this run committed nothing and pushed nothing.'
+        }
+    }
     exit 0
 }
 
@@ -368,32 +474,23 @@ if (-not $ok) {
     # collision from a fast-forward of your own autopark from another device. "1 commit behind" reads
     # identically in both, which is why the count alone would not have moved the measured case.
     #
-    # THE FETCH IS ON THE FAILURE PATH ONLY, so the header's DELIBERATELY-NO-FETCH rule stands
-    # unchanged: that rule is about the ordinary turn, and this branch is reached only after a push has
-    # already reached the remote and been refused BY it -- the network is up, the turn has already paid
-    # for a round trip, and nothing else can say what is on the other side. One ref, bounded by the
-    # shared network timeout, and a fetch that fails costs the tip line and never the report.
-    $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $root, 'fetch', 'origin', $branch) `
-                                  -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-    $note = ''
-    if ($fetch.ExitCode -eq 0) {
-        # FETCH_HEAD, not refs/remotes/origin/<branch>: `git fetch origin <branch>` writes the fetched
-        # tip there in every git version, while whether it also updates the remote-tracking ref depends
-        # on the remote's refspec configuration -- and a ref that did not move would make this read 0 on
-        # exactly the branch that just refused the push.
-        $note = Get-RemoteAheadNote -RepoRoot $root -LocalRef 'HEAD' -RemoteRef 'FETCH_HEAD' `
-                                    -BranchLabel $branch -FreshLabel "origin/$branch" -StaleLabel "origin/$branch" -Fresh $true
-    }
+    # THE FETCH IS NOT ON THE ORDINARY TURN, which is what the header's DELIBERATELY-NO-FETCH rule is
+    # about: this branch is reached only after a push has already reached the remote and been refused BY
+    # it -- the network is up, the turn has already paid for a round trip, and nothing else can say what
+    # is on the other side. One ref, bounded by the shared network timeout, and a fetch that fails costs
+    # the tip line and never the report. THE SECOND PLACE THAT HOLDS IS THE OPEN-PR ARM ABOVE (#1953),
+    # which pays for it on the same terms and for the same question -- hence the shared reader.
+    $note = Get-BranchCollisionNote -RepoRoot $root -Branch $branch
 
     # Reported, never fatal -- see the always-exits-0 paragraph. Write-Host rather than Write-Warning
     # so it lands on the stdout cycle-autopark.ps1 captures and re-prints: a Stop hook's report IS this
     # sentence's delivery route, and the whole finding above is that the interpretation went to the one
     # stream that route does not read.
     if ($note) {
-        Write-Host "park-cycle: '$cycleRel' could NOT be pushed -- $note" -ForegroundColor Yellow
-        Write-Host '  ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH. Read what is there before building further' -ForegroundColor Yellow
-        Write-Host '  (git pull --ff-only); if the tip is your own autopark from another machine, that is the same' -ForegroundColor Yellow
-        Write-Host '  command. Nothing on this branch is lost -- the push was refused, not overwritten.' -ForegroundColor Yellow
+        Write-CycleCollisionReport `
+            -Lead "'$cycleRel' could NOT be pushed" `
+            -Note $note `
+            -Reassurance 'Nothing on this branch is lost -- the push was refused, not overwritten.'
     } else {
         # The push failed for something other than a divergence this run could read: no origin left, a
         # credential refusal, a timeout, a fetch that could not answer either. Git's own output is above.
