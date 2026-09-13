@@ -39,21 +39,80 @@
 
 ### PLAN
 
+#### What #1956 filed, and the one question it left open
+
+Checks 35 `[fixture-git]` and 41 `[fixture-script]` in `scripts/lint/check-plugin-integrity.ps1` each
+carried their own implementation of the same two rules: climb out of any wrapping to the outermost
+pipeline a call sits in, then ask whether the result is discarded. Check 41's own comment said so in as
+many words -- *"exactly as check 35 does and for the same reason"*.
+
+The issue deliberately did not decide the shape, and named the thing to settle first: check 35 tracks a
+`[void]` cast through the climb and check 41 does not, so *"whoever picks it up should check whether that
+difference is real or just how each was written."*
+
+#### It is real, and it was a live false negative
+
+Measured against the real check before anything was changed, with
+`[void](Write-FixtureScriptSummary ...)` inside a function:
+
+| position of the cast-away call | findings |
+|---|---|
+| as the function's **last** statement | **0** -- cleared as a read |
+| one line further up | 1 -- reported |
+
+Check 41 climbed straight through the `ConvertExpressionAst` without noticing the cast, so the call
+reached the implicit-return arm and was cleared as PowerShell's last-statement-is-the-value rule -- while
+`[void]` is precisely what stops a last statement being a return value. The same call, the same cast, two
+answers depending on what followed it.
+
+That is check 35's own recorded lesson -- *"a check whose arms disagree about wrapping teaches the shape
+that gets past it"* -- arriving one level up, which is exactly what #1956 predicted would happen with two
+copies.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DiscardedOuterPipeline` added beside `Get-EnclosingFunction`, returning the outermost
+      pipeline, whether the result is `Discarded`, and whether a `[void]` cast was crossed
+- [x] check 35 rewired onto it -- the climb and all three discard spellings now come from the function
+- [x] check 41 rewired onto it, and the discard is asked FIRST rather than subtracted from the arms
+      afterwards, because the implicit-return arm cannot tell a cast-away last statement from a
+      handed-back one
 
 ### TEST
 
+- [x] scenario 78b pins the repaired arm in both positions -- a `[void]` cast is a discard as a
+      function's last statement and one line further up, and the two have to agree
+- [x] the lint gate is green and both coverage lines report the same counts as before the extraction
+      (`[fixture-git]` 108 files / 0 findings, `[fixture-script]` 108 files / 7 wired / 0 findings), so
+      the change is behaviour-preserving on the real tree apart from the repaired arm
+- [x] all suites green
+
 ### DEPLOY: fix/1956-shared-discard-unwrap
 
-**Score:**
+Two checks in the plugin-integrity gate each carried their own copy of the same rule -- climb out of any
+wrapping, then ask whether the result is thrown away. That rule had already been repaired once inside
+check 35, whose header records the bug: only the `[void]` arm walked out of `(...)`, so
+`$null = (& git ...)` and `(& git ...) | Out-Null` were both silently skipped, and it draws the lesson
+that **a check whose arms disagree about wrapping teaches the shape that gets past it**.
+
+With two copies that lesson applies one level up, and the second copy had already drifted. Check 41
+climbed through a `[void]` cast without noticing one, so `[void](Write-FixtureScriptSummary ...)`
+standing as a function's last statement was cleared as an implicit return -- 0 findings, against 1 for
+the identical call one line further up. A discarded verdict is the failure that check exists to catch,
+and this was it wearing a cast.
+
+Both now call one `Get-DiscardedOuterPipeline`, so the next repair to the rule is made once. On the real
+tree nothing else moves: both coverage lines report exactly the counts they did before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing here ships to a consumer. `scripts/lint/` is not mirrored into any plugin and the checks read
+only this repo's own tree, so the reader served is whoever next edits either check.
+
+**Score:** N/A
 
 #### Pull Request
 
 The discard/unwrap rule is one function, not a copy per check
-

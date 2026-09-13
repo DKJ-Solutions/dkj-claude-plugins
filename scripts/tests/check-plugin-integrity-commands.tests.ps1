@@ -1133,6 +1133,35 @@ try {
     $rC78 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-Equal 1 ([regex]::Matches($rC78.Out, $FsFindingPattern).Count) 'scenario 78: a bare call at file scope is still a discard, not an implicit return'
 
+    # AND A [void] CAST IS A DISCARD EVEN AS THE LAST STATEMENT OF A FUNCTION -- the OTHER discriminator
+    # for (d), and the one that was missing. Scenario 78 pins that a bare call at file scope is not an
+    # implicit return; this pins that a cast-away call inside a function is not one either. Until #1956
+    # the check climbed straight through the ConvertExpressionAst without noticing the cast, so this
+    # exact shape reached the implicit-return arm and was cleared as a READ -- 0 findings here, against
+    # 1 for the same call one line further up. [void] is precisely what stops a last statement being a
+    # return value, so the two positions have to agree, and a check whose arms disagree about wrapping
+    # teaches the shape that gets past it (check 35's lesson, one level up).
+    Write-Host "check 41 -- a [void] cast is a discard in both positions" -ForegroundColor Cyan
+    foreach ($fsVoid in @(
+        @{ Label = 'as the last statement'; Tail = @() }
+        @{ Label = 'one line further up';   Tail = @('    Write-Host ''done''') }
+    )) {
+        [System.IO.File]::WriteAllText($fsPath, ((@(
+            '$ErrorActionPreference = ''Stop'''
+            '. (Join-Path $PSScriptRoot ''..\lib\fixture-script-lib.ps1'')'
+            '$out = & powershell -NoProfile -File $child 2>&1'
+            'Assert-FixtureScriptLoaded -Code $LASTEXITCODE -Output $out'
+            'function Close-Suite {'
+            '    [void](Write-FixtureScriptSummary -Subject ''child.ps1'')'
+        ) + $fsVoid.Tail + @(
+            '}'
+            'Close-Suite'
+        ) -join "`n") + "`n"), $Utf8NoBom)
+        $rC78b = Invoke-Integrity -FixtureRoot $Fixture
+        Assert-Equal 1 ([regex]::Matches($rC78b.Out, $FsFindingPattern).Count) "scenario 78b/$($fsVoid.Label): a [void] cast is a discard, not an implicit return"
+        Assert-True ($rC78b.Out -match 'is never read, so nothing turns it into an exit code') "scenario 78b/$($fsVoid.Label): and the finding says what is missing"
+    }
+
     # (e) THE DOT-SOURCE LEAF IS ANCHORED: a different file whose name merely ends the same way is not
     #     this lib, and used to count as the wiring.
     Write-Host "check 41 -- a lookalike lib name is not the dot-source" -ForegroundColor Cyan

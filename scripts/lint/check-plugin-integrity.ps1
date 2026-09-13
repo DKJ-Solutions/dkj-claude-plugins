@@ -1230,6 +1230,79 @@ function Get-EnclosingFunction {
     return $null
 }
 
+function Get-DiscardedOuterPipeline {
+    <#
+        The outermost pipeline a call ultimately sits in, and whether its result is DISCARDED.
+
+        ONE FUNCTION RATHER THAN A COPY PER CHECK (issue #1956). Checks 35 and 41 each grew their own
+        implementation of the same two rules -- climb out of any wrapping, then ask whether the result is
+        thrown away -- and check 41's own comment said so in as many words. The unwrap rule has already
+        had to be repaired ONCE: check 35 was first written with only its [void] arm walking out of
+        '(...)', so '$null = (& git ...)' and '(& git ...) | Out-Null' were both silently skipped, and its
+        header draws the lesson that a check whose arms disagree about wrapping teaches the shape that
+        gets past it. With two copies that lesson applies one level up -- the next repair has to be made
+        twice, and the copy that misses it fails exactly the way the original bug did.
+
+        AND THE SECOND COPY HAD ALREADY DRIFTED, which is what makes this an extraction rather than a
+        tidy-up. Check 41 climbed THROUGH a ConvertExpressionAst without noticing a [void] cast, so a
+        '[void](Write-FixtureScriptSummary ...)' standing as a function's LAST statement fell into the
+        implicit-return arm and was cleared as a READ -- while [void] is precisely what stops it being
+        one. Measured September 13, 2026 against the real check: as a last statement 0 findings, one line
+        further up 1 finding. The same call, the same cast, two answers.
+
+        WHAT COUNTS AS A DISCARD is the three spellings both checks already meant to cover: an 'Out-Null'
+        tail, a '$null =' assignment, and a '[void]' cast -- each judged AFTER the climb, on the same
+        node, so a pair of brackets is not an escape hatch for any of them.
+
+        Returns an object with:
+          * Outer     -- the outermost pipeline/expression the call sits in, which is the node a caller
+                         then walks up from to find the enclosing statement.
+          * Discarded -- $true when the result is thrown away in any of the three spellings.
+          * VoidCast  -- whether a [void] cast was crossed on the way out, for a caller that wants to
+                         tell the spellings apart in a finding.
+
+        Takes the CommandAst's own parent pipeline; returns $null when the call does not sit in a
+        pipeline at all, which both callers treat as 'not a subject'.
+    #>
+    param([Parameter(Mandatory)]$Call)
+
+    $pipe = $Call.Parent
+    if ($pipe -isnot [System.Management.Automation.Language.PipelineAst]) { return $null }
+
+    # Parentheses, a cast, and the CommandExpression/Pipeline pair a wrapped call is re-wrapped in are
+    # all climbed, so every spelling below is judged on the SAME node.
+    $outer    = $pipe
+    $voidCast = $false
+    while ($outer.Parent) {
+        $up = $outer.Parent
+        if ($up -is [System.Management.Automation.Language.ConvertExpressionAst]) {
+            if ($up.Type.TypeName.Name -match '^(void|System\.Void)$') { $voidCast = $true }
+            $outer = $up; continue
+        }
+        if ($up -is [System.Management.Automation.Language.ParenExpressionAst] -or
+            $up -is [System.Management.Automation.Language.CommandExpressionAst] -or
+            $up -is [System.Management.Automation.Language.PipelineAst]) { $outer = $up; continue }
+        break
+    }
+
+    $discarded = $voidCast
+    if ($outer -is [System.Management.Automation.Language.PipelineAst]) {
+        $last = $outer.PipelineElements[$outer.PipelineElements.Count - 1]
+        if ($last -is [System.Management.Automation.Language.CommandAst] -and
+            $last.GetCommandName() -eq 'Out-Null') { $discarded = $true }
+    }
+    $assign = $outer.Parent
+    if ($assign -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $assign.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+        $assign.Left.VariablePath.UserPath -eq 'null') { $discarded = $true }
+
+    return [pscustomobject]@{
+        Outer     = $outer
+        Discarded = $discarded
+        VoidCast  = $voidCast
+    }
+}
+
 function Get-PsScriptCommandAsts {
     param([Parameter(Mandatory)][string]$Path)
     if ($script:PsScriptCommandAstCache.ContainsKey($Path)) { return $script:PsScriptCommandAstCache[$Path] }
@@ -4160,46 +4233,22 @@ foreach ($fgFile in $fixtureGitFiles) {
         }
         if (-not $isGit) { continue }
 
-        $fgPipe = $fgCmd.Parent
-        if ($fgPipe -isnot [System.Management.Automation.Language.PipelineAst]) { continue }
-
-        # -- climb out of any wrapping, ONCE, for all three discard spellings ------------------------
-        # THE UNWRAP IS SHARED RATHER THAN PER-SPELLING, and that is the repair for the way this was
-        # first written: only the [void] arm walked out of '(...)', so '$null = (& git ...)' and
-        # '(& git ...) | Out-Null' were both silently skipped -- the exact call this check exists to
-        # catch, wearing one pair of brackets. Neither spelling exists in this tree today, which is why
-        # the measurement could not see it and a review of the code could; a check whose three arms
-        # disagree about wrapping teaches the shape that gets past it.
+        # -- climb out of any wrapping, then ask whether the result is discarded ---------------------
+        # BOTH RULES LIVE IN Get-DiscardedOuterPipeline, shared with check 41 since #1956. The unwrap is
+        # shared across all three discard spellings rather than written per-spelling, which is the repair
+        # for the way this was first written: only the [void] arm walked out of '(...)', so
+        # '$null = (& git ...)' and '(& git ...) | Out-Null' were both silently skipped -- the exact call
+        # this check exists to catch, wearing one pair of brackets. Neither spelling exists in this tree
+        # today, which is why the measurement could not see it and a review of the code could; a check
+        # whose three arms disagree about wrapping teaches the shape that gets past it.
         #
-        # Parentheses, a cast and the CommandExpression/Pipeline pair a wrapped call is re-wrapped in are
-        # all climbed, so every spelling below is judged on the SAME node: the outermost pipeline the git
-        # call ultimately sits in.
-        $fgOuter    = $fgPipe
-        $fgVoidCast = $false
-        while ($fgOuter.Parent) {
-            $fgUp = $fgOuter.Parent
-            if ($fgUp -is [System.Management.Automation.Language.ConvertExpressionAst]) {
-                if ($fgUp.Type.TypeName.Name -match '^(void|System\.Void)$') { $fgVoidCast = $true }
-                $fgOuter = $fgUp; continue
-            }
-            if ($fgUp -is [System.Management.Automation.Language.ParenExpressionAst] -or
-                $fgUp -is [System.Management.Automation.Language.CommandExpressionAst] -or
-                $fgUp -is [System.Management.Automation.Language.PipelineAst]) { $fgOuter = $fgUp; continue }
-            break
-        }
-
-        # -- is the result discarded -----------------------------------------------------------------
-        $fgDiscarded = $fgVoidCast
-        if ($fgOuter -is [System.Management.Automation.Language.PipelineAst]) {
-            $fgLast = $fgOuter.PipelineElements[$fgOuter.PipelineElements.Count - 1]
-            if ($fgLast -is [System.Management.Automation.Language.CommandAst] -and
-                $fgLast.GetCommandName() -eq 'Out-Null') { $fgDiscarded = $true }
-        }
-        $fgAssign = $fgOuter.Parent
-        if ($fgAssign -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-            $fgAssign.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
-            $fgAssign.Left.VariablePath.UserPath -eq 'null') { $fgDiscarded = $true }
-        if (-not $fgDiscarded) { continue }
+        # AND THAT LESSON IS WHY THE FUNCTION IS SHARED RATHER THAN COPIED. Check 41 grew its own
+        # near-verbatim copy, which had already drifted -- it climbed through a [void] cast without
+        # noticing one (#1956).
+        $fgDiscard = Get-DiscardedOuterPipeline -Call $fgCmd
+        if ($null -eq $fgDiscard) { continue }
+        if (-not $fgDiscard.Discarded) { continue }
+        $fgOuter = $fgDiscard.Outer
 
         # -- is the exit code judged, here or on the next statement ----------------------------------
         # The statement this pipeline IS, which is the pipeline itself wherever it sits directly in a
@@ -4963,19 +5012,19 @@ foreach ($fsFile in $fsFiles) {
 
     # -- part 4: the summary's verdict is READ -----------------------------------------------------
     foreach ($fsCall in $fsSummary) {
-        # Climb out of any wrapping to the outermost pipeline this call sits in, exactly as check 35
-        # does and for the same reason: a pair of brackets must not be an escape hatch.
-        $fsPipe = $fsCall.Parent
-        if ($fsPipe -isnot [System.Management.Automation.Language.PipelineAst]) { continue }
-        $fsOuter = $fsPipe
-        while ($fsOuter.Parent) {
-            $fsUp = $fsOuter.Parent
-            if ($fsUp -is [System.Management.Automation.Language.ParenExpressionAst] -or
-                $fsUp -is [System.Management.Automation.Language.ConvertExpressionAst] -or
-                $fsUp -is [System.Management.Automation.Language.CommandExpressionAst] -or
-                $fsUp -is [System.Management.Automation.Language.PipelineAst]) { $fsOuter = $fsUp; continue }
-            break
-        }
+        # THE UNWRAP AND THE DISCARD RULES ARE SHARED WITH CHECK 35 (issue #1956), not copied here.
+        # A near-verbatim copy stood in this spot, and it had already DRIFTED from the original in the
+        # one way that matters: it climbed straight THROUGH a ConvertExpressionAst without noticing a
+        # [void] cast, so '[void](Write-FixtureScriptSummary ...)' standing as a function's LAST
+        # statement fell into the implicit-return arm below and was cleared as a READ -- while [void] is
+        # precisely what stops it being one. Measured against the real check before the extraction: as a
+        # last statement 0 findings, one line further up 1 finding. The same call, the same cast, two
+        # answers. That is check 35's own lesson -- a check whose arms disagree about wrapping teaches
+        # the shape that gets past it -- arriving one level up, which is why the rule is now one
+        # function rather than two implementations of it.
+        $fsDiscard = Get-DiscardedOuterPipeline -Call $fsCall
+        if ($null -eq $fsDiscard) { continue }
+        $fsOuter = $fsDiscard.Outer
 
         # A READ IS ANY OF THREE SHAPES, and all three occur in this tree: the value is assigned to a
         # variable that is read again later in the file (the six wired suites' '$loadBroken'), or it is
@@ -4983,37 +5032,39 @@ foreach ($fsFile in $fsFiles) {
         # the lib's own suite, which asserts the return rather than storing it.
         $fsRead = $false
         $fsUp = $fsOuter.Parent
-        if ($fsUp -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        if ($fsDiscard.Discarded) {
+            # A DISCARD ANSWERS THE QUESTION ON ITS OWN, in all three spellings -- an 'Out-Null' tail, a
+            # '$null =' assignment, and a '[void]' cast. It is asked FIRST rather than subtracted from
+            # the arms afterwards, because the implicit-return arm cannot tell a cast-away last statement
+            # from a handed-back one: that is exactly the false negative the extraction repaired.
+            $fsRead = $false
+        } elseif ($fsUp -is [System.Management.Automation.Language.AssignmentStatementAst] -and
             $fsUp.Left -is [System.Management.Automation.Language.VariableExpressionAst]) {
             $fsVar = $fsUp.Left.VariablePath.UserPath
-            if ($fsVar -eq 'null') {
-                $fsRead = $false          # '$null = ...' is a discard, spelled as an assignment
-            } else {
-                # The variable has to be READ somewhere that is not this assignment's own left-hand side.
-                # The root is reached by climbing from the node rather than by parsing the file again --
-                # Get-PsScriptCommandAsts holds only CommandAsts, and a second ParseFile here would undo
-                # the shared-parse property checks 31, 33, 35 and this one are built on (issue #1358).
-                #
-                # TWO NARROWINGS, BOTH OF THEM REPAIRS OF A FALSE NEGATIVE, caught by probing this check
-                # rather than by reading it. A bare name match over the whole file cleared an assignment
-                # whose value nothing consults:
-                #   * AFTER, not anywhere. A reference sitting BEFORE the assignment is a different
-                #     variable's life, and it cleared a dead assignment that followed it.
-                #   * IN THE SAME FUNCTION, not anywhere. '$loadBroken' as a local inside an unrelated
-                #     function cleared a dead file-scope assignment of the same name.
-                $fsOwner = Get-EnclosingFunction -Node $fsUp
-                $fsFrom  = $fsUp.Extent.StartOffset
-                $fsRoot  = $fsUp
-                while ($fsRoot.Parent) { $fsRoot = $fsRoot.Parent }
-                $fsRead = @($fsRoot.FindAll({
-                    param($n)
-                    $n -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                    $n.VariablePath.UserPath -eq $fsVar -and
-                    $n.Extent.StartOffset -gt $fsFrom
-                }, $true) | Where-Object {
-                    (Get-EnclosingFunction -Node $_) -eq $fsOwner
-                }).Count -gt 0
-            }
+            # The variable has to be READ somewhere that is not this assignment's own left-hand side.
+            # The root is reached by climbing from the node rather than by parsing the file again --
+            # Get-PsScriptCommandAsts holds only CommandAsts, and a second ParseFile here would undo
+            # the shared-parse property checks 31, 33, 35 and this one are built on (issue #1358).
+            #
+            # TWO NARROWINGS, BOTH OF THEM REPAIRS OF A FALSE NEGATIVE, caught by probing this check
+            # rather than by reading it. A bare name match over the whole file cleared an assignment
+            # whose value nothing consults:
+            #   * AFTER, not anywhere. A reference sitting BEFORE the assignment is a different
+            #     variable's life, and it cleared a dead assignment that followed it.
+            #   * IN THE SAME FUNCTION, not anywhere. '$loadBroken' as a local inside an unrelated
+            #     function cleared a dead file-scope assignment of the same name.
+            $fsOwner = Get-EnclosingFunction -Node $fsUp
+            $fsFrom  = $fsUp.Extent.StartOffset
+            $fsRoot  = $fsUp
+            while ($fsRoot.Parent) { $fsRoot = $fsRoot.Parent }
+            $fsRead = @($fsRoot.FindAll({
+                param($n)
+                $n -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                $n.VariablePath.UserPath -eq $fsVar -and
+                $n.Extent.StartOffset -gt $fsFrom
+            }, $true) | Where-Object {
+                (Get-EnclosingFunction -Node $_) -eq $fsOwner
+            }).Count -gt 0
         } elseif ($fsUp -is [System.Management.Automation.Language.ReturnStatementAst]) {
             # 'return Write-FixtureScriptSummary ...' -- the verdict is the caller's to act on.
             $fsRead = $true
@@ -5037,13 +5088,6 @@ foreach ($fsFile in $fsFiles) {
         } else {
             # Consumed in place -- an if/while condition, or an argument to another command.
             $fsRead = $true
-        }
-
-        # An Out-Null / [void] tail is a discard however it is spelled, and outranks the above.
-        if ($fsOuter -is [System.Management.Automation.Language.PipelineAst]) {
-            $fsLast = $fsOuter.PipelineElements[$fsOuter.PipelineElements.Count - 1]
-            if ($fsLast -is [System.Management.Automation.Language.CommandAst] -and
-                $fsLast.GetCommandName() -eq 'Out-Null') { $fsRead = $false }
         }
 
         if ($fsRead) { continue }
