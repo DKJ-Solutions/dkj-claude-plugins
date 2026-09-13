@@ -52,6 +52,25 @@ function Assert-True {
 Assert-True (Test-Path -LiteralPath $LibPath) 'closeout-lib.ps1 exists at its registered source path'
 . $LibPath
 
+# THE ONE PIECE OF AMBIENT STATE THIS SUBJECT READS, CLEARED BEFORE ANYTHING IS MEASURED -- issue #1913.
+# Write-CloseOutReceipt returns silently when DKJ_CLOSEOUT_SUPPRESS is set, and it reads that from the
+# ENVIRONMENT on purpose, so the conductor's declaration crosses a process boundary. That is the
+# mechanism working; what was broken is that this suite measured the function WITHOUT owning the
+# variable it keys on.
+#
+# THE PATH IS REAL AND IT IS THIS WORKFLOW'S OWN: ship-pr.ps1 calls Push-CloseOutSuppression before it
+# spawns open-pr, open-pr runs the test gate, and the gate spawns every suite with Start-Process --
+# which inherits the process environment. So this suite was GREEN standalone and under a bare open-pr,
+# and RED under ship-pr, where the first measurement got $null and died on $lines[0] before a single
+# assert about the receipt had run. Measured September 13, 2026, on the ship of
+# fix/1912-noresolves-persists-in-body; reproduced in one command by setting the variable by hand.
+#
+# THE INHERITED VALUE IS RESTORED AT THE END rather than simply dropped: a suite is a child of whatever
+# ran it, and one that hands its parent a different environment than it was given is the same class of
+# defect one layer up.
+$script:InheritedCloseOutSuppress = [Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS')
+[Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', $null)
+
 # Write-Host does not go down the output stream, so the printed lines are captured from the
 # information stream (6>&1) rather than by assigning the call. Reading MessageData.Message keeps the
 # colour argument out of the comparison.
@@ -63,6 +82,10 @@ function Get-ReceiptLines {
 
 Write-Host ''
 Write-Host 'The printed shape -- the three parts, and the ceiling' -ForegroundColor Cyan
+
+# The guard above, asserted rather than assumed: a later tidy-up that drops it puts every assert in
+# this section back at the mercy of whoever spawned the suite.
+Assert-True ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) 'the suite owns the suppression variable before it measures the receipt (#1913)'
 
 $lines = Get-ReceiptLines @{ Cite = 'PR #1885' }
 $body  = ($lines -join "`n")
@@ -225,6 +248,9 @@ Assert-True (-not ($raw -cmatch '[^\x00-\x7F]')) 'closeout-lib.ps1 is pure ASCII
 # byte-identity assert; this one is only that the registration exists at all.
 Assert-True ((Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\lib\shared-scripts-lib.ps1') -Raw) -match "closeout-lib") 'closeout-lib is registered as a shared script'
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\scripts\lib\closeout-lib.ps1')) '...and its plugin mirror is present'
+
+# Handed back exactly as it arrived -- see the note beside the clear at the top.
+[Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', $script:InheritedCloseOutSuppress)
 
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
