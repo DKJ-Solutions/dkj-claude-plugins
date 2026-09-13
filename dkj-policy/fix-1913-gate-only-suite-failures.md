@@ -75,9 +75,11 @@ the measurement again.
       answered nothing produced `You cannot call a method on a null-valued expression` and exit 1,
       with nothing created and no cause named. That is #1913's exact signature, measured directly.
 - [x] Mirror to the plugin copy (`build-shared-scripts.ps1`).
-- [ ] The 36 OTHER scripts carrying that same unjudged spelling are filed as #1917, not swept here --
-      one diff across every layer of the tree is not reviewable, and several of the call sites have
-      their own `-RepoRoot` precedence to read first.
+- [~] DROPPED, deliberately: the 36 OTHER scripts carrying that same unjudged spelling are filed as
+      #1917 rather than swept here. One diff across every layer of the tree is not reviewable in a
+      sitting, and several of those call sites have their own `-RepoRoot` precedence that has to be
+      read one at a time -- so the sweep is its own branch, with its own shared seam, not a tail
+      appended to this one.
 
 ### TEST
 
