@@ -43,7 +43,60 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 34 minor entries** <!-- pending-tally -->
+**27 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1963-native-capture-amp-arm-quoting · 20260913-210344
+
+`Invoke-NativeCapture`'s `&` arm left argv quoting to Windows PowerShell 5.1, which mis-delivers
+three argument shapes: the empty string (dropped, shifting every later argument left), a value
+containing a quote (the quote is lost and the following arguments are swallowed), and a value with
+whitespace ending in a backslash (it escapes its own closing quote and absorbs the rest of the
+command line). Measured against a real argv parser, 129 of 300 random argument sets arrived wrong.
+
+`open-pr`'s `gh pr create` is now routed through the `-Utf8` arm, which quotes its arguments itself:
+a PR title carrying a quote or a trailing backslash no longer swallows `--body-file`, `--repo` and
+every label into the title. That is the one call site measured exposed -- `$prTitle` is free text, a
+changelog heading or (since #1962) a bare commit subject, and it is the only argument of that call a
+person writes. The three shapes are now documented at the arm itself, so the next reader of it meets
+the measurement rather than the assumption.
+
+Anybody writing a PR title with a quote in it was silently exposed before, and the failure is a
+*wrong* pull request rather than a broken one -- created with a mangled title and no body or labels
+-- which is why it went unnoticed rather than unreported.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+**Both of the report's own candidate repairs were measured before either was built, and one of them
+failed.** Candidate #2 -- give the `&` arm the same tokeniser -- is correct on every hand-picked
+example and still wrong on 7 of 300 fuzz cases, because PowerShell 5.1 re-processes a token that
+already carries quotes. Shipping it would have satisfied the report and been wrong, with a citation
+attached.
+
+**And the report's own scoping was off in the safe-sounding direction.** It recorded an embedded
+quote as "escaped correctly and cannot re-open an argv boundary". That is true of the Start-Process
+arm and false of the arm the report is about: a quote both loses itself and swallows what follows.
+The empty string, unmentioned, is dropped outright. Verifying the *reason* rather than only the
+symptom is what turned one shape into three.
+
+**A larger repair was built, run, and withdrawn.** A guard refusing all three shapes at the arm makes
+the class impossible rather than documented -- but this lib ships to consumers, so a throw changes
+their scripts' behaviour on a plugin update, and instrumenting it here produced exactly one hit, in a
+test fixture that uses a hostile branch name on purpose. It is filed as #1966 with every measurement
+rather than carried in a prio-2 fix.
+
+**Score:** 2
+
+#### Pull Request
+
+open-pr passes the PR title through the arm that quotes it, so a title with a quote cannot swallow the flags after it
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #1967](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1967)
+
+---
 
 ### DEPLOY: fix/1962-exempt-branch-pr-title · 20260913-181123
 
