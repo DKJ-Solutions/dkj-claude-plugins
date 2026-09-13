@@ -642,6 +642,114 @@ function Add-ResolvesBlock {
     return ($Body.TrimEnd() + "`n`n" + $block + "`n")
 }
 
+
+function Get-NoResolvesMarker {
+    <#
+    .SYNOPSIS
+        The literal line that records "this PR closes no issue" in a PR body.
+
+    .DESCRIPTION
+        THE OTHER ANSWER ALREADY PERSISTED AND THIS ONE DID NOT (issue #1912). Get-ResolvesDecision
+        recognises a decision published on an open PR -- but only through the closing keywords in its
+        body, and -NoResolves by definition writes none. So a branch whose author had answered the gate
+        with -NoResolves was asked again by the very next run, on a PR where the answer was already
+        settled, while the same branch answered with -Resolves was not. That asymmetry is the defect:
+        one answer is durable and the other evaporates when the process ends.
+
+        AN HTML COMMENT RATHER THAN A VISIBLE LINE. The closing block is functional text -- GitHub acts
+        on it -- so it earns its heading. This is a record for the gate alone, and the absence of a
+        'Resolved issues' block already tells a human reader that the PR closes nothing; a section
+        saying so a second time would sit in every such body and inform nobody.
+
+        Returned by a function rather than written as a literal at each site, for the same reason
+        Get-PrClosingKeywords is one: three files recognise it and two write it, and a marker that is
+        spelled out five times is a marker that drifts on the day somebody edits four of them.
+    #>
+    return '<!-- resolves: none -->'
+}
+
+function Test-NoResolvesMarker {
+    <#
+    .SYNOPSIS
+        Does this text carry the "closes nothing" marker?
+
+    .DESCRIPTION
+        Tolerant of the whitespace a human editing the body on github.com may leave behind, and
+        case-insensitive; strict about everything else, because this is a declaration the gate acts on.
+
+        The same code-span stripping as Test-HasClosingKeyword and for the same measured reason: a
+        document explaining the marker necessarily writes the marker, and this repo's own changelog
+        entry for #1912 does. Without the stripping, that entry reaching a PR body verbatim would
+        answer the gate on behalf of a branch that never declared anything.
+    #>
+    param([string]$Text)
+
+    if (-not $Text) { return $false }
+    $clean = Remove-MarkdownCodeSpans -Text $Text
+    return [bool][regex]::IsMatch($clean, '(?i)<!--\s*resolves:\s*none\s*-->')
+}
+
+function Add-NoResolvesMarker {
+    <#
+    .SYNOPSIS
+        Appends the "closes nothing" marker to a PR body. Idempotent.
+
+    .DESCRIPTION
+        Idempotent like Add-ResolvesBlock, and for the same reason: it is called after a -RefreshBody
+        may already have rewritten the body, so it has to restore a marker the refresh swallowed and
+        do nothing where it survived.
+
+        Appended at the END, below any closing block. The marker is not a section, so it has no
+        heading level to match and cannot be swallowed as a child of the description the way #919's
+        closing block was -- but it CAN be swallowed by a refresh of a body whose description is the
+        leading section, which is exactly why the caller re-appends it after every refresh.
+    #>
+    param([string]$Body)
+
+    if (Test-NoResolvesMarker -Text $Body) { return $Body }
+    $marker = Get-NoResolvesMarker
+    if (-not $Body -or -not $Body.Trim()) { return $marker }
+    return ($Body.TrimEnd() + "`n`n" + $marker + "`n")
+}
+
+function Remove-NoResolvesMarker {
+    <#
+    .SYNOPSIS
+        Strips the "closes nothing" marker from a PR body. Idempotent.
+
+    .DESCRIPTION
+        The marker is a claim about the PR, so it must not outlive the claim. A branch that declared
+        -NoResolves and later declares -Resolves would otherwise publish a body that both closes an
+        issue and states it closes none -- and the gate, reading closing keywords first, would act on
+        the truth while a human read the contradiction.
+
+        Only the marker line goes; the blank line that separated it goes with it, so repeated
+        add/remove cycles do not accumulate whitespace at the foot of the body.
+
+        A BODY WITH NO MARKER IS RETURNED UNTOUCHED, byte for byte -- not trimmed, not normalised. The
+        caller runs this unconditionally on every -Resolves run and decides whether to announce a body
+        edit by comparing before with after, so a version that tidied trailing whitespace would report
+        "removed the stale marker" about a body that never carried one, and send a PR update for it.
+    #>
+    param([string]$Body)
+
+    if (-not $Body) { return $Body }
+    if (-not (Test-NoResolvesMarker -Text $Body)) { return $Body }
+
+    # A MARKER INSIDE A FENCE OR A CODE SPAN IS LEFT ALONE, and the mask is how that is known. It is not
+    # a declaration -- Test-NoResolvesMarker says so -- so removing it would delete somebody's example
+    # from a PR body while repairing nothing. Reached for because a body can carry BOTH: this repo's own
+    # entry for #1912 writes the marker as prose, and open-pr copies an entry into the body verbatim.
+    # Remove-MarkdownCodeSpans blanks with a run of the SAME LENGTH, deliberately and by its own
+    # contract, so an offset in the cleaned text is the same offset in the original.
+    $mask = Remove-MarkdownCodeSpans -Text $Body
+    $pattern = '(?i)\r?\n?[ \t]*<!--\s*resolves:\s*none\s*-->[ \t]*\r?\n?'
+    $stripped = [regex]::Replace($Body, $pattern, {
+        param($m)
+        if ([regex]::IsMatch($mask.Substring($m.Index, $m.Length), $pattern)) { "`n" } else { $m.Value }
+    })
+    return $stripped.TrimEnd() + "`n"
+}
 function Get-ResolvesDecision {
     <#
     .SYNOPSIS
@@ -656,8 +764,23 @@ function Get-ResolvesDecision {
           - Explicit -Resolves          -> Allowed, Issues = those numbers.
           - Explicit -NoResolves        -> Allowed, Issues = @() (the author declared "closes nothing").
           - Body already closes issues  -> Allowed, Issues = the numbers the body declares.
+          - Body carries the none-marker -> Allowed, Issues = @() (a "closes nothing" already published).
           - Open issues mentioned, no decision -> BLOCKED, naming them.
           - Nothing open mentioned      -> Allowed, Issues = @() (nothing to decide).
+
+        BOTH PUBLISHED ANSWERS ARE READ, NOT ONLY ONE (issue #1912). The caller folds the body of an
+        already open PR into -Body so that a resumed branch is not asked to repeat a decision GitHub
+        already holds. That reasoning is about a decision PUBLISHED ON THE PR and is exactly as true of
+        "closes nothing" -- but recognition used to be keyed on a closing keyword, which -NoResolves by
+        definition never writes. So the same branch was durable under one answer and amnesiac under the
+        other, and the second run was blocked for precisely the reason the caller's comment says it must
+        not be. Get-NoResolvesMarker is what makes the second answer leave a trace to recognise.
+
+        THE CLOSING KEYWORDS WIN WHERE A BODY CARRIES BOTH. They are what GitHub acts on at the merge,
+        so reading them first is the only order under which this function and the merge agree. The
+        caller strips a stale marker rather than relying on that precedence, but a body edited by hand
+        on github.com can still arrive carrying both, and then this answers with what will actually
+        happen.
 
     .PARAMETER OpenMentions
         The mentioned numbers that are OPEN issues right now. $null means "could not be determined"
@@ -693,6 +816,12 @@ function Get-ResolvesDecision {
             Reason     = 'explicit -Resolves'
             Blocked    = @()
             Undeclared = @(Get-Undeclared -Declared $explicit)
+            # DeclaredNone: this verdict IS the author saying "this PR closes nothing", so the caller
+            # should record it in the body. True on exactly the two answers that say so -- never on
+            # "nothing open was mentioned", which is an absence of a question rather than an answer to
+            # one, and never on "could not determine". Present on every verdict so a caller reads a
+            # boolean rather than a missing property.
+            DeclaredNone = $false
         }
     }
 
@@ -702,6 +831,7 @@ function Get-ResolvesDecision {
             Issues     = @()
             Reason     = 'explicit -NoResolves'
             Blocked    = @()
+            DeclaredNone = $true
             # Deliberately empty: -NoResolves IS the answer for every mentioned issue, so repeating
             # them as "undeclared" would turn an explicit decision back into a nag.
             Undeclared = @()
@@ -716,6 +846,21 @@ function Get-ResolvesDecision {
             Reason     = 'the body already carries closing keywords'
             Blocked    = @()
             Undeclared = @(Get-Undeclared -Declared $fromBody)
+            DeclaredNone = $false
+        }
+    }
+
+    if (Test-NoResolvesMarker -Text $Body) {
+        return [pscustomobject]@{
+            Allowed    = $true
+            Issues     = @()
+            Reason     = 'the body already declares that this PR closes nothing'
+            Blocked    = @()
+            # Empty for the same reason the -NoResolves verdict above leaves it empty: the marker IS
+            # the answer for every mentioned issue, so repeating them as "undeclared" would turn a
+            # published decision back into a nag -- which is the whole complaint of #1912.
+            Undeclared = @()
+            DeclaredNone = $true
         }
     }
 
@@ -726,6 +871,7 @@ function Get-ResolvesDecision {
             Reason     = 'the open-issue state could not be determined -- not blocking'
             Blocked    = @()
             Undeclared = @()
+            DeclaredNone = $false
         }
     }
 
@@ -736,6 +882,7 @@ function Get-ResolvesDecision {
             Reason     = 'open issues are mentioned but the PR declares neither -Resolves nor -NoResolves'
             Blocked    = $open
             Undeclared = @()
+            DeclaredNone = $false
         }
     }
 
@@ -745,6 +892,7 @@ function Get-ResolvesDecision {
         Reason     = 'no open issue is mentioned'
         Blocked    = @()
         Undeclared = @()
+        DeclaredNone = $false
     }
 }
 

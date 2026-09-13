@@ -52,11 +52,40 @@ function Assert-True {
 Assert-True (Test-Path -LiteralPath $LibPath) 'closeout-lib.ps1 exists at its registered source path'
 . $LibPath
 
+# THIS SUITE STATES ITS OWN PRECONDITION, because it is run by a gate and a gate can be nested (issue
+# #1910). Everything below the -Quiet case asserts the UNSUPPRESSED shape, and suppression travels in
+# the environment: ship-pr declares itself conductor, open-pr's test gate spawns these suites as
+# grandchildren, and DKJ_CLOSEOUT_SUPPRESS arrives here without anybody passing it. Measured
+# September 13, 2026 -- Write-CloseOutReceipt correctly printed nothing, $lines came back empty, and
+# `$lines[0]` crashed the whole suite inside the gate that was deciding whether a PR could be pushed.
+#
+# NOT A WORKAROUND FOR THAT DEFECT -- Invoke-WorkflowGates now steps out of the suppression itself, so
+# this line is belt and braces for the suite run by hand, or by a runner nobody has written yet. The
+# reason it belongs here anyway is that a test asserting on an ambient global is its own defect: this
+# file OWNS that variable, so inheriting an answer to the question it is asking is the one thing it
+# must not do. Clearing rather than saving and restoring, because the block below already leaves the
+# variable cleared, and this process is the suite's own.
+[Environment]::SetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS', $null)
+
 # Write-Host does not go down the output stream, so the printed lines are captured from the
 # information stream (6>&1) rather than by assigning the call. Reading MessageData.Message keeps the
 # colour argument out of the comparison.
+#
+# AND IT REFUSES TO ANSWER A MEANINGLESS QUESTION (issue #1910). Every caller that is asking what the
+# receipt LOOKS like is asking about the unsuppressed shape, and under an inherited suppression the
+# honest answer is "nothing" -- which surfaced as `Cannot index into a null array` on the next line,
+# pointing the reader at the assertion instead of at the cause. The clear above means this can only
+# fire if something re-set the variable mid-suite; then it says which.
+#
+# -UnderSuppression IS THE DELIBERATE CASE, and it is a switch rather than an inference from -Quiet,
+# because the two are not the same mechanism: -Quiet is a parameter muting ONE call, and the variable
+# is a conductor muting every descendant. One assert below passes -Quiet and one runs under the
+# variable; only the second is what this guard is about, so only that one carries the switch.
 function Get-ReceiptLines {
-    param([hashtable]$CallArgs = @{})
+    param([hashtable]$CallArgs = @{}, [switch]$UnderSuppression)
+    if (-not $UnderSuppression -and -not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) {
+        throw 'DKJ_CLOSEOUT_SUPPRESS is set, so every assertion on the printed shape is meaningless. A conductor above this run (ship-pr) declared itself and this suite inherited it -- see issue #1910.'
+    }
     $out = Write-CloseOutReceipt @CallArgs 6>&1
     return @($out | ForEach-Object { "$($_.MessageData.Message)" })
 }
@@ -140,7 +169,7 @@ Assert-Equal 0 (Get-ReceiptLines @{ Cite = 'PR #1'; Quiet = $true }).Count '-Qui
 # -- once before CI had even started.
 Push-CloseOutSuppression
 Assert-Equal '1' ([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS')) 'the conductor declares itself in the ENVIRONMENT, which a child process inherits'
-Assert-Equal 0 (Get-ReceiptLines @{ Cite = 'PR #1' }).Count '...and a run under it prints nothing at all'
+Assert-Equal 0 (Get-ReceiptLines -UnderSuppression @{ Cite = 'PR #1' }).Count '...and a run under it prints nothing at all'
 Pop-CloseOutSuppression
 Assert-True ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) 'popping clears it'
 Assert-Equal 3 @((Get-ReceiptLines @{ Cite = 'PR #1' }) | Where-Object { $_.Trim() -ne '' }).Count "...so the conductor's own receipt still prints"
@@ -151,6 +180,41 @@ Push-CloseOutSuppression; Push-CloseOutSuppression; Pop-CloseOutSuppression
 Assert-Equal 3 @((Get-ReceiptLines @{ Cite = 'PR #1' }) | Where-Object { $_.Trim() -ne '' }).Count 'a second push does not need a second pop'
 
 Write-Host ''
+
+# --- Suspend/Restore: the pair a NESTED run uses (issue #1910) ------------------------------------
+# Push/Pop are a conductor declaring itself; this pair is for a run UNDER one that has to spawn
+# children which are not in the chain at all. The property that distinguishes them is that this one
+# leaves the variable exactly as it found it, in BOTH directions.
+Push-CloseOutSuppression
+$wasActive = Suspend-CloseOutSuppression
+Assert-True $wasActive 'Suspend reports that the suppression WAS active, so the caller can put it back'
+Assert-True ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) '...and clears it, so a child spawned now does not inherit it'
+Assert-Equal 3 @((Get-ReceiptLines @{ Cite = 'PR #1' }) | Where-Object { $_.Trim() -ne '' }).Count '...which is exactly the shape a suite spawned inside the gate asserts on'
+Restore-CloseOutSuppression -WasActive $wasActive
+Assert-Equal '1' ([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS')) 'Restore puts the conductor back, so the rest of ITS chain stays muted'
+
+# THE OTHER DIRECTION IS THE ONE Pop CANNOT DO, and it is why this pair exists rather than reusing it:
+# a nested run under NO conductor must not leave a suppression behind it.
+Pop-CloseOutSuppression
+$wasActive = Suspend-CloseOutSuppression
+Assert-True (-not $wasActive) 'Suspend with no conductor above reports false'
+Restore-CloseOutSuppression -WasActive $wasActive
+Assert-True ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('DKJ_CLOSEOUT_SUPPRESS'))) '...and Restore then leaves it clear rather than setting it'
+
+# AND THE GATE ACTUALLY REACHES IT. The lib being right proves nothing about the caller, which is the
+# whole diagnosis of #1884 one layer down: the mechanism existed and the gate did not call it.
+$gateLibPath = Join-Path $RepoRoot 'scripts\lib\gate-lib.ps1'
+Assert-True (Test-Path -LiteralPath $gateLibPath) 'gate-lib.ps1 exists'
+$gateText = Get-Content -LiteralPath $gateLibPath -Raw
+Assert-True ($gateText -match "if \(Test-Path -LiteralPath \`$gateCloseoutLib -PathType Leaf\) \{ \. \`$gateCloseoutLib \}") 'gate-lib dot-sources this lib, and the dot-source is GUARDED for a consumer whose mirror predates it'
+$gatesFunc = [regex]::Match($gateText, '(?s)function Invoke-WorkflowGates \{.*\}').Value
+Assert-True ($gatesFunc -match 'Suspend-CloseOutSuppression')                'Invoke-WorkflowGates steps out of the suppression before it spawns anything'
+Assert-True ($gatesFunc -match 'finally \{[^}]*Restore-CloseOutSuppression') '...and restores it in a finally, so a red gate cannot un-mute the chain above it'
+# READ WITH THE COMMENTS STRIPPED: the block above EXPLAINS why Pop is the wrong call in a nested run,
+# so a match on the raw text would fire on the explanation. What must not appear is an invocation.
+$gatesCode = ($gatesFunc -split "`n" | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"
+Assert-True ($gatesCode -notmatch 'Pop-CloseOutSuppression') '...and does NOT call the unconditional Pop, which would clear a conductor it did not set'
+
 Write-Host 'The callers actually reach it -- the structural half' -ForegroundColor Cyan
 
 # The five chain endings. A script absent from this list is a chain that ends without the shape, which

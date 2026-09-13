@@ -308,6 +308,85 @@ $unknownUndeclared = Get-ResolvesDecision -Resolves @(332) -OpenMentions $null
 Assert-Set  @()     $unknownUndeclared.Undeclared 'an undeterminable state reports no undeclared issues'
 
 Write-Host ""
+
+Write-Host ""
+Write-Host "The -NoResolves marker -- the decision that used to evaporate (issue #1912)" -ForegroundColor Cyan
+# A -Resolves survived a run because it became a closing keyword the next run read back off the open
+# PR; -NoResolves wrote nothing, so the same branch was asked again by ship-pr's step 1 re-running
+# open-pr. These asserts are that asymmetry closed: the answer is written down, recognised, idempotent,
+# and removed the moment it stops being true.
+
+$marker = Get-NoResolvesMarker
+Assert-True ($marker -match '^<!--.*-->$') 'the marker is an HTML comment (invisible to a reader, durable to the gate)'
+
+Assert-Equal $false (Test-NoResolvesMarker -Text '')                  'an empty body carries no marker'
+Assert-Equal $false (Test-NoResolvesMarker -Text 'nothing here')      'ordinary prose carries no marker'
+Assert-Equal $true  (Test-NoResolvesMarker -Text $marker)             'the marker recognises itself'
+Assert-Equal $true  (Test-NoResolvesMarker -Text "text`n<!--  RESOLVES:   none  -->`nmore") 'whitespace and case are tolerated'
+
+# The measured reason Remove-MarkdownCodeSpans exists, one function over: a document explaining the
+# marker necessarily writes the marker, and #1912's own changelog entry does. open-pr copies an entry
+# body verbatim into the PR body, so without the stripping that entry would answer the gate on behalf
+# of a branch that declared nothing.
+Assert-Equal $false (Test-NoResolvesMarker -Text ('the marker is `' + $marker + '`')) 'a marker inside a code SPAN is not a declaration'
+Assert-Equal $false (Test-NoResolvesMarker -Text ("prose`n" + '```' + "`n$marker`n" + '```' + "`nmore")) 'a marker inside a FENCE is not a declaration'
+
+$markedEmpty = Add-NoResolvesMarker -Body ''
+Assert-Equal $true (Test-NoResolvesMarker -Text $markedEmpty) 'an empty body still gets the marker'
+$marked = Add-NoResolvesMarker -Body "## Description`n`nsome prose"
+Assert-Equal $true  (Test-NoResolvesMarker -Text $marked) 'a real body gets the marker'
+Assert-True ($marked -match '(?s)some prose.*resolves: none') 'and it goes at the END, below the body'
+$markedTwice = Add-NoResolvesMarker -Body $marked
+Assert-Equal 1 (@([regex]::Matches($markedTwice, '(?i)<!--\s*resolves:\s*none\s*-->')).Count) 'idempotent: the marker is not stacked'
+
+# Idempotent in the other direction too, because open-pr strips unconditionally on every -Resolves run.
+$stripped = Remove-NoResolvesMarker -Body $marked
+Assert-Equal $false (Test-NoResolvesMarker -Text $stripped) 'the marker is removed'
+Assert-True ($stripped -match 'some prose') 'and the body around it survives'
+$strippedTwice = Remove-NoResolvesMarker -Body $stripped
+Assert-Equal $strippedTwice $stripped 'removing a marker that is not there changes nothing'
+# Repeated add/remove must not grow the foot of the body -- this runs on every re-push of a branch.
+Assert-Equal $stripped (Remove-NoResolvesMarker -Body (Add-NoResolvesMarker -Body (Remove-NoResolvesMarker -Body (Add-NoResolvesMarker -Body $stripped)))) 'add/remove cycles do not accumulate whitespace'
+
+
+# Remove is a TRUE no-op where there is no live marker: the caller runs it on every -Resolves run and
+# announces a body edit by comparing before with after, so a version that tidied trailing whitespace
+# would report removing a marker from a body that never carried one -- and send a PR update for it.
+$untouched = "## Description`n`nprose with no marker   "
+Assert-Equal $untouched (Remove-NoResolvesMarker -Body $untouched) 'a body with no marker comes back byte for byte'
+
+# And a body can carry BOTH -- this repo's own entry for #1912 writes the marker as prose, and open-pr
+# copies an entry into the PR body verbatim. The live one goes; the example stays.
+$bodyWithBoth = "the marker is ``$marker`` in prose`n`n$marker"
+$afterStrip = Remove-NoResolvesMarker -Body $bodyWithBoth
+Assert-Equal $false (Test-NoResolvesMarker -Text $afterStrip) 'the LIVE marker is removed'
+Assert-True ($afterStrip -match 'the marker is') 'and the documented example survives the removal'
+Assert-Equal 1 (@([regex]::Matches($afterStrip, '(?i)<!--\s*resolves:\s*none\s*-->')).Count) 'exactly the quoted one is left'
+
+Write-Host "Get-ResolvesDecision -- the marker is read the way a closing keyword is" -ForegroundColor Cyan
+# THE WHOLE POINT: this is the run that used to be refused. The flag is gone (a second command does not
+# repeat it), the open mention is still there, and the body carries what the first run wrote.
+$viaMarker = Get-ResolvesDecision -Body ("## Description`n`nwork`n`n" + $marker) -OpenMentions @(1843, 1904)
+Assert-Equal $true  $viaMarker.Allowed    'a published "closes nothing" satisfies the gate on a later run'
+Assert-Set  @()     $viaMarker.Issues     'and it closes nothing'
+Assert-Set  @()     $viaMarker.Undeclared 'the marker answers for every mention, so nothing is nagged about'
+Assert-True ($viaMarker.Reason -match 'closes nothing') 'and the reason names what it read'
+
+# The precedence that keeps this function agreeing with GitHub: a body carrying both is judged by the
+# keywords, because those are what actually fire at the merge.
+$bodyBoth = Get-ResolvesDecision -Body ("Closes #332`n`n" + $marker) -OpenMentions @(332)
+Assert-Set @(332) $bodyBoth.Issues 'closing keywords win over a stale marker'
+
+# DeclaredNone is what open-pr reads to decide whether to write the marker down. True on exactly the
+# two answers that SAY "closes nothing" -- never on an absence of a question.
+Assert-Equal $true  $no.DeclaredNone         '-NoResolves declares none'
+Assert-Equal $true  $viaMarker.DeclaredNone  'the published marker declares none'
+Assert-Equal $false $explicit.DeclaredNone   'an explicit -Resolves does not'
+Assert-Equal $false $closedOnly.DeclaredNone '"nothing open is mentioned" is an absence, not a declaration'
+Assert-Equal $false $unknown.DeclaredNone    'an undeterminable state declares nothing'
+Assert-Equal $false $blocked.DeclaredNone    'a blocked verdict declares nothing'
+Assert-Equal $false $viaBody.DeclaredNone    'a body that closes an issue does not declare none'
+
 Write-Host "Get-TargetIssueWarnings -- the already-done check (issue #1282)" -ForegroundColor Cyan
 # The gap #1282 measured: the resolves gate blocks only on a mentioned issue that is still OPEN, so a
 # branch targeting an issue that has since been CLOSED, or one another open/merged PR already resolves,
