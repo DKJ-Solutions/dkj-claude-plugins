@@ -191,6 +191,50 @@ function Assert-Equal {
     }
 }
 
+
+function Assert-ExitCode {
+    <#
+        An exit-code assert that PRINTS THE CHILD'S OUTPUT WHEN IT FAILS -- issue #1913.
+
+        Assert-Equal was doing this job, and it was the wrong tool for it: it reports the two numbers
+        and discards the result object, so a red lane said `expected: '0' / got: '1'` and nothing else.
+        What that costs is not tidiness. This suite runs new-branch.ps1 as a CHILD PROCESS, so the only
+        account of what went wrong is that child's stdout and stderr -- already captured, already in
+        $Result.Out, and thrown away at the one moment it is the entire evidence.
+
+        MEASURED TWICE, AND THE SECOND TIME IS WHY THIS EXISTS. #1913 was filed after a 632s gate run
+        reported this suite red on the 'stacked/dirty' fixture; its author could say only that
+        new-branch had exited 1 and written no document, and had to infer even that from the
+        ReadAllText two lines further down. On September 13, 2026 the same suite went red under the
+        same gate in a DIFFERENT place -- the 'local resume' and 'remote level' cases -- and reported
+        exactly as little. A gate whose red says nothing is a gate that gets re-run, and a gate that is
+        re-run on a red is a gate that is off.
+
+        The output is printed INDENTED and whole. Trimming it to a line would reinstate the problem in
+        a smaller size: which line of a child's output carries the cause is not knowable in advance,
+        which is the reason there is nothing better to print than all of it.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int]$Expected,
+        [Parameter(Mandatory = $true)]$Result,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    $actual = if ($null -eq $Result) { '<no result object>' } else { "$($Result.Code)" }
+    if ("$Expected" -eq $actual) {
+        $script:pass++; Write-Host "  [PASS] $Name" -ForegroundColor Green
+        return
+    }
+    $script:fail++
+    Write-Host "  [FAIL] $Name`n         expected: '$Expected'`n         got:      '$actual'" -ForegroundColor Red
+    $out = if ($null -eq $Result) { '' } else { "$($Result.Out)" }
+    if ([string]::IsNullOrWhiteSpace($out)) {
+        Write-Host "         the child printed nothing at all -- neither stdout nor stderr" -ForegroundColor Red
+    } else {
+        Write-Host "         what the child said:" -ForegroundColor Red
+        foreach ($line in ($out -split "`r?`n")) { Write-Host "           $line" -ForegroundColor DarkRed }
+    }
+}
+
 function Assert-True {
     param([bool]$Condition, [string]$Name)
     if ($Condition) {
@@ -621,11 +665,11 @@ try {
     $fixtureA = New-Fixture -Label 'a'
 
     $rMain = Invoke-NewBranch -Dir $fixtureA -Name 'main'
-    Assert-Equal 1 $rMain.Code "-Name main: exit 1 (hard reject)"
+    Assert-ExitCode 1 $rMain "-Name main: exit 1 (hard reject)"
     Assert-True (Test-Phrase -Text $rMain.Out -Phrase "must not be 'main'") "-Name main: pointer names the main rule"
 
     $rFinal = Invoke-NewBranch -Dir $fixtureA -Name 'feat/final-cut'
-    Assert-Equal 1 $rFinal.Code "-Name with token 'final': exit 1 (hard reject)"
+    Assert-ExitCode 1 $rFinal "-Name with token 'final': exit 1 (hard reject)"
     Assert-True (Test-Phrase -Text $rFinal.Out -Phrase "token 'final'") "-Name with token 'final': pointer names the final rule"
     & git -C $fixtureA rev-parse --verify --quiet 'refs/heads/feat/final-cut' | Out-Null
     Assert-True ($LASTEXITCODE -ne 0) "'feat/final-cut': branch NOT created after hard reject"
@@ -646,7 +690,7 @@ try {
     $fixtureBC = New-Fixture -Label 'bc'
 
     $r1 = Invoke-NewBranch -Dir $fixtureBC -Name 'feat/my-task-v1' -Title 'First title'
-    Assert-Equal 0 $r1.Code 'valid name: new-branch exit 0'
+    Assert-ExitCode 0 $r1 'valid name: new-branch exit 0'
     $headBranch1 = (& git -C $fixtureBC rev-parse --abbrev-ref HEAD).Trim()
     # THE NAME IS USED EXACTLY AS GIVEN (Dave, September 3, 2026). new-branch stopped completing a '-v1'
     # suffix: in 209 branches that reached a merge carrying it, none was ever bumped to '-v2', and the
@@ -728,7 +772,7 @@ try {
 
     Write-Host "new-branch.ps1 -- idempotent (second run, same name)" -ForegroundColor Cyan
     $r2 = Invoke-NewBranch -Dir $fixtureBC -Name 'feat/my-task-v1' -Title 'Second title (should be ignored)'
-    Assert-Equal 0 $r2.Code 'idempotent second run: exit 0'
+    Assert-ExitCode 0 $r2 'idempotent second run: exit 0'
     Assert-True (Test-Phrase -Text $r2.Out -Phrase 'already existed') 'second run reports the branch already existed (checkout, not -b)'
     Assert-True (Test-Phrase -Text $r2.Out -Phrase 'already written') 'second run reports the branch files were already written'
     # AND IT DOES NOT REPEAT THE RE-READ NOTE, because this run wrote neither file: advice about a staleness
@@ -772,21 +816,21 @@ try {
     Write-Host "new-branch.ps1 -- no -v1 completion, and an explicit -vN is left as given" -ForegroundColor Cyan
     $fixtureBv = New-Fixture -Label 'bv'
     $rBare = Invoke-NewBranch -Dir $fixtureBv -Name 'feat/no-suffix-here' -Title 'No suffix'
-    Assert-Equal 0 $rBare.Code 'bare name: new-branch exit 0'
+    Assert-ExitCode 0 $rBare 'bare name: new-branch exit 0'
     Assert-Equal 'feat/no-suffix-here' (& git -C $fixtureBv rev-parse --abbrev-ref HEAD).Trim() 'bare name: HEAD is on the name as given -- no -v1 appended'
     Assert-True (-not (Test-Phrase -Text $rBare.Out -Phrase 'Branch name completed')) 'bare name: and the run does not announce a completion'
     Assert-True (Test-Path -LiteralPath (Join-Path $fixtureBv ((Get-BranchFilePaths -Branch 'feat/no-suffix-here').Deployment))) 'bare name: the branch document is written under the unsuffixed name'
 
     $fixtureBv2 = New-Fixture -Label 'bv2'
     $rV2 = Invoke-NewBranch -Dir $fixtureBv2 -Name 'fix/second-cycle-v2' -Title 'Second cycle'
-    Assert-Equal 0 $rV2.Code 'explicit -v2: new-branch exit 0'
+    Assert-ExitCode 0 $rV2 'explicit -v2: new-branch exit 0'
     Assert-Equal 'fix/second-cycle-v2' (& git -C $fixtureBv2 rev-parse --abbrev-ref HEAD).Trim() 'explicit -v2: left exactly as typed'
 
     # --- (e) Soft warn on unknown prefix: branch + entry still created, fallback type, exit 0 -------
     Write-Host "new-branch.ps1 -- unknown prefix: soft warn, no hard reject" -ForegroundColor Cyan
     $fixtureE = New-Fixture -Label 'e'
     $rE = Invoke-NewBranch -Dir $fixtureE -Name 'wip/experiment-v1'
-    Assert-Equal 0 $rE.Code 'unknown prefix: new-branch exit 0 (soft warn)'
+    Assert-ExitCode 0 $rE 'unknown prefix: new-branch exit 0 (soft warn)'
     Assert-True (Test-Phrase -Text $rE.Out -Phrase 'Unknown branch prefix') 'warning about the unknown prefix in the output'
     $headBranchE = (& git -C $fixtureE rev-parse --abbrev-ref HEAD).Trim()
     Assert-Equal 'wip/experiment-v1' $headBranchE 'branch still created and checked out despite unknown prefix'
@@ -811,7 +855,7 @@ try {
     $maliciousTitle = 'evil\" ; Remove-Item -Recurse -Force X #$(whoami)'
 
     $rF = Invoke-NewBranchWithAdversarialField -Dir $fixtureF -Name 'feat/injection-check-v1' -Field Title -Value $maliciousTitle
-    Assert-Equal 0 $rF.Code 'malicious title: new-branch exit 0'
+    Assert-ExitCode 0 $rF 'malicious title: new-branch exit 0'
 
     $entryPathF = Join-Path $fixtureF ((Get-BranchFilePaths -Branch 'feat/injection-check-v1').Deployment)
     Assert-True (Test-Path -LiteralPath $entryPathF) 'malicious title: entry file created anyway'
@@ -859,7 +903,7 @@ try {
     $fixtureH = New-Fixture -Label 'h'
     $intentText = 'Skeleton + routing done; next: wire the API client.'
     $rH = Invoke-NewBranch -Dir $fixtureH -Name 'feat/park-intent-v1' -Title 'Parked work' -Intent $intentText
-    Assert-Equal 0 $rH.Code '-Intent: new-branch exit 0'
+    Assert-ExitCode 0 $rH '-Intent: new-branch exit 0'
     $entryPathH = Join-Path $fixtureH ((Get-BranchFilePaths -Branch 'feat/park-intent-v1').Deployment)
     Assert-True (Test-Path -LiteralPath $entryPathH) '-Intent: entry file created'
     # The ENTRY half of the document -- see the split at the first fixture for why every entry-shaped
@@ -924,7 +968,7 @@ try {
     }
 
     $rP = Invoke-NewBranch -Dir $fixtureI -Name 'feat/parked-branch-v1' -Title 'Parked' -Intent 'WIP; continue on the laptop.' -Park
-    Assert-Equal 0 $rP.Code '-Park: new-branch exit 0'
+    Assert-ExitCode 0 $rP '-Park: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rP.Out -Phrase 'parked on origin') '-Park: reports the branch was parked on origin'
 
     # entry committed: no longer untracked/dirty in the working tree
@@ -983,7 +1027,7 @@ try {
     $maliciousIntent = 'evil\" ; Remove-Item -Recurse -Force X #$(whoami)'
 
     $rJ = Invoke-NewBranchWithAdversarialField -Dir $fixtureJ -Name 'feat/intent-injection-v1' -Field Intent -Value $maliciousIntent
-    Assert-Equal 0 $rJ.Code 'malicious intent: new-branch exit 0'
+    Assert-ExitCode 0 $rJ 'malicious intent: new-branch exit 0'
 
     $entryPathJ = Join-Path $fixtureJ ((Get-BranchFilePaths -Branch 'feat/intent-injection-v1').Deployment)
     Assert-True (Test-Path -LiteralPath $entryPathJ) 'malicious intent: entry file created anyway'
@@ -1025,7 +1069,7 @@ function Get-EntryFallbackType     { return $script:EntryFallbackType }
 
     # No -Title and no -Intent, and an UNKNOWN prefix -- so all four knobs are exercised at once.
     $rK = Invoke-NewBranch -Dir $fixtureK -Name 'wip/dutch-stub-v1'
-    Assert-Equal 0 $rK.Code 'configured wording: new-branch exit 0'
+    Assert-ExitCode 0 $rK 'configured wording: new-branch exit 0'
     $entryPathK = Join-Path $fixtureK ((Get-BranchFilePaths -Branch 'wip/dutch-stub-v1').Deployment)
     Assert-True (Test-Path -LiteralPath $entryPathK) 'configured wording: entry file created'
     $entryTextK = [System.IO.File]::ReadAllText($entryPathK, [System.Text.Encoding]::UTF8)
@@ -1073,7 +1117,7 @@ Write-Output `$t.Type
     [System.IO.File]::WriteAllText((Join-Path $fixtureL 'scripts\repo-config.ps1'), "function Get-EntryBodyHeading { `n", (New-Object System.Text.UTF8Encoding $false))
 
     $rL = Invoke-NewBranch -Dir $fixtureL -Name 'feat/broken-config-v1'
-    Assert-Equal 0 $rL.Code 'broken repo-config: new-branch still exits 0'
+    Assert-ExitCode 0 $rL 'broken repo-config: new-branch still exits 0'
     $entryPathL = Join-Path $fixtureL ((Get-BranchFilePaths -Branch 'feat/broken-config-v1').Deployment)
     Assert-True (Test-Path -LiteralPath $entryPathL) 'broken repo-config: the entry file is still written'
     $entryTextL = [System.IO.File]::ReadAllText($entryPathL, [System.Text.Encoding]::UTF8)
@@ -1105,7 +1149,7 @@ Write-Output `$t.Type
     Write-Host "new-branch.ps1 -- stacked on an unfolded branch: each branch gets its OWN document (#615, #1255)" -ForegroundColor Cyan
     $fixtureM = New-Fixture -Label 'm'
     $rM1 = Invoke-NewBranch -Dir $fixtureM -Name 'docs/parent-v1' -Title 'The parent branch'
-    Assert-Equal 0 $rM1.Code 'stacked: the parent branch is created'
+    Assert-ExitCode 0 $rM1 'stacked: the parent branch is created'
     $entryPathM    = Join-Path $fixtureM ((Get-BranchFilePaths -Branch 'docs/parent-v1').Deployment)
     $progressPathM = Join-Path $fixtureM ((Get-BranchFilePaths -Branch 'docs/parent-v1').Cycle)
     # Committed on the parent, which is the ordinary case: git holds that entry. Kept from the original
@@ -1119,7 +1163,7 @@ Write-Output `$t.Type
     } finally { $ErrorActionPreference = $prevEapM }
 
     $rM2 = Invoke-NewBranch -Dir $fixtureM -Name 'feat/child-v1' -Title 'The stacked child branch'
-    Assert-Equal 0 $rM2.Code 'stacked: the child branch is created'
+    Assert-ExitCode 0 $rM2 'stacked: the child branch is created'
     $childPathM = Join-Path $fixtureM ((Get-BranchFilePaths -Branch 'feat/child-v1').Deployment)
     Assert-True (Test-Path -LiteralPath $childPathM) 'stacked: the child got a document of its own'
     Assert-True (Test-Path -LiteralPath $entryPathM) "stacked: and the parent's is still there -- untouched, not rewritten"
@@ -1140,12 +1184,12 @@ Write-Output `$t.Type
     Write-Host "new-branch.ps1 -- stacked on UNCOMMITTED work: the parent's document is not in the way (#615, #1255)" -ForegroundColor Cyan
     $fixtureN = New-Fixture -Label 'n'
     $rN1 = Invoke-NewBranch -Dir $fixtureN -Name 'docs/uncommitted-parent-v1' -Title 'Never committed'
-    Assert-Equal 0 $rN1.Code 'stacked/dirty: the parent branch is created'
+    Assert-ExitCode 0 $rN1 'stacked/dirty: the parent branch is created'
     $entryPathN = Join-Path $fixtureN ((Get-BranchFilePaths -Branch 'docs/uncommitted-parent-v1').Deployment)
     $entryTextN1 = [System.IO.File]::ReadAllText($entryPathN, [System.Text.Encoding]::UTF8)
 
     $rN2 = Invoke-NewBranch -Dir $fixtureN -Name 'feat/dirty-child-v1' -Title 'Stacked on uncommitted work'
-    Assert-Equal 0 $rN2.Code 'stacked/dirty: the child branch is still created'
+    Assert-ExitCode 0 $rN2 'stacked/dirty: the child branch is still created'
     $entryTextN2 = [System.IO.File]::ReadAllText($entryPathN, [System.Text.Encoding]::UTF8)
     Assert-Equal $entryTextN1 $entryTextN2 'stacked/dirty: the uncommitted entry is left exactly as it was -- the outcome #615 asked for'
     Assert-True (Test-Path -LiteralPath (Join-Path $fixtureN ((Get-BranchFilePaths -Branch 'feat/dirty-child-v1').Deployment))) 'stacked/dirty: and the child still got a document of its own'
@@ -1180,7 +1224,7 @@ Write-Output `$t.Type
     [System.IO.File]::WriteAllText($sharedPathN2, $sharedTextN2, (New-Object System.Text.UTF8Encoding($false)))
     # Deliberately NOT committed: that is what makes it unrecoverable and what the guard keys on.
     $rN3 = Invoke-NewBranch -Dir $fixtureN2 -Name 'feat/onto-legacy-v1' -Title 'Cut beside a legacy shared document'
-    Assert-Equal 0 $rN3.Code 'legacy/foreign: the branch is created'
+    Assert-ExitCode 0 $rN3 'legacy/foreign: the branch is created'
     Assert-Equal $sharedTextN2 ([System.IO.File]::ReadAllText($sharedPathN2, [System.Text.Encoding]::UTF8)) 'legacy/foreign: the uncommitted foreign document is byte-for-byte untouched'
     Assert-True (Test-Path -LiteralPath (Join-Path $fixtureN2 ((Get-BranchFilePaths -Branch 'feat/onto-legacy-v1').Deployment))) 'legacy/foreign: and this branch got its own document instead'
     # NOT A WARNING, and asserted so the silence is a measured outcome rather than an unnoticed one: there
@@ -1216,7 +1260,7 @@ Write-Output `$t.Type
         # corrected: named after a version suffix, it can only mislead the next reader.
 
         $mk1 = Invoke-NewBranch -Dir $fx -Name $case.Branch -Title 'On a legacy name'
-        Assert-Equal 0 $mk1.Code "$($case.Label): the branch is created"
+        Assert-ExitCode 0 $mk1 "$($case.Label): the branch is created"
         $perBranchRel  = (Get-BranchFilePaths -Branch $case.Branch).File
         $perBranchPath = Join-Path $fx ($perBranchRel -replace '/', '\')
         $legacyPath    = Join-Path $fx ($case.LegacyRel -replace '/', '\')
@@ -1238,7 +1282,7 @@ Write-Output `$t.Type
         Assert-Equal $case.Branch (Get-BranchFileDeclaredBranch -Text $docText) "$($case.Label): the moved document still declares its branch"
 
         $mk2 = Invoke-NewBranch -Dir $fx -Name $case.Branch -Title 'On a legacy name'
-        Assert-Equal 0 $mk2.Code "$($case.Label): the rerun exits 0"
+        Assert-ExitCode 0 $mk2 "$($case.Label): the rerun exits 0"
         Assert-True (Test-Phrase -Text $mk2.Out -Phrase 'already written') "$($case.Label): the rerun sees the legacy document and writes nothing"
         Assert-True (-not (Test-Path -LiteralPath $perBranchPath)) "$($case.Label): NO second document at the per-branch name -- the split #1259 describes does not happen"
         Assert-Equal $docText ([System.IO.File]::ReadAllText($legacyPath, [System.Text.Encoding]::UTF8)) "$($case.Label): the legacy document is byte-for-byte untouched"
@@ -1254,7 +1298,7 @@ Write-Output `$t.Type
     $bareO = New-BareOrigin -Dir $fixtureO -Label 'o'
 
     $rO = Invoke-NewBranch -Dir $fixtureO -Name 'feat/pushed-by-default-v1' -Title 'Pushed by default'
-    Assert-Equal 0 $rO.Code 'default push: new-branch exit 0'
+    Assert-ExitCode 0 $rO 'default push: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rO.Out -Phrase 'parked on origin') 'default push: reports the branch reached origin -- with no switch given'
     Assert-True (Test-BranchOnRemote -Bare $bareO -Ref 'refs/heads/feat/pushed-by-default-v1') 'default push: the branch ref really is on origin'
     # Scoped exactly as -Park was: the document and nothing else. The same pathspec discipline, now
@@ -1272,7 +1316,7 @@ Write-Output `$t.Type
     $bareP = New-BareOrigin -Dir $fixtureP -Label 'p'
 
     $rNp = Invoke-NewBranch -Dir $fixtureP -Name 'feat/kept-local-v1' -Title 'Kept local' -NoPush
-    Assert-Equal 0 $rNp.Code '-NoPush: new-branch exit 0'
+    Assert-ExitCode 0 $rNp '-NoPush: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rNp.Out -Phrase 'local only') '-NoPush: says the branch stayed local'
     Assert-True (-not (Test-BranchOnRemote -Bare $bareP -Ref 'refs/heads/feat/kept-local-v1')) '-NoPush: the branch ref is NOT on origin'
     # Asserted on the commit count, not on `git status --porcelain`: git COLLAPSES a wholly untracked
@@ -1288,7 +1332,7 @@ Write-Output `$t.Type
     Write-Host "new-branch.ps1 -- no 'origin' remote: the branch is created anyway (#900)" -ForegroundColor Cyan
     $fixtureQ = New-Fixture -Label 'q'
     $rQ = Invoke-NewBranch -Dir $fixtureQ -Name 'feat/no-remote-here-v1' -Title 'No remote here'
-    Assert-Equal 0 $rQ.Code 'no origin: new-branch exit 0 -- the missing remote is not a failure'
+    Assert-ExitCode 0 $rQ 'no origin: new-branch exit 0 -- the missing remote is not a failure'
     Assert-True (Test-Phrase -Text $rQ.Out -Phrase "no 'origin' remote") 'no origin: and says why nothing was pushed'
     $branchesQ = ((& git -C $fixtureQ branch --list 'feat/no-remote-here-v1') -join '').Trim()
     Assert-True ([bool]$branchesQ) 'no origin: the branch exists locally all the same'
@@ -1303,7 +1347,7 @@ Write-Output `$t.Type
     $bareR = New-BareOrigin -Dir $fixtureR -Label 'r'
 
     $rR = Invoke-NewBranch -Dir $fixtureR -Name 'feat/park-is-default-v1' -Title 'Park is default' -Park
-    Assert-Equal 0 $rR.Code '-Park: still exit 0'
+    Assert-ExitCode 0 $rR '-Park: still exit 0'
     Assert-True (Test-Phrase -Text $rR.Out -Phrase 'the switch is accepted and changes nothing') '-Park: says out loud that it is the default now'
     Assert-True (Test-BranchOnRemote -Bare $bareR -Ref 'refs/heads/feat/park-is-default-v1') '-Park: and the push happened -- same outcome as (o), which is the point'
 
@@ -1331,7 +1375,7 @@ Write-Output `$t.Type
 
     $rS = Invoke-NewBranch -Dir $fixStale -Name 'feat/cut-from-stale-v1' -Title 'Cut from stale'
     # A REFUSAL SINCE #1417, where this used to assert exit 0 and a created branch.
-    Assert-Equal 1 $rS.Code 'stale base: new-branch exit 1 -- this refuses, it no longer merely warns'
+    Assert-ExitCode 1 $rS 'stale base: new-branch exit 1 -- this refuses, it no longer merely warns'
     # AND IT REFUSED BEFORE TOUCHING ANYTHING, which is the property that makes refusing cheaper than
     # warning here. Three separate reads, because a refusal that left any one of them behind would hand
     # the operator something to unpick: no branch, no document, and HEAD still where it started.
@@ -1372,7 +1416,7 @@ Write-Output `$t.Type
     Add-OriginCommits -Bare $bareValve -Label 's2' -Count 3
 
     $rS2 = Invoke-NewBranch -Dir $fixValve -Name 'feat/cut-from-stale-v1' -Title 'Cut from stale' -SkipStaleBase
-    Assert-Equal 0 $rS2.Code '-SkipStaleBase: exit 0 -- the valve really is an escape'
+    Assert-ExitCode 0 $rS2 '-SkipStaleBase: exit 0 -- the valve really is an escape'
     $branchesS2 = ((& git -C $fixValve branch --list 'feat/cut-from-stale-v1') -join '').Trim()
     Assert-True ([bool]$branchesS2) '-SkipStaleBase: and the branch really is created'
     Assert-True (Test-Phrase -Text $rS2.Out -Phrase '3 behind origin/main') '-SkipStaleBase: the count is still named -- the valve silences the refusal, not the warning'
@@ -1394,7 +1438,7 @@ Write-Output `$t.Type
     Publish-FixtureTrunk -Dir $fixCurrent
 
     $rT = Invoke-NewBranch -Dir $fixCurrent -Name 'feat/cut-from-current-v1' -Title 'Cut from current'
-    Assert-Equal 0 $rT.Code 'current base: new-branch exit 0'
+    Assert-ExitCode 0 $rT 'current base: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rT.Out -Phrase 'Base is current with origin/main') 'current base: says so, so silence is never ambiguous'
     Assert-True (-not (Test-Phrase -Text $rT.Out -Phrase 'behind origin/main')) 'current base: and warns about nothing'
 
@@ -1407,7 +1451,7 @@ Write-Output `$t.Type
     $null = New-BareOrigin -Dir $fixNoTrack -Label 'u'
 
     $rU = Invoke-NewBranch -Dir $fixNoTrack -Name 'feat/never-fetched-v1' -Title 'Never fetched'
-    Assert-Equal 0 $rU.Code 'no tracking trunk: new-branch exit 0'
+    Assert-ExitCode 0 $rU 'no tracking trunk: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rU.Out -Phrase 'Base not compared') 'no tracking trunk: says the question could not be asked'
     Assert-True (-not (Test-Phrase -Text $rU.Out -Phrase 'behind origin/main')) 'no tracking trunk: and claims no gap it cannot measure'
     Assert-True (-not (Test-Phrase -Text $rU.Out -Phrase 'Base is current')) 'no tracking trunk: nor a currency it cannot measure either'
@@ -1445,7 +1489,7 @@ Write-Output `$t.Type
     Assert-True $localMissing 'parked branch: and this checkout has no local ref for it -- the state the fork happened in'
 
     $rV = Invoke-NewBranch -Dir $fixParked -Name 'fix/parked-elsewhere-v1' -Title 'Parked elsewhere'
-    Assert-Equal 0 $rV.Code 'parked branch: exit 0'
+    Assert-ExitCode 0 $rV 'parked branch: exit 0'
     # THE ASSERT THAT MATTERS. The parked work is in the checkout, which is the one thing a fork could
     # never produce.
     Assert-True (Test-Path -LiteralPath (Join-Path $fixParked 'parked-work.txt')) 'parked branch: the work parked from the other device is here'
@@ -1481,7 +1525,7 @@ Write-Output `$t.Type
     # two behind refuses, and (s) is where that is asserted. What this block is about is the run AFTER it,
     # so the valve is what gets the branch onto disk without restating a check that has its own case.
     $rW1 = Invoke-NewBranch -Dir $fixResume -Name 'feat/resume-me-v1' -Title 'Resume me' -SkipStaleBase
-    Assert-Equal 0 $rW1.Code 'local resume: the first run (a real cut, valved) exits 0'
+    Assert-ExitCode 0 $rW1 'local resume: the first run (a real cut, valved) exits 0'
     Assert-True (Test-Phrase -Text $rW1.Out -Phrase '2 behind origin/main') 'local resume: the cut IS warned -- #1046 still holds where a base is being chosen'
 
     # Back to the trunk, which is where a resume is typed from.
@@ -1498,7 +1542,7 @@ Write-Output `$t.Type
     # hold is structural rather than a promise: the whole base block is gated on `-not $resuming`. So
     # the guarantee is asserted where it can actually fail, on a stale trunk and without the escape.
     $rW2 = Invoke-NewBranch -Dir $fixResume -Name 'feat/resume-me-v1' -Title 'Resume me'
-    Assert-Equal 0 $rW2.Code 'local resume: exit 0 -- a resume is never refused, stale trunk and no valve'
+    Assert-ExitCode 0 $rW2 'local resume: exit 0 -- a resume is never refused, stale trunk and no valve'
     Assert-True (Test-Phrase -Text $rW2.Out -Phrase 'already existed -- checked out') 'local resume: reports the resume'
     Assert-True (-not (Test-Phrase -Text $rW2.Out -Phrase 'behind origin/main')) 'local resume: and is NOT handed the trunk gap under the branch name'
     Assert-True (Test-Phrase -Text $rW2.Out -Phrase 'Base not compared') 'local resume: says why the base was not compared'
@@ -1520,7 +1564,7 @@ Write-Output `$t.Type
     Publish-FixtureTrunk -Dir $fixAhead
 
     $rY1a = Invoke-NewBranch -Dir $fixAhead -Name 'feat/dup-1439-v1' -Title 'Duplicated branch'
-    Assert-Equal 0 $rY1a.Code 'remote ahead: the first run (the cut, which also pushes) exits 0'
+    Assert-ExitCode 0 $rY1a 'remote ahead: the first run (the cut, which also pushes) exits 0'
     Assert-True (Test-BranchOnRemote -Bare $bareAhead -Ref 'refs/heads/feat/dup-1439-v1') 'remote ahead: and the branch really is on origin -- the shared ref the other session will move'
 
     # The other session, in the words the operator has to read. 'park: ... (all outstanding work)' is the
@@ -1542,7 +1586,7 @@ Write-Output `$t.Type
     # CANNOT push: the creation push is a non-fast-forward, which is the measured incident's own ending.
     # This suite is what found that, and it is why the repeat is a function called from both ends of the
     # run instead of a block above exit 0 that this case never reaches.
-    Assert-Equal 1 $rY1b.Code 'remote ahead: exit 1 -- from the rejected push, which is the symptom itself'
+    Assert-ExitCode 1 $rY1b 'remote ahead: exit 1 -- from the rejected push, which is the symptom itself'
     Assert-Equal 'feat/dup-1439-v1' ((& git -C $fixAhead rev-parse --abbrev-ref HEAD) | Out-String).Trim() 'remote ahead: and the checkout still happened -- this check warns, it does not refuse'
     Assert-True (Test-Phrase -Text $rY1b.Out -Phrase 'already existed -- checked out') 'remote ahead: still the local resume route, unchanged'
     # THE ASSERT THAT COULD NOT HAVE PASSED BEFORE. Everything else about this run was already correct.
@@ -1569,7 +1613,7 @@ Write-Output `$t.Type
     # the note as its last line -- which is the shape the other two repeats in this script have.
     Write-Host "new-branch.ps1 -- the divergence note is the last line of a run that completes (#1439)" -ForegroundColor Cyan
     $rY2a = Invoke-NewBranch -Dir $fixAhead -Name 'feat/dup-1439-v1' -Title 'Duplicated branch' -NoPush
-    Assert-Equal 0 $rY2a.Code '-NoPush resume: exit 0 -- nothing to reject, so the run completes'
+    Assert-ExitCode 0 $rY2a '-NoPush resume: exit 0 -- nothing to reject, so the run completes'
     $flatY2a = Get-FlatOutput $rY2a.Out
     $y2aHits = @([regex]::Matches($flatY2a, [regex]::Escape((Get-Squeezed 'is 1 commit(s) behind origin/feat/dup-1439-v1')))).Count
     Assert-Equal 2 $y2aHits '-NoPush resume: still said twice -- once before the checkout, once as the last line'
@@ -1582,10 +1626,10 @@ Write-Output `$t.Type
     $bareLevel = New-BareOrigin -Dir $fixLevel -Label 'y3'
     Publish-FixtureTrunk -Dir $fixLevel
     $rY3a = Invoke-NewBranch -Dir $fixLevel -Name 'feat/level-1439-v1' -Title 'Level with origin'
-    Assert-Equal 0 $rY3a.Code 'remote level: the cut exits 0'
+    Assert-ExitCode 0 $rY3a 'remote level: the cut exits 0'
     Assert-True (Test-BranchOnRemote -Bare $bareLevel -Ref 'refs/heads/feat/level-1439-v1') 'remote level: the cut pushed, so there IS a remote head to compare against'
     $rY3b = Invoke-NewBranch -Dir $fixLevel -Name 'feat/level-1439-v1' -Title 'Level with origin'
-    Assert-Equal 0 $rY3b.Code 'remote level: the resume exits 0'
+    Assert-ExitCode 0 $rY3b 'remote level: the resume exits 0'
     Assert-True (Test-Phrase -Text $rY3b.Out -Phrase 'already existed -- checked out') 'remote level: it is the resume route'
     Assert-True (-not (Test-Phrase -Text $rY3b.Out -Phrase 'commit(s) behind origin/feat/level-1439-v1')) 'remote level: and nothing is said about a gap that does not exist'
 
@@ -1600,7 +1644,7 @@ Write-Output `$t.Type
     Publish-FixtureTrunk -Dir $fixOnly
     Add-OriginBranch -Bare $bareOnly -Label 'y4' -Branch 'fix/origin-only-1439-v1' -MarkerFile 'only-there.txt'
     $rY4a = Invoke-NewBranch -Dir $fixOnly -Name 'fix/origin-only-1439-v1' -Title 'Origin only'
-    Assert-Equal 0 $rY4a.Code 'origin-only resume: exit 0'
+    Assert-ExitCode 0 $rY4a 'origin-only resume: exit 0'
     Assert-True (Test-Phrase -Text $rY4a.Out -Phrase 'existed ONLY on origin') 'origin-only resume: it is the #1139 route'
     Assert-True (-not (Test-Phrase -Text $rY4a.Out -Phrase 'commit(s) behind origin/fix/origin-only-1439-v1')) 'origin-only resume: and carries no gap, because it was created at the remote tip'
 
@@ -1623,7 +1667,7 @@ Write-Output `$t.Type
     $bareEvil = New-BareOrigin -Dir $fixEvil -Label 'y5'
     Publish-FixtureTrunk -Dir $fixEvil
     $rY5a = Invoke-NewBranch -Dir $fixEvil -Name 'feat/evil-tip-1439-v1' -Title 'Evil tip'
-    Assert-Equal 0 $rY5a.Code 'adversarial tip: the cut exits 0'
+    Assert-ExitCode 0 $rY5a 'adversarial tip: the cut exits 0'
 
     $esc = [char]27
     $evilSubject = "park:${esc}[31m${esc}[2K harmless-looking$([char]0x202E)$([char]0x200D) subject"
@@ -1674,7 +1718,7 @@ Write-Output `$t.Type
     $bareLong = New-BareOrigin -Dir $fixLong -Label 'y6'
     Publish-FixtureTrunk -Dir $fixLong
     $rY6a = Invoke-NewBranch -Dir $fixLong -Name 'feat/long-tip-1439-v1' -Title 'Long tip'
-    Assert-Equal 0 $rY6a.Code 'capped tip: the cut exits 0'
+    Assert-ExitCode 0 $rY6a 'capped tip: the cut exits 0'
     $longSubject = 'park: ' + ('x' * 400)
     Add-OriginBranchCommits -Bare $bareLong -Label 'y6' -Branch 'feat/long-tip-1439-v1' -MarkerFile 'long.txt' -Author 'Other Session' -Subject $longSubject
     $prevEap = $ErrorActionPreference
@@ -1762,7 +1806,7 @@ exit 1
         # silently -- this asserts the check does not even try.
         $fixX1 = New-Fixture -Label 'x1'
         $rX1 = Invoke-NewBranch -Dir $fixX1 -Name 'feat/plain-cut'
-        Assert-Equal 0 $rX1.Code '-Resolves omitted: exits 0'
+        Assert-ExitCode 0 $rX1 '-Resolves omitted: exits 0'
         Assert-True (-not (Test-Phrase -Text $rX1.Out -Phrase 'already-done check')) '-Resolves omitted: the check never runs at all'
 
         # (x2) -Resolves GIVEN, NO Get-RepoName (no scripts\repo-config.ps1 in this fixture, same as
@@ -1773,7 +1817,7 @@ exit 1
             $env:PATH = $prevPathX  # no fake gh: a call here would be a real bug, not a stubbed answer
             $rX2 = Invoke-NewBranch -Dir $fixX2 -Name 'fix/1409-something' -Resolves '1409'
         } finally { $env:PATH = $prevPathX2 }
-        Assert-Equal 0 $rX2.Code '-Resolves, no Get-RepoName: exits 0 -- the missing seam never blocks'
+        Assert-ExitCode 0 $rX2 '-Resolves, no Get-RepoName: exits 0 -- the missing seam never blocks'
         Assert-True (Test-Phrase -Text $rX2.Out -Phrase 'Get-RepoName') '-Resolves, no Get-RepoName: names the missing seam'
         Assert-True (Test-Phrase -Text $rX2.Out -Phrase 'the check for #1409 is skipped') '-Resolves, no Get-RepoName: and says the check is skipped'
         $branchesX2 = ((& git -C $fixX2 branch --list 'fix/1409-something') -join '').Trim()
@@ -1785,7 +1829,7 @@ exit 1
         $fixX3 = New-Fixture -Label 'x3'
         Add-FixtureRepoConfig -Dir $fixX3 -RepoName 'fake/repo'
         $rX3 = Invoke-NewBranchX -Dir $fixX3 -Name 'fix/1409-something' -Resolves '1409' -OpenIssues '1409'
-        Assert-Equal 0 $rX3.Code 'open and unclaimed: exits 0'
+        Assert-ExitCode 0 $rX3 'open and unclaimed: exits 0'
         Assert-True (-not (Test-Phrase -Text $rX3.Out -Phrase 'already-done check:')) 'open and unclaimed: nothing to warn about'
         Assert-True (($rX3.Log | Where-Object { $_ -match [regex]::Escape('issue list --repo fake/repo --state open --limit 1000') }).Count -eq 1) 'open and unclaimed: asked gh under the configured repo name, once'
         Assert-True (($rX3.Log | Where-Object { $_ -match [regex]::Escape('pr list --repo fake/repo') -and $_ -match [regex]::Escape('--search 1409 in:body') }).Count -eq 1) 'open and unclaimed: and searched PR bodies for the exact issue number'
@@ -1795,7 +1839,7 @@ exit 1
         $fixX4 = New-Fixture -Label 'x4'
         Add-FixtureRepoConfig -Dir $fixX4 -RepoName 'fake/repo'
         $rX4 = Invoke-NewBranchX -Dir $fixX4 -Name 'fix/1409-something' -Resolves '1409' -OpenIssues '9999'
-        Assert-Equal 0 $rX4.Code 'issue already closed: exits 0 -- warned, never refused'
+        Assert-ExitCode 0 $rX4 'issue already closed: exits 0 -- warned, never refused'
         Assert-True (Test-Phrase -Text $rX4.Out -Phrase 'already-done check: issue #1409 is already CLOSED') 'issue already closed: names the issue and the state'
         $flatX4 = Get-FlatOutput $rX4.Out
         $hitsX4 = @([regex]::Matches($flatX4, [regex]::Escape((Get-Squeezed 'issue #1409 is already CLOSED')))).Count
@@ -1809,7 +1853,7 @@ exit 1
         Add-FixtureRepoConfig -Dir $fixX5 -RepoName 'fake/repo'
         $prJsonX5 = '[{"number":1406,"state":"MERGED","headRefName":"fix/1402-something","body":"Closes #1409"}]'
         $rX5 = Invoke-NewBranchX -Dir $fixX5 -Name 'fix/1409-something-else' -Resolves '1409' -OpenIssues '1409' -PrListJson $prJsonX5
-        Assert-Equal 0 $rX5.Code 'issue claimed by a rival PR: exits 0'
+        Assert-ExitCode 0 $rX5 'issue claimed by a rival PR: exits 0'
         Assert-True (Test-Phrase -Text $rX5.Out -Phrase 'already-done check: issue #1409 is already resolved by PR #1406 (merged)') 'issue claimed by a rival PR: names the PR and its state'
 
         # (x6) TWO ISSUES, ONLY ONE OF THEM DONE -- ConvertTo-IssueNumberList's own parsing (comma list),
@@ -1826,7 +1870,7 @@ exit 1
         $fixX7 = New-Fixture -Label 'x7'
         Add-FixtureRepoConfig -Dir $fixX7 -RepoName 'fake/repo'
         $rX7 = Invoke-NewBranchX -Dir $fixX7 -Name 'fix/1409-blind' -Resolves '1409' -FailIssueList
-        Assert-Equal 0 $rX7.Code 'gh issue list unreadable: exits 0 -- a merged-elsewhere check must not read as failed'
+        Assert-ExitCode 0 $rX7 'gh issue list unreadable: exits 0 -- a merged-elsewhere check must not read as failed'
         Assert-True (Test-Phrase -Text $rX7.Out -Phrase 'could not ask gh which issues are open') 'gh issue list unreadable: warns about the blind spot'
         Assert-True (-not (Test-Phrase -Text $rX7.Out -Phrase 'already-done check:')) 'gh issue list unreadable: and reports nothing it could not actually determine'
 
@@ -1835,7 +1879,7 @@ exit 1
         $fixX8 = New-Fixture -Label 'x8'
         Add-FixtureRepoConfig -Dir $fixX8 -RepoName 'fake/repo'
         $rX8 = Invoke-NewBranchX -Dir $fixX8 -Name 'fix/1409-blind-pr' -Resolves '1409' -OpenIssues '9999' -FailPrList
-        Assert-Equal 0 $rX8.Code 'gh pr list unreadable: exits 0'
+        Assert-ExitCode 0 $rX8 'gh pr list unreadable: exits 0'
         Assert-True (Test-Phrase -Text $rX8.Out -Phrase 'could not ask gh whether another PR already resolves') 'gh pr list unreadable: warns about the blind spot'
         Assert-True (Test-Phrase -Text $rX8.Out -Phrase 'issue #1409 is already CLOSED') 'gh pr list unreadable: and still reports what issue state alone could determine'
     } finally {
@@ -1899,10 +1943,10 @@ exit 1
         # -- and it would be vacuous SILENTLY, passing for the wrong reason on a machine where the
         # suppression did not take. Asserted against git's own probe, which is the one this script reads.
         $identProbe = Invoke-CapturedChild -WorkDir $fixIdent -ChildArgs @('-NoProfile', '-Command', "git -C '$fixIdent' var GIT_AUTHOR_IDENT; exit `$LASTEXITCODE")
-        Assert-Equal 128 $identProbe.Code 'no identity: fixture sanity -- git itself refuses to name an author here'
+        Assert-ExitCode 128 $identProbe 'no identity: fixture sanity -- git itself refuses to name an author here'
 
         $rY = Invoke-NewBranch -Dir $fixIdent -Name 'fix/1867-cannot-commit-v1' -Title 'Cannot commit'
-        Assert-Equal 1 $rY.Code 'no identity: new-branch exits 1 rather than dying at exit 128 in the park'
+        Assert-ExitCode 1 $rY 'no identity: new-branch exits 1 rather than dying at exit 128 in the park'
         Assert-True (Test-Phrase -Text $rY.Out -Phrase 'no usable git author identity') 'no identity: and says which state it is in, in words'
         # THE REPAIR, both keys. Setting only user.name leaves git refusing exactly as hard, which is the
         # whole reason user.name was the wrong thing to read for this question in the first place.
@@ -1929,8 +1973,35 @@ exit 1
     # every branch in the workflow. One explicit case, so the regression has a name.
     $fixIdentOk = New-Fixture -Label 'y2'
     $rY2 = Invoke-NewBranch -Dir $fixIdentOk -Name 'fix/1867-can-commit-v1' -Title 'Can commit' -NoPush
-    Assert-Equal 0 $rY2.Code 'healthy identity: new-branch runs exactly as before -- the guard costs one local git var'
+    Assert-ExitCode 0 $rY2 'healthy identity: new-branch runs exactly as before -- the guard costs one local git var'
     Assert-True (-not (Test-Phrase -Text $rY2.Out -Phrase 'no usable git author identity')) 'healthy identity: and says nothing about identity at all'
+
+    # --- (z) THE REPO ROOT CANNOT BE RESOLVED -- A NAMED REFUSAL, NOT A NULL DEREFERENCE (#1913) ---
+    # The script's first statement used to be `(git rev-parse --show-toplevel).Trim()`, unjudged. Where
+    # git answers nothing that is `$null.Trim()`: exit 1, nothing created, and the only thing printed is
+    # a PowerShell error naming a line number in a script the reader did not write.
+    #
+    # WHY THIS IS ASSERTED RATHER THAN LEFT TO THE OTHER CASES. It is the one failure mode that is
+    # INVISIBLE to every fixture above, because every fixture above is a real repository -- so the
+    # regression back to the silent form would pass this whole suite. It is also the mode #1913's own
+    # difficulty was made of: a child that exits 1 while saying nothing is a red gate with no cause in
+    # it. The subject is that the refusal SPEAKS, and the exit code is the smaller half.
+    #
+    # A PLAIN DIRECTORY, NOT A FIXTURE: New-Fixture builds a git repo, which is exactly what this case
+    # must not have -- so the script is copied in WITHOUT `git init`. Only the script file itself is
+    # needed, because the refusal fires before a single lib is dot-sourced. Registered for the same
+    # teardown as every fixture above.
+    Write-Host "new-branch.ps1 -- outside a repository, the refusal names its cause (#1913)" -ForegroundColor Cyan
+    $notARepo = Join-Path ([System.IO.Path]::GetTempPath()) ("new-branch-test-$PID-z-notarepo-" + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Path (Join-Path $notARepo 'scripts\task') -Force | Out-Null
+    $script:fixtures += $notARepo
+    Copy-Item -LiteralPath $NewBranchSrc -Destination (Join-Path $notARepo 'scripts\task\new-branch.ps1') -Force
+    $rZ = Invoke-NewBranch -Dir $notARepo -Name 'docs/outside-a-repo-v1' -Title 'Outside a repo' -NoPush
+    Assert-ExitCode 1 $rZ 'no repo root: exits 1 rather than dying on a null dereference'
+    Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'could not work out which repository') 'no repo root: says which question it could not answer'
+    Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'rev-parse --show-toplevel') 'no repo root: names the command whose answer it needed'
+    Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'Nothing was created') 'no repo root: and states that nothing was created, which is what a reader needs before re-running'
+    Assert-True (-not (Test-Phrase -Text $rZ.Out -Phrase 'null-valued expression')) 'no repo root: and NOT the null-dereference this replaced'
 } finally {
     foreach ($f in $script:fixtures) {
         if (Test-Path -LiteralPath $f) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }

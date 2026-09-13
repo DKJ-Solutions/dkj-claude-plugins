@@ -43,7 +43,117 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 9 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1913-gate-only-suite-failures · 20260913-101309
+
+`new-branch.tests.ps1` can now say WHY it went red, and the one call in `new-branch.ps1` that could
+make it go red in silence is judged -- closes #1913. The suite runs the script as a CHILD PROCESS and
+asserted its exit code through `Assert-Equal`, which reports two numbers and discards the result
+object: a red lane said `expected: '0' / got: '1'` about a child whose stdout and stderr were already
+captured two lines away. That is why #1913 could be filed but not diagnosed, and why the same suite
+going red again on September 13 -- in a DIFFERENT place, which is itself evidence that this is not a
+fixture defect -- reported exactly as little. All 49 exit-code asserts go through `Assert-ExitCode`,
+which prints the child's output whole.
+
+**And the one unjudged call that reproduces that signature exactly is repaired.** The script's first
+statement resolved the repo root with `(git rev-parse --show-toplevel).Trim()`: where git answers
+nothing that is `$null.Trim()` -- exit 1, nothing created, and the only thing printed a PowerShell
+error naming a line in a script the reader did not write. Measured directly by running it outside a
+repository. It now names git's exit code, what git said, and that nothing was created. Whether that
+line was #1913's own cause is **not** claimed here and cannot be from what was measured; what is
+claimed is that it produces that exact signature, and that after this the next occurrence names
+itself either way.
+
+The closeout half of #1913 is fixed and is **#1910's**, not this branch's -- diagnosed here
+independently, landed there first and wider, and taken whole. The 36 other scripts carrying the
+unjudged repo-root spelling are #1917.
+
+For this repo's maintainers the change is that a red gate stops being a reason to re-run the gate.
+Noticed the next time one goes red, invisible otherwise.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber running this workflow meets the `new-branch` refusal directly: run from a worktree, from
+the wrong directory, or from a skill page whose working directory is not what they assumed, they used
+to get a PowerShell null-dereference naming a line number in a script they did not write. They now get
+a sentence naming git's exit code, what git said, that nothing was created, and the two ways through.
+Nothing to migrate; it arrives with the next plugin update.
+**Score:** 2
+
+#### Pull Request
+
+The gate-only suite failure names its cause
+
+Plugins: dkj-policy
+
+[PR #1921](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1921)
+
+---
+
+### DEPLOY: fix/1906-xoxowildhearts-plugin-ids · 20260913-095835
+
+The consumer register recorded five plugin ids the live `xoxowildhearts` repo does not enable. They
+were measured against the repo it replaced, so `check-connectors` would have reported five false
+`[ERROR]`s reading "is NOT (or no longer) enabled" about five plugins that are enabled -- and the
+unlisted-plugin check would have skipped all five as a third-party catalogue, staying silent on
+exactly what it was built to catch. Latent only because no machine currently holds that checkout.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+It is the second field of one fact -- the consumer moved repositories -- and the half that decides
+which way a register follows a consumer that has NOT migrated. Decision A says the register records
+what a consumer has, so this writes the retired marketplace name deliberately, and says in the file
+that it may flip back.
+
+**Score:** 2
+
+#### Pull Request
+
+connectors/xoxowildhearts.json records the plugin ids the live consumer actually enables
+
+[PR #1919](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1919)
+
+---
+
+### DEPLOY: fix/1910-closeout-suppression-leaks-into-gate · 20260913-094658
+
+A gate run no longer inherits the close-out suppression a conductor sets, so `closeout-lib.tests.ps1`
+stops crashing inside every ship that re-runs `open-pr` with something to push -- closes #1910.
+`Invoke-WorkflowGates` suspends the flag around both gates and restores it in a `finally`; the suite
+also clears it for its own duration and says so, because a test asserting on an ambient global is its
+own defect.
+
+For this repo's maintainers it removes a blocker that sat on the recovery path the staleness guard
+(#1292) itself prescribes: when `main` moves under a certified run, the way out is to bring the branch
+forward and re-run `ship-pr` -- and that re-run is precisely the one where `open-pr` has something to
+push, so it reaches its test gate. The failure also pointed the operator at their own tests while CI
+stayed green, which is the most confusing place for the two gates to disagree.
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every consumer running this workflow ships through the same `ship-pr` → `open-pr` → gate path, and both
+changed libs travel to them as plugin mirrors, so they meet this defect on the same recovery step and
+with the same green CI beside it. They do not have to act: the repair arrives with the next release and
+nothing on their side changes shape -- no new switch, no new file, no behaviour they have to adopt. What
+they get back is the one route out of a stale-base refusal, which is a route they cannot work around
+locally, since `-SkipTests` is the only alternative and that is the switch that says the run did not
+measure.
+**Score:** 3
+
+#### Pull Request
+
+Clear the close-out suppression around a gate run, and make the suite state its own precondition
+
+Plugins: dkj-policy
+
+[PR #1918](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1918)
+
+---
 
 ### DEPLOY: fix/1903-adopt-ci-floor-rename · 20260913-071749
 

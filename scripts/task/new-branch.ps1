@@ -212,7 +212,38 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # variable; the guard below only computes the dual-context fallback when it is still empty. Same shape
 # as fold-changelog-entry.ps1, deliberately, so the two read alike.
 if (-not $repoRoot) {
-    $repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
+    if ($env:CLAUDE_PROJECT_DIR) {
+        $repoRoot = $env:CLAUDE_PROJECT_DIR
+    } else {
+        # THE FALLBACK IS JUDGED, NOT DEREFERENCED (issue #1913). This was
+        # `(git rev-parse --show-toplevel).Trim()`, and it is the FIRST thing this script does -- so a
+        # git that answers nothing does not produce a refusal here, it produces
+        # "You cannot call a method on a null-valued expression" and exit 1, with nothing created and
+        # no statement of what went wrong. Measured directly: run from a directory that is not a
+        # repository, that is the whole of the output.
+        #
+        # WHY IT MATTERS IN A PLACE NOBODY RUNS BY HAND. A suite exercises this script as a child
+        # process dozens of times, sixteen lanes at a time under the test gate, and a git that fails to
+        # start once under that load lands exactly here. That is the shape #1913 reported -- red under
+        # the gate, green standalone, exit 1, no document -- and the reason the report could name no
+        # cause is that this line has none to give. Judging it does not make git more reliable; it
+        # makes the one-in-many failure say which of the two it was.
+        $prevEapRoot = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $topLevel = & git rev-parse --show-toplevel 2>&1
+            $topLevelCode = $LASTEXITCODE
+        } finally { $ErrorActionPreference = $prevEapRoot }
+        $repoRoot = if ($topLevelCode -eq 0) { "$(@($topLevel) | Select-Object -First 1)".Trim() } else { '' }
+        if (-not $repoRoot) {
+            Write-Host "new-branch cannot run -- it could not work out which repository it is in." -ForegroundColor Red
+            Write-Host "  ``git rev-parse --show-toplevel`` exited $topLevelCode here and named no repository root." -ForegroundColor Red
+            Write-Host "  It said: $((@($topLevel) -join ' ').Trim())" -ForegroundColor Red
+            Write-Host "  Nothing was created: no branch, no document, nothing on origin. Run this from inside" -ForegroundColor Red
+            Write-Host "  the checkout, or set CLAUDE_PROJECT_DIR to its root, and run again." -ForegroundColor Red
+            exit 1
+        }
+    }
 }
 
 # Pre-flight (#86): this script relies ONLY on scripts\lib\branch-info.ps1 in the consumer's repo
