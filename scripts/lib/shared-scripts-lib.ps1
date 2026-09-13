@@ -1469,6 +1469,57 @@ function Get-SharedScriptPairs {
             Source  = 'scripts\lib\shopify-cli-lib.ps1'
             Plugin  = 'dkj-subagents-shopify'
             LibOnly = $true
+        },
+        @{
+            # The theme archive (issue #1886 candidate 4, September 13, 2026). IT TRAVELS IN
+            # dkj-subagents-shopify for the same reason sync-main and push-preview do: the plugin that
+            # owns the live theme owns the estate around it. That is a DEPARTURE from the #1881
+            # ruling's default -- which sends what the two BWJ stores share to dkj-policy-bwj -- and
+            # the reason is that the ruling's axis is the wrong axis here. Archiving a theme is not a
+            # BWJ practice, it is a Shopify one, and the two scripts already registered above ship
+            # with exactly the same two readers.
+            #
+            # THE CASE FOR SHARING IT WAS MADE BY THE ALIASING. Both stores built it, under two
+            # different filenames -- archive-and-remove-theme.ps1 and archive-theme.ps1 -- so the
+            # sibling check could only see it through ONE shared function name and no grep in either
+            # repo would ever have found the other. Everything either copy had learned stayed where it
+            # was learned: one had the receipts, the multi-theme run and the refusal to remove
+            # anything; the other had the third-party integration it must not break.
+            #
+            # IT NEVER REMOVES A THEME, and that is a guard property rather than a preference. The copy
+            # that did removed it from inside a .ps1, and this plugin's live-theme guard is a PreToolUse
+            # hook reading the COMMAND STRING of a tool call -- so a destructive theme command buried in
+            # a script is invisible to it. That was a live wrapper vector in one store for as long as
+            # that script was. The command is printed for the caller to run as its own visible act.
+            Name   = 'archive-theme'
+            Source = 'scripts\task\archive-theme.ps1'
+            Plugin = 'dkj-subagents-shopify'
+            Skill  = 'archive-theme'
+            # A fixture root, as for sync-main and push-preview: a consumer never types it, and
+            # documenting it would invite someone to.
+            SkillParamsExempt = @('RootOverride')
+        },
+        @{
+            # The archive's DECISIONS, as a lib of its own (issue #1886) -- for the same reason
+            # sync-rules is one: the script around them is all Shopify CLI, which a test cannot reach,
+            # while the parts that can be WRONG are pure functions over a name, a role, a path and a
+            # text. Every one of the four oldest was found by USING the script in a store rather than
+            # by reading it, and the comma one reported success while doing nothing.
+            #
+            # THREE FUNCTIONS IN IT HAVE NO CALLER IN THIS PLUGIN, deliberately. They read a receipt
+            # back and measure a folder against it, which is a script only ONE of the two converged
+            # stores has -- and #1886's own bar is that a mechanism only one store has is not a
+            # convergence candidate. They travel because they live in this file; stranding them would
+            # leave that consumer dot-sourcing a lib that had lost the three functions it calls.
+            #
+            # DEPENDENCY-FREE, and specifically NOT a reader of repo-config.ps1: the live-theme guard
+            # dot-sources that file on every command inside a catch that returns no live theme id, so
+            # anything it pulls in is a way to silently disarm the guard. The seam answers are read by
+            # the script and passed in.
+            Name    = 'theme-archive-rules'
+            Source  = 'scripts\lib\theme-archive-rules.ps1'
+            Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
         }
     )
 

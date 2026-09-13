@@ -832,7 +832,8 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 <!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `park`, `fix-mojibake`,
 `specialists-init`, `specialists-teardown`, `sync-roster`, `start-task`, `adopt-shopify-floor`,
 `cut-release`, `adopt-dkj-policy`,
-`release-notes-page`, `sync-main`, `push-preview`, `check-branch-entry`, `check-policy-drift`,
+`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `check-branch-entry`,
+`check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
 `measure-skill`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `orchestrator`)<!-- /skills:all -->
 remain available there.
@@ -917,12 +918,13 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 <!-- skills:all -->Most skills in claude-code-specialists today (`fold-changelog`, `open-pr`, `ship-pr`,
 `new-branch`, `claim-issue`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
-`release-notes-page`, `sync-main`, `push-preview`, `check-branch-entry`, `check-policy-drift`,
+`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `worktree-lane`, `check-fanout`) are a thin wrapper around a script — procedural
 **mechanism** (branch, claiming an issue on the tracker before the work on it starts, PR, ship, fold,
 bootstrap, teardown, roster-sync, encoding repair, reading a
 repo's own conventions, placing an add-on team's operational floor, pushing a branch to its own preview
-theme, the reading copy of the release notes, laying the repo's law-bearing documents out in rank order
+theme, backing a theme up with a committed receipt before it leaves the store,
+the reading copy of the release notes, laying the repo's law-bearing documents out in rank order
 so a session can read them against each other, reaping the local branches a merge left behind, telling
 whether this checkout's installed plugin matches the marketplace clone and which command closes any
 gap, closing that gap in one command instead of one per plugin, pricing what a skill costs the sessions that carry it, giving a branch its own worktree so
