@@ -602,6 +602,39 @@ function Invoke-NativeCapture {
                        that changed no files, and `gh --json body -q .body` on a PR with an empty body
                        (both measured, 0 bytes, exit 0) -- so "empty means the read failed" is not a
                        rule a caller may assume. This field is the only thing that separates them.
+          - ExitCodeUnknown: $true when the child ran and ExitCode is NOT a measurement of it -- issue
+                       #1931. THIS IS NOT WHAT #1931 ITSELF CLAIMS: its text says #1920 already added
+                       this field to both arms, so the state was merely unconsulted. That is not what
+                       the tree held when this was picked up -- `ExitCodeUnknown` did not exist
+                       anywhere in scripts/ (grep confirms it), and #1920's own fix narrowed
+                       Test-GitCanCommit to refuse on the single git exit code 128 rather than adding a
+                       reportable field to this function. The premise was wrong; the ask -- a
+                       consultable field, on the ShortRead precedent -- was not, so this is that field,
+                       built rather than merely wired up.
+
+                       CONFINED TO THE -Utf8/Start-Process ARM, AND MEASURED RATHER THAN ASSUMED. #1931
+                       reports 27 of 960 captures (2.8%) under 16 lanes of fresh PowerShell children,
+                       and that it never recovers inside a 200ms re-read budget. Reproduced independently
+                       while building this field (September 13, 2026): 300 fresh `powershell.exe`
+                       children, each running exactly the documented pattern below (Start-Process
+                       -PassThru, read .Handle, unbounded WaitForExit(), read .ExitCode) against a
+                       trivial `cmd.exe /c exit 0` -- 1 of 300 came back with .ExitCode LITERALLY $null
+                       (PowerShell's own $null, not a 0 or a thrown exception; System.Diagnostics.Process
+                       does not expose a nullable ExitCode, so this is .NET handing back an uninitialised
+                       value rather than the documented type). The SAME test against the & operator's
+                       $LASTEXITCODE, 300 fresh children, came back real every time -- matching #1931's
+                       own confinement to "the first Start-Process in a fresh process" and matching why
+                       ShortRead is a Start-Process-only field too (no capture file, no OS handle race,
+                       on the & arm). $LASTEXITCODE is still checked below, for the same reason ShortRead
+                       is reported ($false rather than omitted) on the arm that cannot produce it: a
+                       caller reads one field whichever arm answered it, and never has to know which arm
+                       that was.
+
+                       NOT REPAIRED BY RETRYING, deliberately -- #1931 already measured that a 200ms
+                       re-read budget still leaves 7 of 240 unresolved, so a retry loop here would spend
+                       wall-clock on every capture for a recovery that is not reliable. The field reports
+                       the state honestly instead; see Get-GitFileTextAtRef below for the one caller in
+                       this file that turns it into a refusal rather than a silent wrong answer.
         EAP and the environment are always restored (finally), whether the command succeeds, fails, or
         throws.
 
@@ -693,7 +726,15 @@ function Invoke-NativeCapture {
     # the & operator hands PowerShell's own pipeline reader the child's output directly, so there is no
     # capture file for a lingering grandchild handle to truncate. A caller therefore reads one field
     # whichever arm answered it, which is the same promise TimedOut already makes.
-    return [pscustomobject]@{ Output = $output; ExitCode = $code; TimedOut = $false; ShortRead = $false }
+    #
+    # ExitCodeUnknown IS CHECKED HERE TOO, EVEN THOUGH IT WAS NEVER MEASURED TO FIRE ON THIS ARM
+    # (issue #1931): 300 fresh-process runs of this exact & pattern all came back with a real
+    # $LASTEXITCODE -- see Invoke-NativeCapture's docstring for the measurement. $LASTEXITCODE needs no
+    # OS process handle, which is the mechanism the Start-Process arm's race depends on, so there is no
+    # reason to expect it here. The check stays rather than being narrowed to the other arm, on the same
+    # reasoning ShortRead's own comment gives one line up: a caller reads one field whichever arm
+    # answered it, and $null -eq $LASTEXITCODE costs nothing to ask.
+    return [pscustomobject]@{ Output = $output; ExitCode = $code; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = ($null -eq $code) }
 }
 
 function Read-NativeCaptureFile {
@@ -889,6 +930,18 @@ function Invoke-NativeCaptureUtf8 {
         # so the number and TimedOut tell the same story.
         $code = if ($timedOut) { $script:NativeCaptureTimeoutExitCode } else { $proc.ExitCode }
 
+        # ExitCodeUnknown (issue #1931) -- READ BEFORE $code IS USED FOR ANYTHING ELSE, same discipline
+        # TimedOut already needs one line up: a substituted code is not a measurement gap, it is a
+        # verdict this function chose, so the check is $false whenever $timedOut is true regardless of
+        # what $proc.ExitCode itself would have read. On a clean exit .ExitCode CAN come back as
+        # PowerShell's own $null even after .Handle was read and WaitForExit() returned -- reproduced
+        # independently at 1 in 300 fresh processes; see the docstring above for the measurement and for
+        # why a retry is not the fix. System.Diagnostics.Process.ExitCode is a non-nullable int, so this
+        # is .NET/the OS handing back an unmeasured value rather than the type's documented contract --
+        # not a 259 (STILL_ACTIVE) and not a thrown exception, both of which were considered and neither
+        # of which reproduced.
+        $codeUnknown = (-not $timedOut) -and ($null -eq $code)
+
         # No BOM on the decoder: a BOM-emitting child is not something gh or git does, and
         # UTF8Encoding($false) still strips one if it is there.
         $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -936,7 +989,13 @@ function Invoke-NativeCaptureUtf8 {
             )
         }
 
-        return [pscustomobject]@{ Output = $lines; ExitCode = $code; TimedOut = $timedOut; ShortRead = $shortRead }
+        # NOTHING IS APPENDED TO Output FOR THIS, unlike the timeout lines above -- and that asymmetry is
+        # deliberate rather than an oversight. A timeout is opt-in per call site (-TimeoutSeconds), so
+        # every caller that could hit it already expects extra lines; ExitCodeUnknown can happen on ANY
+        # -Utf8 call, including the `gh --json ...` ones whose Output a caller feeds straight into
+        # ConvertFrom-Json, so inserting a line here would corrupt exactly the callers ShortRead's own
+        # docstring warns against breaking. The field is the only signal, same as ShortRead.
+        return [pscustomobject]@{ Output = $lines; ExitCode = $code; TimedOut = $timedOut; ShortRead = $shortRead; ExitCodeUnknown = $codeUnknown }
     } finally {
         Pop-NativeNonInteractiveEnv -Previous $prevEnv
         if (Test-Path -LiteralPath $capDir) {
@@ -978,6 +1037,30 @@ function Get-GitFileTextAtRef {
 
         The ref is passed as given. Prefer a full 'refs/heads/<branch>' over a bare branch name: `git show`
         resolves its left half as a rev, and a name that also names a directory is otherwise ambiguous.
+
+        AN UNKNOWN EXIT CODE THROWS RATHER THAN RETURNING $null (issue #1931), and this is the sharpest
+        site in the family that audit found. This function's OWN contract already conflates two things a
+        caller cannot tell apart -- "the ref does not carry this path" and "the read could not be judged"
+        -- both come back $null, and decision three above defends that conflation only against an EMPTY
+        file, never against an unmeasured one. Its one caller (ship-pr.ps1's step-list gate and the
+        DEPLOY lock, issue #884) reads $null as "no document -- nothing to check" and SKIPS BOTH GATES on
+        that reading. So where ShortRead's five callers (#1679) resolved an ambiguous read toward a
+        substantive answer that was too CONFIDENT, this one would resolve it toward a substantive answer
+        that is too PERMISSIVE -- an ExitCodeUnknown read of a document that genuinely still carries an
+        unresolved step, or has genuinely drifted from what the PR published, would merge silently. That
+        is a worse failure than refusing a mergeable PR: nothing tells the reviewer the check never ran.
+
+        THROWING IS THE RIGHT DIRECTION HERE BECAUSE OF WHO CALLS THIS, and it is not the general answer
+        for every $null-returning function in this file (see Get-TrunkGap's Measured field and
+        git-porcelain-lib.ps1's Known field for the other, tri-state shape -- both are read by callers
+        that already have a defined "could not tell" branch). This function has exactly one caller,
+        reached through a bare scriptblock invocation with no try/catch, in a script that runs under
+        `$ErrorActionPreference = 'Stop'` -- so an uncaught throw here is a hard stop with a non-zero
+        exit, not a silent pass-through. That is the fail-closed direction a merge gate needs, and it is
+        available cheaply here BECAUSE there is only one caller to widen: changing this function's
+        return shape to a third state was not on the table -- see Invoke-NativeCapture's own docstring
+        for why widening EVERY caller's contract was declined on size -- but throwing on the one call
+        site that would otherwise disable a security-relevant gate is a change with a blast radius of one.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Ref,
@@ -991,6 +1074,9 @@ function Get-GitFileTextAtRef {
     $gitArgs += @('show', "${Ref}:${rel}")
 
     $show = Invoke-NativeCapture -Utf8 -DiscardStderr -FilePath 'git' -Arguments $gitArgs
+    if ($show.PSObject.Properties['ExitCodeUnknown'] -and $show.ExitCodeUnknown) {
+        throw "Get-GitFileTextAtRef: 'git show ${Ref}:${rel}' did not return a measurable exit code (issue #1931) -- this cannot be read as 'the path is absent', because the one caller of this function treats an absent path as nothing to check. Re-run once the transient native-process read has cleared."
+    }
     if ($show.ExitCode -ne 0) { return $null }
     # Lines back to one string: the -Utf8 arm hands back an array and drops the single trailing newline.
     # Every reader of this document splits on newlines again, so the terminator is not reconstructed.
@@ -1693,13 +1779,28 @@ function Invoke-TestSuiteGate {
                 foreach ($d in $done) {
                     $d.Process.WaitForExit()          # settles ExitCode before it is read
                     $code = $d.Process.ExitCode
+                    # $code CAN COME BACK AS POWERSHELL'S OWN $null HERE, EVEN THOUGH .Handle WAS READ AND
+                    # WaitForExit() RETURNED -- issue #1931, and this is the one site in this file where
+                    # that race can turn a PASSING suite into a gate-failing one. Reproduced independently
+                    # while auditing #1931: 1 in 300 fresh `powershell.exe` children racing exactly this
+                    # Start-Process -> .Handle -> WaitForExit -> .ExitCode sequence against a trivial
+                    # command, which is precisely what this loop does once per suite, per lane, all run.
+                    # #1931 itself measured 27 in 960 (2.8%) under this repo's own 16-lane gate. A $null
+                    # here is NOT a crash in Test-GateSuiteCrashed's sense (that function reads $null as
+                    # "not a crash", correctly, since a genuine NTSTATUS is a real negative int) -- it is
+                    # the SAME "the pool has measured nothing about this suite yet" state #1723 built the
+                    # crash-and-retry path for, so it is routed there instead of a fourth, new branch.
+                    $codeUnknown = ($null -eq $code)
                     # RECORDED HERE, WHERE BOTH ENDS ARE KNOWN. Reaping is the only moment this loop holds
                     # a suite's start and its finish at once; after $running.Remove the start offset is gone.
                     $suiteTimings.Add([pscustomobject]@{
                         Name        = $d.Name
                         StartOffset = $d.StartOffset
                         Duration    = ($sw.Elapsed.TotalSeconds - $d.StartOffset)
-                        Failed      = ($code -ne 0)
+                        # (-not $codeUnknown), FIRST: `$null -ne 0` is $true in PowerShell, so without this
+                        # guard an unmeasured code recorded a PASSING suite as Failed in this table before
+                        # the crash branch below ever got a chance to correct it on a successful re-run.
+                        Failed      = (-not $codeUnknown) -and ($code -ne 0)
                         # CRASHED IS TRACKED SEPARATELY FROM FAILED, so the table below cannot report a
                         # crashed suite as a cheap one -- issue #1723. A process that died 2s into what
                         # is a 60s suite records 2s here, which is TRUE of this lane and a lie about the
@@ -1722,7 +1823,20 @@ function Invoke-TestSuiteGate {
                     Write-Host (Format-GateProgressLine -Action 'done' -Suite $d.Name `
                         -Started $startedCount -Done $doneCount -Running ($startedCount - $doneCount) `
                         -Total $suites.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
-                    if ($code -eq 0) {
+                    if ($codeUnknown) {
+                        # CHECKED BEFORE '$code -eq 0' AND BEFORE Test-GateSuiteCrashed, DELIBERATELY:
+                        # Format-GateExitCode takes a non-nullable [int], so calling it with $code here
+                        # would itself throw inside the gate rather than report anything (issue #1931).
+                        Write-Host "== $($d.Name) == CRASHED (exit code unmeasurable -- issue #1931) -- the process ran, but .NET/the OS did not hand back a verdict this run could read; no verdict" -ForegroundColor Magenta
+                        $crashedNames.Add($d.Name) | Out-Null
+                        $crashedTiming = ($suiteTimings | Where-Object { $_.Name -eq $d.Name } | Select-Object -Last 1)
+                        if ($null -ne $crashedTiming) { $crashedTiming.Crashed = $true }
+                        $crashedSuites.Add([pscustomobject]@{
+                            Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
+                        }) | Out-Null
+                        $failedCaptureFiles.Add($d.OutFile) | Out-Null
+                        $failedCaptureFiles.Add($d.ErrFile) | Out-Null
+                    } elseif ($code -eq 0) {
                         Write-Host "== $($d.Name) ==" -ForegroundColor Cyan
                     } elseif (Test-GateSuiteCrashed -ExitCode $code) {
                         # NOT ADDED TO $failedNames HERE -- issue #1723. A killed process returned no
@@ -1797,12 +1911,28 @@ function Invoke-TestSuiteGate {
                     $rp.WaitForExit()
                     $retrySw.Stop()
                     $rc = $rp.ExitCode
+                    # THE RETRY'S OWN CODE CAN ALSO COME BACK $null (issue #1931) -- the same race the
+                    # pool run itself just measured, on the same Start-Process pattern, one process later.
+                    $rcUnknown = ($null -eq $rc)
                     $retrySecs = Format-GateSeconds $retrySw.Elapsed.TotalSeconds -Decimals 1
-                    $crashedAgain = Test-GateSuiteCrashed -ExitCode $rc
-                    if ($rc -eq 0) {
+                    $crashedAgain = (-not $rcUnknown) -and (Test-GateSuiteCrashed -ExitCode $rc)
+                    # THE POOL'S OWN CODE ($c.ExitCode) CAN NOW BE $null TOO (issue #1931, the branch above
+                    # this one): Format-GateExitCode takes a non-nullable [int] and would throw on it, so
+                    # the label is built without calling it when there is nothing to format.
+                    $poolExitLabel = if ($null -eq $c.ExitCode) { 'unmeasurable exit code' } else { "exit $(Format-GateExitCode -ExitCode $c.ExitCode)" }
+                    if ($rcUnknown) {
+                        # A SECOND UNMEASURABLE READ IS TREATED AS A SECOND CRASH, on the same "ONCE"
+                        # doctrine the comment above this block already states for a genuine crash: the
+                        # re-run exists to settle the ONE verdict the pool could not, and a re-run that
+                        # also cannot measure one leaves nothing left to retry against. Failing closed
+                        # here is the same direction Get-GitFileTextAtRef's docstring argues for a merge
+                        # gate elsewhere in this file -- an unmeasured verdict must not read as a pass.
+                        Write-Host "== $($c.Name) == re-ran ALONE after ${retrySecs}s and its exit code could ALSO not be read (issue #1931) -- treated as a second crash, so the gate does not merge on an unmeasured verdict" -ForegroundColor Red
+                        $failedNames.Add($c.Name) | Out-Null
+                    } elseif ($rc -eq 0) {
                         # GREEN, AND THE CRASH STILL GETS SAID. The pool's own timing row is corrected
                         # so the per-suite table does not carry a FAILED flag for a suite that passed.
-                        Write-Host "== $($c.Name) == re-ran ALONE and PASSED in ${retrySecs}s -- the pool's exit $(Format-GateExitCode -ExitCode $c.ExitCode) was a crash, not a verdict" -ForegroundColor Yellow
+                        Write-Host "== $($c.Name) == re-ran ALONE and PASSED in ${retrySecs}s -- the pool's $poolExitLabel was a crash, not a verdict" -ForegroundColor Yellow
                         if ($null -ne $c.Timing) { $c.Timing.Failed = $false }
                     } elseif ($crashedAgain) {
                         Write-Host "== $($c.Name) == CRASHED AGAIN alone after ${retrySecs}s (exit $(Format-GateExitCode -ExitCode $rc)) -- this is the suite or the engine, not the pool" -ForegroundColor Red

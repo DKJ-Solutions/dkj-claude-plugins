@@ -2,8 +2,11 @@
 .SYNOPSIS
     Regression tests for scripts/lib/native-capture-lib.ps1 -- the -Utf8 capture path (issue #907),
     the non-interactive environment + bounded wait (inbound #1179), the shared read of the capture
-    files while a killed grandchild still holds a handle (#1252), and that this read REPORTS that
-    hold instead of leaving a caller to guess what an empty capture on exit 0 meant (#1679).
+    files while a killed grandchild still holds a handle (#1252), that this read REPORTS that hold
+    instead of leaving a caller to guess what an empty capture on exit 0 meant (#1679), and that an
+    unmeasurable exit code is reported (ExitCodeUnknown) and turned into a refusal rather than a
+    silent wrong answer at the one caller in this file that would otherwise skip a merge-time gate
+    on it (#1931).
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell. Exit code 0 if everything passes, 1 on a
@@ -564,6 +567,28 @@ try {
     Assert-Equal 0 $utf8Run.ExitCode 'the fixture command really did succeed, so the assert above is about the read and not about a failure'
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'Invoke-NativeCapture -- ExitCodeUnknown is present on BOTH arms (#1931)' -ForegroundColor Cyan
+
+    # SAME PROMISE AS ShortRead AND TimedOut: a caller reads one field whichever arm answered it. An
+    # ordinary clean child on either arm must not cry ExitCodeUnknown any more than it cries ShortRead.
+    Assert-True ($null -ne $ampRun.PSObject.Properties['ExitCodeUnknown']) 'the & arm returns an ExitCodeUnknown field'
+    Assert-True (-not $ampRun.ExitCodeUnknown) 'and it is false on an ordinary git call -- $LASTEXITCODE needs no OS process handle, so this arm is not exposed to the race'
+    Assert-True ($null -ne $utf8Run.PSObject.Properties['ExitCodeUnknown']) 'the -Utf8 arm returns an ExitCodeUnknown field'
+    Assert-True (-not $utf8Run.ExitCodeUnknown) 'and an ordinary clean child is not an unknown exit either -- the probe must not cry wolf on the normal case'
+
+    # A TIMED-OUT CALL IS NEVER ExitCodeUnknown, even though its own ExitCode is a SUBSTITUTED number
+    # rather than a measurement of the child (issue #1179's own timeout code). Substituted-on-purpose
+    # and unmeasured are different states, and TimedOut already says which one a caller has -- so this
+    # field must not double-report the same fact under a different name.
+    $timeoutHang = Join-Path $sandbox 'unknown-hang.ps1'
+    Set-Content -LiteralPath $timeoutHang -Encoding Ascii -Value 'Start-Sleep -Seconds 30'
+    $timeoutRun = Invoke-NativeCapture -FilePath 'powershell' -Arguments @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $timeoutHang) -TimeoutSeconds 1
+    Assert-True $timeoutRun.TimedOut 'the fixture actually timed out, so the assert below is about the field and not about a fluke'
+    Assert-True ($null -ne $timeoutRun.PSObject.Properties['ExitCodeUnknown']) 'a timed-out call still returns an ExitCodeUnknown field'
+    Assert-True (-not $timeoutRun.ExitCodeUnknown) 'and it is false -- the substituted timeout code is a verdict this function chose, not an unmeasured read'
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- the code page cannot reach the answer (issue #907)' -ForegroundColor Cyan
 
     # 'ory <em-dash> e' as gh would put it on the wire: UTF-8, e2 80 94 in the middle. Written as
@@ -704,6 +729,63 @@ try {
     Invoke-FxGit -GitArgs @('add', 'sub/nested.md')
     Invoke-FxGit -GitArgs @('commit', '--quiet', '-m', 'a nested path')
     Assert-Equal 'nested' (Get-GitFileTextAtRef -Ref 'HEAD' -Path 'sub\nested.md' -RepoRoot $gitFx) 'and so does the same path written with backslashes'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host 'Get-GitFileTextAtRef -- an unmeasurable exit code THROWS rather than reading as absent (#1931)' -ForegroundColor Cyan
+
+    # WHY THIS THROWS AND Get-TrunkGap/Get-GitPorcelainStatus DO NOT (documented at length on the
+    # function itself): this function's own return shape already conflates "path absent" and "could
+    # not tell" into one $null, and its one caller (ship-pr.ps1's step-list gate + DEPLOY lock) reads
+    # that $null as "nothing to check" and SKIPS BOTH GATES. A silent skip of a merge-time content
+    # gate is worse than a hard stop, so ExitCodeUnknown is turned into a throw here rather than into
+    # a third return state nothing downstream is built to read.
+    #
+    # SHADOWED AFTER THE DOT-SOURCE, the pattern this lib documents for itself and
+    # remote-ahead-lib.tests.ps1 already uses: a plain function can be redefined in the scope that
+    # dot-sourced it, and Get-GitFileTextAtRef resolves Invoke-NativeCapture's name at call time. Only
+    # the 'show' call is stubbed; everything else this suite has already run through it (the fixture's
+    # own `git` calls above) went through the real one.
+    $script:realNativeCaptureForRef = (Get-Command Invoke-NativeCapture -CommandType Function).ScriptBlock
+    $script:stubShowUnknown = $false
+    function Invoke-NativeCapture {
+        param(
+            [Parameter(Mandatory = $true)][string]$FilePath,
+            [string[]]$Arguments = @(),
+            [switch]$DiscardStderr,
+            [switch]$Utf8,
+            [int]$TimeoutSeconds = 0
+        )
+        if ($script:stubShowUnknown -and $Arguments -contains 'show') {
+            return [pscustomobject]@{ Output = @(); ExitCode = $null; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $true }
+        }
+        return & $script:realNativeCaptureForRef -FilePath $FilePath -Arguments $Arguments `
+                                                  -DiscardStderr:$DiscardStderr -Utf8:$Utf8 -TimeoutSeconds $TimeoutSeconds
+    }
+    try {
+        $script:stubShowUnknown = $true
+        $threw = $false
+        $threwMessage = ''
+        try {
+            Get-GitFileTextAtRef -Ref 'refs/heads/main' -Path 'cycle.md' -RepoRoot $gitFx | Out-Null
+        } catch {
+            $threw = $true
+            $threwMessage = $_.Exception.Message
+        }
+        Assert-True $threw 'an unmeasurable exit code throws instead of returning a value'
+        Assert-True ($threwMessage -match '1931') 'and the message names the issue, for a reader who catches it two frames up'
+        Assert-True ($threwMessage -match 'measurable exit code') 'and says WHAT could not be measured, not just that something failed'
+    } finally {
+        # RESTORED IMMEDIATELY, so a later suite failure does not leave the real capture stubbed for
+        # whatever runs after this file in the same process (the test gate reuses no process across
+        # suites, but a developer running this file interactively from a shared shell might).
+        $script:stubShowUnknown = $false
+        Remove-Item Function:\Invoke-NativeCapture -ErrorAction SilentlyContinue
+        . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+    }
+
+    # THE REAL FUNCTION IS BACK, so the ordinary (measured) case still reads a real answer -- proof the
+    # restore above worked rather than merely not-erroring.
+    Assert-Equal $committed.TrimEnd("`n") (Get-GitFileTextAtRef -Ref 'refs/heads/main' -Path 'cycle.md' -RepoRoot $gitFx) 'and the ordinary read is unaffected once the stub is gone'
 } finally {
     if (Test-Path -LiteralPath $sandbox) { Remove-Item -Recurse -Force -LiteralPath $sandbox -ErrorAction SilentlyContinue }
 }
