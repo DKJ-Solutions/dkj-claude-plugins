@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**12 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1912-noresolves-persists-in-body · 20260913-103500
+
+`open-pr.ps1 -NoResolves` now WRITES ITS ANSWER DOWN, as `<!-- resolves: none -->` in the PR body, and
+the resolves gate reads it back the same way it already reads a published `Closes #<n>` -- closes #1912.
+The gate folds an open PR's body into what it judges precisely so a resumed branch is not asked to repeat
+a decision GitHub already holds; that recognition was keyed on a closing keyword, which `-NoResolves` by
+definition never writes, so of the two answers the gate's own refusal text calls honest, one was durable
+and the other lasted only as long as the process. Measured on
+`feat/1843-portable-repo-settings-runner`: `open-pr -NoResolves` opened PR #1909, and `ship-pr` -- whose
+step 1 re-runs `open-pr` -- refused the same branch minutes later for a question that had been answered.
+
+A later `-Resolves` on the same branch strips the marker rather than leaving a body that both closes an
+issue and states it closes none, and the marker is re-appended after a `-RefreshBody` for the reason
+#919 gives for the closing block one step up. Recognition ignores code spans and fences, because a
+document explaining the marker necessarily writes the marker and this entry does.
+
+For this repo's maintainers it removes a refusal that cost seconds and taught the wrong reflex: the
+obvious way past it is to pass the flag again, which is how a session learns to pass `-Resolves`
+reflexively -- the exact failure this gate exists to prevent. It lands hardest where it matters most, on
+a PR delivering one step of a multi-step issue, which is the shape #1843 had and which has already been
+closed by accident once.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber running this workflow meets it as one fewer refusal in the two-command flow the skill pages
+prescribe -- `open-pr`, then `ship-pr` -- which is the flow a consumer follows most. Nothing to migrate
+and nothing to undo: a branch whose PR predates this simply gets the marker on its next run. They notice
+it the first time they ship a PR that closes nothing, and are told on the page rather than by a gate.
+**Score:** 2
+
+#### Pull Request
+
+The -NoResolves decision persists in the PR body
+
+Plugins: dkj-policy
+
+[PR #1923](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1923)
+
+---
 
 ### DEPLOY: fix/1915-capped-tip-flaky-in-gate · 20260913-102052
 
