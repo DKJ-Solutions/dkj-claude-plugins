@@ -39,23 +39,78 @@
 
 ### PLAN
 
-Default -OverrideName to '' so a caller that exposes no root seam gets no 'or pass X' clause at all; the two callers that do spell it -RepoRoot pass it explicitly.
+Default `-OverrideName` to `''` so a caller that exposes no root seam gets no "or pass X" clause at
+all; the two callers that really spell it `-RepoRoot` pass it explicitly.
+
+#### The choice, and why shape 1
+
+#1936 left two shapes open and called the choice a real one. Shape 2 -- passing `-OverrideName` at
+all 15 sites -- reaches the same output and leaves the trap armed for the sixteenth script. Shape 1
+moves the defect to where it came from: the **default**. A parameter added precisely so the lib would
+never name a flag it cannot know was handed a flag name to use when nobody says anything, which is
+the same defect wearing the parameter as a disguise. With `''` a silent caller can no longer be given
+a wrong answer, only a shorter one.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Reproduce #1936's measurement before repairing it -- the PowerShell parser over every `.ps1`
+      under `scripts\` outside `lib\` and `tests\`, each `-OverrideName` (or the inherited default)
+      held against the calling script's own param block. **27 call sites, 15 mismatched, and the
+      same 15 scripts the issue names.** The symptom stands exactly as filed.
+- [x] Default `-OverrideName` to `''` in `Resolve-RepoRootOrFail`
+      ([`scripts/lib/check-report-lib.ps1`](../scripts/lib/check-report-lib.ps1)), and make every
+      clause that quotes a seam conditional on it being non-empty -- the `'override'` branch, the
+      cause line, and the remedy line.
+- [x] `new-branch.ps1` and `fold-changelog-entry.ps1` -- the two callers that genuinely expose
+      `-RepoRoot` -- pass `-OverrideName '-RepoRoot'` explicitly, which is what the parameter's own
+      docstring says it is for.
+- [x] Record the measurement in the docstring, which argued from the old default.
+- [x] Rebuild the plugin mirrors (`build-shared-scripts.ps1`): 5 updated.
 
 ### TEST
 
+- [x] `check-report-lib.tests.ps1` -- **252 pass, 0 fail.** Four asserts on the existing seamless
+      child (no `or pass` clause, no `-RepoRoot` anywhere in the output, both real routes kept, the
+      cause line drops the seam too), plus a **control child** passing `-OverrideName '-RootOverride'`
+      so the four above cannot be satisfied by a function that has simply stopped offering the flag
+      to anybody -- which would break the two correct callers silently.
+- [x] The residual the `''` default cannot close -- a call site naming a flag it does not expose --
+      is held by a parser sweep in that same suite, over the same 27 sites. It asserts **both**
+      non-zero counts (12 naming a seam, 15 naming none), because a sweep that found nothing would
+      pass the mismatch assert while measuring nothing.
+- [x] Reproduced the issue's own case: `tidy-machine.ps1` run from a directory that is not a work
+      tree now prints `Run this from inside the checkout, or set CLAUDE_PROJECT_DIR.` -- the two
+      remedies that exist, and not the one PowerShell rejects.
+- [x] Lint gate (`check-plugin-integrity.ps1`): 0 errors.
+
 ### DEPLOY: fix/1936-overridename-default-honest
 
-**Score:**
+`Resolve-RepoRootOrFail`'s refusal no longer offers `-RepoRoot` to the 15 of 27 callers that have no
+such flag. That parameter exists because the lib cannot know which seam a caller spells -- and it
+defaulted to `-RepoRoot`, right for the two scripts the docstring names and wrong for every script
+meant to be run from inside the checkout, handed out to whoever did not think about it. Reproduced on
+`tidy-machine.ps1`: of the three remedies printed, the middle one was rejected by PowerShell as an
+unknown parameter, and it is the one that reads as the direct fix.
+
+The default is now `''`, so an unnamed seam prints no seam. That closes the **class** rather than the
+15 instances: a caller that says nothing can no longer be given a wrong answer, only a shorter one.
+The two callers that really do expose `-RepoRoot` now pass it explicitly, which is what the
+parameter's own docstring always said it was for.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+**Fourteen of the fifteen are plugin-carried** (all but `build-config-blueprint`, which is
+source-only), so this is a refusal a consumer meets in their own tree, on their own machine, with no
+source checkout to check it against -- `ship-pr`, `open-pr`, `prune-merged`, `tidy-machine`,
+`park-branch`, `worktree-lane`, `cut-release` and the four `adopt-*` scripts among them. Every one
+of them told a reader standing outside a work tree to pass a flag it does not have. Nothing is asked
+of anybody: no re-install, no config, no migration. The remedy simply stops being a dead end, and
+because the fix is a default rather than fifteen edits, the sixteenth script inherits it for free.
+
+**Score:** 2
 
 #### Pull Request
 
 Resolve-RepoRootOrFail no longer names a flag the caller does not expose
-
