@@ -108,6 +108,13 @@ new suite that fails the moment it stops equalling this repo's own.
       was written for, and `pin-parity` owns which SHA. 76/76.
 - [x] Pin verified against the registry rather than copied: `refs/tags/v5` on `actions/checkout` resolves to
       `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` today, so the pin is v5 and not a downgrade.
+- [x] **After merging `main` forward for the staleness guard, #1843's third runner arrived** -- a
+      `repo-settings.yml` template that is correctly **unpinned** (read-only, `contents: read`, no
+      secret). The first cut of `pin-parity` asserted no `@vN` survived anywhere in the file and went red
+      on it, which would have pushed the next reader to "fix" a line that is already right. Re-cut to read
+      each runner on its own terms: the two write-capable templates must reach the pin for **both** of
+      their checkout steps and carry no floating tag; the read-only one is asserted to be *unpinned*, so
+      the exemption is a recorded decision rather than something a later blanket rule overruns. 15 asserts.
 - [x] Full gate: `check-plugin-integrity.ps1` + every suite, via `open-pr.ps1`.
 
 ### DEPLOY: fix/1904-pin-checkout-in-scaffolded-runners

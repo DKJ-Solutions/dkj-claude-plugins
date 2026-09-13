@@ -85,11 +85,44 @@ $gen = Get-Content -LiteralPath $genPath -Raw
 
 $genSha = Get-CheckoutSha $gen
 Assert-True ($null -ne $genSha) 'the generator names actions/checkout by a 40-character SHA'
-Assert-True ($gen -notmatch 'actions/checkout@v\d') 'and no mutable actions/checkout@vN tag survives in it'
 
 # ONE refresh point, not four literals. Four copies of a SHA is four places to forget.
 $pinAssignments = ([regex]::Matches($gen, '(?m)^\$checkoutPin\s*=')).Count
 Assert-Equal 1 $pinAssignments 'the pin is assigned exactly once, so it has a single refresh point'
+
+# --- 1b. PER RUNNER, because a blanket assert would be WRONG here ----------------------------------
+# The first version of this suite asserted no `actions/checkout@vN` survived anywhere in the file, and it
+# went red the moment #1843 merged its repo-settings runner -- which is CORRECTLY unpinned: read-only,
+# contents: read, no secret, exactly like this repo's own copy. A blanket rule would have pushed the next
+# reader to "fix" a line that is already right. So each runner is read on its own terms: the two
+# write-capable ones must reach the pin and must carry no floating tag; the read-only one is free.
+Write-Host '-- 1b. per runner -- write-capable pinned, read-only free --' -ForegroundColor Cyan
+
+function Get-RunnerBlock {
+    <# The composed line-array for one runner: from its `$<name> = @(` to the closing `)` at column 0. #>
+    param([string]$Source, [string]$VarName)
+    $m = [regex]::Match($Source, "(?ms)^\`$$VarName\s*=\s*@\((.*?)^\)")
+    if ($m.Success) { return $m.Groups[1].Value }
+    return $null
+}
+
+foreach ($w in @('foldRunner', 'resolvesRunner')) {
+    $block = Get-RunnerBlock $gen $w
+    Assert-True ($null -ne $block) "the $w template is where this suite expects it"
+    if ($null -ne $block) {
+        Assert-True ($block -notmatch 'actions/checkout@v\d') "$w carries no floating actions/checkout@vN tag"
+        # TWO checkout steps each, and BOTH go through the pin. persist-credentials puts the token in the
+        # workspace git config for the whole job, so the second step is as exposed as the first.
+        Assert-Equal 2 ([regex]::Matches($block, '\$checkoutPin')).Count "$w reaches the pin for both of its checkout steps"
+    }
+}
+
+# The read-only runner is deliberately left alone. Asserted so the exemption is a recorded decision
+# rather than something a later blanket rule quietly overruns.
+$ro = Get-RunnerBlock $gen 'repoSettingsRunner'
+if ($null -ne $ro) {
+    Assert-True ($ro -notmatch '\$checkoutPin') 'the read-only repo-settings runner is deliberately NOT pinned'
+}
 
 # --- 2. Parity with this repo's own fold runner ----------------------------------------------------
 Write-Host '-- 2. it equals the pin this repo runs on itself --' -ForegroundColor Cyan

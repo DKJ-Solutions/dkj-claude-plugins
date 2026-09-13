@@ -196,8 +196,8 @@ $pluginDir  = "$sharedPath/plugins/dkj-policy/scripts"
 # later step of the same job; verify-resolved's job likewise holds issues: write for its whole length.
 # An action is pinned because of the JOB it runs in, not because of the line it sits on.
 #
-# A READ-ONLY runner scaffolded here is deliberately NOT pinned -- it holds contents: read and no
-# secret, and this repo's own copy of such a workflow is unpinned for that same reason.
+# repo-settings.yml, the read-only runner scaffolded below, is deliberately NOT pinned -- it holds
+# contents: read and no secret, and this repo's own copy of it is unpinned for that same reason.
 #
 # HOW THIS PIN GETS REFRESHED, which is the half a generated pin does not get for free. It is ONE
 # variable rather than four literals, and pin-parity.tests.ps1 asserts it still equals the SHA in this
