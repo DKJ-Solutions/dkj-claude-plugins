@@ -77,6 +77,11 @@ $RefPrintLibSrc = Join-Path $RepoRoot 'scripts\lib\ref-print-lib.ps1'
 # decodes it with the console code page. Dot-sourced here so the read is the same mechanism the script
 # under test uses -- a fixture copy would not be in this process's scope.
 . $NativeCaptureSrc
+# Get-RemoteFetchStampPath, for THIS suite's own use (issue #1915): Invoke-NewBranch below clears the
+# fetch-attempt record before every run, and the path that record lives at is the lib's to name rather
+# than a literal here that would go stale the first time it moves. Dot-sourced after native-capture,
+# which it needs.
+. (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -508,6 +513,41 @@ function Get-HeadCommitFiles {
     } finally { $ErrorActionPreference = $prevEap }
 }
 
+function Clear-FixtureFetchStamp {
+    <#
+        Delete the fixture's fetch-attempt record, so the NEXT new-branch run in it fetches for itself
+        (issue #1915).
+
+        WHY A SUITE ABOUT THE DIVERGENCE WARNING OWNS THIS. Every "another session pushed" case below is
+        two new-branch runs on one fixture, seconds apart, with the remote advanced in between -- and the
+        script under test discovers that only by fetching. Since #1860 it opts into -RecentFailureSeconds,
+        so a fetch that failed in the FIRST run suppresses the retry in the second for 90 seconds: the
+        second run then counts against a ref nobody refreshed, reads 0, and says nothing. Every assert on
+        the warning fails, and it fails pointing at whatever the case was really about.
+
+        MEASURED AS EXACTLY THAT, in the parallel test gate on September 13, 2026 (issue #1915): case (y6)
+        went red on its two positive cap asserts while the negative one passed -- the signature of a
+        warning that never fired -- and the same tree was green standalone. Reproduced by writing a failed
+        record between the two runs by hand: three asserts, same three verdicts.
+
+        IT REMOVES NO COVERAGE. The freshness seam has its own suite (scripts/tests/fetch-attempt.tests.ps1,
+        cases 7 and 8), which is where a skip belongs; nothing in this file asserts on one. And it cannot
+        mask a regression either: clearing the record only ever makes the second run FETCH, so a
+        new-branch whose fetch genuinely fails still leaves the ref stale and still fails these asserts.
+
+        Best-effort, like the writer it undoes: a record that cannot be located or removed costs a
+        possible skip, never the run.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Dir)
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $stamp = Get-RemoteFetchStampPath -RepoRoot $Dir
+        if ($stamp) { Remove-Item -LiteralPath $stamp -Force -ErrorAction SilentlyContinue }
+    } catch {
+    } finally { $ErrorActionPreference = $prevEap }
+}
+
 function Invoke-NewBranch {
     <#
         Runs the fixture copy of new-branch.ps1 as a child process, with the fixture folder as cwd
@@ -529,7 +569,11 @@ function Invoke-NewBranch {
         [switch]$SkipStaleBase,
         # The already-done check's own input (#1409). Only the (x) fixtures below pass it -- every
         # other fixture here is exercising something else and would have nothing to assert about it.
-        [string]$Resolves
+        [string]$Resolves,
+        # Leave the fetch-attempt record alone (issue #1915). Only (y7) passes it -- the one case whose
+        # SUBJECT is a run that could not refresh its refs, which is exactly the state Clear-FixtureFetchStamp
+        # exists to keep out of every other case.
+        [switch]$KeepFetchStamp
     )
     $scriptPath = Join-Path $Dir 'scripts\task\new-branch.ps1'
     $callArgs = @('-Name', $Name)
@@ -545,6 +589,7 @@ function Invoke-NewBranch {
     $prevLoc = (Get-Location).Path
     try {
         Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+        if (-not $KeepFetchStamp) { Clear-FixtureFetchStamp -Dir $Dir }
         Set-Location -LiteralPath $Dir
         $ErrorActionPreference = 'Continue'
         return (Invoke-CapturedChild -WorkDir $Dir -ChildArgs (@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath) + $callArgs))
@@ -1727,10 +1772,76 @@ Write-Output `$t.Type
         Invoke-FixtureGitIn $fixLong checkout -q main
     } finally { $ErrorActionPreference = $prevEap }
     $rY6b = Invoke-NewBranch -Dir $fixLong -Name 'feat/long-tip-1439-v1' -Title 'Long tip'
+    # THE PREMISE, ASSERTED RATHER THAN ASSUMED -- the same discipline (y5) applies to its payload, one
+    # layer out (issue #1915). All three cap asserts read a sentence that only exists if the divergence was
+    # FOUND, and finding it needs this run's own fetch to have refreshed refs/remotes/origin/<branch>. When
+    # that does not happen the note is '', and the three come out as PASS/FAIL/FAIL -- a signature that
+    # reads as "the cap is broken" and sent #1915's reporter to the fixture helpers. Named here, the same
+    # failure says which half went wrong in its own words.
+    Assert-True (Test-Phrase -Text $rY6b.Out -Phrase 'is 1 commit(s) behind origin/feat/long-tip-1439-v1') 'capped tip: the divergence was found at all -- the premise the three cap asserts below read'
     Assert-True (-not (Test-Phrase -Text $rY6b.Out -Phrase ('x' * 200))) 'capped tip: the 400-character subject does not reach the output whole'
     Assert-True (Test-Phrase -Text $rY6b.Out -Phrase ('x' * 80)) 'capped tip: but enough of it does to recognise the commit'
     # THE HALF THAT MATTERS IS STILL THERE, which is the whole reason for the cap.
     Assert-True (Test-Phrase -Text $rY6b.Out -Phrase 'git pull --ff-only') 'capped tip: and the remedy is not pushed off the end by it'
+
+    # --- (y7) A COUNT TAKEN AGAINST A REF NOBODY REFRESHED IS SAID, NOT PRINTED AS SILENCE (#1915) ----
+    # THE HOLE THE SIX CASES ABOVE ALL SIT ON. Every one of them asserts what the divergence check SAYS
+    # once it has looked; none asks what it says when it could not look. Get-RemoteAheadNote returns ''
+    # for both "origin has nothing you do not have" and "the ref I counted against is whatever the last
+    # fetch left", and until #1915 this caller printed the second as the first -- so the #1439 guard
+    # reported the shape of a clean branch on the one run where it was blind.
+    #
+    # THE STATE IS STAGED WITH A FAILED FETCH RECORD RATHER THAN A BROKEN REMOTE, because that is the
+    # shape the gate actually produced: since #1860 new-branch opts into -RecentFailureSeconds, so ONE
+    # transient failure suppresses the retry for the next 90 seconds -- and a claim, a cut and a resume
+    # all live inside that interval. A record is also the only way to reach this deterministically; a
+    # remote made unreachable would exercise git's own failure rather than the seam's.
+    #
+    # -KeepFetchStamp IS LOAD-BEARING AND IS THIS CASE'S ALONE: Invoke-NewBranch clears the record before
+    # every other run in this file, which is the repair for the flake #1915 was filed about.
+    Write-Host "new-branch.ps1 -- a run whose fetch did not refresh says so instead of nothing (#1915)" -ForegroundColor Cyan
+    $fixStale  = New-Fixture -Label 'y7'
+    $bareStale = New-BareOrigin -Dir $fixStale -Label 'y7'
+    Publish-FixtureTrunk -Dir $fixStale
+    $rY7a = Invoke-NewBranch -Dir $fixStale -Name 'feat/unrefreshed-1915-v1' -Title 'Unrefreshed'
+    Assert-Equal 0 $rY7a.Code 'unrefreshed: the cut exits 0'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Invoke-FixtureGitIn $fixStale checkout -q main
+    } finally { $ErrorActionPreference = $prevEap }
+
+    # The record the lib itself would have written, at the path the lib itself names -- so a move of
+    # either cannot leave this case staging a file nothing reads.
+    $stampPath = Get-RemoteFetchStampPath -RepoRoot $fixStale
+    Assert-True ([bool]$stampPath) 'unrefreshed: the fetch-attempt record has a path in this fixture -- the premise of the staging below'
+    $stampBody = ([ordered]@{
+        remote     = 'origin'
+        scope      = 'all'
+        ok         = $false
+        note       = 'git fetch exited 128'
+        detail     = @('fatal: staged by new-branch.tests.ps1')
+        recordedAt = [datetime]::UtcNow.ToString('o')
+    } | ConvertTo-Json -Depth 4)
+    [System.IO.File]::WriteAllText($stampPath, $stampBody, (New-Object System.Text.UTF8Encoding $false))
+
+    # NOTHING HAS MOVED ON ORIGIN, deliberately: this is the case where there genuinely is no divergence,
+    # so '' out of Get-RemoteAheadNote is the honest return and the whole question is what the CALLER does
+    # with it. Staging a divergence too would prove the same sentence for the wrong reason.
+    $rY7b = Invoke-NewBranch -Dir $fixStale -Name 'feat/unrefreshed-1915-v1' -Title 'Unrefreshed' -KeepFetchStamp
+    Assert-True (Test-Phrase -Text $rY7b.Out -Phrase 'fetch did not refresh it') 'unrefreshed: the run says the ref it compared against was not refreshed'
+    Assert-True (Test-Phrase -Text $rY7b.Out -Phrase 'is what this run could not see, not what is on the branch') 'unrefreshed: and says what the silence means, rather than leaving the reader to infer a clean branch'
+    Assert-True (Test-Phrase -Text $rY7b.Out -Phrase 'git fetch origin feat/unrefreshed-1915-v1') 'unrefreshed: and hands over the command that settles it, naming the branch'
+    # THE TRUNK'S OWN NOTE IS NOT THIS ONE, and the case asserts both so neither can be mistaken for the
+    # other: 'Base: ...' speaks about origin/<trunk>, and a reader given only that has no way to know the
+    # branch-divergence probe went blind on the same reading.
+    Assert-True (Test-Phrase -Text $rY7b.Out -Phrase 'not retried') 'unrefreshed: the skipped fetch is reported too -- the trunk-level note, which is a different sentence'
+
+    # AND IT IS SILENT WHEN THE FETCH DID REFRESH, which is the overwhelming majority of runs. Same
+    # fixture, same absence of divergence: only the record is gone, so this run fetches for itself.
+    $rY7c = Invoke-NewBranch -Dir $fixStale -Name 'feat/unrefreshed-1915-v1' -Title 'Unrefreshed'
+    Assert-True (-not (Test-Phrase -Text $rY7c.Out -Phrase 'fetch did not refresh it')) 'unrefreshed: a run that fetched successfully says nothing about it -- the check cannot become noise'
+    Assert-True (-not (Test-Phrase -Text $rY7c.Out -Phrase 'not retried')) 'unrefreshed: and the record is gone, so nothing is skipped either'
 
     # --- (x) THE ALREADY-DONE CHECK: -RESOLVES WARNS BEFORE THE CHECKOUT, NEVER REFUSES (#1409) --------
     # SAME SHAPE AS (s)/(s2)/(t) ABOVE, ONE LAYER IN: a base gone stale and an issue already resolved are
