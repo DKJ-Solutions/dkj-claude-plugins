@@ -43,7 +43,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 20 minor entries** <!-- pending-tally -->
+**17 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1932-identity-refusal-128-derived · 20260913-121854
+
+`new-branch`'s no-identity refusal now takes its exit code from the constant its guard actually gated
+on, instead of carrying a third hand-typed copy of `128` -- and says no number at all where a
+plugin payload predating #1920 supplies no constant to read. The call site records why the number is
+sound, which is what a reader could not tell before: `Test-GitCanCommit` returns a bool, so the
+message looked like an assertion about a measurement it never made.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running this script from the plugin cache sees the refusal state the code its own guard
+matched on. It matters most on the payload nobody is watching: a mirror built between inbound #1867
+and #1920 refuses on **any** non-zero exit, and there the old sentence sent the reader to
+`user.name`/`user.email` for a state that has nothing to do with either. Nothing is asked of anybody
+-- no re-install, no config -- and the failure this prevents has not happened yet.
+
+**Score:** 1
+
+#### Pull Request
+
+Say at the call site why the no-identity refusal may state exit 128
+
+Plugins: dkj-policy
+
+[PR #1938](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1938)
+
+---
 
 ### DEPLOY: fix/1924-fixture-dep-seed-from-script · 20260913-120914
 
