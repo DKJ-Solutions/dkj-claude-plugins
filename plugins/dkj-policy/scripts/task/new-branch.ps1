@@ -380,8 +380,31 @@ if ($Name -eq $trunk) {
 # Every path through this script commits, so a valve would only let a caller choose the exit 128.
 if (Test-FunctionDefined 'Test-GitCanCommit') {
     if (-not (Test-GitCanCommit -RepoRoot $repoRoot)) {
+        # THE NUMBER IN THIS SENTENCE IS THE GUARD'S OWN, READ RATHER THAN RETYPED (issue #1932).
+        # Test-GitCanCommit returns a bool, so nothing here sees an exit code -- and this message used to
+        # state '128' as a literal, which reads as an assertion about a measurement this block never made.
+        # It was not one: since #1920 that function refuses ONLY on git's own 128 and returns $true for
+        # every other non-zero, so this branch is unreachable at any other code and the number was sound.
+        # What was wrong is WHERE it came from -- a third hand-typed copy of a value the lib names as a
+        # constant precisely because two readers already have to agree on it (the function itself, and
+        # new-branch.tests.ps1's (y) fixture sanity assert, which pins git's side of the number).
+        #
+        # WHY NOT THE REPAIR #1932 PROPOSED. Returning the code alongside the verdict is a contract change
+        # to a function called from a SessionStart hook, check-git-identity.ps1, its plugin mirror and
+        # here -- to obtain a value that is already a named constant one dot-source away. Reading that
+        # constant makes all three readers the same number, and costs the contract nothing.
+        #
+        # AND WHERE THE LIB DOES NOT SUPPLY IT, NO NUMBER IS CLAIMED. The dot-source above is guarded for
+        # a mirror built before that lib existed, and one from between inbound #1867 and #1920 carries
+        # Test-GitCanCommit WITHOUT the constant -- which is exactly the payload whose refusal fires on any
+        # non-zero, and the only one where 'exits 128' would be the unproven claim #1932 was filed about.
+        # Get-Variable rather than a bare $script: read, so an absent constant is a $null instead of a
+        # throw under a caller that has set StrictMode.
+        $identCodeVar = Get-Variable -Name 'GitAuthorIdentityUnknownExitCode' -ErrorAction SilentlyContinue
+        $identStateNote = 'did not name an author here'
+        if ($identCodeVar -and $null -ne $identCodeVar.Value) { $identStateNote = "exits $($identCodeVar.Value) here" }
         Write-Host 'new-branch: this checkout has no usable git author identity -- it cannot commit.' -ForegroundColor Red
-        Write-Host '  `git var GIT_AUTHOR_IDENT` exits 128 here, which is exactly the state `git commit` refuses' -ForegroundColor Red
+        Write-Host "  ``git var GIT_AUTHOR_IDENT`` $identStateNote, which is exactly the state ``git commit`` refuses" -ForegroundColor Red
         Write-Host '  in. Nothing was created: no branch, no document, nothing on origin. Set both and re-run:' -ForegroundColor Red
         Write-Host '    git config --global user.name  "<your GitHub login>"' -ForegroundColor Red
         Write-Host '    git config --global user.email "<the address on that account>"' -ForegroundColor Red
