@@ -945,7 +945,7 @@ function Get-SharedScriptPairs {
             MirrorRun = 'adopt-workflow-folder.tests.ps1'
         },
         @{
-            # The CI floor (issue #1516). NAMED adopt-ci-floor UNTIL SEPTEMBER 13, 2026 (#1903), and
+            # The CI floor (issue #1516). NAMED adopt-merge-queue UNTIL SEPTEMBER 13, 2026 (#1903), and
             # that rename is the last step of a retirement that had already happened twice underneath it:
             # the merge queue stopped being this workflow's policy on September 7 (#1546), and the
             # merge_queue rule came off the source's own ruleset on September 9 (#1720). Most repos

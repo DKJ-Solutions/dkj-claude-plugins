@@ -6,7 +6,7 @@
     queue, print the ruleset command WITHOUT running it. Issues #1516, #1546, #1903.
 
 .DESCRIPTION
-    NAMED adopt-ci-floor.ps1 UNTIL SEPTEMBER 13, 2026 (#1903), AND THE OLD NAME IS GONE RATHER THAN
+    NAMED adopt-merge-queue.ps1 UNTIL SEPTEMBER 13, 2026 (#1903), AND THE OLD NAME IS GONE RATHER THAN
     FORWARDED. Nothing machine-side ever called it -- the one executable reference is the run line on
     adopt-dkj-policy's Part 3 page, and that page ships in the same plugin release as this file, so the
     two cannot disagree in a consumer's tree. A shim at the old path would need its own registry entry
