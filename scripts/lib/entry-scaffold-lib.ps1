@@ -755,7 +755,7 @@ function Format-EntryMergeStamp {
         RENDERED IN UTC, deliberately (inbound #1542): since #1280 Get-EntryInsertOffset derives the
         entry's INSERT POSITION from this stamp -- it walks to the first entry in the list whose own stamp
         is older -- so the stamp is a sort key, not only a display string. A sort key cannot be local
-        time: once adopt-merge-queue.ps1 ships fold-on-merge.yml, a repo folds both from a UTC GitHub
+        time: once adopt-ci-floor.ps1 ships fold-on-merge.yml, a repo folds both from a UTC GitHub
         runner and from a maintainer's laptop, and ToLocalTime() on the laptop would offset every
         locally-written stamp from every CI-written one by the maintainer's UTC offset -- dropping entries
         out of chronological order in the very TIER 0 section #1280 fixed to be chronological. It carries

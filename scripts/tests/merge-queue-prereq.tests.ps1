@@ -39,7 +39,7 @@
     exactly three things about a consumer are this repo's to guarantee, and that section is those three
     -- ship-pr not promising a fold runner it cannot see, and both scripts a consumer's own runners call
     being registered mirrors rather than files only this tree has. The adoption command itself is
-    covered by adopt-merge-queue.tests.ps1.
+    covered by adopt-ci-floor.tests.ps1.
 
     BOTH FAIL SILENTLY AND BOTH FAIL BADLY, which is why they are pinned rather than commented:
 
@@ -243,7 +243,7 @@ if (Test-Path -LiteralPath $foldWf) {
 
 Write-Host "== the policy travels: what a CONSUMER under a queue needs (#1516) ==" -ForegroundColor Cyan
 
-# WHY THIS SECTION IS HERE AND NOT ONLY IN adopt-merge-queue.tests.ps1. That suite proves the adoption
+# WHY THIS SECTION IS HERE AND NOT ONLY IN adopt-ci-floor.tests.ps1. That suite proves the adoption
 # command works; these three asserts are about the half a consumer gets whether they run it or not, and
 # each closes a route by which the queue policy silently does not travel. The queue is a repo setting
 # per repo, so it reaches a consumer as a POLICY rather than as a release -- which means the only things
@@ -271,8 +271,8 @@ Assert-True ($tail -match 'fold-changelog-entry\.ps1 -Branch \$\(\$branchPaste\.
 #    file present in plugins/ with no row behind it is one build away from disappearing.
 . (Join-Path $repoRoot 'scripts\lib\shared-scripts-lib.ps1')
 $pairNames = @((Get-SharedScriptPairs -RepoRoot $repoRoot) | ForEach-Object { $_.Name })
-Assert-True ($pairNames -contains 'adopt-merge-queue') `
-    'adopt-merge-queue is a registered shared pair -- a floor only the source can build is not a policy'
+Assert-True ($pairNames -contains 'adopt-ci-floor') `
+    'adopt-ci-floor is a registered shared pair -- a floor only the source can build is not a policy'
 
 # 3. AND SO IS WHAT THE PLACED RUNNER CALLS. verify-resolved.yml runs verify-pushed-merges.ps1 out of
 #    the plugin tree; unregistered, that scaffolded workflow points at a path no consumer has, and it

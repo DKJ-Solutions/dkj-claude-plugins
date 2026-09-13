@@ -9,7 +9,7 @@
       1. IT NEVER RUNS `gh label create`, ANYWHERE, EVER -- the whole point of the script (Dave's
          decision on #1895: print, not apply, the same shape Get-MissingLabelNote already established
          for a PR label). Checked TWO ways: there is no -Apply parameter at all (unlike
-         adopt-merge-queue.ps1, which has one for its local workflow files but never for the ruleset
+         adopt-ci-floor.ps1, which has one for its local workflow files but never for the ruleset
          itself), and no Invoke-NativeCapture call in the script's own source ever passes 'create' as a
          `gh label` argument -- so even a future accidental rewiring could not quietly start applying.
       2. EVERY MISSING LABEL PRINTS A PASTE-READY COMMAND with the exact name, colour and description,
@@ -25,14 +25,14 @@
       6. ALWAYS EXITS 0 -- this is a report, never a gate.
 
     THE LABEL PAYLOAD ARRIVES FROM A FIXTURE FILE, via -LabelJsonOverride, for the same reason
-    adopt-merge-queue.tests.ps1 uses -RulesJsonOverride: a test tree is not a checkout, has no remote,
+    adopt-ci-floor.tests.ps1 uses -RulesJsonOverride: a test tree is not a checkout, has no remote,
     and CI has no token that could list a real repo's labels. EVERY FIXTURE CONSUMER ALSO DEFINES
     Get-RepoName in its own scripts/repo-config.ps1, so the script's `gh repo view` fallback (the one
     other native call in it) is never reached either -- this suite is fully network-free.
 
     TEST-GAP, STATED RATHER THAN HIDDEN: the "no Get-RepoName AND no -LabelJsonOverride" combination,
     where the script would genuinely call `gh repo view`/`gh label list`, is not exercised here, for the
-    reason above. adopt-merge-queue.tests.ps1 carries the identical gap for its own `gh repo view`
+    reason above. adopt-ci-floor.tests.ps1 carries the identical gap for its own `gh repo view`
     fallback, and the underlying resolution code is the same pattern, already proven there.
 
     Dependency-free: no Pester, only PowerShell. Exit 0 if everything passes, 1 on a failure.
@@ -117,7 +117,7 @@ function Invoke-Adopt {
         $env:CLAUDE_PROJECT_DIR = $Dir
         $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -LabelJsonOverride $LabelJsonPath
         # Flat is for phrase asserts that might otherwise be split mid-word by the child's own host-width
-        # wrapping -- the same reasoning adopt-merge-queue.tests.ps1 documents for its own Invoke-Adopt.
+        # wrapping -- the same reasoning adopt-ci-floor.tests.ps1 documents for its own Invoke-Adopt.
         return [pscustomobject]@{
             Code = $LASTEXITCODE
             Out  = ($out -join "`n")
@@ -141,7 +141,7 @@ try {
     Write-Host '-- 1. print-only, mechanically enforced --' -ForegroundColor Cyan
     $scriptSrc = [System.IO.File]::ReadAllText($Script)
     Assert-True ($scriptSrc -notmatch '\$Apply\b') `
-        'no -Apply parameter exists at all -- unlike adopt-merge-queue.ps1, there is no local-file half to apply, so nothing here could ever write a label'
+        'no -Apply parameter exists at all -- unlike adopt-ci-floor.ps1, there is no local-file half to apply, so nothing here could ever write a label'
     $createCalls = @([regex]::Matches($scriptSrc, "Arguments\s+@\([^)]*'create'[^)]*\)"))
     Assert-Equal 0 $createCalls.Count 'no Invoke-NativeCapture call in the script ever passes ''create'' as a gh label argument'
     Assert-True ($scriptSrc -match "gh label create") `

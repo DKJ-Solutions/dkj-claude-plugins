@@ -411,7 +411,7 @@ refusal prints the branch name it read before it moved you.
 
 **It needs a required status check to have a certificate to read.** With none named, `ship-pr` says so and
 skips the step rather than inventing a verdict — which is honest and is also blind, so making one check
-required on your trunk is the single thing that turns this mechanism on. `adopt-merge-queue` reports where
+required on your trunk is the single thing that turns this mechanism on. `adopt-ci-floor` reports where
 you stand on it.
 
 ##### A merge queue is SUPPORTED, and is no longer prescribed
@@ -463,7 +463,7 @@ the plugin, because none of them is plugin payload:
    a degradation, and invisible until the first merge after the switch. In a repo with no queue this is
    inert, so leaving it out costs nothing.
 
-**`adopt-merge-queue` reports all three**, and it is Part 3 of the [`adopt-dkj-policy`
+**`adopt-ci-floor` reports all three**, and it is Part 3 of the [`adopt-dkj-policy`
 skill](skills/adopt-dkj-policy/SKILL.md): it places the two runners, says whether a required check exists
 at all — the one detect-and-rebase reads — and, for a repo that has chosen a queue, prints the ruleset
 command **without running it**. Switching a queue on is a repo-settings change and therefore the owner's,

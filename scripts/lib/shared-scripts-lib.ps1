@@ -945,21 +945,29 @@ function Get-SharedScriptPairs {
             MirrorRun = 'adopt-workflow-folder.tests.ps1'
         },
         @{
-            # The merge-queue floor (issue #1516). The queue went live on this workflow's source repo on
-            # September 6, 2026 (#1492) and the policy is that every repo running this workflow adopts
-            # one -- but the SETTING is the last step, not the first. A queue takes the fold (#1493) and
-            # the resolves verification (#1511) away from the shipping session, and demands a merge_group
-            # trigger on every required check before it is switched on at all (#1325). None of that
-            # travelled: a consumer flipping the setting today gets an outage or a trunk quietly
-            # collecting unfolded entries. This command is the floor, and it is shared for the reason
-            # every entry here is -- the alternative is each consumer deriving three CI files and a
-            # prerequisite from the source's tree, which is what they did for the branch-entry gate.
+            # The CI floor (issue #1516). NAMED adopt-ci-floor UNTIL SEPTEMBER 13, 2026 (#1903), and
+            # that rename is the last step of a retirement that had already happened twice underneath it:
+            # the merge queue stopped being this workflow's policy on September 7 (#1546), and the
+            # merge_queue rule came off the source's own ruleset on September 9 (#1720). Most repos
+            # running this workflow CANNOT have a queue at all (#1540), so the old name promised the one
+            # part of this command most of its readers can never reach.
+            #
+            # WHAT IT PLACES IS EVERY REPO'S, QUEUE OR NO QUEUE. A queue takes the fold (#1493) and the
+            # resolves verification (#1511) away from the shipping session -- but so does the GitHub UI
+            # merge button, which exists in every repo on earth, so both runners are floor rather than
+            # queue machinery. What survives of the queue half is a report, the merge_group prerequisite
+            # (#1325) flagged only where a queue is actually active, and a ruleset command the script
+            # composes and refuses to run.
+            #
+            # SHARED FOR THE REASON EVERY ENTRY HERE IS -- the alternative is each consumer deriving the
+            # CI files and a prerequisite from the source's tree, which is what they did for the
+            # branch-entry gate.
             #
             # THIRD SIBLING OF adopt-config AND adopt-workflow-folder, and Part 3 of the same skill page.
             # A page rather than a skill of its own, deliberately: a fourth always-on skill description
             # is paid by every session in every consumer, and this operation is run about once per repo.
-            Name   = 'adopt-merge-queue'
-            Source = 'scripts\task\adopt-merge-queue.ps1'
+            Name   = 'adopt-ci-floor'
+            Source = 'scripts\task\adopt-ci-floor.ps1'
             Plugin = 'dkj-policy'
             Skill  = 'adopt-dkj-policy'
             # A test points the command at a fixture rules payload instead of calling gh, which is the
@@ -986,7 +994,7 @@ function Get-SharedScriptPairs {
             # .SYNOPSIS run line, the shared-scripts table row below, and one sentence in
             # CONTRIBUTING-portable.md. A future issue that outgrows this may still give it one.
             #
-            # NOT REFUSED IN THE WORKFLOW'S SOURCE REPO, unlike adopt-merge-queue and
+            # NOT REFUSED IN THE WORKFLOW'S SOURCE REPO, unlike adopt-ci-floor and
             # adopt-workflow-folder above: those write local files that would collide with the hand-kept
             # originals they are derived from. This script writes nothing at all -- it only reads
             # `gh label list` and prints -- so running it here checks this repo against its own

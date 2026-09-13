@@ -415,11 +415,21 @@ business and does nothing anywhere else.
 ### Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-merge-queue.ps1"
+powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
 ```
 
 A **dry run**: it reads your trunk's rules, reads your workflow files, prints where you stand, and writes
 nothing. Add `-Apply` when the list looks right.
+
+**It was `adopt-merge-queue.ps1` until September 13, 2026**
+([#1903](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1903)). The old path is **gone
+rather than forwarded**: a note or a wrapper still naming it fails loudly on the next plugin update,
+which is the cheaper outcome than a second name for one script. The rename is the last step of a
+retirement that had already happened twice underneath it -- the queue stopped being the policy on
+September 7 ([#1546](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1546)) and came off
+the source's own ruleset on September 9
+([#1720](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1720)) -- and this part has been
+called *the CI floor* since before it.
 
 **In the source repo there is nothing to run.** It arranges its own runners by hand -- they are the
 originals these are derived from, they call its in-repo scripts rather than a checked-out mirror, and its

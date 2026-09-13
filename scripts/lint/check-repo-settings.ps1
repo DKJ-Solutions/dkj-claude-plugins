@@ -43,7 +43,7 @@
     as unfolded-entry.yml and branch-entry.yml.
 
     IT NEVER WRITES TO GITHUB. Repo settings are the owner's surface under this repo's constitution;
-    this script reads and reports, exactly as adopt-merge-queue.ps1 composes its ruleset command and
+    this script reads and reports, exactly as adopt-ci-floor.ps1 composes its ruleset command and
     stops. Reading needs a token that can read; writing needs one that can administer the repo, and a
     check that quietly held the second would be a different kind of tool.
 
@@ -139,7 +139,7 @@ $checkLib = Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1'
 if (Test-Path -LiteralPath $checkLib -PathType Leaf) { . $checkLib }
 
 # TWO LIBS, AND BOTH REPLACE SOMETHING THIS SCRIPT HAD HAND-ROLLED. Same pair, and the same order, as
-# adopt-merge-queue.ps1 -- which reads the very endpoint this script reads.
+# adopt-ci-floor.ps1 -- which reads the very endpoint this script reads.
 #
 #   native-capture-lib  -> Invoke-NativeCapture, which centralises the save-EAP / Continue / run /
 #     record $LASTEXITCODE / restore dance its own docstring exists to keep in one tested place. The
@@ -236,7 +236,7 @@ function Read-Payload {
         # -DiscardStderr BECAUSE THIS OUTPUT IS PARSED -- a gh warning merged into it would break the
         # ConvertFrom-Json and cost the read; and -Utf8 because it is DATA rather than progress, so it
         # must not be decoded with whatever console code page the run inherited. Same two flags, and
-        # the same reasoning, as adopt-merge-queue.ps1's read of this endpoint.
+        # the same reasoning, as adopt-ci-floor.ps1's read of this endpoint.
         $read = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Utf8 -Arguments $GhArgs
         if ($read.ExitCode -ne 0) {
             return (& $fail "gh refused the read (exit $($read.ExitCode)) -- no access, or no such $What")

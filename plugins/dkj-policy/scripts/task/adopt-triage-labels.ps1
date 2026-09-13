@@ -18,11 +18,11 @@
     in `pr-issues-lib.ps1` already refuses to substitute or drop a missing PR label for exactly this
     reason: "both silent options look like kindnesses and both break a repo that gates on the label."
     Creating a label is a GitHub-side write with the same shape as the ruleset write
-    `adopt-merge-queue.ps1` refuses to make -- irreversible in the sense that matters (every future `gh
+    `adopt-ci-floor.ps1` refuses to make -- irreversible in the sense that matters (every future `gh
     label create`/`gh issue create --label` in this repo now resolves against it) and outward-facing.
     So this script does what that function already does, one layer up: it composes the exact command
     a person would type and stops. There is deliberately NO -Apply switch here, unlike
-    `adopt-merge-queue.ps1` -- that script's -Apply places LOCAL WORKFLOW FILES beside a ruleset it
+    `adopt-ci-floor.ps1` -- that script's -Apply places LOCAL WORKFLOW FILES beside a ruleset it
     still only reports on; a label has no such local-file half, so there is nothing this script could
     ever apply short of the write itself, which stays a person's call.
 
@@ -49,7 +49,7 @@
     (`source-repo-guard.tests.ps1`'s own coverage assert enforces it, with an exemption reserved for a
     hook nobody types): it refuses a STALE, released copy of THIS script running from inside the repo
     that maintains it, and does nothing anywhere else. This script has it, right below.
-    `Test-IsWorkflowSourceRepo`, the SEPARATE, content-specific refusal `adopt-merge-queue.ps1` and
+    `Test-IsWorkflowSourceRepo`, the SEPARATE, content-specific refusal `adopt-ci-floor.ps1` and
     `adopt-workflow-folder.ps1` carry, is different: it refuses the whole OPERATION in the source repo,
     because those commands WRITE local files that would collide with the hand-kept originals they are
     derived from. This script writes nothing anywhere -- it only reads `gh label list` and prints -- so
@@ -106,7 +106,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # source's root copy falls back to the git root. Same resolution as every other mirrored script.
 $repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (git rev-parse --show-toplevel).Trim() }
 
-# repo-config.ps1 first and optional, exactly as adopt-merge-queue loads it: it supplies Get-RepoName
+# repo-config.ps1 first and optional, exactly as adopt-ci-floor loads it: it supplies Get-RepoName
 # and (once a consumer has adopted it) Get-TriageLabels. Absent or not yet defining either is the
 # ordinary state for a fresh adoption, not a failure -- every read below has a fallback.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
@@ -154,7 +154,7 @@ if ($triageLabels.Count -eq 0) {
 $repoSlug = ''
 if (Test-FunctionDefined 'Get-RepoName') { $repoSlug = [string](Get-RepoName) }
 if (-not $repoSlug) {
-    # No seam answer: ask gh what repo this checkout is, exactly as adopt-merge-queue does for the same
+    # No seam answer: ask gh what repo this checkout is, exactly as adopt-ci-floor does for the same
     # reason -- a fresh adoption has not necessarily answered Get-RepoName yet, and refusing here would
     # gate this report on a seam that has nothing to do with it.
     $slugRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')
@@ -171,7 +171,7 @@ if ($LabelJsonOverride) {
     # defaults to 30, and a truncated list would report a label as missing when it is only unlisted.
     $labelArgs = @('label', 'list', '--repo', $repoSlug, '--json', 'name,color,description', '--limit', '500')
     # -DiscardStderr because this output is PARSED: a gh warning merged into it would break the
-    # ConvertFrom-Json inside Get-LabelNames, exactly the reasoning adopt-merge-queue's own rules read
+    # ConvertFrom-Json inside Get-LabelNames, exactly the reasoning adopt-ci-floor's own rules read
     # gives for the same flag.
     $labelRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments $labelArgs
     if ($labelRead.ExitCode -eq 0) { $labelJson = $labelRead.Output -join "`n" }

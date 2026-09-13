@@ -2412,7 +2412,7 @@ if ($queueActive) {
         Write-Host "    fold-changelog-entry.ps1 -Branch $($branchPaste.Token) -Commit -Push" -ForegroundColor Yellow
         if ($branchPaste.Note) { Write-Host $branchPaste.Note -ForegroundColor Yellow }
         Write-Host '  And put the runner in place so the next ship does not need this -- run the adopt-dkj-policy' -ForegroundColor Yellow
-        Write-Host '  skill (Part 3, adopt-merge-queue.ps1), which places it and the rest of the queue floor.' -ForegroundColor Yellow
+        Write-Host '  skill (Part 3, adopt-ci-floor.ps1), which places it and the rest of the queue floor.' -ForegroundColor Yellow
     }
     Write-Host "  Watch it land:  gh pr view $pr --repo $repo" -ForegroundColor DarkGray
     # STEP 6 HAS NO HOME IN THIS SCRIPT ONCE THE MERGE IS THE QUEUE'S, so it is named rather than

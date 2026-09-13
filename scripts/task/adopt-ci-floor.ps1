@@ -3,9 +3,18 @@
     The CI floor, in a consuming repo: place the two runners that keep the fold and the resolves
     verification alive across a merge this session never observes, report whether a required status
     check exists at all -- the one detect-and-rebase reads -- and, for a repo that has CHOSEN a merge
-    queue, print the ruleset command WITHOUT running it. Issues #1516, #1546.
+    queue, print the ruleset command WITHOUT running it. Issues #1516, #1546, #1903.
 
 .DESCRIPTION
+    NAMED adopt-ci-floor.ps1 UNTIL SEPTEMBER 13, 2026 (#1903), AND THE OLD NAME IS GONE RATHER THAN
+    FORWARDED. Nothing machine-side ever called it -- the one executable reference is the run line on
+    adopt-dkj-policy's Part 3 page, and that page ships in the same plugin release as this file, so the
+    two cannot disagree in a consumer's tree. A shim at the old path would need its own registry entry
+    and its own test: two maintained names for one script, which is precisely the ambiguity the rename
+    removes. A consumer who had automated the old path gets a loud file-not-found instead of a second
+    silent name. The queue is the last and least reachable thing this command covers -- see the next
+    paragraph -- and the name now says what the rest of it does.
+
     A MERGE QUEUE IS NO LONGER THIS WORKFLOW'S POLICY (Dave, September 7, 2026, #1546). It was, from
     September 6 (#1492) -- and the policy was set in the one repo where its central constraint cannot
     be felt. GitHub offers merge queue on a PRIVATE repo only under Enterprise Cloud, and otherwise
@@ -89,8 +98,8 @@
 
     RUN IT FROM THE ROOT OF THE CONSUMING REPO:
 
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-merge-queue.ps1"
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-merge-queue.ps1" -Apply
+        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
+        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1" -Apply
 
     Exit 0 while the queue is off and the floor is merely unbuilt -- that is a to-do, not a defect.
     Exit 1 when the queue is ACTIVE on the trunk and a piece of the floor is missing, because that is a
@@ -108,8 +117,8 @@
     consumer never types it.
 
 .EXAMPLE
-    .\scripts\task\adopt-merge-queue.ps1
-    .\scripts\task\adopt-merge-queue.ps1 -Apply
+    .\scripts\task\adopt-ci-floor.ps1
+    .\scripts\task\adopt-ci-floor.ps1 -Apply
 #>
 
 [CmdletBinding()]
@@ -570,7 +579,7 @@ $targets = @(
 )
 
 # --- Report ------------------------------------------------------------------------------------------
-Write-Host "== adopt-merge-queue -- $repoRoot ==" -ForegroundColor Cyan
+Write-Host "== adopt-ci-floor -- $repoRoot ==" -ForegroundColor Cyan
 if (-not $Apply) { Write-Host '  DRY RUN -- nothing is written. Re-run with -Apply to place the files below.' -ForegroundColor Yellow }
 Write-Host ''
 

@@ -89,7 +89,7 @@
 # race #1543 measured in a queueless consumer does not arise here -- but reading the pushed SHA still
 # answers the wrong question ("did the trunk carry a leftover at commit S") when the one this job exists
 # for is "does the trunk carry a leftover NOW". ref: main answers that and keeps this file in step with
-# the adopt-merge-queue.ps1 template.
+# the adopt-ci-floor.ps1 template.
 #
 # WHAT IT DOES NOT DO IS PUT THE FOLD'S TRUNK-GAP GUARD (#1405) OUT OF REACH, WHICH THIS FILE CLAIMED
 # UNTIL #1586. ref: main is read once, at the checkout; the guard measures the same trunk again about
@@ -222,7 +222,7 @@ jobs:
           #
           # KEYED ON THE CODE AND ONLY ON THAT CODE. Two prose matches already cross from these scripts'
           # stdout into this file; a third would put this agreement on a sentence that travels to
-          # consumers by a plugin release while this file travels by adopt-merge-queue.ps1's template.
+          # consumers by a plugin release while this file travels by adopt-ci-floor.ps1's template.
           # An exit code is checkable from both sides -- and every OTHER non-zero code still fails
           # below, which is the half that keeps this from becoming a blanket "ignore the fold".
           if ($foldExitCode -eq 2) {

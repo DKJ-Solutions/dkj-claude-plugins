@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tests for scripts/task/adopt-merge-queue.ps1 -- the CI floor a consuming repo adopts (issues
+    Tests for scripts/task/adopt-ci-floor.ps1 -- the CI floor a consuming repo adopts (issues
     #1516, #1546).
 
 .DESCRIPTION
@@ -48,8 +48,8 @@
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Script   = Join-Path $RepoRoot 'scripts\task\adopt-merge-queue.ps1'
-$Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "adopt-merge-queue-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
+$Script   = Join-Path $RepoRoot 'scripts\task\adopt-ci-floor.ps1'
+$Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "adopt-ci-floor-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 
 $script:pass = 0
 $script:fail = 0
@@ -170,7 +170,7 @@ $ExpectedRunners = @(
 )
 
 try {
-    Write-Host '== adopt-merge-queue.tests: scripts/task/adopt-merge-queue.ps1 ==' -ForegroundColor Cyan
+    Write-Host '== adopt-ci-floor.tests: scripts/task/adopt-ci-floor.ps1 ==' -ForegroundColor Cyan
     New-Item -ItemType Directory -Path $Fixture -Force | Out-Null
     $rulesOn = New-RulesFile -Label 'on' -Json $RulesQueueOn
     $rulesOff = New-RulesFile -Label 'off' -Json $RulesQueueOff
@@ -399,6 +399,6 @@ finally {
 }
 
 Write-Host ''
-Write-Host "adopt-merge-queue.tests: $script:pass passed, $script:fail failed." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
+Write-Host "adopt-ci-floor.tests: $script:pass passed, $script:fail failed." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }
 exit 0
