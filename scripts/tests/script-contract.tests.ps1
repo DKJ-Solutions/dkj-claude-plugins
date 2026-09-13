@@ -844,6 +844,75 @@ if (Test-Path -LiteralPath $memoProbeDep -PathType Leaf) { . $memoProbeDep }
     [System.IO.File]::WriteAllText($memoLib, "function Get-MemoProbe { 'nothing dot-sourced now' }`n")
     $secondRead = @(Get-ScriptDotSourceTargets -Path $memoLib -RepoRoot $memoDir)
     Assert-Equal 0 $secondRead.Count 'memo key: a rewrite at the SAME path is read again rather than served from the memo'
+
+    # --- 11. -UnconditionalOnly: the dot-sources that run AT LOAD (issue #1924) -------------------
+    #
+    # ASSERTED HERE FOR THE SAME REASON AS THE MEMO ABOVE: the switch lives in this lib, it travels to
+    # every consumer in the mirror, and an assert two libs away in the caller that asked for it is one
+    # nobody editing this walk will find. The caller's own suite (fixture-lib-deps.tests.ps1) proves what
+    # the narrower answer is FOR; this proves what it IS.
+    #
+    # THE DEFAULT MUST NOT MOVE. This function's standing question is "is this lib in scope at runtime",
+    # for which a guarded or in-function dot-source counts -- check-script-contract.ps1 runs from a
+    # SessionStart hook on that answer, so the switch being additive is the whole safety of it.
+    $uncondDir = Join-Path $Fixture 'uncond'
+    New-Item -ItemType Directory -Path (Join-Path $uncondDir 'scripts\lib') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $uncondDir 'scripts\task') -Force | Out-Null
+    foreach ($n in @('top-lib', 'guarded-lib', 'infunc-lib', 'inloop-lib', 'inblock-lib', 'blockinif-lib')) {
+        [System.IO.File]::WriteAllText((Join-Path $uncondDir "scripts\lib\$n.ps1"), "function Get-$n { }`n")
+    }
+    $uncondScript = Join-Path $uncondDir 'scripts\task\uncond-probe.ps1'
+    [System.IO.File]::WriteAllText($uncondScript, @'
+. (Join-Path $PSScriptRoot '..\lib\top-lib.ps1')
+$guarded = Join-Path $PSScriptRoot '..\lib\guarded-lib.ps1'
+if (Test-Path -LiteralPath $guarded -PathType Leaf) { . $guarded }
+function Invoke-Later {
+    . (Join-Path $PSScriptRoot '..\lib\infunc-lib.ps1')
+}
+foreach ($i in 1..2) {
+    . (Join-Path $PSScriptRoot '..\lib\inloop-lib.ps1')
+}
+$scoped = & {
+    . (Join-Path $PSScriptRoot '..\lib\inblock-lib.ps1')
+    'value'
+}
+if ($scoped -eq 'never') {
+    $null = & {
+        . (Join-Path $PSScriptRoot '..\lib\blockinif-lib.ps1')
+    }
+}
+'@)
+    $allSix = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir |
+                    ForEach-Object { Split-Path -Leaf $_ } | Sort-Object)
+    Assert-Equal 'blockinif-lib.ps1,guarded-lib.ps1,inblock-lib.ps1,infunc-lib.ps1,inloop-lib.ps1,top-lib.ps1' `
+        ($allSix -join ',') 'unconditional: the default answer is unchanged -- all six shapes are dot-sources'
+
+    $loadOnly = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir -UnconditionalOnly |
+                    ForEach-Object { Split-Path -Leaf $_ } | Sort-Object)
+
+    # THE IMMEDIATELY-INVOKED BLOCK IS LOAD-TIME, and this assert exists because the first version got it
+    # wrong. A script block is normally NOT load-time -- its statements run when something calls it -- so
+    # the type was in the conditional list outright, and `& { ... }` fell through the gap. That idiom is in
+    # this tree on purpose: check-plugin-integrity.ps1 resolves its changelog seam that way at top level,
+    # with an unguarded `. seam-lib.ps1` inside, and the hand-written comment above it describes the exact
+    # fixture failure this gate is meant to catch. Found by the code review on this branch.
+    Assert-Equal 'inblock-lib.ps1,top-lib.ps1' ($loadOnly -join ',') `
+        'unconditional: the top-level one AND an immediately-invoked `& { }` -- guard, function and loop drop out'
+
+    # And the exception does not swallow the rule: the SAME idiom inside an `if` is still conditional,
+    # because the block is stepped through and the invocation's own ancestry decides. That shape is in the
+    # same real file, one check further down.
+    Assert-True ($loadOnly -notcontains 'blockinif-lib.ps1') `
+        'unconditional: an `& { }` inside an if stays conditional -- the block is stepped through, not stopped at'
+
+    # AND THE MEMO MUST TELL THE TWO QUESTIONS APART. Both calls above read the same file at the same
+    # timestamp, so on a key that did not carry the mode the second would have been served the first's
+    # answer -- silently, and to the caller that asked for the other one. Asserted by asking in the
+    # REVERSE order, which is the order that was never exercised above.
+    $reverseLoadOnly = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir -UnconditionalOnly)
+    $reverseAll = @(Get-ScriptDotSourceTargets -Path $uncondScript -RepoRoot $uncondDir)
+    Assert-Equal 2 $reverseLoadOnly.Count 'unconditional: the memo carries the mode -- the narrow answer stays narrow'
+    Assert-Equal 6 $reverseAll.Count 'unconditional: and the wide answer stays wide, at the same timestamp'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }

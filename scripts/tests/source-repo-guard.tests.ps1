@@ -155,6 +155,10 @@ try {
     $fixtures += $awayDir
     New-Item -ItemType Directory -Path (Join-Path $awayDir 'scripts\lint') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $awayDir 'scripts\lib') -Force | Out-Null
+    # fixture-dep: script-not-loaded scripts/lint/check-branch-entry.ps1 -- the guard is its FIRST
+    # dot-source and this block exists to watch it refuse, so the run exits 1 before any other lib is
+    # reached. Copying the other five would be carrying equipment to a script that never gets that far,
+    # and the fixture's whole point is that it does not. See fixture-dep-lib.ps1 for the declaration.
     Copy-Item (Join-Path $realRepo 'scripts\lint\check-branch-entry.ps1') (Join-Path $awayDir 'scripts\lint\check-branch-entry.ps1')
     Copy-Item $GuardLib (Join-Path $awayDir 'scripts\lib\source-repo-guard-lib.ps1')
     $prev = $env:CLAUDE_PROJECT_DIR
