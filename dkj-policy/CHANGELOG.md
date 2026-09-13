@@ -43,7 +43,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1913-gate-only-suite-failures · 20260913-101309
+
+`new-branch.tests.ps1` can now say WHY it went red, and the one call in `new-branch.ps1` that could
+make it go red in silence is judged -- closes #1913. The suite runs the script as a CHILD PROCESS and
+asserted its exit code through `Assert-Equal`, which reports two numbers and discards the result
+object: a red lane said `expected: '0' / got: '1'` about a child whose stdout and stderr were already
+captured two lines away. That is why #1913 could be filed but not diagnosed, and why the same suite
+going red again on September 13 -- in a DIFFERENT place, which is itself evidence that this is not a
+fixture defect -- reported exactly as little. All 49 exit-code asserts go through `Assert-ExitCode`,
+which prints the child's output whole.
+
+**And the one unjudged call that reproduces that signature exactly is repaired.** The script's first
+statement resolved the repo root with `(git rev-parse --show-toplevel).Trim()`: where git answers
+nothing that is `$null.Trim()` -- exit 1, nothing created, and the only thing printed a PowerShell
+error naming a line in a script the reader did not write. Measured directly by running it outside a
+repository. It now names git's exit code, what git said, and that nothing was created. Whether that
+line was #1913's own cause is **not** claimed here and cannot be from what was measured; what is
+claimed is that it produces that exact signature, and that after this the next occurrence names
+itself either way.
+
+The closeout half of #1913 is fixed and is **#1910's**, not this branch's -- diagnosed here
+independently, landed there first and wider, and taken whole. The 36 other scripts carrying the
+unjudged repo-root spelling are #1917.
+
+For this repo's maintainers the change is that a red gate stops being a reason to re-run the gate.
+Noticed the next time one goes red, invisible otherwise.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber running this workflow meets the `new-branch` refusal directly: run from a worktree, from
+the wrong directory, or from a skill page whose working directory is not what they assumed, they used
+to get a PowerShell null-dereference naming a line number in a script they did not write. They now get
+a sentence naming git's exit code, what git said, that nothing was created, and the two ways through.
+Nothing to migrate; it arrives with the next plugin update.
+**Score:** 2
+
+#### Pull Request
+
+The gate-only suite failure names its cause
+
+Plugins: dkj-policy
+
+[PR #1921](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1921)
+
+---
 
 ### DEPLOY: fix/1906-xoxowildhearts-plugin-ids · 20260913-095835
 
