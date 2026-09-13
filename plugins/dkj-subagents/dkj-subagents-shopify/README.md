@@ -1,6 +1,6 @@
 # `dkj-subagents-shopify` — the Shopify add-on team
 
-Three specialists for a Shopify store repo, three skills, and an **operational floor**: the part that is
+Three specialists for a Shopify store repo, five skills, and an **operational floor**: the part that is
 not advice.
 
 | what | who / where |
@@ -12,6 +12,7 @@ not advice.
 | `push-preview` | the skill that pushes the current branch to its own **unpublished** preview theme, creating that theme on the first push rather than at branch creation |
 | `adopt-shopify-floor` | the skill that **places** the floor in your repo: the guard's seams, a starter `.theme-check.yml`, and the CI workflow over it |
 | `sync-main` | the **pre-task sync**: mirror the live theme into the trunk without letting live overwrite what the trunk has done since |
+| `archive-theme` | the backup that makes removing a spent preview theme recoverable: a verified local copy plus a **committed receipt**. It never removes a theme — see below |
 | `hooks/guard-live-theme.ps1` | **the floor** — a `PreToolUse` guard on the live theme |
 | `hooks/shopify-floor-sessioncheck.ps1` | says when that guard is only half armed, and when a second one is registered beside it |
 
@@ -113,6 +114,35 @@ live theme and this week's preview. It carries dated backups, themes named `DO N
 work from previous agencies — measured on a live store in August 2026: nineteen themes, of which one was
 a current preview. Nothing in a command distinguishes a spent preview from any of the rest, so the marker
 is what makes the deletion deliberate; being merely non-live is not enough.
+
+### The archive is the other half of that marker, and it does not remove anything
+
+`archive-theme` is the step that makes a removal *recoverable*: it pulls the theme into
+`theme-archive/`, verifies the pull landed something that is actually a theme, writes a **committed
+receipt** for it, and then **prints** the removal command — with the theme's name and role beside it,
+and the marker in place where the seam above is answered — for somebody to run as its own visible act.
+
+**It never runs that command itself, and that is a property of the guard rather than caution.** The
+guard is a `PreToolUse` hook: it reads the *command string* of a tool call. A destructive theme command
+buried inside a `.ps1` is invisible to it — the tool call reads `powershell -File … -Execute`, which
+holds nothing to match. So a script that removed a theme itself would not be a rule broken in the open;
+it would be a silent hole in the one mechanism that closes the wrapper vector. One of the two stores
+this skill converges had exactly that shape, and closing it is half of what converging bought.
+
+**The receipt is the half that survives the machine.** `theme-archive/` belongs in `.gitignore`, so a
+verified archive proves a removal recoverable *on the day it is taken* and nothing keeps that true
+afterwards — measured in a store: eight themes archived, all eight gone a week later, the archive
+folder absent from the checkout, and the only evidence the 2,934 files had ever existed was one
+sentence in a changelog entry. Making the *bytes* durable was rejected (for a spent branch preview the
+durable copy is git). What is committed instead is one small text file per theme, naming every file
+with its size and SHA-256, and **one event per machine that has held a copy**.
+
+**Two optional seams**, both unanswered by default and both harmless unanswered:
+
+| function | what it decides |
+|---|---|
+| `Get-ShopifyExternalThemePrefixes` | theme-name prefixes belonging to an outside integration. Matching themes are still archived — a read-only local copy harms nobody — but the printed removal command carries a warning, because removing one breaks that party's integration. |
+| `Get-ShopifyArchiveVerifierPath` | a consumer's own receipt verifier, named in the receipt so a reader knows how to check a recovered copy. Unanswered, the receipt says what it can prove without pointing at a tool that is not there. |
 
 **Six more belong to the pre-task sync** (`sync-main`), and only the store is required beside the theme
 id — the other five have defaults that are right for both existing Shopify consumers:
