@@ -43,7 +43,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**5 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1902-xoxowildhearts-live-repo · 20260913-053851
+
+`connectors/xoxowildhearts.json` now names `BWJ-Development/xoxowildhearts`, the repository this
+consumer actually works in. The old slug is **not archived** and still resolves, so nothing was
+failing and nothing would have started failing -- which is the hazard: a register pointing at an
+abandoned repo reads healthy indefinitely. Two checks have learned to *resolve* this field since the
+last such correction was made (`-RemoteRunners` reads that repository's CI over the API, #1850; check
+1b compares it against a checkout's own `origin`, #1821), so it is no longer the display-only
+bookkeeping #1553 measured it as.
+
+**Score:** 2 -- one data field in the consumer register, plus its note. Nobody outside this repo's
+own maintenance runs into it, and it is latent even here: no machine currently resolves a
+`localCheckout` for this consumer, so the connector block is a `[SKIP]` either way. It is noticed the
+moment somebody registers a checkout path, or runs `-RemoteRunners`.
+
+#### What makes this deploy extra special
+
+N/A -- the consumer register is this repo's own bookkeeping about who consumes the plugins. Nothing
+here ships, and nobody running an upgrade takes anything from it.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors/xoxowildhearts.json points at the live repo
+
+[PR #1908](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1908)
+
+---
 
 ### DEPLOY: feat/1843-portable-repo-settings-runner · 20260913-053153
 
