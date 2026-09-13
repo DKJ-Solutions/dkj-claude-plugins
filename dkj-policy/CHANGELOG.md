@@ -43,7 +43,65 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 21 minor entries** <!-- pending-tally -->
+**18 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1931-exit-code-unknown-audit · 20260913-122617
+
+`Invoke-NativeCapture` (`scripts/lib/native-capture-lib.ps1`) could return an `ExitCode` of `$null` --
+not from a crash, not a `0`, and no exception -- when its own documented "proven pattern"
+(`Start-Process -PassThru`, read `.Handle`, `WaitForExit()`, read `.ExitCode`) still lost a race in the
+first `Start-Process` call of a fresh process (issue #1931: 27 in 960 captures, 2.8%, under 16 lanes;
+reproduced independently here at 1 in 300). Both comparisons a caller could write, `-eq 0` and `-ne 0`,
+read a `$null` as failure, so an unmeasured code was indistinguishable from a measured one everywhere it
+was read.
+
+This adds `ExitCodeUnknown` to both arms of `Invoke-NativeCapture`, on the `ShortRead` precedent (#1679):
+a boolean a caller can consult, rather than a change to what `ExitCode` itself returns. #1931's own
+premise -- that #1920 had already added this field -- did not match the tree (verified by grep and by
+reading #1920's actual commit, which narrowed one caller's refusal to a specific git exit code instead);
+this branch builds the field #1931 actually needed.
+
+An audit of the ~256 `.ExitCode` comparison sites outside `scripts/tests/` found most of this codebase
+already defends against exactly this ambiguity, via a `Known`/`Measured`/`Fresh` tri-state pattern this
+lib's own `Get-TrunkGap`, `park-lib.ps1` and `git-porcelain-lib.ps1` already use, or via a fail-closed
+`Write-Error; exit 1` that halts rather than draws a wrong conclusion. Two sites did not, and both are in
+this same file:
+
+- **`Get-GitFileTextAtRef`**, whose one caller (`ship-pr.ps1`'s step-list gate and DEPLOY lock, #884)
+  read an unmeasurable exit code as "the document is absent -- nothing to check" and silently skipped
+  both merge-time content gates. It now throws instead, which is a hard stop under that script's
+  `$ErrorActionPreference = 'Stop'` rather than a silent pass.
+- **`Invoke-TestSuiteGate`'s own suite-judging loop**, which reads a raw `Start-Process` child's
+  `.ExitCode` directly (not through `Invoke-NativeCapture`) and is exposed to the identical race: a
+  passing suite whose exit code raced to `$null` was recorded and printed as `FAILED`, which would fail
+  the whole gate -- and by extension block every push and merge in this repo -- on a suite that actually
+  passed. It now routes an unmeasured read through the same "no verdict yet, re-run alone" path issue
+  #1723 already built for a genuine process crash, and treats a second unmeasurable read (on the retry)
+  as a second crash, fail-closed.
+
+Every other family was reviewed and left as is, with the reasoning recorded in the CREATE section's
+table above -- this was an audit with a documented decision per family, not a blanket sweep.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo running this workflow's shared scripts (native-capture-lib.ps1 is mirrored to every consumer)
+gets a more reliable test gate and a merge-time content gate that no longer has a silent skip path on
+an unmeasurable git read. No action is required to receive it -- it lands with the next plugin update
+-- and nothing about how a subscriber writes their own branch document or runs their own gate changes.
+
+**Score:** 2
+
+#### Pull Request
+
+Audit ExitCode comparison sites for absent-code false verdicts
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #1940](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1940)
+
+---
 
 ### DEPLOY: fix/1932-identity-refusal-128-derived · 20260913-121854
 
