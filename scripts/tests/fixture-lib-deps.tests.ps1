@@ -2,7 +2,8 @@
 .SYNOPSIS
     Regression tests for scripts/lib/fixture-dep-lib.ps1, and the gate itself: no hand-listed fixture
     lib copies under scripts/tests may go stale against what those libs dot-source (issue #1693), in a
-    suite or in a fixture builder the suites share (issue #1865).
+    suite or in a fixture builder the suites share (issue #1865), nor against what the copied SCRIPT
+    dot-sources at load time (issue #1924).
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell.
@@ -29,6 +30,20 @@
          on was invisible to the gate, measured on #1860's branch where this suite reported seven correct
          findings and the four lint suites then died on lib load anyway. Thirteen subjects now, and the
          scan set is every .ps1 in this directory.
+      1b. AND SO WAS THE SUBJECT ITSELF, one axis over (#1924, September 13, 2026). Both widenings above
+         are about WHICH FILES are read; this one is about WHAT IS READ IN THEM. The check asked, for each
+         copied LIB, whether that lib's siblings came too -- and never asked it of the SCRIPT the fixture
+         exists to run. Measured on the #1917 branch, which gave ~25 acting scripts an unguarded
+         dot-source of check-report-lib.ps1: six fixture-based suites broke on exactly that (fold-changelog
+         155 asserts red, prune-merged 73, park-branch 18, new-branch and two more dead on load) and this
+         suite reported all 26 of its asserts passed throughout.
+         THE WIDENING IS NOT BORN GREEN ON EVERY DOT-SOURCE, WHICH IS WHY IT IS NARROWED TO LOAD TIME.
+         Seeding from all of a script's dot-sources reports 10 subjects on the clean tree; all ten are
+         CONDITIONAL ones a fixture legitimately declines to carry -- source-repo-guard-lib.ps1 in eight,
+         whose refusal cannot fire in a fixture at all, since a fixture has no marketplace.json. Seeding
+         from the load-time ones alone reports none, and still reports the whole of the measured class.
+         Measured again as the reconstruction in the section below, which is this file's standing way of
+         proving a widening catches what it was built for rather than merely staying quiet.
       2. THE REAL INSTANCE DOT-SOURCES THROUGH A VARIABLE. On origin/fix/1682-porcelain-line-parse,
          park-lib.ps1 reads
              $parkPorcelainLib = Join-Path $PSScriptRoot 'git-porcelain-lib.ps1'
@@ -121,6 +136,17 @@ $TestDir  = Join-Path $SandRoot 'tests'
 New-Item -ItemType Directory -Path $LibDir  -Force | Out-Null
 New-Item -ItemType Directory -Path $TestDir -Force | Out-Null
 
+# A SECOND SANDBOX WITH A REAL REPO SHAPE, for the script half (#1924). The flat one above is enough for
+# every lib question, because a lib is only ever looked up by leaf in -LibDirectory. A copied SCRIPT is
+# looked up by its repo-relative PATH under -RepoRoot, and it resolves its own libs through
+# '$PSScriptRoot\..\lib' -- so nothing about that half can be exercised without the two directories
+# actually standing in that relation.
+$ScriptRepo = Join-Path $SandRoot 'repo'
+$ScriptRepoLib  = Join-Path $ScriptRepo 'scripts\lib'
+$ScriptRepoTask = Join-Path $ScriptRepo 'scripts\task'
+New-Item -ItemType Directory -Path $ScriptRepoLib  -Force | Out-Null
+New-Item -ItemType Directory -Path $ScriptRepoTask -Force | Out-Null
+
 function Set-Lib {
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Body)
     [System.IO.File]::WriteAllText((Join-Path $LibDir $Name), $Body, $Utf8NoBom)
@@ -131,6 +157,16 @@ function Set-Suite {
     $path = Join-Path $TestDir $Name
     [System.IO.File]::WriteAllText($path, $Body, $Utf8NoBom)
     return $path
+}
+
+function Set-RepoLib {
+    param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Body)
+    [System.IO.File]::WriteAllText((Join-Path $ScriptRepoLib $Name), $Body, $Utf8NoBom)
+}
+
+function Set-RepoScript {
+    param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Body)
+    [System.IO.File]::WriteAllText((Join-Path $ScriptRepoTask $Name), $Body, $Utf8NoBom)
 }
 
 function Clear-Sandbox {
@@ -342,6 +378,136 @@ if (Test-Path -LiteralPath $cacheDep -PathType Leaf) { . $cacheDep }
 
     # ---------------------------------------------------------------------------------------------
     Write-Host ''
+    Write-Host 'The COPIED SCRIPT is a subject too, and it is read at LOAD TIME only (#1924)' -ForegroundColor Cyan
+
+    # THE RECONSTRUCTION OF #1917, which is the instance this whole half exists for: an acting script
+    # gains an unguarded dot-source at the top of the file, and every fixture that copies it dies during
+    # load -- reporting a missing fixture DOCUMENT, because the script never got as far as writing one.
+    # The guarded dot-source beside it is the control: identical shape, one `if` around it, and the two
+    # must not answer the same way.
+    Set-RepoLib -Name 'report-lib.ps1' -Body "function Resolve-RepoRootOrFail { }`n"
+    Set-RepoLib -Name 'optional-lib.ps1' -Body "function Get-Optional { }`n"
+    Set-RepoLib -Name 'inner-lib.ps1' -Body "function Get-Inner { }`n"
+    Set-RepoScript -Name 'acting.ps1' -Body @'
+. (Join-Path $PSScriptRoot '..\lib\report-lib.ps1')
+$optional = Join-Path $PSScriptRoot '..\lib\optional-lib.ps1'
+if (Test-Path -LiteralPath $optional -PathType Leaf) { . $optional }
+function Invoke-Late {
+    . (Join-Path $PSScriptRoot '..\lib\inner-lib.ps1')
+}
+'@
+
+    Assert-Equal 'inner-lib.ps1,optional-lib.ps1,report-lib.ps1' `
+        ((Get-DotSourcedLibName -Path (Join-Path $ScriptRepoTask 'acting.ps1') -RepoRoot $ScriptRepo) -join ',') `
+        'without -LoadTimeOnly all three are dot-sources -- the contract check''s question, unchanged'
+
+    Assert-Equal 'report-lib.ps1' `
+        ((Get-DotSourcedLibName -Path (Join-Path $ScriptRepoTask 'acting.ps1') -RepoRoot $ScriptRepo -LoadTimeOnly) -join ',') `
+        'with it, only the top-level unguarded one -- a Test-Path guard and a function body both drop out'
+
+    $scriptSuite = Set-Suite -Name 'script.tests.ps1' -Body @'
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1') -Force
+'@
+    Assert-Equal 'scripts/task/acting.ps1' ((Get-FixtureCopiedScriptPath -Path $scriptSuite) -join ',') `
+        'a copied acting script is read as a repo-relative PATH, not a leaf -- the file has to be found again'
+
+    # AND THE TWO READERS PARTITION THE DESTINATIONS. A scripts/lib copy belongs to the lib reader and
+    # must not also arrive here, or every lib would be walked twice and attributed under two names.
+    $bothSuite = Set-Suite -Name 'both.tests.ps1' -Body @'
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1') -Force
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\lib\report-lib.ps1') -Force
+'@
+    Assert-Equal 'scripts/task/acting.ps1' ((Get-FixtureCopiedScriptPath -Path $bothSuite) -join ',') `
+        'and a scripts/lib destination is NOT also a script -- the two readers split the destinations'
+    Assert-Equal 'report-lib.ps1' ((Get-FixtureCopiedLibName -Path $bothSuite) -join ',') `
+        'while the lib reader still sees only the lib, unchanged by the second reader beside it'
+
+    $sf = @(Get-FixtureDepFinding -Path $scriptSuite -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo)
+    Assert-Equal 1 $sf.Count 'the fixture that copies the script and not its load-time lib is reported'
+    Assert-Equal 'report-lib.ps1' ($sf[0].Missing) 'and the lib named is the unguarded one'
+    Assert-Equal 'scripts/task/acting.ps1' ($sf[0].Lib) `
+        'attributed to the SCRIPT that wants it, by the path the suite copies -- so the finding names the file to edit'
+
+    Assert-Equal 0 @(Get-FixtureDepFinding -Path $bothSuite -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo).Count `
+        'and copying that lib silences it, without the guarded and in-function ones ever being demanded'
+
+    # THE CLOSURE RUNS FROM A SCRIPT'S DEPENDENCY TOO, in the same pass. Without this the author repairs
+    # the first lib, re-runs, and is told about its sibling on the second round -- the round-trip
+    # Get-FixtureDepFinding's own docstring refuses for the lib half.
+    Set-RepoLib -Name 'report-lib.ps1' -Body @'
+$chained = Join-Path $PSScriptRoot 'chained-lib.ps1'
+if (Test-Path -LiteralPath $chained -PathType Leaf) { . $chained }
+'@
+    Set-RepoLib -Name 'chained-lib.ps1' -Body "function Get-Chained { }`n"
+    $chainFindings = @(Get-FixtureDepFinding -Path $scriptSuite -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo)
+    Assert-Equal 2 $chainFindings.Count `
+        'a lib the script loads, and what THAT lib dot-sources, are both reported in one pass'
+    Assert-Equal 1 @($chainFindings | Where-Object { $_.Lib -eq 'report-lib.ps1' -and $_.Missing -eq 'chained-lib.ps1' }).Count `
+        'and the second is attributed to the lib rather than to the script -- the guarded rule applies again below the seed'
+
+    # A DESTINATION NAMING NO FILE IN THE REPO IS NOT A FINDING, the same judgement the lib half makes
+    # about a dependency the tree does not carry.
+    $ghostScript = Set-Suite -Name 'ghostscript.tests.ps1' -Body @'
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\not-in-this-tree.ps1') -Force
+'@
+    Assert-Equal 0 @(Get-FixtureDepFinding -Path $ghostScript -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo).Count `
+        'a copied script this repo does not have is not a finding -- there is nothing to read'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host ''
+    Write-Host 'The declared opt-out -- and the reason is part of the syntax' -ForegroundColor Cyan
+
+    # THIS MECHANISM WAS SPECIFIED BEFORE IT WAS NEEDED, in Get-FixtureCopiedLibName's own docstring under
+    # #1693, and #1924 produced the first instance: source-repo-guard.tests.ps1 copies check-branch-entry
+    # into an away directory to watch the guard REFUSE it, so the run exits 1 before any other lib loads.
+    $optSuite = Set-Suite -Name 'optout.tests.ps1' -Body @'
+# fixture-dep: script-not-loaded scripts/task/acting.ps1 -- the guard refuses it before any lib loads
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1') -Force
+'@
+    Assert-Equal 'scripts/task/acting.ps1' ((Get-FixtureDepScriptOptOut -Path $optSuite) -join ',') `
+        'the declaration is read off the comment -- the one reader here that is text rather than AST'
+    Assert-Equal 0 @(Get-FixtureDepFinding -Path $optSuite -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo).Count `
+        'and a declared script is not walked at all'
+
+    # THE MALFORMED ONE MUST NOT DISARM THE GATE. A directive with no ' -- <why>' is the shape somebody
+    # writes in a hurry, and silently honouring it would turn a typo into a switched-off check.
+    $noReason = Set-Suite -Name 'noreason.tests.ps1' -Body @'
+# fixture-dep: script-not-loaded scripts/task/acting.ps1
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1') -Force
+'@
+    Assert-Equal 0 @(Get-FixtureDepScriptOptOut -Path $noReason).Count `
+        'a declaration with no reason is not a declaration'
+    Assert-True (@(Get-FixtureDepFinding -Path $noReason -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo).Count -gt 0) `
+        'so the finding still stands -- a malformed opt-out fails loud rather than switching the gate off'
+
+    # A DIRECTIVE INSIDE A STRING IS DATA, NOT A DECLARATION -- the mirror image of the docstring assert
+    # near the top of this file, and a red this reader actually had. The first version matched the raw
+    # file text, and THIS suite writes synthetic opt-out fixtures into here-strings: the tree-wide count
+    # below read 3 where the tree held 1. Reading the parser's comment tokens separates the two, so the
+    # fixture written here is deliberately the shape that caught it.
+    $inString = Set-Suite -Name 'instring.tests.ps1' -Body @'
+$body = @"
+# fixture-dep: script-not-loaded scripts/task/acting.ps1 -- written into a fixture, not declared here
+"@
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1') -Force
+'@
+    Assert-Equal 0 @(Get-FixtureDepScriptOptOut -Path $inString).Count `
+        'a directive inside a string is not a declaration -- only a real comment token is'
+    Assert-True (@(Get-FixtureDepFinding -Path $inString -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo).Count -gt 0) `
+        'so a suite that merely writes the directive into a fixture does not exempt itself'
+
+    # And it is scoped to the script it names, not to the file it sits in.
+    $otherScript = Set-Suite -Name 'otherscript.tests.ps1' -Body @'
+# fixture-dep: script-not-loaded scripts/task/something-else.ps1 -- unrelated
+Copy-Item -LiteralPath $x -Destination (Join-Path $dir 'scripts\task\acting.ps1') -Force
+'@
+    Assert-True (@(Get-FixtureDepFinding -Path $otherScript -LibDirectory $ScriptRepoLib -RepoRoot $ScriptRepo).Count -gt 0) `
+        'a declaration naming a different script exempts nothing'
+
+    Clear-Sandbox
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host ''
     Write-Host 'THE GATE: this repo own fixtures, held against what their copied libs dot-source' -ForegroundColor Cyan
 
     $report = Get-FixtureDepReport -TestsDirectory (Join-Path $RepoRoot 'scripts\tests') `
@@ -374,6 +540,24 @@ if (Test-Path -LiteralPath $cacheDep -PathType Leaf) { . $cacheDep }
     $builderCopies = @(Get-FixtureCopiedLibName -Path (Join-Path $testDir 'check-plugin-integrity-fixture.ps1'))
     Assert-True ($builderCopies.Count -ge 10) `
         "the shared integrity fixture builder is a subject ($($builderCopies.Count) libs copied), though its name is not a suite's"
+
+    # THE SCRIPT HALF NEEDS ITS OWN NON-VACUITY ASSERT (#1924), for the same reason Subjects is returned
+    # at all: the whole widening is silent when it reads nothing, and 'zero findings' looks identical
+    # either way. A threshold rather than a count, on this file's own standing rule that a pinned number
+    # goes stale the day somebody adds a suite.
+    $copiedScripts = @(Get-ChildItem -Path $testDir -Filter '*.ps1' -File |
+                        ForEach-Object { Get-FixtureCopiedScriptPath -Path $_.FullName })
+    Assert-True ($copiedScripts.Count -ge 8) `
+        "and $($copiedScripts.Count) acting scripts are copied into fixtures, so the script half has subjects too"
+
+    # THE DECLARED OPT-OUTS ARE COUNTED, not because the number matters but because the mechanism is one
+    # a later reader could quietly start leaning on. One today: source-repo-guard.tests.ps1. A tree that
+    # grows a dozen is one where the asymmetry in Get-FixtureDepFinding stopped fitting, and that is worth
+    # noticing as a number rather than discovering as a habit.
+    $optOuts = @(Get-ChildItem -Path $testDir -Filter '*.ps1' -File |
+                    ForEach-Object { Get-FixtureDepScriptOptOut -Path $_.FullName })
+    Assert-True ($optOuts.Count -le 3) `
+        "the declared opt-out stays rare ($($optOuts.Count) in the tree) -- it is an exception, not a way of passing the gate"
 
     if ($report.Findings.Count -gt 0) {
         foreach ($f in $report.Findings) {

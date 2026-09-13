@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Which sibling libs a lib dot-sources, which libs a file under scripts/tests copies into its
-    fixture, and the gap between the two (issues #1693, #1865).
+    Which sibling libs a lib dot-sources, which libs and ACTING SCRIPTS a file under scripts/tests copies
+    into its fixture, and the gap between the two (issues #1693, #1865, #1924).
 
 .DESCRIPTION
     WHY THIS EXISTS. Several suites build their fixture tree by HAND-LISTING the libs they copy into
@@ -38,6 +38,15 @@
     its fixture, which nothing else in the tree reads. That is Get-FixtureCopiedLibName, and it is
     where the two false findings a naive version produced were repaired.
 
+    AND THE SUBJECT HAS TWO HALVES, WHICH IT DID NOT UNTIL #1924. Everything above reads the copied LIBS;
+    for each one it asks whether that lib's own siblings came along. Nothing asked it of the SCRIPT the
+    fixture exists to run -- so when #1917 gave ~25 acting scripts an unguarded dot-source of
+    check-report-lib.ps1, six fixture-based suites broke on exactly this class (fold-changelog 155 asserts
+    red, prune-merged 73, park-branch 18, new-branch and two more dead on load) and this lib's own gate
+    reported all 26 asserts green throughout. Get-FixtureCopiedScriptPath is that half, and
+    Get-FixtureDepFinding carries the one asymmetry it comes with: a copied script is read for its
+    LOAD-TIME dot-sources only, a copied lib for all of them.
+
     Pure ASCII (repo convention for .ps1). No Set-StrictMode: dot-sourcing would change the strict
     mode of the calling script.
 #>
@@ -60,6 +69,30 @@ $script:FixtureDepForwardSlash = [char]47
 # A bare '<name>.ps1', or one at the end of a path. Anchored on the leaf so 'scripts/lib/x.ps1',
 # '..\lib\x.ps1' and a bare 'x.ps1' all yield 'x.ps1'.
 $script:FixtureDepLeafPattern = '(?:^|/)([A-Za-z0-9_.-]+\.ps1)$'
+
+# A copied SCRIPT's destination, captured from 'scripts/' onward so the answer is a repo-relative path
+# rather than a leaf (issue #1924). A path, not a leaf, because the leaf cannot be found again: the
+# fixture copies the real 'scripts/task/new-branch.ps1', and the walk has to read THAT file to learn what
+# it dot-sources. Every fixture in this tree reproduces the repo's own layout below the fixture root --
+# it has to, since the script resolves its libs through '$PSScriptRoot\..\lib' -- so the destination
+# literal already carries the repo-relative path and nothing has to be guessed.
+$script:FixtureDepScriptPathPattern = '(?:^|/)(scripts/(?!lib/)[A-Za-z0-9_./-]*[A-Za-z0-9_.-]+\.ps1)$'
+
+# THE DECLARED OPT-OUT, AND THE SHAPE OF IT WAS SPECIFIED BEFORE IT WAS NEEDED. Get-FixtureCopiedLibName's
+# own docstring predicted this case under #1693 -- "a fixture that omits a dependency ON PURPOSE ... would
+# be reported and would be right to complain ... the answer is a declared opt-out on that suite, NOT
+# another entry in the exemption list" -- and named the two as different things on purpose: the exemption
+# list is about a FILE the whole tree does not owe, this is about ONE fixture that does not load a script
+# it copies. #1924 produced the first instance, so the mechanism is built to that specification rather
+# than to a fresh judgement.
+#
+#     # fixture-dep: script-not-loaded scripts/lint/check-branch-entry.ps1 -- <why>
+#
+# THE REASON IS PART OF THE SYNTAX, not a convention beside it: a line with no ' -- <why>' does not match,
+# so the finding stands. That is the safe direction for a malformed opt-out -- it fails loud rather than
+# silently disarming the gate -- and it means every opt-out in the tree carries its argument at the point
+# a reader meets it.
+$script:FixtureDepOptOutPattern = '(?m)^\s*#\s*fixture-dep:\s*script-not-loaded\s+(\S+)\s+--\s+\S'
 
 # THE REPO-OWNED SEAMS, WHICH A FIXTURE DOES NOT OWE (issue #1693). These are not "libs we decided to
 # skip": they are the files whose CONTENT differs per repo, so the caller dot-sources the consumer's
@@ -150,10 +183,17 @@ function Get-DotSourcedLibName {
         -RepoRoot is passed through because that function needs it to try the repo-root base. A caller
         with no repo (this lib's own suite, working in a sandbox) passes the sandbox root, which is the
         honest answer for that tree.
+
+        -LoadTimeOnly narrows the answer to the dot-sources that run when the file is LOADED, and is the
+        shared walker's -UnconditionalOnly under the name this lib's question uses: here the subject is
+        always a file a fixture copies, and the thing being asked is whether that file can be loaded at
+        all. Get-FixtureDepFinding carries the argument for why the copied SCRIPT is read this way and the
+        copied LIBS are not.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$RepoRoot
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [switch]$LoadTimeOnly
     )
 
     # THE PARSE FAILURE IS STILL THIS LIB'S OPINION, NOT THE SHARED WALKER'S. Get-ScriptDotSourceTargets
@@ -163,7 +203,7 @@ function Get-DotSourcedLibName {
     # remove, so a file that does not parse is thrown on before the walk is asked.
     $null = Get-FixtureDepAst -Path $Path
 
-    return @(Get-ScriptDotSourceTargets -Path $Path -RepoRoot $RepoRoot |
+    return @(Get-ScriptDotSourceTargets -Path $Path -RepoRoot $RepoRoot -UnconditionalOnly:$LoadTimeOnly |
                 ForEach-Object { Split-Path -Path $_ -Leaf } |
                 Sort-Object -Unique)
 }
@@ -260,6 +300,28 @@ function Get-FixtureCopiedLibName {
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
+    $found = @()
+    foreach ($dest in (Get-FixtureCopyDestinationLiteral -Path $Path)) {
+        if ($dest -notmatch 'scripts/lib/') { continue }
+        $leaf = Get-FixtureDepPs1Leaf -Value $dest
+        if ($leaf) { $found += $leaf }
+    }
+
+    return @($found | Sort-Object -Unique)
+}
+
+function Get-FixtureCopyDestinationLiteral {
+    <#
+        Every string literal that appears in a Copy-Item DESTINATION in one file, normalised to forward
+        slashes. The shared half of the two readers above and below, so a file is parsed once and the
+        two questions -- which libs, which scripts -- cannot drift apart on how a destination is found.
+
+        Split out for #1924, when the second reader arrived. Before that the walk and the 'scripts/lib/'
+        filter were one function, which reads fine with one caller and would have meant a second copy of
+        Get-CopyItemDestinationAst's contract with two.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
     # THE PREFILTER IS FREE AND IT IS NOT A MICRO-OPTIMISATION EITHER. This runs over EVERY suite in the
     # directory to decide which ones are subjects, and only 18 of 84 files contain the string
     # 'Copy-Item' at all -- so 66 of them were being parsed to prove they have no Copy-Item in them.
@@ -271,7 +333,6 @@ function Get-FixtureCopiedLibName {
         return @()
     }
 
-
     $ast = Get-FixtureDepAst -Path $Path
     $found = @()
     foreach ($node in @($ast.FindAll({
@@ -281,12 +342,86 @@ function Get-FixtureCopiedLibName {
         foreach ($valueAst in (Get-CopyItemDestinationAst -Command $node)) {
             foreach ($lit in @($valueAst.FindAll({
                         $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true))) {
-                $value = [string]$lit.Value
-                $normalised = $value.Replace($script:FixtureDepBackslash, $script:FixtureDepForwardSlash)
-                if ($normalised -notmatch 'scripts/lib/') { continue }
-                $leaf = Get-FixtureDepPs1Leaf -Value $value
-                if ($leaf) { $found += $leaf }
+                $found += ([string]$lit.Value).Replace($script:FixtureDepBackslash, $script:FixtureDepForwardSlash)
             }
+        }
+    }
+
+    return @($found)
+}
+
+function Get-FixtureCopiedScriptPath {
+    <#
+        Every ACTING SCRIPT a file copies into its fixture tree, as repo-relative forward-slash paths
+        ('scripts/task/new-branch.ps1'). The other half of the subject, and the half that was missing
+        until #1924.
+
+        WHY THE GATE NEEDED THIS. The reader above asks, for each copied LIB, whether that lib's own
+        siblings were copied too. Nothing asked the same question about the SCRIPT the fixture exists to
+        run -- so #1917 gave ~25 acting scripts an unguarded dot-source of check-report-lib.ps1, six
+        fixture-based suites broke on it, and this gate reported all 26 of its asserts green throughout.
+        A lib gaining a sibling is the rarer half of the class; a script gaining one is the commoner half,
+        and a script is what a fixture is built to run.
+
+        AND THE SYMPTOM IS WHY IT WAS WORTH A MECHANISM RATHER THAN A HABIT. The script dies during load,
+        before it writes anything, so what the suite reports is a MISSING FIXTURE DOCUMENT -- 'cannot find
+        part of the path ...\dkj-policy\feat-my-task-v1.md'. Nothing in that names the absent lib, so the
+        cost of the class is not the repair but the hour spent reading it backwards.
+
+        A PATH, NOT A LEAF, unlike everything else in this lib -- see the pattern's own note. 'scripts/lib'
+        destinations are excluded here rather than merely unmatched, so the two readers partition the
+        destinations between them instead of overlapping.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $found = @()
+    foreach ($dest in (Get-FixtureCopyDestinationLiteral -Path $Path)) {
+        $m = [regex]::Match($dest, $script:FixtureDepScriptPathPattern)
+        if ($m.Success) { $found += $m.Groups[1].Value }
+    }
+
+    return @($found | Sort-Object -Unique)
+}
+
+function Get-FixtureDepScriptOptOut {
+    <#
+        The copied scripts one file DECLARES it does not load, as the same repo-relative paths
+        Get-FixtureCopiedScriptPath answers in. See the pattern's own note for the syntax and why the
+        reason is part of it.
+
+        READ FROM THE COMMENT TOKENS, WHICH IS NEITHER THE RAW TEXT NOR THE AST. The declaration is a
+        comment, so the AST cannot carry it -- that is the very property Get-DotSourcedLibName relies on
+        to ignore a dot-source written inside a docstring. But a raw text match is wrong in the mirror
+        image: a directive that appears inside a STRING is data, not a declaration, and this lib's own
+        suite is the proof. It writes synthetic opt-out fixtures into here-strings, so on a raw match the
+        tree-wide count read 3 where the tree held 1 -- measured the first time that assert ran. The
+        parser's token stream separates the two exactly, and it is the same parser already being used one
+        function over.
+
+        Returned separately rather than subtracted inside the reader, so that what a fixture COPIES and
+        what it declares stay two readable answers. Get-FixtureDepFinding applies it, in the same place it
+        applies the repo-owned seam list.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    # The same free prefilter as the destination reader, and it matters more here: this one is asked about
+    # every file in the directory, while a declaration exists in one of them.
+    if (([System.IO.File]::ReadAllText($Path)).IndexOf('fixture-dep:', [System.StringComparison]::Ordinal) -lt 0) {
+        return @()
+    }
+
+    $tokens = $null
+    $errs = $null
+    $null = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errs)
+    if ($errs -and @($errs).Count -gt 0) {
+        throw "fixture-dep: '$Path' does not parse ($(@($errs)[0].Message))"
+    }
+
+    $found = @()
+    foreach ($t in @($tokens)) {
+        if ($t.Kind -ne [System.Management.Automation.Language.TokenKind]::Comment) { continue }
+        foreach ($m in [regex]::Matches($t.Text, $script:FixtureDepOptOutPattern)) {
+            $found += $m.Groups[1].Value.Replace($script:FixtureDepBackslash, $script:FixtureDepForwardSlash)
         }
     }
 
@@ -317,14 +452,40 @@ function Get-FixtureDepFinding {
         subjects, so ~190 ms of every run went on parsing each subject twice. Omitted, it reads the
         list itself, which keeps this function usable on its own.
 
+        THE COPIED SCRIPT SEEDS THE WALK TOO (issue #1924), and on a NARROWER rule than a lib does: only
+        its dot-sources that run AT LOAD -- top level, outside any if/try/function/script block. That is
+        -UnconditionalOnly on the shared walker, and the asymmetry is measured rather than tidy.
+
+        WHY A LIB'S GUARDED DOT-SOURCE IS A FINDING AND A SCRIPT'S IS NOT. For a copied lib the guard is
+        the whole point of the gate: park-lib.ps1's `if (Test-Path) { . $lib }` of git-porcelain-lib is
+        the founding instance (#1693), where the missing file turned into an undefined function and came
+        out as an EMPTY BACKING NOTE rather than an error. For the script under test the same shape means
+        something different, because a script's guarded dot-sources in this tree are its OPTIONAL
+        equipment -- the source-repo guard, the commit-ability probe, the close-out printer -- each of
+        which a fixture may legitimately decline to carry. Measured on the clean tree the day this was
+        built: seeding from every dot-source reports 10 subjects, and all ten are conditional ones that a
+        fixture deliberately does not copy (source-repo-guard-lib in eight of them, whose refusal cannot
+        even fire in a fixture, which carries no marketplace.json). Seeding from the load-time ones alone
+        reports none -- and still reports exactly the class that was missed, since check-report-lib.ps1
+        was dot-sourced unguarded at the top of all ~25 scripts.
+
+        SO THIS UNDER-REPORTS BY DESIGN, which is this repo's stated bias for a findings list: a fixture
+        that omits a lib its script loads conditionally is not accused, and if one of those ever matters
+        the fixture's own author is the one who knows it -- new-branch.tests.ps1 already copies
+        git-identity-lib.ps1 for exactly that reason, in a comment that says so. What the gate now
+        guarantees is the narrower, mechanical thing it can prove: a fixture that would DIE ON LOAD is
+        named before it dies.
+
         -RepoRoot is the base Get-ScriptDotSourceTargets needs for a dot-source built from the repo root
-        rather than from $PSScriptRoot; it is not used for anything else here.
+        rather than from $PSScriptRoot; it is ALSO where a copied script is read from, since the fixture's
+        own copy does not exist until the suite runs.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][string]$LibDirectory,
         [Parameter(Mandatory = $true)][string]$RepoRoot,
-        [string[]]$CopiedLib
+        [string[]]$CopiedLib,
+        [string[]]$CopiedScript
     )
 
     # @() AROUND THE WHOLE if, not inside its branches: an if-expression assigned to a variable is
@@ -332,13 +493,42 @@ function Get-FixtureDepFinding {
     # Set-StrictMode. The inner @() are not enough and it looked like they were.
     $copied = @(if ($PSBoundParameters.ContainsKey('CopiedLib')) { $CopiedLib }
                 else { Get-FixtureCopiedLibName -Path $Path })
-    if ($copied.Count -eq 0) { return @() }
+    $scripts = @(if ($PSBoundParameters.ContainsKey('CopiedScript')) { $CopiedScript }
+                 else { Get-FixtureCopiedScriptPath -Path $Path })
+    if ($copied.Count -eq 0 -and $scripts.Count -eq 0) { return @() }
 
     $fileName = Split-Path -Path $Path -Leaf
     $findings = @()
     $seen = @{}
     $queue = New-Object System.Collections.Queue
     foreach ($c in $copied) { $queue.Enqueue($c) }
+
+    # THE SCRIPTS ARE READ FIRST AND THEIR DEPENDENCIES JOIN THE SAME QUEUE, so the closure is walked in
+    # one pass exactly as it is for a lib: a lib the script loads and the fixture lacks is reported here,
+    # and whatever THAT lib dot-sources is then walked below rather than waiting for a second run.
+    # THE DECLARED OPT-OUTS ARE READ FROM THE FILE EVEN WHEN THE COPY LIST WAS HANDED IN. A caller passing
+    # -CopiedScript has answered "what does it copy"; it has not answered "what does it say about them",
+    # and a report that honoured the declaration only on the path where nothing was pre-computed would be
+    # a gate that is correct depending on who called it.
+    $optOut = @(Get-FixtureDepScriptOptOut -Path $Path)
+
+    foreach ($rel in $scripts) {
+        if ($optOut -contains $rel) { continue }
+        $scriptPath = Join-Path $RepoRoot ($rel -replace $script:FixtureDepForwardSlash, $script:FixtureDepBackslash)
+        # A DESTINATION THAT NAMES NO FILE IN THIS REPO IS NOT A FINDING. A fixture may copy a script it
+        # writes itself, or one from a tree this run cannot see; either way there is nothing to read, and
+        # inventing an opinion about it is how a gate starts accusing.
+        if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) { continue }
+
+        foreach ($dep in (Get-DotSourcedLibName -Path $scriptPath -RepoRoot $RepoRoot -LoadTimeOnly)) {
+            if ($script:FixtureDepRepoOwnedSeam -contains $dep) { continue }
+            if (-not (Test-Path -LiteralPath (Join-Path $LibDirectory $dep) -PathType Leaf)) { continue }
+            if ($copied -notcontains $dep) {
+                $findings += [pscustomobject]@{ File = $fileName; Lib = $rel; Missing = $dep }
+            }
+            $queue.Enqueue($dep)
+        }
+    }
 
     while ($queue.Count -gt 0) {
         $lib = [string]$queue.Dequeue()
@@ -415,12 +605,18 @@ function Get-FixtureDepReport {
     $subjects = 0
     $findings = @()
     foreach ($f in $files) {
-        # Read ONCE and handed on -- see Get-FixtureDepFinding's -CopiedLib for the measurement.
+        # Read ONCE and handed on -- see Get-FixtureDepFinding's -CopiedLib for the measurement. Both
+        # readers share one parse of the file (Get-FixtureCopyDestinationLiteral), so asking the second
+        # question costs a regex per destination rather than a second walk.
         $copied = @(Get-FixtureCopiedLibName -Path $f.FullName)
-        if ($copied.Count -eq 0) { continue }
+        $scripts = @(Get-FixtureCopiedScriptPath -Path $f.FullName)
+        # A FILE THAT COPIES ONLY A SCRIPT IS A SUBJECT TOO (issue #1924). It was 'copies a lib', which
+        # is the same one-word gap this widening is about one layer up: a fixture that copies an acting
+        # script and no lib at all is precisely the one that dies on load, and it was not even counted.
+        if ($copied.Count -eq 0 -and $scripts.Count -eq 0) { continue }
         $subjects++
         $findings += @(Get-FixtureDepFinding -Path $f.FullName -LibDirectory $LibDirectory `
-                                             -RepoRoot $RepoRoot -CopiedLib $copied)
+                                             -RepoRoot $RepoRoot -CopiedLib $copied -CopiedScript $scripts)
     }
 
     return [pscustomobject]@{

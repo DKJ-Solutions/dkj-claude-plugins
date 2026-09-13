@@ -628,13 +628,57 @@ function Resolve-EnclosingBlockArgs {
     return @()
 }
 
+# The AST node types that make a statement inside them CONDITIONAL -- it may or may not run, and it
+# certainly does not run merely because the file was loaded. A function body and a script block are in
+# the list for the same reason as an `if`: the statements in them run when something calls them, not at
+# load. Used only by -UnconditionalOnly below; the default walk has no opinion about where a dot-source
+# sits.
+$script:DotSourceConditionalAstType = @(
+    'IfStatementAst', 'TryStatementAst', 'WhileStatementAst', 'DoWhileStatementAst', 'DoUntilStatementAst',
+    'ForStatementAst', 'ForEachStatementAst', 'SwitchStatementAst', 'FunctionDefinitionAst',
+    'ScriptBlockExpressionAst', 'TrapStatementAst'
+)
+
+function Test-AstRunsAtLoad {
+    <# Does this AST node run unconditionally when the file is dot-sourced or executed -- i.e. is every
+       ancestor up to the root an ordinary top-level statement? Walks the parent chain and answers $false
+       on the first conditional ancestor.
+
+       A NAME MISSING FROM THE TYPE LIST COSTS A FALSE $true, which over-reports rather than under-reports
+       -- the opposite bias from Copy-Item's switch list in fixture-dep-lib.ps1, and deliberately so: the
+       list is closed by PowerShell's own grammar rather than by a command's parameter set, so a gap here
+       is a grammar construct nobody in this tree writes. #>
+    param([Parameter(Mandatory)]$Ast)
+
+    $node = $Ast.Parent
+    while ($null -ne $node) {
+        if ($script:DotSourceConditionalAstType -contains $node.GetType().Name) { return $false }
+        $node = $node.Parent
+    }
+    return $true
+}
+
 function Get-ScriptDotSourceTargets {
     <# Every EXISTING file this script dot-sources, as absolute paths. Resolved from the AST, so a
        comment naming a lib is not mistaken for loading it -- the failure the text-match candidate showed
        on the very record this exists for. A target that resolves to no existing file is dropped rather
        than reported: an unresolvable path is not evidence that the lib IS loaded, and the caller's
-       question is only ever "is it". #>
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$RepoRoot)
+       question is only ever "is it".
+
+       -UnconditionalOnly NARROWS THE ANSWER TO WHAT LOADS THE FILE, and it exists for a caller asking a
+       different question from this lib's own (issue #1924). The contract check asks "is this lib in scope
+       at runtime", for which a guarded or in-function dot-source counts. fixture-dep-lib.ps1's gate asks
+       "would this file DIE ON LOAD without the lib", for which only a top-level, unguarded dot-source
+       counts -- and the difference is not cosmetic: measured over this repo's own fixtures, every
+       conditional dot-source of a copied script was one a fixture deliberately does not carry, so the
+       wider answer reports ten subjects on a clean tree and the narrower one reports none.
+
+       THE FILTER LIVES HERE RATHER THAN IN THAT CALLER because the alternative is a second resolver. It
+       needs the dot-source's own AST node, which this walk holds and its answer (a list of paths) does
+       not -- and writing a rival variable-resolving walker next door is the exact defect this function's
+       own caller was reviewed for. One switch, one `continue`, default off. #>
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$RepoRoot,
+          [switch]$UnconditionalOnly)
 
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @() }
 
@@ -659,8 +703,11 @@ function Get-ScriptDotSourceTargets {
     # that is correct only while every caller remembers not to rewrite a file -- the enforced-by-memory
     # shape -- into one that is correct by construction. The Test-Path above guarantees the file is
     # there, so Get-Item cannot fail here.
+    # AND IT CARRIES THE MODE, for the same reason it carries the file's identity: -UnconditionalOnly
+    # makes this function answer a narrower question about the same file, so one key for both would serve
+    # whichever answer was asked for first -- silently, and to the caller that asked for the other one.
     $stat = Get-Item -LiteralPath $Path
-    $cacheKey = "$Path|$RepoRoot|$($stat.LastWriteTimeUtc.Ticks)|$($stat.Length)"
+    $cacheKey = "$Path|$RepoRoot|$($stat.LastWriteTimeUtc.Ticks)|$($stat.Length)|$([bool]$UnconditionalOnly)"
     if ($script:DotSourceCache.ContainsKey($cacheKey)) { return @($script:DotSourceCache[$cacheKey]) }
 
     $tokens = $null
@@ -690,6 +737,7 @@ function Get-ScriptDotSourceTargets {
     foreach ($c in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)) {
         if ($c.InvocationOperator -ne [System.Management.Automation.Language.TokenKind]::Dot) { continue }
         if ($c.CommandElements.Count -lt 1) { continue }
+        if ($UnconditionalOnly -and -not (Test-AstRunsAtLoad -Ast $c)) { continue }
 
         $hints = Get-AstPathHints -Ast $c.CommandElements[0] -VarMap $varMap -ArgMap $argMap
         foreach ($lit in @($hints.Literals)) {

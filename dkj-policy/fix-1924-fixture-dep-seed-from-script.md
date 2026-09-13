@@ -39,21 +39,94 @@
 
 ### PLAN
 
+#### The gap, in one word
+
+`fixture-lib-deps.tests.ps1` exists to stop a hand-listed fixture lib copy going stale against what is
+dot-sourced. Its own synopsis states the scope: *"no hand-listed fixture lib copies ... may go stale
+against what **those libs** dot-source"* -- for each copied **lib**, were that lib's own siblings copied
+too. It never asked the same question about the **script under test**.
+
+On the #1917 branch that cost six suites: ~25 acting scripts gained
+`. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')`, unguarded, and `fold-changelog` went 155
+asserts red, `prune-merged` 73, `park-branch` 18, while `new-branch`, `worktree-lane` and
+`entry-scaffold` died on load. This gate reported all 26 of its asserts passed throughout.
+
+#### What was measured before anything was built
+
+A naive widening -- seed the walk from every dot-source the copied script has -- is **not** born green.
+Measured on the clean tree: **10 subjects report**, and every one of them is a **conditional**
+dot-source that a fixture legitimately declines to carry. `source-repo-guard-lib.ps1` is in eight of
+the ten, and its refusal cannot fire in a fixture at all, which carries no `marketplace.json`.
+
+Narrowed to the dot-sources that run **at load** -- top level, outside any `if`/`try`/function/loop --
+the same walk reports **none**, and still reports the whole of the measured class: `check-report-lib.ps1`
+was dot-sourced unguarded at the top of all ~25 scripts. That is the asymmetry this branch builds: a
+copied **lib** is read for all its dot-sources, a copied **script** for its load-time ones only.
+
+#### The one survivor, and the mechanism it needed
+
+`source-repo-guard.tests.ps1` copies `check-branch-entry.ps1` into an away directory in order to watch
+the guard **refuse** it -- the run exits 1 before any other lib is reached, so the fixture is right not
+to carry the other five. `Get-FixtureCopiedLibName`'s own docstring predicted exactly this case under
+&#35;1693 and specified the answer in advance: *"a declared opt-out on that suite -- NOT another entry in
+the exemption list"*. #1924 is the first instance, so the mechanism is built to that specification.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `script-contract-lib.ps1`: `-UnconditionalOnly` on `Get-ScriptDotSourceTargets`, plus
+      `Test-AstRunsAtLoad`. One switch and one `continue` inside the walk that already resolves these
+      paths -- the alternative was a rival variable-resolving walker next door, which is the defect this
+      function's own caller was reviewed for. Default off, so the SessionStart contract check is
+      untouched. The memo key carries the mode.
+- [x] `fixture-dep-lib.ps1`: `Get-FixtureCopyDestinationLiteral` factored out, so the lib reader and the
+      new script reader share one parse; `Get-FixtureCopiedScriptPath` reads a copied acting script as a
+      repo-relative **path** (a leaf could not be found again); `Get-FixtureDepFinding` seeds the closure
+      from those scripts and `Get-FixtureDepReport` counts a script-only fixture as a subject.
+- [x] The declared opt-out: `# fixture-dep: script-not-loaded <path> -- <why>`, read from the parser's
+      **comment tokens**. The reason is part of the syntax, so a malformed directive fails loud instead
+      of silently disarming the gate.
+- [x] `source-repo-guard.tests.ps1` carries the one declaration in the tree, with its reason at the copy.
+- [x] Mirror rebuilt (`build-shared-scripts.ps1`) -- `script-contract-lib.ps1` travels to `dkj-policy`.
 
 ### TEST
 
+- [x] The reconstruction, which is this suite's standing way of proving a widening catches what it was
+      built for rather than merely staying quiet: a synthetic acting script with an unguarded top-level
+      dot-source, a guarded one and an in-function one beside it. Reported: the unguarded one, alone.
+- [x] `fixture-lib-deps.tests.ps1` -- 47 asserts pass (was 26). The tree-wide pass reports 13 subjects,
+      **0 findings**, 14 copied acting scripts and 1 declared opt-out.
+- [x] A red the opt-out reader actually had: matched on raw text first, so this suite's own here-string
+      fixtures counted and the tree-wide figure read **3** where the tree holds **1**. Comment tokens
+      separate a declaration from data; the assert that pins it is written to that shape.
+- [x] `script-contract.tests.ps1` -- 315 pass (was 311): the four dot-source shapes, that the default
+      answer is unchanged, and that the memo tells the two questions apart at one timestamp.
+- [x] `source-repo-guard.tests.ps1` 46, `shared-scripts.tests.ps1` 809 -- unchanged and green.
+- [x] `check-plugin-integrity.ps1` -- 0 errors.
+- [x] Cost, three warm runs each over the tree-wide report: **719-764 ms** before, **1169-1196 ms**
+      after. The whole of it is parsing the twelve acting scripts that were never read before, which is
+      the work rather than an overhead. For scale, the gate's slowest suites run 155-237s.
+
 ### DEPLOY: fix/1924-fixture-dep-seed-from-script
 
-**Score:**
+The fixture dependency gate now reads the **script** a fixture copies, not only the libs -- closing the
+one-word gap that let it report 26 green asserts while six suites were broken by exactly the class it
+exists to catch. A copied script is held to its **load-time** dot-sources only, which is measured rather
+than tidy: the wider rule reports ten subjects on a clean tree and all ten are conditional dependencies a
+fixture is right not to carry.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The widening was measured before it was written, and the measurement changed it twice -- first from every
+dot-source to load-time ones, then from a raw text match to the parser's comment tokens, when the opt-out
+reader counted this suite's own fixtures and reported 3 declarations where the tree holds 1. Both reds are
+written into the file as asserts rather than into a commit message. And the opt-out it needed was
+specified in advance, under #1693, by the docstring of the reader it sits beside: this is the first
+instance of a case that was described two issues before it appeared.
+
+**Score:** N/A
 
 #### Pull Request
 
 Seed the fixture dependency walk from the copied SCRIPT, not only the copied libs
-
