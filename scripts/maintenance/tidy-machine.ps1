@@ -176,7 +176,7 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'tidy-machine.ps1'
 # (git rev-parse --show-toplevel).Trim() threw on $null before the guard was reached. So it caught a
 # state that could not occur, and this script has always failed outside a checkout. What changed is
 # only that it now says so. Whether -MachineOnly OUGHT to run without a checkout is a separate
-# question and a real one -- it is filed, not decided here.
+# question and a real one -- filed as #1926, not decided here.
 
 if ($CheckoutOnly -and $MachineOnly) {
     Write-Error "-CheckoutOnly and -MachineOnly are mutually exclusive -- pass neither to run both halves."

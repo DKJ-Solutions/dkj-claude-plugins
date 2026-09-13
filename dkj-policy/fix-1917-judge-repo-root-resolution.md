@@ -51,9 +51,14 @@ Three of the six pickup checks moved:
 
 - **Symptom, reason, subject, repo: confirmed.** 37 live sites, all under EAP=Stop.
 - **The proposed repair's MODEL does not exist.** The report says `new-branch.ps1` "carries the
-  inline form of exactly that wording as of #1913 and is the model to lift from". #1913 is still
-  **open**; `new-branch.ps1:215` carried the raw unjudged form like the rest. Lifting from it would
-  have copied the defect.
+  inline form of exactly that wording as of #1913 and is the model to lift from". It does not:
+  on the `main` this branch was cut from, `new-branch.ps1:215` carried the raw unjudged form like the
+  other 36. Lifting from it would have copied the defect.
+
+  **And the check that matters here is not #1913's STATE.** It was open when this was verified and
+  closed at 10:13 the same day, which changes nothing: its repair (#1921) is about gate-only suite
+  failures naming their cause and never touched repo-root resolution. The report was wrong about what
+  that issue contained, not merely about when it landed -- so the finding survives its closure.
 - **The size is off, in the direction that matters.** Reported as "36 files, on 37 lines ... the
   37th is a comment in `new-branch.ps1`". Measured: **37 files, 37 live lines, no comment among
   them**. The report's own per-layer breakdown omits `scripts/tests/` entirely, which is 7 of them.
@@ -80,7 +85,9 @@ So this branch adds no fifth spelling. It adds the missing **verdict** beside th
 - [x] `-From` on both -- anchors the git call via `git -C` for a caller whose answer must not depend
       on the working directory. The six converted suites need it: this test tree stands up throwaway
       git repos and changes into them.
-- [x] 23 acting scripts converted mechanically (16 two-source, 7 three-source with `$RootOverride`).
+- [x] 22 acting scripts converted mechanically -- 15 two-source, 7 three-source with
+      `$RootOverride`. Each of those 7 also declares `-OverrideName '-RootOverride'`, so the refusal
+      names the flag that caller actually exposes (see TEST).
 - [x] `new-branch.ps1` + `fold-changelog-entry.ps1` -- the `if (-not $repoRoot)` guard is gone;
       passing the case-insensitive `$RepoRoot` param as `-Override` **is** that guard.
 - [x] `build-release-notes-page.ps1`, `check-fanout.ps1`, `measure-skill.ps1` -- multi-line and
@@ -90,7 +97,9 @@ So this branch adds no fifth spelling. It adds the missing **verdict** beside th
       already carry their own post-guard -- one refuses (`exit 1`, a CI gate), two are advisory
       (`exit 0`). Only the degraded fallback was crashing before that guard could read anything.
       Refusing there would have overridden three verdicts that are already correct.
-- [x] 6 test suites anchored with `-From $PSScriptRoot`.
+- [x] 6 test suites anchored with `-From $PSScriptRoot`, plus `fresh-consumer.measure.ps1`, which
+      is under `scripts/tests/` but is a measurement harness rather than a suite and takes the plain
+      two-source conversion.
 - [x] 31 plugin mirrors regenerated.
 
 ### TEST
@@ -106,7 +115,35 @@ So this branch adds no fifth spelling. It adds the missing **verdict** beside th
       `Resolve-CheckRoot` rather than re-deriving one -- the invariant-moves-with-the-behavior shape
       the existing asserts already use.
 - [x] Every changed `.ps1` parsed via the PowerShell AST parser: 0 failures.
+- [x] `-From` proved in all three directions after review found the precedence gap: it beats an
+      ambient `CLAUDE_PROJECT_DIR` naming another tree, it does **not** disable that variable for a
+      caller with no anchor, and an explicit `-Override` still beats it.
 - [x] Lint gate green; full suite gate green.
+
+#### What the review chain caught, because none of it was cosmetic
+
+Three defects this branch had introduced, all found before merge and repaired in the third commit:
+
+- **A shipping break.** Four `dkj-subagents-shopify` scripts dot-sourced `check-report-lib`, which that
+  plugin did not ship -- a mirror resolves `..\lib\` inside the plugin it landed in, so all four would
+  have failed **on load** in a consumer. Strictly worse than the bug being fixed, which at least ran
+  wherever git could answer. Registered as a third mirror of the same source.
+- **A race.** The three tolerant fallbacks ran a native git call under `EAP=Stop` with no wrap, and a
+  native command that *succeeds* and also writes to stderr throws non-deterministically there --
+  measured 7 of 8 identical runs. The `catch` then turned a resolvable root into `''`. They now carry
+  `Resolve-CheckRoot`'s own EAP wrap.
+- **A precedence gap.** `-From` lost to `CLAUDE_PROJECT_DIR`, and `worktree-lane` deliberately pins
+  that variable at the primary checkout while work happens in a lane -- so a suite run from a lane
+  resolved the wrong tree, the exact failure the anchor exists to prevent.
+
+And one wording defect worth naming separately, because it is the class a refusal must never have:
+the message hardcoded `-RepoRoot`, while ten of the converted scripts spell that seam
+`-RootOverride`. On those ten the commonest refusal path told the reader to pass a flag PowerShell
+then rejects outright -- **a remedy that does not exist**. The flag name is a parameter now.
+
+Six test fixtures also had to be told about the new lib, on the "so the fixture owes it too"
+precedent those copy lists already carry four times. Two gate gaps let all of this through and are
+filed rather than fixed here: #1924 and #1925.
 
 ### DEPLOY: fix/1917-judge-repo-root-resolution
 
