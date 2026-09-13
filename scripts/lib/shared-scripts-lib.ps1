@@ -1781,3 +1781,172 @@ function Get-DepthSensitiveResolutions {
     }
     return @($findings)
 }
+
+function Get-ScriptRootRelativeLoads {
+    <#
+        Every place a script names ANOTHER .ps1 by a path bound to $PSScriptRoot -- the load-time
+        dependency a file declares on its own neighbourhood, which is the one dependency that travels
+        with the file when it is copied somewhere else.
+
+        WHY $PSScriptRoot AND NOTHING ELSE. A path off $repoRoot -- Join-Path $repoRoot
+        'scripts\lib\branch-info.ps1' -- names a file in the CONSUMER'S OWN root by design, and
+        whether it is there is that repo's business rather than the plugin's. Reading such a path as
+        plugin-relative reports 14 findings on this tree, all 14 false and all 14 that same seam
+        (measured on issue #1925). $PSScriptRoot is the only base that means "beside me, wherever I
+        have landed", so it is the only one a caller can hold to a destination.
+
+        RETURNS, per reference: RelativePath (resolved to a single path relative to the script's own
+        directory), Text (the expression as written, whitespace-collapsed, for the finding) and
+        Guarded. Deduplicated on Text within the file, so a lib named twice in one script is one
+        reference rather than two findings about one line.
+
+        GUARDED IS REPORTED, NOT DROPPED, and the caller decides. A reference the script itself probes
+        for with Test-Path is one whose absence the AUTHOR HAS ALREADY ACCOUNTED FOR -- this tree uses
+        exactly that idiom for the seams that deliberately do not travel (release-lib's branch-info
+        sibling is repo-owned and absent from every mirror on purpose) and for a lib a mirror older
+        than it must not crash on. An unguarded reference is the opposite statement: it runs at load,
+        before any of the script's own logic, so a missing file is a crash at statement one. 70 of the
+        224 references in the published plugins are guarded (#1925), which is why dropping them
+        silently would have hidden the distinction the whole check turns on.
+
+        TWO BASE FORMS, matching what the tree writes:
+          * nested Join-Path over $PSScriptRoot, at any depth -- the child paths must be literals,
+            since a computed segment is a path this function cannot resolve and must not guess at
+          * an expandable string "$PSScriptRoot\..\lib\x.ps1" with $PSScriptRoot as its only
+            interpolation
+
+        A reference whose base is anything else, or whose segments are not all literal, is not
+        returned at all. That is deliberate: this function's answers are handed to a gate, and a gate
+        that guesses at a path reports a file as absent because it built the wrong name.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @() }
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
+    if (-not $ast) { return @() }
+
+    # THE GUARD SET, read once per file and in BOTH shapes the idiom is written in: the path probed
+    # inline -- if (Test-Path (Join-Path $PSScriptRoot 'x.ps1')) -- and, far more common here, the path
+    # parked in a variable that Test-Path then reads. Collected by EXTENT TEXT and by variable name
+    # respectively, which is what lets the second shape be recognised without dataflow analysis: the
+    # assignment and the probe name the same variable, and that is the whole of the evidence.
+    $guardTexts = @{}
+    $guardVars  = @{}
+    foreach ($tp in @($ast.FindAll({
+        param($n)
+        ($n -is [System.Management.Automation.Language.CommandAst]) -and ($n.GetCommandName() -eq 'Test-Path')
+    }, $true))) {
+        foreach ($sub in @($tp.FindAll({ param($n) $true }, $true))) {
+            $guardTexts[($sub.Extent.Text -replace '\s+', ' ')] = $true
+            if ($sub -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                $guardVars[$sub.VariablePath.UserPath.ToLowerInvariant()] = $true
+            }
+        }
+    }
+
+    # List[psobject] AND NOT List[object]. Windows PowerShell 5.1 throws "Argument types do not match"
+    # out of PSToObjectArrayBinder when @() unrolls a List[object], so the return below dies rather than
+    # the function reporting anything -- which on a lint gate reads as the gate itself being broken.
+    # Get-DepthSensitiveResolutions above never meets it, holding strings.
+    $results = New-Object System.Collections.Generic.List[psobject]
+    $seen = @{}
+    foreach ($node in @($ast.FindAll({
+        param($n)
+        ($n -is [System.Management.Automation.Language.CommandAst]) -or
+        ($n -is [System.Management.Automation.Language.ExpandableStringExpressionAst])
+    }, $true))) {
+        $rel = Resolve-ScriptRootRelativePath -Node $node
+        if ([string]::IsNullOrEmpty($rel)) { continue }
+        if ($rel -notmatch '\.ps1$') { continue }
+        $text = $node.Extent.Text -replace '\s+', ' '
+        if ($seen.ContainsKey($text)) { continue }
+        $seen[$text] = $true
+
+        $guarded = $guardTexts.ContainsKey($text)
+        if (-not $guarded) {
+            $assigned = Get-AssignmentTargetName -Node $node
+            if ($assigned -and $guardVars.ContainsKey($assigned.ToLowerInvariant())) { $guarded = $true }
+        }
+        $results.Add([pscustomobject]@{ RelativePath = $rel; Text = $text; Guarded = $guarded }) | Out-Null
+    }
+    return @($results)
+}
+
+function Resolve-ScriptRootRelativePath {
+    <#
+        The path a $PSScriptRoot-based expression names, relative to the script's own directory, or
+        $null when the expression is not $PSScriptRoot-based or cannot be resolved from its text alone.
+        Recursive, because Join-Path nests. See Get-ScriptRootRelativeLoads for why the bar is "all
+        segments literal" rather than a best effort.
+    #>
+    param([Parameter(Mandatory = $true)]$Node)
+
+    if ($Node -is [System.Management.Automation.Language.VariableExpressionAst]) {
+        if ($Node.VariablePath.UserPath -eq 'PSScriptRoot') { return '' }
+        return $null
+    }
+    if ($Node -is [System.Management.Automation.Language.CommandExpressionAst]) {
+        return (Resolve-ScriptRootRelativePath -Node $Node.Expression)
+    }
+    if ($Node -is [System.Management.Automation.Language.ParenExpressionAst]) {
+        $pipe = $Node.Pipeline
+        if (($pipe -is [System.Management.Automation.Language.PipelineAst]) -and ($pipe.PipelineElements.Count -eq 1)) {
+            return (Resolve-ScriptRootRelativePath -Node $pipe.PipelineElements[0])
+        }
+        return $null
+    }
+    if ($Node -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+        if ($Node.NestedExpressions.Count -ne 1) { return $null }
+        $nested = $Node.NestedExpressions[0]
+        if (-not ($nested -is [System.Management.Automation.Language.VariableExpressionAst])) { return $null }
+        if ($nested.VariablePath.UserPath -ne 'PSScriptRoot') { return $null }
+        if ($Node.Value -notmatch '^\$\{?PSScriptRoot\}?') { return $null }
+        return (($Node.Value -replace '^\$\{?PSScriptRoot\}?', '').TrimStart('\', '/'))
+    }
+    if ($Node -is [System.Management.Automation.Language.CommandAst]) {
+        if ($Node.GetCommandName() -ne 'Join-Path') { return $null }
+        # NAMED PARAMETERS ABANDON THE RESOLUTION rather than being interpreted. -Path/-ChildPath
+        # reorder the arguments and -Resolve changes what comes back, so a wrong reading here produces
+        # a path that is confidently wrong -- the one outcome a gate must not have. The tree writes
+        # them positionally; the day one does not, this returns nothing instead of something invented.
+        $positional = @()
+        for ($i = 1; $i -lt $Node.CommandElements.Count; $i++) {
+            $el = $Node.CommandElements[$i]
+            if ($el -is [System.Management.Automation.Language.CommandParameterAst]) { return $null }
+            $positional += $el
+        }
+        if ($positional.Count -lt 2) { return $null }
+        $base = Resolve-ScriptRootRelativePath -Node $positional[0]
+        if ($null -eq $base) { return $null }
+        $parts = @()
+        if ($base -ne '') { $parts += $base }
+        for ($i = 1; $i -lt $positional.Count; $i++) {
+            if (-not ($positional[$i] -is [System.Management.Automation.Language.StringConstantExpressionAst])) { return $null }
+            $parts += $positional[$i].Value
+        }
+        return ($parts -join '\')
+    }
+    return $null
+}
+
+function Get-AssignmentTargetName {
+    <#
+        The name of the variable an expression is assigned to -- 'lib' for $lib = Join-Path ... -- or
+        $null when the expression is not the right-hand side of a simple assignment. Climbs, because
+        the expression sits inside a pipeline inside the assignment.
+    #>
+    param([Parameter(Mandatory = $true)]$Node)
+
+    $cur = $Node
+    while ($cur.Parent) {
+        if ($cur.Parent -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+            $left = $cur.Parent.Left
+            if ($left -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                return $left.VariablePath.UserPath
+            }
+            return $null
+        }
+        $cur = $cur.Parent
+    }
+    return $null
+}

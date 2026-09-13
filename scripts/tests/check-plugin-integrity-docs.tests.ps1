@@ -139,6 +139,88 @@ try {
     Assert-True (-not ($d4.Out -match '\[mirror-depth\].*park-branch')) `
         'mirror-depth: removing the resolution clears the finding, so the check reads the script and not its name'
 
+    # --- check 40: a plugin script may only load a lib its OWN plugin ships ------------------------
+    # ISSUE #1925. Check 8 holds a registered mirror byte-identical to its source and check 39 holds a
+    # depth-crossing resolution to a declared suite; between them sits the class where the text is
+    # right, the folder is right, and the FILE IS NOT THERE. A lib registered for two plugins,
+    # dot-sourced by a script that mirrors into a third, resolves inside that third plugin and finds
+    # nothing -- four shopify scripts shipped exactly that way and the gate reported 0 error(s).
+    #
+    # THE SUBJECT IS A PLUGIN SCRIPT, so unlike checks 18 and 39 the fixture's own scripts\ cannot
+    # serve: the defect only exists in the copy that lands somewhere without the lib. dkj-subagents-shopify is
+    # the plugin, which is the measured instance's own plugin rather than a convenience.
+    Write-Host "check 40: a plugin script's load vs. the plugin that carries it" -ForegroundColor Cyan
+    $libDir  = Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-shopify\scripts\lib'
+    $taskDir = Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-shopify\scripts\task'
+    New-Item -ItemType Directory -Path $libDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $taskDir -Force | Out-Null
+    $ownLib  = Join-Path $libDir 'own-lib.ps1'
+    $plScript = Join-Path $taskDir 'plugin-native.ps1'
+    [System.IO.File]::WriteAllText($ownLib, "function Get-FixtureThing { 'thing' }`n", $Utf8NoBom)
+
+    # 44a. A LIB THE PLUGIN ACTUALLY SHIPS IS NOT A FINDING. Asserted first, because a check that fires
+    #      on every dot-source would pass the positive case below while being unusable -- and there are
+    #      154 such loads in the real tree.
+    [System.IO.File]::WriteAllText($plScript,
+        ". (Join-Path `$PSScriptRoot '..\lib\own-lib.ps1')`n", $Utf8NoBom)
+    $p1 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p1.Out -match '\[plugin-lib\].*plugin-native')) `
+        'plugin-lib: a lib the plugin does ship is not a finding'
+    Assert-True ($p1.Out -match '\[plugin-lib\] checked [1-9]') `
+        'plugin-lib: the coverage count proves plugin scripts were read, not an empty pass'
+
+    # 44b. THE MEASURED DEFECT: a lib this plugin does not have. The finding must name the script AND
+    #      the expression, because the repair is choosing between registering a mirror and guarding the
+    #      load, and neither is decidable from a file name alone.
+    [System.IO.File]::WriteAllText($plScript,
+        ". (Join-Path `$PSScriptRoot '..\lib\check-report-lib.ps1')`n", $Utf8NoBom)
+    $p2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($p2.Out -match '\[plugin-lib\].*plugin-native\.ps1.*check-report-lib\.ps1') `
+        'plugin-lib: a load of a lib the plugin does not ship is reported, naming the script and the lib'
+    Assert-True ($p2.Out -match '\[plugin-lib\].*ships no such file') `
+        'plugin-lib: and the finding says what is wrong rather than only that something is'
+
+    # 44c. A GUARDED LOAD IS NOT A FINDING, with the file just as absent as in 44b -- so this asserts
+    #      the guard and not the file. That idiom is how this tree declares a seam that deliberately
+    #      does not travel (release-lib's repo-owned branch-info sibling), and 70 real references use
+    #      it; judging them would have arrived with an exemption list.
+    [System.IO.File]::WriteAllText($plScript,
+        ("`$lib = Join-Path `$PSScriptRoot '..\lib\check-report-lib.ps1'`n" +
+         "if (Test-Path -LiteralPath `$lib) { . `$lib }`n"), $Utf8NoBom)
+    $p3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p3.Out -match '\[plugin-lib\].*plugin-native')) `
+        'plugin-lib: a Test-Path-guarded load of the same absent lib is not a finding'
+
+    # 44d. THE CONTAINMENT ARM, AND WHY IT IS NOT REDUNDANT. This path climbs out of the plugin to a
+    #      file that EXISTS in the fixture -- scripts\lib\shared-scripts-lib.ps1, which the fixture
+    #      copies for the gate itself -- so the existence arm passes it and only containment reports
+    #      it. In the installed copy the 'plugins/' level, the family level and every sibling are gone.
+    [System.IO.File]::WriteAllText($plScript,
+        ". (Join-Path `$PSScriptRoot '..\..\..\..\..\scripts\lib\shared-scripts-lib.ps1')`n", $Utf8NoBom)
+    $p4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (Test-Path -LiteralPath (Join-Path $Fixture 'scripts\lib\shared-scripts-lib.ps1')) `
+        'plugin-lib: (precondition) the escaping path names a file that really is in the fixture'
+    Assert-True ($p4.Out -match '\[plugin-lib\].*plugin-native\.ps1.*climbs OUT of') `
+        'plugin-lib: a load escaping the plugin root is reported even though the file exists in this tree'
+
+    # 44e. THE FALSE-POSITIVE CLASS THE CHECK IS BOUND AGAINST. A $repoRoot-relative path names a file
+    #      in the CONSUMER'S own root by design -- branch-info.ps1 is repo-owned and travels in no
+    #      mirror -- so it must not be read as plugin-relative. A regex over 'lib\<name>.ps1' reports
+    #      14 of these on the real tree, all 14 false.
+    [System.IO.File]::WriteAllText($plScript,
+        ("`$repoRoot = 'C:\somewhere'`n" +
+         ". (Join-Path `$repoRoot 'scripts\lib\branch-info.ps1')`n"), $Utf8NoBom)
+    $p5 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p5.Out -match '\[plugin-lib\].*plugin-native')) `
+        'plugin-lib: a $repoRoot-relative load is not read as plugin-relative, however absent the file'
+
+    # 44f. Removing the script clears every finding, so the check reads what is in the file rather than
+    #      remembering a name it has seen.
+    Remove-Item -LiteralPath $plScript -Force
+    $p6 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p6.Out -match '\[plugin-lib\].*plugin-native')) `
+        'plugin-lib: removing the script clears the finding'
+
     # --- check 19: a named consumer-facing document that is not there ------------------------------
     # 42. THE SILENT-COVERAGE CASE. Checks 15 and 16 open each $consumerDocs entry with a Test-Path
     #     'continue', so a stale entry costs coverage and says nothing. Measured August 6, 2026, moving
