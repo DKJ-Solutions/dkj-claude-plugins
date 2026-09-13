@@ -43,7 +43,51 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**24 / 32 minor entries** <!-- pending-tally -->
+**25 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1958-hook-ceiling-outruns-network-bound · 20260913-171359
+
+A script a hook invokes now runs its network calls under a deadline the hook's own ceiling can
+contain. The `cycle-autopark` Stop hook is registered at 60 seconds, and `park-cycle.ps1` made up to
+three sequential network calls under it -- two bounded at the shared per-call 120 seconds and
+`gh pr list` bounded at nothing at all, because that bound is opt-in per call site and this one had
+never opted in. Past the ceiling the harness kills the process from outside, which is the one way this
+script can end that its own `ALWAYS EXITS 0` contract cannot cover: no fail-safe arm runs, no refusal
+is worded, and the collision report -- the thing it is uniquely positioned to say -- is lost on exactly
+the turn it mattered.
+
+The hook now declares `-UnderHook` and the run gets one budget: 45 seconds of the 60, the rest left for
+killing the timed-out child and printing what it found. Each call is bounded by what is *left* of that
+budget rather than by a fresh two minutes, so three calls cannot outrun what one could have spent; and
+where nothing is left, the call is skipped and named, because "I did not look" and "I looked and found
+nothing" are different answers -- reporting them alike would reinstate #1953's silence through a new
+door. A run typed by hand passes no budget and behaves exactly as it did before.
+
+Checked once, as the issue asked: no other hook has the problem. The six SessionStart hooks make no
+network call at all, and the `PreToolUse` guard is local. What was NOT measured is whether the
+harness's kill is visible to the session -- that needs a deliberately wedged turn, and the repair does
+not depend on the answer.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every consumer of `dkj-policy` runs this Stop hook on every turn, and the failure it removes is silent
+by construction: a killed hook reports nothing, so a consumer on a slow or stalled network was losing
+the workflow's earliest two-sessions-on-one-branch signal with no sign that anything had happened.
+They need do nothing -- it arrives with the plugin.
+
+**Score:** 3
+
+#### Pull Request
+
+A hook's network calls run under a budget it can finish inside
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1961](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1961)
+
+---
 
 ### DEPLOY: fix/1956-shared-discard-unwrap · 20260913-163017
 
