@@ -79,7 +79,7 @@ powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-mach
 |---|---|
 | `-DryRun` | change nothing anywhere, including in the one lane that would otherwise act -- it is passed through to `prune-merged` |
 | `-CheckoutOnly` | lanes 1-6 only |
-| `-MachineOnly` | lanes 7-12 only. Useful mid-flight, when you want the `~/.claude` and scratch answers without anything reading the branch list |
+| `-MachineOnly` | lanes 7-12 only. Useful mid-flight, when you want the `~/.claude` and scratch answers without anything reading the branch list -- **and the one mode that runs with no checkout at all** (below) |
 | `-MaxAgeDays <n>` | how old a `backup/*` branch or a stash must be to be reported. Default 14 |
 | `-MinFixtureAgeHours <n>` | how old a scratch tree must be before its dead pid counts. Default 24 |
 | `-Remote <name>` | the remote `prune-merged` fetches and prunes. Default `origin` |
@@ -111,6 +111,36 @@ powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-mach
 Six of the twelve are a call into a script that already exists and already has its own suite. Only six
 carry new logic, and that logic is pure and lives in `tidy-lib.ps1`, which is what lets its suite drive
 the classifier over states no machine here has ever been in.
+
+### `-MachineOnly` runs with no checkout at all (#1926)
+
+Every other invocation needs one and refuses without it, because lanes 1-6 read a branch list and a
+branch list has no meaning outside a repository. Under `-MachineOnly` there is no such subject, so the
+run works from a home directory, a scratch directory, anywhere:
+
+```powershell
+cd ~
+powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1" -MachineOnly -DryRun
+```
+
+**Five of the six lanes need no repo, and that was measured rather than assumed.** Lane 7 delegates to a
+script that already resolves its root tolerantly; lanes 8, 11 and 12 hand `Get-InstallRecord` a root only
+to read the one field of its answer that is not filtered by it; lane 10 walks the scratch root. **The
+sixth is lane 9, and it is the exception**: its question is how far behind *this checkout's* plugins are,
+so with no checkout it is skipped by name and says so, rather than being left to refuse inside
+`plugin-versions.ps1` -- where the refusal is worded for somebody who ran that script directly and would
+read, from here, as the whole run having failed.
+
+**Lane 11's one other repo-dependent line degrades into a true sentence.** It normally marks the findings
+that belong to a *different* checkout, since `claude plugin uninstall` is keyed on the directory it runs
+in. Standing nowhere, every finding belongs to a different checkout -- which is what it says, with a line
+naming the reason so *"another checkout"* does not send the reader hunting for which one is this one.
+
+**This was never the behaviour before, despite a fallback that read exactly like it.** The script carried
+`if (-not $repoRoot) { $repoRoot = (Get-Location).Path }` from its first commit; that guard could only
+fire on an empty string, and the line above it threw on `$null` first. So it caught a state that could
+not occur, and `-MachineOnly` has failed outside a checkout for its whole life. #1917 replaced the
+resolution and removed the dead line, leaving the question visible; this is the answer to it.
 
 ### Lanes 8 and 11 are one defect from opposite ends
 

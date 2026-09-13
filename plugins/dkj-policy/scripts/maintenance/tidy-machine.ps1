@@ -106,6 +106,17 @@
     Run only the six machine-wide lanes. Useful when a checkout is mid-flight and you want the
     ~/.claude and scratch answers without anything reading the branch list.
 
+    AND IT IS THE ONE MODE THAT RUNS WITHOUT A CHECKOUT AT ALL (issue #1926) -- from a home directory,
+    from anywhere. Every other invocation still refuses without one, because the per-checkout lanes have
+    no subject without it. Five of the six lanes here need no repo: lane 7 delegates to a script that
+    already resolves tolerantly, lanes 8, 11 and 12 hand Get-InstallRecord a root only to read a field
+    that does not depend on it, and lane 10 walks the scratch root. The sixth, lane 9, asks how far
+    behind THIS CHECKOUT's plugins are, so outside a checkout it is skipped and says so.
+
+    This was never the behaviour, despite a fallback that looked like it: the old
+    `if (-not $repoRoot) { $repoRoot = (Get-Location).Path }` could only fire on an empty string, and the
+    line above it threw on $null first -- so it was dead from the day it was written (#1917).
+
 .PARAMETER MaxAgeDays
     How old a `backup/*` branch or a stash must be before it is reported as expired. Default 14. It
     applies to NOTHING else: an age is not evidence about a branch somebody may simply not have got
@@ -164,20 +175,6 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 . (Join-Path $PSScriptRoot '..\lib\plugin-tree-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\tidy-lib.ps1')
 
-# Repo root -- dual context: if a consumer runs the shared plugin mirror, CLAUDE_PROJECT_DIR supplies
-# its repo root; in the source root (or outside a session) it falls back to the git root. This way the
-# SAME file works in both locations, and the root copy and the plugin mirror stay byte-identical.
-# JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
-# -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
-$repoRoot = Resolve-RepoRootOrFail -ScriptName 'tidy-machine.ps1'
-# THE cwd FALLBACK THAT USED TO SIT HERE IS GONE, and it was already dead before this branch (#1917).
-# It read `if (-not $repoRoot) { $repoRoot = (Get-Location).Path }`, which could only fire on an EMPTY
-# STRING -- and the line above it never produced one: outside a work tree the old
-# (git rev-parse --show-toplevel).Trim() threw on $null before the guard was reached. So it caught a
-# state that could not occur, and this script has always failed outside a checkout. What changed is
-# only that it now says so. Whether -MachineOnly OUGHT to run without a checkout is a separate
-# question and a real one -- filed as #1926, not decided here.
-
 if ($CheckoutOnly -and $MachineOnly) {
     Write-Error "-CheckoutOnly and -MachineOnly are mutually exclusive -- pass neither to run both halves."
     exit 2
@@ -185,11 +182,52 @@ if ($CheckoutOnly -and $MachineOnly) {
 $runCheckout = -not $MachineOnly
 $runMachine  = -not $CheckoutOnly
 
+# Repo root -- dual context: if a consumer runs the shared plugin mirror, CLAUDE_PROJECT_DIR supplies
+# its repo root; in the source root (or outside a session) it falls back to the git root. This way the
+# SAME file works in both locations, and the root copy and the plugin mirror stay byte-identical.
+#
+# THE VERDICT ON A MISSING ROOT BELONGS TO THE HALF BEING RUN, NOT TO THE SCRIPT (#1926). The six
+# per-checkout lanes read a branch list, so for them a checkout IS the subject and Resolve-RepoRootOrFail
+# refuses without one -- check-report-lib's refusing sibling of Resolve-CheckRoot, naming git's exit code
+# and stderr instead of dying on $null.Trim() (#1917). Under -MachineOnly there is no such subject, so the
+# tolerant resolver is the right one: it answers Path = $null outside a work tree and the lanes below say
+# what that costs them. That is the shape lane 7's own script, check-claude-home.ps1, has always had.
+#
+# AND THE SWITCH WAS MEASURED RATHER THAN ASSUMED CLEAN, which was #1926's whole ask. Lane 7 delegates to
+# a script that resolves tolerantly already. Lanes 8, 11 and 12 pass a root to Get-InstallRecord and then
+# read only its UNFILTERED field (AllRecords), so the repo-scoped half of that answer is never touched.
+# Lane 10 walks the scratch root and no repo at all. ONE lane genuinely needs a checkout -- lane 9, whose
+# question is how far behind THIS CHECKOUT's plugins are (plugin-versions.ps1 -> Get-EnabledPlugins
+# -RepoRoot) -- and it is skipped by name there rather than left to refuse inside the child. Lane 11 holds
+# the one other real use, $rootKey, and it degrades into a true sentence: with no checkout, no record is
+# this checkout's, so every finding is correctly reported as belonging somewhere else.
+#
+# THE cwd FALLBACK THAT USED TO SIT HERE WAS DEAD BEFORE EITHER BRANCH TOUCHED IT (#1917). It read
+# `if (-not $repoRoot) { $repoRoot = (Get-Location).Path }`, which could only fire on an EMPTY STRING --
+# and the line above it never produced one: outside a work tree the old
+# (git rev-parse --show-toplevel).Trim() threw on $null before the guard was reached. So the tolerance it
+# looked like it granted was never once granted, under -MachineOnly or anywhere else. This is that
+# tolerance actually granted, and narrowed to the half that can carry it.
+if ($runCheckout) {
+    $repoRoot = Resolve-RepoRootOrFail -ScriptName 'tidy-machine.ps1'
+} else {
+    $repoRoot = (Resolve-CheckRoot).Path
+}
+
+# THE STAND-IN FOR "NOWHERE IN PARTICULAR", for the three lanes that must hand Get-InstallRecord a
+# non-empty -RepoRoot in order to read a field that does not depend on it. $PSScriptRoot is the honest
+# value because it names no checkout, and it is check-claude-home.ps1's own choice at the same call in
+# the same situation -- copied deliberately rather than invented, so the two cannot drift apart.
+$recordRoot = if ($repoRoot) { $repoRoot } else { $PSScriptRoot }
+
 # The trunk name is the one thing that is repo-owned here, read the way every other script in this set
 # reads it, with the same default.
 $trunk = 'main'
-$cfg = Join-Path $repoRoot 'scripts\repo-config.ps1'
-if (Test-Path -LiteralPath $cfg -PathType Leaf) {
+# Guarded on there being a root at all (#1926): under -MachineOnly outside a checkout there is no
+# repo-config to read, and Join-Path refuses an empty -Path outright. Nothing in the machine half reads
+# $trunk, so the default below stands unused rather than stands wrong.
+$cfg = if ($repoRoot) { Join-Path $repoRoot 'scripts\repo-config.ps1' } else { '' }
+if ($cfg -and (Test-Path -LiteralPath $cfg -PathType Leaf)) {
     try {
         . $cfg
         # Test-FunctionDefined, never Get-Command (issue #1729): Get-Command reads its argument as a
@@ -316,7 +354,13 @@ function Write-PluginHandover {
 $actedTotal = 0
 $reportedTotal = 0
 
-Write-Host "tidy-machine -- repo root: $repoRoot, trunk: '$trunk'." -ForegroundColor White
+if ($repoRoot) {
+    Write-Host "tidy-machine -- repo root: $repoRoot, trunk: '$trunk'." -ForegroundColor White
+} else {
+    # NOT AN EMPTY FIELD WHERE A PATH GOES. "repo root: " with nothing after it reads as a failed
+    # resolution rather than as a deliberate one, and this is the first line of the run (#1926).
+    Write-Host "tidy-machine -MachineOnly -- no checkout here; every lane below reads this MACHINE." -ForegroundColor White
+}
 if ($DryRun) { Write-Host "-DryRun: nothing will be changed anywhere, in any lane." -ForegroundColor DarkGray }
 
 # ===================================================================================================
@@ -581,7 +625,7 @@ if ($runMachine) {
 
 if ($runMachine) {
     Write-Lane '8' 'Orphaned plugin install records -- a checkout that is not on this machine'
-    $install = Get-InstallRecord -RepoRoot $repoRoot -UserHomeOverride $UserHomeOverride
+    $install = Get-InstallRecord -RepoRoot $recordRoot -UserHomeOverride $UserHomeOverride
     if (-not $install.Exists) {
         Write-Item 'no install administration on this machine -- nothing to check.' 'DarkGray'
     } elseif (-not $install.Readable) {
@@ -622,7 +666,15 @@ if ($runMachine) {
 if ($runMachine) {
     Write-Lane '9' 'Plugin and marketplace staleness -- delegated to plugin-versions.ps1'
     $versions = Join-Path $PSScriptRoot '..\task\plugin-versions.ps1'
-    if (Test-Path -LiteralPath $versions -PathType Leaf) { & $versions }
+    if (-not $repoRoot) {
+        # THE ONE MACHINE-HALF LANE THAT IS NOT ACTUALLY MACHINE-WIDE (#1926). Its question is how far
+        # behind THIS CHECKOUT's plugins are, and plugin-versions.ps1 answers it from that checkout's own
+        # settings chain (Get-EnabledPlugins -RepoRoot). With no checkout there is nothing to be behind.
+        # Skipped BY NAME rather than left to refuse inside the child: the child's refusal is worded for
+        # a reader who ran it directly, so from here it would read as this whole run having failed.
+        Write-Item 'this lane asks about a CHECKOUT''s plugins and there is no checkout here -- lane skipped. Run it from inside a repo.' 'DarkGray'
+    }
+    elseif (Test-Path -LiteralPath $versions -PathType Leaf) { & $versions }
     else { Write-Item 'plugin-versions.ps1 is not present in this repo -- lane skipped.' 'DarkGray' }
 }
 
@@ -679,7 +731,7 @@ if ($runMachine) {
 
 if ($runMachine) {
     Write-Lane '11' 'Install records under a RETIRED plugin name -- a checkout that is still here'
-    $install11 = Get-InstallRecord -RepoRoot $repoRoot -UserHomeOverride $UserHomeOverride
+    $install11 = Get-InstallRecord -RepoRoot $recordRoot -UserHomeOverride $UserHomeOverride
     if (-not $install11.Exists) {
         Write-Item 'no install administration on this machine -- nothing to check.' 'DarkGray'
     } elseif (-not $install11.Readable) {
@@ -734,8 +786,11 @@ if ($runMachine) {
         # so is the difference between a handover and a line that quietly does nothing. Normalised the
         # way Get-InstallRecord normalises the same comparison, so a separator or a trailing slash does
         # not decide it.
-        $rootResolved = Resolve-Path -LiteralPath $repoRoot -ErrorAction SilentlyContinue
-        $rootKey = if ($rootResolved) { $rootResolved.Path.TrimEnd('\', '/') } else { ([string]$repoRoot).TrimEnd('\', '/') }
+        # $recordRoot rather than $repoRoot, and under -MachineOnly outside a checkout the two differ on
+        # purpose (#1926): the stand-in names no checkout, so no record can match it and every finding is
+        # reported as belonging elsewhere -- which is the true answer when this run is standing nowhere.
+        $rootResolved = Resolve-Path -LiteralPath $recordRoot -ErrorAction SilentlyContinue
+        $rootKey = if ($rootResolved) { $rootResolved.Path.TrimEnd('\', '/') } else { ([string]$recordRoot).TrimEnd('\', '/') }
         $elsewhere = 0
         foreach ($d in $dead) {
             $reportedTotal++
@@ -751,6 +806,11 @@ if ($runMachine) {
         }
         if ($elsewhere -gt 0) {
             Write-Item "  $elsewhere of these belong to another checkout on this machine. They are reported, not acted on, for the same reason lane 8 reports rather than repairs: this run reads the machine-wide register and does not visit another repository." 'DarkGray'
+            if (-not $repoRoot) {
+                # Otherwise "another checkout" invites the reader to work out which one is THIS one, and
+                # under -MachineOnly outside a checkout there is no such answer to find (#1926).
+                Write-Item '  (All of them, necessarily: this run is not standing in a checkout at all, so none of these records can be the current one.)' 'DarkGray'
+            }
         }
         if ($unreadable.Count -gt 0) {
             Write-Item "  Not examined: $($unreadable.Count) marketplace(s) whose plugin list could not be read -- $($unreadable -join '; ')." 'DarkGray'
@@ -780,7 +840,7 @@ if ($runMachine) {
     if (-not $cacheRoot -or -not (Test-Path -LiteralPath $cacheRoot -PathType Container)) {
         Write-Item 'no extracted plugin payload on this machine -- nothing to check.' 'DarkGray'
     } else {
-        $install12 = Get-InstallRecord -RepoRoot $repoRoot -UserHomeOverride $UserHomeOverride
+        $install12 = Get-InstallRecord -RepoRoot $recordRoot -UserHomeOverride $UserHomeOverride
         if ($install12.Exists -and -not $install12.Readable) {
             # WITHOUT THE REGISTER THERE IS NO VERDICT, only a directory listing. Saying so beats
             # reporting every tree as ownerless, which is what an empty install-path set would do.
