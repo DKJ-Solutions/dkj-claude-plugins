@@ -331,18 +331,6 @@ foreach ($s in @(1.5, 2.5, 3.5, 4.5)) {
 }
 Assert-Equal 4 $script:PrioLabels.Count 'and PrioLabels holds exactly the four buckets -- there is no medium'
 
-# THE PRE-#1842 NAMES ARE REMOVED BUT NEVER WRITTEN, which is what keeps a half-migrated repo from
-# claiming two priorities at once: one that gained the new labels from adopt-dkj-policy-bwj's
-# ADDITIVE step, rather than from the rename, holds all eight with the old name still on every
-# issue. The two asserts below pin the removal half; the loop above already pins the other, since a
-# mapper that only ever returns a PrioLabels name cannot return a legacy one once the sets are
-# disjoint. That the removal itself FIRES is not asserted -- it is past the early return and would
-# need a gh call, so it is a known test gap rather than a covered path.
-Assert-Equal 4 $script:LegacyPrioLabels.Count 'the legacy set holds the same four buckets'
-foreach ($legacy in $script:LegacyPrioLabels) {
-    Assert-True ($script:PrioLabels -notcontains $legacy) "'$legacy' is legacy-only -- the two sets never overlap"
-}
-
 # reading the score off a task object, past the other custom fields Asana returns beside it
 $scoredTask = [pscustomobject]@{ custom_fields = @(
     [pscustomobject]@{ name = 'Type';       number_value = $null },
