@@ -43,7 +43,47 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 8 minor entries** <!-- pending-tally -->
+**7 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1903-adopt-ci-floor-rename · 20260913-071749
+
+`adopt-merge-queue.ps1` is now `adopt-ci-floor.ps1`, in both copies, with the test suite, the
+shared-scripts registry entry, the durations key and the tree's prose following it -- closes #1903.
+The queue stopped being this workflow's policy on September 7 (#1546) and came off the source's own
+ruleset on September 9 (#1720); most repos running this workflow cannot have one at all (#1540). The
+name was the last part that still promised it. No shim: the old path is gone rather than forwarded,
+and the reasoning for that is in the script's own header rather than here.
+
+**And the docstring's runner count went with it**, which is #1903's other half. #1843 landed while this
+branch was in review, so `$targets` now holds three entries carrying a `QueueRelated` flag -- while the
+header still read *"THE TWO RUNNERS ARE EVERY REPO'S"* and the section comment *"The two runners,
+consumer-shaped"*. The claim was only ever about the fold and resolves pair; the third runner is a
+scheduled drift check that has nothing to do with a queue, and the text now says so.
+
+For this repo's maintainers the change is a name that finally matches the file plus a registry comment
+that no longer states retired policy as current -- noticed the moment somebody reaches for the Part 3
+adopter, and invisible otherwise.
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A subscriber running this workflow types this command about once per repo, and they type it off the
+skill page -- which travels in the same release as the script, so following the page they notice
+nothing at all. The one who must act is the consumer who wrote the old path into a note or a wrapper:
+for them this is a breaking rename with a loud failure and no silent fallback, which is the trade the
+branch deliberately took. Named on the page and in the release note so it is not met first as an
+error.
+**Score:** 3
+
+#### Pull Request
+
+The CI-floor adopter is named for the floor, not for the merge queue
+
+Plugins: dkj-policy
+
+[PR #1914](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1914)
+
+---
 
 ### DEPLOY: fix/1904-pin-checkout-in-scaffolded-runners · 20260913-063623
 
