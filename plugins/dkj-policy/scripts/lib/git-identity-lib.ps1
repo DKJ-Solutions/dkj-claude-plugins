@@ -42,8 +42,16 @@ $captureLib = Join-Path $PSScriptRoot 'native-capture-lib.ps1'
 if (Test-Path -LiteralPath $captureLib -PathType Leaf) { . $captureLib }
 
 # THE ONE EXIT CODE THAT MEANS "THIS CHECKOUT CANNOT COMMIT" (issue #1920). git reports an unknown
-# author identity through die(), which exits 128; every other non-zero exit from the probe is a
-# measurement that did not happen, and Test-GitCanCommit's own contract says those must not refuse.
+# author identity through die(), which exits 128; every other exit from the probe is a measurement
+# that did not happen, and Test-GitCanCommit's own contract says those must not refuse.
+#
+# "EVERY OTHER EXIT" INCLUDES AN ABSENT ONE, and that is the state the narrowing actually fires on
+# (issue #1933, correcting the reason this comment carried at the merge). $null is not a non-zero
+# exit -- it is no exit code at all -- so the equality above is what lets it through: $null -ne 128
+# is $true, and the probe is read as can-commit. Stated here because the reading only works by the
+# comparison being an equality against ONE number; any rewrite to "is it non-zero" restores the
+# refusal #1930 removed, silently and on a healthy checkout.
+#
 # Named rather than typed inline because two readers have to agree on it -- this function, and the
 # fixture sanity assert in new-branch.tests.ps1 that pins git's side of the number.
 $script:GitAuthorIdentityUnknownExitCode = 128
@@ -167,25 +175,48 @@ function Test-GitCanCommit {
         already fails honestly on a git that is not there.
 
         AND THAT CONTRACT WAS STATED HERE WITHOUT BEING IMPLEMENTED (issue #1920). The body read
-        `$res.ExitCode -eq 0`, so EVERY non-zero exit refused -- not only git's own "Author identity
-        unknown", but a probe that was killed, timed out, or came back non-zero for any reason at all.
-        The paragraph above says in so many words that such a refusal must not happen, and one line
-        further down it did. Only the throw path and a $null result were ever honoured.
+        `$res.ExitCode -eq 0`, so every exit that was not 0 refused -- not only git's own "Author
+        identity unknown", but a probe that was killed, timed out, came back non-zero for any reason
+        at all, or -- the case that actually fired, per the block below -- reported NO exit code,
+        since `$null -eq 0` is $false as surely as `1 -eq 0` is. The paragraph above says in so many
+        words that such a refusal must not happen, and one line further down it did. Only the throw
+        path and a $null RESULT (the whole capture object, not its code) were ever honoured.
 
         WHY THAT IS WORTH A NARROWING RATHER THAN A COMMENT, and where it bites. This probe runs on
         EVERY new-branch.ps1 run, before the checkout, and its refusal exits 1 with nothing created --
         no branch, no document, nothing on origin. Under the parallel test gate new-branch.tests.ps1
-        invokes that script some forty times per run, sixteen lanes deep, and #1915 measured on this
-        same suite, on the same day, that a git child in a fixture really does transiently fail under
-        that load. A probe that reads any such failure as "this checkout cannot commit" turns one
-        unlucky git into a red gate, and the red says nothing about the tree.
+        invokes that script some forty times per run, sixteen lanes deep.
+
+        AND THE STATE IT FIRES ON IS A GIT CHILD THAT SUCCEEDED (issue #1933, correcting the cause
+        this docstring named at the merge -- it cited #1915, which is the capped-tip flake, whose
+        mechanism turned out to be a fetch-attempt record suppressing a retry, reproduced by hand.
+        Nothing in #1915 measured a git child failing, transiently or otherwise). What was measured,
+        directly on #1920's branch at 16 lanes of fresh PowerShell children, is that git RAN, exited,
+        and printed the correct author ident -- while $proc.ExitCode from Start-Process -PassThru
+        came back absent: 27 in 960 captures (2.8%), the child's output complete and correct in every
+        one, and $null = $proc.Handle in place and not sufficient.
+
+        SO THE DOMINANT CASE THE NARROWING LETS THROUGH IS NOT A FAILED PROBE BUT AN UNREADABLE ONE,
+        and a reader who believes otherwise may reasonably conclude that a more precise probe or a
+        retry makes the narrowing unnecessary. Three repairs were measured and do nothing, recorded
+        so they are not re-walked: it is confined to the FIRST Start-Process in a fresh process
+        (reversing the order inside one probe moved the failures with the position, not with the
+        strategy); .Refresh() before the read is 6 in 960; and re-reading .ExitCode twenty times over
+        200ms with a refresh each time is 7 in 240 -- the code is never captured, so it never
+        arrives. The plain & arm and a hand-built System.Diagnostics.Process were 0 in 240 each, in
+        position 1.
+
+        A probe that reads any of that as "this checkout cannot commit" turns one unreadable capture
+        into a red gate, and the red says nothing about the tree. #1931 tracks the same absence at
+        the other ~238 exit-code comparison sites, where nothing yet consults it.
 
         128 IS THE DISCRIMINATOR, AND IT IS GIT'S OWN. `git var GIT_AUTHOR_IDENT` reports an unknown
         author identity through die(), which exits 128 -- measured, and pinned by this suite rather
         than asserted here: new-branch.tests.ps1's (y) fixture sanity assert runs the probe against a
         deliberately identity-less repo and requires exactly 128 before any of its other asserts are
-        allowed to mean anything. So a refusal is gated on 128, and every other non-zero exit is the
-        "unknown" the paragraph above promises to let through.
+        allowed to mean anything. So a refusal is gated on 128, and every other exit -- absent codes
+        included, which is the one this narrowing was written for -- is the "unknown" the paragraph
+        above promises to let through.
 
         WHAT THE NARROWING GIVES UP, stated because it is not nothing: `git -C <path that is not a
         repository>` also exits 128, so that state still refuses under the identity message. It did

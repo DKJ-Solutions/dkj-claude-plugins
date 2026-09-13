@@ -43,7 +43,82 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 17 minor entries** <!-- pending-tally -->
+**16 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/1933-gitcancommit-docstring-wrong-cause · 20260913-115551
+
+`Test-GitCanCommit` refuses only on git's own `128`, and the reasoning recorded beside that narrowing
+named a cause nobody measured: a git child transiently failing under the parallel gate, cited to
+#1915. #1915 is a different flake -- the capped-tip case, whose mechanism was a fetch-attempt record
+suppressing a retry. What was measured on #1920's branch is the opposite of a failure: at 16 lanes
+the git child **succeeded**, exited, and printed the correct author ident, while `$proc.ExitCode`
+from `Start-Process -PassThru` came back absent in 27 of 960 captures.
+
+That distinction is what the narrowing's safety rests on. A reader who believes it only screens out
+*failed* children may reasonably conclude that a more precise probe, a retry or a `-Utf8` removal
+makes it unnecessary -- and remove it. So the four passages carrying the old cause now state the
+measured one, including the three repairs that were tried and do nothing (the position-1
+confinement, `.Refresh()`, and re-reading the code twenty times over 200ms), and the comparison's
+own shape is written down: `$null -ne 128` is what lets an unreadable capture through, so any
+rewrite to "is it non-zero" silently restores the refusal #1930 removed.
+
+`git-identity-gate.tests.ps1` now pins that state as well. It had asserts for every state around it
+-- `0`, `128`, four non-zero codes, a timeout, a `$null` result -- and none for an absent exit code,
+which is the one the narrowing was written for; both spellings it arrives as (`$null` and `''`) are
+asserted to read as can-commit.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The corrected reasoning ships with the plugin, so a consumer reading the lib their own `new-branch`
+runs no longer receives an explanation that argues for removing a guard they depend on. Nothing they
+do changes; the failure it prevents has not happened yet, which is the whole of its weight.
+
+**Score:** 1
+
+#### Pull Request
+
+Correct the cause recorded beside Test-GitCanCommit's 128 narrowing
+
+Plugins: dkj-policy
+
+[PR #1935](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1935)
+
+---
+
+### DEPLOY: fix/1916-gh-mutation-5xx-not-hard-fail · 20260913-113457
+
+Fixes a correctness gap in the shared `open-pr`/`ship-pr` scripts every consumer of `dkj-policy` runs:
+a 5xx or transport failure on the PR-create or PR-merge call was reported as a hard failure even where
+it had actually landed, which for the merge case meant the fold never ran and the branch's changelog
+entry was left stranded on the trunk beside an already-merged PR. Operators reading a false "failed"
+either re-ran into a duplicate-shaped situation or gave up on work that had already shipped.
+
+**Score:** 3 -- a clear improvement, noticed the moment an operator hits exactly this GitHub API hiccup;
+before this fix the reported failure was actively misleading about work that had already succeeded.
+
+#### What makes this deploy extra special
+
+Nothing operationally special -- both scripts keep every existing behavior for the ordinary path and
+for a real 4xx refusal. The only reader-visible change is that a 5xx/transport failure is no longer
+silently treated as a plain failure: it triggers one extra read before either continuing (state
+confirms it landed) or reporting the true "this run does not know" instead of a confident wrong answer.
+
+**Score:** 1 -- prevents a failure that has already happened at least once in the field (inbound #1916)
+rather than one that has not happened yet.
+
+#### Pull Request
+
+gh mutation 5xx niet direct als harde mislukking behandelen
+
+Resolves #1916.
+
+Plugins: dkj-policy
+
+[PR #1928](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1928)
+
+---
 
 ### DEPLOY: fix/1920-new-branch-tests-flaky-at-16-lanes · 20260913-112401
 
@@ -55,9 +130,11 @@ was read as a checkout that cannot commit.
 
 That probe runs on every `new-branch.ps1` run, before the checkout, and its refusal exits 1 with
 nothing created -- no branch, no document, nothing on origin. Under the parallel test gate
-`new-branch.tests.ps1` invokes that script some forty times per run across sixteen lanes, so one
-transient git child turned into a red gate that had measured nothing, and a red gate that measured
-nothing is what teaches people to reach for `-SkipTests`.
+`new-branch.tests.ps1` invokes that script some forty times per run across sixteen lanes, and there
+the git child *succeeds* while its exit code goes missing -- `$proc.ExitCode` from `Start-Process
+-PassThru` came back absent in 27 of 960 captures, git's output complete and correct in every one.
+An absent code is not 0, so one unreadable capture turned into a red gate that had measured nothing,
+and a red gate that measured nothing is what teaches people to reach for `-SkipTests`.
 
 A refusal is now gated on `128`, which is how git's `die()` reports an unknown author identity and the
 number this suite already pins from git's own side. Everything else -- including a bounded call that

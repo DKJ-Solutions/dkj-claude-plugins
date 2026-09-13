@@ -1395,6 +1395,60 @@ Assert-True ($idxCreate -gt $idxMergedLookup) 'and it sits above the create, whi
 $shipMergedText = [System.IO.File]::ReadAllText((Resolve-Path (Join-Path $PSScriptRoot '..\release\ship-pr.ps1')).Path, [System.Text.Encoding]::UTF8)
 Assert-True ($shipMergedText -like '*is already merged -- nothing to ship*') 'ship-pr reads the same state for itself, since it is runnable on its own'
 
+# --- Test-GhMutationTransient: a 5xx/transport failure is not proof the mutation failed (inbound #1916) --
+# Measured in a consumer (BWJ-Development/smartwatchbanden, dkj-policy 5.1.0): a PR create that answered
+# GraphQL's 500-shaped message, two more that answered a bare 'HTTP 502', and a merge that answered
+# 'non-200 OK status code: 502 Bad Gateway' had each actually landed, while open-pr and ship-pr reported
+# every one of them as a hard failure and stopped.
+Write-Host "Test-GhMutationTransient -- a 5xx/transport failure is not a refusal" -ForegroundColor Cyan
+
+# The three answers actually measured in #1916, verbatim.
+Assert-True (Test-GhMutationTransient -OutputLines @(
+    'Creating pull request for fix/x into main in BWJ-Development/smartwatchbanden',
+    '',
+    'pull request create failed: GraphQL: Something went wrong while executing your query. Please include `F98B:215E9B:123AE48E:11BFEC4B:6AA66673` when reporting this issue.'
+)) '#1916: the GraphQL 500-shaped answer is transient'
+Assert-True (Test-GhMutationTransient -OutputLines @('HTTP 502: 502 Bad Gateway (https://api.github.com/graphql)')) '#1916: a bare HTTP 502 is transient'
+Assert-True (Test-GhMutationTransient -OutputLines @('failed to merge pull request: non-200 OK status code: 502 Bad Gateway')) '#1916: the merge''s 502 is transient too, in gh''s own different wording for it'
+
+# Every 5xx-shaped wording the function claims to recognise, each on its own.
+Assert-True (Test-GhMutationTransient -OutputLines @('HTTP 503: Service Unavailable')) '503 is transient'
+Assert-True (Test-GhMutationTransient -OutputLines @('gh: Internal Server Error')) '500 spelled out in words is transient'
+Assert-True (Test-GhMutationTransient -OutputLines @('Gateway Timeout')) 'a gateway timeout is transient'
+Assert-True (Test-GhMutationTransient -OutputLines @('some prose, non-200 OK status code: 500 , more prose')) 'a mid-sentence status code reads too'
+
+# A 4xx is a REAL refusal from GitHub, not a request that never landed, and must stay a hard failure.
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @('pull request create failed: GraphQL: No commits between main and docs/x (createPullRequest)')) 'a semantic refusal (4xx-shaped) is not transient'
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @('HTTP 404: Not Found (https://api.github.com/repos/x/y/pulls)')) 'a 404 is not transient'
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @('HTTP 401: Bad credentials')) 'an auth refusal is not transient'
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @('pull request create failed: GraphQL: A pull request already exists for x:branch.')) 'a duplicate refusal is not transient'
+
+# A BARE THREE-DIGIT NUMBER STARTING WITH 5 IS NOT ENOUGH ON ITS OWN -- issue and PR numbers read the
+# same way, and this function must not fire on 'closes #512' or similar prose.
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @('gh pr create failed: label ''prio-502'' not found')) 'a bare 5xx-shaped number with no server-error wording beside it is not transient'
+
+# Boundary cases, same shape as Get-PrCreateFailureReason's own asserts just above.
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @()) 'no output is not transient'
+Assert-Equal $false (Test-GhMutationTransient -OutputLines @('', '  ')) 'blank output is not transient'
+Assert-Equal $false (Test-GhMutationTransient -OutputLines $null) '$null is not a crash and not transient'
+
+# AND BOTH CALLERS ACTUALLY USE IT -- call-site asserts, same reason as the ones above: a reverted
+# caller leaves every unit assert above green while the script behaves exactly as it did before #1916.
+Assert-True ($openText -like '*Test-GhMutationTransient -OutputLines $create.Output*') 'open-pr classifies a failed create before reporting it as failed'
+$idxCreateFail = $openText.IndexOf("if (`$create.ExitCode -ne 0) {")
+$idxTransientCheck = $openText.IndexOf('Test-GhMutationTransient -OutputLines $create.Output')
+Assert-True ($idxCreateFail -ge 0 -and $idxTransientCheck -gt $idxCreateFail) 'the classification runs INSIDE the failure branch, not before gh has actually failed'
+Assert-True ($openText -like "*'--state', 'open', '--json', 'number,url', '--limit', '1'*") 'open-pr re-checks for the landed PR the same way it checks for an existing one'
+Assert-True ($openText -like '*this may have landed anyway*') 'and says so rather than a flat "failed"'
+
+Assert-True ($shipMergedText -like '*Test-GhMutationTransient -OutputLines $merge.Output*') 'ship-pr classifies a failed merge before reporting it as failed'
+Assert-True ($shipMergedText -like '*$mergeTransientRecovery = $true*') 'and records the recovery so the read-back below can tell it apart from an ordinary exit 0'
+$idxRecoveryFlag = $shipMergedText.IndexOf('$mergeTransientRecovery = $false')
+$idxQueueRecoveryGuard = $shipMergedText.IndexOf('$mergeTransientRecovery -and $mergedState -ne ''MERGED''')
+$idxNoQueueRecoveryGuard = $shipMergedText.IndexOf('if ($mergeTransientRecovery) {')
+Assert-True ($idxRecoveryFlag -ge 0 -and $idxQueueRecoveryGuard -gt $idxRecoveryFlag -and $idxNoQueueRecoveryGuard -gt $idxRecoveryFlag) 'the recovery flag is read by BOTH the queue and the no-queue read-back, not just one'
+Assert-True ($shipMergedText -like '*this run does not know whether the merge happened*') 'an unreadable state after a recovered failure is reported as unknown, not silently folded through'
+
 # --- Get-FailedCheckRunRefs / Get-AuthoredFailureNote: the reason, relayed (#1103) ---------------
 #
 # Eight issues have been filed here against a red `claude-review` whose own diagnostic step had
