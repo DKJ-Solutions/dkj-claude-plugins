@@ -41,6 +41,13 @@
 $captureLib = Join-Path $PSScriptRoot 'native-capture-lib.ps1'
 if (Test-Path -LiteralPath $captureLib -PathType Leaf) { . $captureLib }
 
+# THE ONE EXIT CODE THAT MEANS "THIS CHECKOUT CANNOT COMMIT" (issue #1920). git reports an unknown
+# author identity through die(), which exits 128; every other non-zero exit from the probe is a
+# measurement that did not happen, and Test-GitCanCommit's own contract says those must not refuse.
+# Named rather than typed inline because two readers have to agree on it -- this function, and the
+# fixture sanity assert in new-branch.tests.ps1 that pins git's side of the number.
+$script:GitAuthorIdentityUnknownExitCode = 128
+
 function Test-GitHubLoginShape {
     <#
         GitHub's own username rule: 1-39 characters, alphanumeric or single hyphens, and it may
@@ -159,6 +166,34 @@ function Test-GitCanCommit {
         refusal built on a failure to measure would wedge a run for the wrong reason. Every caller
         already fails honestly on a git that is not there.
 
+        AND THAT CONTRACT WAS STATED HERE WITHOUT BEING IMPLEMENTED (issue #1920). The body read
+        `$res.ExitCode -eq 0`, so EVERY non-zero exit refused -- not only git's own "Author identity
+        unknown", but a probe that was killed, timed out, or came back non-zero for any reason at all.
+        The paragraph above says in so many words that such a refusal must not happen, and one line
+        further down it did. Only the throw path and a $null result were ever honoured.
+
+        WHY THAT IS WORTH A NARROWING RATHER THAN A COMMENT, and where it bites. This probe runs on
+        EVERY new-branch.ps1 run, before the checkout, and its refusal exits 1 with nothing created --
+        no branch, no document, nothing on origin. Under the parallel test gate new-branch.tests.ps1
+        invokes that script some forty times per run, sixteen lanes deep, and #1915 measured on this
+        same suite, on the same day, that a git child in a fixture really does transiently fail under
+        that load. A probe that reads any such failure as "this checkout cannot commit" turns one
+        unlucky git into a red gate, and the red says nothing about the tree.
+
+        128 IS THE DISCRIMINATOR, AND IT IS GIT'S OWN. `git var GIT_AUTHOR_IDENT` reports an unknown
+        author identity through die(), which exits 128 -- measured, and pinned by this suite rather
+        than asserted here: new-branch.tests.ps1's (y) fixture sanity assert runs the probe against a
+        deliberately identity-less repo and requires exactly 128 before any of its other asserts are
+        allowed to mean anything. So a refusal is gated on 128, and every other non-zero exit is the
+        "unknown" the paragraph above promises to let through.
+
+        WHAT THE NARROWING GIVES UP, stated because it is not nothing: `git -C <path that is not a
+        repository>` also exits 128, so that state still refuses under the identity message. It did
+        before this change too, and it is not made worse -- by the time any caller reaches here the
+        root has already been resolved and judged (new-branch.ps1's own #1913 block does exactly
+        that), so the case is unreachable from the callers that exist. Matching on git's message text
+        instead would trade an exact exit code for a locale-dependent string.
+
         Returns $true when a commit would be accepted, $false only on a measured refusal.
     #>
     param([string]$RepoRoot)
@@ -172,5 +207,12 @@ function Test-GitCanCommit {
         return $true
     }
     if (-not $res) { return $true }
-    return ($res.ExitCode -eq 0)
+    # A bounded call that expired measured nothing -- and its substituted exit code is not git's, so it
+    # must be read before the number is. Property-guarded: a caller holding an older capture lib gets
+    # an object without the field rather than a strict-mode throw.
+    if ($res.PSObject.Properties['TimedOut'] -and $res.TimedOut) { return $true }
+    if ($res.ExitCode -eq 0) { return $true }
+    # THE ONLY REFUSAL. Anything else is a probe that did not answer the question, which is the
+    # "unknown" case above -- see the docstring for why this is an exit code and not a message match.
+    return ($res.ExitCode -ne $script:GitAuthorIdentityUnknownExitCode)
 }

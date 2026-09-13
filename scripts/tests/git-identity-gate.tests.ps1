@@ -229,6 +229,83 @@ try {
     Assert-True ($r.Code -eq 1 -and $r.Out -match '\[ERROR\]' -and $r.Out -notmatch '\[WARNING\]') `
         'a checkout that CAN commit falls straight through to the comparison, unchanged'
 
+    # --- Test-GitCanCommit ITSELF: what the probe's exit code is allowed to mean (issue #1920) -----
+    #
+    # WHY THE LIB IS DRIVEN DIRECTLY HERE, where every case above drives the script. The cases above
+    # pass -CanCommitOverride, so they assert what the CHECK does with a verdict it is handed -- they
+    # cannot reach how that verdict is REACHED, and that is the half #1920 is about. The seam is the
+    # probe's exit code, so the probe is what has to be stubbed.
+    #
+    # THE DEFECT THIS PINS. Test-GitCanCommit's docstring has said since #1867 that an unknown answer
+    # is treated as can-commit -- "a refusal built on a failure to measure would wedge a run for the
+    # wrong reason" -- while its body read `$res.ExitCode -eq 0`, which refuses on every non-zero exit
+    # there is. new-branch.ps1 runs this probe before the checkout on every run and exits 1 on a
+    # refusal with nothing created, and new-branch.tests.ps1 invokes that script some forty times per
+    # gate run across sixteen lanes. One transient git failure -- the class #1915 measured in that same
+    # suite on that same day -- therefore produced a red gate that had measured nothing.
+    #
+    # SHADOWED AFTER THE DOT-SOURCE, the idiom remote-ahead-lib.tests.ps1 already uses and that
+    # native-capture-lib.ps1 documents for itself: a plain function can be redefined in the scope that
+    # dot-sourced it, and Test-GitCanCommit resolves the name at call time. No git runs in these cases
+    # at all, which is what keeps them machine-independent like the rest of this suite.
+    Write-Host ''
+    Write-Host 'Test-GitCanCommit -- only git''s own 128 is a refusal'
+
+    . (Join-Path $RepoRoot 'scripts\lib\git-identity-lib.ps1')
+    $script:stubProbeExit     = 0
+    $script:stubProbeTimedOut = $false
+    $script:stubProbeNull     = $false
+    function Invoke-NativeCapture {
+        param(
+            [Parameter(Mandatory = $true)][string]$FilePath,
+            [string[]]$Arguments = @(),
+            [switch]$DiscardStderr,
+            [switch]$Utf8,
+            [int]$TimeoutSeconds = 0
+        )
+        if ($script:stubProbeNull) { return $null }
+        return [pscustomobject]@{ Output = @(); ExitCode = $script:stubProbeExit; TimedOut = $script:stubProbeTimedOut }
+    }
+
+    # 0 -- git named an author. The healthy machine, and the case every other run in the workflow is.
+    $script:stubProbeExit = 0
+    Assert-True (Test-GitCanCommit -RepoRoot $RepoRoot) 'exit 0: git named an author -- the checkout can commit'
+
+    # 128 -- git's die(), which is how it reports an unknown author identity. THE ONE REFUSAL, and the
+    # number is pinned against git itself by new-branch.tests.ps1's (y) fixture sanity assert rather
+    # than only here, so the two ends of the discriminator cannot drift apart silently.
+    $script:stubProbeExit = 128
+    Assert-True (-not (Test-GitCanCommit -RepoRoot $RepoRoot)) 'exit 128: git refuses to name an author -- the one state that refuses'
+
+    # THE REGRESSION ITSELF. Each of these refused before #1920 and measured nothing: 1 is what a
+    # killed process leaves behind, and the negative code is a Windows crash status (the sign bit the
+    # gate's own crash probe reads). A run that could not take the measurement must not be told the
+    # answer is "no".
+    foreach ($code in @(1, 2, 129, -1073741819)) {
+        $script:stubProbeExit = $code
+        Assert-True (Test-GitCanCommit -RepoRoot $RepoRoot) "exit $code : the probe did not answer -- unknown is can-commit, not a refusal"
+    }
+
+    # A BOUNDED CALL THAT EXPIRED IS READ BEFORE ITS NUMBER IS. Invoke-NativeCapture substitutes its
+    # own exit code on a timeout, so the number is not git's at all -- and the substituted one must
+    # never be able to read as 128 by coincidence.
+    $script:stubProbeTimedOut = $true
+    $script:stubProbeExit     = 128
+    Assert-True (Test-GitCanCommit -RepoRoot $RepoRoot) 'timed out: the wait expired, so nothing was measured -- even at exit 128'
+    $script:stubProbeTimedOut = $false
+
+    # The $null return, which the function has always honoured -- asserted so the narrowing above
+    # cannot quietly take it with it.
+    $script:stubProbeNull = $true
+    Assert-True (Test-GitCanCommit -RepoRoot $RepoRoot) 'no result object at all: still can-commit'
+    $script:stubProbeNull = $false
+
+    # Restored, so nothing after this point is stubbed. The dot-source re-defines the real function
+    # over the shadow in this same scope.
+    . (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1')
+    Assert-True ((Get-Command Invoke-NativeCapture -CommandType Function).ScriptBlock.ToString() -match 'ConvertTo-NativeArgumentToken|Start-Process|& \$FilePath') `
+        'and the stub is gone again -- the real capture is back in scope for anything after this'
+
     # --- the plugin mirror answers identically ----------------------------------------------------
     # shared-scripts.tests.ps1 proves the two files are byte-identical; this proves the mirror RUNS
     # from its own directory, which is the only thing byte-equality cannot tell you (its
