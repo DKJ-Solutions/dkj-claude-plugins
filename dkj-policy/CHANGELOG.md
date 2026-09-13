@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1848-retire-legacy-prio-labels · 20260913-052224
+
+Removes dead code from the BWJ Asana-mirror template: `$script:LegacyPrioLabels` existed only to
+bridge the window while `smartwatchbanden` and `xoxowildhearts` still carried the pre-#1842 label
+names. Both have now migrated and carry no legacy name at all, so the array guards a state that can
+no longer arise -- closes #1848.
+
+Only this repo's own maintainers notice: a reader of the sweep logic no longer has to reason about a
+legacy-name bridge that no BWJ store still needs, and a future consumer adopting dkj-policy-bwj fresh
+never sees the old names at all. Internal script hygiene.
+**Score:** 1
+
+#### What makes this deploy extra special
+
+No subscriber of a service is affected -- this is internal script hygiene in a template two already-
+migrated consumer repos already run their own copy of; nothing here reaches past this repo's own
+maintainers.
+**Score:** N/A
+
+#### Pull Request
+
+Retire the legacy BWJ prio-label sweep now that both stores are migrated
+
+Plugins: dkj-policy-bwj
+
+[PR #1907](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1907)
+
+---
 
 ### DEPLOY: feat/1886-shopify-theme-archive · 20260913-043419
 
