@@ -43,7 +43,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 17 minor entries** <!-- pending-tally -->
+**15 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1916-gh-mutation-5xx-not-hard-fail · 20260913-113457
+
+Fixes a correctness gap in the shared `open-pr`/`ship-pr` scripts every consumer of `dkj-policy` runs:
+a 5xx or transport failure on the PR-create or PR-merge call was reported as a hard failure even where
+it had actually landed, which for the merge case meant the fold never ran and the branch's changelog
+entry was left stranded on the trunk beside an already-merged PR. Operators reading a false "failed"
+either re-ran into a duplicate-shaped situation or gave up on work that had already shipped.
+
+**Score:** 3 -- a clear improvement, noticed the moment an operator hits exactly this GitHub API hiccup;
+before this fix the reported failure was actively misleading about work that had already succeeded.
+
+#### What makes this deploy extra special
+
+Nothing operationally special -- both scripts keep every existing behavior for the ordinary path and
+for a real 4xx refusal. The only reader-visible change is that a 5xx/transport failure is no longer
+silently treated as a plain failure: it triggers one extra read before either continuing (state
+confirms it landed) or reporting the true "this run does not know" instead of a confident wrong answer.
+
+**Score:** 1 -- prevents a failure that has already happened at least once in the field (inbound #1916)
+rather than one that has not happened yet.
+
+#### Pull Request
+
+gh mutation 5xx niet direct als harde mislukking behandelen
+
+Resolves #1916.
+
+Plugins: dkj-policy
+
+[PR #1928](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1928)
+
+---
 
 ### DEPLOY: fix/1920-new-branch-tests-flaky-at-16-lanes · 20260913-112401
 
