@@ -65,7 +65,7 @@ reached the implicit-return arm and was cleared as PowerShell's last-statement-i
 `[void]` is precisely what stops a last statement being a return value. The same call, the same cast, two
 answers depending on what followed it.
 
-That is check 35's own recorded lesson -- *"a check whose arms disagree about wrapping teaches the shape
+That is check 35's own recorded lesson -- *"a check whose three arms disagree about wrapping teaches the shape
 that gets past it"* -- arriving one level up, which is exactly what #1956 predicted would happen with two
 copies.
 
@@ -93,7 +93,7 @@ Two checks in the plugin-integrity gate each carried their own copy of the same 
 wrapping, then ask whether the result is thrown away. That rule had already been repaired once inside
 check 35, whose header records the bug: only the `[void]` arm walked out of `(...)`, so
 `$null = (& git ...)` and `(& git ...) | Out-Null` were both silently skipped, and it draws the lesson
-that **a check whose arms disagree about wrapping teaches the shape that gets past it**.
+that **a check whose three arms disagree about wrapping teaches the shape that gets past it**.
 
 With two copies that lesson applies one level up, and the second copy had already drifted. Check 41
 climbed through a `[void]` cast without noticing one, so `[void](Write-FixtureScriptSummary ...)`
