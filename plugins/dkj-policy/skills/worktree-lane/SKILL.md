@@ -185,6 +185,35 @@ Outside the repo, in a sibling `<repo>-lanes/` directory, and that is deliberate
 tree would be walked by the lint gate's link scan and by the test suites, which would report a second
 copy of the whole repo as findings.
 
+## Why this doesn't just use Claude Code's own `--worktree`/`EnterWorktree`
+
+Asked and researched explicitly (inbound [#1973](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1973),
+September 14, 2026): Claude Code ships its own worktree isolation --
+`claude --worktree <name>` / the `EnterWorktree`/`ExitWorktree` tools -- and it solves a different
+problem than this skill does. Native worktrees isolate **parallel Claude sessions/subagents** from each
+other; a lane isolates **parallel branch/PR work** from `ship-pr.ps1`'s own fold step, on one machine,
+for one operator. The two were compared point by point rather than assumed distinct:
+
+- **Placement is the opposite on purpose.** The native mechanism places a worktree **inside** the repo
+  (`.claude/worktrees/<name>/`); a lane is placed **outside** it, in `<repo>-lanes/`, precisely because
+  an in-tree worktree gets walked by the lint gate's file scan and by the test suites, which then report
+  a second copy of the whole repo as findings -- measured, #1673. Switching lanes to the native placement
+  would reintroduce that.
+- **`.worktreeinclude`** (the native mechanism for carrying gitignored files like `.env` into a
+  worktree) buys nothing here: this repo is deliberately secret-free -- see `.gitignore`'s own comment
+  on `.env` -- so there is nothing for it to carry.
+- **`isolation: "worktree"` for a dispatched subagent** is used elsewhere in this system (Chris's
+  manual, `01-01-manual.md`) for several subagents writing to the same files at once, and rejected for
+  review dispatch -- both on measured grounds unrelated to lanes (a fresh worktree starts from HEAD, so
+  it is blind to uncommitted work, and it dirties the primary tree while it stands). Neither case is
+  what `worktree-lane` is for: a lane is opened and driven by the *same* session across its whole
+  lifetime, not handed to a dispatched subagent.
+
+Net: native worktree support is the right tool for isolating dispatched, short-lived helpers, and this
+skill's own external placement is the right tool for a lane that outlives a single turn and must never
+be double-counted by the gates. Adopting the native mechanism for lanes would be a regression, not an
+upgrade.
+
 ## Requirements in the consumer
 
 The script itself needs only `git`. Because step 4 delegates to `new-branch.ps1`, a lane inherits that
