@@ -43,7 +43,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 37 minor entries** <!-- pending-tally -->
+**29 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1965-theme-lifecycle · 20260914-003520
+
+BWJ's two Shopify stores get **one identical theme lifecycle**, in two scripts plus the policy that
+binds them to the cycle. After a live push, `sweep-preview-themes` removes the spent preview themes
+**this repo created**. At the release cut that closes that push, `backup-live-theme` duplicates live,
+polls until the copy is provably complete, and only then rotates the previous backup out -- so exactly
+one backup is retained and there is never a window with none.
+
+**The verify step is the substance, not the backup.** `shopify theme duplicate` returns long before the
+copy is done -- measured in the consumer, a duplicate of live grew 38 to 833 files over roughly eight
+minutes -- and a short copy is silent: the theme exists, is correctly named, has the right role.
+Anything but *complete* now fails the run and rotates nothing.
+
+**Every delete is bounded by a reserved name prefix the repo writes, never by a theme's role.** On the
+store this was specified from, 39 of 61 themes belong to an agency, an experimentation tool, an
+installed app or colleagues; a role-keyed sweep would have taken all of them and looked correct doing
+it. Previews created before the prefix landed are therefore left standing as a one-time manual
+cleanup -- the safe direction.
+
+The policy lives in `dkj-policy-bwj`'s new fourth chapter: the push-then-cut order and what it makes the
+backup *mean*, and the three standing approvals for deleting a theme with their bounds stated
+explicitly, so each store points at the page rather than re-deciding locally.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Two of the issue's own load-bearing claims were checked against the tree before anything was built on
+them, and both changed the result. The requested cut/push order turned out to contradict a *reasoned*
+condition on `cut-release`'s page rather than a bare convention -- so the order stayed and the backup
+was retargeted, and the one requested behaviour that is a no-op under it was dropped and sent back to
+the issue rather than shipped as a step that does nothing. And the separate store seam was built only
+after confirming `sync-main`'s bare PR route really does skip the gates, which is what made a second
+seam for one fact the right answer instead of duplication.
+
+**Score:** 3
+
+#### Pull Request
+
+Back up the live theme at the cut, rotate it, and sweep the repo's spent previews
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #1970](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1970)
+
+---
 
 ### DEPLOY: feat/1966-native-capture-argv-guard · 20260913-234228
 
