@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Inbound #1976 (filed from `smartwatchbanden`, closing out BWJ-Development/smartwatchbanden#620):
+`THEME-LIFECYCLE-portable.md` line 78 claimed "Both stores answer that seam"
+(`Get-ShopifyThemeDeleteMarker`), which is not true of `smartwatchbanden` -- deliberately, pinned by
+`Get-Command Get-ShopifyThemeDeleteMarker -ErrorAction SilentlyContinue` reading `$false` in
+`scripts/tests/shopify-guard-seam.tests.ps1:112`. Verified in this repo too: the seam is genuinely
+per-consumer-optional (`dkj-subagents-shopify/README.md`'s own seam table says rule 2 stays absolute
+unless a consumer answers it). Repair: drop the factual headcount, keep only the conditional the next
+sentence already states correctly.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Reworded `THEME-LIFECYCLE-portable.md`'s "Both stores answer that seam" sentence to the
+      store-agnostic conditional the issue proposed.
 
 ### TEST
 
+- [x] Lint + tests green, then PR + merge + fold.
+
 ### DEPLOY: docs/1976-theme-lifecycle-delete-marker-claim
 
-**Score:**
+`THEME-LIFECYCLE-portable.md` claimed both BWJ stores answer `Get-ShopifyThemeDeleteMarker`; one of
+them deliberately does not, pinned by its own test. Reworded the sentence to a store-agnostic
+conditional so a reader no longer reads an unanswered seam as a gap to close against a `CLAUDE.md`
+safety rule.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a portable-doc wording correction with no bearing on this repo's own audience tiers.
+
+**Score:** N/A
 
 #### Pull Request
 

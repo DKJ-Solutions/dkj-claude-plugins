@@ -75,8 +75,9 @@ to remember: it is how the delete set is computed, and a theme without the prefi
 
 **And the standing approval does not bypass the delete guard.** `dkj-subagents-shopify`'s PreToolUse
 hook still refuses every `shopify theme delete` that does not carry `Get-ShopifyThemeDeleteMarker`.
-Both stores answer that seam; a store that has not is a store where these steps print the command
-instead of running it, which is the correct behaviour and not a misconfiguration to route around.
+A store that answers that seam runs these removals; a store that has not is a store where these steps
+print the command instead of running it, which is the correct behaviour and not a misconfiguration to
+route around.
 
 ### What is never deleted by any of the three
 
