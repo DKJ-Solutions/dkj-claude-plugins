@@ -489,3 +489,7 @@ permanent header the first real entry lands under. See
 - It does not create the Asana project or token.
 - It does not register this repo in the source repo's `connectors/` register -- that happens in the
   source repo after this repo's settings change has merged.
+- **It does not set up the shared pages worker.** That seam (`Get-BwjPagesConfig`), the KV namespace
+  and the one-time deploy are [`publish-page`](../publish-page/SKILL.md)'s own setup section, and they
+  stay there deliberately: this skill's steps are per repo, while that worker is created **once for
+  both stores** and the second store answers the same four values the first one already has.

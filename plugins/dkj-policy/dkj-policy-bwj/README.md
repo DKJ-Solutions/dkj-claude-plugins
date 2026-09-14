@@ -167,6 +167,7 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id, and why the whole pair travels as one link rather than a table |
 | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | chapter four in prose -- the push-then-cut order and what it makes the backup MEAN, the three standing approvals for deleting a theme and their bounds, and why the delete set is a prefix this repo wrote |
 | [`scripts/`](scripts/) | the mechanism both stores share, to **dot-source** from the plugin cache rather than copy -- see [What this plugin owns](#what-this-plugin-owns) |
+| [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |
 | [`skills/`](skills/) | the skills a specialist invokes |
 | [`templates/`](templates/) | the CI mechanism to **copy** into each repo's `.github/` -- GitHub only runs workflows from a repo's own `.github/`, so what ships here is the reference to copy and diff against, the same pattern as `dkj-policy/templates/pull_request_template.md` |
 
@@ -224,6 +225,34 @@ reports after the fact and refuses nothing.
 |---|---|---|
 | the test harness | [`scripts/tests/test-lib.ps1`](scripts/tests/test-lib.ps1) | the assert helpers, `ConvertTo-CapturedText`, `Add-SuiteFault` and `Assert-PluginLoadedForProject` -- the superset of what the two stores each had, in English |
 | the market URL builder | [`scripts/lib/market-urls.ps1`](scripts/lib/market-urls.ps1) | the storefront and preview URLs per market -- the superset of what the two stores each had, in English. The market table itself stays a `Get-StorefrontMarkets` seam answer per store |
+| the shared pages worker | [`worker/bwj-pages-worker.js`](worker/bwj-pages-worker.js) + [`scripts/task/publish-page.ps1`](scripts/task/publish-page.ps1) + [`scripts/lib/page-publish-rules.ps1`](scripts/lib/page-publish-rules.ps1) | **one** Cloudflare Worker for both stores, serving a built page at an unguessable path -- see [The shared pages worker](#the-shared-pages-worker) below |
+
+#### The shared pages worker
+
+**Issue [#1977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1977): both stores publish
+through ONE worker.** It carries the pages a colleague outside the development work has to read --
+the release notes today, the minor backlog once its builder exists -- because those documents live as
+markdown in a **private** repository, which is the right home for them and the wrong place to read
+them.
+
+**`dkj-policy`'s own worker could not be that one, and the reason is mechanical.**
+`build-release-notes-page.ps1 -Worker` writes the page into `worker.js` **as a literal**, and
+`wrangler deploy` replaces the whole script -- so pointing both stores at one worker name means
+whichever deploys last erases the other store's page. Silently: both runs report success, and the
+loss is found by whoever opens a link that used to work.
+
+**So this worker carries no content at all.** The pages sit in Cloudflare KV, one key per
+`<kind>:<token>`, and a redeploy from either store re-uploads byte-identical code. That is what makes
+*the same worker* a true statement rather than a race, and it is the property
+`scripts/tests/bwj-page-publish.tests.ps1` in the source repo exists to keep -- including the seam
+between two languages, where the list of kinds is written in a `.ps1` and in a `.js` and nothing else
+can hold the two together.
+
+**What differs per store is the path token and nothing else.** Both repos answer the same four seam
+values -- one account, one namespace, one worker, one origin -- so the token is the only thing that
+makes one store's URL not the other's, and it is why two stores can share a namespace without being
+able to reach each other's pages by accident. The whole procedure, the token doctrine and what the
+path does and does not lock are in [`publish-page`](skills/publish-page/SKILL.md).
 
 **Adopting the test harness** in a store repo: replace the local `scripts/tests/test-lib.ps1` with a
 forwarder that dot-sources this one out of the plugin cache, resolved through that repo's
@@ -257,6 +286,7 @@ matched, so the sibling check could see the pair only as `ALIASED`
 |---|---|
 | [`report-issue`](skills/report-issue/SKILL.md) | a real issue has been found in a BWJ store repo -- files it on GitHub with its type and reach label, mirrors it to Asana as the colleague-facing variant, and writes the cross-links |
 | [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md) | one-time setup in a store repo -- copies the CI mechanism into `.github/`, proposes the Asana config seam, and prints the secret/variable setup |
+| [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
 
 <!-- /skills:plugin -->
 
@@ -338,6 +368,17 @@ shared lib:
   lib refuses by name rather than inventing a table. Read it off the live storefront's public hreflang
   set rather than from memory when a market is added or removed -- both stores' original copies
   recorded that instruction, and it is the reason neither table had silently rotted.
+
+- `Get-BwjPagesConfig` -- the shared pages worker: `Worker`, `AccountId`, `NamespaceId` and
+  `BaseUrl`. **Required** by [`publish-page`](skills/publish-page/SKILL.md) and by nothing else, and
+  it is the one seam in this list whose answer is **identical in both stores** -- that identity is
+  what *one worker for both* means. It is a seam rather than four literals in the plugin because this
+  plugin ships from a **public** repository and a store repo does not: the boundary it draws is
+  confidentiality, not configurability, which is the opposite of `Get-StorefrontMarkets` above.
+  **The Cloudflare API token is deliberately NOT part of it** -- it is read from
+  `CLOUDFLARE_API_TOKEN` in the environment, because a seam answer is committed by construction and a
+  committed write token to an account is a different class of thing from an id that only identifies
+  one.
 
 ## Enabling it
 
