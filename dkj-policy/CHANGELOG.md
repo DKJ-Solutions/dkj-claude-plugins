@@ -43,7 +43,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1979-backlog-page-builder · 20260914-185529
+
+The minor-backlog page builder: `build-backlog-page.ps1` writes `minor-backlog.html` from a store
+repo's open, reach-labelled issues, showing each one's mirrored Asana task text -- never the GitHub
+issue's own developer-facing title and body, per Dave's decision on the issue. `publish-page.ps1
+-Kind backlog` already routed and published this kind since #1977; this was the missing half.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store repo (`smartwatchbanden`, `xoxowildhearts`) can now actually build and publish the minor
+backlog to a colleague, completing the loop #1977 opened the worker for. Opt-in: nothing runs until a
+store repo invokes the new skill.
+
+**Score:** 3
+
+#### Pull Request
+
+The minor-backlog page builder for the shared BWJ pages worker
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2008](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2008)
+
+---
 
 ### DEPLOY: fix/2000-quota-red-check · 20260914-184214
 
