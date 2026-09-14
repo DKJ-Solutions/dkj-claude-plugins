@@ -99,8 +99,14 @@
       33 #1987: a clone marketplace.json that will not parse  -> names the manifest, and offers the
                                                                    refresh only as conditional on the
                                                                    file being damaged
-      34 #1987: the measured shape -- valid JSON carrying     -> the refresh is ruled OUT by name, and
-         two keys differing only in case                        the 5.1 reader is named as the cause
+      34 #1993: the measured shape -- valid JSON carrying     -> it is READ, and its versions compared
+         two keys differing only in case                        like any other manifest
+      34a #1993: #1987's ruled-out-by-name advice, which      -> pinned on the source, since the fixture
+          only a missing fallback can still reach               above can no longer reach it
+      34b #1987: the parse-failure action, for a marketplace  -> the manifest path is withheld and the
+          whose name is not a valid slug                        placeholder sentence stands in
+      34d #1993: a plugin the manifest declares with a        -> told apart from one it never declared,
+          url source instead of a path                          and no refresh is prescribed
     Every scenario asserts exit code 0 explicitly (this is a report, not a gate).
 
     Scenarios 12/13 build the "reachable but not an ancestor" state the way a real marketplace clone
@@ -1056,26 +1062,44 @@ try {
     # -- lacks the plugin still gets the unconditional refresh, which is the reasoning this branch
     # -- inherited and kept.
 
-    # --- 34. #1987: the measured case, where the refresh provably cannot help --------------------
-    # -- Windows PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively, and the
-    # -- official marketplace manifest legitimately carries both '.c' and '.C' (an lspServers
-    # -- extension map). The file is VALID JSON; no number of refreshes changes what 5.1 can
-    # -- represent -- measured September 14, 2026, where the refresh had already run and succeeded
-    # -- seconds earlier in step 1 of the same update-plugins run. So this shape rules the refresh
-    # -- OUT by name instead of leaving it as a thing to try.
-    Write-Host "34. #1987: case-colliding keys -- the refresh is ruled out by name" -ForegroundColor Cyan
+    # --- 34. #1993: case-colliding keys are READ, where #1987 could only explain the refusal -------
+    # -- Windows PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively and then
+    # -- refuses the collision it made itself, and the official marketplace manifest legitimately
+    # -- carries both '.c' and '.C' (an lspServers extension map). #1987 made this row say so instead
+    # -- of prescribing a refresh that provably cannot help; #1993 removed the refusal, so what this
+    # -- scenario now pins is that the document is PARSED and its versions compared like any other.
+    # --
+    # -- THE FIXTURE CARRIES A REAL PLUGINS LIST, and that is the half the #1987 shape could not have.
+    # -- Its list was empty, so "read it" and "fail to read it" were indistinguishable in the output:
+    # -- both end at 'cannot determine'. Declaring the plugin is what makes the assert below evidence
+    # -- of a successful parse rather than of a differently-worded failure.
+    Write-Host "34. #1993: a manifest with case-colliding keys is read, not refused" -ForegroundColor Cyan
     $c = New-Case 'clone-dupkeys'
     New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $c.Clone '.claude-plugin\marketplace.json'),
-        '{ "name": "ccs-fixture", "plugins": [], "lspServers": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } }', $Utf8)
+        '{ "name": "ccs-fixture", "plugins": [ { "name": "dkj-subagents-alpha", "source": "./plugins/dkj-subagents-alpha" } ],' +
+        ' "lspServers": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } }', $Utf8)
     Set-Enabled -RepoDir $c.Repo -Ids @($ID)
     Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
     $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
     Assert-Equal 0 $r.Code '34: exit 0'
-    Assert-Has   $r 'duplicated keys' '34: fixture sanity -- 5.1 really does refuse this valid JSON, and the reason is printed'
-    Assert-Has   $r 'NOT a stale clone, so a refresh cannot help' '34: the advice that cannot work is ruled out rather than prescribed'
-    Assert-Has   $r 'folds JSON keys case-insensitively' '34: and the reader is told whose fault it is, so they stop re-running the refresh'
-    Assert-Lacks $r 'refresh the clone and re-run' '34: the staleness command does not appear for this shape'
+    Assert-Has   $r '4.33.0' '34: the clone version is read out of a document 5.1 refuses to parse'
+    Assert-Lacks $r 'duplicated keys' '34: and nothing is reported about a collision any more'
+    Assert-Lacks $r 'marketplace.json could not be read' '34: the row is a real comparison, not a parse failure in new words'
+    Assert-Lacks $r 'refresh the clone and re-run' '34: no staleness command, because there is no staleness'
+
+    # --- 34a. #1993: the #1987 advice survives as a RESIDUAL, and is still held to its wording ------
+    # -- The duplicated-keys branch is not dead: it fires wherever the case-sensitive fallback is
+    # -- itself unavailable, so the sentence #1987 wrote has to keep being exactly the sentence a
+    # -- reader acts on. It cannot be reached through the fixture above any more -- that is the fix --
+    # -- so it is pinned on the SOURCE instead of on a run. The regression this guards against is a
+    # -- wording change that leaves a reader re-running a refresh which cannot help; the branch's
+    # -- reachability is not the subject.
+    Write-Host "34a. #1993: #1987's ruled-out-by-name advice is still the wording on the residual path" -ForegroundColor Cyan
+    $pvSource = [System.IO.File]::ReadAllText($Script)
+    Assert-True ($pvSource -match 'duplicated keys') '34a: the discriminator is still matched on'
+    Assert-True ($pvSource -match 'NOT a stale clone, so a refresh cannot help') '34a: and still rules the refresh OUT by name rather than offering it'
+
 
     # --- 34b. #1987's new action is held to the withhold doctrine too (Sebastian, on this branch) ----
     # -- Scenarios 28-31 each pair one withhold branch with a deliberately unsafe slug, and the parse-
@@ -1105,6 +1129,26 @@ try {
     Assert-LacksBetween $r 'verdict' 'NO-SUCH-MARKER' 'ccs;evil' '34b: the raw metacharacter marketplace never reaches the action, not even inside a path'
     Assert-LacksBetween $r 'verdict' 'NO-SUCH-MARKER' 'marketplaces' '34b: and no filesystem path is built into the action for this row'
     Assert-Has   $r "no paste-ready command -- the 'enabledPlugins' key is not a valid plugin id (bad slug)" '34b: the withhold sentence stands in for it, exactly as at every other site'
+
+    # --- 34d. #1993: a url-sourced plugin is NOT reported as absent from the manifest --------------
+    # -- 244 of the official marketplace's 296 entries declare a url source rather than a path, so the
+    # -- clone holds no plugin.json for them -- but they ARE listed. Reading the manifest at all made
+    # -- this reachable for the first time, and the absent-plugin branch answers with a marketplace
+    # -- refresh: the third loop of the shape #1987 split apart, prescribed for a state that is
+    # -- permanent and not a fault. This scenario is what keeps the two apart.
+    Write-Host "34d. #1993: a url-sourced plugin is told apart from one the manifest never declared" -ForegroundColor Cyan
+    $c = New-Case 'clone-url-source'
+    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $c.Clone '.claude-plugin\marketplace.json'),
+        '{ "name": "ccs-fixture", "plugins": [ { "name": "dkj-subagents-alpha",' +
+        ' "source": { "source": "url", "url": "https://example.invalid/x.git", "sha": "abc" } } ] }', $Utf8)
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '34d: exit 0'
+    Assert-Has   $r 'its source is a url' '34d: the row says the clone holds no copy, rather than that the plugin is unlisted'
+    Assert-Lacks $r 'is not listed in the clone' '34d: the absent-plugin sentence does not fire for a plugin that IS listed'
+    Assert-Lacks $r 'refresh the clone and re-run' '34d: and no refresh is prescribed for a state that is permanent'
 
     # --- 35. #1986 (Victor, on this branch): a scope the CLI does not accept is SAID, not swallowed --
     # -- The fallback is 'project', which is the same string a confirmed project record produces -- so

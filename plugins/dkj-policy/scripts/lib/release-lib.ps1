@@ -347,9 +347,15 @@ function Get-MarketplaceName {
         existing intros against that same text -- read one field through one function instead of
         each carrying a literal. A literal in either place is what let the retired name survive the
         rename in four consumer-facing files.
+
+        PARSES THROUGH ConvertFrom-MarketplaceJson (plugin-tree-lib.ps1, dot-sourced above) rather than
+        ConvertFrom-Json, for the reason written at that function: 5.1's own reader cannot represent a
+        manifest carrying two keys that differ only in case. cut-release.ps1 calls Get-PluginRoots and
+        this function on the SAME document text, four lines apart in one function, so routing only the
+        first would have moved #1993's symptom rather than removed it (Victor, on that branch).
     #>
     param([Parameter(Mandatory)][string]$MarketplaceJson)
-    $marketplace = $MarketplaceJson | ConvertFrom-Json
+    $marketplace = ConvertFrom-MarketplaceJson -MarketplaceJson $MarketplaceJson
     if (-not ($marketplace.PSObject.Properties.Name -contains 'name') -or -not $marketplace.name) {
         throw "marketplace.json has no non-empty 'name'."
     }
