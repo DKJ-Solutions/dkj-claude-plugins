@@ -3,8 +3,9 @@
     The CI floor, in a consuming repo: place the runners that keep the fold and the resolves
     verification alive across a merge this session never observes, place the scheduled check that a
     GitHub-side repo setting has not silently drifted, report whether a required status check exists at
-    all -- the one detect-and-rebase reads -- and, for a repo that has CHOSEN a merge queue, print the
-    ruleset command WITHOUT running it. Issues #1516, #1546, #1843, #1903.
+    all -- the one detect-and-rebase reads -- and, where none does, print the exact `gh api` call that
+    would create one, WITHOUT running it. A repo that has CHOSEN a merge queue is pointed at the UI
+    instead: that switch is not composed here. Issues #1516, #1546, #1843, #1903, #1972.
 
 .DESCRIPTION
     NAMED adopt-merge-queue.ps1 UNTIL SEPTEMBER 13, 2026 (#1903), AND THE OLD NAME IS GONE RATHER THAN
@@ -95,9 +96,14 @@
     IT NEVER FLIPS THE SETTING, AND THAT IS A RULE RATHER THAN A LIMITATION. A ruleset is a
     repo-settings change: irreversible in the sense that matters (it changes what every contributor's
     merge does, immediately, for everybody) and outward-facing. This workflow's own constitution puts
-    that class in the owner's hands, so the run composes the exact `gh api` call and stops. Reading the
-    rules needs only a token that can read them; writing them needs one that can administer the repo,
-    and a script that quietly held the second would be a different kind of tool.
+    that class in the owner's hands. FOR THE REQUIRED-CHECK RULESET (section 1's '[gap]', #1972) the
+    run composes the exact `gh api` call and stops -- reading the rules needs only a token that can
+    read them; writing them needs one that can administer the repo, and a script that quietly held the
+    second would be a different kind of tool. THE MERGE QUEUE (section 3) STAYS A UI HANDOVER, and
+    that is not the same rule said twice for two different targets: composing it would mean asserting
+    seven scheduling parameters -- merge method, grouping strategy, three limits, two timeouts -- that
+    are policy nobody here has chosen, where the required-check payload has exactly one free choice
+    (which job) and this script already knows how to answer that one from the tree it is standing in.
 
     STRICTLY ADDITIVE, NEVER OVERWRITES, DRY RUN BY DEFAULT -- the same three properties
     adopt-workflow-folder and adopt-config are trusted on, and for the same reason: the first run of a
@@ -230,14 +236,20 @@ $checkoutPin = 'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5'
 # the answer, because the floor is worth building either way.
 $rulesJson = ''
 $rulesSource = ''
+# $repoSlug IS HOISTED HERE (issue #1972). It used to live inside the `else` branch below, so under
+# Set-StrictMode -Version Latest it was undefined on the -RulesJsonOverride path -- exactly the path
+# the test suite takes, and the one the printed ruleset instruction in section 1 below also needs it
+# on. Resolved from the Get-RepoName seam first, same as always; the gh fallback stays inside the
+# network-reading branch below, because a consumer running with an override file and no network has
+# no way to answer it and none is owed one -- section 1 prints a placeholder there instead.
+$repoSlug = ''
+if (Test-FunctionDefined 'Get-RepoName') { $repoSlug = [string](Get-RepoName) }
 if ($RulesJsonOverride) {
     if (Test-Path -LiteralPath $RulesJsonOverride -PathType Leaf) {
         $rulesJson = [System.IO.File]::ReadAllText($RulesJsonOverride)
         $rulesSource = "the payload in $RulesJsonOverride"
     }
 } else {
-    $repoSlug = ''
-    if (Test-FunctionDefined 'Get-RepoName') { $repoSlug = [string](Get-RepoName) }
     if (-not $repoSlug) {
         # No seam answer: ask gh what repo this checkout is. A consumer that has not answered
         # Get-RepoName yet is exactly the fresh adoption this command is for, so refusing here would
@@ -642,8 +654,9 @@ $repoSettingsRunner = @(
     '# purpose, without waiting for the next cron.',
     '#',
     '# THE CHECK NEVER WRITES TO GITHUB. Repo settings are the owner''s surface; this script reads and',
-    '# reports, exactly as this same command''s own ruleset instruction (further down this file) composes',
-    '# and stops rather than applying anything.',
+    '# reports, exactly as this same command''s own required-check ruleset instruction (further down this',
+    '# file, #1972) composes a call and stops rather than applying it. The queue instruction stays a UI',
+    '# pointer -- that switch carries policy nobody here has chosen.',
     '#',
     '# ONE FIELD (bypass_actors) IS ADMIN-ONLY AND READS AS UNREADABLE, NOT AS GREEN -- the check''s own',
     '# third verdict. -RequireRead is the floor under that: without it, a token that cannot reach the two',
@@ -764,6 +777,73 @@ if (-not $queueReadable) {
     Write-Host '            plugin ships CANNOT: it reads github.head_ref, which is empty outside a pull' -ForegroundColor Yellow
     Write-Host '            request, so it stays a pull-request check. Use your own CI workflow. If you also' -ForegroundColor Yellow
     Write-Host '            run a queue, that workflow needs the merge_group trigger of this section too.' -ForegroundColor Yellow
+    Write-Host '' -ForegroundColor Yellow
+
+    # THE PASTE-READY CALL (#1972). This is the one place in this script that composes a `gh api` call
+    # rather than merely pointing at a UI -- see the reasoning at the top of this file for why this arm
+    # earns that and the queue (section 3) does not: the payload below has exactly one free choice
+    # (which check), and the tree this script is standing in can usually answer that itself.
+    #
+    # THE CONTEXT IS A JOB, NOT A GUESS. Collected the same way Get-WorkflowFacts already collects a
+    # required check's owner above: every job key or job name declared by a workflow that triggers on
+    # pull_request. Exactly one such id across the whole tree is filled in directly; more than one, or
+    # none at all, is left as an obvious placeholder, and every candidate is printed so picking one is a
+    # copy from a list rather than a hunt through .github/workflows/.
+    $prJobIds = @($workflows | Where-Object { $_.OnPullRequest } | ForEach-Object { $_.JobIds } | Sort-Object -Unique)
+    $rulesetContext = if ($prJobIds.Count -eq 1) { $prJobIds[0] } else { 'REPLACE-WITH-A-JOB-ID-BELOW' }
+    $rulesetSlug = if ($repoSlug) { $repoSlug } else { '<owner>/<repo>' }
+
+    Write-Host '            THIS CREATES A NEW RULESET REQUIRING THAT CHECK ON THE TRUNK -- paste it as-is' -ForegroundColor Yellow
+    if ($prJobIds.Count -ne 1) {
+        Write-Host '            once you have replaced REPLACE-WITH-A-JOB-ID-BELOW with your own choice:' -ForegroundColor Yellow
+    } else {
+        Write-Host "            (the one candidate job, '$rulesetContext', is already filled in):" -ForegroundColor Yellow
+    }
+    if (-not $repoSlug) {
+        Write-Host '            THE REPO SLUG COULD NOT BE RESOLVED -- replace <owner>/<repo> yourself.' -ForegroundColor Yellow
+    }
+    Write-Host '' -ForegroundColor Yellow
+    $rulesetLines = @(
+        '$json = @''',
+        '{',
+        "  ""name"": ""require $rulesetContext on $trunk"",",
+        '  "target": "branch",',
+        '  "enforcement": "active",',
+        "  ""conditions"": { ""ref_name"": { ""include"": [""refs/heads/$trunk""], ""exclude"": [] } },",
+        '  "rules": [',
+        '    {',
+        '      "type": "required_status_checks",',
+        '      "parameters": {',
+        "        ""required_status_checks"": [ { ""context"": ""$rulesetContext"" } ],",
+        '        "strict_required_status_checks_policy": false',
+        '      }',
+        '    }',
+        '  ]',
+        '}',
+        "'@",
+        "`$json | gh api --method POST repos/$rulesetSlug/rulesets --input -"
+    )
+    foreach ($ln in $rulesetLines) { Write-Host $ln -ForegroundColor DarkGray }
+    Write-Host '' -ForegroundColor Yellow
+    if ($prJobIds.Count -ne 1) {
+        Write-Host '            CANDIDATE CHECKS (job id -- from workflow), since more than one exists (or none' -ForegroundColor Yellow
+        Write-Host '            does): pick the one your merge should actually wait on.' -ForegroundColor Yellow
+        $prWorkflows = @($workflows | Where-Object { $_.OnPullRequest })
+        if ($prWorkflows.Count -eq 0) {
+            Write-Host '              (no workflow here triggers on pull_request at all)' -ForegroundColor DarkGray
+        }
+        foreach ($w in $prWorkflows) {
+            foreach ($jid in $w.JobIds) {
+                Write-Host "              $jid -- from $($w.Rel)" -ForegroundColor DarkGray
+            }
+        }
+        Write-Host '' -ForegroundColor Yellow
+    }
+    Write-Host '            THIS POSTS A NEW RULESET, AND RULESETS LAYER: a trunk already protected by one' -ForegroundColor Yellow
+    Write-Host '            gets a second, additive ruleset rather than an edit to the first -- which is' -ForegroundColor Yellow
+    Write-Host '            harmless but not always what you want. To fold this rule into an existing' -ForegroundColor Yellow
+    Write-Host '            ruleset instead, list them first and edit that one in the UI or via its own id:' -ForegroundColor Yellow
+    Write-Host "              gh api repos/$rulesetSlug/rulesets" -ForegroundColor DarkGray
 } else {
     foreach ($ctx in $requiredContexts) {
         $owner = @($workflows | Where-Object { $_.JobIds -contains $ctx })

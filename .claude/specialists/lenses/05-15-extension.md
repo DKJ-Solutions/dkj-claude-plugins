@@ -879,9 +879,11 @@ infrastructure.
   check whose subject *is* the ruleset, required *by* that ruleset, would be self-referential — and it
   would stop the trunk over a switch only Dave can flip, so a drift would block every merge instead of
   reporting one. **And it writes nothing to GitHub**, ever: repo settings are Dave's surface, the same
-  rule `adopt-ci-floor.ps1` follows when it composes its ruleset command and refuses to run it. It
-  holds `contents: read` and borrows no standing credential, which is the whole difference from
-  `fold-on-merge.yml` two bullets up.
+  rule `adopt-ci-floor.ps1` follows when it composes its required-check ruleset command and refuses to
+  run it ([#1972](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1972)) — its merge-queue
+  instruction stays a UI pointer instead, since that switch is scheduling policy nobody here has
+  chosen. It holds `contents: read` and borrows no standing credential, which is the whole difference
+  from `fold-on-merge.yml` two bullets up.
 
   **ONE FIELD READS AS UNREADABLE IN CI, AND THAT IS A THIRD VERDICT RATHER THAN A PASS.**
   `bypass_actors` is returned to repo administrators only, so the job-scoped `GITHUB_TOKEN` cannot see
