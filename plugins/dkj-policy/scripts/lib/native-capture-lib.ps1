@@ -1131,6 +1131,42 @@ function Read-NativeCaptureFile {
     }
 }
 
+function Resolve-NativeApplicationPath {
+    <#
+        The file $FilePath actually resolves to when Start-Process is told to search PATH for it
+        itself -- or $FilePath unchanged when there is nothing to resolve. Exists for
+        Invoke-NativeCaptureUtf8 alone, because that arm's PATH search is not PowerShell's own.
+
+        WHY THIS EXISTS AT ALL (issue #1988). npm's global install on Windows drops three files for one
+        bin -- an extensionless POSIX shim, a '.cmd', and a '.ps1' -- all in the same PATH entry.
+        Start-Process resolves a bare name via CreateProcess's own search, which matches the EXACT
+        (extensionless) file before it ever tries an appended extension, and handing that file to the
+        Win32 loader fails with "%1 is not a valid Win32 application". The & operator arm never hits
+        this: PowerShell's own command discovery (the order Get-Command uses) picks the '.ps1' first
+        and runs it as a script instead of loading a raw file.
+
+        So this looks for what Get-Command would find, filtered to what Start-Process can actually
+        launch as a native process -- CommandType Application (excludes the '.ps1', an ExternalScript
+        Start-Process would only ever hand to whatever program owns that extension) WITH a non-empty
+        Extension (excludes the bare POSIX shim itself). The first such match, in Get-Command's own
+        order, is the file PATHEXT-style resolution would have picked had the colliding extensionless
+        file not been sitting in the same directory.
+
+        Left unchanged -- not refused, not searched further -- when $FilePath already names a specific
+        file (a path separator is present) or when nothing Application-shaped with an extension turns
+        up; Start-Process then fails exactly as it always did, so a genuinely missing command still
+        reports as one.
+    #>
+    param([Parameter(Mandatory = $true)][string]$FilePath)
+
+    if ($FilePath -match '[\\/]') { return $FilePath }
+
+    $match = Get-Command -Name $FilePath -All -CommandType Application -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension } | Select-Object -First 1
+    if ($match) { return $match.Source }
+    return $FilePath
+}
+
 function Invoke-NativeCaptureUtf8 {
     <#
         The -Utf8 arm of Invoke-NativeCapture; see that function's docstring for WHY. Split out rather
@@ -1169,7 +1205,7 @@ function Invoke-NativeCaptureUtf8 {
         $prevEnv = Push-NativeNonInteractiveEnv
 
         $startArgs = @{
-            FilePath               = $FilePath
+            FilePath               = (Resolve-NativeApplicationPath -FilePath $FilePath)
             NoNewWindow            = $true
             PassThru               = $true
             RedirectStandardOutput = $outFile

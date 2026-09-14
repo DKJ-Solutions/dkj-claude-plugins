@@ -917,6 +917,41 @@ try {
     # THE REAL FUNCTION IS BACK, so the ordinary (measured) case still reads a real answer -- proof the
     # restore above worked rather than merely not-erroring.
     Assert-Equal $committed.TrimEnd("`n") (Get-GitFileTextAtRef -Ref 'refs/heads/main' -Path 'cycle.md' -RepoRoot $gitFx) 'and the ordinary read is unaffected once the stub is gone'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host "Resolve-NativeApplicationPath -- npm's three-shim layout on Windows (#1988)" -ForegroundColor Cyan
+
+    # REPRODUCED RATHER THAN MOCKED. npm's global install on Windows drops three files for one bin --
+    # an extensionless POSIX script, a '.cmd', and a '.ps1' -- all in the same PATH entry. Start-Process
+    # resolves a bare name via CreateProcess's own search, which matches the extensionless file FIRST
+    # and hands it to the Win32 loader, which fails with "%1 is not a valid Win32 application". This is
+    # the same three-file shape 'Get-Command claude -All' shows on the machine this issue was filed
+    # from -- confirmed by direct inspection before this fix, not assumed.
+    $shimDir = Join-Path $sandbox 'npm-shim-1988'
+    New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $shimDir 'probe1988')     -Value "#!/bin/sh`necho posix-shim" -NoNewline
+    Set-Content -LiteralPath (Join-Path $shimDir 'probe1988.ps1') -Value "Write-Output 'ps1-shim'" -NoNewline
+    Set-Content -LiteralPath (Join-Path $shimDir 'probe1988.cmd') -Value "@echo off`r`necho cmd-shim`r`n" -NoNewline
+
+    $prevPath = $env:PATH
+    try {
+        $env:PATH = "$shimDir;$env:PATH"
+        $r = Invoke-NativeCapture -Utf8 -FilePath 'probe1988' -Arguments @()
+        Assert-Equal 0      $r.ExitCode  'the .cmd shim launches -- not the Win32-loader failure on the extensionless file'
+        Assert-Equal $false $r.TimedOut  'and it is not read as a timeout either'
+        Assert-True ((@($r.Output) -join '') -like '*cmd-shim*') 'and its own output is captured -- proof Start-Process got the .cmd, not the .ps1 or the bare file'
+    } finally {
+        $env:PATH = $prevPath
+    }
+
+    # A NAME THAT ALREADY NAMES A SPECIFIC FILE IS NEVER RESOLVED FURTHER -- the resolver only widens
+    # the pool for a bare, PATH-searched name.
+    $cmdPath = Join-Path $shimDir 'probe1988.cmd'
+    Assert-Equal $cmdPath (Resolve-NativeApplicationPath -FilePath $cmdPath) 'a path that already names a file is left untouched'
+
+    # A GENUINELY MISSING COMMAND IS STILL REPORTED AS MISSING -- the resolver hands the name back
+    # unchanged rather than silently matching something else, so Start-Process fails exactly as before.
+    Assert-Equal 'a-command-that-does-not-exist-1988' (Resolve-NativeApplicationPath -FilePath 'a-command-that-does-not-exist-1988') 'nothing to resolve to -- unchanged, not swallowed'
 } finally {
     if (Test-Path -LiteralPath $sandbox) { Remove-Item -Recurse -Force -LiteralPath $sandbox -ErrorAction SilentlyContinue }
 }
