@@ -39,11 +39,38 @@
 
 ### PLAN
 
+#### What #1972 reports, and what the tree actually says
+
+Four places claim `adopt-ci-floor.ps1` composes a ready-to-run `gh api` call for the ruleset change it
+refuses to apply. It composes none: the only `gh api` line it ever prints is a READ. Verified against the
+script before any repair was written -- the two arms that reach a ruleset change hand over prose
+(the required-check `[gap]`) and a UI path (the queue).
+
+The issue names three sites. There are **four** -- `.claude/specialists/lenses/05-15-extension.md:882`
+carries the same claim and was not reported. Both scripts are byte-identical to their plugin mirrors, so
+each repair lands twice.
+
+Option 2 of the issue is the one taken, scoped: the required-check arm composes the call, because that is
+the arm the docstring's argument rests on and the one #1971 needed. The queue arm keeps its UI handover --
+a `merge_queue` payload asserts seven scheduling parameters that are policy nobody here has chosen, and the
+control is plan-gated to the point where GitHub does not render the checkbox at all. What changes there is
+the prose, which stops reading as if it covered both.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] `adopt-ci-floor.ps1`: the `[gap]` arm composes the paste-ready `gh api --method POST .../rulesets`
+      call, with the trunk, the slug and the candidate check filled in from state the run already holds
+- [ ] `$repoSlug` hoisted out of the rules-read `else` branch, so the composed call can name it on the
+      `-RulesJsonOverride` path without tripping `Set-StrictMode`
+- [ ] all four citations say WHICH ruleset instruction composes, and why the queue one does not --
+      including the one scaffolded into every adopting consumer's `repo-settings.yml` header
+- [ ] both plugin mirrors kept byte-identical
 
 ### TEST
+
+- [ ] the composed block printed and read, not merely written
+- [ ] `adopt-ci-floor.tests.ps1` covers the composed call and the caveat that goes with it
+- [ ] lint gate + all suites green
 
 ### DEPLOY: fix/1972-compose-ruleset-call
 
