@@ -13,9 +13,15 @@
     including a docs or tooling branch that could never touch a theme file, which then left an unused
     theme on the store. Measured on the day the rule was made: 49 themes on the store, 47 unpublished, 16
     names carrying a branch prefix, of which 4 were artefacts from another project; of the 12 real branch
-    previews, 6 belonged to branches that never needed one. And a Shopify store has a hard ceiling of 20
-    themes, so an estate filling up with unused previews is not merely untidy -- it eventually refuses the
-    next push.
+    previews, 6 belonged to branches that never needed one. And a Shopify store's theme ceiling is
+    FINITE, so an estate filling up with unused previews is not merely untidy -- it eventually refuses
+    the next push.
+
+    THE CEILING IS PLAN-DEPENDENT AND IS NOT 20 EVERYWHERE (inbound #1965). This header said "a hard
+    ceiling of 20 themes" until September 14, 2026, and the store that filed that issue holds 61. The
+    number was never the argument -- the argument is that the ceiling exists and is reached -- so what
+    is stated now is the property rather than a figure that is wrong on the very store this feature was
+    specified from. The CLI names the real limit when you hit it ("A shop may only have N themes").
 
     A preview theme is a consequence of "I want to show this", not of "I am starting work". So it comes
     into existence at the moment something is actually pushed.
@@ -87,6 +93,11 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
 . (Join-Path $PSScriptRoot '..\lib\preview-theme.ps1')
+
+# THE RESERVED NAMESPACE (inbound #1965). Unguarded, like the CLI wrapper below and unlike the
+# source-repo guard above: a copy of this script without the lib must fail at load rather than create a
+# theme under a name the sweep cannot recognise, which would leave an orphan on a finite estate.
+. (Join-Path $PSScriptRoot '..\lib\theme-lifecycle-rules.ps1')
 
 # THE SHOPIFY CLI WRAPPER (inbound #1183, September 1, 2026). All three Shopify calls below were bare,
 # under this script's 'Stop' -- and the CONFIRMED instance of the class is one of them: a captured
@@ -183,8 +194,26 @@ if ($branch -eq $trunk) {
 
 # THE FLATTENED NAME, from the repo's own seam where it has one. Shopify rejects a theme name containing
 # '/', so this is not cosmetic: Get-ThemeCreateArgs refuses the raw branch name by design.
-$themeName = ([string]$seam.ThemeName).Trim()
-if (-not $themeName) { $themeName = $branch -replace '/', '-' }
+$flatName = ([string]$seam.ThemeName).Trim()
+if (-not $flatName) { $flatName = $branch -replace '/', '-' }
+
+# AND THEN THE RESERVED NAMESPACE ON TOP OF IT (inbound #1965). A theme this script creates now carries
+# the prefix Get-RepoThemePrefix owns, because that is the ONLY thing that can define the sweep's delete
+# set later: the flattened branch name cannot. Measured in the consumer that filed it -- on a store of
+# 61 themes, several third-party themes are plain hyphenated words indistinguishable in shape from a
+# branch-derived name, and others are branch-shaped but keep the slash, so they look like ours and are
+# not. Identifying a delete set by resemblance is guesswork on a destructive operation, so the sweep
+# matches on something this repo WROTE.
+$themeName = Get-RepoPreviewThemeName -FlatBranchName $flatName
+
+# THE LEGACY NAME IS STILL LOOKED UP, AND THAT IS A MIGRATION RATHER THAN A COURTESY. Every preview
+# created before this landed carries the bare flattened name. Without this fallback the name lookup
+# below would miss it and step 4 would create a SECOND theme for the same branch -- the exact failure
+# Get-ThemeUpdateArgs' digits-only check exists to prevent, arriving through a different door, on a
+# store with a finite ceiling. A legacy theme found this way keeps its own name: renaming it is a
+# separate act, and the sweep leaves it alone either way (it does not carry the prefix), which is the
+# safe direction for a one-time manual cleanup.
+$legacyThemeName = $flatName
 
 function Write-PreviewUrls {
     <# The seam where the repo has one, the built-in single URL otherwise. A function so that the two exit
@@ -245,6 +274,16 @@ if (-not $id) {
     # Get-ThemeByName carries the PowerShell 5.1 member-enumeration trap that made this fallback always
     # report 'not found' in a consumer, and it THROWS on a duplicate name rather than picking one.
     $theme = Get-ThemeByName -Parsed $parsed -ThemeName $themeName
+    # THE RESERVED NAME FIRST, THE LEGACY NAME SECOND, and never the other way round: a branch that has
+    # both must resolve to the one this repo now owns, because that is the one the sweep can retire.
+    if (-not $theme -and $legacyThemeName -ne $themeName) {
+        $theme = Get-ThemeByName -Parsed $parsed -ThemeName $legacyThemeName
+        if ($theme) {
+            Write-Host ("Found this branch's preview under its pre-#1965 name '$legacyThemeName'. Pushing to " +
+                "it as it stands -- it keeps that name, so the sweep will not retire it; renaming or " +
+                "removing it is a separate, deliberate act.") -ForegroundColor Yellow
+        }
+    }
     if ($theme) { $id = [string]$theme.id }
 }
 
@@ -258,7 +297,7 @@ if (-not $id) {
     # parses this output, and --json means there is no progress on stdout to show anyway.
     $create = Invoke-ShopifyCli -Arguments $createArgs -Quiet -DiscardStderr
     if ($create.ExitCode -ne 0) {
-        Write-Error ("Creating the preview theme failed. If the CLI says 'A shop may only have 20 " +
+        Write-Error ("Creating the preview theme failed. If the CLI says 'A shop may only have N " +
             "themes', the estate is full: archive and remove a spent preview theme first.")
         exit 1
     }

@@ -5,7 +5,7 @@ description: Archive one or more Shopify themes to a local, verified backup and 
 
 # archive-theme -- the backup, the receipt, and the command it will not run for you
 
-A Shopify store has a hard ceiling of 20 themes, so spent branch previews have to leave it. Removing one
+A Shopify store's theme ceiling is finite, so spent branch previews have to leave it. Removing one
 is irreversible and the store offers no undo, so the removal is only safe once a verified copy exists.
 This takes that copy -- and leaves behind something the copy itself cannot be: a **committed receipt**.
 
