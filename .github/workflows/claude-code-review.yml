@@ -57,6 +57,13 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
+        # continue-on-error SINCE #2000, AND IT DOES NOT DECIDE THE CHECK'S COLOUR -- the last step of
+        # this job does. All it buys is the CHANCE to decide: without it a failure here reddens the job
+        # immediately and nothing downstream can look at WHY. With it, `outcome` still reads 'failure'
+        # (that is the difference between `outcome` and `conclusion`), the two diagnostic steps below key
+        # on that instead of on `failure()`, and the decision step re-fails the job for every cause
+        # except the one Dave exempted. Read it as "defer the verdict", not as "ignore the error".
+        continue-on-error: true
         uses: anthropics/claude-code-action@e63208cb983318a44e3f945e959ef894b707dcfa # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -190,17 +197,50 @@ jobs:
       # is raise that limit -- that is an account-settings action, like the rotation #942 turned out not
       # to need.
       #
-      # AND THE CHECK STAYS RED ON THAT, deliberately. A 429 means this PR got no review, which is
-      # exactly what #966 wanted not to be silent; a green check would hide that better than a red one
-      # nobody can read. What was wrong here was the legibility, not the colour.
+      # THE CHECK NO LONGER STAYS RED ON A 429 -- Dave, September 14, 2026, on #2000. This block used to
+      # argue the opposite, at length: a 429 means this PR got no review, which is exactly what #966
+      # wanted not to be silent, so a green check would hide that better than a red one nobody can read.
+      # That argument was not wrong about what a red check MEANS. It was wrong about what a red check
+      # DOES after the seventh consecutive one.
+      #
+      # WHAT CHANGED IS THE BASE RATE, WHICH IS A FACT ABOUT THIS REPO RATHER THAN ABOUT THE ARGUMENT.
+      # Seven issues have now been filed against this one check going red -- #891, #913, #942, #966,
+      # #1055, #1164 and #2000 -- and the sentence #2000 closes with is the finding: "the cost is that
+      # every PR carries a red check nobody should act on, which is the failure mode where a genuinely
+      # red one stops being noticed." A signal that fires on every pull request is not a signal. The
+      # legibility work #913, #966, #1112 and #1245 did was necessary and is untouched; it made the
+      # reason readable, and a readable reason nobody can act on is still noise.
+      #
+      # SO THE DOWNGRADE IS SCOPED TO 429 AND NOTHING ELSE, and the line is drawn where this file's own
+      # text already drew it. The 429 headline says "re-running adds none" -- the account is out of
+      # quota, and no act available to a reader of this check changes that. Every other failure is
+      # something somebody can do something about: a 529 is transient and a re-run genuinely may help
+      # (which is why it deliberately stays red, though it is equally "nothing to do with the diff"), an
+      # unexpected status is unknown and unknown is not safe to hide, and the pre-SDK class #1245 found
+      # was a missing GitHub App install -- a real, actionable setup defect that a green check would have
+      # buried. The decision step at the foot of this job is where that split is enforced.
+      #
+      # WHAT IS DELIBERATELY NOT LOST. The annotation is unchanged: same ::error level, same title, same
+      # text, still written on a 429. It renders in the checks UI and in the job summary whatever the
+      # job's conclusion is, so the reason a PR went unreviewed is exactly as readable as it was
+      # yesterday. What goes away is the red tick beside it -- and with it ship-pr's "a check FAILED but
+      # the merge was not blocked" paragraph, which is the line that was printing on every ship.
       #
       # NOT ADDED TO claude.yml, deliberately. The same blindness is there and this same step would
       # cure it, but that workflow answers a human who typed '@claude' and is already reading the thread
       # when it fails. This one runs unattended on every PR, which is what makes its silence expensive.
       - name: Why the review failed
-        # The job is already red from the step above; a broken diagnostic must not become the story.
+        id: why-failed
+        # A broken diagnostic must not become the story. Since #2000 it also must not SILENTLY DECIDE
+        # one: this step now supplies the api status the decision step switches on, so a step that dies
+        # yields an empty status, and the empty case there is RED. The fail-safe direction is deliberate
+        # -- a diagnostic that cannot speak must not be the reason a check went green.
         continue-on-error: true
-        if: failure() && steps.claude-review.outputs.execution_file != ''
+        # `steps.claude-review.outcome`, NOT `failure()` -- #2000. The step above now carries
+        # continue-on-error, so the JOB is not failed at this point and `failure()` is false; `outcome`
+        # is the field that still reads 'failure'. Getting this wrong does not error, it silently skips
+        # every diagnostic in the job, which is the #966 silence restored by accident.
+        if: steps.claude-review.outcome == 'failure' && steps.claude-review.outputs.execution_file != ''
         shell: bash
         env:
           EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
@@ -324,6 +364,18 @@ jobs:
             echo 'The full diagnostic is in the **Why the review failed** step of this job.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # THE STATUS, HANDED TO THE DECISION STEP -- #2000. It is the one field that decides whether
+          # this check goes red, and it is published here rather than re-read there because this step has
+          # already done the work of finding the result message and single-lining the value.
+          #
+          # SAFE TO WRITE INTO $GITHUB_OUTPUT WITHOUT FURTHER TREATMENT, and the reason is #1118's, not a
+          # new argument: `status` was already cut to its FIRST LINE and 32 characters one screen up,
+          # precisely because a multi-line value is a forgery surface for anything line-oriented. A
+          # workflow-output file is exactly that -- `name=value` per line, with a heredoc form for
+          # multi-line values -- so the treatment that protects the annotation protects this too. Nothing
+          # is escaped here that is not escaped there, and nothing new is trusted.
+          echo "api_status=$status" >> "$GITHUB_OUTPUT"
+
       # WHY A SECOND DIAGNOSTIC STEP EXISTS -- issue #1245, and it is the COMPLEMENT of the one above
       # rather than a variation on it. That step is gated on `execution_file != ''`, so everything it
       # knows comes from a result message the SDK wrote. When the action fails BEFORE the SDK is
@@ -363,10 +415,12 @@ jobs:
       # NO JOB-SUMMARY DUPLICATE OF THE LOG, unlike the step above, because there is no log to
       # duplicate: nothing was captured, so the summary carries the same sentence and the pointer.
       - name: Why the review never started
-        # Same reasoning as the step above: the job is already red, and a broken diagnostic must not
-        # become the story.
+        # Same reasoning as the step above: a broken diagnostic must not become the story.
         continue-on-error: true
-        if: failure() && steps.claude-review.outputs.execution_file == ''
+        # Same `outcome` reading as the step above, and for the same reason (#2000). This branch needs no
+        # status output: it IS the no-status case, and the decision step's empty branch is red, which is
+        # the right verdict for a setup failure somebody has to act on.
+        if: steps.claude-review.outcome == 'failure' && steps.claude-review.outputs.execution_file == ''
         shell: bash
         run: |
           short='the review never started'
@@ -395,3 +449,63 @@ jobs:
             echo 'Claude Code GitHub App not being installed on the repository (a 401 on the app-token'
             echo 'exchange, issue #1245), which is an account-level install and not a repo change.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # THE STEP THAT DECIDES THE COLOUR -- issue #2000, Dave, September 14, 2026. Everything above is
+      # unchanged in what it OBSERVES and what it SAYS; this is the only step with an opinion about
+      # whether the job ends red, and it exists as its own step so that opinion sits in one readable
+      # place rather than smeared across three `continue-on-error` flags.
+      #
+      # THE RULE, IN ONE SENTENCE: a failure is downgraded only when the run PROVES that nothing a
+      # reader of this check can do would change the outcome. Today exactly one status proves that --
+      # 429, where this file's own headline says in terms that re-running adds none.
+      #
+      # WHY NOT 529 TOO, since it is equally "nothing to do with this diff". Because that is not the
+      # test. An overloaded API is transient and a re-run is a real remedy, so a red tick there is
+      # information somebody can act on; quota is not and it is not. The two feel alike and behave
+      # oppositely, which is exactly the kind of pair worth splitting explicitly instead of grouping by
+      # how they read.
+      #
+      # THE EMPTY BRANCH IS RED, AND THAT IS THE FAIL-SAFE THE WHOLE STEP RESTS ON. `api_status` is empty
+      # in three distinct cases and every one of them should be red: the SDK produced no result message
+      # at all (the pre-SDK class #1245 measured -- a missing GitHub App install, a real setup defect),
+      # the result carried no `api_error_status`, or the diagnostic step itself died under its
+      # `continue-on-error`. None of those has PROVED anything, and this step downgrades only on proof.
+      #
+      # `always()` IS NOT IN THE CONDITION, deliberately. The job has not failed at this point -- the
+      # review step defers its verdict with continue-on-error -- so the default `success()` is already
+      # true here and `always()` would only add the case where an EARLIER step (the checkout) died, which
+      # must stay red and which this step has nothing to say about.
+      - name: Decide whether this check goes red
+        if: steps.claude-review.outcome == 'failure'
+        shell: bash
+        env:
+          # Quoted through the env block rather than interpolated into the script, which is this repo's
+          # standing treatment for any value it does not own -- the same reason the diagnostic step reads
+          # EXECUTION_FILE this way instead of splicing it in.
+          API_STATUS: ${{ steps.why-failed.outputs.api_status }}
+        run: |
+          case "$API_STATUS" in
+            429)
+              echo "claude-review: the account is out of quota (api_error_status 429), so this PR got no review."
+              echo "Not failing the check: re-running adds no quota, and there is no act available here that changes it."
+              echo "The reason is on the annotation and in the job summary, both unchanged."
+              {
+                echo '### claude-review: no review, and the check is deliberately not red'
+                echo
+                echo 'The account behind `CLAUDE_CODE_OAUTH_TOKEN` is out of quota (`api_error_status: 429`),'
+                echo 'so **this pull request was not reviewed**. The check is green because nothing a reader'
+                echo 'of it can do would change that -- re-running adds no quota (issue #2000). Every other'
+                echo 'failure of this job still goes red.'
+                echo
+                echo 'The upstream reason is on the failure annotation above and says which limit it is.'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            *)
+              # Named rather than summarised: the operator reading this line has the annotation too, and
+              # the two should not disagree about which status was seen.
+              echo "claude-review: failing the check -- api_error_status '${API_STATUS:-<none>}' is not the out-of-quota case (#2000)."
+              echo "Only a 429 is downgraded. Read the annotation and the job summary for the reason."
+              exit 1
+              ;;
+          esac
