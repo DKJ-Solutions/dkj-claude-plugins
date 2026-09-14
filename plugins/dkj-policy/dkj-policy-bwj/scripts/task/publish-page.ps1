@@ -134,12 +134,14 @@ $config = & {
                "release documents live nor which worker it publishes to. Run adopt-dkj-policy-bwj.")
     }
     . $configPath
-    if (Get-Command -Name 'Get-ReleaseNoteRoot' -ErrorAction SilentlyContinue) {
-        $answers.NoteRoot = Get-ReleaseNoteRoot
-    }
-    if (Get-Command -Name 'Get-BwjPagesConfig' -ErrorAction SilentlyContinue) {
-        $answers.Pages = Get-BwjPagesConfig
-    }
+    # NOT Get-Command: it parses the name as a wildcard pattern and pays a full PATH scan on every
+    # miss -- and a miss is the normal case for an optional seam (source repo issue #1729, which
+    # moved every probe in that tree onto this idiom). Written out here rather than dot-sourced from
+    # command-probe-lib.ps1, because this plugin's scripts deliberately pull in nothing outside their
+    # own folder: a store forwards to them from the plugin cache without a second plugin's libs.
+    $defined = { param($Name) [bool](@($ExecutionContext.InvokeCommand.GetCommands($Name, 'Function', $false)).Count) }
+    if (& $defined 'Get-ReleaseNoteRoot')  { $answers.NoteRoot = Get-ReleaseNoteRoot }
+    if (& $defined 'Get-BwjPagesConfig')   { $answers.Pages    = Get-BwjPagesConfig }
     return $answers
 } $repoRoot
 
@@ -217,13 +219,24 @@ if (-not (Test-BwjPageKind -Kind $Kind)) {
     throw "'$Kind' is not a kind this worker routes. The kinds are:`n           $known"
 }
 
-$tokenPath = Join-Path $pageDir "page-token-$Kind.txt"
+$tokenPath = Join-Path $pageDir (Get-BwjPageTokenFileName -Kind $Kind)
 
 if ($InitToken) {
     if (Test-Path -LiteralPath $tokenPath -PathType Leaf) {
         throw ("A path token for '$Kind' already exists at $tokenPath. This script does not replace " +
                "one: the URL carrying it has been sent, so a new token means every existing link " +
                "404s. Delete the file deliberately if that is really what you want.")
+    }
+    # THE GUARD ABOVE ASKS 'IS THERE A TOKEN HERE', WHICH IS THE WRONG QUESTION AFTER A FOLDER MOVE.
+    # The page directory is derived and gitignored, so repointing the note root strands the token
+    # where nothing points at it any more -- and then the check above finds nothing and mints a
+    # second one happily. See Find-BwjStrayPageToken for the measurement behind that.
+    $strays = @(Find-BwjStrayPageToken -Root $repoRoot -Kind $Kind -ExpectedPath $tokenPath)
+    if ($strays.Count) {
+        throw ("There is no token for '$Kind' at $tokenPath, but this tree already holds one: " +
+               ($strays -join ', ') + ". That is almost certainly the live one, left behind by a move " +
+               "of the folder this directory is derived from -- git cannot carry an ignored file along. " +
+               "MOVE it here rather than minting a second token, which 404s every link already sent.")
     }
     $token = New-BwjPageToken
     [System.IO.File]::WriteAllText($tokenPath, $token, $Utf8NoBom)
@@ -236,7 +249,17 @@ if ($InitToken) {
 }
 
 if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
-    throw ("The path token for '$Kind' is missing: $tokenPath. This script does NOT invent one -- the " +
+    # ONE SEARCH BEFORE THE REFUSAL IS PRINTED, because the likeliest reason it is missing HERE is
+    # that it is somewhere else -- see Find-BwjStrayPageToken.
+    $strays = @(Find-BwjStrayPageToken -Root $repoRoot -Kind $Kind -ExpectedPath $tokenPath)
+    $lead = ''
+    if ($strays.Count) {
+        $lead = ("This tree already holds one, at " + ($strays -join ', ') + " -- almost certainly " +
+                 "left behind by a move of the folder this directory is derived from. MOVE that file " +
+                 "here; everything else in this directory rebuilds in a second and it does not. ")
+    }
+    throw ("The path token for '$Kind' is missing: $tokenPath. " + $lead + "This script does NOT " +
+           "invent one -- the " +
            "path is the only lock on the page, so a fresh token means every link already sent 404s " +
            "while this run reports success. Three ways back, in the order worth trying: (1) restore " +
            "the 32 hex characters from the URL you have; (2) if the page is still up, the token is " +
@@ -296,8 +319,15 @@ try {
     # in the request headers, which are not echoed here.
     throw "The upload to KV failed: $($_.Exception.Message)"
 }
-if (-not $put.success) {
-    throw "Cloudflare refused the upload: $(($put.errors | ForEach-Object { $_.message }) -join '; ')"
+# READ DEFENSIVELY, because this runs under StrictMode Latest and the object comes off the network.
+# A response without a 'success' field is not a success -- it is a shape nobody here has seen, and
+# dying on a missing property would report it as a PowerShell fault rather than as an API answer.
+$reported = $put.PSObject.Properties['success']
+if ($null -eq $reported -or -not $reported.Value) {
+    $why = 'the response carried no success field'
+    $errs = $put.PSObject.Properties['errors']
+    if ($null -ne $errs -and $errs.Value) { $why = ((@($errs.Value) | ForEach-Object { $_.message }) -join '; ') }
+    throw "Cloudflare refused the upload: $why"
 }
 Write-Host "  upload   : accepted by the KV API" -ForegroundColor DarkGray
 
@@ -305,7 +335,13 @@ Write-Host "  upload   : accepted by the KV API" -ForegroundColor DarkGray
 # facts, and this is the one place the difference can be settled without asking a reader to open a URL.
 $verifyPath = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-verify-" + [guid]::NewGuid().ToString('N') + '.tmp')
 try {
-    Invoke-WebRequest -Method Get -Uri $valueUrl -Headers $headers -OutFile $verifyPath -TimeoutSec 120 | Out-Null
+    # -UseBasicParsing is not optional here. Without it Windows PowerShell hands the body to the
+    # Internet Explorer engine to build a DOM -- and the body is a whole HTML page, which is exactly
+    # the case that fails on a host where IE was never first-run ("the response content cannot be
+    # parsed"). That would break the script's own correctness proof rather than the publish, which is
+    # the worse half: the upload has already landed by then.
+    Invoke-WebRequest -Method Get -Uri $valueUrl -Headers $headers -OutFile $verifyPath `
+                      -UseBasicParsing -TimeoutSec 120 | Out-Null
     $back = (Get-FileHash -LiteralPath $verifyPath -Algorithm SHA256).Hash
     if ($back -ne $hash) {
         throw ("KV answered with different bytes than were uploaded (SHA-256 $back against $hash). " +
@@ -313,7 +349,14 @@ try {
     }
     Write-Host "  verified : KV holds the same $([math]::Round($bytes / 1KB)) KB that were built (SHA-256 matches)" -ForegroundColor Green
 } finally {
+    # THE FAILURE TO CLEAN UP IS REPORTED RATHER THAN SWALLOWED. This file is a copy of the page, and
+    # in a store repo the page is private content sitting in a world-readable temp directory. A
+    # locked or undeletable file is rare and is exactly the case nobody would otherwise learn about.
     Remove-Item -LiteralPath $verifyPath -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $verifyPath) {
+        Write-Warning ("A copy of the published page could not be removed and is still at " +
+                       "$verifyPath. Delete it: this page is not public, and that directory is.")
+    }
 }
 
 Write-Host ""

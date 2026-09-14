@@ -122,6 +122,21 @@ machine; without one, nothing anywhere remembers the URL. That is the opposite o
 `dkj-policy` gives its own token in a public repo, and it is the same rule read in a different
 repository: the token is the lock, so it goes wherever only your people can read it.
 
+**Which means `.gitignore` needs the exception written out, and the obvious spelling of it does not
+work.** `release-notes-page` tells every consumer to ignore this whole directory — correctly, since
+everything else in it is a derivative that dirties the tree on each release — so the tokens are
+caught by that blanket rule unless you say otherwise:
+
+```gitignore
+releases/page/*
+!releases/page/page-token-*.txt
+```
+
+**`releases/page/` followed by a negation does not work**, because git does not descend into an
+excluded *directory* and never sees the file the exception names. It fails silently, which is the
+worst shape this can take: the commit reports success, nothing is tracked, and the miss surfaces on
+the machine that no longer has the file.
+
 ## The path is the only lock
 
 The worker serves at `/<kind>/<32 hex>`. **There is no login: anyone with the link can read.** The
@@ -154,8 +169,8 @@ the deploy's permission and belongs to the person running `wrangler`, not to a p
 
 The script **reads the value back out of KV and compares SHA-256** against the file it uploaded, and
 fails naming both hashes when they differ. That is the automatable half of the lesson
-`build-release-notes-page.ps1` states one layer up — *verify the bytes, never the command's own
-output* — and it settles the question the upload's `"success": true` cannot.
+`build-release-notes-page.ps1` states one layer up — *verify the bytes the URL serves, never the
+deploy command's output* — and it settles the question the upload's `"success": true` cannot.
 
 Two limits it does not pretend to cover:
 

@@ -93,7 +93,10 @@ release notes and the minor backlog for colleagues who do not read a private rep
 
 ### TEST
 
-- [x] `scripts/tests/bwj-page-publish.tests.ps1` -- 83 assertions, 0 failures. It holds the design
+- [x] The pre-PR review chain -- Victor, Sebastian and Edith in parallel on the diff. What each found
+      and what it changed is under *What the review changed* below; every finding was verified against
+      the tree before it was repaired, and none was taken on the report's word.
+- [x] `scripts/tests/bwj-page-publish.tests.ps1` -- 91 assertions, 0 failures. It holds the design
       property rather than an output: no page baked into the bundle, no 32-hex identifier in anything
       shipped from a public repository, the worker's own route regex lifted out of the bundle and run,
       and the cross-language seam where the list of kinds lives in a `.ps1` and in a `.js`.
@@ -108,6 +111,45 @@ release notes and the minor backlog for colleagues who do not read a private rep
       and the read-back compares SHA-256, so a shape Cloudflare refuses fails loudly on the first real
       run rather than silently -- but the first real run is the proof, and it belongs to whoever does
       the one-time setup.
+
+#### What the review changed
+
+- **The stray-token search was missing, and the docstring claimed it** (Victor). This script's own
+  header says *"same doctrine as dkj-policy's page token"* -- and the one piece of that doctrine that
+  actually prevents [#1444](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1444) had not
+  been carried over. The page directory is derived from the same seam and gitignored the same way, so
+  the same folder move strands the token, and `-InitToken` would have found *"nothing here"* and
+  minted a second one. `Find-BwjStrayPageToken` now runs on both refusal paths, **scoped to one kind**
+  -- a search across all of them would report a sibling's correct token as a stray on the very run
+  minting the second kind.
+- **`-UseBasicParsing` on the read-back** (Victor). Without it Windows PowerShell hands the body to
+  the Internet Explorer engine to build a DOM, and the body is a whole HTML page. It breaks the
+  script's own correctness proof, *after* the upload has landed.
+- **A failed temp-file cleanup was silent** (Sebastian). That file is a copy of the page, and in a
+  store repo the page is private content in a world-readable directory. `-ErrorAction
+  SilentlyContinue` stays -- it must not fail the publish -- and a warning now names the leftover.
+- **The 404 carried no `cache-control`** (Sebastian). A publish creates a key that did not exist a
+  moment earlier, so a cached 404 can outlive the link becoming valid.
+- **`$put.success` was read bare under StrictMode** (Victor). A response with no such field is not a
+  success; it is a shape nobody has seen, and it now reports as an API answer rather than as a
+  PowerShell fault.
+- **`Get-Command` for the two seam probes** (Victor) -- the idiom
+  [#1729](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1729) moved the source tree off,
+  because it parses the name as a wildcard and pays a PATH scan on every miss, which is the normal
+  case for an optional seam. Written out inline rather than dot-sourced, because this plugin's scripts
+  deliberately pull in nothing outside their own folder.
+- **A test label overclaimed** (Victor): *"one store URL is not the other"* was asserted by an exit
+  code. It now reads the second kind's token and asserts it differs from the first's.
+- **The token files had no `.gitignore` answer** (Edith). They live in the directory
+  `release-notes-page` tells every consumer to ignore wholesale, so *"commit the token files"* was an
+  instruction with no way to follow it. The skill now carries the working pattern and says why the
+  obvious spelling fails **silently** -- git does not descend into an excluded directory, so the
+  negation is never read.
+- **The doctrine was quoted four ways** (Edith) while styled as a fixed citation, unlike the token
+  doctrine, which is verbatim everywhere. Aligned on the source's wording.
+- **And this document turned the gate red itself** (Edith, who reproduced it by running the gate
+  rather than reading it). A CREATE bullet quoted the `skills:all` marker inside backticks; that span
+  walker masks fenced blocks and not inline backticks, so the mention read as an unclosed span opener.
 
 ### DEPLOY: feat/1977-portable-bwj-worker
 

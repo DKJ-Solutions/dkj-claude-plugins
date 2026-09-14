@@ -259,8 +259,11 @@ Assert-True ($dry.Text -like "*notes:$writtenToken*") '...naming the KV key the 
 Assert-True ($dry.Text -like '*nothing was uploaded*') '...and saying so'
 
 # The default page per kind is the file the builder leaves behind, so the ordinary run takes no -Html.
-$missing = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-InitToken')
-Assert-Equal 0 $missing.ExitCode 'the second kind gets its own token, so one store URL is not the other'
+$backlogInit = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-InitToken')
+Assert-Equal 0 $backlogInit.ExitCode 'the second kind gets a token of its own'
+$backlogTokenFile = Join-Path $Fixture 'releases\page\page-token-backlog.txt'
+$backlogToken = ([System.IO.File]::ReadAllText($backlogTokenFile)).Trim()
+Assert-True ($backlogToken -ne $writtenToken) '...a DIFFERENT one, which is what keeps two pages on one worker apart'
 $missingPage = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-DryRun')
 Assert-True ($missingPage.ExitCode -ne 0) 'a kind whose page has not been built yet is refused'
 Assert-True ($missingPage.Text -like '*it does not build one*') '...and the refusal says this script publishes a page rather than building one'
@@ -278,6 +281,34 @@ Assert-True ($emit.Text -like '*npx wrangler deploy*') 'it names the deploy comm
 Assert-True ($emit.Text -like '*neither deploy can disturb a page the other store published*') '...and states the property that makes the worker shareable'
 
 Write-Host ''
+Write-Host 'The stray-token search -- #1444 lesson, ported from the sibling script' -ForegroundColor Cyan
+
+# THE HAZARD THIS GUARDS, in one move: the page directory is derived from the note root and is
+# gitignored, so repointing that folder leaves the token behind where nothing points at it. A guard
+# that asks "is there a token HERE" then finds nothing and mints a second one happily -- which 404s
+# every link already sent, while reporting success. dkj-policy's own page learned this as #1444; the
+# new script derives its directory from the identical seam, so it inherits the identical hazard.
+$strayDir = Join-Path $Fixture 'old-releases\page'
+New-Item -ItemType Directory -Path $strayDir -Force | Out-Null
+Move-Item -LiteralPath $tokenFile -Destination (Join-Path $strayDir 'page-token-notes.txt')
+
+$strayInit = Invoke-PublishPage -ScriptArgs @('-Kind', 'notes', '-InitToken')
+Assert-True ($strayInit.ExitCode -ne 0) '-InitToken refuses while this kind token sits elsewhere in the tree'
+Assert-True ($strayInit.Text -like '*old-releases*') '...naming where it found it'
+Assert-True ($strayInit.Text -like '*MOVE it here*') '...and saying to move it rather than mint a second one'
+
+$strayPublish = Invoke-PublishPage -ScriptArgs @('-Kind', 'notes', '-DryRun')
+Assert-True ($strayPublish.ExitCode -ne 0) 'the missing-token refusal runs the same search'
+Assert-True ($strayPublish.Text -like '*This tree already holds one*') '...and leads with what it found rather than with the recovery list'
+
+# SCOPED TO ONE KIND, and this is the case that decides it: every kind keeps its token in the same
+# directory, so a search across all of them would report a sibling's perfectly correct token as a
+# stray -- on the very run minting the second kind for the first time.
+Remove-Item -LiteralPath $backlogTokenFile -Force
+$otherKind = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-InitToken')
+Assert-Equal 0 $otherKind.ExitCode 'a stray token of ANOTHER kind is not this one -- the search is per kind'
+
+Write-Host ''
 Write-Host 'The language, and what may not be in a public repository' -ForegroundColor Cyan
 
 foreach ($file in @($LibPath, $ScriptPath, $WorkerPath)) {
@@ -289,6 +320,10 @@ $libText    = [System.IO.File]::ReadAllText($LibPath)
 $scriptText = [System.IO.File]::ReadAllText($ScriptPath)
 Assert-True ($scriptText -match 'CLOUDFLARE_API_TOKEN') 'the API token is read from the environment'
 Assert-True ($scriptText -notmatch 'Get-BwjPagesApiToken') '...and there is no seam function for it -- a seam answer is committed by construction'
+# A PS 5.1 trap with no visible symptom until it fires: without -UseBasicParsing, Invoke-WebRequest
+# hands the body to the Internet Explorer engine to build a DOM, and the body here is a whole HTML
+# page. It breaks the read-back -- the script's own correctness proof -- after the upload has landed.
+Assert-True ($scriptText -match '-UseBasicParsing') 'the read-back does not route an HTML body through the IE parser'
 foreach ($text in @($libText, $scriptText)) {
     Assert-True ($text -notmatch '(?<![0-9a-z])[0-9a-f]{32}(?![0-9a-z])') 'no 32-hex identifier is written into the shipped source'
 }

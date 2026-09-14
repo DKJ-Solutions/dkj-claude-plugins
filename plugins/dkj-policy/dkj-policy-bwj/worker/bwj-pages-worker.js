@@ -42,10 +42,17 @@ const HEADERS = {
   "x-robots-tag": "noindex, nofollow",
 };
 
+// no-store on the 404 as well as on the page. A publish creates a key that did not exist a moment
+// earlier, so the very first request to a fresh link can arrive before it -- and a cached 404 would
+// go on answering a link that has since become valid.
 function notFound() {
   return new Response("Not found", {
     status: 404,
-    headers: { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex, nofollow" },
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+    },
   });
 }
 

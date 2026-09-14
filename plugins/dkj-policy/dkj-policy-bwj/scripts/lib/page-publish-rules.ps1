@@ -101,6 +101,58 @@ function New-BwjPageToken {
     return [guid]::NewGuid().ToString('N')
 }
 
+function Get-BwjPageTokenFileName {
+    <# The file a kind's path token lives in, inside the page directory. #>
+    param([Parameter(Mandatory)][string]$Kind)
+    if (-not (Test-BwjPageKind -Kind $Kind)) {
+        throw "'$Kind' is not a kind this worker routes."
+    }
+    return "page-token-$Kind.txt"
+}
+
+function Find-BwjStrayPageToken {
+    <#
+        Every token file for THIS kind that sits somewhere in the tree other than where this run
+        expects it.
+
+        WHY IT LOOKS AT ALL -- and the answer is not general caution, it is one measured failure that
+        this design is exposed to by construction. The page directory is derived from the note root
+        and is gitignored: two good decisions that combine into one hazard. Rename or repoint the
+        folder holding the release documents and every TRACKED file travels with it, while the token
+        stays behind in a folder nothing points at any more -- `git mv` cannot see an ignored sibling,
+        so nothing reports the miss on the day it happens. What is left reads like rename debris, one
+        Remove-Item away from 404ing every link already sent. dkj-policy's own page learned this as
+        issue #1444, after its contributing-davekjohn/ -> dkj-policy/ rename left exactly that orphan.
+
+        AND IT IS WHAT MAKES -InitToken's REFUSAL MEAN WHAT IT SAYS. That guard reads the expected
+        path and nothing else, so after a move it finds no token and mints a second one happily --
+        the one act the whole design exists to prevent. "Is there a token SOMEWHERE" is the question
+        worth asking; "is there a token HERE" was only ever a cheap approximation of it.
+
+        A STORE REPO COMMITS ITS TOKENS, which weakens the hazard here and does not remove it. The
+        tracked copy survives a machine, so a moved folder is recoverable from git rather than gone --
+        but a run that mints a second token beside the first still 404s the live link, and recovering
+        afterwards means knowing which of the two was live. That is the same repair either way, and
+        the refusal is what makes it unnecessary.
+
+        SCOPED TO ONE KIND, deliberately. Every kind keeps its token in the same directory, so a
+        search over `page-token-*.txt` would report a sibling kind's perfectly correct token as a
+        stray -- on the very run that is minting the second kind for the first time.
+
+        .git is skipped: nothing writes a token there, and walking it is the expensive half of the
+        search. Cheap enough to sit on the two failure paths because that is the only place it runs.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][string]$ExpectedPath
+    )
+    if (-not (Test-Path -LiteralPath $Root)) { return @() }
+    $hits = Get-ChildItem -LiteralPath $Root -Recurse -File -Filter (Get-BwjPageTokenFileName -Kind $Kind) -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -ne $ExpectedPath -and $_.FullName -notlike '*\.git\*' }
+    return @($hits | ForEach-Object { $_.FullName })
+}
+
 function Get-BwjPageKvKey {
     <#
         The KV key a page lands on: '<kind>:<token>'. Both halves are validated first, because this
