@@ -49,9 +49,10 @@
 # empirically on the first run; the flag is better because it holds on every run afterwards too.
 #
 # LEAST PRIVILEGE, AND THE READ IS THE WHOLE JOB. `contents: read` is all it holds: the script never
-# writes to GitHub, because repo settings are the owner's surface under this repo's constitution --
-# the same rule adopt-ci-floor.ps1 follows when it composes its ruleset command and stops. No
-# standing token, unlike fold-on-merge.yml, and nothing to borrow one for.
+# writes to GitHub, because repo settings are the owner's surface -- exactly as adopt-ci-floor.ps1's own
+# required-check ruleset instruction composes a call and stops rather than applying it. The queue
+# instruction stays a UI pointer instead: that switch carries policy nobody here has chosen. No standing
+# token, unlike fold-on-merge.yml, and nothing to borrow one for.
 #
 # WINDOWS, like ci.yml, branch-entry.yml and unfolded-entry.yml, and for the same reason: the scripts
 # target Windows PowerShell 5.1, so they run under `shell: powershell` (5.1) rather than pwsh.

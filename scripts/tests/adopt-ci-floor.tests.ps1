@@ -500,8 +500,116 @@ try {
     $rulesetLinesRefs = [regex]::Matches($src, '\$rulesetLines\b')
     Assert-Equal 2 $rulesetLinesRefs.Count `
         '$rulesetLines is referenced exactly twice -- its assignment and the loop that prints it; a third reference would mean something besides Write-Host consumes it'
-    Assert-True ($src -match '(?m)foreach\s*\(\$ln in \$rulesetLines\)\s*\{\s*Write-Host \$ln') `
-        'and that second reference is a Write-Host, not an execution call'
+
+    # THE SECOND REFERENCE MUST BE THE *WHOLE* STATEMENT, ANCHORED, NOT A PREFIX (review finding, Victor
+    # #19). A PREFIX match -- '...\{\s*Write-Host \$ln', with nothing requiring the brace to close right
+    # there -- still matches after 'foreach ($ln in $rulesetLines) { Write-Host $ln -ForegroundColor
+    # DarkGray; Invoke-Expression $ln }': the appended call sits AFTER the substring the old regex
+    # looked for, so it read as a pass while quietly executing every printed line. Proven below against
+    # exactly that mutation, both ways.
+    $foreachExpected = 'Write-Host $ln -ForegroundColor DarkGray'
+    function Test-ForeachIsExactlyOneWriteHost {
+        # The WHOLE foreach line, brace to brace: the body is captured with a character class that
+        # excludes braces, so a line ending in an unbalanced '{' inside the appended text (rather than a
+        # bare statement) makes the match fail outright instead of silently swallowing it -- either way
+        # the tamper is caught, by one assert or the other.
+        param([string]$Text)
+        $m = [regex]::Match($Text, '(?m)^\s*foreach\s*\(\$ln in \$rulesetLines\)\s*\{(?<body>[^{}]*)\}\s*$')
+        if (-not $m.Success) { return $false }
+        return ($m.Groups['body'].Value.Trim() -eq $foreachExpected)
+    }
+    Assert-True (Test-ForeachIsExactlyOneWriteHost $src) `
+        'and that second reference is EXACTLY one Write-Host statement, brace to brace -- nothing appended after it on the same line'
+
+    # THE OLD REGEX'S OWN BLIND SPOT, DEMONSTRATED RATHER THAN ASSERTED AWAY: append a real invocation to
+    # the same line and confirm the unanchored prefix form still matches it, before checking the anchored
+    # form no longer does.
+    $foreachHostileLine = 'foreach ($ln in $rulesetLines) { Write-Host $ln -ForegroundColor DarkGray; Invoke-Expression $ln }'
+    $foreachLineMatch = [regex]::Match($src, '(?m)^\s*(foreach\s*\(\$ln in \$rulesetLines\)[^\r\n]*)$')
+    Assert-True $foreachLineMatch.Success 'the foreach line is found at all, so the hostile-mutation proof below has something to mutate'
+    $srcForeachHostile = $src
+    if ($foreachLineMatch.Success) {
+        $srcForeachHostile = $src.Remove($foreachLineMatch.Groups[1].Index, $foreachLineMatch.Groups[1].Length).Insert(
+            $foreachLineMatch.Groups[1].Index, $foreachHostileLine)
+    }
+    Assert-True ($srcForeachHostile -match '(?m)foreach\s*\(\$ln in \$rulesetLines\)\s*\{\s*Write-Host \$ln') `
+        'PROOF: the OLD unanchored prefix regex still matches the hostile line (Invoke-Expression appended) -- this is the gap Victor found'
+    Assert-True (-not (Test-ForeachIsExactlyOneWriteHost $srcForeachHostile)) `
+        'PROOF: the NEW anchored assert catches that same hostile line -- the body is no longer exactly one Write-Host statement'
+
+    # --- Sebastian's finding: the carve-out proves nothing about what runs when the array is BUILT -----
+    # @( ... ) is a real PowerShell expression: an element written as $(Invoke-NativeCapture ...), or a
+    # $(...) subexpression embedded INSIDE an interpolated string element, executes the moment the array
+    # is BUILT -- regardless of whether the value is ever printed -- and adds no textual reference to
+    # $rulesetLines, so the reference-count proof above cannot see it either way. Proven with the actual
+    # PowerShell parser (not a regex), because this is exactly the syntax question the parser exists to
+    # answer and a regex can only approximate: every element must be a string literal (plain or
+    # interpolated), and an interpolated element's own nested pieces must be plain variable reads, never
+    # a subexpression.
+    $adviceTokens = $null
+    $adviceParseErrors = $null
+    $adviceAst = [System.Management.Automation.Language.Parser]::ParseInput(
+        $rulesetLinesBlock.Value, [ref]$adviceTokens, [ref]$adviceParseErrors)
+    Assert-Equal 0 $adviceParseErrors.Count 'the carved-out advice block parses as valid, self-contained PowerShell (a prerequisite for inspecting what is inside it)'
+    $adviceArrayAst = $adviceAst.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayLiteralAst] }, $true)
+    Assert-True ($null -ne $adviceArrayAst) 'the array literal inside the advice block is found by the parser'
+    if ($adviceArrayAst) {
+        $adviceElements = @($adviceArrayAst.Elements)
+        Assert-True ($adviceElements.Count -gt 0) 'and it has elements to check'
+
+        function Test-RulesetLinesElementsAreLiteral {
+            # The property Sebastian named: "these elements are literals", checked structurally rather
+            # than by pattern -- a StringConstantExpressionAst (a plain '...' string) or an
+            # ExpandableStringExpressionAst (a "..." string) whose OWN NestedExpressions are nothing but
+            # VariableExpressionAst (a bare $var read, which only substitutes an already-computed value
+            # and cannot execute anything new). Anything else -- a bare command, a $(...) subexpression
+            # as a top-level element, or one embedded inside a string -- fails this.
+            param([System.Management.Automation.Language.ArrayLiteralAst]$ArrayAst)
+            $elements = @($ArrayAst.Elements)
+            $nonLiteral = @($elements | Where-Object {
+                $_ -isnot [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                $_ -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst]
+            })
+            if ($nonLiteral.Count -gt 0) { return $false }
+            $badNested = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.ExpandableStringExpressionAst] } |
+                ForEach-Object { $_.NestedExpressions } |
+                Where-Object { $_ -isnot [System.Management.Automation.Language.VariableExpressionAst] })
+            return ($badNested.Count -eq 0)
+        }
+        Assert-True (Test-RulesetLinesElementsAreLiteral $adviceArrayAst) `
+            'every element of the advice array is a string literal (plain or interpolated by bare variable read) -- never a bare command, and never a $(...) subexpression'
+
+        # PROOF, HOSTILE EDIT 1: a bare $(...) subexpression as a top-level array element (Sebastian's
+        # own example). The reference-count proof above cannot see this at all -- it adds no textual
+        # '$rulesetLines' anywhere -- which is exactly the blind spot being closed here.
+        $hostileElementText = $rulesetLinesBlock.Value.Replace(
+            "'{',",
+            "'{', `$(Invoke-NativeCapture -FilePath 'gh' -Arguments @('api','--method','POST')),")
+        Assert-True ($hostileElementText -ne $rulesetLinesBlock.Value) 'PROOF SETUP: hostile-edit-1 text actually differs from the original (the anchor text was found)'
+        $hostileAst1 = [System.Management.Automation.Language.Parser]::ParseInput($hostileElementText, [ref]$null, [ref]$null)
+        $hostileArrayAst1 = $hostileAst1.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayLiteralAst] }, $true)
+        Assert-True ($hostileArrayAst1 -and (@([regex]::Matches($hostileElementText, '\$rulesetLines\b')).Count -eq 1)) `
+            'PROOF: hostile-edit-1 leaves the $rulesetLines reference count at its ORIGINAL value (1, inside this isolated block) -- a pure reference count cannot see this mutation at all'
+        Assert-True (-not (Test-RulesetLinesElementsAreLiteral $hostileArrayAst1)) `
+            'PROOF: the NEW literal-elements assert catches hostile-edit-1 -- a bare command/subexpression element is not a string literal'
+
+        # PROOF, HOSTILE EDIT 2: the same subexpression, embedded INSIDE a double-quoted string element
+        # rather than as a bare element. This is the harder case: PowerShell's own legacy tokenizer
+        # (PSParser) reads the WHOLE interpolated string as one opaque token here and does not surface
+        # the embedded command at all -- only the full AST parser's NestedExpressions breaks it back
+        # apart, which is why this assert is built on the AST and not on tokens or on a regex.
+        $hostileElementText2 = $rulesetLinesBlock.Value.Replace(
+            '"  ""name"": ""require $rulesetContext on $rulesetTrunk"",",',
+            '"  ""name"": ""require $(Invoke-NativeCapture -FilePath ''gh'' -Arguments @(''api'')) on $rulesetTrunk"",",')
+        Assert-True ($hostileElementText2 -ne $rulesetLinesBlock.Value) 'PROOF SETUP: hostile-edit-2 text actually differs from the original (the anchor text was found)'
+        $hostileAst2 = [System.Management.Automation.Language.Parser]::ParseInput($hostileElementText2, [ref]$null, [ref]$null)
+        $hostileArrayAst2 = $hostileAst2.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayLiteralAst] }, $true)
+        Assert-True ($null -ne $hostileArrayAst2) 'PROOF SETUP: hostile-edit-2 still parses as an array literal (the mutation is syntactically legal PowerShell, which is the whole danger)'
+        if ($hostileArrayAst2) {
+            Assert-True (-not (Test-RulesetLinesElementsAreLiteral $hostileArrayAst2)) `
+                'PROOF: the NEW literal-elements assert catches hostile-edit-2 -- a $(...) subexpression embedded inside an interpolated string is not a plain variable read'
+        }
+    }
 
     # THE ACTUAL GUARD, NOW OVER PROVEN-EXECUTABLE TEXT ONLY. A hypothetical real write --
     # Invoke-NativeCapture -FilePath 'gh' -Arguments @('api', '--method', 'POST', ...), or a

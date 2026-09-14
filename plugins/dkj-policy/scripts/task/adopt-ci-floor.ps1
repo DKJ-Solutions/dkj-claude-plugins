@@ -173,6 +173,13 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+# THE PRINT-SAFETY CONVENTION (issue #1972, security review). The section 1 '[gap]' arm below fills a
+# ruleset payload with a job CONTEXT that can come off a workflow's `name:` VALUE -- arbitrary text off
+# a line of the CONSUMER'S OWN YAML, not the restricted job-key charset -- so it is foreign text by the
+# same reasoning ref-print-lib.ps1 was built for, not merely untrusted-in-theory. This is the one
+# definition of "safe to paste" and of the prose-display strip; a fourth hand-rolled copy of either is
+# exactly what pr-issues.tests.ps1's THREE-libs assert exists to catch.
+. (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
 
 # THE SOURCE OF *THIS* WORKFLOW arranges its runners by hand -- see the header -- so this command
 # refuses there. Below the dot-sources because the test lives in seam-lib, and still before anything is
@@ -654,9 +661,9 @@ $repoSettingsRunner = @(
     '# purpose, without waiting for the next cron.',
     '#',
     '# THE CHECK NEVER WRITES TO GITHUB. Repo settings are the owner''s surface; this script reads and',
-    '# reports, exactly as this same command''s own required-check ruleset instruction (further down this',
-    '# file, #1972) composes a call and stops rather than applying it. The queue instruction stays a UI',
-    '# pointer -- that switch carries policy nobody here has chosen.',
+    '# reports, exactly as adopt-ci-floor.ps1''s own required-check ruleset instruction composes a call',
+    '# and stops rather than applying it (#1972). The queue instruction stays a UI pointer instead: that',
+    '# switch carries policy nobody here has chosen.',
     '#',
     '# ONE FIELD (bypass_actors) IS ADMIN-ONLY AND READS AS UNREADABLE, NOT AS GREEN -- the check''s own',
     '# third verdict. -RequireRead is the floor under that: without it, a token that cannot reach the two',
@@ -786,30 +793,102 @@ if (-not $queueReadable) {
     #
     # THE CONTEXT IS A JOB, NOT A GUESS. Collected the same way Get-WorkflowFacts already collects a
     # required check's owner above: every job key or job name declared by a workflow that triggers on
-    # pull_request. Exactly one such id across the whole tree is filled in directly; more than one, or
-    # none at all, is left as an obvious placeholder, and every candidate is printed so picking one is a
-    # copy from a list rather than a hunt through .github/workflows/.
+    # pull_request. Exactly one such id across the whole tree, AND SAFE TO PASTE, is filled in directly;
+    # everything else -- more than one candidate, none at all, or a lone candidate this script will not
+    # vouch for -- is left as an obvious placeholder, and every candidate is printed (as prose, so a
+    # foreign one cannot repaint the console) so picking one is a copy from a list rather than a hunt
+    # through .github/workflows/.
+    #
+    # REFUSE, DO NOT ESCAPE (security review on #1972). A job CONTEXT can come off a workflow's `name:`
+    # VALUE, which Get-WorkflowFacts reads as arbitrary text off a line of the CONSUMER'S OWN YAML --
+    # not the restricted job-key charset. Hand-quoting that into the JSON template below would mean this
+    # script inventing a fourth copy of the escape ref-print-lib.ps1 already owns (pr-issues.tests.ps1
+    # pins the three files allowed to carry that pattern), and getting it wrong in the one place a wrong
+    # answer is a payload that widens conditions.ref_name, flips enforcement, or reshapes the ruleset
+    # while the surrounding prose still says "paste it as-is".
+    #
+    # NOT Test-RefPasteSafe (second security review on #1972). That predicate is right for what it was
+    # built for -- a REF interpolated into a SHELL command line -- and wrong for this value, which is
+    # neither: it lands inside a JSON STRING LITERAL, inside a PowerShell here-string, and never touches
+    # a shell word. Its allowlist has no space, but a GitHub Actions job `name:` routinely has one
+    # ('Lint and tests', 'build (ubuntu-latest)') and the check context GitHub reports for such a job
+    # IS that name, spaces included -- so judging it against the ref allowlist refused the common case
+    # outright and printed a FALSE reason for doing so ("not safe to paste") about a value a JSON string
+    # swallows without complaint. Test-JsonContextSafe below is the narrower, correct predicate: it does
+    # NOT widen $script:RefPasteSafePattern to admit a space (that lib's own header already names that
+    # repair wrong for the neighbouring case, #1762 -- a wider ref allowlist would also admit a space into
+    # a value that DOES reach a shell line elsewhere in this workflow) and it does not retype
+    # '[\p{Cc}\p{Cf}]' as a fourth copy of that pattern (Get-DisplayRef below already owns the one
+    # definition; pr-issues.tests.ps1 pins the three files allowed to carry it as literal text).
+    function Test-JsonContextSafe {
+        <#
+            Value -- a job id or job NAME about to be interpolated, unescaped, into a hand-laid JSON
+            string literal that is itself printed inside a PowerShell here-string.
+
+            Returns $true when the value may be dropped into that JSON string as-is. Three things are
+            checked, and only three, because only three things can actually go wrong at this site:
+              - '"' or '\' would break out of the JSON string this value sits inside (JSON escapes both
+                and nothing here re-implements a JSON string escaper);
+              - a \p{Cc}/\p{Cf} character would repaint the console when the JSON BLOCK ITSELF is
+                Write-Host'd -- the same hazard Get-DisplayRef exists for, checked here via that same
+                function rather than by retyping its pattern.
+            A NEWLINE IS NOT CHECKED HERE BECAUSE IT CANNOT ARRIVE: Get-WorkflowFacts' own capture for a
+            job `name:` is anchored on '[^\r\n]*$', so this value is already single-line by construction
+            -- which is what keeps it from ever closing the surrounding here-string early (that closes
+            only on a line that STARTS with `'@`, and a value with no newline cannot start a line).
+            A space, a parenthesis, a colon and every other JSON-inert character are deliberately let
+            through: refusing them would be this predicate re-inventing Test-RefPasteSafe's shell-line
+            caution for a value that never reaches a shell line.
+        #>
+        param([AllowEmptyString()][AllowNull()][string]$Value)
+
+        if ([string]::IsNullOrEmpty($Value)) { return $false }
+        if ($Value.IndexOfAny([char[]]@('"', '\')) -ge 0) { return $false }
+        # Get-DisplayRef strips '[\p{Cc}\p{Cf}]' (and only that), then collapses/trims. A value with
+        # none of those characters and no leading/trailing/doubled whitespace comes back byte-identical;
+        # anything else is either a format/control character or whitespace shaped oddly enough to be
+        # worth a human's eyes rather than a silent auto-fill, so either way this is the right test.
+        return ((Get-DisplayRef -Ref $Value) -ceq $Value)
+    }
+
     $prJobIds = @($workflows | Where-Object { $_.OnPullRequest } | ForEach-Object { $_.JobIds } | Sort-Object -Unique)
-    $rulesetContext = if ($prJobIds.Count -eq 1) { $prJobIds[0] } else { 'REPLACE-WITH-A-JOB-ID-BELOW' }
-    $rulesetSlug = if ($repoSlug) { $repoSlug } else { '<owner>/<repo>' }
+    $autoFillContext = $null
+    if ($prJobIds.Count -eq 1 -and (Test-JsonContextSafe -Value $prJobIds[0])) { $autoFillContext = $prJobIds[0] }
+    $rulesetContext = if ($autoFillContext) { $autoFillContext } else { 'REPLACE-WITH-A-JOB-ID-BELOW' }
+
+    # $trunk AND $repoSlug ARE LOWER-RISK -- $trunk off this repo's own Get-TrunkBranchName seam,
+    # $repoSlug off GitHub's own owner/repo charset -- but neither is refused a defence this cheap.
+    # Same gate, same reasoning, and both fall back to an already-existing placeholder rather than a
+    # new one: a repo whose OWN config fails this allowlist is not a case worth a bespoke message.
+    $rulesetTrunk = if (Test-RefPasteSafe -Ref $trunk) { $trunk } else { '<trunk>' }
+    $repoSlugPasteSafe = [bool]($repoSlug -and (Test-RefPasteSafe -Ref $repoSlug))
+    $rulesetSlug = if ($repoSlugPasteSafe) { $repoSlug } else { '<owner>/<repo>' }
 
     Write-Host '            THIS CREATES A NEW RULESET REQUIRING THAT CHECK ON THE TRUNK -- paste it as-is' -ForegroundColor Yellow
-    if ($prJobIds.Count -ne 1) {
-        Write-Host '            once you have replaced REPLACE-WITH-A-JOB-ID-BELOW with your own choice:' -ForegroundColor Yellow
+    if ($autoFillContext) {
+        Write-Host "            (the one candidate job, '$autoFillContext', is already filled in):" -ForegroundColor Yellow
     } else {
-        Write-Host "            (the one candidate job, '$rulesetContext', is already filled in):" -ForegroundColor Yellow
+        Write-Host '            once you have replaced REPLACE-WITH-A-JOB-ID-BELOW with your own choice:' -ForegroundColor Yellow
+        if ($prJobIds.Count -eq 1) {
+            Write-Host "            (the one candidate, '$(Get-DisplayRef -Ref $prJobIds[0])', is not safe to paste as-is --" -ForegroundColor Yellow
+            Write-Host '            it carries characters this print will not put in a command unescaped. Pick it up' -ForegroundColor Yellow
+            Write-Host '            from the list below and quote it yourself for the shell you are in.)' -ForegroundColor Yellow
+        }
     }
     if (-not $repoSlug) {
         Write-Host '            THE REPO SLUG COULD NOT BE RESOLVED -- replace <owner>/<repo> yourself.' -ForegroundColor Yellow
+    } elseif (-not $repoSlugPasteSafe) {
+        Write-Host "            THE REPO SLUG ('$(Get-DisplayRef -Ref $repoSlug)') IS NOT SAFE TO PASTE --" -ForegroundColor Yellow
+        Write-Host '            replace <owner>/<repo> with it yourself, quoted for your shell.' -ForegroundColor Yellow
     }
     Write-Host '' -ForegroundColor Yellow
     $rulesetLines = @(
         '$json = @''',
         '{',
-        "  ""name"": ""require $rulesetContext on $trunk"",",
+        "  ""name"": ""require $rulesetContext on $rulesetTrunk"",",
         '  "target": "branch",',
         '  "enforcement": "active",',
-        "  ""conditions"": { ""ref_name"": { ""include"": [""refs/heads/$trunk""], ""exclude"": [] } },",
+        "  ""conditions"": { ""ref_name"": { ""include"": [""refs/heads/$rulesetTrunk""], ""exclude"": [] } },",
         '  "rules": [',
         '    {',
         '      "type": "required_status_checks",',
@@ -825,16 +904,25 @@ if (-not $queueReadable) {
     )
     foreach ($ln in $rulesetLines) { Write-Host $ln -ForegroundColor DarkGray }
     Write-Host '' -ForegroundColor Yellow
-    if ($prJobIds.Count -ne 1) {
+    # STRICT MODE, NAMED (Sebastian's non-blocking note on #1972). Off is the same choice ship-pr's own
+    # staleness guard already rests on: catching a branch up with the trunk is detect-and-rebase's job,
+    # not the ruleset's, so a stale-but-green branch is still allowed to merge. Flip it to true instead
+    # if you want GitHub itself, rather than ship-pr, to refuse a merge whose branch is behind the trunk.
+    Write-Host '            STRICT MODE IS OFF ABOVE, ON PURPOSE: this workflow leaves "is my branch caught up"' -ForegroundColor Yellow
+    Write-Host '            to ship-pr''s own detect-and-rebase rather than to GitHub. Set it to true instead if' -ForegroundColor Yellow
+    Write-Host '            you want the ruleset itself to refuse a merge whose branch is behind the trunk.' -ForegroundColor Yellow
+    Write-Host '' -ForegroundColor Yellow
+    if (-not $autoFillContext) {
         Write-Host '            CANDIDATE CHECKS (job id -- from workflow), since more than one exists (or none' -ForegroundColor Yellow
-        Write-Host '            does): pick the one your merge should actually wait on.' -ForegroundColor Yellow
+        Write-Host '            does, or the one candidate was not safe to paste): pick the one your merge should' -ForegroundColor Yellow
+        Write-Host '            actually wait on.' -ForegroundColor Yellow
         $prWorkflows = @($workflows | Where-Object { $_.OnPullRequest })
         if ($prWorkflows.Count -eq 0) {
             Write-Host '              (no workflow here triggers on pull_request at all)' -ForegroundColor DarkGray
         }
         foreach ($w in $prWorkflows) {
             foreach ($jid in $w.JobIds) {
-                Write-Host "              $jid -- from $($w.Rel)" -ForegroundColor DarkGray
+                Write-Host "              $(Get-DisplayRef -Ref $jid) -- from $($w.Rel)" -ForegroundColor DarkGray
             }
         }
         Write-Host '' -ForegroundColor Yellow

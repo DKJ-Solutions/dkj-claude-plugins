@@ -450,10 +450,14 @@ refuses there, the same way Part 1's does and for the same reason.
 
 ### What it will not do, and why
 
-**It never switches the queue on.** It composes the change and stops. A ruleset changes what every
-contributor's merge does, immediately, for everybody -- that is the repo owner's act, not a script's, and
-reading a ruleset needs only a token that can read while writing one needs a token that can administer
-the repo. A command that quietly held the second would be a different kind of tool.
+**It never switches the queue on, and the queue is the one arm that composes nothing at all.** Where no
+required check is named, the command composes the exact `gh api` call that would create one and stops
+there, because reading a ruleset needs only a token that can read while writing one needs a token that
+can administer the repo, and a command that quietly held the second would be a different kind of tool.
+The merge-queue switch gets no such call and stays a UI pointer instead: a `merge_queue` rule asserts
+seven scheduling parameters -- merge method, grouping strategy, three limits, two timeouts -- that are
+policy nobody here has chosen, on a control GitHub does not even render outside the plans that may have
+one.
 
 ### The secret you have to create yourself
 

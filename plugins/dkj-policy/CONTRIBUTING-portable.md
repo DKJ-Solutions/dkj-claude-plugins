@@ -464,10 +464,12 @@ the plugin, because none of them is plugin payload:
    inert, so leaving it out costs nothing.
 
 **`adopt-ci-floor` reports all three**, and it is Part 3 of the [`adopt-dkj-policy`
-skill](skills/adopt-dkj-policy/SKILL.md): it places the two runners, says whether a required check exists
-at all — the one detect-and-rebase reads — and, for a repo that has chosen a queue, prints the ruleset
-command **without running it**. Switching a queue on is a repo-settings change and therefore the owner's,
-never a script's.
+skill](skills/adopt-dkj-policy/SKILL.md): it places the two runners, and where no required check is named
+— the one detect-and-rebase reads — it composes the exact `gh api` call that would create one and stops
+there, because reading a ruleset needs only a token that can read while writing one needs a token that can
+administer the repo. **The queue gets no such call, and stays a UI pointer instead**: a `merge_queue` rule
+asserts seven scheduling parameters that are policy nobody here has chosen, on a control GitHub does not
+even render outside the plans that may have one.
 
 **A fourth file rides along in that same command, and it is unrelated to the queue** (issue #1843): a
 scheduled `repo-settings.yml` runner that checks whether a GitHub-side repo setting still matches what

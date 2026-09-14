@@ -60,24 +60,30 @@ the prose, which stops reading as if it covered both.
 
 ### CREATE
 
-- [ ] `adopt-ci-floor.ps1`: the `[gap]` arm composes the paste-ready `gh api --method POST .../rulesets`
+- [x] `adopt-ci-floor.ps1`: the `[gap]` arm composes the paste-ready `gh api --method POST .../rulesets`
       call, with the trunk, the slug and the candidate check filled in from state the run already holds
-- [ ] `$repoSlug` hoisted out of the rules-read `else` branch, so the composed call can name it on the
+- [x] `$repoSlug` hoisted out of the rules-read `else` branch, so the composed call can name it on the
       `-RulesJsonOverride` path without tripping `Set-StrictMode`
-- [ ] all five citations say WHICH ruleset instruction composes, and why the queue one does not --
+- [x] all five citations say WHICH ruleset instruction composes, and why the queue one does not --
       including the one scaffolded into every adopting consumer's `repo-settings.yml` header
-- [ ] both plugin mirrors kept byte-identical
-- [ ] the copy edit's own sweep: four consumer-facing sites that MISATTRIBUTE the composed call to the
+- [x] both plugin mirrors kept byte-identical
+- [x] the copy edit's own sweep: four consumer-facing sites that MISATTRIBUTE the composed call to the
       queue arm, found after the five above were already fixed -- `plugins/dkj-policy/skills/adopt-dkj-policy/SKILL.md`,
       `plugins/dkj-policy/CONTRIBUTING-portable.md`, `plugins/dkj-policy/scripts/README.md`, and this
       repo's own `.github/workflows/repo-settings.yml`, brought in line with the `$repoSettingsRunner`
       template it is otherwise hand-maintained beside
 
+- [x] the security review's finding: job `name:` values are arbitrary YAML text, so the auto-filled
+      context is gated by a local `Test-JsonContextSafe` -- not the shared ref allowlist, which
+      refuses a space and would have printed a false reason for every job named `Lint and tests`
+- [x] two more script-layer citations Tessa handed over: `shared-scripts-lib.ps1` (a real
+      misattribution) and `repo-config.ps1` (imprecise), plus the regenerated config blueprint
+
 ### TEST
 
-- [ ] the composed block printed and read, not merely written
-- [ ] `adopt-ci-floor.tests.ps1` covers the composed call and the caveat that goes with it
-- [ ] lint gate + all suites green
+- [x] the composed block printed and read, not merely written
+- [x] `adopt-ci-floor.tests.ps1` covers the composed call and the caveat that goes with it
+- [x] lint gate + all suites green
 
 ### DEPLOY: fix/1972-compose-ruleset-call
 
