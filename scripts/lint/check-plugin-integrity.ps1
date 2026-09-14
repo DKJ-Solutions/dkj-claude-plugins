@@ -362,15 +362,18 @@
          CARRIES -NoProfile, and that narrowing is the whole rule: without it the check is born with
          12 findings, all of them correct prose naming the invocation MODE (``across `powershell
          -File` a comma list is cast to a single number``) -- check 22's lesson, which measured the
-         same shape one argument over. With it: 101 subjects, 0 findings, 0 exemptions. HISTORY IS
+         same shape one argument over. With it: 85 subjects, 0 findings, 0 exemptions. HISTORY IS
          EXCLUDED via check 11's $lifecycleFiles, which suppresses 16 -- the archived release notes
          quote the old form and are never rewritten. FENCES ARE NOT MASKED, unlike checks 10, 11 and
          33: the subject here IS the fenced command, so masking would hide every one of them. THE
          SCRIPT LAYER IS DELIBERATELY NOT A SUBJECT and is filed separately: the same rule over .ps1
          is born at 43 source findings, mostly .EXAMPLE help blocks, which is a sweep to propose
-         rather than a regression guard (check 41's lesson). A call made with '&' from inside a
-         running script would be wrong to flag either way -- -ExecutionPolicy sets
-         $env:PSExecutionPolicyPreference, which children inherit, measured.
+         rather than a regression guard (check 41's lesson, #1989). A call made with '&' from inside
+         a running script would be wrong to flag either way -- -ExecutionPolicy sets
+         $env:PSExecutionPolicyPreference, which children inherit, measured. AND WHAT IT DOES NOT
+         REACH: matching is per physical line, so a continuation between -NoProfile and -File
+         escapes silently and the coverage figure will not show the gap -- nothing is written that
+         way today, and every multi-line command here breaks AFTER -File.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -5162,10 +5165,16 @@ Write-Coverage -Category 'fixture-script' -Checked $fsFiles.Count `
 # tree, every one of them correct prose naming the invocation MODE rather than instructing anybody --
 # "`powershell -File` cannot bind an `[int[]]`", "across `powershell -File` a comma list is cast to a single
 # number", "the tool call reads `powershell -File ... -Execute`". A check born needing an exemption list is
-# the shape this repo has scar tissue from. With the narrowing: 101 subjects, 0 findings, 0 exemptions, and
-# it would have caught all 85 sites on the day each was written. -NoProfile is the right discriminator
-# because it is what the house style puts on a runnable line and what prose naming the mode never bothers
-# with -- not a proxy for "looks like a command", which is unmeasurable.
+# the shape this repo has scar tissue from. With the narrowing: 85 subjects, 0 findings, 0 exemptions, and
+# it would have caught every one of those 85 sites on the day it was written. (101 is the figure over the
+# WHOLE markdown tree; 85 is this check's, because $lifecycleFiles has already removed the 16 in history.
+# Both were true of the probe and only one is true of the check -- the wrong one of the two stood in this
+# comment until Edith read it against the run.)
+#
+# AND -NoProfile IS STRUCTURAL RATHER THAN A HEURISTIC, which is what makes the narrowing safe to rely on:
+# powershell.exe stops parsing its own flags at -File, so every flag a runnable line carries has to sit
+# BEFORE it. -NoProfile is what the house style puts there and what prose naming the mode never bothers
+# with, so the discriminator is a property of the command's grammar and not a guess about how a line looks.
 #
 # WHY -ExecutionPolicy AND NOT -ExecutionPolicy Bypass: the check asks that the policy be ANSWERED, not that
 # it be answered one way. A repo pasting 'RemoteSigned' has made the decision this check exists to force;
@@ -5186,6 +5195,14 @@ Write-Coverage -Category 'fixture-script' -Checked $fsFiles.Count `
 # declining exactly that trade at 71. Two sites there ARE fixed on this branch because they are functional
 # rather than illustrative: bootstrap.ps1 writes both an allowlist pattern and a hook command into a
 # CONSUMER'S settings.json, and a bare pattern stops matching the moment the pages print the other form.
+#
+# WHAT IT DOES NOT REACH, said here rather than left to be discovered. Matching is per PHYSICAL LINE, so a
+# command hand-authored with a backtick continuation between -NoProfile and -File escapes SILENTLY: it is
+# neither a finding nor counted as a subject, and the coverage figure will not show the gap. Measured: no
+# document in this tree is written that way today, and the multi-line commands that do exist all break
+# AFTER -File, where the whole invocation is already on the first line and read normally. Reading the
+# continuation would mean joining lines before matching, which changes what every line number in this check
+# means -- a real cost for a shape nobody has written -- so it is declined and named instead.
 #
 # AND A '&' CALL WOULD BE WRONG TO FLAG IN EITHER LAYER. -ExecutionPolicy sets the inherited environment
 # variable PSExecutionPolicyPreference, so a child powershell launched from a process that already carries
@@ -5217,7 +5234,7 @@ Write-Coverage -Category 'exec-policy' -Checked $epChecked `
     -Note $(if ($epFiles.Count -eq 0) {
         'the lifecycle document set is empty -- no printed command anywhere could have been read, which is not the same as every printed command being sound'
     } else {
-        "printed powershell invocation(s) across $($epFiles.Count) lifecycle document(s), each held to naming an -ExecutionPolicy -- $epFindings finding(s), with $epProse match(es) skipped as prose. THE SUBJECT IS AN INVOCATION CARRYING -NoProfile and nothing else: measured without that narrowing the check is born with 12 findings, all correct prose naming the invocation MODE rather than instructing anyone, which is check 22's measurement one argument over. History is excluded with check 11's set (16 matches suppressed -- archived release notes quote the old form and are never rewritten), and fences are deliberately NOT masked, unlike checks 10, 11 and 33: here the fenced block IS the command, so masking would empty the subject set. The VALUE is not pinned -- 'RemoteSigned' passes -- because the rule is that the policy be answered, not that this gate pick the answer. The .ps1 layer is not a subject: the same rule there is born at 43 findings, a sweep to propose rather than a guard"
+        "printed powershell invocation(s) across $($epFiles.Count) lifecycle document(s), each held to naming an -ExecutionPolicy -- $epFindings finding(s), with $epProse match(es) skipped as prose. THE SUBJECT IS AN INVOCATION CARRYING -NoProfile and nothing else: measured without that narrowing the check is born with 12 findings, all correct prose naming the invocation MODE rather than instructing anyone, which is check 22's measurement one argument over. History is excluded with check 11's set (16 matches suppressed -- archived release notes quote the old form and are never rewritten), and fences are deliberately NOT masked, unlike checks 10, 11 and 33: here the fenced block IS the command, so masking would empty the subject set. The VALUE is not pinned -- 'RemoteSigned' passes -- because the rule is that the policy be answered, not that this gate pick the answer. The .ps1 layer is not a subject: the same rule there is born at 43 findings, a sweep to propose rather than a guard. WHAT IT DOES NOT REACH: matching is per PHYSICAL LINE, so a command written with a backtick continuation between -NoProfile and -File is neither a finding nor a subject, and this figure will not show the gap -- measured, no document is written that way and every multi-line command in the tree breaks AFTER -File, where the invocation is already complete on the first line"
     })
 
 # --- Report ---------------------------------------------------------------------------------------------

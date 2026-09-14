@@ -95,6 +95,19 @@ invocation *mode* rather than instructing anybody -- ``across `powershell -File`
 to a single number``. A check born needing an exemption list is the shape this repo declines, which is
 check 22's own measurement one argument over. With the narrowing: 85 subjects, 0 findings, 0 exemptions.
 
+**And that discriminator is structural rather than a heuristic**, which is what makes it safe to lean
+on: `powershell.exe` stops parsing its own flags at `-File`, so every flag a runnable line carries has
+to sit before it. `-NoProfile` is what the house style puts there and what prose naming the mode never
+bothers with -- a property of the command's grammar, not a guess about how a line looks.
+
+**What the check does NOT reach is written into its own coverage note**, because a gate that hides a
+gap is worse than one that names it: matching is per physical line, so a command written with a
+backtick continuation between `-NoProfile` and `-File` is neither a finding nor a subject, and the
+figure will not show the hole. Measured -- nothing here is written that way, and every multi-line
+command in the tree breaks *after* `-File`, where the invocation is already complete on the first line.
+Joining lines before matching would change what every line number in this check means, which is a real
+cost for a shape nobody has written.
+
 **The value is not pinned.** `RemoteSigned` passes. The rule is that the policy be *answered*, not that
 this gate legislate which answer -- a repo that has chosen `RemoteSigned` has made the decision the
 check exists to force.
@@ -111,6 +124,17 @@ A `&` call would be wrong to flag in either layer: `-ExecutionPolicy` sets
 `$env:PSExecutionPolicyPreference`, which child processes inherit, so the suites' own
 `& powershell -NoProfile -File $child` invocations are correct as they stand. Measured, not assumed.
 
+#### Bypass or RemoteSigned -- why both, deliberately
+
+`../INSTALL.md` prescribes `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` as a one-time machine
+prerequisite; this branch puts `-ExecutionPolicy Bypass` on the command instead. They do not conflict
+and neither replaces the other: the prerequisite fixes a **machine**, the flag fixes a **command**, and
+a reader who has done the first loses nothing by the second. The per-command flag is process-scoped --
+it never calls `Set-ExecutionPolicy` and leaves the machine's own default untouched -- which is
+materially safer than what a reader improvises when a bare command dies with `UnauthorizedAccess`,
+commonly a permanent `Unrestricted` at machine scope. Check 42 accepts either value for the same
+reason: the rule is that the policy be *answered*, not that a lint gate pick the answer.
+
 ### TEST
 
 - [x] `check-plugin-integrity.ps1`: **0 error(s)**, with `[exec-policy] checked 85 ... 0 finding(s),
@@ -123,6 +147,13 @@ A `&` call would be wrong to flag in either layer: `-ExecutionPolicy` sets
 - [x] The check-22 fixture was carrying the bare form itself and now carries the Bypass form, so this
       suite's own page does not model the defect the next check forbids.
 - [x] `build-shared-scripts.ps1`: 0 mirrors updated, the rest already in sync.
+- [x] Reviewed in parallel by Victor (code), Edith (copy) and Sebastian (security).
+      **Edith found a real defect and it is repaired here**: the check's header and its list entry
+      both claimed *101 subjects*, and one sentence carried 101 and 85 side by side for the same
+      measurement. 101 is the probe's figure over the whole markdown tree; 85 is the check's, because
+      `$lifecycleFiles` has already removed the 16 in history. The code printed 85 all along.
+      Victor's two points are folded in above -- the structural reading of `-NoProfile`, and the
+      line-continuation gap now named in the coverage note.
 
 ### DEPLOY: fix/1985-bypass-in-printed-commands
 
