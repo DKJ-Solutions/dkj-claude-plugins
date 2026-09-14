@@ -43,7 +43,75 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 5 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1977-portable-bwj-worker · 20260914-132829
+
+BWJ's two store repos can now publish a built page through **one** Cloudflare Worker, which is what
+[#1977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1977) asked for and what the worker
+`dkj-policy` already ships cannot do. That one is correct for a single repo and is untouched here: it
+writes the page into `worker.js` **as a literal**, and `wrangler deploy` replaces the whole script -- so
+two repos pointed at one worker name means whichever deploys last erases the other's page, silently,
+with both runs reporting success.
+
+**The shared worker therefore carries no page content at all.** The pages live in Cloudflare KV, one key
+per `<kind>:<token>`, and the worker's whole job is to look one up. A redeploy from either store
+re-uploads byte-identical code and cannot disturb what the other published -- which is what makes *the
+same worker* a true statement rather than a race. `-EmitWorker` copies the bundle out of the plugin
+unchanged, so the suite can assert the emitted file is byte-identical to the shipped source: nothing
+per-store is ever written into it.
+
+**What differs per store is the path token and nothing else.** Both repos answer the same four seam
+values -- `Get-BwjPagesConfig`, carrying `Worker`, `AccountId`, `NamespaceId` and `BaseUrl` -- and that
+identity is what *one worker for both* means. It is a seam rather than four literals in the plugin for a
+reason that is not configurability: this plugin ships from a **public** repository, so an account id, a
+namespace id and a workers.dev origin written here would be published to everyone who can read the
+marketplace. The Cloudflare **API token** is deliberately not part of it and is read from
+`CLOUDFLARE_API_TOKEN` in the environment, because a seam answer is committed by construction and a
+committed write token to an account is a different class of thing from an id that only identifies one.
+
+**Three properties the suite exists to keep, each a way the design comes undone.** The worker holds no
+content and no 32-hex identifier -- an edit that bakes a page back in would look like a simplification
+and would restore exactly the defect this was filed about. The route is lifted out of the shipped bundle
+and run, so *32 lowercase hex and nothing else* is asserted against the shipped characters: it is what
+stops a request steering the KV lookup at a key of its own choosing, and it is why every miss -- wrong
+kind, wrong token, unknown path, key never written -- answers the same 404. And the list of kinds is
+written in a `.ps1` and in a `.js`, where a kind known to only one side publishes successfully to a key
+nothing ever serves; nothing but the suite holds those two files together.
+
+**The token doctrine is `dkj-policy`'s, read in a different repository.** It is an input and never
+invented -- a token made up on the fly does not mean *a new path*, it means every link already sent now
+404s while the publish reports success -- so `-InitToken` is separate and refuses to replace one, and a
+missing token names three ways back in the order worth trying. The one answer that inverts is where it
+lives: a store repo is **private**, so its tokens are committed, because a tracked token is what
+survives a lost machine. And the publish **verifies by reading the value back and comparing SHA-256**,
+which is the automatable half of the lesson the release-notes page states one layer up -- *verify the
+bytes the URL serves, never the deploy command's output*.
+
+`backlog` is routed as a kind and has no builder yet; that is a follow-up issue by decision
+([#1979](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1979)), so it lands later without
+touching the worker again.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+BWJ colleagues who never open a repository get one link per store to the release notes, and the two
+stores stop being one deploy away from erasing each other's page. The store side is a one-time setup --
+answer one seam, create the namespace, deploy the worker once -- after which publishing is a single
+command per page.
+
+**Score:** 3
+
+#### Pull Request
+
+A portable, shared Cloudflare Worker for the two BWJ store repos
+
+Plugins: dkj-policy-bwj
+
+[PR #1984](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1984)
+
+---
 
 ### DEPLOY: feat/bwj-adopt-third-repo · 20260914-125826
 
