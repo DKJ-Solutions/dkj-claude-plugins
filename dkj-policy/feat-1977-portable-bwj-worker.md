@@ -212,5 +212,3 @@ command per page.
 #### Pull Request
 
 A portable, shared Cloudflare Worker for the two BWJ store repos
-
-Plugins: dkj-policy-bwj
