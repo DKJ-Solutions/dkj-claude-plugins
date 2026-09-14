@@ -43,7 +43,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/stray-scratchpad-file · 20260914-162151
+
+A 53 KB scratch artefact that reached `main` under a mangled filename is removed, and the lint gate grew
+check 43 `[tracked-name]` so the class cannot land again.
+
+**The file was green through every gate**, which is the part worth recording. A tool wrote its output to
+an absolute path, Windows substituted U+F03A for the drive colon and flattened the separators, and the
+result was a single file in the repo root named after the whole path. The lint gate, the test gate and CI
+all passed it, because nothing in this tree had an opinion about what a path is *called*. Git cannot write
+such a name into a Windows working tree, so on a public repo the next Windows `git clone` fails on
+checkout.
+
+**Check 43 asks what git tracks, not what is on disk** -- an untracked scratch file is what a scratchpad is
+for, and a working-tree check would fire on every run made mid-task and be trained away. Three classes: a
+Unicode private-use character (the one that bit), a Windows-reserved character, and a control character.
+Born green over all 717 tracked paths with no exemptions. It is deliberately not a `.gitignore` pattern:
+that would have to predict the mangled spelling, and not predicting it is the whole shape of the failure.
+
+**The rule is a pure function in `check-report-lib.ps1`**, so the half that can be asserted is asserted --
+including the exact U+F03A code point, both ends of the private-use range, and the two code points just
+outside it. The pattern is composed from `[char]` code points rather than typed, because a private-use
+character in a BOM-less `.ps1` decodes through the system ANSI code page and silently matches nothing.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Anyone cloning this public repository on Windows after that commit would have hit a checkout failure on a
+file nobody meant to publish. That is repaired for every clone made from here on; the name stays in
+history, which no gate can reach, and check 43 says so rather than implying otherwise.
+
+**Score:** 3
+
+#### Pull Request
+
+Remove a scratchpad artefact that a mangled absolute path put in the repo root, and gate the class
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1999](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1999)
+
+---
 
 ### DEPLOY: fix/1989-exec-policy-in-script-layer · 20260914-160407
 
