@@ -1076,6 +1076,52 @@ try {
     Assert-Has   $r 'NOT a stale clone, so a refresh cannot help' '34: the advice that cannot work is ruled out rather than prescribed'
     Assert-Has   $r 'folds JSON keys case-insensitively' '34: and the reader is told whose fault it is, so they stop re-running the refresh'
     Assert-Lacks $r 'refresh the clone and re-run' '34: the staleness command does not appear for this shape'
+
+    # --- 34b. #1987's new action is held to the withhold doctrine too (Sebastian, on this branch) ----
+    # -- Scenarios 28-31 each pair one withhold branch with a deliberately unsafe slug, and the parse-
+    # -- failure action was the one new branch without such a pairing. It names a FILESYSTEM PATH built
+    # -- from the raw marketplace segment -- an 'enabledPlugins' key, i.e. an arbitrary string from a
+    # -- settings file -- so the placeholder has to reach the redaction step, and a future edit to how
+    # -- that path is composed must not be able to reopen it undetected. A path is not a command; it is
+    # -- still a line printed for a person to act on.
+    Write-Host "34b. #1987: the parse-failure action withholds the manifest path for an unsafe marketplace" -ForegroundColor Cyan
+    $c = New-Case 'clone-unparseable-badmkt'
+    $evilMkt = 'ccs;evil'
+    $evilMktId = "dkj-subagents-alpha@$evilMkt"
+    $evilClone = Join-Path $c.Home ".claude\plugins\marketplaces\$evilMkt"
+    New-Clone -Dir $evilClone -Version '4.33.0' -NoGit | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $evilClone '.claude-plugin\marketplace.json'), '{ "name": "x", "plugins": [ not json', $Utf8)
+    Set-Enabled -RepoDir $c.Repo -Ids @($evilMktId)
+    Write-Admin -Path $c.Admin -Plugins @{ $evilMktId = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '34b: exit 0'
+    Assert-Has   $r "cannot determine -- the clone's marketplace.json could not be read" '34b: fixture sanity -- the row really is the parse-failure branch'
+    # SCOPED TO THE ACTION, AND THE SCOPING IS THE POINT. An unscoped Assert-Lacks over the whole run
+    # fails here, correctly and for an unrelated reason: the per-clone FOOTER prints the clone's
+    # directory through Format-SafePathToken, which deliberately keeps every character that makes a
+    # path a path (inbound #414 -- a reader told which path is missing must be able to look it up), and
+    # that line is DarkGray context rather than anything shaped for pasting. The withhold doctrine is
+    # about the paste-ready command, so that is what this scenario bounds itself to.
+    Assert-LacksBetween $r 'verdict' 'NO-SUCH-MARKER' 'ccs;evil' '34b: the raw metacharacter marketplace never reaches the action, not even inside a path'
+    Assert-LacksBetween $r 'verdict' 'NO-SUCH-MARKER' 'marketplaces' '34b: and no filesystem path is built into the action for this row'
+    Assert-Has   $r "no paste-ready command -- the 'enabledPlugins' key is not a valid plugin id (bad slug)" '34b: the withhold sentence stands in for it, exactly as at every other site'
+
+    # --- 35. #1986 (Victor, on this branch): a scope the CLI does not accept is SAID, not swallowed --
+    # -- The fallback is 'project', which is the same string a confirmed project record produces -- so
+    # -- in the printed command the two are indistinguishable. This is the one row where that can hide:
+    # -- every `claude plugin update` line is reached only with exactly ONE record for this checkout.
+    # -- Without the note, the installed-here line printed the invalid scope raw, right beside an
+    # -- unexplained '--scope project', with nothing connecting the two.
+    Write-Host "35. #1986: an unrecognised scope falls back to project AND says so on the row" -ForegroundColor Cyan
+    $c = New-Case 'scope-bogus'
+    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Scope 'bogus-value') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '35: exit 0'
+    Assert-Has   $r 'the clone is AHEAD of your install (4.32.0 -> 4.33.0)' '35: fixture sanity -- the row really is a "behind" verdict'
+    Assert-Has   $r $UPD '35: the prescription falls back to project, which is the honest answer'
+    Assert-Has   $r 'names a scope this CLI does not accept' '35: and the installed-here line says the printed scope is a fallback'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

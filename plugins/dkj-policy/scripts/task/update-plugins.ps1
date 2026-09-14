@@ -202,7 +202,7 @@ foreach ($mp in $marketplaces) {
     }
 }
 
-# --- step 2: update every plugin this checkout enables, --scope project --------------------------
+# --- step 2: update every plugin this checkout enables, each at its own scope ---------------------
 
 Write-Host ""
 Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), each at the scope it is installed at:" -ForegroundColor Cyan

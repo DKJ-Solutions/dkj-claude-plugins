@@ -292,10 +292,16 @@ foreach ($id in $ids) {
     # answers it from $install, which this run has already read, and returns one of four literals rather
     # than the file's own string -- so no byte of installed_plugins.json reaches a pasted command.
     #
-    # THE `claude plugin install` LINES ARE NOT BUILT FROM IT, deliberately. Those two prescribe
+    # THE `claude plugin install` LINES ARE NOT BUILT FROM IT, deliberately. All three of them prescribe
     # installing INTO THIS CHECKOUT, which is what 'project' means and what the reader is being told to
     # do; they are not asking where the plugin already lives.
-    $updScope = (Get-PluginUpdateScope -InstallRecord $install -PluginId $id).Scope
+    #
+    # THE .Note IS READ AS WELL AS THE .Scope (Victor, on this branch). Where the administration could
+    # not answer, the fallback is 'project' -- which is the same string a CONFIRMED project record
+    # produces, so the two are indistinguishable in the printed command. update-plugins.ps1 says so in a
+    # block of its own; here it belongs on the installed-here line, beside the field it is about.
+    $updScopeInfo = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
+    $updScope = $updScopeInfo.Scope
 
     $recs = @()
     if ($install.RecordsById.ContainsKey($id)) { $recs = @($install.RecordsById[$id]) }
@@ -312,6 +318,11 @@ foreach ($id in $ids) {
         $instSha = Get-ValidatedSha ([string]$recs[0].GitCommitSha)
         $instScope = [string]$recs[0].Scope
         $instText = "$(if ($instVer) { $instVer } else { '(no version)' })  $(Format-ShortSha $instSha)  $(if ($instScope) { $instScope } else { '(no scope)' })"
+        # THE ONE ROW WHERE A FALLBACK CAN HIDE. Every `claude plugin update` line below is reached only
+        # with exactly one record for this checkout, so this is the only branch whose printed scope can
+        # be a guess -- and a scope string the CLI does not accept would otherwise be printed here, raw,
+        # beside an unexplained '--scope project' with nothing connecting the two.
+        if ($updScopeInfo.Note) { $instText = "$instText  -- $($updScopeInfo.Note)" }
     } elseif ($recs.Count -gt 1) {
         $shown = @($recs | ForEach-Object { "$($_.Version)/$(Format-ShortSha ([string]$_.GitCommitSha))/$($_.Scope)" })
         $instText = "$($recs.Count) CONFLICTING records for this checkout: $($shown -join ' , ')"
@@ -374,6 +385,24 @@ foreach ($id in $ids) {
         # name rather than left as a thing to try. Where it is anything else the clone's copy may
         # genuinely be damaged, and then the refresh is still the first move -- but the reader is told
         # to look at the file first, because that is what separates the two.
+        #
+        # THE DISCRIMINATOR MATCHES AN EXCEPTION MESSAGE, WHICH IS NOT A CONTRACT (Victor, on this
+        # branch; verified live against this machine's 5.1, which says "contains the duplicated keys
+        # 'a' and 'A'."). That wording is undocumented as an interface and is localisable.
+        #
+        # AND THE LOCALISATION RISK IS MEASURED HERE RATHER THAN HYPOTHESISED. On this very machine,
+        # the OTHER parse failure in this same branch comes back in Dutch -- "Ongeldige JSON-primitieve:
+        # not." -- while the duplicated-keys message comes back in English, because the two are raised
+        # from different resource sets (the serializer's, which follows the OS language pack, and
+        # PowerShell's own). So one message in this code path is already localised on a machine where
+        # the match still works, which is as close to a live warning as this class gets.
+        #
+        # THE FAILURE IS DELIBERATELY GRACEFUL rather than guarded against: a wording change drops the
+        # row into the generic branch below, which names the file and offers the refresh as
+        # conditional -- weaker advice, never wrong advice. That is why this is a $clone.Error -match
+        # rather than a second parse attempt: there is no cheap way to ask 5.1 "was it the case fold?"
+        # that does not re-read the file, and the cost of being wrong here is one sentence of
+        # specificity.
         if ($clone.Error) {
             $verdict = "cannot determine -- the clone's marketplace.json could not be read"
             # THE PATH IS BUILT FROM THE RAW $mp, so it is held to the same withhold rule as every

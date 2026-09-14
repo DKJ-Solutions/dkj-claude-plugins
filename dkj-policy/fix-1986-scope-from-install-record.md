@@ -73,8 +73,9 @@ changes what 5.1 can represent.
 
 The issue names a second, larger repair -- making the reader survive case-colliding keys -- and says it
 is worth its own issue if taken up. It is not done here: `-AsHashtable` does not exist in 5.1, so it
-means a case-sensitive reader or a targeted pre-parse, across `plugin-tree-lib`'s whole JSON path. Filed
-rather than swept.
+means a case-sensitive reader or a targeted pre-parse, across `plugin-tree-lib`'s whole JSON path.
+Filed rather than swept, as
+[#1993](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1993).
 
 ### CREATE
 
@@ -84,7 +85,9 @@ rather than swept.
 - [x] `update-plugins.ps1`: reads the install administration once, resolves a scope per target, and
       prints a named block above step 1 wherever the administration could not answer.
 - [x] `plugin-versions.ps1`: every `claude plugin update` prescription built from the resolved scope;
-      the two `claude plugin install` lines deliberately left at `--scope project`.
+      all three `claude plugin install` lines deliberately left at `--scope project`. The row also
+      reads the resolved scope's `Note`, so a record naming a scope the CLI does not accept no longer
+      prints that string beside an unexplained `--scope project` (Victor, on this branch).
 - [x] `plugin-versions.ps1`: the `-not $cloneHasPlugin` branch split by failure mode, and the
       parse-failure half split again on the duplicated-key shape.
 - [x] Both skill pages follow the behaviour: a new **The scope is read, not assumed** section in
@@ -99,19 +102,41 @@ rather than swept.
 - [x] `update-plugins.tests.ps1` -- scenarios 9, 10 and 11: a machine-wide and a project record in ONE
       run, `-DryRun` printing the same per-plugin scope, and the fallback stating its reason above step
       1. 38 -> 51 asserts.
-- [x] `plugin-versions.tests.ps1` -- scenarios 32, 32b, 33 and 34: the scope on a `behind` row, the
-      install carve-out, the split, and the measured duplicated-key shape. 183 -> 200 asserts.
+- [x] `plugin-versions.tests.ps1` -- scenarios 32, 32b, 33, 34, 34b and 35: the scope on a `behind`
+      row, the install carve-out, the split, the measured duplicated-key shape, the withhold pairing
+      Sebastian asked for, and Victor's unrecognised-scope row. 183 -> 209 asserts.
 - [x] Lint gate green (`check-plugin-integrity.ps1`, 0 errors) -- including check 11, which refused the
       first draft of the new skill section and named its own convention for eliding a quoted target.
 - [x] Full suite gate green: all 105 suites passed in 208s.
+
+#### What the review chain added
+
+Victor, Edith and Sebastian read the same diff in parallel. No blocking finding; seven repairs folded
+in, and two of them are worth naming because they were not about the code the reports described:
+
+- **Sebastian's advisory earned its keep.** He cleared the new `$manifestPath` withhold by inspection
+  but noted it was the one new branch with no test pairing it against a deliberately unsafe slug, the
+  way scenarios 28-31 each pin their own. Written (34b), it failed -- and the failure was the test's,
+  not the code's: the per-clone footer prints the clone directory through `Format-SafePathToken`, which
+  keeps every character that makes a path a path on purpose (inbound #414). That line is DarkGray
+  context, not a paste target, so the assertion was scoped to the action, where the withhold actually
+  lives. **Checked before filing, and it collapsed** -- there is no finding there.
+- **The locale risk in the `duplicated keys` discriminator is measured, not hypothesised.** Victor
+  flagged that matching an exception message is not matching a contract. The probe then showed that on
+  this very machine the *other* parse failure in the same branch comes back in Dutch while the
+  duplicated-keys message comes back in English -- two resource sets, one already localised. The
+  degradation is graceful by construction (the row falls into the generic branch, which names the file
+  and offers the refresh as conditional), and that is now argued in the code rather than left to be
+  rediscovered.
 
 #### One thing the suites found that the code did not
 
 `[Parameter(Mandatory = $true)]$InstallRecord` refuses `$null` before the body runs, so the
 `if ($null -eq $InstallRecord)` guard the two sibling predicates open with is unreachable and their
 documented answer for that input is a promise the signature breaks. The new function carries
-`[AllowNull()]` so its own guard is real; the two siblings are a finding of their own and are filed, not
-swept into this branch.
+`[AllowNull()]` so its own guard is real; the two siblings are a finding of their own and are filed as
+[#1994](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1994), not swept into this branch --
+their contracts are not obviously the same choice as the new function's.
 
 ### DEPLOY: fix/1986-scope-from-install-record
 
@@ -135,9 +160,9 @@ both. It returns one of the CLI's own four scope names rather than the file's st
 `installed_plugins.json` reaches a command line; where the administration cannot answer, the run falls
 back to `project` exactly as before and **says that it did**.
 
-**The two `claude plugin install` lines are deliberately untouched.** Those prescribe installing *into
-this checkout*, which is what `project` means and what the reader is being told to do -- they are not
-asking where the plugin already lives.
+**All three `claude plugin install` lines are deliberately untouched.** Those prescribe installing
+*into this checkout*, which is what `project` means and what the reader is being told to do -- they
+are not asking where the plugin already lives.
 
 **Score:** 3
 

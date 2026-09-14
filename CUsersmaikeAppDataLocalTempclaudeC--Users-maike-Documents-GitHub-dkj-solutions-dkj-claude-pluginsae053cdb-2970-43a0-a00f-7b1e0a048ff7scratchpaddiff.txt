@@ -1,0 +1,730 @@
+diff --git a/scripts/lib/check-report-lib.ps1 b/scripts/lib/check-report-lib.ps1
+index 08dc563d..07b38f85 100644
+--- a/scripts/lib/check-report-lib.ps1
++++ b/scripts/lib/check-report-lib.ps1
+@@ -1285,6 +1285,117 @@ function Get-RecordShape {
+     }
+ }
+ 
++# THE SCOPE A `claude plugin update` HAS TO CARRY IS A FACT ABOUT THE ADMINISTRATION, NOT A CONSTANT
++# (issue #1986). Every prescription and every exec in this family used to hardcode '--scope project',
++# and the CLI refuses a scope a plugin is not installed at -- `Plugin "x" is not installed at scope
++# project`. So for a plugin installed machine-wide the one command that could have moved it is the one
++# that is refused, and the run exits non-zero on a machine where nothing is wrong. Measured
++# September 14, 2026 in the source repo on shopify-ai-toolkit@claude-plugins-official, which
++# roster-sessioncheck had already reported, correctly, as a supported state.
++#
++# AND IT IS NOT ONLY THE MACHINE-WIDE CASE. The block above this file's Get-RecordShape records that a
++# SESSION START rewrites install records without any command being run -- it flips an existing
++# 'project' record to 'local', and it can demote one to a pathless 'user' record. Both of those states
++# are ordinary, both load perfectly well, and '--scope project' is wrong in both.
++#
++# WHY THIS DOES NOT REOPEN #1890's BOUNDARY. That boundary is about WHICH TREE gets written: `claude
++# plugin install/update` rewrites the visited repo's .claude/settings.json, so a sweeping updater would
++# leave uncommitted diffs in repos nobody opened. Reading the scope off the record changes nothing
++# there -- a user-scope update rewrites no repo's tree at all, and a 'local'/'project' one rewrites
++# exactly the checkout the caller is already standing in.
++#
++# THE RETURN IS ONE OF FOUR LITERALS, NEVER THE RECORD'S OWN STRING. installed_plugins.json is machine
++# -written, but it is still a file on disk feeding a `claude plugin ...` line that this family both
++# EXECUTES and PRINTS for pasting -- and plugin-versions.ps1's own withhold doctrine (#1594/#1803) is
++# that a guard whose output is the injection surface is worse than no guard. Matching case-insensitively
++# against `claude plugin update --help`'s own four scopes and emitting the canonical spelling means no
++# byte of that file ever reaches a command line.
++$script:PluginScopeNames = @('user', 'project', 'local', 'managed')
++
++function Get-PluginScopeNames {
++    <# The scopes `claude plugin update` accepts, lowercase, in the CLI's own help order. #>
++    return $script:PluginScopeNames
++}
++
++function Get-PluginUpdateScope {
++    <# Which '--scope' does `claude plugin update <PluginId>` need in the checkout $InstallRecord was
++       read for? Read the block above this function for why it is a question at all.
++
++       Returns Scope / Source / Note -- always, and never $null, because every caller needs a scope to
++       put in a command and the honest fallback is the one the family has always used:
++
++         Scope   one of Get-PluginScopeNames, or 'project' where nothing usable was found.
++         Source  'record'   -- a record scoped to THIS checkout said so;
++                 'pathless' -- no record for this checkout, but a record tied to no path did (that is
++                               an ordinary machine-wide install, and also the demotion shape #323
++                               measured -- the two are byte-for-byte identical, and for THIS question
++                               they have the same answer, so nothing here has to tell them apart);
++                 'default'  -- nothing said, or what was said could not be used. See Note.
++         Note    '' unless Source is 'default' AND there was something worth reporting: why the
++                 administration could not answer. Empty for the ordinary "no record at all" case,
++                 which is not a finding -- it is what a declaratively-enabled plugin looks like.
++
++       IT NEVER REFUSES AND NEVER GUESSES PAST THE EVIDENCE. Where records disagree with each other the
++       Note names the disagreement and the scope falls back to 'project': #314/#325 measured that a
++       scope mismatch ACCUMULATES records rather than replacing one, so disagreement is a state a real
++       machine reaches, and picking a winner out of it would be inventing an answer the file does not
++       contain.
++
++       [AllowNull()] IS DELIBERATE AND ITS TWO SIBLINGS DO NOT HAVE IT. Test-PluginInstalledHere and
++       Get-RecordShape both open with an `if ($null -eq $InstallRecord)` line that cannot be reached:
++       a Mandatory parameter refuses $null before the body runs, so the documented answer for that
++       input is a promise the signature breaks. Here the guard is reachable, because every caller of
++       this one needs a scope to put in a command and 'I had nothing to read' is a real input rather
++       than a caller bug. #>
++    param(
++        [Parameter(Mandatory = $true)][AllowNull()]$InstallRecord,
++        [Parameter(Mandatory = $true)][string]$PluginId
++    )
++
++    $answer = {
++        param([string]$Scope, [string]$Source, [string]$Note)
++        [pscustomobject]@{ Scope = $Scope; Source = $Source; Note = $Note }
++    }
++
++    if ($null -eq $InstallRecord) { return (& $answer 'project' 'default' '') }
++    if (-not $InstallRecord.Exists) { return (& $answer 'project' 'default' '') }
++    if (-not $InstallRecord.Readable) {
++        return (& $answer 'project' 'default' 'the install administration could not be read, so the scope it records is unknown')
++    }
++
++    # For this checkout first, and only then the pathless records: a record naming this path is a
++    # statement about THIS repo, and a pathless one is a statement about the machine. Where both exist
++    # the specific one wins, which is also the order Test-PluginInstalledHere and Get-RecordShape read
++    # them in.
++    foreach ($pair in @(
++        @{ Map = $InstallRecord.RecordsById;  Source = 'record';   Where = 'for this checkout' },
++        @{ Map = $InstallRecord.PathlessById; Source = 'pathless'; Where = 'tied to no path' }
++    )) {
++        $map = $pair.Map
++        if ($null -eq $map -or -not $map.ContainsKey($PluginId)) { continue }
++        $recs = @($map[$PluginId])
++        if ($recs.Count -eq 0) { continue }
++
++        $named = [string[]]@($recs | ForEach-Object { [string]$_.Scope } | Where-Object { $_ })
++        $canon = [string[]]@($named | ForEach-Object {
++            $raw = $_
++            @(Get-PluginScopeNames) | Where-Object { $_ -ieq $raw }
++        } | Sort-Object -Unique)
++        if ($canon.Count -gt 1) { [array]::Sort($canon, [System.StringComparer]::Ordinal) }
++
++        if ($canon.Count -eq 1) { return (& $answer $canon[0] $pair.Source '') }
++        if ($canon.Count -gt 1) {
++            return (& $answer 'project' 'default' "$($recs.Count) install records $($pair.Where) disagree on scope ($($canon -join ', ')) -- falling back to project")
++        }
++        if ($named.Count -gt 0) {
++            return (& $answer 'project' 'default' "the install record $($pair.Where) names a scope this CLI does not accept -- falling back to project")
++        }
++        return (& $answer 'project' 'default' "the install record $($pair.Where) states no scope -- falling back to project")
++    }
++
++    return (& $answer 'project' 'default' '')
++}
++
+ function Get-SubagentDirName {
+     <# The leaf name of the directory a plugin keeps its subagent definitions in -- 'subagents' where the
+        plugin ships one, 'agents' where it ships the pre-rename shape, and '' where it ships neither.
+diff --git a/scripts/task/plugin-versions.ps1 b/scripts/task/plugin-versions.ps1
+index 0255b00b..7ee5b566 100644
+--- a/scripts/task/plugin-versions.ps1
++++ b/scripts/task/plugin-versions.ps1
+@@ -32,7 +32,9 @@
+                                                    refreshes it if you expect newer.
+       - install sha is an ANCESTOR of clone HEAD,
+         and the two version strings DIFFER          -> the clone is AHEAD of your install
+-                                                   -> `claude plugin update <id> --scope project`
++                                                   -> `claude plugin update <id> --scope <the scope it
++                                                      is installed at>` (#1986 -- read off the install
++                                                      record, never assumed to be 'project')
+       - install sha is an ANCESTOR of clone HEAD,
+         and both sides carry the SAME version       -> unreleased work in the clone, and NO command is
+                                                       handed over: `claude plugin update` arbitrates on
+@@ -283,6 +285,18 @@ foreach ($id in $ids) {
+     $idTok = if ($idIsCommandSafe) { $id } else { '<plugin-id>' }
+     $mpTok = if ($mpIsCommandSafe) { $mp } else { '<marketplace>' }
+ 
++    # THE SCOPE HALF OF EVERY `claude plugin update` LINE BELOW (#1986). It was the literal 'project'
++    # until then, and the CLI refuses a scope a plugin is not installed at -- so for a machine-wide
++    # install, or for the 'local' record a session start writes without running anything, this page
++    # handed the reader a command that cannot work and told them it was the repair. Get-PluginUpdateScope
++    # answers it from $install, which this run has already read, and returns one of four literals rather
++    # than the file's own string -- so no byte of installed_plugins.json reaches a pasted command.
++    #
++    # THE `claude plugin install` LINES ARE NOT BUILT FROM IT, deliberately. Those two prescribe
++    # installing INTO THIS CHECKOUT, which is what 'project' means and what the reader is being told to
++    # do; they are not asking where the plugin already lives.
++    $updScope = (Get-PluginUpdateScope -InstallRecord $install -PluginId $id).Scope
++
+     $recs = @()
+     if ($install.RecordsById.ContainsKey($id)) { $recs = @($install.RecordsById[$id]) }
+     $pathless = @()
+@@ -339,11 +353,44 @@ foreach ($id in $ids) {
+         $action = "add it once: claude plugin marketplace add <owner>/<repo>"
+     } elseif (-not $cloneHasPlugin) {
+         # Every other 'the clone cannot answer' branch names the command that would repair it, and
+-        # this one read as a dead end for want of one. A refresh is the right first move either way:
+-        # a plugin added upstream since the last refresh is absent from a clone that is merely
+-        # behind, and a clone whose marketplace.json will not parse is re-fetched by the same command.
+-        $verdict = if ($clone.Error) { "cannot determine -- the clone's marketplace.json could not be read" } else { "cannot determine -- '$name' is not in the clone's marketplace.json" }
+-        $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"
++        # this one read as a dead end for want of one. TWO WAYS OF NOT ANSWERING SHARED ONE COMMAND
++        # UNTIL #1987, on the reasoning that a refresh is the right first move either way. It is not.
++        #
++        # THE ABSENT-PLUGIN HALF IS UNCHANGED and the reasoning above still holds for it: the manifest
++        # parsed, the plugin simply is not in it, and a plugin added upstream since the last refresh is
++        # exactly what a behind clone looks like.
++        #
++        # THE PARSE-FAILURE HALF IS NOT A STALENESS PROBLEM, and prescribing the staleness command
++        # there can be advice that provably cannot work. Measured September 14, 2026 on
++        # claude-plugins-official: the refresh had ALREADY run and succeeded seconds earlier, in step 1
++        # of the same update-plugins run, and the parse still failed -- because the fault is on this
++        # side. Windows PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively, and
++        # that manifest legitimately carries both '.c' and '.C' (an lspServers extension map). The file
++        # is valid JSON; no number of refreshes changes what 5.1 can represent, so the reader was sent
++        # round a loop that terminates only when they stop believing the tool.
++        #
++        # SO THE ADVICE SPLITS AGAIN, ONE LAYER DOWN, AND NAMES THE FILE EITHER WAY. Where the message
++        # is that duplicated-key shape the cause is known and is ours, so the refresh is ruled OUT by
++        # name rather than left as a thing to try. Where it is anything else the clone's copy may
++        # genuinely be damaged, and then the refresh is still the first move -- but the reader is told
++        # to look at the file first, because that is what separates the two.
++        if ($clone.Error) {
++            $verdict = "cannot determine -- the clone's marketplace.json could not be read"
++            # THE PATH IS BUILT FROM THE RAW $mp, so it is held to the same withhold rule as every
++            # command on this page (#1803): where the marketplace segment failed its slug check the
++            # placeholder goes in instead, and the redaction step below the verdict chain replaces this
++            # whole action with the withhold sentence. A path is not a command, but it is still a line
++            # printed for a person to act on, and the guard costs a legitimate marketplace nothing.
++            $manifestPath = if ($mpIsCommandSafe -and $clone.Dir) { Get-MarketplacePath -RepoRoot $clone.Dir } else { "<marketplace>'s .claude-plugin/marketplace.json" }
++            if ($clone.Error -match 'duplicated keys') {
++                $action = "NOT a stale clone, so a refresh cannot help: $manifestPath is valid JSON that this reader cannot represent -- Windows PowerShell 5.1 folds JSON keys case-insensitively and that file carries two keys differing only in case"
++            } else {
++                $action = "read $manifestPath first -- a refresh only helps if the clone's copy is damaged: claude plugin marketplace update $mpTok"
++            }
++        } else {
++            $verdict = "cannot determine -- '$name' is not in the clone's marketplace.json"
++            $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"
++        }
+     } elseif ($recs.Count -gt 1) {
+         $verdict = "cannot determine -- this checkout has $($recs.Count) conflicting install records"
+         $action = "repair: claude plugin install $idTok --scope project"
+@@ -405,14 +452,14 @@ foreach ($id in $ids) {
+             if ($null -ne $verCmp -and $verCmp -lt 0) {
+                 $code = 'behind'
+                 $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer); the clone is a non-git fetch so the commit history cannot confirm direction"
+-                $action = "claude plugin update $idTok --scope project"
++                $action = "claude plugin update $idTok --scope $updScope"
+             } elseif ($null -ne $verCmp -and $verCmp -gt 0) {
+                 $code = 'clone-behind'
+                 $verdict = "your install ($instVer) is AHEAD of the clone ($cloneVer)"
+                 $action = "claude plugin marketplace update $mpTok"
+             } else {
+                 $verdict = "cannot determine -- versions match ($instVer) but the recorded shas differ and the clone is a non-git fetch with no history to compare"
+-                $action = "claude plugin marketplace update $mpTok   (then: claude plugin update $idTok --scope project)"
++                $action = "claude plugin marketplace update $mpTok   (then: claude plugin update $idTok --scope $updScope)"
+             }
+         } else {
+             $existsInClone = (Invoke-CloneGit -CloneDir $clone.Dir -GitArgs @('rev-parse', '-q', '--verify', "$instSha^{commit}")).ExitCode -eq 0
+@@ -421,7 +468,7 @@ foreach ($id in $ids) {
+                 if ($null -ne $verCmp -and $verCmp -lt 0) {
+                     $code = 'behind'
+                     $verdict = "your install ($instVer, $(Format-ShortSha $instSha)) is BEHIND the clone ($cloneVer) and its commit is not in the clone's history"
+-                    $action = "claude plugin update $idTok --scope project  (then re-run; if it still differs: claude plugin marketplace update $mpTok)"
++                    $action = "claude plugin update $idTok --scope $updScope  (then re-run; if it still differs: claude plugin marketplace update $mpTok)"
+                 } else {
+                     $code = 'clone-behind'
+                     $verdict = "your install ($(Format-ShortSha $instSha)) is not in the clone's history -- the clone is stale, or your install predates a history rewrite"
+@@ -450,7 +497,7 @@ foreach ($id in $ids) {
+                     if ($instVer -and $cloneVer -and $instVer -ne $cloneVer) {
+                         $code = 'behind'
+                         $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer)"
+-                        $action = "claude plugin update $idTok --scope project"
++                        $action = "claude plugin update $idTok --scope $updScope"
+                     } elseif ($instVer -and $cloneVer -and $instVer -eq $cloneVer) {
+                         $code = 'unreleased'
+                         $verdict = "your install is on the released version $instVer and the clone holds newer commits carrying that same version -- unreleased work, so there is no version gap for a plugin update to close"
+@@ -463,7 +510,7 @@ foreach ($id in $ids) {
+                         $code = 'behind'
+                         $missingSide = if (-not $instVer) { 'no version recorded for your install' } else { "no version in the clone's plugin.json" }
+                         $verdict = "the clone is AHEAD of your install (newer commit; $missingSide, so whether that crosses a release boundary cannot be read from here)"
+-                        $action = "claude plugin update $idTok --scope project"
++                        $action = "claude plugin update $idTok --scope $updScope"
+                     }
+                 } else {
+                     # Present in the clone's history but not an ancestor of HEAD -- reachable after a
+@@ -475,7 +522,7 @@ foreach ($id in $ids) {
+                     if ($null -ne $verCmp -and $verCmp -lt 0) {
+                         $code = 'behind'
+                         $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer); your install's commit is in the clone's history but not an ancestor of HEAD (history rewrite?)"
+-                        $action = "claude plugin update $idTok --scope project"
++                        $action = "claude plugin update $idTok --scope $updScope"
+                     } else {
+                         $code = 'clone-behind'
+                         $verdict = "your install is AHEAD of the clone -- the clone is stale"
+@@ -501,7 +548,7 @@ foreach ($id in $ids) {
+         } elseif ($cmp -lt 0) {
+             $code = 'behind'
+             $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer)"
+-            $action = "claude plugin update $idTok --scope project"
++            $action = "claude plugin update $idTok --scope $updScope"
+         } else {
+             $code = 'clone-behind'
+             $verdict = "your install ($instVer) is AHEAD of the clone ($cloneVer) -- the clone is stale"
+diff --git a/scripts/task/update-plugins.ps1 b/scripts/task/update-plugins.ps1
+index 3f4cb6df..f42d6762 100644
+--- a/scripts/task/update-plugins.ps1
++++ b/scripts/task/update-plugins.ps1
+@@ -1,8 +1,9 @@
+ <#
+ .SYNOPSIS
+     The buildable half of #1890: 1 + N commands per checkout, run as one. Refreshes the marketplace
+-    clone once, then runs `claude plugin update <id> --scope project` for every plugin THIS checkout
+-    enables, then prints plugin-versions.ps1's receipt so the run's own result is verifiable.
++    clone once, then runs `claude plugin update <id> --scope <the scope it is installed at>` for every
++    plugin THIS checkout enables, then prints plugin-versions.ps1's receipt so the run's own result is
++    verifiable.
+ 
+ .DESCRIPTION
+     #1810 asked how updating stays workable across repos and machines; #1812 settled the mechanics
+@@ -13,19 +14,29 @@
+     something wraps it. This is that wrapper.
+ 
+     THE BOUNDARY, NAMED IN #1890 ITSELF AND KEPT HERE ON PURPOSE: this checkout plus the machine-wide
+-    marketplace clone, never a walk into another checkout. Every `claude plugin update` call below is
+-    `--scope project` against $repoRoot alone, and `claude plugin install/update` rewrites the
+-    visited repo's .claude/settings.json -- so a sweeping updater would leave uncommitted diffs in
+-    repos nobody opened, possibly on a mid-work branch (#1810's second cost). Nothing here reads or
+-    writes any tree but this one.
++    marketplace clone, never a walk into another checkout. Every `claude plugin update` call below
++    names $repoRoot alone, and `claude plugin install/update` rewrites the visited repo's
++    .claude/settings.json -- so a sweeping updater would leave uncommitted diffs in repos nobody
++    opened, possibly on a mid-work branch (#1810's second cost). Nothing here reads or writes any tree
++    but this one.
++
++    THE SCOPE IS READ OFF THE INSTALL RECORD, AND THAT DOES NOT WIDEN THAT BOUNDARY (issue #1986).
++    Until then every call was hardcoded `--scope project`, and the CLI refuses a scope a plugin is not
++    installed at -- so a machine-wide plugin was handed the one command that could have moved it and
++    the run exited 1 on a healthy machine. Get-PluginUpdateScope answers it from the administration
++    this run already reads; read its own block in check-report-lib.ps1 for why a 'local' or pathless
++    'user' record is an ordinary state rather than an edge case. The boundary is about WHICH TREE gets
++    written, and nothing here changes that: a user-scope update rewrites no repo's tree at all, and a
++    'local'/'project' one rewrites exactly the checkout the caller is standing in.
+ 
+     THREE STEPS, IN ONE RUN:
+       1. `claude plugin marketplace update <marketplace>` once per DISTINCT marketplace this checkout's
+          enabled plugins name (there is ordinarily one, but the loop does not assume it).
+-      2. `claude plugin update <id> --scope project` for every plugin id `Get-EnabledPlugins` reports
++      2. `claude plugin update <id> --scope <scope>` for every plugin id `Get-EnabledPlugins` reports
+          for $repoRoot -- the full effective set after the settings-chain precedence, the same set
+          plugin-versions.ps1 reports on, so step 3's receipt is never comparing against a different
+-         list than step 2 acted on.
++         list than step 2 acted on. The scope per id comes from Get-PluginUpdateScope (see the block
++         above), so step 2 and the receipt's own prescriptions cannot disagree inside one run.
+       3. plugin-versions.ps1, run as a CHILD PROCESS (Start-Process, live console, exactly the pattern
+          Invoke-TestSuiteGate and the lint gate already use) -- never dot-sourced, because that script
+          ends in `exit 0` on every path and dot-sourcing it would exit THIS script too.
+@@ -106,6 +117,12 @@ if ($ids.Count -eq 0) {
+     exit 0
+ }
+ 
++# The install administration, for the SCOPE half of every step-2 command (#1986). Read once rather
++# than per target: it is one file, and plugin-versions.ps1 -- this run's own step-3 receipt -- reads
++# it exactly this way, with the same fixture knob, so the two halves of one run cannot end up
++# consulting different administrations.
++$install = Get-InstallRecord -RepoRoot $repoRoot -UserHomeOverride $UserHomeOverride
++
+ # One command safety check per id, same predicate plugin-versions.ps1 already applies to its OWN
+ # printed commands (Test-PluginNameSlug / Test-PluginMarketplaceSlug) -- see this file's own
+ # docstring for why the reason differs (the CLI's argument parser, not a shell) while the guard is
+@@ -117,7 +134,15 @@ foreach ($id in $ids) {
+     $name = $parts[0]
+     $mp = $parts[-1]
+     if ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
+-        $targets.Add([pscustomobject]@{ Id = $id; Name = $name; Marketplace = $mp })
++        $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
++        $targets.Add([pscustomobject]@{
++            Id          = $id
++            Name        = $name
++            Marketplace = $mp
++            Scope       = $sc.Scope
++            ScopeSource = $sc.Source
++            ScopeNote   = $sc.Note
++        })
+     } else {
+         $skipped.Add((Format-SuspectToken -Value $id))
+     }
+@@ -134,6 +159,18 @@ if ($targets.Count -eq 0) {
+     exit 1
+ }
+ 
++# WHY THE NOTES ARE PRINTED BEFORE ANYTHING RUNS, not beside the call they belong to. A note only ever
++# exists where the administration could NOT answer and the run fell back to 'project' -- which is
++# exactly the state #1986 was filed about, so it must not scroll past inside step 2's own output. The
++# scope actually used is printed per call below regardless, so this block is the reason and that line
++# is the act.
++$scopeNotes = @($targets | Where-Object { $_.ScopeNote })
++if ($scopeNotes.Count -gt 0) {
++    Write-Host ""
++    Write-Host "Scope could not be read from the install administration for $($scopeNotes.Count) plugin(s):" -ForegroundColor Yellow
++    foreach ($t in $scopeNotes) { Write-Host "  $($t.Id) -- $($t.ScopeNote)" -ForegroundColor Yellow }
++}
++
+ $marketplaces = [string[]]@($targets | ForEach-Object { $_.Marketplace } | Select-Object -Unique)
+ [array]::Sort($marketplaces, [System.StringComparer]::Ordinal)
+ 
+@@ -141,7 +178,11 @@ if ($DryRun) {
+     Write-Host ""
+     Write-Host "-DryRun -- printing the commands this run would execute, none of them run:" -ForegroundColor Cyan
+     foreach ($mp in $marketplaces) { Write-Host "  claude plugin marketplace update $mp" }
+-    foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope project" }
++    # NOTHING IS APPENDED TO THESE LINES, not even the scope's provenance. -DryRun exists to be pasted
++    # into a terminal, so a trailing '(from the install record)' would turn every line into one that
++    # has to be edited first. The provenance that matters -- the administration failing to answer --
++    # is the $scopeNotes block above, which is prose and does not pretend to be a command.
++    foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
+     exit 0
+ }
+ 
+@@ -164,12 +205,12 @@ foreach ($mp in $marketplaces) {
+ # --- step 2: update every plugin this checkout enables, --scope project --------------------------
+ 
+ Write-Host ""
+-Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), --scope project:" -ForegroundColor Cyan
++Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), each at the scope it is installed at:" -ForegroundColor Cyan
+ $updateFailures = 0
+ foreach ($t in $targets) {
+     Write-Host ""
+-    Write-Host "  claude plugin update $($t.Id) --scope project"
+-    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', 'project') -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
++    Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)"
++    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+     foreach ($line in @($r.Output)) { Write-Host "    $line" }
+     if ($r.ExitCode -ne 0) {
+         $updateFailures++
+diff --git a/scripts/tests/check-report-lib.tests.ps1 b/scripts/tests/check-report-lib.tests.ps1
+index e3e6214b..d871be28 100644
+--- a/scripts/tests/check-report-lib.tests.ps1
++++ b/scripts/tests/check-report-lib.tests.ps1
+@@ -645,6 +645,113 @@ try {
+     $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+     Assert-True ($null -eq (Get-RecordShape -InstallRecord $r -PluginId 'p@m')) 'unparseable administration: no shape finding invented'
+ 
++    # --- Get-PluginUpdateScope (issue #1986) ------------------------------------------------------
++    # THE THIRD READER OF THE SAME RECORDS, and the one whose answer goes into a command that RUNS.
++    # The two predicates above report; this one decides what 'claude plugin update <id> --scope ?'
++    # carries, in update-plugins.ps1's exec path and in plugin-versions.ps1's printed prescriptions.
++    # The CLI refuses a scope a plugin is not installed at, so a wrong answer here is a command that
++    # cannot work presented as the repair -- which is what the hardcoded 'project' was until #1986.
++    #
++    # NOTE HOW IT PAIRS WITH Get-RecordShape ABOVE: the SAME fixtures that make that predicate report a
++    # finding ('local', pathless 'user') are the ones this function must answer differently from
++    # 'project'. That is the whole point -- the shapes it calls unusual are exactly the shapes the old
++    # command was wrong for.
++    Write-Host "Get-PluginUpdateScope -- the scope an update command must carry (#1986)" -ForegroundColor Cyan
++
++    Assert-Equal 'user,project,local,managed' ((Get-PluginScopeNames) -join ',') 'the allow-list is the CLI help''s own four, in its order'
++
++    # The assumed shape, and the answer that does not change: one project record -> 'project'.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"project`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'project' $sc.Scope 'one project record: project'
++    Assert-Equal 'record' $sc.Source 'one project record: sourced from the record, not the fallback'
++    Assert-Equal '' $sc.Note 'one project record: nothing to report'
++
++    # THE #314 SHAPE, which a session start writes with no command run. 'project' here is a refusal.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"local`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'local' $sc.Scope 'local-scoped record: local -- the shape Get-RecordShape calls a finding is still the shape the command must name'
++    Assert-Equal 'record' $sc.Source 'local-scoped record: sourced from the record'
++
++    # THE MACHINE-WIDE CASE #1986 WAS MEASURED ON, and the #323 demotion, which are byte-for-byte the
++    # same shape and have the same answer here -- so nothing has to tell them apart.
++    [System.IO.File]::WriteAllText($adminFile, '{ "plugins": { "p@m": [ { "scope": "user" } ] } }')
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'user' $sc.Scope 'pathless user record: user'
++    Assert-Equal 'pathless' $sc.Source 'pathless user record: sourced from the pathless record, and it says so'
++    Assert-Equal '' $sc.Note 'pathless user record: an ordinary machine-wide install is not a finding'
++
++    # A record for THIS path beats a pathless one: the specific statement wins over the machine-wide
++    # one, which is the order the two predicates above read them in too.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"user`" }, { `"scope`": `"project`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'project' $sc.Scope 'a record for this path beside a pathless one: this path wins'
++    Assert-Equal 'record' $sc.Source 'a record for this path beside a pathless one: sourced from this path'
++
++    # THE #315 ACCUMULATION, where a scope mismatch ADDS a record instead of replacing one. Two records
++    # disagreeing is not a question this function may answer by picking a winner -- it falls back and
++    # says what it saw.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"project`", `"projectPath`": `"$pathJson`" }, { `"scope`": `"local`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'project' $sc.Scope 'records disagreeing: falls back to project'
++    Assert-Equal 'default' $sc.Source 'records disagreeing: reported as the fallback, not as a read answer'
++    Assert-True ($sc.Note -match 'disagree') 'records disagreeing: the note says so'
++    Assert-True (($sc.Note -match 'local') -and ($sc.Note -match 'project')) 'records disagreeing: the note names both scopes, so the reader can repair the file'
++
++    # Two records that AGREE are not a disagreement, whatever Get-RecordShape says about the duplicate.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"local`", `"projectPath`": `"$pathJson`" }, { `"scope`": `"local`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'local' $sc.Scope 'two records agreeing on local: local, not a fallback'
++    Assert-Equal 'record' $sc.Source 'two records agreeing: still a read answer'
++
++    # CASE IS FOLDED, AND THE CANONICAL SPELLING IS WHAT LEAVES. The record's own string never reaches a
++    # command line: the value is matched against the allow-list and the allow-list's entry is returned.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"User`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    Assert-Equal 'user' (Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m').Scope 'a differently-cased scope: matched, and the canonical spelling is returned'
++
++    # A scope the CLI does not accept is not passed through -- that is the whole reason the allow-list
++    # exists. It falls back and says why, rather than handing an arbitrary file string to the CLI.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"; rm -rf /`", `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'project' $sc.Scope 'a scope the CLI does not accept: falls back to project'
++    Assert-True ($sc.Note -match 'does not accept') 'a scope the CLI does not accept: the note says so'
++    Assert-True (-not ($sc.Note -match 'rm -rf')) 'a scope the CLI does not accept: and the file''s own string is NOT echoed back into the note'
++
++    # A record with no scope field at all -- the ordinary older-CLI shape. Reported, because the
++    # fallback is then a guess rather than a reading, and a reader who sees 'project' deserves to know.
++    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"projectPath`": `"$pathJson`" } ] } }")
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'project' $sc.Scope 'record with no scope field: project'
++    Assert-True ($sc.Note -match 'states no scope') 'record with no scope field: the note says the file was silent'
++
++    # NO RECORD AT ALL IS NOT A FINDING. A declaratively-enabled plugin is the ordinary state this whole
++    # family reports on; a note here would put a yellow block in front of every such run.
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'absent@m'
++    Assert-Equal 'project' $sc.Scope 'no record at all: project'
++    Assert-Equal 'default' $sc.Source 'no record at all: the fallback'
++    Assert-Equal '' $sc.Note 'no record at all: silent -- it is not a finding'
++
++    # An unreadable authority: the fallback, and it says the authority could not be read rather than
++    # implying the file said 'project'. Same direction of error as both predicates above.
++    [System.IO.File]::WriteAllText($adminFile, '{ "plugins": { oops')
++    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
++    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
++    Assert-Equal 'project' $sc.Scope 'unparseable administration: project'
++    Assert-True ($sc.Note -match 'could not be read') 'unparseable administration: the note names the unreadable file, not a scope it never read'
++
++    # And a caller with nothing to hand over still gets a usable answer: every call site needs a scope
++    # to put in a command, so this function never returns $null.
++    Assert-Equal 'project' (Get-PluginUpdateScope -InstallRecord $null -PluginId 'p@m').Scope 'no record object at all: still answers, and answers project'
++
+     # --- Resolve-PluginDir: the record decides which version, the cache scan is the fallback ----------
+     #     A shared cache holds every version any consumer on the machine pulled, so "highest present" and
+     #     "the one THIS repo loads" are different questions the moment there is a second consumer.
+diff --git a/scripts/tests/plugin-versions.tests.ps1 b/scripts/tests/plugin-versions.tests.ps1
+index 171449d1..4417067c 100644
+--- a/scripts/tests/plugin-versions.tests.ps1
++++ b/scripts/tests/plugin-versions.tests.ps1
+@@ -90,6 +90,17 @@
+                                                                    verdict / action are sanitized at
+                                                                    emission -- the default view is held
+                                                                    to the same rule as -Brief
++      32 #1986: a 'behind' row whose install record says      -> the prescription carries '--scope
++         scope 'local'                                          local', never the hardcoded 'project'
++                                                                   the CLI would refuse
++      32b #1986: a path-less (machine-wide) record            -> the `claude plugin install` line is
++                                                                   deliberately STILL '--scope project'
++                                                                   -- it means "into this checkout"
++      33 #1987: a clone marketplace.json that will not parse  -> names the manifest, and offers the
++                                                                   refresh only as conditional on the
++                                                                   file being damaged
++      34 #1987: the measured shape -- valid JSON carrying     -> the refresh is ruled OUT by name, and
++         two keys differing only in case                        the 5.1 reader is named as the cause
+     Every scenario asserts exit code 0 explicitly (this is a report, not a gate).
+ 
+     Scenarios 12/13 build the "reachable but not an ancestor" state the way a real marketplace clone
+@@ -988,6 +999,83 @@ try {
+     Assert-Has   $r 'plugevil@ccs-fixture' '31: the sanitized id is what heads the block'
+     Assert-Has   $r 'shown sanitized'      '31: and the reader is told the id was altered (Format-SuspectToken note)'
+     Assert-Has   $r "no paste-ready command -- the 'enabledPlugins' key is not a valid plugin id (bad slug)" '31: the withhold sentence stands in for the command in the default view'
++
++    # --- 32. #1986: the update command carries the scope the record actually states --------------
++    # -- Every `claude plugin update` line on this page was the literal `--scope project` until
++    # -- #1986, and the CLI REFUSES a scope a plugin is not installed at. A 'local' record is not an
++    # -- edge case: a session start writes one, flipping a correct 'project' record, with no command
++    # -- run (inbound #314) -- so this page was handing a reader a command that cannot work and
++    # -- calling it the repair. The pairing with scenario 30/31 is deliberate: same fixture shape,
++    # -- different axis (that one is the id, this one is the scope).
++    Write-Host "32. #1986: a 'behind' row prescribes the scope the install record states" -ForegroundColor Cyan
++    $c = New-Case 'scope-local'
++    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
++    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Scope 'local') ) }
++    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
++    Assert-Equal 0 $r.Code '32: exit 0'
++    Assert-Has   $r 'the clone is AHEAD of your install (4.32.0 -> 4.33.0)' '32: fixture sanity -- the row really is a "behind" verdict'
++    Assert-Has   $r 'claude plugin update dkj-subagents-alpha@ccs-fixture --scope local' '32: the prescription carries the record''s own scope'
++    Assert-Lacks $r $UPD '32: and NOT the hardcoded --scope project, which the CLI would refuse'
++
++    # -- THE CARVE-OUT, PINNED: `claude plugin install` is deliberately NOT built from the resolved
++    # -- scope. A path-less (machine-wide) record is the shape #1986 was measured on, and the row it
++    # -- reaches prescribes installing INTO THIS CHECKOUT -- which is what 'project' means and what
++    # -- the reader is being told to do. It is not asking where the plugin already lives, so reading
++    # -- the scope off the record there would replace the instruction with a no-op.
++    Write-Host "32b. #1986: the INSTALL prescription is deliberately still --scope project" -ForegroundColor Cyan
++    $c = New-Case 'scope-pathless'
++    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
++    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( @{ scope = 'user'; version = '4.32.0' } ) }
++    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
++    Assert-Equal 0 $r.Code '32b: exit 0'
++    Assert-Has   $r 'a user-scope record not tied to a path exists' '32b: fixture sanity -- the row really is the path-less shape'
++    Assert-Has   $r 'install here: claude plugin install dkj-subagents-alpha@ccs-fixture --scope project' '32b: the install command keeps project scope -- it means "into this checkout"'
++
++    # --- 33. #1987: an UNPARSEABLE clone manifest no longer prescribes a refresh -----------------
++    # -- Two ways of not answering shared one command: the plugin absent from a manifest that PARSED
++    # -- (scenario 9 -- a refresh is right, the clone is merely behind) and the manifest not being
++    # -- readable at all. For the second the refresh can be advice that provably cannot work, and it
++    # -- is now split: the manifest's own path is named, and the refresh is offered only as
++    # -- conditional on the file actually being damaged.
++    Write-Host "33. #1987: a clone manifest that will not parse names the FILE, not a bare refresh" -ForegroundColor Cyan
++    $c = New-Case 'clone-unparseable'
++    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
++    [System.IO.File]::WriteAllText((Join-Path $c.Clone '.claude-plugin\marketplace.json'), '{ "name": "ccs-fixture", "plugins": [ this is not json', $Utf8)
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
++    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
++    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
++    Assert-Equal 0 $r.Code '33: exit 0'
++    Assert-Has   $r "cannot determine -- the clone's marketplace.json could not be read" '33: the verdict is unchanged -- this half was never wrong'
++    Assert-Has   $r 'marketplace.json' '33: the action names the manifest the reader has to look at'
++    Assert-Has   $r "a refresh only helps if the clone's copy is damaged" '33: the refresh is conditional now, not the prescription'
++    Assert-Lacks $r 'refresh the clone and re-run' '33: and the unconditional staleness command is gone from this branch'
++
++    # -- The other half of the split is scenario 9 and stays there: a manifest that PARSES and simply
++    # -- lacks the plugin still gets the unconditional refresh, which is the reasoning this branch
++    # -- inherited and kept.
++
++    # --- 34. #1987: the measured case, where the refresh provably cannot help --------------------
++    # -- Windows PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively, and the
++    # -- official marketplace manifest legitimately carries both '.c' and '.C' (an lspServers
++    # -- extension map). The file is VALID JSON; no number of refreshes changes what 5.1 can
++    # -- represent -- measured September 14, 2026, where the refresh had already run and succeeded
++    # -- seconds earlier in step 1 of the same update-plugins run. So this shape rules the refresh
++    # -- OUT by name instead of leaving it as a thing to try.
++    Write-Host "34. #1987: case-colliding keys -- the refresh is ruled out by name" -ForegroundColor Cyan
++    $c = New-Case 'clone-dupkeys'
++    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
++    [System.IO.File]::WriteAllText((Join-Path $c.Clone '.claude-plugin\marketplace.json'),
++        '{ "name": "ccs-fixture", "plugins": [], "lspServers": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } }', $Utf8)
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
++    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
++    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
++    Assert-Equal 0 $r.Code '34: exit 0'
++    Assert-Has   $r 'duplicated keys' '34: fixture sanity -- 5.1 really does refuse this valid JSON, and the reason is printed'
++    Assert-Has   $r 'NOT a stale clone, so a refresh cannot help' '34: the advice that cannot work is ruled out rather than prescribed'
++    Assert-Has   $r 'folds JSON keys case-insensitively' '34: and the reader is told whose fault it is, so they stop re-running the refresh'
++    Assert-Lacks $r 'refresh the clone and re-run' '34: the staleness command does not appear for this shape'
+ }
+ finally {
+     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
+diff --git a/scripts/tests/update-plugins.tests.ps1 b/scripts/tests/update-plugins.tests.ps1
+index e7dfa7b8..9c0d7765 100644
+--- a/scripts/tests/update-plugins.tests.ps1
++++ b/scripts/tests/update-plugins.tests.ps1
+@@ -42,6 +42,15 @@
+                                                              plugin, the OTHER plugin's update still ran,
+                                                              the receipt still runs, exit 1
+       8  two distinct marketplaces                      -> both are refreshed, in ORDINAL sorted order
++      9  a machine-wide (path-less) record beside a     -> '--scope user' and '--scope project'
++         record for this checkout, in ONE run                respectively: the scope is per plugin,
++                                                             read off the install record (#1986)
++      10 -DryRun with a 'local' record                  -> the PRINTED command carries that scope too,
++                                                             and stays paste-ready -- nothing is
++                                                             appended to it
++      11 a record stating no scope at all               -> falls back to project exactly as before, AND
++                                                             says so, in a block printed ABOVE step 1
++                                                             rather than inside step 2's own output
+ 
+     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
+     for .ps1).
+@@ -112,6 +121,24 @@ function Set-Enabled {
+         (@{ enabledPlugins = $ep } | ConvertTo-Json -Depth 5), $Utf8)
+ }
+ 
++function Set-InstallRecords {
++    <#
++        Writes the fixture home's ~/.claude/plugins/installed_plugins.json -- the administration
++        Get-InstallRecord reads, and therefore the file that decides every step-2 `--scope` (#1986).
++        $Records is id -> array of hashtables; a record carrying no 'projectPath' is the PATHLESS
++        (machine-wide) shape, and one carrying it is a record for this checkout.
++
++        The path is written as given: Get-InstallRecord resolves both sides with Resolve-Path before
++        comparing, so the caller hands over the fixture repo's real path and nothing here has to
++        normalise it.
++    #>
++    param([Parameter(Mandatory = $true)][string]$HomeDir, [Parameter(Mandatory = $true)][hashtable]$Records)
++    $dir = Join-Path $HomeDir '.claude\plugins'
++    New-Item -ItemType Directory -Path $dir -Force | Out-Null
++    [System.IO.File]::WriteAllText((Join-Path $dir 'installed_plugins.json'),
++        (@{ plugins = $Records } | ConvertTo-Json -Depth 6), $Utf8)
++}
++
+ function New-ClaudeShim {
+     <#
+         A claude.cmd on PATH. ECHOES its own arg line prefixed 'CLAUDE-SHIM-CALLED' -- proof the CLI
+@@ -286,6 +313,61 @@ try {
+     Assert-Has    $r 'CLAUDE-SHIM-CALLED plugin marketplace update aaa-marketplace' '8: the first marketplace was refreshed'
+     Assert-Has    $r 'CLAUDE-SHIM-CALLED plugin marketplace update zzz-marketplace' '8: the second marketplace was refreshed'
+     Assert-Before $r 'update aaa-marketplace' 'update zzz-marketplace' '8: refreshed in ordinal order'
++
++    # --- 9. the scope comes from the install record, per plugin (#1986) -------------------------
++    #     THE SCENARIO THIS ISSUE WAS MEASURED IN, with both halves in ONE run so the per-plugin-ness
++    #     is what is being asserted rather than a global switch: a machine-wide (pathless) record and a
++    #     record for this checkout, side by side. Before #1986 both got '--scope project' and the
++    #     machine-wide one was refused by the CLI -- never updated, and the run exited 1 with nothing
++    #     actually wrong on the machine.
++    Write-Host "9. the scope is read off the install record, per plugin" -ForegroundColor Cyan
++    $c = New-Case 'scopes'
++    New-ClaudeShim -BinDir $c.Bin
++    New-Receipt -Path $c.Receipt
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
++    Set-InstallRecords -HomeDir $c.Home -Records @{
++        $ID1 = @( @{ scope = 'user' } )
++        $ID2 = @( @{ scope = 'project'; projectPath = $c.Repo } )
++    }
++    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
++    Assert-Equal 0 $r.Code '9: exit 0'
++    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope user" '9: the machine-wide plugin is updated at USER scope -- the command that can actually move it'
++    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '9: the plugin installed here keeps project scope'
++    Assert-Lacks $r "plugin update $ID1 --scope project" '9: and the machine-wide plugin is NOT handed the scope it is not installed at'
++    Assert-Lacks $r 'Scope could not be read' '9: both scopes were read, so no fallback block is printed'
++
++    # --- 10. -DryRun prints the same per-plugin scopes ------------------------------------------
++    #     The printed line is what a reader PASTES, so it has to carry the same scope the exec path
++    #     would use -- a dry run that prints a command different from the one it would run is worse
++    #     than no dry run. Nothing is appended to these lines either, which is why the assertion is on
++    #     the exact command text.
++    Write-Host "10. -DryRun prints the per-plugin scope, paste-ready" -ForegroundColor Cyan
++    $c = New-Case 'scopes-dry'
++    New-ClaudeShim -BinDir $c.Bin
++    New-Receipt -Path $c.Receipt
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
++    Set-InstallRecords -HomeDir $c.Home -Records @{ $ID1 = @( @{ scope = 'local'; projectPath = $c.Repo } ) }
++    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
++    Assert-Equal 0 $r.Code '10: exit 0'
++    Assert-Has   $r "claude plugin update $ID1 --scope local" '10: the printed command carries the record''s own scope'
++    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '10: and still nothing ran'
++
++    # --- 11. an administration that cannot answer: the fallback, and it SAYS so ------------------
++    #     'project' is what this run has always used and still uses; what changed is that the reader is
++    #     told it was a fallback rather than a reading. The block is printed ABOVE step 1, so it cannot
++    #     scroll past inside step 2's own output -- which is where the #1986 failure was hiding.
++    Write-Host "11. a record with no scope: project, with the reason stated" -ForegroundColor Cyan
++    $c = New-Case 'scopes-silent'
++    New-ClaudeShim -BinDir $c.Bin
++    New-Receipt -Path $c.Receipt
++    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
++    Set-InstallRecords -HomeDir $c.Home -Records @{ $ID1 = @( @{ projectPath = $c.Repo } ) }
++    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
++    Assert-Equal 0 $r.Code '11: exit 0'
++    Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '11: falls back to project, exactly as before'
++    Assert-Has $r 'Scope could not be read from the install administration for 1 plugin(s)' '11: and the fallback is stated rather than silent'
++    Assert-Has $r 'states no scope' '11: the line names what the administration failed to say'
++    Assert-Before $r 'Scope could not be read' 'Step 1/3' '11: stated BEFORE step 1, so it cannot scroll past inside step 2'
+ }
+ finally {
+     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

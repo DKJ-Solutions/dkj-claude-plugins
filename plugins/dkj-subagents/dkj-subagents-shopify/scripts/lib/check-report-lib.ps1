@@ -1304,9 +1304,9 @@ function Get-RecordShape {
 # there -- a user-scope update rewrites no repo's tree at all, and a 'local'/'project' one rewrites
 # exactly the checkout the caller is already standing in.
 #
-# THE RETURN IS ONE OF FOUR LITERALS, NEVER THE RECORD'S OWN STRING. installed_plugins.json is machine
-# -written, but it is still a file on disk feeding a `claude plugin ...` line that this family both
-# EXECUTES and PRINTS for pasting -- and plugin-versions.ps1's own withhold doctrine (#1594/#1803) is
+# THE RETURN IS ONE OF FOUR LITERALS, NEVER THE RECORD'S OWN STRING. installed_plugins.json is
+# machine-written, but it is still a file on disk feeding a `claude plugin ...` line that this family
+# both EXECUTES and PRINTS for pasting -- and plugin-versions.ps1's own withhold doctrine (#1594/#1803) is
 # that a guard whose output is the injection surface is worse than no guard. Matching case-insensitively
 # against `claude plugin update --help`'s own four scopes and emitting the canonical spelling means no
 # byte of that file ever reaches a command line.
