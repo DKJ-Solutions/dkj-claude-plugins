@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1998-templates-in-script-set · 20260914-182517
+
+`Get-PsScriptFiles` -- the file set five script-layer checks share -- took three named subtrees inside
+`plugins/`: `skills/`, `scripts/` and `hooks/`. One tracked file sat in none of them, and it is not an inert
+template: `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` is copied by `adopt-dkj-policy-bwj`
+into a BWJ store repo as `.github/scripts/asana-mirror.ps1`, where it runs in that consumer's CI holding
+`issues: write`. So 1812 lines this repo scaffolds into somebody else's automation had never been parsed,
+held to the ASCII rule, checked for a bare Shopify call, or read for a printed command missing its execution
+policy -- and a parse error in it reaches them rather than us, which is check 5's own argument for existing,
+one directory over from where it was looking.
+
+**The anchor is inverted rather than extended by a fourth name, and the choice was measured.** Today both
+forms select the identical set, so the whole difference is the next subtree somebody adds: a named list is
+silent about it, and this one had already failed open twice. The cost is stated at the code rather than
+discovered later -- the walk is the filesystem's, not git's, so an untracked `.ps1` anywhere under
+`plugins/` now enters the set where before it had to land in one of three directories.
+
+**Born green, which was the point of measuring first.** All five checks pass over the newly-read file:
+`[exec-policy/script]` coverage moves 202 -> 203 and `[parse]`, `[script-ascii]` and `[shopify-cli]` move
+312 -> 313, with `Summary: 0 error(s)` before and after. `[section-number]` is unchanged at 159, because
+the file carries no column-0 `# --- ` markers at all -- an empty subject set rather than a miss.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The three new scenarios pin the property and not the arithmetic: put a defect in a plugin's `templates/`
+and the gate must find it, whatever the file count happens to be that week. And they were proved to
+discriminate rather than assumed to -- with the old anchor stashed back in place, three of the five asserts
+go red, and the two that stay green are the ones guarding against a repair that widens the set by accusing
+whatever it newly reads.
+
+**Score:** 2
+
+#### Pull Request
+
+Bring plugins/**/templates/** into Get-PsScriptFiles, so the script-layer checks read what this repo scaffolds into a consumer's CI
+
+[PR #2006](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2006)
+
+---
 
 ### DEPLOY: fix/1994-allownull-on-record-predicates · 20260914-175823
 
