@@ -255,6 +255,48 @@ do.
 
 A branch with **no** step list at all is not refused: that is the one-commit typo fix.
 
+#### A committed Artifact source carries its published URL, from the first publication
+
+**A durable, published surface whose source is committed — a dashboard, a backlog page, a tracker — needs
+a home for its own published URL, and nothing in this cycle wrote one down until inbound
+[#1980](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1980), submitted from
+`BWJ-Development/smartwatchbanden`, September 14, 2026.** The gap surfaced in a repo that had otherwise
+done everything right: a committed `.html` source was cited by name from several places in the tree, and
+the `claude.ai/code/artifact` URL it had been published under existed nowhere in that tree — only in the
+transcript of the session that published it.
+
+**Why that is worse than a missing link.** The Artifact tool updates a published page in place only from
+the same `file_path` inside the *same* session, or against an explicit `url`. A later session that opens
+the committed source, edits it and republishes it — with nothing in the repo telling it the page already
+has a home — does not update that page. It creates a **second** artifact. The first link, already opened
+and shared, keeps serving its old content, now maintained by nobody; and where the page carries its own
+state (a backlog/snapshot document feeding a scheduled workflow, in the reported instance), that state
+does not travel to the new artifact, which starts empty, falls back to whatever it has committed as its
+fallback data, and looks exactly like a working, current page. Nothing renders wrong and nothing errors —
+the only witness is somebody who happens to know which link is the real one, which is precisely the
+failure mode this whole cycle exists to legislate against.
+
+**So the rule is three parts, and each closes one way the gap above actually occurred:**
+
+1. **The URL lives beside the source** — next to the committed file, wherever your repo already keeps
+   this kind of adjunct fact about a file — so it cannot drift away from the source it names.
+2. **A session that edits a committed Artifact source reads that URL before it republishes**, and passes
+   it to the publish call. Publishing such a source with no `url` is what creates the second artifact —
+   there is no other way.
+3. **The record is written in the SAME commit as the first publication, never as a separate follow-up.**
+   The URL does not exist before the page does, and the session that just published it is the only one
+   that has it for free — a later session can only recover it by asking somebody, or not at all.
+
+**Scope is deliberately narrow: a durable surface whose source is committed.** A short-lived handover link
+that is delivered in a reply and never meant to be stored is not this — the same distinction, one layer
+over, that `dkj-policy-bwj`'s own [`PREVIEW-portable.md`](dkj-policy-bwj/PREVIEW-portable.md) chapter
+already draws for its own kind of link (a Shopify preview-theme URL, handed over and not kept).
+
+**This page states the policy; the mechanism is a later, optional step.** How the URL actually gets
+written next to the source — a closing note the publishing session prints, in the shape
+`push-preview.ps1` already prints for a theme handover — is not built here. What has to exist first is
+the rule that such a record belongs, and where; a script that writes it is a future branch, not this one.
+
 ### 4. Open the PR
 
 [`skills/open-pr/SKILL.md`](skills/open-pr/SKILL.md) · `open-pr.ps1`
