@@ -86,7 +86,10 @@ release notes and the minor backlog for colleagues who do not read a private rep
       model-invocable, like `release-notes-page` beside it.
 - [x] The plugin README: the `worker/` row, the shared-pages-worker section under
       *What this plugin owns*, the `Get-BwjPagesConfig` seam, and the skills table row.
-- [x] The root README's two `<!-- skills:all -->` spans, which the lint gate reads.
+- [x] The root README's two marked skill-enumeration spans, which the lint gate reads. Named rather
+      than quoted on purpose: that span walker masks fenced blocks and not inline backticks, so a
+      document mentioning the opening marker is read as opening a span of its own -- which is how
+      this very bullet first turned the gate red.
 
 ### TEST
 
@@ -147,7 +150,7 @@ missing token names three ways back in the order worth trying. The one answer th
 lives: a store repo is **private**, so its tokens are committed, because a tracked token is what
 survives a lost machine. And the publish **verifies by reading the value back and comparing SHA-256**,
 which is the automatable half of the lesson the release-notes page states one layer up -- *verify the
-bytes, never the command's own output*.
+bytes the URL serves, never the deploy command's output*.
 
 `backlog` is routed as a kind and has no builder yet; that is a follow-up issue by decision
 ([#1979](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1979)), so it lands later without
