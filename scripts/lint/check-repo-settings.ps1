@@ -43,9 +43,11 @@
     as unfolded-entry.yml and branch-entry.yml.
 
     IT NEVER WRITES TO GITHUB. Repo settings are the owner's surface under this repo's constitution;
-    this script reads and reports, exactly as adopt-ci-floor.ps1 composes its ruleset command and
-    stops. Reading needs a token that can read; writing needs one that can administer the repo, and a
-    check that quietly held the second would be a different kind of tool.
+    this script reads and reports, exactly as adopt-ci-floor.ps1's required-check ruleset instruction
+    composes a call and stops (#1972) -- its merge-queue instruction stays a UI pointer instead, since
+    that switch carries scheduling policy nobody here has chosen. Reading needs a token that can read;
+    writing needs one that can administer the repo, and a check that quietly held the second would be
+    a different kind of tool.
 
     THE DECLARATION LIVES IN scripts/repo-config.ps1 (Get-ExpectedRepoSettings), not here, and each
     record carries `Where` -- the document in this tree stating the fact -- and `Recorded`, the date

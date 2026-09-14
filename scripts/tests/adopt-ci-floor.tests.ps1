@@ -7,7 +7,7 @@
     WHY THIS SUITE EXISTS. Every property below fails SILENTLY, which is the same reason
     merge-queue-prereq.tests.ps1 exists one file over: a merge queue changes what a merge DOES, and a
     repo standing on an incomplete floor looks exactly like one standing on a complete one until the
-    first merge afterwards. What is covered, and why these seven:
+    first merge afterwards. What is covered, and why these eight:
 
       1. the DRY RUN default writes nothing -- the contract adopt-config and adopt-workflow-folder are
          both trusted on, and this command writes into .github/, which is not a folder to surprise
@@ -27,11 +27,22 @@
       5. the merge_group prerequisite is read as a KEY of the on: block, so a workflow that merely
          mentions the trigger in a comment is not reported as ready. This is the assert that would go
          green on a substring match while the outage it prevents is live;
-      6. the switch is never flipped. The run composes a ruleset instruction and stops -- no call that
-         WRITES a ruleset may appear in this script at all, because a repo-settings change is the
-         owner's act;
+      6. the switch is never flipped -- RESHAPED FOR #1972. The subject is now whether this script
+         INVOKES a write, not whether the characters '--method POST' appear anywhere in the file:
+         section 1's [gap] arm now legitimately PRINTS exactly that as advice text, without ever
+         running it, which is exactly what turned this assert's old shape red. The two real invocation
+         sites (Invoke-NativeCapture) are held to the no-write rule, and the printed advice block is
+         separately proven to be consumed only by Write-Host, never executed -- so a hypothetical real
+         write anywhere else in the file, printed advice included, still trips it;
       7. a repo that publishes this workflow is refused -- the source arranges its own runners by hand,
-         and they are the originals these are derived from.
+         and they are the originals these are derived from;
+      8. THE COMPOSED RULESET CALL ITSELF (#1972), since a docstring promising it for months had
+         nothing measuring it before now: it is actually printed on a no-required-check trunk, the JSON
+         it prints parses and targets refs/heads/<the trunk this run was told about> rather than a
+         placeholder like ~DEFAULT_BRANCH, the one free choice (which check) is filled in automatically
+         when exactly one pull_request job exists in the tree and left as a placeholder plus a
+         candidate list otherwise, and the additive-ruleset caveat is present so a reader is not
+         surprised into pasting this over an existing ruleset.
 
     THE RULES PAYLOAD ARRIVES FROM A FIXTURE FILE, via -RulesJsonOverride. It is the only way to reach
     the queue-is-active arm at all: a test tree is not a checkout, has no remote, and CI has no token
@@ -96,7 +107,8 @@ function New-FixtureConsumer {
         [string]$Label,
         [switch]$WithMergeGroup,
         [switch]$AsWorkflowSource,
-        [string]$Trunk = ''
+        [string]$Trunk = '',
+        [string]$RepoSlug = ''
     )
     $root = Join-Path $Fixture "consumer-$Label"
     if (Test-Path -LiteralPath $root) { Remove-Item -Recurse -Force -LiteralPath $root }
@@ -120,9 +132,12 @@ function New-FixtureConsumer {
     ) -join "`n"
     [System.IO.File]::WriteAllText((Join-Path $root '.github\workflows\ci.yml'), $ci + "`n")
 
-    if ($Trunk) {
+    if ($Trunk -or $RepoSlug) {
         New-Item -ItemType Directory -Path (Join-Path $root 'scripts') -Force | Out-Null
-        [System.IO.File]::WriteAllText((Join-Path $root 'scripts\repo-config.ps1'), "function Get-TrunkBranchName { '$Trunk' }`n")
+        $seamLines = @()
+        if ($Trunk) { $seamLines += "function Get-TrunkBranchName { '$Trunk' }" }
+        if ($RepoSlug) { $seamLines += "function Get-RepoName { '$RepoSlug' }" }
+        [System.IO.File]::WriteAllText((Join-Path $root 'scripts\repo-config.ps1'), (($seamLines -join "`n") + "`n"))
     }
     if ($AsWorkflowSource) {
         $manifest = '{ "name": "fixture", "plugins": [ { "name": "dkj-policy", "source": "./x" } ] }'
@@ -143,6 +158,23 @@ function Test-NoLeakedCredential {
     $codeLines = ($Text -split "`r?`n") | Where-Object { $_.Trim() -notmatch '^#' }
     $code = $codeLines -join "`n"
     return (-not ($code -match '(?m)^\s*issues:\s*write\s*$')) -and (-not ($code -match 'secrets\.FOLD_PUSH_TOKEN'))
+}
+
+function Get-ComposedRulesetPayload {
+    <#
+        Extracts the JSON body of the paste-ready ruleset call section 1's [gap] arm prints (#1972),
+        from the child's own LINE-PRESERVING output ($r.Out -- not $r.Flat, which drops every real
+        newline along with the console's wrap-induced ones; JSON parses fine either way, but Out is
+        what actually varies per invocation, so it is what a reader would paste too). Bounded by the
+        two markers the template itself prints around the payload -- "$json = @'" and the closing
+        "'@" -- so this reads what the template actually emitted rather than reconstructing it by hand.
+        Returns $null when the marker pair is not found, which a caller turns into its own failed
+        assert rather than an uncaught ConvertFrom-Json crashing the whole suite.
+    #>
+    param([string]$Out)
+    $m = [regex]::Match($Out, "(?s)\`$json = @'(.*?)'@")
+    if (-not $m.Success) { return $null }
+    return $m.Groups[1].Value
 }
 
 function New-RulesFile {
@@ -442,12 +474,163 @@ try {
     # --- 7. The switch is composed, never pulled -----------------------------------------------------
     Write-Host '-- 7. the setting itself is the owner act, and this script does not make it --' -ForegroundColor Cyan
     $src = [System.IO.File]::ReadAllText($Script)
-    # The subject is a WRITE, not the word 'ruleset': the script reads a ruleset on every run and must
-    # keep doing so. A gh call carrying a write method, or the rulesets collection endpoint, is what
-    # would make this a tool that changes repo settings.
-    Assert-True ($src -notmatch "'-X'\s*,\s*'(PUT|POST|PATCH|DELETE)'") 'no gh api call in this script carries a write method'
-    Assert-True ($src -notmatch "--method\s+(PUT|POST|PATCH|DELETE)") 'and none carries one in the long spelling either'
-    Assert-True ($src -notmatch "'api'[^\r\n]*rulesets") 'and it never addresses the rulesets collection, which is the endpoint that creates one'
+
+    # RESHAPED FOR #1972. The subject is now "does this script INVOKE a write", not "do these characters
+    # appear anywhere in the file" -- because section 1's [gap] arm now legitimately PRINTS a
+    # '--method POST' ruleset call as advice text (issue #1972), without ever running it. The naive
+    # substring form of this guard went red on exactly that the day it landed: it could not tell a
+    # printed literal from an invocation, and the finding was real -- see the CLOSE below for why it is
+    # not simply loosened.
+    #
+    # THE ADVICE BLOCK ($rulesetLines) IS CARVED OUT ONLY AFTER IT IS PROVEN INERT, not merely assumed
+    # so -- the two asserts right after the carve-out show every reference to that array is a
+    # Write-Host, so the carve-out cannot hide a real invocation lurking under the same variable name.
+    $rulesetLinesBlock = [regex]::Match($src, '(?ms)^\s*\$rulesetLines\s*=\s*@\(.*?^\s*\)\s*$')
+    Assert-True $rulesetLinesBlock.Success `
+        'the printed ruleset advice block ($rulesetLines) is found at all -- so the carve-out below has something to carve out'
+    $srcOutsideAdvice = $src.Remove($rulesetLinesBlock.Index, $rulesetLinesBlock.Length)
+
+    # PROVING THE CARVE-OUT IS SAFE. $rulesetLines is referenced exactly twice in the whole script: its
+    # own assignment (just matched above) and the foreach loop that Write-Hosts it. A THIRD reference --
+    # a pipe to gh, an Invoke-Expression, anything that would EXECUTE the block instead of merely
+    # printing it -- would show up as a third match and fail this count. That is deliberately not "and
+    # no Invoke-Expression exists anywhere", which would only be as strong as the list of banned verbs
+    # this suite happened to think of; counting references to the one variable the advice text lives in
+    # does not depend on guessing every way PowerShell can run a command.
+    $rulesetLinesRefs = [regex]::Matches($src, '\$rulesetLines\b')
+    Assert-Equal 2 $rulesetLinesRefs.Count `
+        '$rulesetLines is referenced exactly twice -- its assignment and the loop that prints it; a third reference would mean something besides Write-Host consumes it'
+
+    # THE SECOND REFERENCE MUST BE THE *WHOLE* STATEMENT, ANCHORED, NOT A PREFIX (review finding, Victor
+    # #19). A PREFIX match -- '...\{\s*Write-Host \$ln', with nothing requiring the brace to close right
+    # there -- still matches after 'foreach ($ln in $rulesetLines) { Write-Host $ln -ForegroundColor
+    # DarkGray; Invoke-Expression $ln }': the appended call sits AFTER the substring the old regex
+    # looked for, so it read as a pass while quietly executing every printed line. Proven below against
+    # exactly that mutation, both ways.
+    $foreachExpected = 'Write-Host $ln -ForegroundColor DarkGray'
+    function Test-ForeachIsExactlyOneWriteHost {
+        # The WHOLE foreach line, brace to brace: the body is captured with a character class that
+        # excludes braces, so a line ending in an unbalanced '{' inside the appended text (rather than a
+        # bare statement) makes the match fail outright instead of silently swallowing it -- either way
+        # the tamper is caught, by one assert or the other.
+        param([string]$Text)
+        $m = [regex]::Match($Text, '(?m)^\s*foreach\s*\(\$ln in \$rulesetLines\)\s*\{(?<body>[^{}]*)\}\s*$')
+        if (-not $m.Success) { return $false }
+        return ($m.Groups['body'].Value.Trim() -eq $foreachExpected)
+    }
+    Assert-True (Test-ForeachIsExactlyOneWriteHost $src) `
+        'and that second reference is EXACTLY one Write-Host statement, brace to brace -- nothing appended after it on the same line'
+
+    # THE OLD REGEX'S OWN BLIND SPOT, DEMONSTRATED RATHER THAN ASSERTED AWAY: append a real invocation to
+    # the same line and confirm the unanchored prefix form still matches it, before checking the anchored
+    # form no longer does.
+    $foreachHostileLine = 'foreach ($ln in $rulesetLines) { Write-Host $ln -ForegroundColor DarkGray; Invoke-Expression $ln }'
+    $foreachLineMatch = [regex]::Match($src, '(?m)^\s*(foreach\s*\(\$ln in \$rulesetLines\)[^\r\n]*)$')
+    Assert-True $foreachLineMatch.Success 'the foreach line is found at all, so the hostile-mutation proof below has something to mutate'
+    $srcForeachHostile = $src
+    if ($foreachLineMatch.Success) {
+        $srcForeachHostile = $src.Remove($foreachLineMatch.Groups[1].Index, $foreachLineMatch.Groups[1].Length).Insert(
+            $foreachLineMatch.Groups[1].Index, $foreachHostileLine)
+    }
+    Assert-True ($srcForeachHostile -match '(?m)foreach\s*\(\$ln in \$rulesetLines\)\s*\{\s*Write-Host \$ln') `
+        'PROOF: the OLD unanchored prefix regex still matches the hostile line (Invoke-Expression appended) -- this is the gap Victor found'
+    Assert-True (-not (Test-ForeachIsExactlyOneWriteHost $srcForeachHostile)) `
+        'PROOF: the NEW anchored assert catches that same hostile line -- the body is no longer exactly one Write-Host statement'
+
+    # --- Sebastian's finding: the carve-out proves nothing about what runs when the array is BUILT -----
+    # @( ... ) is a real PowerShell expression: an element written as $(Invoke-NativeCapture ...), or a
+    # $(...) subexpression embedded INSIDE an interpolated string element, executes the moment the array
+    # is BUILT -- regardless of whether the value is ever printed -- and adds no textual reference to
+    # $rulesetLines, so the reference-count proof above cannot see it either way. Proven with the actual
+    # PowerShell parser (not a regex), because this is exactly the syntax question the parser exists to
+    # answer and a regex can only approximate: every element must be a string literal (plain or
+    # interpolated), and an interpolated element's own nested pieces must be plain variable reads, never
+    # a subexpression.
+    $adviceTokens = $null
+    $adviceParseErrors = $null
+    $adviceAst = [System.Management.Automation.Language.Parser]::ParseInput(
+        $rulesetLinesBlock.Value, [ref]$adviceTokens, [ref]$adviceParseErrors)
+    Assert-Equal 0 $adviceParseErrors.Count 'the carved-out advice block parses as valid, self-contained PowerShell (a prerequisite for inspecting what is inside it)'
+    $adviceArrayAst = $adviceAst.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayLiteralAst] }, $true)
+    Assert-True ($null -ne $adviceArrayAst) 'the array literal inside the advice block is found by the parser'
+    if ($adviceArrayAst) {
+        $adviceElements = @($adviceArrayAst.Elements)
+        Assert-True ($adviceElements.Count -gt 0) 'and it has elements to check'
+
+        function Test-RulesetLinesElementsAreLiteral {
+            # The property Sebastian named: "these elements are literals", checked structurally rather
+            # than by pattern -- a StringConstantExpressionAst (a plain '...' string) or an
+            # ExpandableStringExpressionAst (a "..." string) whose OWN NestedExpressions are nothing but
+            # VariableExpressionAst (a bare $var read, which only substitutes an already-computed value
+            # and cannot execute anything new). Anything else -- a bare command, a $(...) subexpression
+            # as a top-level element, or one embedded inside a string -- fails this.
+            param([System.Management.Automation.Language.ArrayLiteralAst]$ArrayAst)
+            $elements = @($ArrayAst.Elements)
+            $nonLiteral = @($elements | Where-Object {
+                $_ -isnot [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                $_ -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst]
+            })
+            if ($nonLiteral.Count -gt 0) { return $false }
+            $badNested = @($elements | Where-Object { $_ -is [System.Management.Automation.Language.ExpandableStringExpressionAst] } |
+                ForEach-Object { $_.NestedExpressions } |
+                Where-Object { $_ -isnot [System.Management.Automation.Language.VariableExpressionAst] })
+            return ($badNested.Count -eq 0)
+        }
+        Assert-True (Test-RulesetLinesElementsAreLiteral $adviceArrayAst) `
+            'every element of the advice array is a string literal (plain or interpolated by bare variable read) -- never a bare command, and never a $(...) subexpression'
+
+        # PROOF, HOSTILE EDIT 1: a bare $(...) subexpression as a top-level array element (Sebastian's
+        # own example). The reference-count proof above cannot see this at all -- it adds no textual
+        # '$rulesetLines' anywhere -- which is exactly the blind spot being closed here.
+        $hostileElementText = $rulesetLinesBlock.Value.Replace(
+            "'{',",
+            "'{', `$(Invoke-NativeCapture -FilePath 'gh' -Arguments @('api','--method','POST')),")
+        Assert-True ($hostileElementText -ne $rulesetLinesBlock.Value) 'PROOF SETUP: hostile-edit-1 text actually differs from the original (the anchor text was found)'
+        $hostileAst1 = [System.Management.Automation.Language.Parser]::ParseInput($hostileElementText, [ref]$null, [ref]$null)
+        $hostileArrayAst1 = $hostileAst1.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayLiteralAst] }, $true)
+        Assert-True ($hostileArrayAst1 -and (@([regex]::Matches($hostileElementText, '\$rulesetLines\b')).Count -eq 1)) `
+            'PROOF: hostile-edit-1 leaves the $rulesetLines reference count at its ORIGINAL value (1, inside this isolated block) -- a pure reference count cannot see this mutation at all'
+        Assert-True (-not (Test-RulesetLinesElementsAreLiteral $hostileArrayAst1)) `
+            'PROOF: the NEW literal-elements assert catches hostile-edit-1 -- a bare command/subexpression element is not a string literal'
+
+        # PROOF, HOSTILE EDIT 2: the same subexpression, embedded INSIDE a double-quoted string element
+        # rather than as a bare element. This is the harder case: PowerShell's own legacy tokenizer
+        # (PSParser) reads the WHOLE interpolated string as one opaque token here and does not surface
+        # the embedded command at all -- only the full AST parser's NestedExpressions breaks it back
+        # apart, which is why this assert is built on the AST and not on tokens or on a regex.
+        $hostileElementText2 = $rulesetLinesBlock.Value.Replace(
+            '"  ""name"": ""require $rulesetContext on $rulesetTrunk"",",',
+            '"  ""name"": ""require $(Invoke-NativeCapture -FilePath ''gh'' -Arguments @(''api'')) on $rulesetTrunk"",",')
+        Assert-True ($hostileElementText2 -ne $rulesetLinesBlock.Value) 'PROOF SETUP: hostile-edit-2 text actually differs from the original (the anchor text was found)'
+        $hostileAst2 = [System.Management.Automation.Language.Parser]::ParseInput($hostileElementText2, [ref]$null, [ref]$null)
+        $hostileArrayAst2 = $hostileAst2.Find({ param($n) $n -is [System.Management.Automation.Language.ArrayLiteralAst] }, $true)
+        Assert-True ($null -ne $hostileArrayAst2) 'PROOF SETUP: hostile-edit-2 still parses as an array literal (the mutation is syntactically legal PowerShell, which is the whole danger)'
+        if ($hostileArrayAst2) {
+            Assert-True (-not (Test-RulesetLinesElementsAreLiteral $hostileArrayAst2)) `
+                'PROOF: the NEW literal-elements assert catches hostile-edit-2 -- a $(...) subexpression embedded inside an interpolated string is not a plain variable read'
+        }
+    }
+
+    # THE ACTUAL GUARD, NOW OVER PROVEN-EXECUTABLE TEXT ONLY. A hypothetical real write --
+    # Invoke-NativeCapture -FilePath 'gh' -Arguments @('api', '--method', 'POST', ...), or a
+    # 'gh api --method POST' typed anywhere outside the proven-inert advice block above -- still trips
+    # every one of these three, exactly as before #1972.
+    Assert-True ($srcOutsideAdvice -notmatch "'-X'\s*,\s*'(PUT|POST|PATCH|DELETE)'") 'no gh api call in this script carries a write method'
+    Assert-True ($srcOutsideAdvice -notmatch "--method\s+(PUT|POST|PATCH|DELETE)") `
+        'and none carries one in the long spelling either, outside the proven-inert printed advice text'
+    Assert-True ($srcOutsideAdvice -notmatch "'api'[^\r\n]*rulesets") 'and it never addresses the rulesets collection directly, which is the endpoint that creates one'
+
+    # THE TWO REAL INVOCATION SITES IN THIS SCRIPT, NAMED RATHER THAN LEFT TO THE GUARD ABOVE TO FIND BY
+    # ACCIDENT: both calls this script actually makes are Invoke-NativeCapture, and both are reads (a
+    # repo lookup, and a GET of the trunk's rules). If either ever grows a write, it fails the assert
+    # above (it is not inside the carved-out advice block) -- this pair just makes the claim legible
+    # rather than only provable.
+    $nativeCalls = @([regex]::Matches($srcOutsideAdvice, '(?m)^.*Invoke-NativeCapture\b.*$') | ForEach-Object { $_.Value })
+    Assert-Equal 2 $nativeCalls.Count 'this script makes exactly two native calls (a repo lookup and a rules GET), both outside the advice block'
+    foreach ($call in $nativeCalls) {
+        Assert-True ($call -notmatch '(PUT|POST|PATCH|DELETE)') "native call carries no write method: $call"
+    }
+
     $dir = New-FixtureConsumer -Label 'switch'
     $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOff)
     Assert-True ($r.Flat -like '*WILL NOT DO IT FOR YOU*') 'and it says so, rather than leaving the reader to notice nothing happened'
@@ -479,6 +662,87 @@ try {
     Assert-True ($r.Flat -like '*branch-entry*') 'it names the gate that CANNOT carry the role (issue #1538)'
     Assert-True ($r.Flat -like '*github.head_ref*') 'and says why -- head_ref is empty outside a pull request'
     Assert-Equal 0 $r.Code 'still a to-do rather than a defect, so the run exits 0'
+
+    # --- 7c. The composed ruleset call itself (#1972) -------------------------------------------------
+    # The docstring promised this call for months (issues #1516/#1546) before #1972 made section 1's
+    # [gap] arm actually print it -- and nothing measured that it did. These asserts are the regression:
+    # what #1972 bought is exactly what would silently stop being true if a later edit turned the arm
+    # back into a bare pointer.
+    Write-Host '-- 7c. the composed ruleset call itself (#1972) --' -ForegroundColor Cyan
+    Assert-True ($r.Flat -like '*gh api --method POST*') `
+        'the composed call is actually PRINTED on a no-required-check trunk -- the regression this section exists to catch'
+    Assert-True ($r.Flat -like '*<owner>/<repo>*') 'with no Get-RepoName seam answered in this fixture, the slug prints as the honest placeholder'
+    Assert-True ($r.Flat -like '*COULD NOT BE RESOLVED*') 'and says so explicitly, rather than silently guessing a slug'
+    Assert-True ($r.Flat -like "*the one candidate job, 'lint-en-tests', is already filled in*") `
+        'the single pull_request job in this fixture''s tree is filled in automatically, not left as a placeholder'
+    Assert-True ($r.Flat -notlike '*REPLACE-WITH-A-JOB-ID-BELOW*') 'so the placeholder text never appears when exactly one candidate exists'
+    Assert-True ($r.Flat -notlike '*CANDIDATE CHECKS*') 'and the candidate list is not printed either -- there is nothing to choose between'
+    Assert-True ($r.Flat -like '*RULESETS LAYER*') 'the additive-ruleset caveat is present -- a second ruleset layers rather than silently replacing an existing one'
+
+    # THE PAYLOAD ITSELF: valid JSON, targeting refs/heads/<the trunk this run was told about>, not a
+    # placeholder like ~DEFAULT_BRANCH.
+    $rulesetJsonText = Get-ComposedRulesetPayload -Out $r.Out
+    Assert-True ($null -ne $rulesetJsonText) 'the printed advice carries a JSON payload marked off by @''...''@ at all'
+    $rulesetJsonParsed = $null
+    if ($rulesetJsonText) {
+        try { $rulesetJsonParsed = $rulesetJsonText | ConvertFrom-Json } catch { $rulesetJsonParsed = $null }
+    }
+    Assert-True ($null -ne $rulesetJsonParsed) 'and that payload is valid JSON'
+    if ($rulesetJsonParsed) {
+        Assert-True (@($rulesetJsonParsed.conditions.ref_name.include) -contains 'refs/heads/main') `
+            'and it targets refs/heads/main -- the trunk THIS run was told about (via the default seam), not a hardcoded value'
+        Assert-True ($rulesetJsonText -notlike '*~DEFAULT_BRANCH*') 'and never falls back to the ~DEFAULT_BRANCH placeholder'
+        Assert-Equal 'lint-en-tests' $rulesetJsonParsed.rules[0].parameters.required_status_checks[0].context `
+            'and names the one candidate job as the required check context'
+    }
+
+    # THE TRUNK IS READ, NOT HARDCODED (same property as section 6, applied to the payload): a fixture
+    # naming a non-main trunk must produce refs/heads/<that trunk>, never refs/heads/main.
+    $trunkDir = New-FixtureConsumer -Label 'gap-trunk' -Trunk 'develop'
+    $rTrunk = Invoke-Adopt -Dir $trunkDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    $trunkJsonText = Get-ComposedRulesetPayload -Out $rTrunk.Out
+    $trunkJsonParsed = $null
+    if ($trunkJsonText) {
+        try { $trunkJsonParsed = $trunkJsonText | ConvertFrom-Json } catch { $trunkJsonParsed = $null }
+    }
+    Assert-True ($null -ne $trunkJsonParsed) 'on a non-main trunk the printed payload is still valid JSON'
+    if ($trunkJsonParsed) {
+        Assert-True (@($trunkJsonParsed.conditions.ref_name.include) -contains 'refs/heads/develop') `
+            'and targets refs/heads/develop -- the Get-TrunkBranchName seam''s answer, not a hardcoded main'
+        Assert-True (-not (@($trunkJsonParsed.conditions.ref_name.include) -contains 'refs/heads/main')) `
+            'and does not fall back to refs/heads/main on a repo that renamed its trunk'
+    }
+
+    # THE REPO SLUG, WHEN THE SEAM ANSWERS IT: no placeholder, no "could not be resolved" line, and the
+    # actual slug appears in the composed call.
+    $slugDir = New-FixtureConsumer -Label 'gap-slug' -RepoSlug 'acme-corp/example-repo'
+    $rSlug = Invoke-Adopt -Dir $slugDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rSlug.Flat -like '*acme-corp/example-repo*') 'with Get-RepoName answered, the resolved slug appears in the composed call'
+    Assert-True ($rSlug.Flat -notlike '*<owner>/<repo>*') 'and the placeholder is not printed instead'
+    Assert-True ($rSlug.Flat -notlike '*COULD NOT BE RESOLVED*') 'nor the could-not-be-resolved line'
+
+    # THE AMBIGUOUS CASE: two candidate jobs in the tree leave the context an explicit placeholder and
+    # print every candidate, rather than guessing which one the merge should wait on.
+    $ambiguousDir = New-FixtureConsumer -Label 'gap-ambiguous'
+    $extraWorkflow = @(
+        'name: Extra',
+        'on:',
+        '  pull_request:',
+        '    branches: [main]',
+        'jobs:',
+        '  extra-check:',
+        '    runs-on: ubuntu-latest',
+        '    steps:',
+        '      - run: echo hi'
+    ) -join "`n"
+    [System.IO.File]::WriteAllText((Join-Path $ambiguousDir '.github\workflows\extra.yml'), $extraWorkflow + "`n")
+    $rAmbiguous = Invoke-Adopt -Dir $ambiguousDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rAmbiguous.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*') `
+        'two candidate jobs in the tree: the context is left as an explicit placeholder, not guessed'
+    Assert-True ($rAmbiguous.Flat -like '*CANDIDATE CHECKS*') 'and the candidate list header is printed'
+    Assert-True ($rAmbiguous.Flat -like '*extra-check -- from*') 'naming the second candidate job and the workflow it comes from'
+    Assert-True ($rAmbiguous.Flat -like '*lint-en-tests -- from*') `
+        'and the first, so picking one is a copy from the list rather than a hunt through .github/workflows/'
 
     # --- 8. The source repo is refused ----------------------------------------------------------------
     Write-Host '-- 8. the repo that publishes this workflow is refused --' -ForegroundColor Cyan

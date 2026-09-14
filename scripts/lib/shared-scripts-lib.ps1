@@ -975,9 +975,11 @@ function Get-SharedScriptPairs {
             # WHAT IT PLACES IS EVERY REPO'S, QUEUE OR NO QUEUE. A queue takes the fold (#1493) and the
             # resolves verification (#1511) away from the shipping session -- but so does the GitHub UI
             # merge button, which exists in every repo on earth, so that pair is floor rather than
-            # queue machinery. What survives of the queue half is a report, the merge_group prerequisite
-            # (#1325) flagged only where a queue is actually active, and a ruleset command the script
-            # composes and refuses to run.
+            # queue machinery. What survives of the queue half is a report and the merge_group
+            # prerequisite (#1325), flagged only where a queue is actually active. THE COMPOSED
+            # RULESET COMMAND IS THE OTHER HALF'S, NOT THE QUEUE'S: the required-check side composes a
+            # call and refuses to run it (#1972), where the queue instruction stays a UI pointer, since
+            # that switch carries scheduling policy nobody here has chosen.
             #
             # SHARED FOR THE REASON EVERY ENTRY HERE IS -- the alternative is each consumer deriving the
             # CI files and a prerequisite from the source's tree, which is what they did for the
