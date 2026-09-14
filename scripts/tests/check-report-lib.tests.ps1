@@ -645,6 +645,36 @@ try {
     $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
     Assert-True ($null -eq (Get-RecordShape -InstallRecord $r -PluginId 'p@m')) 'unparseable administration: no shape finding invented'
 
+    # --- NO RECORD OBJECT AT ALL, in both predicates (issue #1994) --------------------------------
+    # THESE TWO ASSERTS COULD NOT HAVE PASSED BEFORE THE SIGNATURES CHANGED, which is the whole of what
+    # they pin. Both functions have always OPENED with an `if ($null -eq $InstallRecord)` line, and a
+    # Mandatory parameter rejects $null during binding -- ParameterArgumentValidationErrorNullNotAllowed
+    # -- so the call itself threw and the documented answer was unreachable. [AllowNull()] on each makes
+    # the line run. A regression here is therefore a TERMINATING error rather than a wrong value, which is
+    # why each is wrapped: a bare call would end the suite instead of failing one assertion, and the
+    # difference matters when this file is 700 lines long.
+    #
+    # THE STATE IS REAL, not a fixture-only input: check-policy-drift.ps1 sets $installRecord = $null and
+    # fills it inside a try/catch, so a throw in Get-InstallRecord leaves exactly this value at exactly
+    # these call sites. It used to carry `if ($installRecord -and ...)` to keep it away from the binder;
+    # that clause is gone with #1994, so these asserts are what now holds the contract it was hand-rolling.
+    #
+    # AND THE TWO ANSWERS DIFFER ON PURPOSE, exactly as they do for an unreadable administration one line
+    # up: the permissive predicate says "installed" because an absent authority is not evidence of absence,
+    # and the shape predicate says "nothing to report" because it may suppress a finding and never invent
+    # one. A shared answer would be the tell that the two questions had been merged.
+    $nullInstalled = $null
+    $nullInstalledThrew = $false
+    try { $nullInstalled = Test-PluginInstalledHere -InstallRecord $null -PluginId 'p@m' } catch { $nullInstalledThrew = $true }
+    Assert-True (-not $nullInstalledThrew) 'no record object at all: Test-PluginInstalledHere BINDS $null instead of throwing'
+    Assert-True ($nullInstalled -eq $true) 'no record object at all: and answers $true -- "I could not look" is not "not installed"'
+
+    $nullShape = 'unset'
+    $nullShapeThrew = $false
+    try { $nullShape = Get-RecordShape -InstallRecord $null -PluginId 'p@m' } catch { $nullShapeThrew = $true }
+    Assert-True (-not $nullShapeThrew) 'no record object at all: Get-RecordShape BINDS $null instead of throwing'
+    Assert-True ($null -eq $nullShape) 'no record object at all: and invents no shape finding'
+
     # --- Get-PluginUpdateScope (issue #1986) ------------------------------------------------------
     # THE THIRD READER OF THE SAME RECORDS, and the one whose answer goes into a command that RUNS.
     # The two predicates above report; this one decides what 'claude plugin update <id> --scope ?'
