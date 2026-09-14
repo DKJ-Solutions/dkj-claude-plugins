@@ -43,7 +43,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1988-native-capture-utf8-claude-shim · 20260914-171155
+
+`update-plugins.ps1` (and any other `-Utf8`/`-TimeoutSeconds` caller of `Invoke-NativeCapture`) now
+runs `claude` correctly on a Windows machine where npm's global install left three PATH shims for one
+bin -- previously `Start-Process` matched the extensionless POSIX script first and failed with
+"%1 is not a valid Win32 application".
+
+**Score:** 3 -- a concrete blocker on this Windows/npm install shape, fixed the moment a maintainer
+touches `update-plugins.ps1` on such a machine; not a breaking change and not everyone's daily path.
+
+#### What makes this deploy extra special
+
+A consumer running `dkj-policy:update-plugins` on the same Windows/npm-global install shape had step
+1/3 (marketplace refresh) and step 2/3 (per-plugin update) fail outright; this fix reaches them once
+mirrored into the plugin via a release.
+
+**Score:** 3 -- a clear improvement, noticed the moment they run `update-plugins` on this install shape.
+
+#### Pull Request
+
+Invoke-NativeCaptureUtf8 resolves 'claude' to npm's extensionless shim on Windows
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2001](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2001)
+
+---
 
 ### DEPLOY: fix/stray-scratchpad-file · 20260914-162151
 
