@@ -1754,6 +1754,58 @@ Assert-True (($errLines | Where-Object { $_ -like '*${reason//%/%25}*' }).Count 
 
 
 Write-Host ""
+Write-Host "claude-code-review.yml -- which failures are allowed to go green (#2000)" -ForegroundColor Cyan
+
+# THE REVERSAL THIS PINS, so a later reader does not repair it back. Until September 14, 2026 this job
+# went red on every failure, deliberately and at length -- a 429 means the PR got no review, and #966
+# wanted that not to be silent. Dave reversed it on #2000, the SEVENTH issue filed against this one check
+# being red (#891, #913, #942, #966, #1055, #1164, #2000): a signal that fires on every pull request is
+# not a signal, and the legibility work those issues bought is untouched by dropping the colour.
+#
+# WHAT IS ASSERTED IS THE DIRECTION OF THE FAIL-SAFE, not the wording. The one way this change can go
+# wrong is silently: `continue-on-error` on the review step defers the verdict, and a decision step that
+# stopped re-failing -- or diagnostics that stopped running because they still key on `failure()` -- would
+# turn every failure green, including the missing-App-install class #1245 found. That regression prints
+# nothing and looks like a healthy repo.
+#
+# ASSERTED ON THE TEXT for the reason the block above gives: a workflow is the one caller no suite gets to
+# run. And it cannot be proved by its own pull request either -- the action refuses to review a PR that
+# modifies this file and exits GREEN in nine seconds, which is documented at the top of the workflow. So
+# the file's text is the only evidence available before it reaches the trunk.
+
+# 1. The verdict is deferred rather than taken by the action, which is what gives the job a choice at all.
+Assert-True ($reviewYml -like '*id: claude-review*') 'the review step still carries the id every condition below reads'
+$corLines = @($reviewYml -split "`r?`n" | Where-Object { $_ -match '^\s+continue-on-error:\s*true\s*$' })
+Assert-True ($corLines.Count -eq 3) 'three steps defer rather than fail: the review itself, and the two diagnostics that must not become the story'
+
+# 2. NOTHING KEYS ON failure() ANY MORE, and this is the assert that would have caught the mistake made
+#    while writing the change. With continue-on-error above them, `failure()` is FALSE at every step in
+#    this job, so a condition left that way does not error -- it silently skips the diagnostic, which is
+#    the #966 silence restored by accident and with no symptom.
+Assert-True ($reviewYml -notlike '*if: failure()*') 'no step keys on failure() -- with the verdict deferred it is false everywhere, so such a step would silently never run'
+$outcomeConds = @($reviewYml -split "`r?`n" | Where-Object { $_ -like "*steps.claude-review.outcome == 'failure'*" })
+Assert-True ($outcomeConds.Count -eq 3) 'the two diagnostics and the decision step all key on the review step OUTCOME instead'
+
+# 3. The status the decision turns on is published by the step that already single-lined and capped it,
+#    rather than re-read raw somewhere with no bound on it (#1118's treatment, carried forward).
+Assert-True ($reviewYml -like '*id: why-failed*') 'the diagnostic step is addressable, so its status can be read by name'
+Assert-True ($reviewYml -like '*api_status=$status*') 'and it publishes the capped, single-lined status rather than leaving it to be re-derived'
+Assert-True ($reviewYml -like '*API_STATUS: ${{ steps.why-failed.outputs.api_status }}*') 'which the decision step takes through the env block, never interpolated into its script'
+
+# 4. THE RULE ITSELF: exactly one status is downgraded, and everything else -- including an EMPTY status,
+#    which is the pre-SDK setup class -- goes red. Asserted as "one exit 0 and one exit 1" rather than by
+#    matching prose, so a branch added for a second status has to move this number on purpose.
+$decisionBlock = [regex]::Match($reviewYml, '(?s)Decide whether this check goes red.*$').Value
+Assert-True ($decisionBlock.Length -gt 0) 'the decision step is present and is the last step of the job'
+Assert-Equal 1 ([regex]::Matches($decisionBlock, '(?m)^\s+429\)\s*$').Count) 'exactly one status is exempt, and it is 429 -- the one whose own headline says a re-run adds nothing'
+Assert-True ($decisionBlock -notmatch '(?m)^\s+529\)\s*$') 'and 529 is NOT exempt: an overload is transient, so a re-run is a real remedy and a red tick is actionable'
+Assert-Equal 1 ([regex]::Matches($decisionBlock, '(?m)^\s+exit 0\s*$').Count) 'exactly one branch ends the job green'
+Assert-Equal 1 ([regex]::Matches($decisionBlock, '(?m)^\s+exit 1\s*$').Count) 'and the catch-all branch re-fails it -- the fail-safe an empty status must fall into'
+$catchAll = [regex]::Match($decisionBlock, '(?s)\*\)(.*?)esac').Value
+Assert-True ($catchAll -like '*exit 1*') 'the DEFAULT branch is the failing one, so an unrecognised or absent status is never silently downgraded'
+
+
+Write-Host ""
 Write-Host "The label gate: does the label this PR would be given exist? (inbound #1221)" -ForegroundColor Cyan
 
 # THE PAYLOAD IS THE REAL SHAPE of `gh label list --json name`, which is a flat array of {name}.
