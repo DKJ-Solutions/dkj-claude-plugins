@@ -43,7 +43,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/1990-bwj-plugin-no-work-stale · 20260914-173105
+
+`CLAUDE.md`'s repo slot no longer groups `dkj-policy-bwj` with the three add-on teams as having no
+work in this repo. It now says what is actually true since September 14, 2026: three of its four
+chapters still have none (this repo has no Shopify store), but its ticket-handling chapter does,
+because Dave admitted this repo as a third permitted target at its own gate.
+
+**Score:** 2 -- a documentation correction with no functional effect; worth having right so a future
+session does not read the old sentence and wrongly rule out `dkj-policy-bwj`'s `report-issue` skill
+for this repo's own inbound findings.
+
+#### What makes this deploy extra special
+
+N/A -- `CLAUDE.md` is this repo's own governance document; it is not shipped to consumers.
+
+**Score:** N/A
+
+#### Pull Request
+
+CLAUDE.md still groups dkj-policy-bwj with the add-on teams as having no work here, after the gate admitted this repo
+
+[PR #2002](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2002)
+
+---
 
 ### DEPLOY: fix/1988-native-capture-utf8-claude-shim · 20260914-171155
 
