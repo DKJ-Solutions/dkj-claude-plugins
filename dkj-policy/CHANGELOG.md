@@ -43,7 +43,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/1976-theme-lifecycle-delete-marker-claim · 20260914-114210
+
+`THEME-LIFECYCLE-portable.md` claimed both BWJ stores answer `Get-ShopifyThemeDeleteMarker`; one of
+them deliberately does not, pinned by its own test. Reworded the sentence to a store-agnostic
+conditional so a reader no longer reads an unanswered seam as a gap to close against a `CLAUDE.md`
+safety rule.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a portable-doc wording correction with no bearing on this repo's own audience tiers.
+
+**Score:** N/A
+
+#### Pull Request
+
+correct THEME-LIFECYCLE-portable.md's claim that both BWJ stores answer Get-ShopifyThemeDeleteMarker
+
+Plugins: dkj-policy-bwj
+
+[PR #1978](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1978)
+
+---
 
 ### DEPLOY: fix/1972-compose-ruleset-call · 20260914-085815
 
