@@ -18,7 +18,7 @@ and publish the `backlog` kind; this is what puts a real page in front of them t
 Run the shared script from the **root of the store repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-backlog-page.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-backlog-page.ps1"
 ```
 
 It reads this repo's **open** issues carrying the reach label (`Get-ReachLabel`, default `minor`),
