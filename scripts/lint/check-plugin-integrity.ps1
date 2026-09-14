@@ -548,6 +548,12 @@ function Get-JsonCaseCollision {
     try {
         Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
         $ser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        # BOUNDED BY THE DOCUMENT ITSELF, the bound ConvertFrom-MarketplaceJson argues for in
+        # plugin-tree-lib.ps1 (#1993, Sebastian): the reader's default cap is 2 MB, and the text is
+        # already wholly in memory by the time this runs, so its own length is the one ceiling that is
+        # neither arbitrary nor a guardrail traded away for nothing. RecursionLimit stays at its default,
+        # which is what bounds a deeply nested document.
+        $ser.MaxJsonLength = [Math]::Max(1, $Text.Length)
         $root = $ser.DeserializeObject($Text)
     } catch {
         return @()

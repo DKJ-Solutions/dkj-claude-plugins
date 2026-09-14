@@ -1050,12 +1050,21 @@ Write-Host 'fixture'
     #      scenario is deterministic. Under PowerShell 7 ConvertFrom-Json is case-sensitive, the file
     #      parses, and there is no finding to assert at all -- which is the correct behaviour there and
     #      the reason the repair diagnoses rather than refuses.
+    # THE FIXTURE'S OWN MARKETPLACE PLUS ONE COLLIDING MAP -- the plugin list is NOT trimmed, and that is
+    # load-bearing rather than tidiness. Since #1993 landed, Get-PluginRoots reads this document through
+    # ConvertFrom-MarketplaceJson, whose fallback SUCCEEDS on a case collision -- so unlike scenario 55
+    # the plugin set here is real rather than empty, and a short list trips the shared-scripts registry's
+    # throw on a pair naming a plugin the marketplace does not declare, killing the gate mid-run. Measured
+    # on this branch: a one-plugin list failed three of the five asserts below for that reason and nothing
+    # to do with JSON. The only difference from the good document must be the collision itself.
     $collideMarketplace = @'
 {
   "name": "fixture-marketplace",
   "lspServers": { "clangd": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } },
   "plugins": [
-    { "name": "dkj-subagents-alpha", "source": "./plugins/dkj-subagents/dkj-subagents-alpha" }
+    { "name": "dkj-subagents-alpha",         "source": "./plugins/dkj-subagents/dkj-subagents-alpha" },
+    { "name": "dkj-subagents-shopify",       "source": "./plugins/dkj-subagents/dkj-subagents-shopify" },
+    { "name": "dkj-policy", "source": "./plugins/dkj-policy" }
   ]
 }
 '@
@@ -1070,7 +1079,7 @@ Write-Host 'fixture'
     Assert-True ($c5b.Out -match 'Summary:') `
         'case-colliding marketplace: the run still reaches its Summary, like scenario 55'
     Assert-True ($c5b.Code -ne 0) `
-        'case-colliding marketplace: and still FAILS -- the checks that read the manifest did not run'
+        'case-colliding marketplace: and still FAILS -- check 1 could not read the manifest it validates'
     [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), $goodMarketplace, $Utf8NoBom)
 
     # --- check 6b: a manual is backed by an agent def OR a persona ------------------------------------

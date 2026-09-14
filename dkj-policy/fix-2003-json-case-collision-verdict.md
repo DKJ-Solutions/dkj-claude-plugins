@@ -49,17 +49,31 @@ malformed -- the kind of accusation a reader acts on, by editing a file with not
 Reproduced against the real case, the official marketplace's `lspServers.clangd.extensionToLanguage`
 map, which legitimately lists `".c"` beside `".C"`.
 
-#### Two things in the issue that did not stand, checked before the repair was built
+#### One thing in the issue that did not stand, and one that came true mid-branch
 
-- It says the repair must not reuse `ConvertFrom-MarketplaceJson`, which **#1993 added** to
-  `scripts/lib/plugin-tree-lib.ps1`. That function does not exist: #1993 is still open and its
-  branch `fix/1993-case-collision-json-reader` holds only its park commit. The *conclusion* is
-  unaffected -- a generic validator must not hand its callers a three-field projection -- but there
-  was nothing to decline to reuse.
 - It offers changing only the **message** as the cheap option. That reads as matching the
   exception's text, and the text is localized: measured on this host, the same malformed document
   that reports `Invalid JSON primitive` in English reports `Ongeldige JSON-primitieve`. A verdict
-  matched on it would be right in CI and silently wrong on a Dutch workstation.
+  matched on it would be right in CI and silently wrong on a Dutch workstation. So the repair
+  diagnoses from the **document**, never from the message.
+- It says the repair must not reuse `ConvertFrom-MarketplaceJson`, which #1993 added to
+  `scripts/lib/plugin-tree-lib.ps1`. When this branch opened that function did not exist -- #1993
+  was open and its branch held only its park commit -- so the premise was checked and found stale.
+  It stopped being stale while the branch was in flight: PR #2010 merged it, and `main` is merged in
+  here. Either way the issue's *conclusion* was right and is what this branch followed.
+
+#### And it is still not reused, now that it exists -- by its own argument
+
+`ConvertFrom-MarketplaceJson` projects the three fields this repo consumes and says so in its own
+header: *"everything else is dropped by design."* `Test-JsonFile` is a generic validator whose
+callers read arbitrary fields of arbitrary documents, so handing them that projection would make the
+gate pass manifests it exists to refuse. The two share a technique and not a job: one **returns** a
+usable document, this one **diagnoses** an unusable one and returns `$null` exactly as before.
+
+What is taken from it is the measured guardrail rather than the code -- `MaxJsonLength` bounded by
+the document's own length, which #1993 argues for at length and which this would otherwise have
+inherited silently at the reader's 2 MB default. The two also agree, independently, on the finding
+that decided both: the exception's wording cannot be depended on.
 
 #### So the repair is the issue's second shape, confined as it worded it
 
@@ -85,13 +99,18 @@ changed is the wording and where it sends the reader.
 - [x] scenario 55b in `check-plugin-integrity-docs.tests.ps1`, the mirror of scenario 55, over the
       real colliding document -- plus one assert added to 55 itself, so the pair proves the
       discrimination rather than only the new half
+- [x] `MaxJsonLength` bounded by the document's own length, adopting #1993's measured guardrail
+      rather than inheriting the reader's 2 MB default in silence
 
 ### TEST
 
 - [x] `check-plugin-integrity-docs.tests.ps1`: 165 asserts, all pass (was 158 + the 7 new)
 - [x] the gate run by hand against a corrupt marketplace and a colliding one: the first reports
       `is not valid JSON`, the second names the collision and its path, both reach `Summary:`
-- [x] full local gate + lint via `open-pr.ps1`
+- [x] full local gate + lint via `open-pr.ps1` -- 106 suites green before `main` moved, re-run after
+      the merge below
+- [x] `main` merged in after #1993's PR #2010 landed mid-branch: no file overlap, and the branch
+      document's account of it corrected rather than left standing
 
 #### The one bug this branch wrote and caught
 
@@ -99,6 +118,17 @@ changed is the wording and where it sends the reader.
 empty branch produces nothing to assign -- so `.Count` threw and killed the gate on the one path the
 function exists to reach. Scenario 55 went red on a corrupt marketplace it had always tolerated,
 which is precisely the value of asserting the mirror case beside the new one.
+
+#### The second thing the merge changed, which the tests caught
+
+Bringing `main` in did not touch either file this branch edits, but it changed what scenario 55b's
+fixture DOES. Since #1993, `Get-PluginRoots` reads the marketplace through
+`ConvertFrom-MarketplaceJson`, whose fallback **succeeds** on a case collision -- so where scenario
+55 leaves the plugin set empty, 55b now leaves it real. The scenario's document had trimmed the
+plugin list to one entry, which then tripped the shared-scripts registry's throw on a pair naming a
+plugin the marketplace does not declare, and killed the gate mid-run: three asserts red for a reason
+with nothing to do with JSON. The document is now the fixture's own marketplace plus the colliding
+map and nothing else, which is what it should have been from the start.
 
 ### DEPLOY: fix/2003-json-case-collision-verdict
 
@@ -122,8 +152,13 @@ file that was already correct.
 #### What makes this deploy extra special
 
 `Test-JsonFile` is this repo's own lint, not plugin payload, so no consumer runs it -- the reach
-label on the issue is one layer over from where the symptom is. #1993, still open, is the half that
-reads the manifest a consumer installs from.
+label on the issue is one layer over from where the symptom is. #1993 -- merged mid-branch as PR
+#2010 -- is the half that reads the manifest a consumer installs from, and it is the one that reaches them.
+
+The branch is also a small worked example of the repo's own rule that a report's REASON is verified
+before it is repaired. Two of this issue's premises moved under it: one was stale on arrival and one
+became true while the work was in flight. Neither changed the repair, because what was checked was
+the tree rather than the sentence.
 
 **Score:** N/A
 
