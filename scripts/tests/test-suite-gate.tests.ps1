@@ -894,11 +894,27 @@ exit -1
     # pool where a child's own bring-up has been measured at 3.25s (#1939), and a tight margin here would
     # be exactly the flaky-under-contention class this branch's other half exists to reproduce.
     Write-Host "the deadline: a suite that never returns is killed, named, and does not hold the pool" -ForegroundColor Cyan
-    $slowDir = Join-Path $Fixture 'suites-slow'
+    # ITS OWN FIXTURE DIRECTORY, AND THAT IS THE WHOLE OF ISSUE #2005. This case pointed at
+    # 'suites-slow' until then -- the directory section 5 above has ALREADY filled with six suites that
+    # each sleep 1.2s -- so the 3s bound was a CEILING on those six as well, and section 5's own comment
+    # is the argument against it: a timing FLOOR is testable because Start-Sleep guarantees it, a CEILING
+    # is not, because nothing bounds how slow a shared machine can be. Measured in CI on run 34875895039,
+    # shard 4 of 4: s1.tests.ps1 took 4.4s under contention, timed out alongside the wedged suite, and the
+    # verdict correctly read 'did not finish within the 3s bound: s1.tests.ps1, s-wedged.tests.ps1' -- so
+    # the last assert of this block failed over a gate that was behaving exactly right. Green on
+    # 'gh run rerun --failed' and green locally, which is what an untestable ceiling looks like from
+    # outside: the header asserts all passed, because the gate had attributed both timeouts correctly.
+    $slowDir = Join-Path $Fixture 'suites-deadline'
     New-FakeSuite -Dir $slowDir -Name 's-quick.tests.ps1' -Body "Write-Host 'MARKER-QUICK'`r`nexit 0`r`n"
     New-FakeSuite -Dir $slowDir -Name 's-wedged.tests.ps1' -Body "Write-Host 'MARKER-WEDGED'`r`nStart-Sleep -Seconds 60`r`nexit 0`r`n"
     $to = Invoke-Gate -TestsDir $slowDir -MaxParallel 2 -SuiteTimeoutSeconds 3
     $script:KeptCaptureDirs += $to.CaptureDir
+    # THE GUARD THAT KEEPS #2005 CLOSED. Every assert below reads a list of names, so a THIRD suite in
+    # this pool -- a shared fixture directory again, or one added here later -- puts a second name on the
+    # verdict line and reds this block for a reason that has nothing to do with the deadline. Asserted on
+    # the pool size rather than on the directory, because the directory is not what the gate reads.
+    Assert-Says $to.Flat 'running all 2 test suites' `
+        'the deadline case runs its own two suites and nothing else (issue #2005)'
     Assert-True ($to.Text -match 'GATE-RESULT: False') 'a suite that outlives its bound fails the gate'
     Assert-True ($to.Seconds -lt 30) `
         "and the run does not wait it out -- it took $([math]::Round($to.Seconds,1))s against a 60s sleeper"
