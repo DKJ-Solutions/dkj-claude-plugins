@@ -80,7 +80,7 @@ that backgrounds a ship is standing on the trunk, which is the state its owner r
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/worktree-lane.ps1" `
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/worktree-lane.ps1" `
   -Name "feat/next-thing" -Title "The next thing"
 ```
 
@@ -132,7 +132,7 @@ is the entire use case.
 ## Handing a lane back
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/worktree-lane.ps1" -HandBack
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/worktree-lane.ps1" -HandBack
 ```
 
 - **`-HandBack`** close a lane and give its branch back to the primary checkout, so `ship-pr` can run

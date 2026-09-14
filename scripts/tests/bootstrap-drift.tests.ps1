@@ -305,9 +305,9 @@ try {
     # that the plugin name and the script name are the literal parts anchoring it.
     $sugWf = [System.IO.File]::ReadAllText((Join-Path $FixtureWf '.claude\settings.suggested.jsonc'))
     foreach ($entry in @('new-branch.ps1', 'open-pr.ps1', 'ship-pr.ps1')) {
-        Assert-True ($sugWf -match [regex]::Escape("`"Bash(powershell -NoProfile -File *dkj-policy*$entry*)`"")) `
+        Assert-True ($sugWf -match [regex]::Escape("`"Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *dkj-policy*$entry*)`"")) `
             "workflow plugin: allow half covers $entry through the Bash tool (#1075)"
-        Assert-True ($sugWf -match [regex]::Escape("`"PowerShell(powershell -NoProfile -File *dkj-policy*$entry*)`"")) `
+        Assert-True ($sugWf -match [regex]::Escape("`"PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *dkj-policy*$entry*)`"")) `
             "workflow plugin: allow half covers $entry through the PowerShell tool (#1075)"
     }
     Assert-True ($sugWf -match 'gh repo edit --delete-branch-on-merge') 'workflow plugin: allow half covers the one gh repo edit the workflow assumes'

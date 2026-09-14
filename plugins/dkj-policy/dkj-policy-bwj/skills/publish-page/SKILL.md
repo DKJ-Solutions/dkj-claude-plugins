@@ -35,7 +35,7 @@ repo (`scripts/tests/bwj-page-publish.tests.ps1`) exists to keep.
 Run the shared script from the **root of the store repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/publish-page.ps1" -Kind notes
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/publish-page.ps1" -Kind notes
 ```
 
 It reads the built page out of the page directory, checks it against Cloudflare's KV value ceiling,
@@ -80,7 +80,7 @@ where the seam exists because the two stores genuinely differ.
 
 ```powershell
 npx wrangler kv namespace create BWJ_PAGES     # the id goes into the seam above
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/publish-page.ps1" -EmitWorker
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/publish-page.ps1" -EmitWorker
 cd <note root>/../page
 npx wrangler deploy
 ```

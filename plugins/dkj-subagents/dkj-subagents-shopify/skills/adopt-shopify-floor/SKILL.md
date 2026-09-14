@@ -26,14 +26,14 @@ scripts/repo-config.ps1              the Shopify seam block, APPENDED (the file 
 ## Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-shopify-floor.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-shopify-floor.ps1"
 ```
 
 That is a **dry run**: it prints exactly what it would do and writes nothing. Add `-Apply` when the list
 looks right, and add `-LiveThemeId` to arm the guard in the same move:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-shopify-floor.ps1" -LiveThemeId 190793613653 -Apply
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-shopify-floor.ps1" -LiveThemeId 190793613653 -Apply
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component** -- that is, when your Claude

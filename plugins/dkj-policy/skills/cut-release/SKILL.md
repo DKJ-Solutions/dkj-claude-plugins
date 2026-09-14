@@ -195,7 +195,7 @@ a release for a missing timestamp would be ceremony rather than a guard.
 1. **Cut the release.** On a clean main branch:
 
    ```powershell
-   powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/cut-release.ps1" -Bump <major|minor|patch> -Title "<one sentence>"
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/cut-release.ps1" -Bump <major|minor|patch> -Title "<one sentence>"
    ```
 
    **As a consumer, run it from the plugin and not from a repo path.** This page used to print
@@ -361,7 +361,7 @@ a release for a missing timestamp would be ceremony rather than a guard.
    change, and an undocumented one is worse than a retired one.
 
    ```powershell
-   powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/new-internal-note.ps1" -Version X.Y.Z
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/new-internal-note.ps1" -Version X.Y.Z
    ```
 
    `-Force` overwrites an existing note — needed rarely and deliberately, since a note rewritten back to a
@@ -462,7 +462,7 @@ a release for a missing timestamp would be ceremony rather than a guard.
 
    ```powershell
    # from the repo root, standing on main -- the lint gate, then every suite. Nothing is pushed.
-   powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
    ```
 
    **In the source repo, run its own copy instead** — `scripts/release/open-pr.ps1 -GatesOnly` — for the

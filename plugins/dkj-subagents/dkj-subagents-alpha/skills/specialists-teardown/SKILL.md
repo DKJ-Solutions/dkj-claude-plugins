@@ -49,13 +49,13 @@ From the root of the consuming repo:
 
 ```powershell
 # Preview -- nothing is removed
-powershell -NoProfile -File "<plugin>/skills/specialists-teardown/teardown.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/skills/specialists-teardown/teardown.ps1"
 
 # Act
-powershell -NoProfile -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply
 
 # Act, and keep a working git workflow afterwards (see the runtime dependency below)
-powershell -NoProfile -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply -VendorScripts
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply -VendorScripts
 ```
 
 **Dry run by default.** A destructive script that runs on somebody's repo should have to be asked

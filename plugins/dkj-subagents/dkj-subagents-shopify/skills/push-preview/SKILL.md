@@ -24,7 +24,7 @@ cannot be forgotten -- there is no moment at which anybody has to get it right.
 ## Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/push-preview.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/push-preview.ps1"
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component** -- that is, when your Claude runs

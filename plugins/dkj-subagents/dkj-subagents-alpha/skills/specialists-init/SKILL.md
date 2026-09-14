@@ -445,7 +445,7 @@ signal. Measured in an environment with no repo at all, inbound
 Run the bundled bootstrap script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/skills/specialists-init/bootstrap.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/specialists-init/bootstrap.ps1"
 ```
 
 The script performs only **safe, additive** actions — it never overwrites existing content:

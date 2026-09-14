@@ -71,8 +71,8 @@ forks** -- and none of the three forks looked wrong from where it sat.
 ## Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1" -DryRun
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1" -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1"
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component** -- that is, when your Claude
@@ -365,7 +365,7 @@ subject can give it any.
 **The durable shape is two commits**, and `-ReconcileBase` writes them:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1" -ReconcileBase
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sync-main.ps1" -ReconcileBase
 ```
 
 (The same `${CLAUDE_PLUGIN_ROOT}` caveat as [Run it](#run-it) applies: it resolves only inside a

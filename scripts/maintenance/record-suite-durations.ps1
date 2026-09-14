@@ -43,8 +43,9 @@
 
     SEVERAL IDS UNDER `-File`: pass them as ONE comma-separated string, e.g.
     `-RunId 34583187104,34583740147`. Both `$RunId` and `$RepoRoot` are positional, so under
-    `powershell -NoProfile -File` -- the form every doc in this repo uses -- a space-separated list binds
-    only the first id to `-RunId` and the second to `-RepoRoot`, which then fails as a missing path. The
+    `powershell -NoProfile -ExecutionPolicy Bypass -File` -- the form every doc in this repo uses --
+    a space-separated list binds only the first id to `-RunId` and the second to `-RepoRoot`, which
+    then fails as a missing path. The
     comma form reaches this script as one string and is split on `[,\s]+` below.
 
 .PARAMETER RepoRoot

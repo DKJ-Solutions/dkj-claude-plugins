@@ -27,7 +27,7 @@ same documents into one page they can open.
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/build-release-notes-page.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/build-release-notes-page.ps1"
 ```
 
 **In the source repo, run its own copy instead — `scripts/release/build-release-notes-page.ps1`.**

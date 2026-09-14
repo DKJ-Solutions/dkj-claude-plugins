@@ -57,11 +57,11 @@ Two calls, one on each side of the dispatch. Run them from the **root of the con
 
 ```powershell
 # BEFORE dispatching any subagent
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/check-fanout.ps1" -Capture
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/check-fanout.ps1" -Capture
 # -> [OK] baseline taken, and it prints the -Compare line to run afterwards
 
 # AFTER the fan-out has returned
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/check-fanout.ps1" -Compare "<that path>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/check-fanout.ps1" -Compare "<that path>"
 ```
 
 **In the source repo, run its own copy instead** -- `scripts/task/check-fanout.ps1`. The plugin cache

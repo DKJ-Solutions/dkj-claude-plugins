@@ -152,7 +152,7 @@ release, where a body's two subheadings came out looking like two extra release 
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/fold-changelog-entry.ps1" -Branch <prefix>/<name>
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/fold-changelog-entry.ps1" -Branch <prefix>/<name>
 ```
 
 **In the source repo, run its own copy instead — `scripts/release/fold-changelog-entry.ps1`.**
@@ -302,7 +302,7 @@ directly on the main branch, which is a governance exception the repo grants, no
 should assume.
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/fold-changelog-entry.ps1" `
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/fold-changelog-entry.ps1" `
   -Branch <prefix>/<name> -Push
 ```
 

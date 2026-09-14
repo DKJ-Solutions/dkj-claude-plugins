@@ -45,8 +45,8 @@ the preview it already has rather than silently growing a second one. It keeps t
 ## Back up the live theme (the closing step of a release cut)
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/backup-live-theme.ps1" -DryRun
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/backup-live-theme.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/backup-live-theme.ps1" -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/backup-live-theme.ps1"
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component**. From an ordinary shell,
@@ -86,8 +86,8 @@ asked for.
 ## Sweep the spent previews (after a live push)
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sweep-preview-themes.ps1"
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sweep-preview-themes.ps1" -Execute
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sweep-preview-themes.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/sweep-preview-themes.ps1" -Execute
 ```
 
 | Parameter | What it is for |

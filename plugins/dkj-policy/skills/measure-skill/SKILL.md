@@ -46,7 +46,7 @@ changes on the scale of releases, not commits.
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1"
 ```
 
 **In the source repo, run its own copy instead** — `scripts/maintenance/measure-skill.ps1`. The plugin
@@ -154,17 +154,17 @@ The script splits it, because that invocation form is the documented one.
 
 ```powershell
 # What does a session here pay, and which skills carry it?
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1"
 
 # One skill, with the wall-clock of the script behind it
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1" `
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1" `
   -Plugin dkj-policy -Skill cut-release -IncludeSpeed -Runs 5
 
 # Record the baseline, so the NEXT run reports the growth
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1" -UpdateBaseline
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1" -UpdateBaseline
 
 # A markdown report to paste into a lens
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1" -OutFile skill-cost.md
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-skill.ps1" -OutFile skill-cost.md
 ```
 
 ## What it writes
@@ -193,7 +193,7 @@ whether** ([#875](https://github.com/DaveKJohn/claude-code-specialists/issues/87
 Run it from the root of the repo you want measured:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1"
 ```
 
 **In the source repo, run its own copy instead** — `scripts/maintenance/measure-always-on.ps1` — for
@@ -232,13 +232,13 @@ payload instead, and that copy moves only on a release
 
 ```powershell
 # What does this repo's instruction path cost, per document and per section?
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1"
 
 # Every section, read deep -- which sub-item is carrying the document
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1" -Depth 4 -Top 0
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1" -Depth 4 -Top 0
 
 # The per-document table only, no section breakdown
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1" -Documents
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/measure-always-on.ps1" -Documents
 ```
 
 **It writes nothing, ever** — no baseline and no `-OutFile`, deliberately. A cost baseline means the

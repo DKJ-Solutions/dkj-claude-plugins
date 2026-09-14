@@ -1003,7 +1003,7 @@ branch skips the PR, not the lint and the suites. `open-pr.ps1 -GatesOnly` is ho
 trunk:
 
 ```powershell
-powershell -NoProfile -File scripts/release/open-pr.ps1 -GatesOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/open-pr.ps1 -GatesOnly
 ```
 
 **The `releases/history.md` in this folder is the living index** — the cut inserts its own row, so never add

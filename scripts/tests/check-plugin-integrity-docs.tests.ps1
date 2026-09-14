@@ -381,8 +381,12 @@ try {
     New-Item -ItemType Directory -Path (Split-Path -Parent $cmdSkill) -Force | Out-Null
     function Write-CmdSkill([string]$Path) {
         [System.IO.File]::WriteAllText($cmdSkill,
-            "# adopt-config`n`n## Run it`n`n``````powershell`npowershell -NoProfile -File `"$Path`"`n```````n", $Utf8NoBom)
+            "# adopt-config`n`n## Run it`n`n``````powershell`npowershell -NoProfile -ExecutionPolicy Bypass -File `"$Path`"`n```````n", $Utf8NoBom)
     }
+    # THE BYPASS IN THAT FIXTURE IS CHECK 42'S, NOT CHECK 22'S, and it is here so this block's own page
+    # does not model the defect the next one forbids -- a fixture is read by every check in the run, so a
+    # bare form here would have put an [exec-policy] finding under every assert below. Check 22's subject
+    # is the '-File' argument, which is untouched by it.
 
     # 51. The exact defect that shipped: a drive-letter path, reported with its file, its line and the
     #     offending path, so the finding names what to replace rather than only that something is wrong.
@@ -416,6 +420,66 @@ try {
     $c4 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True (-not ($c4.Out -match '\[skill-command\] plugins')) `
         'skill-command: a signposted <plugin> placeholder passes, so the check needs no exemption list'
+
+    # --- check 42: a printed powershell command carries -ExecutionPolicy Bypass ----------------------
+    # THE MEASURED DEFECT, September 14, 2026 (#1985): a fresh Windows profile sits at 'Restricted', which
+    # refuses every .ps1, so the form 32 documents printed -- 'powershell -NoProfile -File <script>' --
+    # died with 'running scripts is disabled on this system' on the machine it was pasted into. Everywhere
+    # this tree controls the invocation it already passed Bypass, so nothing was red: the gates never
+    # execute the lines a reader types.
+    #
+    # FOUR DIRECTIONS, and the second is the one that keeps this check exemption-free. Prose naming the
+    # invocation MODE -- "across `powershell -File` a comma list is cast to a single number" -- must NOT be
+    # reported; measured before the check was written, a rule without that narrowing is born with 12
+    # findings and all 12 are correct sentences. The fourth pins the check's deliberate weakness: the VALUE
+    # is not this gate's to choose, so 'RemoteSigned' clears it too.
+    Write-Host "check 42: a printed powershell command carries -ExecutionPolicy Bypass" -ForegroundColor Cyan
+    $epSkill = Join-Path $Fixture 'plugins\dkj-policy\skills\claim-issue\SKILL.md'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $epSkill) -Force | Out-Null
+    function Write-EpSkill([string]$Command) {
+        [System.IO.File]::WriteAllText($epSkill,
+            "# claim-issue`n`n## Run it`n`n``````powershell`n$Command`n```````n", $Utf8NoBom)
+    }
+
+    # 55a. The exact defect that shipped, reported with the file and the line, and the finding names the
+    #      replacement rather than only the fault.
+    Write-EpSkill 'powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" 1234'
+    $p1 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($p1.Out -match '\[exec-policy\].*claim-issue\\SKILL\.md:6: the printed command names no -ExecutionPolicy') `
+        'exec-policy: a bare printed command is reported, with the file and the line'
+    Assert-True ($p1.Out -match [regex]::Escape('running scripts is disabled on this system')) `
+        'exec-policy: and the finding quotes the failure the reader will actually see'
+    Assert-True ($p1.Out -match '\[exec-policy\] checked [1-9]') `
+        'exec-policy: the coverage count proves an invocation was examined, not an empty scan'
+
+    # 55b. THE EXEMPTION-FREE PROPERTY. Prose naming the invocation mode carries no -NoProfile, and there
+    #      are 12 such sentences in this tree -- every one of them correct. Reporting them would have
+    #      needed the exemption list this repo declines.
+    Write-EpSkill 'Across `powershell -File` a comma list is cast to a single number via the separator.'
+    $p2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p2.Out -match '\[exec-policy\] plugins')) `
+        'exec-policy: prose naming the invocation mode is not a subject, so the check needs no exemption list'
+
+    # 55c. History is excluded, via check 11's set rather than a rule of its own: an archived release note
+    #      quotes the form that was current when it was written and is never rewritten.
+    Write-EpSkill 'powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1"'
+    $epNote = Join-Path $Fixture 'dkj-policy\releases\audience\4.x\4.2.0.md'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $epNote) -Force | Out-Null
+    [System.IO.File]::WriteAllText($epNote,
+        "# 4.2.0`n`n``````powershell`npowershell -NoProfile -File `"scripts/release/open-pr.ps1`"`n```````n", $Utf8NoBom)
+    $p3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p3.Out -match '\[exec-policy\] dkj-policy')) `
+        'exec-policy: an archived release note keeps the old form -- history is never rewritten to satisfy a gate'
+
+    # 55d. And the value is NOT pinned. The rule is that the policy be answered; a repo answering it with
+    #      'RemoteSigned' has made the decision this check exists to force, and this gate does not get to
+    #      legislate which one. Left last on purpose, so the fixture ends in a passing state.
+    Write-EpSkill 'powershell -NoProfile -ExecutionPolicy RemoteSigned -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1"'
+    $p4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($p4.Out -match '\[exec-policy\] plugins')) `
+        'exec-policy: RemoteSigned clears it too -- the check asks that the policy be answered, not which answer'
+    Assert-True ($p4.Out -match '\[exec-policy\] checked [1-9]') `
+        'exec-policy: and that pass is over a command actually read, not an empty set'
 
     # --- check 24: the PR template keeps the two promises open-pr makes about it ---------------------
     # 56-61. The defect this guards was measured at a consumer, not imagined (#573): a template one word
