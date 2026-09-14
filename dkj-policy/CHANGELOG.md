@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2005-slow-fixture-shared-dir · 20260914-190653
+
+`test-suite-gate.tests.ps1`'s deadline case ran in a fixture directory it shared with the
+parallelism case, so its 3s suite bound also applied to that case's six 1.2s sleepers. Under CI
+contention one of them exceeded the bound, the gate correctly named two timed-out suites on its
+verdict line, and the case's assert -- which expects the wedged suite alone -- went red over a gate
+that was behaving exactly right: intermittent in CI, green on re-run, green locally. The case now
+has its own directory, so the pool is the two suites it creates, and a pool-size assert keeps it
+that way. Cause established from attempt 1 of the failing run rather than inferred; the issue's
+proposed ordering gap between the header path and the verdict path does not exist.
+
+**Score:** 2
+
+A flaky required check is noticed by whoever it stops, and this one stopped a merge and was cleared
+by a re-run that proved nothing. But it is one assert in one suite of this repo's own gate, it had
+fired once, and nothing about the gate itself was wrong -- so it is small, and a reader who was not
+blocked by it would need to be told.
+
+#### What makes this deploy extra special
+
+The repair is a directory name, and the finding is that the issue's own stated reason was wrong in
+a way that would have produced a wrong fix. Both candidate causes it named -- an ordering gap
+between the header and verdict paths, or a margin too tight for the wedged suite -- point at the
+gate; the log shows the gate was right and the fixture was wrong. A repair built on either would
+have loosened a correct assert or widened a bound that was never the problem, and it would have
+carried a citation.
+
+The retrieval is worth keeping too: `gh run rerun --failed` replaces the current attempt, so the
+red job's log looks gone from `gh run view`. It is not -- `actions/runs/<id>/attempts/1/jobs` gives
+the job ids, and `actions/jobs/<id>/logs` gives the log. The issue's "I did not establish which"
+was one API call from being established.
+
+**Score:** N/A
+
+#### Pull Request
+
+Give the deadline case its own fixture directory
+
+[PR #2009](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2009)
+
+---
 
 ### DEPLOY: feat/1979-backlog-page-builder · 20260914-185529
 
