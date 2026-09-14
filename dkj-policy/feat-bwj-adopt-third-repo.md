@@ -43,19 +43,41 @@ Gate only: adopt-dkj-policy-bwj step 0 and report-issue's Before-you-start check
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-dkj-policy-bwj/SKILL.md`: step 0 rewritten -- three-name list, the heading widened off
+      "BWJ store repo", and the retired "no legitimate third adoption target" argument replaced by
+      what the admission costs in a public source repo.
+- [x] `adopt-dkj-policy-bwj/SKILL.md`: frontmatter description names the three permitted repos.
+- [x] `report-issue/SKILL.md`: frontmatter and the Before-you-start gate name the same three, with a
+      pointer to step 0 rather than a second copy of the reasoning.
+- [~] The four portable law pages, `plugin.json` and `marketplace.json` -- dropped on Dave's explicit
+      scope choice (gate only). The contradiction that leaves is filed as #1982.
+- [~] A test pinning the three names -- dropped: no suite asserts the list today, and
+      `dkj-policy-bwj.tests.ps1` already pins the invariant it does care about (exactly one
+      label-existence check in step 4). Adding one is worth its own branch, not a rider on this one.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1` + every suite, via `open-pr.ps1`.
+
 ### DEPLOY: feat/bwj-adopt-third-repo
 
-**Score:**
+`dkj-policy-bwj`'s two skills refused to run anywhere but BWJ's two Shopify stores. They now admit a
+third repo by name -- `dkj-claude-plugins`, the plugin's own source -- which until today step 0 named
+as the *most likely wrong* target, precisely because the templates it copies live there. The check
+itself is unchanged and so is the measurement behind it (#1522): what changed is the verdict for that
+one name, and step 0 now carries what the admission costs in a public repo whose tracker receives
+every consumer's inbound reports.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a consumer of this marketplace gains nothing. The three-name list is this source repo letting
+itself run a procedure it ships; the two BWJ stores it was written for are unaffected, and every
+other repo is refused exactly as before.
+
+**Score:** N/A
 
 #### Pull Request
 
 The BWJ adoption gate admits the plugin's own source repo as a third target
-
