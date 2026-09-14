@@ -374,6 +374,20 @@
          REACH: matching is per physical line, so a continuation between -NoProfile and -File
          escapes silently and the coverage figure will not show the gap -- nothing is written that
          way today, and every multi-line command here breaks AFTER -File.
+     43. every TRACKED path is a name git can hand to a Windows checkout. Three classes, all of
+         which make a file unnameable there rather than merely ugly: a character in the Unicode
+         PRIVATE USE AREA (U+E000-U+F8FF), one of Windows' reserved characters (`< > : " | ? *`),
+         and a control character. THE FIRST IS THE ONE THAT BIT, September 14, 2026: a tool wrote
+         its output to an absolute path, Windows substituted U+F03A for the drive colon, the whole
+         path collapsed into ONE filename in the repo root, and a `git add -A` swept it into a
+         commit that reached `main` -- 53 KB of scratch, invisible to every check here because
+         nothing had an opinion about a path's NAME. A later `git clone` on Windows cannot write
+         that file at all. NOT A .gitignore JOB: a pattern has to predict the mangled spelling,
+         and the point of the failure is that nobody predicted it. Measured over all 717 tracked
+         paths: 0 findings in all three classes, 0 exemptions. THE SUBJECT IS WHAT GIT TRACKS, not
+         what is on disk -- an untracked scratch file is exactly what the scratchpad is for, and
+         flagging it would fire on every working copy mid-task. Skipped, silently, where the tree
+         is not a git checkout (a fixture, an extracted plugin payload), on check 3's precedent.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -5324,6 +5338,69 @@ Write-Coverage -Category 'exec-policy/script' -Checked $epsChecked `
     } else {
         "printed powershell invocation(s) across $($epsFiles.Count) script file(s), the same rule check 42 holds the documents to, one layer over -- $epsFindings finding(s), with $epsProse match(es) skipped as prose and $epsCalls skipped as a command the script RUNS. THREE NARROWINGS, each measured rather than reasoned about, because the naive rule is born here at 93 findings tree-wide against check 42's 0. THE INVOCATION MUST BEGIN ITS LINE, or a line of the string it sits in: a command somebody pastes is the whole of its line, which is what an .EXAMPLE block and a printed operator hint both look like, while prose naming the form is a fragment of a sentence -- 93 to 75, all 18 dropped correct. A COMMANDAST IS NEVER A SUBJECT, read off the parser rather than by looking for a leading '&': the child of a process carrying Bypass inherits it, and the parser also catches the shapes an '&' rule misses. THE FIXTURE LAYER IS EXCLUDED, as a layer and not as an exemption list -- a suite proving this check fires has to contain what it forbids, and of the 75 subjects exactly 2 sit under a tests/ folder, both of them this check's own markdown fixtures. Born green at 73, swept in the same branch across 36 files, 0 exemptions"
     })
+
+# --- 43. every tracked path is a name git can hand to a Windows checkout --------------------------------
+# THE FAILURE THIS IS BUILT FROM, so the rule is not read as tidiness. September 14, 2026: a tool was
+# given an absolute path to write its output to, Windows substituted U+F03A for the drive colon and
+# dropped every separator, and the result was a single 53 KB file sitting in the repo ROOT whose name is
+# the flattened path. `git add -A` swept it into a commit; the lint gate, the test gate and CI were all
+# green, because not one check here has an opinion about what a path is CALLED. It reached `main`.
+#
+# AND THE COST IS NOT COSMETIC. Git cannot write that name into a Windows working tree at all, so the
+# next `git clone` on Windows fails on checkout -- the file is in history, and every consumer of this
+# public repo would meet it.
+#
+# WHY NOT .gitignore. A pattern would have to predict the mangled spelling, and the whole shape of the
+# failure is that the spelling is produced by an accident nobody predicted. A name-shaped rule needs no
+# prediction: it asks whether the name can exist, which is the property that actually matters.
+#
+# THE SUBJECT IS WHAT GIT TRACKS, deliberately, and not what is on disk. An untracked scratch file in a
+# working copy is what a scratchpad is FOR; a check over the working tree would fire on every run made
+# mid-task and be trained away within a week. `git ls-files` is therefore the subject set, which also
+# makes the check free of any opinion about .gitignore.
+#
+# BORN GREEN, 0 exemptions: 717 tracked paths, 0 findings across all three classes.
+if (Test-Path -LiteralPath (Join-Path $RepoRoot '.git')) {
+    try {
+        . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+        # -z, so a path holding a newline is one record rather than two. That is not hypothetical here:
+        # a control character IS one of the three classes below, and a line-based read would split such a
+        # path and then report two paths that do not exist instead of the one that does.
+        $tpList = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'ls-files', '-z')
+        if ($tpList.ExitCode -eq 0) {
+            $tpPaths = @((@($tpList.Output) -join "`n") -split "`0" | Where-Object { $_ -ne '' })
+            $tpFindings = 0
+            # THE PREDICATE IS check-report-lib's, NOT THIS FILE'S, and that split is the one this repo
+            # already makes wherever a check is a query plus a judgement (pr-issues-lib's whole first
+            # paragraph): the `git ls-files` above cannot be asserted without a live checkout, and the
+            # naming rule can be asserted exhaustively -- so the rule lives where a suite can reach it
+            # and this loop is left with nothing but the wiring.
+            $tpWhy = @{
+                'private-use'      = 'a Unicode private-use character, which is what Windows substitutes for a reserved one -- this is the shape a tool writing to an ABSOLUTE path leaves behind when the whole path collapses into a single filename'
+                'windows-reserved' = 'a character Windows reserves, so git cannot create this file in a Windows working tree'
+                'control'          = 'a control character'
+            }
+            foreach ($tp in $tpPaths) {
+                $tpKind = Get-UncheckoutableNameClass -Path $tp
+                if (-not $tpKind) { continue }
+                $tpClass = $tpWhy[$tpKind]
+                $tpFindings++
+                # The path is the finding's whole subject and it is by definition a name that cannot be
+                # printed safely -- Format-SafePathToken is the sibling written for exactly this (it keeps
+                # what makes a path a path and strips the control characters and brackets that would let a
+                # value forge a line of its own, inbound #414).
+                Add-Error ("[tracked-name] '{0}' is tracked under a name containing {1}. A Windows checkout cannot write it, so `git clone` fails there -- and it is almost certainly a scratch artefact that a `git add -A` swept up rather than anything the tree wants. Remove it with `git rm`, and write scratch output to the scratchpad directory instead of to a path built by hand." -f (Format-SafePathToken -Value $tp -MaxLength 200), $tpClass)
+            }
+            Write-Coverage -Category 'tracked-name' -Checked $tpPaths.Count `
+                -Note "tracked path(s) held to being a name a Windows checkout can write -- $tpFindings finding(s) across three classes: a Unicode PRIVATE USE character (U+E000-U+F8FF), one of Windows' reserved characters, and a control character. THE FIRST IS THE ONE THAT BIT (September 14, 2026): a tool wrote to an absolute path, Windows substituted U+F03A for the drive colon, the path collapsed into ONE 53 KB filename in the repo root, and a 'git add -A' put it on main -- green through the lint gate, the test gate and CI, because nothing here had an opinion about what a path is CALLED. Not a .gitignore job: a pattern has to predict the mangled spelling, and not predicting it is the whole shape of the failure. THE SUBJECT IS WHAT GIT TRACKS rather than what is on disk -- an untracked scratch file is what a scratchpad is for, and a working-tree check would fire on every run made mid-task and be trained away. Born green: 717 paths, 0 findings, 0 exemptions. WHAT IT DOES NOT REACH: history. A name already committed stays in every clone's object store, so this stops the next one and repairs no past one"
+        }
+    } catch {
+        # Same posture as the nested-worktree probe above: a git that will not answer is not a finding
+        # about the tree's names, and a lint gate must not fail on the absence of an authority it only
+        # consults. Silent, because the coverage line is not printed either -- there is nothing measured
+        # to report a figure for.
+    }
+}
 
 # --- Report ---------------------------------------------------------------------------------------------
 if ($errors.Count -eq 0) {

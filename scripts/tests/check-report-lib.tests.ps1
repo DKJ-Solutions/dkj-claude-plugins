@@ -752,6 +752,59 @@ try {
     # to put in a command, so this function never returns $null.
     Assert-Equal 'project' (Get-PluginUpdateScope -InstallRecord $null -PluginId 'p@m').Scope 'no record object at all: still answers, and answers project'
 
+    # --- Get-UncheckoutableNameClass (check 43) ----------------------------------------------------
+    # THE JUDGEMENT HALF OF A CHECK WHOSE QUERY CANNOT BE ASSERTED. check 43 asks `git ls-files` what
+    # is tracked, which needs a live checkout; the naming rule it then applies needs nothing, so it
+    # lives here and is pinned exhaustively -- pr-issues-lib's own split, one gate over.
+    #
+    # THE FAILURE IT WAS BUILT FROM, September 14, 2026: a tool wrote its output to an ABSOLUTE path,
+    # Windows substituted U+F03A for the drive colon and dropped every separator, and the whole path
+    # became ONE 53 KB filename in the repo root. `git add -A` swept it into a commit that reached
+    # main -- green through the lint gate, the test gate and CI, because nothing had an opinion about
+    # what a path is CALLED. A Windows `git clone` cannot write that name at all.
+    Write-Host "Get-UncheckoutableNameClass -- a tracked name a Windows checkout can write (check 43)" -ForegroundColor Cyan
+
+    # The ordinary case, and the one that must stay silent: every shape this tree actually holds.
+    foreach ($ok in @(
+        'scripts/lib/check-report-lib.ps1',
+        'plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md',
+        'dkj-policy/releases/audience/4.x/4.31.0.md',
+        'a file with spaces.md',
+        '.github/workflows/ci.yml'
+    )) {
+        Assert-Equal '' (Get-UncheckoutableNameClass -Path $ok) "an ordinary tracked path is silent: '$ok'"
+    }
+    Assert-Equal '' (Get-UncheckoutableNameClass -Path '') 'an empty path is silent rather than a finding -- nothing to judge'
+
+    # THE EXACT CHARACTER THAT CAUSED IT. U+F03A is what Windows substitutes for ':' when a tool
+    # writes a path as a filename, so this assertion is the whole point of the check: pin the real
+    # code point, not a representative one, because the pattern is composed from code points and a
+    # mis-composed one still looks like a pattern.
+    $mangled = 'C' + [char]0xF03A + 'UsersmaikeAppDataLocalTempscratchpaddiff.txt'
+    Assert-Equal 'private-use' (Get-UncheckoutableNameClass -Path $mangled) 'the exact U+F03A shape that reached main is reported'
+    # The boundaries of the range, so a future edit cannot quietly narrow it.
+    Assert-Equal 'private-use' (Get-UncheckoutableNameClass -Path ("x" + [char]0xE000)) 'the first private-use code point is inside the range'
+    Assert-Equal 'private-use' (Get-UncheckoutableNameClass -Path ("x" + [char]0xF8FF)) 'the last private-use code point is inside the range'
+    Assert-Equal '' (Get-UncheckoutableNameClass -Path ("x" + [char]0xDFFF)) 'the code point just below the range is NOT a finding'
+    Assert-Equal '' (Get-UncheckoutableNameClass -Path ("x" + [char]0xF900)) 'the code point just above the range is NOT a finding'
+
+    # The second class: a name git cannot create in a Windows working tree at all. A colon is the one
+    # that matters here -- it is the character the mangling above SUBSTITUTES FOR, so a path that
+    # somehow kept its real colon has to be caught too, by a different arm.
+    foreach ($res in @('C:Usersx.txt', 'a<b.md', 'a>b.md', 'a"b.md', 'a|b.md', 'a?b.md', 'a*b.md')) {
+        Assert-Equal 'windows-reserved' (Get-UncheckoutableNameClass -Path $res) "a Windows-reserved character is reported: '$res'"
+    }
+
+    # The third class. A newline in a path is why check 43 reads `git ls-files -z`: a line-based read
+    # would split such a path and then report two paths that do not exist instead of the one that does.
+    Assert-Equal 'control' (Get-UncheckoutableNameClass -Path ("a`nb.md")) 'a newline in a path is reported'
+    Assert-Equal 'control' (Get-UncheckoutableNameClass -Path ("a" + [char]0x07 + "b.md")) 'so is a bare control character'
+
+    # ORDER IS PART OF THE CONTRACT, not an accident of the if-chain. A path can fail more than one
+    # class at once, and the reader needs the likeliest CAUSE named -- which for anything produced by
+    # the mangling is always the private-use one.
+    Assert-Equal 'private-use' (Get-UncheckoutableNameClass -Path ('C' + [char]0xF03A + 'a<b' + "`n")) 'a path failing all three classes is reported as the likeliest cause, not the first character found'
+
     # --- Resolve-PluginDir: the record decides which version, the cache scan is the fallback ----------
     #     A shared cache holds every version any consumer on the machine pulled, so "highest present" and
     #     "the one THIS repo loads" are different questions the moment there is a second consumer.
