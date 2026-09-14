@@ -10,13 +10,14 @@ and the connector register already flags them as the pair most at risk of quietl
 plugin is the thing that holds them together on the points that belong to exactly these two repos
 and to none of the others Dave runs.
 
-**It has three chapters, and each has its own page:**
+**It has four chapters, and each has its own page:**
 
 | chapter | the page | what it answers |
 |---|---|---|
 | **ticket handling** | [`WORKFLOW-portable.md`](WORKFLOW-portable.md) | what happens between spotting a problem and it being tracked where every BWJ colleague can see it |
 | **the sync log** | [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md) | what a `sync/` branch owes -- a durable record of what a third party did on the live theme, in the tree rather than only in a merged PR body |
 | **the preview handover** | [`PREVIEW-portable.md`](PREVIEW-portable.md) | what a preview handover owes and how it reaches the reviewer -- the control variant beside the preview, on one link to a published page rather than a table of URLs |
+| **the theme lifecycle** | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | what the estate owes at the two moments it grows -- a verified backup of live rotated at the release cut, and a sweep of this repo's spent previews after the live push |
 
 They are separate chapters rather than sections of one page because they answer different
 questions for different readers, and each of the last two was added later -- the sync log on inbound
@@ -164,6 +165,7 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`WORKFLOW-portable.md`](WORKFLOW-portable.md) | chapter one in prose -- ticket handling, read alongside your repo's own Asana config |
 | [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md) | chapter two in prose -- what a `sync/` branch owes, where the record lands, and what it stays out of |
 | [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id, and why the whole pair travels as one link rather than a table |
+| [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | chapter four in prose -- the push-then-cut order and what it makes the backup MEAN, the three standing approvals for deleting a theme and their bounds, and why the delete set is a prefix this repo wrote |
 | [`scripts/`](scripts/) | the mechanism both stores share, to **dot-source** from the plugin cache rather than copy -- see [What this plugin owns](#what-this-plugin-owns) |
 | [`skills/`](skills/) | the skills a specialist invokes |
 | [`templates/`](templates/) | the CI mechanism to **copy** into each repo's `.github/` -- GitHub only runs workflows from a repo's own `.github/`, so what ships here is the reference to copy and diff against, the same pattern as `dkj-policy/templates/pull_request_template.md` |

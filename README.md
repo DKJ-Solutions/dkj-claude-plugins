@@ -832,7 +832,7 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 <!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `park`, `fix-mojibake`,
 `specialists-init`, `specialists-teardown`, `sync-roster`, `start-task`, `adopt-shopify-floor`,
 `cut-release`, `adopt-dkj-policy`,
-`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `check-branch-entry`,
+`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `check-branch-entry`,
 `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
 `measure-skill`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `orchestrator`)<!-- /skills:all -->
@@ -918,7 +918,7 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 <!-- skills:all -->Most skills in claude-code-specialists today (`fold-changelog`, `open-pr`, `ship-pr`,
 `new-branch`, `claim-issue`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
-`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `check-branch-entry`, `check-policy-drift`,
+`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `worktree-lane`, `check-fanout`) are a thin wrapper around a script — procedural
 **mechanism** (branch, claiming an issue on the tracker before the work on it starts, PR, ship, fold,
 bootstrap, teardown, roster-sync, encoding repair, reading a

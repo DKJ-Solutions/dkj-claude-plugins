@@ -1,6 +1,6 @@
 ---
 name: push-preview
-description: Push the current branch to its own unpublished Shopify preview theme, creating that theme on the first push rather than at branch creation. Use it whenever a theme change has to be looked at -- it prints the preview URL(s), which are raw material for a handover rather than the handover itself. It never publishes, never deletes, and refuses the live theme; the theme it creates is unpublished by definition. Lazy creation is the point: a branch that never needed a preview never leaves one behind on a store with a hard ceiling of 20 themes.
+description: Push the current branch to its own unpublished Shopify preview theme, creating that theme on the first push rather than at branch creation. Use it whenever a theme change has to be looked at -- it prints the preview URL(s), which are raw material for a handover rather than the handover itself. It never publishes, never deletes, and refuses the live theme; the theme it creates is unpublished by definition. Lazy creation is the point: a branch that never needed a preview never leaves one behind on a store whose theme ceiling is finite.
 ---
 
 # push-preview -- the branch's own preview theme, created when it is first needed
@@ -12,7 +12,7 @@ an **unpublished** theme of its own and prints that URL.
 is measured rather than tidy: creating one per branch left previews for branches that could never touch a
 theme file. On the day the rule was made, one store carried 49 themes, 47 of them unpublished, 16 named
 after a branch -- and of the 12 real branch previews, **6 belonged to branches that never needed one**. A
-Shopify store has a hard ceiling of 20 themes, so that estate does not merely look untidy; it eventually
+Shopify store's theme ceiling is finite, so that estate does not merely look untidy; it eventually
 refuses the next push.
 
 > A preview theme is a consequence of *"I want to show this"*, not of *"I am starting work"*.
@@ -130,5 +130,5 @@ and the count is the honest trigger rather than a threshold chosen to keep the o
   do not try another spelling to get past it. The flag whitelist exists because an invented flag
   (`--theme-name`, which the CLI has never had) reached a real run and failed in front of the person who
   needed it most.
-- **The estate is finite.** A `A shop may only have 20 themes` error means archive and remove a spent
+- **The estate is finite.** A `A shop may only have N themes` error means archive and remove a spent
   preview first; this script will not clear space on its own.

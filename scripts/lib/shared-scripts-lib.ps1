@@ -1581,6 +1581,79 @@ function Get-SharedScriptPairs {
             Source  = 'scripts\lib\theme-archive-rules.ps1'
             Plugin  = 'dkj-subagents-shopify'
             LibOnly = $true
+        },
+        @{
+            # THE ESTATE'S LIFECYCLE RULES (inbound #1965, September 14, 2026): which themes this repo
+            # owns, what a backup is called, when a duplicate has finished filling, which backup rotates
+            # out, and which previews a sweep may remove.
+            #
+            # IT TRAVELS IN dkj-subagents-shopify RATHER THAN dkj-policy-bwj, WHICH IS NOT WHERE THE
+            # ISSUE ASKED FOR IT. The #1881 ruling sends what the two BWJ stores share to that plugin --
+            # and names the exception this falls under in the same breath: dkj-subagents-shopify
+            # 'already owns the theme mechanisms', and its own README says the chapters there are
+            # 'policy, never mechanism'. Backing up a theme and sweeping an estate are Shopify craft,
+            # not BWJ practice; any Shopify repo wants a verified backup and a prefix-keyed sweep. What
+            # IS BWJ's is the policy that binds them to the cut and the live push, and that is a page in
+            # dkj-policy-bwj -- THEME-LIFECYCLE-portable.md. Same split, and the same reasoning, as
+            # theme-archive-rules one entry up.
+            #
+            # PURE, AND THAT IS THE SAFETY PROPERTY RATHER THAN A STYLE. Two of the three mechanisms it
+            # serves DELETE themes on a real store, and the store this was specified from carries 61 of
+            # them, of which about 39 belong to other people. A rule that is almost right here destroys
+            # somebody else's working theme there -- so the rules are pure functions a suite can assert
+            # exact answers against, and the CLI is the script's.
+            #
+            # DEPENDENCY-FREE, like theme-archive-rules and for a related reason: the live-theme guard
+            # reads repo-config.ps1 on every command, so a lib in this family that pulled anything in
+            # would be a way to disarm a guard. The seam answers are read by the scripts and passed in.
+            Name    = 'theme-lifecycle-rules'
+            Source  = 'scripts\lib\theme-lifecycle-rules.ps1'
+            Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
+            # The live-theme BACKUP and its rotation (inbound #1965). Exactly one backup is retained and
+            # the release cut is what rotates it.
+            #
+            # THE VERIFY STEP IS THE REASON THIS IS A SCRIPT AND NOT A CHECKLIST LINE. 'shopify theme
+            # duplicate' returns LONG before the copy is complete -- measured in the consumer, a
+            # duplicate of live grew 38 -> 538 -> 738 -> 833 files over roughly eight minutes -- and the
+            # short copy is SILENT: the theme exists, is correctly named, and has the right role. A
+            # person following a checklist has no way to see it. So the script polls until the count
+            # settles AND matches the source, and fails loudly otherwise.
+            #
+            # IT ROTATES ONLY AFTER THAT VERDICT, so there is never a window with no backup at all.
+            Name   = 'backup-live-theme'
+            Source = 'scripts\task\backup-live-theme.ps1'
+            Plugin = 'dkj-subagents-shopify'
+            Skill  = 'theme-lifecycle'
+            # A fixture root, as for sync-main, push-preview and archive-theme: a consumer never types
+            # it, and documenting it would invite someone to.
+            SkillParamsExempt = @('RootOverride')
+        },
+        @{
+            # The preview SWEEP (inbound #1965): the spent previews this repo created leave the estate
+            # after a live push.
+            #
+            # THE DELETE SET IS DEFINED BY SOMETHING THIS REPO WROTE, NEVER BY SOMETHING IT RECOGNISES,
+            # and that is the whole design. A sweep keyed on role -eq 'unpublished' would have destroyed
+            # ~39 third-party themes on the store this was specified from -- an agency's working themes,
+            # an experimentation tool's, an installed app's, colleagues' sandboxes -- and it would have
+            # looked correct in a dry run that only counted themes. The previous candidate key, 'the
+            # name looks like a flattened branch name', is guesswork: several of those third-party
+            # themes are plain hyphenated words.
+            #
+            # DRY RUN IS THE DEFAULT here where archive-theme prints a command instead. Both answer the
+            # same concern -- this plugin's live-theme guard is a PreToolUse hook reading a COMMAND
+            # STRING, so a delete buried in a .ps1 is invisible to it. The difference is that this
+            # script's deletes are the ones a standing approval covers, so it performs them when the
+            # repo has answered the delete marker and PRINTS them when it has not, which keeps the
+            # guard's absolute default absolute.
+            Name   = 'sweep-preview-themes'
+            Source = 'scripts\task\sweep-preview-themes.ps1'
+            Plugin = 'dkj-subagents-shopify'
+            Skill  = 'theme-lifecycle'
+            SkillParamsExempt = @('RootOverride')
         }
     )
 

@@ -58,6 +58,7 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 Assert-Equal 'dkj-policy-bwj' $manifest.name 'plugin.json name is dkj-policy-bwj'
 
 foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 'PREVIEW-portable.md',
+                   'THEME-LIFECYCLE-portable.md',
                    'skills\report-issue\SKILL.md', 'skills\adopt-dkj-policy-bwj\SKILL.md',
                    'templates\asana-mirror.yml', 'templates\asana-mirror.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
@@ -72,7 +73,11 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
 # prose and stay the dead-link gate's business.
 $readmeTxt   = Get-Content -LiteralPath (Join-Path $PluginRoot 'README.md') -Raw
 $chapterDocs = @(Get-ChildItem -LiteralPath $PluginRoot -Filter '*-portable.md' -File)
-Assert-Equal 3 $chapterDocs.Count 'the plugin ships three chapter pages'
+# FOUR SINCE #1965 (September 14, 2026): the theme lifecycle joined as chapter four. The literal is
+# updated DELIBERATELY rather than derived from the folder -- a count that counted itself would pass
+# over a chapter page added by accident, and over one deleted, which is the drift this whole block
+# exists to catch.
+Assert-Equal 4 $chapterDocs.Count 'the plugin ships four chapter pages'
 foreach ($doc in $chapterDocs) {
     Assert-True ($readmeTxt -match [regex]::Escape("($($doc.Name))")) `
         "README links $($doc.Name) -- a chapter page nothing links is a chapter nobody finds"

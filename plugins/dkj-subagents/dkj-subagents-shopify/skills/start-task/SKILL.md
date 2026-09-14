@@ -11,7 +11,7 @@ the same name were created together. Since inbound
 [#805](https://github.com/DaveKJohn/claude-code-specialists/issues/805) the theme comes into existence on
 the **first push** instead — [`push-preview`](../push-preview/SKILL.md) creates it — so a docs or tooling
 branch that could never touch a theme file no longer leaves an unused theme behind on a store with a hard
-ceiling of 20 themes. Measured on the day the rule was made: of 12 real branch previews on one store, **6
+ceiling that is finite. Measured on the day the rule was made: of 12 real branch previews on one store, **6
 belonged to branches that never needed one**.
 
 > A preview theme is a consequence of *"I want to show this"*, not of *"I am starting work"*.
