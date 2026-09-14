@@ -645,6 +645,113 @@ try {
     $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
     Assert-True ($null -eq (Get-RecordShape -InstallRecord $r -PluginId 'p@m')) 'unparseable administration: no shape finding invented'
 
+    # --- Get-PluginUpdateScope (issue #1986) ------------------------------------------------------
+    # THE THIRD READER OF THE SAME RECORDS, and the one whose answer goes into a command that RUNS.
+    # The two predicates above report; this one decides what 'claude plugin update <id> --scope ?'
+    # carries, in update-plugins.ps1's exec path and in plugin-versions.ps1's printed prescriptions.
+    # The CLI refuses a scope a plugin is not installed at, so a wrong answer here is a command that
+    # cannot work presented as the repair -- which is what the hardcoded 'project' was until #1986.
+    #
+    # NOTE HOW IT PAIRS WITH Get-RecordShape ABOVE: the SAME fixtures that make that predicate report a
+    # finding ('local', pathless 'user') are the ones this function must answer differently from
+    # 'project'. That is the whole point -- the shapes it calls unusual are exactly the shapes the old
+    # command was wrong for.
+    Write-Host "Get-PluginUpdateScope -- the scope an update command must carry (#1986)" -ForegroundColor Cyan
+
+    Assert-Equal 'user,project,local,managed' ((Get-PluginScopeNames) -join ',') 'the allow-list is the CLI help''s own four, in its order'
+
+    # The assumed shape, and the answer that does not change: one project record -> 'project'.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"project`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'project' $sc.Scope 'one project record: project'
+    Assert-Equal 'record' $sc.Source 'one project record: sourced from the record, not the fallback'
+    Assert-Equal '' $sc.Note 'one project record: nothing to report'
+
+    # THE #314 SHAPE, which a session start writes with no command run. 'project' here is a refusal.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"local`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'local' $sc.Scope 'local-scoped record: local -- the shape Get-RecordShape calls a finding is still the shape the command must name'
+    Assert-Equal 'record' $sc.Source 'local-scoped record: sourced from the record'
+
+    # THE MACHINE-WIDE CASE #1986 WAS MEASURED ON, and the #323 demotion, which are byte-for-byte the
+    # same shape and have the same answer here -- so nothing has to tell them apart.
+    [System.IO.File]::WriteAllText($adminFile, '{ "plugins": { "p@m": [ { "scope": "user" } ] } }')
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'user' $sc.Scope 'pathless user record: user'
+    Assert-Equal 'pathless' $sc.Source 'pathless user record: sourced from the pathless record, and it says so'
+    Assert-Equal '' $sc.Note 'pathless user record: an ordinary machine-wide install is not a finding'
+
+    # A record for THIS path beats a pathless one: the specific statement wins over the machine-wide
+    # one, which is the order the two predicates above read them in too.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"user`" }, { `"scope`": `"project`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'project' $sc.Scope 'a record for this path beside a pathless one: this path wins'
+    Assert-Equal 'record' $sc.Source 'a record for this path beside a pathless one: sourced from this path'
+
+    # THE #315 ACCUMULATION, where a scope mismatch ADDS a record instead of replacing one. Two records
+    # disagreeing is not a question this function may answer by picking a winner -- it falls back and
+    # says what it saw.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"project`", `"projectPath`": `"$pathJson`" }, { `"scope`": `"local`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'project' $sc.Scope 'records disagreeing: falls back to project'
+    Assert-Equal 'default' $sc.Source 'records disagreeing: reported as the fallback, not as a read answer'
+    Assert-True ($sc.Note -match 'disagree') 'records disagreeing: the note says so'
+    Assert-True (($sc.Note -match 'local') -and ($sc.Note -match 'project')) 'records disagreeing: the note names both scopes, so the reader can repair the file'
+
+    # Two records that AGREE are not a disagreement, whatever Get-RecordShape says about the duplicate.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"local`", `"projectPath`": `"$pathJson`" }, { `"scope`": `"local`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'local' $sc.Scope 'two records agreeing on local: local, not a fallback'
+    Assert-Equal 'record' $sc.Source 'two records agreeing: still a read answer'
+
+    # CASE IS FOLDED, AND THE CANONICAL SPELLING IS WHAT LEAVES. The record's own string never reaches a
+    # command line: the value is matched against the allow-list and the allow-list's entry is returned.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"User`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    Assert-Equal 'user' (Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m').Scope 'a differently-cased scope: matched, and the canonical spelling is returned'
+
+    # A scope the CLI does not accept is not passed through -- that is the whole reason the allow-list
+    # exists. It falls back and says why, rather than handing an arbitrary file string to the CLI.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"scope`": `"; rm -rf /`", `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'project' $sc.Scope 'a scope the CLI does not accept: falls back to project'
+    Assert-True ($sc.Note -match 'does not accept') 'a scope the CLI does not accept: the note says so'
+    Assert-True (-not ($sc.Note -match 'rm -rf')) 'a scope the CLI does not accept: and the file''s own string is NOT echoed back into the note'
+
+    # A record with no scope field at all -- the ordinary older-CLI shape. Reported, because the
+    # fallback is then a guess rather than a reading, and a reader who sees 'project' deserves to know.
+    [System.IO.File]::WriteAllText($adminFile, "{ `"plugins`": { `"p@m`": [ { `"projectPath`": `"$pathJson`" } ] } }")
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'project' $sc.Scope 'record with no scope field: project'
+    Assert-True ($sc.Note -match 'states no scope') 'record with no scope field: the note says the file was silent'
+
+    # NO RECORD AT ALL IS NOT A FINDING. A declaratively-enabled plugin is the ordinary state this whole
+    # family reports on; a note here would put a yellow block in front of every such run.
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'absent@m'
+    Assert-Equal 'project' $sc.Scope 'no record at all: project'
+    Assert-Equal 'default' $sc.Source 'no record at all: the fallback'
+    Assert-Equal '' $sc.Note 'no record at all: silent -- it is not a finding'
+
+    # An unreadable authority: the fallback, and it says the authority could not be read rather than
+    # implying the file said 'project'. Same direction of error as both predicates above.
+    [System.IO.File]::WriteAllText($adminFile, '{ "plugins": { oops')
+    $r = Get-InstallRecord -RepoRoot $repoA -UserHomeOverride $adminHome
+    $sc = Get-PluginUpdateScope -InstallRecord $r -PluginId 'p@m'
+    Assert-Equal 'project' $sc.Scope 'unparseable administration: project'
+    Assert-True ($sc.Note -match 'could not be read') 'unparseable administration: the note names the unreadable file, not a scope it never read'
+
+    # And a caller with nothing to hand over still gets a usable answer: every call site needs a scope
+    # to put in a command, so this function never returns $null.
+    Assert-Equal 'project' (Get-PluginUpdateScope -InstallRecord $null -PluginId 'p@m').Scope 'no record object at all: still answers, and answers project'
+
     # --- Resolve-PluginDir: the record decides which version, the cache scan is the fallback ----------
     #     A shared cache holds every version any consumer on the machine pulled, so "highest present" and
     #     "the one THIS repo loads" are different questions the moment there is a second consumer.

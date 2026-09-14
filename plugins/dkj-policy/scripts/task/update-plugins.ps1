@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     The buildable half of #1890: 1 + N commands per checkout, run as one. Refreshes the marketplace
-    clone once, then runs `claude plugin update <id> --scope project` for every plugin THIS checkout
-    enables, then prints plugin-versions.ps1's receipt so the run's own result is verifiable.
+    clone once, then runs `claude plugin update <id> --scope <the scope it is installed at>` for every
+    plugin THIS checkout enables, then prints plugin-versions.ps1's receipt so the run's own result is
+    verifiable.
 
 .DESCRIPTION
     #1810 asked how updating stays workable across repos and machines; #1812 settled the mechanics
@@ -13,19 +14,29 @@
     something wraps it. This is that wrapper.
 
     THE BOUNDARY, NAMED IN #1890 ITSELF AND KEPT HERE ON PURPOSE: this checkout plus the machine-wide
-    marketplace clone, never a walk into another checkout. Every `claude plugin update` call below is
-    `--scope project` against $repoRoot alone, and `claude plugin install/update` rewrites the
-    visited repo's .claude/settings.json -- so a sweeping updater would leave uncommitted diffs in
-    repos nobody opened, possibly on a mid-work branch (#1810's second cost). Nothing here reads or
-    writes any tree but this one.
+    marketplace clone, never a walk into another checkout. Every `claude plugin update` call below
+    names $repoRoot alone, and `claude plugin install/update` rewrites the visited repo's
+    .claude/settings.json -- so a sweeping updater would leave uncommitted diffs in repos nobody
+    opened, possibly on a mid-work branch (#1810's second cost). Nothing here reads or writes any tree
+    but this one.
+
+    THE SCOPE IS READ OFF THE INSTALL RECORD, AND THAT DOES NOT WIDEN THAT BOUNDARY (issue #1986).
+    Until then every call was hardcoded `--scope project`, and the CLI refuses a scope a plugin is not
+    installed at -- so a machine-wide plugin was handed the one command that could have moved it and
+    the run exited 1 on a healthy machine. Get-PluginUpdateScope answers it from the administration
+    this run already reads; read its own block in check-report-lib.ps1 for why a 'local' or pathless
+    'user' record is an ordinary state rather than an edge case. The boundary is about WHICH TREE gets
+    written, and nothing here changes that: a user-scope update rewrites no repo's tree at all, and a
+    'local'/'project' one rewrites exactly the checkout the caller is standing in.
 
     THREE STEPS, IN ONE RUN:
       1. `claude plugin marketplace update <marketplace>` once per DISTINCT marketplace this checkout's
          enabled plugins name (there is ordinarily one, but the loop does not assume it).
-      2. `claude plugin update <id> --scope project` for every plugin id `Get-EnabledPlugins` reports
+      2. `claude plugin update <id> --scope <scope>` for every plugin id `Get-EnabledPlugins` reports
          for $repoRoot -- the full effective set after the settings-chain precedence, the same set
          plugin-versions.ps1 reports on, so step 3's receipt is never comparing against a different
-         list than step 2 acted on.
+         list than step 2 acted on. The scope per id comes from Get-PluginUpdateScope (see the block
+         above), so step 2 and the receipt's own prescriptions cannot disagree inside one run.
       3. plugin-versions.ps1, run as a CHILD PROCESS (Start-Process, live console, exactly the pattern
          Invoke-TestSuiteGate and the lint gate already use) -- never dot-sourced, because that script
          ends in `exit 0` on every path and dot-sourcing it would exit THIS script too.
@@ -106,6 +117,12 @@ if ($ids.Count -eq 0) {
     exit 0
 }
 
+# The install administration, for the SCOPE half of every step-2 command (#1986). Read once rather
+# than per target: it is one file, and plugin-versions.ps1 -- this run's own step-3 receipt -- reads
+# it exactly this way, with the same fixture knob, so the two halves of one run cannot end up
+# consulting different administrations.
+$install = Get-InstallRecord -RepoRoot $repoRoot -UserHomeOverride $UserHomeOverride
+
 # One command safety check per id, same predicate plugin-versions.ps1 already applies to its OWN
 # printed commands (Test-PluginNameSlug / Test-PluginMarketplaceSlug) -- see this file's own
 # docstring for why the reason differs (the CLI's argument parser, not a shell) while the guard is
@@ -117,7 +134,15 @@ foreach ($id in $ids) {
     $name = $parts[0]
     $mp = $parts[-1]
     if ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
-        $targets.Add([pscustomobject]@{ Id = $id; Name = $name; Marketplace = $mp })
+        $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
+        $targets.Add([pscustomobject]@{
+            Id          = $id
+            Name        = $name
+            Marketplace = $mp
+            Scope       = $sc.Scope
+            ScopeSource = $sc.Source
+            ScopeNote   = $sc.Note
+        })
     } else {
         $skipped.Add((Format-SuspectToken -Value $id))
     }
@@ -134,6 +159,18 @@ if ($targets.Count -eq 0) {
     exit 1
 }
 
+# WHY THE NOTES ARE PRINTED BEFORE ANYTHING RUNS, not beside the call they belong to. A note only ever
+# exists where the administration could NOT answer and the run fell back to 'project' -- which is
+# exactly the state #1986 was filed about, so it must not scroll past inside step 2's own output. The
+# scope actually used is printed per call below regardless, so this block is the reason and that line
+# is the act.
+$scopeNotes = @($targets | Where-Object { $_.ScopeNote })
+if ($scopeNotes.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Scope could not be read from the install administration for $($scopeNotes.Count) plugin(s):" -ForegroundColor Yellow
+    foreach ($t in $scopeNotes) { Write-Host "  $($t.Id) -- $($t.ScopeNote)" -ForegroundColor Yellow }
+}
+
 $marketplaces = [string[]]@($targets | ForEach-Object { $_.Marketplace } | Select-Object -Unique)
 [array]::Sort($marketplaces, [System.StringComparer]::Ordinal)
 
@@ -141,7 +178,11 @@ if ($DryRun) {
     Write-Host ""
     Write-Host "-DryRun -- printing the commands this run would execute, none of them run:" -ForegroundColor Cyan
     foreach ($mp in $marketplaces) { Write-Host "  claude plugin marketplace update $mp" }
-    foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope project" }
+    # NOTHING IS APPENDED TO THESE LINES, not even the scope's provenance. -DryRun exists to be pasted
+    # into a terminal, so a trailing '(from the install record)' would turn every line into one that
+    # has to be edited first. The provenance that matters -- the administration failing to answer --
+    # is the $scopeNotes block above, which is prose and does not pretend to be a command.
+    foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
     exit 0
 }
 
@@ -161,15 +202,15 @@ foreach ($mp in $marketplaces) {
     }
 }
 
-# --- step 2: update every plugin this checkout enables, --scope project --------------------------
+# --- step 2: update every plugin this checkout enables, each at its own scope ---------------------
 
 Write-Host ""
-Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), --scope project:" -ForegroundColor Cyan
+Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), each at the scope it is installed at:" -ForegroundColor Cyan
 $updateFailures = 0
 foreach ($t in $targets) {
     Write-Host ""
-    Write-Host "  claude plugin update $($t.Id) --scope project"
-    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', 'project') -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)"
+    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $updateFailures++

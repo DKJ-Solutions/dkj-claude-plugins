@@ -42,6 +42,15 @@
                                                              plugin, the OTHER plugin's update still ran,
                                                              the receipt still runs, exit 1
       8  two distinct marketplaces                      -> both are refreshed, in ORDINAL sorted order
+      9  a machine-wide (path-less) record beside a     -> '--scope user' and '--scope project'
+         record for this checkout, in ONE run                respectively: the scope is per plugin,
+                                                             read off the install record (#1986)
+      10 -DryRun with a 'local' record                  -> the PRINTED command carries that scope too,
+                                                             and stays paste-ready -- nothing is
+                                                             appended to it
+      11 a record stating no scope at all               -> falls back to project exactly as before, AND
+                                                             says so, in a block printed ABOVE step 1
+                                                             rather than inside step 2's own output
 
     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
     for .ps1).
@@ -110,6 +119,24 @@ function Set-Enabled {
     foreach ($i in $Ids) { $ep[$i] = $true }
     [System.IO.File]::WriteAllText((Join-Path $RepoDir '.claude\settings.json'),
         (@{ enabledPlugins = $ep } | ConvertTo-Json -Depth 5), $Utf8)
+}
+
+function Set-InstallRecords {
+    <#
+        Writes the fixture home's ~/.claude/plugins/installed_plugins.json -- the administration
+        Get-InstallRecord reads, and therefore the file that decides every step-2 `--scope` (#1986).
+        $Records is id -> array of hashtables; a record carrying no 'projectPath' is the PATHLESS
+        (machine-wide) shape, and one carrying it is a record for this checkout.
+
+        The path is written as given: Get-InstallRecord resolves both sides with Resolve-Path before
+        comparing, so the caller hands over the fixture repo's real path and nothing here has to
+        normalise it.
+    #>
+    param([Parameter(Mandatory = $true)][string]$HomeDir, [Parameter(Mandatory = $true)][hashtable]$Records)
+    $dir = Join-Path $HomeDir '.claude\plugins'
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $dir 'installed_plugins.json'),
+        (@{ plugins = $Records } | ConvertTo-Json -Depth 6), $Utf8)
 }
 
 function New-ClaudeShim {
@@ -286,6 +313,61 @@ try {
     Assert-Has    $r 'CLAUDE-SHIM-CALLED plugin marketplace update aaa-marketplace' '8: the first marketplace was refreshed'
     Assert-Has    $r 'CLAUDE-SHIM-CALLED plugin marketplace update zzz-marketplace' '8: the second marketplace was refreshed'
     Assert-Before $r 'update aaa-marketplace' 'update zzz-marketplace' '8: refreshed in ordinal order'
+
+    # --- 9. the scope comes from the install record, per plugin (#1986) -------------------------
+    #     THE SCENARIO THIS ISSUE WAS MEASURED IN, with both halves in ONE run so the per-plugin-ness
+    #     is what is being asserted rather than a global switch: a machine-wide (pathless) record and a
+    #     record for this checkout, side by side. Before #1986 both got '--scope project' and the
+    #     machine-wide one was refused by the CLI -- never updated, and the run exited 1 with nothing
+    #     actually wrong on the machine.
+    Write-Host "9. the scope is read off the install record, per plugin" -ForegroundColor Cyan
+    $c = New-Case 'scopes'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'user' } )
+        $ID2 = @( @{ scope = 'project'; projectPath = $c.Repo } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-Equal 0 $r.Code '9: exit 0'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope user" '9: the machine-wide plugin is updated at USER scope -- the command that can actually move it'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '9: the plugin installed here keeps project scope'
+    Assert-Lacks $r "plugin update $ID1 --scope project" '9: and the machine-wide plugin is NOT handed the scope it is not installed at'
+    Assert-Lacks $r 'Scope could not be read' '9: both scopes were read, so no fallback block is printed'
+
+    # --- 10. -DryRun prints the same per-plugin scopes ------------------------------------------
+    #     The printed line is what a reader PASTES, so it has to carry the same scope the exec path
+    #     would use -- a dry run that prints a command different from the one it would run is worse
+    #     than no dry run. Nothing is appended to these lines either, which is why the assertion is on
+    #     the exact command text.
+    Write-Host "10. -DryRun prints the per-plugin scope, paste-ready" -ForegroundColor Cyan
+    $c = New-Case 'scopes-dry'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-InstallRecords -HomeDir $c.Home -Records @{ $ID1 = @( @{ scope = 'local'; projectPath = $c.Repo } ) }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
+    Assert-Equal 0 $r.Code '10: exit 0'
+    Assert-Has   $r "claude plugin update $ID1 --scope local" '10: the printed command carries the record''s own scope'
+    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '10: and still nothing ran'
+
+    # --- 11. an administration that cannot answer: the fallback, and it SAYS so ------------------
+    #     'project' is what this run has always used and still uses; what changed is that the reader is
+    #     told it was a fallback rather than a reading. The block is printed ABOVE step 1, so it cannot
+    #     scroll past inside step 2's own output -- which is where the #1986 failure was hiding.
+    Write-Host "11. a record with no scope: project, with the reason stated" -ForegroundColor Cyan
+    $c = New-Case 'scopes-silent'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-InstallRecords -HomeDir $c.Home -Records @{ $ID1 = @( @{ projectPath = $c.Repo } ) }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-Equal 0 $r.Code '11: exit 0'
+    Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '11: falls back to project, exactly as before'
+    Assert-Has $r 'Scope could not be read from the install administration for 1 plugin(s)' '11: and the fallback is stated rather than silent'
+    Assert-Has $r 'states no scope' '11: the line names what the administration failed to say'
+    Assert-Before $r 'Scope could not be read' 'Step 1/3' '11: stated BEFORE step 1, so it cannot scroll past inside step 2'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

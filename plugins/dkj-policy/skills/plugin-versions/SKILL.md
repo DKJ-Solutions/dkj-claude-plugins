@@ -95,12 +95,34 @@ your OS username -- replace each with a placeholder like the `<path>` above.
 | what it reads | verdict |
 |---|---|
 | install `gitCommitSha` **==** clone HEAD | **up to date.** The clone itself may still lag origin -- `claude plugin marketplace update <marketplace>` refreshes it if you expect newer. |
-| install `gitCommitSha` is an **ancestor** of clone HEAD, and the two `version` strings **differ** | **the clone is AHEAD of your install** -> `claude plugin update <id> --scope project`. |
+| install `gitCommitSha` is an **ancestor** of clone HEAD, and the two `version` strings **differ** | **the clone is AHEAD of your install** -> `claude plugin update <id> --scope <scope>`, where the scope is **read off the install record** and not assumed (#1986 -- see below). |
 | install `gitCommitSha` is an **ancestor** of clone HEAD, and both sides carry the **same** `version` | **unreleased work in the clone**, and no command at all -- see the note under the output above. Counted in its own bucket, never as behind, and never an `[ERROR]` in `-Brief` (#1772). |
 | install `gitCommitSha` is an **ancestor** of clone HEAD, but one side has **no** `version` | the same *clone is AHEAD* verdict and update command, with the line saying which side is missing and that the release boundary cannot be read from here. |
 | install `gitCommitSha` exists but is **not** an ancestor of clone HEAD, or is unknown to the clone | **your install is ahead, or the clone is stale** -> `claude plugin marketplace update <marketplace>`. If the install `version` is also behind, it says so and names `claude plugin update` first. |
 | **no `gitCommitSha`** on one side (an older record shape, or a non-git marketplace fetch) | the two `version` strings are compared instead, and the line says a sha was not available. |
 | a whole side is **missing** -- no marketplace clone, no install record for this checkout, conflicting records | **cannot determine**, and the line says which side and the command that would fix it. |
+
+**Every `claude plugin update` line above carries the scope that plugin is actually installed at**
+([#1986](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1986)). It was the literal
+`--scope project` until then, and the CLI *refuses* a scope a plugin is not installed at -- so for a
+machine-wide install, or for the `local` record a session start writes with no command run, this page
+handed the reader a command that cannot work and called it the repair. `Get-PluginUpdateScope` answers
+it from the same install administration the rows above are built from, and returns one of the CLI's own
+four scope names rather than the file's string. **The `claude plugin install` lines are deliberately
+still `--scope project`**: those prescribe installing *into this checkout*, which is what the reader is
+being told to do -- they are not asking where the plugin already lives.
+
+**And a clone whose `marketplace.json` will not PARSE no longer prescribes a refresh**
+([#1987](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1987)). Two ways of not answering
+shared one command: *the plugin is absent from a manifest that parsed* (a refresh is right -- the clone
+is merely behind) and *the manifest could not be read at all* (a refresh may be advice that provably
+cannot work). Measured September 14, 2026 on `claude-plugins-official`: the refresh had already run and
+succeeded seconds earlier, in step 1 of the same `update-plugins` run, and the parse still failed --
+because Windows PowerShell 5.1's `ConvertFrom-Json` folds object keys case-insensitively and that
+manifest legitimately carries both `".c"` and `".C"`. The file is valid JSON; no number of refreshes
+changes what 5.1 can represent. So the parse-failure verdict now names the manifest's own path, and
+where the message is that duplicated-key shape it rules the refresh **out** by name instead of leaving
+it as a thing to try.
 
 ## What it handles without failing
 
@@ -143,7 +165,7 @@ cannot run -- `check-connectors.ps1` is source-only and is not plugin-carried --
 [SUMMARY] 7 plugin(s) enabled here: 1 behind, 1 undetermined, 5 up to date.
 ```
 
-`claude plugin update <id> --scope project` and `claude plugin marketplace update <marketplace>` both
+`claude plugin update <id> --scope <scope>` and `claude plugin marketplace update <marketplace>` both
 appear in this mode and **they are not interchangeable**: the first moves *this checkout* onto what
 the clone already holds, the second moves the *clone* onto what the remote holds. The `[ERROR]` lines
 print the first, because that is the gap a reader closes here and now; the verdicts that print the
