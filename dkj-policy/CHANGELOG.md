@@ -43,7 +43,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 13 minor entries** <!-- pending-tally -->
+**9 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/1982-bwj-third-repo-reach · 20260914-200323
+
+`dkj-policy-bwj`'s four portable law pages, its `README.md`, `plugin.json` and the root
+`marketplace.json` said "exactly two repos" everywhere, even after commit `b9b2a65a` (Sept 14, 2026)
+admitted this plugin's own source repo (`dkj-claude-plugins`) as a third target for its ticket-handling
+chapter alone. Each page now states its own actual reach -- three repos for `WORKFLOW-portable.md`,
+two for the other three chapters, each explaining why it did or didn't widen and cross-linking the
+one that did. `CLAUDE.md` and the root `README.md`'s plugin table, which restated the same fact, were
+brought in line in the same move so this branch does not leave a fresh disagreement behind it. Closes
+#1982.
+
+**Score:** 1 -- corrects prose so a reader following a cross-reference is told the truth about which
+repos a chapter applies in; nothing here changes what any gate enforces or what a session does.
+
+#### What makes this deploy extra special
+
+N/A -- no subscriber-facing behaviour changed; this is a documentation-only correction inside a policy
+plugin's own portable pages.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sweep dkj-policy-bwj's stated reach to match its report-issue/adopt gate
+
+Plugins: dkj-policy-bwj
+
+[PR #2013](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2013)
+
+---
 
 ### DEPLOY: fix/2003-json-case-collision-verdict · 20260914-194709
 
