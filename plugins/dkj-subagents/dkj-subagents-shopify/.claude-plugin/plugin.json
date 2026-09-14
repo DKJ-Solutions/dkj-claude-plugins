@@ -7,7 +7,7 @@
     "./subagents/05-21-agent.md",
     "./subagents/05-22-agent.md"
   ],
-  "version": "5.1.0",
+  "version": "5.2.0",
   "author": { "name": "DaveKJohn" },
   "keywords": ["specialists", "team", "claude-code", "shopify", "liquid"]
 }
