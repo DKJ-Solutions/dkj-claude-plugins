@@ -1215,11 +1215,38 @@ function Get-PsScriptFiles {
     if (Test-Path -LiteralPath $scriptsDir -PathType Container) {
         $found += (Get-ChildItem -Path $scriptsDir -Recurse -Filter '*.ps1' -File)
     }
+    # EVERY .ps1 UNDER A PLUGIN ROOT, rather than the three named subtrees this used to list -- issue
+    # #1998. The old anchor took <plugin>/skills/**, <plugin>/scripts/** and <plugin>/hooks/**, and one
+    # tracked file sat in none of them: plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1, 1812
+    # lines. So checks 5 (parse), 27 (script-ascii), 33 (shopify-cli), 36 (section-number) and 42b
+    # (exec-policy/script) had each been silent about it since the day it was written.
+    #
+    # WHY THAT FILE IS NOT AN INERT TEMPLATE, which is the reading its directory invites and the reason
+    # this was worth inverting rather than exempting. adopt-dkj-policy-bwj COPIES it into a BWJ store repo as
+    # .github/scripts/asana-mirror.ps1, driven by .github/workflows/asana-mirror.yml, where it runs in that
+    # consumer's CI holding `issues: write`. A parse error in it reaches them and not us, which is check
+    # 5's own argument for existing, one directory over from where it was looking.
+    #
+    # INVERTED RATHER THAN EXTENDED BY ONE NAME, and the choice is measured rather than reasoned about:
+    # TODAY THE TWO FORMS PRODUCE THE IDENTICAL SET. Every tracked .ps1 under plugins/ sits in skills/,
+    # scripts/, hooks/ or templates/, so adding 'templates' as a fourth name and dropping the list
+    # altogether select the same 313 files, and the whole gate is green either way. What differs is the
+    # NEXT subtree somebody adds: a named list is silent about it and fails open, and this list had
+    # already failed open twice -- #1210 found a parameter in this same file that was declared and never
+    # read, by a person rather than by a gate. A rule that has to be remembered on the day a directory is
+    # created is the hand-maintained-list shape #1693, #1865 and #1924 each ended up removing.
+    #
+    # WHAT IT COSTS, stated rather than discovered later: the walk is the filesystem's and not git's, so
+    # an UNTRACKED .ps1 dropped anywhere under plugins/ now enters the set where before it had to land in
+    # one of three subtrees. That is the same exposure those three already carried, widened by two
+    # directories, and check 43 is the one that owns what git actually tracks.
+    #
+    # The skills clause stays separate and repo-wide on purpose: it catches .claude/skills/** as well,
+    # which is outside plugins/ entirely.
     $found += (Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.ps1' -File |
         Where-Object {
             $_.FullName -match '\\skills\\' -or
-            ($_.FullName.StartsWith($pluginsRoot + '\') -and
-                ($_.FullName -match '\\scripts\\' -or $_.FullName -match '\\hooks\\'))
+            $_.FullName.StartsWith($pluginsRoot + '\')
         })
     $script:PsScriptFileCache = @($found | Sort-Object -Property FullName -Unique)
     return $script:PsScriptFileCache

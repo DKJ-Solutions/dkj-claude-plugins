@@ -1191,6 +1191,61 @@ try {
     Assert-True ($rC79.Out -match 'not the dot-source of scripts/lib/fixture-script-lib\.ps1') 'scenario 79: and the finding names the part that is genuinely absent'
 
     Remove-Item -LiteralPath $fsPath -Force
+
+    # --- the SET every script-layer check shares: a plugin's templates/ is inside it -----------------
+    #     Issue #1998. Get-PsScriptFiles used to anchor on three named subtrees inside plugins/ --
+    #     skills/, scripts/ and hooks/ -- and ONE tracked file sat in none of them:
+    #     plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1, 1812 lines. Checks 5 (parse), 27
+    #     (script-ascii), 33 (shopify-cli), 36 (section-number) and 42b (exec-policy/script) had
+    #     therefore never read a line of it.
+    #
+    #     WHY IT IS ASSERTED HERE RATHER THAN BY COUNTING THE SET. A coverage number would pin the
+    #     arithmetic of one tree and go stale on the next file anybody adds -- the tally shape this repo
+    #     has scar tissue from. What these scenarios pin is the PROPERTY: put a defect in a plugin's
+    #     templates/ and the gate must find it. That holds whatever the count is.
+    #
+    #     TWO CHECKS, NOT ONE, because they reach the file by different routes and could regress apart:
+    #     check 5 parses each file itself, while check 33 reads the shared CommandAst cache built over
+    #     the same set (#1358). A set change that fed one and not the other would pass a single assert.
+    #
+    #     AND THE FILE IS NAMED asana-mirror.ps1 on purpose: adopt-dkj-policy-bwj copies that real file
+    #     into a consumer's repo as .github/scripts/asana-mirror.ps1, where it runs in their CI holding
+    #     `issues: write`. A parse error in it reaches them and not us, which is check 5's own argument
+    #     for existing.
+    Write-Host "the shared script set -- a .ps1 under a plugin's templates/ is read (#1998)" -ForegroundColor Cyan
+    $tplDir = Join-Path $Fixture 'plugins\dkj-policy\templates'
+    New-Item -ItemType Directory -Path $tplDir -Force | Out-Null
+
+    # Scenario 80: check 5 reaches it. An unclosed brace, so the parser has something to object to.
+    $s80Path = Join-Path $tplDir 'asana-mirror.ps1'
+    [System.IO.File]::WriteAllText($s80Path, "function Invoke-Mirror {`n    if (`$true) {`n", $Utf8NoBom)
+    # -Full, AND IT IS THE ONLY CALL IN THIS SUITE THAT NEEDS IT: $SkippedForSpeed names 'parse', so the
+    # ordinary invocation cannot see check 5 at all. Written without it first, and the scenario failed
+    # while its two siblings passed -- which is worth leaving here, because that is what the gap looks
+    # like from the outside and the next reader will reach for the same one-liner.
+    $rC80 = Invoke-Integrity -FixtureRoot $Fixture -Full
+    Assert-True ($rC80.Out -match '\[parse\] .*asana-mirror\.ps1') 'scenario 80: a parse error in a plugin templates/ script is reported at all'
+    Remove-Item -LiteralPath $s80Path -Force
+
+    # Scenario 81: and the AST-reading checks reach it too, off the shared cache rather than their own
+    # parse. Syntactically valid this time -- a file the parser accepts is the only kind check 33 can
+    # have an opinion about.
+    [System.IO.File]::WriteAllText($s80Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '& shopify theme list --store x'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC81 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($rC81.Out -match '\[parse\] .*asana-mirror\.ps1')) 'scenario 81: the valid file parses cleanly, so what follows is not the parse finding again'
+    Assert-True ($rC81.Out -match $ShopifyFindingPattern) 'scenario 81: and the bare CLI call in a plugin templates/ script is a finding'
+    Assert-True ($rC81.Out -match 'asana-mirror\.ps1:2:') 'scenario 81: named with its line, so the set really carried this file and not a sibling'
+    Remove-Item -LiteralPath $s80Path -Force
+
+    # Scenario 82: and the layer is not blanket-noisy -- a clean templates/ script reports nothing. The
+    # guard against a repair that widens the set by making it accuse whatever it newly reads.
+    [System.IO.File]::WriteAllText($s80Path, "`$ErrorActionPreference = 'Stop'`nWrite-Host 'mirrored'`n", $Utf8NoBom)
+    $rC82 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($rC82.Out -match 'asana-mirror\.ps1')) 'scenario 82: a clean plugin templates/ script draws no finding of any kind'
+    Remove-Item -LiteralPath $s80Path -Force
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }
