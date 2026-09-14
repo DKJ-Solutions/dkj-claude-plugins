@@ -12,13 +12,13 @@ This takes that copy -- and leaves behind something the copy itself cannot be: a
 ## Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/archive-theme.ps1" -ThemeId 184381800789
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/archive-theme.ps1" -ThemeId 184381800789
 ```
 
 Several at once, which is the common case:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/archive-theme.ps1" -ThemeId 183398957397,184381800789,184636047701
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/archive-theme.ps1" -ThemeId 183398957397,184381800789,184636047701
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component**. From an ordinary shell, spell

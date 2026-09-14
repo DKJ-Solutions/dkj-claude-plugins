@@ -49,7 +49,7 @@ script will do is work out *which* heads that command would be safe on and hand 
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/prune-merged.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/prune-merged.ps1"
 ```
 
 **In the source repo, run its own copy instead -- `scripts/task/prune-merged.ps1`.**
@@ -60,7 +60,7 @@ for them the line above is the correct one.
 Look before you reap:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/prune-merged.ps1" -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/prune-merged.ps1" -DryRun
 ```
 
 `-DryRun` reports what would go and deletes nothing. The fast-forward and the ref prune still run —
@@ -192,7 +192,7 @@ own commit message — and it has to be redone every time, because nothing in th
 answer.
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/prune-merged.ps1" -IncludeRemote
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/prune-merged.ps1" -IncludeRemote
 ```
 
 Every head that is not the trunk is put through **the same two proofs the local pass uses**, and the

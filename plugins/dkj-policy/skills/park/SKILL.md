@@ -21,7 +21,7 @@ shared here so consumers do not duplicate it. Background in
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/park-branch.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/park-branch.ps1"
 ```
 
 **In the source repo, run its own copy instead -- `scripts/task/park-branch.ps1`.**
@@ -33,7 +33,7 @@ Optionally record where you left off (appended to the park commit message, so th
 state lives in git history):
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/park-branch.ps1" `
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/park-branch.ps1" `
   -Intent "Skeleton + routing done; next: wire the API client."
 ```
 
@@ -60,7 +60,7 @@ The script:
 **The resume command is `new-branch.ps1` with the branch's own name**, and that is not a convenience:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" -Name "<the parked branch>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" -Name "<the parked branch>"
 ```
 
 It is idempotent — a document that already belongs to that branch is left exactly as it is — and it is
@@ -152,7 +152,7 @@ Since [#900](https://github.com/DKJ-Solutions/claude-code-specialists/issues/900
 this one, and it is here rather than on its own page because the three parking moments are one subject:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/park-cycle.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/park-cycle.ps1"
 ```
 
 **A Stop hook invokes it after every turn**, which is the point of it -- so this line is for reading, and

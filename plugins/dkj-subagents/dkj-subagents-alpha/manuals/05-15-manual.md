@@ -46,8 +46,8 @@ and safe hook construction.
   prefix form up to the plugin, and add it for both tool routes, since both occur in practice:
 
   ```text
-  Bash(powershell -NoProfile -File "<home>/.claude/plugins/cache/<marketplace>/<plugin>/*)
-  PowerShell(powershell -NoProfile -File "<home>/.claude/plugins/cache/<marketplace>/<plugin>/*)
+  Bash(powershell -NoProfile -ExecutionPolicy Bypass -File "<home>/.claude/plugins/cache/<marketplace>/<plugin>/*)
+  PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File "<home>/.claude/plugins/cache/<marketplace>/<plugin>/*)
   ```
 
   It applies most sharply to rules proposed by `fewer-permission-prompts`: it derives them from

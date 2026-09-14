@@ -20,7 +20,7 @@ shared here so consumers do not duplicate it -- the same argument as
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/plugin-versions.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/plugin-versions.ps1"
 ```
 
 **In the source repo, run its own copy instead -- `scripts/task/plugin-versions.ps1`.**

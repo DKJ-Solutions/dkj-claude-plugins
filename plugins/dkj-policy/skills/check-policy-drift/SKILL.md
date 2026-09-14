@@ -6,7 +6,7 @@ description: Lay out every document that legislates in this repo in RANK ORDER -
 # check-policy-drift -- does this repo's own prose contradict the plugin?
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/check-policy-drift.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/check-policy-drift.ps1"
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component** -- that is, when your Claude

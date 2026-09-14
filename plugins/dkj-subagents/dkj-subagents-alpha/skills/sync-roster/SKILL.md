@@ -74,7 +74,7 @@ reach for -- these scripts target Windows PowerShell 5.1, which is why this repo
 Run the bundled script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/skills/sync-roster/sync-roster.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/sync-roster/sync-roster.ps1"
 ```
 
 The script:

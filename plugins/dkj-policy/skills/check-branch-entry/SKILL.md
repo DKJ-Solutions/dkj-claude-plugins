@@ -6,7 +6,7 @@ description: Answer whether this branch carries a WRITTEN changelog entry, the w
 # check-branch-entry -- is the entry written?
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/lint/check-branch-entry.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/lint/check-branch-entry.ps1"
 ```
 
 `${CLAUDE_PLUGIN_ROOT}` resolves **only inside a plugin-owned component** -- that is, when your Claude

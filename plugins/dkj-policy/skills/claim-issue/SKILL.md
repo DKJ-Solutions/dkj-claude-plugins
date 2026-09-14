@@ -29,7 +29,7 @@ is how the same work gets built twice and discovered at the merge.
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" 1234
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" 1234
 ```
 
 **In the source repo, run its own copy instead -- `scripts/task/claim-issue.ps1`.**

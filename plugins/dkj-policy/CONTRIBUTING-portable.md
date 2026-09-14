@@ -15,7 +15,7 @@ stays in the repo. Read this page for the cycle; read your own page for the valu
 install, which resolves itself through `${CLAUDE_PLUGIN_ROOT}`:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" -Name "<prefix>/<short-name>" -Title "…"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" -Name "<prefix>/<short-name>" -Title "…"
 ```
 
 Each step below names the **skill** that owns the full detail for its script, and those skills are the

@@ -138,13 +138,13 @@ run this family, which is exactly why picking the wrong one is easy; the adoptio
 
 ```powershell
 # Preview -- nothing is removed
-powershell -NoProfile -File "<plugin>/skills/specialists-teardown/teardown.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/skills/specialists-teardown/teardown.ps1"
 
 # Act
-powershell -NoProfile -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply
 
 # Act, and keep a working git workflow afterwards
-powershell -NoProfile -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply -VendorScripts
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/skills/specialists-teardown/teardown.ps1" -Apply -VendorScripts
 ```
 
 It classifies before it removes: a lens still carrying its `VUL-IN` marker is generated and goes, a lens

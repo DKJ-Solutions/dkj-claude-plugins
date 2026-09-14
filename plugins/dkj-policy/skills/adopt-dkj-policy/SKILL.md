@@ -59,7 +59,7 @@ is left exactly as it is.
 ### Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-workflow-folder.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-workflow-folder.ps1"
 ```
 
 That is a **dry run**: it prints exactly what it would create and writes nothing. Add `-Apply` when
@@ -278,7 +278,7 @@ the marker each record carries.
 ### Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-config.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-config.ps1"
 ```
 
 That is a **dry run**: it prints exactly what it would do and writes nothing. Add `-Apply` when the plan
@@ -334,7 +334,7 @@ has a documented fallback -- answer the ones where your repo genuinely differs f
 Run the contract check to see the same seam from the shared scripts' side:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/sync/check-script-contract.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/sync/check-script-contract.ps1"
 ```
 
 **In the source repo, run its own copy instead -- `scripts/sync/check-script-contract.ps1`.** That one is
@@ -421,7 +421,7 @@ business and does nothing anywhere else.
 ### Run it
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
 ```
 
 A **dry run**: it reads your trunk's rules, reads your workflow files, prints where you stand, and writes

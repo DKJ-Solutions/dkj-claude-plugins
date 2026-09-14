@@ -23,7 +23,7 @@ shared here so consumers do not duplicate it. Background in
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1"
 ```
 
 **In the source repo, run its own copy instead — `scripts/release/open-pr.ps1`.**
@@ -119,7 +119,7 @@ The script:
 ## Just the gates, and nothing else: `-GatesOnly`
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
 ```
 
 Runs step 5 above — the repo's lint gate, then every test suite — against the **working tree**, and stops
@@ -227,7 +227,7 @@ outlive the certificate by up to four hours. It is re-read in seconds on the nex
 ## When the test gate will not finish: `-MaxParallel`, not `-SkipTests`
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -MaxParallel 4
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -MaxParallel 4
 ```
 
 The test gate runs the suites in parallel, and by default it works the lane count out for itself:
@@ -761,10 +761,10 @@ So the decision is forced rather than remembered:
 
 ```powershell
 # this PR resolves them -- each gets its own 'Closes #<n>' line in the body
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -Resolves "331,332"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -Resolves "331,332"
 
 # this PR resolves no issue (they are cited as context)
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -NoResolves
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -NoResolves
 ```
 
 - **Neither flag, while the changelog entry mentions an issue that is currently open** → the script

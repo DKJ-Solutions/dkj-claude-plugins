@@ -994,12 +994,12 @@ $settingsPath = Join-Path $claudeDir 'settings.json'
 # following.
 $allowRules = if ($hasWorkflowPack) {
     @(
-        "Bash(powershell -NoProfile -File *$workflowNameHere*new-branch.ps1*)",
-        "Bash(powershell -NoProfile -File *$workflowNameHere*open-pr.ps1*)",
-        "Bash(powershell -NoProfile -File *$workflowNameHere*ship-pr.ps1*)",
-        "PowerShell(powershell -NoProfile -File *$workflowNameHere*new-branch.ps1*)",
-        "PowerShell(powershell -NoProfile -File *$workflowNameHere*open-pr.ps1*)",
-        "PowerShell(powershell -NoProfile -File *$workflowNameHere*ship-pr.ps1*)",
+        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*new-branch.ps1*)",
+        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*open-pr.ps1*)",
+        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*ship-pr.ps1*)",
+        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*new-branch.ps1*)",
+        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*open-pr.ps1*)",
+        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*ship-pr.ps1*)",
         'Bash(gh repo edit --delete-branch-on-merge*)'
     )
 } else { @() }
@@ -1080,7 +1080,7 @@ $denyJsonc
   "hooks": {
     "Stop": [
       { "hooks": [ { "type": "command",
-          "command": "powershell -NoProfile -File scripts/maintenance/<your-check>.ps1",
+          "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/maintenance/<your-check>.ps1",
           "timeout": 30 } ] }
     ]
   }

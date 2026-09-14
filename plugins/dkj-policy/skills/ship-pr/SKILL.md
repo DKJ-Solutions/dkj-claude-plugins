@@ -37,7 +37,7 @@ step of one.
 Run the shared script from the **root of the consuming repo**, on the branch you want to ship:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1"
 ```
 
 **In the source repo, run its own copy instead — `scripts/release/ship-pr.ps1`.**
@@ -138,10 +138,10 @@ through `powershell -File`.
 
 ```powershell
 # ships and closes two issues
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1" -Resolves "331,332"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1" -Resolves "331,332"
 
 # open the PR only, e.g. to wait for a review
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1" -NoResolves -NoMerge
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1" -NoResolves -NoMerge
 ```
 
 ## The two merge gates read the branch's COMMIT, and why they used to read the tree
@@ -712,10 +712,10 @@ repaired by three PRs had stayed open because those bodies carried plain mention
 
 ```powershell
 # report what a merged PR declared, and close what is still open
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/verify-resolved-issues.ps1" -Pr 343
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/verify-resolved-issues.ps1" -Pr 343
 
 # report only, change nothing
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/verify-resolved-issues.ps1" -Pr 343 -ReportOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/verify-resolved-issues.ps1" -Pr 343 -ReportOnly
 ```
 
 | Parameter | What it does |

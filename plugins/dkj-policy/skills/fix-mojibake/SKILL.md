@@ -42,7 +42,7 @@ what `cut-release`'s `-NoPush` is for.
 Run the shared script from the **root of the consuming repo**:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/fix-mojibake.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/fix-mojibake.ps1"
 ```
 
 **In the source repo, run its own copy instead — `scripts/maintenance/fix-mojibake.ps1`.**
@@ -57,10 +57,10 @@ for them the line above is the correct one.
 
 ```powershell
 # a gate or a dry run -- exits 1 on damage, touches nothing
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/fix-mojibake.ps1" -Check
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/fix-mojibake.ps1" -Check
 
 # a specific file
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/fix-mojibake.ps1" -Path CHANGELOG.md
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/fix-mojibake.ps1" -Path CHANGELOG.md
 ```
 
 ## Why it runs the corruption backwards instead of matching a table

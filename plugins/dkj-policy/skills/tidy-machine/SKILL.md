@@ -61,7 +61,7 @@ evidence that nobody wants the commits.
 From the root of the consuming repo:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1" -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1" -DryRun
 ```
 
 **In the source repo, run its own copy instead -- `scripts/maintenance/tidy-machine.ps1`.**
@@ -72,7 +72,7 @@ so for them the line above is the correct one.
 Look first, then let it act:
 
 ```powershell
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1"
 ```
 
 | flag | what it does |
@@ -120,7 +120,7 @@ run works from a home directory, a scratch directory, anywhere:
 
 ```powershell
 cd ~
-powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1" -MachineOnly -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1" -MachineOnly -DryRun
 ```
 
 **Five of the six lanes need no repo, and that was measured rather than assumed.** Lane 7 delegates to a
