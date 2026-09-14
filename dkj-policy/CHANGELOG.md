@@ -43,7 +43,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1994-allownull-on-record-predicates · 20260914-175823
+
+Two predicates in `check-report-lib.ps1` -- `Test-PluginInstalledHere` and `Get-RecordShape` -- each opened
+with an `if ($null -eq $InstallRecord)` line that had never once run. A `Mandatory` parameter rejects
+`$null` during BINDING, with `ParameterArgumentValidationErrorNullNotAllowed`, before a line of the body
+executes, so each function's documented answer for that input was a promise its own signature broke.
+`[AllowNull()]` makes both reachable, which is the choice the sibling `Get-PluginUpdateScope` already made
+deliberately for the same reason.
+
+**The three answers stay different, and that is the point.** They are not one contract repeated: the
+permissive predicate answers `$true` because an absent authority is not evidence of absence, the shape
+predicate answers `$null` because it may suppress a finding and never invent one, and the scope function
+answers a usable `project`/`default` because every caller needs something to put in a command. Three
+answers to one input is why the attribute is repeated three times rather than factored into a shared
+validator.
+
+**One caller proved the state is real.** `check-policy-drift.ps1` sets `$installRecord = $null` and fills it
+inside a `try`/`catch`, then guarded its call site with `if ($installRecord -and ...)` -- a clause
+hand-rolling the contract the signature would not honour. It is gone, with the reasoning left at the line,
+and the behaviour is identical: `$true` means the guarded branch is not taken either way.
+
+**The issue's reason was half right, and the half that was wrong is recorded in the code.**
+`Get-RecordShape`'s doc never promised a `$null` answer for a `$null` argument. Repairing on the quoted
+reason would have written a promise into the doc that was never there; the argument that does hold is the
+direction-of-error rule its suites already pin.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing here was broken today -- `Get-InstallRecord` never returns `$null`, so no run has ever reached the
+binder. That is exactly what makes it worth four asserts rather than a one-line edit: a latent contradiction
+between a doc and a signature is invisible until somebody writes the caller that meets it, and #1986
+measured that happening, in this same file, to a new sibling written from the same template.
+
+**Score:** 1
+
+#### Pull Request
+
+Make the null guards in Test-PluginInstalledHere and Get-RecordShape reachable
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2004](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2004)
+
+---
 
 ### DEPLOY: docs/1990-bwj-plugin-no-work-stale · 20260914-173105
 
