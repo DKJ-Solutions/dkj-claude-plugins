@@ -49,11 +49,20 @@
 - [x] Point `publish-page`'s own `backlog` row at the new skill instead of "not built yet"; register
       the skill as a `Get-ReachLabel` consumer in the script contract (both copies); update both
       READMEs' skill enumerations and the `dkj-policy-bwj` "what ships" table.
+- [x] Review chain (Victor, Edith, Sebastian, in parallel): all three independently caught the same
+      bug -- an Asana task resolved with an empty `Name` silently fell back to the raw GitHub issue
+      title, contradicting the feature's own "never the issue's own text" rule. Fixed by dropping
+      such an entry, same as an unreadable or completed task. Victor's three further points (share
+      `Resolve-RepoRoot` with `publish-page.ps1`, a misleading StrictMode comment, `-DryRun`'s own
+      docstring not stating it still hits the network) also applied.
 
 ### TEST
 
-- [x] `check-plugin-integrity.ps1`: 0 errors.
-- [x] Full local test suite (106 files, including the new one): 0 failed.
+- [x] `check-plugin-integrity.ps1`: 0 errors, both before and after the review-chain fixes.
+- [x] Full local test suite (106 files, including the new one): 0 failed, both before and after --
+      one of my own review-chain fixes (registering the skill as a `Get-ReleaseNoteRoot` consumer)
+      broke `script-contract.tests.ps1`'s exact-match assertion on that record and was reverted;
+      caught by this step, not by the review chain.
 
 ### DEPLOY: feat/1979-backlog-page-builder
 
