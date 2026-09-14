@@ -53,8 +53,8 @@
 
     RUN IT FROM CI, and from the command line whenever you want the answer early:
 
-        powershell -NoProfile -File scripts/lint/check-branch-entry.ps1
-        powershell -NoProfile -File scripts/lint/check-branch-entry.ps1 -Branch feat/something
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-branch-entry.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-branch-entry.ps1 -Branch feat/something
 
     Exit 0 when the entry is written or the branch is exempt; exit 1 with an actionable message otherwise.
 
@@ -83,7 +83,7 @@
     dual-context like every other shared script.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/lint/check-branch-entry.ps1 -Branch fix/something
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-branch-entry.ps1 -Branch fix/something
 #>
 [CmdletBinding()]
 param(

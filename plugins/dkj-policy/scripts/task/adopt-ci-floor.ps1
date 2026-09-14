@@ -118,8 +118,8 @@
 
     RUN IT FROM THE ROOT OF THE CONSUMING REPO:
 
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1" -Apply
+        powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1"
+        powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-ci-floor.ps1" -Apply
 
     Exit 0 while the queue is off and the floor is merely unbuilt -- that is a to-do, not a defect.
     Exit 1 when the queue is ACTIVE on the trunk and a piece of the floor is missing, because that is a

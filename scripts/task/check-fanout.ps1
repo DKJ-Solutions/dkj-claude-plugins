@@ -7,11 +7,11 @@
     Two modes, one before the fan-out and one after it:
 
         # before dispatching any subagent
-        powershell -NoProfile -File scripts\task\check-fanout.ps1 -Capture
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts\task\check-fanout.ps1 -Capture
         # -> prints the baseline path
 
         # after the fan-out has returned
-        powershell -NoProfile -File scripts\task\check-fanout.ps1 -Compare <that path>
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts\task\check-fanout.ps1 -Compare <that path>
 
     WHAT IT IS FOR (issue #1670). Issue #1665 measured a dispatched review specialist running
     `git stash` and then `git checkout HEAD -- <file>` in the orchestrator's checkout, discarding
@@ -144,7 +144,7 @@ if ($Capture) {
         Write-Host "  [WARN] part of this baseline could not be read, so the comparison afterwards cannot speak for it." -ForegroundColor Yellow
     }
     Write-Host "[OK] baseline taken. After the fan-out returns:" -ForegroundColor Green
-    Write-Host "     powershell -NoProfile -File scripts\task\check-fanout.ps1 -Compare `"$path`""
+    Write-Host "     powershell -NoProfile -ExecutionPolicy Bypass -File scripts\task\check-fanout.ps1 -Compare `"$path`""
     exit 0
 }
 

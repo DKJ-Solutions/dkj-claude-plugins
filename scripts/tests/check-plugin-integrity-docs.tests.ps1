@@ -481,6 +481,97 @@ try {
     Assert-True ($p4.Out -match '\[exec-policy\] checked [1-9]') `
         'exec-policy: and that pass is over a command actually read, not an empty set'
 
+    # --- check 42b: the same rule over the SCRIPT layer (#1989) --------------------------------------
+    # WHY IT IS A SECOND PASS RATHER THAN THE SAME LOOP. Check 42's markdown half landed green over 85
+    # subjects; the naive rule over .ps1 is born at 93 findings tree-wide, because a script holds three
+    # things a page does not -- prose ABOUT the invocation form, fixture strings that must MODEL the
+    # defect, and real invocations the script RUNS. Split out as #1989 rather than swept into #1985.
+    #
+    # SIX DIRECTIONS, AND FOUR OF THEM ARE NEGATIVE, which is the proportion the three narrowings force. A
+    # positive-only suite here would pass just as happily against a check that reports every line it reads,
+    # and reporting every line is precisely the failure the narrowings exist to prevent.
+    Write-Host "check 42b: a printed powershell command in the script layer" -ForegroundColor Cyan
+    $epsSrc = Join-Path $Fixture 'scripts\task\ep-fixture.ps1'
+    function Write-EpScript([string]$Body) {
+        [System.IO.File]::WriteAllText($epsSrc, $Body, $Utf8NoBom)
+    }
+
+    # 55e. The defect this pass was built for: an .EXAMPLE block in comment-based help, which is the shape
+    #      41 of the 43 source sites had. Reported with the file and the line, as the markdown half is.
+    Write-EpScript @'
+<#
+.EXAMPLE
+    powershell -NoProfile -File scripts/task/ep-fixture.ps1
+#>
+Write-Host 'fixture'
+'@
+    $q1 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($q1.Out -match '\[exec-policy/script\].*ep-fixture\.ps1:3: the printed command names no -ExecutionPolicy') `
+        'exec-policy/script: a bare .EXAMPLE command is reported, with the file and the line'
+    Assert-True ($q1.Out -match '\[exec-policy/script\] checked [1-9]') `
+        'exec-policy/script: the coverage count proves a script invocation was examined, not an empty scan'
+
+    # 55f. THE FIRST NARROWING. The invocation has to BEGIN its line; prose naming the form is a fragment of
+    #      a sentence. Without this the check is born with 5 findings in this tree, every one of them a
+    #      correct sentence -- the exemption list this repo declines, one layer below where check 42 met it.
+    Write-EpScript @'
+# Prose: 'powershell -NoProfile -File <script> -Skill a,b,c' does NOT parse PowerShell syntax.
+Write-Host 'fixture'
+'@
+    $q2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($q2.Out -match '\[exec-policy/script\] scripts')) `
+        'exec-policy/script: prose naming the invocation form mid-sentence is not a subject'
+
+    # 55g. THE SECOND NARROWING, and the one a leading-'&' rule would only half get right. A command the
+    #      script RUNS is never a subject -- -ExecutionPolicy sets PSExecutionPolicyPreference, which a
+    #      child inherits -- and BOTH shapes below are read off the AST rather than off the line, so the
+    #      bare CommandAst on the second line is as silent as the call operator on the first.
+    Write-EpScript @'
+& powershell -NoProfile -File $child
+powershell -NoProfile -File $child
+'@
+    $q3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($q3.Out -match '\[exec-policy/script\] scripts')) `
+        'exec-policy/script: a command the script RUNS is not a subject, whether or not it carries "&"'
+
+    # 55h. THE STRING HALF OF THE FIRST NARROWING, and the strongest case in #1989 for sweeping at all: a
+    #      printed operator hint is output a reader copies, not documentation. It begins the line of the
+    #      STRING it sits in rather than the line of the file, so a file-line rule alone would miss it.
+    Write-EpScript @'
+Write-Host "     powershell -NoProfile -File scripts/task/ep-fixture.ps1 -Compare"
+'@
+    $q4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($q4.Out -match '\[exec-policy/script\].*ep-fixture\.ps1:1:') `
+        'exec-policy/script: a printed operator hint inside a string is reported -- it is pasted, not read'
+
+    # 55i. THE THIRD NARROWING, and it is a LAYER rather than an exemption list. A suite proving this check
+    #      fires has to contain what the check forbids, so a gate reaching into scripts/tests/ would be
+    #      arguing with its own evidence -- this suite's own fixtures at 55a and 55c are two such lines.
+    #      Measured: of the 75 subjects tree-wide exactly 2 sit under a tests/ folder, and both are those.
+    Write-EpScript "Write-Host 'fixture'`n"
+    $epsTestSrc = Join-Path $Fixture 'scripts\tests\ep-layer.tests.ps1'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $epsTestSrc) -Force | Out-Null
+    [System.IO.File]::WriteAllText($epsTestSrc, "powershell -NoProfile -File scripts/task/ep-fixture.ps1`n", $Utf8NoBom)
+    $q5 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($q5.Out -match '\[exec-policy/script\] scripts')) `
+        'exec-policy/script: the fixture layer is excluded, so a suite may model the defect it proves'
+
+    # 55j. And the value is not pinned here either, for the reason 55d gives. Left last on purpose, so the
+    #      fixture ends in a passing state for every scenario below.
+    Remove-Item -LiteralPath $epsTestSrc -Force
+    Write-EpScript @'
+<#
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy RemoteSigned -File scripts/task/ep-fixture.ps1
+#>
+Write-Host 'fixture'
+'@
+    $q6 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($q6.Out -match '\[exec-policy/script\] scripts')) `
+        'exec-policy/script: RemoteSigned clears the script layer too -- the policy is answered, not chosen'
+    Assert-True ($q6.Out -match '\[exec-policy/script\] checked [1-9]') `
+        'exec-policy/script: and that pass is over a command actually read, not an empty set'
+
     # --- check 24: the PR template keeps the two promises open-pr makes about it ---------------------
     # 56-61. The defect this guards was measured at a consumer, not imagined (#573): a template one word
     #        away from a recognised placeholder matched nothing, and TWELVE of their sixty merged PRs
