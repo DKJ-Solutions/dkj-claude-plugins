@@ -86,7 +86,7 @@
 
     RUN IT FROM THE COMMAND LINE whenever you want the answer directly:
 
-        powershell -NoProfile -File scripts/lint/check-consumer-prose.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-consumer-prose.ps1
 
     Exit 0 when the prose is clean (or this is the publishing repo); exit 1 with the document, the line
     and the matched text otherwise. BOTH detectors always run -- the first one to find something does not
@@ -103,7 +103,7 @@
     (Optional, for tests) the always-on root to walk instead of '<root>/CLAUDE.md'.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/lint/check-consumer-prose.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-consumer-prose.ps1
 #>
 [CmdletBinding()]
 param(

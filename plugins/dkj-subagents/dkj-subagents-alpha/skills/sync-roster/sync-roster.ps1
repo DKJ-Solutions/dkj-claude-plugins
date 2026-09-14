@@ -50,7 +50,7 @@
     (Optional, for tests) Use this check-roster-sync.ps1 path instead of the resolved plugin one.
 
 .EXAMPLE
-    powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/skills/sync-roster/sync-roster.ps1"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/sync-roster/sync-roster.ps1"
 #>
 param(
     [string]$ConsumerPathOverride = '',

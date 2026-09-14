@@ -52,11 +52,11 @@
     ones the repo has already decided to keep.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/sync/find-specialist-mentions.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync/find-specialist-mentions.ps1
     # the overview: every specialist, and what a rename would cost
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/sync/find-specialist-mentions.ps1 -Name Tessa
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync/find-specialist-mentions.ps1 -Name Tessa
     # every live mention of Tessa, grouped by layer, with file:line
 #>
 param(

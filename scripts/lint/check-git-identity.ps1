@@ -50,7 +50,7 @@
 
     RUN IT from the command line whenever you want the answer directly:
 
-        powershell -NoProfile -File scripts/lint/check-git-identity.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-git-identity.ps1
 
     IT ALSO ANSWERS A SECOND, BLUNTER QUESTION FIRST (inbound #1867): can this checkout commit at
     all? That used to be folded into the "user.name is unset" skip and go unsaid, on the ground that
@@ -92,7 +92,7 @@
     absence as 'NONE' rather than as an empty string.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/lint/check-git-identity.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-git-identity.ps1
 #>
 [CmdletBinding()]
 param(

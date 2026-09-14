@@ -5203,12 +5203,35 @@ Write-Coverage -Category 'fixture-script' -Checked $fsFiles.Count `
 # subject is prose and a fenced example is an illustration; here the fenced block IS the command a reader
 # pastes, so masking would hide every single subject and the check would pass over an empty set.
 #
-# THE SCRIPT LAYER IS DELIBERATELY NOT A SUBJECT, and is filed rather than swept. The same rule over .ps1 is
-# born at 43 source findings -- .EXAMPLE blocks in comment-based help, plus a handful of printed operator
-# hints -- which is a proposal to sweep, not a regression guard, and check 41's header records this repo
-# declining exactly that trade at 71. Two sites there ARE fixed on this branch because they are functional
-# rather than illustrative: bootstrap.ps1 writes both an allowlist pattern and a hook command into a
-# CONSUMER'S settings.json, and a bare pattern stops matching the moment the pages print the other form.
+# THE SCRIPT LAYER IS A SUBJECT TOO SINCE #1989, in a second pass below with its own coverage line, and it
+# needed a narrowing of its own before it could be one. The naive rule over .ps1 is born at 93 findings
+# tree-wide -- which is the sweep-versus-guard trade check 41's header records this repo declining at 71 --
+# and the reason is that a .ps1 holds three things a markdown page does not: prose ABOUT the invocation
+# form, fixture strings that must MODEL the defect, and real invocations the script RUNS.
+#
+# THE NARROWING IS THAT THE INVOCATION BEGINS ITS LINE, OR BEGINS A LINE OF THE STRING IT SITS IN. A command
+# somebody pastes is the whole of its line -- that is what an .EXAMPLE block and a printed operator hint both
+# look like. Prose naming the form is a fragment of a sentence: "`powershell -NoProfile -File <script>` does
+# NOT parse PowerShell syntax". Measured: 93 -> 75, and all 18 dropped are correct -- 5 prose sites, and 13
+# fixture strings whose content is a '& powershell' call written for a child script to run.
+#
+# AND A COMMAND THE SCRIPT ACTUALLY RUNS IS NEVER A SUBJECT, read off the AST rather than off the line. This
+# is the same fact as the '&' paragraph below, reached structurally: a CommandAst named powershell IS the
+# invocation rather than text about one, and its child inherits the policy of the process that started it.
+# Reading it off the parser rather than looking for a leading '&' also covers the shapes a '&' rule misses --
+# an assignment, a pipeline, a call with the operator on the line above.
+#
+# THE FIXTURE LAYER IS EXCLUDED, and it is a layer rule rather than an exemption list. A suite that proves
+# this check FIRES has to contain the defect this check forbids, so a gate reaching into scripts/tests/ would
+# be arguing with its own evidence. Measured before it was written: of the 75 subjects, exactly 2 sit under a
+# tests/ folder and both are this check's own markdown fixtures in check-plugin-integrity-docs.tests.ps1.
+# Nothing real is lost -- a suite prints no operator hint, because nobody pastes out of one.
+#
+# BORN GREEN AT 73, swept in the same branch: 36 files, .EXAMPLE help throughout plus two printed hints a
+# reader copies straight out of the output (check-fanout.ps1's -Compare line and ship-pr.ps1's hand-back
+# line). 0 exemptions. Two sites were already fixed under #1985 because they are functional rather than
+# illustrative: bootstrap.ps1 writes both an allowlist pattern and a hook command into a CONSUMER'S
+# settings.json, and a bare pattern stops matching the moment the pages print the other form.
 #
 # WHAT IT DOES NOT REACH, said here rather than left to be discovered. Matching is per PHYSICAL LINE, so a
 # command hand-authored with a backtick continuation between -NoProfile and -File escapes SILENTLY: it is
@@ -5248,7 +5271,72 @@ Write-Coverage -Category 'exec-policy' -Checked $epChecked `
     -Note $(if ($epFiles.Count -eq 0) {
         'the lifecycle document set is empty -- no printed command anywhere could have been read, which is not the same as every printed command being sound'
     } else {
-        "printed powershell invocation(s) across $($epFiles.Count) lifecycle document(s), each held to naming an -ExecutionPolicy -- $epFindings finding(s), with $epProse match(es) skipped as prose. THE SUBJECT IS AN INVOCATION CARRYING -NoProfile and nothing else: measured without that narrowing the check is born with 12 findings, all correct prose naming the invocation MODE rather than instructing anyone, which is check 22's measurement one argument over. History is excluded with check 11's set (16 matches suppressed -- archived release notes quote the old form and are never rewritten), and fences are deliberately NOT masked, unlike checks 10, 11 and 33: here the fenced block IS the command, so masking would empty the subject set. The VALUE is not pinned -- 'RemoteSigned' passes -- because the rule is that the policy be answered, not that this gate pick the answer. The .ps1 layer is not a subject: the same rule there is born at 43 findings, a sweep to propose rather than a guard. WHAT IT DOES NOT REACH: matching is per PHYSICAL LINE, so a command written with a backtick continuation between -NoProfile and -File is neither a finding nor a subject, and this figure will not show the gap -- measured, no document is written that way and every multi-line command in the tree breaks AFTER -File, where the invocation is already complete on the first line"
+        "printed powershell invocation(s) across $($epFiles.Count) lifecycle document(s), each held to naming an -ExecutionPolicy -- $epFindings finding(s), with $epProse match(es) skipped as prose. THE SUBJECT IS AN INVOCATION CARRYING -NoProfile and nothing else: measured without that narrowing the check is born with 12 findings, all correct prose naming the invocation MODE rather than instructing anyone, which is check 22's measurement one argument over. History is excluded with check 11's set (16 matches suppressed -- archived release notes quote the old form and are never rewritten), and fences are deliberately NOT masked, unlike checks 10, 11 and 33: here the fenced block IS the command, so masking would empty the subject set. The VALUE is not pinned -- 'RemoteSigned' passes -- because the rule is that the policy be answered, not that this gate pick the answer. The .ps1 layer is the sibling pass below and reports its own coverage line. WHAT IT DOES NOT REACH: matching is per PHYSICAL LINE, so a command written with a backtick continuation between -NoProfile and -File is neither a finding nor a subject, and this figure will not show the gap -- measured, no document is written that way and every multi-line command in the tree breaks AFTER -File, where the invocation is already complete on the first line"
+    })
+
+# 42b. the same rule over the script layer. See the header above for the three narrowings this pass needs
+# and the measurement behind each; the loop below is only their implementation.
+$epsChecked = 0
+$epsFindings = 0
+$epsProse = 0
+$epsCalls = 0
+# @() because a tree with no scripts/ comes back as a bare item, and .Count on one is a StrictMode throw.
+$epsFiles = @(Get-PsScriptFiles | Where-Object {
+        $_.FullName.Split([IO.Path]::DirectorySeparatorChar) -notcontains 'tests'
+    })
+foreach ($epsFile in $epsFiles) {
+    $epsRel = $epsFile.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')
+    $epsText = [System.IO.File]::ReadAllText($epsFile.FullName)
+    $epsTokens = $null
+    $epsErrors = $null
+    $epsAst = [System.Management.Automation.Language.Parser]::ParseInput($epsText, [ref]$epsTokens, [ref]$epsErrors)
+    # The lines carrying a command the script RUNS. Check 5 has already reported a file that does not
+    # parse, so a partial AST here costs a line of coverage rather than a wrong finding.
+    $epsCmdLines = @{}
+    foreach ($epsCmd in $epsAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+        $epsName = $epsCmd.GetCommandName()
+        if ($epsName -and $epsName -match '(?i)^powershell(\.exe)?$') {
+            $epsCmdLines[$epsCmd.Extent.StartLineNumber] = $true
+        }
+    }
+    # The string literals, by line, so a printed hint can be read as the text it prints rather than as the
+    # Write-Host statement that wraps it.
+    $epsStrLines = @{}
+    foreach ($epsTok in $epsTokens) {
+        if ($epsTok.Kind -ne 'StringLiteral' -and $epsTok.Kind -ne 'StringExpandable') { continue }
+        foreach ($epsLn in ($epsTok.Extent.StartLineNumber..$epsTok.Extent.EndLineNumber)) {
+            $epsStrLines[$epsLn] = $epsTok
+        }
+    }
+    $epsLines = @($epsText -split "`r?`n")
+    for ($i = 0; $i -lt $epsLines.Count; $i++) {
+        $epsLine = $epsLines[$i]
+        $epsNo = $i + 1
+        foreach ($epsMatch in $epRegex.Matches($epsLine)) {
+            $epsPre = $epsMatch.Groups['pre'].Value
+            if ($epsPre -notmatch '-NoProfile\b') { continue }
+            if ($epsCmdLines.ContainsKey($epsNo)) { $epsCalls++; continue }
+            # Begins its own line (a comment marker is not text), or begins a line of the string it sits in.
+            $epsBare = $epsLine -replace '^\s*', '' -replace '^#+\s*', ''
+            $epsStarts = ($epsBare -match '(?i)^powershell(\.exe)?\b')
+            if (-not $epsStarts -and $epsStrLines.ContainsKey($epsNo)) {
+                foreach ($epsStrLine in ([string]$epsStrLines[$epsNo].Value -split "`r?`n")) {
+                    if (($epsStrLine -replace '^\s*', '') -match '(?i)^powershell(\.exe)?\b') { $epsStarts = $true }
+                }
+            }
+            if (-not $epsStarts) { $epsProse++; continue }
+            $epsChecked++
+            if ($epsPre -match '-ExecutionPolicy\s+\S+') { continue }
+            $epsFindings++
+            Add-Error ("[exec-policy/script] {0}:{1}: the printed command names no -ExecutionPolicy, so on a machine at the Windows default ('Restricted') it fails with 'running scripts is disabled on this system' before the script starts. Write 'powershell -NoProfile -ExecutionPolicy Bypass -File ...', which is what every hook, CI workflow and script-to-script call in this tree already passes." -f $epsRel, $epsNo)
+        }
+    }
+}
+Write-Coverage -Category 'exec-policy/script' -Checked $epsChecked `
+    -Note $(if ($epsFiles.Count -eq 0) {
+        'the script set is empty -- no printed command in any .ps1 could have been read, which is not the same as every printed command being sound'
+    } else {
+        "printed powershell invocation(s) across $($epsFiles.Count) script file(s), the same rule check 42 holds the documents to, one layer over -- $epsFindings finding(s), with $epsProse match(es) skipped as prose and $epsCalls skipped as a command the script RUNS. THREE NARROWINGS, each measured rather than reasoned about, because the naive rule is born here at 93 findings tree-wide against check 42's 0. THE INVOCATION MUST BEGIN ITS LINE, or a line of the string it sits in: a command somebody pastes is the whole of its line, which is what an .EXAMPLE block and a printed operator hint both look like, while prose naming the form is a fragment of a sentence -- 93 to 75, all 18 dropped correct. A COMMANDAST IS NEVER A SUBJECT, read off the parser rather than by looking for a leading '&': the child of a process carrying Bypass inherits it, and the parser also catches the shapes an '&' rule misses. THE FIXTURE LAYER IS EXCLUDED, as a layer and not as an exemption list -- a suite proving this check fires has to contain what it forbids, and of the 75 subjects exactly 2 sit under a tests/ folder, both of them this check's own markdown fixtures. Born green at 73, swept in the same branch across 36 files, 0 exemptions"
     })
 
 # --- 43. every tracked path is a name git can hand to a Windows checkout --------------------------------

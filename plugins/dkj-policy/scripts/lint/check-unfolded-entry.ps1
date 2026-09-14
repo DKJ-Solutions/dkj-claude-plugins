@@ -63,8 +63,8 @@
 
     RUN IT FROM CI, and from the command line whenever you want the answer early:
 
-        powershell -NoProfile -File scripts/lint/check-unfolded-entry.ps1
-        powershell -NoProfile -File scripts/lint/check-unfolded-entry.ps1 -Branch main
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-unfolded-entry.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-unfolded-entry.ps1 -Branch main
 
     Exit 0 when the trunk is clean (or the only per-branch document present is the branch you are on),
     and exit 0 with a [WARN] when every document found has already been folded on origin -- the trunk
@@ -83,7 +83,7 @@
     the root is resolved dual-context like every other shared script.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/lint/check-unfolded-entry.ps1 -Branch main
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-unfolded-entry.ps1 -Branch main
 #>
 [CmdletBinding()]
 param(

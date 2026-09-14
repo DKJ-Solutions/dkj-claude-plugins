@@ -76,7 +76,7 @@
 
     RUN IT FROM THE COMMAND LINE whenever you want the manifest directly:
 
-        powershell -NoProfile -File scripts/task/check-policy-drift.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/check-policy-drift.ps1
 
     Pure ASCII, per this repo's script-layer convention.
 
@@ -88,7 +88,7 @@
     (Optional, for tests) the always-on root to walk instead of '<root>/CLAUDE.md'.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/check-policy-drift.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/check-policy-drift.ps1
 #>
 [CmdletBinding()]
 param(

@@ -62,10 +62,10 @@
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/sweep-preview-themes.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/sweep-preview-themes.ps1
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/sweep-preview-themes.ps1 -Execute
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/sweep-preview-themes.ps1 -Execute
 
 .NOTES
     COVERAGE. scripts/tests/theme-lifecycle-rules.tests.ps1 pins the plan this script prints and acts

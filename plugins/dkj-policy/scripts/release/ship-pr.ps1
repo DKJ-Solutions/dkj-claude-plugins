@@ -608,7 +608,7 @@ if ($trunkHolder -and -not $queueActive) {
 Nothing has been pushed or merged -- this is the cheap place to stop. Release the trunk there first,
 then run ship-pr again. If that worktree is a finished lane, hand it back:
 
-  powershell -NoProfile -File "scripts\task\worktree-lane.ps1" -HandBack -Lane "$trunkHolder"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\task\worktree-lane.ps1" -HandBack -Lane "$trunkHolder"
 
 If it is a checkout you still want, move it off the trunk yourself (git -C "$trunkHolder" checkout <its branch>).
 "@

@@ -71,10 +71,10 @@
     and so the marketplace refusal can be bypassed in a repo that is one. A consumer never types it.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/archive-theme.ps1 -ThemeId 184381800789
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/archive-theme.ps1 -ThemeId 184381800789
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/archive-theme.ps1 -ThemeId 183398957397,184381800789
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/archive-theme.ps1 -ThemeId 183398957397,184381800789
 
 .NOTES
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/theme-archive-rules.tests.ps1 pins
