@@ -1,12 +1,29 @@
 # BWJ ticket handling -- the portable rule
 
-**This page applies in exactly two repos, named by store rather than by org: `smartwatchbanden` and
-`xoxowildhearts`.** They are not in the same organisation any more -- `smartwatchbanden` moved to
-`BWJ-Development` on September 7, 2026 and its `BWJ-ecommerce` predecessor is archived, with no
-redirect behind the old name -- so the org is deliberately left out of the scope. What has not changed
-is the pair. They are one business (BWJ) running two Shopify stores that behave
-identically and differ only in brand, so they handle a discovered issue the same way. This page is
-that way, written once so neither repo can drift from the other.
+**This chapter applies in three repos, and the third is a narrower grant than the other two.**
+`smartwatchbanden` and `xoxowildhearts` are named by store rather than by org, deliberately -- they are
+not in the same organisation any more, `smartwatchbanden` moved to `BWJ-Development` on
+September 7, 2026 and its `BWJ-ecommerce` predecessor is archived, with no redirect behind the old
+name, so an org would be a fact with a shelf life rather than a scope. What has not changed is the
+pair: one business (BWJ) running two Shopify stores that behave identically and differ only in brand,
+so they handle a discovered issue the same way. This page is that way, written once so neither repo can
+drift from the other.
+
+**The third is `dkj-claude-plugins`, this plugin's own source repo, admitted for this chapter alone by
+Dave on September 14, 2026 (commit `b9b2a65a`).** It is not a third store and gains nothing beyond
+ticket handling: a finding surfaced there can now file through this chapter's GitHub-first,
+Asana-mirrored procedure instead of a plain `gh issue create` against that repo's own tracker. The
+other three chapters of this plugin -- [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md),
+[`PREVIEW-portable.md`](PREVIEW-portable.md) and
+[`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) -- are Shopify-store policy through and
+through, and `dkj-claude-plugins` runs no store, so they stay at exactly the two names above; each says
+so on its own opening line.
+
+**Keep the two axes apart -- they read as one question and are not.** The org is left off the *store
+pair's* name because an org can move out from under a repo while the repo itself does not; the *repo
+count* differs by chapter because only this chapter's gate actually widened. `report-issue` and
+`adopt-dkj-policy-bwj` both check the repo name against all three; this page is the reasoning their
+guard enforces, not a second copy of the org-naming rule wearing a different number.
 
 It is a layer on top of `dkj-policy`, not a replacement for it. It extends that
 workflow's **ticket-work step -- the layer before the branch** -- and changes nothing else:

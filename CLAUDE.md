@@ -228,8 +228,9 @@ repo that loads it**: an agent def, a manifest, a frontmatter or a hook that sto
 surfaces at this repo's own session start instead of in somebody else's. Validation is the whole reason
 for them — none of the three is used for work here, and none is expected to be, which is why an empty
 lens under one of them is not a gap. `dkj-policy-bwj` carries no agents and therefore no lens at all
-(see the roster below); its own portable law pages still describe the reach as exactly two repos, which
-[#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982) tracks separately.
+(see the roster below); its portable law pages now state that reach per chapter -- three repos for
+ticket handling, two for the other three -- closing
+[#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982).
 
 **What that costs, so nobody reads the noise as breakage.** Two things came with it; one stands and one
 is answered. First, every specialist an enabled plugin ships needs a roster row and a repo lens —
