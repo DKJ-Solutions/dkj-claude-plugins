@@ -43,17 +43,32 @@ Issue #1973 asked whether native Claude Code worktree support (EnterWorktree/Exi
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add a "Why this doesn't just use Claude Code's own `--worktree`/`EnterWorktree`" section to
+  `plugins/dkj-policy/skills/worktree-lane/SKILL.md`, comparing native worktree placement/`.worktreeinclude`/
+  `isolation: "worktree"` against the lane mechanism point by point, and stating why switching would
+  regress the #1673 double-counting fix.
 
 ### TEST
 
+- [x] Docs-only change; no test suite applies. The lint gate's link/frontmatter scan and the
+  `[script-ascii]` check run via `open-pr.ps1` as usual.
+
 ### DEPLOY: docs/1973-native-worktree-note
 
-**Score:**
+Adds an explicit "why not native worktrees" section to the `worktree-lane` skill, answering the
+question issue #1973 asked directly from the skill a reader would already be looking at, instead of
+only from a comment buried in the issue thread.
+
+**Score:** 2 -- noticed only by a session or a person who goes looking for the reasoning; nothing
+about how the skill runs changes.
 
 #### What makes this deploy extra special
 
-**Score:**
+Consuming repos running `dkj-policy` get the same explanation inside their own copy of the skill
+after the next release, so "why doesn't this use native worktrees" doesn't have to be re-asked (or
+re-researched) per consumer.
+
+**Score:** 1 -- cosmetic; no behavior changes for a consumer, only the explanation reaches them.
 
 #### Pull Request
 
