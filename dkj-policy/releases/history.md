@@ -83,6 +83,7 @@ list sits at the **end** of the page:
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.3.0](audience/5.x/5.3.0.md) | 2026-09-14 | Minor | One shared Cloudflare Worker for both BWJ stores |
 | [5.2.0](audience/5.x/5.2.0.md) | 2026-09-14 | Minor | Native-capture argv quoting closed as a class, the fixture-load guard reaches every copying suite, and the BWJ theme lifecycle ships |
 | [5.1.0](audience/5.x/5.1.0.md) | 2026-09-12 | Minor | Adoption gaps close - shared BWJ mechanism, one-command plugin updates, and a portable reach label |
 | [5.0.0](audience/5.x/5.0.0.md) | 2026-09-11 | Major | The marketplace is dkj-claude-plugins -- every existing install must be re-installed under the new name |
