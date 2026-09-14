@@ -1142,9 +1142,25 @@ function Test-PluginInstalledHere {
        the block above for why the second counts). Deliberately also $true when the administration could
        not be read at all: an unreadable or absent authority is not evidence of absence, and a check that
        treats "I could not look" as "it is not installed" would fire its loudest new signal exactly where
-       it knows least. The caller reports the unreadable file separately. #>
+       it knows least. The caller reports the unreadable file separately.
+
+       $null IS THE STRONGEST FORM OF "I COULD NOT LOOK", AND [AllowNull()] IS WHAT MAKES THE FIRST LINE
+       BELOW REACHABLE (#1994). It had not been, since the day it was written: a Mandatory parameter
+       rejects $null during BINDING -- ParameterArgumentValidationErrorNullNotAllowed -- before one line
+       of the body runs. So the permissive answer this predicate is built around held for an UNREADABLE
+       administration and for an ABSENT one, and terminated for the caller who had no record object at
+       all, which is the same state read one step earlier.
+
+       THAT CALLER EXISTS, which is what makes this a repair rather than tidiness. check-policy-drift.ps1
+       sets $installRecord = $null and fills it inside a try/catch, so a throw in Get-InstallRecord leaves
+       it $null -- and its call site carries `if ($installRecord -and ...)` to keep that value away from a
+       binder that would have ended the run. With the attribute the contract holds for it and the clause
+       is redundant: $true here means the guarded branch is not taken, which is exactly what the guard was
+       arranging by hand. Get-InstallRecord's own happy path never returns $null (one `return`, always a
+       pscustomobject), which is why nothing in the tree was broken and why this was a latent
+       contradiction rather than an outage. #>
     param(
-        [Parameter(Mandatory = $true)]$InstallRecord,
+        [Parameter(Mandatory = $true)][AllowNull()]$InstallRecord,
         [Parameter(Mandatory = $true)][string]$PluginId
     )
     if ($null -eq $InstallRecord) { return $true }
@@ -1225,9 +1241,24 @@ function Get-RecordShape {
        from the query the documents tell a reader to trust, while Test-PluginInstalledHere stays
        (correctly) permissive and says nothing. Count is 0 for this shape -- there are no records for this
        path, which is the finding -- and Scopes carries the pathless records' own scopes so the report can
-       name what it found instead. #>
+       name what it found instead.
+
+       [AllowNull()] FOR THE SAME BINDER REASON AS THE SIBLING ABOVE, BUT NOT FOR THE SAME CONTRACT REASON
+       (#1994). The mechanism is identical: a Mandatory parameter rejects $null before the body, so the
+       first line below could not run. The ARGUMENT is not, and the issue that reported this got it one
+       step wrong -- worth recording, because the wrong reason leads to the wrong repair. It read the
+       sentence above ("Returns $null ... when there is nothing to judge at all") as a documented promise
+       about a $null ARGUMENT; it is not, it is about a record set holding nothing for this id. The doc was
+       never broken here.
+
+       WHAT IS BROKEN IS THE DIRECTION OF ERROR, which is this predicate's own standing rule: it may
+       suppress a finding, never invent one, and its suites pin exactly that for an unreadable and an
+       unparseable administration. A binder failure is neither -- it is a terminating error raised at a
+       caller who asked a question about a shape and got its run ended instead, which is the loudest
+       possible way to invent one. $null therefore answers $null: no evidence is [NOT-INSTALLED-HERE]'s
+       subject, and one step less evidence than that is still not this one's. #>
     param(
-        [Parameter(Mandatory = $true)]$InstallRecord,
+        [Parameter(Mandatory = $true)][AllowNull()]$InstallRecord,
         [Parameter(Mandatory = $true)][string]$PluginId
     )
     if ($null -eq $InstallRecord) { return $null }
@@ -1368,12 +1399,20 @@ function Get-PluginUpdateScope {
        machine reaches, and picking a winner out of it would be inventing an answer the file does not
        contain.
 
-       [AllowNull()] IS DELIBERATE AND ITS TWO SIBLINGS DO NOT HAVE IT. Test-PluginInstalledHere and
-       Get-RecordShape both open with an `if ($null -eq $InstallRecord)` line that cannot be reached:
-       a Mandatory parameter refuses $null before the body runs, so the documented answer for that
-       input is a promise the signature breaks. Here the guard is reachable, because every caller of
-       this one needs a scope to put in a command and 'I had nothing to read' is a real input rather
-       than a caller bug. #>
+       [AllowNull()] WAS DELIBERATE HERE AND ALL THREE SIBLINGS NOW CARRY IT (#1994). This block used to
+       record the opposite -- that Test-PluginInstalledHere and Get-RecordShape each open with an
+       `if ($null -eq $InstallRecord)` line a Mandatory parameter refuses to reach -- as a contrast that
+       explained why THIS function was different. It was a real observation and the wrong conclusion: the
+       two siblings were not making a different choice, they were making the same one and failing to bind
+       it. Each has its own argument for the answer it gives $null, written at its own doc, and none of
+       the three is 'a caller bug'.
+
+       WHAT SURVIVES THE REPAIR IS THE ANSWER, WHICH IS STILL NOT SHARED: this one returns a usable
+       'project'/'default' scope because every caller needs something to put in a command, the permissive
+       predicate returns $true because an absent authority is not evidence of absence, and the shape
+       predicate returns $null because it may never invent a finding. Three different answers to one
+       input, which is why the attribute is repeated three times rather than factored into a shared
+       validator. #>
     param(
         [Parameter(Mandatory = $true)][AllowNull()]$InstallRecord,
         [Parameter(Mandatory = $true)][string]$PluginId

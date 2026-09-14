@@ -331,7 +331,13 @@ foreach ($id in $ordered) {
     $pages = @(Get-ChildItem -LiteralPath $dir -Filter '*-portable.md' -File | Sort-Object Name)
     if ($pages.Count -eq 0) { continue }
 
-    if ($installRecord -and -not (Test-PluginInstalledHere -InstallRecord $installRecord -PluginId $id)) {
+    # NO `$installRecord -and` IN FRONT ANY MORE (#1994). $installRecord is $null whenever the try above
+    # threw, and the clause was here to keep that value away from a Mandatory parameter that would have
+    # ended the run on it. The predicate now takes $null and answers $true -- an absent authority is not
+    # evidence of absence -- so the guarded branch is not taken either way and the behaviour is unchanged.
+    # Stated rather than silently deleted: this call site is the one place in the tree that proved $null
+    # reaches there, so it is also the place a reader checks whether the repair was real.
+    if (-not (Test-PluginInstalledHere -InstallRecord $installRecord -PluginId $id)) {
         $notInstalledHere.Add($id) | Out-Null
     }
     foreach ($page in $pages) {
