@@ -43,7 +43,47 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 12 minor entries** <!-- pending-tally -->
+**9 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2003-json-case-collision-verdict · 20260914-194709
+
+`check-plugin-integrity`'s `Test-JsonFile` reported every parse failure as `is not valid JSON`,
+which for one whole class of them is the opposite of the truth: Windows PowerShell 5.1's
+`ConvertFrom-Json` folds object keys case-insensitively and then refuses the collision it made
+itself, so a valid document carrying `.c` beside `.C` was accused of being malformed. It now
+establishes validity with a case-sensitive reader before it judges, and where the file is sound it
+says so and names which keys collided and where -- `'.C' and '.c' in lspServers.clangd.extensionToLanguage`,
+which is the real map the official marketplace ships. Still an error, because the checks that read
+the manifest did not run; what changed is that the reader is no longer sent to edit a correct file.
+The diagnosis reads the document rather than the exception's message, which is localized.
+
+**Score:** 2
+
+Nothing in this repo is red today -- its own `marketplace.json` and `plugin.json` files carry no
+collision and have no reason to. What was wrong was the gate's verdict for a document class that
+provably exists, so this is noticed only by whoever meets it, and then it saves them from editing a
+file that was already correct.
+
+#### What makes this deploy extra special
+
+`Test-JsonFile` is this repo's own lint, not plugin payload, so no consumer runs it -- the reach
+label on the issue is one layer over from where the symptom is. #1993 -- merged mid-branch as PR
+#2010 -- is the half that reads the manifest a consumer installs from, and it is the one that reaches them.
+
+The branch is also a small worked example of the repo's own rule that a report's REASON is verified
+before it is repaired. Two of this issue's premises moved under it: one was stale on arrival and one
+became true while the work was in flight. Neither changed the repair, because what was checked was
+the tree rather than the sentence.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stop calling a case-colliding JSON file malformed
+
+[PR #2011](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2011)
+
+---
 
 ### DEPLOY: fix/1993-case-collision-json-reader · 20260914-192344
 
