@@ -43,7 +43,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**8 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2000-quota-red-check · 20260914-184214
+
+`claude-review` went red on every pull request, and the cause was not a credential. The failure annotation
+had already named it -- the org's monthly spend limit, the third of the three 429 kinds this workflow
+documents (#1164) -- which no clock resets and no rotation touches. #2000 was filed as a sixth credential
+rotation; there was nothing to rotate.
+
+**The check no longer goes red when the account is out of quota** (Dave, September 14, 2026), reversing
+the paragraph this workflow had carried since #966. That argument was not wrong about what a red check
+MEANS; it was wrong about what a red check DOES after the seventh consecutive one. Seven issues have been
+filed against this one check -- #891, #913, #942, #966, #1055, #1164 and #2000 -- and a signal that fires
+on every pull request is not a signal.
+
+**The downgrade is scoped to 429 and nothing else**, on the line this file already drew: that headline
+says *re-running adds none*, and no act available to a reader of the check changes it. Everything else
+stays red because there something can be done -- a 529 is transient and a re-run is a real remedy, an
+unexpected status is unknown, and the pre-SDK class is a missing GitHub App install (#1245), which a green
+check would have buried. The empty status falls into the failing branch by construction, so a diagnostic
+step that dies under its own `continue-on-error` makes the check red rather than green.
+
+**The legibility work is untouched, which is the half worth protecting.** The annotation keeps its level,
+its title and its text and is still written on a 429; it renders whatever the job's conclusion is. What
+goes away is the red tick beside it, and with it ship-pr's "a check FAILED but the merge was not blocked"
+paragraph -- the line that was printing on every ship.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The one way this change can go wrong is silently. `continue-on-error` defers the verdict, so a decision
+step that stopped re-failing -- or a diagnostic left keying on `failure()`, which is now false everywhere
+in this job -- would turn every failure green, including the setup defects somebody genuinely has to act
+on. That regression prints nothing and looks like a healthy repo. Thirteen asserts pin the direction of
+the fail-safe against the workflow's own text, 11 of them go red against the trunk's version, and the
+`failure()` one is there because that exact mistake was made while writing this and caught by a test
+rather than by a reader.
+
+**Score:** 2
+
+#### Pull Request
+
+Stop claude-review going red when the account is out of quota, and keep it red for everything else
+
+[PR #2007](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2007)
+
+---
 
 ### DEPLOY: fix/1998-templates-in-script-set · 20260914-182517
 
