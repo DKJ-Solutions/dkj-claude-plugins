@@ -47,7 +47,7 @@ prints the link.
 | kind | what it carries | who builds it |
 |---|---|---|
 | `notes` | the release notes for a reader outside the development work | `dkj-policy`'s `build-release-notes-page.ps1`, run **without** `-Worker` — it leaves `release-notes.html` in the page directory |
-| `backlog` | the minor backlog — the open issues carrying the reach label, with their Asana tasks | *not built yet* — the builder is [its own issue](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1979); this script already routes and publishes the kind |
+| `backlog` | the minor backlog — the open issues carrying the reach label, shown with their mirrored Asana tasks' colleague-facing text | [`build-backlog-page`](../build-backlog-page/SKILL.md) (issue #1979) — it leaves `minor-backlog.html` in the page directory |
 
 Adding a third kind means adding it in **both** `scripts/lib/page-publish-rules.ps1` and
 `worker/bwj-pages-worker.js`, then redeploying. A kind known to only one of the two publishes
