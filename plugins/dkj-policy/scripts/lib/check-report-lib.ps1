@@ -1317,6 +1317,33 @@ function Get-PluginScopeNames {
     return $script:PluginScopeNames
 }
 
+function Get-UncheckoutableNameClass {
+    <# Is $Path a name git can write into a WINDOWS working tree? '' when it is; otherwise the class
+       it fails on -- 'private-use', 'windows-reserved' or 'control'.
+
+       A CLASS NAME RATHER THAN A SENTENCE, so the caller phrases the finding and this function can be
+       asserted on without a test pinning prose. The three are returned in the order below because a
+       path can fail more than one at once and a reader needs the likeliest cause named first.
+
+       THE CLASS THAT BIT IS 'private-use' (September 14, 2026). A tool was handed an absolute path to
+       write to, Windows substituted U+F03A for the drive colon and dropped every separator, and the
+       result was ONE file in the repo root whose name is the flattened path -- swept into a commit by
+       `git add -A` and green through the lint gate, the test gate and CI, because nothing anywhere had
+       an opinion about what a path is CALLED. The cost is not cosmetic: git cannot write that name
+       into a Windows working tree, so the next clone there fails on checkout.
+
+       THE PATTERN IS COMPOSED FROM CODE POINTS, NEVER TYPED. This layer is ASCII by convention and by
+       gate (check 27), and a private-use character typed literally into a .ps1 is exactly what that
+       rule exists for: 5.1 reads a BOM-less script as the system ANSI code page, so the bytes decode
+       to something else, nothing errors, and the mis-decoded pattern silently matches nothing. Same
+       repair as the middot in entry-scaffold-lib (.claude/rules/language-layers.md). #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path)
+    if ($Path -match ('[' + [char]0xE000 + '-' + [char]0xF8FF + ']')) { return 'private-use' }
+    if ($Path -match '[<>:"|?*]')                                     { return 'windows-reserved' }
+    if ($Path -match '[\x00-\x1F]')                                   { return 'control' }
+    return ''
+}
+
 function Get-PluginUpdateScope {
     <# Which '--scope' does `claude plugin update <PluginId>` need in the checkout $InstallRecord was
        read for? Read the block above this function for why it is a question at all.
