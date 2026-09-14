@@ -41,14 +41,16 @@
 
 #### What #1972 reports, and what the tree actually says
 
-Four places claim `adopt-ci-floor.ps1` composes a ready-to-run `gh api` call for the ruleset change it
+Five places claim `adopt-ci-floor.ps1` composes a ready-to-run `gh api` call for the ruleset change it
 refuses to apply. It composes none: the only `gh api` line it ever prints is a READ. Verified against the
 script before any repair was written -- the two arms that reach a ruleset change hand over prose
 (the required-check `[gap]`) and a UI path (the queue).
 
-The issue names three sites. There are **four** -- `.claude/specialists/lenses/05-15-extension.md:882`
-carries the same claim and was not reported. Both scripts are byte-identical to their plugin mirrors, so
-each repair lands twice.
+The issue names three sites -- the `.DESCRIPTION` line, the `$repoSettingsRunner` scaffold comment, and
+`check-repo-settings.ps1`. There are **five** -- `.claude/specialists/lenses/05-15-extension.md:882` carries
+the same claim and was not reported, and the `.SYNOPSIS` line carries a worse version of it, attributing the
+printed command to "a repo that has CHOSEN a merge queue," which matched neither the old behaviour nor the
+new. Both scripts are byte-identical to their plugin mirrors, so each repair lands twice.
 
 Option 2 of the issue is the one taken, scoped: the required-check arm composes the call, because that is
 the arm the docstring's argument rests on and the one #1971 needed. The queue arm keeps its UI handover --
@@ -62,9 +64,14 @@ the prose, which stops reading as if it covered both.
       call, with the trunk, the slug and the candidate check filled in from state the run already holds
 - [ ] `$repoSlug` hoisted out of the rules-read `else` branch, so the composed call can name it on the
       `-RulesJsonOverride` path without tripping `Set-StrictMode`
-- [ ] all four citations say WHICH ruleset instruction composes, and why the queue one does not --
+- [ ] all five citations say WHICH ruleset instruction composes, and why the queue one does not --
       including the one scaffolded into every adopting consumer's `repo-settings.yml` header
 - [ ] both plugin mirrors kept byte-identical
+- [ ] the copy edit's own sweep: four consumer-facing sites that MISATTRIBUTE the composed call to the
+      queue arm, found after the five above were already fixed -- `plugins/dkj-policy/skills/adopt-dkj-policy/SKILL.md`,
+      `plugins/dkj-policy/CONTRIBUTING-portable.md`, `plugins/dkj-policy/scripts/README.md`, and this
+      repo's own `.github/workflows/repo-settings.yml`, brought in line with the `$repoSettingsRunner`
+      template it is otherwise hand-maintained beside
 
 ### TEST
 
@@ -99,16 +106,25 @@ the tree can usually answer itself, while a `merge_queue` rule asserts seven sch
 merge method, grouping strategy, three limits, two timeouts -- that are policy nobody here has chosen, on
 a control GitHub does not even render outside the plans that may have one. All five citations were
 reworded to name which instruction composes and why the other does not, including the one scaffolded into
-every adopting consumer's `repo-settings.yml` header. The fifth site was not in the report: the lens at
-`.claude/specialists/lenses/05-15-extension.md` carried the same claim, and the `.SYNOPSIS` carried a
-worse version of it -- it attributed the printed command to "a repo that has CHOSEN a merge queue," which
-matched neither the old behaviour nor the new.
+every adopting consumer's `repo-settings.yml` header. **Two of the five were not in the report**: the lens
+at `.claude/specialists/lenses/05-15-extension.md` carried the same claim, and separately the
+`.SYNOPSIS` line carried a worse version of it -- it attributed the printed command to "a repo that has
+CHOSEN a merge queue," which matched neither the old behaviour nor the new. Three from the issue plus
+these two is five.
 
 One thing the repair had to move out of the way: `$repoSlug` lived inside the `else` branch of the
 rules-read block, so under `Set-StrictMode -Version Latest` it was undefined on the `-RulesJsonOverride`
 path -- the path the suite takes and the one the printed call needs the slug on. It is hoisted; the `gh`
 fallback stays inside the network-reading branch, because a run with an override file and no network has
 no way to answer it and is owed a placeholder instead.
+
+**The copy edit that followed found the claim had spread further than those five.** Four consumer-facing
+pages attributed the composed call to the queue arm specifically -- the one arm that, after this branch,
+composes nothing at all: the `adopt-dkj-policy` skill page, `CONTRIBUTING-portable.md`, the scripts
+README's own table row, and this repo's own scaffolded `.github/workflows/repo-settings.yml`, which still
+carried the sentence the `$repoSettingsRunner` template wrote before it was reworded here. Each is now
+corrected to name the required-check arm as the one that composes and the queue as the one that stays a
+UI pointer. **The real total this branch corrects is nine** -- the five citations above plus these four.
 
 **Score:** 3
 
