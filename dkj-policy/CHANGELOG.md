@@ -43,7 +43,68 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**9 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1993-case-collision-json-reader · 20260914-192344
+
+A marketplace manifest that Windows PowerShell 5.1's own JSON reader refuses can be read again.
+
+5.1's `ConvertFrom-Json` folds object keys case-insensitively and then refuses the collision it made
+itself, so a *valid* manifest carrying two keys differing only in case could not be parsed at all --
+and the official marketplace carries exactly such a pair, an `lspServers.clangd` extension map
+listing `.c` beside `.C`. Every plugin from that marketplace was therefore permanently
+`cannot determine` in `plugin-versions`, `update-plugins`' step-3 receipt could never verify what its
+step 2 had done for them, and nothing a consumer ran changed it: the state was stable, not transient.
+`#1987` had already stopped the tool prescribing a refresh that provably cannot help; this is the
+reading itself.
+
+`ConvertFrom-MarketplaceJson` keeps `ConvertFrom-Json` as the only path an ordinary document takes,
+and falls back to a case-sensitive reader for the documents it refuses. The fallback is **lazy**, so
+the header's no-dependencies rule survives where it was written to hold: nothing extra is loaded on
+the path `check-connectors.ps1` takes at every SessionStart. It triggers on **any** parse failure
+rather than on the error message -- an exception message is not a contract, and matching one is not
+merely risky but unnecessary: a failure that is not a case collision fails in the second reader too,
+and then the original exception is what the caller sees. The discriminating is done by trying.
+
+Two things the issue could not have known, both found by measuring rather than by reading it:
+
+- **A faithful reparse is impossible on 5.1**, because a `PSObject` rejects the colliding property
+  for the same reason the hashtable does. So the fallback does not pretend to return the document: it
+  projects the three fields this repo consumes, and everything else is dropped by design rather than
+  lost by accident -- checkable, because exactly two functions parse a marketplace document anywhere
+  in the repo, and both now read through it. Routing only the first would have moved the symptom four
+  lines down `cut-release.ps1` rather than removed it.
+- **Making the document readable made a second branch reachable that had never had to be decided.**
+  244 of that manifest's 296 entries declare a *url* source rather than a path -- the majority shape
+  in a real catalogue -- and resolving one produces a root that is a stringified type name. Those are
+  now skipped: a plugin fetched from a url does not live in this tree, and one of them must not cost
+  the whole catalogue, which would have been #1993's own symptom in a new costume.
+
+That skip made `plugin-versions` say `'x' is not listed in the clone's marketplace.json` about a
+plugin that plainly is, and send the reader to a marketplace refresh -- the third loop of the shape
+#1987 had just finished splitting apart. So `-IncludeRemote` lets that one caller tell *declared
+elsewhere* from *not declared*, and the row now says the version cannot be read because the payload
+is fetched from a url, with nothing to run, because nothing is broken.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. This repo's own consumers read `plugin-versions` and `update-plugins`, and both get a truthful
+answer where they previously got a permanent `cannot determine` and an instruction that could not
+work -- but it reaches no subscriber of a service, because there is none.
+
+**Score:** N/A
+
+#### Pull Request
+
+A marketplace manifest with case-colliding JSON keys is readable again
+
+Plugins: dkj-policy
+
+[PR #2010](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2010)
+
+---
 
 ### DEPLOY: fix/2005-slow-fixture-shared-dir · 20260914-190653
 

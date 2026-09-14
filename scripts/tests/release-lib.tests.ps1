@@ -1412,6 +1412,97 @@ Assert-Equal './plugins/dkj-subagents/dkj-subagents-alpha' $nestedRoots[0].Sourc
 Assert-Throws { Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{"plugins": [{"name": "x", "source": "../outside"}]}' } 'source with a ..-path outside the repo throws (containment)'
 Assert-Throws { Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{"plugins": [{"name": "x", "source": "C:\\elsewhere"}]}' } 'absolute source throws (containment)'
 
+Write-Host "ConvertFrom-MarketplaceJson -- the case-colliding manifest (#1993)" -ForegroundColor Cyan
+
+# THE DOCUMENT 5.1 CANNOT READ. Two keys differing only in case are valid JSON; ConvertFrom-Json folds
+# them and then refuses the collision it made itself. The collision sits in a subtree Get-PluginRoots
+# never reads -- which is the whole shape of the real case, an lspServers extension map listing '.c'
+# beside '.C' in the official marketplace.
+$collidingJson = @'
+{
+  "name": "colliding",
+  "plugins": [
+    { "name": "alpha", "source": "./plugins/alpha" },
+    {
+      "name": "beta",
+      "source": "./plugins/beta",
+      "lspServers": { "x": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } }
+    }
+  ]
+}
+'@
+Assert-Throws { $collidingJson | ConvertFrom-Json } 'the premise still holds: ConvertFrom-Json refuses a case collision on this host'
+
+$collidingRoots = @(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson $collidingJson)
+Assert-Equal 2 $collidingRoots.Count 'a manifest with case-colliding keys is read, not refused'
+Assert-Equal 'alpha' $collidingRoots[0].Name 'and the entries arrive in the order the manifest wrote them'
+Assert-Equal 'C:\fake-repo\plugins\beta' $collidingRoots[1].Root 'the entry CARRYING the collision resolves like any other'
+Assert-Equal './plugins/beta' $collidingRoots[1].Source 'Source is still kept exactly as the marketplace wrote it'
+
+# THE FALLBACK IS NOT ALLOWED TO CHANGE WHAT A READABLE DOCUMENT MEANS. Same asserts as the ordinary
+# path above, reached through the same function, so a future edit cannot quietly route everything
+# through the case-sensitive reader and lose the PSCustomObject contract.
+Assert-Equal 2 (@(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{"plugins":[{"name":"a","source":"./a"},{"name":"b","source":"./b"}]}')).Count 'an ordinary manifest is unaffected'
+
+# MALFORMED JSON REPORTS ITS OWN ERROR, NOT THE FALLBACK'S. The fallback triggers on ANY parse failure
+# rather than on the duplicated-keys message -- an exception message is not a contract, and matching one
+# is unnecessary here because a failure that is not a case collision fails in the second reader too, and
+# then the ORIGINAL exception is what the caller sees. This assert is what pins that second half.
+Assert-Throws { Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{ this is not json' } 'malformed JSON still throws'
+$parseErr = ''
+try { Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{ this is not json' } catch { $parseErr = $_.Exception.Message }
+Assert-NoMatch $parseErr 'duplicated keys' 'and the error is the parse error, never a second one about the fallback'
+
+# A DOCUMENT THAT COLLIDES AND DECLARES NOTHING gets the sentence about declaring nothing, because the
+# duplicated-key error would be a worse answer to a manifest whose real defect is that it is empty.
+$emptyErr = ''
+try { Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{ "a": 1, "A": 2 }' } catch { $emptyErr = $_.Exception.Message }
+Assert-Match $emptyErr "no 'plugins' list" 'a colliding manifest with no plugins list says so, rather than reporting the collision'
+
+# THE SECOND READER OF THE SAME DOCUMENT. cut-release.ps1 calls Get-PluginRoots and Get-MarketplaceName
+# on one Get-MarketplaceJsonText(), four lines apart in one function, so a fix applied to only the first
+# moves the symptom rather than removing it (Victor, on this branch). The projection carries the
+# document's own 'name' for exactly this caller.
+Assert-Equal 'colliding' (Get-MarketplaceName -MarketplaceJson $collidingJson) 'Get-MarketplaceName reads a colliding document too'
+Assert-Equal 'plain' (Get-MarketplaceName -MarketplaceJson '{"name":"plain","plugins":[]}') 'and an ordinary document is unaffected'
+$noNameErr = ''
+try { Get-MarketplaceName -MarketplaceJson '{ "plugins": [], "x": 1, "X": 2 }' } catch { $noNameErr = $_.Exception.Message }
+Assert-Match $noNameErr "no non-empty 'name'" 'a colliding document with no name still gets the sentence about the name'
+
+Write-Host "Get-PluginRoots -- a url source is skipped, not resolved (#1993)" -ForegroundColor Cyan
+
+# 244 of the official marketplace's 296 entries carry this shape, so it is the majority form in a real
+# catalogue rather than an oddity. It was unreachable for that document until the fallback above made it
+# readable at all, which is why it had never had to be decided.
+$mixedJson = '{"plugins":[{"name":"local","source":"./plugins/local"},{"name":"remote","source":{"source":"url","url":"https://example.invalid/x.git","sha":"abc"}}]}'
+$mixedRoots = @(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson $mixedJson)
+Assert-Equal 1 $mixedRoots.Count 'a url-sourced plugin is skipped rather than given an invented root'
+Assert-Equal 'local' $mixedRoots[0].Name 'and the path-sourced plugin beside it still resolves'
+Assert-Equal $true $mixedRoots[0].IsLocal 'a resolved root is marked IsLocal'
+
+# SKIPPED, NOT THROWN: one remotely-sourced plugin must not cost the whole catalogue -- that is the
+# symptom #1993 was filed about, arriving in a new costume.
+Assert-Equal 1 (@(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{"plugins":[{"name":"remote","source":{"source":"url"}},{"name":"local","source":"./l"}]}')).Count 'a url source does not abort the read for the plugins after it'
+
+# -IncludeRemote EXISTS FOR THE ONE CALLER THAT MUST TELL 'declared elsewhere' FROM 'not declared'.
+# plugin-versions answers those two with opposite advice, and without this they are indistinguishable.
+$withRemote = @(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson $mixedJson -IncludeRemote)
+Assert-Equal 2 $withRemote.Count '-IncludeRemote emits the url-sourced entry too'
+$remoteRow = @($withRemote | Where-Object { -not $_.IsLocal })
+Assert-Equal 1 $remoteRow.Count 'exactly one of them is marked as not local'
+Assert-Equal 'remote' $remoteRow[0].Name 'it carries the name the manifest declared'
+Assert-Equal $null $remoteRow[0].Root 'and every path field on it is null rather than a stringified object'
+Assert-Equal $null $remoteRow[0].ManifestPath 'ManifestPath too -- a caller must not be able to Test-Path it'
+Assert-Equal $null $remoteRow[0].RelativeRoot 'RelativeRoot too'
+
+# THE SWITCH IS OFF BY DEFAULT, which is what keeps every existing caller seeing the set it always saw.
+Assert-Equal 1 (@(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson $mixedJson)).Count 'without the switch the remote entry stays out'
+
+# A MISSING SOURCE IS STILL A THROW, not a skip. The two failures are different: 'declared with its
+# payload elsewhere' is a legitimate entry this function has nothing to say about, and 'no source at
+# all' is a broken one.
+Assert-Throws { Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson '{"plugins": [{"name": "x"}]}' } 'a missing source still throws rather than being skipped as remote'
+
 Write-Host "Get-ManifestAgentEntries" -ForegroundColor Cyan
 
 # EVERY FORM THE INSTALLER ACCEPTS, over a real ConvertFrom-Json object rather than a hashtable: the two

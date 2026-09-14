@@ -144,6 +144,11 @@ function Resolve-Clone {
         HeadDate      = ''
         FetchTime     = ''
         PluginVersion = @{}
+        # DECLARED BUT NOT IN THIS CLONE: the plugins the manifest lists with a url source instead of a
+        # path. Their payload is fetched from elsewhere, so the clone holds no plugin.json for them and
+        # PluginVersion cannot carry them -- but they ARE listed, and the verdict below owes them a
+        # different sentence from a name the manifest has never heard of.
+        RemoteNames   = @{}
         Error         = ''
     }
     if (-not $info.Exists) { return $info }
@@ -173,7 +178,8 @@ function Resolve-Clone {
     }
 
     try {
-        foreach ($r in @(Get-RepoPluginRoots -RepoRoot $dir)) {
+        foreach ($r in @(Get-RepoPluginRoots -RepoRoot $dir -IncludeRemote)) {
+            if (-not $r.IsLocal) { $info.RemoteNames[$r.Name] = $true; continue }
             $v = ''
             if (Test-Path -LiteralPath $r.ManifestPath -PathType Leaf) {
                 try {
@@ -351,6 +357,8 @@ foreach ($id in $ids) {
         $cloneText = "$(if ($cloneVer) { $cloneVer } else { '(no version in plugin.json)' })  $(if ($clone.IsGit) { 'HEAD' } else { 'sha' }) $(Format-ShortSha $clone.Head)"
     } elseif ($clone.Error) {
         $cloneText = "the clone's marketplace.json could not be read: $($clone.Error)"
+    } elseif ($clone.RemoteNames.ContainsKey($name)) {
+        $cloneText = "'$name' is listed, but its source is a url -- the clone holds no copy of it"
     } else {
         $cloneText = "'$name' is not listed in the clone's marketplace.json"
     }
@@ -416,6 +424,19 @@ foreach ($id in $ids) {
             } else {
                 $action = "read $manifestPath first -- a refresh only helps if the clone's copy is damaged: claude plugin marketplace update $mpTok"
             }
+        } elseif ($clone.RemoteNames.ContainsKey($name)) {
+            # THE THIRD WAY OF NOT ANSWERING, and it is a refusal of the refresh for the same reason as
+            # the parse-failure branch above rather than a variant of the absent one below. The manifest
+            # is current and the plugin is in it; what the clone does not hold is the plugin's PAYLOAD,
+            # because the entry declares a url source and Claude Code fetches that separately. Refreshing
+            # the clone re-reads the same manifest and changes nothing -- the third loop of this shape
+            # that this row has prescribed, after the two #1987 split apart.
+            #
+            # NO COMMAND IS OFFERED, deliberately, because there is nothing wrong to repair: this is the
+            # normal and permanent state of a url-sourced plugin, and the install record above the
+            # verdict is the only side that can speak about its version at all.
+            $verdict = "cannot determine -- '$name' is declared with a url source, so the clone holds no plugin.json to read a version from"
+            $action = "nothing to run -- this is permanent for a url-sourced plugin, not a stale clone; the installed version above is the only one there is"
         } else {
             $verdict = "cannot determine -- '$name' is not in the clone's marketplace.json"
             $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"
