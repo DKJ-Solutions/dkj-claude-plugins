@@ -43,4 +43,55 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**1 / 1 minor entry** <!-- pending-tally -->
+
+### DEPLOY: fix/1985-bypass-in-printed-commands · 20260914-143406
+
+Every command this repo prints for a person to run now carries `-ExecutionPolicy Bypass`, and a new gate
+check keeps it that way. A fresh Windows profile sits at `Restricted`, which refuses every `.ps1`, so the
+form 32 documents printed died with `running scripts is disabled on this system` before the script's first
+line -- measured in this repo, where all five execution-policy scopes read `Undefined`
+([#1985](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1985)).
+
+**Nothing was ever red, and that is the part worth keeping.** Everywhere this tree controls the
+invocation -- 8 hook entries, 7 CI workflows, every script-to-script call, the allowlist -- it already
+passed `Bypass`. Only the lines a reader types were bare, and no gate executes those. So the session
+start was green while the first command of the page it had just loaded could not run.
+
+**Check 42 is narrowed to invocations that already carry `-NoProfile`**, and that is the rule rather
+than a detail. Without it the check is born with 12 findings, every one correct prose naming the
+invocation mode; with it, 85 subjects and zero exemptions. The value is deliberately not pinned --
+`RemoteSigned` passes -- because the rule is that the policy be answered, not that a lint gate pick the
+answer. Fences are not masked, unlike the other document checks: here the fenced block *is* the command.
+
+**The `.ps1` layer is filed rather than swept**
+([#1989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1989)). The same rule over
+comment-based help is born at 43
+findings, which is a proposal to sweep and not a regression guard. Two sites there are repaired here
+anyway because they are functional: `bootstrap.ps1` writes both an allowlist pattern and a stub hook
+command into a **consumer's** `settings.json`, and a bare pattern stops matching the day the pages print
+the other form.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer adopting these plugins on a Windows machine that has not been told otherwise can now paste
+the commands off the pages and have them work. Before this, every printed command depended on an
+`INSTALL.md` prerequisite no page named, and the failure arrived as a security exception with the
+plugin's own script in it -- which reads as a broken plugin rather than as a machine setting. Nothing
+to run on an existing machine: the change is in what the pages say and in what `specialists-init`
+writes into a new consumer's allowlist.
+
+**Score:** 2
+
+#### Pull Request
+
+Printed powershell commands carry -ExecutionPolicy Bypass
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1992](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1992)
+
+---
+
