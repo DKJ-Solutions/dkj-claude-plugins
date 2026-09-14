@@ -2,7 +2,10 @@
 
 **This page applies in exactly two repos, named by store rather than by org: `smartwatchbanden` and
 `xoxowildhearts`** -- see [`WORKFLOW-portable.md`](WORKFLOW-portable.md) for why the org is left out.
-It is chapter two of this plugin, beside
+**Unlike chapter one, this reach did NOT widen when `dkj-claude-plugins` was admitted on
+September 14, 2026** -- a sync log records what a third party changed on a *live theme*, and the source
+repo runs no store, so there is nothing here for it to own. That page's opening explains the widening;
+this one stays exactly the pair it always was. It is chapter two of this plugin, beside
 [`WORKFLOW-portable.md`](WORKFLOW-portable.md), and it answers one question that chapter does not:
 **what a sync owes.**
 

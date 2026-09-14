@@ -39,19 +39,71 @@
 
 ### PLAN
 
+Close #1982: commit `b9b2a65a` widened `dkj-policy-bwj`'s two gate checks (`report-issue`,
+`adopt-dkj-policy-bwj` step 0) to admit `dkj-claude-plugins` as a third repo for ticket handling
+alone, but left the four portable law pages, the plugin's own `README.md`, `plugin.json` and the
+root `marketplace.json` all saying "exactly two repos" -- deliberately, per that commit's own message.
+Sweep those pages so each states its actual per-chapter reach: three for ticket handling, two for the
+other three chapters (sync log, preview handover, theme lifecycle), which stay Shopify-store policy
+that `dkj-claude-plugins` genuinely has no part in.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md` -- restate the opening as three repos for this chapter, keep the
+      org-left-out reasoning for the store pair, name the third (this plugin's own source repo,
+      admitted by Dave Sept 14 2026, commit `b9b2a65a`) and what it does/doesn't gain, and separate
+      the two axes (org-naming vs. repo-count) explicitly so neither reads as an explanation of the
+      other.
+- [x] `SYNC-LOG-portable.md`, `PREVIEW-portable.md`, `THEME-LIFECYCLE-portable.md` -- keep the
+      two-repo opening, each stating explicitly that ITS reach did not widen and why (a sync log, a
+      preview handover and a theme estate are all facts about a live Shopify theme, and the source
+      repo runs no store), pointing back to `WORKFLOW-portable.md` for the contrast.
+- [x] `dkj-policy-bwj/README.md` -- one paragraph ahead of the chapter table stating the reach now
+      differs per chapter, citing the same decision and commit, pointing to the per-chapter pages
+      for the detail rather than re-arguing it in the overview.
+- [x] `dkj-policy-bwj/.claude-plugin/plugin.json` and root `.claude-plugin/marketplace.json` --
+      reworded the closing "Enable this only in BWJ's two ... repos" sentence to state the split.
+- [x] `CLAUDE.md`'s own forward-reference to #1982 (`"its own portable law pages still describe the
+      reach as exactly two repos, which #1982 tracks separately"`) -- updated to describe the
+      resolved state instead of pointing at an open issue this branch closes.
+- [x] Root `README.md`'s `dkj-policy-bwj` table row -- its enablement cell restated the same
+      "Only BWJ's two store repos" fact the two manifests carried; left unfixed it would have been a
+      *new* inconsistency introduced by this branch (disagreeing with the manifests one PR after
+      they were corrected), so it was brought in line with the same wording.
+- [x] Filed [#2012](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2012) for three
+      further, pre-existing "ticket-work step ... BWJ's two Shopify store repos" mentions found while
+      doing this sweep (`CONTRIBUTING-portable.md:600`, `plugins/dkj-policy/README.md:210`,
+      root `README.md:297`) -- a related but distinct site of the same staleness, in documents #1982
+      never named, per this repo's "an inconsistency is always filed, not silently expanded" rule
+      rather than widening this branch's scope. Also noted there, not fixed: the same root-README
+      table row still opens "Three chapters" and omits `THEME-LIFECYCLE-portable.md` (chapter four,
+      added Sept 13, 2026) -- an unrelated axis, spotted in passing.
 
 ### TEST
 
+- [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors (manifests, link-scan, mojibake and
+      every other check pass on the reworded prose and the two JSON manifests).
+
 ### DEPLOY: docs/1982-bwj-third-repo-reach
 
-**Score:**
+`dkj-policy-bwj`'s four portable law pages, its `README.md`, `plugin.json` and the root
+`marketplace.json` said "exactly two repos" everywhere, even after commit `b9b2a65a` (Sept 14, 2026)
+admitted this plugin's own source repo (`dkj-claude-plugins`) as a third target for its ticket-handling
+chapter alone. Each page now states its own actual reach -- three repos for `WORKFLOW-portable.md`,
+two for the other three chapters, each explaining why it did or didn't widen and cross-linking the
+one that did. `CLAUDE.md` and the root `README.md`'s plugin table, which restated the same fact, were
+brought in line in the same move so this branch does not leave a fresh disagreement behind it. Closes
+#1982.
+
+**Score:** 1 -- corrects prose so a reader following a cross-reference is told the truth about which
+repos a chapter applies in; nothing here changes what any gate enforces or what a session does.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- no subscriber-facing behaviour changed; this is a documentation-only correction inside a policy
+plugin's own portable pages.
+
+**Score:** N/A
 
 #### Pull Request
 

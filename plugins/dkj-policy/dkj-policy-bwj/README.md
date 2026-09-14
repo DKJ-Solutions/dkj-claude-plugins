@@ -10,6 +10,13 @@ and the connector register already flags them as the pair most at risk of quietl
 plugin is the thing that holds them together on the points that belong to exactly these two repos
 and to none of the others Dave runs.
 
+**And one of the four chapters below now reaches a third repo -- the other three do not.**
+`dkj-claude-plugins`, this plugin's own source repo, was admitted to ticket handling alone on
+September 14, 2026 (commit `b9b2a65a`): it is the one chapter whose subject -- a discovered issue --
+exists here too, where the other three are Shopify-store policy and this repo runs no store. Each
+chapter page states its own reach and, where it widened, cites that decision; this overview does not
+repeat the detail.
+
 **It has four chapters, and each has its own page:**
 
 | chapter | the page | what it answers |
