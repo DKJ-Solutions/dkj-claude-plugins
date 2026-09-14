@@ -64,7 +64,7 @@ lands on the right portable page, the mechanism side (a printed closing note, in
 
 ### TEST
 
-- [~] No suite: this is doc content only, no script or gate changed -- the lint gate and its link
+- [~] No suite: this is doc-content only, no script or gate changed -- the lint gate and its link
   checker do not run from this session, so the check below is by hand.
 - [x] Manual pass over the new subsection's own three internal references: the issue link
   (`https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1980`), the relative link to
