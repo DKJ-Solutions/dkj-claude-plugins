@@ -90,6 +90,17 @@
                                                                    verdict / action are sanitized at
                                                                    emission -- the default view is held
                                                                    to the same rule as -Brief
+      32 #1986: a 'behind' row whose install record says      -> the prescription carries '--scope
+         scope 'local'                                          local', never the hardcoded 'project'
+                                                                   the CLI would refuse
+      32b #1986: a path-less (machine-wide) record            -> the `claude plugin install` line is
+                                                                   deliberately STILL '--scope project'
+                                                                   -- it means "into this checkout"
+      33 #1987: a clone marketplace.json that will not parse  -> names the manifest, and offers the
+                                                                   refresh only as conditional on the
+                                                                   file being damaged
+      34 #1987: the measured shape -- valid JSON carrying     -> the refresh is ruled OUT by name, and
+         two keys differing only in case                        the 5.1 reader is named as the cause
     Every scenario asserts exit code 0 explicitly (this is a report, not a gate).
 
     Scenarios 12/13 build the "reachable but not an ancestor" state the way a real marketplace clone
@@ -988,6 +999,83 @@ try {
     Assert-Has   $r 'plugevil@ccs-fixture' '31: the sanitized id is what heads the block'
     Assert-Has   $r 'shown sanitized'      '31: and the reader is told the id was altered (Format-SuspectToken note)'
     Assert-Has   $r "no paste-ready command -- the 'enabledPlugins' key is not a valid plugin id (bad slug)" '31: the withhold sentence stands in for the command in the default view'
+
+    # --- 32. #1986: the update command carries the scope the record actually states --------------
+    # -- Every `claude plugin update` line on this page was the literal `--scope project` until
+    # -- #1986, and the CLI REFUSES a scope a plugin is not installed at. A 'local' record is not an
+    # -- edge case: a session start writes one, flipping a correct 'project' record, with no command
+    # -- run (inbound #314) -- so this page was handing a reader a command that cannot work and
+    # -- calling it the repair. The pairing with scenario 30/31 is deliberate: same fixture shape,
+    # -- different axis (that one is the id, this one is the scope).
+    Write-Host "32. #1986: a 'behind' row prescribes the scope the install record states" -ForegroundColor Cyan
+    $c = New-Case 'scope-local'
+    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Scope 'local') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '32: exit 0'
+    Assert-Has   $r 'the clone is AHEAD of your install (4.32.0 -> 4.33.0)' '32: fixture sanity -- the row really is a "behind" verdict'
+    Assert-Has   $r 'claude plugin update dkj-subagents-alpha@ccs-fixture --scope local' '32: the prescription carries the record''s own scope'
+    Assert-Lacks $r $UPD '32: and NOT the hardcoded --scope project, which the CLI would refuse'
+
+    # -- THE CARVE-OUT, PINNED: `claude plugin install` is deliberately NOT built from the resolved
+    # -- scope. A path-less (machine-wide) record is the shape #1986 was measured on, and the row it
+    # -- reaches prescribes installing INTO THIS CHECKOUT -- which is what 'project' means and what
+    # -- the reader is being told to do. It is not asking where the plugin already lives, so reading
+    # -- the scope off the record there would replace the instruction with a no-op.
+    Write-Host "32b. #1986: the INSTALL prescription is deliberately still --scope project" -ForegroundColor Cyan
+    $c = New-Case 'scope-pathless'
+    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( @{ scope = 'user'; version = '4.32.0' } ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '32b: exit 0'
+    Assert-Has   $r 'a user-scope record not tied to a path exists' '32b: fixture sanity -- the row really is the path-less shape'
+    Assert-Has   $r 'install here: claude plugin install dkj-subagents-alpha@ccs-fixture --scope project' '32b: the install command keeps project scope -- it means "into this checkout"'
+
+    # --- 33. #1987: an UNPARSEABLE clone manifest no longer prescribes a refresh -----------------
+    # -- Two ways of not answering shared one command: the plugin absent from a manifest that PARSED
+    # -- (scenario 9 -- a refresh is right, the clone is merely behind) and the manifest not being
+    # -- readable at all. For the second the refresh can be advice that provably cannot work, and it
+    # -- is now split: the manifest's own path is named, and the refresh is offered only as
+    # -- conditional on the file actually being damaged.
+    Write-Host "33. #1987: a clone manifest that will not parse names the FILE, not a bare refresh" -ForegroundColor Cyan
+    $c = New-Case 'clone-unparseable'
+    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $c.Clone '.claude-plugin\marketplace.json'), '{ "name": "ccs-fixture", "plugins": [ this is not json', $Utf8)
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '33: exit 0'
+    Assert-Has   $r "cannot determine -- the clone's marketplace.json could not be read" '33: the verdict is unchanged -- this half was never wrong'
+    Assert-Has   $r 'marketplace.json' '33: the action names the manifest the reader has to look at'
+    Assert-Has   $r "a refresh only helps if the clone's copy is damaged" '33: the refresh is conditional now, not the prescription'
+    Assert-Lacks $r 'refresh the clone and re-run' '33: and the unconditional staleness command is gone from this branch'
+
+    # -- The other half of the split is scenario 9 and stays there: a manifest that PARSES and simply
+    # -- lacks the plugin still gets the unconditional refresh, which is the reasoning this branch
+    # -- inherited and kept.
+
+    # --- 34. #1987: the measured case, where the refresh provably cannot help --------------------
+    # -- Windows PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively, and the
+    # -- official marketplace manifest legitimately carries both '.c' and '.C' (an lspServers
+    # -- extension map). The file is VALID JSON; no number of refreshes changes what 5.1 can
+    # -- represent -- measured September 14, 2026, where the refresh had already run and succeeded
+    # -- seconds earlier in step 1 of the same update-plugins run. So this shape rules the refresh
+    # -- OUT by name instead of leaving it as a thing to try.
+    Write-Host "34. #1987: case-colliding keys -- the refresh is ruled out by name" -ForegroundColor Cyan
+    $c = New-Case 'clone-dupkeys'
+    New-Clone -Dir $c.Clone -Version '4.33.0' -NoGit | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $c.Clone '.claude-plugin\marketplace.json'),
+        '{ "name": "ccs-fixture", "plugins": [], "lspServers": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } }', $Utf8)
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '34: exit 0'
+    Assert-Has   $r 'duplicated keys' '34: fixture sanity -- 5.1 really does refuse this valid JSON, and the reason is printed'
+    Assert-Has   $r 'NOT a stale clone, so a refresh cannot help' '34: the advice that cannot work is ruled out rather than prescribed'
+    Assert-Has   $r 'folds JSON keys case-insensitively' '34: and the reader is told whose fault it is, so they stop re-running the refresh'
+    Assert-Lacks $r 'refresh the clone and re-run' '34: the staleness command does not appear for this shape'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

@@ -32,7 +32,9 @@
                                                    refreshes it if you expect newer.
       - install sha is an ANCESTOR of clone HEAD,
         and the two version strings DIFFER          -> the clone is AHEAD of your install
-                                                   -> `claude plugin update <id> --scope project`
+                                                   -> `claude plugin update <id> --scope <the scope it
+                                                      is installed at>` (#1986 -- read off the install
+                                                      record, never assumed to be 'project')
       - install sha is an ANCESTOR of clone HEAD,
         and both sides carry the SAME version       -> unreleased work in the clone, and NO command is
                                                       handed over: `claude plugin update` arbitrates on
@@ -283,6 +285,18 @@ foreach ($id in $ids) {
     $idTok = if ($idIsCommandSafe) { $id } else { '<plugin-id>' }
     $mpTok = if ($mpIsCommandSafe) { $mp } else { '<marketplace>' }
 
+    # THE SCOPE HALF OF EVERY `claude plugin update` LINE BELOW (#1986). It was the literal 'project'
+    # until then, and the CLI refuses a scope a plugin is not installed at -- so for a machine-wide
+    # install, or for the 'local' record a session start writes without running anything, this page
+    # handed the reader a command that cannot work and told them it was the repair. Get-PluginUpdateScope
+    # answers it from $install, which this run has already read, and returns one of four literals rather
+    # than the file's own string -- so no byte of installed_plugins.json reaches a pasted command.
+    #
+    # THE `claude plugin install` LINES ARE NOT BUILT FROM IT, deliberately. Those two prescribe
+    # installing INTO THIS CHECKOUT, which is what 'project' means and what the reader is being told to
+    # do; they are not asking where the plugin already lives.
+    $updScope = (Get-PluginUpdateScope -InstallRecord $install -PluginId $id).Scope
+
     $recs = @()
     if ($install.RecordsById.ContainsKey($id)) { $recs = @($install.RecordsById[$id]) }
     $pathless = @()
@@ -339,11 +353,44 @@ foreach ($id in $ids) {
         $action = "add it once: claude plugin marketplace add <owner>/<repo>"
     } elseif (-not $cloneHasPlugin) {
         # Every other 'the clone cannot answer' branch names the command that would repair it, and
-        # this one read as a dead end for want of one. A refresh is the right first move either way:
-        # a plugin added upstream since the last refresh is absent from a clone that is merely
-        # behind, and a clone whose marketplace.json will not parse is re-fetched by the same command.
-        $verdict = if ($clone.Error) { "cannot determine -- the clone's marketplace.json could not be read" } else { "cannot determine -- '$name' is not in the clone's marketplace.json" }
-        $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"
+        # this one read as a dead end for want of one. TWO WAYS OF NOT ANSWERING SHARED ONE COMMAND
+        # UNTIL #1987, on the reasoning that a refresh is the right first move either way. It is not.
+        #
+        # THE ABSENT-PLUGIN HALF IS UNCHANGED and the reasoning above still holds for it: the manifest
+        # parsed, the plugin simply is not in it, and a plugin added upstream since the last refresh is
+        # exactly what a behind clone looks like.
+        #
+        # THE PARSE-FAILURE HALF IS NOT A STALENESS PROBLEM, and prescribing the staleness command
+        # there can be advice that provably cannot work. Measured September 14, 2026 on
+        # claude-plugins-official: the refresh had ALREADY run and succeeded seconds earlier, in step 1
+        # of the same update-plugins run, and the parse still failed -- because the fault is on this
+        # side. Windows PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively, and
+        # that manifest legitimately carries both '.c' and '.C' (an lspServers extension map). The file
+        # is valid JSON; no number of refreshes changes what 5.1 can represent, so the reader was sent
+        # round a loop that terminates only when they stop believing the tool.
+        #
+        # SO THE ADVICE SPLITS AGAIN, ONE LAYER DOWN, AND NAMES THE FILE EITHER WAY. Where the message
+        # is that duplicated-key shape the cause is known and is ours, so the refresh is ruled OUT by
+        # name rather than left as a thing to try. Where it is anything else the clone's copy may
+        # genuinely be damaged, and then the refresh is still the first move -- but the reader is told
+        # to look at the file first, because that is what separates the two.
+        if ($clone.Error) {
+            $verdict = "cannot determine -- the clone's marketplace.json could not be read"
+            # THE PATH IS BUILT FROM THE RAW $mp, so it is held to the same withhold rule as every
+            # command on this page (#1803): where the marketplace segment failed its slug check the
+            # placeholder goes in instead, and the redaction step below the verdict chain replaces this
+            # whole action with the withhold sentence. A path is not a command, but it is still a line
+            # printed for a person to act on, and the guard costs a legitimate marketplace nothing.
+            $manifestPath = if ($mpIsCommandSafe -and $clone.Dir) { Get-MarketplacePath -RepoRoot $clone.Dir } else { "<marketplace>'s .claude-plugin/marketplace.json" }
+            if ($clone.Error -match 'duplicated keys') {
+                $action = "NOT a stale clone, so a refresh cannot help: $manifestPath is valid JSON that this reader cannot represent -- Windows PowerShell 5.1 folds JSON keys case-insensitively and that file carries two keys differing only in case"
+            } else {
+                $action = "read $manifestPath first -- a refresh only helps if the clone's copy is damaged: claude plugin marketplace update $mpTok"
+            }
+        } else {
+            $verdict = "cannot determine -- '$name' is not in the clone's marketplace.json"
+            $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"
+        }
     } elseif ($recs.Count -gt 1) {
         $verdict = "cannot determine -- this checkout has $($recs.Count) conflicting install records"
         $action = "repair: claude plugin install $idTok --scope project"
@@ -405,14 +452,14 @@ foreach ($id in $ids) {
             if ($null -ne $verCmp -and $verCmp -lt 0) {
                 $code = 'behind'
                 $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer); the clone is a non-git fetch so the commit history cannot confirm direction"
-                $action = "claude plugin update $idTok --scope project"
+                $action = "claude plugin update $idTok --scope $updScope"
             } elseif ($null -ne $verCmp -and $verCmp -gt 0) {
                 $code = 'clone-behind'
                 $verdict = "your install ($instVer) is AHEAD of the clone ($cloneVer)"
                 $action = "claude plugin marketplace update $mpTok"
             } else {
                 $verdict = "cannot determine -- versions match ($instVer) but the recorded shas differ and the clone is a non-git fetch with no history to compare"
-                $action = "claude plugin marketplace update $mpTok   (then: claude plugin update $idTok --scope project)"
+                $action = "claude plugin marketplace update $mpTok   (then: claude plugin update $idTok --scope $updScope)"
             }
         } else {
             $existsInClone = (Invoke-CloneGit -CloneDir $clone.Dir -GitArgs @('rev-parse', '-q', '--verify', "$instSha^{commit}")).ExitCode -eq 0
@@ -421,7 +468,7 @@ foreach ($id in $ids) {
                 if ($null -ne $verCmp -and $verCmp -lt 0) {
                     $code = 'behind'
                     $verdict = "your install ($instVer, $(Format-ShortSha $instSha)) is BEHIND the clone ($cloneVer) and its commit is not in the clone's history"
-                    $action = "claude plugin update $idTok --scope project  (then re-run; if it still differs: claude plugin marketplace update $mpTok)"
+                    $action = "claude plugin update $idTok --scope $updScope  (then re-run; if it still differs: claude plugin marketplace update $mpTok)"
                 } else {
                     $code = 'clone-behind'
                     $verdict = "your install ($(Format-ShortSha $instSha)) is not in the clone's history -- the clone is stale, or your install predates a history rewrite"
@@ -450,7 +497,7 @@ foreach ($id in $ids) {
                     if ($instVer -and $cloneVer -and $instVer -ne $cloneVer) {
                         $code = 'behind'
                         $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer)"
-                        $action = "claude plugin update $idTok --scope project"
+                        $action = "claude plugin update $idTok --scope $updScope"
                     } elseif ($instVer -and $cloneVer -and $instVer -eq $cloneVer) {
                         $code = 'unreleased'
                         $verdict = "your install is on the released version $instVer and the clone holds newer commits carrying that same version -- unreleased work, so there is no version gap for a plugin update to close"
@@ -463,7 +510,7 @@ foreach ($id in $ids) {
                         $code = 'behind'
                         $missingSide = if (-not $instVer) { 'no version recorded for your install' } else { "no version in the clone's plugin.json" }
                         $verdict = "the clone is AHEAD of your install (newer commit; $missingSide, so whether that crosses a release boundary cannot be read from here)"
-                        $action = "claude plugin update $idTok --scope project"
+                        $action = "claude plugin update $idTok --scope $updScope"
                     }
                 } else {
                     # Present in the clone's history but not an ancestor of HEAD -- reachable after a
@@ -475,7 +522,7 @@ foreach ($id in $ids) {
                     if ($null -ne $verCmp -and $verCmp -lt 0) {
                         $code = 'behind'
                         $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer); your install's commit is in the clone's history but not an ancestor of HEAD (history rewrite?)"
-                        $action = "claude plugin update $idTok --scope project"
+                        $action = "claude plugin update $idTok --scope $updScope"
                     } else {
                         $code = 'clone-behind'
                         $verdict = "your install is AHEAD of the clone -- the clone is stale"
@@ -501,7 +548,7 @@ foreach ($id in $ids) {
         } elseif ($cmp -lt 0) {
             $code = 'behind'
             $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer)"
-            $action = "claude plugin update $idTok --scope project"
+            $action = "claude plugin update $idTok --scope $updScope"
         } else {
             $code = 'clone-behind'
             $verdict = "your install ($instVer) is AHEAD of the clone ($cloneVer) -- the clone is stale"

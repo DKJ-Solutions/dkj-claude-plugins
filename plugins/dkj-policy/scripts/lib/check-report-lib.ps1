@@ -1285,6 +1285,117 @@ function Get-RecordShape {
     }
 }
 
+# THE SCOPE A `claude plugin update` HAS TO CARRY IS A FACT ABOUT THE ADMINISTRATION, NOT A CONSTANT
+# (issue #1986). Every prescription and every exec in this family used to hardcode '--scope project',
+# and the CLI refuses a scope a plugin is not installed at -- `Plugin "x" is not installed at scope
+# project`. So for a plugin installed machine-wide the one command that could have moved it is the one
+# that is refused, and the run exits non-zero on a machine where nothing is wrong. Measured
+# September 14, 2026 in the source repo on shopify-ai-toolkit@claude-plugins-official, which
+# roster-sessioncheck had already reported, correctly, as a supported state.
+#
+# AND IT IS NOT ONLY THE MACHINE-WIDE CASE. The block above this file's Get-RecordShape records that a
+# SESSION START rewrites install records without any command being run -- it flips an existing
+# 'project' record to 'local', and it can demote one to a pathless 'user' record. Both of those states
+# are ordinary, both load perfectly well, and '--scope project' is wrong in both.
+#
+# WHY THIS DOES NOT REOPEN #1890's BOUNDARY. That boundary is about WHICH TREE gets written: `claude
+# plugin install/update` rewrites the visited repo's .claude/settings.json, so a sweeping updater would
+# leave uncommitted diffs in repos nobody opened. Reading the scope off the record changes nothing
+# there -- a user-scope update rewrites no repo's tree at all, and a 'local'/'project' one rewrites
+# exactly the checkout the caller is already standing in.
+#
+# THE RETURN IS ONE OF FOUR LITERALS, NEVER THE RECORD'S OWN STRING. installed_plugins.json is machine
+# -written, but it is still a file on disk feeding a `claude plugin ...` line that this family both
+# EXECUTES and PRINTS for pasting -- and plugin-versions.ps1's own withhold doctrine (#1594/#1803) is
+# that a guard whose output is the injection surface is worse than no guard. Matching case-insensitively
+# against `claude plugin update --help`'s own four scopes and emitting the canonical spelling means no
+# byte of that file ever reaches a command line.
+$script:PluginScopeNames = @('user', 'project', 'local', 'managed')
+
+function Get-PluginScopeNames {
+    <# The scopes `claude plugin update` accepts, lowercase, in the CLI's own help order. #>
+    return $script:PluginScopeNames
+}
+
+function Get-PluginUpdateScope {
+    <# Which '--scope' does `claude plugin update <PluginId>` need in the checkout $InstallRecord was
+       read for? Read the block above this function for why it is a question at all.
+
+       Returns Scope / Source / Note -- always, and never $null, because every caller needs a scope to
+       put in a command and the honest fallback is the one the family has always used:
+
+         Scope   one of Get-PluginScopeNames, or 'project' where nothing usable was found.
+         Source  'record'   -- a record scoped to THIS checkout said so;
+                 'pathless' -- no record for this checkout, but a record tied to no path did (that is
+                               an ordinary machine-wide install, and also the demotion shape #323
+                               measured -- the two are byte-for-byte identical, and for THIS question
+                               they have the same answer, so nothing here has to tell them apart);
+                 'default'  -- nothing said, or what was said could not be used. See Note.
+         Note    '' unless Source is 'default' AND there was something worth reporting: why the
+                 administration could not answer. Empty for the ordinary "no record at all" case,
+                 which is not a finding -- it is what a declaratively-enabled plugin looks like.
+
+       IT NEVER REFUSES AND NEVER GUESSES PAST THE EVIDENCE. Where records disagree with each other the
+       Note names the disagreement and the scope falls back to 'project': #314/#325 measured that a
+       scope mismatch ACCUMULATES records rather than replacing one, so disagreement is a state a real
+       machine reaches, and picking a winner out of it would be inventing an answer the file does not
+       contain.
+
+       [AllowNull()] IS DELIBERATE AND ITS TWO SIBLINGS DO NOT HAVE IT. Test-PluginInstalledHere and
+       Get-RecordShape both open with an `if ($null -eq $InstallRecord)` line that cannot be reached:
+       a Mandatory parameter refuses $null before the body runs, so the documented answer for that
+       input is a promise the signature breaks. Here the guard is reachable, because every caller of
+       this one needs a scope to put in a command and 'I had nothing to read' is a real input rather
+       than a caller bug. #>
+    param(
+        [Parameter(Mandatory = $true)][AllowNull()]$InstallRecord,
+        [Parameter(Mandatory = $true)][string]$PluginId
+    )
+
+    $answer = {
+        param([string]$Scope, [string]$Source, [string]$Note)
+        [pscustomobject]@{ Scope = $Scope; Source = $Source; Note = $Note }
+    }
+
+    if ($null -eq $InstallRecord) { return (& $answer 'project' 'default' '') }
+    if (-not $InstallRecord.Exists) { return (& $answer 'project' 'default' '') }
+    if (-not $InstallRecord.Readable) {
+        return (& $answer 'project' 'default' 'the install administration could not be read, so the scope it records is unknown')
+    }
+
+    # For this checkout first, and only then the pathless records: a record naming this path is a
+    # statement about THIS repo, and a pathless one is a statement about the machine. Where both exist
+    # the specific one wins, which is also the order Test-PluginInstalledHere and Get-RecordShape read
+    # them in.
+    foreach ($pair in @(
+        @{ Map = $InstallRecord.RecordsById;  Source = 'record';   Where = 'for this checkout' },
+        @{ Map = $InstallRecord.PathlessById; Source = 'pathless'; Where = 'tied to no path' }
+    )) {
+        $map = $pair.Map
+        if ($null -eq $map -or -not $map.ContainsKey($PluginId)) { continue }
+        $recs = @($map[$PluginId])
+        if ($recs.Count -eq 0) { continue }
+
+        $named = [string[]]@($recs | ForEach-Object { [string]$_.Scope } | Where-Object { $_ })
+        $canon = [string[]]@($named | ForEach-Object {
+            $raw = $_
+            @(Get-PluginScopeNames) | Where-Object { $_ -ieq $raw }
+        } | Sort-Object -Unique)
+        if ($canon.Count -gt 1) { [array]::Sort($canon, [System.StringComparer]::Ordinal) }
+
+        if ($canon.Count -eq 1) { return (& $answer $canon[0] $pair.Source '') }
+        if ($canon.Count -gt 1) {
+            return (& $answer 'project' 'default' "$($recs.Count) install records $($pair.Where) disagree on scope ($($canon -join ', ')) -- falling back to project")
+        }
+        if ($named.Count -gt 0) {
+            return (& $answer 'project' 'default' "the install record $($pair.Where) names a scope this CLI does not accept -- falling back to project")
+        }
+        return (& $answer 'project' 'default' "the install record $($pair.Where) states no scope -- falling back to project")
+    }
+
+    return (& $answer 'project' 'default' '')
+}
+
 function Get-SubagentDirName {
     <# The leaf name of the directory a plugin keeps its subagent definitions in -- 'subagents' where the
        plugin ships one, 'agents' where it ships the pre-rename shape, and '' where it ships neither.
