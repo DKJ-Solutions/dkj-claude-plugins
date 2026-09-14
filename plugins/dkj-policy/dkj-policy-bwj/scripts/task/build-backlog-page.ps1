@@ -60,6 +60,9 @@
 
 .PARAMETER DryRun
     Resolve everything, print what would be written and how many entries it holds -- write nothing.
+    Still reads gh and Asana: previewing what would be built means actually building it, unlike
+    publish-page.ps1's own -DryRun, which stops before the network half (the upload) and needs none
+    of it.
 
 .PARAMETER RootOverride
     The repo root, when this is not run from inside the checkout.
@@ -93,6 +96,7 @@ $RootArg      = $RootOverride
 
 . (Join-Path $PSScriptRoot '..\..\templates\asana-mirror.ps1')
 . (Join-Path $PSScriptRoot '..\lib\backlog-page-rules.ps1')
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
@@ -102,33 +106,18 @@ try {
 } catch { }
 
 # --- The repo root ----------------------------------------------------------------------------------
-# Same shape as publish-page.ps1's Resolve-RepoRoot, for the same reason stated there: `git rev-parse`
-# writes to stderr in the ordinary case (a run started outside a work tree), which EAP=Stop turns into
-# a terminating error unless the redirect is protected first.
-function Resolve-BacklogRepoRoot {
-    param([string]$Override)
-    if ($Override) {
-        if (-not (Test-Path -LiteralPath $Override -PathType Container)) {
-            throw "-RootOverride is not a directory: $Override"
-        }
-        return (Resolve-Path -LiteralPath $Override).Path
-    }
-    $prev = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $top  = & git rev-parse --show-toplevel 2>$null
-        $code = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $prev
-    }
-    if ($code -eq 0 -and $top) { return ((@($top)[0]) -replace '/', '\').Trim() }
-    return (Get-Location).Path
-}
-$root = Resolve-BacklogRepoRoot -Override $RootArg
+# Resolve-BwjRepoRoot, dot-sourced above from repo-root-lib.ps1 -- shared with publish-page.ps1
+# rather than carried here as a second, private copy of the same function.
+$root = Resolve-BwjRepoRoot -Override $RootArg
 
 # --- The repo's own answers: Get-ReachLabel, Get-ReleaseNoteRoot -------------------------------------
-# Read in a child scope with StrictMode explicitly off, same as publish-page.ps1: repo-config.ps1 is
-# written on the assumption its callers do not run under StrictMode Latest.
+# Read in a child scope with StrictMode explicitly off: repo-config.ps1 is written on the assumption
+# its callers do not run under StrictMode Latest. This script never turns StrictMode on itself --
+# unlike publish-page.ps1, which runs under -Version Latest throughout and only relaxes it here --
+# because it dot-sources templates/asana-mirror.ps1 for Resolve-AsanaTaskRef/Get-AsanaTaskState, and
+# that file was not written against strict mode. The explicit -Off here is kept anyway: it documents
+# the same assumption about repo-config.ps1 that publish-page.ps1 states, rather than relying on it
+# being ambient.
 $config = & {
     Set-StrictMode -Off
     $answers = @{ ReachLabel = 'minor'; NoteRoot = 'releases/notes' }
@@ -209,11 +198,19 @@ foreach ($issue in $issues) {
         $skipped += "#$($issue.number) -- Asana task $($ref.Gid) is already marked complete in Asana"
         continue
     }
+    # NO FALLBACK TO $issue.title. An Asana task with an empty Name (an editable, API-permitted
+    # state) is dropped exactly like an unreadable or completed one -- never patched with the
+    # GitHub issue's own developer-facing title. That fallback existed here once and was the one
+    # path this design's "never the issue's own text" rule did not actually hold; the review chain
+    # caught it before it shipped.
+    if (-not [string]$task.name) {
+        $skipped += "#$($issue.number) -- Asana task $($ref.Gid) has no Name to show"
+        continue
+    }
     $labelNames = @($issue.labels | ForEach-Object { [string]$_.name })
-    $title = if ([string]$task.name) { [string]$task.name } else { [string]$issue.title }
     $entries += [pscustomobject]@{
         Number   = [int]$issue.number
-        Title    = $title
+        Title    = [string]$task.name
         Notes    = [string]$task.notes
         PrioRank = (Get-IssuePrioRank -Labels $labelNames)
     }

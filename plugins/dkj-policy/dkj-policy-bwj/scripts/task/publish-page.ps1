@@ -94,6 +94,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '..\lib\page-publish-rules.ps1')
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
@@ -105,33 +106,11 @@ try {
 } catch { }
 
 # --- The repo root ---------------------------------------------------------------------------------
-# Deliberately self-contained: this plugin's scripts dot-source nothing outside their own folder, so
-# a store can forward to them from the plugin cache without pulling a second plugin's libs along.
-function Resolve-RepoRoot {
-    param([string]$Override)
-    if ($Override) {
-        if (-not (Test-Path -LiteralPath $Override -PathType Container)) {
-            throw "-RootOverride is not a directory: $Override"
-        }
-        return (Resolve-Path -LiteralPath $Override).Path
-    }
-    # `2>$null` ON A NATIVE COMMAND IS A TRAP UNDER EAP=Stop, and this script runs under it: git
-    # writes to stderr in the ordinary case here -- a run started outside a work tree -- and
-    # PowerShell turns each of those lines into a terminating error, so the fallback below would
-    # never be reached. The repo-wide guard in scripts/tests/shared-scripts.tests.ps1 refuses an
-    # unprotected redirect and exonerates exactly this wrapper; it caught this line.
-    $prev = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $top  = & git rev-parse --show-toplevel 2>$null
-        $code = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $prev
-    }
-    if ($code -eq 0 -and $top) { return ((@($top)[0]) -replace '/', '\').Trim() }
-    return (Get-Location).Path
-}
-$repoRoot = Resolve-RepoRoot -Override $RootOverride
+# Resolve-BwjRepoRoot, dot-sourced above from repo-root-lib.ps1 (issue #1979's review chain pulled
+# this out of a private copy here -- build-backlog-page.ps1 needed the identical function under a
+# different name). Still self-contained: the lib lives inside this plugin's own scripts\lib\, so
+# dot-sourcing it is not reaching into a second plugin's libs.
+$repoRoot = Resolve-BwjRepoRoot -Override $RootOverride
 
 # --- The repo's own answers ------------------------------------------------------------------------
 # Read in a CHILD scope with StrictMode explicitly OFF, the same way dkj-policy's builder reads its
