@@ -115,8 +115,20 @@ function Resolve-RepoRoot {
         }
         return (Resolve-Path -LiteralPath $Override).Path
     }
-    $top = & git rev-parse --show-toplevel 2>$null
-    if ($LASTEXITCODE -eq 0 -and $top) { return ($top -replace '/', '\').Trim() }
+    # `2>$null` ON A NATIVE COMMAND IS A TRAP UNDER EAP=Stop, and this script runs under it: git
+    # writes to stderr in the ordinary case here -- a run started outside a work tree -- and
+    # PowerShell turns each of those lines into a terminating error, so the fallback below would
+    # never be reached. The repo-wide guard in scripts/tests/shared-scripts.tests.ps1 refuses an
+    # unprotected redirect and exonerates exactly this wrapper; it caught this line.
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $top  = & git rev-parse --show-toplevel 2>$null
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    if ($code -eq 0 -and $top) { return ((@($top)[0]) -replace '/', '\').Trim() }
     return (Get-Location).Path
 }
 $repoRoot = Resolve-RepoRoot -Override $RootOverride

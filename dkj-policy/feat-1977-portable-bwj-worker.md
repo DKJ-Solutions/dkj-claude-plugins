@@ -105,7 +105,11 @@ release notes and the minor backlog for colleagues who do not read a private rep
       reaches the network: `-DryRun` and the three refusals are the whole testable surface of a script
       whose remaining half is HTTP against somebody's account.
 - [x] `check-plugin-integrity.ps1`: 0 errors.
-- [x] The full suite set, exactly as CI runs it.
+- [x] The full suite set, exactly as CI runs it -- 105 suites, run by `open-pr`'s own gate rather than
+      pre-run beside it. It caught one thing three reviewers had not: `shared-scripts.tests.ps1`'s
+      repo-wide guard over `2>$null` on a **native** command. Under `EAP=Stop` git's ordinary stderr
+      becomes a terminating error, so the repo-root fallback it guards could never have been reached.
+      Wrapped, which is the shape that guard exonerates.
 - [~] **Not tested against a real Cloudflare account**, and this is stated rather than ticked: no BWJ
       account is reachable from this repo. The upload is one `PUT` to the documented KV value endpoint
       and the read-back compares SHA-256, so a shape Cloudflare refuses fails loudly on the first real
