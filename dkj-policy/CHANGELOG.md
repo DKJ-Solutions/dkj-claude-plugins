@@ -43,7 +43,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/1980-artifact-source-url-record · 20260914-123205
+
+`dkj-policy`'s contribution cycle now states where a durable, published Artifact's own URL belongs when
+its source is committed: beside the source, read and passed to the publish call before any
+republication, and written into the same commit as the first publication rather than as later
+housekeeping. Closes inbound
+[#1980](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1980): without this, a session that
+edits and republishes a committed Artifact source creates a second, unmaintained artifact while the
+original link goes on serving stale content, and a page with its own state (a backlog/snapshot document
+feeding a scheduled workflow) starts the second copy empty on its committed fallback data -- rendering
+correctly and looking exactly like a current page, with nothing erroring and no gate able to catch it.
+Scope is deliberately narrow: a durable surface whose source is committed, not the short-lived preview
+handover `dkj-policy-bwj`'s own `PREVIEW-portable.md` chapter already covers for its own kind of link.
+No mechanism is built here; the closing note a publishing session could print (the shape
+`push-preview.ps1` already uses) is named as later, optional work.
+
+**Score:** 3 -- a preventive rule closing a gap that has already caused a real, measured failure (a
+second artifact silently orphaning the first, with a page's own persisted state left behind on the
+stranded copy) rather than one hypothesised in the abstract; every consumer running this workflow that
+publishes a durable Artifact is exposed to it, but nothing forces a reader to act today -- the rule
+changes what a *future* session does the next time it republishes such a source.
+
+#### What makes this deploy extra special
+
+Every consumer of this workflow (this repo's audience, tier 2) that commits the source of a durable,
+published Artifact was exposed to the failure this closes: silently duplicating a published page on
+republish, with no error and no gate to catch it, and losing whatever state the original page had
+accumulated. The rule tells a session what to do the next time it republishes such a source, so it
+belongs in the record any subscriber of this service reads.
+
+**Score:** 3 -- same reasoning as tier 0: a real, previously-unrecorded failure mode closed by a rule a
+session needs to already know before its next republish, not a change anyone has to react to today.
+
+#### Pull Request
+
+record the published URL of a committed Artifact source
+
+Plugins: dkj-policy
+
+[PR #1981](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1981)
+
+---
 
 ### DEPLOY: docs/1976-theme-lifecycle-delete-marker-claim · 20260914-114210
 
