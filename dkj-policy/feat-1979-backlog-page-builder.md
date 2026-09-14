@@ -41,17 +41,36 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Write the pure lib (`backlog-page-rules.ps1`: ranking, ordering, escaping, the page shape) and
+      the driver (`build-backlog-page.ps1`), reusing `Resolve-AsanaTaskRef` and `Get-AsanaTaskState`
+      from `templates/asana-mirror.ps1` rather than re-implementing either.
+- [x] Write `scripts/tests/backlog-page-build.tests.ps1` -- full pure-function coverage plus the
+      script's two refusals reachable without a network call.
+- [x] Point `publish-page`'s own `backlog` row at the new skill instead of "not built yet"; register
+      the skill as a `Get-ReachLabel` consumer in the script contract (both copies); update both
+      READMEs' skill enumerations and the `dkj-policy-bwj` "what ships" table.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors.
+- [x] Full local test suite (106 files, including the new one): 0 failed.
+
 ### DEPLOY: feat/1979-backlog-page-builder
 
-**Score:**
+The minor-backlog page builder: `build-backlog-page.ps1` writes `minor-backlog.html` from a store
+repo's open, reach-labelled issues, showing each one's mirrored Asana task text -- never the GitHub
+issue's own developer-facing title and body, per Dave's decision on the issue. `publish-page.ps1
+-Kind backlog` already routed and published this kind since #1977; this was the missing half.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store repo (`smartwatchbanden`, `xoxowildhearts`) can now actually build and publish the minor
+backlog to a colleague, completing the loop #1977 opened the worker for. Opt-in: nothing runs until a
+store repo invokes the new skill.
+
+**Score:** 3
 
 #### Pull Request
 
