@@ -39,21 +39,65 @@
 
 ### PLAN
 
+Run `adopt-dkj-policy-bwj` in this repo now that its own gate admits `dkj-claude-plugins` as a third
+permitted target (Dave, September 14, 2026, v5.3.0). Place what the CI mechanism needs; defer the
+Asana wiring itself, since no board exists yet for this repo and a copied/guessed GID mirrors this
+repo's own inbound tracker onto the wrong store's board.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verified `git remote get-url origin` ends in `dkj-claude-plugins` -- step 0 passes.
+- [x] Copied `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.yml` ->
+      `.github/workflows/asana-mirror.yml` verbatim (no target file existed -- clean first run).
+- [x] Copied `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` ->
+      `.github/scripts/asana-mirror.ps1` verbatim.
+- [x] Created the `needs-info` label on this repo (`gh label create`) -- the other labels step 4
+      needs (`documentation`, `prio-1..4` with matching colors, the reach label `minor`) already
+      existed.
+- [~] `scripts/repo-config.ps1`'s Asana seam (`Get-AsanaWorkspaceGid`, `Get-AsanaProjectGid`) --
+      dropped on Dave's explicit choice: no Asana project exists yet for this repo (only
+      `GitHub - WH` and `GitHub - SWB`, the two BWJ stores' own boards, were found), and the skill
+      itself says a copied/provisional GID fails silently -- worse here, it would mirror this
+      **public** repo's own inbound tracker onto somebody else's board. Left for a follow-up branch
+      once a real board exists.
+- [~] Step 3 (the `ASANA_PAT` / `GH_PROJECT_TOKEN` / `ASANA_PROJECT_GID` checklist) -- printed to
+      Dave in-session, not written anywhere; nothing to set until the board above exists.
+- [~] Step 5 (read the board's numbered sections / the GitHub project's `Status` options) --
+      blocked on the same missing board; nothing to read yet.
+- [~] Step 6 (point this repo's governance at `WORKFLOW-portable.md`) -- deferred to Tessa rather
+      than patched in-place: the natural anchor (`CLAUDE.md:218-224`) is the same paragraph that
+      says `dkj-policy-bwj` "have none [real work] here", which this branch's own admission makes
+      stale for chapter one. Filed as
+      [#1990](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1990) rather than patched
+      ad hoc, since the governance pointer and the roster correction read better as one edit.
+- [~] Step 7 (scaffold `dkj-policy-bwj/SYNC-LOG.md`) -- N/A. That is chapter two, for a Shopify
+      theme sync; this repo declares `Get-ShopifyRepoHasNoStore` and has no theme to sync.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1` + every suite, via `open-pr.ps1`.
+
 ### DEPLOY: feat/1990-adopt-bwj-asana-mirror
 
-**Score:**
+`dkj-policy-bwj`'s CI mechanism (the Asana-mirror workflow + script) now sits in this repo's own
+`.github/`, and the `needs-info` label exists, so the parts of `adopt-dkj-policy-bwj` that do not
+depend on an actual Asana board are placed. The board itself -- workspace/project GID, the CI
+secrets, the stage map -- stays open by design: this repo had no board of its own (only the two BWJ
+stores' boards existed), and wiring one up on a guess was refused rather than guessed. Until a
+follow-up branch adds the seam, the copied workflow is inert: it has no `ASANA_PROJECT_GID` variable
+and no `ASANA_PAT`/`GH_PROJECT_TOKEN` secrets, so it fails closed rather than mirroring anywhere.
+
+**Score:** 2 -- small, noticed only by whoever next reads `.github/workflows/` or picks up #1990;
+nothing here changes how anyone works today, because the mechanism is not yet wired to a board.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a consumer of this marketplace gains nothing; this is the source repo placing, for itself,
+config the third-repo admission (b9b2a65a) already shipped the permission for.
+
+**Score:** N/A
 
 #### Pull Request
 
-Adopt dkj-policy-bwj's Asana-mirror CI in this repo
+Adopt dkj-policy-bwj's Asana-mirror CI mechanism in this repo (board wiring deferred)
 

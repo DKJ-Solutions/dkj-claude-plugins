@@ -1,0 +1,109 @@
+# Copied from dkj-policy-bwj/templates/asana-mirror.yml into .github/workflows/asana-mirror.yml.
+# Posts an update on the mirrored Asana task when its GitHub issue is closed (and the counterpart on
+# reopen), and moves that task to the board section its GitHub PROJECT STATUS names. Plus a daily
+# reconciliation sweep (both directions) for missed events -- and since a status changes with no
+# `issues:` event at all, that sweep IS the mechanism rather than a backstop. It never completes a
+# task and never puts a card in the 'Completed' section -- the colleague who filed the ticket does
+# both, after testing. See dkj-policy-bwj/WORKFLOW-portable.md.
+name: asana-mirror
+
+on:
+  issues:
+    # closed/reopened comment AND move the card. labeled/unlabeled only move it: a label going on or
+    # off is a change in OUR state, and narrating it would comment on the submitter's ticket every
+    # time somebody triaged the issue. The script decides which of the two a given action is.
+    types: [closed, reopened, labeled, unlabeled]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # WRITE, not read, since the prio-label sweep edits labels on this repo's own issues. It is the
+  # only write this workflow makes outside Asana, and it touches labels and nothing else.
+  issues: write
+  # The close update names the pull request that closed the issue, which is a pull-requests read.
+  pull-requests: read
+
+# TWO GROUPS PER ISSUE, SPLIT BY WHAT AN ARRIVAL CAN LOSE -- not one shared group, and
+# `cancel-in-progress` is not what protects either of them (issue #1301, the same shape as #1294).
+# A concurrency group holds at most one IN-PROGRESS run plus one PENDING one, and a third arrival
+# DROPS the waiting one without consulting that field at all -- measured on this system's own ci.yml,
+# where the dropped runs had ZERO jobs allocated, so they were never killed mid-flight but removed
+# from the queue. So `cancel-in-progress: false` never meant "every event on this issue is
+# processed"; it means "a running job is not killed", and nothing more.
+#
+# WHICH ARRIVALS ARE EXPENDABLE: `labeled` and `unlabeled`. They only move the card, and the target
+# is recomputed from LIVE state -- Get-IssueLinkState reads the issue's state, labels and project
+# status at run time rather than from the event payload. The last arrival of a burst always runs, so
+# it lands the card exactly where the whole burst put it, and the dropped middle ones cost nothing.
+# Coalescing them is the POINT rather than a compromise: triage fires them in bursts.
+#
+# WHICH ARE NOT: `closed` and `reopened`. Their comment half is keyed on the EVENT, not on live
+# state, so a dropped one is a comment nobody ever posts. A dropped `closed` is recovered within a
+# day by reconciliation sweeps (a)/(b), which de-duplicate. A DROPPED `reopened` IS NOT RECOVERED AT
+# ALL: no sweep comments on a reopen, and the reopen is also the only thing that sets AllowBackward
+# while every sweep moves a card forward only -- so it loses the 'hold off on testing' notice
+# permanently AND leaves the card stuck at its forward floor. Giving those two their own group means
+# a triage burst can no longer displace one, while two of them on one issue still serialise, which
+# is what keeps a close and a reopen in the order they actually happened.
+#
+# WHAT THE SPLIT COSTS, because it is not free: a `state` run and a `triage` run on ONE issue can now
+# run CONCURRENTLY, where the single group serialised them. Sync-AsanaTaskStage has no
+# compare-and-set -- it reads the card's membership and moves -- so the later WRITE wins regardless of
+# which EVENT was later. That only matters for `needs-info`, one of the two answers allowed to move a
+# card BACKWARD: triage resolves it to the hold and moves the card back, and a `state` run still
+# holding the reading it took before that label landed resolves a forward floor. A forward move needs
+# no permission, so nothing blocks it and the card leaves the hold. Reconciliation sweep (d) is the
+# backstop -- it passes -Labels into Resolve-TargetStage, so it re-derives the hold WITH
+# AllowBackward and puts the card back within a day. That is the difference from the defect above,
+# whose reopen path had no backstop at all.
+#
+# AND NEITHER HALF IS REPAIRED, for two DIFFERENT reasons -- kept apart here because the first one
+# reads as though it covered both. THE KEY STAYS SPLIT: the queue holds one pending run, so
+# serialise-and-drop versus run-everything is a real trade with no third option, and a dropped
+# `reopened` is the more expensive side of it. THE WRITE PATH IS LEFT ALONE on its own grounds: a
+# compare-and-set in Sync-AsanaTaskStage would close the window properly, but it is a change to the
+# write path for a failure sweep (d) already heals within a day (issue #1306).
+concurrency:
+  group: asana-mirror-${{ github.event.issue.number || 'reconcile' }}-${{ (github.event.action == 'closed' || github.event.action == 'reopened') && 'state' || 'triage' }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Update the task and stage the card on an issue event
+        if: github.event_name == 'issues'
+        shell: pwsh
+        env:
+          ASANA_PAT: ${{ secrets.ASANA_PAT }}
+          ASANA_PROJECT_GID: ${{ vars.ASANA_PROJECT_GID }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_REF: ${{ github.repository }}#${{ github.event.issue.number }}
+          EVENT_ACTION: ${{ github.event.action }}
+          GH_TOKEN: ${{ github.token }}
+          # The stage sweep reads the org project's Status field, which github.token cannot see at all.
+          # Absent, the staging goes quiet and says so; the close update is unaffected.
+          GH_PROJECT_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          ./.github/scripts/asana-mirror.ps1 `
+            -Mode event `
+            -Event $env:EVENT_ACTION `
+            -IssueBody $env:ISSUE_BODY `
+            -IssueRef $env:ISSUE_REF
+
+      - name: Reconciliation sweep
+        if: github.event_name != 'issues'
+        shell: pwsh
+        env:
+          ASANA_PAT: ${{ secrets.ASANA_PAT }}
+          ASANA_PROJECT_GID: ${{ vars.ASANA_PROJECT_GID }}
+          GH_TOKEN: ${{ github.token }}
+          # The stage sweep reads the org project's Status field, which github.token cannot see at all.
+          # Absent, the staging goes quiet and says so; the close update is unaffected.
+          GH_PROJECT_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          ./.github/scripts/asana-mirror.ps1 -Mode reconcile -Repo $env:GITHUB_REPOSITORY
