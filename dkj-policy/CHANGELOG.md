@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/bwj-adopt-third-repo · 20260914-125826
+
+`dkj-policy-bwj`'s two skills refused to run anywhere but BWJ's two Shopify stores. They now admit a
+third repo by name -- `dkj-claude-plugins`, the plugin's own source -- which until today step 0 named
+as the *most likely wrong* target, precisely because the templates it copies live there. The check
+itself is unchanged and so is the measurement behind it (#1522): what changed is the verdict for that
+one name, and step 0 now carries what the admission costs in a public repo whose tracker receives
+every consumer's inbound reports.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a consumer of this marketplace gains nothing. The three-name list is this source repo letting
+itself run a procedure it ships; the two BWJ stores it was written for are unaffected, and every
+other repo is refused exactly as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+The BWJ adoption gate admits the plugin's own source repo as a third target
+
+Plugins: dkj-policy-bwj
+
+[PR #1983](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1983)
+
+---
 
 ### DEPLOY: docs/1980-artifact-source-url-record · 20260914-123205
 
