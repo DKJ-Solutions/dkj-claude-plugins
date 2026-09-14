@@ -43,7 +43,59 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1986-scope-from-install-record · 20260914-154645
+
+`update-plugins` and `plugin-versions` now read the `--scope` for every `claude plugin update` off the
+install administration instead of assuming `project`, and a marketplace clone whose `marketplace.json`
+will not parse no longer prescribes the refresh that provably cannot repair it
+([#1986](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1986),
+[#1987](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1987)).
+
+**The CLI refuses a scope a plugin is not installed at**, so the hardcoded `project` meant a
+machine-wide plugin was handed the one command that could have moved it -- never updated, and the run
+exited 1 on a machine where nothing was wrong. It is not only the machine-wide case: a session start
+rewrites install records with no command run, flipping a `project` record to `local` and sometimes
+dropping the path off one entirely, and `project` is wrong in both of those too.
+
+**The repair went further than the report asked, because the receipt prints what the executor runs.**
+`plugin-versions.ps1` carried the same hardcode in seven of its own prescriptions, so fixing only
+`update-plugins.ps1` would have left one run contradicting itself in step 3. One reader --
+`Get-PluginUpdateScope`, beside the two predicates already reading those records -- now answers it for
+both. It returns one of the CLI's own four scope names rather than the file's string, so no byte of
+`installed_plugins.json` reaches a command line; where the administration cannot answer, the run falls
+back to `project` exactly as before and **says that it did**.
+
+**All three `claude plugin install` lines are deliberately untouched.** Those prescribe installing
+*into this checkout*, which is what `project` means and what the reader is being told to do -- they
+are not asking where the plugin already lives.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Both scripts are plugin-carried, so a consumer running `update-plugins` on a machine where a plugin is
+installed machine-wide previously watched that plugin stay behind release after release while the run
+ended in red -- and the same consumer's `plugin-versions` handed them a repair command the CLI would
+refuse. Both now work at the scope the machine is actually in, and the one state the tool cannot read is
+reported rather than papered over.
+
+The `#1987` half is smaller but is the one that wastes a reader's time in a loop: a clone whose manifest
+Windows PowerShell 5.1 cannot represent was told to refresh, forever. It now names the manifest, and for
+the one shape whose cause is known it rules the refresh out by name and says whose fault it is.
+
+**Score:** 3
+
+#### Pull Request
+
+update-plugins and plugin-versions take --scope from the install record, and a clone that will not parse no longer prescribes a refresh
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1996](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1996)
+
+---
 
 ### DEPLOY: fix/1985-bypass-in-printed-commands · 20260914-143406
 
