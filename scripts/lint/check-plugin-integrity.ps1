@@ -523,13 +523,105 @@ function Test-CheckEnabled([string]$Name) { return ($script:SkippedChecks -notco
 # failures in check 23, a check that change had not touched. Still TWO fixtures after the split, not five:
 # the four suites build theirs from that one shared function.
 
+# THE KEYS TWO JSON READERS DISAGREE ABOUT, named rather than inferred -- issue #2003. Windows
+# PowerShell 5.1's ConvertFrom-Json folds object keys case-insensitively and then refuses the
+# collision it made itself, so a VALID document carrying '.c' beside '.C' throws at exactly the line
+# a malformed one does. This walks the same text with a CASE-SENSITIVE reader and reports which keys
+# collided, so Test-JsonFile below can tell the two failures apart.
+#
+# NOT BY READING THE EXCEPTION'S MESSAGE, which is the obvious cheap version and is wrong: that text
+# is localized. Measured on this host while writing this -- the same malformed document that says
+# 'Invalid JSON primitive' in English reports 'Ongeldige JSON-primitieve'. A verdict matched on it
+# would be right on a CI runner and silently wrong on a Dutch workstation, which is the same class
+# native-capture-lib's Format-GateSeconds states at length for a NUMBER whose meaning depends on the
+# machine that printed it.
+#
+# RETURNS the colliding key groups, or an empty array when the document is genuinely unreadable, or
+# when no case-sensitive reader is available. Both of those mean 'no evidence this file is fine',
+# which is the conservative answer: the caller then reports the original malformed-JSON error, which
+# is what it reported before this existed.
+#
+# System.Web.Extensions is .NET Framework only, so this finds nothing under PowerShell 7 -- where
+# ConvertFrom-Json is already case-sensitive and the caller never reaches this path at all.
+function Get-JsonCaseCollision {
+    param([string]$Text)
+    try {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+        $ser = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $root = $ser.DeserializeObject($Text)
+    } catch {
+        return @()
+    }
+    # ITERATIVE, NOT RECURSIVE, and the path is carried on the stack beside the node. A collision is
+    # only actionable if the reader is told WHERE it sits: the real case this was measured against --
+    # the official marketplace's clangd map listing '.c' beside '.C' -- is four levels down, and
+    # "two keys collide somewhere in this file" would send a reader hunting through all of it.
+    $found = New-Object System.Collections.ArrayList
+    $stack = New-Object System.Collections.Stack
+    $stack.Push([pscustomobject]@{ Node = $root; Path = '' })
+    while ($stack.Count -gt 0) {
+        $cur  = $stack.Pop()
+        $node = $cur.Node
+        if ($node -is [System.Collections.IDictionary]) {
+            $keys = @($node.Keys)
+            foreach ($g in ($keys | Group-Object -Property { "$_".ToLowerInvariant() })) {
+                if ($g.Count -gt 1) {
+                    $names = ((@($g.Group) | Sort-Object | ForEach-Object { "'$_'" }) -join ' and ')
+                    $where = if ($cur.Path) { "in $($cur.Path)" } else { 'at the top level' }
+                    $found.Add("$names $where") | Out-Null
+                }
+            }
+            foreach ($k in $keys) {
+                $childPath = if ($cur.Path) { "$($cur.Path).$k" } else { "$k" }
+                $stack.Push([pscustomobject]@{ Node = $node[$k]; Path = $childPath })
+            }
+        } elseif ($node -is [System.Collections.IEnumerable] -and $node -isnot [string]) {
+            $i = 0
+            foreach ($item in $node) {
+                $stack.Push([pscustomobject]@{ Node = $item; Path = "$($cur.Path)[$i]" })
+                $i++
+            }
+        }
+    }
+    return @($found | Sort-Object)
+}
+
 function Test-JsonFile {
     param([string]$Path)
+    $shown = $Path.Replace($RepoRoot, '.')
+    # DECLARED OUTSIDE THE TRY so the catch can still see what was read. A throw from ReadAllText
+    # leaves it $null, and then there is no text to ask a second reader about.
+    $raw = $null
     try {
         $raw = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
         return ($raw | ConvertFrom-Json)
     } catch {
-        Add-Error "[JSON] $($Path.Replace($RepoRoot, '.')) is not valid JSON: $($_.Exception.Message)"
+        # THE ACCUSATION THIS BRANCH REMOVES -- issue #2003. Every throw used to be reported as
+        # 'is not valid JSON', and one whole class of them is the opposite of that: the file is valid
+        # and this reader cannot read it. The accusation is the kind a reader ACTS on, by editing a
+        # file that has nothing wrong with it.
+        #
+        # STILL AN ERROR, DELIBERATELY. The gate could not parse the manifest, so every check that
+        # reads it did not run, and a gate that passes a manifest it never read is the one failure
+        # worse than a wrong message. What changes is the verdict's wording and where it sends the
+        # reader, not whether it blocks.
+        # ASSIGNED IN TWO STATEMENTS, NOT AS AN if/else EXPRESSION. This file runs under Set-StrictMode,
+        # and `$x = if (..) { @(1) } else { @() }` yields $null rather than an empty array -- an empty
+        # branch produces nothing to assign. Reading .Count off that then THROWS, which killed the gate
+        # on the one path this whole function exists to reach. Measured by scenario 55 in
+        # check-plugin-integrity-docs.tests.ps1, which went red on a corrupt marketplace it had always
+        # tolerated.
+        $collisions = @()
+        if ($null -ne $raw) { $collisions = @(Get-JsonCaseCollision -Text $raw) }
+        if ($collisions.Count -gt 0) {
+            Add-Error ("[JSON] $shown is VALID JSON that THIS PowerShell cannot read (issue #2003): " +
+                "its object keys collide once folded case-insensitively, which ConvertFrom-Json does " +
+                "before refusing the collision it made itself -- " + ($collisions -join '; ') + ". " +
+                "The FILE needs no change; what did not run are the checks that read it. " +
+                "PowerShell 7's ConvertFrom-Json is case-sensitive and reads it as written.")
+        } else {
+            Add-Error "[JSON] $shown is not valid JSON: $($_.Exception.Message)"
+        }
         return $null
     }
 }

@@ -1031,6 +1031,46 @@ Write-Host 'fixture'
         'corrupt marketplace: check 8 degrades to zero pairs, visibly, rather than throwing'
     Assert-True ($c5.Code -ne 0) `
         'corrupt marketplace: and the run still fails -- check 1 reported the unparseable file'
+    Assert-True ($c5.Out -match '\[JSON\].*is not valid JSON') `
+        'corrupt marketplace: and it IS named as malformed -- the half scenario 55b must not collide with'
+    [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), $goodMarketplace, $Utf8NoBom)
+
+    # --- Scenario 55b: A VALID MANIFEST THIS READER CANNOT READ IS NOT CALLED MALFORMED -------------
+    # 55b. ISSUE #2003, and it is scenario 55's mirror image. Windows PowerShell 5.1's ConvertFrom-Json
+    #      folds object keys case-insensitively and then refuses the collision it made itself, so a
+    #      VALID document carrying '.c' beside '.C' throws at the same line a malformed one does -- and
+    #      was reported with the same words. The accusation is the kind a reader ACTS on, by editing a
+    #      file that has nothing wrong with it.
+    #
+    #      THE DOCUMENT HERE IS THE REAL CASE, not an invention: the official marketplace's
+    #      lspServers.clangd.extensionToLanguage map legitimately lists both spellings, and it is the
+    #      manifest this repo's own consumers install from.
+    #
+    #      Invoke-Integrity runs the gate through 'powershell', which on Windows is always 5.1, so this
+    #      scenario is deterministic. Under PowerShell 7 ConvertFrom-Json is case-sensitive, the file
+    #      parses, and there is no finding to assert at all -- which is the correct behaviour there and
+    #      the reason the repair diagnoses rather than refuses.
+    $collideMarketplace = @'
+{
+  "name": "fixture-marketplace",
+  "lspServers": { "clangd": { "extensionToLanguage": { ".c": "c", ".C": "cpp" } } },
+  "plugins": [
+    { "name": "dkj-subagents-alpha", "source": "./plugins/dkj-subagents/dkj-subagents-alpha" }
+  ]
+}
+'@
+    [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), $collideMarketplace, $Utf8NoBom)
+    $c5b = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($c5b.Out -match '\[JSON\].*is VALID JSON that THIS PowerShell cannot read') `
+        'case-colliding marketplace: the verdict says the FILE is valid and this reader is not'
+    Assert-True ($c5b.Out -notmatch '\[JSON\].*is not valid JSON') `
+        'case-colliding marketplace: and it is never accused of being malformed (issue #2003)'
+    Assert-True ($c5b.Out -match "'\.C' and '\.c' in lspServers\.clangd\.extensionToLanguage") `
+        'case-colliding marketplace: the colliding keys are named, with the path they sit at'
+    Assert-True ($c5b.Out -match 'Summary:') `
+        'case-colliding marketplace: the run still reaches its Summary, like scenario 55'
+    Assert-True ($c5b.Code -ne 0) `
+        'case-colliding marketplace: and still FAILS -- the checks that read the manifest did not run'
     [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), $goodMarketplace, $Utf8NoBom)
 
     # --- check 6b: a manual is backed by an agent def OR a persona ------------------------------------
