@@ -1,14 +1,16 @@
 ---
 name: adopt-dkj-policy-bwj
 description: >-
-  One-time setup of dkj-policy-bwj in a BWJ store repo (smartwatchbanden or xoxowildhearts, whichever
-  org) -- it refuses to run anywhere else -- both chapters: copy the asana-mirror CI mechanism into .github/,
-  propose the Asana config seam for scripts/repo-config.ps1, print the repo secret and variables the
-  CI needs, check that the classification labels exist, report whether the board's sections are
-  numbered so the stage model can read them, and scaffold chapter two's dkj-policy-bwj/SYNC-LOG.md
-  with its masthead, ready for the first sync branch. Strictly additive and dry-run by default; it
-  never overwrites an existing file, and it renames nothing on the board. Run this right after
-  enabling the plugin, or when report-issue reports the Asana config seam missing.
+  One-time setup of dkj-policy-bwj in a repo permitted to run it -- BWJ's two stores
+  (smartwatchbanden or xoxowildhearts, whichever org) and the plugin's own source repo
+  dkj-claude-plugins -- it refuses to run anywhere else -- both chapters: copy the asana-mirror CI
+  mechanism into .github/, propose the Asana config seam for scripts/repo-config.ps1, print the repo
+  secret and variables the CI needs, check that the classification labels exist, report whether the
+  board's sections are numbered so the stage model can read them, and scaffold chapter two's
+  dkj-policy-bwj/SYNC-LOG.md with its masthead, ready for the first sync branch. Strictly additive
+  and dry-run by default; it never overwrites an existing file, and it renames nothing on the board.
+  Run this right after enabling the plugin, or when report-issue reports the Asana config seam
+  missing.
 ---
 
 # adopt-dkj-policy-bwj -- place both chapters' mechanism and config seam
@@ -17,12 +19,12 @@ An install writes nothing into your repo. This command places what `dkj-policy-b
 side, across both chapters: the CI workflow that resolves Asana tasks, the config functions the skill
 and the CI both read, and chapter two's `SYNC-LOG.md` scaffold (step 7).
 
-## 0 -- establish that this is a BWJ store repo
+## 0 -- establish that this repo is a permitted adoption target
 
-**Refuse, not warn: nothing is written, copied or proposed until this check passes.** The two-repo
-constraint -- `smartwatchbanden` or `xoxowildhearts`, and nothing else --
-lived only in this file's own frontmatter until now; none of the seven steps below actually checked
-which repo the session is standing in.
+**Refuse, not warn: nothing is written, copied or proposed until this check passes.** The constraint
+-- `smartwatchbanden`, `xoxowildhearts` or `dkj-claude-plugins`, and nothing else -- lived only in
+this file's own frontmatter until #1522; none of the seven steps below actually checked which repo
+the session is standing in.
 
 ```bash
 git remote get-url origin
@@ -32,38 +34,49 @@ git remote get-url origin
 `BWJ-ecommerce/<store>` until September 7, 2026, and on that day it became wrong in the live repo:
 `smartwatchbanden` moved to `BWJ-Development` as a fresh repo, the `BWJ-ecommerce` one was archived,
 and a fresh repo carries no redirect. An org-path match then refuses the one adoption it exists to
-serve, which is the worse of the two failure directions -- and the org may move again while the store
-names will not. The names are still exactly two, so nothing about the strength of this refusal changes.
+serve, which is the worse of the two failure directions -- and the org may move again while the
+names will not. The list is closed at three, so nothing about the strength of this refusal changes.
 
 **Anything else stops the skill here**: report which
 repo the session is actually in and go no further -- no file copied, no config proposed, no label
-checked. There is no override flag, and there will not be one: there is no legitimate third adoption
-target, and a skill whose whole job is placing a mechanism in exactly two repos should not ship the
-means to place it in a third.
+checked. There is no override flag, and there will not be one: the list itself is the whole
+permission, so a fourth target is a change to this page argued on its own merits -- never a flag
+somebody passes in the moment, which is a decision nobody can read back afterwards.
 
-**Say plainly that a wrong repo is silent, the same way step 2 says a wrong stage map is** -- this is
-that failure one level up. A wrong stage map still lands the mirror on the right repo, one column off;
-a wrong repo lands the whole mechanism -- the CI workflow, the secrets checklist, the labels --
-somewhere it was never asked to sit, and nothing about running the steps in order says so. Nothing
-fails loudly; the workflow is simply red or silent, on whatever repo it landed in.
+**The third name is this skill's own SOURCE repo, and it was admitted deliberately** (Dave,
+September 14, 2026). Until that day it was the paragraph below this one, named here as the *most
+likely wrong* target precisely because it is the source. That reading is retired for
+`dkj-claude-plugins` and for nothing else: the repo is permitted because its maintainer decided it
+is, not because the guard stopped seeing it.
 
-**The most likely wrong target is this skill's own source repo, and precisely because it is the
-source.** `templates/asana-mirror.yml` and `templates/asana-mirror.ps1` are copied *from* here, so a
-session reading this skill in the source repo finds every file step 1 needs already in reach and no
-signal that it is standing in the wrong tree. Step 1's own guard does not catch this either -- "if a
-file already exists at the target, stop and diff" protects a repo that has *already* adopted, and a
-repo that has never adopted has no file at either target, so that guard passes cleanly and the copy
+**What that admission costs belongs here, where the permission is granted.**
+`templates/asana-mirror.yml` and `templates/asana-mirror.ps1` are copied *from* this repo, so step 1
+here copies out of `plugins/dkj-policy/dkj-policy-bwj/templates/` into this repo's own `.github/` --
+a **public** repo, where the workflow holds `issues: write`, triggers on `issues: [closed, reopened,
+labeled, unlabeled]` plus a daily cron, and mirrors to whatever board `Get-AsanaProjectGid` names. On
+this repo that tracker is the one every consumer files their inbound reports to, so step 2's board
+GID is not a formality here: a provisional or copied value mirrors this repo's inbound traffic onto
+somebody else's board, and step 2 already says such a value fails silently.
+
+**And the reason the guard exists is unchanged for every name outside the list.** A wrong stage map
+still lands the mirror on the right repo, one column off; a wrong repo lands the whole mechanism --
+the CI workflow, the secrets checklist, the labels -- somewhere it was never asked to sit, and
+nothing about running the steps in order says so. Nothing fails loudly; the workflow is simply red or
+silent, on whatever repo it landed in. Step 1's own guard does not catch it either -- "if a file
+already exists at the target, stop and diff" protects a repo that has *already* adopted, and a repo
+that has never adopted has no file at either target, so that guard passes cleanly and the copy
 proceeds. The failure this step exists to catch is a clean first run in the wrong repo, which the
 idempotence guard cannot see because it is answering a different question.
 
 **Measured, not hypothetical**: this skill was invoked once with the working directory set to the
-source repo, `DKJ-Solutions/claude-code-specialists`, and nothing before step 1 stopped it -- the session
-stopped by hand, not the skill. Left to run, step 1 alone would have placed
-`.github/workflows/asana-mirror.yml` on a **public** repo, triggering on
-`issues: [closed, reopened, labeled, unlabeled]` plus a daily cron, holding `issues: write`, and
-mirroring to an Asana project GID this repo does not own -- onto the tracker that receives every
-consumer's own inbound reports
-([#1522](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1522)).
+source repo, `DKJ-Solutions/dkj-claude-plugins`, and nothing before step 1 stopped it -- the session
+stopped by hand, not the skill
+([#1522](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1522)). **Admitting that repo
+does not retire the measurement, and reading it as spent is the one mistake this paragraph exists to
+prevent.** What #1522 measured was an *unnoticed* run in a repo nobody had chosen, and its repair was
+the check rather than the verdict -- so the check still runs here. It now returns a permitted name,
+and the difference between the two runs is not the guard but the decision behind it, which is on the
+record above.
 
 ## 1 -- copy the CI mechanism into `.github/`
 
