@@ -336,7 +336,7 @@ the directory rule rides along with the name, unaffected, exactly as this paragr
 | [`dkj-subagents-shopify/`](plugins/dkj-subagents/dkj-subagents-shopify/) | **An add-on team.** Three specialists for a Shopify store repo (Liam · Liquid, Sandra · store management, Steven · configuration) plus four domain skills of its own (`adopt-shopify-floor`, `push-preview`, `start-task`, `sync-main`). Also deliberately domain-flavored. | Only a Shopify repo (e.g. smartwatchbanden). |
 | [`dkj-subagents-ecomm/`](plugins/dkj-subagents/dkj-subagents-ecomm/) | **An add-on team.** E-commerce specialists for a commercial webshop repo of any platform (Sergio · SEO, Craig · CRO, Sean · performance/SEA). Platform-agnostic, and complementary to a platform team rather than exclusive. | Any commercial webshop repo — including a Shopify repo alongside `dkj-subagents-shopify`. |
 | [`dkj-policy/`](plugins/dkj-policy/) | **The workflow — a way of working, not a team.** DaveKJohn's own branch-and-entry model, packaged so a repo can *choose* it: the workflow skills (`new-branch`, `open-pr`, `ship-pr`, `fold-changelog`, `cut-release`, `park`, `fix-mojibake`, `adopt-dkj-policy` and the rest — the plugin's own README carries the full list), their shared scripts, the session hooks that belong to running this across several repos, and one Stop hook that keeps a branch's development document on `origin` (#900). Also ships a **config blueprint** — the source's own answers to the repo-owned seam, with the reasoning behind each — which `adopt-dkj-policy`'s Part 2 places or proposes (see below). Carries **no specialists** — it changes how the existing ones work, not who they are. | Only a repo that deliberately wants *this* way of working on top of its own. |
-| [`dkj-policy-bwj/`](plugins/dkj-policy/dkj-policy-bwj/) | **A narrow, additive workflow.** BWJ's codex — the binding rules its two Shopify store repos operate under. Three chapters: **ticket handling** — a discovered issue is filed on GitHub first, mirrored to Asana as a colleague-friendly variant, and closing the GitHub issue only makes a CI workflow (shipped as a template) post that the work is ready to test and move the card to `ReadyToTest` — it never resolves the task itself; and **the sync log** — a `sync/` branch is exempt from the changelog by design and owes `dkj-policy-bwj/SYNC-LOG.md` instead, written by `dkj-subagents-shopify`'s `sync-main.ps1`; and **the preview handover** — where a preview is owed, the handover is a pair per market, the preview beside the live control, whose URL pins the live theme id because `preview_theme_id` sets a cookie and the bare URL then keeps serving the preview; and that pair travels as one link to a published page with a QR code per market, never as a table of URLs a terminal wraps past selecting and a phone cannot scan. Two skills (`report-issue`, `adopt-dkj-policy-bwj`), no specialists, no hooks. Extends only the ticket-work step of `dkj-policy`, what a sync branch owes, and what a preview handover contains and how it travels; contradicts nothing it decides. | Only BWJ's two store repos; requires `dkj-subagents-alpha` **and** `dkj-policy` — the sync chapter also expects `dkj-subagents-shopify`. |
+| [`dkj-policy-bwj/`](plugins/dkj-policy/dkj-policy-bwj/) | **A narrow, additive workflow.** BWJ's codex — the binding rules its two Shopify store repos operate under. Three chapters: **ticket handling** — a discovered issue is filed on GitHub first, mirrored to Asana as a colleague-friendly variant, and closing the GitHub issue only makes a CI workflow (shipped as a template) post that the work is ready to test and move the card to `ReadyToTest` — it never resolves the task itself; and **the sync log** — a `sync/` branch is exempt from the changelog by design and owes `dkj-policy-bwj/SYNC-LOG.md` instead, written by `dkj-subagents-shopify`'s `sync-main.ps1`; and **the preview handover** — where a preview is owed, the handover is a pair per market, the preview beside the live control, whose URL pins the live theme id because `preview_theme_id` sets a cookie and the bare URL then keeps serving the preview; and that pair travels as one link to a published page with a QR code per market, never as a table of URLs a terminal wraps past selecting and a phone cannot scan. Four skills (`report-issue`, `adopt-dkj-policy-bwj`, `publish-page`, `build-backlog-page`), no specialists, no hooks. Extends only the ticket-work step of `dkj-policy`, what a sync branch owes, and what a preview handover contains and how it travels; contradicts nothing it decides. | Only BWJ's two store repos; requires `dkj-subagents-alpha` **and** `dkj-policy` — the sync chapter also expects `dkj-subagents-shopify`. |
 
 In short: **`dkj-subagents-alpha` is the foundation; everything else is optional, along two different axes.**
 `dkj-subagents-lifehub` and `dkj-subagents-shopify` describe what *kind* of repo it is, so a repo
@@ -836,6 +836,7 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
 `measure-skill`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `publish-page`,
+`build-backlog-page`,
 `orchestrator`)<!-- /skills:all -->
 remain available there.
 
@@ -921,7 +922,7 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `worktree-lane`, `check-fanout`,
-`publish-page`) are a thin wrapper around a script — procedural
+`publish-page`, `build-backlog-page`) are a thin wrapper around a script — procedural
 **mechanism** (branch, claiming an issue on the tracker before the work on it starts, PR, ship, fold,
 bootstrap, teardown, roster-sync, encoding repair, reading a
 repo's own conventions, placing an add-on team's operational floor, pushing a branch to its own preview
@@ -931,8 +932,9 @@ so a session can read them against each other, reaping the local branches a merg
 whether this checkout's installed plugin matches the marketplace clone and which command closes any
 gap, closing that gap in one command instead of one per plugin, pricing what a skill costs the sessions that carry it, giving a branch its own worktree so
 another one can ship, reading the working copy on both sides of a dispatched fan-out to say whether
-a subagent discarded any of it, and putting a built page on the one Cloudflare Worker BWJ's two store
-repos share). `cut-release`, `orchestrator`, `report-issue` and `adopt-dkj-policy-bwj`<!-- /skills:all --> are the
+a subagent discarded any of it, putting a built page on the one Cloudflare Worker BWJ's two store
+repos share, and building the minor-backlog page itself from the open, reach-labelled issues and each
+one's mirrored Asana task text). `cut-release`, `orchestrator`, `report-issue` and `adopt-dkj-policy-bwj`<!-- /skills:all --> are the
 deliberate exceptions: a checklist with no script of its own (see below); a skill that must not have
 one — `orchestrator` reads a persona file into the conversation, and the environment it exists for is
 precisely the one where `powershell` is absent; and the two `dkj-policy-bwj` procedures, which run over

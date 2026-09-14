@@ -402,7 +402,7 @@ $script:ContractRecords = @(
     # fails outright on a label the repo does not have, so a typed literal in a repo that renamed its
     # label gets you an error instead of an issue. It was four literals until #1841, two of them pointing
     # at a label the repo no longer had.
-    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-ReachLabel'; Scripts = @('report-issue skill', 'adopt-dkj-policy skill');
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-ReachLabel'; Scripts = @('report-issue skill', 'adopt-dkj-policy skill', 'build-backlog-page skill');
        Adopt = 'copy'; AdoptWhy = "it states the shared way of working -- this family names the reach axis after what the landing does to the release, and that name is true in a tier-1 and a tier-2 repo alike. Adopting it asserts nothing about the consuming repo; a repo whose colleagues know the axis by another word renames the label and answers this with that word instead";
        Optional = $true; Default = "'minor' -- the name this workflow prescribes, so a repo that has never answered this is already right";
        Returns = "one string: the name GitHub stores for the reach label, which an issue carries when its landing will be written at tier 1 or 2 and omits at tier 0. NOT the axis -- that is the tier model in RELEASES-portable.md, is read on every changelog entry, and is not configurable -- only the label's spelling in this repo's tracker" },

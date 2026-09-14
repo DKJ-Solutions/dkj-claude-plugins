@@ -226,14 +226,17 @@ reports after the fact and refuses nothing.
 | the test harness | [`scripts/tests/test-lib.ps1`](scripts/tests/test-lib.ps1) | the assert helpers, `ConvertTo-CapturedText`, `Add-SuiteFault` and `Assert-PluginLoadedForProject` -- the superset of what the two stores each had, in English |
 | the market URL builder | [`scripts/lib/market-urls.ps1`](scripts/lib/market-urls.ps1) | the storefront and preview URLs per market -- the superset of what the two stores each had, in English. The market table itself stays a `Get-StorefrontMarkets` seam answer per store |
 | the shared pages worker | [`worker/bwj-pages-worker.js`](worker/bwj-pages-worker.js) + [`scripts/task/publish-page.ps1`](scripts/task/publish-page.ps1) + [`scripts/lib/page-publish-rules.ps1`](scripts/lib/page-publish-rules.ps1) | **one** Cloudflare Worker for both stores, serving a built page at an unguessable path -- see [The shared pages worker](#the-shared-pages-worker) below |
+| the backlog page builder | [`scripts/task/build-backlog-page.ps1`](scripts/task/build-backlog-page.ps1) + [`scripts/lib/backlog-page-rules.ps1`](scripts/lib/backlog-page-rules.ps1) | writes `minor-backlog.html` from the open, reach-labelled issues, showing each one's mirrored Asana task text -- see [`build-backlog-page`](skills/build-backlog-page/SKILL.md) |
 
 #### The shared pages worker
 
 **Issue [#1977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1977): both stores publish
 through ONE worker.** It carries the pages a colleague outside the development work has to read --
-the release notes today, the minor backlog once its builder exists -- because those documents live as
-markdown in a **private** repository, which is the right home for them and the wrong place to read
-them.
+the release notes, and the minor backlog
+[`build-backlog-page`](skills/build-backlog-page/SKILL.md) builds (issue
+[#1979](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1979)) -- because those documents
+live as markdown, or as issues and Asana tasks, in a **private** repository, which is the right home
+for them and the wrong place to read them.
 
 **`dkj-policy`'s own worker could not be that one, and the reason is mechanical.**
 `build-release-notes-page.ps1 -Worker` writes the page into `worker.js` **as a literal**, and
@@ -286,6 +289,7 @@ matched, so the sibling check could see the pair only as `ALIASED`
 |---|---|
 | [`report-issue`](skills/report-issue/SKILL.md) | a real issue has been found in a BWJ store repo -- files it on GitHub with its type and reach label, mirrors it to Asana as the colleague-facing variant, and writes the cross-links |
 | [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md) | one-time setup in a store repo -- copies the CI mechanism into `.github/`, proposes the Asana config seam, and prints the secret/variable setup |
+| [`build-backlog-page`](skills/build-backlog-page/SKILL.md) | the minor-backlog page needs refreshing -- reads the open, reach-labelled issues and shows each one's mirrored Asana task text, never the issue's own |
 | [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
 
 <!-- /skills:plugin -->
