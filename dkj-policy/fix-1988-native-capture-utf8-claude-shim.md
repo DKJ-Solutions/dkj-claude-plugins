@@ -39,19 +39,52 @@
 
 ### PLAN
 
+#### Root cause (verified, not assumed)
+
+Reproduced the exact `Get-Command claude -All` ordering issue #1988 reports on this machine's own
+npm install: `claude.ps1` (ExternalScript), `claude.cmd` (Application, `.cmd`), `claude` (Application,
+no extension). `Invoke-NativeCaptureUtf8`'s `Start-Process -FilePath 'claude'` resolves the bare name
+via CreateProcess's own PATH search, which matches the extensionless file before it ever tries an
+appended extension -- confirmed by launching `Start-Process` against the resolved `.cmd` path directly
+and getting a clean exit, versus the reported Win32-loader failure on the bare name.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add `Resolve-NativeApplicationPath` to `scripts/lib/native-capture-lib.ps1`: resolves a bare,
+      PATH-searched `$FilePath` to the first `Get-Command -All -CommandType Application` match that
+      carries a real extension (skips the extensionless shim and the `.ps1`, which `Start-Process`
+      cannot launch directly); leaves an already-specific path, or a name that resolves to nothing,
+      unchanged.
+- [x] Call it from `Invoke-NativeCaptureUtf8` before building `$startArgs`.
+- [x] Rebuild the shared-script mirrors (`scripts/sync/build-shared-scripts.ps1`) so `dkj-policy` and
+      `dkj-subagents-shopify` carry the fix too.
 
 ### TEST
 
+- [x] Added a regression test in `scripts/tests/native-capture.tests.ps1` that reproduces the
+      three-shim npm layout in a throwaway `PATH` entry and asserts the `.cmd` shim runs (not the
+      Win32-loader failure), plus that an already-resolved path and a genuinely missing command are
+      both left unchanged.
+- [x] `native-capture.tests.ps1`: 204 pass, 0 fail.
+- [x] `check-plugin-integrity.ps1`: 0 error(s) (shared-script mirrors back in sync).
+
 ### DEPLOY: fix/1988-native-capture-utf8-claude-shim
 
-**Score:**
+`update-plugins.ps1` (and any other `-Utf8`/`-TimeoutSeconds` caller of `Invoke-NativeCapture`) now
+runs `claude` correctly on a Windows machine where npm's global install left three PATH shims for one
+bin -- previously `Start-Process` matched the extensionless POSIX script first and failed with
+"%1 is not a valid Win32 application".
+
+**Score:** 3 -- a concrete blocker on this Windows/npm install shape, fixed the moment a maintainer
+touches `update-plugins.ps1` on such a machine; not a breaking change and not everyone's daily path.
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `dkj-policy:update-plugins` on the same Windows/npm-global install shape had step
+1/3 (marketplace refresh) and step 2/3 (per-plugin update) fail outright; this fix reaches them once
+mirrored into the plugin via a release.
+
+**Score:** 3 -- a clear improvement, noticed the moment they run `update-plugins` on this install shape.
 
 #### Pull Request
 
