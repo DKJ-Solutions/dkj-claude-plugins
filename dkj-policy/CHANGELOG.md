@@ -43,7 +43,58 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/1989-exec-policy-in-script-layer · 20260914-160407
+
+The script layer now prints what the document layer prints: every `powershell` invocation a reader is told
+to run carries `-ExecutionPolicy Bypass`, in `.EXAMPLE` help and in the two operator hints a script writes
+to the screen. 73 sites across 36 files, and check 42 has a second pass that keeps it that way
+([#1989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1989)). #1985 repaired the 85 markdown
+occurrences and deliberately left this half filed rather than swept; this is that file being closed.
+
+**The interesting part is not the sweep, it is what the same rule costs one layer down.** Over documents
+check 42 was born green at 85 subjects. Over `.ps1` the identical rule is born at **93 findings**, because
+a script holds three things a page does not: prose *about* the invocation form, fixture strings that must
+*model* the defect, and real invocations the script *runs*. Each got a narrowing, and each was measured
+before it was written rather than argued for.
+
+**The invocation must begin its line, or a line of the string it sits in** -- a command somebody pastes is
+the whole of its line, while prose naming the form is a fragment of a sentence. That takes 93 to 75, and
+all 18 dropped are correct. The string half carries its weight: `check-fanout.ps1`'s hint begins the line
+of the *string* and not of the file, so a file-line rule would have missed the case that most deserved
+sweeping.
+
+**A command the script runs is read off the parser, not off a leading `&`.** `-ExecutionPolicy` sets
+`PSExecutionPolicyPreference`, which a child inherits, so a script-to-script call is correct bare -- and
+the AST also catches the shapes an `&` rule misses: an assignment, a pipeline, the operator a line above.
+
+**The fixture layer is excluded as a layer, not as an exemption list.** A suite that proves this check
+fires has to contain what it forbids. Measured rather than assumed: of the 75 subjects exactly 2 sit under
+a `tests/` folder, and both are check 42's own markdown fixtures. Born green at 73, 0 exemptions.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer runs these scripts, not just reads them. The sweep reaches the plugin-carried copies -- the
+`dkj-policy` lint and task scripts, the Shopify theme scripts, `sync-roster.ps1` -- so `Get-Help` on any of
+them now prints a command that survives a Windows machine sitting at the default `Restricted`, and
+`ship-pr.ps1`'s hand-back hint can be pasted straight out of the terminal. Small, and invisible until the
+moment somebody copies a line; that moment is exactly when the old form cost them a failed run and a
+detour into why.
+
+**Score:** 2
+
+#### Pull Request
+
+The script layer's printed commands carry -ExecutionPolicy Bypass, and check 42 now reaches them
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #1995](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1995)
+
+---
 
 ### DEPLOY: fix/1986-scope-from-install-record · 20260914-154645
 
