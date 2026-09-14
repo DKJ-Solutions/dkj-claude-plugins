@@ -84,7 +84,7 @@
     Its automatic caller is the SessionStart hook claude-home-sessioncheck.ps1. Run it by hand for the
     full report, [OK] and [SKIP] lines included:
 
-        powershell -NoProfile -File scripts/lint/check-claude-home.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-claude-home.ps1
 
     Exit 0 when the administration is clean, absent, or holds nothing to judge; exit 1 with the
     records, the marketplaces they name and the way back when a fixture has written into it.
@@ -106,7 +106,7 @@
     snapshot, and the switch to reach for if the snapshot is ever unwanted on a machine.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/lint/check-claude-home.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-claude-home.ps1
 #>
 [CmdletBinding()]
 param(

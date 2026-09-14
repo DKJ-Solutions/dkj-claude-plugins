@@ -72,7 +72,7 @@
 
     RUN IT FROM THE ROOT OF THE CONSUMING REPO:
 
-        powershell -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-triage-labels.ps1"
+        powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-triage-labels.ps1"
 
     Always exits 0: this is a report, not a gate, and a missing label is a to-do rather than a defect
     -- the same reasoning `plugin-versions.ps1` gives for its own always-0 exit.

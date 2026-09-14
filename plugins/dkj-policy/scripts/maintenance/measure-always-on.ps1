@@ -51,10 +51,10 @@
     Skip the section breakdown and print only the per-document table.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/maintenance/measure-always-on.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/maintenance/measure-always-on.ps1
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/maintenance/measure-always-on.ps1 -Depth 4 -Top 0
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/maintenance/measure-always-on.ps1 -Depth 4 -Top 0
 #>
 [CmdletBinding()]
 param(

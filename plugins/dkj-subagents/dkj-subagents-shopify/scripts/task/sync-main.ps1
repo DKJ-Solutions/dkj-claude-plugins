@@ -225,10 +225,10 @@
     silently, so the run says so out loud when the seam's merge method is 'squash'.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/sync-main.ps1 -DryRun
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/sync-main.ps1 -DryRun
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/sync-main.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/sync-main.ps1
 #>
 [CmdletBinding()]
 param(

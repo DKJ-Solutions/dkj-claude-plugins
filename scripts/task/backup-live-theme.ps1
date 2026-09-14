@@ -65,10 +65,10 @@
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/backup-live-theme.ps1 -DryRun
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/backup-live-theme.ps1 -DryRun
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/backup-live-theme.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/backup-live-theme.ps1
 
 .NOTES
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/theme-lifecycle-rules.tests.ps1

@@ -82,7 +82,7 @@
 
     RUN IT from the command line whenever you want the answer directly:
 
-        powershell -NoProfile -File scripts/lint/check-repo-settings.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-repo-settings.ps1
 
     Exit 0 when everything declared matches, when a field could not be read, and when there is nothing
     declared; exit 1 only on a real disagreement, naming the live value, the declared value, the
@@ -118,7 +118,7 @@
     else -- see the block on it below the verdict table.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/lint/check-repo-settings.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-repo-settings.ps1
 #>
 [CmdletBinding()]
 param(

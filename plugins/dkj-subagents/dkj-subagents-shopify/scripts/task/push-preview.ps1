@@ -55,10 +55,10 @@
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/push-preview.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/push-preview.ps1
 
 .EXAMPLE
-    powershell -NoProfile -File scripts/task/push-preview.ps1 -Path '/products/some-handle'
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/task/push-preview.ps1 -Path '/products/some-handle'
 
 .NOTES
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/push-preview.tests.ps1 pins the lib
