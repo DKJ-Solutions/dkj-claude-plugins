@@ -39,21 +39,84 @@
 
 ### PLAN
 
+Issue #1993, verified against the tree before anything was written: the symptom reproduces on this
+host (5.1.26100.9444), the collision in the official marketplace is real and legitimate, and the
+reason the issue gives is the reason. What the issue did NOT know is the constraint that decided the
+shape -- a `PSObject` refuses a second property differing only in case exactly as the hashtable does,
+so there is no 5.1 container that can hold the document as written and a faithful reparse was never
+on the table.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertFrom-MarketplaceJson` in `../scripts/lib/plugin-tree-lib.ps1`, and `Get-PluginRoots`
+      reads through it.
+- [x] The skip rule for a url source, `IsLocal` on every returned object, and `-IncludeRemote` for
+      the one caller that has to tell the two absences apart.
+- [x] The third verdict branch in `../scripts/task/plugin-versions.ps1`, so a url-sourced plugin is
+      no longer sent to a refresh that cannot help it.
+- [x] Both plugin mirrors regenerated (`../scripts/sync/build-shared-scripts.ps1`).
 
 ### TEST
 
+- [x] New asserts in `../scripts/tests/release-lib.tests.ps1`, including one pinning the PREMISE --
+      that `ConvertFrom-Json` still refuses a case collision on this host -- so the day the platform
+      fixes this, the suite says so instead of the fallback quietly becoming dead code.
+- [x] Measured live against the real colliding manifest: 296 declared, 52 with a path source, all 52
+      resolving; `plugin-versions` reports `shopify-ai-toolkit` correctly.
+- [x] Lint gate green, all 105 suites green.
+- [x] Victor (code review) and Sebastian (security review) on the diff.
+
 ### DEPLOY: fix/1993-case-collision-json-reader
 
-**Score:**
+A marketplace manifest that Windows PowerShell 5.1's own JSON reader refuses can be read again.
+
+5.1's `ConvertFrom-Json` folds object keys case-insensitively and then refuses the collision it made
+itself, so a *valid* manifest carrying two keys differing only in case could not be parsed at all --
+and the official marketplace carries exactly such a pair, an `lspServers.clangd` extension map
+listing `.c` beside `.C`. Every plugin from that marketplace was therefore permanently
+`cannot determine` in `plugin-versions`, `update-plugins`' step-3 receipt could never verify what its
+step 2 had done for them, and nothing a consumer ran changed it: the state was stable, not transient.
+`#1987` had already stopped the tool prescribing a refresh that provably cannot help; this is the
+reading itself.
+
+`ConvertFrom-MarketplaceJson` keeps `ConvertFrom-Json` as the only path an ordinary document takes,
+and falls back to a case-sensitive reader for the documents it refuses. The fallback is **lazy**, so
+the header's no-dependencies rule survives where it was written to hold: nothing extra is loaded on
+the path `check-connectors.ps1` takes at every SessionStart. It triggers on **any** parse failure
+rather than on the error message -- an exception message is not a contract, and matching one is not
+merely risky but unnecessary: a failure that is not a case collision fails in the second reader too,
+and then the original exception is what the caller sees. The discriminating is done by trying.
+
+Two things the issue could not have known, both found by measuring rather than by reading it:
+
+- **A faithful reparse is impossible on 5.1**, because a `PSObject` rejects the colliding property
+  for the same reason the hashtable does. So the fallback does not pretend to return the document: it
+  projects the three fields this repo consumes, and everything else is dropped by design rather than
+  lost by accident -- checkable, because exactly two functions parse a marketplace document anywhere
+  in the repo, and both now read through it. Routing only the first would have moved the symptom four
+  lines down `cut-release.ps1` rather than removed it.
+- **Making the document readable made a second branch reachable that had never had to be decided.**
+  244 of that manifest's 296 entries declare a *url* source rather than a path -- the majority shape
+  in a real catalogue -- and resolving one produces a root that is a stringified type name. Those are
+  now skipped: a plugin fetched from a url does not live in this tree, and one of them must not cost
+  the whole catalogue, which would have been #1993's own symptom in a new costume.
+
+That skip made `plugin-versions` say `'x' is not listed in the clone's marketplace.json` about a
+plugin that plainly is, and send the reader to a marketplace refresh -- the third loop of the shape
+#1987 had just finished splitting apart. So `-IncludeRemote` lets that one caller tell *declared
+elsewhere* from *not declared*, and the row now says the version cannot be read because the payload
+is fetched from a url, with nothing to run, because nothing is broken.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. This repo's own consumers read `plugin-versions` and `update-plugins`, and both get a truthful
+answer where they previously got a permanent `cannot determine` and an instruction that could not
+work -- but it reaches no subscriber of a service, because there is none.
+
+**Score:** N/A
 
 #### Pull Request
 
 A marketplace manifest with case-colliding JSON keys is readable again
-

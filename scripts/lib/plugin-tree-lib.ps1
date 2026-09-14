@@ -55,8 +55,112 @@
     Get-TouchedPlugins and runs immediately after a merge, directly on the trunk, and reaching it
     through release-lib would load thousands of lines of entry-scaffold-lib behind it.
 
+    ONE ASSEMBLY IS LOADED, AND ONLY AFTER A PARSE HAS ALREADY FAILED. ConvertFrom-MarketplaceJson falls
+    back to System.Web.Extensions for the documents 5.1's own JSON reader refuses (issue #1993, its own
+    header below). Nothing is loaded on the path any of the callers above take, so the sentence holds
+    where it was written to hold: on the ordinary run.
+
     Pure ASCII (repo convention for .ps1).
 #>
+
+function ConvertFrom-MarketplaceJson {
+    <#
+        THE MARKETPLACE DOCUMENT, PARSED -- with a fallback for the one shape Windows PowerShell 5.1
+        cannot read at all.
+
+        5.1's ConvertFrom-Json folds object keys CASE-INSENSITIVELY and then refuses the collision it
+        made itself:
+
+            Cannot convert the JSON string because a dictionary that was converted from the string
+            contains the duplicated keys '.c' and '.C'.
+
+        The document is valid JSON; the defect is on this side. It is not hypothetical either -- the
+        official marketplace carries such a pair, an lspServers.clangd extensionToLanguage map listing
+        '.c' beside '.C' (measured 2026-09-14, issue #1993). Before this fallback every plugin from that
+        marketplace was permanently 'cannot determine' in plugin-versions, update-plugins' step-3 receipt
+        could never verify what step 2 had done for them, and nothing a consumer ran changed it: the state
+        was stable, not transient.
+
+        REPARSING FAITHFULLY IS NOT ON THE TABLE, which is what decides the shape below rather than taste.
+        -AsHashtable does not exist on 5.1, and a PSObject rejects the second key for the same reason the
+        hashtable does -- 'Cannot add a member with the name ".C" because a member with that name already
+        exists' -- so there is no 5.1 container that can hold the document as written. The fallback
+        therefore does not pretend to return the document. It reads the THREE fields this repo consumes --
+        the document's own 'name', and plugins[].name and plugins[].source -- with a case-sensitive
+        reader, and hands them back in the same shape so that its callers run unchanged.
+
+        EVERYTHING ELSE IS DROPPED BY DESIGN, NOT LOST BY ACCIDENT, and that is checkable rather than
+        asserted: exactly two functions parse a marketplace document anywhere in this repo -- Get-PluginRoots
+        below and Get-MarketplaceName in release-lib.ps1 -- and between them they read those three fields
+        and nothing else. Every other reader takes the roots Get-PluginRoots returns. A future caller that
+        needs a fourth field has to widen this projection, and its absence will be a null rather than a
+        wrong answer.
+
+        BOTH OF THEM ROUTE THROUGH HERE, which is the half that is easy to leave undone: cut-release.ps1
+        calls them one after the other on the SAME document text, so fixing only the first would move the
+        symptom four lines down its own function rather than remove it (Victor, on this branch).
+
+        THE FALLBACK IS LAZY, which is what keeps the header's no-dependencies rule intact. The Add-Type
+        for System.Web.Extensions sits after ConvertFrom-Json has already refused, so the ordinary run --
+        including check-connectors.ps1 on every SessionStart -- loads exactly what it loaded before. The
+        assembly is .NET Framework only, so on PowerShell 7 the Add-Type fails and the original error
+        stands; that is correct rather than a gap, because 7's reader does not fold case in the first
+        place.
+
+        AND IT TRIGGERS ON ANY ConvertFrom-Json FAILURE, never on the message above -- an exception message
+        is not a contract, and this one is a resource string that may be translated. The reason matching is
+        not merely risky but UNNECESSARY is what makes this cheap: a failure that is not a case collision
+        fails in the second reader too, and then the ORIGINAL error is rethrown, so a caller sees the parse
+        error it would always have seen and never a second one about a fallback it did not ask for. The
+        discriminating is done by trying, which cannot go stale in a language this repo does not read.
+
+        (plugin-versions.ps1 DOES match that message, on the branch reachable only where this fallback is
+        itself unavailable, and its own comment records what was measured about the wording: on a Dutch
+        machine the duplicated-keys text comes back in English while the neighbouring malformed-JSON text
+        comes back in Dutch, because the two are raised from different resource sets. That is an argument
+        for not depending on either, which is what this function does.)
+    #>
+    param([Parameter(Mandatory)][string]$MarketplaceJson)
+    try { return ($MarketplaceJson | ConvertFrom-Json) } catch { $primaryError = $_ }
+
+    $doc = $null
+    try {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+        $reader = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        # The default cap is 2 MB and a marketplace document is a catalogue, not a record -- the official
+        # one was 175 KB over 296 plugins when this was written, and nothing bounds how many a marketplace
+        # may list. BOUNDED BY THE DOCUMENT ITSELF rather than raised to [int]::MaxValue (Sebastian, on
+        # this branch): the text is already wholly in memory by the time we get here, so its own length is
+        # the one ceiling that is neither arbitrary nor a guardrail traded away for nothing. RecursionLimit
+        # is deliberately left at its default, which is what bounds a deeply nested document.
+        $reader.MaxJsonLength = [Math]::Max(1, $MarketplaceJson.Length)
+        $doc = $reader.DeserializeObject($MarketplaceJson)
+    } catch { throw $primaryError }
+    if ($doc -isnot [System.Collections.IDictionary]) { throw $primaryError }
+
+    $docName = $(if ($doc.ContainsKey('name')) { $doc['name'] } else { $null })
+
+    # A missing or null 'plugins' key is handed back AS SUCH rather than rethrown: Get-PluginRoots already
+    # has the right sentence for both, and the duplicate-key error would be a worse answer to a document
+    # whose real defect is that it declares nothing.
+    if (-not $doc.ContainsKey('plugins')) { return [pscustomobject]@{ name = $docName } }
+    $entries = $doc['plugins']
+    if ($null -eq $entries) { return [pscustomobject]@{ name = $docName; plugins = $null } }
+
+    $plugins = foreach ($e in @($entries)) {
+        if ($e -is [System.Collections.IDictionary]) {
+            [pscustomobject]@{
+                name   = $(if ($e.ContainsKey('name'))   { $e['name'] }   else { $null })
+                source = $(if ($e.ContainsKey('source')) { $e['source'] } else { $null })
+            }
+        } else {
+            # Not an object -- handed through untouched so Get-PluginRoots refuses it with its own
+            # message, exactly as it would have on the ConvertFrom-Json path.
+            $e
+        }
+    }
+    return [pscustomobject]@{ name = $docName; plugins = @($plugins) }
+}
 
 function Get-PluginRoots {
     <#
@@ -68,17 +172,24 @@ function Get-PluginRoots {
             RelativeRoot  the plugin root relative to the repo, backslash-separated, no leading '.\'
             Root          the plugin root as a full path
             ManifestPath  <Root>\.claude-plugin\plugin.json, as a full path
+            IsLocal       $true -- always, unless -IncludeRemote was given (see the skip rule below)
 
         Throws on a missing plugins list, a missing source, and -- containment, Sean's advice -- on a
         source that leaves the repo root by an absolute path or a '..' segment. The version bump and
         the mirror writer both act on these paths, so a source pointing outside the repo has to stop
         here rather than one layer further down.
+
+        SKIPS -- rather than throwing -- an entry whose source is an OBJECT instead of a path, i.e. a
+        plugin fetched from a url. It does not live in this tree, so this function has nothing to say
+        about it; the reasoning, and why that is not the silent drop it looks like, is at the branch
+        itself below.
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [Parameter(Mandatory)][string]$MarketplaceJson
+        [Parameter(Mandatory)][string]$MarketplaceJson,
+        [switch]$IncludeRemote
     )
-    $marketplace = $MarketplaceJson | ConvertFrom-Json
+    $marketplace = ConvertFrom-MarketplaceJson -MarketplaceJson $MarketplaceJson
     if (-not ($marketplace.PSObject.Properties.Name -contains 'plugins') -or -not $marketplace.plugins) {
         throw "marketplace.json has no 'plugins' list."
     }
@@ -86,6 +197,49 @@ function Get-PluginRoots {
     $rootPrefix = $fullRoot + '\'
     foreach ($p in $marketplace.plugins) {
         if (-not $p.source) { throw "plugin '$($p.name)' is missing a 'source'." }
+        # A SOURCE THAT IS NOT A STRING IS A PLUGIN THAT DOES NOT LIVE IN THIS TREE, so this function --
+        # whose whole question is "where does it live here" -- has no answer for it and skips it.
+        #
+        # The form is { "source": "url", "url": "...", "sha": "..." }, and it is the MAJORITY shape in a
+        # real catalogue rather than an oddity: 244 of the official marketplace's 296 entries, measured
+        # 2026-09-14. This branch was unreachable for that document until ConvertFrom-MarketplaceJson
+        # above made it readable at all (#1993), which is why it had never had to be decided.
+        #
+        # SKIPPED, NOT THROWN, because one remotely-sourced plugin must not cost the whole catalogue --
+        # that is the very symptom #1993 was filed about, and throwing here would restore it in a new
+        # costume for every marketplace that mixes the two forms.
+        #
+        # AND SKIPPED RATHER THAN HANDED BACK, which is the opposite of what Get-ManifestAgentEntries
+        # below does with an entry it cannot use. The two are different jobs: that one NORMALISES a field
+        # for a validator whose job is to refuse it, so a silent drop there would defeat the gate. This
+        # one RESOLVES a filesystem path, and it already throws on the sources it cannot resolve. There is
+        # no path to hand back -- stringifying an object produces a type name that reads as one, which is
+        # worse than an absent answer because a caller cannot tell it apart from a real root.
+        #
+        # THE SILENT-DROP HAZARD IS GUARDED WHERE IT MATTERS, one layer up rather than here: this repo's
+        # OWN manifest is walked by check-plugin-integrity.ps1's check 1, which reports an object source
+        # as a folder that does not exist. So a plugin cannot fall out of a release cut without the lint
+        # gate going red first -- which is also why that second implementation is worth keeping.
+        #
+        # -IncludeRemote EMITS IT ANYWAY, WITH EVERY PATH FIELD NULL, for the one caller that has to tell
+        # "declared, but its payload is elsewhere" from "not declared at all". Skipping alone made those
+        # two indistinguishable, and plugin-versions answers them with opposite advice -- it prescribed a
+        # marketplace refresh for the absent case, which for a remotely-sourced plugin is the same advice
+        # that provably cannot help that #1987 had just finished removing from the neighbouring branch.
+        # Off by default, so every other caller sees exactly the set it always saw.
+        if ($p.source -isnot [string]) {
+            if ($IncludeRemote) {
+                [pscustomobject]@{
+                    Name         = [string]$p.name
+                    Source       = $null
+                    RelativeRoot = $null
+                    Root         = $null
+                    ManifestPath = $null
+                    IsLocal      = $false
+                }
+            }
+            continue
+        }
         # An absolute source is by definition outside the repo convention -- report explicitly
         # instead of the confusing Join-Path/GetFullPath error that would otherwise roll out.
         if ([System.IO.Path]::IsPathRooted($p.source)) {
@@ -107,6 +261,7 @@ function Get-PluginRoots {
             RelativeRoot = $root.Substring($fullRoot.Length).TrimStart('\')
             Root         = $root
             ManifestPath = Join-Path $root '.claude-plugin\plugin.json'
+            IsLocal      = $true
         }
     }
 }
@@ -163,12 +318,17 @@ function Get-RepoPluginRoots {
         RETURNS AN EMPTY SET WHEN THERE IS NO marketplace.json, rather than throwing. Every caller but
         the release cut runs in consumers too, and a consumer that publishes no plugins is the ordinary
         case -- not a misconfiguration. A malformed marketplace.json still throws, because that IS one.
+
+        -IncludeRemote is passed straight through to Get-PluginRoots; see the skip rule there.
     #>
-    param([Parameter(Mandatory)][string]$RepoRoot)
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [switch]$IncludeRemote
+    )
     $path = Get-MarketplacePath -RepoRoot $RepoRoot
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @() }
     $json = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
-    return @(Get-PluginRoots -RepoRoot $RepoRoot -MarketplaceJson $json)
+    return @(Get-PluginRoots -RepoRoot $RepoRoot -MarketplaceJson $json -IncludeRemote:$IncludeRemote)
 }
 
 function Get-PluginRootByName {
