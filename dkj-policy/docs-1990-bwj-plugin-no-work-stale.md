@@ -39,21 +39,56 @@
 
 ### PLAN
 
+#### Verified before repairing (per this repo's own rule)
+
+Confirmed commit `b9b2a65a` (Dave, September 14, 2026) is on `main` and that
+`report-issue/SKILL.md` and `adopt-dkj-policy-bwj/SKILL.md` now both name `dkj-claude-plugins`
+alongside the two BWJ stores.
+
+**Subject correction.** The issue attributes the quoted sentence to `SPECIALISTS.md`, but that exact
+blockquote does not exist there -- `SPECIALISTS.md`'s own "no work here" sentence names only the
+three add-on teams, never `dkj-policy-bwj`. The sentence is verbatim in `CLAUDE.md`'s repo slot
+("Only two of the six describe this repo..."). The underlying inconsistency the issue describes is
+real; the file it names is not. Fixing `CLAUDE.md`, not `SPECIALISTS.md`.
+
+While verifying this, found that #1982 (closed NOT_PLANNED because the gate change had not landed
+yet) now has a live premise too: the plugin's own portable law pages, `README.md`, `plugin.json` and
+`marketplace.json` still say "exactly two repos" / "Enable this only in BWJ's two ... store repos".
+Reopened #1982 with the verification rather than folding it into this branch -- different files,
+different specialist concern (the plugin's own portable pages vs. this repo's `CLAUDE.md`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CLAUDE.md`'s repo slot: replaced "the three add-on teams and `dkj-policy-bwj` have none" with
+      a carve-out for `dkj-policy-bwj`'s ticket-handling chapter (now permitted here since
+      `b9b2a65a`), while keeping "none" for its other three (Shopify-store) chapters and for the
+      three add-on teams.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 error(s) (link scan included -- the new `#1982` reference
+      resolves).
+- [x] Confirmed no other file depends on the retired exact phrasing (`grep` for the sentence
+      elsewhere in `scripts/` and `.claude/`: no hits).
+
 ### DEPLOY: docs/1990-bwj-plugin-no-work-stale
 
-**Score:**
+`CLAUDE.md`'s repo slot no longer groups `dkj-policy-bwj` with the three add-on teams as having no
+work in this repo. It now says what is actually true since September 14, 2026: three of its four
+chapters still have none (this repo has no Shopify store), but its ticket-handling chapter does,
+because Dave admitted this repo as a third permitted target at its own gate.
+
+**Score:** 2 -- a documentation correction with no functional effect; worth having right so a future
+session does not read the old sentence and wrongly rule out `dkj-policy-bwj`'s `report-issue` skill
+for this repo's own inbound findings.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- `CLAUDE.md` is this repo's own governance document; it is not shipped to consumers.
+
+**Score:** N/A
 
 #### Pull Request
 
-SPECIALISTS.md still says dkj-policy-bwj has no real work here
+CLAUDE.md still groups dkj-policy-bwj with the add-on teams as having no work here, after the gate admitted this repo
 

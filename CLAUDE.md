@@ -215,13 +215,21 @@ the two channels together or name neither**, because a release doctrine stated a
 everything, and the layer it does not cover is the one that can change a consumer's required check
 without anybody bumping anything.
 
-**Only two of the six describe this repo, and the other four are on anyway, deliberately.** The core team
-and `dkj-policy` are the two with real work here; the three add-on teams and `dkj-policy-bwj` have none —
-this repo is not a webshop, not a Shopify store, not a personal-life repo and not a BWJ store. They are
-enabled so that **the repo that ships a plugin is also a repo that loads it**: an agent def, a manifest, a
-frontmatter or a hook that stops resolving then surfaces at this repo's own session start instead of in
-somebody else's. Validation is the whole reason — none of those four is used for work here, and none is
-expected to be, which is why an empty lens under one of them is not a gap.
+**Only two of the six describe this repo outright, and a third does in one chapter of four.** The core
+team and `dkj-policy` are the two with real work here; the three add-on teams have none — this repo is
+not a webshop, not a Shopify store and not a personal-life repo. `dkj-policy-bwj` used to sit beside
+them on the same ground ("not a BWJ store"), and three of its four chapters still do: the sync log, the
+preview handover and the theme lifecycle are all about a Shopify store, and this repo has none. **Its
+ticket-handling chapter is the exception, since Dave admitted this repo as a third permitted target at
+`report-issue`'s and `adopt-dkj-policy-bwj`'s own gate, September 14, 2026** (commit `b9b2a65a`) — so a
+finding filed here can now use that chapter's GitHub-first, Asana-mirrored procedure instead of a plain
+`gh issue create`. The three add-on teams are enabled so that **the repo that ships a plugin is also a
+repo that loads it**: an agent def, a manifest, a frontmatter or a hook that stops resolving then
+surfaces at this repo's own session start instead of in somebody else's. Validation is the whole reason
+for them — none of the three is used for work here, and none is expected to be, which is why an empty
+lens under one of them is not a gap. `dkj-policy-bwj` carries no agents and therefore no lens at all
+(see the roster below); its own portable law pages still describe the reach as exactly two repos, which
+[#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982) tracks separately.
 
 **What that costs, so nobody reads the noise as breakage.** Two things came with it; one stands and one
 is answered. First, every specialist an enabled plugin ships needs a roster row and a repo lens —
