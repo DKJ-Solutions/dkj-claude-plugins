@@ -206,6 +206,51 @@ $script:StatusMap = $null
 # asks Asana for that board's sections once.
 $script:StageSectionCache = @{}
 
+function Format-ForConsole {
+    <#
+        Strip control AND format characters out of text somebody else wrote, before this script
+        prints it. Display only -- it is never fed back to Asana or to GitHub.
+
+        WHAT COMES THROUGH HERE. An Asana task's own name is typed by any colleague with board
+        access through the web UI, and a GitHub project board's status names by anyone who can
+        configure that board. Neither ever met a validator: Asana and GitHub both accept the whole
+        of Unicode in a name. Echoed verbatim into this script's log they reach a console as
+        control characters -- an ANSI or OSC escape run repaints what is already on screen or hides
+        the lines around it, and an RTL override or a zero-width run makes the printed line read as
+        something other than what it says. That lands on the one line whose job is to tell a reader
+        WHICH card moved WHERE.
+
+        THE AUTHOR NEEDS NO PUSH ACCESS AT ALL, which is what puts this beside claim-issue's issue
+        title rather than beside a commit subject. An Asana board is a shared surface a colleague
+        edits without ever touching this repository.
+
+        '\p{Cc}' is C0, DEL and C1; '\p{Cf}' is the bidi and zero-width class. The same class the
+        rest of this workflow strips, and the reason it is HAND-TYPED here is that this file ships
+        standalone: adopt-dkj-policy-bwj copies it into a consumer as
+        .github/scripts/asana-mirror.ps1, where none of this repo's libs exist -- so Get-DisplayRef
+        cannot be called and a dot-source would name a path that is not there. Three libs type the
+        class -- pr-issues-lib.ps1, ref-print-lib.ps1 and claim-issue-lib.ps1 -- and this is the one
+        standalone copy beside them; dkj-policy-bwj.tests.ps1 pins that it agrees with them
+        character for character.
+
+        A SPACE, NOT A DELETION and not a rendered code point -- the same contract as
+        claim-issue-lib.ps1's function of this name. Each character becomes a space, so a name
+        cannot be made to read as a different sentence by deleting the separator between two words,
+        and nothing is collapsed or trimmed afterwards: a task name is quoted evidence and a
+        re-spaced one is no longer what the board says. The cost is real and accepted -- a name
+        written in Arabic or Hebrew loses the marks that order it, and an emoji sequence joined by
+        U+200D prints as its parts. Everything printable stays exactly as written.
+
+        NOT CAPPED, unlike new-branch's 120-character commit subject. That cap exists so the half of
+        the sentence saying what to DO is never pushed off a terminal; this script's console is a
+        GitHub Actions log, which wraps rather than truncating, so a cap here would destroy evidence
+        to buy nothing.
+    #>
+    param([string]$Text)
+    if (-not $Text) { return '' }
+    return ($Text -replace '[\p{Cc}\p{Cf}]', ' ')
+}
+
 function Get-AsanaGidsFromText {
     <#
         Return the distinct task GIDs of every Asana task URL in a piece of text, in the order they
@@ -1284,7 +1329,7 @@ function Sync-AsanaTaskStage {
 
     $sections = Get-ProjectStageSections -ProjectGid $ref.Membership.ProjectGid -Pat $Pat
     if (-not $sections.ContainsKey([string]$stage)) {
-        Write-Host "  Asana project $($ref.Membership.ProjectGid) has no section numbered $stage -- $($task.name) stays in $current."
+        Write-Host "  Asana project $($ref.Membership.ProjectGid) has no section numbered $stage -- $(Format-ForConsole $task.name) stays in $current."
         return $false
     }
 
@@ -1292,7 +1337,7 @@ function Sync-AsanaTaskStage {
     $what = if ($For) { "$For -> " } else { '' }
     $back = if ((Get-StageRank -Stage $current -Map $Map) -gt (Get-StageRank -Stage $stage -Map $Map)) { ' (back)' } else { '' }
     $why  = if ($Why) { " -- $Why" } else { '' }
-    Write-Host "  $what$($task.name): stage $current -> $stage$back$why"
+    Write-Host "  $what$(Format-ForConsole $task.name): stage $current -> $stage$back$why"
     return $true
 }
 
@@ -1390,7 +1435,7 @@ function Get-IssueLinkState {
             [pscustomobject]@{ Source = 'none'; Status = $null }
         }
         if ($status.Source -eq 'ambiguous') {
-            Write-Host "  $Repo#$Number sits on project boards naming two different statuses ($(@($status.Candidates) -join ', ')) -- refusing to guess which pipeline it belongs to."
+            Write-Host "  $Repo#$Number sits on project boards naming two different statuses ($((@($status.Candidates) | ForEach-Object { Format-ForConsole $_ }) -join ', ')) -- refusing to guess which pipeline it belongs to."
         }
         return [pscustomobject]@{
             State               = ([string]$issue.state).ToUpperInvariant()

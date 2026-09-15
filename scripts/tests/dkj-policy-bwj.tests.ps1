@@ -623,6 +623,56 @@ $twoBoards = @(
     [pscustomobject]@{ project = [pscustomobject]@{ gid = '111' }; section = [pscustomobject]@{ gid = '1'; name = '2. Filed' } },
     [pscustomobject]@{ project = [pscustomobject]@{ gid = '222' }; section = [pscustomobject]@{ gid = '2'; name = '5. Testing' } })
 Assert-Equal 'ambiguous' (Select-StageMembership -Memberships $twoBoards).Source 'two numbered boards is two answers, and neither is taken'
+
+# --- Format-ForConsole: the foreign text this script prints (#2019) --------------------------------
+#
+# An Asana task's NAME and a GitHub project board's STATUS names are both free text typed by a
+# colleague through a web UI, and this script prints both to a CI log. Neither author needs push
+# access to any repository -- which is the shape of entry 5 in new-branch's list of the places this
+# workflow writes somebody else's words to a console, and the reason those two values belong under
+# the same class as an issue title rather than under the looser treatment a commit subject gets.
+#
+# A SPACE PER CHARACTER, AND NOTHING COLLAPSED: a name is quoted evidence, so deleting a character
+# could make it read as a different sentence and re-spacing it makes it no longer what the board
+# says. Same contract, deliberately, as claim-issue-lib.ps1's function of this name.
+Assert-Equal 'a [31mb' (Format-ForConsole "a$([char]27)[31mb") 'the ESC of an ANSI escape run is stripped out of a task name -- backtick-e is PowerShell 7, so the char is built by code point'
+Assert-Equal 'a ]8;;x b' (Format-ForConsole "a$([char]27)]8;;x`ab") 'and both control characters of an OSC hyperlink -- the ESC that opens it and the BEL that ends it'
+Assert-Equal 'a b'   (Format-ForConsole "a$([char]0x202E)b") 'U+202E RIGHT-TO-LEFT OVERRIDE goes, which git would have accepted in a ref'
+Assert-Equal 'a b'   (Format-ForConsole "a$([char]0x200B)b") 'and a zero-width space, which renders as nothing at all'
+Assert-Equal 'a b'   (Format-ForConsole "a$([char]0x009B)b") 'and C1 0x9B, which some terminals read as CSI'
+Assert-Equal 'a b'   (Format-ForConsole "a`nb")          'a newline too -- one log line cannot be made into two'
+# The code points are spelled out rather than typed: this file is a BOM-less .ps1, which Windows
+# PowerShell 5.1 reads as the system ANSI code page -- see .claude/rules/language-layers.md. U+00FC is
+# a German umlaut, the everyday case on a BWJ board, and it must survive untouched.
+$keepMe = "Bestellung $([char]0x00FC)berpr$([char]0x00FC)fen -- 50%"
+Assert-Equal $keepMe (Format-ForConsole $keepMe) 'while every printable character survives exactly as the board wrote it, non-ASCII included'
+Assert-Equal ''      (Format-ForConsole '')              'an empty name is an empty string, not a throw'
+Assert-Equal ''      (Format-ForConsole $null)           'and so is no name at all'
+Assert-Equal ' [0m'  (Format-ForConsole "$([char]27)[0m")   'a name whose every control character is stripped keeps its printable remainder -- it is never given a noun it does not have'
+Assert-Equal ' a  b ' (Format-ForConsole " a$([char]0x200B)$([char]0x200B)b ") 'nothing is collapsed or trimmed: the name stays the length the board gave it'
+
+# THE THREE CALL SITES, asserted over the source because each is a Write-Host whose argument cannot
+# be reached without a live Asana and GitHub. Two print the task name, one prints the board's column
+# names; a fourth site added later has to be added here too, which is the point of pinning the count.
+$foreignPrints = [regex]::Matches($mirrorSrc, '(?m)^\s*Write-Host[^\r\n]*\$\(Format-ForConsole \$task\.name\)')
+Assert-Equal 2 $foreignPrints.Count 'both lines printing an Asana task name strip it first'
+Assert-True ($mirrorSrc -match 'Format-ForConsole \$_ \}\) -join') 'and the project board''s status names are stripped one by one before they are joined'
+Assert-Equal 0 ([regex]::Matches($mirrorSrc, '\$\(\$task\.name\)').Count) 'no raw task name reaches a string anywhere in the script'
+
+# IT IS HAND-TYPED HERE ON PURPOSE, because this file ships standalone: adopt-dkj-policy-bwj copies it
+# into a consumer as .github/scripts/asana-mirror.ps1, where none of this repo's libs exist, so
+# Get-DisplayRef cannot be called and a dot-source would name a path that is not there. What the four
+# copies may not do is DISAGREE, so the class itself is compared rather than described -- the same
+# guard pr-issues.tests.ps1 keeps over the three libs.
+$stripClass = "-replace '[\p{Cc}\p{Cf}]', ' '"
+Assert-Equal 1 ([regex]::Matches($mirrorSrc, [regex]::Escape($stripClass)).Count) 'ONE definition in this template -- Format-ForConsole, which all three sites go through'
+foreach ($lib in @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1')) {
+    $libText = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot "..\lib\$lib"))
+    Assert-True ($libText -match [regex]::Escape('[\p{Cc}\p{Cf}]')) "the template's class is character-for-character the one $lib types"
+}
+# And the template still dot-sources nothing, which is WHY the copy exists -- if that ever stops being
+# true the argument above expires and the copy should go, not be re-justified.
+Assert-Equal 0 ([regex]::Matches($mirrorSrc, '(?m)^\s*\.\s+\(Join-Path').Count) 'the template dot-sources no lib at all, which is what makes the fourth copy necessary'
 Assert-Equal 2           (Select-StageMembership -Memberships $twoBoards).Candidates.Count 'and both are named for the log'
 
 # The move request. Pure, and it refuses non-numeric input on BOTH sides -- a section name is read out

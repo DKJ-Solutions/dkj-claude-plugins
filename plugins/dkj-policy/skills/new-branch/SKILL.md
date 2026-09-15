@@ -245,7 +245,7 @@ file, and the rule flips with the destination rather than with the text.
 
 **It is NOT the only console this workflow writes somebody else's words to** -- that claim stood here
 and was false from the day `ship-pr` began relaying the sentence a failing workflow wrote about itself
-(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are five**, and the count
+(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are six**, and the count
 is worth stating precisely because the wrong one is what kept the second site unguarded:
 
 1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch` and `open-pr`
@@ -268,11 +268,22 @@ is worth stating precisely because the wrong one is what kept the second site un
    branch names its parked-fix scan prints (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`,
    #1858). The title is the one entry here whose author needed no push access at all: on a public
    tracker anybody can open an issue. Not capped.
+6. **`asana-mirror`'s stage lines** -- the Asana task NAME and the GitHub project board's STATUS
+   names, printed by the CI template this workflow ships to a BWJ store
+   (`Format-ForConsole`, `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1`,
+   [#2019](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2019)). Both authors need no
+   push access either, and less than entry 5's: a colleague edits a task name through Asana's web UI
+   and a board's column names through GitHub's project settings, neither of which touches a
+   repository at all. Not capped -- the console here is a CI log, which wraps rather than truncates.
 
-**This entry is why the count was worth stating.** It was three until September 8, 2026, four until
-September 11, and each new one arrived as a counter-example to a sentence that had stopped being
-checked. **The list is the thing that has to be kept true, not the number in front of it** -- entry 5
-sat outside it for as long as the list existed, guarded by an ASCII-only strip nobody had re-read.
+**These entries are why the count was worth stating.** It was three until September 8, 2026, four until
+September 11, five until September 15, and each new one arrived as a counter-example to a sentence
+that had stopped being checked. **The list is the thing that has to be kept true, not the number in
+front of it** -- entry 5 sat outside it for as long as the list existed, guarded by an ASCII-only
+strip nobody had re-read, and entry 6 sat outside it while carrying no strip of any kind. **Entry 6
+is also the first one this list did not find**: it was measured by a security review of an unrelated
+diff, which is the reading this page cannot do for itself -- so the list going quiet is not evidence
+that it is complete.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and
@@ -287,6 +298,15 @@ share nothing else -- different bounds, different source processes, and none of 
 callers -- so what is guarded is that they cannot DISAGREE, by an assert in `pr-issues.tests.ps1` that
 compares the patterns themselves and pins **which** libs carry the class. A reader who needs every place
 this workflow prints foreign text now has the list, which is what the retired sentence was for.
+
+**A FOURTH copy sits outside the libs, and #2019 is why it is a copy rather than a call.**
+`plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` ships standalone: `adopt-dkj-policy-bwj`
+copies it into a consumer as `.github/scripts/asana-mirror.ps1`, where none of these libs exist -- so a
+dot-source there names a path that is not there, and the argument that keeps the three libs apart does
+not even have to be made. It is the reason entry 6 went unguarded for as long as it did: every other
+site got the strip when its own lib acquired one, and this file has no lib. Its own suite
+(`dkj-policy-bwj.tests.ps1`) compares the class character for character against all three, so the
+fourth copy cannot drift away from them either.
 
 **It costs no network call.** The base measurement above already fetches *every* ref (that is what
 `-FetchAllRefs` is for, and #1139 is why), so the remote-tracking ref is on disk and as fresh as this run
