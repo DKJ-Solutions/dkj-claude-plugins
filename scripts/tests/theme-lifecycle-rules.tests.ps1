@@ -174,10 +174,12 @@ $store = @(
     [pscustomobject]@{ id = '105'; name = 'cro-test-branch-4471';                role = 'unpublished' },
     [pscustomobject]@{ id = '106'; name = 'sandbox-colleague';                   role = 'unpublished' },
     [pscustomobject]@{ id = '107'; name = ($prefix + 'feat-1800-dev');           role = 'development' },
-    [pscustomobject]@{ id = '108'; name = 'Kopie live 9-7-2021 - DO NOT DELETE'; role = 'unpublished' }
+    [pscustomobject]@{ id = '108'; name = 'Kopie live 9-7-2021 - DO NOT DELETE'; role = 'unpublished' },
+    [pscustomobject]@{ id = '109'; name = ($prefix + 'fix-2032-parked-branch');  role = 'unpublished' }
 )
 
-$plan = Get-ThemeSweepPlan -Themes $store -LiveThemeId '100' -KeepNames @($prefix + 'feat-1965-theme-lifecycle') -ExternalPrefixes @('theme-vendor/')
+$plan = Get-ThemeSweepPlan -Themes $store -LiveThemeId '100' -KeepNames @($prefix + 'feat-1965-theme-lifecycle') `
+    -LivingBranchNames @($prefix + 'fix-2032-parked-branch') -ExternalPrefixes @('theme-vendor/')
 
 Assert-Equal $store.Count $plan.Count 'EVERY theme gets a row, including the ones that stay -- a summary listing only the delete set is unfalsifiable'
 
@@ -192,6 +194,7 @@ Assert-True (-not (Get-Row '105').Sweep) 'the experimentation tool''s theme is k
 Assert-True (-not (Get-Row '106').Sweep) 'a colleague''s sandbox is kept, even though its SHAPE is indistinguishable from ours'
 Assert-True (-not (Get-Row '107').Sweep) 'a repo-owned theme in role development is kept -- somebody is running `shopify theme dev` on it'
 Assert-True (-not (Get-Row '108').Sweep) 'the hand-made backup is kept'
+Assert-True (-not (Get-Row '109').Sweep) 'inbound #2032: a branch that is still alive ELSEWHERE -- not the branch this run stands on -- is kept too'
 
 Assert-Equal 1 (@($plan | Where-Object { $_.Sweep }).Count) 'exactly one theme in this store is sweepable'
 
@@ -204,6 +207,30 @@ Assert-True ((Get-Row '104').Reason.Contains($prefix))       'the ownership refu
 Assert-True ((Get-Row '107').Reason.Contains('development')) 'the role refusal names the role it found'
 Assert-True ((Get-Row '103').Reason.Contains('rotate'))      'the backup refusal points at rotation rather than reading as a plain skip'
 Assert-True ((Get-Row '102').Reason.Contains('current branch')) 'the kept-name refusal says it is the branch you are standing on'
+Assert-True ((Get-Row '109').Reason.Contains('still exists')) 'the living-branch refusal has its OWN reason, distinct from "current branch" -- it is false for every row but one'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'Inbound #2032 -- a preview is spared only when its branch is actually named as living' -ForegroundColor Cyan
+
+# THE BUG ITSELF, REPRODUCED: sparing only the CURRENT branch's own preview swept a parked branch's
+# preview exactly like a merged branch's -- the one round that is not recoverable. Without
+# -LivingBranchNames the theme above is offered for the sweep like any other spent preview.
+$parkedOnly = @([pscustomobject]@{ id = '110'; name = ($prefix + 'fix-2032-parked-branch'); role = 'unpublished' })
+$parkedPlan = Get-ThemeSweepPlan -Themes $parkedOnly -LiveThemeId '100'
+Assert-True $parkedPlan[0].Sweep 'without -LivingBranchNames, a parked branch''s preview is swept just like a merged one -- #2032 reproduced'
+
+# ...AND NAMING THE BRANCH AS LIVING IS WHAT SPARES IT.
+$parkedFixed = Get-ThemeSweepPlan -Themes $parkedOnly -LiveThemeId '100' -LivingBranchNames @($prefix + 'fix-2032-parked-branch')
+Assert-True (-not $parkedFixed[0].Sweep)                     '...and naming it in -LivingBranchNames spares it'
+Assert-True ($parkedFixed[0].Reason.Contains('still exists')) '...with its own reason'
+
+# A NAME IN BOTH -KeepNames AND -LivingBranchNames IS KEPT UNDER THE CURRENT-BRANCH REASON, since
+# that test runs FIRST -- the order is the thing worth pinning, not merely that both spare it.
+$bothPlan = Get-ThemeSweepPlan -Themes @([pscustomobject]@{ id = '111'; name = ($prefix + 'feat-both'); role = 'unpublished' }) `
+    -LiveThemeId '100' -KeepNames @($prefix + 'feat-both') -LivingBranchNames @($prefix + 'feat-both')
+Assert-True (-not $bothPlan[0].Sweep)                          'a name in both -KeepNames and -LivingBranchNames is kept'
+Assert-True ($bothPlan[0].Reason.Contains('current branch'))   '...under the CURRENT-BRANCH reason, since that test runs first'
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''
