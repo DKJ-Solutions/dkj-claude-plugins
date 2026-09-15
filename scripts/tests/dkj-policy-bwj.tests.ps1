@@ -361,6 +361,15 @@ Assert-True ($null -eq (Get-StageFromSectionName -Name 'Waiting for more info'))
 Assert-True ($null -eq (Get-StageFromSectionName -Name 'Stap 3: bouwen'))          'and a number that is not the prefix does not count -- the anchor is the start of the name'
 Assert-True ($null -eq (Get-StageFromSectionName -Name ''))                        'an empty name yields nothing rather than throwing'
 
+# A code may carry ONE trailing letter (inbound #2016) -- a board that aligns its own numbering to a
+# coarser second board (e.g. a Workload Overview with fewer columns) needs several of its own stages to
+# share a leading digit while staying distinct. Returned as a string always, letter or not.
+Assert-Equal '1A' (Get-StageFromSectionName -Name '1A. Requests')     'a lettered code yields the code, not just the digit'
+Assert-Equal '1B' (Get-StageFromSectionName -Name '1B. Need more info') 'a second letter under the same digit is a different code'
+Assert-Equal '1C' (Get-StageFromSectionName -Name '1C. Todo')          'and a third'
+Assert-Equal '3A' (Get-StageFromSectionName -Name '3A. Done')          'the letter is not anchored to any one digit'
+Assert-True ('3' -eq (Get-StageFromSectionName -Name '3. Todo'))       'a bare digit still compares equal to itself as a string -- every unlettered board is unaffected'
+
 # --- the stage MAP ------------------------------------------------------------------------------
 # The number convention says how a section is RECOGNISED; the map says what each one MEANS. They were
 # one question until the board this was written against grew a section the same afternoon, shifting
@@ -400,6 +409,36 @@ Assert-Equal 0 (Test-AsanaStageMap -Map $shifted).Count 'a board numbered any ot
 Assert-True (Test-StageIsWritable -Stage 30 -Map $shifted)        'and its Filed stage is writable'
 Assert-True (-not (Test-StageIsWritable -Stage 3 -Map $shifted))  'while the DEFAULT Filed number is not, under that map'
 Assert-True (-not (Test-StageIsWritable -Stage 70 -Map $shifted))  'and its Completed stage is still the untouchable end'
+
+# A LETTERED board (inbound #2016) -- smartwatchbanden's actual GitHub - SWB renaming, three of its
+# own stages sharing the digit a coarser Workload Overview board also uses. The map states the exact
+# section prefix per stage; nothing here is derived from the letters themselves.
+$lettered = @{ Requests = '1A'; NeedsInfo = '1B'; Filed = '1C'; InDevelopment = '2'
+               InReview = '3A'; ReadyToTest = '3B'; Completed = '4'; NeedsInfoLabel = 'needs-info' }
+Assert-Equal 0 (Test-AsanaStageMap -Map $lettered).Count 'a lettered map validates -- a code is not required to be a bare number'
+Assert-True (Test-StageIsWritable -Stage '1C' -Map $lettered) 'Filed is writable under its lettered code'
+Assert-True (-not (Test-StageIsWritable -Stage '1A' -Map $lettered)) 'Requests is still never a target, lettered or not'
+Assert-True (-not (Test-StageIsWritable -Stage '4' -Map $lettered))  'and Completed is still the untouchable end'
+Assert-True (Test-StageIsTerminal -Stage '3B' -Map $lettered) 'Ready to test is terminal under its lettered code'
+Assert-True (-not (Test-StageIsTerminal -Stage '1C' -Map $lettered)) 'while an ordinary stage is not'
+
+# Get-StageRank is the one place order is read back out of a lettered map -- the RAW codes do not sort
+# numerically ('1C' is not > '2'), so Sync-AsanaTaskStage's forward-only guard goes through this instead
+# of comparing the codes themselves.
+Assert-Equal 0 (Get-StageRank -Stage '1A' -Map $lettered) 'Requests is first in cycle order'
+Assert-Equal 2 (Get-StageRank -Stage '1C' -Map $lettered) 'Filed is third, despite sharing its leading digit with Requests and Need more info'
+Assert-Equal 3 (Get-StageRank -Stage '2'  -Map $lettered) 'In development is fourth'
+Assert-Equal 4 (Get-StageRank -Stage '3A' -Map $lettered) 'In review is fifth'
+Assert-Equal 6 (Get-StageRank -Stage '4'  -Map $lettered) 'Completed is last'
+Assert-True ((Get-StageRank -Stage '1C' -Map $lettered) -lt (Get-StageRank -Stage '2' -Map $lettered)) 'Filed ranks before In development, though "1C" > "2" as plain text'
+Assert-True ((Get-StageRank -Stage '3B' -Map $lettered) -gt (Get-StageRank -Stage '1C' -Map $lettered)) 'and Wait on approval ranks well after Todo'
+Assert-True ($null -eq (Get-StageRank -Stage 'Z9' -Map $lettered)) 'a code the map does not name has no rank'
+Assert-True ($null -eq (Get-StageRank -Stage $null -Map $lettered)) 'and neither does no code at all'
+
+# And an UNLETTERED map's ranks still agree with its own plain-integer order -- Get-StageRank is not a
+# second, different answer for a board that never adopted letters.
+Assert-Equal 2 (Get-StageRank -Stage $map.Filed -Map $map) 'Filed is third in the default seven-stage cycle'
+Assert-True ((Get-StageRank -Stage $map.Filed -Map $map) -lt (Get-StageRank -Stage $map.InDevelopment -Map $map)) 'and still ranks before In development, exactly as the raw numbers already said'
 
 # The derivation. THE PROJECT STATUS IS THE SOURCE since September 2, 2026 -- the issue's own state
 # and its pull requests are no longer read for it. GitHub's own built-in project workflows already
