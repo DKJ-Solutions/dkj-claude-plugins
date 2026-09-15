@@ -98,6 +98,40 @@ foreach ($skill in @('report-issue', 'adopt-dkj-policy-bwj')) {
     Assert-Equal $skill $nm.Groups[1].Value "skill '$skill' frontmatter name matches its folder"
 }
 
+# THE ASANA PREFLIGHT PROBES THE BOARD, NOT THE TOOL LIST (#2028). Availability and authorization come
+# apart: measured on a smartwatchbanden checkout, September 15, 2026, both registered Asana connectors
+# were authenticated and both answered `unauthorized` for the project the seam names, because the MCP
+# was bound to a different workspace than the one ASANA_PAT drove the same board with. A preflight
+# asking only whether the tools EXIST passes in exactly that state, and step 2's `create task` is then
+# where the session finds out -- half way through the procedure the preflight exists to get ahead of.
+#
+# Pinned here because NOTHING ELSE READS IT: this page is prose, and the gates read manifests and
+# frontmatter. The availability wording is also the shape the rule relapses into, being the shorter and
+# more obvious half of the pair.
+#
+# SCOPED TO THE PREFLIGHT BLOCK, not the whole page: step 2 names Get-AsanaProjectGid too, so a
+# page-wide sweep would stay green with the preflight bullet deleted -- the one edit this guards.
+#
+# MEASURED AGAINST THE PRE-BRANCH TREE rather than asserted: run over `main`, the retired pattern hits
+# (on the very line #2028 reported) and all three required patterns miss, so this block is red there
+# and green here. A sweep green on the tree it was written for proves nothing about the one it was
+# written against.
+$reportIssue = Get-Content -LiteralPath (Join-Path $PluginRoot 'skills\report-issue\SKILL.md') -Raw
+$preflight   = [regex]::Match($reportIssue, '(?s)##\s+Before you start(.*?)\r?\n##\s').Groups[1].Value
+Assert-True ($preflight.Length -gt 0) "report-issue still has a 'Before you start' preflight to read"
+
+Assert-True (-not [regex]::IsMatch($preflight, '(?i)Asana MCP tools are available')) `
+    'report-issue no longer states the Asana preflight as a tool-AVAILABILITY check'
+
+foreach ($needed in @(
+    @{ Pattern = '(?i)unauthorized';                What = 'names an unauthorized board as a preflight outcome' },
+    @{ Pattern = 'Get-AsanaProjectGid`? names';     What = 'probes the project the seam names' },
+    @{ Pattern = '(?i)wrong\s+\*{0,2}workspace';    What = 'has the note name the wrong workspace as the cause' }
+)) {
+    Assert-True ([regex]::IsMatch($preflight, $needed.Pattern)) `
+        "report-issue's Asana preflight $($needed.What)"
+}
+
 # --- 2. Marketplace registration + lockstep version --------------------------------------------
 Write-Host "`n-- marketplace --" -ForegroundColor Cyan
 
