@@ -43,7 +43,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 22 minor entries** <!-- pending-tally -->
+**12 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2024-console-strip-zl-zp-combining · 20260915-115753
+
+The shared console-strip class -- the one that keeps a title, a commit subject, a branch name or an
+Asana task's own text from repainting a terminal or reading as something other than what it says --
+now covers six categories instead of four, and reads them off the runtime's own Unicode table instead
+of a regex.
+
+U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR (Zl/Zp) could make one printed line read as two,
+the same harm `\n` (Cc) was already stripped to prevent; stacking combining marks (Mn/Me, "Zalgo text")
+could visually obscure the text around them, the same deception the class already guarded against for
+RTL overrides and zero-width runs. Both were simple additions to the class -- until a widened regex
+turned out to have its own silent gaps on this repo's own runtime (Windows PowerShell 5.1 / .NET
+Framework): U+00AD SOFT HYPHEN is Format to the runtime and Dash Punctuation to the regex engine's
+pre-Unicode-4.0 category tables, and every format character above the BMP is invisible to a class that
+matches one UTF-16 code unit, because those characters are surrogate pairs. So the class stopped being
+a regex: `ConvertTo-ConsoleStrippedText` walks the text one code point at a time and reads each
+category from `[CharUnicodeInfo]`, which is what `#2025`'s sibling repair to the minor-backlog page
+had already measured and answered for its own, differently-scoped strip.
+
+All four places this class is typed moved together and may not disagree: `claim-issue-lib.ps1`
+(`Format-ForConsole`), `pr-issues-lib.ps1` (`Format-AuthoredText`), `ref-print-lib.ps1`
+(`Get-DisplayRef` and `Get-DisplayPath`, sharing one definition), and the standalone
+`dkj-policy-bwj` template `asana-mirror.ps1` (its own hand-typed copy, since it ships into a consumer
+with none of this repo's libs present) -- each pinned against the others by a test that compares the
+function's code rather than describing it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. This is workflow tooling read by this repo's own sessions and the consumers that run it; nothing
+a subscriber of a service takes delivery of changes here.
+
+**Score:** N/A
+
+#### Pull Request
+
+Widen the shared console-strip class to Zl/Zp and stacking combining marks, and make it a code-point walk
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2030](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2030)
+
+---
 
 ### DEPLOY: fix/2028-report-issue-asana-preflight-authorization · 20260915-105711
 
