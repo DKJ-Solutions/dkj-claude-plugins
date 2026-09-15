@@ -597,11 +597,12 @@ language, or a set of section headings. Those are yours, and
 [What your repo answers](#what-your-repo-answers) says which.
 
 **A repo may layer a stricter, tracker-specific rule on top of this step, packaged as its own
-workflow.** `dkj-policy-bwj` is the worked example: it fixes, for BWJ's two Shopify store repos, that a
-discovered issue is filed on GitHub first and mirrored to Asana as a colleague-facing variant, with
-the Asana task resolved automatically from the GitHub issue's close. Such an add-on **extends** this
-step — it does not replace the cycle around it — which is what keeps a second workflow plugin from
-colliding with this one.
+workflow.** `dkj-policy-bwj` is the worked example: it fixes, for BWJ's two Shopify store repos and,
+for this one chapter alone, this plugin's own source repo (admitted September 14, 2026, commit
+`b9b2a65a`), that a discovered issue is filed on GitHub first and mirrored to Asana as a
+colleague-facing variant, with the Asana task resolved automatically from the GitHub issue's close.
+Such an add-on **extends** this step — it does not replace the cycle around it — which is what keeps
+a second workflow plugin from colliding with this one.
 
 ### Where this comes from, stated rather than discovered in review
 
