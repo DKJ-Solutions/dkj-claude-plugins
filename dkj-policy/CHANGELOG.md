@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 25 minor entries** <!-- pending-tally -->
+**15 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2033-backup-verify-theme-info-no-files-field · 20260915-163601
+
+`backup-live-theme.ps1`'s verify step no longer depends on `theme info --json` carrying a `files`
+field, which current Shopify CLI releases (4.8.0+) do not provide. It now confirms a backup theme's
+fill by pulling it and counting files on disk -- heavier than a JSON read, and strictly stronger,
+since it verifies identity rather than trusting a number the CLI reports about itself.
+
+**Score:** 2 -- routine maintenance to one script's internal mechanism; the polling/settling contract
+(`Get-ThemeFillVerdict`) that repo maintainers actually reason about did not change.
+
+#### What makes this deploy extra special
+
+Before this fix, `backup-live-theme.ps1`'s verify step could never pass on current Shopify CLI
+releases (4.8.0+) -- every run refused at "Could not read the LIVE theme's file count", making the
+release-cut backup step a standing blocker for any consumer on an up-to-date CLI. That is now fixed.
+
+**Score:** 5 -- a long-standing blocker (the verify step could never pass) is now gone for every
+consumer running a current Shopify CLI.
+
+#### Pull Request
+
+backup-live-theme's verify step no longer relies on 'theme info --json' carrying a files array
+
+Plugins: dkj-subagents-shopify
+
+[PR #2036](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2036)
+
+---
 
 ### DEPLOY: fix/2032-sweep-living-branches · 20260915-134408
 
