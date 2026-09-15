@@ -43,7 +43,53 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 20 minor entries** <!-- pending-tally -->
+**12 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2025-backlog-page-invisible-strip · 20260915-094341
+
+The minor-backlog page dkj-policy-bwj builds now removes the invisible and direction-overriding
+characters an Asana task can carry into it, instead of escaping only `&`, `<` and `>`. That page renders
+a task's Name and Notes -- free text written by anybody with board access -- for a colleague with no
+GitHub login and no second copy to check it against, so a U+202E override, an unterminated isolate, a
+zero-width run or a plane-14 tag sequence could make the printed text read as something other than what
+it says. Escaping markup never touched that class.
+
+It is an ALLOWLIST rather than a list of the deceptive characters: everything in Cc/Cf goes except eight
+code points, so one assigned in a future Unicode version is stripped on the day it exists rather than on
+the day somebody remembers it. The eight that stay are what this page's own content needs -- tab, CR and
+LF, the two joiners that shape Persian and Indic words and every joined emoji, and the three bidi
+**marks**, which nudge one neutral character and cannot open a scope. Every element carrying task text
+now also carries `dir="auto"`, which resolves its direction from its own first strong character and
+isolates it from the entry beside it; that is what makes keeping those marks worth anything, and it is
+why this does not reuse `Format-ForConsole`, whose flattening is the right answer only for a console
+line that cannot be told a direction.
+
+The strip reads each code point's category from `[CharUnicodeInfo]` rather than typing the
+`[\p{Cc}\p{Cf}]` class the three console libs type, because on Windows PowerShell 5.1 that class is
+silently wrong twice -- it misses U+00AD, whose category the regex engine's pre-Unicode-4.0 tables still
+give as `Pd`, and it misses every format character above the BMP, including the U+E0020..U+E007F tag
+block, because a character class matches one UTF-16 unit and those are surrogate pairs. The suite pins
+both gaps themselves, not only this repair's answer to them.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. dkj-policy-bwj is tooling for the two BWJ store repos, and nothing a subscriber of a service takes
+delivery of changes here. The reader this page is written for is a colleague inside the business, which
+is the tier-0 audience one hop before the tier-2 one.
+
+**Score:** N/A
+
+#### Pull Request
+
+The backlog page strips the invisible characters an Asana task can carry into it
+
+Plugins: dkj-policy-bwj
+
+[PR #2027](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2027)
+
+---
 
 ### DEPLOY: fix/2019-asana-mirror-console-strip · 20260915-091511
 
