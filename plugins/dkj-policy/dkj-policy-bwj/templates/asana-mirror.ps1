@@ -206,6 +206,80 @@ $script:StatusMap = $null
 # asks Asana for that board's sections once.
 $script:StageSectionCache = @{}
 
+$script:ConsoleDeceptiveCategories = @(
+    [System.Globalization.UnicodeCategory]::Control,
+    [System.Globalization.UnicodeCategory]::Format,
+    [System.Globalization.UnicodeCategory]::LineSeparator,
+    [System.Globalization.UnicodeCategory]::ParagraphSeparator,
+    [System.Globalization.UnicodeCategory]::NonSpacingMark,
+    [System.Globalization.UnicodeCategory]::EnclosingMark
+)
+
+function ConvertTo-ConsoleStrippedText {
+    <#
+        .SYNOPSIS
+            One line of foreign text, with every character that could make it read as something other
+            than what it says replaced by a space -- Cc, Cf, Zl, Zp, Mn and Me, read a CODE POINT AT A
+            TIME rather than through a regex character class.
+
+        .DESCRIPTION
+            ISSUE #2024'S SECOND HALF. Every caller of this function used to type the class directly, as
+            a regex: '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]'. On this runtime (Windows PowerShell 5.1 /
+            .NET Framework, measured while repairing #2025) that class is silently wrong twice:
+
+              1. U+00AD SOFT HYPHEN is Format (Cf) in the CURRENT Unicode table and Dash Punctuation (Pd)
+                 to the REGEX ENGINE, whose category tables predate the Unicode 4.0 reclassification --
+                 the only such divergence in the whole BMP, all 65,536 code points compared one by one.
+                 [regex]::IsMatch([string][char]0xAD, '[\p{Cf}]') is $false on this runtime.
+              2. EVERY FORMAT CHARACTER ABOVE THE BMP is invisible to the class outright, because a .NET
+                 character class matches one UTF-16 CODE UNIT and those characters are surrogate PAIRS.
+                 That is the U+E0020..U+E007F TAG block -- an invisible-text channel that can carry a
+                 whole hidden ASCII message and render as nothing -- plus U+E0001, U+1D173..U+1D17A and
+                 U+110BD/U+110CD.
+
+            So the category is read from [CharUnicodeInfo]::GetUnicodeCategory(string, index), which uses
+            the CURRENT table and resolves a surrogate pair to the single code point it names. On an
+            UNPAIRED surrogate it answers Surrogate, none of the six categories above, so a broken pair
+            is copied through rather than silently eaten.
+
+            A SPACE PER UTF-16 CODE UNIT CONSUMED, not one space per code point -- the same convention
+            the three console libs use, for the same reason: it generalises the one-unit case without a
+            special case for a two-unit surrogate pair.
+
+            SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
+            backlog-page-rules.ps1 beside this file), which keeps eight invisible code points an HTML
+            page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
+            told a text direction and a console line cannot. That is why this is not a reuse of that
+            function -- only of its LOOKUP; the policy differs; the code-point walk does not.
+
+            THIS IS THE FOURTH COPY, AND IT IS HAND-TYPED HERE rather than dot-sourced, because this
+            file ships standalone: adopt-dkj-policy-bwj copies it into a consumer as
+            .github/scripts/asana-mirror.ps1, where none of this repo's libs exist. The other three
+            copies -- claim-issue-lib.ps1, pr-issues-lib.ps1, ref-print-lib.ps1 -- are identical to each
+            other and to this one; what the four may not do is DISAGREE, so pr-issues.tests.ps1 compares
+            the three there and dkj-policy-bwj.tests.ps1 holds this file to the same characters.
+    #>
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+
+    $sb = New-Object System.Text.StringBuilder
+    $i  = 0
+    while ($i -lt $Text.Length) {
+        $category = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($Text, $i)
+        $paired   = ([char]::IsHighSurrogate($Text[$i]) -and ($i + 1) -lt $Text.Length -and
+                     [char]::IsLowSurrogate($Text[$i + 1]))
+        $width    = if ($paired) { 2 } else { 1 }
+
+        if ($script:ConsoleDeceptiveCategories -contains $category) {
+            [void]$sb.Append(' ' * $width)
+        } else {
+            [void]$sb.Append($Text.Substring($i, $width))
+        }
+        $i += $width
+    }
+    return $sb.ToString()
+}
+
 function Format-ForConsole {
     <#
         Strip control AND format characters out of text somebody else wrote, before this script
@@ -224,14 +298,10 @@ function Format-ForConsole {
         title rather than beside a commit subject. An Asana board is a shared surface a colleague
         edits without ever touching this repository.
 
-        '\p{Cc}' is C0, DEL and C1; '\p{Cf}' is the bidi and zero-width class. The same class the
-        rest of this workflow strips, and the reason it is HAND-TYPED here is that this file ships
-        standalone: adopt-dkj-policy-bwj copies it into a consumer as
-        .github/scripts/asana-mirror.ps1, where none of this repo's libs exist -- so Get-DisplayRef
-        cannot be called and a dot-source would name a path that is not there. Three libs type the
-        class -- pr-issues-lib.ps1, ref-print-lib.ps1 and claim-issue-lib.ps1 -- and this is the one
-        standalone copy beside them; dkj-policy-bwj.tests.ps1 pins that it agrees with them
-        character for character.
+        SIX CATEGORIES, READ A CODE POINT AT A TIME -- see ConvertTo-ConsoleStrippedText above for
+        the full account, including why it is not a regex. #2024 widened the policy past Cc/Cf, to
+        also catch U+2028/U+2029 (Zl/Zp, either of which can make one printed line read as two) and
+        stacking combining marks (Mn/Me, "Zalgo text", which visually obscures the text around it).
 
         A SPACE, NOT A DELETION and not a rendered code point -- the same contract as
         claim-issue-lib.ps1's function of this name. Each character becomes a space, so a name
@@ -248,7 +318,7 @@ function Format-ForConsole {
     #>
     param([string]$Text)
     if (-not $Text) { return '' }
-    return ($Text -replace '[\p{Cc}\p{Cf}]', ' ')
+    return (ConvertTo-ConsoleStrippedText -Text $Text)
 }
 
 function Get-AsanaGidsFromText {
