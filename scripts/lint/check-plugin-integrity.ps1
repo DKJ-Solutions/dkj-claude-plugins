@@ -388,6 +388,25 @@
          what is on disk -- an untracked scratch file is exactly what the scratchpad is for, and
          flagging it would fire on every working copy mid-task. Skipped, silently, where the tree
          is not a git checkout (a fixture, an extracted plugin payload), on check 3's precedent.
+     44. a prompting Shopify `theme` call carries --force. THE SET IS MEASURED rather than reasoned
+         about: of the seventeen `theme` subcommands in Shopify CLI 4.8.0, exactly THREE declare a
+         -f/--force flag -- `delete`, `duplicate`, `publish` -- and all three document it as
+         "Required if non interactive". `theme pull` and `theme push` accept no such flag at all,
+         so the four call sites using them are out of scope by measurement, not by exemption.
+         THE MEASURED DEFECT (inbound #2031, September 15, 2026): backup-live-theme.ps1 duplicated
+         the live theme without it and so failed at step 1/3 in EVERY agent session -- while both
+         BWJ consumer repos name that script as the closing step of a release cut. It failed
+         CLEANLY, which is why it survived: nothing created, nothing rotated, and a message
+         correctly saying the previous backup still stood. The store never got a baseline and every
+         document said it did. The same file's rotate step had passed --force to `theme delete` all
+         along, with nothing holding the two together. A LINT AND NOT A TEST for check 31's reason,
+         one flag over: the subject is the call site that does not exist yet, in a script a consumer
+         receives whether or not anybody extended a suite. A -Arguments naming a VARIABLE is
+         resolved against a literal array assigned in the same file -- without that it would be
+         born blind to the very call it was written for, since the repair builds the list once so
+         the dry run cannot print a different command than the one that runs. What stays unresolved
+         (built conditionally, or returned by a function) is COUNTED AND NAMED in the coverage line,
+         never a finding: a check that cannot see a call must say so.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -5526,6 +5545,150 @@ if (Test-Path -LiteralPath (Join-Path $RepoRoot '.git')) {
         # to report a figure for.
     }
 }
+
+# --- 44. a prompting Shopify theme call carries --force ---------------------------------------------
+# THE MEASURED DEFECT (inbound #2031, September 15, 2026). backup-live-theme.ps1's step 1 duplicated the
+# live theme without --force, so it failed at 1/3 in EVERY agent session -- and `CLAUDE.md` in both BWJ
+# consumer repos names that script as the closing step of a release cut. The failure was clean, which is
+# exactly why it survived: nothing was created, nothing was rotated, and the message correctly said the
+# previous backup still stood. A store following the documented procedure simply never got a baseline,
+# while every document said it did.
+#
+# THE SAME FILE ALREADY KNEW. Its rotate step passed --force to `theme delete` 115 lines further down.
+# So the delete path learned this and the create path did not, with nothing holding the two together --
+# which is the entire argument for a check rather than a second careful reading.
+#
+# THE SET IS MEASURED, NOT GUESSED, and it is the reason this check can be narrow enough to be born
+# green. Against Shopify CLI 4.8.0, all seventeen `theme` subcommands were read for a -f/--force flag:
+# exactly THREE declare one -- delete, duplicate and publish -- and all three document it as "Required
+# if non interactive". Every other subcommand this plugin invokes declares no --force at all, so
+# `theme pull` (archive-theme, sync-main) and `theme push` (push-preview, both arg builders) are OUT of
+# scope by measurement rather than by exemption. A check written on the intuition that "a mutating call
+# can prompt" would have demanded a flag those four commands do not accept.
+#
+# WHY A LINT AND NOT A UNIT TEST. The report suggested a test, and a test would assert about the call
+# sites that exist today. The subject is a call site that does not exist yet: a new script in a plugin,
+# written by whoever next needs to duplicate or publish a theme, lands in a consumer's install whether
+# or not anybody thought to extend a suite. That is check 31's reasoning one flag over -- there the
+# dangerous spelling is the ABSENCE of a wrapper, here the absence of a flag.
+#
+# THROUGH THE PARSER, AND IT RESOLVES A VARIABLE. An inline-array-only reader would have been born blind
+# to the very call it was written for: the #2031 repair builds the argument list once, into $dupArgs, so
+# that the dry run cannot print a command different from the one that runs. So a -Arguments naming a
+# variable is resolved against a literal array assigned to that name in the same file. What stays
+# UNRESOLVED -- a list built conditionally, or returned by a function (Get-ThemeCreateArgs and
+# Get-ThemeUpdateArgs are both `theme push`, and therefore out of scope anyway) -- is counted and named
+# in the coverage line rather than passed over in silence or reported as a finding. A check that cannot
+# see a call must say so; a check that fails on what it cannot see is the 124-false-findings shape this
+# repo declined once and does not repeat.
+function Get-AstStringArray {
+    <# The elements of an AST node that is a string array, or $null where it is not one.
+
+       ONE READER FOR BOTH SPELLINGS, and the reason is a defect this check shipped green with for the
+       length of one run. `@('theme','delete',...)` at a CALL SITE parses as an ArrayExpressionAst, while
+       the same text after `$x =` reaches here already unwrapped to an ArrayLiteralAst -- so a first cut
+       that handled the literal at the call site and both at the assignment resolved 2 of 30 sites and
+       reported 0 findings. It was not merely incomplete: it could not see `theme delete --force`, the one
+       call in the tree that PROVES the rule, so nothing about the run said the reader was broken. Two
+       readers for one concept is what let the two disagree; there is now one.
+
+       AN ELEMENT THAT IS NOT A CONSTANT BECOMES '' RATHER THAN FAILING THE WHOLE ARRAY. A store or a
+       theme id arrives as a variable at every call site here, and refusing those would leave nothing to
+       check. It is safe in this direction: the subject is whether a LITERAL '--force' is present, and an
+       unresolved element can only ever fail to match it. A list whose SHAPE cannot be read -- a splat, a
+       conditional, a function's return -- is a different thing and comes back $null, for the caller to
+       count as not reached. #>
+    param($Node)
+    $arr = $null
+    if ($Node -is [System.Management.Automation.Language.ArrayLiteralAst]) {
+        $arr = $Node
+    } elseif ($Node -is [System.Management.Automation.Language.ArrayExpressionAst]) {
+        # EVERY HOP IS TYPE-GUARDED, and that is not belt-and-braces. This file runs under Set-StrictMode,
+        # where reading .Expression off a pipeline element that is not a CommandExpressionAst is a
+        # TERMINATING error -- so an unguarded walk does not misjudge one call site, it takes the whole
+        # gate down. Measured on this check's own first run, which aborted after check 43's coverage line
+        # and named no file.
+        $stmts = $Node.SubExpression.Statements
+        if ($stmts.Count -eq 1 -and $stmts[0] -is [System.Management.Automation.Language.PipelineAst]) {
+            $pe = $stmts[0].PipelineElements
+            if ($pe.Count -eq 1 -and $pe[0] -is [System.Management.Automation.Language.CommandExpressionAst]) {
+                $inner = $pe[0].Expression
+                if ($inner -is [System.Management.Automation.Language.ArrayLiteralAst]) { $arr = $inner }
+            }
+        }
+    }
+    if ($null -eq $arr) { return $null }
+    $vals = @()
+    foreach ($el in $arr.Elements) {
+        if ($el -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $vals += $el.Value }
+        else { $vals += '' }
+    }
+    return ,$vals
+}
+
+$forceSubs = @('delete', 'duplicate', 'publish')
+$forceChecked  = 0
+$forceFindings = 0
+$forceUnresolved = @()
+foreach ($psFile in (Get-PsScriptFiles)) {
+    $fRel = $psFile.FullName.Replace($RepoRoot, '.')
+    # The file's literal string arrays, by variable name, so `-Arguments $dupArgs` can be followed. Only
+    # a plain `$name = @('a','b')` counts: anything assembled over several statements is what the
+    # unresolved lane is for, and guessing at it would be inventing the very bytes under test.
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($psFile.FullName, [ref]$null, [ref]$null)
+    if ($null -eq $ast) { continue }
+    $literalArrays = @{}
+    foreach ($asn in @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true))) {
+        if ($asn.Left -isnot [System.Management.Automation.Language.VariableExpressionAst]) { continue }
+        $rhs = $asn.Right
+        if ($rhs -is [System.Management.Automation.Language.CommandExpressionAst]) { $rhs = $rhs.Expression }
+        $vals = Get-AstStringArray -Node $rhs
+        if ($null -ne $vals) { $literalArrays[$asn.Left.VariablePath.UserPath] = $vals }
+    }
+
+    foreach ($cmd in (Get-PsScriptCommandAsts -Path $psFile.FullName)) {
+        if ($cmd.GetCommandName() -ne 'Invoke-ShopifyCli') { continue }
+        $forceChecked++
+        # The value of -Arguments, whichever spelling the call site used.
+        $argVals = $null
+        $els = $cmd.CommandElements
+        for ($i = 0; $i -lt $els.Count - 1; $i++) {
+            $p = $els[$i]
+            if ($p -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+            if ($p.ParameterName -ne 'Arguments') { continue }
+            $v = $els[$i + 1]
+            $argVals = Get-AstStringArray -Node $v
+            if ($null -eq $argVals -and $v -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                $n = $v.VariablePath.UserPath
+                if ($literalArrays.ContainsKey($n)) { $argVals = $literalArrays[$n] }
+            }
+            break
+        }
+        if ($null -eq $argVals) {
+            $forceUnresolved += "${fRel}:$($cmd.Extent.StartLineNumber)"
+            continue
+        }
+        # 'theme' then the subcommand: the only shape in scope. A non-theme call (there are none today)
+        # is measured by nothing here and says so by not being counted as a subject.
+        if ($argVals.Count -lt 2 -or $argVals[0] -ne 'theme') { continue }
+        $sub = $argVals[1]
+        if ($forceSubs -notcontains $sub) { continue }
+        if ($argVals -contains '--force' -or $argVals -contains '-f') { continue }
+        Add-Error ("[shopify-force] ${fRel}:$($cmd.Extent.StartLineNumber): 'theme $sub' is invoked without" +
+            " --force. The Shopify CLI declares that flag `"Required if non interactive outside CI`" on all" +
+            " three of its prompting theme subcommands (delete, duplicate, publish), and an agent session" +
+            " has no TTY -- so this call cannot succeed from the caller these scripts are written for. It" +
+            " fails CLEANLY, which is why the measured instance (inbound #2031) went unnoticed for a" +
+            " release cut: the store never got its backup and every document said it did. Add '--force' to" +
+            " the argument list.")
+        $forceFindings++
+    }
+}
+$forceNote = "Invoke-ShopifyCli call site(s) parsed -- $forceFindings finding(s). THE SET IS MEASURED: of the seventeen 'shopify theme' subcommands in CLI 4.8.0, exactly three declare a -f/--force flag -- delete, duplicate, publish -- and all three document it as 'Required if non interactive'. So 'theme pull' and 'theme push' are out of scope because they accept no such flag, not by exemption. THE MEASURED DEFECT (#2031): backup-live-theme.ps1 duplicated the live theme without it and failed at step 1/3 in every agent session, while the rotate step in the same file had passed --force to 'theme delete' all along. A -Arguments naming a variable IS resolved, against a literal array assigned to that name in the same file -- without that this check would have been born blind to the call it was written for, since the repair builds `$dupArgs once so the dry run cannot print a different command than the one that runs"
+if ($forceUnresolved.Count -gt 0) {
+    $forceNote += ". NOT REACHED: $($forceUnresolved.Count) call site(s) whose -Arguments is built conditionally or returned by a function, named here rather than passed over in silence -- $($forceUnresolved -join ', ')"
+}
+Write-Coverage -Category 'shopify-force' -Checked $forceChecked -Note $forceNote
 
 # --- Report ---------------------------------------------------------------------------------------------
 if ($errors.Count -eq 0) {

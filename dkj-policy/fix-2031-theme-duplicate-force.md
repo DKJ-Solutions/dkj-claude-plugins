@@ -43,19 +43,74 @@ The Shopify CLI declares --force on 'theme duplicate' as 'Required if non intera
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `backup-live-theme.ps1` step 1 passes `--force` to `theme duplicate`, and the argument list is
+      built ONCE into `$dupArgs` so the dry run prints the command that actually runs.
+- [x] The plugin mirror regenerated through `scripts/sync/build-shared-scripts.ps1` rather than edited
+      by hand.
+- [x] Lint check 44 (`shopify-force`) added to `check-plugin-integrity.ps1`, with its entry in the
+      self-enumerating list check 37 holds this file to.
+- [x] Check 44 resolves a `-Arguments` naming a VARIABLE, through one reader shared with the inline
+      spelling -- the first cut had two readers, resolved 2 of 30 call sites and was green and blind.
 
 ### TEST
 
+- [x] The flag contract MEASURED against Shopify CLI 4.8.0 rather than assumed: all seventeen `theme`
+      subcommands read for a `-f/--force` flag. Exactly three declare one -- `delete`, `duplicate`,
+      `publish` -- and all three document it as "Required if non interactive". `pull` and `push`
+      accept no such flag, which is what puts the four `theme pull`/`theme push` call sites out of
+      scope by measurement instead of by exemption.
+- [x] Lint gate green: 0 errors, `[shopify-force] checked 30` call sites, 4 not reached and named.
+- [x] The check proven to FIRE, not merely to pass: `--force` dropped from
+      `sweep-preview-themes.ps1:220` produced exactly the expected finding at that line, and the file
+      was restored.
+- [x] Five scenarios (83-87) added to `check-plugin-integrity-commands.tests.ps1`, covering the
+      inline finding, the clean call, the variable lane in both directions, `pull`/`push`/`list` as
+      non-subjects, and an unreadable list being counted rather than accused.
+- [x] Full test gate run.
+
 ### DEPLOY: fix/2031-theme-duplicate-force
 
-**Score:**
+`backup-live-theme.ps1` could not complete from an agent session. Its step 1 duplicated the live theme
+without `--force`, and the Shopify CLI declares that flag **"Required if non interactive outside CI"** --
+so the backup failed at 1/3 every time, while `CLAUDE.md` in both BWJ consumer repos names this script as
+the closing step of a release cut. The failure was clean, which is why it survived: nothing was created,
+nothing was rotated, and the message correctly said the previous backup still stood. A store following the
+documented procedure simply never got a baseline, and every document said it had one.
+
+The same file had passed `--force` to `theme delete` all along, 115 lines further down -- the delete path
+had learned this and the create path had not, with nothing holding the two together.
+
+Three things changed. The flag is there. The argument list is built **once**, into `$dupArgs`, because the
+dry run hand-built a second spelling of the same command and printed the one that could not succeed -- so
+the only mode a session could safely run reported the defect as the intended behaviour. And the class is
+now gated: lint check 44 holds every `Invoke-ShopifyCli` call to carrying `--force` where the subcommand
+prompts.
+
+**The gated set is measured, not reasoned about.** All seventeen `shopify theme` subcommands were read
+against CLI 4.8.0: exactly three declare a `-f/--force` flag -- `delete`, `duplicate`, `publish` -- and all
+three document it as required when non-interactive. `theme pull` and `theme push` accept no such flag at
+all, so the four call sites using them are out of scope by measurement rather than by exemption; a check
+built on the intuition that "a mutating call can prompt" would have demanded an argument those commands
+reject.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+A lint rather than a test, for the reason check 31 already carries one flag over: the subject is the call
+site that does not exist yet. A test asserts about today's callers, while a new script in a plugin reaches
+a consumer's install whether or not anybody remembered to extend a suite.
+
+The check's own first cut is the part worth keeping. It read an inline `@(...)` as one AST node type and a
+variable assignment as another, through two separate readers -- and `@(...)` written directly as an
+argument parses as the *other* type. It resolved 2 of 30 real call sites, reported 0 findings, and was
+blind to `theme delete --force`, the one call in the tree that proves the rule. It was green, and nothing
+in the run said the reader was broken. What caught it was the coverage line naming what it had **not**
+reached; what fixed it was one reader instead of two. Scenario 85 pins both directions so they cannot
+diverge again.
+
+**Score:** 2
 
 #### Pull Request
 
 backup-live-theme: the live duplicate carries --force, so it runs from a non-interactive session
-
