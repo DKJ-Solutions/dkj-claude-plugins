@@ -1536,6 +1536,13 @@ $annBlankTitle = '[{"annotation_level":"failure","title":"\u200b\u202e","message
 Assert-True ((Get-AuthoredFailureNote -AnnotationsJson $annBlankTitle) -like 'real*') 'a title of nothing but format characters is untitled, and the next annotation wins'
 Assert-Equal '' (Get-AuthoredFailureNote -AnnotationsJson '[{"annotation_level":"failure","title":"\u202e","message":"m"}]') 'and on its own it produces no note at all, not an empty-titled one'
 
+# ISSUE #2024. Neither U+2028/U+2029 (Zl/Zp) nor a stacking combining mark (Mn/Me) is Cc or Cf, so both
+# survived Format-AuthoredText untouched until this widening.
+$annLineSep = '[{"annotation_level":"failure","title":"one' + [char]0x2028 + 'two","message":"m"}]'
+Assert-Equal $false ((Get-AuthoredFailureNote -AnnotationsJson $annLineSep -CheckName 'x').Contains([char]0x2028)) 'a LINE SEPARATOR cannot make this one note read as two printed lines'
+$annZalgo = '[{"annotation_level":"failure","title":"e' + [char]0x0301 + [char]0x0301 + [char]0x0301 + ' title","message":"m"}]'
+Assert-Equal $false ((Get-AuthoredFailureNote -AnnotationsJson $annZalgo -CheckName 'x').Contains([char]0x0301)) 'stacking combining marks cannot visually obscure the words around them'
+
 # THE DRIFT PIN, ACROSS EVERY LIB THAT TYPES THE CLASS. It was three until #1623, two until #1858, and
 # it is three again: here, ref-print-lib.ps1, which since #1623 owns the one definition of the prose
 # strip (Get-DisplayRef) as well as the note printed when a ref is refused (#1594), and
@@ -1560,17 +1567,43 @@ $prIssuesLibText  = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\l
 $remoteAheadText  = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\lib\remote-ahead-lib.ps1'))
 $refPrintText     = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1'))
 $claimIssueText   = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1'))
-Assert-True ($prIssuesLibText -match ([regex]::Escape('[\p{Cc}\p{Cf}]'))) 'this lib carries the strip pattern'
-Assert-True ($refPrintText -match ([regex]::Escape('[\p{Cc}\p{Cf}]'))) 'and so does ref-print-lib, which re-typed it deliberately (#1594) and now owns the prose strip too (#1623)'
-Assert-True ($claimIssueText -match ([regex]::Escape('[\p{Cc}\p{Cf}]'))) 'and so does claim-issue-lib, whose Format-ForConsole reached only the ASCII control range until #1858'
+# ISSUE #2024 WIDENED THE CLASS ITSELF, IN ALL THREE LIBS AT ONCE, then -- #2024's second half, measured
+# while repairing #2025 -- stopped it being a regex at all: '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]' is
+# silently wrong twice on Windows PowerShell 5.1 (misses U+00AD, and every format character above the
+# BMP), so the class is now a function, ConvertTo-ConsoleStrippedText, that reads each code point's
+# category from the runtime's own table. The DISAGREE rule this pin exists for is unaffected: what is
+# compared moved from a literal regex string to a literal function definition.
+function Get-ConsoleStrippedTextBlock {
+    param([string]$Text)
+    $m = [regex]::Match($Text, '(?s)\$script:ConsoleDeceptiveCategories = @\(.*?\r?\nfunction ConvertTo-ConsoleStrippedText \{.*?\r?\n\}\r?\n')
+    if (-not $m.Success) { return $null }
+    return $m.Value
+}
+$walkerPrIssues  = Get-ConsoleStrippedTextBlock -Text $prIssuesLibText
+$walkerRefPrint  = Get-ConsoleStrippedTextBlock -Text $refPrintText
+$walkerClaimIssue = Get-ConsoleStrippedTextBlock -Text $claimIssueText
+Assert-True ([bool]$walkerPrIssues) 'this lib carries ConvertTo-ConsoleStrippedText'
+Assert-True ([bool]$walkerRefPrint) 'and so does ref-print-lib, which owns the one definition two of its own functions share (#1623)'
+Assert-True ([bool]$walkerClaimIssue) 'and so does claim-issue-lib, whose Format-ForConsole reached only the ASCII control range until #1858'
+Assert-Equal $walkerPrIssues $walkerRefPrint 'the three copies must not DISAGREE -- pr-issues-lib and ref-print-lib byte for byte'
+Assert-Equal $walkerPrIssues $walkerClaimIssue 'and pr-issues-lib and claim-issue-lib byte for byte'
 Assert-True (-not ($claimIssueText -match ([regex]::Escape("'[\x00-\x1F\x7F]', ' '")))) 'and the ASCII-only class it replaced no longer STRIPS anything -- naming it in the docstring is the record, a second live strip beside the first is the drift this pin exists to refuse'
-Assert-True (-not ($remoteAheadText -match ([regex]::Escape('[\p{Cc}\p{Cf}]')))) 'while the sibling relay it was copied FROM no longer does -- it reads Get-DisplayRef instead (#1623)'
+Assert-True (-not ($remoteAheadText -match 'function ConvertTo-ConsoleStrippedText')) 'while the sibling relay it was copied FROM no longer does -- it reads Get-DisplayRef instead (#1623)'
 Assert-True ($remoteAheadText -match 'ref-print-lib\.ps1') 'because it dot-sources the lib that owns the definition'
 $classSites = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\lib') -Filter '*.ps1' |
-                Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match ([regex]::Escape('[\p{Cc}\p{Cf}]')) } |
+                Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match 'function ConvertTo-ConsoleStrippedText' } |
                 ForEach-Object { $_.Name } | Sort-Object)
-Assert-NameSet @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1') $classSites 'THREE libs in scripts/lib type this class and no more -- a fourth has to update Format-AuthoredText, Format-ForConsole and the new-branch skill page, which is the claim #1612 was filed about. NOT a global count: the standalone template templates/asana-mirror.ps1 types it too (#2019), pinned by dkj-policy-bwj.tests.ps1, because it ships into a consumer where no lib of this repo exists'
-Assert-Equal 1 ([regex]::Matches($prIssuesLibText, [regex]::Escape("-replace '[\p{Cc}\p{Cf}]', ' '")).Count) 'ONE definition inside this lib -- Format-AuthoredText, which both the title and the message go through'
+Assert-NameSet @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1') $classSites 'THREE libs in scripts/lib type this function and no more -- a fourth has to update Format-AuthoredText, Format-ForConsole and the new-branch skill page, which is the claim #1612 was filed about. NOT a global count: the standalone template templates/asana-mirror.ps1 types it too (#2019), pinned by dkj-policy-bwj.tests.ps1, because it ships into a consumer where no lib of this repo exists'
+Assert-Equal 1 ([regex]::Matches($prIssuesLibText, 'function ConvertTo-ConsoleStrippedText').Count) 'ONE definition inside this lib'
+Assert-Equal 1 ([regex]::Matches($prIssuesLibText, [regex]::Escape('ConvertTo-ConsoleStrippedText -Text $Text')).Count) 'and Format-AuthoredText is its one caller here -- both the title and the message go through it'
+
+# ISSUE #2024'S SECOND HALF, MEASURED WHILE REPAIRING #2025. These two are exactly the cases a regex
+# class over the six categories misses on Windows PowerShell 5.1 -- see ConvertTo-ConsoleStrippedText's
+# own docstring for why.
+$annSoftHyphen = '[{"annotation_level":"failure","title":"one' + [char]0xAD + 'two","message":"m"}]'
+Assert-Equal $false ((Get-AuthoredFailureNote -AnnotationsJson $annSoftHyphen -CheckName 'x').Contains([char]0xAD)) 'U+00AD SOFT HYPHEN reads as Format to the runtime and Dash Punctuation to the regex engine -- a regex class misses it, this strip does not'
+$annTagBlock = '[{"annotation_level":"failure","title":"one' + [char]::ConvertFromUtf32(0xE0074) + 'two","message":"m"}]'
+Assert-Equal $false ((Get-AuthoredFailureNote -AnnotationsJson $annTagBlock -CheckName 'x').Contains([char]::ConvertFromUtf32(0xE0074))) 'a format character above the BMP (the TAG block, a surrogate pair) is invisible to a regex [\p{Cf}] class outright -- this strip catches it'
 
 # --- The two caps that bound the SAME string, pinned so neither moves alone (#1116) ---------------
 #

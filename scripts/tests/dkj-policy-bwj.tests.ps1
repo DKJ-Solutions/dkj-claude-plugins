@@ -685,6 +685,17 @@ Assert-Equal ''      (Format-ForConsole $null)           'and so is no name at a
 Assert-Equal ' [0m'  (Format-ForConsole "$([char]27)[0m")   'a name whose every control character is stripped keeps its printable remainder -- it is never given a noun it does not have'
 Assert-Equal ' a  b ' (Format-ForConsole " a$([char]0x200B)$([char]0x200B)b ") 'nothing is collapsed or trimmed: the name stays the length the board gave it'
 
+# ISSUE #2024. Neither Zl/Zp nor Mn/Me is Cc or Cf, so both survived this strip until it widened.
+Assert-Equal 'one two' (Format-ForConsole "one$([char]0x2028)two") 'a LINE SEPARATOR (U+2028) becomes a space -- it cannot make one printed line read as two'
+Assert-Equal 'one two' (Format-ForConsole "one$([char]0x2029)two") 'a PARAGRAPH SEPARATOR (U+2029) becomes a space, same reasoning'
+Assert-Equal 'e   ' (Format-ForConsole "e$([char]0x0301)$([char]0x0301)$([char]0x0301)") 'stacking combining marks (Zalgo text) each become a space rather than piling onto the base character'
+
+# ISSUE #2024'S SECOND HALF, MEASURED WHILE REPAIRING #2025. On Windows PowerShell 5.1 a regex class
+# over these six categories is silently wrong twice, so the strip is a code-point walk
+# (ConvertTo-ConsoleStrippedText) rather than a regex -- these two are exactly the cases it misses.
+Assert-Equal 'a b' (Format-ForConsole "a$([char]0xAD)b") 'U+00AD SOFT HYPHEN is Format to the runtime and Dash Punctuation to the regex engine -- a regex [\p{Cf}] class does not match it, and this strip does'
+Assert-Equal 'a  b' (Format-ForConsole ("a" + [char]::ConvertFromUtf32(0xE0074) + "b")) 'a format character above the BMP (the U+E0020..U+E007F TAG block, a surrogate pair) is invisible to a regex [\p{Cf}] class outright, and this strip catches it -- one space per UTF-16 unit consumed'
+
 # THE FOUR CALL SITES, asserted over the source because each is a Write-Host whose argument cannot be
 # reached without a live Asana and GitHub. Two print the task name, one the board's column names, and
 # one the phrase saying WHY a card moved -- a fifth site added later has to be added here too, which
@@ -708,14 +719,32 @@ Assert-True ($mirrorSrc -match [regex]::Escape('"the project status ''$ProjectSt
 
 # IT IS HAND-TYPED HERE ON PURPOSE, because this file ships standalone: adopt-dkj-policy-bwj copies it
 # into a consumer as .github/scripts/asana-mirror.ps1, where none of this repo's libs exist, so
-# Get-DisplayRef cannot be called and a dot-source would name a path that is not there. What the four
-# copies may not do is DISAGREE, so the class itself is compared rather than described -- the same
+# ConvertTo-ConsoleStrippedText cannot be dot-sourced and is typed here instead. What the four copies
+# may not do is DISAGREE -- #2024's second half (measured while repairing #2025) moved the comparison
+# from a regex literal to a function's CODE, since the class stopped being a regex at all; the same
 # guard pr-issues.tests.ps1 keeps over the three libs.
-$stripClass = "-replace '[\p{Cc}\p{Cf}]', ' '"
-Assert-Equal 1 ([regex]::Matches($mirrorSrc, [regex]::Escape($stripClass)).Count) 'ONE definition in this template -- Format-ForConsole, which all three sites go through'
+Assert-Equal 1 ([regex]::Matches($mirrorSrc, 'function ConvertTo-ConsoleStrippedText').Count) 'ONE definition in this template'
+Assert-Equal 1 ([regex]::Matches($mirrorSrc, [regex]::Escape('ConvertTo-ConsoleStrippedText -Text $Text')).Count) 'and Format-ForConsole is its one caller here -- all three sites go through it'
+function Get-ConsoleStrippedTextCode {
+    param([string]$Text)
+    # The CODE only, not the docstring: param through the closing brace. The docstring legitimately
+    # differs per file (this one explains being hand-typed and standalone), but the stripping LOGIC
+    # -- the six categories and the surrogate-pair walk -- may never disagree between the four copies.
+    # Anchored on the array declaration first, since it is unique in the file and unambiguous, then
+    # the docstring is cut away and only 'param(...)' onward is kept.
+    $block = [regex]::Match($Text, '(?s)\$script:ConsoleDeceptiveCategories = @\(.*?\r?\nfunction ConvertTo-ConsoleStrippedText \{.*?\r?\n\}\r?\n')
+    if (-not $block.Success) { return $null }
+    $code = [regex]::Match($block.Value, '(?s)\r?\n    param\(\[string\]\$Text\).*$')
+    if (-not $code.Success) { return $null }
+    return $code.Value
+}
+$mirrorWalkerCode = Get-ConsoleStrippedTextCode -Text $mirrorSrc
+Assert-True ([bool]$mirrorWalkerCode) 'the template''s walker code was found for comparison'
 foreach ($lib in @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1')) {
     $libText = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot "..\lib\$lib"))
-    Assert-True ($libText -match [regex]::Escape('[\p{Cc}\p{Cf}]')) "the template's class is character-for-character the one $lib types"
+    Assert-True ($libText -match 'function ConvertTo-ConsoleStrippedText') "$lib carries ConvertTo-ConsoleStrippedText too"
+    $libWalkerCode = Get-ConsoleStrippedTextCode -Text $libText
+    Assert-Equal $mirrorWalkerCode $libWalkerCode "the template's stripping code is byte-identical to $lib's, even though the docstrings differ"
 }
 # And the template still dot-sources nothing, which is WHY the copy exists -- if that ever stops being
 # true the argument above expires and the copy should go, not be re-justified.

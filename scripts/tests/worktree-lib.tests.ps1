@@ -319,7 +319,7 @@ $fmt = Invoke-NativeCapture -FilePath 'git' -Arguments @('check-ref-format', '--
 Assert-True ($fmt.ExitCode -eq 0) 'premise: git accepts a branch name carrying U+202E'
 
 $goEvil = Get-TrunkReturnGoAheadLine -Returned $false -Branch $evilRef
-Assert-True ($goEvil -notmatch '[\p{Cc}\p{Cf}]') 'no control or format character survives into the go-ahead line'
+Assert-True ($goEvil -notmatch '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]') 'no control, format, line/paragraph separator or combining-mark character survives into the go-ahead line'
 Assert-True ($goEvil -like "*'fix/a b'*") 'and the name still reads, stripped, so the operator can recognise the branch'
 Assert-True ($goEvil -like '*lane*') 'the no arm keeps pointing at the lane -- the strip is not a refusal to word the line'
 
@@ -491,7 +491,7 @@ Assert-True (-not (Get-FoldTreeDecision -Head 'master' -ShipBranch $Ship -TrunkB
 # section 8 pins for the go-ahead line.
 $evilHead = 'docs/a' + [char]0x202E + 'b'
 $fdEvil = Get-FoldTreeDecision -Head $evilHead -ShipBranch 'docs/plain' -TrunkBranch 'main' -StatusLines @()
-Assert-True ($fdEvil.Reason -notmatch '[\p{Cc}\p{Cf}]') 'no control or format character survives into the worktree-arm sentence'
+Assert-True ($fdEvil.Reason -notmatch '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]') 'no control, format, line/paragraph separator or combining-mark character survives into the worktree-arm sentence'
 Assert-True ($fdEvil.Reason -like "*'docs/a b'*") 'and the name still reads, stripped, so the operator can recognise it'
 
 # WHAT GIT MIGHT ACTUALLY HAND OVER: every one of these answers instead of throwing. This decision runs

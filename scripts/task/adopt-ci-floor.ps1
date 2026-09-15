@@ -818,8 +818,9 @@ if (-not $queueReadable) {
     # NOT widen $script:RefPasteSafePattern to admit a space (that lib's own header already names that
     # repair wrong for the neighbouring case, #1762 -- a wider ref allowlist would also admit a space into
     # a value that DOES reach a shell line elsewhere in this workflow) and it does not retype
-    # '[\p{Cc}\p{Cf}]' as a fourth copy of that pattern (Get-DisplayRef below already owns the one
-    # definition; pr-issues.tests.ps1 pins the three files allowed to carry it as literal text).
+    # '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]' as a fourth copy of that pattern (Get-DisplayRef below
+    # already owns the one definition; pr-issues.tests.ps1 pins the three files allowed to carry it as
+    # literal text).
     function Test-JsonContextSafe {
         <#
             Value -- a job id or job NAME about to be interpolated, unescaped, into a hand-laid JSON
@@ -829,9 +830,9 @@ if (-not $queueReadable) {
             checked, and only three, because only three things can actually go wrong at this site:
               - '"' or '\' would break out of the JSON string this value sits inside (JSON escapes both
                 and nothing here re-implements a JSON string escaper);
-              - a \p{Cc}/\p{Cf} character would repaint the console when the JSON BLOCK ITSELF is
-                Write-Host'd -- the same hazard Get-DisplayRef exists for, checked here via that same
-                function rather than by retyping its pattern.
+              - a \p{Cc}/\p{Cf}/\p{Zl}/\p{Zp}/\p{Mn}/\p{Me} character would repaint the console when the
+                JSON BLOCK ITSELF is Write-Host'd -- the same hazard Get-DisplayRef exists for, checked
+                here via that same function rather than by retyping its pattern.
             A NEWLINE IS NOT CHECKED HERE BECAUSE IT CANNOT ARRIVE: Get-WorkflowFacts' own capture for a
             job `name:` is anchored on '[^\r\n]*$', so this value is already single-line by construction
             -- which is what keeps it from ever closing the surrounding here-string early (that closes
@@ -844,7 +845,7 @@ if (-not $queueReadable) {
 
         if ([string]::IsNullOrEmpty($Value)) { return $false }
         if ($Value.IndexOfAny([char[]]@('"', '\')) -ge 0) { return $false }
-        # Get-DisplayRef strips '[\p{Cc}\p{Cf}]' (and only that), then collapses/trims. A value with
+        # Get-DisplayRef strips '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]' (and only that), then collapses/trims. A value with
         # none of those characters and no leading/trailing/doubled whitespace comes back byte-identical;
         # anything else is either a format/control character or whitespace shaped oddly enough to be
         # worth a human's eyes rather than a silent auto-fill, so either way this is the right test.

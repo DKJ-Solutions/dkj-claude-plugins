@@ -11,10 +11,11 @@
     `fix/evil;touch`, `fix/evil&touch`, `fix/evil|touch`, `fix/evil$(touch)`, `` fix/evil`touch` `` and
     `fix/it's-fine` (exit 0, measured). What it DOES reject is ASCII control characters (\p{Cc}) and the
     space (exit 128) -- NOT the whole of the ANSI/OSC-repaint class remote-ahead-lib.ps1's sanitiser
-    exists for (#1439, #1446), because that class is `[\p{Cc}\p{Cf}]` and git enforces only the first
-    half. A `\p{Cf}` run is accepted in a ref name and is a live display hazard; see the scope note at
-    the foot of this block. What THIS lib is about is a different hole in the same wall: not display
-    deception, but a command a reader is invited to run.
+    exists for (#1439, #1446), because that class is `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]` (widened
+    from `[\p{Cc}\p{Cf}]` by #2024) and git enforces only a sliver of the first half. A `\p{Cf}` run is
+    accepted in a ref name and is a live display hazard; see the scope note at the foot of this block.
+    What THIS lib is about is a different hole in the same wall: not display deception, but a command
+    a reader is invited to run.
 
     WHY QUOTING IS NOT THE FIX, WHICH IS THE PART WORTH RECORDING. The obvious repair -- wrap the value
     in quotes -- fails in both spellings, and it fails in both shells this workflow's readers actually
@@ -45,9 +46,11 @@
     THE DISPLAY AXIS, AND WHY IT IS A SECOND FUNCTION RATHER THAN A WIDER ALLOWLIST. `'$branch'` quoted
     inside a prose sentence ("this checkout is still on 'x;y'") is not a command, and the shell
     metacharacters this lib refuses are inert there. THAT IS NOT THE SAME AS SAFE (#1617). The deceptive
-    class is `[\p{Cc}\p{Cf}]` and `git check-ref-format` enforces only the `\p{Cc}` half, so a ref
-    carrying a `\p{Cf}` character is accepted, creatable and checkout-able, and `git rev-parse
-    --abbrev-ref HEAD` hands it back verbatim. Measured, September 8, 2026, `--branch` exit codes:
+    class is `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]` (#2024 widened it past `[\p{Cc}\p{Cf}]`, to also
+    catch U+2028/U+2029 and stacking combining marks) and `git check-ref-format` enforces only the
+    `\p{Cc}` half, so a ref carrying a `\p{Cf}` character is accepted, creatable and checkout-able, and
+    `git rev-parse --abbrev-ref HEAD` hands it back verbatim. Measured, September 8, 2026, `--branch`
+    exit codes:
     U+202E RIGHT-TO-LEFT OVERRIDE 0, U+200D ZERO WIDTH JOINER 0, U+200B ZERO WIDTH SPACE 0, U+2066
     LEFT-TO-RIGHT ISOLATE 0 -- against 128 for BEL and ESC. Those first two are the exact code points
     #1446 was filed for, where they bypassed the #1439 tip sanitiser, which is why
@@ -197,6 +200,84 @@ function Test-PathPasteSafe {
     return [bool]((ConvertTo-PastePath -Path $Path) -match $script:PathPasteSafePattern)
 }
 
+$script:ConsoleDeceptiveCategories = @(
+    [System.Globalization.UnicodeCategory]::Control,
+    [System.Globalization.UnicodeCategory]::Format,
+    [System.Globalization.UnicodeCategory]::LineSeparator,
+    [System.Globalization.UnicodeCategory]::ParagraphSeparator,
+    [System.Globalization.UnicodeCategory]::NonSpacingMark,
+    [System.Globalization.UnicodeCategory]::EnclosingMark
+)
+
+function ConvertTo-ConsoleStrippedText {
+    <#
+        .SYNOPSIS
+            One line of foreign text, with every character that could make it read as something other
+            than what it says replaced by a space -- Cc, Cf, Zl, Zp, Mn and Me, read a CODE POINT AT A
+            TIME rather than through a regex character class.
+
+        .DESCRIPTION
+            ISSUE #2024'S SECOND HALF. Every caller of this function used to type the class directly, as
+            a regex: '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]'. On this runtime (Windows PowerShell 5.1 /
+            .NET Framework, measured while repairing #2025) that class is silently wrong twice:
+
+              1. U+00AD SOFT HYPHEN is Format (Cf) in the CURRENT Unicode table and Dash Punctuation (Pd)
+                 to the REGEX ENGINE, whose category tables predate the Unicode 4.0 reclassification --
+                 the only such divergence in the whole BMP, all 65,536 code points compared one by one.
+                 [regex]::IsMatch([string][char]0xAD, '[\p{Cf}]') is $false on this runtime.
+              2. EVERY FORMAT CHARACTER ABOVE THE BMP is invisible to the class outright, because a .NET
+                 character class matches one UTF-16 CODE UNIT and those characters are surrogate PAIRS.
+                 That is the U+E0020..U+E007F TAG block -- an invisible-text channel that can carry a
+                 whole hidden ASCII message and render as nothing -- plus U+E0001, U+1D173..U+1D17A and
+                 U+110BD/U+110CD.
+
+            So the category is read from [CharUnicodeInfo]::GetUnicodeCategory(string, index), which uses
+            the CURRENT table and resolves a surrogate pair to the single code point it names. On an
+            UNPAIRED surrogate it answers Surrogate, none of the six categories above, so a broken pair
+            is copied through rather than silently eaten.
+
+            A SPACE PER UTF-16 CODE UNIT CONSUMED, not one space per code point. Get-DisplayPath
+            (ref-print-lib.ps1, #1638) measures its output in .Length to preserve a padded column's
+            alignment, and .Length counts UTF-16 units -- so a two-unit surrogate pair becomes two
+            spaces, keeping format width and display width in agreement exactly as a one-unit character
+            already does. Every other caller collapses and trims afterward and is indifferent to the
+            count, so the one convention serves them all.
+
+            SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
+            dkj-policy-bwj's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
+            page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
+            told a text direction and a console line cannot. That is why this is not a reuse of that
+            function -- only of its LOOKUP; the policy differs; the code-point walk does not.
+
+            THIS IS THE THIRD LIB-INDEPENDENT COPY -- claim-issue-lib.ps1, pr-issues-lib.ps1 and
+            ref-print-lib.ps1, identical byte for byte, the same three libs and the same DISAGREE rule
+            that used to hold one regex literal in agreement now holds one function definition in
+            agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other two libs each
+            carry their own copy, for the reason their docstrings already give for not sharing a
+            dot-source.
+    #>
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+
+    $sb = New-Object System.Text.StringBuilder
+    $i  = 0
+    while ($i -lt $Text.Length) {
+        $category = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($Text, $i)
+        $paired   = ([char]::IsHighSurrogate($Text[$i]) -and ($i + 1) -lt $Text.Length -and
+                     [char]::IsLowSurrogate($Text[$i + 1]))
+        $width    = if ($paired) { 2 } else { 1 }
+
+        if ($script:ConsoleDeceptiveCategories -contains $category) {
+            [void]$sb.Append(' ' * $width)
+        } else {
+            [void]$sb.Append($Text.Substring($i, $width))
+        }
+        $i += $width
+    }
+    return $sb.ToString()
+}
+
 function Get-DisplayRef {
     <#
         Ref -- the ref name, or any other single-line label, about to be printed as PROSE.
@@ -218,11 +299,18 @@ function Get-DisplayRef {
 
         THE SAME CALL THIS REPO ALREADY MADE FOR A COMMIT SUBJECT, at #1439 and #1446, now stated once:
         remote-ahead-lib.ps1 carried the second copy of this pattern until #1623 and reads it from here.
+
+        #2024 WIDENED THE POLICY, THEN THE MECHANISM. U+2028 LINE SEPARATOR and U+2029 PARAGRAPH
+        SEPARATOR (Zl/Zp -- neither is Cc or Cf) can make one printed line read as two, the same harm
+        '\n' already exists to prevent, and stacking combining marks (Mn/Me, "Zalgo text" -- not Cc/Cf
+        either) visually obscure the printable text around them, the same deception this class already
+        guards against for RTL overrides and zero-width runs. The class also stopped being a regex --
+        see ConvertTo-ConsoleStrippedText above for why.
     #>
     param([AllowEmptyString()][AllowNull()][string]$Ref)
 
     if ([string]::IsNullOrEmpty($Ref)) { return '' }
-    return ((($Ref -replace '[\p{Cc}\p{Cf}]', ' ') -replace ' {2,}', ' ').Trim())
+    return (((ConvertTo-ConsoleStrippedText -Text $Ref) -replace ' {2,}', ' ').Trim())
 }
 
 function Get-DisplayPath {
@@ -243,10 +331,10 @@ function Get-DisplayPath {
         read off the screen and typed back.
 
         AND PRESERVING THE LENGTH IS WHAT FIXES THE ALIGNMENT #1638 NAMES. sync-main.ps1 prints these
-        through '{1,-46}'. A \p{Cf} run is zero-width, so it consumes format width without consuming
-        display columns and the row shifts against its neighbours -- in a list whose columns are how a
-        reader scans it at all. One space per removed character makes format width and display width
-        agree again, which a collapse would undo.
+        through '{1,-46}'. A stripped character is zero-width, so it consumes format width without
+        consuming display columns and the row shifts against its neighbours -- in a list whose columns
+        are how a reader scans it at all. One space per removed UTF-16 unit (ConvertTo-ConsoleStrippedText
+        above) makes format width and display width agree again, which a collapse would undo.
 
         A PATH WITH NOTHING VISIBLE LEFT IS NAMED RATHER THAN BLANKED. Without the trim, the
         all-format-character case reaches the column as spaces: a row whose path is silently not there.
@@ -257,7 +345,7 @@ function Get-DisplayPath {
     param([AllowEmptyString()][AllowNull()][string]$Path)
 
     if ([string]::IsNullOrEmpty($Path)) { return '' }
-    $shown = $Path -replace '[\p{Cc}\p{Cf}]', ' '
+    $shown = ConvertTo-ConsoleStrippedText -Text $Path
     if ([string]::IsNullOrWhiteSpace($shown)) { return '(no printable path)' }
     return $shown
 }
@@ -287,8 +375,9 @@ function Get-PasteableRef {
         THE NOTE NAMES THE BRANCH RATHER THAN HIDING IT. A remedy that says only "your branch name is
         unsafe" leaves the reader unable to act at all, which is a worse failure than the one this
         guards: they are standing on that branch and need it in the command. So the name is printed --
-        as prose, where the shell metacharacters are inert, and STRIPPED OF `[\p{Cc}\p{Cf}]` on the way
-        (see the implementation note below) so that it cannot repaint a terminal. The strip is what
+        as prose, where the shell metacharacters are inert, and STRIPPED OF
+        `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]` on the way (see the implementation note below) so that
+        it cannot repaint a terminal. The strip is what
         makes that safe, NOT git's own rules: git rejects only the `\p{Cc}` half and accepts a
         `\p{Cf}` run in a ref name (#1617). Printed with it is what the reader has to do about the
         name, which is quote it for whichever shell they are actually in.
