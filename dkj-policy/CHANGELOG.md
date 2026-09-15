@@ -43,7 +43,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 17 minor entries** <!-- pending-tally -->
+**11 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2017-bwj-four-seams · 20260915-082358
+
+Fixes #2017: `dkj-policy-bwj` has had four chapters since inbound #1965 (the theme lifecycle), but
+three documents still said "three seams" / "the last two chapters" -- the plugin's own root
+`README.md`, the two manifest descriptions (`plugin.json` and `marketplace.json`), and the
+`dkj-policy-bwj/README.md` chapter-history sentence. All four now name the theme-lifecycle seam
+(what the theme estate owes at a push and a cut) alongside the other three, and the manifest
+descriptions no longer contradict their own "Four chapters" / `THE THEME LIFECYCLE` text two
+sentences later.
+
+**Score:** 1 -- cosmetic: a stale seam count in prose and manifest descriptions, corrected before it
+misled a consumer into enabling the plugin believing the theme estate was untouched.
+
+#### What makes this deploy extra special
+
+N/A -- internal documentation and plugin-manifest wording, reaching only this repo's own
+maintainers and a consumer reading `claude plugin details` before enabling.
+
+**Score:** N/A
+
+#### Pull Request
+
+fix the dkj-policy-bwj seam list to name all four chapters, consistently
+
+Plugins: dkj-policy-bwj
+
+[PR #2021](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2021)
+
+---
 
 ### DEPLOY: fix/asana-stage-letter-codes · 20260915-080439
 
