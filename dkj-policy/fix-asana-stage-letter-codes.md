@@ -39,19 +39,72 @@
 
 ### PLAN
 
+#### The gap (inbound #2016, filed from BWJ-Development/smartwatchbanden#657)
+
+`Get-StageFromSectionName` recognises a section by a bare leading digit and casts it to `[int]`; every
+ordering comparison downstream (`Sync-AsanaTaskStage`'s forward-only guard) compares that raw
+magnitude. A consumer whose board groups several of its own stages under one leading digit from a
+second, coarser board (smartwatchbanden aligning `GitHub - SWB` to `Workload Overview`) cannot be
+expressed: `1A`/`1B`/`1C` either fail to parse at all, or collide once cast to `[int]`.
+
+#### The fix
+
+A stage code becomes a STRING that may carry one trailing letter, kept as a string everywhere. Every
+comparison downstream is equality or containment (`-eq`, `-contains`), which PowerShell already
+coerces across int/string -- the one genuine magnitude comparison (the forward-only guard) goes
+through a new `Get-StageRank`, which reads a code's position in the map's own declared cycle order
+instead of the code's numeric value. A Hashtable key (the one place PowerShell's coercion does not
+reach) is normalised to `[string]` explicitly on both the write and the read.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Widen `Get-StageFromSectionName`'s regex to `^\s*([0-9]+[A-Za-z]*)\s*\.` and return the code as
+      a string.
+- [x] Drop the now-unnecessary `[int]` casts at every equality/containment site touching a stage
+      value (`Get-StageMapNumbers`, `Get-WritableStages`, `Test-StageIsWritable`,
+      `Test-StageIsTerminal`, `Get-StageForProjectStatus`, `Get-StageFloorForIssue`,
+      `Resolve-TargetStage`, `Get-SubmitterHandoff`).
+- [x] Add `Get-StageRank` and use it for `Sync-AsanaTaskStage`'s one magnitude comparison (the
+      forward-only guard and its `(back)` log annotation).
+- [x] Normalise the `Get-ProjectStageSections` dictionary and its `Sync-AsanaTaskStage` lookups to
+      `[string]` keys explicitly.
+- [x] Loosen `Test-AsanaStageMap`'s validation regex to accept an optional trailing letter
+      (`^[1-9][0-9]*[A-Za-z]*$`), dropping the separate `-lt 1` check it replaces.
 
 ### TEST
 
+- [x] `scripts/tests/dkj-policy-bwj.tests.ps1` -- the 251 pre-existing asserts over these functions
+      (including the `$shifted`-map case) pass unchanged, proving zero behaviour change for a board
+      that never adopts a letter.
+- [x] Added 22 new asserts: `Get-StageFromSectionName` on lettered names, a `$lettered` map matching
+      smartwatchbanden's actual rename (`1A`/`1B`/`1C`/`2`/`3A`/`3B`/`4`) through
+      `Test-AsanaStageMap`/`Test-StageIsWritable`/`Test-StageIsTerminal`, and `Get-StageRank` proving
+      the cycle order survives a shared leading digit (`1C` ranks before `2` though `"1C" > "2"` as
+      text) plus agreeing with the default map's own plain-integer order.
+- [x] `scripts/lint/check-plugin-integrity.ps1`: 0 errors.
+- [ ] TODO: run the full `scripts/tests/*.tests.ps1` glob before the PR (not just this one suite).
+
 ### DEPLOY: fix/asana-stage-letter-codes
 
-**Score:**
+A stage code in `Get-AsanaStageMap` may now carry one trailing letter (`'1C'`, not just `'3'`), so a
+consuming repo can group several of its own cycle stages under one leading digit shared with a second,
+coarser board -- exactly the blocker smartwatchbanden hit renaming `GitHub - SWB` to align with
+`Workload Overview`. Every board that has not adopted a letter is unaffected: the 251 pre-existing
+asserts over these functions pass byte-for-byte unchanged, because ordering is now read from the map's
+own declared cycle position (`Get-StageRank`) rather than the raw magnitude of the code, and that
+reduces to the same answer a bare `1`..`7` already gave.
+
+**Score:** 3 -- a repo that renames its board to share a leading digit goes from silently broken (a
+section either drops off the pipeline entirely or is misread as a different stage) to correctly
+tracked, the moment it touches that part. No repo that keeps plain per-stage numbers notices anything
+changed.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- an internal CI/Asana-mirroring mechanism; no subscriber of a service built on a consuming repo
+is ever a reader of this.
+
+**Score:** N/A
 
 #### Pull Request
 
