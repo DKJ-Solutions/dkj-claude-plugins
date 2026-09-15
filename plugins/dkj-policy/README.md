@@ -207,9 +207,11 @@ answering the question above again rather than trusting a check that is no longe
 
 **`dkj-policy-bwj` is a second workflow, added August 31, 2026 -- as `bwj-codex`, renamed on September 5 (#1437) -- with that question answered.** It shares
 none of the contradictions above: it extends only the *ticket-work* step — how a discovered issue is
-filed and mirrored to Asana in BWJ's two Shopify store repos — and says nothing about branch naming,
-the pre-PR bar, or releases. It **requires** this plugin rather than competing with it. A repo that
-enables both gets one branch-and-release discipline and one ticket rule layered on its front, not two
+filed and mirrored to Asana in BWJ's two Shopify store repos and, for ticket handling alone, this
+plugin's own source repo (admitted September 14, 2026, commit `b9b2a65a`) — and says nothing about
+branch naming, the pre-PR bar, or releases. It **requires** this plugin rather than competing with
+it. A repo that enables both gets one branch-and-release discipline and one ticket rule layered on
+its front, not two
 answers to one question. The retired guard's reasoning still applies to any *third* workflow that
 overlaps either of these.
 

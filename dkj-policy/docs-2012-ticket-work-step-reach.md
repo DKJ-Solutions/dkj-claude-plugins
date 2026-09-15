@@ -39,19 +39,60 @@
 
 ### PLAN
 
+Fixes #2012: three "ticket-work step ... BWJ's two Shopify store repos" sentences left stale by
+`b9b2a65a` (which admitted this plugin's own source repo, `dkj-claude-plugins`, to the ticket-handling
+chapter alone) and by #1982's sweep (which fixed the four portable law pages and `README.md:339`'s
+enablement cell but never named these three prose sites). Also folds in the "also noticed" axis #2012
+flagged on the same pass: `README.md:339`'s table row still opened "Three chapters" with
+`THEME-LIFECYCLE-portable.md` (chapter four, added September 13, 2026) missing from the list entirely.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Fix `plugins/dkj-policy/CONTRIBUTING-portable.md:600` -- the worked-example sentence now names
+      both BWJ's two store repos and this plugin's own source repo (ticket handling alone).
+- [x] Fix `plugins/dkj-policy/README.md:210` -- same fix, same wording pattern.
+- [x] Fix `README.md:297` (root) -- same fix; also corrected the stale
+      `DaveKJohn/claude-code-specialists` issue-1382 URL in the same sentence to
+      `DKJ-Solutions/dkj-claude-plugins`, since that citation was being edited for another reason
+      anyway (the repo-citation rule in `CLAUDE.md`: corrected on edit, not swept).
+- [x] Fix `README.md:339`'s table row -- "Three chapters" to "Four chapters", added the missing
+      **the theme lifecycle** chapter description (backup-and-rotate at the release cut, sweep spent
+      previews after the live push, both keyed on a reserved name prefix), and added the
+      sync/theme-lifecycle chapters' shared `dkj-subagents-shopify` dependency note.
+- [x] File the unrelated staleness noticed while fixing the chapter count: `plugins/dkj-policy/README.md:98`
+      still says "in three chapters" and "Two skills" for `dkj-policy-bwj` -- same class of drift,
+      but a distinct site #2012 never named, so filed separately rather than folded in here (#2014).
 
 ### TEST
 
+- [x] `scripts/lint/check-plugin-integrity.ps1` -- dead-link and manifest checks, doc-only diff.
+- [x] Full test suite (`scripts/tests/*.tests.ps1`), via `open-pr.ps1`'s pre-flight gate.
+
 ### DEPLOY: docs/2012-ticket-work-step-reach
 
-**Score:**
+Three prose sites describing the `dkj-policy-bwj` ticket-work step still said it reached "BWJ's two
+Shopify store repos" after commit `b9b2a65a` widened that one chapter to a third repo
+(`dkj-claude-plugins`, this plugin's own source) on September 14, 2026 -- a related but distinct
+staleness from the one #1982 fixed the same day, since #1982 never named these three files. All three
+now state the real reach. A fourth, unrelated staleness on the same row `README.md:339` -- the chapter
+count still read "Three chapters" with the September 13 theme-lifecycle chapter missing from the list
+-- is fixed in the same pass, since #2012 explicitly asked for it on the ground that whoever picked
+this up would already be editing that exact cell. One further site of the same chapter/skill-count
+drift, `plugins/dkj-policy/README.md:98`, was noticed but not named by #2012 and is filed separately
+as #2014 rather than folded into this branch's scope.
+
+**Score:** 1 -- corrects stated reach in prose; no script, gate or check reads these sentences, so
+nothing behaves differently for this repo's own maintainers.
 
 #### What makes this deploy extra special
 
-**Score:**
+`CONTRIBUTING-portable.md` is portable payload that ships to every consumer running `dkj-policy`. A
+subscriber reading its ticket-work-step section previously saw an inaccurate scope for
+`dkj-policy-bwj`'s worked example; it now matches the gate `report-issue`/`adopt-dkj-policy-bwj`
+actually enforce.
+
+**Score:** 1 -- a subscriber who never reads that one paragraph is unaffected, and the gate itself was
+already correct; this only fixes what the prose claims about it.
 
 #### Pull Request
 
