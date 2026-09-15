@@ -27,9 +27,10 @@ repeat the detail.
 | **the theme lifecycle** | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | what the estate owes at the two moments it grows -- a verified backup of live rotated at the release cut, and a sweep of this repo's spent previews after the live push |
 
 They are separate chapters rather than sections of one page because they answer different
-questions for different readers, and each of the last two was added later -- the sync log on inbound
+questions for different readers, and each of the last three was added later -- the sync log on inbound
 [#1382](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1382), the preview handover on inbound
-[#1874](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1874). Shipping several portable
+[#1874](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1874), the theme lifecycle on inbound
+[#1965](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1965). Shipping several portable
 pages is the established form here -- `dkj-policy` carries three.
 
 **The chapters are policy, never mechanism.** The Asana CI and the sync machinery both live
@@ -44,9 +45,10 @@ of the line above rather than a contradiction of it: a chapter is policy, and wh
 ## It is an add-on, not a replacement
 
 `dkj-policy-bwj` **layers on top of `dkj-policy`** -- it does not stand in for it. It
-extends exactly three seams of that workflow: *ticket-work, the layer before the branch*, *what a
-`sync/` branch owes*, which that workflow deliberately exempts and leaves to the repo, and *what a
-preview handover contains* once the consumer's own rule says one is owed. It says
+extends exactly four seams of that workflow: *ticket-work, the layer before the branch*, *what a
+`sync/` branch owes*, which that workflow deliberately exempts and leaves to the repo, *what a
+preview handover contains* once the consumer's own rule says one is owed, and *what the theme estate
+owes at a push and a cut*. It says
 **nothing** about how a branch is named, which changes owe a preview, what a change owes before it can
 open a PR, or what a release is -- those are still `dkj-policy`'s answers, unchanged. So the two do not hand
 the specialists two contradicting answers to the same question; they answer different questions.

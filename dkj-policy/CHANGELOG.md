@@ -43,7 +43,101 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**11 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2017-bwj-four-seams · 20260915-082358
+
+Fixes #2017: `dkj-policy-bwj` has had four chapters since inbound #1965 (the theme lifecycle), but
+three documents still said "three seams" / "the last two chapters" -- the plugin's own root
+`README.md`, the two manifest descriptions (`plugin.json` and `marketplace.json`), and the
+`dkj-policy-bwj/README.md` chapter-history sentence. All four now name the theme-lifecycle seam
+(what the theme estate owes at a push and a cut) alongside the other three, and the manifest
+descriptions no longer contradict their own "Four chapters" / `THE THEME LIFECYCLE` text two
+sentences later.
+
+**Score:** 1 -- cosmetic: a stale seam count in prose and manifest descriptions, corrected before it
+misled a consumer into enabling the plugin believing the theme estate was untouched.
+
+#### What makes this deploy extra special
+
+N/A -- internal documentation and plugin-manifest wording, reaching only this repo's own
+maintainers and a consumer reading `claude plugin details` before enabling.
+
+**Score:** N/A
+
+#### Pull Request
+
+fix the dkj-policy-bwj seam list to name all four chapters, consistently
+
+Plugins: dkj-policy-bwj
+
+[PR #2021](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2021)
+
+---
+
+### DEPLOY: fix/asana-stage-letter-codes · 20260915-080439
+
+A stage code in `Get-AsanaStageMap` may now carry one trailing letter (`'1C'`, not just `'3'`), so a
+consuming repo can group several of its own cycle stages under one leading digit shared with a second,
+coarser board -- exactly the blocker smartwatchbanden hit renaming `GitHub - SWB` to align with
+`Workload Overview`. Every board that has not adopted a letter is unaffected: the 251 pre-existing
+asserts over these functions pass byte-for-byte unchanged, because ordering is now read from the map's
+own declared cycle position (`Get-StageRank`) rather than the raw magnitude of the code, and that
+reduces to the same answer a bare `1`..`7` already gave.
+
+**Score:** 3 -- a repo that renames its board to share a leading digit goes from silently broken (a
+section either drops off the pipeline entirely or is misread as a different stage) to correctly
+tracked, the moment it touches that part. No repo that keeps plain per-stage numbers notices anything
+changed.
+
+#### What makes this deploy extra special
+
+N/A -- an internal CI/Asana-mirroring mechanism; no subscriber of a service built on a consuming repo
+is ever a reader of this.
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror stage codes support a compound number+letter section prefix
+
+Plugins: dkj-policy-bwj
+
+[PR #2022](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2022)
+
+---
+
+### DEPLOY: docs/2014-bwj-chapter-skill-counts · 20260915-075445
+
+The `dkj-policy` README's `dkj-policy-bwj` row now states what that plugin actually is: **four**
+chapters rather than three -- the theme lifecycle, added on #1965, was missing from the row entirely --
+and **four** skills rather than two, named. The same sentence also stopped claiming the codex binds
+only BWJ's two Shopify store repos: since `b9b2a65a` the ticket-handling chapter also binds this
+plugin's own source repo, and the row now says the reach differs per chapter.
+
+A reader of this README was being told a plugin has three chapters and two skills while its own
+README, its `plugin.json` and the marketplace manifest all said four and four -- so the one page a
+consumer reaches from the workflow plugin was the page that disagreed with every other.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer deciding whether to enable `dkj-policy-bwj` reads this row and was under-counting what it
+carries -- most consequentially, that a chapter exists which deletes themes from a live store's
+estate. Nothing they run changes; what they know before enabling does.
+
+**Score:** 2
+
+#### Pull Request
+
+the dkj-policy README's bwj row states four chapters and four skills
+
+Plugins: dkj-policy
+
+[PR #2020](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2020)
+
+---
 
 ### DEPLOY: docs/2012-ticket-work-step-reach · 20260915-062857
 
