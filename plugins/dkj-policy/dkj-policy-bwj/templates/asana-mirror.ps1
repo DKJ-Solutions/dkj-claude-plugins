@@ -373,13 +373,25 @@ function New-MirrorComment {
 
 function Get-StageFromSectionName {
     <#
-        The stage number a section's name declares, or $null when it declares none. Pure.
+        The stage CODE a section's name declares, or $null when it declares none. Pure.
 
-        A pipeline section is named '<N>. <whatever the board likes>'. The NUMBER is the
-        machine-readable half and the words after it belong to the board, which is the same split the
-        cross-link already uses: a marker for the machine, prose for the reader. So renaming
-        '3. In development' to '3. Building it' changes nothing here, and no repo has to keep six
-        section GIDs correct in its config.
+        A pipeline section is named '<CODE>. <whatever the board likes>', where CODE is a number
+        optionally followed by a letter ('3', '1C', ...). The CODE is the machine-readable half and
+        the words after it belong to the board, which is the same split the cross-link already uses:
+        a marker for the machine, prose for the reader. So renaming '3. In development' to
+        '3. Building it' changes nothing here, and no repo has to keep six section GIDs correct in
+        its config.
+
+        THE LETTER EXISTS FOR A BOARD THAT GROUPS ITS COLUMNS UNDER A COARSER NUMBER FROM SOMEWHERE
+        ELSE (inbound #2016) -- a repo whose own board aligns its visible numbering to a second,
+        coarser board (e.g. a Workload Overview with fewer columns) needs several of its own stages to
+        share one leading digit while staying distinct stages of its own cycle. '1A', '1B' and '1C'
+        are three different codes even though they start the same; a bare '3' is still just '3'.
+
+        Returned as a STRING always, never cast to [int] -- a code with a letter cannot be one, and a
+        bare number does not need to be: every comparison downstream is equality or containment
+        (PowerShell coerces int/string for both), except the one genuine ordering comparison in
+        Sync-AsanaTaskStage, which goes through Get-StageRank instead of the raw code.
 
         It is also the whole containment. A section with no leading number yields $null, and a task
         whose sections all yield $null is on no pipeline and is never written to -- so pointing this
@@ -387,9 +399,9 @@ function Get-StageFromSectionName {
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Name)
 
-    $m = [regex]::Match($Name, '^\s*([0-9]+)\s*\.')
+    $m = [regex]::Match($Name, '^\s*([0-9]+[A-Za-z]*)\s*\.')
     if (-not $m.Success) { return $null }
-    return [int]$m.Groups[1].Value
+    return $m.Groups[1].Value
 }
 
 function Get-DefaultAsanaStageMap {
@@ -476,10 +488,32 @@ function Get-DefaultGithubStatusMap {
 }
 
 function Get-StageMapNumbers {
-    <# The seven stage numbers a map names, in cycle order. Pure. #>
+    <# The seven stage codes a map names, in cycle order. Pure. Whatever type the map declared them
+       as (int or string) is returned as-is -- callers that need a rank use Get-StageRank, and every
+       other use here is equality/containment, which needs no normalisation. #>
     param([Parameter(Mandatory = $true)]$Map)
     return @($Map.Requests, $Map.NeedsInfo, $Map.Filed, $Map.InDevelopment,
-             $Map.InReview, $Map.ReadyToTest, $Map.Completed) | ForEach-Object { [int]$_ }
+             $Map.InReview, $Map.ReadyToTest, $Map.Completed)
+}
+
+function Get-StageRank {
+    <#
+        The cycle-order INDEX of a stage code within this map -- 0 for Requests .. 6 for Completed, or
+        $null when the code names no stage of it. Pure.
+
+        THE ONE PLACE A STAGE CODE'S ORDER MATTERS AS A NUMBER (inbound #2016). Every other use of a
+        stage code in this file is equality or containment -- 'is this THE SAME stage' -- which never
+        needed the code's magnitude and works whether the code is '3' or '1C'. Sync-AsanaTaskStage's
+        forward-only guard is the one place that asks 'is this stage LATER than that one', and a code
+        with a letter cannot answer that by itself: '1C' is not numerically greater than '2', but it
+        is earlier in the cycle. The map's own declared ORDER is the only thing that can answer this,
+        because it is the one place a repo states which stage comes before which.
+    #>
+    param([AllowNull()]$Stage, [Parameter(Mandatory = $true)]$Map)
+    if ($null -eq $Stage) { return $null }
+    $numbers = Get-StageMapNumbers -Map $Map
+    for ($i = 0; $i -lt $numbers.Count; $i++) { if ($numbers[$i] -eq $Stage) { return $i } }
+    return $null
 }
 
 function Get-WritableStages {
@@ -492,8 +526,7 @@ function Get-WritableStages {
         of, because a card is only there because a person put it there.
     #>
     param([Parameter(Mandatory = $true)]$Map)
-    return @($Map.NeedsInfo, $Map.Filed, $Map.InDevelopment, $Map.InReview, $Map.ReadyToTest) |
-        ForEach-Object { [int]$_ }
+    return @($Map.NeedsInfo, $Map.Filed, $Map.InDevelopment, $Map.InReview, $Map.ReadyToTest)
 }
 
 function Test-StageIsWritable {
@@ -511,7 +544,7 @@ function Test-StageIsWritable {
     )
 
     if ($null -eq $Stage) { return $false }
-    return ((Get-WritableStages -Map $Map) -contains [int]$Stage)
+    return ((Get-WritableStages -Map $Map) -contains $Stage)
 }
 
 function Test-AsanaStageMap {
@@ -521,6 +554,10 @@ function Test-AsanaStageMap {
         Three ways a hand-written map goes wrong, and all three are silent at runtime rather than
         loud: a missing key reads as stage 0, a non-numeric one as stage 0 too, and a duplicate makes
         two stages the same column so a card can never leave one of them.
+
+        A CODE MAY CARRY ONE TRAILING LETTER (inbound #2016) -- '1C' is as valid as '3'. What is still
+        refused is a leading zero and anything with no digit at all, because Get-StageFromSectionName
+        can never produce either.
     #>
     param([AllowNull()]$Map)
 
@@ -530,9 +567,8 @@ function Test-AsanaStageMap {
     $bad = @()
     foreach ($k in $keys) {
         $v = $Map[$k]
-        if ($null -eq $v)                       { $bad += "$k names no section"; continue }
-        if ("$v" -notmatch '^[0-9]+$')          { $bad += "$k is '$v', which is not a section number" }
-        elseif ([int]$v -lt 1)                  { $bad += "$k is $v, and a section number starts at 1" }
+        if ($null -eq $v)                          { $bad += "$k names no section"; continue }
+        if ("$v" -notmatch '^[1-9][0-9]*[A-Za-z]*$') { $bad += "$k is '$v', which is not a section code" }
     }
     if ($bad.Count -gt 0) { return $bad }
 
@@ -736,7 +772,7 @@ function Get-StageForProjectStatus {
     if (-not $stageKey) { return $null }
     $number = $Map[$stageKey]
     if ($null -eq $number) { return $null }
-    return [int]$number
+    return $number
 }
 
 function Get-SubmitterFromNotes {
@@ -787,7 +823,7 @@ function Test-StageIsTerminal {
     )
 
     if ($null -eq $Stage) { return $false }
-    return (@([int]$Map.ReadyToTest, [int]$Map.Completed) -contains [int]$Stage)
+    return (@($Map.ReadyToTest, $Map.Completed) -contains $Stage)
 }
 
 function Select-StageMembership {
@@ -905,9 +941,9 @@ function Get-StageFloorForIssue {
 
     if (-not ([string]$StatusMap.FieldName)) {
         if (-not $State)                             { return $null }
-        if ($State.ToUpperInvariant() -eq 'CLOSED')  { return [int]$Map.InReview }
-        if ($HasLinkedPullRequest)                   { return [int]$Map.InDevelopment }
-        return [int]$Map.Filed
+        if ($State.ToUpperInvariant() -eq 'CLOSED')  { return $Map.InReview }
+        if ($HasLinkedPullRequest)                   { return $Map.InDevelopment }
+        return $Map.Filed
     }
 
     return Get-StageForProjectStatus -Status $ProjectStatus -StatusMap $StatusMap -Map $Map
@@ -968,7 +1004,7 @@ function Resolve-TargetStage {
     $label = [string]$Map.NeedsInfoLabel
     if ($label -and (@($Labels) -contains $label)) {
         return [pscustomobject]@{
-            Stage         = [int]$Map.NeedsInfo
+            Stage         = $Map.NeedsInfo
             AllowBackward = $true
             Why           = "the '$label' label"
         }
@@ -978,9 +1014,9 @@ function Resolve-TargetStage {
                  -ProjectStatus $ProjectStatus -StatusMap $StatusMap -Map $Map `
                  -HasLinkedPullRequest:$HasLinkedPullRequest
 
-    if ($null -ne $floor -and [int]$floor -eq [int]$Map.InReview -and $Submitter -and $SubmitterTold) {
+    if ($null -ne $floor -and $floor -eq $Map.InReview -and $Submitter -and $SubmitterTold) {
         return [pscustomobject]@{
-            Stage         = [int]$Map.ReadyToTest
+            Stage         = $Map.ReadyToTest
             AllowBackward = $false
             Why           = "$Submitter has been told"
         }
@@ -1154,11 +1190,14 @@ function Get-ProjectStageSections {
             foreach ($s in @($resp.data)) {
                 $stage = Get-StageFromSectionName -Name ([string]$s.name)
                 if ($null -eq $stage) { continue }
-                if ($map.ContainsKey($stage)) {
+                # Keyed by [string] always -- a Hashtable's own equality does not coerce int/string the
+                # way PowerShell's comparison operators do, so the key type here and the lookup type in
+                # Sync-AsanaTaskStage must agree regardless of what type a repo's stage map declares.
+                if ($map.ContainsKey([string]$stage)) {
                     Write-Host "  Asana project $ProjectGid has more than one section numbered $stage -- using the first one it lists."
                     continue
                 }
-                $map[$stage] = [string]$s.gid
+                $map[[string]$stage] = [string]$s.gid
             }
             $uri = if ($resp.next_page -and $resp.next_page.uri) { $resp.next_page.uri } else { $null }
         }
@@ -1211,7 +1250,7 @@ function Sync-AsanaTaskStage {
     )
 
     if ($null -eq $TargetStage) { return $false }
-    $stage = [int]$TargetStage
+    $stage = $TargetStage
     if (-not (Test-StageIsWritable -Stage $stage -Map $Map)) {
         Write-Host "  Refusing to move Asana task $Gid to stage $stage -- only $((Get-WritableStages -Map $Map) -join ', ') are this workflow's to write."
         return $false
@@ -1239,17 +1278,19 @@ function Sync-AsanaTaskStage {
     # is never taken back off them, not even by a reopen. See Test-StageIsTerminal.
     if (Test-StageIsTerminal -Stage $current -Map $Map) { return $false }
     if ($current -eq $stage) { return $false }
-    if ($current -gt $stage -and -not $AllowBackward) { return $false }
+    # A rank comparison, not a magnitude one -- see Get-StageRank. '$current -gt $stage' compared the
+    # raw codes and broke the moment a code could carry a letter ('1C' is not numerically > '2').
+    if ((Get-StageRank -Stage $current -Map $Map) -gt (Get-StageRank -Stage $stage -Map $Map) -and -not $AllowBackward) { return $false }
 
     $sections = Get-ProjectStageSections -ProjectGid $ref.Membership.ProjectGid -Pat $Pat
-    if (-not $sections.ContainsKey($stage)) {
+    if (-not $sections.ContainsKey([string]$stage)) {
         Write-Host "  Asana project $($ref.Membership.ProjectGid) has no section numbered $stage -- $($task.name) stays in $current."
         return $false
     }
 
-    Invoke-AsanaRequest -Request (New-AsanaSectionMoveRequest -Gid $Gid -SectionGid $sections[$stage]) -Pat $Pat | Out-Null
+    Invoke-AsanaRequest -Request (New-AsanaSectionMoveRequest -Gid $Gid -SectionGid $sections[[string]$stage]) -Pat $Pat | Out-Null
     $what = if ($For) { "$For -> " } else { '' }
-    $back = if ($current -gt $stage) { ' (back)' } else { '' }
+    $back = if ((Get-StageRank -Stage $current -Map $Map) -gt (Get-StageRank -Stage $stage -Map $Map)) { ' (back)' } else { '' }
     $why  = if ($Why) { " -- $Why" } else { '' }
     Write-Host "  $what$($task.name): stage $current -> $stage$back$why"
     return $true
@@ -1418,7 +1459,7 @@ function Get-SubmitterHandoff {
     $none = [pscustomobject]@{ Submitter = ''; Told = $false }
 
     if (-not [string]$StatusMap.SubmitterPattern) { return $none }
-    if ($null -eq $Floor -or [int]$Floor -ne [int]$Map.InReview) { return $none }
+    if ($null -eq $Floor -or $Floor -ne $Map.InReview) { return $none }
     $label = [string]$Map.NeedsInfoLabel
     if ($label -and (@($Labels) -contains $label)) { return $none }
 

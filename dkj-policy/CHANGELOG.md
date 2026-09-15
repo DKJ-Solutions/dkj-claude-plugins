@@ -43,7 +43,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 16 minor entries** <!-- pending-tally -->
+**11 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/asana-stage-letter-codes · 20260915-080439
+
+A stage code in `Get-AsanaStageMap` may now carry one trailing letter (`'1C'`, not just `'3'`), so a
+consuming repo can group several of its own cycle stages under one leading digit shared with a second,
+coarser board -- exactly the blocker smartwatchbanden hit renaming `GitHub - SWB` to align with
+`Workload Overview`. Every board that has not adopted a letter is unaffected: the 251 pre-existing
+asserts over these functions pass byte-for-byte unchanged, because ordering is now read from the map's
+own declared cycle position (`Get-StageRank`) rather than the raw magnitude of the code, and that
+reduces to the same answer a bare `1`..`7` already gave.
+
+**Score:** 3 -- a repo that renames its board to share a leading digit goes from silently broken (a
+section either drops off the pipeline entirely or is misread as a different stage) to correctly
+tracked, the moment it touches that part. No repo that keeps plain per-stage numbers notices anything
+changed.
+
+#### What makes this deploy extra special
+
+N/A -- an internal CI/Asana-mirroring mechanism; no subscriber of a service built on a consuming repo
+is ever a reader of this.
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror stage codes support a compound number+letter section prefix
+
+Plugins: dkj-policy-bwj
+
+[PR #2022](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2022)
+
+---
 
 ### DEPLOY: docs/2014-bwj-chapter-skill-counts · 20260915-075445
 
