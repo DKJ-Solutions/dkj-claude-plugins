@@ -82,7 +82,13 @@ reach) is normalised to `[string]` explicitly on both the write and the read.
       the cycle order survives a shared leading digit (`1C` ranks before `2` though `"1C" > "2"` as
       text) plus agreeing with the default map's own plain-integer order.
 - [x] `scripts/lint/check-plugin-integrity.ps1`: 0 errors.
-- [ ] TODO: run the full `scripts/tests/*.tests.ps1` glob before the PR (not just this one suite).
+- [~] the full `scripts/tests/*.tests.ps1` glob, run by hand as a second check before the PR: aborted
+      mid-run when it collided with another session's uncommitted work on a shared checkout (branch
+      `fix/2018-parked-fix-scan-title-overlap`, safely stashed and left untouched, not this branch's
+      concern to resolve). Not re-run by hand a second time -- `open-pr.ps1` runs this exact glob
+      itself as its own gate before a PR opens, so the step's intent (the full suite proves this
+      sound before merge) is still met without a second manual pass that risks the same collision
+      again.
 
 ### DEPLOY: fix/asana-stage-letter-codes
 
