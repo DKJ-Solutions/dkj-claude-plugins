@@ -44,8 +44,24 @@ colleague-facing translation is a judgement call, not a transform. The full rule
   the name -- and reading it is not optional politeness: `gh issue create` **fails outright** on a
   label the repo does not have, atomically, so you get no issue at all rather than one without a label
   ([#1841](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1841)).
-- Confirm the Asana MCP tools are available in this session. If they are not, you still do step 1 and
-  then stop with a clear note -- never skip the GitHub issue.
+- **Probe the BOARD, not the tool list.** Read the project `Get-AsanaProjectGid` names -- the same
+  read step 2 makes for the section and the select-field options, only made earlier, so it costs no
+  extra round trip and its answer carries forward. **Availability and authorization come apart:** a
+  connector can be registered, authenticated and answering, and still be bound to a *different
+  workspace* than the one `Get-AsanaWorkspaceGid` names -- and then the tool list looks perfectly
+  healthy while every call against this board returns `unauthorized`. A preflight that asks only
+  whether the tools are there reports green for a connection that cannot do the job, and the session
+  learns it from a failing `create task` in step 2, half way through the procedure the preflight
+  exists to get ahead of.
+- **A missing tool and an `unauthorized` board take the same branch: still do step 1, then stop with a
+  clear note -- never skip the GitHub issue.** Say in that note that the connector is authorized
+  against the **wrong workspace**, because *available but unauthorized* reads to a session as a
+  connector it broke, whereas the remedy is a re-authorization against the workspace the seam names
+  and is not something a session can do from here. Measured on a `smartwatchbanden` checkout,
+  September 15, 2026 ([#2028](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2028)): both
+  registered Asana connectors authenticated and both `Not Authorized` for the project the seam names,
+  while `asana-mirror`'s CI half drove that same board green over its own `ASANA_PAT` -- so the two
+  halves were bound to different workspaces and only the MCP was wrong.
 
 ## Step 1 -- the GitHub issue (always)
 
@@ -117,8 +133,8 @@ field silently; the board carries none and there is nothing to set.
 1 chose, never to a fresh reading of the finding.** The board's field offers exactly the three types
 step 1 picks from, so there is nothing to decide here: the answer is one step old and carrying it
 forward is the whole point. It is a **select** field, though, so the value is an option GID rather
-than the word. Resolve it from the project you are already reading for the section, asking for the
-options in the same call:
+than the word. Resolve it from **the project read the preflight already made** -- ask for the options
+there, in the same call that proved the board reachable, and carry both forward:
 
 ```text
 opt_fields: custom_field_settings.custom_field.gid,custom_field_settings.custom_field.name,
@@ -152,8 +168,9 @@ creating a second task. Leaving it in `Requests` is the failure inbound
 and the board still read `New`, so to the colleague waiting on it the request looked untouched, and
 they chased it in the one place that had no answer.
 
-If Asana is unreachable: report the GitHub issue URL, say the mirror did not happen and why, and
-stop. The issue can be mirrored later by re-running this skill's steps 2-3.
+If Asana is unreachable -- or a write is refused that the preflight's read could not cover -- report
+the GitHub issue URL, say the mirror did not happen and why, and stop. The issue can be mirrored later
+by re-running this skill's steps 2-3.
 
 ## Step 3 -- cross-link both ways
 
