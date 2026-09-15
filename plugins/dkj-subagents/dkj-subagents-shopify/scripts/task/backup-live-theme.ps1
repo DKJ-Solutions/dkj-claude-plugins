@@ -18,6 +18,20 @@
          what it is meant to protect, and the failure is SILENT: the theme exists, is correctly
          named, and has the right role. A backup nobody verified is worse than no backup, because it
          is relied on.
+
+         THE COUNT IS TAKEN OFF A REAL 'theme pull', NOT OFF 'theme info --json' (#2033). On
+         @shopify/cli 4.8.0 -- measured in the consumer on September 15, 2026, the current release,
+         not a stale install -- 'theme info --json' carries no 'files' field at any level, so every
+         count read that way was -1 and the verify step could never pass; #2031's '--force' repair
+         got step 1 past its non-interactive refusal only to fail here instead, reading like a
+         permissions problem rather than a JSON shape that moved. Nothing else the CLI's --json
+         output exposes carries a count either -- 'theme list --json' answers only id/name/role/
+         processing, and 'processing''s semantics are undocumented, so this function does not guess
+         at what it means. So each sample now pulls the theme into a scratch directory and counts
+         what actually arrived on disk -- heavier than a JSON read, and strictly stronger, because it
+         verifies identity rather than trusting a number the CLI reports about itself. This is the
+         same verification the #2033 consumer did by hand (pull both themes, compare) to confirm
+         their hand-taken baseline.
       3. ROTATE. Only now is the PREVIOUS backup deleted. There is never a window in which the store
          holds no backup at all; that costs one theme slot transiently, which is the price of the
          guarantee.
@@ -55,11 +69,16 @@
     worth doing with it.
 
 .PARAMETER PollSeconds
-    Seconds between file-count samples while waiting for the copy to fill. Default 20.
+    Seconds between file-count samples while waiting for the copy to fill. Default 20. Each sample is
+    now a real 'theme pull' (#2033), not a JSON read, so the actual gap between samples is this plus
+    however long that store's pull takes -- raise it for a large theme rather than let short pulls
+    stack up on top of each other.
 
 .PARAMETER TimeoutMinutes
     Give up waiting after this long and fail loudly. Default 20 -- the measured fill took about
-    eight, and the bound is there so a stalled copy ends the run rather than the cut.
+    eight, and the bound is there so a stalled copy ends the run rather than the cut. Since each
+    sample now pulls the theme (#2033) rather than reading a JSON field, a large theme may need more
+    headroom than a small one did under the old, cheaper count.
 
 .PARAMETER RootOverride
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
@@ -244,23 +263,36 @@ Write-Host ''
 Write-Host '[2/3] verify -- waiting for the copy to finish filling' -ForegroundColor Cyan
 Write-Host '  the CLI returns long before the copy is complete: a duplicate measured in a consumer grew'
 Write-Host '  38 -> 538 -> 738 -> 833 files over roughly eight minutes (#1965).'
+Write-Host '  each sample pulls the theme and counts files on disk (#2033) -- heavier than a JSON read.'
 
 if ($DryRun) {
-    Write-Host '  DRY RUN: would poll the copy''s file count until it settles and matches the source.'
+    Write-Host '  DRY RUN: would pull the copy into a scratch directory, count its files, and repeat until'
+    Write-Host '  the count settles and matches the source.'
 } else {
     function Get-ThemeFileCount {
         param([string]$Id)
-        # --json so the output is data rather than progress; -DiscardStderr for the hint line.
-        $r = Invoke-ShopifyCli -Arguments @('theme', 'info', '--store', $store, '--theme', $Id, '--json') -Quiet -DiscardStderr
-        if ($r.ExitCode -ne 0) { return -1 }
-        # COUNTED OFF THE FILE LIST RATHER THAN TRUSTING A FIELD, because which field carries it has
-        # changed between CLI versions and a missing field would read as zero -- which is 'short', which
-        # is a refusal. A count this cannot take is reported as -1 and handled as unknown.
+        # 'theme info --json' carries no file count on current CLI releases (#2033 -- @shopify/cli
+        # 4.8.0's schema is fixed to id/name/role/shop/preview_url/editor_url), and 'theme list --json'
+        # carries none either (only id/name/role/processing, and 'processing''s meaning is undocumented
+        # -- not something this function will guess at). So the count is taken off a real pull: a full
+        # 'theme pull' into a scratch directory, counted off what actually landed on disk. A count this
+        # cannot take -- the pull fails, or the scratch directory cannot be read back -- is reported as
+        # -1 and handled as unknown, exactly as before.
+        $pullPath = Join-Path ([System.IO.Path]::GetTempPath()) ('shopify-fill-check-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $pullPath -Force | Out-Null
         try {
-            $j = ($r.Output | Out-String) | ConvertFrom-Json
-            if ($j.PSObject.Properties.Name -contains 'files') { return @($j.files).Count }
-        } catch { }
-        return -1
+            # Not -Quiet: 'theme pull' is one of the two calls in this plugin that can run for minutes
+            # and stop mid-way to ask for authentication -- captured, that prompt is invisible and the
+            # run reads as still in progress (shopify-cli-lib.ps1's own header). Same call shape
+            # sync-main already uses to mirror the live theme into a scratch path.
+            $r = Invoke-ShopifyCli -Arguments @('theme', 'pull', '--store', $store, '--theme', $Id, '--path', $pullPath)
+            if ($r.ExitCode -ne 0) { return -1 }
+            return @(Get-ChildItem -LiteralPath $pullPath -Recurse -File -ErrorAction SilentlyContinue).Count
+        } catch {
+            return -1
+        } finally {
+            Remove-Item -LiteralPath $pullPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
     $sourceCount = Get-ThemeFileCount -Id $liveId
