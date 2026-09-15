@@ -43,7 +43,60 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 23 minor entries** <!-- pending-tally -->
+**13 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2031-theme-duplicate-force · 20260915-132513
+
+`backup-live-theme.ps1` could not complete from an agent session. Its step 1 duplicated the live theme
+without `--force`, and the Shopify CLI declares that flag **"Required if non interactive outside CI"** --
+so the backup failed at 1/3 every time, while `CLAUDE.md` in both BWJ consumer repos names this script as
+the closing step of a release cut. The failure was clean, which is why it survived: nothing was created,
+nothing was rotated, and the message correctly said the previous backup still stood. A store following the
+documented procedure simply never got a baseline, and every document said it had one.
+
+The same file had passed `--force` to `theme delete` all along, 115 lines further down -- the delete path
+had learned this and the create path had not, with nothing holding the two together.
+
+Three things changed. The flag is there. The argument list is built **once**, into `$dupArgs`, because the
+dry run hand-built a second spelling of the same command and printed the one that could not succeed -- so
+the only mode a session could safely run reported the defect as the intended behaviour. And the class is
+now gated: lint check 44 holds every `Invoke-ShopifyCli` call to carrying `--force` where the subcommand
+prompts.
+
+**The gated set is measured, not reasoned about.** All seventeen `shopify theme` subcommands were read
+against CLI 4.8.0: exactly three declare a `-f/--force` flag -- `delete`, `duplicate`, `publish` -- and all
+three document it as required when non-interactive. `theme pull` and `theme push` accept no such flag at
+all, so the four call sites using them are out of scope by measurement rather than by exemption; a check
+built on the intuition that "a mutating call can prompt" would have demanded an argument those commands
+reject.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A lint rather than a test, for the reason check 31 already carries one flag over: the subject is the call
+site that does not exist yet. A test asserts about today's callers, while a new script in a plugin reaches
+a consumer's install whether or not anybody remembered to extend a suite.
+
+The check's own first cut is the part worth keeping. It read an inline `@(...)` as one AST node type and a
+variable assignment as another, through two separate readers -- and `@(...)` written directly as an
+argument parses as the *other* type. It resolved 2 of 30 real call sites, reported 0 findings, and was
+blind to `theme delete --force`, the one call in the tree that proves the rule. It was green, and nothing
+in the run said the reader was broken. What caught it was the coverage line naming what it had **not**
+reached; what fixed it was one reader instead of two. Scenario 85 pins both directions so they cannot
+diverge again.
+
+**Score:** 2
+
+#### Pull Request
+
+backup-live-theme: the live duplicate carries --force, so it runs from a non-interactive session
+
+Plugins: dkj-subagents-shopify
+
+[PR #2034](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2034)
+
+---
 
 ### DEPLOY: fix/2024-console-strip-zl-zp-combining · 20260915-115753
 
