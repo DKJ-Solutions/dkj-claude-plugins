@@ -51,7 +51,23 @@ drifted to 1246 and 1254 by the time it was picked up, and to 1287 and 1295 afte
 `Get-IssueLinkState` prints the GitHub project board's STATUS names on its ambiguity line
 (`Select-ProjectStatus`'s `Candidates`, now line 1438) -- single-select option names typed by
 whoever configures the org's project board, through a web UI, needing no push access to any
-repository. Same class, same file, same absence of a guard. Three sites, not two.
+repository. Same class, same file, same absence of a guard.
+
+**And a fourth, which this branch's own first pass missed and Victor's review of it found.** The
+phrase saying WHY a card moved (`$Why`, printed on the same stage-move line) is composed by
+`Resolve-TargetStage`, and two of its four branches interpolate foreign text into it:
+`"$Submitter has been told"`, where the name comes out of the Asana task's **notes** through a
+repo-supplied regex whose capture is unconstrained, and `"the project status '$ProjectStatus'"`,
+which is the very board column name the ambiguity line already strips -- unstripped here because the
+single-value path never reaches that line. It is the **busiest** of the four: the stage sweep prints
+it on every card it moves. Four sites, not two.
+
+**What made the first audit miss it is worth more than the miss.** The parameter is commented
+*"Resolve-TargetStage's own phrase"*, which is true of the sentence's shape and false of two of its
+values -- and reading the comment instead of the composing function passed straight over it. The
+comment is corrected in place, and the rule is written into the site list: **the unit is a VALUE, not
+a variable that looks like the script's own.** This is the same failure mode the repo already names
+for an inbound report -- verify the reason against the code, not against the description of it.
 
 **Checked and NOT a finding**, so nobody widens this later on a hunch:
 
@@ -88,13 +104,19 @@ rather than truncating, so a cap here would destroy evidence and buy nothing.
 - [x] `Format-ForConsole` added to `templates/asana-mirror.ps1`, with the docstring carrying the
       standalone argument and the accepted cost (a name in Arabic or Hebrew loses its ordering marks)
 - [x] the two `$task.name` sites and the project-board status names put through it
+- [x] the fourth site, `$Why`, stripped at the print boundary rather than inside the pure
+      `Resolve-TargetStage` -- and its parameter comment, which is what made the first pass miss it,
+      corrected to say that it composes the shape and not the values
 
 ### TEST
 
 - [x] `dkj-policy-bwj.tests.ps1`: the function's behaviour (ANSI, OSC, U+202E, U+200B, C1 0x9B, a
-      newline, a printable non-ASCII name that must survive, empty and `$null`), the three call sites
+      newline, a printable non-ASCII name that must survive, empty and `$null`), the four call sites
       asserted over the source because each is a `Write-Host` no fixture can reach without a live
       Asana, and the class compared character for character against all three libs
+- [x] the `$Why` site pinned from both ends -- the strip is present AND the raw interpolation is
+      gone, so a partial revert cannot pass by leaving both in; plus the two foreign values pinned
+      where they are built, so renaming either still has to come past an assert
 - [x] the escape literals are built with `[char]0x..` -- `` `e `` is PowerShell 7 and decodes as a
       literal `e` under 5.1, which is how the first run of these asserts failed
 - [x] `check-plugin-integrity.ps1` + every suite green
@@ -102,15 +124,19 @@ rather than truncating, so a cap here would destroy evidence and buy nothing.
 ### DEPLOY: fix/2019-asana-mirror-console-strip
 
 `asana-mirror.ps1` -- the CI script this workflow ships to a BWJ store -- printed an Asana task's own
-name and a GitHub project board's status names to its log without stripping anything. Both are free
-text a colleague types through a web UI, needing no push access to any repository, so an ANSI or OSC
-escape run in either repainted the CI log it landed in and an RTL override or a zero-width run made
-the line read as something other than what it says -- on the one line whose job is to say which card
-moved where. All three sites now go through a `Format-ForConsole` the template carries itself,
-because it ships standalone into a consumer where none of this repo's libs exist.
+name, a GitHub project board's status names, and the phrase saying why a card moved (which carries a
+submitter's name off the task's notes) to its log without stripping anything. All of it is free text
+a colleague types through a web UI, needing no push access to any repository, so an ANSI or OSC
+escape run repainted the CI log it landed in and an RTL override or a zero-width run made the line
+read as something other than what it says -- on the one line whose job is to say which card moved
+where. All four sites now go through a `Format-ForConsole` the template carries itself, because it
+ships standalone into a consumer where none of this repo's libs exist.
 
 `new-branch`'s list of the places this workflow prints somebody else's words to a console goes from
-five entries to six, and records that the class is now typed in a fourth place outside the libs.
+five entries to six, records that the class is now typed in a fourth place outside the libs, and
+gains the rule this branch had to learn twice: **the unit is a value, not a variable that looks like
+the script's own** -- the missed site was guarded by a parameter comment calling it "the script's own
+phrase", which was true of its shape and false of two of its values.
 
 **Score:** 3
 

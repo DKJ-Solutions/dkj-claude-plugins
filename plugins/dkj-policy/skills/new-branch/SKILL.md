@@ -268,13 +268,14 @@ is worth stating precisely because the wrong one is what kept the second site un
    branch names its parked-fix scan prints (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`,
    #1858). The title is the one entry here whose author needed no push access at all: on a public
    tracker anybody can open an issue. Not capped.
-6. **`asana-mirror`'s stage lines** -- the Asana task NAME and the GitHub project board's STATUS
-   names, printed by the CI template this workflow ships to a BWJ store
+6. **`asana-mirror`'s stage lines** -- the Asana task NAME, the GitHub project board's STATUS names,
+   and the phrase saying WHY a card moved, which carries a submitter's name off the task's notes
    (`Format-ForConsole`, `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1`,
-   [#2019](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2019)). Both authors need no
-   push access either, and less than entry 5's: a colleague edits a task name through Asana's web UI
-   and a board's column names through GitHub's project settings, neither of which touches a
-   repository at all. Not capped -- the console here is a CI log, which wraps rather than truncates.
+   [#2019](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2019)) -- four sites in the CI
+   template this workflow ships to a BWJ store. No author of any of the three needs push access, and
+   less than entry 5's: a colleague types a task name and its notes through Asana's web UI and a
+   board's column names through GitHub's project settings, none of which touches a repository at all.
+   Not capped -- the console here is a CI log, which wraps rather than truncates.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
 September 11, five until September 15, and each new one arrived as a counter-example to a sentence
@@ -284,6 +285,15 @@ strip nobody had re-read, and entry 6 sat outside it while carrying no strip of 
 is also the first one this list did not find**: it was measured by a security review of an unrelated
 diff, which is the reading this page cannot do for itself -- so the list going quiet is not evidence
 that it is complete.
+
+**And entry 6 is worth reading twice, because its own repair missed a site on the first pass.** The
+task name was the reported symptom; the board's column names and the phrase saying why a card moved
+were found only by reviewing the repair. The last of those is the instructive one -- its parameter
+was commented *"Resolve-TargetStage's own phrase"*, which is true of the sentence's SHAPE and false
+of two of its values, and an audit that read the comment instead of the composing function passed
+straight over it. **So the unit is a VALUE, never a variable that looks like the script's own**: what
+matters is where the characters were typed, and a phrase this workflow assembles out of somebody
+else's words is somebody else's words.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and

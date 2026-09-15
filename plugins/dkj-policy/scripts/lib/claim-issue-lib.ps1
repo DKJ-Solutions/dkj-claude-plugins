@@ -63,7 +63,7 @@ function Format-ForConsole {
             '(no printable path)', which is the wrong noun for an issue title.
 
             A FOURTH COPY LIVES OUTSIDE THE LIBS, and it is not a fourth of these. The dkj-policy-bwj
-            template asana-mirror.ps1 ships standalone into a consumer's .github\scripts\, where none
+            template asana-mirror.ps1 ships standalone into a consumer's .github/scripts/, where none
             of these libs exist -- so it could not call one even if a function fitted (#2019). What the
             four copies may not do is DISAGREE, so pr-issues.tests.ps1 compares the class itself and
             asserts which libs carry it, and dkj-policy-bwj.tests.ps1 holds the template to the same

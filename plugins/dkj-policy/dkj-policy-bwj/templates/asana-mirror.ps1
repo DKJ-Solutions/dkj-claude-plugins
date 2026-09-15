@@ -1287,7 +1287,10 @@ function Sync-AsanaTaskStage {
         # A label for the log line, normally 'owner/repo#n'.
         [string]$For = '',
 
-        # Why the target was chosen, for the log -- Resolve-TargetStage's own phrase.
+        # Why the target was chosen, for the log. Resolve-TargetStage composes the SHAPE; two of its
+        # branches interpolate FOREIGN TEXT into it (a submitter's name off the task notes, a project
+        # board's column name), so it is stripped at the print site -- see the note there. Calling it
+        # "Resolve-TargetStage's own phrase" is what made #2019's first repair miss this.
         [string]$Why = '',
 
         # Only the needs-info label and the reopen earn this; see Resolve-TargetStage.
@@ -1336,7 +1339,19 @@ function Sync-AsanaTaskStage {
     Invoke-AsanaRequest -Request (New-AsanaSectionMoveRequest -Gid $Gid -SectionGid $sections[[string]$stage]) -Pat $Pat | Out-Null
     $what = if ($For) { "$For -> " } else { '' }
     $back = if ((Get-StageRank -Stage $current -Map $Map) -gt (Get-StageRank -Stage $stage -Map $Map)) { ' (back)' } else { '' }
-    $why  = if ($Why) { " -- $Why" } else { '' }
+    # $Why IS NOT THIS SCRIPT'S OWN PHRASE -- only its shape is (#2019, found by code review of the
+    # first repair, whose audit read the parameter comment as covering the values too; that comment
+    # said "Resolve-TargetStage's own phrase" and now says which half it means).
+    # Resolve-TargetStage composes it, and two of its four branches interpolate foreign
+    # text into it: "$Submitter has been told", where the name comes out of the Asana task's NOTES via
+    # a repo-supplied regex whose capture is unconstrained, and "the project status '$ProjectStatus'",
+    # which is the very board column name the ambiguity line below already strips -- unstripped here
+    # because the single-value path never reaches that line. The stage sweep prints this on every card
+    # it moves, so it is the busiest of the four sites rather than a corner.
+    #
+    # STRIPPED HERE AND NOT INSIDE Resolve-TargetStage, deliberately: that function is pure, its Why is
+    # asserted on in the suite, and the console is what needs the guard. This is the boundary.
+    $why  = if ($Why) { ' -- ' + (Format-ForConsole $Why) } else { '' }
     Write-Host "  $what$(Format-ForConsole $task.name): stage $current -> $stage$back$why"
     return $true
 }

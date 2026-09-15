@@ -651,13 +651,26 @@ Assert-Equal ''      (Format-ForConsole $null)           'and so is no name at a
 Assert-Equal ' [0m'  (Format-ForConsole "$([char]27)[0m")   'a name whose every control character is stripped keeps its printable remainder -- it is never given a noun it does not have'
 Assert-Equal ' a  b ' (Format-ForConsole " a$([char]0x200B)$([char]0x200B)b ") 'nothing is collapsed or trimmed: the name stays the length the board gave it'
 
-# THE THREE CALL SITES, asserted over the source because each is a Write-Host whose argument cannot
-# be reached without a live Asana and GitHub. Two print the task name, one prints the board's column
-# names; a fourth site added later has to be added here too, which is the point of pinning the count.
+# THE FOUR CALL SITES, asserted over the source because each is a Write-Host whose argument cannot be
+# reached without a live Asana and GitHub. Two print the task name, one the board's column names, and
+# one the phrase saying WHY a card moved -- a fifth site added later has to be added here too, which
+# is the point of pinning the count.
 $foreignPrints = [regex]::Matches($mirrorSrc, '(?m)^\s*Write-Host[^\r\n]*\$\(Format-ForConsole \$task\.name\)')
 Assert-Equal 2 $foreignPrints.Count 'both lines printing an Asana task name strip it first'
 Assert-True ($mirrorSrc -match 'Format-ForConsole \$_ \}\) -join') 'and the project board''s status names are stripped one by one before they are joined'
 Assert-Equal 0 ([regex]::Matches($mirrorSrc, '\$\(\$task\.name\)').Count) 'no raw task name reaches a string anywhere in the script'
+
+# THE FOURTH SITE IS THE ONE THE FIRST REPAIR MISSED, and it is the busiest: the stage sweep prints
+# this phrase on every card it moves. Resolve-TargetStage composes it, and two of its branches
+# interpolate foreign text -- a submitter's name off the task NOTES, and the single resolved project
+# board column name, which is the same value the ambiguity line strips. Pinned from BOTH ends, so a
+# partial revert cannot pass by leaving the strip in beside a restored raw interpolation.
+Assert-True ($mirrorSrc -match [regex]::Escape("' -- ' + (Format-ForConsole `$Why)")) 'the phrase saying why a card moved is stripped before it is printed'
+Assert-Equal 0 ([regex]::Matches($mirrorSrc, [regex]::Escape('" -- $Why"')).Count) 'and the raw interpolation it replaced is gone'
+# The two foreign values it carries, pinned where they are BUILT, so a later branch that renames
+# either still has to come past this assert rather than quietly emptying the site above.
+Assert-True ($mirrorSrc -match [regex]::Escape('Why           = "$Submitter has been told"')) 'the submitter branch of Why still interpolates a name off the task notes'
+Assert-True ($mirrorSrc -match [regex]::Escape('"the project status ''$ProjectStatus''"')) 'and the status branch still interpolates a project board column name'
 
 # IT IS HAND-TYPED HERE ON PURPOSE, because this file ships standalone: adopt-dkj-policy-bwj copies it
 # into a consumer as .github/scripts/asana-mirror.ps1, where none of this repo's libs exist, so
