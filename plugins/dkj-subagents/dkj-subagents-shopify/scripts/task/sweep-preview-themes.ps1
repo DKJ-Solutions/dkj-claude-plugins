@@ -32,8 +32,27 @@
     WHAT IS NEVER SWEPT, and each is its own refusal rather than one rule stretched over four cases:
     the live theme (by configured id AND by the role the STORE reports), this repo's backup (only the
     release cut rotates that, and only after its replacement is verified), any theme whose role is not
-    'unpublished', the current branch's own preview, and any name that also matches a third-party
-    prefix.
+    'unpublished', the current branch's own preview, ANY OTHER BRANCH STILL ALIVE (see below), and any
+    name that also matches a third-party prefix.
+
+    ------------------------------------------------------------------------------------------------
+    INBOUND #2032: A PARKED BRANCH'S PREVIEW USED TO BE SWEPT LIKE A MERGED ONE'S.
+
+    Sparing only the CURRENT branch's own preview is legal by every rule above and is almost never
+    what was meant: a branch parked on the remote with no pull request -- carrying work that exists
+    nowhere else -- had its preview swept on the very round that made it unrecoverable. So this run
+    also reads which OTHER branches are still alive -- `git ls-remote --heads origin` and a plain
+    `git branch` -- and spares every one of their previews too, with its own reason ('the branch
+    still exists'). "Still exists" is read deliberately WIDE: a local ref or a remote one, without
+    asking whether a PR merged, because `deleteBranchOnMerge` already removes a merged branch's ref,
+    so a branch still standing is parked work or a cleanup that has not run yet.
+
+    THE FAILURE DIRECTION MATTERS MORE THAN USUAL HERE: a branch list that is missing a branch is a
+    branch whose preview looks spent when it is not. So a `ls-remote`/`branch` call that did not
+    answer cleanly REFUSES THE RUN under -Execute rather than silently narrowing the spare list --
+    the same asymmetry the live-theme-id check above already applies. Under a dry run it prints a
+    loud warning and reports anyway, since nothing is removed by looking.
+    ------------------------------------------------------------------------------------------------
 
     DRY RUN IS THE DEFAULT. A destructive step whose safe mode has to be remembered is one that gets
     run without it; -Execute is the opt-in.
@@ -56,7 +75,8 @@
     Actually remove the swept themes. Without it this run reports and changes nothing.
 
 .PARAMETER Keep
-    Extra theme names to spare, beyond the current branch's own preview. Exact names, never patterns.
+    Extra theme names to spare, beyond the current branch's own preview and every other branch this
+    run finds still alive. Exact names, never patterns.
 
 .PARAMETER RootOverride
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
@@ -70,9 +90,10 @@
 .NOTES
     COVERAGE. scripts/tests/theme-lifecycle-rules.tests.ps1 pins the plan this script prints and acts
     on -- including a miniature of the consumer's store in which exactly one of nine themes is
-    sweepable, and the two blind states (no live id known, a namespace collision) in which nothing is.
-    THIS SCRIPT ITSELF IS NOT DRIVEN, for the reason push-preview.ps1 gives: every path reaches a real
-    store or a consumer's repo-config.
+    sweepable, the two blind states (no live id known, a namespace collision) in which nothing is, and
+    the sixth refusal added for inbound #2032 (a preview whose branch still exists). THIS SCRIPT ITSELF
+    IS NOT DRIVEN, for the reason push-preview.ps1 gives: every path reaches a real store, a consumer's
+    repo-config, or -- since #2032 -- the remote's own branch list.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -89,6 +110,10 @@ $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
 if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy -ScriptPath $PSCommandPath }
 
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
+# INBOUND #2032's git reads (ls-remote, branch) go through the same guarded, bounded, non-interactive
+# capture every other git/gh call in this plugin uses -- NOT fetch-attempt-lib.ps1, which is dkj-policy
+# payload only and would be a cross-plugin dependency a Shopify-only consumer does not have.
+. (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\theme-lifecycle-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\theme-archive-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\shopify-cli-lib.ps1')
@@ -139,20 +164,63 @@ if (-not $liveId) {
     exit 1
 }
 
-# The current branch's own preview, spared by name. Flattened the same way push-preview flattens it,
-# with the same fallback where Get-BranchInfo is absent.
+# THE FLATTENED PREVIEW NAME FOR A BRANCH -- one answer, read for the current branch below and for
+# every OTHER branch still alive. Get-BranchInfo's SafeName where the repo has it, a plain '/'->'-'
+# replace where it does not -- the same fallback push-preview has always used.
+$biPath = Join-Path $repoRoot 'scripts\lib\branch-info.ps1'
+$hasGetBranchInfo = $false
+if (Test-Path -LiteralPath $biPath -PathType Leaf) {
+    try { . $biPath; $hasGetBranchInfo = Test-FunctionDefined 'Get-BranchInfo' } catch { }
+}
+
+# The current branch's own preview, spared by name.
 $ownPreview = ''
 if ($branch -and $branch -ne 'HEAD') {
-    $flat = $branch -replace '/', '-'
-    try {
-        $bi = Join-Path $repoRoot 'scripts\lib\branch-info.ps1'
-        if (Test-Path -LiteralPath $bi -PathType Leaf) {
-            . $bi
-            if (Test-FunctionDefined 'Get-BranchInfo') { $flat = [string]((Get-BranchInfo -Branch $branch).SafeName) }
-        }
-    } catch { }
+    $flat = if ($hasGetBranchInfo) { [string]((Get-BranchInfo -Branch $branch).SafeName) } else { $branch -replace '/', '-' }
     if ($flat) { $ownPreview = Get-RepoPreviewThemeName -FlatBranchName $flat }
 }
+
+# EVERY OTHER BRANCH THAT IS STILL ALIVE (inbound #2032) -- see the header banner for why this
+# exists and why "still exists" is read wide. A branch list this run cannot fully read is a branch
+# list that is MISSING branches, and a missing branch is a swept preview -- so an unreliable read
+# refuses the run under -Execute rather than narrowing the spare set silently.
+$refListReliable = $true
+
+$lsRemote = Invoke-NativeCapture -FilePath 'git' -Arguments @('ls-remote', '--heads', 'origin') `
+                                 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+$remoteBranchNames = @()
+if ($lsRemote.ExitCode -eq 0) {
+    $remoteBranchNames = @(@($lsRemote.Output) | ForEach-Object {
+        if ("$_" -match 'refs/heads/(.+)$') { $Matches[1] }
+    } | Where-Object { $_ })
+} else {
+    $refListReliable = $false
+}
+
+$localBranchList = Invoke-NativeCapture -FilePath 'git' -Arguments @('branch', '--format', '%(refname:short)') -DiscardStderr
+$localBranchNames = @()
+if ($localBranchList.ExitCode -eq 0) {
+    $localBranchNames = @(@($localBranchList.Output) | Where-Object { $_ })
+} else {
+    $refListReliable = $false
+}
+
+if (-not $refListReliable) {
+    $refListWarning = "the branch list could not be fully read -- 'git ls-remote --heads origin' or 'git branch' did not answer cleanly, and a branch this run cannot see is a branch it cannot spare"
+    if ($Execute) {
+        Write-Host "REFUSED: $refListWarning." -ForegroundColor Red
+        Write-Host 'Nothing was changed. Fix the remote or the credential and run again.' -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "WARNING: $refListWarning." -ForegroundColor Yellow
+    Write-Host '   This dry run may be UNDER-reporting which previews still belong to a living branch.' -ForegroundColor Yellow
+}
+
+$livingBranchNames = @(@($remoteBranchNames) + @($localBranchNames) | Where-Object { $_ } | Sort-Object -Unique)
+$livingPreviewNames = @($livingBranchNames | ForEach-Object {
+    $flat = if ($hasGetBranchInfo) { [string]((Get-BranchInfo -Branch $_).SafeName) } else { $_ -replace '/', '-' }
+    if ($flat) { Get-RepoPreviewThemeName -FlatBranchName $flat }
+} | Where-Object { $_ })
 
 $keepNames = @(@($Keep) | Where-Object { $_ } | ForEach-Object { ([string]$_).Trim() })
 if ($ownPreview) { $keepNames += $ownPreview }
@@ -160,6 +228,7 @@ if ($ownPreview) { $keepNames += $ownPreview }
 Write-Host "== sweep-preview-themes -- $store ==" -ForegroundColor Cyan
 if (-not $Execute) { Write-Host '   DRY RUN (the default): every verdict is reported and nothing is removed. -Execute acts.' -ForegroundColor Yellow }
 if ($ownPreview)   { Write-Host "   sparing this branch's own preview: '$ownPreview'" }
+Write-Host "   sparing $($livingPreviewNames.Count) preview(s) of branch(es) still alive (local or on origin)"
 
 $list = Invoke-ShopifyCli -Arguments @('theme', 'list', '--store', $store, '--json') -Quiet -DiscardStderr
 if ($list.ExitCode -ne 0) { Write-Error 'shopify theme list failed.'; exit 1 }
@@ -170,7 +239,8 @@ try { $parsed = ($list.Output | Out-String) | ConvertFrom-Json } catch {
 }
 $themes = if ($parsed -isnot [System.Array] -and $parsed.PSObject.Properties.Name -contains 'themes') { @($parsed.themes) } else { @($parsed) }
 
-$plan = Get-ThemeSweepPlan -Themes $themes -LiveThemeId $liveId -KeepNames $keepNames -ExternalPrefixes @($seam.External)
+$plan = Get-ThemeSweepPlan -Themes $themes -LiveThemeId $liveId -KeepNames $keepNames `
+    -LivingBranchNames $livingPreviewNames -ExternalPrefixes @($seam.External)
 
 $going = @($plan | Where-Object { $_.Sweep })
 $staying = @($plan | Where-Object { -not $_.Sweep })
