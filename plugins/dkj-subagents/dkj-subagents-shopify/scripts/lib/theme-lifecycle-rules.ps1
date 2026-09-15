@@ -254,9 +254,22 @@ function Get-ThemeSweepPlan {
         remove one, at the cut, after its replacement has been verified. Two mechanisms allowed to
         delete the same theme is how a store ends up with no backup at all.
 
-        -KeepNames IS THE CURRENT BRANCH'S OWN PREVIEW, and it is a parameter rather than a lookup
-        because this file reads nothing. Sweeping the preview of the branch you are standing on is
-        legal by every other rule here and is almost never what was meant.
+        -KeepNames IS THE CURRENT BRANCH'S OWN PREVIEW (plus whatever an operator names by hand with
+        -Keep), and it is a parameter rather than a lookup because this file reads nothing. Sweeping
+        the preview of the branch you are standing on is legal by every other rule here and is almost
+        never what was meant.
+
+        -LivingBranchNames IS EVERY OTHER BRANCH THAT IS STILL ALIVE, and it is deliberately a second,
+        separate parameter rather than folded into -KeepNames. INBOUND #2032: the original design spared
+        only the branch the run happens to stand on, so a parked branch on the remote -- carrying work
+        that exists nowhere else -- had its preview swept exactly like a merged one, the one round where
+        that is not recoverable. "Still exists" is read deliberately WIDE by the caller (local ref or
+        remote ref, without asking whether a PR merged), because `deleteBranchOnMerge` already removes a
+        merged branch's ref -- a branch still standing is parked work or a cleanup that has not run yet,
+        and sparing it one round too long costs a theme slot rather than a branch's only copy of its
+        work. Kept as its own test with its own reason so a kept row here reads as "this branch is still
+        alive" and not as "this is the branch you are standing on", which would be false for every row
+        but one.
 
         THE THIRD-PARTY PREFIXES ARE READ TOO, even though ownership already excludes those themes.
         It is belt and braces on the one class where being wrong is unrecoverable, and it costs a
@@ -267,11 +280,13 @@ function Get-ThemeSweepPlan {
         [AllowNull()][AllowEmptyCollection()][object[]]$Themes,
         [AllowEmptyString()][string]$LiveThemeId = '',
         [AllowNull()][string[]]$KeepNames = @(),
+        [AllowNull()][string[]]$LivingBranchNames = @(),
         [AllowNull()][string[]]$ExternalPrefixes = @()
     )
 
     $live = ([string]$LiveThemeId).Trim()
     $keep = @(@($KeepNames) | Where-Object { $_ } | ForEach-Object { ([string]$_).Trim() })
+    $living = @(@($LivingBranchNames) | Where-Object { $_ } | ForEach-Object { ([string]$_).Trim() })
     $plan = @()
 
     foreach ($t in @($Themes)) {
@@ -327,7 +342,15 @@ function Get-ThemeSweepPlan {
             continue
         }
 
-        # 6. BELT AND BRACES on the unrecoverable class.
+        # 6. ANY OTHER BRANCH THAT IS STILL ALIVE. Inbound #2032: a parked branch on the remote, with no
+        #    PR and no other copy of its work, is exactly the kind of preview a current-branch-only spare
+        #    swept.
+        if ($living -contains $name) {
+            $plan += (& $verdict $false 'the branch still exists')
+            continue
+        }
+
+        # 7. BELT AND BRACES on the unrecoverable class.
         $external = Get-ExternalPrefixHit -Name $name -ExternalPrefixes $ExternalPrefixes
         if ($external) {
             $plan += (& $verdict $false "the name also matches the third-party prefix '$external' -- refusing rather than resolving a namespace collision in favour of deleting")

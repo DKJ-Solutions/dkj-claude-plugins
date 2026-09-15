@@ -1246,6 +1246,103 @@ try {
     $rC82 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True (-not ($rC82.Out -match 'asana-mirror\.ps1')) 'scenario 82: a clean plugin templates/ script draws no finding of any kind'
     Remove-Item -LiteralPath $s80Path -Force
+
+
+    # --- check 44: a prompting Shopify theme call carries --force ------------------------------------
+    #     Inbound #2031. backup-live-theme.ps1 duplicated the live theme without --force and so failed at
+    #     step 1/3 in EVERY agent session, while both BWJ consumer repos name that script as the closing
+    #     step of a release cut. It failed CLEANLY -- nothing created, nothing rotated, and a message
+    #     correctly saying the previous backup still stood -- which is exactly why a store went a release
+    #     without a baseline while every document said it had one.
+    #
+    #     THE SET IS MEASURED, and these scenarios are what pins it: against Shopify CLI 4.8.0, exactly
+    #     three of the seventeen 'theme' subcommands declare a -f/--force flag (delete, duplicate,
+    #     publish), all three documenting it as "Required if non interactive". 'pull' and 'push' accept
+    #     no such flag, so scenario 86 is not a nicety -- a check that demanded --force there would make
+    #     the gate insist on an argument the CLI would reject.
+    #
+    #     SCENARIO 85 IS THE ONE THAT WOULD HAVE CAUGHT THE CHECK'S OWN FIRST CUT. That version read an
+    #     ArrayLiteralAst at the call site and both spellings at an assignment -- but `@(...)` written
+    #     directly as an argument parses as an ArrayExpressionAst, so it resolved 2 of 30 real call sites
+    #     and reported 0 findings. Green, and blind to 'theme delete --force', the one call in the tree
+    #     that proves the rule. Both spellings are asserted here so one reader cannot regrow into two.
+    #
+    #     Matched on the error phrase rather than the bare '[shopify-force]' tag, which also prefixes the
+    #     coverage line present on every run -- the same trap the patterns above document.
+    $ForceFindingPattern = '\[shopify-force\].*is invoked without --force'
+    $s83Dir = Join-Path $Fixture 'scripts\task'
+    New-Item -ItemType Directory -Path $s83Dir -Force | Out-Null
+    $s83Path = Join-Path $s83Dir 'theme-thing.ps1'
+
+    # --- Scenario 83: an inline @(...) missing the flag is a finding, and it names the line ----------
+    Write-Host "check 44 -- an inline 'theme duplicate' without --force is reported with its line" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($s83Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '# A comment naming theme duplicate must NOT be a subject -- only a CommandAst is.'
+        '$d = Invoke-ShopifyCli -Arguments @(''theme'', ''duplicate'', ''--store'', $s, ''--name'', $n)'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC83 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($rC83.Out -match $ForceFindingPattern) 'scenario 83: the flagless duplicate is a finding'
+    Assert-True ($rC83.Out -match 'theme-thing\.ps1:3:') 'scenario 83: and it names the line the call is on, not the file alone'
+    Assert-Equal 1 ([regex]::Matches($rC83.Out, $ForceFindingPattern).Count) 'scenario 83: the comment is NOT a subject -- exactly one finding'
+
+    # --- Scenario 84: the same call carrying the flag is clean --------------------------------------
+    Write-Host "check 44 -- the same call with --force draws nothing" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($s83Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '$d = Invoke-ShopifyCli -Arguments @(''theme'', ''duplicate'', ''--store'', $s, ''--force'')'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC84 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($rC84.Out -match $ForceFindingPattern)) 'scenario 84: --force present, so nothing is reported'
+
+    # --- Scenario 85: -Arguments naming a VARIABLE is resolved, both ways ---------------------------
+    #     The shape the #2031 repair itself uses: the list is built once so the dry run cannot print a
+    #     command different from the one that runs. A check that could not follow it would have been
+    #     born blind to the very call site it was written for.
+    Write-Host "check 44 -- a variable holding the argument list is followed, in both directions" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($s83Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '$args1 = @(''theme'', ''publish'', ''--store'', $s, ''--theme'', $id)'
+        '$p = Invoke-ShopifyCli -Arguments $args1'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC85 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($rC85.Out -match $ForceFindingPattern) 'scenario 85: a flagless list reached through a variable is still a finding'
+    Assert-True ($rC85.Out -match 'theme-thing\.ps1:3:') 'scenario 85: reported at the CALL, which is the line a reader has to change'
+    [System.IO.File]::WriteAllText($s83Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '$args1 = @(''theme'', ''publish'', ''--store'', $s, ''--force'')'
+        '$p = Invoke-ShopifyCli -Arguments $args1'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC85b = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($rC85b.Out -match $ForceFindingPattern)) 'scenario 85: and the flag is seen through the variable too, so the variable lane is not write-only'
+
+    # --- Scenario 86: pull and push are NOT subjects, because they accept no --force ----------------
+    #     Out of scope BY MEASUREMENT, not by exemption. Demanding the flag here would have the gate
+    #     insist on an argument the CLI rejects -- the failure mode of a rule reasoned about rather than
+    #     measured, which this repo has declined before at 124 findings all false.
+    Write-Host "check 44 -- 'theme pull' and 'theme push' accept no --force and are not subjects" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($s83Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '$a = Invoke-ShopifyCli -Arguments @(''theme'', ''pull'', ''--store'', $s, ''--path'', $p)'
+        '$b = Invoke-ShopifyCli -Arguments @(''theme'', ''push'', ''--store'', $s, ''--theme'', $id)'
+        '$c = Invoke-ShopifyCli -Arguments @(''theme'', ''list'', ''--store'', $s, ''--json'')'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC86 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($rC86.Out -match $ForceFindingPattern)) 'scenario 86: no finding for pull, push or list -- none of them takes the flag'
+
+    # --- Scenario 87: an unreadable argument list is COUNTED, never a finding -----------------------
+    #     A list returned by a function is exactly what push-preview does (Get-ThemeCreateArgs), and a
+    #     check that guessed at it would be inventing the bytes under test. It must say what it could
+    #     not see rather than pass over it in silence or accuse it.
+    Write-Host "check 44 -- an argument list it cannot read is named in the coverage, not accused" -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($s83Path, ((@(
+        '$ErrorActionPreference = ''Stop'''
+        '$x = Invoke-ShopifyCli -Arguments (Get-SomeArgs -Store $s)'
+    ) -join "`n") + "`n"), $Utf8NoBom)
+    $rC87 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($rC87.Out -match $ForceFindingPattern)) 'scenario 87: an unresolvable list is not a finding'
+    Assert-True ($rC87.Out -match 'NOT REACHED:.*theme-thing\.ps1:2') 'scenario 87: and it is named in the coverage line, so the check states its own reach'
+    Remove-Item -LiteralPath $s83Path -Force
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }

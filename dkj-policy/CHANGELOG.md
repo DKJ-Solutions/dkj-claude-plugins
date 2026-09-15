@@ -43,7 +43,103 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 23 minor entries** <!-- pending-tally -->
+**14 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2032-sweep-living-branches · 20260915-134408
+
+Inbound #2032 (from `BWJ-Development/smartwatchbanden#675`): `sweep-preview-themes.ps1` spared only the
+CURRENT branch's own preview theme, so a branch parked on the remote with no pull request -- carrying
+work that exists nowhere else -- had its preview swept exactly like a merged branch's, on the one round
+that is not recoverable. Measured there on 2026-09-15, from `main` after a live push: three previews
+offered for the sweep, one of them `dkj-fix-669-bundle-block-fr-untranslated`, a parked branch's only
+copy of its work.
+
+`Get-ThemeSweepPlan` now reads every branch still alive -- local or on `origin`, whether or not a PR is
+open -- and spares every one of their previews too, each with its own reason ("the branch still
+exists"). `sweep-preview-themes.ps1` gathers that list via `git ls-remote --heads origin` and `git
+branch`, and refuses the run under `-Execute` (rather than silently sweeping more than intended) when
+that list cannot be read cleanly.
+
+**Score:** 3
+this repo publishes plugins and has no theme estate of its own, so nobody here runs this script against
+a real store. The next developer who touches `Get-ThemeSweepPlan` or `sweep-preview-themes.ps1` notices
+the new parameter, the sixth refusal, and the two new test blocks the moment they read either file.
+
+#### What makes this deploy extra special
+
+For a Shopify consumer running this plugin's theme lifecycle: the sweep no longer destroys a parked
+branch's only preview theme. `BWJ-Development/smartwatchbanden` held off running `-Execute` specifically
+because of this, and carries a temporary wrapper script
+(`scripts/task/sweep-previews.ps1`) whose own header names this issue as its removal trigger -- so the
+reader can now both run the sweep with confidence and retire that wrapper.
+
+**Score:** 5
+a long-standing blocker is gone (the sweep could not safely run `-Execute` against a store with any
+parked branch), and the consumer has a concrete follow-up: remove the temporary `-Keep`-computing
+wrapper script #2032 was filed to make unnecessary.
+
+#### Pull Request
+
+sweep-preview-themes spares every living branch's preview, not just the current one
+
+Plugins: dkj-subagents-shopify
+
+[PR #2035](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2035)
+
+---
+
+### DEPLOY: fix/2031-theme-duplicate-force · 20260915-132513
+
+`backup-live-theme.ps1` could not complete from an agent session. Its step 1 duplicated the live theme
+without `--force`, and the Shopify CLI declares that flag **"Required if non interactive outside CI"** --
+so the backup failed at 1/3 every time, while `CLAUDE.md` in both BWJ consumer repos names this script as
+the closing step of a release cut. The failure was clean, which is why it survived: nothing was created,
+nothing was rotated, and the message correctly said the previous backup still stood. A store following the
+documented procedure simply never got a baseline, and every document said it had one.
+
+The same file had passed `--force` to `theme delete` all along, 115 lines further down -- the delete path
+had learned this and the create path had not, with nothing holding the two together.
+
+Three things changed. The flag is there. The argument list is built **once**, into `$dupArgs`, because the
+dry run hand-built a second spelling of the same command and printed the one that could not succeed -- so
+the only mode a session could safely run reported the defect as the intended behaviour. And the class is
+now gated: lint check 44 holds every `Invoke-ShopifyCli` call to carrying `--force` where the subcommand
+prompts.
+
+**The gated set is measured, not reasoned about.** All seventeen `shopify theme` subcommands were read
+against CLI 4.8.0: exactly three declare a `-f/--force` flag -- `delete`, `duplicate`, `publish` -- and all
+three document it as required when non-interactive. `theme pull` and `theme push` accept no such flag at
+all, so the four call sites using them are out of scope by measurement rather than by exemption; a check
+built on the intuition that "a mutating call can prompt" would have demanded an argument those commands
+reject.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A lint rather than a test, for the reason check 31 already carries one flag over: the subject is the call
+site that does not exist yet. A test asserts about today's callers, while a new script in a plugin reaches
+a consumer's install whether or not anybody remembered to extend a suite.
+
+The check's own first cut is the part worth keeping. It read an inline `@(...)` as one AST node type and a
+variable assignment as another, through two separate readers -- and `@(...)` written directly as an
+argument parses as the *other* type. It resolved 2 of 30 real call sites, reported 0 findings, and was
+blind to `theme delete --force`, the one call in the tree that proves the rule. It was green, and nothing
+in the run said the reader was broken. What caught it was the coverage line naming what it had **not**
+reached; what fixed it was one reader instead of two. Scenario 85 pins both directions so they cannot
+diverge again.
+
+**Score:** 2
+
+#### Pull Request
+
+backup-live-theme: the live duplicate carries --force, so it runs from a non-interactive session
+
+Plugins: dkj-subagents-shopify
+
+[PR #2034](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2034)
+
+---
 
 ### DEPLOY: fix/2024-console-strip-zl-zp-combining · 20260915-115753
 

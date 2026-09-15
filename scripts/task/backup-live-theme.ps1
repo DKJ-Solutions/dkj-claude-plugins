@@ -212,10 +212,30 @@ $backupName = Get-BackupThemeName -Timestamp ([datetime]::Now)
 Write-Host ''
 Write-Host "[1/3] create -- duplicating live into '$backupName'" -ForegroundColor Cyan
 
+# ONE ARGUMENT LIST, READ BY BOTH BRANCHES (inbound #2031). It was two spellings -- a literal string in
+# the dry run and an array in the call -- and they drifted in the direction that costs most: the dry run
+# printed a command that could not succeed, so the one mode a session can safely run reported the defect
+# as the intended behaviour. Same lesson as Format-ThemeDeleteCommand's property 2 in
+# lib/theme-archive-rules.ps1, one call over: a documented command and the command that runs are the same
+# bytes or they are not the same command.
+#
+# --force IS WHY THIS STEP EXISTED AND NEVER RAN. The CLI declares it "Required if non interactive
+# outside CI" (measured against Shopify CLI 4.8.0: shopify theme duplicate --help), and an agent session
+# has no TTY -- so the duplicate failed at 1/3 every time, while CLAUDE.md in both BWJ consumer repos
+# names this script as the closing step of a release cut. The failure was clean, which is why it went
+# unnoticed: nothing was created, nothing was rotated, and the message correctly said the previous backup
+# still stood. A store following the documented procedure simply never got a baseline.
+#
+# --theme IS THE SECOND HALF OF THE SAME SENTENCE and was already right. The same help calls it "Required
+# if non interactive", because --force suppresses the theme-selection prompt as well as the confirmation;
+# a duplicate forced without a theme id has nothing to duplicate. Named here so a later reader does not
+# read the flag as decoration and take it out.
+$dupArgs = @('theme', 'duplicate', '--store', $store, '--theme', $liveId, '--name', $backupName, '--force')
+
 if ($DryRun) {
-    Write-Host "  DRY RUN: would run 'shopify theme duplicate --store $store --theme $liveId --name $backupName'."
+    Write-Host "  DRY RUN: would run 'shopify $($dupArgs -join ' ')'."
 } else {
-    $dup = Invoke-ShopifyCli -Arguments @('theme', 'duplicate', '--store', $store, '--theme', $liveId, '--name', $backupName)
+    $dup = Invoke-ShopifyCli -Arguments $dupArgs
     if ($dup.ExitCode -ne 0) {
         Write-Error "Duplicating the live theme failed. Nothing was rotated; the previous backup is still standing."
         exit 1
