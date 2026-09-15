@@ -21,6 +21,84 @@
     Pure ASCII, per this repo's script-layer convention.
 #>
 
+$script:ConsoleDeceptiveCategories = @(
+    [System.Globalization.UnicodeCategory]::Control,
+    [System.Globalization.UnicodeCategory]::Format,
+    [System.Globalization.UnicodeCategory]::LineSeparator,
+    [System.Globalization.UnicodeCategory]::ParagraphSeparator,
+    [System.Globalization.UnicodeCategory]::NonSpacingMark,
+    [System.Globalization.UnicodeCategory]::EnclosingMark
+)
+
+function ConvertTo-ConsoleStrippedText {
+    <#
+        .SYNOPSIS
+            One line of foreign text, with every character that could make it read as something other
+            than what it says replaced by a space -- Cc, Cf, Zl, Zp, Mn and Me, read a CODE POINT AT A
+            TIME rather than through a regex character class.
+
+        .DESCRIPTION
+            ISSUE #2024'S SECOND HALF. Every caller of this function used to type the class directly, as
+            a regex: '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]'. On this runtime (Windows PowerShell 5.1 /
+            .NET Framework, measured while repairing #2025) that class is silently wrong twice:
+
+              1. U+00AD SOFT HYPHEN is Format (Cf) in the CURRENT Unicode table and Dash Punctuation (Pd)
+                 to the REGEX ENGINE, whose category tables predate the Unicode 4.0 reclassification --
+                 the only such divergence in the whole BMP, all 65,536 code points compared one by one.
+                 [regex]::IsMatch([string][char]0xAD, '[\p{Cf}]') is $false on this runtime.
+              2. EVERY FORMAT CHARACTER ABOVE THE BMP is invisible to the class outright, because a .NET
+                 character class matches one UTF-16 CODE UNIT and those characters are surrogate PAIRS.
+                 That is the U+E0020..U+E007F TAG block -- an invisible-text channel that can carry a
+                 whole hidden ASCII message and render as nothing -- plus U+E0001, U+1D173..U+1D17A and
+                 U+110BD/U+110CD.
+
+            So the category is read from [CharUnicodeInfo]::GetUnicodeCategory(string, index), which uses
+            the CURRENT table and resolves a surrogate pair to the single code point it names. On an
+            UNPAIRED surrogate it answers Surrogate, none of the six categories above, so a broken pair
+            is copied through rather than silently eaten.
+
+            A SPACE PER UTF-16 CODE UNIT CONSUMED, not one space per code point. Get-DisplayPath
+            (ref-print-lib.ps1, #1638) measures its output in .Length to preserve a padded column's
+            alignment, and .Length counts UTF-16 units -- so a two-unit surrogate pair becomes two
+            spaces, keeping format width and display width in agreement exactly as a one-unit character
+            already does. Every other caller collapses and trims afterward and is indifferent to the
+            count, so the one convention serves them all.
+
+            SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
+            dkj-policy-bwj's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
+            page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
+            told a text direction and a console line cannot. That is why this is not a reuse of that
+            function -- only of its LOOKUP; the policy differs; the code-point walk does not.
+
+            THIS IS THE THIRD LIB-INDEPENDENT COPY -- claim-issue-lib.ps1, pr-issues-lib.ps1 and
+            ref-print-lib.ps1, identical byte for byte, the same three libs and the same DISAGREE rule
+            that used to hold one regex literal in agreement now holds one function definition in
+            agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other two libs each
+            carry their own copy, for the reason their docstrings already give for not sharing a
+            dot-source.
+    #>
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+
+    $sb = New-Object System.Text.StringBuilder
+    $i  = 0
+    while ($i -lt $Text.Length) {
+        $category = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($Text, $i)
+        $paired   = ([char]::IsHighSurrogate($Text[$i]) -and ($i + 1) -lt $Text.Length -and
+                     [char]::IsLowSurrogate($Text[$i + 1]))
+        $width    = if ($paired) { 2 } else { 1 }
+
+        if ($script:ConsoleDeceptiveCategories -contains $category) {
+            [void]$sb.Append(' ' * $width)
+        } else {
+            [void]$sb.Append($Text.Substring($i, $width))
+        }
+        $i += $width
+    }
+    return $sb.ToString()
+}
+
 function Format-ForConsole {
     <#
         .SYNOPSIS
@@ -40,16 +118,17 @@ function Format-ForConsole {
             OVERRIDE, the U+2066..U+2069 isolates, a zero-width run. Many terminals render those, and
             a line carrying one visually reorders itself without a single byte below 0x80. It also
             missed C1 (U+0080..U+009F), where some terminals read 0x9B as CSI. Both gaps close at once
-            now: '\p{Cc}' is C0, DEL and C1, and '\p{Cf}' is the bidi and zero-width class.
+            now: Cc is C0, DEL and C1, and Cf is the bidi and zero-width class.
 
-            #2024 WIDENED IT AGAIN, TO TWO CLASSES '\p{Cc}\p{Cf}' STILL DID NOT COVER. U+2028 LINE
-            SEPARATOR and U+2029 PARAGRAPH SEPARATOR are category Zl/Zp, not Cc/Cf, and either can make
-            a single printed line read as two -- the same harm '\n' (which IS Cc, and was already
-            stripped) exists to prevent. And a run of stacking combining marks (Mn/Me, "Zalgo text") is
-            not Cc/Cf either, but visually obscures the printable text around it, which is the same
-            "make the line say something other than what it says" harm the class already exists to
-            prevent for RTL overrides and zero-width runs. '\p{Mn}' is non-spacing marks, '\p{Me}' is
-            enclosing marks, '\p{Zl}'/'\p{Zp}' are the two line-breaking space separators.
+            #2024 WIDENED THE POLICY, THEN THE MECHANISM. U+2028 LINE SEPARATOR and U+2029 PARAGRAPH
+            SEPARATOR are category Zl/Zp, not Cc/Cf, and either can make a single printed line read as
+            two -- the same harm '\n' (which IS Cc, and was already stripped) exists to prevent. A run
+            of stacking combining marks (Mn/Me, "Zalgo text") is not Cc/Cf either, but visually obscures
+            the printable text around it, the same "make the line say something other than what it
+            says" harm the class already exists to prevent for RTL overrides and zero-width runs. And
+            the class stopped being a regex: ConvertTo-ConsoleStrippedText above reads each category
+            from the runtime's own Unicode table, because on this runtime the regex form of the class
+            silently misses two things it claims to cover -- see that function's docstring.
 
             A SPACE, NOT A RENDERED CODE POINT, WHICH IS THE QUESTION #1858 LEFT OPEN. Rendering
             U+202E as '<U+202E>' keeps more evidence and was weighed: it loses, because the argument
@@ -61,29 +140,25 @@ function Format-ForConsole {
             joined by U+200D prints as its parts. Everything printable stays exactly as written,
             because a title is quoted evidence and a mangled one is worse than a blunt one.
 
-            THE SAME CLASS THIS REPO ALREADY SHIPS, and this is the THIRD lib that types it. The other
-            two are pr-issues-lib.ps1 (Format-AuthoredText, #1612) and ref-print-lib.ps1
-            (Get-DisplayRef, #1623), and the argument that keeps them apart is exactly true here:
-            different source processes, no bound at all on this one, and neither lib is loaded by this
-            one's callers -- so lifting it would cost a dot-source in every caller and a Copy-Item in
-            every fixture suite to save one regex. Neither of their functions fits either, which is the
-            stronger half: Get-DisplayRef collapses runs of spaces and trims, and a title is evidence
-            that must not be re-spaced; Get-DisplayPath answers the all-stripped case with
-            '(no printable path)', which is the wrong noun for an issue title.
+            THE SAME WALK THIS REPO ALREADY SHIPS, and this is the THIRD lib that types it -- see
+            ConvertTo-ConsoleStrippedText above for the full account. Neither sibling's own function
+            fits this one's contract either: Get-DisplayRef collapses runs of spaces and trims, and a
+            title is evidence that must not be re-spaced; Get-DisplayPath answers the all-stripped case
+            with '(no printable path)', the wrong noun for an issue title.
 
             A FOURTH COPY LIVES OUTSIDE THE LIBS, and it is not a fourth of these. The dkj-policy-bwj
             template asana-mirror.ps1 ships standalone into a consumer's .github/scripts/, where none
-            of these libs exist -- so it could not call one even if a function fitted (#2019). What the
-            four copies may not do is DISAGREE, so pr-issues.tests.ps1 compares the class itself and
-            asserts which libs carry it, and dkj-policy-bwj.tests.ps1 holds the template to the same
-            characters.
+            of these libs exist -- so it could not call one even if a function fitted (#2019), and it
+            carries its own copy of ConvertTo-ConsoleStrippedText for the same reason. What the four
+            copies may not do is DISAGREE, so pr-issues.tests.ps1 compares the three here and
+            dkj-policy-bwj.tests.ps1 holds the template to the same characters.
 
             IT IS IN THIS LIB RATHER THAN IN THE SCRIPT so that it can be tested at all: a lib is
             dot-sourceable and claim-issue.ps1 is not. Same reasoning as the two decisions below.
     #>
     param([string]$Text)
     if (-not $Text) { return '' }
-    return ($Text -replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' ')
+    return (ConvertTo-ConsoleStrippedText -Text $Text)
 }
 
 function Get-AssigneeLogins {

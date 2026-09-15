@@ -297,6 +297,14 @@ $refZalgo = 'fix/a' + [char]0x0301 + [char]0x0301 + 'b'
 Assert-True (Test-GitAcceptsRef -Ref $refZalgo) 'premise: git accepts a branch carrying stacking combining marks'
 Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $refZalgo) 'and the prose strip removes a run of stacking combining marks ("Zalgo text") the same way it removes a run of format characters'
 
+# ISSUE #2024'S SECOND HALF, MEASURED WHILE REPAIRING #2025. A regex class over these six categories is
+# silently wrong twice on Windows PowerShell 5.1 -- these two are exactly the cases it misses.
+$refSoftHyphen = 'fix/a' + [char]0xAD + 'b'
+Assert-True (Test-GitAcceptsRef -Ref $refSoftHyphen) 'premise: git accepts a branch carrying U+00AD SOFT HYPHEN'
+Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $refSoftHyphen) 'U+00AD reads as Format to the runtime and Dash Punctuation to the regex engine -- a regex [\p{Cf}] class does not match it, and this strip does'
+$refTagBlock = 'fix/a' + [char]::ConvertFromUtf32(0xE0074) + 'b'
+Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $refTagBlock) 'a format character above the BMP (the TAG block, a surrogate pair) is invisible to a regex [\p{Cf}] class outright -- this strip catches it, and the two spaces it emits collapse to one here, same as any other run'
+
 # A SPACE RATHER THAN NOTHING, which is the case the choice was made for: deleting a zero-width joiner
 # welds 'fix/relea' + 'se' into 'fix/release', a legitimate name that is not the branch you are on.
 Assert-Equal 'fix/relea se' (Get-DisplayRef -Ref ('fix/relea' + [char]0x200D + 'se')) 'a zero-width joiner does not weld two halves into a different legitimate name'
@@ -493,6 +501,7 @@ foreach ($m in @(
         Assert-True ($mirrorText -match 'function Get-PasteableRef') "...and that mirror carries the paste verdict: $($m.Label)"
         Assert-True ($mirrorText -match 'function Get-DisplayRef') "...and the prose strip as well, which two other libs now dot-source: $($m.Label)"
         Assert-True ($mirrorText -match 'function Get-DisplayPath') "...and the path strip (#1638), which the paste verdict itself calls under -Kind Path: $($m.Label)"
+        Assert-True ($mirrorText -match 'function ConvertTo-ConsoleStrippedText') "...and the code-point walk both strips share (#2024): $($m.Label)"
     }
 }
 
@@ -505,10 +514,17 @@ foreach ($m in @(
 Write-Host ''
 Write-Host 'Get-DisplayPath -- the prose strip for a file path' -ForegroundColor Cyan
 
-foreach ($cp in @(0x202E, 0x200D, 0x200B, 0x2066, 0x1B, 0x0D, 0x07, 0x00, 0x2028, 0x2029, 0x0301)) {
+foreach ($cp in @(0x202E, 0x200D, 0x200B, 0x2066, 0x1B, 0x0D, 0x07, 0x00, 0x2028, 0x2029, 0x0301, 0x00AD)) {
     $path = 'assets/a' + [char]$cp + 'b.js'
     Assert-Equal 'assets/a b.js' (Get-DisplayPath -Path $path) "stripped to a visible space: U+$('{0:X4}' -f $cp)"
 }
+
+# ISSUE #2024'S SECOND HALF. A format character above the BMP is a surrogate PAIR, invisible to a regex
+# [\p{Cf}] class outright -- this strip catches it, one space per UTF-16 unit consumed, which is what
+# keeps a padded column's alignment (#1638) exact even for a two-unit code point.
+$pathTagBlock = 'assets/a' + [char]::ConvertFromUtf32(0xE0074) + 'b.js'
+Assert-Equal 'assets/a  b.js' (Get-DisplayPath -Path $pathTagBlock) 'the TAG block (a surrogate pair) becomes two spaces, not zero'
+Assert-Equal $pathTagBlock.Length (Get-DisplayPath -Path $pathTagBlock).Length 'and the length is preserved exactly, same as for a one-unit character'
 
 # THE THREE PROPERTIES THAT MAKE THIS A SECOND FUNCTION RATHER THAN A CALL TO Get-DisplayRef. Each one is
 # a case where the ref strip is right for a ref and wrong for a path, so each is asserted against the ref

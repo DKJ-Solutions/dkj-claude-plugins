@@ -2187,6 +2187,84 @@ function Get-LostWatchNote {
     return $note
 }
 
+$script:ConsoleDeceptiveCategories = @(
+    [System.Globalization.UnicodeCategory]::Control,
+    [System.Globalization.UnicodeCategory]::Format,
+    [System.Globalization.UnicodeCategory]::LineSeparator,
+    [System.Globalization.UnicodeCategory]::ParagraphSeparator,
+    [System.Globalization.UnicodeCategory]::NonSpacingMark,
+    [System.Globalization.UnicodeCategory]::EnclosingMark
+)
+
+function ConvertTo-ConsoleStrippedText {
+    <#
+        .SYNOPSIS
+            One line of foreign text, with every character that could make it read as something other
+            than what it says replaced by a space -- Cc, Cf, Zl, Zp, Mn and Me, read a CODE POINT AT A
+            TIME rather than through a regex character class.
+
+        .DESCRIPTION
+            ISSUE #2024'S SECOND HALF. Every caller of this function used to type the class directly, as
+            a regex: '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]'. On this runtime (Windows PowerShell 5.1 /
+            .NET Framework, measured while repairing #2025) that class is silently wrong twice:
+
+              1. U+00AD SOFT HYPHEN is Format (Cf) in the CURRENT Unicode table and Dash Punctuation (Pd)
+                 to the REGEX ENGINE, whose category tables predate the Unicode 4.0 reclassification --
+                 the only such divergence in the whole BMP, all 65,536 code points compared one by one.
+                 [regex]::IsMatch([string][char]0xAD, '[\p{Cf}]') is $false on this runtime.
+              2. EVERY FORMAT CHARACTER ABOVE THE BMP is invisible to the class outright, because a .NET
+                 character class matches one UTF-16 CODE UNIT and those characters are surrogate PAIRS.
+                 That is the U+E0020..U+E007F TAG block -- an invisible-text channel that can carry a
+                 whole hidden ASCII message and render as nothing -- plus U+E0001, U+1D173..U+1D17A and
+                 U+110BD/U+110CD.
+
+            So the category is read from [CharUnicodeInfo]::GetUnicodeCategory(string, index), which uses
+            the CURRENT table and resolves a surrogate pair to the single code point it names. On an
+            UNPAIRED surrogate it answers Surrogate, none of the six categories above, so a broken pair
+            is copied through rather than silently eaten.
+
+            A SPACE PER UTF-16 CODE UNIT CONSUMED, not one space per code point. Get-DisplayPath
+            (ref-print-lib.ps1, #1638) measures its output in .Length to preserve a padded column's
+            alignment, and .Length counts UTF-16 units -- so a two-unit surrogate pair becomes two
+            spaces, keeping format width and display width in agreement exactly as a one-unit character
+            already does. Every other caller collapses and trims afterward and is indifferent to the
+            count, so the one convention serves them all.
+
+            SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
+            dkj-policy-bwj's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
+            page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
+            told a text direction and a console line cannot. That is why this is not a reuse of that
+            function -- only of its LOOKUP; the policy differs; the code-point walk does not.
+
+            THIS IS THE THIRD LIB-INDEPENDENT COPY -- claim-issue-lib.ps1, pr-issues-lib.ps1 and
+            ref-print-lib.ps1, identical byte for byte, the same three libs and the same DISAGREE rule
+            that used to hold one regex literal in agreement now holds one function definition in
+            agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other two libs each
+            carry their own copy, for the reason their docstrings already give for not sharing a
+            dot-source.
+    #>
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+
+    $sb = New-Object System.Text.StringBuilder
+    $i  = 0
+    while ($i -lt $Text.Length) {
+        $category = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($Text, $i)
+        $paired   = ([char]::IsHighSurrogate($Text[$i]) -and ($i + 1) -lt $Text.Length -and
+                     [char]::IsLowSurrogate($Text[$i + 1]))
+        $width    = if ($paired) { 2 } else { 1 }
+
+        if ($script:ConsoleDeceptiveCategories -contains $category) {
+            [void]$sb.Append(' ' * $width)
+        } else {
+            [void]$sb.Append($Text.Substring($i, $width))
+        }
+        $i += $width
+    }
+    return $sb.ToString()
+}
+
 function Format-AuthoredText {
     <#
     .SYNOPSIS
@@ -2243,18 +2321,20 @@ function Format-AuthoredText {
         away. A fourth site appearing is not forbidden; it has to update that assert, this block and
         the new-branch skill page, which is the claim #1612 was filed about.
 
-        #2024 WIDENED THE SHARED CLASS ITSELF, TO Zl/Zp AND Mn/Me. '\p{Cc}\p{Cf}' missed U+2028
-        LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR (category Zl/Zp), either of which can make one
-        printed line read as two -- the same harm '\n' already exists to prevent -- and missed stacking
-        combining marks (Mn/Me, "Zalgo text"), which visually obscure the text around them, the same
-        "the line says something other than what it says" harm the class already covers for RTL
-        overrides and zero-width runs. All three copies of the class widened together, so the DISAGREE
-        rule above still holds.
+        #2024 WIDENED THE POLICY, THEN THE MECHANISM. '\p{Cc}\p{Cf}' missed U+2028 LINE SEPARATOR and
+        U+2029 PARAGRAPH SEPARATOR (category Zl/Zp), either of which can make one printed line read as
+        two -- the same harm '\n' already exists to prevent -- and missed stacking combining marks
+        (Mn/Me, "Zalgo text"), which visually obscure the text around them, the same "the line says
+        something other than what it says" harm the class already covers for RTL overrides and
+        zero-width runs. And the class stopped being a regex: ConvertTo-ConsoleStrippedText above reads
+        each category from the runtime's own Unicode table, because on this runtime the regex form of
+        the class silently misses two things it claims to cover -- see that function's docstring. All
+        three copies moved together, so the DISAGREE rule above still holds.
     #>
     param([string]$Text)
 
     if (-not $Text) { return '' }
-    return ((($Text -replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' ') -replace ' {2,}', ' ').Trim())
+    return (((ConvertTo-ConsoleStrippedText -Text $Text) -replace ' {2,}', ' ').Trim())
 }
 
 function Get-AuthoredFailureNote {
