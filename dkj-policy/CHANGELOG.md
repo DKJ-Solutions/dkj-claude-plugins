@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 18 minor entries** <!-- pending-tally -->
+**12 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2018-parked-fix-scan-title-overlap · 20260915-084249
+
+`claim-issue.ps1`'s parked-fix scan (#1853) reads a commit's CONTENT for the issue number, so a branch
+named for the subject rather than the number -- `fix/asana-stage-letter-codes` for issue #2016, the
+case this was measured against -- carries no commit the scan can ever match. A fifth pickup signal now
+also matches the issue's TITLE against every branch name off the trunk, warn-only and never as strong
+as the fourth signal's verdict. The threshold is measured against this repo's own branch history rather
+than guessed, and that measurement is pinned in the test suite.
+
+**Score:** 3 -- a clear improvement to a check every claim already runs, noticed the next time a
+subject-named branch is sitting on the same work.
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy`'s `claim-issue` skill gets one more chance to catch a duplicate
+implementation before it is built twice -- exactly the incident #2018 itself measured.
+
+**Score:** 2 -- small, but a subscriber notices it the day it saves them a duplicate build.
+
+#### Pull Request
+
+claim-issue's parked-fix scan also warns on branch-name/title token overlap
+
+Plugins: dkj-policy
+
+[PR #2023](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2023)
+
+---
 
 ### DEPLOY: docs/2017-bwj-four-seams · 20260915-082358
 
