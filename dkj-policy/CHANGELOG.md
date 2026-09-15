@@ -43,7 +43,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 24 minor entries** <!-- pending-tally -->
+**14 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2032-sweep-living-branches · 20260915-134408
+
+Inbound #2032 (from `BWJ-Development/smartwatchbanden#675`): `sweep-preview-themes.ps1` spared only the
+CURRENT branch's own preview theme, so a branch parked on the remote with no pull request -- carrying
+work that exists nowhere else -- had its preview swept exactly like a merged branch's, on the one round
+that is not recoverable. Measured there on 2026-09-15, from `main` after a live push: three previews
+offered for the sweep, one of them `dkj-fix-669-bundle-block-fr-untranslated`, a parked branch's only
+copy of its work.
+
+`Get-ThemeSweepPlan` now reads every branch still alive -- local or on `origin`, whether or not a PR is
+open -- and spares every one of their previews too, each with its own reason ("the branch still
+exists"). `sweep-preview-themes.ps1` gathers that list via `git ls-remote --heads origin` and `git
+branch`, and refuses the run under `-Execute` (rather than silently sweeping more than intended) when
+that list cannot be read cleanly.
+
+**Score:** 3
+this repo publishes plugins and has no theme estate of its own, so nobody here runs this script against
+a real store. The next developer who touches `Get-ThemeSweepPlan` or `sweep-preview-themes.ps1` notices
+the new parameter, the sixth refusal, and the two new test blocks the moment they read either file.
+
+#### What makes this deploy extra special
+
+For a Shopify consumer running this plugin's theme lifecycle: the sweep no longer destroys a parked
+branch's only preview theme. `BWJ-Development/smartwatchbanden` held off running `-Execute` specifically
+because of this, and carries a temporary wrapper script
+(`scripts/task/sweep-previews.ps1`) whose own header names this issue as its removal trigger -- so the
+reader can now both run the sweep with confidence and retire that wrapper.
+
+**Score:** 5
+a long-standing blocker is gone (the sweep could not safely run `-Execute` against a store with any
+parked branch), and the consumer has a concrete follow-up: remove the temporary `-Keep`-computing
+wrapper script #2032 was filed to make unnecessary.
+
+#### Pull Request
+
+sweep-preview-themes spares every living branch's preview, not just the current one
+
+Plugins: dkj-subagents-shopify
+
+[PR #2035](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2035)
+
+---
 
 ### DEPLOY: fix/2031-theme-duplicate-force · 20260915-132513
 
