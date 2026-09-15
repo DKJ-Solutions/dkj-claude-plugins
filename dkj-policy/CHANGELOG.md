@@ -43,7 +43,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 14 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2012-ticket-work-step-reach · 20260915-062857
+
+Three prose sites describing the `dkj-policy-bwj` ticket-work step still said it reached "BWJ's two
+Shopify store repos" after commit `b9b2a65a` widened that one chapter to a third repo
+(`dkj-claude-plugins`, this plugin's own source) on September 14, 2026 -- a related but distinct
+staleness from the one #1982 fixed the same day, since #1982 never named these three files. All three
+now state the real reach. A fourth, unrelated staleness on the same row `README.md:339` -- the chapter
+count still read "Three chapters" with the September 13 theme-lifecycle chapter missing from the list
+-- is fixed in the same pass, since #2012 explicitly asked for it on the ground that whoever picked
+this up would already be editing that exact cell. One further site of the same chapter/skill-count
+drift, `plugins/dkj-policy/README.md:98`, was noticed but not named by #2012 and is filed separately
+as #2014 rather than folded into this branch's scope.
+
+**Score:** 1 -- corrects stated reach in prose; no script, gate or check reads these sentences, so
+nothing behaves differently for this repo's own maintainers.
+
+#### What makes this deploy extra special
+
+`CONTRIBUTING-portable.md` is portable payload that ships to every consumer running `dkj-policy`. A
+subscriber reading its ticket-work-step section previously saw an inaccurate scope for
+`dkj-policy-bwj`'s worked example; it now matches the gate `report-issue`/`adopt-dkj-policy-bwj`
+actually enforce.
+
+**Score:** 1 -- a subscriber who never reads that one paragraph is unaffected, and the gate itself was
+already correct; this only fixes what the prose claims about it.
+
+#### Pull Request
+
+Sweep the ticket-work step's stale two-repo reach and README:339's missing fourth chapter
+
+Plugins: dkj-policy
+
+[PR #2015](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2015)
+
+---
 
 ### DEPLOY: docs/1982-bwj-third-repo-reach · 20260914-200323
 
