@@ -1569,7 +1569,7 @@ Assert-True ($remoteAheadText -match 'ref-print-lib\.ps1') 'because it dot-sourc
 $classSites = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\lib') -Filter '*.ps1' |
                 Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match ([regex]::Escape('[\p{Cc}\p{Cf}]')) } |
                 ForEach-Object { $_.Name } | Sort-Object)
-Assert-NameSet @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1') $classSites 'THREE libs type this class and no more -- a fourth has to update Format-AuthoredText, Format-ForConsole and the new-branch skill page, which is the claim #1612 was filed about'
+Assert-NameSet @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1') $classSites 'THREE libs in scripts/lib type this class and no more -- a fourth has to update Format-AuthoredText, Format-ForConsole and the new-branch skill page, which is the claim #1612 was filed about. NOT a global count: the standalone template templates/asana-mirror.ps1 types it too (#2019), pinned by dkj-policy-bwj.tests.ps1, because it ships into a consumer where no lib of this repo exists'
 Assert-Equal 1 ([regex]::Matches($prIssuesLibText, [regex]::Escape("-replace '[\p{Cc}\p{Cf}]', ' '")).Count) 'ONE definition inside this lib -- Format-AuthoredText, which both the title and the message go through'
 
 # --- The two caps that bound the SAME string, pinned so neither moves alone (#1116) ---------------
