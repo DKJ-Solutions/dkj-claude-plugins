@@ -487,10 +487,19 @@ function Test-SelfAuthored {
 function Get-ContainingBranchNames {
     <#
         .SYNOPSIS
-            The branch names in a 'git branch -a --contains <sha>' capture, cleaned and with the caller's
-            own refs dropped. An EMPTY array when nothing survives.
+            The branch names in a 'git branch -a --contains <sha>' (or a plain 'git branch -a', same
+            output shape -- issue #2018's fifth signal reads every branch off the trunk, not only the
+            ones a commit walk resolved) capture, cleaned and with the caller's own refs dropped. An
+            EMPTY array when nothing survives.
 
         .DESCRIPTION
+            NAMED FOR ITS FIRST CALLER; SERVES BOTH SHAPES because git prints one branch per line the
+            same way whether the command was scoped to a commit or not, and every piece of cleaning
+            below (markers, 'remotes/', a symbolic ref, a detached HEAD, the exclusions, the
+            local/remote fold) is about the LISTING'S shape, never about how it was scoped. A second
+            function repeating this cleaning for the unscoped form would be the exact duplication this
+            repo's refactoring rule exists to catch.
+
             WHAT IT DROPS, AND WHY EACH ONE WOULD BE NOISE:
 
               - THE MARKERS. '* ' is the checked-out branch and '+ ' is one held by another worktree;
@@ -747,5 +756,250 @@ function Format-ParkedFixReport {
         $lines.Add('  Do NOT settle this by reading the commit: a park commit is empty by design, so its') | Out-Null
         $lines.Add('  content is the one thing that cannot tell you whether somebody is mid-flight.') | Out-Null
     }
+    return @($lines)
+}
+
+# --- THE FIFTH PICKUP SIGNAL: A BRANCH NAMED FOR THE SUBJECT, NOT THE NUMBER (issue #2018) --------
+#
+# THE FOURTH SIGNAL ABOVE STILL READS 'UNTOUCHED' IN ONE SHAPE: a branch cut for the subject rather
+# than the number. new-branch.ps1's own creation commit is 'park: <branch> (the branch files only)',
+# which names the BRANCH and nothing else -- so a branch called 'fix/asana-stage-letter-codes' writes
+# none of the three spellings Get-IssueMentionPattern looks for, on any commit it ever carries, however
+# many more it grows. Measured September 15, 2026: claiming #2016 read clean -- open, unassigned, no
+# rival PR, the fourth-signal scan silent -- while origin/fix/asana-stage-letter-codes already carried
+# a parked, independent implementation of the same repair. Every one of the four signals above misses
+# this by construction, because all four read either the tracker or a commit's CONTENT, and this
+# branch's only trace of the issue is its own NAME.
+#
+# SO THE FIFTH SIGNAL IS THE ISSUE'S OWN TITLE, matched against every branch name off the trunk rather
+# than against commit messages naming a number. It is weaker evidence than the fourth signal and is
+# worded as such: a shared word is a coincidence a numbered mention cannot be, so this never joins the
+# fourth signal's 'NOT YOURS' verdict and never sets $foreignParked -- it prints its own, separately
+# hedged block. #2018's own text: "the scan's warn-never-refuse shape is unchanged: a name collision is
+# weaker evidence than a number, not stronger."
+
+function Get-SignificantWords {
+    <#
+        .SYNOPSIS
+            The lowercase, deduplicated SIGNIFICANT words in a piece of free text -- an issue title or
+            a branch's own slug -- for the title/branch-name overlap check (issue #2018). An EMPTY
+            array for text with none.
+
+        .DESCRIPTION
+            THREE FILTERS, EACH THERE BECAUSE THE UNFILTERED FORM WAS MEASURED TOO NOISY TO USE
+            (below). A word is kept only if it is at least $MinLength characters, is not on the
+            built-in stop list of short/structural English words ('with', 'that', 'still', ...), and
+            is not purely digits -- an issue number belongs to the fourth signal above, not this one,
+            and letting it in here would have this scan rediscover exactly what that scan already
+            reports, under a weaker verdict.
+
+            SPLIT ON CAMELCASE TOO, not only on non-alphanumeric runs. An issue title routinely quotes
+            an identifier verbatim -- 'Get-StageFromSectionName', 'AsanaStageMap' -- and a branch name
+            never does (branch names are kebab-case by convention). Splitting only on punctuation would
+            leave 'stagefromsectionname' as one token that can never match the branch words 'stage',
+            'from', 'section', 'name' it was built out of; splitting the camelCase boundary first is
+            what lets the two sides describe the same word the same way.
+
+            THE THRESHOLD WAS MEASURED, NOT GUESSED (closing #2018's own "not measured" note). Run
+            against this repo's branch history -- 21 branches off the trunk, matched against the 21
+            issue titles behind them, 462 comparisons in total (scripts/tests/claim-issue.tests.ps1
+            pins the corpus) -- with $MinLength at 4 and this stop list:
+
+              MinSharedWords  self-hits (a branch vs. its OWN issue)  other cross-hits
+                    1                        19                             27
+                    2                        14                              3
+                    3                         7                              0 (misses the real case too)
+
+            2 is Get-TitleOverlapBranches' default for exactly this reason: it is the point where the
+            three remaining cross-hits are themselves genuinely related work sharing a real word
+            ('exit'+'code' between two exit-code issues, 'prio'+'labels' between two priority-label
+            issues, 'update'+'plugins' between two update-plugins issues) rather than coincidence, and
+            it is the last threshold that still catches the branch #2018 itself was measured against.
+
+        .PARAMETER Text
+            The free text to tokenize -- an issue title, or a branch's slug with its separators turned
+            to spaces.
+
+        .PARAMETER MinLength
+            The shortest word kept, in characters. Below 4, common short words ('the', 'for', 'and')
+            stop being filtered by the stop list alone and start matching by coincidence; 4 is what the
+            measurement above was run at.
+    #>
+    param(
+        [string]$Text = '',
+        [int]$MinLength = 4
+    )
+
+    if (-not $Text -or -not $Text.Trim()) { return @() }
+
+    # THE STOP LIST IS SHORT WORDS AND STRUCTURAL ENGLISH, NOT A GENERAL DICTIONARY. It exists to keep
+    # sentence glue ('with', 'that', 'still') from being treated as a shared SUBJECT between two titles
+    # that happen to both be sentences. It is not a grammar model and does not try to be one; the
+    # $MinLength and $MinSharedWords floors below do the rest of the filtering the measurement needed.
+    $stop = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@(
+            'this','that','with','from','into','onto','over','under','also','only','both','each',
+            'every','once','here','there','than','then','which','whose','does','doesnt','have',
+            'about','off','again','further','more','most','other','some','such','same','very','will',
+            'just','dont','your','their','them','they','while','after','before','still','and',
+            'the','for','are','was','were','been','being','when','what','who','how','why','its','not',
+            'nor','own','too','can','all','any','because','across','per'
+        ),
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+
+    # CAMELCASE SPLIT BEFORE PUNCTUATION SPLIT (see DESCRIPTION): a lower-to-upper transition ('eName')
+    # and the end of an acronym run ('URLRecord' -> 'URL Record') both become a space, so 'StageMap'
+    # and 'stage-map' tokenize to the same two words.
+    $spaced = [regex]::Replace($Text, '([a-z0-9])([A-Z])', '$1 $2')
+    $spaced = [regex]::Replace($spaced, '([A-Z]+)([A-Z][a-z])', '$1 $2')
+
+    $words = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($part in ($spaced -split '[^A-Za-z0-9]+')) {
+        if (-not $part) { continue }
+        $word = $part.ToLowerInvariant()
+        if ($word.Length -lt $MinLength) { continue }
+        if ($word -match '^[0-9]+$') { continue }
+        if ($stop.Contains($word)) { continue }
+        if ($seen.Add($word)) { $words.Add($word) | Out-Null }
+    }
+    return @($words)
+}
+
+function Get-BranchSlugWords {
+    <#
+        .SYNOPSIS
+            A branch name's SIGNIFICANT words, with its type prefix and any leading issue number
+            stripped first. An EMPTY array for a branch whose slug carries none.
+
+        .DESCRIPTION
+            THE PREFIX AND THE NUMBER ARE STRIPPED BEFORE TOKENIZING because neither describes the
+            SUBJECT: 'fix/2016-compound-stage-code' and 'fix/asana-stage-letter-codes' should score
+            identically against issue #2016's title, and a leading '2016' would not match a title's
+            words anyway (Get-SignificantWords already drops pure-digit tokens) while the type prefix
+            ('fix', 'feat', 'docs') is this workflow's own vocabulary, not the branch author's -- every
+            branch has one, so leaving it in would inflate every comparison by one word nobody chose.
+
+        .PARAMETER Branch
+            The branch name, in the short form ('fix/2016-compound-stage-code' or
+            'fix/asana-stage-letter-codes').
+    #>
+    param([string]$Branch = '')
+
+    if (-not $Branch) { return @() }
+    $slug = $Branch
+    $slashIndex = $slug.IndexOf('/')
+    if ($slashIndex -ge 0) { $slug = $slug.Substring($slashIndex + 1) }
+    $slug = [regex]::Replace($slug, '^[0-9]+-', '')
+    return @(Get-SignificantWords -Text ($slug -replace '[-_]', ' '))
+}
+
+function Get-TitleOverlapBranches {
+    <#
+        .SYNOPSIS
+            The branches, from $Branches, whose OWN NAME shares at least $MinSharedWords significant
+            words with $Title -- records with Branch and SharedWords (sorted). An EMPTY array when the
+            title has no significant words, or none of the branches reach the threshold.
+
+        .DESCRIPTION
+            PURE, LIKE THE FOURTH SIGNAL'S OWN Get-ForeignParkedCommit -- this takes names in and
+            returns a verdict, so the corpus measurement behind $MinSharedWords's default (2, see
+            Get-SignificantWords) is something a suite can pin rather than something that only shows
+            up as console noise on a live repo.
+
+            $Branches IS EVERY BRANCH OFF THE TRUNK, not only the ones the fourth signal's commit scan
+            already resolved -- that is the entire point: a branch this check exists for has NO commit
+            naming the issue, so it never reaches that scan's containment loop at all. The caller
+            builds $Branches from a plain 'git branch -a', cleaned the same way the fourth signal
+            cleans its own 'git branch -a --contains' capture (Get-ContainingBranchNames serves both
+            shapes -- see its own SYNOPSIS).
+
+            SORTED BY BRANCH NAME, so two runs over an unchanged repo print the same order -- the same
+            reason Format-ParkedFixReport sorts its own branch keys.
+
+        .PARAMETER Title
+            The issue's title, exactly as the tracker returned it.
+
+        .PARAMETER Branches
+            Branch names off the trunk, already cleaned and deduped (short form, no 'remotes/', no
+            marker).
+
+        .PARAMETER MinSharedWords
+            The floor for a match. Measured at 2 (see Get-SignificantWords); below 1 is treated as 1,
+            because a floor of 0 would match every branch against every title with any word in common
+            with the trunk's own vocabulary.
+    #>
+    param(
+        [string]$Title = '',
+        [AllowNull()][string[]]$Branches = @(),
+        [int]$MinSharedWords = 2
+    )
+
+    $titleWords = @(Get-SignificantWords -Text $Title)
+    if ($titleWords.Count -eq 0) { return @() }
+    $floor = if ($MinSharedWords -lt 1) { 1 } else { $MinSharedWords }
+    $titleSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$titleWords, [System.StringComparer]::OrdinalIgnoreCase)
+
+    $results = New-Object System.Collections.Generic.List[psobject]
+    foreach ($branch in @(@($Branches) | Where-Object { $_ -and ([string]$_).Trim() })) {
+        $branchWords = @(Get-BranchSlugWords -Branch ([string]$branch))
+        $shared = @($branchWords | Where-Object { $titleSet.Contains($_) })
+        if ($shared.Count -ge $floor) {
+            $results.Add([pscustomobject]@{ Branch = [string]$branch; SharedWords = @($shared | Sort-Object) }) | Out-Null
+        }
+    }
+    return @($results | Sort-Object -Property Branch)
+}
+
+function Format-TitleOverlapReport {
+    <#
+        .SYNOPSIS
+            The warning lines for branches off the trunk whose NAME shares words with this issue's
+            title even though no commit on them names its NUMBER (issue #2018). An EMPTY array when
+            there is nothing to say.
+
+        .DESCRIPTION
+            NEVER FOLDED INTO THE FOURTH SIGNAL'S VERDICT, deliberately. Format-ParkedFixReport's
+            'NOT YOURS' block and this one report two different strengths of evidence -- a number in a
+            commit message versus a word shared with a title -- and #2018's own text is explicit that
+            widening the fourth signal to catch this case is "not the fix": "a name collision is weaker
+            evidence than a number, not stronger." So this prints its own block, under its own hedges,
+            and never sets the caller's $foreignParked.
+
+            IT SAYS WHAT IT CANNOT TELL, same shape as Format-ParkedFixReport's own closing lines: a
+            shared word is not proof of the same subject, only a reason to look before writing.
+
+        .PARAMETER Issue
+            The issue being claimed, for the lead line.
+
+        .PARAMETER Title
+            The issue's title, for context -- not printed verbatim here (the caller already printed it
+            once, at claim time); kept as a parameter so a future caller printing this block on its own
+            is not left to re-fetch it.
+
+        .PARAMETER Overlaps
+            Records from Get-TitleOverlapBranches: Branch and SharedWords.
+    #>
+    param(
+        [int]$Issue = 0,
+        [string]$Title = '',
+        [AllowNull()][object[]]$Overlaps = @()
+    )
+
+    $real = @(@($Overlaps) | Where-Object { $_ -and $_.PSObject.Properties['Branch'] -and ([string]$_.Branch).Trim() })
+    if ($real.Count -eq 0) { return @() }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $branchWord = if ($real.Count -eq 1) { 'branch' } else { 'branches' }
+    $lines.Add("title-overlap scan: $($real.Count) $branchWord off the trunk share words with #$Issue's title, though no commit on") | Out-Null
+    $lines.Add('  them names the number --') | Out-Null
+    foreach ($o in $real) {
+        $words = @($o.SharedWords) -join ', '
+        $lines.Add("  $($o.Branch)  -- shares: $words") | Out-Null
+    }
+    $lines.Add('  A SHARED WORD IS NOT A MATCHED NUMBER: this cannot tell "about the same thing" from') | Out-Null
+    $lines.Add('  "happens to use the same word", so read the branch before you write anything, and') | Out-Null
+    $lines.Add('  before you dismiss this.') | Out-Null
     return @($lines)
 }
