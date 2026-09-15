@@ -40,6 +40,22 @@ way carries that fixed skeleton; one imported the other way round carries a coll
 are already colleague-facing by construction -- that is what makes them fit to publish -- so re-parsing
 would only add a shape the notes have to match, and refuse the ones that do not.
 
+**Verbatim is about the SHAPE, and two classes of character are the stated exception** (#2025). A Name
+and a Notes field are free text written by anybody with board access -- no push access to any repository
+needed -- and they are rendered into HTML for a reader with no second copy to check the page against. So
+`ConvertTo-BacklogHtmlText` escapes `&`, `<` and `>`, which stops markup injection, and
+`ConvertTo-BacklogVisibleText` replaces the invisible and direction-overriding characters with a space,
+which stops the printed text reading as something other than what it says: U+202E and the rest of the
+override, embedding and isolate classes, the zero-width run, the plane-14 tag block.
+
+**What it deliberately does NOT do is flatten every format character**, which is where it parts company
+with `Format-ForConsole` in dkj-policy's `claim-issue-lib.ps1`. Eight code points stay: tab, CR and LF,
+the two joiners that shape Persian and Indic words and every joined emoji, and the three bidi **marks**.
+A mark nudges one neutral character and cannot open a scope; a console line has no direction of its own,
+but an HTML element can be told one, and each element carrying Asana text is -- `dir="auto"` resolves its
+direction from its own first strong character and isolates it from the entry beside it. So a task written
+in Hebrew or Arabic renders as its author wrote it, which is the property flattening would cost.
+
 ## What is dropped, and why silently
 
 - **An issue with no marker, or an ambiguous one.** Reported in the run's own output as a skip, never

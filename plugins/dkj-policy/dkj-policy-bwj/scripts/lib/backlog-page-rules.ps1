@@ -37,12 +37,114 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
+$script:BacklogKeptInvisibleCodePoints = @(
+    0x09, 0x0A, 0x0D,   # tab, LF, CR -- Format-BacklogEntryHtml's paragraph split and <br> read these
+    0x200C,             # ZERO WIDTH NON-JOINER -- word shaping in Persian and the Indic scripts
+    0x200D,             # ZERO WIDTH JOINER     -- the same, plus every joined emoji sequence
+    0x200E, 0x200F,     # LEFT-TO-RIGHT MARK, RIGHT-TO-LEFT MARK
+    0x061C              # ARABIC LETTER MARK
+)
+
+function ConvertTo-BacklogVisibleText {
+    <#
+        .SYNOPSIS
+            Remove the invisible characters an Asana task can carry into the page, keeping the ones
+            that carry meaning in a document a browser renders.
+
+        .DESCRIPTION
+            An Asana Name and Notes are free text written by anybody with board access -- no push
+            access to any repository needed. Escaping &, < and > stops markup injection and does
+            nothing at all about a character that is invisible or that REORDERS what is around it:
+            U+202E RIGHT-TO-LEFT OVERRIDE, an unterminated U+2066 isolate, a zero-width run, a
+            plane-14 tag sequence. A browser renders those the same way a terminal does -- the
+            printed text reads as something other than what it says -- and the reader this page is
+            written for is a colleague with no GitHub login, holding no second copy to check it
+            against.
+
+            AN ALLOWLIST, NOT A LIST OF THE DECEPTIVE ONES. Everything in Cc and Cf goes except the
+            eight code points above, so a format character assigned in a future Unicode version is
+            stripped on the day it exists rather than on the day somebody remembers to add it here.
+            The eight that stay are the ones this page's own content needs: the three whitespace
+            controls the paragraph splitter reads, the two joiners that shape Persian and Indic words
+            and every joined emoji, and the three bidi MARKS. A mark nudges the direction of the
+            neutral character beside it and cannot open a scope; an OVERRIDE, an EMBEDDING and an
+            ISOLATE each open one that runs until it is closed -- or to the end of the text if it
+            never is, which is the whole of the Trojan-Source shape. So the marks stay and those
+            three classes go.
+
+            NOT Format-ForConsole, WHICH IS THE QUESTION #2025 LEFT OPEN. That function (dkj-policy's
+            claim-issue-lib.ps1) spaces out EVERY Cc and Cf, and its own docstring accepts the cost:
+            a title in Arabic or Hebrew loses the marks that order it, an emoji sequence prints as
+            its parts. That is the right contract for one console line, which has no direction of its
+            own and cannot be told one. An HTML document CAN be told, and is -- see the dir="auto" on
+            the elements Format-BacklogEntryHtml writes -- so flattening here would destroy text this
+            page is able to render correctly, in the name of a spoof the strip has already removed.
+
+            AND IT DOES NOT TYPE THAT CLASS EITHER, because on this runtime the class is wrong twice.
+            Both were measured under Windows PowerShell 5.1 (.NET Framework) while #2025 was being
+            repaired, and both are silent: the regex matches, strips less than it reads as, and
+            reports nothing.
+
+              1. U+00AD SOFT HYPHEN is Cf in the runtime's Unicode table and Pd to the REGEX engine,
+                 whose category tables predate Unicode 4.0, so \p{Cf} does not match it. It is the
+                 ONLY such divergence in the whole BMP -- all 65,536 were compared one by one.
+              2. Every format character above the BMP is invisible to \p{Cf} outright, because a .NET
+                 character class matches one UTF-16 code unit and those are surrogate pairs. That is
+                 the U+E0020..U+E007F TAG block -- the invisible-text channel -- plus U+E0001,
+                 U+1D173..U+1D17A and U+110BD/U+110CD.
+
+            So the category is read from [CharUnicodeInfo], which uses the current table and resolves
+            a surrogate pair to the single code point it is. A code point at a time rather than one
+            regex: a backlog page is a handful of entries, and a strip that silently misses the tag
+            block is not cheaper than a loop, only faster at being wrong.
+
+            A SPACE, NOT A DELETION -- the same answer Format-ForConsole gives, for the same reason:
+            deleting the separator between two words joins them, so a sentence could be made to read
+            as a different one by the very act of cleaning it. The cost of that choice is lower here
+            than on a console, because runs of whitespace collapse when the page renders.
+    #>
+    param([string]$Value)
+    if (-not $Value) { return '' }
+
+    $sb = New-Object System.Text.StringBuilder
+    $i  = 0
+    while ($i -lt $Value.Length) {
+        # GetUnicodeCategory(string, index) resolves a surrogate PAIR to its code point's own
+        # category; on an UNPAIRED surrogate it answers Surrogate, which is neither Cc nor Cf, so a
+        # broken pair is copied through rather than silently eaten.
+        $category = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($Value, $i)
+        $paired   = ([char]::IsHighSurrogate($Value[$i]) -and ($i + 1) -lt $Value.Length -and
+                     [char]::IsLowSurrogate($Value[$i + 1]))
+        $width    = if ($paired) { 2 } else { 1 }
+
+        $invisible = ($category -eq [System.Globalization.UnicodeCategory]::Control -or
+                      $category -eq [System.Globalization.UnicodeCategory]::Format)
+        $kept = $false
+        if ($invisible -and $width -eq 1) {
+            $kept = $script:BacklogKeptInvisibleCodePoints -contains [int]$Value[$i]
+        }
+
+        if ($invisible -and -not $kept) { [void]$sb.Append(' ') }
+        else                            { [void]$sb.Append($Value.Substring($i, $width)) }
+        $i += $width
+    }
+    return $sb.ToString()
+}
+
 function ConvertTo-BacklogHtmlText {
     <# Escape a string for placement in HTML text content. The same three characters every other
        page builder in this repo escapes, and no more -- this function never receives markup, only
-       plain text off a GitHub label or an Asana task. #>
+       plain text off a GitHub label or an Asana task.
+
+       IT STRIPS BEFORE IT ESCAPES (#2025). This is the one chokepoint every piece of foreign text
+       reaches -- a task's Name, each block of its Notes, the repo label in the title -- so the
+       invisible-character policy sits here rather than at each of those call sites. The order is
+       safe either way round, since nothing ConvertTo-BacklogVisibleText removes or emits is one of
+       the three characters escaped below; strip-first is written because it is the order that keeps
+       reading as correct if a fourth escape is ever added. #>
     param([string]$Value)
-    return ($Value -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;')
+    $visible = ConvertTo-BacklogVisibleText -Value $Value
+    return ($visible -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;')
 }
 
 function Get-IssuePrioRank {
@@ -97,6 +199,16 @@ function Format-BacklogEntryHtml {
         EMPTY NOTES RENDER NO BODY, not a placeholder sentence: a task mirrored before report-issue's
         skeleton existed, or one somebody cleared, has nothing to say, and inventing text here would
         be this script speaking for a colleague who filed nothing.
+
+        dir="auto" ON EVERY ELEMENT THAT CARRIES ASANA TEXT (#2025), which is the other half of that
+        issue's answer and the reason ConvertTo-BacklogVisibleText can afford to KEEP the bidi marks.
+        It does two things at once. It resolves each field's direction from its own first strong
+        character, so a task written in Hebrew or Arabic renders right-to-left inside a page whose
+        <html lang="en"> says otherwise -- which is what the marks are for, and they are worth nothing
+        if the element around them is forced the other way. And it isolates: a field's direction is
+        settled within its own element and cannot reorder the heading or the entry beside it. The
+        strip removes the characters that OPEN an unterminated scope; this bounds the damage of
+        anything that resolves oddly inside one entry to that entry.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -110,11 +222,11 @@ function Format-BacklogEntryHtml {
             $text = $block.Trim()
             if (-not $text) { continue }
             $escaped = (ConvertTo-BacklogHtmlText -Value $text) -replace '\r?\n', '<br>'
-            $paragraphs += "    <p>$escaped</p>"
+            $paragraphs += "    <p dir=`"auto`">$escaped</p>"
         }
     }
     $body = if ($paragraphs.Count -gt 0) { ($paragraphs -join "`n") } else { '' }
-    return (@("  <article class=`"entry`">", "    <h2>$safeTitle</h2>", $body, "  </article>") |
+    return (@("  <article class=`"entry`">", "    <h2 dir=`"auto`">$safeTitle</h2>", $body, "  </article>") |
             Where-Object { $_ -ne '' }) -join "`n"
 }
 

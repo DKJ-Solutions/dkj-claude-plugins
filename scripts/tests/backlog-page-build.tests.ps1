@@ -61,6 +61,55 @@ Assert-Equal 'plain'             (ConvertTo-BacklogHtmlText -Value 'plain')  'pl
 Assert-Equal ''                  (ConvertTo-BacklogHtmlText -Value '')      'an empty string stays empty'
 
 Write-Host ''
+Write-Host 'ConvertTo-BacklogVisibleText -- the invisible characters an Asana task can carry (#2025)' -ForegroundColor Cyan
+
+# Pure ASCII source (repo convention for .ps1), so every code point under test is CONSTRUCTED. The
+# helpers keep the cases readable and keep the literal out of the file.
+function Get-CodePoint { param([int]$CodePoint) if ($CodePoint -gt 0xFFFF) { [char]::ConvertFromUtf32($CodePoint) } else { [string][char]$CodePoint } }
+function Get-Stripped { param([string]$Value) ConvertTo-BacklogVisibleText -Value $Value }
+
+# THE DECEPTIVE SET -- each opens a scope that reorders what follows, or shows nothing at all.
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x202E)b") 'U+202E RIGHT-TO-LEFT OVERRIDE is stripped -- the Trojan-Source character'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x202A)b") 'U+202A LEFT-TO-RIGHT EMBEDDING too -- an embedding opens a scope just as an override does'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x2066)b") 'U+2066 LEFT-TO-RIGHT ISOLATE too -- unterminated, it runs to the end of the text'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x2069)b") 'and U+2069 POP DIRECTIONAL ISOLATE, so a lone terminator cannot close a scope this page never opened'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x200B)b") 'U+200B ZERO WIDTH SPACE is stripped'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0xFEFF)b") 'U+FEFF ZERO WIDTH NO-BREAK SPACE is stripped'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x0007)b") 'a C0 control is stripped'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x009B)b") 'and a C1 control is stripped -- the range an ASCII-only class never reached'
+
+# THE TWO GAPS IN [\p{Cc}\p{Cf}] ON THIS RUNTIME, which is why this function reads the Unicode table
+# per code point instead of typing that class the way the three console libs do. Both were measured
+# under Windows PowerShell 5.1 while #2025 was repaired; both are SILENT -- the regex matches, strips
+# less than it reads as, and reports nothing. These two asserts are the whole reason for the loop, so
+# they pin the gaps themselves, not only this function's answer to them.
+Assert-True (-not ([regex]::IsMatch((Get-CodePoint 0x00AD), '[\p{Cc}\p{Cf}]'))) 'GAP 1: the regex engine does NOT match U+00AD -- its category tables predate Unicode 4.0 and still call SOFT HYPHEN Pd'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x00AD)b") '...and this function strips it anyway, reading the category from [CharUnicodeInfo] instead'
+Assert-True (-not ([regex]::IsMatch((Get-CodePoint 0xE0074), '[\p{Cc}\p{Cf}]'))) 'GAP 2: nor any format character above the BMP -- a .NET character class matches ONE UTF-16 unit and those are surrogate pairs'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0xE0074)b") '...and a U+E0020..U+E007F TAG character -- the invisible-text channel -- is stripped too, one space per code point, not per surrogate'
+Assert-Equal 'a b' (Get-Stripped "a$(Get-CodePoint 0x1D173)b") '...as is U+1D173 MUSICAL SYMBOL BEGIN BEAM, the same gap one plane over'
+
+# THE KEEP-SET -- eight code points, and the reason the answer here is not Format-ForConsole's.
+Assert-Equal "a$(Get-CodePoint 0x200C)b" (Get-Stripped "a$(Get-CodePoint 0x200C)b") 'U+200C ZWNJ is KEPT -- it shapes words in Persian and the Indic scripts'
+Assert-Equal "a$(Get-CodePoint 0x200D)b" (Get-Stripped "a$(Get-CodePoint 0x200D)b") 'U+200D ZWJ is KEPT -- the same, plus every joined emoji sequence'
+Assert-Equal "a$(Get-CodePoint 0x200E)b" (Get-Stripped "a$(Get-CodePoint 0x200E)b") 'U+200E LRM is KEPT -- a MARK nudges one neutral character and cannot open a scope'
+Assert-Equal "a$(Get-CodePoint 0x200F)b" (Get-Stripped "a$(Get-CodePoint 0x200F)b") 'U+200F RLM is KEPT, for the same reason'
+Assert-Equal "a$(Get-CodePoint 0x061C)b" (Get-Stripped "a$(Get-CodePoint 0x061C)b") 'U+061C ALM is KEPT, for the same reason'
+Assert-Equal "a`tb`r`nc"     (Get-Stripped "a`tb`r`nc")      'tab, CR and LF are KEPT -- Format-BacklogEntryHtml splits paragraphs and writes <br> on them'
+
+# A visible character is never touched, whatever script it is in -- the property the keep-set exists
+# to protect. Hebrew aleph, an Arabic letter and an emoji, all constructed rather than typed.
+$hebrew = "$(Get-CodePoint 0x05D0)$(Get-CodePoint 0x05D1)"
+Assert-Equal $hebrew (Get-Stripped $hebrew) 'right-to-left LETTERS are untouched -- the strip removes scopes, never script'
+Assert-Equal (Get-CodePoint 0x1F600) (Get-Stripped (Get-CodePoint 0x1F600)) 'and a non-format character above the BMP survives its surrogate pair intact'
+
+Assert-Equal '' (Get-Stripped '') 'an empty string stays empty rather than erroring on index 0'
+Assert-Equal ' ' (Get-Stripped (Get-CodePoint 0x202E)) 'a string that is nothing BUT a stripped character becomes a space, not an empty string'
+
+# The chokepoint: the strip reaches text through ConvertTo-BacklogHtmlText, so every caller gets it.
+Assert-Equal 'x &lt;b&gt;' (ConvertTo-BacklogHtmlText -Value "x$(Get-CodePoint 0x202E)<b>") 'the escape path strips AND escapes -- one chokepoint for the title, the notes and the repo label'
+
+Write-Host ''
 Write-Host 'Get-IssuePrioRank -- the priority axis read for ORDER ONLY (#1686 keeps it disjoint from reach)' -ForegroundColor Cyan
 
 Assert-Equal 0 (Get-IssuePrioRank -Labels @())                        'no labels at all is rank 0'
@@ -87,16 +136,24 @@ Write-Host ''
 Write-Host 'Format-BacklogEntryHtml -- one entry, blank-line paragraphs, escaped throughout' -ForegroundColor Cyan
 
 $frag = Format-BacklogEntryHtml -Title 'A <b> title' -Notes "First para.`n`nSecond para,`nwrapped."
-Assert-True ($frag -match '<h2>A &lt;b&gt; title</h2>')      'the title is escaped, never raw markup'
-Assert-True ($frag -match '<p>First para\.</p>')              'a blank line starts a new paragraph'
-Assert-True ($frag -match '<p>Second para,<br>wrapped\.</p>') 'a single line break inside a paragraph becomes <br>, not a new paragraph'
+Assert-True ($frag -match '<h2 dir="auto">A &lt;b&gt; title</h2>')      'the title is escaped, never raw markup'
+Assert-True ($frag -match '<p dir="auto">First para\.</p>')              'a blank line starts a new paragraph'
+Assert-True ($frag -match '<p dir="auto">Second para,<br>wrapped\.</p>') 'a single line break inside a paragraph becomes <br>, not a new paragraph'
 
 $noNotes = Format-BacklogEntryHtml -Title 'Bare title' -Notes ''
-Assert-True ($noNotes -match '<h2>Bare title</h2>')  'a title with no notes still renders'
-Assert-True ($noNotes -notmatch '<p>')                'and renders no empty <p> -- nothing invented for a task with no notes'
+Assert-True ($noNotes -match '<h2 dir="auto">Bare title</h2>')  'a title with no notes still renders'
+Assert-True ($noNotes -notmatch '<p')                 'and renders no empty <p> -- nothing invented for a task with no notes'
 
 $blankOnly = Format-BacklogEntryHtml -Title 'x' -Notes "`n`n   `n`n"
-Assert-True ($blankOnly -notmatch '<p>') 'notes that are only whitespace render no paragraph either'
+Assert-True ($blankOnly -notmatch '<p') 'notes that are only whitespace render no paragraph either'
+
+# #2025's two halves, asserted where they actually land rather than only on the helper above: the
+# strip has to reach BOTH fields, and dir="auto" has to be on both elements that carry Asana text.
+$spoof = Format-BacklogEntryHtml -Title "Title$(Get-CodePoint 0x202E)end" -Notes "Notes$(Get-CodePoint 0x200B)end"
+Assert-True ($spoof -match '<h2 dir="auto">Title end</h2>') 'the TITLE reaches the page stripped'
+Assert-True ($spoof -match '<p dir="auto">Notes end</p>')    'and so do the NOTES -- both fields, not just the one'
+Assert-True ($spoof -notmatch '<h2>')                         'no h2 is written without dir="auto"'
+Assert-True ($spoof -notmatch '<p>')                          'and no p is either -- the isolation is on every element carrying foreign text'
 
 Write-Host ''
 Write-Host 'Get-BacklogPageHtml -- the whole page' -ForegroundColor Cyan
