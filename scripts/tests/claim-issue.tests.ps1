@@ -562,6 +562,159 @@ $capZero = @(Format-ParkedFixReport -Issue 1853 -Findings $many -MaxCommitsPerBr
 Assert-True (@($capZero | Where-Object { $_ -match '^      sha00000' }).Count -eq 1) 'a cap below 1 still shows one example -- a branch with nothing under it says nothing'
 
 Write-Host ''
+Write-Host 'Get-SignificantWords -- tokenizing a title or a branch slug (#2018)' -ForegroundColor Cyan
+
+Assert-True ((@(Get-SignificantWords -Text 'Get-StageFromSectionName / Test-AsanaStageMap') -join ',') -eq 'stage,section,name,test,asana') `
+    'camelCase identifiers split into their own words, in order, deduped -- "get"/"from"/"map" fall out (stop list or MinLength), which is the filters doing their job, not the splitter failing to split'
+Assert-True (@(Get-SignificantWords -Text 'a the for so not so').Count -eq 0) 'short structural words are all on the stop list'
+Assert-True (@(Get-SignificantWords -Text '#2016 issue 1234') -notcontains '2016') 'a pure-digit token is dropped -- the fourth signal already owns issue numbers'
+Assert-True (@(Get-SignificantWords -Text 'cat dog owl').Count -eq 0) 'words below the default MinLength (4) are dropped'
+Assert-True ((@(Get-SignificantWords -Text 'code CODE Code') -join ',') -eq 'code') 'case is folded, and a repeated word appears once'
+Assert-True (@(Get-SignificantWords -Text '').Count -eq 0) 'empty text has no significant words'
+Assert-True (@(Get-SignificantWords -Text '   ').Count -eq 0) 'whitespace-only text has no significant words'
+
+Write-Host ''
+Write-Host 'Get-BranchSlugWords -- the prefix and the issue number are not the subject (#2018)' -ForegroundColor Cyan
+
+Assert-True ((@(Get-BranchSlugWords -Branch 'fix/2016-compound-stage-code') -join ',') -eq 'compound,stage,code') `
+    'the type prefix and the leading issue number are stripped before tokenizing'
+Assert-True ((@(Get-BranchSlugWords -Branch 'fix/asana-stage-letter-codes') -join ',') -eq 'asana,stage,letter,codes') `
+    'a branch with no leading number tokenizes the whole slug'
+Assert-True (@(Get-BranchSlugWords -Branch '').Count -eq 0) 'an empty branch name has no words'
+
+Write-Host ''
+Write-Host 'Get-TitleOverlapBranches -- the fifth pickup signal itself (#2018)' -ForegroundColor Cyan
+
+$title2016 = "Get-StageFromSectionName / Test-AsanaStageMap can't handle a compound stage code, so a board that groups columns under one Workload-style number silently breaks"
+$candidateBranches = @('fix/2016-compound-stage-code', 'fix/asana-stage-letter-codes', 'docs/2012-ticket-work-step-reach', 'fix/1830-git-identity-skip-vs-ok')
+
+# THE MEASURED CASE ITSELF: the branch #2018 was filed about, found by name alone.
+$overlaps2016 = @(Get-TitleOverlapBranches -Title $title2016 -Branches $candidateBranches)
+Assert-True (@($overlaps2016 | Where-Object { $_.Branch -eq 'fix/asana-stage-letter-codes' }).Count -eq 1) `
+    'the no-number branch #2018 was filed about is found by its shared words alone'
+$asanaHit = $overlaps2016 | Where-Object { $_.Branch -eq 'fix/asana-stage-letter-codes' }
+Assert-True ((@($asanaHit.SharedWords) -join ',') -eq 'asana,stage') 'and the shared words are the ones a reader would recognise'
+Assert-True (@($overlaps2016 | Where-Object { $_.Branch -eq 'docs/2012-ticket-work-step-reach' }).Count -eq 0) `
+    'an unrelated branch is not reported'
+$overlapBranchNames = @($overlaps2016 | Select-Object -ExpandProperty Branch)
+Assert-True (($overlapBranchNames -join ',') -eq (($overlapBranchNames | Sort-Object) -join ',')) `
+    'results come out sorted by branch name, so two runs print the same order'
+
+Assert-True (@(Get-TitleOverlapBranches -Title '' -Branches $candidateBranches).Count -eq 0) 'a title with no significant words matches nothing'
+Assert-True (@(Get-TitleOverlapBranches -Title $title2016 -Branches @()).Count -eq 0) 'no branches to compare against is an empty result, not an error'
+Assert-True (@(Get-TitleOverlapBranches -Title $title2016 -Branches @($null, '', '  ')).Count -eq 0) 'blank branch entries are skipped rather than crashing the scan'
+
+# THE FLOOR: below 1 is treated as 1, the same defensive floor Format-ParkedFixReport's own
+# -MaxCommitsPerBranch applies, so a caller cannot silently disable the threshold to 0.
+$flooredNames = @(Get-TitleOverlapBranches -Title $title2016 -Branches $candidateBranches -MinSharedWords 0 | Select-Object -ExpandProperty Branch | Sort-Object)
+$unflooredNames = @(Get-TitleOverlapBranches -Title $title2016 -Branches $candidateBranches -MinSharedWords 1 | Select-Object -ExpandProperty Branch | Sort-Object)
+Assert-True (($flooredNames -join ',') -eq ($unflooredNames -join ',')) 'MinSharedWords below 1 behaves exactly as 1'
+
+Write-Host ''
+Write-Host 'The measurement behind the default: the corpus Get-SignificantWords is documented against (#2018)' -ForegroundColor Cyan
+
+# THIS IS THE MEASUREMENT ITSELF, PINNED, not merely cited in the doc comment above the function.
+# 21 branches off this repo's own trunk at the time #2018 was picked up, matched against the 21 issue
+# titles behind them (fix/asana-stage-letter-codes carries #2016's REPAIR but not #2016's NUMBER, which
+# is the whole reason it is in this corpus at all). A change to Get-SignificantWords or
+# Get-TitleOverlapBranches that moves these counts must update this test AND the doc comment above
+# Get-SignificantWords together, or the two go stale in different directions.
+# PLAIN HASHTABLES, NOT [ordered] -- System.Collections.Specialized.OrderedDictionary carries a
+# POSITIONAL int indexer alongside its key indexer, and an integer key ($corpusTitles[2016]) resolves
+# to the wrong one silently ($null, not a throw): measured here while writing this very test. Order
+# does not matter to what these two tables assert, so the plain [hashtable] sidesteps the trap rather
+# than working around it with quoted string keys.
+$corpusTitles = @{
+    1830 = 'git-identity-sessioncheck reports agreement on a machine with no git identity, because it branches on the exit code rather than the verdict'
+    1842 = 'Unify the priority axis on prio-1..prio-4 in the BWJ repos too (Dave reverses half 1 of #1686)'
+    1848 = 'Retire $script:LegacyPrioLabels once both BWJ stores are migrated -- four generic words a daily issues:write job strips'
+    1857 = 'No suite ever EXECUTES a plugin-mirror copy of a shared script -- only the source copy, with the drift lint standing in for the rest'
+    1858 = 'Format-ForConsole strips only the ASCII control range, so a bidi override in a title or a branch name still reaches the terminal'
+    1865 = 'fixture-lib-deps scans only *.tests.ps1, so the shared lint fixture builder the four integrity suites use is invisible to it'
+    1870 = "The reach label goes portable: every dkj-policy consumer carries 'minor', the tier model applied to issues"
+    1890 = "Updating a checkout's plugins is 1 + N commands per machine, and the CLI has no --all"
+    1895 = "dkj-policy ships no label ADOPTER: the prio set is prose in one family's page, and apply-vs-print is undecided"
+    1916 = 'open-pr and ship-pr report a 5xx on a MUTATION as a hard failure, while claim-issue documents the opposite doctrine for exactly that case'
+    1931 = 'An absent exit code reads as a measured failure at ~270 comparison sites -- ExitCodeUnknown is reported but nothing consults it'
+    1973 = 'Run parallel sessions with worktrees'
+    1976 = 'dkj-policy-bwj: THEME-LIFECYCLE-portable.md claims both BWJ stores answer Get-ShopifyThemeDeleteMarker; smartwatchbanden deliberately does not'
+    1980 = 'dkj-policy: a committed artifact SOURCE records no published URL, so the next session republishes it as a NEW artifact and silently orphans its database'
+    1988 = "update-plugins.ps1 fails on Windows: Invoke-NativeCapture's -Utf8/Start-Process arm resolves 'claude' to npm's extensionless POSIX shim"
+    1990 = 'SPECIALISTS.md still says dkj-policy-bwj has no real work here, after the gate admitted this repo'
+    2012 = "dkj-policy-bwj: 'ticket-work step' description still says BWJ's two Shopify store repos in three more docs"
+    2014 = "dkj-policy-bwj: plugins/dkj-policy/README.md:98 still says 'three chapters' and 'Two skills'"
+    2016 = $title2016
+    2017 = 'dkj-policy-bwj: the seam list still says three seams in three documents, and the chapter-four count in one more'
+    2018 = "claim-issue's parked-fix scan matches on the ISSUE NUMBER, so a branch named for the subject is invisible -- measured as a full duplicate implementation"
+}
+$corpusBranches = @{
+    1830 = 'fix/1830-git-identity-skip-vs-ok'
+    1842 = 'feat/1842-unify-prio-labels-bwj'
+    1848 = 'fix/1848-retire-legacy-prio-labels'
+    1857 = 'feat/1857-mirror-depth-gate'
+    1858 = 'fix/1858-bidi-console-strip'
+    1865 = 'fix/1865-fixture-dep-scan-set'
+    1870 = 'feat/1870-reach-label-portable'
+    1890 = 'feat/1890-update-plugins'
+    1895 = 'feat/1895-triage-label-adopter'
+    1916 = 'fix/1916-gh-mutation-5xx-not-hard-fail'
+    1931 = 'fix/1931-exit-code-unknown-audit'
+    1973 = 'docs/1973-native-worktree-note'
+    1976 = 'docs/1976-theme-lifecycle-delete-marker-claim'
+    1980 = 'docs/1980-artifact-source-url-record'
+    1988 = 'fix/1988-native-capture-utf8-claude-shim'
+    1990 = 'docs/1990-bwj-plugin-no-work-stale'
+    2012 = 'docs/2012-ticket-work-step-reach'
+    2014 = 'docs/2014-bwj-chapter-skill-counts'
+    2016 = 'fix/2016-compound-stage-code'
+    2017 = 'docs/2017-bwj-four-seams'
+    2018 = 'fix/2018-parked-fix-scan-title-overlap'
+}
+$corpusAllBranches = @($corpusBranches.Values) + 'fix/asana-stage-letter-codes'
+
+function Measure-CorpusOverlap {
+    param([int]$MinSharedWords)
+    $self = 0; $target = 0; $noise = 0
+    foreach ($key in $corpusTitles.Keys) {
+        foreach ($o in @(Get-TitleOverlapBranches -Title $corpusTitles[$key] -Branches $corpusAllBranches -MinSharedWords $MinSharedWords)) {
+            if ($o.Branch -eq $corpusBranches[$key]) { $self++ }
+            elseif ($key -eq 2016 -and $o.Branch -eq 'fix/asana-stage-letter-codes') { $target++ }
+            else { $noise++ }
+        }
+    }
+    return [pscustomobject]@{ Self = $self; Target = $target; Noise = $noise }
+}
+
+$m1 = Measure-CorpusOverlap -MinSharedWords 1
+$m2 = Measure-CorpusOverlap -MinSharedWords 2
+$m3 = Measure-CorpusOverlap -MinSharedWords 3
+Assert-True ($m1.Self -eq 19 -and $m1.Target -eq 1 -and $m1.Noise -eq 27) 'at threshold 1: 19 self-hits, the target hit, and 27 unrelated cross-hits -- too noisy'
+Assert-True ($m2.Self -eq 14 -and $m2.Target -eq 1 -and $m2.Noise -eq 3) 'at threshold 2 (the default): 14 self-hits, the target hit, and only 3 -- each a genuinely related pair'
+Assert-True ($m3.Self -eq 7 -and $m3.Target -eq 0 -and $m3.Noise -eq 0) 'at threshold 3: silent, and it misses the very branch #2018 was filed about'
+
+Write-Host ''
+Write-Host 'Format-TitleOverlapReport -- the fifth signal is worded weaker than the fourth (#2018)' -ForegroundColor Cyan
+
+Assert-True (@(Format-TitleOverlapReport -Issue 2016 -Title $title2016 -Overlaps @()).Count -eq 0) 'no overlaps means no lines at all'
+
+$oneOverlap = @([pscustomobject]@{ Branch = 'fix/asana-stage-letter-codes'; SharedWords = @('asana', 'stage') })
+$overlapReport = @(Format-TitleOverlapReport -Issue 2016 -Title $title2016 -Overlaps $oneOverlap)
+Assert-True ($overlapReport[0] -match '1 branch off the trunk') 'the lead line counts in the singular for one branch'
+Assert-True (@($overlapReport | Where-Object { $_ -match 'fix/asana-stage-letter-codes\s+--\s+shares: asana, stage' }).Count -eq 1) 'the branch and its shared words are printed together'
+Assert-True (@($overlapReport | Where-Object { $_ -match 'NOT YOURS' }).Count -eq 0) `
+    'the fifth signal never borrows the fourth signal''s stronger verdict wording'
+Assert-True (@($overlapReport | Where-Object { $_ -match 'ASK THEM BEFORE YOU WRITE ANYTHING' }).Count -eq 0) `
+    'nor its imperative -- a shared word is weaker evidence than a number, not stronger (#2018)'
+Assert-True (@($overlapReport | Where-Object { $_ -match 'is not a matched number' }).Count -eq 1) 'the hedge says plainly that this is not the fourth signal'
+
+$twoOverlaps = @(
+    [pscustomobject]@{ Branch = 'fix/2016-compound-stage-code'; SharedWords = @('code', 'compound', 'stage') },
+    [pscustomobject]@{ Branch = 'fix/asana-stage-letter-codes'; SharedWords = @('asana', 'stage') }
+)
+$twoReport = @(Format-TitleOverlapReport -Issue 2016 -Title $title2016 -Overlaps $twoOverlaps)
+Assert-True ($twoReport[0] -match '2 branches off the trunk') 'the lead line counts in the plural for more than one'
+
+Write-Host ''
 Write-Host 'The parked-fix scan inside claim-issue.ps1 (#1853)' -ForegroundColor Cyan
 
 # The block a suite can hold: everything between its own heading and the verdict switch it sits above.

@@ -225,6 +225,12 @@ $assignees = @(Get-AssigneeLogins -Json $viewJson)
 
 $title = Format-ForConsole -Text ([string]$facts.title)
 
+# THE FIFTH PICKUP SIGNAL'S INPUT (issue #2018), READ HERE WHILE $facts IS STILL IN HAND. Whether
+# there is anything worth comparing branch names against is known before any network call below, so a
+# title with no significant words (rare, but Get-SignificantWords -MinLength floors it) skips that
+# whole scan rather than fetching and listing branches for nothing.
+$titleWords = @(Get-SignificantWords -Text ([string]$facts.title))
+
 Write-Host "  #$($facts.number)  $($facts.state)  $title"
 if ($assignees.Count -gt 0) { Write-Host "  assignees: $($assignees -join ', ')" }
 
@@ -276,7 +282,7 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
     $excludeBranches = @($trunkBranch, "origin/$trunkBranch")
     if ($currentBranch -and $currentBranch -ne 'HEAD') { $excludeBranches += @($currentBranch, "origin/$currentBranch") }
 
-    if ($scanPattern -and $trunkRefs.Count -gt 0) {
+    if ($trunkRefs.Count -gt 0 -and ($scanPattern -or $titleWords.Count -gt 0)) {
         # THE FETCH IS THE ONLY NETWORK CALL THIS SCRIPT MAKES TO git, and it is the cost #1853 weighed
         # this check against. It is `fetch --quiet` rather than `--all`: one remote's default refspec is
         # what the scan reads, and a checkout with three remotes should not pay for two of them here.
@@ -318,73 +324,95 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
         # shape a parked branch always has (a 'park:' scaffold) reads as empty: measured September 11,
         # 2026, a session read exactly such a commit, found nothing in it, and built a second
         # implementation of #1874 while its author's PR was minutes from opening.
-        $logArgs = @('-C', $repoRoot, 'log', '--all', '-E', "--grep=$scanPattern", '--format=%H%x1f%an%x1f%at%x1f%s', '--not') + $trunkRefs
-        $scanLog = Invoke-NativeCapture -FilePath 'git' -Arguments $logArgs -Utf8 -DiscardStderr
-        if (-not $scanLog -or $scanLog.ExitCode -ne 0 -or $scanLog.ShortRead) {
-            $why = if (-not $scanLog) { 'it could not be run at all' } elseif ($scanLog.ShortRead) { 'its capture was still being written when it was read' } else { "it exited $($scanLog.ExitCode)" }
-            Write-Host "  [parked-fix scan skipped] git log for #$number was not readable -- $why." -ForegroundColor DarkGray
-        } else {
-            # THE CONTAINMENT LOOP IS BOUNDED, and the display cap in Format-ParkedFixReport does NOT
-            # bound it -- that one trims what is printed, after every commit has already paid for its own
-            # ancestry walk. Measured here on the review pass: `git branch -a --contains` costs ~30ms and
-            # a realistic parked branch matches 0-4 commits, so the ordinary run spends under 120ms; the
-            # worst case is a branch whose every subject carries the number (the convention is
-            # `fix(1853): ...`), which one issue in this repo's history reaches at 21.
-            #
-            # INVERTING THE LOOP WAS CONSIDERED AND DECLINED. Asking each branch which of ITS commits
-            # match -- one `git log <branch>` per branch -- is O(branches) instead of O(matches), and this
-            # repo carries 19 branches off the trunk against a handful of matches, so it makes the
-            # ordinary run four times slower to make the rare one faster. The ceiling costs nothing in
-            # the ordinary run and is what the rare one actually needs.
-            #
-            # NEWEST FIRST, because that is git log's own order and the newest commits are the ones whose
-            # branches are still live. The overflow is stated rather than swallowed -- a truncation a
-            # reader cannot see is the defect this whole check exists to remove, one layer in.
-            $maxContainmentReads = 25
-            $scanMatches = @(ConvertFrom-CommitScanLog -Text ((@($scanLog.Output) -join "`n")))
-            $resolved = @($scanMatches | Select-Object -First $maxContainmentReads)
-            if ($scanMatches.Count -gt $resolved.Count) {
-                Write-Host "  [parked-fix scan] $($scanMatches.Count) commits name #$number off the trunk; the newest $($resolved.Count) were resolved to a branch." -ForegroundColor DarkGray
+        if ($scanPattern) {
+            $logArgs = @('-C', $repoRoot, 'log', '--all', '-E', "--grep=$scanPattern", '--format=%H%x1f%an%x1f%at%x1f%s', '--not') + $trunkRefs
+            $scanLog = Invoke-NativeCapture -FilePath 'git' -Arguments $logArgs -Utf8 -DiscardStderr
+            if (-not $scanLog -or $scanLog.ExitCode -ne 0 -or $scanLog.ShortRead) {
+                $why = if (-not $scanLog) { 'it could not be run at all' } elseif ($scanLog.ShortRead) { 'its capture was still being written when it was read' } else { "it exited $($scanLog.ExitCode)" }
+                Write-Host "  [parked-fix scan skipped] git log for #$number was not readable -- $why." -ForegroundColor DarkGray
+            } else {
+                # THE CONTAINMENT LOOP IS BOUNDED, and the display cap in Format-ParkedFixReport does NOT
+                # bound it -- that one trims what is printed, after every commit has already paid for its own
+                # ancestry walk. Measured here on the review pass: `git branch -a --contains` costs ~30ms and
+                # a realistic parked branch matches 0-4 commits, so the ordinary run spends under 120ms; the
+                # worst case is a branch whose every subject carries the number (the convention is
+                # `fix(1853): ...`), which one issue in this repo's history reaches at 21.
+                #
+                # INVERTING THE LOOP WAS CONSIDERED AND DECLINED. Asking each branch which of ITS commits
+                # match -- one `git log <branch>` per branch -- is O(branches) instead of O(matches), and this
+                # repo carries 19 branches off the trunk against a handful of matches, so it makes the
+                # ordinary run four times slower to make the rare one faster. The ceiling costs nothing in
+                # the ordinary run and is what the rare one actually needs.
+                #
+                # NEWEST FIRST, because that is git log's own order and the newest commits are the ones whose
+                # branches are still live. The overflow is stated rather than swallowed -- a truncation a
+                # reader cannot see is the defect this whole check exists to remove, one layer in.
+                $maxContainmentReads = 25
+                $scanMatches = @(ConvertFrom-CommitScanLog -Text ((@($scanLog.Output) -join "`n")))
+                $resolved = @($scanMatches | Select-Object -First $maxContainmentReads)
+                if ($scanMatches.Count -gt $resolved.Count) {
+                    Write-Host "  [parked-fix scan] $($scanMatches.Count) commits name #$number off the trunk; the newest $($resolved.Count) were resolved to a branch." -ForegroundColor DarkGray
+                }
+                $findings = @()
+                foreach ($commit in $resolved) {
+                    $contains = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'branch', '-a', '--contains', $commit.Sha) -Utf8 -DiscardStderr
+                    if (-not $contains -or $contains.ExitCode -ne 0) { continue }
+                    $branches = @(Get-ContainingBranchNames -Text ((@($contains.Output) -join "`n")) -Exclude $excludeBranches)
+                    if ($branches.Count -eq 0) { continue }
+                    # THE BRANCH NAME IS UNTRUSTED TEXT TOO, and it was the half that got printed raw. A
+                    # subject and a ref name come from the same place -- anyone who can push -- so both go
+                    # through the same filter, AFTER the exclusion above, which must compare the ref as git
+                    # spells it. git's own check-ref-format already refuses the C0 range in a ref, so this
+                    # strips nothing in practice today; it is here so that the one sanitiser this output has
+                    # covers every field of it, rather than leaving a second class of pushed text as the
+                    # exception a later widening would have to remember.
+                    # THE AUTHOR NAME IS THE THIRD FIELD OF PUSHED TEXT, so it goes through the same filter
+                    # as the other two. It is written by whoever made the commit -- git config user.name is
+                    # free text -- and #1878 put it on a line a session reads before deciding whether to
+                    # stop, which is exactly the position the sanitiser exists for.
+                    $findings += [pscustomobject]@{
+                        Sha         = $commit.Sha
+                        Author      = (Format-ForConsole -Text $commit.Author)
+                        AuthorEpoch = $commit.AuthorEpoch
+                        Subject     = (Format-ForConsole -Text $commit.Subject)
+                        Branches    = @($branches | ForEach-Object { Format-ForConsole -Text $_ })
+                    }
+                }
+
+                # WHOSE COMMITS COUNT AS THIS CHECKOUT'S OWN. The git name first, because %an is what the
+                # scan read and the git name is what this checkout would have written; the claiming login
+                # second, so a split checkout (#1315) recognises itself under either. Test-SelfAuthored
+                # treats an empty list as 'no verdict', which is the honest answer on a checkout with no
+                # user.name configured.
+                $selfNames = @($identity.GitUserName, $identity.Account)
+                $parkedReport = @(Format-ParkedFixReport -Issue ([int]$number) -Findings $findings -SelfNames $selfNames)
+                foreach ($line in $parkedReport) {
+                    Write-Host "  $line" -ForegroundColor Yellow
+                }
+                # ASKED AGAIN RATHER THAN SCRAPED BACK OUT OF THE LINES ABOVE -- the closing verdict of this
+                # script has to agree with the block, and a regex over printed prose is how those two drift.
+                if (Get-ForeignParkedCommit -Findings $findings -SelfNames $selfNames) { $foreignParked = $true }
             }
-            $findings = @()
-            foreach ($commit in $resolved) {
-                $contains = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'branch', '-a', '--contains', $commit.Sha) -Utf8 -DiscardStderr
-                if (-not $contains -or $contains.ExitCode -ne 0) { continue }
-                $branches = @(Get-ContainingBranchNames -Text ((@($contains.Output) -join "`n")) -Exclude $excludeBranches)
-                if ($branches.Count -eq 0) { continue }
-                # THE BRANCH NAME IS UNTRUSTED TEXT TOO, and it was the half that got printed raw. A
-                # subject and a ref name come from the same place -- anyone who can push -- so both go
-                # through the same filter, AFTER the exclusion above, which must compare the ref as git
-                # spells it. git's own check-ref-format already refuses the C0 range in a ref, so this
-                # strips nothing in practice today; it is here so that the one sanitiser this output has
-                # covers every field of it, rather than leaving a second class of pushed text as the
-                # exception a later widening would have to remember.
-                # THE AUTHOR NAME IS THE THIRD FIELD OF PUSHED TEXT, so it goes through the same filter
-                # as the other two. It is written by whoever made the commit -- git config user.name is
-                # free text -- and #1878 put it on a line a session reads before deciding whether to
-                # stop, which is exactly the position the sanitiser exists for.
-                $findings += [pscustomobject]@{
-                    Sha         = $commit.Sha
-                    Author      = (Format-ForConsole -Text $commit.Author)
-                    AuthorEpoch = $commit.AuthorEpoch
-                    Subject     = (Format-ForConsole -Text $commit.Subject)
-                    Branches    = @($branches | ForEach-Object { Format-ForConsole -Text $_ })
+        }
+
+        # THE FIFTH SIGNAL (#2018): EVERY BRANCH OFF THE TRUNK, MATCHED ON THE ISSUE'S TITLE, NOT ITS
+        # NUMBER. This runs whether or not the number-scan above found anything, and whether or not it
+        # even ran -- a branch named for the subject (see claim-issue-lib.ps1's own section header)
+        # carries no commit the scan above can match, on this claim or any future one, however long the
+        # branch grows. Same fetch as above ($fetch was already attempted), so this costs one more `git
+        # branch -a` and nothing more against the network.
+        if ($titleWords.Count -gt 0) {
+            $allBranchesCapture = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'branch', '-a') -Utf8 -DiscardStderr
+            if (-not $allBranchesCapture -or $allBranchesCapture.ExitCode -ne 0) {
+                Write-Host "  [title-overlap scan skipped] git branch -a was not readable." -ForegroundColor DarkGray
+            } else {
+                $allBranches = @(Get-ContainingBranchNames -Text ((@($allBranchesCapture.Output) -join "`n")) -Exclude $excludeBranches)
+                $overlaps = @(Get-TitleOverlapBranches -Title ([string]$facts.title) -Branches $allBranches)
+                $overlapReport = @(Format-TitleOverlapReport -Issue ([int]$number) -Title ([string]$facts.title) -Overlaps $overlaps)
+                foreach ($line in $overlapReport) {
+                    Write-Host "  $line" -ForegroundColor Yellow
                 }
             }
-
-            # WHOSE COMMITS COUNT AS THIS CHECKOUT'S OWN. The git name first, because %an is what the
-            # scan read and the git name is what this checkout would have written; the claiming login
-            # second, so a split checkout (#1315) recognises itself under either. Test-SelfAuthored
-            # treats an empty list as 'no verdict', which is the honest answer on a checkout with no
-            # user.name configured.
-            $selfNames = @($identity.GitUserName, $identity.Account)
-            $parkedReport = @(Format-ParkedFixReport -Issue ([int]$number) -Findings $findings -SelfNames $selfNames)
-            foreach ($line in $parkedReport) {
-                Write-Host "  $line" -ForegroundColor Yellow
-            }
-            # ASKED AGAIN RATHER THAN SCRAPED BACK OUT OF THE LINES ABOVE -- the closing verdict of this
-            # script has to agree with the block, and a regex over printed prose is how those two drift.
-            if (Get-ForeignParkedCommit -Findings $findings -SelfNames $selfNames) { $foreignParked = $true }
         }
 
         # PRINTED WHETHER OR NOT ANYTHING WAS FOUND, and that is the whole reason it is a separate line:
