@@ -43,7 +43,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 19 minor entries** <!-- pending-tally -->
+**12 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2019-asana-mirror-console-strip · 20260915-091511
+
+`asana-mirror.ps1` -- the CI script this workflow ships to a BWJ store -- printed an Asana task's own
+name, a GitHub project board's status names, and the phrase saying why a card moved (which carries a
+submitter's name off the task's notes) to its log without stripping anything. All of it is free text
+a colleague types through a web UI, needing no push access to any repository, so an ANSI or OSC
+escape run repainted the CI log it landed in and an RTL override or a zero-width run made the line
+read as something other than what it says -- on the one line whose job is to say which card moved
+where. All four sites now go through a `Format-ForConsole` the template carries itself, because it
+ships standalone into a consumer where none of this repo's libs exist.
+
+`new-branch`'s list of the places this workflow prints somebody else's words to a console goes from
+five entries to six, records that the class is now typed in a fourth place outside the libs, and
+gains the rule this branch had to learn twice: **the unit is a value, not a variable that looks like
+the script's own** -- the missed site was guarded by a parameter comment calling it "the script's own
+phrase", which was true of its shape and false of two of its values.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. This repo's audience tier is the consumer running the workflow, and the change is invisible to
+them until a task name actually carries a control character: the CI log reads exactly as before for
+every name that does not. It prevents a failure rather than removing one somebody has hit.
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror strips control and format characters out of the Asana and project-board text it prints
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2026](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2026)
+
+---
 
 ### DEPLOY: fix/2018-parked-fix-scan-title-overlap · 20260915-084249
 
