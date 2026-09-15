@@ -43,7 +43,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**11 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2014-bwj-chapter-skill-counts · 20260915-075445
+
+The `dkj-policy` README's `dkj-policy-bwj` row now states what that plugin actually is: **four**
+chapters rather than three -- the theme lifecycle, added on #1965, was missing from the row entirely --
+and **four** skills rather than two, named. The same sentence also stopped claiming the codex binds
+only BWJ's two Shopify store repos: since `b9b2a65a` the ticket-handling chapter also binds this
+plugin's own source repo, and the row now says the reach differs per chapter.
+
+A reader of this README was being told a plugin has three chapters and two skills while its own
+README, its `plugin.json` and the marketplace manifest all said four and four -- so the one page a
+consumer reaches from the workflow plugin was the page that disagreed with every other.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer deciding whether to enable `dkj-policy-bwj` reads this row and was under-counting what it
+carries -- most consequentially, that a chapter exists which deletes themes from a live store's
+estate. Nothing they run changes; what they know before enabling does.
+
+**Score:** 2
+
+#### Pull Request
+
+the dkj-policy README's bwj row states four chapters and four skills
+
+Plugins: dkj-policy
+
+[PR #2020](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2020)
+
+---
 
 ### DEPLOY: docs/2012-ticket-work-step-reach · 20260915-062857
 
