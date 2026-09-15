@@ -2242,11 +2242,19 @@ function Format-AuthoredText {
         same character class and asserts WHICH libs carry it, guarding the drift instead of designing it
         away. A fourth site appearing is not forbidden; it has to update that assert, this block and
         the new-branch skill page, which is the claim #1612 was filed about.
+
+        #2024 WIDENED THE SHARED CLASS ITSELF, TO Zl/Zp AND Mn/Me. '\p{Cc}\p{Cf}' missed U+2028
+        LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR (category Zl/Zp), either of which can make one
+        printed line read as two -- the same harm '\n' already exists to prevent -- and missed stacking
+        combining marks (Mn/Me, "Zalgo text"), which visually obscure the text around them, the same
+        "the line says something other than what it says" harm the class already covers for RTL
+        overrides and zero-width runs. All three copies of the class widened together, so the DISAGREE
+        rule above still holds.
     #>
     param([string]$Text)
 
     if (-not $Text) { return '' }
-    return ((($Text -replace '[\p{Cc}\p{Cf}]', ' ') -replace ' {2,}', ' ').Trim())
+    return ((($Text -replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' ') -replace ' {2,}', ' ').Trim())
 }
 
 function Get-AuthoredFailureNote {

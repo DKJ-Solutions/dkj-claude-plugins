@@ -42,6 +42,15 @@ function Format-ForConsole {
             missed C1 (U+0080..U+009F), where some terminals read 0x9B as CSI. Both gaps close at once
             now: '\p{Cc}' is C0, DEL and C1, and '\p{Cf}' is the bidi and zero-width class.
 
+            #2024 WIDENED IT AGAIN, TO TWO CLASSES '\p{Cc}\p{Cf}' STILL DID NOT COVER. U+2028 LINE
+            SEPARATOR and U+2029 PARAGRAPH SEPARATOR are category Zl/Zp, not Cc/Cf, and either can make
+            a single printed line read as two -- the same harm '\n' (which IS Cc, and was already
+            stripped) exists to prevent. And a run of stacking combining marks (Mn/Me, "Zalgo text") is
+            not Cc/Cf either, but visually obscures the printable text around it, which is the same
+            "make the line say something other than what it says" harm the class already exists to
+            prevent for RTL overrides and zero-width runs. '\p{Mn}' is non-spacing marks, '\p{Me}' is
+            enclosing marks, '\p{Zl}'/'\p{Zp}' are the two line-breaking space separators.
+
             A SPACE, NOT A RENDERED CODE POINT, WHICH IS THE QUESTION #1858 LEFT OPEN. Rendering
             U+202E as '<U+202E>' keeps more evidence and was weighed: it loses, because the argument
             already in this function decides it. Each character becomes a space rather than vanishing,
@@ -74,7 +83,7 @@ function Format-ForConsole {
     #>
     param([string]$Text)
     if (-not $Text) { return '' }
-    return ($Text -replace '[\p{Cc}\p{Cf}]', ' ')
+    return ($Text -replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' ')
 }
 
 function Get-AssigneeLogins {

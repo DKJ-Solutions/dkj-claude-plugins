@@ -11,10 +11,11 @@
     `fix/evil;touch`, `fix/evil&touch`, `fix/evil|touch`, `fix/evil$(touch)`, `` fix/evil`touch` `` and
     `fix/it's-fine` (exit 0, measured). What it DOES reject is ASCII control characters (\p{Cc}) and the
     space (exit 128) -- NOT the whole of the ANSI/OSC-repaint class remote-ahead-lib.ps1's sanitiser
-    exists for (#1439, #1446), because that class is `[\p{Cc}\p{Cf}]` and git enforces only the first
-    half. A `\p{Cf}` run is accepted in a ref name and is a live display hazard; see the scope note at
-    the foot of this block. What THIS lib is about is a different hole in the same wall: not display
-    deception, but a command a reader is invited to run.
+    exists for (#1439, #1446), because that class is `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]` (widened
+    from `[\p{Cc}\p{Cf}]` by #2024) and git enforces only a sliver of the first half. A `\p{Cf}` run is
+    accepted in a ref name and is a live display hazard; see the scope note at the foot of this block.
+    What THIS lib is about is a different hole in the same wall: not display deception, but a command
+    a reader is invited to run.
 
     WHY QUOTING IS NOT THE FIX, WHICH IS THE PART WORTH RECORDING. The obvious repair -- wrap the value
     in quotes -- fails in both spellings, and it fails in both shells this workflow's readers actually
@@ -45,9 +46,11 @@
     THE DISPLAY AXIS, AND WHY IT IS A SECOND FUNCTION RATHER THAN A WIDER ALLOWLIST. `'$branch'` quoted
     inside a prose sentence ("this checkout is still on 'x;y'") is not a command, and the shell
     metacharacters this lib refuses are inert there. THAT IS NOT THE SAME AS SAFE (#1617). The deceptive
-    class is `[\p{Cc}\p{Cf}]` and `git check-ref-format` enforces only the `\p{Cc}` half, so a ref
-    carrying a `\p{Cf}` character is accepted, creatable and checkout-able, and `git rev-parse
-    --abbrev-ref HEAD` hands it back verbatim. Measured, September 8, 2026, `--branch` exit codes:
+    class is `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]` (#2024 widened it past `[\p{Cc}\p{Cf}]`, to also
+    catch U+2028/U+2029 and stacking combining marks) and `git check-ref-format` enforces only the
+    `\p{Cc}` half, so a ref carrying a `\p{Cf}` character is accepted, creatable and checkout-able, and
+    `git rev-parse --abbrev-ref HEAD` hands it back verbatim. Measured, September 8, 2026, `--branch`
+    exit codes:
     U+202E RIGHT-TO-LEFT OVERRIDE 0, U+200D ZERO WIDTH JOINER 0, U+200B ZERO WIDTH SPACE 0, U+2066
     LEFT-TO-RIGHT ISOLATE 0 -- against 128 for BEL and ESC. Those first two are the exact code points
     #1446 was filed for, where they bypassed the #1439 tip sanitiser, which is why
@@ -218,11 +221,17 @@ function Get-DisplayRef {
 
         THE SAME CALL THIS REPO ALREADY MADE FOR A COMMIT SUBJECT, at #1439 and #1446, now stated once:
         remote-ahead-lib.ps1 carried the second copy of this pattern until #1623 and reads it from here.
+
+        #2024 WIDENED THE CLASS to also strip U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR
+        (Zl/Zp -- neither is Cc or Cf, and either can make one printed line read as two, the same harm
+        '\n' already exists to prevent) and stacking combining marks (Mn/Me, "Zalgo text" -- not Cc/Cf
+        either, and visually obscures the printable text around it, the same deception this class
+        already guards against for RTL overrides and zero-width runs).
     #>
     param([AllowEmptyString()][AllowNull()][string]$Ref)
 
     if ([string]::IsNullOrEmpty($Ref)) { return '' }
-    return ((($Ref -replace '[\p{Cc}\p{Cf}]', ' ') -replace ' {2,}', ' ').Trim())
+    return ((($Ref -replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' ') -replace ' {2,}', ' ').Trim())
 }
 
 function Get-DisplayPath {
@@ -257,7 +266,7 @@ function Get-DisplayPath {
     param([AllowEmptyString()][AllowNull()][string]$Path)
 
     if ([string]::IsNullOrEmpty($Path)) { return '' }
-    $shown = $Path -replace '[\p{Cc}\p{Cf}]', ' '
+    $shown = $Path -replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' '
     if ([string]::IsNullOrWhiteSpace($shown)) { return '(no printable path)' }
     return $shown
 }
@@ -287,8 +296,9 @@ function Get-PasteableRef {
         THE NOTE NAMES THE BRANCH RATHER THAN HIDING IT. A remedy that says only "your branch name is
         unsafe" leaves the reader unable to act at all, which is a worse failure than the one this
         guards: they are standing on that branch and need it in the command. So the name is printed --
-        as prose, where the shell metacharacters are inert, and STRIPPED OF `[\p{Cc}\p{Cf}]` on the way
-        (see the implementation note below) so that it cannot repaint a terminal. The strip is what
+        as prose, where the shell metacharacters are inert, and STRIPPED OF
+        `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]` on the way (see the implementation note below) so that
+        it cannot repaint a terminal. The strip is what
         makes that safe, NOT git's own rules: git rejects only the `\p{Cc}` half and accepts a
         `\p{Cf}` run in a ref name (#1617). Printed with it is what the reader has to do about the
         name, which is quote it for whichever shell they are actually in.

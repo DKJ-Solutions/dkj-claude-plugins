@@ -172,11 +172,21 @@ Assert-True ($t -eq ' title') 'and nothing is trimmed or collapsed: a title is q
 $t = Format-ForConsole -Text 'Ordinary title -- with punctuation! 100% (v2)'
 Assert-True ($t -eq 'Ordinary title -- with punctuation! 100% (v2)') 'printable text survives the widening exactly as written'
 
+# ISSUE #2024. Neither Zl/Zp nor Mn/Me is Cc or Cf, so both survived the class above untouched.
+$t = Format-ForConsole -Text ('one' + [char]0x2028 + 'two')
+Assert-True ($t -eq 'one two') 'a LINE SEPARATOR (U+2028) becomes a space -- it cannot make one printed line read as two'
+
+$t = Format-ForConsole -Text ('one' + [char]0x2029 + 'two')
+Assert-True ($t -eq 'one two') 'a PARAGRAPH SEPARATOR (U+2029) becomes a space, same reasoning'
+
+$t = Format-ForConsole -Text ('e' + [char]0x0301 + [char]0x0301 + [char]0x0301)
+Assert-True ($t -eq 'e   ') 'stacking combining marks (Zalgo text) each become a space rather than piling onto the base character'
+
 # THE DRIFT PIN'S LOCAL HALF. pr-issues.tests.ps1 asserts WHICH libs type this class and that they
 # agree; this asserts there is ONE definition inside this one, the same shape that suite uses for
 # Format-AuthoredText. A second -replace here would be a strip that could drift from its own docstring.
 $libText = [System.IO.File]::ReadAllText($Lib)
-Assert-True ([regex]::Matches($libText, [regex]::Escape("-replace '[\p{Cc}\p{Cf}]', ' '")).Count -eq 1) 'ONE definition inside this lib -- Format-ForConsole, which the title, the commit subjects and the branch names all go through'
+Assert-True ([regex]::Matches($libText, [regex]::Escape("-replace '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]', ' '")).Count -eq 1) 'ONE definition inside this lib -- Format-ForConsole, which the title, the commit subjects and the branch names all go through'
 
 Write-Host ''
 Write-Host 'claim-issue.ps1 -- the properties a suite can hold' -ForegroundColor Cyan

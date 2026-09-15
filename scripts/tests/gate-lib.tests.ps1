@@ -729,7 +729,7 @@ try {
     # repaint or misrepresent the one line that says what stood a gate down.
     $hostile = '[{"name":"lint-en-tests' + [char]0x1B + "[31m" + [char]0x200B + '","bucket":"pass"}]'
     $c18s = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $hostile -CheckName $named
-    Assert-Equal 0 ([regex]::Matches($c18s.Note, '[\p{Cc}\p{Cf}]').Count) 'no control or format character survives into the note'
+    Assert-Equal 0 ([regex]::Matches($c18s.Note, '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]').Count) 'no control, format, line/paragraph separator or combining-mark character survives into the note'
 
     # 19. And the wiring: gate-lib honours the certificate, open-pr computes one, and neither records
     # it as local gate evidence. Shape asserts -- running open-pr for real would run the gate this

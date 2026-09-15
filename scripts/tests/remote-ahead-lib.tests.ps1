@@ -182,7 +182,7 @@ try {
                                   -BranchLabel ('fix/a' + [char]0x202E + [char]0x200D + 'b') `
                                   -FreshLabel "origin/$($p5.Branch)" -StaleLabel 'stale' -Fresh $true
     Assert-True ($note5b -match 'is 1 commit\(s\) behind') 'a hostile branch label is still reported, not refused'
-    Assert-True ($note5b -notmatch '[\p{Cc}\p{Cf}]') 'and no control or format character survives anywhere in the note'
+    Assert-True ($note5b -notmatch '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]') 'and no control, format, line/paragraph separator or combining-mark character survives anywhere in the note'
     Assert-True ($note5b -match [regex]::Escape("'fix/a b'")) 'the label reads as the stripped name, quoted, so the reader can still recognise it'
 
     # --- 6. length cap ---------------------------------------------------------------------------
