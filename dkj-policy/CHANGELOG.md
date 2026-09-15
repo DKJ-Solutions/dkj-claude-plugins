@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 21 minor entries** <!-- pending-tally -->
+**12 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2028-report-issue-asana-preflight-authorization · 20260915-105711
+
+`report-issue`'s Asana preflight asked whether the MCP tools were **available**, and availability is not
+authorization. A connector can be registered, authenticated and answering while bound to a different
+workspace than `Get-AsanaWorkspaceGid` names -- and then the tool list looks healthy and every call
+against the board answers `unauthorized`. Measured on a `smartwatchbanden` checkout, September 15, 2026:
+both registered Asana connectors authenticated, both `Not Authorized` for the project the seam names,
+while the `asana-mirror` CI half drove that same board green over its own `ASANA_PAT`. The preflight
+passed, step 1 filed the issue, and the session found out from a failing `create task` in step 2 --
+inside the branch the preflight exists to get ahead of.
+
+The preflight now **probes the board instead of the tool list**: it reads the project
+`Get-AsanaProjectGid` names, which is the read step 2 already makes for the numbered section and for the
+`Github Type` select field's option GIDs, only made earlier -- so the repair moves a read rather than
+adding one, and its answer carries forward. A missing tool and an `unauthorized` board take one branch:
+file the GitHub issue, then stop. The note that stops has to name the **wrong workspace** as the cause,
+because *available but unauthorized* reads to a session as a connector it broke, whereas the remedy is a
+re-authorization against the workspace the seam names and no session can perform it.
+
+The suite pins the preflight rather than the page, because step 2 names the same seam function and a
+page-wide sweep would stay green with the preflight bullet deleted.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. `dkj-policy-bwj` is tooling for the repos that run the BWJ ticket procedure, and nothing a
+subscriber of a service takes delivery of changes here. The reader this page is written for is a
+colleague inside the business -- the tier-0 audience one hop before the tier-2 one.
+
+**Score:** N/A
+
+#### Pull Request
+
+report-issue's Asana preflight probes the board, not the tool list
+
+Plugins: dkj-policy-bwj
+
+[PR #2029](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2029)
+
+---
 
 ### DEPLOY: fix/2025-backlog-page-invisible-strip · 20260915-094341
 
