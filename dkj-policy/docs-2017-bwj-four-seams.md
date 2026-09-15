@@ -41,17 +41,34 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/dkj-policy/dkj-policy-bwj/README.md` -- "each of the last two was added later" -> "last three", citing inbound #1965 for the theme lifecycle; "extends exactly three seams" -> "four seams", naming what the theme estate owes
+- [x] `plugins/dkj-policy/dkj-policy-bwj/.claude-plugin/plugin.json` -- description's "extends only ... three" clause -> four seams, matching the chapter list stated earlier in the same string
+- [x] `.claude-plugin/marketplace.json` -- `dkj-policy-bwj` entry's description carries the identical fix
 
 ### TEST
 
+- [x] Both edited manifests still parse as JSON (`ConvertFrom-Json`)
+- [~] Full lint + test gate -- run via `open-pr.ps1`, which refuses the push on any error
+
 ### DEPLOY: docs/2017-bwj-four-seams
 
-**Score:**
+Fixes #2017: `dkj-policy-bwj` has had four chapters since inbound #1965 (the theme lifecycle), but
+three documents still said "three seams" / "the last two chapters" -- the plugin's own root
+`README.md`, the two manifest descriptions (`plugin.json` and `marketplace.json`), and the
+`dkj-policy-bwj/README.md` chapter-history sentence. All four now name the theme-lifecycle seam
+(what the theme estate owes at a push and a cut) alongside the other three, and the manifest
+descriptions no longer contradict their own "Four chapters" / `THE THEME LIFECYCLE` text two
+sentences later.
+
+**Score:** 1 -- cosmetic: a stale seam count in prose and manifest descriptions, corrected before it
+misled a consumer into enabling the plugin believing the theme estate was untouched.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- internal documentation and plugin-manifest wording, reaching only this repo's own
+maintainers and a consumer reading `claude plugin details` before enabling.
+
+**Score:** N/A
 
 #### Pull Request
 
