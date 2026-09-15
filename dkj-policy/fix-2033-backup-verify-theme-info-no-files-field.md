@@ -39,19 +39,70 @@
 
 ### PLAN
 
+Inbound #2033: on `@shopify/cli` 4.8.0 (the consumer's current release, measured September 15, 2026)
+`shopify theme info --json` no longer carries a `files` array at any level -- its schema is fixed to
+`id`/`name`/`role`/`shop`/`preview_url`/`editor_url`. `backup-live-theme.ps1`'s `Get-ThemeFileCount`
+read that field exclusively, so it returned -1 for every theme and step 2 (verify) could never pass:
+the live theme's own count read as unknown and the run refused before it ever polled the backup.
+
+Verified against the tree rather than taken on the report's word: `Get-ThemeFileCount` at
+`scripts/task/backup-live-theme.ps1` (mirrored into `plugins/dkj-subagents/dkj-subagents-shopify/`)
+matches the issue's quoted code exactly. Checked whether any other CLI JSON surface still carries a
+count -- it does not: `theme info --json`'s schema (confirmed via the CLI's own JSON-schema PR,
+Shopify/cli#8525) has never had a content field, and `theme list --json` answers only
+`id`/`name`/`role`/`processing` (already documented in this repo's own `05-22-manual.md`), with
+`processing`'s semantics undocumented and not something to guess at for a safety-critical verify
+step. So the count is now taken off a real `theme pull` into a scratch directory, counted off what
+lands on disk -- the same verification the #2033 consumer did by hand, and the exact call shape
+`sync-main.ps1` already uses to mirror the live theme (`Invoke-ShopifyCli -Arguments @('theme',
+'pull', ...)`, not `-Quiet`, since a pull can run for minutes and stop to ask for authentication).
+
+`Get-ThemeFillVerdict` (the polling/settling logic in `theme-lifecycle-rules.ps1`) is untouched --
+only the source of the count changed, so its existing 84 asserts keep covering the correctness point
+that matters (two stable samples AND a match against the source, not stability alone).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ThemeFileCount` in `scripts/task/backup-live-theme.ps1` (the canonical source):
+      replaced the `theme info --json` field read with a `theme pull` into a scratch directory,
+      counted off disk, cleaned up in a `finally`.
+- [x] Updated the script's `.DESCRIPTION`, the `-PollSeconds`/`-TimeoutMinutes` parameter docs, and
+      the in-loop `Write-Host` lines to say a sample is now a real pull and to flag that a large
+      theme may need more headroom than the old, cheaper JSON read did.
+- [x] Ran `scripts/sync/build-shared-scripts.ps1` to regenerate the
+      `plugins/dkj-subagents/dkj-subagents-shopify/` mirror rather than hand-editing both copies.
 
 ### TEST
 
+- [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors (shared-script mirror check included).
+- [x] `scripts/tests/theme-lifecycle-rules.tests.ps1` -- 84 pass, 0 fail (`Get-ThemeFillVerdict`'s
+      contract is unaffected by the count source).
+- [x] `scripts/tests/shared-scripts.tests.ps1` -- 844 asserts, all pass (root/mirror pair still
+      registered and now byte-identical again).
+- [~] `backup-live-theme.ps1` itself is not suite-driven, by design -- its own `.NOTES` state why:
+      every path in it either calls the Shopify CLI against a real store or reads a consumer's
+      `repo-config.ps1`, and a suite must not be able to reach a store. Live verification happens in
+      a consumer, as it already did for this exact mechanism (the #2033 issue's own "Consumer state"
+      section: `BWJ-Development/smartwatchbanden` pulled both themes and compared by hand).
+
 ### DEPLOY: fix/2033-backup-verify-theme-info-no-files-field
 
-**Score:**
+`backup-live-theme.ps1`'s verify step no longer depends on `theme info --json` carrying a `files`
+field, which current Shopify CLI releases (4.8.0+) do not provide. It now confirms a backup theme's
+fill by pulling it and counting files on disk -- heavier than a JSON read, and strictly stronger,
+since it verifies identity rather than trusting a number the CLI reports about itself.
+
+**Score:** 2 -- routine maintenance to one script's internal mechanism; the polling/settling contract
+(`Get-ThemeFillVerdict`) that repo maintainers actually reason about did not change.
 
 #### What makes this deploy extra special
 
-**Score:**
+Before this fix, `backup-live-theme.ps1`'s verify step could never pass on current Shopify CLI
+releases (4.8.0+) -- every run refused at "Could not read the LIVE theme's file count", making the
+release-cut backup step a standing blocker for any consumer on an up-to-date CLI. That is now fixed.
+
+**Score:** 5 -- a long-standing blocker (the verify step could never pass) is now gone for every
+consumer running a current Shopify CLI.
 
 #### Pull Request
 
