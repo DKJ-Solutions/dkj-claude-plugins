@@ -216,13 +216,17 @@ and safe hook construction.
   which arrivals are expendable, because some will be. And verify it the only way that works: read the
   conclusions of the runs the group has actually produced, not the YAML.
 
-## Eleven PowerShell traps that produce well-formed wrong output
+## Twelve PowerShell traps that produce well-formed wrong output
 
-All eleven were measured in this system, not read about, and they share the property that makes them
-expensive: **nothing errors.** The script runs, the output parses, the markdown renders — and it says
-something other than what the author meant. None is caught by a linter, so each is worth an assert.
-Ten are PowerShell's own; the last is the same class one layer out, in the tooling you reach for
-to repair a PowerShell file.
+All twelve were measured in this system, not read about, and eleven share the property that makes
+them expensive: **nothing errors.** The script runs, the output parses, the markdown renders — and it
+says something other than what the author meant. None is caught by a linter, so each is worth an
+assert. Eleven are PowerShell's own; the last is the same class one layer out, in the tooling you
+reach for to repair a PowerShell file. **One of the twelve throws**, and is here on that deviation
+rather than despite it: what is well-formed and wrong there is the *exception's own report*, which
+blames the wrong line and names neither the operator nor the type. It says so in its first line, and
+the title is not widened for a single member — the closing sentence below is the shape that already
+holds all twelve.
 
 - **`[ordered]@{ 2 = '...' }`'s indexer takes a positional index as well as a key.** For an integer the
   positional overload wins, so `$map[2]` returns the **third value**, not the value for key `2`. In a
@@ -328,6 +332,24 @@ to repair a PowerShell file.
   produced the exact evidence that would have killed the check. **Parenthesise any arithmetic inside an
   array literal** — `@($i, ($i + 1))` — and treat a measurement whose result argues against the thing you
   are building as the one most worth re-deriving before you act on it.
+- **`@(...)` on a `List[object]` still held in a variable throws — and this is the one trap here that
+  errors rather than staying quiet.** It earns its place on what the error *says*, not on what the script
+  produces: `@($l)` where `$l` is a `System.Collections.Generic.List[object]` raises a bare
+  `System.ArgumentException` — "Argument types do not match" — naming neither the operator nor the type,
+  and the same operator on a `List[string]` is fine, so the message steers you towards the contents and
+  away from the cast that actually failed. **It also fires one level up, so the line it blames is not the
+  line at fault**: a `[pscustomobject]@{ … Measured = @($l) … }` reports the exception against the *start
+  of the multi-line hashtable literal*, which is where `always-on-budget-lib.ps1`'s first draft died.
+  Measured on Windows PowerShell 5.1 (`5.1.26100.9444`), empty list or not. **Build the array with
+  `.ToArray()`** — `[object[]]$l` works too — as `Get-AlwaysOnMeasurement` does in
+  `scripts/lib/always-on-budget-lib.ps1`, with the regression guard in
+  `scripts/tests/always-on-budget.tests.ps1` that exists because `.ToArray()` reads exactly like
+  something a later tidy-up would "simplify" back to `@(...)`. What makes it a trap rather than a typo is
+  that `@(...)` is the house idiom for *"make it an array"* and every existing caller survives **by
+  accident**: they wrap a list a **function returned**, and a returned list is unrolled to `object[]`
+  before the operator ever sees it (`(Get-L).GetType()` is `System.Object[]`, measured). A list still
+  held in a variable is not unrolled — so in any file that builds one, the collision is one ordinary edit
+  away and has simply not been written yet.
 - **Dot-sourcing a config file makes every `$script:` name it sets a reserved local name — case-insensitively.**
   `. $config` runs that file's assignments in the *calling* script's scope, so a config that sets
   `$script:RepoName` has claimed the name `$repoName` in your script too: PowerShell variable names
@@ -356,7 +378,7 @@ to repair a PowerShell file.
   written line back and check the code points rather than trusting the substitution. No gate can stand in
   for that read-back, because a mangled repair passes an ASCII check by construction.
 
-The general shape behind all eleven, worth carrying to the next one: when a mistake cannot announce
+The general shape behind all twelve, worth carrying to the next one: when a mistake cannot announce
 itself, the assert is the announcement. Prefer a test over a comment for anything in this class.
 
 ## Sylvester is lazy
