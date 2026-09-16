@@ -1,0 +1,49 @@
+# The always-on budget gate: a PR may not grow what every session pays before a single assignment is
+# given -- CLAUDE.md plus everything it '@'-imports (issue #2037).
+#
+# WHY A SECOND WORKFLOW AND NOT A JOB IN ci.yml, the same answer branch-entry.yml gives: ci.yml runs on
+# `push: branches: [main]` too, and on the trunk this check would re-measure a path nobody is changing
+# and re-report a state no PR can act on. The trigger is the difference, and a trigger belongs to a
+# workflow rather than to a job.
+#
+# WHAT IT CATCHES THAT THE LOCAL GATE CANNOT. open-pr.ps1 refuses to push a branch that grows the path,
+# which holds for everybody who uses the scripts. A branch pushed by hand, or a PR opened in the GitHub
+# UI, meets neither -- and this path is the one thing in the repo whose cost is paid by every future
+# session rather than by whoever merged.
+#
+# NO -Record HERE, AND THAT IS DELIBERATE. The ratchet's memory is lowered by the LOCAL gate, inside the
+# branch's own commit, where the change is reviewable. A CI runner that rewrote it would be the one
+# carrier able to move the baseline with nothing in any diff to say so.
+#
+# THE PERSONA TERM IS CARRIED, NOT MEASURED, AND THAT IS WHY THIS RUNNER AGREES WITH THE LOCAL GATE. A
+# runner has no marketplace clone, so the '~/.claude/plugins/marketplaces/...' import does not resolve
+# here -- 30,267 B, 27.7% of this repo's path, which would read as a 30k shrink on every push. The
+# baseline records every document's size by its import target and the check takes the recorded figure
+# for anything it cannot resolve, so both carriers judge the same subject. See always-on-budget-lib.ps1.
+#
+# WINDOWS, LIKE ci.yml AND branch-entry.yml, AND FOR THE SAME REASON: the scripts target Windows
+# PowerShell 5.1, so they run under `shell: powershell` (5.1) rather than pwsh.
+#
+# THIS CHECK IS NOT IN THE main RULESET, deliberately, exactly as branch-entry.yml is not. Making a check
+# REQUIRED is a repo-settings change and therefore Dave's, not a script's -- so this reports on every PR
+# and blocks nothing until he says otherwise.
+name: Always-on budget
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  always-on-budget:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: The always-on document path is inside its budget
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-always-on-budget.ps1
+          exit $LASTEXITCODE

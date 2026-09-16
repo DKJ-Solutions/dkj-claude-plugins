@@ -30,10 +30,17 @@
     answer into scripts/repo-config.ps1 rather than printing it as an instruction. Any repo with notes
     already at the fallback keeps them and is told what to do instead; nothing is ever moved.
 
-    AND TWO FILES OUTSIDE IT (inbound #789; issue #1843):
+    AND THREE FILES OUTSIDE IT (inbound #789; issues #1843, #2037):
 
         .github/workflows/branch-entry.yml   the CI gate that holds every PR to carrying a written
                                              entry, by calling the shipped check-branch-entry.ps1
+        .github/workflows/always-on-budget.yml  the CI gate that holds every PR to not growing the
+                                             always-on document path -- CLAUDE.md plus its '@'-import
+                                             closure, which every session pays before a single
+                                             assignment is given. Beside the entry gate rather than in
+                                             Part 3 because both fire on `pull_request` and gate what is
+                                             about to land, where Part 3's runners repair what a merge
+                                             nobody watched left behind
         .github/pull_request_template.md     the PR body open-pr fills in -- copied from the plugin's
                                              own templates/ reference, because GitHub reads a PR
                                              template only from this path in your repo and so it is
@@ -526,6 +533,78 @@ $entryGateWorkflow = @(
     '          exit $LASTEXITCODE'
 )
 
+# THE SECOND PR GATE THIS COMMAND PLACES (issue #2037): a PR may not grow what every session pays before
+# a single assignment is given -- CLAUDE.md plus everything it '@'-imports.
+#
+# BESIDE branch-entry.yml AND NOT IN PART 3, and that was a correction to the issue's own proposal rather
+# than a preference. #2037 named Part 3, and in the same sentence named branch-entry.yml as the runner it
+# is modelled on -- which is this command's, not adopt-ci-floor's. The split is by TRIGGER and by what the
+# runner is for: these two fire on `pull_request` and gate what is about to land, while Part 3's three
+# repair what a merge the shipping session never observed left behind, on `push` and on a schedule.
+#
+# WHY A CI HALF AT ALL, when open-pr already refuses locally: a branch pushed by hand, or a PR opened in
+# the GitHub UI, meets no local gate. That is the same hole branch-entry.yml exists for, and this path is
+# the one thing in a repo whose cost is paid by every future session rather than by whoever merged.
+#
+# NO -Record, DELIBERATELY. The ratchet's memory is lowered by the LOCAL gate, inside the branch's own
+# commit, where the change is reviewable. A CI runner that rewrote it would be the one carrier able to
+# move the baseline with nothing in any diff to say so.
+#
+# THE PINNED REF is the same moving branch branch-entry.yml above uses, for the reason argued there at
+# length, and the exposure it names applies here identically: this command writes the path once, at
+# adoption, and check-connectors.ps1's check 6 is what notices later if the path moves.
+$alwaysOnGateWorkflow = @(
+    '# The always-on budget: a PR may not grow what every session pays before a single assignment is',
+    '# given -- CLAUDE.md plus everything it ''@''-imports.',
+    '#',
+    '# The check itself is not in this file: it is check-always-on-budget.ps1, shipped by the',
+    '# dkj-policy plugin, which reads the same verdict open-pr reads locally and the session hook',
+    '# reports at start. One definition, three carriers.',
+    '#',
+    '# WHAT THE CEILING IS: answer Get-AlwaysOnBudget in scripts/repo-config.ps1, in BYTES. Unanswered,',
+    '# it is 100,000. A repo already over it is NOT refused on day one -- the gate holds the path at a',
+    '# recorded baseline and refuses growth, so a repo converges on the ceiling instead of failing',
+    '# against it from a standing start.',
+    '#',
+    '# WHY THIS RUNNER AGREES WITH THE LOCAL GATE even though it has no plugin cache: the baseline',
+    '# records every document on the path by its import target, and the check carries the recorded',
+    '# figure for anything it cannot resolve here -- the orchestrator persona most of all, which a',
+    '# runner has no marketplace clone to read.',
+    '#',
+    '# WHY WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what ''shell: powershell'' is.',
+    '#',
+    '# THE PINNED REF is deliberately a moving branch, for the reason branch-entry.yml states.',
+    'name: Always-on budget',
+    '',
+    'permissions:',
+    '  contents: read',
+    '',
+    'on:',
+    '  pull_request:',
+    '    branches: [main]',
+    '',
+    'jobs:',
+    '  always-on-budget:',
+    '    runs-on: windows-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v5',
+    '',
+    '      - name: Fetch the shared workflow scripts',
+    '        uses: actions/checkout@v5',
+    '        with:',
+    '          repository: DKJ-Solutions/dkj-claude-plugins',
+    '          ref: main',
+    '          path: .workflow-scripts',
+    '',
+    '      - name: The always-on document path is inside its budget',
+    '        shell: powershell',
+    '        env:',
+    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
+    '        run: |',
+    '          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-always-on-budget.ps1',
+    '          exit $LASTEXITCODE'
+)
+
 # CHANGELOG.md (issue #885, group A): this folder's own pending-changes list, isolated from any
 # CHANGELOG.md the consumer already keeps at their root -- the workflow never reads or writes that one
 # again. Deliberately GENERIC prose rather than this repo's own evolved intro (which cites this repo's
@@ -644,7 +723,8 @@ if ($prTemplateRef) {
 }
 
 $targets = @(
-    @{ Rel = '.github/workflows/branch-entry.yml'; Content = (($entryGateWorkflow -join $nl) + $nl) }
+    @{ Rel = '.github/workflows/branch-entry.yml';     Content = (($entryGateWorkflow -join $nl) + $nl) },
+    @{ Rel = '.github/workflows/always-on-budget.yml'; Content = (($alwaysOnGateWorkflow -join $nl) + $nl) }
 ) + $prTemplateTargets + @(
     @{ Rel = 'dkj-policy/README.md';           Content = (($folderReadme -join $nl) + $nl) },
     @{ Rel = 'dkj-policy/CONTRIBUTING.md';     Content = (($folderContributing -join $nl) + $nl) },

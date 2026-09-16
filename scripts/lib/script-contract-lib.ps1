@@ -415,6 +415,24 @@ $script:ContractRecords = @(
     # themselves the way this repo already does with itself, and Dave's answer was yes, print-only,
     # in this seam rather than in branch-info.ps1 (see adopt-triage-labels.ps1's own header for the
     # apply-vs-print argument, which restates Get-MissingLabelNote's).
+    # THE ALWAYS-ON CEILING (issue #2037). 'copy', and the test the Adopt axis actually asks makes this
+    # one of the clearest cases in the table: does adopting the source's value ASSERT SOMETHING ABOUT THE
+    # CONSUMER that might be false? A ceiling on what every session pays before a single assignment is
+    # given asserts nothing about what a repo IS -- not its stack, not its branch table, not where its
+    # notes live. It states the shared way of working, which is the 'copy' definition verbatim, and it is
+    # the value Dave asked to hold in ALL consumers rather than in the repo that happens to ship it.
+    #
+    # AND THE NUMBER TRAVELLING IS THE POINT RATHER THAN A SIDE EFFECT. Every measurable consumer was
+    # over it the day this was written -- 199,253 B, 150,202 B, 117,014 B against this repo's 109,385 B --
+    # so a 'decide' record, which ships the source's answer as GUIDANCE and writes a scaffold, would have
+    # left each of them to pick a ceiling while already over whatever they picked. The ratchet is what
+    # makes the shared number safe to place: a repo over it is held to its own history, not to the number,
+    # until it converges.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-AlwaysOnBudget'; Scripts = @('check-always-on-budget', 'open-pr');
+       Adopt = 'copy'; AdoptWhy = "a ceiling on what every session pays before a single assignment is given states the shared WAY OF WORKING, not what any repo IS -- so adopting it asserts nothing about the consumer, which is the 'copy' test exactly. It is also the one value #2037 exists to put in every consumer rather than in the repo that ships it: measurement has been portable since August 2026 and every measurable repo went over 100,000 B anyway";
+       ViaLib = 'always-on-budget-lib';
+       Optional = $true; Default = "the built-in 100,000 bytes in always-on-budget-lib.ps1 -- so an unanswered repo is bounded at the canonical figure rather than unbounded. A non-positive or non-numeric answer falls back to it too: opting out is deliberately not something this seam offers, because a repo that wants more room RAISES the number where the raise can be read";
+       Returns = "the ceiling in BYTES on the always-on document path -- CLAUDE.md plus its whole '@'-import closure, which is the unit that matters: 'wc -c CLAUDE.md' misses the orchestrator persona every consumer imports from the marketplace clone (30,267 B when this was measured). Bytes and not tokens on purpose: no API prices a document, so a token figure would be a calibrated estimate wearing the trousers of a measurement, and a byte is checkable with 'wc -c'" },
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-TriageLabels'; Scripts = @('adopt-triage-labels');
        Adopt = 'copy'; AdoptWhy = "the same reasoning as Get-ReachLabel above, one axis over: 'prio-1' through 'prio-4' are four rungs of urgency that mean the same thing in every repo running this workflow, so adopting them asserts nothing about the consuming repo -- unlike Get-BranchInfo, whose three prefixes ARE a fact about THIS repo (a release lands directly on its trunk here) and would impose that fact on a consumer if copied. Refusing to share the four rungs would leave every consumer reinventing four names and four colours on their own, which is the 'prose in one family's page' #1895 was filed about";
        Optional = $true; Default = "the same four labels, built into adopt-triage-labels.ps1 as its own fallback -- a consumer who has never answered this seam is already told the canonical set rather than a degraded one";

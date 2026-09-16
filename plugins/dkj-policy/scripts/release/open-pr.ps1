@@ -1459,6 +1459,80 @@ if (-not $existingPr) {
     }
 }
 
+# --- Always-on budget gate: this branch may not grow what every session pays (issue #2037) --------
+#
+# THE FINDING IT COMES OFF. The always-on document path -- CLAUDE.md plus everything it '@'-imports --
+# is paid by every session before a single assignment is given, and measure-always-on.ps1 has reported
+# its size since August 2026 without ever reaching a verdict about it (deliberately, issue #861). Every
+# measurable repo running this workflow went over 100,000 B anyway, the source repo included and
+# smallest of the four. MEASUREMENT WITHOUT A BOUND DOES NOT HOLD A LINE, so this is the bound -- and it
+# still judges no block of prose, only one total.
+#
+# HERE RATHER THAN IN THE LINT GATE, and it is not a preference. Get-LintScript names a file that exists
+# only in the repo that states it -- "every consumer has its own lint" -- so a check added there would
+# reach exactly one repo. This script is shared and mirrored into the plugin, so a gate placed here is
+# the same gate in every consumer, which is the whole ask.
+#
+# ABOVE THE DOCUMENT COMMIT, DELIBERATELY, because the ratchet WRITES. A branch that shrinks the path
+# lowers the recorded baseline, and that lowering has to land in the branch's own commit or the next
+# run reads it as growth -- so the write happens here and the block below commits it along with the
+# branch's document, under the same named pathspec.
+#
+# -Record IS PASSED AND THE OTHER TWO CARRIERS NEVER PASS IT. CI and the SessionStart hook read the same
+# verdict and write nothing: a read-only carrier that rewrote the ratchet's own memory would be the one
+# thing able to raise it without anybody saying so.
+#
+# Start-Process AND NOT `& powershell`, on the reasoning gate-lib.ps1 records at length for the lint
+# gate: the bare call operator is safe at the top level of this script and the habit is not, so the form
+# that stays correct when a block is later moved into a function is the one used.
+#
+# GUARDED ON THE SCRIPT EXISTING, because a consumer running a plugin mirror built before this check
+# shipped has no such file, and a missing gate must degrade to the behaviour that preceded it rather
+# than refusing a PR for the absence of a rule nobody has yet been given.
+$alwaysOnBaselineRel = ''
+$alwaysOnCheck = Join-Path $PSScriptRoot '..\lint\check-always-on-budget.ps1'
+if (Test-Path -LiteralPath $alwaysOnCheck -PathType Leaf) {
+    $alwaysOnRun = Start-Process -FilePath 'powershell' `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $alwaysOnCheck + '"'), '-Record') `
+        -NoNewWindow -Wait -PassThru -WorkingDirectory $repoRoot
+    if ($alwaysOnRun.ExitCode -ne 0) {
+        if ($Force) {
+            Write-Warning "always-on budget gate: this branch grows the always-on document path past its limit, but -Force was given -- every session will pay it."
+        } else {
+            Write-Error @"
+always-on budget gate: this branch takes the always-on document path past its limit - nothing pushed, no PR opened.
+
+The gate's own output above says by how much, against which number, and where the weight can go instead.
+That path is read by EVERY session in this repo before any assignment is given, which is why it is bounded
+here rather than noticed later.
+
+Two honest ways on, and neither is this flag:
+  - move the weight (the four classes the gate lists), then run again;
+  - or, where the path is genuinely bigger now, raise the baseline on the record with a reason:
+      check-always-on-budget.ps1 -Raise -Reason "<why>"
+    and commit that file with this branch, so the raise is reviewed with the change that needed it.
+
+-Force pushes anyway. It is the right answer only for a gate that is wrong about this repo.
+"@
+            exit 1
+        }
+    }
+    # NAMED FOR THE COMMIT BELOW WHETHER OR NOT THIS RUN WROTE IT. Asking the gate what it did would mean
+    # a second channel between two processes; `git status` on the path answers the same question with no
+    # channel at all, and answers it correctly for a baseline the author edited by hand as well.
+    #
+    # THE PATH IS ASKED FOR, NEVER SPELLED OUT, for the reason the fold's own bound gives: the workflow
+    # folder has renamed once already, and a literal here would go stale in the one place a stale answer
+    # means the ratchet's write is silently left out of the commit. The lib is dot-sourced HERE rather
+    # than at the top of this script because this is its only use, and guarded because an older plugin
+    # mirror does not carry it.
+    $alwaysOnLib = Join-Path $PSScriptRoot '..\lib\always-on-budget-lib.ps1'
+    if (Test-Path -LiteralPath $alwaysOnLib -PathType Leaf) {
+        . $alwaysOnLib
+        $alwaysOnBaselineRel = ((Get-AlwaysOnBaselinePath -RepoRoot $repoRoot).Substring($repoRoot.Length).TrimStart('\', '/'))
+    }
+}
+
 # --- The document commit: the branch carries the document this PR describes (issue #1269) ---------
 #
 # THE DEFECT, MEASURED ON PR #1267 (September 3, 2026). Every reader of the branch's development
@@ -1487,13 +1561,22 @@ if (-not $existingPr) {
 # never `git add -A`. `git commit -- <paths>` commits those paths only, so anything else the author had
 # staged for their own next commit stays staged.
 #
+# THE BOUND GREW BY ONE PATH ON SEPTEMBER 16, 2026 (issue #2037), and that is stated rather than left to
+# be discovered from the code: the always-on baseline joins the branch's documents here. It is the same
+# KIND of thing -- branch-owned bookkeeping this script is the documented owner of publishing -- and it
+# has the same reason for riding along rather than being refused over: the gate above lowers it when a
+# branch shrinks the always-on path, and a lowering left out of the commit reads as growth on the next
+# run, which would refuse the branch that did the right thing. It is still a NAMED path, still resolved
+# rather than spelled out, and still nothing else.
+#
 # ABOVE Invoke-WorkflowGates, DELIBERATELY. Committing first is what makes that function's dirty-tree
 # warning honest: after this block a remaining dirty count is real unpublished work, not the document
 # the gates just read. The cheap gates all sit above here, so a run this script was going to refuse
 # anyway makes no commit.
 $docRels = @()
 foreach ($cand in @((Resolve-BranchFilePath -Kind Cycle -RepoRoot $repoRoot),
-                    $entryPath.Substring($repoRoot.Length).TrimStart('\', '/'))) {
+                    $entryPath.Substring($repoRoot.Length).TrimStart('\', '/'),
+                    $alwaysOnBaselineRel)) {
     # Forward slashes, because these go to git; and only what exists, because Invoke-GitParkCommit's
     # own pathspec filter is the second half of the same rule. $entryPath may still be a legacy root
     # <SafeName>.md on a branch cut before the split, which is why it is asked for by variable rather
