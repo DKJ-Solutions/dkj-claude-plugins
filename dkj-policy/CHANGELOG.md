@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 28 minor entries** <!-- pending-tally -->
+**18 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2040-list-object-array-trap · 20260916-114430
+
+Sylvester's trap list gains a twelfth member: `@(...)` on a `List[object]` still held in a variable
+throws `ArgumentException` — naming neither the operator nor the type, and blaming the start of the
+enclosing hashtable literal rather than the line at fault. No live defect anywhere in the tree; every
+existing caller survives by accident, because it wraps a list a *function returned* and a returned list
+is unrolled to `object[]` before the operator sees it. The row names `.ToArray()` as the repair and
+points at the worked example and the regression guard that already carry it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's developer reaches this manual through the plugin, and the trap is one ordinary edit away in
+any repo that builds a `List[object]` — the house `@(...)` idiom is what walks them into it. Documented,
+it is a lookup; undocumented, it is a bisection against an exception that points at the wrong line.
+
+**Score:** 1
+
+#### Pull Request
+
+A twelfth PowerShell trap: the array-subexpression operator throws on a List[object]
+
+Plugins: dkj-subagents-alpha
+
+[PR #2041](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2041)
+
+---
 
 ### DEPLOY: feat/2037-always-on-budget · 20260916-110747
 
