@@ -68,6 +68,10 @@ there before the member arrived.
       the `sed` trap stays last and the intro's *"the last is … one layer out"* clause stays true.
 - [x] Update the three counts the section carries — heading, intro and closing sentence — and add the
       intro's exception clause for the member that throws.
+- [x] Repoint the one anchor link that cited the old heading slug — `.claude/rules/language-layers.md`
+      links into this section by `#eleven-…`. Found by the lint gate's dead-link check rather than by
+      reading, which is the argument for running it before the PR: the heading rename is invisible at
+      the edit site and the citation sits three directories away.
 - [~] Carry the issue's *"9 files under `scripts/`"* count into the row — dropped. Measured here it is
       already **10**, because #2037's own `always-on-budget-lib.ps1` landed between the filing and this
       branch. A count that moves in two days does not belong in a **portable** manual that ships to
