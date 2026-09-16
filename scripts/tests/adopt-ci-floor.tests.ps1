@@ -861,6 +861,23 @@ try {
     $unsafeSkeleton = [System.IO.File]::ReadAllText((Join-Path $unsafeDir '.github\workflows\ci.yml'))
     Assert-True ($unsafeSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
         'an unsafe declared check name (a literal double quote) is refused rather than interpolated, falling back to ''ci'''
+
+    # 9g. A literal backslash is refused the same way (Sebastian's security review on #1843: 9f alone
+    #     only proved the '"' half of Test-QuotedScalarSafe's two-character check).
+    $backslashDir = New-FixtureConsumerNoCI -Label 'unsafe-backslash' -CiTestCheckName 'build\release'
+    Invoke-Adopt -Dir $backslashDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $backslashSkeleton = [System.IO.File]::ReadAllText((Join-Path $backslashDir '.github\workflows\ci.yml'))
+    Assert-True ($backslashSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
+        'an unsafe declared check name (a literal backslash) is refused too, falling back to ''ci'''
+
+    # 9h. An embedded control character (here, a bare newline) is refused via the Get-DisplayRef
+    #     round-trip -- the half of Test-QuotedScalarSafe that would otherwise let a declared name inject
+    #     an extra line into the generated YAML rather than merely widen one quoted scalar.
+    $controlDir = New-FixtureConsumerNoCI -Label 'unsafe-control' -CiTestCheckName "build`nrelease"
+    Invoke-Adopt -Dir $controlDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $controlSkeleton = [System.IO.File]::ReadAllText((Join-Path $controlDir '.github\workflows\ci.yml'))
+    Assert-True ($controlSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
+        'an unsafe declared check name (an embedded newline) is refused too, falling back to ''ci'''
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

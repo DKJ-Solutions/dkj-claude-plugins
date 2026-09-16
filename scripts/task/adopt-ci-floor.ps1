@@ -380,15 +380,29 @@ $ciSkeletonOffered = $noPrWorkflowAtAll -and -not (Test-Path -LiteralPath $ciSke
 # 'decide' record open-pr's own local-gate-skip logic reads (issue #1715). A consumer who has already
 # declared it gets a skeleton whose check IS the one open-pr is already looking for, rather than a
 # second name to reconcile by hand. Undeclared or empty falls back to the bare job key 'ci'.
-function Test-YamlScalarSafe {
+#
+# HOISTED TO SCRIPT SCOPE, SHARED WITH SECTION 1's RULESET ADVICE (Victor and Sebastian's review on
+# #1843). A YAML double-quoted scalar and a JSON string literal forbid exactly the same two characters
+# ('"' and '\', either of which would break out of the literal) and are vulnerable to exactly the same
+# console-repainting class of control/format character -- so one predicate serves both sites rather
+# than two copies under two names that a reader has to trust are kept in sync by hand. Section 1's own
+# call site (Get-DirectPushBlockingRules' auto-fill, below) is the one this function was pulled out of;
+# it needed no change beyond the name, because the two were already checking the same thing.
+function Test-QuotedScalarSafe {
     <#
-        Value -- a declared check name about to become a YAML double-quoted scalar (a job's `name:`
-        field), built by string concatenation rather than a YAML emitter. Returns $true when it may be
-        used as-is: no '"' or '\' (would break out of the double-quoted scalar), and clean under
-        Get-DisplayRef (single line, no control/format character that would repaint the console when
-        this template is Write-Host'd for the dry-run report). Same posture as Test-JsonContextSafe
-        further down -- refuse rather than escape -- applied to a YAML scalar instead of a JSON one: a
-        hand-rolled escaper for either is the fourth-copy risk ref-print-lib.ps1 exists to avoid.
+        Value -- text about to be interpolated, unescaped, into a hand-laid double-quoted scalar: a
+        YAML job `name:` field (this skeleton's own use) or a JSON string literal inside a PowerShell
+        here-string (section 1's ruleset-advice use, issue #1972). Returns $true when it may be used
+        as-is. Two things are checked, because only two things can go wrong at either site:
+          - '"' or '\' would break out of the literal (both forms escape both characters, and nothing
+            here re-implements either escaper);
+          - a \p{Cc}/\p{Cf}/\p{Zl}/\p{Zp}/\p{Mn}/\p{Me} character would repaint the console when the
+            template carrying this value is Write-Host'd -- the same hazard Get-DisplayRef exists for,
+            checked here via that same function rather than by retyping its pattern.
+        REFUSE, DO NOT ESCAPE: a hand-rolled escaper for either literal shape is the fourth-copy risk
+        ref-print-lib.ps1 exists to avoid, and getting one wrong is a payload that corrupts the
+        generated YAML or JSON while the surrounding prose still says "paste it as-is" or "already
+        filled in".
     #>
     param([AllowEmptyString()][AllowNull()][string]$Value)
     if ([string]::IsNullOrEmpty($Value)) { return $false }
@@ -398,7 +412,7 @@ function Test-YamlScalarSafe {
 
 $ciSkeletonDeclaredName = if (Test-FunctionDefined 'Get-CiTestCheckName') { [string](Get-CiTestCheckName) } else { '' }
 $ciSkeletonJobKey = 'ci'
-$ciSkeletonCheckName = if (Test-YamlScalarSafe -Value $ciSkeletonDeclaredName) { $ciSkeletonDeclaredName } else { $ciSkeletonJobKey }
+$ciSkeletonCheckName = if (Test-QuotedScalarSafe -Value $ciSkeletonDeclaredName) { $ciSkeletonDeclaredName } else { $ciSkeletonJobKey }
 
 $ciSkeletonRunner = @(
     '# A minimal CI workflow, scaffolded because nothing in this repo triggered on pull_request at all',
@@ -922,51 +936,25 @@ if (-not $queueReadable) {
     # ('Lint and tests', 'build (ubuntu-latest)') and the check context GitHub reports for such a job
     # IS that name, spaces included -- so judging it against the ref allowlist refused the common case
     # outright and printed a FALSE reason for doing so ("not safe to paste") about a value a JSON string
-    # swallows without complaint. Test-JsonContextSafe below is the narrower, correct predicate: it does
+    # swallows without complaint. Test-QuotedScalarSafe (defined once, at script scope, above -- shared
+    # with the CI skeleton's own job-name check, issue #1843) is the narrower, correct predicate: it does
     # NOT widen $script:RefPasteSafePattern to admit a space (that lib's own header already names that
     # repair wrong for the neighbouring case, #1762 -- a wider ref allowlist would also admit a space into
     # a value that DOES reach a shell line elsewhere in this workflow) and it does not retype
-    # '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]' as a fourth copy of that pattern (Get-DisplayRef below
-    # already owns the one definition; pr-issues.tests.ps1 pins the three files allowed to carry it as
-    # literal text).
-    function Test-JsonContextSafe {
-        <#
-            Value -- a job id or job NAME about to be interpolated, unescaped, into a hand-laid JSON
-            string literal that is itself printed inside a PowerShell here-string.
-
-            Returns $true when the value may be dropped into that JSON string as-is. Three things are
-            checked, and only three, because only three things can actually go wrong at this site:
-              - '"' or '\' would break out of the JSON string this value sits inside (JSON escapes both
-                and nothing here re-implements a JSON string escaper);
-              - a \p{Cc}/\p{Cf}/\p{Zl}/\p{Zp}/\p{Mn}/\p{Me} character would repaint the console when the
-                JSON BLOCK ITSELF is Write-Host'd -- the same hazard Get-DisplayRef exists for, checked
-                here via that same function rather than by retyping its pattern.
-            A NEWLINE IS NOT CHECKED HERE BECAUSE IT CANNOT ARRIVE: Get-WorkflowFacts' own capture for a
-            job `name:` is anchored on '[^\r\n]*$', so this value is already single-line by construction
-            -- which is what keeps it from ever closing the surrounding here-string early (that closes
-            only on a line that STARTS with `'@`, and a value with no newline cannot start a line).
-            A space, a parenthesis, a colon and every other JSON-inert character are deliberately let
-            through: refusing them would be this predicate re-inventing Test-RefPasteSafe's shell-line
-            caution for a value that never reaches a shell line.
-        #>
-        param([AllowEmptyString()][AllowNull()][string]$Value)
-
-        if ([string]::IsNullOrEmpty($Value)) { return $false }
-        if ($Value.IndexOfAny([char[]]@('"', '\')) -ge 0) { return $false }
-        # Get-DisplayRef strips '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]' (and only that), then collapses/trims. A value with
-        # none of those characters and no leading/trailing/doubled whitespace comes back byte-identical;
-        # anything else is either a format/control character or whitespace shaped oddly enough to be
-        # worth a human's eyes rather than a silent auto-fill, so either way this is the right test.
-        return ((Get-DisplayRef -Ref $Value) -ceq $Value)
-    }
+    # '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]' as a fourth copy of that pattern (Get-DisplayRef already
+    # owns the one definition; pr-issues.tests.ps1 pins the three files allowed to carry it as literal
+    # text). A NEWLINE NEVER REACHES IT HERE: Get-WorkflowFacts' own capture for a job `name:` is
+    # anchored on '[^\r\n]*$', so a job id or name is already single-line by construction before it ever
+    # reaches this predicate -- which is what keeps it from closing the surrounding here-string early
+    # (that closes only on a line that STARTS with `'@`).
 
     $prJobIds = @($workflows | Where-Object { $_.OnPullRequest } | ForEach-Object { $_.JobIds } | Sort-Object -Unique)
     $autoFillContext = $null
-    if ($prJobIds.Count -eq 1 -and (Test-JsonContextSafe -Value $prJobIds[0])) { $autoFillContext = $prJobIds[0] }
+    if ($prJobIds.Count -eq 1 -and (Test-QuotedScalarSafe -Value $prJobIds[0])) { $autoFillContext = $prJobIds[0] }
     # NO REAL CANDIDATE, BUT THE SKELETON ABOUT TO BE PLACED HAS ONE (issue #1843): its check name was
-    # already proven YAML-scalar-safe above (Test-YamlScalarSafe), which is a stricter bar than
-    # Test-JsonContextSafe demands here, so it needs no second proof. This is the one case where the
-    # auto-fill answers for a file that does not exist on disk yet -- correct, because section 2 below
+    # already proven safe above via the same Test-QuotedScalarSafe call the CI skeleton's own job name
+    # uses, so it needs no second proof here. This is the one case where the auto-fill answers for a
+    # file that does not exist on disk yet -- correct, because section 2 below
     # places it with exactly this name, in the same run that printed this advice.
     $autoFillFromSkeleton = $false
     if (-not $autoFillContext -and $ciSkeletonOffered) { $autoFillContext = $ciSkeletonCheckName; $autoFillFromSkeleton = $true }

@@ -69,6 +69,11 @@ on pull_request had nothing for that call to name -- only a placeholder.
 
 - [x] `scripts/task/adopt-ci-floor.ps1` (+ plugin mirror): the CI-skeleton target, its offer
       condition, its job-name resolution, and section 1's auto-fill from it.
+- [x] `Test-YamlScalarSafe` and section 1's `Test-JsonContextSafe` merged into one script-scoped
+      `Test-QuotedScalarSafe` (Victor's review on #1843): a YAML double-quoted scalar and a JSON
+      string literal forbid exactly the same two characters and are vulnerable to the same
+      console-repainting class, so one predicate serves both sites instead of two copies a reader
+      has to trust are kept in sync by hand.
 - [x] `scripts/lib/script-contract-lib.ps1` (+ plugin mirror): `Get-CiTestCheckName`'s record now
       names `adopt-ci-floor` alongside `open-pr`.
 - [x] `plugins/dkj-policy/blueprint/config-blueprint.json` regenerated to match the contract change.
@@ -77,11 +82,14 @@ on pull_request had nothing for that call to name -- only a placeholder.
 
 ### TEST
 
-- [x] 19 new asserts in `scripts/tests/adopt-ci-floor.tests.ps1` (section 9): dry-run report and
+- [x] 21 new asserts in `scripts/tests/adopt-ci-floor.tests.ps1` (section 9): dry-run report and
       auto-fill, `-Apply` placement (both triggers, least-privilege, no credential, placeholder
       step), never overwriting a consumer's edit, never offered/created when any pull_request
       workflow already exists under any name, the `Get-CiTestCheckName` seam driving the job name,
-      and an unsafe declared name falling back rather than being interpolated.
+      and an unsafe declared name falling back rather than being interpolated -- the double quote
+      (9f), the backslash (9g) and an embedded control character (9h) each checked separately
+      (Sebastian's security review on #1843: 9f alone only proved one half of the two-character
+      check).
 - [x] Full existing `adopt-ci-floor.tests.ps1` suite (144 prior asserts) still green -- every
       existing fixture already carries a pull_request workflow, so the new arm is correctly inert
       there.
