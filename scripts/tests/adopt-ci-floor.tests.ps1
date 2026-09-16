@@ -42,7 +42,17 @@
          placeholder like ~DEFAULT_BRANCH, the one free choice (which check) is filled in automatically
          when exactly one pull_request job exists in the tree and left as a placeholder plus a
          candidate list otherwise, and the additive-ruleset caveat is present so a reader is not
-         surprised into pasting this over an existing ruleset.
+         surprised into pasting this over an existing ruleset;
+      9. THE CI SKELETON (#1843), the fourth thing this script can place and the only one that is
+         conditional on more than its own file's absence: offered only when NOTHING in the tree
+         triggers on pull_request at all, never merely because .github/workflows/ci.yml itself is
+         missing -- a repo running CI under any other name must not be handed a second, empty
+         workflow. Covered: it is offered and named in the dry-run report (and the ruleset advice
+         auto-fills from it instead of the usual placeholder); -Apply places it with both triggers, a
+         placeholder step, no credential and an unpinned checkout; a re-run never overwrites a
+         consumer's edit; a repo that already runs CI under any name is never offered or given one;
+         its job's check name follows the Get-CiTestCheckName seam when declared; and an unsafe
+         declared name is refused rather than interpolated into the YAML as-is.
 
     THE RULES PAYLOAD ARRIVES FROM A FIXTURE FILE, via -RulesJsonOverride. It is the only way to reach
     the queue-is-active arm at all: a test tree is not a checkout, has no remote, and CI has no token
@@ -143,6 +153,32 @@ function New-FixtureConsumer {
         $manifest = '{ "name": "fixture", "plugins": [ { "name": "dkj-policy", "source": "./x" } ] }'
         New-Item -ItemType Directory -Path (Join-Path $root '.claude-plugin') -Force | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $root '.claude-plugin\marketplace.json'), $manifest)
+    }
+    return $root
+}
+
+function New-FixtureConsumerNoCI {
+    <#
+        A consumer with NO workflow at all -- the state the CI skeleton (issue #1843) exists for: an
+        empty .github/workflows, nothing triggering on pull_request. -CiTestCheckName declares the
+        Get-CiTestCheckName seam, so the skeleton's own job name can be proven to read it rather than
+        always falling back to the bare job key.
+    #>
+    param(
+        [string]$Label,
+        [string]$Trunk = '',
+        [string]$CiTestCheckName = ''
+    )
+    $root = Join-Path $Fixture "consumer-noci-$Label"
+    if (Test-Path -LiteralPath $root) { Remove-Item -Recurse -Force -LiteralPath $root }
+    New-Item -ItemType Directory -Path (Join-Path $root '.github\workflows') -Force | Out-Null
+
+    if ($Trunk -or $CiTestCheckName) {
+        New-Item -ItemType Directory -Path (Join-Path $root 'scripts') -Force | Out-Null
+        $seamLines = @()
+        if ($Trunk) { $seamLines += "function Get-TrunkBranchName { '$Trunk' }" }
+        if ($CiTestCheckName) { $seamLines += "function Get-CiTestCheckName { '$CiTestCheckName' }" }
+        [System.IO.File]::WriteAllText((Join-Path $root 'scripts\repo-config.ps1'), (($seamLines -join "`n") + "`n"))
     }
     return $root
 }
@@ -753,6 +789,95 @@ try {
     foreach ($f in $ExpectedRunners) {
         Assert-True (-not (Test-Path -LiteralPath (Join-Path $dir $f))) "and nothing was written ($f)"
     }
+
+    # --- 9. The CI skeleton, for a consumer with no pull_request workflow at all (issue #1843) --------
+    Write-Host '-- 9. the CI skeleton: offered only when nothing triggers on pull_request at all --' -ForegroundColor Cyan
+
+    # 9a. Dry run: reported, nothing written, and the ruleset advice auto-fills from the skeleton's own
+    #     (not-yet-existing) check name rather than leaving the usual placeholder.
+    $noCiDir = New-FixtureConsumerNoCI -Label 'dry'
+    $rNoCi = Invoke-Adopt -Dir $noCiDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rNoCi.Flat -like '*NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL*') `
+        'a repo with no PR-triggering workflow at all is told the skeleton will be offered'
+    Assert-True ($rNoCi.Flat -like '*ci.yml*') 'and named by its path'
+    Assert-True (-not ($rNoCi.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*')) `
+        'the ruleset advice auto-fills from the skeleton instead of falling back to the placeholder'
+    Assert-True ($rNoCi.Flat -like "*'ci'*") "and names the skeleton's default job key 'ci' as the check"
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $noCiDir '.github\workflows\ci.yml'))) `
+        'the dry run still writes nothing'
+
+    # 9b. -Apply places it: pull_request AND merge_group, contents: read only, an unpinned checkout, and
+    #     no credential -- the same hygiene the repo-settings runner is held to.
+    $noCiApplyDir = New-FixtureConsumerNoCI -Label 'apply'
+    Invoke-Adopt -Dir $noCiApplyDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $ciSkeletonPath = Join-Path $noCiApplyDir '.github\workflows\ci.yml'
+    Assert-True (Test-Path -LiteralPath $ciSkeletonPath) '-Apply placed .github/workflows/ci.yml'
+    $ciSkeleton = [System.IO.File]::ReadAllText($ciSkeletonPath)
+    Assert-True ($ciSkeleton -match '(?m)^\s+pull_request:\s*$') 'it triggers on pull_request'
+    Assert-True ($ciSkeleton -match '(?m)^\s+merge_group:\s*$') `
+        'and on merge_group too, even with no queue -- inert today, an outage to add later otherwise (#1325)'
+    Assert-True ($ciSkeleton -match '(?m)^\s*contents:\s*read\s*$') 'least privilege: it only reads'
+    Assert-True (Test-NoLeakedCredential $ciSkeleton) 'it borrows no standing credential and no write scope'
+    Assert-True ($ciSkeleton -match '(?m)^\s+-\s+uses:\s+actions/checkout@v5\s*$') `
+        'its checkout is unpinned, like repo-settings.yml -- this job never holds a credential worth pinning'
+    Assert-True ($ciSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
+        "with no Get-CiTestCheckName seam declared, the job's check name falls back to the bare key 'ci'"
+    Assert-True ($ciSkeleton -like '*TODO*') 'the one step is a clearly marked placeholder, not a real check'
+
+    # 9c. Left exactly as it is on a re-run -- strictly additive, same as every other target here.
+    [System.IO.File]::WriteAllText($ciSkeletonPath, "# edited by the consumer`n" + $ciSkeleton)
+    Invoke-Adopt -Dir $noCiApplyDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    Assert-True (([System.IO.File]::ReadAllText($ciSkeletonPath)) -like '*edited by the consumer*') `
+        're-running -Apply never overwrites a ci.yml the consumer has already edited'
+
+    # 9d. Never offered when the tree already has a real pull_request workflow, whatever it is named --
+    #     the fixture every other section in this suite already uses (New-FixtureConsumer's own ci.yml,
+    #     job 'lint-en-tests') is exactly that case, and its ci.yml is left untouched by -Apply --
+    #     proving this isn't merely "the file already exists" but "something already triggers".
+    $hasCiDir = New-FixtureConsumer -Label 'has-ci-already'
+    $rHasCi = Invoke-Adopt -Dir $hasCiDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True (-not ($rHasCi.Flat -like '*NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL*')) `
+        'a repo that already runs a pull_request workflow under any name is never offered a second, empty one'
+    Invoke-Adopt -Dir $hasCiDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $untouchedCi = [System.IO.File]::ReadAllText((Join-Path $hasCiDir '.github\workflows\ci.yml'))
+    Assert-True ($untouchedCi -like '*lint-en-tests*') 'its existing ci.yml is left exactly as it was'
+    Assert-True (-not ($untouchedCi -like '*TODO (issue #1843 template)*')) `
+        'and -Apply never overwrites it with the skeleton'
+
+    # 9e. The job's check name follows the Get-CiTestCheckName seam when the repo has declared one --
+    #     the same seam open-pr's own local-gate-skip logic reads (#1715) -- so the two never need
+    #     reconciling by hand.
+    $namedDir = New-FixtureConsumerNoCI -Label 'named' -CiTestCheckName 'build-and-test'
+    Invoke-Adopt -Dir $namedDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $namedSkeleton = [System.IO.File]::ReadAllText((Join-Path $namedDir '.github\workflows\ci.yml'))
+    Assert-True ($namedSkeleton -match '(?m)^\s+name:\s+"build-and-test"\s*$') `
+        'a declared Get-CiTestCheckName names the skeleton''s job, rather than the bare key'
+
+    # 9f. An unsafe declared name (would break the YAML double-quoted scalar) falls back to the bare key
+    #     rather than being interpolated as-is -- refuse, do not escape, the same posture #1972 already
+    #     settled for the JSON case.
+    $unsafeDir = New-FixtureConsumerNoCI -Label 'unsafe-name' -CiTestCheckName 'build "release"'
+    Invoke-Adopt -Dir $unsafeDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $unsafeSkeleton = [System.IO.File]::ReadAllText((Join-Path $unsafeDir '.github\workflows\ci.yml'))
+    Assert-True ($unsafeSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
+        'an unsafe declared check name (a literal double quote) is refused rather than interpolated, falling back to ''ci'''
+
+    # 9g. A literal backslash is refused the same way (Sebastian's security review on #1843: 9f alone
+    #     only proved the '"' half of Test-QuotedScalarSafe's two-character check).
+    $backslashDir = New-FixtureConsumerNoCI -Label 'unsafe-backslash' -CiTestCheckName 'build\release'
+    Invoke-Adopt -Dir $backslashDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $backslashSkeleton = [System.IO.File]::ReadAllText((Join-Path $backslashDir '.github\workflows\ci.yml'))
+    Assert-True ($backslashSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
+        'an unsafe declared check name (a literal backslash) is refused too, falling back to ''ci'''
+
+    # 9h. An embedded control character (here, a bare newline) is refused via the Get-DisplayRef
+    #     round-trip -- the half of Test-QuotedScalarSafe that would otherwise let a declared name inject
+    #     an extra line into the generated YAML rather than merely widen one quoted scalar.
+    $controlDir = New-FixtureConsumerNoCI -Label 'unsafe-control' -CiTestCheckName "build`nrelease"
+    Invoke-Adopt -Dir $controlDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    $controlSkeleton = [System.IO.File]::ReadAllText((Join-Path $controlDir '.github\workflows\ci.yml'))
+    Assert-True ($controlSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
+        'an unsafe declared check name (an embedded newline) is refused too, falling back to ''ci'''
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
