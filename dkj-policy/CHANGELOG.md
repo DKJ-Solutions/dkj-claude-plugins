@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 27 minor entries** <!-- pending-tally -->
+**17 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2037-always-on-budget · 20260916-110747
+
+Nothing bounded the always-on document path -- `CLAUDE.md` plus everything it `@`-imports, which every
+session reads before a single assignment is given -- and every measurable repo running this workflow had
+gone over 100,000 B, the source repo included and smallest of the four. Measurement has been portable
+since August 2026 and reaches no verdict by design; this adds the bound it was missing without adding the
+judgement #861 argued down. It bounds a TOTAL and still says nothing about which block of prose should go.
+
+A **ratchet rather than a cliff**, because all four repos were over on day one and a gate that refuses
+from a standing start is one that gets `-Force`d once and never obeyed again: over the ceiling the limit
+is a recorded baseline and GROWTH is refused; at or under it the limit is the ceiling and CROSSING is
+refused. The baseline falls on its own whenever a branch measures less and rises only under `-Raise` with
+a reason written into the file. Three carriers read one verdict -- `open-pr` before the push, a CI runner
+on every PR, and a SessionStart hook that puts the headroom in front of whoever is about to add to it --
+and only the local one writes.
+
+**Score:** 4 -- a new refusal in the branch flow every contributor meets, and a session-start line every
+session sees; the ceiling itself is a number they can now argue with instead of a figure nobody acted on.
+
+#### What makes this deploy extra special
+
+For a consumer this arrives as a bound that holds in their repo rather than in the repo that ships the
+tooling -- which is the whole of #2037. Adopting it is one seam (`Get-AlwaysOnBudget`, optional, 100,000
+bytes unstated) and one scaffolded runner; a repo already over the ceiling is held to its own history and
+converges on it, instead of meeting a red check it cannot clear. The refusal names where the weight goes,
+in the four classes this repo has already proved on its own path.
+
+**Score:** 3 -- a clear improvement noticed the moment they touch their instruction documents, and it
+costs them nothing to adopt: unanswered, the ceiling is the canonical figure and the first run merely
+records where they are.
+
+#### Pull Request
+
+A ratcheted budget on the always-on document path
+
+Plugins: dkj-policy
+
+[PR #2039](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2039)
+
+---
 
 ### DEPLOY: feat/1843-portable-ci-skeleton · 20260916-104937
 
