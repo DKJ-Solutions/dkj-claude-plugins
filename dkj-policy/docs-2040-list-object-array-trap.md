@@ -39,19 +39,65 @@
 
 ### PLAN
 
+#### The judgement the issue deferred
+
+#2040 filed a verified, latent authoring hazard and named one open question for whoever wrote it up:
+the trap **throws**, so it does not match the section title *"produce well-formed wrong output"* as
+written — *"either the title widens or the row says so in its first line"*.
+
+Chosen: **the row says so, and the title stands.** That is the section's own established convention —
+its intro already carries one exception clause in exactly that shape (*"Ten are PowerShell's own; the
+last is the same class one layer out"*) — and widening a title to cover one member of twelve weakens
+the promise the other eleven keep. What makes it belong anyway is the honest reading: what is
+well-formed and wrong here is the **exception's own report**, which blames the start of the enclosing
+hashtable literal and names neither the operator nor the type. The section's closing sentence (*"when a
+mistake cannot announce itself, the assert is the announcement"*) already covers that, so the shape was
+there before the member arrived.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verify the six pickup checks before repairing — symptom reproduced in isolation on this machine
+      (PS `5.1.26100.9444`, `ArgumentException` on `@($l)`; `List[string]`, `[object[]]` and
+      `.ToArray()` all fine); subject exists (the section at `05-15-manual.md:219`); the proposed
+      repair names a real section; the repo is the right one.
+- [x] Verify the *mechanism* the row states, not only the symptom — a returned list arrives already
+      unrolled (`(Get-L).GetType()` is `System.Object[]`, so `@(Get-L)` is fine) while the same `@()`
+      on a variable still holding the `List[object]` throws, and it fires one level up inside a
+      `[pscustomobject]@{ … }` literal.
+- [x] Write the twelfth row, placed beside the other array-literal trap (the comma-precedence one) so
+      the `sed` trap stays last and the intro's *"the last is … one layer out"* clause stays true.
+- [x] Update the three counts the section carries — heading, intro and closing sentence — and add the
+      intro's exception clause for the member that throws.
+- [~] Carry the issue's *"9 files under `scripts/`"* count into the row — dropped. Measured here it is
+      already **10**, because #2037's own `always-on-budget-lib.ps1` landed between the filing and this
+      branch. A count that moves in two days does not belong in a **portable** manual that ships to
+      consumers whose trees it never described; the row states the mechanism instead, which does not age.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1` + all test suites green (run by `open-pr.ps1`).
+- [~] Add a regression guard for the trap itself — dropped, one already exists and the row cites it:
+      `scripts/tests/always-on-budget.tests.ps1` asserts the row sets come back as arrays built with
+      `.ToArray()` rather than `@()`. A second guard would pin the same line twice.
+
 ### DEPLOY: docs/2040-list-object-array-trap
 
-**Score:**
+Sylvester's trap list gains a twelfth member: `@(...)` on a `List[object]` still held in a variable
+throws `ArgumentException` — naming neither the operator nor the type, and blaming the start of the
+enclosing hashtable literal rather than the line at fault. No live defect anywhere in the tree; every
+existing caller survives by accident, because it wraps a list a *function returned* and a returned list
+is unrolled to `object[]` before the operator sees it. The row names `.ToArray()` as the repair and
+points at the worked example and the regression guard that already carry it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's developer reaches this manual through the plugin, and the trap is one ordinary edit away in
+any repo that builds a `List[object]` — the house `@(...)` idiom is what walks them into it. Documented,
+it is a lookup; undocumented, it is a bisection against an exception that points at the wrong line.
+
+**Score:** 1
 
 #### Pull Request
 
