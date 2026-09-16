@@ -43,7 +43,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 26 minor entries** <!-- pending-tally -->
+**16 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/1843-portable-ci-skeleton · 20260916-104937
+
+This closes #1843: both halves the issue asked for -- the repo-settings runner (#1909) and this CI
+skeleton -- are now delivered. A consumer with no required status check at all now gets a scaffolded,
+adoptable workflow to require, instead of only being told what such a workflow would need to look
+like.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Before this, "make one CI check required" was correct advice with nothing behind it for the one repo
+that actually needed it -- a consumer with zero CI. The skeleton closes that gap without asserting
+anything about what the consumer's checks should be: the body stays empty on purpose, and the one
+seam this template reads (`Get-CiTestCheckName`) is the same one a consumer may already have answered
+for an unrelated reason (open-pr's local test-gate skip), so answering it once now serves two
+mechanisms instead of one.
+
+**Score:** 2
+
+#### Pull Request
+
+Portable CI skeleton for a consumer with no required check
+
+Plugins: dkj-policy
+
+[PR #2038](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2038)
+
+---
 
 ### DEPLOY: fix/2033-backup-verify-theme-info-no-files-field · 20260915-163601
 

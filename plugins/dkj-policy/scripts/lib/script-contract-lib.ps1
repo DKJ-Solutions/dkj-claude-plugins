@@ -138,9 +138,13 @@ $script:ContractRecords = @(
     # found a hole in: an unrelated required check (a CLA bot, a PR-title linter) certifying on its own
     # green, and -- where a trunk requires two -- the unrelated one going green while the test check has
     # not registered at all. UNSTATED IS THE PRE-SEAM BEHAVIOUR: no name, no certificate, gate runs.
-    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-CiTestCheckName'; Scripts = @('open-pr');
+    # ALSO READ BY adopt-ci-floor SINCE #1843 (September 16, 2026): the CI-skeleton target it can place
+    # for a consumer with nothing triggering on pull_request at all names its one job after this seam
+    # when declared, so a repo that has already answered it gets a skeleton whose check IS the one
+    # open-pr's own local-gate-skip logic already looks for, rather than a second name to reconcile.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-CiTestCheckName'; Scripts = @('open-pr', 'adopt-ci-floor');
        Adopt = 'decide'; AdoptWhy = 'it names one of THIS repo''s check contexts, and the source''s answer (lint-en-tests) exists nowhere else. Copying it would name a check the consumer''s trunk does not have, which is a permanent refusal rather than a wrong skip -- but it also silently withholds the shorter cycle the seam exists to give';
-       Optional = $true; Default = 'no certificate -- the local test gate runs on every open-pr exactly as it did before the seam existed';
+       Optional = $true; Default = 'no certificate -- the local test gate runs on every open-pr exactly as it did before the seam existed; adopt-ci-floor''s skeleton, if offered, names its job the bare key ''ci'' instead';
        Returns = 'the check context whose green on a commit proves this repo''s test suites, e.g. ''lint-en-tests''. Name a check the trunk actually REQUIRES: the certificate is read from the required set, so a check the merge does not depend on never certifies' },
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-TestCommands'; Scripts = @('open-pr', 'cut-release');
        Adopt = 'decide'; AdoptWhy = 'which commands test this repo is a fact about its stack that no script can read from the tree. The source answers none (its suites are all PowerShell, and the gate already runs those); copying that none into a repo with an app layer leaves the release gate blind to exactly the tests that layer needs';
