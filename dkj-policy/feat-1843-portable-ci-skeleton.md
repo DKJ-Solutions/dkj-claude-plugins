@@ -39,19 +39,74 @@
 
 ### PLAN
 
+#### What #1843 still needed
+
+Step 1 (repo-settings.yml) landed in #1909. Remaining, per the issue's own "in order" list: a CI
+skeleton for a consumer with no required status check at all, which is what switches ship-pr's
+detect-and-rebase staleness guard on. adopt-ci-floor.ps1's section 1 already composed a paste-ready
+ruleset call once a required check existed somewhere in the tree, but a repo with NOTHING triggering
+on pull_request had nothing for that call to name -- only a placeholder.
+
+#### Design
+
+- A fifth artefact adopt-ci-floor.ps1 can place, alongside fold/resolves/repo-settings: a minimal
+  `.github/workflows/ci.yml`, offered ONLY when nothing in the tree already triggers on pull_request
+  -- never merely because that one file is absent, since a consumer running CI under a different name
+  already has what this exists to give.
+- The body is deliberately empty ("a skeleton is portable; the body is not" -- the assessment's own
+  phrase): one job, one clearly marked placeholder step. What a merge should prove is the consumer's
+  own choice.
+- Triggers on both `pull_request` and `merge_group` from day one (#1325's prerequisite) -- inert
+  without a queue, cheaper to place now than to remember later.
+- The job's check name follows `Get-CiTestCheckName` when a consumer has declared it (the same seam
+  open-pr's own local-gate-skip logic reads, #1715), so the two never need reconciling by hand.
+  Falls back to the bare job key `ci`. An unsafe declared value is refused rather than interpolated
+  into the YAML as-is -- the same "refuse, do not escape" posture #1972 settled for the ruleset JSON.
+- Section 1's own ruleset advice auto-fills from the skeleton's check name when no real candidate
+  exists in the tree, instead of the usual placeholder.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/task/adopt-ci-floor.ps1` (+ plugin mirror): the CI-skeleton target, its offer
+      condition, its job-name resolution, and section 1's auto-fill from it.
+- [x] `scripts/lib/script-contract-lib.ps1` (+ plugin mirror): `Get-CiTestCheckName`'s record now
+      names `adopt-ci-floor` alongside `open-pr`.
+- [x] `plugins/dkj-policy/blueprint/config-blueprint.json` regenerated to match the contract change.
+- [x] Status update posted on #1843 itself: step 1 was already merged (#1909) since the issue's own
+      last comment, before this branch started on step 2.
 
 ### TEST
 
+- [x] 19 new asserts in `scripts/tests/adopt-ci-floor.tests.ps1` (section 9): dry-run report and
+      auto-fill, `-Apply` placement (both triggers, least-privilege, no credential, placeholder
+      step), never overwriting a consumer's edit, never offered/created when any pull_request
+      workflow already exists under any name, the `Get-CiTestCheckName` seam driving the job name,
+      and an unsafe declared name falling back rather than being interpolated.
+- [x] Full existing `adopt-ci-floor.tests.ps1` suite (144 prior asserts) still green -- every
+      existing fixture already carries a pull_request workflow, so the new arm is correctly inert
+      there.
+- [x] `scripts/lint/check-plugin-integrity.ps1`: 0 errors.
+- [x] Every suite under `scripts/tests/*.tests.ps1`: 0 failing.
+
 ### DEPLOY: feat/1843-portable-ci-skeleton
 
-**Score:**
+This closes #1843: both halves the issue asked for -- the repo-settings runner (#1909) and this CI
+skeleton -- are now delivered. A consumer with no required status check at all now gets a scaffolded,
+adoptable workflow to require, instead of only being told what such a workflow would need to look
+like.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Before this, "make one CI check required" was correct advice with nothing behind it for the one repo
+that actually needed it -- a consumer with zero CI. The skeleton closes that gap without asserting
+anything about what the consumer's checks should be: the body stays empty on purpose, and the one
+seam this template reads (`Get-CiTestCheckName`) is the same one a consumer may already have answered
+for an unrelated reason (open-pr's local test-gate skip), so answering it once now serves two
+mechanisms instead of one.
+
+**Score:** 2
 
 #### Pull Request
 
