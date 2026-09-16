@@ -645,6 +645,55 @@ The script answers the trunk case gracefully as well, but a gate should not need
 correctly. **It is not in the `main` ruleset** — making a check required is a repo-settings change and
 therefore Dave's, so today it reports on every PR and blocks nothing.
 
+#### 3.2.8. the always-on budget gate, on what every session pays before any of this
+
+**Dave, issue [#2037](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2037), September 16, 2026:**
+*"find a durable way for ALL consumers to keep CLAUDE.md under 100.0k chars, because I notice it goes over
+150k everywhere."* Every gate above judges the branch — its code, its entry, its plan. This one judges the
+**always-on document path**: `CLAUDE.md` plus everything it `@`-imports, which every future session in this
+repo reads before a single assignment is given.
+
+**The finding is that measurement alone had already failed.** `measure-always-on.ps1` has reported this
+figure since August 2026 and reaches no verdict by design
+([#861](https://github.com/DaveKJohn/claude-code-specialists/issues/861)) — and all four measurable repos
+went over 100,000 B anyway: 199,253 B, 150,202 B, 117,014 B, and this repo at **109,385 B**, the smallest of
+them. A report that is portable, correct and ignored is the whole argument for a bound.
+
+**The unit is the path and not the root file**, because `wc -c CLAUDE.md` misses the 30,267 B of orchestrator
+persona that `SPECIALISTS.md` imports from the marketplace clone — 27.7% of this repo's total, and invisible
+to the obvious check.
+
+**A ratchet, not a cliff, and that is the choice it lives or dies on.** Every measurable repo was over on day
+one, so a hard refusal is a gate that is `-Force`d once and never obeyed again. Instead the limit is
+`max(budget, baseline)`: over the ceiling the recorded baseline holds and **growth** is refused, at or under
+it the ceiling holds and **crossing** is refused. The baseline falls on its own whenever a branch measures
+less — `open-pr` writes it and commits it with the branch's own document — and rises only under
+`-Raise -Reason "<why>"`, which puts the reason in a tracked file where a reviewer can argue with it.
+
+**The refusal names where the weight goes**, in the order the four classes pay: procedure a plugin already
+ships on demand; layer-specific detail into `.claude/rules/*.md` with `paths:`; evidence, measurement and
+declined-option history into the owning specialist's lens or a skill page; repo-specific craft detail into
+that lens. A ceiling with no destination is a red check nobody can clear.
+
+**Three carriers, one verdict, and only one of them writes.** `open-pr` before the push (with `-Record`),
+`.github/workflows/always-on-budget.yml` on every PR, and the `always-on-sessioncheck` SessionStart hook,
+which prints the headroom so the number is in front of whoever is about to add to it rather than discovered
+at a red check. Every decision sits in `always-on-budget-lib.ps1`; the check script is the printing and the
+exit code. CI and the hook never pass `-Record`: a read-only carrier that rewrote the ratchet's own memory
+would be the one thing able to raise it with nothing in any diff to say so.
+
+**And one premise the issue never weighed, which would have made the whole thing flap.** A CI runner has no
+marketplace clone, so that 30,267 B persona import does not resolve there — the same commit would measure
+109,385 B locally and 79,118 B in CI. The baseline therefore records every document's size **keyed by its
+import target**, and a run that cannot resolve one carries the recorded figure and says so. A document that
+is neither resolvable nor recorded is reported as **unmeasured** and never counted as zero: a path that looks
+healthier than it is would be this mechanism failing in the direction nobody notices. For the same reason the
+arithmetic is in **LF bytes** rather than on-disk bytes — a CRLF checkout is one byte per line above what the
+repository stores, which is ~1.4% on a 1,346-line file: plausible, wrong, and enough to refuse a branch that
+changed nothing.
+
+**Like `branch-entry`, it is not in the `main` ruleset** — a required check is Dave's act, not a script's.
+
 ### 3.3. Check whether another PR is already merging
 
 **One merge at a time, and a PR that arrives second waits its turn** (Dave,

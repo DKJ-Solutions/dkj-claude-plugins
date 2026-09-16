@@ -391,6 +391,20 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # The always-on BUDGET, which is the verdict measure-context-lib deliberately does not reach
+            # (issue #2037). Its own header carries the argument for why it is a second file rather than
+            # three more functions in that one: measure-context-lib's docstring promises it judges
+            # nothing, and that promise is the recorded outcome of #861. A verdict function added there
+            # would retire that decision by accident, in the file whose text says it still holds.
+            #
+            # IT HAS TO TRAVEL, for the ordinary lib reason: both callers are mirrored -- the check
+            # script below and open-pr, which dot-sources it to name the baseline path it commits.
+            Name    = 'always-on-budget-lib'
+            Source  = 'scripts\lib\always-on-budget-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # The preamble every consumer-facing lint check opens with (issue #1422): the dual-context
             # root resolution and the always-on prose corpus, in one definition where five entry points
             # carried near-copies. IT HAS TO TRAVEL for the ordinary lib reason -- all five callers are
@@ -1193,6 +1207,33 @@ function Get-SharedScriptPairs {
             # A fixture root, so the suite (and the hook) can judge a tree other than the checkout.
             SkillParamsExempt = @('RootOverride')
             # Timeable with no arguments: reads dkj-policy/ and reports, no write of any kind.
+            MeasureArgs = @()
+        },
+        @{
+            # The always-on budget gate (issue #2037): the bound measure-always-on.ps1 has deliberately
+            # never been. THREE CALLERS, ONE ANSWER -- open-pr locally before the push, a CI runner in
+            # every adopted consumer, and the SessionStart hook always-on-sessioncheck.ps1 -- which is
+            # why every decision sits in always-on-budget-lib.ps1 and this script is the printing and
+            # the exit code. Three carriers free to describe the same path differently is the drift this
+            # workflow keeps extracting libs to end.
+            #
+            # IT WRITES ONLY UNDER -Record, AND ONLY THE LOCAL CARRIER PASSES IT. CI and the hook read
+            # the same verdict and write nothing: a read-only carrier that rewrote the ratchet's own
+            # memory would be the one thing able to raise it without anybody saying so.
+            #
+            # NO SKILL, on the reasoning check-unfolded-entry gives above: every caller is automatic (a
+            # gate, a CI trigger, a session hook) and nobody invokes it as a procedure. The one command
+            # in its .SYNOPSIS answers it early for whoever wants the number before the red check -- and
+            # the session hook puts it in front of them anyway.
+            Name   = 'check-always-on-budget'
+            Source = 'scripts\lint\check-always-on-budget.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            # A fixture root and a fixture always-on root, so the suite can put this in front of a tree
+            # other than the checkout. A consumer never types either.
+            SkillParamsExempt = @('RootOverride', 'RootDocument')
+            # Timeable with no arguments: it walks the always-on closure and reports. A bare run writes
+            # nothing -- the write is behind -Record and -Raise, neither of which is passed here.
             MeasureArgs = @()
         },
         @{

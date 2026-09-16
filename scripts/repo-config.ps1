@@ -1245,3 +1245,32 @@ function Get-TriageLabels {
        than a degraded one. #>
     return @($script:TriageLabels)
 }
+
+# THE ALWAYS-ON CEILING (issue #2037, Dave September 16, 2026): how many BYTES the always-on document
+# path -- CLAUDE.md plus everything it '@'-imports -- may cost, before a single assignment is given.
+#
+# 100,000 IS DAVE'S OWN FIGURE and it is stated here rather than left to the built-in default, because a
+# ceiling a repo has never said out loud is one nobody can argue with. Every measurable repo running
+# this workflow was over it the day it was measured, the source repo included and smallest of the four
+# at 109,385 B -- which is why the gate is a RATCHET rather than a cliff: over the ceiling it refuses
+# growth against a recorded baseline, at or under it it refuses crossing. The mechanism, and why the
+# judgement stays out of measure-context-lib, are in scripts/lib/always-on-budget-lib.ps1.
+#
+# RAISING THIS IS A REAL OPTION AND IT IS MEANT TO BE VISIBLE. A repo whose path is legitimately bigger
+# raises the number here, where the raise sits in a tracked file and gets reviewed with the change that
+# needed it -- which is the whole difference between this seam and no bound at all. What it must NOT
+# become is the way past a red gate: the PATH's own baseline is what moves in that case
+# (check-always-on-budget.ps1 -Raise), because that write carries a reason and this one does not.
+#
+# BYTES, NOT TOKENS, and the unit is not arbitrary. No API prices a document, so a token figure here
+# would be a calibrated estimate wearing the trousers of a measurement -- the exact failure
+# measure-context-lib.ps1 records as this repo's worst: a chars-per-token factor inherited unexamined
+# through three re-measurements, ~19% too generous, every derived figure under-stated while looking
+# precise. A byte is checkable with `wc -c`.
+$script:AlwaysOnBudget = 100000
+
+function Get-AlwaysOnBudget {
+    <# The ceiling in bytes on the always-on document path (CLAUDE.md plus its '@'-import closure).
+       Optional in the script contract: a repo that states nothing runs on the built-in 100,000. #>
+    return $script:AlwaysOnBudget
+}

@@ -45,6 +45,11 @@
             "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/claude-home-sessioncheck.ps1\"",
             "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/always-on-sessioncheck.ps1\"",
+            "timeout": 120
           }
         ]
       }

@@ -383,7 +383,18 @@ the [`open-pr` skill](skills/open-pr/SKILL.md) is the full account of each:
   two measurements behind that;
 - **the impact gate** — the Significance sections; see below;
 - **the resolves gate** — a plain `#123` in a PR body closes nothing on GitHub, so issues a PR resolves are
-  passed as `-Resolves` and written as their own `Closes #<n>` lines.
+  passed as `-Resolves` and written as their own `Closes #<n>` lines;
+- **the always-on budget gate** — the one gate here that judges neither your code nor your paperwork but
+  what **every future session in this repo pays before a single assignment is given**: `CLAUDE.md` plus
+  everything it `@`-imports. The unit is the whole import closure and not the root file, because the
+  obvious check misses whatever your `CLAUDE.md` pulls in from the plugin cache. **A ratchet, not a cliff**
+  — over the ceiling (`Get-AlwaysOnBudget`, 100,000 bytes unstated) it refuses *growth* against a recorded
+  baseline, at or under it it refuses *crossing*, and the baseline falls on its own whenever a branch
+  shrinks the path. So a repo that is over today converges instead of meeting a red gate on day one. The
+  refusal names where the weight goes, and where the path is genuinely bigger now the way through is
+  `check-always-on-budget.ps1 -Raise -Reason "<why>"`, committed with the branch so the raise is reviewed
+  with the change that needed it. `-Force` exists and is the wrong answer to everything except a gate that
+  is wrong about your repo.
 
 **These are the ones worth knowing before you push, not the whole set** — `open-pr` also refuses on a
 machine-local path in the entry, a link that will not survive the fold, an empty PR title, a label your seam
@@ -396,7 +407,9 @@ here is the property they share, which the count never was.
 [#789](https://github.com/DaveKJohn/claude-code-specialists/issues/789)). A branch pushed by hand, or a PR
 opened in the GitHub UI, meets none of them — so the convention was enforced by whoever remembered to use
 the scripts. `check-branch-entry.ps1` ships for exactly that, and the `adopt-dkj-policy` skill's Part 1 places the six
-lines of workflow that call it. **It re-uses the same functions**, so there is one definition of
+lines of workflow that call it — **and, since the always-on budget joined the list above, a second runner
+beside it on the same trigger**, because that gate guards the one thing whose cost is paid by every future
+session rather than by whoever merged. **They re-use the same functions**, so there is one definition of
 "written" rather than a second one in every repo's CI: that is not a nicety, and two consumers measured
 what the alternative costs — both wrote a gate in shell, and both refused a merge over a missing
 significance score, which is a refusal this workflow deliberately places at the **release cut** instead.

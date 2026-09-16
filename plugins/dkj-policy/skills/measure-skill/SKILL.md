@@ -184,6 +184,15 @@ another machine would be a figure nobody could reproduce.
 from pass 1 above — that one prices what the **plugins** cost, this one prices what the repo's **own
 instruction documents** cost.
 
+**It still reaches no verdict, and since September 16, 2026 something else does.** This script reports
+and adjudicates nothing — that boundary is [#861](https://github.com/DaveKJohn/claude-code-specialists/issues/861)'s
+recorded outcome and it stands. What changed is that reporting alone turned out not to hold a line:
+every measurable repo running this workflow went over 100,000 B anyway, the source repo included and
+smallest of the four. So `check-always-on-budget.ps1` bounds the **total** — a ratchet, in `open-pr`, in
+CI and at session start — while still saying nothing about which block of prose should go, which is the
+half #861 argued down. Read the number here; the bound is described under **the always-on budget gate**
+in [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md).
+
 **It sits on this page rather than on one of its own, and that is the rule rather than a shortcut.**
 Only a skill's *description* is paid by every session, so a second page would have charged every
 consumer for a tool most of them run once — while the subject (session cost), the owner (the

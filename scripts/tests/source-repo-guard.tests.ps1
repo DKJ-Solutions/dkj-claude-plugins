@@ -306,6 +306,17 @@ $guardExempt = @(
     'scripts\sync\check-script-contract.ps1',  # SessionStart: script-contract-sessioncheck
     'scripts\lint\check-git-identity.ps1',     # SessionStart: git-identity-sessioncheck (#1315)
     'scripts\lint\check-unfolded-entry.ps1',   # SessionStart: unfolded-entry-sessioncheck (#1270)
+    # SessionStart: always-on-sessioncheck (#2037). The same hook reason as the four above -- the hook
+    # runs it from '${CLAUDE_PLUGIN_ROOT}/scripts/lint/', so Assert-OwnCopy would refuse it and thereby
+    # the hook at every session start in this repo.
+    #
+    # AND IT HAS TWO MORE CALLERS THAT THE GUARD WOULD ALSO BE WRONG ABOUT, which is worth stating rather
+    # than leaving to be inferred from the hook clause alone: a CI runner, which checks this repo out and
+    # is therefore running the released copy by design, and open-pr, which invokes it as a
+    # $PSScriptRoot-relative sibling in whichever copy of itself is running. In a consumer every one of
+    # the three IS the released copy -- that is the whole delivery model -- so a guard here would refuse
+    # the gate exactly where it is meant to run and pass it only in the repo that needs it least.
+    'scripts\lint\check-always-on-budget.ps1',
     # SessionStart: consumer-prose-sessioncheck (#1389 + #1415, merged by #1421). Same reason as the four
     # above, and it carries the answer the guard could not give it: what this repo needs here is not a
     # REFUSAL but a SKIP, and the check makes that decision itself on the guard's own condition 2 (a
