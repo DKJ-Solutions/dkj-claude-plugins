@@ -4,7 +4,8 @@
     verification alive across a merge this session never observes, place the scheduled check that a
     GitHub-side repo setting has not silently drifted, report whether a required status check exists at
     all -- the one detect-and-rebase reads -- and, where none does, print the exact `gh api` call that
-    would create one, WITHOUT running it. A repo that has CHOSEN a merge queue is pointed at the UI
+    would create one, WITHOUT running it, AND where nothing in the tree triggers on pull_request at all,
+    offer a minimal CI skeleton to require. A repo that has CHOSEN a merge queue is pointed at the UI
     instead: that switch is not composed here. Issues #1516, #1546, #1843, #1903, #1972.
 
 .DESCRIPTION
@@ -71,6 +72,17 @@
     enforced" (Dave, September 12, 2026, on #1843) is why the VALUES stay the consumer's own to declare --
     an empty or absent declaration is a harmless [SKIP], never a refusal -- while the SCRIPT that compares
     them against GitHub is shared.
+
+    A FIFTH FILE ANSWERS THE OTHER HALF OF #1843 -- A CONSUMER WITH NOTHING TO REQUIRE AT ALL. Section 1
+    can compose the ruleset call the moment a required check exists somewhere in the tree, but until now
+    a repo with NO workflow triggering on pull_request had nothing for that call to name -- only a
+    placeholder. Where that is the state, this script also offers .github/workflows/ci.yml: a minimal
+    workflow whose one job carries a placeholder step, empty on purpose ("a skeleton is portable; the
+    body is not" -- what a merge should prove is this repo's own choice, never this script's to assert).
+    Its job is named from the Get-CiTestCheckName seam when the repo has declared one, so the check this
+    skeleton carries and the check open-pr's own local-gate-skip logic already looks for are the same
+    name rather than two to reconcile by hand. Offered only when nothing else already triggers on
+    pull_request, and only additively, like every other target here.
 
     AND ONE PREREQUISITE BELONGS TO THE QUEUE ALONE (#1325): every workflow carrying a REQUIRED check
     context must trigger on `merge_group`. A required workflow without it never runs for a queue entry,
@@ -346,6 +358,86 @@ function Get-WorkflowFacts {
 
 $workflowDir = Join-Path $repoRoot '.github\workflows'
 $workflows = Get-WorkflowFacts -WorkflowDir $workflowDir
+
+# --- The CI skeleton, for a consumer with NO pull_request workflow at all (issue #1843) --------------
+# Section 1 below already tells such a consumer how to make a check required; until now it could only
+# print a placeholder job id, because there was nothing in the tree to name. This is the fourth thing
+# this command offers: a minimal, adoptable .github/workflows/ci.yml that gives such a consumer
+# something to require. THE BODY IS DELIBERATELY EMPTY -- "a skeleton is portable; the body is not" is
+# the #1843 assessment's own phrase for it: lint/test/build steps are this repo's own choice, never this
+# workflow's to assert, exactly the same line ci.yml itself would not cross if it tried to travel.
+#
+# OFFERED ONLY WHEN NOTHING ELSE ALREADY TRIGGERS ON pull_request. A consumer running CI under any other
+# file name already has what this exists to give; placing a second, empty workflow beside a real one
+# would be noise. Once either file carries that trigger, $workflows picks it up on the very next run and
+# this arm has nothing left to offer -- no separate "already adopted" state to track.
+$ciSkeletonRel = '.github/workflows/ci.yml'
+$ciSkeletonAbs = Join-Path $repoRoot ($ciSkeletonRel -replace '/', '\')
+$noPrWorkflowAtAll = (@($workflows | Where-Object { $_.OnPullRequest })).Count -eq 0
+$ciSkeletonOffered = $noPrWorkflowAtAll -and -not (Test-Path -LiteralPath $ciSkeletonAbs)
+
+# THE JOB'S NAME COMES FROM THE SEAM THAT ALREADY OWNS THIS QUESTION, Get-CiTestCheckName -- the same
+# 'decide' record open-pr's own local-gate-skip logic reads (issue #1715). A consumer who has already
+# declared it gets a skeleton whose check IS the one open-pr is already looking for, rather than a
+# second name to reconcile by hand. Undeclared or empty falls back to the bare job key 'ci'.
+function Test-YamlScalarSafe {
+    <#
+        Value -- a declared check name about to become a YAML double-quoted scalar (a job's `name:`
+        field), built by string concatenation rather than a YAML emitter. Returns $true when it may be
+        used as-is: no '"' or '\' (would break out of the double-quoted scalar), and clean under
+        Get-DisplayRef (single line, no control/format character that would repaint the console when
+        this template is Write-Host'd for the dry-run report). Same posture as Test-JsonContextSafe
+        further down -- refuse rather than escape -- applied to a YAML scalar instead of a JSON one: a
+        hand-rolled escaper for either is the fourth-copy risk ref-print-lib.ps1 exists to avoid.
+    #>
+    param([AllowEmptyString()][AllowNull()][string]$Value)
+    if ([string]::IsNullOrEmpty($Value)) { return $false }
+    if ($Value.IndexOfAny([char[]]@('"', '\')) -ge 0) { return $false }
+    return ((Get-DisplayRef -Ref $Value) -ceq $Value)
+}
+
+$ciSkeletonDeclaredName = if (Test-FunctionDefined 'Get-CiTestCheckName') { [string](Get-CiTestCheckName) } else { '' }
+$ciSkeletonJobKey = 'ci'
+$ciSkeletonCheckName = if (Test-YamlScalarSafe -Value $ciSkeletonDeclaredName) { $ciSkeletonDeclaredName } else { $ciSkeletonJobKey }
+
+$ciSkeletonRunner = @(
+    '# A minimal CI workflow, scaffolded because nothing in this repo triggered on pull_request at all',
+    '# (issue #1843). Its only purpose is to give this repo something to require on the trunk, which is',
+    '# what switches ship-pr''s detect-and-rebase staleness guard on -- see this command''s own section 1:',
+    '# with no required check named, that guard has no certificate to date and is simply off.',
+    '#',
+    '# THE BODY IS DELIBERATELY EMPTY. What a merge should have to prove -- lint, tests, a build -- is',
+    '# this repo''s own choice, never this workflow''s to assert. REPLACE THE PLACEHOLDER STEP BELOW',
+    '# before making this check required.',
+    '#',
+    '# merge_group IS ALREADY HERE, EVEN IF THIS REPO RUNS NO QUEUE (issue #1325). It is inert until one',
+    '# exists, and a total merge outage the day one is switched on without it, on any workflow carrying a',
+    '# required check -- cheaper to place now than to remember later.',
+    '#',
+    '# THE JOB''S name: NAMES THE CHECK adopt-ci-floor.ps1''s own ruleset advice already assumes: it reads',
+    '# Get-CiTestCheckName, so a repo that has declared that seam gets a skeleton whose check IS the one',
+    '# open-pr''s local-gate-skip logic already looks for, rather than a second name to reconcile by hand.',
+    'name: CI',
+    '',
+    'permissions:',
+    '  contents: read',
+    '',
+    'on:',
+    '  pull_request:',
+    '  merge_group:',
+    '',
+    'jobs:',
+    ('  ' + $ciSkeletonJobKey + ':'),
+    ('    name: "' + $ciSkeletonCheckName + '"'),
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v5',
+    '      - name: Replace this with whatever this repo wants a merge to prove',
+    '        run: |',
+    '          echo "TODO (issue #1843 template): this step is a placeholder."',
+    '          echo "Replace it with this repo''s own lint/test/build, then make this check required."',
+    '          exit 0'
+)
 
 # --- The runners, consumer-shaped ---------------------------------------------------------------
 # DERIVED FROM THE SOURCE'S OWN, NOT COPIED. Two things differ, both of them structural rather than
@@ -744,6 +836,14 @@ $targets = @(
     @{ Rel = '.github/workflows/verify-resolved.yml'; Content = (($resolvesRunner -join $nl) + $nl); What = 'the resolves verification, which the queue takes away too'; QueueRelated = $true },
     @{ Rel = '.github/workflows/repo-settings.yml';   Content = (($repoSettingsRunner -join $nl) + $nl); What = 'does a GitHub-side repo setting still match what the tree declares'; QueueRelated = $false }
 )
+# THE FOURTH TARGET IS CONDITIONAL, UNLIKE THE OTHER THREE (issue #1843): it is offered only when
+# nothing in the tree triggers on pull_request at all, never merely because this one file is absent --
+# a consumer running CI under a different file name must not be handed a second, empty workflow beside
+# their real one. Appended rather than folded into the literal above, so that condition stays readable
+# beside the flag it reads instead of buried inside a one-line hashtable.
+if ($ciSkeletonOffered) {
+    $targets += @{ Rel = $ciSkeletonRel; Content = (($ciSkeletonRunner -join $nl) + $nl); What = 'a minimal CI workflow to require, for a repo with no pull_request check at all'; QueueRelated = $false }
+}
 
 # THE ONLY TARGET THAT NEEDS FOLD_PUSH_TOKEN. Tracked by name rather than by "was anything created this
 # run", because with three targets that counter no longer says which file is missing: a repo that is
@@ -785,6 +885,14 @@ if (-not $queueReadable) {
     Write-Host '            request, so it stays a pull-request check. Use your own CI workflow. If you also' -ForegroundColor Yellow
     Write-Host '            run a queue, that workflow needs the merge_group trigger of this section too.' -ForegroundColor Yellow
     Write-Host '' -ForegroundColor Yellow
+
+    if ($ciSkeletonOffered) {
+        Write-Host '            NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL, so section 2 below will' -ForegroundColor Yellow
+        Write-Host "            offer to scaffold $ciSkeletonRel -- a minimal, empty CI workflow to require." -ForegroundColor Yellow
+        Write-Host "            Its one job is named '$ciSkeletonCheckName'; replace its placeholder step with" -ForegroundColor Yellow
+        Write-Host '            whatever this repo wants a merge to prove before making it required (issue #1843).' -ForegroundColor Yellow
+        Write-Host '' -ForegroundColor Yellow
+    }
 
     # THE PASTE-READY CALL (#1972). This is the one place in this script that composes a `gh api` call
     # rather than merely pointing at a UI -- see the reasoning at the top of this file for why this arm
@@ -855,6 +963,13 @@ if (-not $queueReadable) {
     $prJobIds = @($workflows | Where-Object { $_.OnPullRequest } | ForEach-Object { $_.JobIds } | Sort-Object -Unique)
     $autoFillContext = $null
     if ($prJobIds.Count -eq 1 -and (Test-JsonContextSafe -Value $prJobIds[0])) { $autoFillContext = $prJobIds[0] }
+    # NO REAL CANDIDATE, BUT THE SKELETON ABOUT TO BE PLACED HAS ONE (issue #1843): its check name was
+    # already proven YAML-scalar-safe above (Test-YamlScalarSafe), which is a stricter bar than
+    # Test-JsonContextSafe demands here, so it needs no second proof. This is the one case where the
+    # auto-fill answers for a file that does not exist on disk yet -- correct, because section 2 below
+    # places it with exactly this name, in the same run that printed this advice.
+    $autoFillFromSkeleton = $false
+    if (-not $autoFillContext -and $ciSkeletonOffered) { $autoFillContext = $ciSkeletonCheckName; $autoFillFromSkeleton = $true }
     $rulesetContext = if ($autoFillContext) { $autoFillContext } else { 'REPLACE-WITH-A-JOB-ID-BELOW' }
 
     # $trunk AND $repoSlug ARE LOWER-RISK -- $trunk off this repo's own Get-TrunkBranchName seam,
@@ -866,7 +981,10 @@ if (-not $queueReadable) {
     $rulesetSlug = if ($repoSlugPasteSafe) { $repoSlug } else { '<owner>/<repo>' }
 
     Write-Host '            THIS CREATES A NEW RULESET REQUIRING THAT CHECK ON THE TRUNK -- paste it as-is' -ForegroundColor Yellow
-    if ($autoFillContext) {
+    if ($autoFillFromSkeleton) {
+        Write-Host "            (the check the skeleton below will carry, '$autoFillContext', is already filled in --" -ForegroundColor Yellow
+        Write-Host '            apply and push it before pasting this, or the ruleset requires a check that does not exist yet):' -ForegroundColor Yellow
+    } elseif ($autoFillContext) {
         Write-Host "            (the one candidate job, '$autoFillContext', is already filled in):" -ForegroundColor Yellow
     } else {
         Write-Host '            once you have replaced REPLACE-WITH-A-JOB-ID-BELOW with your own choice:' -ForegroundColor Yellow
@@ -964,8 +1082,9 @@ Write-Host ''
 
 # 2. THE RUNNERS THIS COMMAND CAN PLACE: new files beside yours, not edits to one of them, which is the
 #    same line adopt-workflow-folder draws. Two answer an unobserved merge; the third (repo-settings)
-#    answers a GitHub-side setting drifting on its own, and needs neither a queue nor a merge to matter.
-Write-Host '-- 2. the runners this floor places (an unobserved merge; and, on a schedule, GitHub-side drift) --' -ForegroundColor Cyan
+#    answers a GitHub-side setting drifting on its own, and needs neither a queue nor a merge to matter;
+#    the fourth (ci.yml, issue #1843) appears only on a trunk with nothing to require at all.
+Write-Host '-- 2. the runners this floor places (an unobserved merge; on a schedule, GitHub-side drift; and, if nothing else exists, something to require) --' -ForegroundColor Cyan
 $created = 0
 $kept = 0
 $foldRunnerCreated = $false
