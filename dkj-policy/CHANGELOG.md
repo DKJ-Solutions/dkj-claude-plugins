@@ -43,7 +43,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 11 minor entries** <!-- pending-tally -->
+**11 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2074-base-is-another-branch · 20260917-175423
+
+`new-branch` no longer reports `Base is current with origin/main` and nothing else when the base is
+another branch's tip. Where `HEAD` is a branch other than the trunk and carries commits `origin/<trunk>`
+does not, the run names that branch and that count -- twice, once before the checkout and once near the
+last line -- and the dim currency line names the branch as well, so the sentence that reads as *"the base
+is the trunk"* cannot be read alone. It warns and never refuses: stacking on purpose is on the happy path
+and the lane chooses its base seconds before delegating here. A detached `HEAD` is not a subject, which
+keeps the lane itself silent, and `origin/<trunk>..HEAD` is zero for a base that really is the trunk and
+for a branch not yet committed on, which keeps the ordinary run silent.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This is the gap every other guard in the family reads straight past. The stale-base refusal fires on a
+base *behind* the trunk and this base is behind nothing; the remote-ahead warning is about the branch you
+are resuming; the claim step reads the tracker; the lint gate, the suites and CI all read the branch, and
+the branch is valid. The measured run went green on all of them while carrying 22 files of somebody
+else's unlanded work into a two-line repair's pull request, and was caught by a human reading a diff.
+Since two sessions can now share one working copy without either typing a git command, the accidental
+stack is reachable without anyone doing anything wrong.
+
+**Score:** 3
+
+#### Pull Request
+
+new-branch names the base when it is another branch's tip, so a stack is not silent
+
+Plugins: dkj-policy
+
+[PR #2080](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2080)
+
+---
 
 ### DEPLOY: docs/2073-entry-five-whole-report · 20260917-171859
 
