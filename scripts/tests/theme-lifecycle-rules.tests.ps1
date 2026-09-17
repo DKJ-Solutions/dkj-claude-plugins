@@ -112,6 +112,46 @@ Assert-Equal ($prefix + 'feat-x') (Get-RepoPreviewThemeName -FlatBranchName ($pr
 Assert-Throws { Get-RepoPreviewThemeName -FlatBranchName 'feat/1965-x' } 'a name still carrying a slash is refused here rather than by an opaque CLI error' -Contains "may not contain '/'"
 Assert-Throws { Get-RepoPreviewThemeName -FlatBranchName '   ' }         'a blank branch name is refused'
 
+# --- SHOPIFY'S 50-CHARACTER CEILING (inbound #2055) ------------------------------------------------
+#
+# THE LITERAL 50 IS ASSERTED ON PURPOSE rather than read back from the lib: it is the VENDOR's number,
+# and a test that reads the same constant the function reads would agree with any value somebody put
+# there. This is the one assert in the file whose subject is not this repo's own convention.
+#
+# THE MEASURED CASE, from the consumer that filed it: branch
+# 'liquid/477-continue-browsing-below-model-picker' composes to 51 characters, one over, and the
+# creating push was refused by the platform with 'Name is too long (maximum is 50 characters)'.
+$overLongFlat = 'liquid-477-continue-browsing-below-model-picker'
+$bounded      = Get-RepoPreviewThemeName -FlatBranchName $overLongFlat
+Assert-True (($prefix + $overLongFlat).Length -gt 50)      'the measured branch name really does compose over the ceiling -- otherwise the asserts below prove nothing'
+Assert-True ($bounded.Length -le 50)                       'an over-long preview name is shortened to the 50-character ceiling instead of being refused by the platform'
+Assert-True ($bounded.StartsWith($prefix))                 '...keeping the reserved prefix, which is the only key the sweep has'
+Assert-True (Test-RepoOwnedThemeName -Name $bounded)       '...so a shortened preview is still recognised as ours'
+
+# A NAME THAT FITS IS UNTOUCHED. This is what keeps every preview created before the ceiling landed
+# findable by the lookup and sparable by the sweep -- a rewrite here would orphan all of them at once.
+Assert-Equal ($prefix + 'feat-x') (Get-RepoPreviewThemeName -FlatBranchName 'feat-x') 'a name that fits is returned unchanged, so existing previews keep their names'
+
+# IDEMPOTENT ON ITS OWN OUTPUT, which the already-prefixed path depends on: the lookup hands back the
+# name it found, and a second truncate-and-hash would compose a theme nobody created.
+Assert-Equal $bounded (Get-RepoPreviewThemeName -FlatBranchName $bounded) 'a shortened name handed back is returned unchanged rather than shortened twice'
+
+# THE DISCRIMINATOR IS THE WHOLE REASON THIS IS NOT PLAIN TRUNCATION. Two branches sharing a long
+# enough head would otherwise map onto ONE theme and push over each other -- a wrong preview reviewed
+# as if it were the right one, which is worse than the failed push this repairs.
+$sharedHeadA = Get-RepoPreviewThemeName -FlatBranchName ($overLongFlat + '-variant-a')
+$sharedHeadB = Get-RepoPreviewThemeName -FlatBranchName ($overLongFlat + '-variant-b')
+Assert-True ($sharedHeadA -ne $sharedHeadB) 'two long branch names sharing a head compose to DIFFERENT theme names'
+Assert-Equal $sharedHeadA (Get-RepoPreviewThemeName -FlatBranchName ($overLongFlat + '-variant-a')) '...and the shortened name is deterministic, which is what lets three call sites agree on it'
+
+# THE CEILING IS A PARAMETER so a consumer can pin it if Shopify moves the number.
+Assert-True ((Get-RepoPreviewThemeName -FlatBranchName $overLongFlat -MaxLength 30).Length -le 30) '-MaxLength pins the ceiling'
+
+# AND A CEILING IT CANNOT HONOUR IS REFUSED rather than quietly exceeded: under the prefix plus the
+# discriminator there is no room left for a label, and an unlabelled name is not one this repo's
+# composers can ever produce.
+Assert-Throws { Get-RepoPreviewThemeName -FlatBranchName $overLongFlat -MaxLength 8 } 'a ceiling too small for the prefix plus the discriminator is refused' -Contains 'smallest workable ceiling'
+
 $stamp = [datetime]::new(2026, 9, 14, 1, 30, 0)
 Assert-Equal ($prefix + 'backup-20260914-013000') (Get-BackupThemeName -Timestamp $stamp) 'a backup name carries a sortable timestamp'
 Assert-True  (Test-BackupThemeName -Name (Get-BackupThemeName -Timestamp $stamp))         '...and is recognised as a backup'

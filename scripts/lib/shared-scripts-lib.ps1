@@ -853,6 +853,28 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # Issue #2050, September 17, 2026. The close-out GATE: the band, the marker that says a work
+            # chain ended this turn, and the verdict the Stop hook acts on. Mirrored because BOTH of its
+            # readers are -- closeout-lib.ps1 above, which drops the marker at the moment it prints, and
+            # hooks/closeout-gate.ps1, which claims it. A consumer whose mirror carried the hook and not
+            # this file would have a Stop hook that exits 0 on every turn with nothing saying why.
+            #
+            # THE DOT-SOURCE IS GUARDED IN closeout-lib, on the same grounds as the entry above: a
+            # consumer whose mirror predates this one must not crash on LOAD of the file every
+            # chain-ending script loads. The guard buys an ordered release, not an optional file -- the
+            # gate is simply off until the mirror carries it.
+            #
+            # ITS OWN FILE RATHER THAN A SECTION OF closeout-lib, and the split is the one that matters
+            # here: that file is loaded by five chain-ending scripts a person invokes, this one also by
+            # a hook that fires on EVERY turn. Keeping the band, the payload parse and the cache read
+            # out of the printer keeps the two cost profiles separable -- and the seam it reads is
+            # repo-owned, so a contract row DOES follow, unlike the entry above.
+            Name    = 'closeout-gate-lib'
+            Source  = 'scripts\lib\closeout-gate-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # Issue #1682, September 9, 2026. The one reading of `git status --porcelain`: the command
             # with its two flags, and the line parse. Mirrored because BOTH its callers are, and each
             # dot-sources it by name -- park-lib.ps1 (the uncommitted count behind the backing gate) and
