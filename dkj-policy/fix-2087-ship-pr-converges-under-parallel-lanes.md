@@ -74,6 +74,55 @@ version that is safe only because git enforces a fold commit's two-path diff.
 - [~] Narrowing step 3b to a path overlap -- dropped: argued against in `ship-pr.ps1`'s own commentary,
       and the reasoning is recorded in `forward-lane-lib.ps1`'s header so the next reader meets it.
 
+#### Handover -- picking this up on another machine
+
+**Written as prose on purpose, not as a step list.** An unresolved `- [ ]` above the DEPLOY heading is
+refused by both `open-pr` and `ship-pr`, and there is no `-Force` for it -- so a handover written as
+checkboxes would block the very merge it is handing over.
+
+**Where this branch stands.** Both commits are on `origin` and nothing is half-done: there is no pull
+request, no merge and no fold. Issue #2087 is claimed on `davekokbwj`. The gates were green on the
+machine that wrote this -- `check-plugin-integrity.ps1` clean, all 113 suites green -- and `open-pr` was
+started twice there and stopped twice by the harness for system memory, before it pushed or opened
+anything. Nothing about the branch is in doubt; what is missing is the chain from the PR onwards.
+
+**Resume it with two commands.** `new-branch` is idempotent and reads both ref namespaces, so it finds a
+branch that exists only on `origin`, checks it out **at the remote tip** with the work in it, and says in
+so many words that this is a resume rather than a new branch:
+
+```powershell
+git fetch origin
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\task\new-branch.ps1" -Name "fix/2087-ship-pr-converges-under-parallel-lanes"
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\release\ship-pr.ps1" -Resolves 2087
+```
+
+`ship-pr` runs the whole chain: the gates, the PR, the CI wait, the merge, the fold, and the
+resolved-issues verification.
+
+**Two things that are per-machine and fail silently, so check them before starting.** The plugin's
+install record is keyed on the folder path where `claude plugin install --scope project` was run, so a
+machine that never ran it does not load the plugin and says nothing -- the session-start check reports
+it. And `gh` and git must name the same account: `gh auth status` beside `git config user.name`, because
+a claim written under one name while the commits land under the other answers the wrong question.
+
+**If the test gate runs the machine out of memory**, pass `-MaxParallel 2` (it is forwarded to
+`open-pr`'s gate). That runs every suite, two at a time, instead of on `ProcessorCount - 2` lanes -- it
+costs wall-clock and removes the peak. **Do not reach for `-SkipTests` or `-SkipStaleCheck`**: the first
+skips the gate this branch is about, and the second is the valve for the certificate check this branch
+repairs.
+
+**Expect step 3b to fire on this PR, and let the lap do its work.** This branch repairs the
+stale-certificate gate, so its own PR goes through it. That is the intended proof: the forward lap it
+adds is what brings the branch up to date and re-certifies. It is now the default, so nothing needs
+typing -- but if several other lanes are shipping at the same time, ship this one on its own, because a
+lap absorbs one trunk merge and the default budget is 2.
+
+**One finding is already filed and is not part of this branch:**
+[#2090](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2090) -- the ordering asserts in
+`pr-issues.tests.ps1` read `ship-pr.ps1` by whole-file `IndexOf`, so adding a function above a step
+re-points them. The four this branch broke are repaired and anchored; the remaining fourteen are that
+issue's.
+
 ### CREATE
 
 - [x] `scripts/lib/ci-fold-lib.ps1` -- does a CI runner fold off a push to the trunk? Reads
