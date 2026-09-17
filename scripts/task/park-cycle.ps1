@@ -165,11 +165,15 @@ function Write-CycleParkNote {
 #
 # A FETCH THAT CANNOT ANSWER COSTS THE NOTE AND NEVER THE RUN. This script always exits 0, and both
 # callers treat '' as "nothing to say" -- which is the same fail-quiet direction the bounds above take.
+# FAIL-QUIET IS ABOUT THE RETURN VALUE, NOT ABOUT THE SESSION (#2083): the note is withheld because
+# there is no evidence for one, and the reason is printed anyway.
 #
 # AND IT IS THE LAST CALL ON EITHER PATH, so it is the one likeliest to meet a spent budget (#1958). A
-# skipped look is NOT the same answer as a look that found nothing, and both callers are told which they
-# got: '' means nothing to report, and the caller prints the skip line itself when there was no room to
-# ask. The bound it passes is whatever the budget has left -- see Get-NativeCaptureBudgetBound.
+# skipped look is NOT the same answer as a look that found nothing, and a reader is told which they got
+# whichever way the look was lost: '' means nothing to report, the caller prints the skip line when
+# there was no room to ask, and the function itself prints one when the fetch it did buy came back
+# unreadable (#2081) or unsuccessful (#2083) -- one arm each, and only one of them ever speaks.
+# The bound it passes is whatever the budget has left -- see Get-NativeCaptureBudgetBound.
 function Get-BranchCollisionNote {
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
@@ -193,11 +197,47 @@ function Get-BranchCollisionNote {
         Write-Host "park-cycle: the fetch of 'origin/$(Get-DisplayRef -Ref $Branch)' ran with an exit code that came back unmeasurable (issue #1931), so this run did NOT read who is on the far side. That is not an all-clear." -ForegroundColor Yellow
         return ''
     }
-    # THE PLAIN NON-ZERO IS THE SAME SILENCE AND IS NOT REPAIRED HERE -- issue #2083. It has been there
-    # since this function was written, and it is outside #2081's subject, which is the UNMEASURABLE code
-    # one arm up. Named rather than left for the next reader to rediscover: the two arms now sit next to
-    # each other and only one of them speaks, which is the whole of that issue.
-    if ($fetch.ExitCode -ne 0) { return '' }
+    # A FETCH THAT DID NOT SUCCEED IS SAID OUT LOUD (issue #2083). '' is this function's own word for
+    # "nothing to report", and the block above already refuses exactly this silence for a SPENT budget --
+    # where the caller prints "this run did NOT read who is on the far side". A fetch that exited non-zero
+    # is the same class of non-answer and had been getting nothing since this function was written: a
+    # network blip, a credential that has just expired or a stale ref made the workflow's EARLIEST
+    # collision detector answer all-clear, on the one path where no operator is watching, and the turn
+    # went on building on top of somebody else's tip. That is the state #1439 measured -- two sessions
+    # building one branch end to end, discovered at the push.
+    #
+    # STILL '' RATHER THAN A NOTE, because a collision report is a claim about another session's work and
+    # a failed fetch is no evidence for one. PRINTED FROM INSIDE rather than handed back as a second
+    # value, so neither caller's collision wording has to change and both of them are covered by one line.
+    # Write-Host rather than Write-CycleParkNote, for the reason the collision report itself gives one
+    # screen down: -Quiet is for a turn that did nothing, and a look that did not happen is not nothing.
+    #
+    # THE TIMEOUT IS NAMED APART, because it is the one flavour whose diagnosis already exists. The bound
+    # this function passes is whatever the budget had left, so a stall here is the spent-budget sentence
+    # arriving one call later -- and Invoke-NativeCapture appends its own '[timeout]' lines naming the
+    # credential helper waiting on a prompt nothing can answer (inbound #1179). Those lines are printed
+    # rather than restated here, which is why they are filtered on that prefix: -DiscardStderr already
+    # keeps git's plumbing off this stream, and Output is not re-opened to remote-influenced text just to
+    # reach them.
+    #
+    # AND THE EXIT CODE IS NAMED ONLY WHEN THERE IS ONE. The arm directly above takes the unmeasurable
+    # case, so by here the code is normally a real measurement -- but Test-NativeExitMeasured answers
+    # $true for a capture carrying no ExitCodeUnknown field at all, which is how it degrades an older
+    # lib to the reading every site had before that field existed. That is the one way a $null still
+    # arrives, and `$null -ne 0` is true, so it would print an empty code clause as though it had read
+    # one. Omitted rather than filled with a guess: this line says the look did not happen, which is
+    # true either way, and diagnoses nothing it did not read.
+    if ($fetch.ExitCode -ne 0) {
+        $codeClause = if ($null -eq $fetch.ExitCode) { '' } else { " (git exit code $($fetch.ExitCode))" }
+        $why = if ($fetch.TimedOut) { 'ran out of time' } else { "failed$codeClause" }
+        Write-Host "park-cycle: the fetch of 'origin/$(Get-DisplayRef -Ref $Branch)' $why, so this run did NOT read who is on the far side. That is NOT an all-clear; nothing is lost, and the next turn asks again." -ForegroundColor Yellow
+        if ($fetch.TimedOut) {
+            foreach ($line in @($fetch.Output)) {
+                if ($line.StartsWith('[timeout]')) { Write-Host "  $line" -ForegroundColor Yellow }
+            }
+        }
+        return ''
+    }
     return Get-RemoteAheadNote -RepoRoot $RepoRoot -LocalRef 'HEAD' -RemoteRef 'FETCH_HEAD' `
                                -BranchLabel $Branch -FreshLabel "origin/$Branch" -StaleLabel "origin/$Branch" -Fresh $true
 }
