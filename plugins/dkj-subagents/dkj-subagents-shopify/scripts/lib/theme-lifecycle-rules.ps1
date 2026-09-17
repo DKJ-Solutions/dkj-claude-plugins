@@ -154,7 +154,7 @@ function Get-RepoPreviewThemeName {
 
     .PARAMETER MaxLength
         The ceiling, so a consumer can pin the number if Shopify ever moves it. Defaults to the 50 that
-        platform enforces today.
+        the platform enforces today.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$FlatBranchName,

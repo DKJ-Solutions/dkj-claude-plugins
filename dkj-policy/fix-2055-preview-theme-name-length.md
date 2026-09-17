@@ -54,7 +54,7 @@ Inbound #2055: the shared preview-theme name builder does not bound its result, 
 
 ### TEST
 
-- [x] `scripts/tests/theme-lifecycle-rules.tests.ps1` -- 102 pass, 0 fail, including nine new
+- [x] `scripts/tests/theme-lifecycle-rules.tests.ps1` -- 102 pass, 0 fail, including ten new
       asserts: the measured 51-character case, the untouched short name, idempotency on the
       function's own output, two long branches sharing a head composing to DIFFERENT names,
       determinism, `-MaxLength`, and the refused floor.
