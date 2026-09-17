@@ -124,5 +124,4 @@ turn on which the old answer was a confident wrong one.
 
 park-cycle's collision detector says a FAILED fetch out loud instead of reporting it as 'nothing to report'
 
-Plugins: dkj-policy
 
