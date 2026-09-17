@@ -45,8 +45,12 @@ never delivered. Repair the families that mislead; record the family that is alr
 
 #### What the audit measured, and where the issue's own number came from
 
-48 logical call sites, not 32. `#2081` counted with a single-line grep, which misses the sixteen calls
-this tree spells across a backtick continuation. The site list and the per-family verdict live in
+56 logical call sites, read with the PowerShell parser. The count took three readings and only the last
+is a measurement: #2081 reported 32 (a single-line grep), a line-joining regex said 48, and the parser
+says 56 -- the eight it adds are the calls that open `@(` with no trailing backtick, which no
+continuation heuristic sees. Two of those eight are writes in `sync-main.ps1` whose failure text told
+the operator to redo a write that may already have landed; the code review on this branch found them
+after the first pass shipped a count it had not measured. The site list and the per-family verdict live in
 `Test-NativeExitMeasured`'s docstring in `scripts/lib/native-capture-lib.ps1`, because a decision nobody
 can find is not one -- and that is the file a later reader of `ExitCodeUnknown` opens first.
 
@@ -66,9 +70,11 @@ worked instance `#2081` was split out of. This branch touches the same file only
       measured, the shared label where the verdict was already right and only `(exit )` was wrong
 - [x] Family "reports a substantive answer" repaired -- `park-cycle`'s collision fetch no longer answers
       all-clear on a look it never judged
-- [x] None of the seven writes may call itself a failure -- four say "THIS RUN DOES NOT KNOW" in those
-      words, the two lower-stakes `sync-main` pushes say the outcome "is unknown here"; `open-pr`'s create routes
-      into the recheck #1916 already built rather than gaining a verdict of its own
+- [x] None of the NINE writes that reach a remote may call itself a failure -- six say "THIS RUN DOES
+      NOT KNOW" in those words, the two lower-stakes `sync-main` pushes say the outcome "is unknown
+      here", and `open-pr`'s create routes into the recheck #1916 already built rather than gaining a
+      verdict of its own. `update-plugins`' two LOCAL writes are the deliberate exception: its question
+      runs the other way ("did every update succeed"), so an unknown stays a failure there
 - [x] Family "refuses / fails safe" recorded as deliberate at each site, with the reason it is right
       (every one is a POSITIVE test, which is what makes `$null` land on the cautious branch)
 - [x] `claim-issue`'s issue view re-asks once -- the one site where the command is idempotent AND the
@@ -79,13 +85,14 @@ worked instance `#2081` was split out of. This branch touches the same file only
 
 - [x] `native-capture.tests.ps1` extended: the direction of the trap in both spellings, the empty
       interpolation, the five verdicts of `Test-NativeExitMeasured`, both labels, and a structural pin
-      that the 18 audited scripts still ask the question -- 255 pass, 0 fail
+      that EVERY bounded capture judged with a negative exit-code test asks about that capture by name,
+      with seven declared exemptions each carrying its reason -- probed red before it was trusted
 - [x] `check-plugin-integrity.ps1`: 0 errors
 - [x] All suites green via `open-pr.ps1`'s gate
 
 ### DEPLOY: fix/2081-exitcodeunknown-audit
 
-`ExitCodeUnknown` had no reader outside the lib that defines it, so all 48 bounded native-capture sites
+`ExitCodeUnknown` had no reader outside the lib that defines it, so all 56 bounded native-capture sites
 went on judging `$r.ExitCode` against a value that is `$null` about once in 300 fresh child processes.
 The direction made it worse than a wrong number: `$null -ne 0` is true, so every site that refuses on a
 failure refused, and PowerShell renders `$null` as the empty string, so twelve of them printed a reason
@@ -102,8 +109,8 @@ Most of the repaired scripts are the ones this marketplace ships -- `claim-issue
 that were wrong are the ones a session acts on: *the claim failed -- #N is NOT yours* over a claim
 sitting on the tracker, *git push failed* over a branch that reached origin, and `park-cycle`'s
 collision detector reporting all-clear on a fetch it never read. Nothing changes on a healthy run; what
-changes is what a consumer is told on the rare one, and that none of the seven writes may call itself a
-failure any more.
+changes is what a consumer is told on the rare one, and that none of the nine writes reaching a remote
+may call itself a failure any more.
 
 **Score:** 3
 
