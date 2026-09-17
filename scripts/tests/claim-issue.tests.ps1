@@ -813,10 +813,176 @@ Assert-True ($scan -match 'Format-ParkedFixReport[^\r\n]*-SelfNames') 'and the r
 # behavioural property of the scan passes with the old headline still in place.
 Assert-True ($scan -match 'Get-ForeignParkedCommit') 'the script asks the lib for the verdict rather than scraping it back out of the printed lines'
 Assert-True ($body -match '\$foreignParked\s*=\s*\$false') 'the flag has a default, so a scan that never ran cannot leave it undefined'
-Assert-True ($body -match '\$opening\s*=\s*if\s*\(\$foreignParked\)') 'the closing headline reads the flag'
+# NOT PINNED TO THE SINGLE-FLAG SPELLING: #2064 added a second verdict to the same headline, so the
+# first arm is now `if ($foreignParked -and $prerequisiteFound)`. What #1878 holds is that the
+# headline BRANCHES on this flag at all -- the spelling of the chain is the other issue's business.
+Assert-True ($body -match '\$opening\s*=\s*if\s*\(\$foreignParked') 'the closing headline reads the flag'
 Assert-True ($body -match 'read the parked-fix verdict above before you start') 'and says so rather than asserting the work starts here'
 Assert-True ($body -match 'BUT NOT THAT BRANCH') 'the resume verdict carries it too -- where the other session branch is already in the working copy'
 
+
+Write-Host ''
+Write-Host 'Get-IssuePathCitations -- the paths an issue body cites (the sixth signal, #2064)' -ForegroundColor Cyan
+
+$c = @(Get-IssuePathCitations -Text 'the subject, `scripts/maintenance/measure-closeouts.ps1`, is not on main')
+Assert-True ($c.Count -eq 1 -and $c[0] -eq 'scripts/maintenance/measure-closeouts.ps1') 'a backticked repo path is collected whole'
+
+# THE MEASURED SHAPE OF AN ISSUE BODY IN THIS FAMILY: mostly links, whose tails are path-shaped and
+# belong to no tree this check can hold them against.
+$c = @(Get-IssuePathCitations -Text 'see https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/scripts/task/claim-issue.ps1 for it')
+Assert-True ($c.Count -eq 0) 'a URL is stripped before the scan -- its path-shaped tail is not a citation of this tree'
+
+$c = @(Get-IssuePathCitations -Text 'filed on DKJ-Solutions/dkj-claude-plugins today')
+Assert-True ($c.Count -eq 0) 'owner/name is not a path -- the extension is what tells them apart'
+
+$c = @(Get-IssuePathCitations -Text 'the fix is in `scripts/lib/foo.bar.ps1` today')
+Assert-True ($c.Count -eq 1 -and $c[0] -eq 'scripts/lib/foo.bar.ps1') 'a filename with two dots comes back whole, not truncated at the first'
+
+$c = @(Get-IssuePathCitations -Text 'run scripts/task/claim-issue.ps1, then scripts/task/claim-issue.ps1 again')
+Assert-True ($c.Count -eq 1) 'the same path twice is one citation -- and the trailing comma is not part of it'
+
+$c = @(Get-IssuePathCitations -Text 'a/one.ps1 b/two.ps1 c/three.ps1' -MaxPaths 2)
+Assert-True ($c.Count -eq 2 -and $c[0] -eq 'a/one.ps1') '-MaxPaths caps the list and keeps first-seen order'
+
+$c = @(Get-IssuePathCitations -Text 'a/one.ps1 b/two.ps1' -MaxPaths 0)
+Assert-True ($c.Count -eq 1) 'a cap below 1 is treated as 1 rather than silencing the scan'
+
+# THE BODY IS UNTRUSTED TEXT, and these three are what the character class exists to refuse: an
+# option-looking token, an escape out of the tree, and an absolute path.
+$c = @(Get-IssuePathCitations -Text '--upload-pack/evil.ps1 ../../etc/passwd.txt /etc/hosts.conf')
+Assert-True ($c.Count -eq 0) 'an option-shaped token, a .. escape and an absolute path are all refused'
+
+$c = @(Get-IssuePathCitations -Text 'the sentence ends with scripts/task/claim-issue.ps1.')
+Assert-True ($c.Count -eq 1 -and $c[0] -eq 'scripts/task/claim-issue.ps1') 'a full stop after a path is sentence punctuation, not part of the name'
+
+Assert-True (@(Get-IssuePathCitations -Text '').Count -eq 0) 'an empty body cites nothing'
+Assert-True (@(Get-IssuePathCitations -Text $null).Count -eq 0) 'a null body cites nothing, and does not throw'
+
+Write-Host ''
+Write-Host 'Get-LsTreePaths -- reading which pathspecs came back' -ForegroundColor Cyan
+
+$t = "100644 blob 4f3d2bca`tscripts/task/claim-issue.ps1"
+Assert-True (@(Get-LsTreePaths -Text $t)[0] -eq 'scripts/task/claim-issue.ps1') 'the path is the field after the TAB'
+
+$t = "100644 blob abc`tdir/a file.md"
+Assert-True (@(Get-LsTreePaths -Text $t)[0] -eq 'dir/a file.md') 'a path containing a space survives -- the tab is the only separator that counts'
+
+$t = "100644 blob abc`t`"dir/quoted.md`""
+Assert-True (@(Get-LsTreePaths -Text $t)[0] -eq 'dir/quoted.md') 'a quoted entry is unquoted rather than dropped'
+
+$t = "fatal: Not a valid object name`n100644 blob abc`tdir/b.md"
+$r = @(Get-LsTreePaths -Text $t)
+Assert-True ($r.Count -eq 1 -and $r[0] -eq 'dir/b.md') 'a line with no tab is not an entry'
+
+Assert-True (@(Get-LsTreePaths -Text '').Count -eq 0) 'an empty capture is an empty answer -- which is what ls-tree says about an absent path'
+
+Write-Host ''
+Write-Host 'Format-PrerequisiteReport -- the weight, and the three endings' -ForegroundColor Cyan
+
+Assert-True (@(Format-PrerequisiteReport -Issue 1 -Branches @()).Count -eq 0) 'nothing surfaced, nothing printed'
+Assert-True (@(Format-PrerequisiteReport -Issue 1 -Branches @([pscustomobject]@{ Ahead = 3 })).Count -eq 0) 'a record with no branch name is not a branch'
+
+$prereq = @(Format-PrerequisiteReport -Issue 2051 -TrunkLabel 'origin/main' -CitedPathCount 2 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/2048-x'; Ahead = 29; OnlyThere = @('scripts/maintenance/measure-closeouts.ps1') }
+))
+$prereqText = ($prereq -join "`n")
+Assert-True ($prereqText -match '29 commits ahead') 'the weight is stated -- 29 commits of unlanded work is not a stray mention'
+Assert-True ($prereqText -match 'measured against origin/main') 'and the ref it was measured against is named, so a stale trunk cannot inflate it unseen'
+Assert-True ($prereqText -match 'here, and NOT on origin/main') 'the path that exists only there is named'
+Assert-True ($prereqText -match 'PREREQUISITE, NOT A COMPETITOR') 'a path missing from the trunk reaches the prerequisite verdict'
+# THE POINT OF THE WHOLE SIGNAL: the ownership verdict asks a different question, and saying so is
+# what stops a reader settling this one by re-reading the commit (#2064's own measured cost).
+Assert-True ($prereqText -match 'YOUR route runs through') 'and it says which question it is answering, against the ownership verdict above it'
+Assert-True ($prereqText -match "OWNER'S call") 'the ordering is handed to the owner rather than decided here'
+
+# MORE THAN ONE OF EITHER, and both are reachable: $maxWeighedBranches is 5, and one branch can carry
+# several missing paths. The singular was hardcoded here when the other two endings already agreed,
+# which is the same bug class as the 'all 1 path ... is' this function shipped with for an hour.
+$many = @(Format-PrerequisiteReport -Issue 2051 -TrunkLabel 'origin/main' -CitedPathCount 4 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/a'; Ahead = 9; OnlyThere = @('lib/one.ps1', 'lib/two.ps1') },
+    [pscustomobject]@{ Branch = 'origin/fix/b'; Ahead = 4; OnlyThere = @('lib/three.ps1') }
+)) -join "`n"
+Assert-True ($many -match '3 files that exist only on 2 branches above') 'two branches and three paths are counted, not called "a file" on "a branch"'
+Assert-True ($many -match 'runs through those branches landing first') 'and the sentence that follows agrees with them'
+
+# THE SAME FILE ON TWO BRANCHES IS ONE FILE THE TRUNK LACKS. Counting the records rather than the
+# distinct paths would say two, which is a claim about the tree that is not true.
+$dup = @(Format-PrerequisiteReport -Issue 1 -TrunkLabel 'origin/main' -CitedPathCount 1 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/a'; Ahead = 2; OnlyThere = @('lib/one.ps1') },
+    [pscustomobject]@{ Branch = 'origin/fix/b'; Ahead = 2; OnlyThere = @('lib/one.ps1') }
+)) -join "`n"
+Assert-True ($dup -match 'names a file that exists only on 2 branches above') 'one path on two branches is one file, and two branches'
+
+$clean = @(Format-PrerequisiteReport -Issue 2051 -TrunkLabel 'origin/main' -CitedPathCount 2 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/x'; Ahead = 3; OnlyThere = @() }
+))
+$cleanText = ($clean -join "`n")
+Assert-True ($cleanText -match 'Not a dependency') 'cited paths that are all on the trunk reach the second ending'
+Assert-True ($cleanText -notmatch 'PREREQUISITE') 'and never the first'
+
+$blind = @(Format-PrerequisiteReport -Issue 2051 -TrunkLabel 'origin/main' -CitedPathCount 0 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/x'; Ahead = 3; OnlyThere = @() }
+))
+$blindText = ($blind -join "`n")
+# THE TWO ENDINGS THAT MUST NOT READ ALIKE. A body citing no path was never tested, and printing
+# 'not a dependency' there is the failure this signal exists to remove, one layer in.
+Assert-True ($blindText -match 'the overlap question was never asked') 'a body citing no path says the question was not asked'
+Assert-True ($blindText -notmatch 'Not a dependency') 'and never claims the answer it did not measure'
+
+$ahead = @(Format-PrerequisiteReport -Issue 1 -TrunkLabel 'origin/main' -Branches @(
+    [pscustomobject]@{ Branch = 'a'; Ahead = -1; OnlyThere = @() },
+    [pscustomobject]@{ Branch = 'b'; Ahead = 0;  OnlyThere = @() },
+    [pscustomobject]@{ Branch = 'c'; Ahead = 1;  OnlyThere = @() }
+)) -join "`n"
+Assert-True ($ahead -match 'ahead count unreadable') 'a count that could not be read says so rather than printing a number'
+Assert-True ($ahead -match 'already on origin/main') 'a branch 0 ahead is contained by the trunk, and that is worth saying'
+Assert-True ($ahead -match '1 commit ahead') 'one commit is singular'
+
+$capped = @(Format-PrerequisiteReport -Issue 1 -MaxPathsPerBranch 2 -CitedPathCount 4 -Branches @(
+    [pscustomobject]@{ Branch = 'a'; Ahead = 2; OnlyThere = @('x/1.md', 'x/2.md', 'x/3.md', 'x/4.md') }
+)) -join "`n"
+Assert-True ($capped -match '\.\.\. and 2 more') 'more paths than the cap says how many were not listed'
+
+Write-Host ''
+Write-Host 'claim-issue.ps1 -- the sixth signal, as wired (#2064)' -ForegroundColor Cyan
+
+# THE BODY IS THE ONE NEW FIELD, and nothing downstream can recover it: without it every issue reads
+# as citing no path, which is the report's blind ending -- silently, and on every claim.
+Assert-True ($body -match "--json', 'number,title,state,url,assignees,body") 'the issue read asks the tracker for the body'
+Assert-True ($body -match 'Get-IssuePathCitations -Text \(\[string\]\$facts\.body\)') 'and the body is read for its citations rather than printed'
+
+Assert-True ($body -match '\$prerequisiteFound\s*=\s*\$false') 'the flag has a default, so a scan that never ran cannot leave it undefined'
+Assert-True ($body -match '(?s)\$opening\s*=\s*if\s*\(\$foreignParked\s+-and\s+\$prerequisiteFound\)') 'the closing headline names BOTH verdicts where both fired'
+Assert-True ($body -match 'read the prerequisite verdict above before you start') 'and names this one where it fired alone'
+Assert-True ($body -match 'AND CHECK THE ORDER') 'the resume verdict carries it too -- an ordering bites hardest on a branch already in the working copy'
+
+# IT WEIGHS WHAT THE READER WAS POINTED AT, which is what keeps a quiet claim free: both scans feed
+# one list, and no list means no git call at all.
+Assert-True ($body -match '\$surfacedBranches\s*=\s*New-Object') 'the surfaced branches are collected in one list'
+Assert-True ($body -match '(?s)foreach \(\$o in \$overlaps\) \{ \$surfacedBranches\.Add') 'the title-overlap scan feeds it too, not only the commit scan'
+Assert-True ($body -match 'if \(\$surfacedBranches\.Count -gt 0\)') 'and a claim that surfaced nothing pays nothing'
+
+# THE TRUNK PREFERENCE IS A CORRECTNESS CHOICE: a local trunk behind origin reports landed commits as
+# unlanded, which inflates a branch weight in the one direction this signal must not err.
+Assert-True ($body -match '\$weighTrunk = if \(\$trunkRefs -contains "origin/\$trunkBranch"\)') 'the weights are measured against the REMOTE trunk where there is one'
+Assert-True ($body -match '-TrunkLabel \$weighTrunk') 'and the report is told which ref that was'
+
+# TRUNK FIRST, THEN ONLY WHAT IT LACKS -- the ordering that keeps the ordinary run at one ls-tree plus
+# one rev-list per branch instead of one per branch per path.
+Assert-True ($body -match 'ls-tree[^\r\n]*\$weighTrunk[^\r\n]*\+ \$citedPaths') 'the trunk is asked about every cited path in ONE call'
+Assert-True ($body -match 'ls-tree[^\r\n]*\$branch[^\r\n]*\+ \$missingFromTrunk') 'and a branch is only asked about the paths the trunk turned out to lack'
+Assert-True ($body -match 'if \(\$missingFromTrunk\.Count -gt 0\)') 'so nothing missing from the trunk means no per-branch read at all'
+
+Assert-True ($body -match '\$maxWeighedBranches\s*=\s*[0-9]+') 'the branches weighed have a stated ceiling'
+Assert-True ($body -match 'were weighed\.') 'and a truncation says so, like every other cap in this script'
+
+# THE THIRD CAP HAD NO VOICE, and the skill page asserted it did -- "both lists are capped ... and a
+# truncation says so" was true of the branches and silently false of the paths. A body citing nine
+# would have had one dropped and the verdict computed on a partial set, with nothing on screen.
+Assert-True ($body -match '\$maxCitedPaths\s*=\s*[0-9]+') 'the cited paths have a stated ceiling of their own'
+Assert-True ($body -match 'Get-IssuePathCitations[^\r\n]*-MaxPaths \(\$maxCitedPaths \+ 1\)') 'asked for one more than will be used, which is what makes the truncation measurable'
+Assert-True ($body -match 'if \(\$probedPaths\.Count -gt \$citedPaths\.Count\)') 'and the extra element is actually tested for'
+Assert-True ($body -match 'cites more than \$maxCitedPaths paths') 'a truncated citation list says so -- and says "more than", which is what a +1 probe measured'
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)

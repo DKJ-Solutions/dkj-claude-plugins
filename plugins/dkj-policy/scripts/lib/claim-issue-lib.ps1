@@ -1092,3 +1092,276 @@ function Format-TitleOverlapReport {
     $lines.Add('  before you dismiss this.') | Out-Null
     return @($lines)
 }
+
+# --- THE SIXTH PICKUP SIGNAL: A SURFACED BRANCH MAY BE A PREREQUISITE, NOT A COMPETITOR (#2064) ----
+#
+# THE FIVE SIGNALS ABOVE ALL ASK ONE QUESTION, in five ways: is somebody else mid-flight on this work?
+# State, assignees, a pull request, a commit naming the number, a branch named for the subject -- every
+# one of them is about OWNERSHIP, and the fourth signal's verdict says so in as many words: ASK THEM
+# BEFORE YOU WRITE ANYTHING.
+#
+# A BRANCH CAN BE IN YOUR WAY WITHOUT BEING A RIVAL. Measured September 16, 2026 (#2064): picking up
+# #2051, the fourth signal found origin/fix/2048-closeout-repair-strategy and printed the ownership
+# verdict. Read, that verdict dissolved -- the commit MENTIONED #2051 because it filed it, which this
+# lib's own text calls "both ordinary and correct". What nothing named was the fact that mattered:
+# #2051's subject, scripts/maintenance/measure-closeouts.ps1, existed ONLY on that branch. Every route
+# to the issue ran through that branch landing first, so the real choice was to ship somebody else's
+# parked branch, stack their 29 commits under this PR, or stop -- a blocking question for the owner,
+# and not the question the verdict asked.
+#
+# WHY NO OTHER CHECK CAN CATCH IT. triage-inbound's "the subject does not exist" (#660) is about a name
+# that names NOTHING; a subject sitting on an unmerged branch greps, opens, and has history, so it
+# reads as present to every check while blocking the work exactly as hard as absence. And
+# Get-TargetIssueWarnings resolves an issue to a pull request, which a parked branch has none of by
+# design -- the same blind spot #1853 measured one axis over.
+#
+# TWO MEASUREMENTS, AND THE SECOND IS THE DECISIVE ONE. The WEIGHT of a surfaced branch -- how far
+# ahead of the trunk it is -- separates 29 commits of unlanded work from a one-commit stray mention,
+# which print as the same line today. The OVERLAP -- a path the issue's own text cites that is absent
+# from the trunk and present on that branch -- is what turns "may be a prerequisite" into "is one".
+#
+# IT WEIGHS ONLY WHAT THE SCANS ABOVE ALREADY SURFACED, so a claim those two are silent about pays
+# nothing at all, which is the ordinary run.
+
+function Get-IssuePathCitations {
+    <#
+        .SYNOPSIS
+            The repo-relative file paths an issue's own text cites -- deduped, in the order they first
+            appear, capped at -MaxPaths. An EMPTY array when it cites none.
+
+        .DESCRIPTION
+            TOKENS, NOT ONE BIG REGEX OVER THE PROSE. The text is split on whitespace and on the
+            characters that wrap a path in a body -- backticks, quotes, brackets, parentheses -- and
+            each token is then tested whole. The anchored test is what keeps 'scripts/foo.bar.ps1' from
+            being read as 'scripts/foo.bar', which is what an unanchored scan does with the very
+            filenames this repo writes.
+
+            A PATH NEEDS A DIRECTORY AND AN EXTENSION. Requiring the slash is what keeps an ordinary
+            English sentence out of the result; requiring the extension is what keeps
+            'DKJ-Solutions/dkj-claude-plugins' -- an owner/name citation, not a file -- out of it. The
+            cost is stated rather than hidden: a file cited bare at the repo root ('README.md') is not
+            collected, because nothing distinguishes it from a word with a full stop after it.
+
+            URLS ARE STRIPPED BEFORE ANY OF THAT. A GitHub link carries a path-shaped tail
+            ('.../blob/main/scripts/task/claim-issue.ps1') that would otherwise be collected and then
+            tested against a tree it does not belong to -- and an issue body in this family is mostly
+            links.
+
+            THE BODY IS UNTRUSTED TEXT -- anybody who can open an issue writes it. The character class
+            here is the bound: what comes out carries only [A-Za-z0-9_.-] and slashes, so nothing
+            reaching a git argument list can hold an option-looking prefix, a newline or a quote. A
+            leading '-' is refused for exactly that reason, '..' because a path escaping the tree is
+            not a citation of it, and -MaxPaths because a body is as long as somebody cares to make it.
+
+        .PARAMETER Text
+            The issue body, as the tracker returned it.
+
+        .PARAMETER MaxPaths
+            How many distinct paths to collect. Below 1 is treated as 1. The caller spends one git read
+            per BRANCH only for the paths the trunk turns out to lack, but the first read passes every
+            path at once, and an unbounded argument list is the thing that breaks rather than slows.
+
+        .OUTPUTS
+            String[] -- repo-relative paths, forward slashes, first-seen order.
+    #>
+    param(
+        [AllowNull()][string]$Text = '',
+        [int]$MaxPaths = 8
+    )
+
+    if (-not $Text) { return @() }
+    $cap = if ($MaxPaths -lt 1) { 1 } else { $MaxPaths }
+
+    # Scheme-relative ('//host/...') as well as 'https://', because both are links and neither is a
+    # path in this tree.
+    $stripped = [regex]::Replace([string]$Text, '(?i)(?:[a-z][a-z0-9+.-]*:)?//\S+', ' ')
+
+    $results = New-Object System.Collections.Generic.List[string]
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($raw in ([regex]::Split($stripped, '[\s`"()\[\]{}<>,;:|*'']+'))) {
+        if (-not $raw) { continue }
+        # Sentence punctuation clings to a path in prose. Trimmed AFTER the split, because '.' is also
+        # the character the extension test needs and the split must not eat it mid-token.
+        $token = ([string]$raw).Trim().TrimEnd('.', '!', '?')
+        if (-not $token -or $token.Length -gt 200) { continue }
+        if ($token.StartsWith('-') -or $token.StartsWith('/')) { continue }
+        if ($token.Contains('..')) { continue }
+        if ($token -notmatch '^(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$') { continue }
+        if ($seen.Add($token)) {
+            $results.Add($token) | Out-Null
+            if ($results.Count -ge $cap) { break }
+        }
+    }
+    return @($results)
+}
+
+function Get-LsTreePaths {
+    <#
+        .SYNOPSIS
+            The paths in a `git ls-tree` capture -- the field after the TAB on each entry line. An
+            EMPTY array for empty or unrecognisable output.
+
+        .DESCRIPTION
+            THE PARSE IS ITS OWN FUNCTION BECAUSE THE PARSE IS WHERE THE TRAP IS, the same reasoning
+            ConvertFrom-CommitScanLog carries two signals up. ls-tree answers by OMISSION: a pathspec
+            that is not in the tree simply does not appear, and the exit code is 0 either way -- so the
+            caller's whole verdict is "which of the paths I asked for came back", and reading that off
+            the text is the half a suite can hold.
+
+            THE TAB IS THE ONLY SEPARATOR THAT COUNTS. Everything before it is mode, type and sha,
+            separated by spaces; the path follows the tab and may itself contain spaces. Splitting on
+            whitespace would truncate exactly the paths that are hardest to notice going wrong.
+
+            A QUOTED PATH IS UNQUOTED, not skipped. git quotes an entry containing a special character,
+            which no path Get-IssuePathCitations can produce ever needs -- but a path that came back and
+            was read as absent is the one error this function must not make, so the quotes come off and
+            the value stands.
+
+        .PARAMETER Text
+            The raw capture, newline-joined.
+
+        .OUTPUTS
+            String[] -- one path per entry line, in git's own order.
+    #>
+    param([AllowNull()][string]$Text = '')
+
+    if (-not $Text) { return @() }
+    $paths = New-Object System.Collections.Generic.List[string]
+    foreach ($line in ([string]$Text -split "`r?`n")) {
+        if (-not $line) { continue }
+        $tab = $line.IndexOf("`t")
+        if ($tab -lt 0) { continue }
+        $path = $line.Substring($tab + 1).Trim()
+        if (-not $path) { continue }
+        if ($path.Length -gt 1 -and $path.StartsWith('"') -and $path.EndsWith('"')) {
+            $path = $path.Substring(1, $path.Length - 2)
+        }
+        $paths.Add($path) | Out-Null
+    }
+    return @($paths)
+}
+
+function Format-PrerequisiteReport {
+    <#
+        .SYNOPSIS
+            The lines weighing the branches the scans above surfaced, and naming any that carries a
+            path this issue cites and the trunk does not. An EMPTY array when nothing was surfaced,
+            which is the caller's signal to print nothing at all.
+
+        .DESCRIPTION
+            IT PRINTS EVEN WHEN IT FINDS NO DEPENDENCY, unlike the two reports above it, and that is
+            the point rather than an oversight. The weight is the cheap half and it is never nothing: a
+            branch 29 commits ahead and a branch carrying one stray mention print as the same line in
+            the fourth signal's listing, and #2064's whole cost was working out which of the two was in
+            front of it.
+
+            THREE ENDINGS, AND EACH SAYS WHAT THIS RUN ACTUALLY ASKED. A prerequisite found; every
+            cited path already on the trunk; or a body citing no path at all, where the overlap
+            question could not be asked and the weight is all there is. Collapsing the last two --
+            printing "not a dependency" where nothing was tested -- is the failure this signal exists to
+            remove, one layer in: a check that cannot tell silence from a clean answer teaches a reader
+            to trust the wrong one.
+
+            ADVISORY, LIKE EVERY SIGNAL IN THIS FAMILY. A path missing from the trunk is strong evidence
+            and still not proof of an ordering: the branch may be about to be abandoned, the file may be
+            about to move, and the issue may be repairable without it. A claim that blocks costs the
+            whole assignment (#1485), so this names the question and hands it over. Where it is a real
+            dependency the decision is the owner's -- shipping somebody else's parked branch first is
+            not a call a pickup check gets to make.
+
+        .PARAMETER Issue
+            The issue being claimed, for the lead line and the verdict.
+
+        .PARAMETER Branches
+            Records with Branch, Ahead (commits ahead of the trunk; -1 where it could not be read) and
+            OnlyThere (the cited paths present there and absent from the trunk).
+
+        .PARAMETER CitedPathCount
+            How many paths the issue's text cited -- 0 meaning the overlap question was never asked.
+            Passed rather than derived from OnlyThere, because "cited nothing" and "cited paths that are
+            all on the trunk" are the two endings that must not read alike.
+
+        .PARAMETER TrunkLabel
+            The ref the weights were measured against, named in full: a reader who sees '29 commits
+            ahead' with no ref cannot tell whether a stale local trunk inflated it.
+
+        .PARAMETER MaxPathsPerBranch
+            How many paths to list under one branch before the overflow line. Below 1 is treated as 1.
+
+        .OUTPUTS
+            String[] -- the lines in print order, no colour and no prefix. The caller writes them.
+    #>
+    param(
+        [int]$Issue = 0,
+        [AllowNull()][object[]]$Branches = @(),
+        [int]$CitedPathCount = 0,
+        [string]$TrunkLabel = 'the trunk',
+        [int]$MaxPathsPerBranch = 4
+    )
+
+    $real = @(@($Branches) | Where-Object { $_ -and $_.PSObject.Properties['Branch'] -and ([string]$_.Branch).Trim() })
+    if ($real.Count -eq 0) { return @() }
+    $cap = if ($MaxPathsPerBranch -lt 1) { 1 } else { $MaxPathsPerBranch }
+    $trunk = if ([string]$TrunkLabel) { [string]$TrunkLabel } else { 'the trunk' }
+
+    $withPaths = @($real | Where-Object {
+        $_.PSObject.Properties['OnlyThere'] -and (@(@($_.OnlyThere) | Where-Object { $_ }).Count -gt 0)
+    })
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    # SINGULAR AND PLURAL ARE BOTH WRITTEN OUT rather than hung off a count and an 's'. These lines are
+    # the ones a reader acts on, and 'all 1 path names is' is the register in which a check stops being
+    # believed -- the same reason Format-CommitAge spells its own units instead of printing a number.
+    $branchWord = if ($real.Count -eq 1) { 'branch' } else { 'branches' }
+    $branchPhrase = if ($real.Count -eq 1) { 'the branch named above' } else { "the $($real.Count) branches named above" }
+    $lines.Add("branch-weight scan: $branchPhrase, measured against $trunk --") | Out-Null
+    foreach ($b in $real) {
+        $ahead = if ($b.PSObject.Properties['Ahead']) { [int]$b.Ahead } else { -1 }
+        $weight = if ($ahead -lt 0) { 'ahead count unreadable' }
+                  elseif ($ahead -eq 0) { "0 commits ahead -- already on $trunk" }
+                  elseif ($ahead -eq 1) { '1 commit ahead' }
+                  else { "$ahead commits ahead" }
+        $lines.Add("  $([string]$b.Branch)  -- $weight") | Out-Null
+        $only = @(@($b.OnlyThere) | Where-Object { $_ })
+        foreach ($p in @($only | Select-Object -First $cap)) {
+            $lines.Add("      $p  -- here, and NOT on $trunk") | Out-Null
+        }
+        if ($only.Count -gt $cap) {
+            $lines.Add("      ... and $($only.Count - $cap) more that $trunk does not carry") | Out-Null
+        }
+    }
+
+    $lines.Add('') | Out-Null
+    if ($withPaths.Count -gt 0) {
+        # AGREEMENT HERE TOO, and this ending is the one that most needs it: more than one branch can
+        # carry a missing path, and one branch can carry several. DISTINCT paths, because the same file
+        # sitting on two branches is one file the trunk lacks, not two.
+        $prereqPaths = @($withPaths | ForEach-Object { @(@($_.OnlyThere) | Where-Object { $_ }) } | Select-Object -Unique)
+        $filePhrase = if ($prereqPaths.Count -eq 1) { 'a file that exists' } else { "$($prereqPaths.Count) files that exist" }
+        $wherePhrase = if ($withPaths.Count -eq 1) { 'a branch above' } else { "$($withPaths.Count) branches above" }
+        $thosePhrase = if ($withPaths.Count -eq 1) { 'that branch' } else { 'those branches' }
+        $lines.Add("PREREQUISITE, NOT A COMPETITOR: #$Issue names $filePhrase only on $wherePhrase, so every") | Out-Null
+        $lines.Add("route to this issue runs through $thosePhrase landing first. The ownership verdict asks") | Out-Null
+        $lines.Add('whether somebody is mid-flight on the same work; this asks whether YOUR route runs through') | Out-Null
+        $lines.Add('theirs, and the two have different answers -- a branch you have to build ON is not a branch') | Out-Null
+        $lines.Add('you are racing.') | Out-Null
+        $lines.Add("That ordering is the OWNER'S call, not this check's and not yours: shipping their parked") | Out-Null
+        $lines.Add('branch first, stacking your work on top of it, and waiting are three answers with three') | Out-Null
+        $lines.Add('different costs. ASK BEFORE YOU BUILD ON IT OR AROUND IT.') | Out-Null
+    }
+    elseif ($CitedPathCount -gt 0) {
+        $pathPhrase = if ($CitedPathCount -eq 1) { "the one path #$Issue names is" } else { "all $CitedPathCount paths #$Issue names are" }
+        $themIt = if ($real.Count -eq 1) { 'it as a collision' } else { 'them as collisions' }
+        $lines.Add("Not a dependency, as far as this can see: $pathPhrase already on $trunk, so your") | Out-Null
+        $lines.Add("route to this issue does not run through the $branchWord above -- read $themIt,") | Out-Null
+        $lines.Add('which is what the verdicts above are for. A branch far ahead is still a body of unlanded') | Out-Null
+        $lines.Add('work, and this tested only the files the issue itself names.') | Out-Null
+    }
+    else {
+        $lines.Add("The weight is all this can say: #$Issue's own text cites no file path, so there was nothing to") | Out-Null
+        $lines.Add("hold against $trunk and the overlap question was never asked. A branch far ahead is a body of") | Out-Null
+        $lines.Add('unlanded work rather than a stray mention -- whether YOUR route runs through it is the') | Out-Null
+        $lines.Add('question, and this run could not ask it.') | Out-Null
+    }
+    return @($lines)
+}
