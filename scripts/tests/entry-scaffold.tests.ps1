@@ -58,6 +58,8 @@ $OpenPrSrc       = Join-Path $RepoRoot 'scripts\release\open-pr.ps1'
 # as the two above -- a fixture missing it dies before the document is written, exactly as it did for
 # native-capture-lib.ps1 above until #1046 caught it.
 $PrIssuesLibSrc  = Join-Path $RepoRoot 'scripts\lib\pr-issues-lib.ps1'
+# And the IMPURE half (inbound #2056), dot-sourced just as unconditionally beside it.
+$IssueStateLibSrc = Join-Path $RepoRoot 'scripts\lib\issue-state-lib.ps1'
 # The remote-ahead note composer (issue #1450), which new-branch.ps1 now dot-sources unconditionally
 # too -- same reasoning as the lib above.
 $RemoteAheadLibSrc = Join-Path $RepoRoot 'scripts\lib\remote-ahead-lib.ps1'
@@ -246,6 +248,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1')
 Copy-Item -LiteralPath $ParkLibSrc -Destination (Join-Path $fixture 'scripts\lib\park-lib.ps1') -Force
 Copy-Item -LiteralPath $PorcelainSrc -Destination (Join-Path $fixture 'scripts\lib\git-porcelain-lib.ps1') -Force
 Copy-Item -LiteralPath $PrIssuesLibSrc -Destination (Join-Path $fixture 'scripts\lib\pr-issues-lib.ps1') -Force
+Copy-Item -LiteralPath $IssueStateLibSrc -Destination (Join-Path $fixture 'scripts\lib\issue-state-lib.ps1') -Force
 Copy-Item -LiteralPath $RemoteAheadLibSrc -Destination (Join-Path $fixture 'scripts\lib\remote-ahead-lib.ps1') -Force
 Copy-Item -LiteralPath $RefPrintLibSrc    -Destination (Join-Path $fixture 'scripts\lib\ref-print-lib.ps1')    -Force
 $prevEap = $ErrorActionPreference
