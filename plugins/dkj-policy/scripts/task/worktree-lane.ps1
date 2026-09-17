@@ -49,7 +49,8 @@
       4. Delegate to new-branch.ps1 with the lane as its -RepoRoot, so the branch, the cycle file and
          the deployment entry all come into being INSIDE the lane. Every rule new-branch enforces --
          the prefix taxonomy, Test-BranchName, the entry scaffold, the tier sections, and the
-         already-done check -Resolves drives -- therefore holds in a lane without being restated here. That parameter was added for this caller, on the
+         already-done check -Resolves drives -- therefore holds in a lane without being restated
+         here. That parameter was added for this caller, on the
          #101 precedent fold-changelog-entry.ps1 already set; the comment at the call site records why
          the cheaper-looking route (repointing CLAUDE_PROJECT_DIR) is wrong.
       5. If that delegation fails for any reason, REMOVE the worktree again and exit non-zero. A
@@ -118,12 +119,13 @@
     (Optional) the issue number(s) this lane is being opened to fix, passed straight through to
     new-branch.ps1, which owns what it means and how it is parsed.
 
-    IT IS FORWARDED FOR THE SAME REASON -SkipStaleBase IS NOT (issue #2061). -Resolves drives
-    new-branch's already-done check, and that check reads the TRACKER -- which knows nothing about how
-    this lane's base was chosen, so nothing about step 2 makes its answer redundant. -SkipStaleBase is
-    the mirror case and is argued at the call site: that check reads the BASE, which step 2 has just
-    set from origin/$trunk, so it has nothing left to discover. One is declined because this script
-    already answered its question; the other cannot be, because this script never asks it.
+    IT IS FORWARDED, AND IT AND -SkipStaleBase ARE NOT A PAIR (issue #2061) -- which is worth saying
+    because they sit one line apart at the call site and read as one decision. They are opposite
+    verdicts from a single test: has this script already answered the question that check asks?
+    -SkipStaleBase's reads the BASE, which step 2 has just set from origin/$trunk, so it has nothing
+    left to discover and the refusal is waived. -Resolves drives the already-done check, which reads
+    the TRACKER -- a question no step here asks or answers, so nothing made it redundant. One is
+    declined because this script answered it; the other never could be.
 
     THE COST OF NOT FORWARDING IT IS EXACTLY THE COST #1409 WAS FILED TO REMOVE -- a branch cut, its
     commits, its reviews and its test runs all spent before the warning arrives -- and a lane is where
