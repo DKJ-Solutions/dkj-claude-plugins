@@ -166,6 +166,7 @@ below changes for you, and nothing here asks you to run anything.
 | [`release-notes-page`](skills/release-notes-page/SKILL.md) | after a release — builds the hand-written notes into one browsable page for the reader they are written for, and optionally the Cloudflare Worker that hosts it |
 | [`fix-mojibake`](skills/fix-mojibake/SKILL.md) | repairing encoding damage in markdown |
 | [`measure-skill`](skills/measure-skill/SKILL.md) | pricing what a skill costs the sessions that carry it — always-on against on-invoke tokens, the delta against a stored baseline, and the wall-clock of the script behind it |
+| [`measure-closeouts`](skills/measure-closeouts/SKILL.md) | the close-out rule keeps being repaired and keeps losing — counts how the receipt actually behaved against its three-line ceiling across every recorded session, so the next repair can be measured instead of judged by whether a complaint arrives |
 
 <!-- /skills:plugin -->
 

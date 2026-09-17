@@ -405,6 +405,31 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE INSTRUMENT SHIPS TO THE REPOS IT MEASURES WORST (issue #2051). It landed in #2048 as a
+            # source-repo maintenance script, which is the wrong way round for what it measures: per repo,
+            # close-outs over the three-line ceiling ran smartwatchbanden 97%, xoxowildhearts 88%,
+            # claude-code-specialists 86%, thumbnail-generator 67% -- and the repo that OWNS the instrument
+            # is its best performer at 50%. The two worst are consumers who could not run it, and every
+            # close-out complaint on the record came from a consumer (#1884, #2043, #2048), which is the
+            # same asymmetry read from the other end.
+            #
+            # IT MIRRORS CLEANLY, which is why this is a registration and not a port. It reads
+            # ~/.claude/projects rather than the repo it runs in, so it needs nothing configured and no
+            # contract row follows: there is no seam a consumer has to answer. It is read-only, always
+            # exits 0, and only counts leave it -- no transcript content -- which is what makes it safe in
+            # a repo whose measurements are published while its sessions stay private.
+            #
+            # ITS OWN SKILL PAGE, not measure-skill's. measure-always-on above is registered under that
+            # page and is the nearest precedent, but that page's subject is what a SKILL costs in tokens;
+            # the close-out ceiling is a different subject, and filing it there would hide it from the
+            # consumer it was mirrored for. The always-on cost of one more description is the price, and
+            # it was weighed against exactly that (Dave, September 17, 2026).
+            Name   = 'measure-closeouts'
+            Source = 'scripts\maintenance\measure-closeouts.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'measure-closeouts'
+        },
+        @{
             # The preamble every consumer-facing lint check opens with (issue #1422): the dual-context
             # root resolution and the always-on prose corpus, in one definition where five entry points
             # carried near-copies. IT HAS TO TRAVEL for the ordinary lib reason -- all five callers are
