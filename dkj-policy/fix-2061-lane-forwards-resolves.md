@@ -80,7 +80,9 @@ that pair everywhere it is now stated, so the next reader does not repair the wr
       That is the half the behavioural assert would stop covering the day the fixture grows a
       `Get-RepoName`.
 - [x] `worktree-lane.tests.ps1`: 39 passed, 0 failed.
-- [ ] Full gate green (lint + all suites) via `open-pr.ps1`.
+- [~] Dropped: "full gate green via `open-pr.ps1`" is not a step this branch performs -- it is what
+      open-pr RUNS, and the step-list gate refuses the push while it is open, so a branch can never tick
+      it. The gate result is recorded by the PR going green, not here.
 
 ### DEPLOY: fix/2061-lane-forwards-resolves
 
