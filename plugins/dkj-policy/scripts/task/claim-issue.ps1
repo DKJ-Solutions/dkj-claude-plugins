@@ -474,7 +474,27 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
             } else {
                 $allBranches = @(Get-ContainingBranchNames -Text ((@($allBranchesCapture.Output) -join "`n")) -Exclude $excludeBranches)
                 $overlaps = @(Get-TitleOverlapBranches -Title ([string]$facts.title) -Branches $allBranches)
-                $overlapReport = @(Format-TitleOverlapReport -Issue ([int]$number) -Title ([string]$facts.title) -Overlaps $overlaps)
+                # THE BRANCH NAME IS THE ONLY UNTRUSTED FIELD THIS BLOCK PRINTS, and it reached the
+                # terminal raw until #2069 -- the same class #1858 closed one signal up, off the same
+                # `git branch -a` text, reintroduced by a block written afterwards that never acquired
+                # the call. `git check-ref-format` enforces \p{Cc} and ACCEPTS \p{Cf}, so a branch
+                # fetched from origin can carry U+202E or a zero-width run into the one line whose
+                # whole job is to say which branch to go and read before writing anything.
+                #
+                # STRIPPED ON THE WAY OUT, NOT ON THE WAY IN, and that is what #2064 decided one block
+                # down rather than a preference: $overlaps feeds the sixth signal, which puts each name
+                # back to git (`rev-list --count`, `ls-tree`), so a name this strip has rewritten is a
+                # ref git does not have -- and the scan would report nothing where it should report a
+                # prerequisite, in exactly the adversarial case the strip exists for. The exclusion
+                # above needs the git spelling for the same reason. So the record keeps the ref as git
+                # wrote it and the REPORT gets a stripped copy: the same seam the weighing loop below
+                # draws, where Branch is stripped into the printed record and $branch is not.
+                # The `shares:` words need nothing -- Get-SignificantWords tokenizes on [^A-Za-z0-9]+,
+                # so nothing outside that class survives into them.
+                $safeOverlaps = @($overlaps | ForEach-Object {
+                    [pscustomobject]@{ Branch = (Format-ForConsole -Text ([string]$_.Branch)); SharedWords = @($_.SharedWords) }
+                })
+                $overlapReport = @(Format-TitleOverlapReport -Issue ([int]$number) -Title ([string]$facts.title) -Overlaps $safeOverlaps)
                 foreach ($line in $overlapReport) {
                     Write-Host "  $line" -ForegroundColor Yellow
                 }
