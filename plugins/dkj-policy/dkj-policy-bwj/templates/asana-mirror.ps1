@@ -146,7 +146,7 @@
 
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
     New-MirrorComment, Get-MirrorCommentMarker, New-AsanaCommentRequest, Get-IssueRefFromNotes,
-    Test-IssueIsCro, New-CroClosingComment,
+    Get-AsanaPasteBlockMarker, Get-AsanaPasteBlockLead, New-AsanaPasteBlockComment,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
     Get-DefaultGithubStatusMap, Test-GithubStatusMap, Select-ProjectStatus, Get-StageForProjectStatus,
@@ -487,35 +487,98 @@ function New-MirrorComment {
     return ($lines -join "`n")
 }
 
-function Test-IssueIsCro {
+function Get-AsanaPasteBlockMarker {
     <#
-        Whether this issue carries the CRO label -- the one gate that turns the closing-comment step
-        below on. Pure. See WORKFLOW-portable.md's "The CRO label -- who reported it, not what it is".
+        The machine marker both writers of the paste-ready block put on it -- the session that shipped
+        the work, and this script's backstop below. Pure.
+
+        An HTML comment, for the same reason the asana-task link uses one: it is the only form that
+        cannot be misread, and it renders as nothing. It sits in the FRAMING text and never inside
+        the block itself, because the block is pasted into Asana and a marker that travelled with it
+        would arrive there as visible junk.
     #>
-    param([string[]]$Labels = @())
-    return ($Labels -contains 'CRO')
+    return '<!-- asana-paste-block -->'
 }
 
-function New-CroClosingComment {
+function Get-AsanaPasteBlockLead {
     <#
-        The GitHub comment posted on a CRO-labelled issue once it closes: a paragraph ready to paste
-        into the Asana task, so whoever closes the ticket can tell the requester (today: Johnno) where
-        to see the result, without composing that message from scratch.
+        The block's own opening sentence -- the prose half of the de-duplication below, and the
+        second matcher for a block a person typed rather than pasted. Pure.
+    #>
+    return 'Fill in the link below and paste the block into the Asana task'
+}
+
+function Test-AsanaPasteBlockPosted {
+    <#
+        Has a paste-ready block already been written on this issue? Reads the issue's comments and
+        looks for the marker, or -- for a block somebody typed by hand -- the lead sentence this
+        script writes. The same two-matcher shape, and the same ordering, as the task link itself:
+        the machine marker first and unconditionally, prose second.
+
+        AN UNREADABLE ISSUE ANSWERS $true, so a run that cannot check does not comment blindly --
+        the same default Test-MirrorUpdatePosted takes on the Asana side. The cost of each mistake
+        is what settles it: a missed backstop leaves a closed issue without a paragraph nobody was
+        going to read there anyway, while a blind post puts a second, placeheld copy underneath a
+        block the session had already filled in correctly.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    $parts = $IssueRef -split '#'
+    $ErrorActionPreference = 'Continue'
+    $raw = & gh issue view $parts[1] --repo $parts[0] --json comments 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $raw) {
+        Write-Host "  Comments of $IssueRef are not readable -- no paste-ready block posted, rather than posting one blindly."
+        return $true
+    }
+    try { $comments = (($raw -join "`n") | ConvertFrom-Json).comments } catch {
+        Write-Host "  Comments of $IssueRef did not parse -- no paste-ready block posted, rather than posting one blindly."
+        return $true
+    }
+
+    $marker = Get-AsanaPasteBlockMarker
+    $lead   = Get-AsanaPasteBlockLead
+    foreach ($c in @($comments)) {
+        $body = [string]$c.body
+        if (-not $body) { continue }
+        if ($body.Contains($marker) -or $body.Contains($lead)) { return $true }
+    }
+    return $false
+}
+
+function New-AsanaPasteBlockComment {
+    <#
+        The GitHub comment carrying the paragraph that goes into the Asana task, so the requester
+        (today: Johnno) is told where to see the result without anybody composing that message from
+        scratch.
+
+        A BACKSTOP, NOT THE ROUTE (BWJ/Maikel, September 17, 2026, inbound #2049). The block belongs
+        on the issue BEFORE it closes, written by the session that shipped the work -- which is the
+        only party that knows the link -- and closing the issue is then a person's confirmation that
+        the handover happened. This function is what runs when that did not happen, and it is gated
+        on the de-duplication above so it never lands under a block that is already there.
+
+        GATED ON THE ASANA LINK, NOT ON THE CRO LABEL, and structurally so: Invoke-EventMode has
+        already returned when no task resolved, so reaching this line IS the link. The CRO gate was
+        narrower than the need -- measured in BWJ-Development/smartwatchbanden on September 17, 2026:
+        of 14 open issues 13 carried an Asana link and 6 carried CRO.
 
         A PLACEHOLDER, NOT A DERIVED LINK (Dave, September 17, 2026). "Where the result can be viewed"
         depends on what the ticket was about -- a live storefront page, a preview theme, something else
         entirely -- and nothing this script reads (the issue, its pull requests, its labels) says that
         reliably. Guessing would hand a colleague a link nobody checked, presented as though the
         workflow knew it was right. So this composes everything AROUND the link and leaves the link
-        itself for a person to fill in before the paragraph goes to Asana.
+        itself for a person to fill in before the paragraph goes to Asana. It is also the whole
+        argument for moving the composition to the session, which has no placeholder to leave.
 
         Pure -- no network.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     return @(
-        'This issue carries the **CRO** label. Fill in the link below and paste the block into the' +
-            ' Asana task, so the requester knows where to look:',
+        (Get-AsanaPasteBlockMarker),
+        '',
+        "This issue closed without a paste-ready block. $(Get-AsanaPasteBlockLead), so the requester" +
+            ' knows where to look:',
         '',
         '---',
         "The fix for $IssueRef is done. You can view the result here: [ADD LINK]",
@@ -539,10 +602,10 @@ function Add-GithubIssueComment {
     $ErrorActionPreference = 'Continue'
     $Text | & gh issue comment $parts[1] --repo $parts[0] --body-file - 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "  Could not post the CRO closing-comment template on $IssueRef."
+        Write-Host "  Could not post the paste-ready block on $IssueRef."
         return
     }
-    Write-Host "  Posted a CRO closing-comment template on $IssueRef (paste-ready for Asana)."
+    Write-Host "  Posted a paste-ready block on $IssueRef -- the session that shipped the work did not."
 }
 
 function Get-StageFromSectionName {
@@ -1693,11 +1756,19 @@ function Invoke-EventMode {
         Write-Host "Asana task $($ref.Gid) updated: $IssueRef $Event (matched by $($ref.Source)). The task was NOT completed -- that is the requester's call."
     }
 
-    # A second, independent comment -- on GITHUB, not Asana -- gated on the CRO label rather than on
-    # every closed issue. No backstop: a missed event here is not repaired by the reconciliation
-    # sweep, the same accepted gap this workflow already carries for a dropped 'reopened'.
-    if ($Event -eq 'closed' -and (Test-IssueIsCro -Labels $link.Labels)) {
-        Add-GithubIssueComment -IssueRef $IssueRef -Text (New-CroClosingComment -IssueRef $IssueRef)
+    # A second, independent comment -- on GITHUB, not Asana -- and it is the BACKSTOP rather than
+    # the route (inbound #2049). The paste-ready block belongs on the issue before it closes, written
+    # by the session that shipped the work, which is the only party that knows the link; this runs
+    # only where that did not happen. Gated on the Asana link and not on the CRO label, which it is
+    # structurally: the no-task return above has already fired.
+    #
+    # STILL EVENT-ONLY, although the de-duplication above would now make a sweep safe. A sweep would
+    # walk every Asana-linked issue closed in the last 30 days, and on its first run post a placeheld
+    # block on every one of them that predates this rule -- a burst of comments on a colleague's
+    # tracker, each of them asking somebody to go back to a closed issue, which is the very thing
+    # #2049 measured as not working. The accepted gap is unchanged and stated on the page.
+    if ($Event -eq 'closed' -and -not (Test-AsanaPasteBlockPosted -IssueRef $IssueRef)) {
+        Add-GithubIssueComment -IssueRef $IssueRef -Text (New-AsanaPasteBlockComment -IssueRef $IssueRef)
     }
 
     # And the card follows. The status comes from the query above rather than from -Event, so a close

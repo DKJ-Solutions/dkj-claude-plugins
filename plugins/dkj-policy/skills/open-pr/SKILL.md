@@ -792,6 +792,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   Deliberately not an array: across `powershell -File` a comma list is cast to a single number via
   the thousands separator, so `-Resolves 332,340` would silently become issue `332340`.
 
+**An issue somebody else has to close by hand is `-NoResolves`, not `-Resolves`** — and the flag is
+the only place that distinction can be made, because `Closes #<n>` hands the decision to GitHub at the
+merge, where no person is present. The measured case is `dkj-policy-bwj`: an issue with a mirrored
+Asana task carries a paste-ready block that the shipping session writes while the issue is **open**,
+and closing it is a person's confirmation that the handover reached Asana (inbound
+[#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). A `Closes #<n>` bypasses
+that silently — the issue closes at the merge, the confirmation never happens, and nothing reports it.
+So such a branch ships with `-NoResolves` and cites the issue as context.
+
+- **That is a real cost, not a free answer.** `-NoResolves` is also what a PR says when it resolves
+  nothing at all, so the two are indistinguishable in the body, and this gate exists precisely because
+  a repaired issue left open is a tracker that disagrees with the changelog. What makes it the right
+  answer here is that a person closes the issue minutes later as a deliberate act, so the window is
+  short and somebody owns it — rather than a keyword that decided it while nobody was looking.
+- **Whether a third answer should exist is open**, and #2049 names it rather than assuming it: a flag
+  that declares the citation deliberately, without a closing keyword, so the body can say *"this PR
+  repairs #n and a person closes it"*. That is a larger change than a wording note and is not made
+  here.
+
 ## Requirements in the consumer
 
 The script is repo-agnostic, but reads its repo data from the **root** of the consumer

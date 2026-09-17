@@ -171,8 +171,12 @@ nobody has renamed this label, and which repos it applies to is a fixed list of 
 than read from a function nothing else needs. [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md)'s
 labelling step creates it only where the repo is one of those two.
 
-**Closing a `CRO` issue triggers one more thing** -- a paste-ready comment for Asana, posted on the
-GitHub issue itself. See [step 4 below](#the-cro-closing-comment----a-paste-ready-pointer-for-asana).
+**It triggers nothing on its own, and it used to.** Until inbound
+[#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049) this label was what turned the
+paste-ready Asana comment on at the close. That comment is now gated on the **Asana link** instead --
+a mirrored task is a mirrored task -- and it is written before the close rather than at it. See
+[step 4 below](#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work).
+This label is purely a filing axis again: who raised it, and nothing else.
 
 ### 2. Then Asana -- a translation, not a copy
 
@@ -262,7 +266,7 @@ matches on it:
 - **On the Asana task** -- the `Tracked on GitHub:` line of the skeleton already carries the issue
   URL. Nothing else is required there.
 
-### 4. Close the GitHub issue -> the Asana task gets an update
+### 4. Write the paste-ready block, THEN close the GitHub issue -> the Asana task gets an update
 
 **Closing the GitHub issue is the signal that the work is BUILT, not that the ticket is DONE.** A
 GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copied from this plugin's
@@ -323,26 +327,79 @@ mirror was working exactly as written, and reached 4 of the 15 issues that carry
 candidates in its log and moves on. It never guesses which ticket an issue belongs to, and the way to
 settle it is to add a marker.
 
-#### The CRO closing comment -- a paste-ready pointer for Asana
+#### The paste-ready block -- written BEFORE the close, by the session that shipped the work
 
-**A second, independent comment, gated on the `CRO` label rather than on every closed issue.** Where an
-issue carrying `CRO` (see above) is closed, `asana-mirror` posts one more comment on the **GitHub**
-issue itself -- not on Asana -- carrying a paragraph ready to paste into the Asana task, so the person
-closing the ticket can tell the requester (today: Johnno) where to see the result without composing
-that message from scratch.
+**The order is the rule** (BWJ/Maikel, September 17, 2026, inbound
+[#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). An issue with a linked Asana
+task carries a paragraph ready to paste into that task, telling the requester (today: Johnno) where to
+see the result -- and that paragraph goes on the issue **while it is still open**, written by the
+session that shipped the work, as the closing act of its own chain. **Closing the issue is then the
+confirmation that the handover happened**, and it is a person's act rather than a script's.
 
-**The link inside it is a placeholder, deliberately, not something the workflow derives** (Dave,
-September 17, 2026). "Where the result can be viewed" depends on what the ticket was about -- a live
-storefront page, a preview theme, something else entirely -- and nothing this script reads (the issue,
-its pull requests, its labels) says that reliably. A guessed link reads as authoritative to a colleague
-who was never asked to check it, so the automation composes everything **around** the link and leaves
-the link itself for a person to fill in before the paragraph goes to Asana.
+It is one comment on the **GitHub** issue -- not on Asana -- and it has a fixed shape, because the
+backstop below has to be able to recognise it:
 
-**It runs once, on the `closed` event, and carries no backstop.** Unlike the task-completion comment
-above, a missed event here is not repaired by the daily reconciliation sweep -- the same accepted gap
-this page already carries for a dropped `reopened` event. A `CRO` issue closed while the workflow could
-not run is a comment that never posts, and there is deliberately no attempt to detect that after the
-fact.
+```text
+<!-- asana-paste-block -->
+
+Fill in the link below and paste the block into the Asana task, so the requester knows where to look:
+
+---
+The fix for <owner>/<repo>#<n> is done. You can view the result here: <the actual link>
+---
+```
+
+**The marker sits OUTSIDE the block, and the block is what gets pasted.** Everything between the two
+`---` rules travels to Asana; the marker and the framing sentence stay on GitHub. A marker inside the
+block would arrive in the Asana task as visible junk.
+
+**Three things made the old order unworkable, and the third could not be fixed inside it:**
+
+1. **Nobody returns to a closed issue.** A comment posted at the close appears underneath an item that
+   has just left every open-issue view, so whether it ever reaches Asana depends on somebody going back.
+2. **There was no backstop.** A missed event was a comment that never posted, and nothing detected it
+   afterwards.
+3. **The link could not be filled in.** `New-AsanaPasteBlockComment` writes `[ADD LINK]` and is right to
+   -- "where the result can be viewed" depends on what the ticket was about, and nothing the workflow
+   reads says that reliably. **The session that built the thing does know it**: its preview URL, or the
+   live page after a push. Moving the composition to that session removes the placeholder instead of
+   working around it.
+
+**It is gated on the Asana link, not on the `CRO` label.** A mirrored task is a mirrored task, so the
+reach is the same three matchers this step already defines for *which* task an issue belongs to. The
+`CRO` gate was narrower than the need -- measured in `BWJ-Development/smartwatchbanden`,
+September 17, 2026: of 14 open issues, **13** carried an Asana link and **6** carried `CRO`.
+
+**How this interacts with `dkj-policy`'s resolves gate, which is the half a consumer cannot infer.**
+`open-pr.ps1 -Resolves` writes `Closes #<n>` into the pull request body, so GitHub closes the issue at
+the **merge** -- before anybody has written a block, and with nobody's confirmation. So an Asana-linked
+issue ships with **`-NoResolves`** and cites the issue as context, and the person closes it by hand once
+the block is on it. That is the whole of the answer today; a third flag that declares the citation
+deliberately without a closing keyword is named in #2049 as a larger change and is not assumed here.
+
+##### The backstop: `asana-mirror` still writes one, only where the session did not
+
+Where an Asana-linked issue closes and **no block is on it**, `asana-mirror` posts one -- with
+`[ADD LINK]`, because CI genuinely cannot know the link. It is the safety net under the rule above and
+not the route to it.
+
+**It de-duplicates on the block's own marker, and on its lead sentence for one somebody typed by
+hand** -- the same two-matcher shape, in the same order, as the task link itself: the machine marker
+first and unconditionally, prose second. So a session that did its job never sees a second, placeheld
+copy appear under its own.
+
+**An issue whose comments cannot be read gets nothing**, and the run says so. The costs are not
+symmetrical: a missed backstop leaves a closed issue without a paragraph nobody was going to read there
+anyway, while a blind post puts a placeheld copy underneath a block that was already filled in
+correctly.
+
+**It runs on the `closed` event only, and the accepted gap is unchanged.** The de-duplication would now
+make a sweep safe, and it is still deliberately not swept: a sweep walks every Asana-linked issue closed
+in the last 30 days, so its first run would post a placeheld block on every one of them that predates
+this rule -- a burst of comments on a colleague's tracker, each asking somebody to go back to a closed
+issue, which is exactly what #2049 measured as not working. A close that happens while the workflow
+cannot run is therefore still a block that never posts, the same accepted gap this page already carries
+for a dropped `reopened` event.
 
 ### 5. The Asana prio score comes back as a GitHub label
 
@@ -763,6 +820,10 @@ instead, per the section above.
   organisation rather than in the one the mirror project sits in, and a task the token cannot read is
   logged and skipped rather than failing the run -- so a sweep that reports `0 updated` with a line
   per unreadable task is telling you about the token, not about the tickets.
+- **Closing an Asana-linked issue, once the paste-ready block is on it.** Step 4 reverses the old
+  order: the session writes the block while the issue is open, and closing it is the confirmation that
+  somebody pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
+  would have GitHub close the issue at the merge, with nobody having confirmed anything.
 - **Resolving the ticket. That is the whole point of step 4**: the colleague who filed
   it ticks it off once they have tested the change, and nothing in this workflow will do it for them.
 - **The Asana project answer, and step 6 has now settled it.** This used to be an open BWJ decision --
@@ -796,6 +857,12 @@ instead, per the section above.
   priority is the one thing the business owns and the developers consume. The board is where it is
   decided and the issue list is where it has to be read; carrying it across beats asking a developer
   to keep a second window open.
+- **The block before the close, and not at it**, because the close is the only event a person in this
+  chain actually performs, and hanging the composition on it put the paragraph underneath an item that
+  had already left every open-issue view. Writing it first turns the close into a **receipt** -- the
+  issue is open for exactly as long as the handover is outstanding -- and it puts the composing in the
+  hands of the one party that knows the link, which is what retires the `[ADD LINK]` placeholder
+  instead of working around it.
 - **An update and not a tick**, because the two are different claims by different people. The build
   is finished when the person who built it says so; the request is finished when the person who made
   it says so. A tracker that lets one stand in for the other cannot afterwards tell you which of its
