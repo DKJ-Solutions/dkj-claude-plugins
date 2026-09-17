@@ -156,4 +156,3 @@ and it now reaches a git argument list.
 
 A surfaced branch is weighed, so a prerequisite is not read as a competitor
 
-Plugins: dkj-policy
