@@ -1,0 +1,12 @@
+{
+    "MeasuredUtc":  "2026-09-17T11:49:41Z",
+    "Ceiling":  3,
+    "N":  263,
+    "OverCeiling":  222,
+    "OverCeilingPct":  84,
+    "MedianLines":  7,
+    "MeanLines":  8.5,
+    "P90Lines":  16,
+    "MeanChars":  1604,
+    "RToolsLines":  0.207
+}
