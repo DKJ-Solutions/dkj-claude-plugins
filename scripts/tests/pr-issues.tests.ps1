@@ -1180,10 +1180,11 @@ $shipText = [System.IO.File]::ReadAllText((Resolve-Path $shipPrPath).Path, [Syst
 # assert then went red while nothing it was about had moved, or, in the worse direction, stayed green
 # on a definition after the call site it meant to pin had been deleted. The red direction is how this
 # was found (#2087, four asserts red on two new functions); the green direction is what was measured
-# when it was repaired, September 17, 2026: of this file's 35 distinct ship-pr needles SEVEN already
-# matched in more than one place, and two of those resolved to PROSE rather than to code --
-# 'Get-MergeBlockVerdict' to a comment 121 lines above its first call, and 'Get-MissingCheckSuiteNote'
-# to a .PARAMETER line inside a docstring. Both asserts were green about text, not about behaviour.
+# when it was repaired, September 17, 2026, counted off the AST rather than by grep: the 45 reads used
+# 39 distinct needles, EIGHT of which already matched in more than one place, and ELEVEN of the reads
+# used one of those eight. Two resolved to PROSE rather than to code -- 'Get-MergeBlockVerdict' to a
+# comment 121 lines above its first call, and 'Get-MissingCheckSuiteNote' to a docstring line under
+# .PARAMETER Mergeable. Both asserts were green about text, not about behaviour.
 #
 # Get-ShipIdx closes both directions and is the ONLY way this suite locates anything in ship-pr.ps1:
 #
@@ -1197,7 +1198,9 @@ $shipText = [System.IO.File]::ReadAllText((Resolve-Path $shipPrPath).Path, [Syst
 #           "the text appears here" back into "the call sits here"; leave it off where the needle IS
 #           prose, such as a banner or an ALL-CAPS comment marking a block.
 #   -Last   the last match in the region instead of the first (the #1350 re-entry needs it).
-#   -From   start no earlier than this absolute index, for a sequence pinned INSIDE one region.
+#   -From   start no earlier than this absolute index, for a sequence pinned INSIDE one region. A
+#           NEGATIVE one is refused rather than ignored: -1 is what a failed lookup hands back, and
+#           quietly searching the whole region instead would answer a question nobody asked.
 #   -Optional  a PROBE rather than an assertion: a miss returns -1 quietly, for the one read below
 #           that legitimately tries two line endings and expects one of them to fail.
 #
@@ -1223,7 +1226,7 @@ function Get-ShipProseMap {
         One bool per character: is this position inside a comment? Both shapes count -- a line whose
         first non-blank character is '#', and a BLOCK comment (the docstring form), which is where the
         .PARAMETER line this repair found had been hiding. A map rather than a range list so a lookup
-        is O(1); ship-pr.ps1 is ~190 KB, so the array costs nothing worth measuring.
+        is O(1); ship-pr.ps1 is ~230 KB, so the array costs nothing worth measuring.
     #>
     if ($null -ne $script:shipProse) { return $script:shipProse }
     $map = New-Object 'bool[]' $script:shipText.Length
@@ -1257,6 +1260,10 @@ function Get-ShipIdx {
         }
         $start = $region.Start; $end = $region.End; $where = "ship-pr.ps1 / $In"
     }
+    # The anchor a caller chains in may itself be a miss. Searching the region unanchored would then
+    # answer a different question and could still "pass" a -lt comparison; the read that missed has
+    # already printed its own named [FAIL], so this one stops quietly.
+    if ($PSBoundParameters.ContainsKey('From') -and $From -lt 0) { return -1 }
     if ($From -gt $start) { $start = $From }
     $prose = if ($Code) { Get-ShipProseMap } else { $null }
     $hits = @()

@@ -45,20 +45,31 @@ The issue reports that `scripts/tests/pr-issues.tests.ps1` pins several of `ship
 with a whole-file `IndexOf`, which finds the FIRST occurrence -- so a function defined above the step
 being asserted about re-points the index at the definition. It was found from the red side (#2087
 added two helpers above step 3 and four asserts went red without the wait changing), and it infers
-that the remaining ~14 reads would break the same way.
+that the remaining reads would break the same way.
 
-Verified before repairing, and the inference is only half right. Of the 35 distinct ship-pr needles
-this file uses, **7 already matched in more than one place** -- so they are fragile today, not
-hypothetically -- and **two of those already resolved to PROSE**, which is the OTHER direction the
+Verified before repairing, and the inference is only half right. Counted off the AST rather than by
+grep, the file held **45** such reads over **39** distinct needles. **Eight of those needles already
+matched in more than one place** -- so they are fragile today, not hypothetically -- and eleven of the
+45 reads used one of the eight. **Two already resolved to PROSE**, which is the OTHER direction the
 issue names and the worse one, because it is green:
 
 - `Get-MergeBlockVerdict` resolved to a comment at ship-pr.ps1:1523, 121 lines above its first call
-  (1644). `the wait still happens FIRST and the verdict second` was passing on a comment.
-- `Get-MissingCheckSuiteNote` resolved to a `.PARAMETER` line inside `Get-MissingCheckSuiteRefusalNote`'s
-  docstring (829) rather than to the call at 862. #1584 had lifted that read out of step 3's inline
-  probe into the shared builder, and the assert followed it into the docstring.
+  (1644). The assert reading "the wait still happens FIRST and the verdict second" was passing on a
+  comment.
+- `Get-MissingCheckSuiteNote` resolved to a docstring line under `.PARAMETER Mergeable` in
+  `Get-MissingCheckSuiteRefusalNote` (829) rather than to the call at 862. #1584 had lifted that read
+  out of step 3's inline probe into the shared builder, and the assert followed it into the docstring.
 
-The other 28 needles are unique today and were only fragile against a future duplicate.
+The other 31 needles are unique today and were only fragile against a future duplicate.
+
+#### A note on the counting, because this branch got it wrong first
+
+The first pass counted these with a grep line count, reported 44 reads and 35 needles, and both were
+short: that counts LINES, and the pattern used missed the one LastIndexOf site outright. The numbers
+above come from walking the pre-change file's AST for the member calls whose target is the script
+text, resolving each first argument to its literal value, and counting each needle's occurrences in
+`ship-pr.ps1`. The irony is the point -- a count taken with the wrong instrument is the same defect as
+an assert taken with the wrong lookup, which is what this branch exists to repair.
 
 ### CREATE
 
@@ -69,59 +80,71 @@ The other 28 needles are unique today and were only fragile against a future dup
       inside a block comment. `-Last` and `-From` cover the two sequencing cases. A needle it cannot
       find is a named FAILURE rather than a silent `-1`, because `-1` compares as "earlier than
       everything" and a `-lt` assert would read a deleted call site as a pass.
-- [x] All 44 `$shipText.IndexOf(...)` / `.LastIndexOf(...)` reads converted; none remains.
-- [x] Two hedges that only existed because of the whole-file lookup removed with it: the
-      `-or $shipText -like '*...*'` half of the pending-list assert, which made it true whenever the
-      text existed anywhere, and the manual `IndexOf(x, $anchor)` offsets now expressed as regions.
+- [x] All 45 reads converted; no whole-file lookup into ship-pr.ps1 remains.
+- [x] Two hedges that only existed because of the whole-file lookup removed with it: the second half
+      of the pending-list assert, an alternation on a whole-file wildcard match that made it true
+      whenever the text existed anywhere, and the manual offset chains now expressed as regions.
+- [x] `-From` refuses a negative anchor rather than ignoring it (Victor's review): `-1` is what a
+      failed lookup hands back, and quietly searching the whole region instead would answer a
+      different question and could still pass a `-lt` comparison.
 
 #### What was NOT swept, and why
 
-`$openPrText`'s 13 reads in the same file have the same shape and three of their needles are already
-multi-occurrence -- `if ($existingPr) {` resolves to open-pr.ps1:704, the `-Title` warning, 1188 lines
-above the body-edit block at 1892 that the assert names. That is out of #2090's scope, which is
-written about `$shipText`, and it is filed as [#2091](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2091) rather than ridden along.
+The `$openPrText` asserts in the same file have the same shape -- 14 reads over 13 distinct needles,
+three of them already multi-occurrence. `if ($existingPr) {` resolves to open-pr.ps1:704, the `-Title`
+warning, 1188 lines above the body-edit block at 1892 that the assert names. That is out of #2090's
+scope, which is written about `$shipText`, and `open-pr.ps1` has no `# --- Step ` banners and no
+top-level functions, so the helper would need an opener pattern per script rather than being reusable
+as written. Filed as [#2091](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2091) rather
+than ridden along.
 
 ### TEST
 
 - [x] `scripts/tests/pr-issues.tests.ps1`: 1007 asserts, all pass (1005 before, plus the two that pin
-      the helper's own properties against ship-pr.ps1 itself -- same needle in two steps resolving to
-      two places, and `-Code` walking past the comment onto the call).
+      the helper's own properties against ship-pr.ps1 itself -- the same needle in two steps resolving
+      to two places, and `-Code` walking past the comment onto the call).
 - [x] `scripts/lint/check-plugin-integrity.ps1`: 0 errors.
 - [x] The regression, run as the issue describes it: a decoy function carrying every re-pointable
       needle inserted above step 3 in `ship-pr.ps1`. The pre-change suite goes RED on two asserts
-      (`the watch call sits inside the attempt loop rather than before it`, `step 3 runs the wait
-      before the --watch call, as the inline loop did`); the converted suite stays green at 1007.
+      ("the watch call sits inside the attempt loop rather than before it", "step 3 runs the wait
+      before the --watch call, as the inline loop did"); the converted suite stays green at 1007.
       `ship-pr.ps1` restored afterwards -- it is untouched by this branch.
+- [x] Reviewed by Victor (correctness, simplicity, reuse, efficiency) and Edith (copy edit). Both
+      found real defects, both repaired above; Edith's count findings are what produced the AST
+      measurement in PLAN.
 
 ### DEPLOY: fix/2090-anchor-ordering-asserts
 
 `scripts/tests/pr-issues.tests.ps1` no longer locates anything in `ship-pr.ps1` with a whole-file
-`IndexOf`. All 44 reads go through one region-scoped helper, `Get-ShipIdx`, which searches inside a
+`IndexOf`. All 45 reads go through one region-scoped helper, `Get-ShipIdx`, which searches inside a
 single `function` or `# --- Step ` region and, with `-Code`, skips comments and docstrings. A needle
 it cannot find is a named failure instead of a silent `-1` that a `-lt` assert would read as a pass.
 
 This closes both directions of the defect. The red one is what #2087 met: two helpers added above
 step 3 turned four asserts red about behaviour that had not moved. The green one was measured on the
-repair -- seven needles already matched in more than one place, and two of them resolved to prose
-rather than to code, so `the wait still happens FIRST and the verdict second` was passing on a comment
-121 lines above the call, and the check-suite read was pinned to a `.PARAMETER` line in a docstring.
-
-**Score:** 2
+repair -- of the 39 distinct needles those 45 reads used, eight already matched in more than one
+place, and two of them resolved to prose rather than to code, so the assert pinning ship-pr's wait
+order was passing on a comment 121 lines above the call, and the check-suite read was pinned to a
+docstring line.
 
 Nobody outside this repo runs this suite, and nothing it guards changed behaviour. What it buys is
 the next person who adds a helper to `ship-pr.ps1`: they no longer meet a red suite naming a
 behaviour they did not touch, whose cheapest reading is to delete the assert.
 
+**Score:** 2
+
 #### What makes this deploy extra special
 
 A test that is green about the wrong text is worse than one that is red, because nothing ever asks it
 again. Two of these had drifted onto prose -- one onto a comment, one into a docstring -- while
-reporting that ship-pr's wait order was pinned.
-
-**Score:** N/A
+reporting that ship-pr's wait order was pinned. The branch then reproduced the same failure in its own
+writing: the first counts were taken with a grep line count, which missed the one LastIndexOf site,
+and every figure above is re-measured off the AST.
 
 The reader of a tier-2 change is the subscriber of a service; this is a test suite inside the repo
-that authors the workflow, and reaches nobody who installs it.
+that authors the workflow, and it reaches nobody who installs it.
+
+**Score:** N/A
 
 #### Pull Request
 
