@@ -2022,6 +2022,11 @@ certificate anyway.
                     # commit stays counted), so this is the convention being followed rather than a bug being
                     # fixed; the alternative was a comment explaining why this one call is the odd one out.
                     $diffRead = Invoke-NativeCapture -Utf8 -FilePath 'git' -DiscardStderr -Arguments @('show', '--name-status', '--format=', $sha)
+                    # AN UNMEASURABLE EXIT CODE LANDS IN THE SAME `continue` (issue #1931, audited under
+                    # #2081), and it needs no arm of its own for the reason the block below gives about a
+                    # short read: both leave the commit COUNTED in the staleness verdict, which is the
+                    # fail-closed direction, so a separate branch would be a no-op wearing a citation.
+                    # Recorded rather than repaired -- that is this site's audited verdict.
                     if ($diffRead.ExitCode -ne 0) { continue }
                     # NO ShortRead BRANCH HERE, AND THAT IS A MEASUREMENT RATHER THAN AN OMISSION
                     # (issue #1679). This call was listed with the five sites that read an empty capture
@@ -2240,9 +2245,16 @@ if ($null -ne $shipCycleText) {
     # shape as remote-ahead-lib.ps1's three reasons (#1676). Both land in the branch the comment above
     # already settled -- an unreadable body is NOT a finding -- so this widens what counts as
     # unreadable rather than adding a verdict.
+    #
+    # A THIRD REASON JOINED THEM UNDER #2081, and it is asked first: an unmeasurable exit code (#1931)
+    # satisfies `-ne 0`, so this printed "gh exited " -- the sentence built to send the reader to their
+    # network or token, with the number that would justify it missing out of it. Like the short read
+    # beside it, it is a fact about this run rather than about the PR, and it lands in the same branch.
     $lockUnread = ''
     $lockShortRead = $false
-    if ($lockView.ExitCode -ne 0) {
+    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+        $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read'
+    } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = "gh exited $($lockView.ExitCode)"
     } elseif ($lockView.ShortRead) {
         $lockUnread = 'gh exited 0 but its capture was still being written when it was read, so the body this run holds may be truncated'
@@ -2768,6 +2780,16 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
 $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'fetch', '--prune', 'origin') `
                               -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
 $fetch.Output | ForEach-Object { Write-Host $_ }
+# AN UNMEASURABLE EXIT CODE STOPS HERE TOO, AND SAYS SO AS ITSELF (issue #1931, audited under #2081).
+# Stopping is the right direction -- the ff-only merge below has to be made against a ref this run can
+# vouch for, and the merge has already landed, so the fold is the only thing at stake. What was wrong was
+# the sentence: `$null -ne 0` is true, so this printed the flat "git fetch of origin failed" over a fetch
+# that may have worked, and the reader was sent after a remote that was fine.
+if (-not (Test-NativeExitMeasured -Capture $fetch)) {
+    Remove-ShipFoldWorktree -Path $foldTree
+    Write-Error "git fetch of origin ran but its exit code could not be measured (issue #1931), so this run cannot vouch for the ref the fold would be made against. Nothing is wrong with the remote as far as this knows -- run the fold again.$mergedNotFoldedNote"
+    exit 1
+}
 if ($fetch.ExitCode -ne 0) {
     Remove-ShipFoldWorktree -Path $foldTree
     if ($fetch.TimedOut) {

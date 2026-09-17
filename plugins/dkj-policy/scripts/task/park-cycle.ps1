@@ -178,6 +178,21 @@ function Get-BranchCollisionNote {
     )
     $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'fetch', 'origin', $Branch) `
                                   -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $Budget)
+    # A LOOK THAT COULD NOT BE JUDGED IS SAID OUT LOUD (issue #1931, audited under #2081). '' is this
+    # function's word for "nothing to report", and an unmeasurable exit code satisfies `-ne 0` -- so the
+    # collision detector answered "all clear" on a fetch whose outcome it never read. That is the exact
+    # silence the block above this function already refuses for a SPENT budget, where the caller prints
+    # "this run did NOT read who is on the far side"; the same sentence is owed here, and it is printed
+    # from inside rather than returned so that neither caller's collision wording has to change.
+    #
+    # STILL '' RATHER THAN A NOTE, because a collision report is a claim about another session's work and
+    # this run has no evidence for one. Write-Host rather than Write-CycleParkNote, for the reason the
+    # collision report itself gives: -Quiet is for a turn that did nothing, and a look that did not happen
+    # is not nothing.
+    if (-not (Test-NativeExitMeasured -Capture $fetch)) {
+        Write-Host "park-cycle: the fetch of 'origin/$(Get-DisplayRef -Ref $Branch)' ran with an exit code that came back unmeasurable (issue #1931), so this run did NOT read who is on the far side. That is not an all-clear." -ForegroundColor Yellow
+        return ''
+    }
     if ($fetch.ExitCode -ne 0) { return '' }
     return Get-RemoteAheadNote -RepoRoot $RepoRoot -LocalRef 'HEAD' -RemoteRef 'FETCH_HEAD' `
                                -BranchLabel $Branch -FreshLabel "origin/$Branch" -StaleLabel "origin/$Branch" -Fresh $true

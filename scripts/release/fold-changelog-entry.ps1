@@ -1205,6 +1205,24 @@ if ($Commit) {
         # other stall land in the branch below, which already says the right thing.
         $pushRun = Invoke-NativeCapture -FilePath 'git' -Arguments @('push') `
                                         -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        # AN UNMEASURABLE EXIT CODE DOES NOT ENTER THE DIAGNOSIS BELOW (issue #1931, audited under #2081),
+        # and keeping it out is the whole repair. `$null -ne 0` is true, so this push took the refusal arm
+        # -- which fetches, compares entry bodies against the trunk, and can conclude that another device
+        # already folded this branch. On a push that in fact LANDED that conclusion is reached off this
+        # run's own commit, and #1792's exit 3 then tells ship-pr the fold was redundant. So the one arm
+        # built to prevent a double fold could report one that never happened.
+        #
+        # IT EXITS 1 RATHER THAN 3, deliberately: 3 is a claim that the entry is already upstream, and
+        # nothing here has established anything at all. The remedy is the read the operator can make in
+        # one command, and the commit is sitting safely on the local trunk either way.
+        if (-not (Test-NativeExitMeasured -Capture $pushRun)) {
+            Write-Host ($pushRun.Output -join "`n") -ForegroundColor Red
+            Write-Host 'git push ran but its exit code could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether the fold commit reached origin.' -ForegroundColor Red
+            Write-Host '  The commit is on the local trunk and nothing was lost. Look before you push again:' -ForegroundColor Red
+            Write-Host '    git fetch origin && git log --oneline HEAD..origin/main origin/main..HEAD' -ForegroundColor Red
+            Write-Host '  If it is already upstream, discard nothing and pull; if it is not, push it by hand.' -ForegroundColor Red
+            exit 1
+        }
         if ($pushRun.ExitCode -ne 0) {
             Write-Host ($pushRun.Output -join "`n") -ForegroundColor Red
             $why = if ($pushRun.TimedOut) { "git push did not answer within $NativeCaptureNetworkTimeoutSeconds seconds; see the [timeout] lines above" } else { "git push exited $($pushRun.ExitCode)" }

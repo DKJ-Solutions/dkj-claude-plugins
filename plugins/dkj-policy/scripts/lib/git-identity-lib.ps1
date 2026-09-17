@@ -242,6 +242,13 @@ function Test-GitCanCommit {
     # must be read before the number is. Property-guarded: a caller holding an older capture lib gets
     # an object without the field rather than a strict-mode throw.
     if ($res.PSObject.Properties['TimedOut'] -and $res.TimedOut) { return $true }
+    # AND A CODE THAT IS NOT A MEASUREMENT IS THE SAME CLASS OF NON-ANSWER (issue #1931, audited under
+    # #2081). This function was cited as ExitCodeUnknown's one existing consumer and was not: it is
+    # immune BY ACCIDENT of the comparison's direction, because the only refusal below is written
+    # `-ne 128` and `$null -ne 128` is true, so an unmeasurable code already fell through to $true.
+    # Right answer, reached without asking the question -- and that lasts exactly as long as nobody
+    # rewrites the refusal as a positive test. Stated here so the safe direction is a decision.
+    if (-not (Test-NativeExitMeasured -Capture $res)) { return $true }
     if ($res.ExitCode -eq 0) { return $true }
     # THE ONLY REFUSAL. Anything else is a probe that did not answer the question, which is the
     # "unknown" case above -- see the docstring for why this is an exit code and not a message match.

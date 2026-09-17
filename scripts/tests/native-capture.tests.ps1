@@ -1188,6 +1188,70 @@ $parkCycleCode = ($parkCycleJoined -split '\r?\n' | Where-Object { $_.TrimStart(
 Assert-Equal (@([regex]::Matches($parkCycleCode, 'Test-NativeCaptureBudgetHasRoom')).Count) 4 `
     'park-cycle asks whether there is room before each call it might make -- the PR check, the open-PR look, the push, and the refused-push look'
 
+
+# ---------------------------------------------------------------------------------------------
+Write-Host 'Test-NativeExitMeasured / Get-NativeExitLabel -- the consumers #1931 asked for (#2081)' -ForegroundColor Cyan
+
+# THE POINT OF THE FUNCTION IS THE DIRECTION, so both spellings of the trap are asserted here rather
+# than left to the call sites: $null is not 0 AND $null is not -ne 0's false, so a caller reading the
+# NUMBER lands on its failure branch whichever way round it writes the comparison.
+Assert-True ($null -ne 0) 'the trap itself: an unmeasurable code satisfies -ne 0, which is why a refusing site refuses'
+Assert-True (-not ($null -eq 0)) '...and fails -eq 0, which is why a site requiring success reads it as failure'
+Assert-Equal '' "$($null)" '...and interpolates as the EMPTY STRING, which is what produced "(exit )" at twelve sites'
+
+$fxMeasured   = [pscustomobject]@{ Output = @(); ExitCode = 3;     TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $false }
+$fxUnknown    = [pscustomobject]@{ Output = @(); ExitCode = $null; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $true }
+$fxTimedOut   = [pscustomobject]@{ Output = @(); ExitCode = 124;   TimedOut = $true;  ShortRead = $false; ExitCodeUnknown = $false }
+$fxNoField    = [pscustomobject]@{ Output = @(); ExitCode = 0;     TimedOut = $false }
+
+Assert-True (Test-NativeExitMeasured -Capture $fxMeasured)        'a measured non-zero is measured -- the function is not a failure test'
+Assert-True (-not (Test-NativeExitMeasured -Capture $fxUnknown))  'an ExitCodeUnknown capture is not'
+Assert-True (Test-NativeExitMeasured -Capture $fxTimedOut)        'a TIMED-OUT capture IS measured: 124 is a verdict this lib chose, and TimedOut is the field that reports it'
+Assert-True (Test-NativeExitMeasured -Capture $fxNoField)         'a capture from an OLDER copy of this lib answers $true -- the pre-field behaviour, not a new refusal'
+Assert-True (-not (Test-NativeExitMeasured -Capture $null))       'and no capture at all is the strongest statement that nothing was measured'
+
+Assert-Equal 'exit 3' (Get-NativeExitLabel -Capture $fxMeasured)  'the label is the plain sentence where there is a number to print'
+Assert-True ((Get-NativeExitLabel -Capture $fxUnknown) -match '1931') '...and names the issue where there is not, because the reader will not find this race in their own script'
+Assert-True ((Get-NativeExitLabel -Capture $fxUnknown) -notmatch 'exit\s*$') '...and never trails off after the word "exit", which is the defect it replaces'
+
+# ---------------------------------------------------------------------------------------------
+Write-Host 'the audited family consults the field -- every script #2081 repaired (#2081)' -ForegroundColor Cyan
+
+# A STRUCTURAL PIN, NOT A BEHAVIOURAL ONE, and that is the honest scope: these sites reach a live gh or
+# a live remote, so the race cannot be provoked here. What CAN be guarded is that the ask does not
+# quietly disappear from a file during a later refactor -- which is exactly how the field came to have
+# no consumer at all for four days after #1931 built it.
+$auditedRoot = Split-Path -Parent $PSScriptRoot
+$auditedSites = @(
+    'lib\fetch-attempt-lib.ps1', 'lib\git-identity-lib.ps1', 'lib\park-lib.ps1', 'lib\remote-ahead-lib.ps1',
+    'lint\check-branch-entry.ps1', 'lint\check-repo-settings.ps1', 'maintenance\record-suite-durations.ps1',
+    'release\fold-changelog-entry.ps1', 'release\open-pr.ps1', 'release\ship-pr.ps1',
+    'release\verify-resolved-issues.ps1', 'sync\check-connectors.ps1', 'sync\check-consumer-siblings.ps1',
+    'task\claim-issue.ps1', 'task\new-branch.ps1', 'task\park-cycle.ps1', 'task\sync-main.ps1',
+    'task\update-plugins.ps1'
+)
+foreach ($rel in $auditedSites) {
+    $full = Join-Path $auditedRoot $rel
+    Assert-True (Test-Path -LiteralPath $full) "$rel is where this pin expects it"
+    $code = ((Get-Content -LiteralPath $full) | Where-Object { $_.TrimStart() -notmatch '^#' }) -join "`n"
+    Assert-True ($code -match 'Test-NativeExitMeasured|Get-NativeExitLabel') `
+        "$rel asks whether the exit code was measured before it judges the number (#2081)"
+}
+
+# AND THE WRITES ARE PINNED SEPARATELY, because their answer is the one that differs: a write whose exit
+# code was never measured may have LANDED, so none of these may report it as a failure. The pin is that
+# each says so in the words a reader acts on.
+$writeSites = @{
+    'lib\park-lib.ps1'                    = 'DOES NOT KNOW'
+    'release\fold-changelog-entry.ps1'    = 'DOES NOT KNOW'
+    'release\open-pr.ps1'                 = 'DOES NOT KNOW'
+    'task\claim-issue.ps1'                = 'DOES NOT KNOW'
+}
+foreach ($rel in $writeSites.Keys) {
+    $code = (Get-Content -LiteralPath (Join-Path $auditedRoot $rel)) -join "`n"
+    Assert-True ($code -match [regex]::Escape($writeSites[$rel])) `
+        "$rel reports an unmeasurable WRITE as 'this run does not know', never as a failure (#2081)"
+}
 if ($script:fail -eq 0) {
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green
     exit 0

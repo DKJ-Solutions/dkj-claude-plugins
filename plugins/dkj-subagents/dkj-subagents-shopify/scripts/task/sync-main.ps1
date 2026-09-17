@@ -671,7 +671,16 @@ function Write-SyncReconciliationBase {
     $push = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '-u', 'origin', $Branch) `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $push.Output | ForEach-Object { Write-Host $_ }
-    if ($push.ExitCode -ne 0) {
+    # A PUSH THIS RUN COULD NOT JUDGE IS NOT A FAILED PUSH (issue #1931, audited under #2081). The arm
+    # below is reached by `$null -ne 0` and states as fact that both commits are local -- on a push that
+    # may be on origin, after which the hand-push it advises is a no-op at best. The advice is nearly the
+    # same and the wording is not, which is the whole point: this one says to LOOK first.
+    if (-not (Test-NativeExitMeasured -Capture $push)) {
+        Write-Host "git push ran with an exit code that came back unmeasurable (issue #1931), so whether $BranchShown reached origin is unknown here." -ForegroundColor Yellow
+        Write-Host "  Nothing is lost either way -- both commits' content is already on live and in the trunk. Look, then push if it is not there:" -ForegroundColor Yellow
+        Write-Host "    git ls-remote --heads origin $($BranchPaste.Token)" -ForegroundColor Yellow
+        if ($BranchPaste.Note) { Write-Host $BranchPaste.Note -ForegroundColor Yellow }
+    } elseif ($push.ExitCode -ne 0) {
         # NOT FATAL, AND NOT THE SAME BARGAIN AS THE TAKE-LIVE PUSH. That one is bounded because until it
         # lands the only copy of a third party's work is a local branch; here both commits' content
         # already exists on live and in the trunk, so an unpushed branch costs a push and nothing else.
@@ -948,7 +957,11 @@ if ($lsRemote.ExitCode -ne 0) {
         $why = if ($lsRemote.TimedOut) {
             "'git ls-remote' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds"
         } else {
-            "'git ls-remote --heads origin' exited $($lsRemote.ExitCode)"
+            # COMPOSED, NOT INTERPOLATED (issue #1931, audited under #2081): an unmeasurable exit code
+            # satisfies `-ne 0` and prints as nothing, so this read "exited " with the number missing out
+            # of it. The verdict is unchanged in both arms -- a dry run skips, a real run refuses -- and
+            # refusing is right for a list this run cannot vouch for whichever produced it.
+            "'git ls-remote --heads origin' $(Get-NativeExitLabel -Capture $lsRemote)"
         }
         Write-Host "      origin could not be listed ($why) -- the standing-predecessor check is skipped for this dry run." -ForegroundColor Yellow
         Write-Host '      A real run refuses here; a dry run writes nothing, so it continues to the verdict below.' -ForegroundColor DarkGray
@@ -958,7 +971,7 @@ if ($lsRemote.ExitCode -ne 0) {
         if ($lsRemote.TimedOut) {
             Write-Host "  'git ls-remote' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above." -ForegroundColor Red
         } else {
-            Write-Host "  'git ls-remote --heads origin' exited $($lsRemote.ExitCode)." -ForegroundColor Red
+            Write-Host "  'git ls-remote --heads origin' $(Get-NativeExitLabel -Capture $lsRemote)." -ForegroundColor Red
         }
         Write-Host '  Nothing was changed. Fix the remote or the credential and run again.' -ForegroundColor Red
         exit 1
@@ -1479,6 +1492,17 @@ try {
     $push = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '-u', 'origin', $branch) `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $push.Output | ForEach-Object { Write-Host $_ }
+    # THE TAKE-LIVE PUSH, AND HERE THE BARGAIN IS THE OTHER ONE (issue #1931, audited under #2081): until
+    # this lands, the only copy of a third party's work is a local branch. So an unmeasurable exit code
+    # stops the run exactly as a failure does -- what changes is that it no longer states the commit is
+    # local when it may be on origin, and it names the read that settles it before anything is redone.
+    if (-not (Test-NativeExitMeasured -Capture $push)) {
+        Write-Host "git push ran with an exit code that came back unmeasurable (issue #1931), so whether $branchShown reached origin is unknown here." -ForegroundColor Red
+        Write-Host '  The commit is safe locally and nothing was lost. Look before you act, then run this again:' -ForegroundColor Red
+        Write-Host "    git ls-remote --heads origin $($branchPaste.Token)" -ForegroundColor Red
+        if ($branchPaste.Note) { Write-Host $branchPaste.Note -ForegroundColor Red }
+        exit 1
+    }
     if ($push.ExitCode -ne 0) {
         Write-Host "Push failed. The commit is local on $branchShown." -ForegroundColor Red
         if ($push.TimedOut) {

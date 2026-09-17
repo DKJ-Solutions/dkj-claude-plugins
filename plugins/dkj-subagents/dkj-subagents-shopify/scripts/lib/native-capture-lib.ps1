@@ -1318,6 +1318,118 @@ function Invoke-NativeCaptureUtf8 {
     }
 }
 
+function Test-NativeExitMeasured {
+    <#
+    .SYNOPSIS
+        Is this capture's ExitCode a MEASUREMENT of the child's exit, or merely a number-shaped gap?
+
+    .DESCRIPTION
+        THE CONSUMER ExitCodeUnknown WAS BUILT FOR (issue #1931, audited under #2081). The field landed
+        on both arms of Invoke-NativeCapture and then had no reader outside this file for four days --
+        so every one of the 48 bounded call sites went on judging `$r.ExitCode -ne 0` against a value
+        that, once in roughly 300 fresh Start-Process children, is PowerShell's own $null.
+
+        WHY A FUNCTION RATHER THAN THE FIELD ITSELF, and it is the direction that makes it worth one:
+
+            $null -eq 0   ->  False      # a site that requires success SILENTLY TREATS IT AS FAILURE
+            $null -ne 0   ->  True       # a site that refuses on failure REFUSES
+
+        Both spellings fail toward "something went wrong" and neither can be told apart from a measured
+        non-zero -- so a caller cannot ask the question by reading ExitCode at all, whichever way round
+        it writes the comparison. It has to ask BEFORE it looks at the number, and this is that ask.
+
+        PROPERTY-GUARDED, AND THE MISSING FIELD ANSWERS $true. A caller can be holding a capture object
+        made by an older copy of this lib -- the plugin mirror lags its own source by however many merges
+        have landed -- and under Set-StrictMode -Version Latest a bare $Capture.ExitCodeUnknown THROWS on
+        an object without the field. $true is the honest default there: it is exactly the behaviour every
+        one of these sites had before the field existed, so an older capture degrades to the old reading
+        rather than to a new refusal nobody asked for. The same guard, for the same reason, that
+        git-identity-lib.ps1 already writes around TimedOut.
+
+        A NULL CAPTURE ANSWERS $false, because the call did not happen: `if (-not $Capture)` is the shape
+        several callers here already write for a command that could not be run at all, and "no capture"
+        is the strongest possible statement that no exit code was measured.
+
+        THE AUDIT'S RESULT, IN ONE PLACE, because #1931 asked for a decision per family rather than a
+        blanket sweep and a decision nobody can find is not one. 48 bounded sites outside scripts/tests/
+        (#2081 reported 32, which is what a single-line grep counts -- sixteen of them spell the call
+        across a continuation), grouped by what the site DOES on a non-zero:
+
+          REFUSES / FAILS SAFE -- recorded as deliberate, code unchanged. Every one of them is written
+          as a POSITIVE test (`-eq 0`, `-and -not $r.TimedOut`), which is what makes it right: $null is
+          not 0, so the site already lands on its cautious branch. Test-GitCanCommit is the exception
+          that proves it -- it is immune through a NEGATIVE test (`-ne 128`), which is correct today and
+          would invert the moment somebody rewrote the comparison, so that one gained an explicit ask.
+
+          REPORTS A SUBSTANTIVE ANSWER -- repaired where the wrong answer was silent. park-cycle's
+          collision fetch is the sharpest: '' is its word for "nothing to report", so the detector
+          answered all-clear on a look it never judged.
+
+          PRINTS A DIAGNOSIS -- repaired, and this is the large family. All of them are written `-ne 0`,
+          which $null satisfies, so each composed a sentence about a cause nobody measured: "no access,
+          or the repo is gone", "a statement about the token or the network", "gh is not logged in here".
+          Twelve of them interpolated the number as well, and PowerShell renders $null as the EMPTY
+          STRING -- so the reader got "(exit )", a sentence whose grammar promises a number that is not
+          there. Get-NativeExitLabel below is for the ones whose verdict was already right.
+
+          WRITES -- seven, and they get their own answer: a write whose exit code was never measured may
+          have LANDED, so it is reported as "this run does not know" rather than as a failure. open-pr's
+          create needed no new verdict, only routing into the recheck #1916 had already built.
+
+        ONE SITE RE-ASKS, AND ONLY ONE. #1931 allows an idempotent read-only command to ask again, and
+        claim-issue's `gh issue view` meets both halves of the test the lib itself cannot apply -- the
+        command changes nothing, and the cost of not asking is the whole assignment, since that read is
+        the first step of an issue-driven session. Everywhere else a re-ask buys a skipped check back at
+        the price of a second network call, and the state reported as itself is cheaper and honest.
+
+        IT SAYS NOTHING ABOUT A TIMEOUT, deliberately. Invoke-NativeCapture SUBSTITUTES 124 on a bounded
+        call it killed, which is a verdict this lib chose rather than a measurement gap -- ExitCodeUnknown
+        is $false there by construction, and TimedOut is the field that reports it. A caller that judges
+        both reads them as two questions, in the order the answers differ: did it answer at all, and was
+        what it answered measurable.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Capture)
+
+    if (-not $Capture) { return $false }
+    if ($Capture.PSObject.Properties['ExitCodeUnknown'] -and $Capture.ExitCodeUnknown) { return $false }
+    return $true
+}
+
+function Get-NativeExitLabel {
+    <#
+    .SYNOPSIS
+        The phrase a diagnosis interpolates INSTEAD of "exit $($r.ExitCode)" -- "exit 3", or a sentence
+        saying the code could not be measured.
+
+    .DESCRIPTION
+        THE OTHER HALF OF #2081'S AUDIT, AND THE ONE THAT SHOWS UP ON A CONSOLE. Twelve of the bounded
+        sites compose a sentence around the number -- "gh refused the read (exit $($read.ExitCode))",
+        "FAILED (exit $($r.ExitCode))", "git fetch exited $($fetch.ExitCode)" -- and PowerShell
+        interpolates $null as the EMPTY STRING. So the unmeasurable case does not print a wrong number,
+        which a reader could at least query; it prints no number at all, inside a sentence whose grammar
+        promises one:
+
+            gh refused the read (exit ) -- no access, or no such branch
+
+        THAT IS WORSE THAN THE MISSING BRANCH IT SITS IN, which is why the label exists separately from
+        Test-NativeExitMeasured above. A site that gains a third state stops reaching this sentence; a
+        site whose single branch is already the right verdict -- it refuses, and refusing is correct
+        either way -- keeps the branch and only has to stop lying about why. One token per call site,
+        and no behaviour change at any of them.
+
+        THE WORDING NAMES THE ISSUE, not the mechanism. A reader who meets this line has hit a race
+        measured at roughly 1 in 300 fresh processes and will not find it by re-reading their own
+        script; the number is the only durable pointer to the measurement, and "run it again" is the
+        whole remedy, because the next process is overwhelmingly likely to answer.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Capture)
+
+    if (-not (Test-NativeExitMeasured -Capture $Capture)) {
+        return 'no measurable exit code -- the child ran and its code came back unreadable (issue #1931); this normally settles on a re-run'
+    }
+    return "exit $($Capture.ExitCode)"
+}
+
 function Get-GitFileTextAtRef {
     <#
         The text of ONE file as a given git ref has it -- the commit's blob, not the working copy -- or

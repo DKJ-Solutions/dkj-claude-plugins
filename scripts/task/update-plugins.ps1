@@ -198,7 +198,14 @@ foreach ($mp in $marketplaces) {
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $marketplaceFailures++
-        Write-Host "    FAILED (exit $($r.ExitCode))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
+        # THE REASON IS COMPOSED RATHER THAN INTERPOLATED (issue #1931, audited under #2081), at this
+        # line and at its twin in step 2. An unmeasurable exit code satisfies `-ne 0` and prints as
+        # nothing, so a lost code read "FAILED (exit )" -- and this script is the one a reader runs
+        # BECAUSE something already looked wrong, so a failure with no reason in it is the worst shape
+        # here. Counting it as a failure stays right: step 3's receipt prints the versions actually
+        # installed, so an update that did land is corrected by the run's own last step rather than
+        # believed.
+        Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
     }
 }
 
@@ -214,7 +221,7 @@ foreach ($t in $targets) {
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $updateFailures++
-        Write-Host "    FAILED (exit $($r.ExitCode))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
+        Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
     }
 }
 
