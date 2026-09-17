@@ -26,10 +26,11 @@
     violation rate out of nothing. So two populations are reported and never added together:
 
         ALL    every session's final assistant message. CONTEXT ONLY.
-        CHAIN  the final assistant message AFTER the session's last chain-ending script (ship-pr,
-               open-pr, fold-changelog-entry, park-cycle, cut-release). That IS a close-out: it is
-               exactly the set where Write-CloseOutReceipt prints its template, so it is the set the
-               ceiling governs and the only set any verdict may be read off.
+        CHAIN  the final assistant message AFTER the session's last chain-ending script -- the five
+               named by Get-ChainEndingScripts in closeout-lib.ps1, read from there rather than
+               restated here (issue #2060). That IS a close-out: it is exactly the set where
+               Write-CloseOutReceipt prints its template, so it is the set the ceiling governs and
+               the only set any verdict may be read off.
 
     WHAT IT FOUND ON THE DAY IT WAS WRITTEN (September 17, 2026; 10 project directories, 328 sessions,
     263 of them in the governed population):
@@ -37,6 +38,17 @@
         over the 3-line ceiling  222 / 263   84%
         over 6 lines             146 / 263   56%
         median / mean / p90 / max lines      7 / 8.5 / 16 / 76
+
+    AND THOSE FIGURES WERE COMPUTED THROUGH A FILTER THAT WAS WRONG IN BOTH DIRECTIONS (issue #2060,
+    the same day). The five were hand-typed in this file: it named park-cycle.ps1, which prints no receipt,
+    and omitted park-branch.ps1, which prints one. RE-MEASURED over one frozen snapshot of this machine's
+    corpus, old filter against new, the population did not move at all -- n=252 both -- and one session's
+    close-out anchor did: over-ceiling 193 -> 192 (77% -> 76%), over-six 120 -> 119. The reason it is that
+    small is worth keeping, because it is the opposite of what the report predicted: park-cycle reaches a
+    transcript almost never, since the cycle-autopark Stop hook runs it rather than a tool call, and every
+    park-branch session in this corpus had already run another chain ender. So the defect was real, the
+    baseline it produced is very nearly the baseline it should have produced, and NOTHING HERE RE-STATES
+    THE COMMITTED BASELINE ON ITS ACCOUNT -- the figures above stand as the day's record.
 
     SO THE RULE HAS NEVER BEEN IN FORCE. Five complaints are five of two hundred and twenty-two, which
     reframes every previous repair: they were not guardrails that kept slipping, they were advice
@@ -109,11 +121,6 @@ $ErrorActionPreference = 'Stop'
 # console report of ONE run disagreed with each other.
 [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::InvariantCulture
 
-# The chain-ending scripts, i.e. exactly the callers closeout-lib.ps1's own suite pins as reaching
-# Write-CloseOutReceipt. A turn that ran one of these ended a work chain, so the assistant message after
-# it is a close-out rather than whatever the session happened to be saying.
-$script:ChainEndingScripts = 'ship-pr\.ps1|open-pr\.ps1|fold-changelog-entry\.ps1|park-cycle\.ps1|cut-release\.ps1'
-
 # THE SOURCE-REPO GUARD, carried for the same reason measure-always-on.ps1 beside it carries one, and
 # it matters most on a MEASUREMENT. A stale copy of a gate fails loudly; a stale copy of an instrument
 # reports -- it hands back a plausible number that nobody can tell from a fresh one. Every skill page
@@ -127,6 +134,45 @@ $script:ChainEndingScripts = 'ship-pr\.ps1|open-pr\.ps1|fold-changelog-entry\.ps
 # before rather than throwing.
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
 if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy -ScriptPath $PSCommandPath }
+
+# THE CHAIN-ENDING SCRIPTS, READ FROM THE LIB RATHER THAN RESTATED (issue #2060). This was a hand-typed
+# regex here, under a comment claiming it was "exactly the callers closeout-lib.ps1's own suite pins" --
+# and it was wrong in BOTH directions: it named park-cycle.ps1, which the cycle-autopark Stop hook runs
+# after every turn and which never prints a receipt, and it omitted park-branch.ps1, which prints two.
+# So close-out shape C -- the parked blocker, and plausibly the longest shape there is -- was absent
+# from the governed population while every ordinary turn was a candidate for it. The committed N=263
+# baseline and every figure quoted from it in #2048 and #2050 were computed through that filter.
+#
+# The one definition is Get-ChainEndingScripts in closeout-lib.ps1, the file those callers themselves
+# dot-source; that lib's own suite greps the tree and refuses to pass unless the callers it finds are
+# exactly that list, so a sixth chain ender cannot be added without going red.
+#
+# $PSScriptRoot-relative and guarded with Test-Path, like every other caller: the lib is mirrored beside
+# this script into the plugin, one folder over in both copies. THE CALL IS TRIED RATHER THAN PROBED FOR
+# -- a bare-name Get-Command is the idiom #1729 retired tree-wide, and a try/catch answers the same
+# question here without loading a second lib to ask it.
+$chainEnders = @()
+$closeoutLib = Join-Path $PSScriptRoot '..\lib\closeout-lib.ps1'
+if (Test-Path -LiteralPath $closeoutLib -PathType Leaf) {
+    . $closeoutLib
+    try { $chainEnders = @(Get-ChainEndingScripts) } catch { $chainEnders = @() }
+}
+
+# AND A TREE THAT CANNOT ANSWER IS NOT MEASURED, which is the opposite of what every other guarded
+# dot-source in this workflow does. Those degrade to the behaviour of the day before; an instrument
+# cannot, because a plausible number computed over a population nobody could name is exactly the defect
+# #2060 is about, and it is indistinguishable from a fresh one once quoted. Exit 0 all the same: this
+# is a measurement and never a gate.
+if ($chainEnders.Count -eq 0) {
+    Write-Host "[SKIP] closeout-lib.ps1 does not answer Get-ChainEndingScripts here, so the population" -ForegroundColor Yellow
+    Write-Host "       this script measures cannot be named. Nothing measured -- see issue #2060." -ForegroundColor Yellow
+    exit 0
+}
+
+# A turn that ran one of these ended a work chain, so the assistant message after it is a close-out
+# rather than whatever the session happened to be saying. Escaped and joined into the alternation the
+# serialised tool input is searched with below.
+$script:ChainEndingScripts = (@($chainEnders | ForEach-Object { [regex]::Escape($_) })) -join '|'
 
 # THE REPO ROOT, RESOLVED DUAL-CONTEXT, and it exists for the baseline alone. Everything this script
 # MEASURES comes from ~/.claude/projects, which is machine state and needs no repo -- but the baseline is
