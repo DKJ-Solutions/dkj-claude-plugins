@@ -97,6 +97,14 @@
 $gateCloseoutLib = Join-Path $PSScriptRoot 'closeout-lib.ps1'
 if (Test-Path -LiteralPath $gateCloseoutLib -PathType Leaf) { . $gateCloseoutLib }
 
+# AND THE SHA-256 RENDERING (issue #2058). A leaf with no dependencies, like the two above, and
+# loaded UNGUARDED rather than on closeout-lib's pattern: Get-GateFingerprint cannot produce a
+# fingerprint without it, so a payload missing this file must fail at LOAD rather than fall through
+# to a guard and then crash one call deeper, where the failure no longer names the missing file.
+# That is merged-pr-lib.ps1's reasoning at sync-main.ps1, and it applies wherever the dependency is
+# required rather than optional.
+. (Join-Path $PSScriptRoot 'hash-hex-lib.ps1')
+
 # How long a recorded pass is allowed to stand in for a fresh run. Not a content property -- the
 # fingerprint already covers content exactly -- but a bound on the environment drifting underneath
 # it. Four hours comfortably covers the measured case (open-pr and ship-pr minutes apart) while
@@ -190,15 +198,7 @@ function Get-GateFingerprint {
         $parts.Add("file:$path=$contentHash") | Out-Null
     }
 
-    $joined = ($parts -join "`n")
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($joined)
-        $hash = $sha.ComputeHash($bytes)
-    } finally {
-        $sha.Dispose()
-    }
-    return (($hash | ForEach-Object { $_.ToString('x2') }) -join '')
+    return (Get-Sha256Hex -Text ($parts -join "`n"))
 }
 
 function Get-GateTreeDirtyCount {

@@ -105,6 +105,7 @@ $script:infos  = 0
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\sibling-divergence-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\shared-scripts-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\hash-hex-lib.ps1')
 
 if ($ConnectorDir -eq '') { $ConnectorDir = Join-Path $RepoRoot 'connectors' }
 
@@ -192,10 +193,14 @@ function Get-DiskInventory {
             $text = ''
             try { $text = [System.IO.File]::ReadAllText($f.FullName) } catch { $text = '' }
             $norm = $text -replace "`r`n", "`n"
-            $sha  = [System.BitConverter]::ToString(
-                        [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-                            [System.Text.Encoding]::UTF8.GetBytes($norm))).Replace('-', '')
-            $paths[$rel] = $sha
+            # SHARED SINCE #2058, and this site is why the issue's "nothing observable is wrong"
+            # turned out to be the weaker half of its own case. The copy that stood here disposed
+            # nothing -- one provider per file, inside the Get-ChildItem -Recurse above -- and
+            # rendered UPPERCASE, where every other copy of the idiom rendered lowercase. The case is
+            # unobservable because a run picks ONE scheme ($useGitHub) and these values are only ever
+            # compared with each other, never printed, stored or carried across runs; that is what
+            # let it drift unnoticed rather than what made it harmless to fix.
+            $paths[$rel] = Get-Sha256Hex -Text $norm
         }
     }
     return @{ Ok = $true; Reason = 'disk'; Paths = $paths }
