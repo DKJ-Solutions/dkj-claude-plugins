@@ -780,6 +780,20 @@ Assert-True ($scan -match '\$staleDetail') 'and those lines are actually printed
 Assert-True ($scan -match '(?s)Subject\s*=\s*\(Format-ForConsole') 'the commit subject is stripped before printing'
 Assert-True ($scan -match '(?s)Branches\s*=\s*@\(\$branches\s*\|\s*ForEach-Object\s*\{\s*Format-ForConsole') 'and so is every branch name'
 
+# AND THE SIXTH SIGNAL IS HANDED THE OTHER SPELLING (#2075). These three are a PAIR-PLUS-GUARD and no
+# one of them means anything alone: the record keeps a stripped copy for the REPORT and a git-spelled
+# one for the SCAN, which puts each name back to git (`rev-list --count`, `ls-tree`). Format-ForConsole
+# replaces what it strips with a SPACE, so a stripped name is a ref git does not have -- and both of
+# those calls pass -DiscardStderr and are guarded on their exit code, so the scan reported no
+# dependency without printing or erroring.
+#
+# STRUCTURAL AND NOT BEHAVIOURAL, deliberately: on an ordinary ASCII branch name the two fields hold
+# the identical string, so no run and no fixture can tell them apart. The direction is the whole
+# finding, and an assert is the only thing that can state it.
+Assert-True ($scan -match '(?s)GitBranches\s*=\s*@\(\$branches\)') 'the record also carries the branch names as git spells them, unstripped (#2075)'
+Assert-True ($scan -match 'foreach \(\$b in @\(@\(\$f\.GitBranches\)') 'and the sixth signal is fed those -- it queries the names, it does not print them (#2075)'
+Assert-True ($scan -notmatch 'foreach \(\$b in @\(@\(\$f\.Branches\)') 'never the stripped copies, which are the report''s and no ref git has (#2075)'
+
 # WITHOUT A TRUNK REF TO SUBTRACT, `git log --all` reports the issue's own merged repair on the trunk --
 # the noise that teaches a reader to skip the warning. So: no trunk ref, no scan.
 Assert-True ($scan -match '\$trunkRefs\.Count\s+-gt\s+0') 'the scan is skipped where no trunk ref could be verified'
