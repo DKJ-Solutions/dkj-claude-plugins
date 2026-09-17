@@ -1509,6 +1509,58 @@ Write-Output `$t.Type
     Assert-ExitCode 0 $rT 'current base: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rT.Out -Phrase 'Base is current with origin/main') 'current base: says so, so silence is never ambiguous'
     Assert-True (-not (Test-Phrase -Text $rT.Out -Phrase 'behind origin/main')) 'current base: and warns about nothing'
+    Assert-True (-not (Test-Phrase -Text $rT.Out -Phrase 'but that base is')) 'current base: and claims no stack where HEAD is the trunk (#2074)'
+
+    # --- (t2) THE BASE IS ANOTHER BRANCH'S TIP: named, counted, and said twice (#2074) ---------------
+    # THE CASE (t) CANNOT TELL ITSELF APART FROM. Both read HEAD..origin/main == 0, so both used to end on
+    # the same reassuring line. #2074's measurement is a second session that had merged origin/main into
+    # its own branch minutes earlier and left the checkout standing there: the base was behind nothing,
+    # the stale-base check was correct and silent, and five of that branch's commits -- 22 files -- rode
+    # into a two-line repair's pull request. The fixture is that shape exactly: a branch off the published
+    # trunk, carrying commits of its own, checked out, with nothing at all to be behind.
+    Write-Host "new-branch.ps1 -- a base that is another branch's tip is named and counted (#2074)" -ForegroundColor Cyan
+    $fixStack = New-Fixture -Label 't2'
+    $null = New-BareOrigin -Dir $fixStack -Label 't2'
+    Publish-FixtureTrunk -Dir $fixStack
+    Invoke-FixtureGitIn $fixStack checkout -q -b 'fix/another-session-work'
+    Set-Content -LiteralPath (Join-Path $fixStack 'their-first.txt')  -Value 'theirs' -Encoding utf8
+    Invoke-FixtureGitIn $fixStack add -A
+    Invoke-FixtureGitIn $fixStack commit -q -m 'fix: their first commit'
+    Set-Content -LiteralPath (Join-Path $fixStack 'their-second.txt') -Value 'theirs' -Encoding utf8
+    Invoke-FixtureGitIn $fixStack add -A
+    Invoke-FixtureGitIn $fixStack commit -q -m 'fix: their second commit'
+
+    $rT2 = Invoke-NewBranch -Dir $fixStack -Name 'feat/cut-from-a-branch-v1' -Title 'Cut from a branch'
+    Assert-ExitCode 0 $rT2 'stacked base: exit 0 -- it warns and never refuses, because stacking on purpose is allowed'
+    $branchesT2 = ((& git -C $fixStack branch --list 'feat/cut-from-a-branch-v1') -join '').Trim()
+    Assert-True ([bool]$branchesT2) 'stacked base: and the branch really is created'
+    Assert-True (Test-Phrase -Text $rT2.Out -Phrase "is being cut from 'fix/another-session-work'") 'stacked base: the base is named, which is the whole finding'
+    Assert-True (Test-Phrase -Text $rT2.Out -Phrase '2 commits origin/main does not') 'stacked base: and counted -- that is the set which would ride into the PR'
+    Assert-True (Test-Phrase -Text $rT2.Out -Phrase "but that base is 'fix/another-session-work', not main") 'stacked base: the currency line carries it too, so the reassuring sentence is not read alone'
+    Assert-True (-not (Test-Phrase -Text $rT2.Out -Phrase 'behind origin/main')) 'stacked base: and this is NOT the stale-base check -- that base is behind nothing'
+    # THE REPEAT, for the reason the three notes beside it are repeated: everything printed after the
+    # measurement -- the checkout, the scaffold, the tier rubric, the commit, the push -- buries the first
+    # copy, and this is the one case where nothing else in the run looks wrong.
+    $flatT2 = Get-FlatOutput $rT2.Out
+    $stackHits = @([regex]::Matches($flatT2, [regex]::Escape((Get-Squeezed "is being cut from 'fix/another-session-work'")))).Count
+    Assert-Equal 2 $stackHits 'stacked base: said twice -- once before the checkout, once near the last line'
+
+    # --- (t3) A BASE THAT IS A BRANCH BUT CARRIES NOTHING: silent (#2074) ----------------------------
+    # THE NEGATIVE HALF, and it is what keeps this off the ordinary run. origin/main..HEAD is the number
+    # that matters precisely because it is 0 for a branch freshly cut and not yet committed on -- nothing
+    # would travel from such a base, so there is nothing to warn about. Without this the check would fire
+    # on every second branch of a session and be trained away.
+    Write-Host "new-branch.ps1 -- a branch base carrying nothing is not warned about (#2074)" -ForegroundColor Cyan
+    $fixEmptyStack = New-Fixture -Label 't3'
+    $null = New-BareOrigin -Dir $fixEmptyStack -Label 't3'
+    Publish-FixtureTrunk -Dir $fixEmptyStack
+    Invoke-FixtureGitIn $fixEmptyStack checkout -q -b 'feat/nothing-on-it-yet'
+
+    $rT3 = Invoke-NewBranch -Dir $fixEmptyStack -Name 'feat/cut-from-empty-branch-v1' -Title 'Cut from an empty branch'
+    Assert-ExitCode 0 $rT3 'empty branch base: new-branch exit 0'
+    Assert-True (Test-Phrase -Text $rT3.Out -Phrase 'Base is current with origin/main') 'empty branch base: the ordinary line, unchanged'
+    Assert-True (-not (Test-Phrase -Text $rT3.Out -Phrase 'is being cut from')) 'empty branch base: and no stack is claimed -- that base carries nothing'
+    Assert-True (-not (Test-Phrase -Text $rT3.Out -Phrase 'but that base is')) 'empty branch base: nor on the currency line'
 
     # --- (u) NO REMOTE-TRACKING TRUNK: not asked, not claimed (#1046) -------------------------------
     # THE OFFLINE GUARANTEE, and the reason the local question gates the network one. A repo with an
