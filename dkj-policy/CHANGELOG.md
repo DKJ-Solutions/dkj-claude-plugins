@@ -43,7 +43,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2051-mirror-closeout-instrument · 20260917-154400
+
+The close-out instrument now ships to the consumers it measures worst. `measure-closeouts.ps1` landed
+in #2048 as a source-repo maintenance script, which was the wrong way round for what it measures: per
+repo, close-outs over the three-line ceiling ran `smartwatchbanden` 97%, `xoxowildhearts` 88%,
+`claude-code-specialists` 86%, `thumbnail-generator` 67% -- and the repo that owns the instrument is
+its best performer at 50%. The two worst were consumers who could not run it, and every close-out
+complaint on the record came from a consumer.
+
+It is registered, mirrored byte-identically into `dkj-policy`, and documented by its own
+`measure-closeouts` skill page rather than filed under `measure-skill`'s, whose subject is what a skill
+costs in tokens. Two things the mirror needed came with it: the source-repo guard, so a stale cached
+copy is refused instead of reporting a plausible number, and a baseline that lands in the consumer's
+own repo rather than in the plugin cache the next update replaces.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer of this workflow gains an instrument they could not run before, and it needs nothing
+configured: it reads `~/.claude/projects` rather than the repo, is read-only, always exits 0, and only
+counts leave it -- no transcript content -- so it is safe in a repo whose measurements are published
+while its sessions stay private. It costs one more always-on skill description in every session that
+enables `dkj-policy`, which was weighed and accepted rather than discovered.
+
+**Score:** 3
+
+#### Pull Request
+
+The close-out instrument ships to the consumers whose rates are worst
+
+Plugins: dkj-policy
+
+[PR #2063](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2063)
+
+---
 
 ### DEPLOY: feat/2050-closeout-gate · 20260917-151732
 
