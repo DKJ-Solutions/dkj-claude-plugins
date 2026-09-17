@@ -44,7 +44,9 @@ The script:
    `refs/remotes/origin/<name>`. That question comes first because the answer decides whether step 4 has
    a base to talk about at all.
 4. **Measures the base it is about to cut from** and **refuses** if it is behind `origin/<trunk>`, naming
-   the count and `-SkipStaleBase` -- see below. It does not move `HEAD` for you either way; refusing is
+   the count and `-SkipStaleBase`; and where that base is **another branch's tip** rather than the trunk,
+   **warns**, naming the branch and the commits it carries that the trunk does not (#2074) -- see below.
+   It does not move `HEAD` for you either way; refusing is
    how it avoids having to. Skipped on a resume: the count is `HEAD..origin/<trunk>` and on a resume
    `HEAD` is whatever you were standing on, so it would hand you the trunk's gap under the resumed
    branch's name -- which is also why a resume is never refused.
@@ -81,6 +83,7 @@ So `new-branch` measures `HEAD..origin/<trunk>` and acts on what it found:
 | the base is behind by N | **refuses**, naming N, the local remedy (`git pull --ff-only`), the lane route, and `-SkipStaleBase` |
 | the base is behind by N, and `-SkipStaleBase` was given | cuts anyway, warning with N -- **twice**, once before the checkout and once as the last line of the run |
 | the base is current | one dim line saying so, so silence is never ambiguous |
+| the base is current **and it is another branch's tip** | **warns**, naming that branch and how many commits it carries that `origin/<trunk>` does not -- **twice**, and the dim line above names the branch as well |
 | no `refs/remotes/origin/<trunk>` in the repo | one dim line saying the question could not be asked -- no fetch is attempted and no gap is claimed |
 
 **It refuses, and the refusal costs nothing**, which is the argument for it. The check sits *before* the
@@ -116,6 +119,47 @@ rather than a reading about a trunk it was never cut from. **The local question 
 the remote-tracking ref is read first, which is what keeps the script usable offline and costs nothing in
 a repo that cannot answer. In a lane worktree (detached at `origin/<trunk>`) it reads 0, so the route that
 already handles this hazard is never warned about.
+
+### And zero is two different facts (issue #2074)
+
+That count is the right measurement and it was the whole of what the run said. **A branch cut from the
+trunk and a branch cut from another branch that has just merged the trunk both read zero**, and both were
+told *"Base is current with `origin/<trunk>`"* -- so nothing on screen said the base was somebody else's
+branch tip. Stacking is deliberately permitted; what was missing is the signal that you are doing it.
+
+**Measured, September 17, 2026:** two sessions sharing one working copy. The other had checked out a
+branch and merged `origin/main` into it minutes earlier; `new-branch` printed *"Base is current with
+origin/main"* and cut from that tip, and the new branch carried five of that branch's commits -- 22 files,
+1257 insertions -- under a two-line repair. **Every downstream guard reads the branch, and the branch was
+fine**: the lint gate, all suites and CI went green on it, and a reviewer reading the diff is what found
+it. The session-start `git status` had said `main`, clean, which is why nothing looked wrong -- the other
+session moved the checkout after that snapshot was taken.
+
+So where `HEAD` is a **branch other than the trunk**, the run names it and counts `origin/<trunk>..HEAD`:
+*"'feat/x' is being cut from 'fix/y', which is not main -- that base carries 2 commits origin/main does
+not."* Said twice, on the same schedule as the stale-base note and for the same reason.
+
+**That second number is what keeps the ordinary run silent.** `origin/<trunk>..HEAD` is 0 for a base that
+really is the trunk, and 0 for a branch freshly cut and not yet committed on -- where nothing would travel
+either. So this says nothing at all unless the base carries commits the trunk does not, which is exactly
+the set that would ride into the pull request.
+
+**A warning, never a refusal.** The stale-base check's argument does not carry here: it refuses a base
+nobody wants, while stacking on purpose is a thing people do deliberately, so a refusal would sit across a
+route rather than across a mistake. What was missing was never a gate but the **signal** that you are on
+that route -- which is the remote-ahead warning's own reason, one hazard over. **The lane is silent for
+the reason the paragraph above already gives**, and needs nothing of its own: it is detached at
+`origin/<trunk>`, and a detached `HEAD` is not a subject here. A `HEAD` on the **trunk** is excluded by
+*name* rather than by its count, so this workflow's own direct-on-trunk commits stay silent too.
+
+**It is not the stale-base check one argument over.** That fires on a base *behind* the trunk, and this
+base was behind nothing; the two are independent, which is why this warning prints on the refusing path as
+well. And it is not the remote-ahead warning (#1439) either, which is about the branch you are **resuming**
+rather than the base you are **cutting from**.
+
+**The neighbouring question it does not answer:** two sessions sharing one working copy at all. That is
+#1973's subject (worktrees), and this is worth having regardless of how that lands -- a stale `HEAD` left
+by your own earlier checkout produces the same silence with one session.
 
 ## The already-done check (issue #1409)
 
