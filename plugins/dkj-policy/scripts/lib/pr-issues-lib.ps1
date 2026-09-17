@@ -285,11 +285,26 @@ function Get-IssueStateVerdict {
         number of <n>". Anything else is reported as unreadable rather than quietly read as a clean
         "not here" -- a broken gh must not be able to look like a tidy silence.
 
+        AND THAT MESSAGE ARRIVES ON STDERR, WHICH IS WHY THE CALLER MERGES THE TWO STREAMS. Measured
+        on gh 2.74.0 during this branch's own review: with stderr discarded, a number this repo does
+        not have came back as an empty capture and therefore as 'unreadable' -- so the headline case
+        #2056 was filed over, a cross-repo inbound citation, went on printing a warning instead of the
+        silence this promises. The closed signal was unaffected, which is exactly what made it the
+        kind of defect a unit test feeding strings directly cannot see.
+
+        SO THE JSON IS EXTRACTED RATHER THAN PARSED WHOLE. Merging the streams buys the discriminator
+        and costs a guarantee: a successful call is no longer certain to be pure JSON, because gh
+        writes notices ("A new release of gh is available") to stderr. Taking the braces out of the
+        capture is what keeps both -- a notice in front of the payload no longer reads as a broken
+        answer. The alternative, trusting stderr to be empty on success, holds on this machine today
+        and is not a property of gh.
+
     .PARAMETER ExitCode
         gh's exit code.
 
     .PARAMETER Output
-        Everything gh wrote -- the JSON payload on success, the error text otherwise.
+        Everything gh wrote, stdout and stderr MERGED -- the JSON payload on success, the error text
+        otherwise, and possibly a notice alongside either.
     #>
     param(
         [int]$ExitCode = 0,
@@ -302,10 +317,14 @@ function Get-IssueStateVerdict {
         return 'unreadable'
     }
 
+    # THE PAYLOAD IS ONE OBJECT ('--json state,url'), so the first '{' to the last '}' is it. No match
+    # at all means gh exited 0 and said nothing usable, which is unreadable rather than an answer.
+    $braces = [regex]::Match($said, '\{.*\}', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $braces.Success) { return 'unreadable' }
+
     $parsed = $null
     try {
-        # ASSIGN FIRST, WRAP SECOND -- the 5.1 trap every parse in this file navigates.
-        $parsed = $said | ConvertFrom-Json
+        $parsed = $braces.Value | ConvertFrom-Json
     } catch {
         return 'unreadable'
     }
@@ -318,6 +337,37 @@ function Get-IssueStateVerdict {
     if (-not $state) { return 'unreadable' }
     if ($state -eq 'CLOSED') { return 'closed' }
     return 'other'
+}
+
+function Get-IssueResolveBatch {
+    <#
+    .SYNOPSIS
+        Which of these numbers one run will actually resolve, and whether anything was left out.
+        Returns an object with Numbers (int[], sorted and unique) and Truncated ([bool]).
+
+    .DESCRIPTION
+        THE CAP EXISTS BECAUSE THE RESOLVE IS PER NUMBER (inbound #2056). A development document citing
+        more than a couple of dozen unaccounted numbers is pathological, and a check that spends a
+        minute of somebody's push on network round trips is a check they learn to skip.
+
+        THE NEWEST NUMBERS SURVIVE IT, AND THAT IS THE WHOLE JUDGEMENT IN THIS FUNCTION. Keeping the
+        lowest would drop exactly the numbers the check exists to judge: in a document that cites many,
+        the old ones are historical context while the branch's own target is among the newest. The
+        wrong end is easy to take by accident, because the natural way to write the cap -- sort, then
+        take the first N -- takes it.
+
+        PURE, AND ITS OWN FUNCTION FOR THAT REASON. The loop it serves calls gh and cannot be asserted
+        without a network; this judgement can, and it is the half that goes silently wrong.
+    #>
+    param(
+        [int[]]$Numbers = @(),
+        [int]$Limit = 25
+    )
+
+    $wanted = @($Numbers | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
+    if ($Limit -lt 1) { return [pscustomobject]@{ Numbers = @(); Truncated = ($wanted.Count -gt 0) } }
+    if ($wanted.Count -le $Limit) { return [pscustomobject]@{ Numbers = $wanted; Truncated = $false } }
+    return [pscustomobject]@{ Numbers = @($wanted | Select-Object -Last $Limit); Truncated = $true }
 }
 
 function Get-ExistingPrRecord {

@@ -435,6 +435,36 @@ Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 1 -Output 'gh: Bad cr
 Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 1 -Output '')                          'and so is a non-zero exit that said nothing at all'
 Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output 'not json')                  'an unparseable payload is unreadable'
 Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output '{"url":"https://github.com/o/r/issues/7"}') 'and so is a payload with no state field -- absent is not OPEN'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output 'A new release of gh is available')          'and so is an exit-0 capture carrying no payload at all'
+
+# THE STREAMS ARE MERGED BY THE CALLER, AND THESE TWO ASSERTS ARE WHY. gh writes the "Could not
+# resolve" sentence to STDERR, so a capture that discards it collapses "not an issue here" into "gh is
+# broken" -- which is precisely how the first cut of this repair went on warning about the citations it
+# was written to silence (measured on gh 2.74.0 during this branch's review, and invisible to the
+# asserts above because they feed the string directly).
+#
+# WHAT MERGING COSTS is the guarantee that a successful capture is pure JSON, since gh puts its notices
+# there too. So the payload is EXTRACTED from the capture rather than parsed whole, and this is the
+# case that proves it.
+Assert-Equal 'closed' (Get-IssueStateVerdict -ExitCode 0 -Output "A new release of gh is available: 2.74.0 -> 2.80.0`n{`"state`":`"CLOSED`",`"url`":`"https://github.com/o/r/issues/1282`"}") 'a notice merged in front of the payload does not make a closed issue unreadable'
+Assert-Equal 'other'  (Get-IssueStateVerdict -ExitCode 0 -Output "some notice`n{`"state`":`"MERGED`",`"url`":`"https://github.com/o/r/pull/2053`"}")                                        '...and the pull-request discriminator survives the same merge'
+
+# --- Get-IssueResolveBatch -- which numbers survive the cap (inbound #2056) ------------------------
+#
+# THE JUDGEMENT THIS PINS is which END of the list is dropped, and it is asserted because the natural
+# way to write a cap -- sort, then take the first N -- takes the WRONG end. In a document that cites
+# many numbers the old ones are historical context; the branch's own target is among the newest, so
+# keeping the lowest drops exactly what the check exists to judge.
+$underCap = Get-IssueResolveBatch -Numbers @(5, 3, 9) -Limit 25
+Assert-Equal '3 5 9' (@($underCap.Numbers) -join ' ') 'under the cap: every number is kept, sorted and unique'
+Assert-Equal $false  $underCap.Truncated              '...and nothing is reported as dropped'
+
+$overCap = Get-IssueResolveBatch -Numbers @(100, 7, 2055, 42, 2056) -Limit 2
+Assert-Equal '2055 2056' (@($overCap.Numbers) -join ' ') 'over the cap: the NEWEST numbers survive, not the lowest'
+Assert-True  $overCap.Truncated                          '...and the run says something was left out'
+
+Assert-Equal '3 9' (@((Get-IssueResolveBatch -Numbers @(9, 3, 9, 3, -1, 0) -Limit 25).Numbers) -join ' ') 'duplicates and non-positive numbers are dropped before the cap is applied'
+Assert-Equal $false (Get-IssueResolveBatch -Numbers @() -Limit 25).Truncated 'nothing in, nothing truncated'
 
 # --- THE THREE-STATE READ, AS THE WARNINGS SEE IT (inbound #2056) ----------------------------------
 #

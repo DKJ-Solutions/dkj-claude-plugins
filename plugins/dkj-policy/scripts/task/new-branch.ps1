@@ -805,6 +805,13 @@ if ($resolveList.Count -gt 0) {
                 if ($resolvedStates.Unreadable) {
                     Write-Warning ("could not ask gh what every number in $targetList actually is -- the already-done check reports only what it could confirm.")
                 }
+                # SAID HERE TOO, although -Resolves is typed by a person and all but never reaches the
+                # limit. The asymmetry is what would cost: open-pr scrapes a whole document and says
+                # this, so a reader who has seen it there would read its absence here as "nothing was
+                # dropped" rather than as "this caller does not check".
+                if ($resolvedStates.Truncated) {
+                    Write-Warning ("more numbers were given than the already-done check resolves in one run -- the oldest were left unresolved and are reported neither way.")
+                }
             }
         }
 

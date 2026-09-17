@@ -2047,7 +2047,13 @@ exit 1
         Add-FixtureRepoConfig -Dir $fixX9 -RepoName 'fake/repo'
         $rX9 = Invoke-NewBranchX -Dir $fixX9 -Name 'fix/1409-foreign-citation' -Resolves '1409' -OpenIssues '9999'
         Assert-ExitCode 0 $rX9 'a number that is not an issue here: exits 0'
-        Assert-True (-not (Test-Phrase -Text $rX9.Out -Phrase 'already-done check:')) 'a number that is not an issue here: SILENT -- not reported as closed (inbound #2056)'
+        Assert-True (-not (Test-Phrase -Text $rX9.Out -Phrase 'already-done check:')) 'a number that is not an issue here: not reported as closed (inbound #2056)'
+        # SILENT MEANS SILENT, AND THIS ASSERT IS THE ONE THAT SAYS SO. Testing only for the absence of
+        # 'already-done check:' passed while the run printed "could not ask gh what every number ...
+        # actually is" on every such branch -- the first cut discarded gh's stderr, which is where the
+        # "Could not resolve" sentence lives, so the case landed on 'unreadable' instead of 'other'.
+        # The label claimed silence and the assert never checked for it.
+        Assert-True (-not (Test-Phrase -Text $rX9.Out -Phrase 'could not ask gh what every number')) 'a number that is not an issue here: and NOT reported as unreadable either -- genuinely silent'
         Assert-True (($rX9.Log | Where-Object { $_ -match [regex]::Escape('issue view 1409 --repo fake/repo') }).Count -eq 1) 'a number that is not an issue here: and the silence comes from having ASKED, not from skipping the check'
         $branchesX9 = ((& git -C $fixX9 branch --list 'fix/1409-foreign-citation') -join '').Trim()
         Assert-True ([bool]$branchesX9) 'a number that is not an issue here: the branch is created as normal'

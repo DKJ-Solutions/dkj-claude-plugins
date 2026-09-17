@@ -51,18 +51,23 @@ Inbound #2056: Get-TargetIssueWarnings infers CLOSED from absence in the open-is
       `Truncated` separately.
 - [x] `Get-TargetIssueWarnings` takes `-ClosedIssues` in place of `-OpenIssues`, so it is TOLD which
       numbers are closed instead of inferring it from an absence.
+- [x] `Get-IssueResolveBatch` (pure) owns the cap: which numbers a run takes when a document cites more
+      than the limit. The NEWEST survive, not the lowest.
 - [x] Both callers -- `new-branch.ps1` and `open-pr.ps1` -- do the three-state read, resolving only the
-      unaccounted numbers, and say so when gh could not answer.
+      unaccounted numbers, and both report an unreadable answer AND a truncated batch.
 - [x] The new lib registered in `shared-scripts-lib.ps1` and mirrored into the plugin payload.
 - [x] `new-branch`'s skill page carries the new row and why it exists.
 
 ### TEST
 
-- [x] `scripts/tests/pr-issues.tests.ps1` -- 994 asserts, 0 fail. Nine of them pin the pure rule on
+- [x] `scripts/tests/pr-issues.tests.ps1` -- 1003 asserts, 0 fail. Twelve of them pin the pure rule on
       real payloads measured here: a closed issue, an open one, `Could not resolve`, a MERGED pull
-      request, a CLOSED pull request, an auth failure, a silent non-zero exit, an unparseable payload
-      and one with no `state` field.
-- [x] `scripts/tests/new-branch.tests.ps1` -- 284 asserts, 0 fail, including a new wired case (x9) for
+      request, a CLOSED pull request, an auth failure, a silent non-zero exit, an unparseable payload,
+      one with no `state` field, an exit-0 capture with no payload at all, and a gh release notice
+      merged in front of both a closed issue and a pull request.
+- [x] Four more pin the cap: everything kept under it, the NEWEST kept over it, duplicates and
+      non-positive numbers dropped first, and nothing in means nothing truncated.
+- [x] `scripts/tests/new-branch.tests.ps1` -- 285 asserts, 0 fail, including a new wired case (x9) for
       #2056 itself: a cited number that is not an issue here stays SILENT, and the call log proves the
       silence comes from having asked rather than from skipping the check.
 - [x] The full gate (`check-plugin-integrity.ps1` plus every suite) via `open-pr.ps1`.
@@ -73,6 +78,22 @@ The `new-branch` fixture stubbed `gh issue list` only, so the new per-number res
 refusal and every "already CLOSED" case went silent. Three existing cases now state which numbers are
 closed rather than relying on an absence -- which is the repair restated at the level of the suite:
 before it, "closed" and "not here" were the same input.
+
+#### The review caught the repair repeating the defect one layer down
+
+The first cut passed `-DiscardStderr` on the `gh issue view` call, out of habit -- and gh writes
+`Could not resolve to an issue or pull request with the number of <n>` to **stderr**. So the sentence
+the whole discrimination rests on was thrown away before anything read it, and a cross-repo citation
+landed on `unreadable` instead of `other`: every such branch went on printing a warning, just a
+different one. The closed signal was unaffected, which is what made it invisible -- and the unit tests
+could not see it either, because they feed the verdict function a string directly and never go through
+the call. Verified against real gh 2.74.0 both ways before and after.
+
+Two asserts now cover it from the side the unit tests cannot: case (x9) checks for the absence of the
+**unreadable** warning as well, so the label "SILENT" is something the suite actually proves. What
+merging the streams costs -- a successful capture is no longer guaranteed to be pure JSON, since gh
+puts its release notices there -- is paid for by extracting the payload from the capture instead of
+parsing it whole, with an assert for exactly that shape.
 
 ### DEPLOY: fix/2056-already-done-three-state
 

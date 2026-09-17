@@ -41,15 +41,10 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
-# THE CEILING ON HOW MANY NUMBERS ONE RUN RESOLVES. A development document citing more than this is
-# pathological, and a check that spends a minute of somebody's push on gh round trips is a check they
-# learn to skip. Past it the run says so rather than stopping in silence.
+# THE CEILING ON HOW MANY NUMBERS ONE RUN RESOLVES, in one place. Which numbers survive it -- the
+# newest, not the lowest -- is Get-IssueResolveBatch's judgement, over in the pure lib where a suite can
+# assert it. Here it is only the number.
 $script:IssueStateResolveLimit = 25
-
-function Get-IssueStateResolveLimit {
-    <# The limit itself, so a test and every caller read one source rather than a copy. #>
-    $script:IssueStateResolveLimit
-}
 
 function Get-ClosedIssueSet {
     <#
@@ -59,9 +54,11 @@ function Get-ClosedIssueSet {
         Truncated ($true when the resolve limit was reached).
 
     .DESCRIPTION
-        ONE 'gh issue view <n> --json state,url' PER NUMBER, each answer judged by Get-IssueStateVerdict
-        -- see that function for the three states, and for why a pull request is not a separate case but
-        the second half of the same conflation.
+        ONE 'gh issue view <n> --repo <owner/name> --json state,url' PER NUMBER, each answer judged by
+        Get-IssueStateVerdict -- see that function for the three states, and for why a pull request is
+        not a separate case but the second half of the same conflation. Which numbers a run takes when
+        there are more than the limit is Get-IssueResolveBatch's, and both live in pr-issues-lib.ps1
+        because both are pure.
 
         THE RESULT IS DELIBERATELY NOT JUST A LIST. Closed alone cannot distinguish "none of them is
         closed" from "I could not ask", and those carry opposite weight in an advisory check: the first
@@ -88,20 +85,23 @@ function Get-ClosedIssueSet {
         [int]$TimeoutSeconds = 120
     )
 
-    $wanted = @($Numbers | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
-    $result = [pscustomobject]@{ Closed = @(); Unreadable = $false; Truncated = $false }
+    $batch  = Get-IssueResolveBatch -Numbers $Numbers -Limit $script:IssueStateResolveLimit
+    $wanted = @($batch.Numbers)
+    $result = [pscustomobject]@{ Closed = @(); Unreadable = $false; Truncated = [bool]$batch.Truncated }
     if ($wanted.Count -eq 0) { return $result }
-
-    if ($wanted.Count -gt $script:IssueStateResolveLimit) {
-        $result.Truncated = $true
-        $wanted = @($wanted | Select-Object -First $script:IssueStateResolveLimit)
-    }
 
     $closed = @()
     foreach ($n in $wanted) {
+        # NO -DiscardStderr, DELIBERATELY, AND IT IS THE ONE LINE THIS FUNCTION TURNS ON. gh writes
+        # "Could not resolve to an issue or pull request with the number of <n>" to STDERR, and that
+        # sentence is the entire difference between "this number is not an issue here" (silent) and
+        # "gh is broken" (said out loud). Discarding it collapses the two, which is how the first cut
+        # of this repair went on warning about exactly the citations it was written to silence --
+        # measured on gh 2.74.0 during this branch's review. Same convention as Test-GhMutationTransient
+        # one lib over, whose docstring says "stdout + stderr merged" for the same reason.
         $q = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
             'issue', 'view', "$n", '--repo', $Repo, '--json', 'state,url'
-        ) -DiscardStderr -TimeoutSeconds $TimeoutSeconds
+        ) -TimeoutSeconds $TimeoutSeconds
 
         switch (Get-IssueStateVerdict -ExitCode $q.ExitCode -Output (@($q.Output) -join "`n")) {
             'closed'     { $closed += [int]$n }

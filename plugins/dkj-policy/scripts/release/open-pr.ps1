@@ -873,7 +873,7 @@ Both are honest answers; the gate only refuses to guess.
                     Write-Warning ("could not ask gh what every cited number is (" + (($unaccounted | ForEach-Object { "#$_" }) -join ', ') + ") -- the already-done check reports only what it could confirm.")
                 }
                 if ($resolved.Truncated) {
-                    Write-Warning ("this branch cites more numbers than the already-done check resolves in one run -- the ones past the limit are not reported either way.")
+                    Write-Warning ("this branch cites more numbers than the already-done check resolves in one run -- the oldest were left unresolved and are reported neither way.")
                 }
             }
         }
