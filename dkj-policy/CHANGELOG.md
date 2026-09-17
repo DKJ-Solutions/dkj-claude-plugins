@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 16 minor entries** <!-- pending-tally -->
+**13 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2090-anchor-ordering-asserts · 20260917-220352
+
+`scripts/tests/pr-issues.tests.ps1` no longer locates anything in `ship-pr.ps1` with a whole-file
+`IndexOf`. All 45 reads go through one region-scoped helper, `Get-ShipIdx`, which searches inside a
+single `function` or `# --- Step ` region and, with `-Code`, skips comments and docstrings. A needle
+it cannot find is a named failure instead of a silent `-1` that a `-lt` assert would read as a pass.
+
+This closes both directions of the defect. The red one is what #2087 met: two helpers added above
+step 3 turned four asserts red about behaviour that had not moved. The green one was measured on the
+repair -- of the 39 distinct needles those 45 reads used, eight already matched in more than one
+place, and two of them resolved to prose rather than to code, so the assert pinning ship-pr's wait
+order was passing on a comment 121 lines above the call, and the check-suite read was pinned to a
+docstring line.
+
+Nobody outside this repo runs this suite, and nothing it guards changed behaviour. What it buys is
+the next person who adds a helper to `ship-pr.ps1`: they no longer meet a red suite naming a
+behaviour they did not touch, whose cheapest reading is to delete the assert.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A test that is green about the wrong text is worse than one that is red, because nothing ever asks it
+again. Two of these had drifted onto prose -- one onto a comment, one into a docstring -- while
+reporting that ship-pr's wait order was pinned. The branch then reproduced the same failure in its own
+writing: the first counts were taken with a grep line count, which missed the one LastIndexOf site,
+and every figure above is re-measured off the AST.
+
+The reader of a tier-2 change is the subscriber of a service; this is a test suite inside the repo
+that authors the workflow, and it reaches nobody who installs it.
+
+**Score:** N/A
+
+#### Pull Request
+
+pr-issues.tests.ps1's ship-pr ordering asserts are region-scoped instead of whole-file
+
+[PR #2093](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2093)
+
+---
 
 ### DEPLOY: fix/2083-failed-fetch-not-all-clear · 20260917-191911
 
