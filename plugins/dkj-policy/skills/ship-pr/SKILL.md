@@ -120,6 +120,7 @@ The six steps, stopping on the first failure:
 | `-SkipTests` | Passed through to `open-pr`: skip the test gate. An escape valve. |
 | `-MaxParallel` | Passed through to `open-pr`: how many test suites its gate runs at once. `0` (the default) forwards nothing and leaves the gate's own resolution — `ProcessorCount - 2`, floor 2 — untouched. **Reach for this before `-SkipTests`** when the gate will not finish: it runs the suites smaller instead of not at all, so the run still measures. See the [`open-pr` skill](../open-pr/SKILL.md#when-the-test-gate-will-not-finish--maxparallel-not--skiptests). |
 | `-SkipStaleCheck` | Skip step 3b's certificate-staleness check (issue #1292): merge even though `main` gained a commit after the run that certified this PR was created, or that check could not be completed at all. Use it only when the situation is known-harmless — e.g. the commits `main` gained are docs-only, or you have confirmed by hand that the certificate is sound. |
+| `-MaxForwardLaps` | How many times step 3b may bring the branch up to date with the trunk and wait for a **fresh** certificate before it refuses ([#2087](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2087)). Default `2`. It does **not** weaken the gate — the predicate is unchanged, and what a lap buys is a certificate that is genuinely fresh. `0` restores the behaviour this workflow had before #2087: refuse on the first stale reading and print the manual remedy. See [the forward lap](#the-forward-lap--why-detect-and-rebase-did-not-converge-2087) below. |
 | `-Force` | Passed through to `open-pr`: ship an entry that still carries its scaffold wording. Deliberately separate from `-SkipLint`/`-SkipTests` — those skip a tool, this overrules a judgement about content. |
 | `-RefreshBody` | Passed through to `open-pr`: on a branch whose PR is **already open**, rewrite that PR's description from the current changelog entry. Opt-in, so a body edited on github.com is never overwritten unasked. No effect when the PR is created in this run. |
 | `-PollSeconds` | Poll interval in seconds for the CI wait. Default 15. |
@@ -359,13 +360,51 @@ Three answers, and the order is the point:
 
 | when | what happens |
 |---|---|
-| **before step 1** (step 0) | another worktree holds the trunk → **refuse**, naming that directory and the two commands that release it. Nothing is gated, pushed or merged yet, so this is the one place where stopping is free |
+| **before step 1** (step 0) | another worktree holds the trunk **and nothing else folds** → **refuse**, naming that directory and the two commands that release it. Nothing is gated, pushed or merged yet, so this is the one place where stopping is free. Where a CI runner *does* fold (below), the run merges instead and hands the fold over |
 | **at step 5**, in-place arm | the narrow window step 0 cannot cover — another session took the trunk while CI was being watched. It now prints the same hand-fold instruction the worktree arm always had, including the `-RepoRoot` call that folds from the tree that *does* hold it |
 | **after the fold** (step 5b) | a tree that is **not** the primary checkout returns to its own branch, releasing the lock. Only after a *successful* fold: a failed one leaves you standing on the trunk, which is where a hand repair happens |
 
 **Nothing takes the trunk away from anybody.** The holder may be a lane with work in it, and this script
 does not know what — so both arms name the directory rather than acting on it. Handing a finished lane
 back is still `worktree-lane.ps1 -HandBack`, and it is still the better move than relying on step 5b.
+
+#### And that refusal now asks about the runner, not about the queue ([#2087](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2087))
+
+The refusal's whole ground is *"step 5 could not fold after the merge"*, and that was exactly right when
+#1069 wrote it: the local fold was the only fold there was. Since
+[#1493](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1493) it is not —
+`fold-on-merge.yml` triggers on `push: branches: [main]`, which is **every** push to the trunk and not
+only a merge queue's. This script has relied on that on the ordinary path since #1792, whose step 5c
+calls a fold *lost* to that runner a success rather than a failed ship.
+
+The refusal was already skipped under a merge queue ([#1572](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1572)),
+on the ground that this session never folds there — and the same sentence is true of **any** repo whose
+trunk is folded by a runner, queue or no queue. So what is read now is the runner.
+
+**And the cost of asking the narrow question is not an edge case.** The close-out rule and step 5b both
+*end sessions on the trunk*, deliberately — that is what makes a session safe to clear — so a second live
+checkout standing on the trunk is the **ordinary** state of this workflow. Two lanes shipping in the same
+period then blocked each other even when CI was fresh. Measured on PR #2076.
+
+| what the repo has | what happens |
+|---|---|
+| a workflow that runs on a push to the trunk **and** names `fold-changelog-entry.ps1` | the run **merges** and says so; the fold is that runner's, and step 5 does not touch the trunk |
+| anything else — no such workflow, an unreadable one, a trigger written in a shape the recogniser declines | the refusal fires **exactly as it always did**, and names what the read came back with |
+
+**It is a local disk read, and every ambiguity answers "no recovery".** A repo-config declaration was
+tried first and declined: it can go stale in the one direction that costs the fold — delete the workflow,
+leave the declaration, and every later ship merges and never folds. The workflow files *are* the
+mechanism, so reading them cannot disagree with it. **The file's name is not a condition** — a consumer
+may rename the runner; what cannot be renamed is the script it has to call.
+
+So a consumer that never adopted the CI floor (`adopt-dkj-policy` part 3 is optional and separate from
+enabling the plugin) is **unchanged** by this, which is the property that let it be written at all.
+
+**It does not claim the runner will succeed**, and it cannot: the push needs an actor that bypasses the
+trunk's ruleset, which is a secret this process cannot read. What it answers is whether the fold is
+*somebody's* — and if that runner fails, `check-unfolded-entry.ps1` reports the leftover at the next
+session start and from this repo's own push workflow. A runner that exists and fails is a state that gets
+found; a runner that does not exist is one nothing would ever look for.
 
 `prune-merged.ps1` was unavailable in exactly this state too, which mattered because it is the script a
 session is told to run *instead of* hand-reading `git ls-remote`. It **runs** in this state now
@@ -602,6 +641,57 @@ re-anchor exists to close, so an unresolved read now refuses with `-SkipStaleChe
 **Repo-settings option 1 from the same issue** (`strict_required_status_checks_policy: true`) remains
 available and closes the gap completely by forcing a re-run on every base move; it is the repo owner's
 call, not this script's, and step 3b does not touch it.
+
+### The forward lap — why detect-and-rebase did not converge ([#2087](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2087))
+
+The refusal above used to end the run, printing a remedy for a **person** to type: bring the branch
+forward, push, wait for CI, re-run `ship-pr`. That remedy takes about as long as CI itself, so whenever
+another lane merges inside that window the branch is stale again by the time it is green.
+
+**Measured in the source repo, September 17, 2026.** Five pull requests sat `CLEAN` and `MERGEABLE`
+with every check green and none of them merged, against a trunk taking **33 first-parent commits in a
+day** — a merge and a fold every twenty to forty minutes. PR #2062's own status comment records
+`ship-pr` run **seven times** and refused each time, arriving 48 commits behind on one attempt, and
+verifies that none of the racing commits touched a file that PR changed.
+
+**So the remedy is run here, and the predicate is untouched.** On a stale reading the script brings the
+branch up to date itself, waits for a fresh certificate, and takes the **same** measurement again. What
+changes is the cost of the remedy, not the strictness of the gate — `-SkipStaleCheck` is still the only
+way to merge on an old certificate.
+
+| what the lap does | why it is that and not the printed remedy |
+|---|---|
+| `PUT repos/<o>/<r>/pulls/<n>/update-branch` | GitHub merges the base into the head **server-side**, so it needs no checkout, no clean tree and no opinion about where `HEAD` is standing — the three things that made the printed remedy fail silently ([#1588](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1588)). An API call cannot fast-forward the wrong branch. |
+| waits for the run **id** to change, then for it to finish | For a few seconds after a forward the check API still answers with the **previous** run — completed, green, certifying a head that no longer exists. A wait that believed it would spend the whole budget in seconds without ever waiting for CI. |
+| fast-forwards this checkout's own `refs/heads/<branch>` | Step 4 reads the step list and the DEPLOY lock from that ref, on the stated invariant that it **is** the PR's head commit. The forward breaks that invariant, and merging while the two disagree would gate the merge on a document the PR does not contain. Both routes are fast-forward-only, so a local commit made during the CI wait is refused rather than discarded. |
+
+**Why it converges.** Each lap is CI-bound rather than human-bound, and each lap at least one contending
+lane is certified *after* the last merge and wins. That is one merge per CI cycle rather than none: five
+lanes drain in about half an hour instead of never.
+
+**What it costs, stated rather than hidden.** Losing lanes re-run CI, so N contending lanes cost about
+N(N+1)/2 runs instead of N — fifteen runs for five lanes. It is only paid when several lanes ship at
+once. **Fairness is not guaranteed**: a lane can lose the race repeatedly, which is what the lap bound is
+for. On exhaustion the run refuses with the message it always had, plus a clause naming the laps it spent
+and suggesting you ship that lane on its own.
+
+**Three things end the run instead of lapping again**, because a lap is only worth spending on a
+certificate that was *read* and found stale:
+
+- **a conflict, or a failed `update-branch`** — a conflict needs a person, and a failed call needs to be
+  understood before it is repeated;
+- **`already up to date`** — GitHub reports nothing to bring across, so re-certifying would wait on a run
+  that never starts;
+- **a red check on the forwarded head** — this is the case the whole gate exists to catch, arriving the
+  way it was always meant to: the branch was green against an older trunk and is not green against this
+  one.
+
+**This is deliberately not a merge queue.** That mechanism removes the race by construction and was
+retired as policy on 2026-09-07 ([#1546](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1546))
+because most repos running this workflow cannot have one — GitHub offers it on a private repo only under
+Enterprise Cloud, otherwise only on a public repo owned by an organisation. A prescription a consumer
+cannot follow turns their correct state into an open gap. The lap is script, so it reaches every consumer
+through the ordinary release rather than through a repo setting half of them are not allowed to make.
 
 ## The merge method is repo policy
 
