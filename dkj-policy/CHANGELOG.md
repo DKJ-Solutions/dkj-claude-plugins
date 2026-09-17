@@ -43,7 +43,94 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2066-title-overlap-section · 20260917-163712
+
+`claim-issue`'s fifth pickup signal -- the title-overlap scan, which matches an issue's own title
+against every branch name off the trunk to catch a branch cut for the subject rather than the number
+-- now has its section on the skill page, between the fourth signal and the bounded-call section. It
+carries #2018's own measurement (two complete independent implementations of #2016 inside half an
+hour, every other pickup signal reading clean), how the word matching filters and why, the corpus
+measurement behind the floor of two shared words, and the hedges that make it weaker evidence than the
+fourth signal -- including that it deliberately never moves this script's closing line. The page's
+numbered summary of what the script does names the scan as its own step.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who installs `dkj-policy` reads this page and nothing else, and the scan has been printing
+its block to their console with no document behind it: nothing saying what it measured, how strong a
+shared word is as evidence, or that it is advisory like every other signal in the family. That is
+exactly the hedging every neighbouring section is careful to state, and the reader most in need of it
+is the one furthest from the code.
+
+**Score:** 3
+
+#### Pull Request
+
+The title-overlap scan gets its own section on claim-issue's page
+
+Plugins: dkj-policy
+
+[PR #2072](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2072)
+
+---
+
+### DEPLOY: fix/2056-already-done-three-state · 20260917-161539
+
+The already-done check no longer reads **"this number is not an open issue in this repo"** as
+**"this issue is CLOSED"** (inbound #2056). It had no third state, so a number this repo has never had
+was reported as closed and the author was told the branch "may repeat work that is already merged".
+
+**This workflow produced the case it is repairing**, which is why it fired so often. The numbers being
+tested are scraped as bare integers out of the branch's development document, and the inbound route
+*prescribes* citing an issue in another repo: a shared-core finding is filed on the marketplace repo,
+and the consumer then cites that number in a docstring, a README entry and the DEPLOY section. Every
+one of those is a bare `#<n>` after scraping, pointing at a repo the check never queried -- so it was
+loudest on exactly the branches that follow the documented route.
+
+`Get-TargetIssueWarnings` now takes `-ClosedIssues` instead of `-OpenIssues`: it is told what is
+closed rather than inferring it, because an absence cannot be the evidence for a positive claim. The
+caller does the resolving, one `gh issue view` per number the open list did not already account for --
+per number rather than one `--state all` list, because that list is paged and this repo is past 2000
+issues, so a genuinely closed issue behind the page boundary would come back as "not here" and take
+#1282's real signal with it.
+
+**One thing the report did not name is fixed with it: a pull request number.** Issues and pull requests
+share one counter, so a document citing `PR #1276` handed the check a number that is not an issue
+either, and it read as CLOSED for the same reason. Measured here: `gh issue view 2053` answers exit 0
+with state `MERGED`. A *closed* pull request answers exactly what a closed issue answers, so the
+discriminator is the `/pull/` in the URL rather than the state.
+
+What did NOT change: the check still warns and never blocks, and a state it cannot determine still
+claims nothing.
+
+The cost this removes is trust rather than a blocked PR -- an author who learns these warnings are
+usually wrong stops reading them, and #1282's real signal goes with them. Every branch citing an
+upstream finding saw it, so the noise was routine rather than occasional.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is the second attempt at this class and the first one to reach the cause. #1718 narrowed the scraped
+region so the scaffold's own guidance block stopped contributing foreign numbers -- a real repair, and
+one that removed a *source* rather than the conflation: a foreign number written in the branch's own
+prose, which the inbound route requires, still landed in the target set and still read as closed.
+
+**Score:** 2
+
+#### Pull Request
+
+The already-done check tells a closed issue apart from a number that is not an issue here
+
+Plugins: dkj-policy
+
+[PR #2067](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2067)
+
+---
 
 ### DEPLOY: feat/2064-prerequisite-branch-signal · 20260917-160011
 

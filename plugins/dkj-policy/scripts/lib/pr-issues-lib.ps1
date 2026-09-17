@@ -245,6 +245,131 @@ function Get-ClosedIssueNumbers {
     return @($numbers | Sort-Object -Unique)
 }
 
+function Get-IssueStateVerdict {
+    <#
+    .SYNOPSIS
+        What one `gh issue view <n> --json state,url` answer says a number IS in this repo. Returns
+        'closed', 'other', or 'unreadable'.
+
+    .DESCRIPTION
+        THE RULE INBOUND #2056 EXISTS TO REPLACE, and it is pure, which is why it lives here rather
+        than beside the gh call that feeds it. The already-done check used to read "not in the open
+        issue list" as CLOSED -- an inference with no third state, so a number that has never existed
+        in this repo was reported as closed and the author was told the branch may repeat merged work.
+
+        THE THREE ANSWERS:
+
+          'closed'     -- an ISSUE of this repo, in state CLOSED. The only one that sets IsClosed, and
+                          the one carrying #1282's real signal (the target closed while the branch was
+                          in flight).
+          'other'      -- gh answered, and it is not that: an open issue, or a PULL REQUEST, or a
+                          number this repo does not have. All three are silent, because none of them
+                          is evidence the work is done.
+          'unreadable' -- gh did not answer for a reason other than the number not resolving. Also
+                          silent, but the caller says so out loud: "I found nothing" and "I could not
+                          look" are different sentences.
+
+        A PULL REQUEST IS NOT A DIFFERENT CASE, IT IS THE SECOND HALF OF THE SAME CONFLATION. Issues
+        and pull requests share one counter, and this workflow's own documents cite PR numbers
+        constantly -- so a scraped '#1276' reaches this check exactly as an issue number would.
+        Measured 2026-09-17: `gh issue view 2053` answers exit 0 with state MERGED, resolving a pull
+        request through the issue endpoint.
+
+        AND THE URL IS WHAT SEPARATES THEM, NOT THE STATE. A MERGED answer is unambiguous, but a
+        CLOSED pull request answers exactly what a closed issue answers -- so the discriminator is the
+        '/pull/' in the url field, which gh returns for either. Reading the state alone would put
+        every abandoned PR a branch cites straight back into the false-warning set this repairs.
+
+        EXIT 1 MEANS BOTH "no such number" AND "gh is broken", so the message is what tells them
+        apart: GitHub's GraphQL layer says "Could not resolve to an issue or pull request with the
+        number of <n>". Anything else is reported as unreadable rather than quietly read as a clean
+        "not here" -- a broken gh must not be able to look like a tidy silence.
+
+        AND THAT MESSAGE ARRIVES ON STDERR, WHICH IS WHY THE CALLER MERGES THE TWO STREAMS. Measured
+        on gh 2.74.0 during this branch's own review: with stderr discarded, a number this repo does
+        not have came back as an empty capture and therefore as 'unreadable' -- so the headline case
+        #2056 was filed over, a cross-repo inbound citation, went on printing a warning instead of the
+        silence this promises. The closed signal was unaffected, which is exactly what made it the
+        kind of defect a unit test feeding strings directly cannot see.
+
+        SO THE JSON IS EXTRACTED RATHER THAN PARSED WHOLE. Merging the streams buys the discriminator
+        and costs a guarantee: a successful call is no longer certain to be pure JSON, because gh
+        writes notices ("A new release of gh is available") to stderr. Taking the braces out of the
+        capture is what keeps both -- a notice in front of the payload no longer reads as a broken
+        answer. The alternative, trusting stderr to be empty on success, holds on this machine today
+        and is not a property of gh.
+
+    .PARAMETER ExitCode
+        gh's exit code.
+
+    .PARAMETER Output
+        Everything gh wrote, stdout and stderr MERGED -- the JSON payload on success, the error text
+        otherwise, and possibly a notice alongside either.
+    #>
+    param(
+        [int]$ExitCode = 0,
+        [AllowEmptyString()][AllowNull()][string]$Output = ''
+    )
+
+    $said = [string]$Output
+    if ($ExitCode -ne 0) {
+        if ($said -match 'Could not resolve') { return 'other' }
+        return 'unreadable'
+    }
+
+    # THE PAYLOAD IS ONE OBJECT ('--json state,url'), so the first '{' to the last '}' is it. No match
+    # at all means gh exited 0 and said nothing usable, which is unreadable rather than an answer.
+    $braces = [regex]::Match($said, '\{.*\}', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $braces.Success) { return 'unreadable' }
+
+    $parsed = $null
+    try {
+        $parsed = $braces.Value | ConvertFrom-Json
+    } catch {
+        return 'unreadable'
+    }
+    if ($null -eq $parsed) { return 'unreadable' }
+
+    $url = if ($parsed.PSObject.Properties['url']) { [string]$parsed.url } else { '' }
+    if ($url -match '/pull/') { return 'other' }
+
+    $state = if ($parsed.PSObject.Properties['state']) { ([string]$parsed.state).Trim().ToUpperInvariant() } else { '' }
+    if (-not $state) { return 'unreadable' }
+    if ($state -eq 'CLOSED') { return 'closed' }
+    return 'other'
+}
+
+function Get-IssueResolveBatch {
+    <#
+    .SYNOPSIS
+        Which of these numbers one run will actually resolve, and whether anything was left out.
+        Returns an object with Numbers (int[], sorted and unique) and Truncated ([bool]).
+
+    .DESCRIPTION
+        THE CAP EXISTS BECAUSE THE RESOLVE IS PER NUMBER (inbound #2056). A development document citing
+        more than a couple of dozen unaccounted numbers is pathological, and a check that spends a
+        minute of somebody's push on network round trips is a check they learn to skip.
+
+        THE NEWEST NUMBERS SURVIVE IT, AND THAT IS THE WHOLE JUDGEMENT IN THIS FUNCTION. Keeping the
+        lowest would drop exactly the numbers the check exists to judge: in a document that cites many,
+        the old ones are historical context while the branch's own target is among the newest. The
+        wrong end is easy to take by accident, because the natural way to write the cap -- sort, then
+        take the first N -- takes it.
+
+        PURE, AND ITS OWN FUNCTION FOR THAT REASON. The loop it serves calls gh and cannot be asserted
+        without a network; this judgement can, and it is the half that goes silently wrong.
+    #>
+    param(
+        [int[]]$Numbers = @(),
+        [int]$Limit = 25
+    )
+
+    $wanted = @($Numbers | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
+    if ($Limit -lt 1) { return [pscustomobject]@{ Numbers = @(); Truncated = ($wanted.Count -gt 0) } }
+    if ($wanted.Count -le $Limit) { return [pscustomobject]@{ Numbers = $wanted; Truncated = $false } }
+    return [pscustomobject]@{ Numbers = @($wanted | Select-Object -Last $Limit); Truncated = $true }
+}
+
 function Get-ExistingPrRecord {
     <#
     .SYNOPSIS
@@ -912,11 +1037,11 @@ function Get-TargetIssueWarnings {
         #1270 was closed by PR #1276 thirty-seven minutes later, and the duplicate reached a
         gate-green PR -- found only at the merge conflict.
 
-        PURE, like everything else in this file: the caller asks GitHub which issues are open and
-        for the candidate PRs' bodies, and hands both in. Two independent signals, reported
-        together per issue:
+        PURE, like everything else in this file: the caller asks GitHub which of these numbers are
+        CLOSED issues of this repo and for the candidate PRs' bodies, and hands both in. Two
+        independent signals, reported together per issue:
 
-          - IsClosed    -- OpenIssues was determinable AND this number is not in it.
+          - IsClosed    -- the caller CONFIRMED this number is a closed issue of this repo.
           - ClaimingPrs -- other PRs (never this branch's own) in OPEN or MERGED state whose body
                            carries a closing keyword for this number. Read with the same
                            Get-ClosedIssueNumbers the resolves gate uses, so a bare mention of the
@@ -924,20 +1049,47 @@ function Get-TargetIssueWarnings {
                            abandoned attempt, which in #1282 was the duplicate itself -- does not
                            either.
 
+        IT TOOK THE OPEN LIST AND INFERRED THE CLOSURE UNTIL INBOUND #2056, and that inference was
+        wrong in a way nothing could see. The rule was "OpenIssues was determinable AND this number
+        is not in it", which has no third state -- so a number that has never existed in this repo
+        was reported as CLOSED, and the caller told the author the branch "may repeat work that is
+        already merged".
+
+        AND IT FIRED LOUDEST ON THE BRANCHES THAT FOLLOW THE DOCUMENTED ROUTE. The numbers reaching
+        TargetIssues are scraped as bare integers out of the development document, and this workflow
+        PRESCRIBES citing an issue in another repo: the inbound route files a shared-core finding on
+        the marketplace repo, and the consumer then cites that number in a docstring, a README entry
+        and the DEPLOY section. Every one is a bare `#<n>` after scraping, pointing at a repo the
+        caller never queries. Measured in the consumer that filed it: `issue #2055 is already CLOSED`
+        on a branch that had opened #2055 upstream twenty minutes earlier, where no #2055 exists
+        locally at all. A pull request number is the same conflation from the other side -- issues
+        and PRs share one counter, and this workflow's own documents cite PR numbers constantly.
+
+        SO THE FUNCTION NO LONGER INFERS: it is TOLD which numbers are closed issues, and the caller
+        owns the three-state read. -ClosedIssues replaced -OpenIssues for exactly that reason -- an
+        absence cannot be the evidence for a positive claim, and a parameter named for the open set
+        invites the same mistake back. What it costs is that a caller must do the resolving;
+        Get-ClosedIssueSet in issue-state-lib.ps1 is that half.
+
         ADVISORY BY CONSTRUCTION: this returns facts, the caller writes warnings, and nothing here
         blocks. A shared number, an issue reopened after a wrong close, a PR body quoting
         `Closes #<n>` as prose: every false-match story ends with an author who reads one line and
         carries on, and none of them may wedge a real PR. That is the call #1282 asked for -- a
-        warning, not a refusal -- and the same one the branch-entry CI gate makes.
+        warning, not a refusal -- and the same one the branch-entry CI gate makes. It is also why
+        #2056's cost was TRUST rather than a wedged PR: an author who learns these warnings are
+        usually wrong stops reading them, and #1282's real signal goes with them.
 
     .PARAMETER TargetIssues
         The numbers this branch targets: what the development document mentions, plus any explicit
         -Resolves. Non-positive numbers and duplicates are dropped.
 
-    .PARAMETER OpenIssues
-        The open issue numbers, from the caller's single `gh issue list` query. $null means "could
-        not be determined", and then IsClosed is never set on any record -- the same not-blocking
-        treatment Get-ResolvesDecision gives an undeterminable state.
+    .PARAMETER ClosedIssues
+        The numbers the caller CONFIRMED are closed issues of THIS repo -- not "everything that is
+        not open". $null means "could not be determined", and then IsClosed is never set on any
+        record, the same not-blocking treatment Get-ResolvesDecision gives an undeterminable state;
+        an EMPTY array is a determinate answer meaning none of them is closed, and the two are
+        deliberately different values. A number the caller could not resolve simply does not appear
+        here, which is what turns a foreign or non-existent citation into silence.
 
     .PARAMETER OtherPrsJson
         `gh pr list --search "<n> OR <n> ... in:body" --state all --json number,state,headRefName,body`
@@ -951,7 +1103,7 @@ function Get-TargetIssueWarnings {
     #>
     param(
         [int[]]$TargetIssues = @(),
-        [int[]]$OpenIssues = $null,
+        [int[]]$ClosedIssues = $null,
         [string]$OtherPrsJson = '',
         [string]$CurrentBranch = ''
     )
@@ -959,7 +1111,7 @@ function Get-TargetIssueWarnings {
     $targets = @($TargetIssues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
     if ($targets.Count -eq 0) { return @() }
 
-    $open = if ($null -eq $OpenIssues) { $null } else { @($OpenIssues | Where-Object { $_ -gt 0 }) }
+    $closedSet = if ($null -eq $ClosedIssues) { $null } else { @($ClosedIssues | Where-Object { $_ -gt 0 }) }
 
     $prs = @()
     if ($OtherPrsJson -and $OtherPrsJson.Trim()) {
@@ -973,7 +1125,10 @@ function Get-TargetIssueWarnings {
 
     $warnings = @()
     foreach ($n in $targets) {
-        $isClosed = ($null -ne $open) -and ($open -notcontains $n)
+        # TOLD, NOT INFERRED (inbound #2056). A number absent from $closedSet is one the caller either
+        # found open, found to be something other than an issue of this repo, or could not resolve --
+        # and none of those three is evidence that the work is done.
+        $isClosed = ($null -ne $closedSet) -and ($closedSet -contains $n)
 
         $claiming = @()
         foreach ($pr in $prs) {

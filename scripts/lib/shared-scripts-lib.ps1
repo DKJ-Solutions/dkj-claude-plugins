@@ -808,6 +808,21 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # The IMPURE half of the already-done check (inbound #2056): Get-ClosedIssueSet, which asks
+            # gh what a cited number actually IS -- an open issue, a closed one, or neither. Dot-sourced
+            # by BOTH callers of Get-TargetIssueWarnings (new-branch.ps1 and open-pr.ps1) and mirrored
+            # for the same reason as the lib above: both callers are mirrored and would otherwise
+            # dot-source a file the consumer does not have.
+            #
+            # ITS OWN FILE RATHER THAN pr-issues-lib.ps1, and that separation IS the point: that file
+            # promises in its own header to be a pure function of its input -- no git, no gh, no
+            # filesystem -- and its suite is built on asserting exact answers without a network.
+            Name    = 'issue-state-lib'
+            Source  = 'scripts\lib\issue-state-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # The PR-body helpers open-pr.ps1 dot-sources: Get-EntryDescription (shared by the fresh and
             # the -RefreshBody path) and Update-PrBodySection. Mirrored for the same reason as the two libs
             # above -- open-pr is mirrored and would otherwise dot-source a file the consumer does not have.
