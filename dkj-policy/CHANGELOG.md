@@ -43,7 +43,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2049-asana-block-before-close · 20260917-125439
+
+`dkj-policy-bwj` reverses the order of its Asana notification: the paste-ready block is written by the
+session that shipped the work, while the issue is still **open**, and closing the issue is a person's
+confirmation that the block reached Asana. It is gated on the issue having a linked Asana task rather
+than on the `CRO` label, which was narrower than the need. `asana-mirror` still writes a block on the
+`closed` event, but only where no block is already there -- it is the backstop now, not the route.
+
+The old order could not be repaired in place. Its comment appeared underneath an item that had just
+left every open-issue view; a missed event was never detected afterwards; and the link inside it was a
+placeholder that CI cannot fill, because "where the result can be viewed" depends on what the ticket
+was about. The session that built the thing is the one party that knows that link.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store repo running `dkj-policy-bwj` has to act, in two places. Re-copy `templates/asana-mirror.ps1`
+into `.github/scripts/` -- an install writes nothing into a repo -- or the old CRO-gated comment keeps
+running. And ship an Asana-linked issue with `-NoResolves` from now on: a `Closes #<n>` has GitHub
+close the issue at the merge, before anybody has written a block and with nobody's confirmation, which
+bypasses the whole rule silently.
+
+In exchange the requester stops being told where to look by a comment nobody reads, on a ticket
+nobody reopens, with the link still reading `[ADD LINK]`.
+
+**Score:** 5
+
+#### Pull Request
+
+The paste-ready Asana block is written before the issue closes, by the session that shipped it
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2053](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2053)
+
+---
 
 ### DEPLOY: fix/2043-closeout-fillable-template · 20260917-103912
 
