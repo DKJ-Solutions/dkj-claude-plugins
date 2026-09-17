@@ -66,7 +66,8 @@ worked instance `#2081` was split out of. This branch touches the same file only
       measured, the shared label where the verdict was already right and only `(exit )` was wrong
 - [x] Family "reports a substantive answer" repaired -- `park-cycle`'s collision fetch no longer answers
       all-clear on a look it never judged
-- [x] The seven writes report "this run does not know" instead of a failure; `open-pr`'s create routes
+- [x] None of the seven writes may call itself a failure -- four say "THIS RUN DOES NOT KNOW" in those
+      words, the two lower-stakes `sync-main` pushes say the outcome "is unknown here"; `open-pr`'s create routes
       into the recheck #1916 already built rather than gaining a verdict of its own
 - [x] Family "refuses / fails safe" recorded as deliberate at each site, with the reason it is right
       (every one is a POSITIVE test, which is what makes `$null` land on the cautious branch)
