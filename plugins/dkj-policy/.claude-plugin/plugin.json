@@ -2,7 +2,7 @@
   "name": "dkj-policy",
   "displayName": "Claude Specialists — DKJ policy (policy scaffold, DaveKJohn's contributing rules)",
   "description": "One particular way of working, packaged so a repo can choose it: the branch-and-entry model, the tier ladder, the fold, the release cut and the gates that hold them, as skills plus their shared scripts. A workflow is not a team — it changes how the specialists work, not who they are — and the name says whose it is on purpose: DKJ's policy, the top rung of the order, not a baseline every consumer inherits. Deliberately NOT part of the core: a consuming repo is unique and has its own way of working, and the specialists adapt to it. Enable this only if you want THIS way of working. Requires the core team 'dkj-subagents-alpha', and a repo-side scripts/repo-config.ps1 + scripts/lib/branch-info.ps1.",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "author": { "name": "DaveKJohn" },
   "keywords": ["specialists", "policy", "contributing", "workflow", "claude-code", "changelog", "release", "pull-request", "opt-in"]
 }

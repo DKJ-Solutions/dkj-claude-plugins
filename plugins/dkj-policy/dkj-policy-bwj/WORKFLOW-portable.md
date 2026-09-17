@@ -171,6 +171,9 @@ nobody has renamed this label, and which repos it applies to is a fixed list of 
 than read from a function nothing else needs. [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md)'s
 labelling step creates it only where the repo is one of those two.
 
+**Closing a `CRO` issue triggers one more thing** -- a paste-ready comment for Asana, posted on the
+GitHub issue itself. See [step 4 below](#the-cro-closing-comment----a-paste-ready-pointer-for-asana).
+
 ### 2. Then Asana -- a translation, not a copy
 
 Once the GitHub issue exists, mirror it to Asana in the project
@@ -319,6 +322,27 @@ mirror was working exactly as written, and reached 4 of the 15 issues that carry
 **More than one different task, and no marker, resolves to nothing** -- the workflow names the
 candidates in its log and moves on. It never guesses which ticket an issue belongs to, and the way to
 settle it is to add a marker.
+
+#### The CRO closing comment -- a paste-ready pointer for Asana
+
+**A second, independent comment, gated on the `CRO` label rather than on every closed issue.** Where an
+issue carrying `CRO` (see above) is closed, `asana-mirror` posts one more comment on the **GitHub**
+issue itself -- not on Asana -- carrying a paragraph ready to paste into the Asana task, so the person
+closing the ticket can tell the requester (today: Johnno) where to see the result without composing
+that message from scratch.
+
+**The link inside it is a placeholder, deliberately, not something the workflow derives** (Dave,
+September 17, 2026). "Where the result can be viewed" depends on what the ticket was about -- a live
+storefront page, a preview theme, something else entirely -- and nothing this script reads (the issue,
+its pull requests, its labels) says that reliably. A guessed link reads as authoritative to a colleague
+who was never asked to check it, so the automation composes everything **around** the link and leaves
+the link itself for a person to fill in before the paragraph goes to Asana.
+
+**It runs once, on the `closed` event, and carries no backstop.** Unlike the task-completion comment
+above, a missed event here is not repaired by the daily reconciliation sweep -- the same accepted gap
+this page already carries for a dropped `reopened` event. A `CRO` issue closed while the workflow could
+not run is a comment that never posts, and there is deliberately no attempt to detect that after the
+fact.
 
 ### 5. The Asana prio score comes back as a GitHub label
 
