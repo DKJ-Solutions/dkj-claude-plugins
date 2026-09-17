@@ -414,6 +414,16 @@ function Invoke-CountedHook {
         [System.IO.File]::WriteAllText((Join-Path $CaseDir 'scripts\task\plugin-versions.ps1'), $fake, $Utf8)
         Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\session-cache-lib.ps1') `
                   -Destination (Join-Path $CaseDir 'scripts\lib\session-cache-lib.ps1') -Force
+        # hash-hex-lib.ps1 is a SIBLING OF A SIBLING (#2058), owed for exactly the reason #1729 gives
+        # for command-probe-lib one function up: session-cache-lib.ps1 dot-sources it unguarded for
+        # Get-Sha256Hex, which composes the cache file name. Without it the hook's own guarded load of
+        # session-cache-lib throws, is caught, and degrades to $sessionId = '' -- which silently turns
+        # the cache OFF and makes every firing re-spawn. That is group 5c's deliberate scenario
+        # arriving in group 5a by accident, and it reads as "the cache does not work" rather than as
+        # "the fixture is missing a file", which is why the copy list is the thing that has to stay
+        # current. Measured: without this line, case 5a counts 2 spawns where it asserts 1.
+        Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\hash-hex-lib.ps1') `
+                  -Destination (Join-Path $CaseDir 'scripts\lib\hash-hex-lib.ps1') -Force
     }
     $prevP = $env:CLAUDE_PROJECT_DIR
     $prevU = $env:USERPROFILE

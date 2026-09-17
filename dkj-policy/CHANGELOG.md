@@ -43,7 +43,57 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 12 minor entries** <!-- pending-tally -->
+**11 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2058-shared-sha256-hex-helper · 20260917-182501
+
+The SHA-256-to-lowercase-hex idiom now has one definition, `Get-Sha256Hex` in
+`scripts/lib/hash-hex-lib.ps1`, and three of the five files that carried it by hand call it:
+`gate-lib.ps1`, `session-cache-lib.ps1` and `check-consumer-siblings.ps1`. Text or bytes in,
+lowercase hex out, with an optional `-Chars` cut for the callers that put a short hash in a name.
+
+**The fold found the drift the issue predicted, already there.** #2058 filed this as a reuse note and
+said in so many words that nothing observable was wrong. The copy in `check-consumer-siblings.ps1`
+disagreed: it never disposed its SHA-256 provider -- and it creates one **per file**, inside a
+`Get-ChildItem -Recurse` over every comparable path in a consumer checkout -- and it rendered
+uppercase hex where every other copy rendered lowercase. Both are repaired by the adoption. The case
+change is unobservable, checked rather than assumed: a run picks one scheme, those values are only
+ever compared with each other, and none of them is printed, stored or carried across runs -- which is
+exactly what let it drift unnoticed.
+
+**Two of the five are deliberately left hand-written**, and that is a departure from what the issue
+asked for. `theme-archive-rules.ps1` and `theme-lifecycle-rules.ps1` are registered with an argued
+dependency-free property that their own registrations call a safety property: the live-theme guard
+reads `repo-config.ps1` on every command inside a catch that returns no live theme id, so a lib in
+that family which pulls anything in is a way to disarm a guard over a revenue-serving theme. Adopting
+there would also need a second registration of the new lib for a separately versioned plugin. The
+cost is that the six-character theme-name renderer stays hand-written; the reasoning is in the lib's
+header and on the issue.
+
+The fold is output-preserving, measured against each pre-fold implementation over five inputs
+including the empty string and a non-ASCII one. `sync-rules.ps1` is untouched, as the issue asked:
+its SHA-1 composes git's own object id, and the new function's name is the fence that keeps it out.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- nothing a subscriber of this service can observe. This is internal tooling: one shared helper
+behind three call sites whose output is byte-identical to what it replaced, so no consumer-visible
+behaviour changes. The undisposed provider it repairs was a slow leak in a maintenance check that
+runs in this repo, not in anything a consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+One shared SHA-256-to-hex helper for the four sites that hand-copied it
+
+Plugins: dkj-policy
+
+[PR #2085](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2085)
+
+---
 
 ### DEPLOY: fix/2074-base-is-another-branch · 20260917-175423
 
