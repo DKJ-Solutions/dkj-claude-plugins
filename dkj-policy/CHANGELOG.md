@@ -43,7 +43,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2066-title-overlap-section · 20260917-163712
+
+`claim-issue`'s fifth pickup signal -- the title-overlap scan, which matches an issue's own title
+against every branch name off the trunk to catch a branch cut for the subject rather than the number
+-- now has its section on the skill page, between the fourth signal and the bounded-call section. It
+carries #2018's own measurement (two complete independent implementations of #2016 inside half an
+hour, every other pickup signal reading clean), how the word matching filters and why, the corpus
+measurement behind the floor of two shared words, and the hedges that make it weaker evidence than the
+fourth signal -- including that it deliberately never moves this script's closing line. The page's
+numbered summary of what the script does names the scan as its own step.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who installs `dkj-policy` reads this page and nothing else, and the scan has been printing
+its block to their console with no document behind it: nothing saying what it measured, how strong a
+shared word is as evidence, or that it is advisory like every other signal in the family. That is
+exactly the hedging every neighbouring section is careful to state, and the reader most in need of it
+is the one furthest from the code.
+
+**Score:** 3
+
+#### Pull Request
+
+The title-overlap scan gets its own section on claim-issue's page
+
+Plugins: dkj-policy
+
+[PR #2072](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2072)
+
+---
 
 ### DEPLOY: fix/2056-already-done-three-state · 20260917-161539
 
