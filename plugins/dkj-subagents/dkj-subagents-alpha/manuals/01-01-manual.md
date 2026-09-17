@@ -110,11 +110,16 @@ so it is environment-dependent and is tracked on its own as
 
 **So last in the file is not last on the screen, and a mechanism cannot be built on being read last.**
 That is the general lesson, and it applies to anything this workflow prints as guidance rather than as
-a report. The repair the observation licenses is the report's own second proposal: **a shape that is
-described has to be composed, and a shape that is handed over has to be filled.** The print is now a
-literal line with blanks in it — `<what happened> -- see PR #683. [Filed #<n>.] Session can be
-cleared.` — with the citation slot already answered, because the run knows that and the session does
-not. A template with blanks is recognisable in the middle of a dump; three lines of prose are not.
+a report.
+
+**What it licenses is narrower than it looks, and the two arguments must not be run together.** The
+ordering finding *retires* proposal 1; it does not argue for proposal 2, because a template printed in
+a buried position is exactly as buried as prose was. The template stands on the report's own second
+argument, which is independent of where the line lands: **a shape that is described has to be composed,
+and a shape that is handed over has to be filled.** So the print is now a literal line with blanks in
+it — `<what happened> -- see PR #683. [Filed #<n>.] Session can be cleared.` — with the citation slot
+already answered, because the run knows that and the session does not. Whether blanks also read better
+mid-dump is plausible and unmeasured, and is not the reason.
 
 **This is still not a fifth sharpening of the persona**, and it must not become one: nothing was added
 to the always-on passage. What changed is the delivery of a shape whose three parts are unchanged.

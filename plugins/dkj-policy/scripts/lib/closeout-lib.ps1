@@ -46,7 +46,8 @@
 
     AND THAT PARAGRAPH TURNED OUT TO BE HALF TRUE, WHICH IS WHY THE TEXT IS A TEMPLATE NOW (inbound
     #2043, September 17, 2026 -- the FIFTH recurrence, and the first with this file already in force).
-    The print fired verbatim on the run complained about and the session wrote four paragraphs anyway.
+    The print fired verbatim on the run #2043 complained about, and the session wrote four paragraphs
+    anyway.
     The report's own diagnosis was that the print lands ~35 lines from the end of ship-pr, and its
     first proposed repair was to move it last. VERIFIED AND ALREADY TRUE: the call IS ship-pr's last
     statement, with a comment saying so deliberately, and the released 5.3.0 mirror the report measured
@@ -57,16 +58,21 @@
     verify-resolved-issues, and on the reporting run every one of the parent's own lines appeared
     before every one of theirs -- 'Done: PR #683 shipped' above 'PR created for', which is the reverse
     of the file order. Filed in that report as a secondary observation; it is the primary cause. It did
-    not reproduce here (a parent/child probe through this harness interleaved correctly), so it is
-    environment-dependent and is tracked separately as #2044.
+    not reproduce here (a parent/child probe through this harness interleaved correctly), so WHAT the
+    order was is measured and WHY it inverted is not; that half is tracked separately as #2044.
 
-    THE CONSEQUENCE FOR THIS FILE IS THE POINT: last in the file does not mean last on the screen, so
-    the receipt cannot be built on being the final thing anybody reads. #2043's SECOND proposal is the
-    one that survives that -- a shape that is DESCRIBED has to be composed, and a shape that is HANDED
-    OVER has to be filled. A line with blanks in it is recognisable in the middle of a dump, where
-    three lines of DarkGray prose read as one more status block. The three parts are unchanged; only
-    their delivery is. Placement stays as it is, because it is right and costs nothing -- it is simply
-    no longer the mechanism.
+    THE CONSEQUENCE FOR THIS FILE: last in the file does not mean last on the screen, so the receipt
+    cannot be built on being the final thing anybody reads. That RETIRES proposal 1 and licenses
+    nothing on its own -- and the two arguments must not be run together, because a template printed
+    in a buried position is exactly as buried as prose was. Said plainly, so nobody inherits the
+    overclaim: THIS CHANGE DOES NOT REPAIR THE ORDERING, and it is not offered as doing so.
+
+    WHAT THE TEMPLATE STANDS ON IS #2043's OWN SECOND ARGUMENT, which is independent of where the line
+    lands: a shape that is DESCRIBED has to be composed, and a shape that is HANDED OVER has to be
+    filled. That is the whole of it. Whether blanks also read better in the middle of a dump is
+    plausible and UNMEASURED, so it is not a reason here. The three parts are unchanged; only their
+    delivery is. Placement stays as it is, because it is right and costs nothing -- it is simply no
+    longer load-bearing.
 
     IT OBEYS ITS OWN CEILING IN THE BASE CASE, deliberately. A reminder about brevity that runs ten
     lines teaches the opposite of what it says, and would be the fifth prose repair wearing a
