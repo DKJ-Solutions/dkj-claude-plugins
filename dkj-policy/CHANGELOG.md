@@ -43,7 +43,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**11 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2060-chain-ending-list-one-definition · 20260917-184309
+
+The instrument the close-out ceiling is measured with was filtering on a hand-typed list of "chain-ending
+scripts" that was wrong in both directions: it named `park-cycle.ps1`, which the autopark Stop hook runs
+after every turn and which prints no receipt, and it omitted `park-branch.ps1`, which prints one -- so
+close-out shape C was outside the governed population and ordinary turns were candidates for it. The list
+now exists once, as `Get-ChainEndingScripts` in `closeout-lib.ps1`, the file those callers already
+dot-source, and the suite holds that definition against a scan of the tree, so a sixth chain ender cannot
+be added without going red.
+
+Re-measured over one frozen snapshot of this machine's corpus, old filter against new: the population did
+not move (n=252 both) and one session's anchor did -- over-ceiling 193 to 192, over-six 120 to 119. Small
+because `park-cycle` reaches a transcript almost never (a Stop hook runs it, not a tool call) and every
+park session here had already run another chain ender. So the committed baseline is deliberately left as
+it stands; what was wrong was the definition, not the recorded number.
+
+The report's second finding does not stand: `-UpdateBaseline` writes the flat shape the committed baseline
+carries, and only `-Json` emits the nested `All`/`CloseOuts`. Nothing is stale there.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- an instrument used inside this repo to evaluate its own close-out rule. A consumer running the
+workflow gets the corrected filter with the next release, but nothing they do changes on account of it.
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-closeouts reads the chain-ending list from one definition
+
+Plugins: dkj-policy
+
+[PR #2086](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2086)
+
+---
 
 ### DEPLOY: feat/2058-shared-sha256-hex-helper · 20260917-182501
 
