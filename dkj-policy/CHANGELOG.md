@@ -43,7 +43,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 30 minor entries** <!-- pending-tally -->
+**20 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/cro-closing-comment · 20260917-080524
+
+When a GitHub issue carrying the `CRO` label is closed, `asana-mirror` now posts a second comment --
+on the GitHub issue itself, not on Asana -- carrying a paragraph ready to paste into the Asana task,
+with a placeholder for the "where to view the result" link. This is additive to the existing close
+update (which still goes to Asana unchanged) and fires only for `CRO`-labelled issues. No reconciliation
+backstop: a missed `closed` event is not repaired later, matching the existing gap for a dropped
+`reopened`.
+
+**Score:** 1 -- this repo's own developers notice a new function in a plugin template they already
+read; the mechanism itself only runs in a consumer that has adopted this refresh, and only on a `CRO`
+issue closing there.
+
+#### What makes this deploy extra special
+
+A colleague closing a CRO-team ticket in a store repo (`smartwatchbanden`, `xoxowildhearts`) gets a
+ready-made Asana message the moment they close the issue, instead of composing one from scratch --
+saving them the round trip of figuring out what to tell the requester.
+
+**Score:** 2 -- small and welcome the moment it fires, but nothing is required to change today: it
+waits for the next `asana-mirror.ps1` refresh in a store repo and the next `CRO` issue closed there.
+
+#### Pull Request
+
+dkj-policy-bwj: post a paste-ready Asana comment when a CRO issue closes
+
+Plugins: dkj-policy-bwj
+
+[PR #2045](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2045)
+
+---
 
 ### DEPLOY: feat/cro-reporter-label · 20260917-074046
 
