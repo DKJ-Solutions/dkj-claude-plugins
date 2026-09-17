@@ -91,6 +91,39 @@ because a flag forwarded by hand at each nesting site would be exactly the memor
 mechanism exists to retire. And the reminder obeys its own ceiling in the base case — a reminder about
 brevity that runs long teaches the opposite of what it says.
 
+### The fifth recurrence — and why the print became a template
+
+[#2043](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2043) (September 17, 2026) is the
+first recurrence **with the mechanism above already in force**: it fired verbatim, the session read it,
+and wrote four paragraphs anyway. Two things came out of verifying it, and the second is the one to
+carry.
+
+**Its proposed repair was already shipped.** The report diagnosed the print as landing ~35 lines from
+the end of `ship-pr` and asked for it to be moved last. It *is* last — the final statement of the file,
+with a comment saying so deliberately — and the released mirror the report measured is byte-identical
+there. **The ~35 trailing lines were the child processes' output**: `ship-pr` spawns `open-pr`, the fold
+and the resolved-issues check, and on that run every one of the parent's lines appeared above every one
+of theirs, `Done: PR #683 shipped` sitting above `PR created for` — the reverse of the file order. The
+report filed that as a secondary observation; it was the cause. It did not reproduce in the source repo,
+so it is environment-dependent and is tracked on its own as
+[#2044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2044).
+
+**So last in the file is not last on the screen, and a mechanism cannot be built on being read last.**
+That is the general lesson, and it applies to anything this workflow prints as guidance rather than as
+a report.
+
+**What it licenses is narrower than it looks, and the two arguments must not be run together.** The
+ordering finding *retires* proposal 1; it does not argue for proposal 2, because a template printed in
+a buried position is exactly as buried as prose was. The template stands on the report's own second
+argument, which is independent of where the line lands: **a shape that is described has to be composed,
+and a shape that is handed over has to be filled.** So the print is now a literal line with blanks in
+it — `<what happened> -- see PR #683. [Filed #<n>.] Session can be cleared.` — with the citation slot
+already answered, because the run knows that and the session does not. Whether blanks also read better
+mid-dump is plausible and unmeasured, and is not the reason.
+
+**This is still not a fifth sharpening of the persona**, and it must not become one: nothing was added
+to the always-on passage. What changed is the delivery of a shape whose three parts are unchanged.
+
 ## Delegating parallel work — fresh agents, no forks
 
 When Chris (or an executing specialist) fans a job out across multiple subagents in parallel, the

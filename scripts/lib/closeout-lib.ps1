@@ -44,6 +44,36 @@
     anything, nothing fails a run, and nothing is measured -- it costs three lines of DarkGray at the
     one moment they are free.
 
+    AND THAT PARAGRAPH TURNED OUT TO BE HALF TRUE, WHICH IS WHY THE TEXT IS A TEMPLATE NOW (inbound
+    #2043, September 17, 2026 -- the FIFTH recurrence, and the first with this file already in force).
+    The print fired verbatim on the run #2043 complained about, and the session wrote four paragraphs
+    anyway.
+    The report's own diagnosis was that the print lands ~35 lines from the end of ship-pr, and its
+    first proposed repair was to move it last. VERIFIED AND ALREADY TRUE: the call IS ship-pr's last
+    statement, with a comment saying so deliberately, and the released 5.3.0 mirror the report measured
+    is byte-identical to the source on that block. So the proposal was a no-op and the reason was
+    wrong.
+
+    WHAT THE ~35 LINES ACTUALLY WERE: the CHILD processes' output. ship-pr spawns open-pr, the fold and
+    verify-resolved-issues, and on the reporting run every one of the parent's own lines appeared
+    before every one of theirs -- 'Done: PR #683 shipped' above 'PR created for', which is the reverse
+    of the file order. Filed in that report as a secondary observation; it is the primary cause. It did
+    not reproduce here (a parent/child probe through this harness interleaved correctly), so WHAT the
+    order was is measured and WHY it inverted is not; that half is tracked separately as #2044.
+
+    THE CONSEQUENCE FOR THIS FILE: last in the file does not mean last on the screen, so the receipt
+    cannot be built on being the final thing anybody reads. That RETIRES proposal 1 and licenses
+    nothing on its own -- and the two arguments must not be run together, because a template printed
+    in a buried position is exactly as buried as prose was. Said plainly, so nobody inherits the
+    overclaim: THIS CHANGE DOES NOT REPAIR THE ORDERING, and it is not offered as doing so.
+
+    WHAT THE TEMPLATE STANDS ON IS #2043's OWN SECOND ARGUMENT, which is independent of where the line
+    lands: a shape that is DESCRIBED has to be composed, and a shape that is HANDED OVER has to be
+    filled. That is the whole of it. Whether blanks also read better in the middle of a dump is
+    plausible and UNMEASURED, so it is not a reason here. The three parts are unchanged; only their
+    delivery is. Placement stays as it is, because it is right and costs nothing -- it is simply no
+    longer load-bearing.
+
     IT OBEYS ITS OWN CEILING IN THE BASE CASE, deliberately. A reminder about brevity that runs ten
     lines teaches the opposite of what it says, and would be the fifth prose repair wearing a
     script's clothes. The bypass clause is the one place it runs to a fourth line, because that fact
@@ -79,8 +109,13 @@ function Write-CloseOutReceipt {
         Where the detail already lives, in the form a receipt would carry it: 'PR #1885', 'issue
         #1884', 'the branch document'. The point of naming it is that the receipt's middle part is
         the one a session most often replaces with prose, because "where to read it" feels like it
-        needs explaining. It does not; it needs a number. Omitted, the line falls back to the generic
-        wording rather than printing an empty parenthesis.
+        needs explaining. It does not; it needs a number.
+
+        SINCE #2043 IT IS DROPPED STRAIGHT INTO THE TEMPLATE, unparenthesised, as the one slot that
+        arrives already filled -- the caller knows this and the session does not, which is exactly the
+        split that decides what a mechanism should carry. Omitted, the slot falls back to a blank
+        '<where to read it>' like the other two, so the line is still a template rather than a
+        sentence with a hole in it.
 
     .PARAMETER Bypass
         A gate this run was told to skip ('-SkipTests', '-SkipLint'), so the reminder can say where a
@@ -110,12 +145,15 @@ function Write-CloseOutReceipt {
     if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($script:CloseOutSuppressVar))) { return }
 
     # THE MIDDLE PART IS THE ONE THAT DRIFTS, so it is the one that gets the caller's own answer.
-    $where = if ([string]::IsNullOrWhiteSpace($Cite)) { 'where to read it' } else { "where to read it ($($Cite.Trim()))" }
+    # It goes into the TEMPLATE as a filled slot, which is the whole of #2043's repair: the other two
+    # parts arrive as blanks to complete and this one arrives already answered, because the run knows
+    # it and the session would otherwise compose a sentence about it.
+    $where = if ([string]::IsNullOrWhiteSpace($Cite)) { '<where to read it>' } else { $Cite.Trim() }
 
     Write-Host ""
-    Write-Host "Close-out: a receipt, not a report." -ForegroundColor DarkGray
-    Write-Host "  What happened, $where, and that the session can be cleared -- two or three lines." -ForegroundColor DarkGray
-    Write-Host "  Longer than that is rehoused, not cut: the branch document, the PR body, or an issue the receipt cites by number." -ForegroundColor DarkGray
+    Write-Host "Close-out: a receipt, not a report. Fill this in -- two or three lines, no more:" -ForegroundColor DarkGray
+    Write-Host "  <what happened> -- see $where. [Filed #<n>.] Session can be cleared." -ForegroundColor DarkGray
+    Write-Host "  What does not fit is rehoused, not cut: the branch document, the PR body, or an issue the receipt cites by number." -ForegroundColor DarkGray
 
     # ONLY WHERE THERE IS SOMETHING TO SAY. A run that skipped nothing prints nothing here, so the
     # clause keeps its signal -- the same reasoning every other conditional line in this workflow
