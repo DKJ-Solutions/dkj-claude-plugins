@@ -39,23 +39,71 @@
 
 ### PLAN
 
-Investigate WHY five close-out repairs each failed, per #2048. Two of the report's premises are already stale (the fillable template landed in #2047, the child-output ordering in #2046, both unreleased). What is untested: the volume/proportionality hypothesis, and whether anything can measure a close-out.
+Investigate WHY five close-out repairs each failed, per inbound #2048 -- the report asks for an
+investigation rather than a fix, and names four questions it would have to answer.
+
+#### What the verification found before any work started
+
+Two of the report's premises had already moved, and both are verified against the tree rather than
+assumed:
+
+- **"#2043's second proposal was never tried."** It was, hours before the report arrived: the fillable
+  template is `ea8f8720`/`1c834bbc`, merged as #2047.
+- **The child-output ordering** it blamed the miss on was repaired the same day, #2046.
+
+Both landed **after** the `v5.4.0` tag, so no consumer has either -- and the reporting consumer was on
+5.3.0. Neither premise being current changes what the report asks for, because its real subject is the
+repair strategy rather than any one repair.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verify the six inbound checks against the tree -- symptom, reason, repair, size, subject, repo
+- [x] Reconstruct the six recorded repairs (#849, Aug 27, #1402, #1408, #1884, #2043) from the tracker
+- [x] Build `scripts/maintenance/measure-closeouts.ps1` -- the instrument the report asks for
+- [x] Record a baseline in `scripts/maintenance/baselines/closeout-ceiling.json`
+- [x] Write the finding into `scripts/lib/closeout-lib.ps1`'s header, where this history already lives
+- [x] Mirror the lib to `plugins/dkj-policy/scripts/lib/` byte-identically
+- [~] Change what the close-out print says -- deliberately not done: the measurement's own conclusion
+      is that a seventh sharpening is the move that has never once worked, and Chris's body already
+      forbids repairing step 6 by sharpening that passage again
 
 ### TEST
 
+- [x] `scripts/tests/closeout-measure.tests.ps1` -- 16 asserts, synthetic fixture, no machine state
+- [x] `closeout-lib.tests.ps1` 87 pass, `shared-scripts.tests.ps1` 858 asserts (the mirror)
+- [x] Full lint gate + every suite via `open-pr.ps1`
+
 ### DEPLOY: fix/2048-closeout-repair-strategy
 
-**Score:**
+The close-out ceiling is now measured instead of argued about. `measure-closeouts.ps1` reads this
+machine's recorded sessions and reports how the close-out actually behaved, separating the two
+populations that matter -- every session's final message, and the close-outs that follow a
+chain-ending script, which is the set the ceiling governs and the only set a verdict may be read off.
+
+It answers the question inbound #2048 called open and real. Over 328 sessions, 263 of them real
+close-outs: **84% exceed the three-line ceiling, 56% exceed even six, and the median is seven.** So the
+rule has never been in force anywhere -- five complaints are five of two hundred and twenty-two -- and
+every previous repair was advice against a baseline nobody had counted, evaluated by waiting for the
+next complaint. That is a sample of one, which cannot tell a repair that worked from one that did not,
+and it is the mechanism behind the pattern the report identified.
+
+It also settles the report's leading hypothesis, that the trigger is volume of work: measured,
+`r = 0.207` over n=263 -- real, about 4% of the variance, and not the cause, because the smallest
+quarter of sessions already averages 5.8 lines against a ceiling of 3.
+
+Nothing about what the close-out print says was changed, deliberately. The finding is about how
+repairs are evaluated, and the instrument plus its recorded baseline is what lets the next change here
+be shown to have done something.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this repo's audience tier is the developers maintaining it. The instrument reads session
+transcripts on the machine it runs on and ships to no consumer in this change.
+
+**Score:** N/A
 
 #### Pull Request
 
 The close-out repair strategy, investigated across five recurrences
-
