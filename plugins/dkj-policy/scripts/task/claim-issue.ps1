@@ -175,7 +175,12 @@ if ($identity.Reason -eq 'split') {
 # this surface -- #1628's measurement is a checkout where `gh` returned exit 1 intermittently while
 # working fine from the shell, minutes apart, in one session, and an intermittently-unhealthy `gh` is
 # exactly the shape that hangs rather than exits.
-$view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $number) + $repoArgs + @('--json', 'number,title,state,url,assignees')) -Utf8 -DiscardStderr `
+# THE BODY IS ONE MORE FIELD ON A CALL ALREADY BEING MADE (issue #2064), and it is read for one
+# purpose: the paths the issue itself cites, which the sixth signal holds against the trunk. Nothing
+# else in this script reads it, and it is never printed -- an issue body is untrusted text of
+# unbounded length, so what leaves Get-IssuePathCitations is a bounded list of path-shaped tokens
+# rather than anything a reader sees verbatim.
+$view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $number) + $repoArgs + @('--json', 'number,title,state,url,assignees,body')) -Utf8 -DiscardStderr `
                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
 if (-not $view -or $view.ExitCode -ne 0) {
     Write-Host "[ERROR] could not read issue #$number." -ForegroundColor Red
@@ -263,9 +268,19 @@ $verdict = Get-ClaimVerdict -Account $identity.Account -State ([string]$facts.st
 # the claim, not about the wording: a run that prints 'ASK THEM BEFORE YOU WRITE ANYTHING' and then
 # closes with 'the work starts here' has said both and settled neither, and the second line is the one
 # a session acts on. So the closing verdict below reads this flag.
+#
+# AND THE SIXTH SIGNAL READS THE SAME FLAG ONE AXIS OVER (#2064). A surfaced branch can be in your way
+# without being a rival, and the verdict above cannot say so: it asks who is mid-flight, not whether
+# your route runs through their branch. Same advisory bound, same effect on the closing line.
 $foreignParked = $false
+$prerequisiteFound = $false
 if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
     $scanPattern = Get-IssueMentionPattern -Issue ([int]$number)
+
+    # EVERY BRANCH THE TWO SCANS BELOW SURFACE, COLLECTED AS THEY GO (#2064). The sixth signal weighs
+    # exactly this set and nothing else: a branch neither scan had a reason to name is a branch the
+    # reader is not being pointed at, so measuring it would be noise bought with a git call.
+    $surfacedBranches = New-Object System.Collections.Generic.List[string]
 
     # THE EXCLUSIONS ARE ESTABLISHED BEFORE THE NETWORK CALL, because they decide whether it is worth
     # making. Without a trunk ref to subtract, `git log --all` reports every commit on the trunk that
@@ -392,6 +407,11 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                 # ASKED AGAIN RATHER THAN SCRAPED BACK OUT OF THE LINES ABOVE -- the closing verdict of this
                 # script has to agree with the block, and a regex over printed prose is how those two drift.
                 if (Get-ForeignParkedCommit -Findings $findings -SelfNames $selfNames) { $foreignParked = $true }
+                # The same records the report prints from, so the sixth signal weighs exactly what the
+                # reader was just pointed at -- a finding whose branches were all excluded is already gone.
+                foreach ($f in $findings) {
+                    foreach ($b in @(@($f.Branches) | Where-Object { $_ })) { $surfacedBranches.Add([string]$b) | Out-Null }
+                }
             }
         }
 
@@ -412,6 +432,98 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                 foreach ($line in $overlapReport) {
                     Write-Host "  $line" -ForegroundColor Yellow
                 }
+                foreach ($o in $overlaps) { $surfacedBranches.Add([string]$o.Branch) | Out-Null }
+            }
+        }
+
+        # THE SIXTH SIGNAL (#2064): IS A SURFACED BRANCH A PREREQUISITE RATHER THAN A COMPETITOR? Every
+        # signal above asks who is mid-flight; this asks whether the route to the issue runs through
+        # somebody's unlanded branch. See the block comment above Get-IssuePathCitations for the
+        # measurement -- #2051's subject existed only on the branch the fourth signal had just named as
+        # a possible rival, and the ownership verdict pointed at the wrong question.
+        #
+        # IT COSTS NOTHING ON A QUIET CLAIM, which is the ordinary one: no branch surfaced, no git call
+        # made. Where something was surfaced the bill is one `rev-list --count` per branch plus ONE
+        # `ls-tree` on the trunk carrying every cited path at once -- and the per-branch `ls-tree` only
+        # for the paths the trunk turned out to lack, which is normally none. Trunk first is what keeps
+        # the ordinary shape at O(branches) instead of O(branches x paths).
+        if ($surfacedBranches.Count -gt 0) {
+            # THE REMOTE TRUNK WHERE THERE IS ONE, and that is a correctness choice rather than a
+            # preference: a local trunk sitting behind origin reports commits as unlanded that have in
+            # fact landed, which inflates a branch's weight in exactly the direction this signal must
+            # not err. $trunkRefs was probed above, in @(local, remote) order, so the remote is picked
+            # by name rather than by position.
+            $weighTrunk = if ($trunkRefs -contains "origin/$trunkBranch") { "origin/$trunkBranch" } else { [string]$trunkRefs[0] }
+
+            # A BOUND ON THE BRANCHES TOO, for the same reason the containment loop has one: a
+            # pathological issue can surface more branches than a reader will act on, and the overflow
+            # is stated rather than swallowed.
+            $maxWeighedBranches = 5
+            $allSurfaced = @($surfacedBranches | Select-Object -Unique)
+            $weighed = @($allSurfaced | Select-Object -First $maxWeighedBranches)
+            if ($allSurfaced.Count -gt $weighed.Count) {
+                Write-Host "  [branch-weight scan] $($allSurfaced.Count) branches were surfaced; the first $($weighed.Count) were weighed." -ForegroundColor DarkGray
+            }
+
+            # ONE MORE THAN WILL BE USED, so that a truncation here can be STATED like the other two
+            # in this block. The reader function returns paths rather than a record, and an extra
+            # element is the cheapest evidence that a ninth existed -- one regex pass over a string
+            # already in memory, no second git call, and no contract change for a pure function three
+            # suites hold. The notice says 'more than N' rather than a count, because that is exactly
+            # what a +1 probe measured: a cap a reader cannot see is the defect the parked-fix scan's
+            # own overflow line exists to remove, one layer in.
+            $maxCitedPaths = 8
+            $probedPaths = @(Get-IssuePathCitations -Text ([string]$facts.body) -MaxPaths ($maxCitedPaths + 1))
+            $citedPaths = @($probedPaths | Select-Object -First $maxCitedPaths)
+            if ($probedPaths.Count -gt $citedPaths.Count) {
+                Write-Host "  [branch-weight scan] #$number cites more than $maxCitedPaths paths; the first $maxCitedPaths were held against $weighTrunk." -ForegroundColor DarkGray
+            }
+            # WHICH OF THEM THE TRUNK ALREADY CARRIES -- one call, every path as its own pathspec.
+            # ls-tree answers by omission and exits 0 either way, so the verdict is which came back;
+            # where the call itself fails, $missingFromTrunk stays empty and the report falls to its
+            # weight-only ending rather than claiming a dependency it could not measure.
+            $missingFromTrunk = @()
+            if ($citedPaths.Count -gt 0) {
+                $trunkTree = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-C', $repoRoot, 'ls-tree', $weighTrunk, '--') + $citedPaths) -Utf8 -DiscardStderr
+                if ($trunkTree -and $trunkTree.ExitCode -eq 0) {
+                    $onTrunk = @(Get-LsTreePaths -Text ((@($trunkTree.Output) -join "`n")))
+                    $trunkSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$onTrunk, [System.StringComparer]::Ordinal)
+                    $missingFromTrunk = @($citedPaths | Where-Object { -not $trunkSet.Contains($_) })
+                }
+            }
+
+            $weights = @()
+            foreach ($branch in $weighed) {
+                $ahead = -1
+                $countCapture = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-list', '--count', "$weighTrunk..$branch") -Utf8 -DiscardStderr
+                if ($countCapture -and $countCapture.ExitCode -eq 0) {
+                    $rawCount = ((@($countCapture.Output) -join '')).Trim()
+                    if ($rawCount -match '^\d+$') { $ahead = [int]$rawCount }
+                }
+                $onlyThere = @()
+                if ($missingFromTrunk.Count -gt 0) {
+                    $branchTree = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-C', $repoRoot, 'ls-tree', $branch, '--') + $missingFromTrunk) -Utf8 -DiscardStderr
+                    if ($branchTree -and $branchTree.ExitCode -eq 0) {
+                        $onlyThere = @(Get-LsTreePaths -Text ((@($branchTree.Output) -join "`n")))
+                    }
+                }
+                $weights += [pscustomobject]@{
+                    # The branch name came off a pushed ref and is sanitised exactly like the other two
+                    # fields of pushed text this script prints; the paths came out of an issue body, and
+                    # Get-IssuePathCitations' character class is their bound.
+                    Branch    = (Format-ForConsole -Text $branch)
+                    Ahead     = $ahead
+                    OnlyThere = @($onlyThere | ForEach-Object { Format-ForConsole -Text $_ })
+                }
+            }
+
+            $prereqReport = @(Format-PrerequisiteReport -Issue ([int]$number) -Branches $weights `
+                                                        -CitedPathCount $citedPaths.Count -TrunkLabel $weighTrunk)
+            foreach ($line in $prereqReport) {
+                Write-Host "  $line" -ForegroundColor Yellow
+            }
+            if (@($weights | Where-Object { @(@($_.OnlyThere) | Where-Object { $_ }).Count -gt 0 }).Count -gt 0) {
+                $prerequisiteFound = $true
             }
         }
 
@@ -464,6 +576,13 @@ switch ($verdict.Code) {
         if ($foreignParked) {
             Write-Host '     BUT NOT THAT BRANCH: somebody else pushed to one of them -- see the parked-fix' -ForegroundColor Yellow
             Write-Host '     verdict above, and ask them before you carry it.' -ForegroundColor Yellow
+        }
+        # AND A RESUME IS WHERE AN ORDERING BITES HARDEST (#2064): the branch you are carrying may need
+        # somebody else's to land first, and nothing in this working copy says so -- the file the work
+        # needs is either there or it is not, and 'not there' reads as 'not written yet'.
+        if ($prerequisiteFound) {
+            Write-Host '     AND CHECK THE ORDER: a branch above carries a file this issue names and the trunk' -ForegroundColor Yellow
+            Write-Host '     does not -- see the prerequisite verdict before you carry this any further.' -ForegroundColor Yellow
         }
         Write-Host "     $($facts.url)"
         exit 0
@@ -604,7 +723,16 @@ $confirmed = if ($landed) { '' } else { ' (unconfirmed -- see the warning above)
 # AND IT DOES NOT ASSERT WHAT THE SCAN JUST CONTRADICTED EITHER (#1878), which is the same rule one
 # measurement further on. 'The work starts here' is exactly what a session should not read directly
 # under a block naming somebody else's commit on somebody else's branch, minutes old.
-$opening = if ($foreignParked) { ' -- but read the parked-fix verdict above before you start.' } else { ' -- the work starts here.' }
+#
+# TWO VERDICTS CAN FIRE AT ONCE, AND THE HEADLINE NAMES BOTH (#2064). They are different questions --
+# who is mid-flight, and whether your route runs through their branch -- so a headline that named only
+# the first would send a reader to a block that settles the wrong one. Naming neither by falling back
+# to 'the work starts here' is the failure #1878 measured; naming one of two is the same failure, at
+# half the size.
+$opening = if ($foreignParked -and $prerequisiteFound) { ' -- but read the parked-fix and prerequisite verdicts above before you start.' }
+           elseif ($foreignParked) { ' -- but read the parked-fix verdict above before you start.' }
+           elseif ($prerequisiteFound) { ' -- but read the prerequisite verdict above before you start.' }
+           else { ' -- the work starts here.' }
 Write-Host "[OK] #$number claimed for '$($identity.Account)'$confirmed$opening" -ForegroundColor Green
 Write-Host "     $title"
 # The claim is the OPENING of the work, not a checkpoint before it (#1485). Every other line this
