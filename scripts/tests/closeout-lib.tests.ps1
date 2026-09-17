@@ -254,6 +254,42 @@ foreach ($c in $callers) {
     Assert-True ($text -notmatch 'Get-Command Write-CloseOutReceipt') "...and does not reintroduce the PATH-scanning probe"
 }
 
+Write-Host ''
+Write-Host 'The list of callers exists ONCE, and the tree agrees with it' -ForegroundColor Cyan
+
+# THE TWO READERS OF THIS LIST HAD TWO COPIES OF IT, and one was wrong (issue #2060).
+# measure-closeouts.ps1 -- the instrument the close-out ceiling's whole baseline is computed with --
+# restated the five by hand, under a comment claiming they were "exactly the callers closeout-lib.ps1's
+# own suite pins". They were not: it named park-cycle.ps1, which the cycle-autopark Stop hook runs after
+# every turn and which never prints a receipt, and it omitted park-branch.ps1, which prints one. So the
+# measured population both included turns that were not close-outs and excluded shape C entirely.
+#
+# Get-ChainEndingScripts is now the single definition and the instrument reads it, so the two cannot
+# disagree. What this block adds is the half a shared definition cannot supply on its own: whether the
+# definition still matches the TREE. A sixth chain ender added without a row here goes red on the second
+# assert, which is the drift #1693, #1865 and #1924 each ended up removing a hand-kept list over.
+$declared = @(Get-ChainEndingScripts | Sort-Object)
+Assert-Equal 5 $declared.Count 'Get-ChainEndingScripts names five scripts'
+Assert-Equal (($callers | ForEach-Object { Split-Path -Leaf $_.Path } | Sort-Object) -join ', ') ($declared -join ', ') `
+    "...and they are exactly the ones this suite reads for the structural asserts above"
+
+# MATCHED ON THE INVOCATION, not on the bare function name: this lib, closeout-gate-lib and this suite
+# all NAME the function in prose, and a name-only match would count every one of them as a caller. Every
+# real call site passes -Cite, because the citation is the part the caller alone knows.
+$found = @(
+    Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'scripts') -Recurse -Filter *.ps1 |
+        Where-Object { $_.DirectoryName -notlike '*\scripts\tests' } |
+        Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match 'Write-CloseOutReceipt -Cite' } |
+        ForEach-Object { $_.Name } | Sort-Object -Unique
+)
+Assert-Equal ($declared -join ', ') ($found -join ', ') 'the scripts that actually call Write-CloseOutReceipt are exactly the declared five'
+
+# AND THE INSTRUMENT DOES NOT RESTATE THEM. Asserted as text rather than by running it, because what
+# would come back is a plausible number either way -- which is the whole reason #2060 was hard to see.
+$measureText = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\maintenance\measure-closeouts.ps1') -Raw
+Assert-True ($measureText -match 'Get-ChainEndingScripts') 'measure-closeouts.ps1 reads the list from this lib'
+Assert-True ($measureText -notmatch "ChainEndingScripts = '") '...and no longer carries a hand-typed regex of its own'
+
 # EACH OF THESE SCRIPTS HAS SEVERAL ENDINGS, and every ending closes out. ship-pr's queue arm exits
 # before the foot of the file, open-pr's already-open arm does the same, and fold-changelog-entry
 # refuses on one arm and succeeds on the other. A single call in any of them would leave one real
