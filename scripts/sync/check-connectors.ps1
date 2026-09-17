@@ -656,7 +656,11 @@ function Get-RemoteConsumerWorkflow {
         $reason = if ($apiSaid) {
             "the API answered: $apiSaid -- so it does not exist, or this credential cannot see it"
         } else {
-            "the API returned no repository (gh exited $($call.ExitCode)) -- it does not exist, or this credential cannot see it"
+            # THE LABEL HERE TOO (issue #1931, audited under #2081). This is the SIBLING of the repaired
+            # branch above it, and it was missed on the first pass: the parse can succeed while the exit
+            # code itself is the unmeasurable one -- two independent races on the same object -- and then
+            # this printed "(gh exited )". Nothing else changes; the verdict was already right.
+            "the API returned no repository (gh $(Get-NativeExitLabel -Capture $call)) -- it does not exist, or this credential cannot see it"
         }
         return @{ Status = 'unavailable'; Reason = $reason; Branch = ''; Files = @() }
     }

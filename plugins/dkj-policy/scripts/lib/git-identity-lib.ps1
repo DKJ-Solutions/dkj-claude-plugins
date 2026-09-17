@@ -125,7 +125,18 @@ function Get-GitUserName {
     } catch {
         return ''
     }
-    if (-not $res -or $res.ExitCode -ne 0) { return '' }
+    # AN UNMEASURABLE EXIT CODE FALLS THROUGH TO THE PAYLOAD (issue #1931, audited under #2081), which is
+    # the one place in this audit where the right answer is to read ON rather than to refuse. `$null -ne 0`
+    # is true, so this returned '' -- "no name configured" -- while the name it was asked for was sitting
+    # in $res.Output. That is a false reading fed straight into the split-identity comparison at the
+    # claim step, where an empty name is not a neutral value.
+    #
+    # THE FALLTHROUGH IS SAFE BECAUSE THE FUNCTION ALREADY VALIDATES WHAT IT FOUND: an empty or
+    # whitespace-only capture still returns '', so a genuinely unreadable run reaches exactly the answer
+    # it reached before. Same shape as Get-IssueStateVerdict, which trusts its payload for the same
+    # reason -- the code is the weaker evidence of the two when the output is right there.
+    if (-not $res) { return '' }
+    if ($res.ExitCode -ne 0 -and (Test-NativeExitMeasured -Capture $res)) { return '' }
     $value = (@($res.Output) | Where-Object { $_ -and ([string]$_).Trim() } | Select-Object -First 1)
     if (-not $value) { return '' }
     return ([string]$value).Trim()

@@ -1214,43 +1214,107 @@ Assert-Equal 'exit 3' (Get-NativeExitLabel -Capture $fxMeasured)  'the label is 
 Assert-True ((Get-NativeExitLabel -Capture $fxUnknown) -match '1931') '...and names the issue where there is not, because the reader will not find this race in their own script'
 Assert-True ((Get-NativeExitLabel -Capture $fxUnknown) -notmatch 'exit\s*$') '...and never trails off after the word "exit", which is the defect it replaces'
 
+
 # ---------------------------------------------------------------------------------------------
-Write-Host 'the audited family consults the field -- every script #2081 repaired (#2081)' -ForegroundColor Cyan
+Write-Host 'the audited family, read through the PARSER -- every bounded site, per capture (#2081)' -ForegroundColor Cyan
 
-# A STRUCTURAL PIN, NOT A BEHAVIOURAL ONE, and that is the honest scope: these sites reach a live gh or
-# a live remote, so the race cannot be provoked here. What CAN be guarded is that the ask does not
-# quietly disappear from a file during a later refactor -- which is exactly how the field came to have
-# no consumer at all for four days after #1931 built it.
-$auditedRoot = Split-Path -Parent $PSScriptRoot
-$auditedSites = @(
-    'lib\fetch-attempt-lib.ps1', 'lib\git-identity-lib.ps1', 'lib\park-lib.ps1', 'lib\remote-ahead-lib.ps1',
-    'lint\check-branch-entry.ps1', 'lint\check-repo-settings.ps1', 'maintenance\record-suite-durations.ps1',
-    'release\fold-changelog-entry.ps1', 'release\open-pr.ps1', 'release\ship-pr.ps1',
-    'release\verify-resolved-issues.ps1', 'sync\check-connectors.ps1', 'sync\check-consumer-siblings.ps1',
-    'task\claim-issue.ps1', 'task\new-branch.ps1', 'task\park-cycle.ps1', 'task\sync-main.ps1',
-    'task\update-plugins.ps1'
-)
-foreach ($rel in $auditedSites) {
-    $full = Join-Path $auditedRoot $rel
-    Assert-True (Test-Path -LiteralPath $full) "$rel is where this pin expects it"
-    $code = ((Get-Content -LiteralPath $full) | Where-Object { $_.TrimStart() -notmatch '^#' }) -join "`n"
-    Assert-True ($code -match 'Test-NativeExitMeasured|Get-NativeExitLabel') `
-        "$rel asks whether the exit code was measured before it judges the number (#2081)"
+# THE PIN THAT REPLACED A WEAKER ONE, AND WHY THE WEAKER ONE HAD TO GO. The first version of this
+# block asked, per FILE, whether Test-NativeExitMeasured appeared anywhere in it. sync-main.ps1 passed
+# it with two repaired sites and six unrepaired siblings -- including a `gh pr create` and a
+# `gh pr merge`, both writes, both telling the operator to redo work that may already have landed. A
+# file-level pin cannot see that, because one repair satisfies it forever.
+#
+# AND THE ENUMERATION ITSELF IS THE PARSER'S, not a regex's, for the reason this repo already writes
+# down at check 18 of the lint gate. The regex that first measured this family counted 48 bounded sites;
+# the parser counts 56. The eight it missed are the calls that open `@(` with no trailing backtick, so
+# the continuation heuristic stopped at line one and never saw the -Utf8/-TimeoutSeconds that makes a
+# site bounded. Two of the eight were the writes above.
+$auditRoot = Split-Path -Parent $PSScriptRoot
+
+# DECLARED EXEMPTIONS, EACH WITH ITS REASON, and a name is exempt only in the file that declares it.
+# This is the half the audit was missing entirely: a site left alone on purpose and a site nobody looked
+# at are indistinguishable from the outside, which is exactly how the six siblings survived a review.
+$auditExempt = @{
+    'task\sync-main.ps1|pull'          = 'refuses and prints no number -- "Could not fast-forward" is true of a pull this run could not judge'
+    'task\sync-main.ps1|post'          = 'same, after the merge: the sentence names the state, not a cause or a code'
+    'task\sync-main.ps1|prView'        = 'refuses and prints no number; the PR is open and the operator merges by hand either way'
+    'task\claim-issue.ps1|contains'    = 'warn-only scan: an unjudged commit is skipped, which under-reports inside a report that states its own caps'
+    'task\claim-issue.ps1|allBranchesCapture' = 'same scan, same direction -- it prints "title-overlap scan skipped" with no number'
+    'release\ship-pr.ps1|diffRead'     = 'fail-closed: the commit stays COUNTED in the staleness verdict, so a third state would be a no-op'
+    'task\park-cycle.ps1|prList'       = 'repaired on fix/2068-park-cycle-unknown-exit-code, which is the worked instance #2081 was split out of'
 }
 
-# AND THE WRITES ARE PINNED SEPARATELY, because their answer is the one that differs: a write whose exit
-# code was never measured may have LANDED, so none of these may report it as a failure. The pin is that
-# each says so in the words a reader acts on.
-$writeSites = @{
-    'lib\park-lib.ps1'                    = 'DOES NOT KNOW'
-    'release\fold-changelog-entry.ps1'    = 'DOES NOT KNOW'
-    'release\open-pr.ps1'                 = 'DOES NOT KNOW'
-    'task\claim-issue.ps1'                = 'DOES NOT KNOW'
+$auditFiles = Get-ChildItem -Path $auditRoot -Recurse -Filter *.ps1 |
+    Where-Object { $_.FullName.Replace([char]92, '/') -notmatch '/tests/' -and $_.Name -ne 'native-capture-lib.ps1' }
+
+$boundedTotal = 0
+$unguarded = @()
+foreach ($af in $auditFiles) {
+    $atok = $null; $aerr = $null
+    $aast = [System.Management.Automation.Language.Parser]::ParseFile($af.FullName, [ref]$atok, [ref]$aerr)
+    if ($aerr -and $aerr.Count) { continue }
+    $rel = $af.FullName.Substring($auditRoot.Length + 1)
+
+    # Which capture variables in this file come off a BOUNDED call.
+    $boundedVars = @{}
+    foreach ($c in $aast.FindAll({
+            param($n) $n -is [System.Management.Automation.Language.CommandAst] -and
+                      $n.GetCommandName() -eq 'Invoke-NativeCapture' }, $true)) {
+        $pnames = @($c.CommandElements |
+            Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] } |
+            ForEach-Object { $_.ParameterName })
+        if (-not (($pnames -contains 'Utf8') -or ($pnames -contains 'TimeoutSeconds'))) { continue }
+        $boundedTotal++
+        $assign = $c.Parent
+        while ($assign -and -not ($assign -is [System.Management.Automation.Language.AssignmentStatementAst])) { $assign = $assign.Parent }
+        if ($assign -and $assign.Left -is [System.Management.Automation.Language.VariableExpressionAst]) {
+            $boundedVars[$assign.Left.VariablePath.UserPath] = $true
+        }
+    }
+    if ($boundedVars.Count -eq 0) { continue }
+
+    # Which of those the file judges with a NEGATIVE test -- the spelling $null satisfies.
+    $negative = @{}
+    foreach ($b in $aast.FindAll({
+            param($n) $n -is [System.Management.Automation.Language.BinaryExpressionAst] -and
+                      $n.Operator -eq [System.Management.Automation.Language.TokenKind]::Ine }, $true)) {
+        $l = $b.Left
+        if (-not ($l -is [System.Management.Automation.Language.MemberExpressionAst])) { continue }
+        if ("$($l.Member)" -ne 'ExitCode') { continue }
+        if (-not ($l.Expression -is [System.Management.Automation.Language.VariableExpressionAst])) { continue }
+        $vn = $l.Expression.VariablePath.UserPath
+        if ($boundedVars.ContainsKey($vn)) { $negative[$vn] = $true }
+    }
+    if ($negative.Count -eq 0) { continue }
+
+    # Which of those the file ALSO asks the question about, by name.
+    $asked = @{}
+    foreach ($c in $aast.FindAll({
+            param($n) $n -is [System.Management.Automation.Language.CommandAst] -and
+                      @('Test-NativeExitMeasured', 'Get-NativeExitLabel') -contains $n.GetCommandName() }, $true)) {
+        foreach ($e in $c.CommandElements) {
+            if ($e -is [System.Management.Automation.Language.VariableExpressionAst]) { $asked[$e.VariablePath.UserPath] = $true }
+        }
+    }
+
+    foreach ($vn in $negative.Keys) {
+        if ($asked.ContainsKey($vn)) { continue }
+        if ($auditExempt.ContainsKey("$rel|$vn")) { continue }
+        $unguarded += "$rel -- `$$vn"
+    }
 }
-foreach ($rel in $writeSites.Keys) {
-    $code = (Get-Content -LiteralPath (Join-Path $auditedRoot $rel)) -join "`n"
-    Assert-True ($code -match [regex]::Escape($writeSites[$rel])) `
-        "$rel reports an unmeasurable WRITE as 'this run does not know', never as a failure (#2081)"
+
+Assert-Equal 56 $boundedTotal 'the parser still counts 56 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+Assert-Equal 0 $unguarded.Count `
+    ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
+     $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
+
+# AND THE EXEMPTION LIST CANNOT GO STALE QUIETLY: a name that no longer needs exempting is a line
+# claiming a decision nobody is making any more, which is the accumulation shape this repo keeps
+# removing. Each entry has to still name a bounded capture in the file it names.
+foreach ($k in $auditExempt.Keys) {
+    $parts = $k -split '\|'
+    Assert-True (Test-Path -LiteralPath (Join-Path $auditRoot $parts[0])) "the exemption for `$$($parts[1]) still names a file that exists: $($parts[0])"
 }
 if ($script:fail -eq 0) {
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

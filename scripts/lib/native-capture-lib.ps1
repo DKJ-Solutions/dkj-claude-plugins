@@ -1351,9 +1351,21 @@ function Test-NativeExitMeasured {
         is the strongest possible statement that no exit code was measured.
 
         THE AUDIT'S RESULT, IN ONE PLACE, because #1931 asked for a decision per family rather than a
-        blanket sweep and a decision nobody can find is not one. 48 bounded sites outside scripts/tests/
-        (#2081 reported 32, which is what a single-line grep counts -- sixteen of them spell the call
-        across a continuation), grouped by what the site DOES on a non-zero:
+        blanket sweep and a decision nobody can find is not one. 56 bounded sites outside scripts/tests/,
+        grouped by what the site DOES on a non-zero:
+
+        THE COUNT TOOK THREE READINGS AND ONLY THE LAST ONE IS A MEASUREMENT. #2081 reported 32, which is
+        what a single-line grep counts. A line-joining regex counted 48, which is what you get when the
+        continuation heuristic is "the line ends in a backtick, or the next one starts with a dash" -- it
+        stops dead at a call that opens `@(` and continues with an argument. The PARSER counts 56, and the
+        eight it adds include two writes in sync-main.ps1 (`gh pr create` and `gh pr merge`) whose failure
+        text tells the operator to redo a write that may already have landed. Both were missed by the
+        first pass and found by the code review on that branch.
+
+        SO THE ENUMERATION IS THE PARSER'S, AND THE PIN IN native-capture.tests.ps1 IS TOO. That is this
+        repo's own rule -- the lint gate's parameter check says the same thing about the same mistake --
+        and it is recorded here rather than only in the test because the next person to widen this family
+        will reach for a grep first, exactly as this audit did.
 
           REFUSES / FAILS SAFE -- recorded as deliberate, code unchanged. Every one of them is written
           as a POSITIVE test (`-eq 0`, `-and -not $r.TimedOut`), which is what makes it right: $null is
@@ -1372,9 +1384,14 @@ function Test-NativeExitMeasured {
           STRING -- so the reader got "(exit )", a sentence whose grammar promises a number that is not
           there. Get-NativeExitLabel below is for the ones whose verdict was already right.
 
-          WRITES -- seven, and they get their own answer: a write whose exit code was never measured may
-          have LANDED, so it is reported as "this run does not know" rather than as a failure. open-pr's
-          create needed no new verdict, only routing into the recheck #1916 had already built.
+          WRITES -- nine that reach a remote, and they get their own answer: a write whose exit code was
+          never measured may have LANDED, so it is reported as "this run does not know" rather than as a
+          failure. open-pr's create needed no new verdict, only routing into the recheck #1916 had
+          already built, and sync-main's `gh pr merge` had been printing "merge it by hand" beside a
+          TIMEOUT arm that has said the right thing all along. The one
+          deliberate exception is update-plugins, whose two writes are LOCAL and whose question runs the
+          other way -- "did every update succeed" -- so an unknown stays a failure there, and re-running
+          is idempotent anyway.
 
         ONE SITE RE-ASKS, AND ONLY ONE. #1931 allows an idempotent read-only command to ask again, and
         claim-issue's `gh issue view` meets both halves of the test the lib itself cannot apply -- the

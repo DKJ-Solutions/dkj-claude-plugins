@@ -665,6 +665,10 @@ if (-not $prTitle -and -not $existingPr -and (Get-BranchEntryExemptPrefix -Branc
         # re-splits it -- the idiom claim-issue.ps1 uses on the same call.
         $log = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--no-merges',
                                                                 '--reverse', '--format=%s', "$base..$branch") -DiscardStderr -Utf8
+        # AUDITED UNDER #2081 AND LEFT AS IT IS: a POSITIVE test, so an unmeasurable code (#1931) is not
+        # `-eq 0` and this base is simply not taken -- the loop tries the next one, and an exhausted loop
+        # leaves $subjects empty, which the caller already treats as "no subjects to read". Under-reading
+        # is the safe direction for a title hint, and nothing here prints the number.
         if ($log.ExitCode -eq 0) {
             $subjects = @(@($log.Output) | Where-Object { $_ -and ([string]$_).Trim() })
             break

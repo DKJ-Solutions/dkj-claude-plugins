@@ -842,6 +842,11 @@ if ($DryRun) {
     $pull = Invoke-NativeCapture -FilePath 'git' -Arguments @('pull', '--ff-only') `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $pull.Output | ForEach-Object { Write-Host $_ }
+    # AUDITED UNDER #2081 AND LEFT AS IT IS -- as are $prView, $post and the merged-PR list further down.
+    # All four already say the right thing about an unmeasurable code (#1931) without naming it: each
+    # refuses or degrades to unknown, and NONE of them interpolates the number, so there is no "(exit )"
+    # to repair and no wrong cause to withdraw. "Could not fast-forward" is exactly true of a pull this
+    # run could not judge. A third arm here would add a sentence and change no outcome.
     if ($pull.ExitCode -ne 0) {
         Write-Host "Could not fast-forward $trunkShown from origin." -ForegroundColor Red
         if ($pull.TimedOut) {
@@ -1011,7 +1016,10 @@ elseif ($candidates.Count -eq 0) {
         if ($fetch.TimedOut) {
             Write-Host "  'git fetch' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above." -ForegroundColor Red
         } else {
-            Write-Host "  'git fetch --quiet origin' exited $($fetch.ExitCode)." -ForegroundColor Red
+            # THE LABEL, NOT A BARE INTERPOLATION (issue #1931, audited under #2081). Refusing is right
+            # for a fetch this run cannot vouch for -- the standing-predecessor test reads the refs it
+            # was supposed to refresh -- so the arm is unchanged and only the reason is composed.
+            Write-Host "  'git fetch --quiet origin': $(Get-NativeExitLabel -Capture $fetch)." -ForegroundColor Red
         }
         Write-Host '  Nothing was changed. Fix the remote or the credential and run again.' -ForegroundColor Red
         exit 1
@@ -1610,6 +1618,21 @@ try {
                                                  '--title', $msg, '--body', $body) + $labelArgs) `
                                    -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $create.Output | ForEach-Object { Write-Host $_ }
+    # THE SEVENTH WRITE, AND THE ONE WHOSE OLD REMEDY WAS ACTIVELY WRONG (issue #1931, audited under
+    # #2081; found by the code review on this branch after the first pass missed this site entirely --
+    # the regex that enumerated the family could not see a call that opens `@(` without a trailing
+    # backtick, which is exactly how this one is written). `$null -ne 0` is true, so an unmeasurable code
+    # printed "Could not open the PR ... open it by hand" -- over a create that may have landed, which is
+    # an instruction to open a second pull request for the same branch. open-pr.ps1 met the identical
+    # shape at its own create and answers it by RE-CHECKING; there is no re-check here to route into, so
+    # this reports the state as itself and hands over the one read that settles it.
+    if (-not (Test-NativeExitMeasured -Capture $create)) {
+        Write-Host 'gh pr create ran with an exit code that could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether the PR was opened.' -ForegroundColor Red
+        Write-Host '  The branch IS on origin and nothing was lost. Do NOT open a second one until you have looked:' -ForegroundColor Red
+        Write-Host "    gh pr view $($branchPaste.Token) --json number,state" -ForegroundColor Red
+        if ($branchPaste.Note) { Write-Host $branchPaste.Note -ForegroundColor Red }
+        exit 1
+    }
     if ($create.ExitCode -ne 0) {
         Write-Host 'Could not open the PR. The branch is pushed; open it by hand.' -ForegroundColor Red
         if ($create.TimedOut) {
@@ -1714,6 +1737,17 @@ try {
                                                '--subject', "merge: $branch (#$pr)") `
                                   -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $merge.Output | ForEach-Object { Write-Host $_ }
+    # AND THE EIGHTH, WHICH THE SAME REGEX MISSED FOR THE SAME REASON (issue #1931, audited under #2081).
+    # This is the sharpest write in the file: `gh pr merge` on an unmeasurable code printed "The merge
+    # failed. PR #$pr is open and green; merge it by hand" over a merge that may already have landed, and
+    # its own TIMEOUT arm twelve lines down has said the right thing all along -- check whether it landed
+    # before retrying. The two states are the same state, so they now get the same sentence.
+    if (-not (Test-NativeExitMeasured -Capture $merge)) {
+        Write-Host "gh pr merge ran with an exit code that could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether PR #$pr was merged." -ForegroundColor Red
+        Write-Host '  It is NOT evidence that the merge was refused. Check whether it landed before retrying:' -ForegroundColor Red
+        Write-Host "    gh pr view $pr --json state" -ForegroundColor Red
+        exit 1
+    }
     if ($merge.ExitCode -ne 0) {
         Write-Host "The merge failed. PR #$pr is open and green; merge it by hand." -ForegroundColor Red
         if ($merge.TimedOut) {

@@ -3143,7 +3143,13 @@ if (-not $watchNarrowed) {
     # story -- which means a timeout arrives here as a non-zero exit, and without this clause the run
     # would announce that a check FAILED because a report ran out of time. TimedOut is the field to
     # read when certainty is needed, exactly as native-capture-lib says.
-    if ($tailChecks.ExitCode -ne 0 -and -not $tailChecks.TimedOut) {
+    #
+    # AND AN UNMEASURABLE EXIT CODE IS EXCLUDED ON THE SAME REASONING (issue #1931, audited under #2081).
+    # `$null -ne 0` is true and TimedOut is $false there, so this arm fired and announced that a check had
+    # FAILED after the merge -- a verdict about somebody's CI, composed from a code this run never read.
+    # It is the same overclaim the TimedOut clause beside it exists to prevent, one field over, and it
+    # lands in the same place: neither arm speaks, and the third one says why.
+    if ($tailChecks.ExitCode -ne 0 -and -not $tailChecks.TimedOut -and (Test-NativeExitMeasured -Capture $tailChecks)) {
         $tailVerdict = $null
         try { $tailVerdict = Get-MergeBlockVerdict -RequiredChecksJson $tailRequiredJson -ChecksJson $tailFactsJson } catch { $tailVerdict = $null }
         if ($tailVerdict -and -not $tailVerdict.Blocked) {
@@ -3160,6 +3166,12 @@ if (-not $watchNarrowed) {
         if ($tailVerdict) { $tailFailedOther = @($tailVerdict.FailedOther) }
         Write-FailedCheckReasons -ChecksJson $tailFactsJson -Repo $repo -OnlyNames $tailFailedOther
         Write-Host "  Nothing here fixes it, and nothing here needs undoing: the ship is complete." -ForegroundColor Yellow
+    } elseif (-not (Test-NativeExitMeasured -Capture $tailChecks)) {
+        # THE THIRD ARM #2081 ADDED, and it exists because the green line below would otherwise claim it.
+        # Excluding the unmeasurable code from the failure arm above is only half a repair: with no arm of
+        # its own it falls into "Every check is green", which is the same overclaim pointing the other way.
+        Write-Host "  gh pr checks ran with an exit code that could not be measured (issue #1931), so the NOT-required checks were NOT judged -- read them yourself: gh pr checks $pr --repo $repo" -ForegroundColor DarkYellow
+        Write-Host "  PR #$pr is merged and folded regardless; this is a report, not the ship." -ForegroundColor DarkYellow
     } elseif (-not $tailChecks.TimedOut) {
         Write-Host "  Every check on PR #$pr is green." -ForegroundColor Green
     }
