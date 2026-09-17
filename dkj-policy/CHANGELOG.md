@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2055-preview-theme-name-length · 20260917-150335
+
+`Get-RepoPreviewThemeName` now bounds a branch's preview theme name to Shopify's 50-character
+ceiling (inbound #2055). A branch name long enough to compose past it used to reach the platform and
+come back as `Name is too long (maximum is 50 characters)` -- after the run had already announced
+which theme it was creating, so the push read as half-done. A name that FITS is returned unchanged,
+so every preview theme that exists today keeps its name and stays findable; only an over-long one is
+rewritten, as `<prefix><truncated branch part>-<6 hex of SHA256(the full name)>`.
+
+The bound belongs in the shared builder rather than at the caller because three call sites compose
+this name and all three have to agree on one string: `push-preview.ps1` creates the theme, and
+`sweep-preview-themes.ps1` composes it again -- once for the current branch and once for every branch
+still alive -- in order to SPARE it. A ceiling applied outside the builder would leave the sweep
+composing a name it no longer recognises as spared, which is silent and destructive.
+
+The discriminator is not decoration: plain truncation maps every branch sharing a long enough head
+onto one theme name, so two branches would push over each other onto a preview that looks correct
+from both.
+
+A consumer whose branch names run long cannot create a preview theme at all today; everyone else sees
+no change, because a name that fits is untouched. Noticed the moment that consumer pushes.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It closes the class rather than the instance. `Get-RepoPreviewThemeName` already refused a name
+illegal at the CLI -- a `/` in it -- and its own docstring named that as its job; the length ceiling
+is the same kind of rule from the same vendor, and it was the one case the function did not cover.
+
+**Score:** 2
+
+#### Pull Request
+
+Get-RepoPreviewThemeName bounds the theme name to Shopify's 50-character limit
+
+Plugins: dkj-subagents-shopify
+
+[PR #2059](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2059)
+
+---
 
 ### DEPLOY: fix/2048-closeout-repair-strategy · 20260917-143821
 
