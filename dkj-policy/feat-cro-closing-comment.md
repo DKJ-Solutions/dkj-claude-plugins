@@ -39,19 +39,67 @@
 
 ### PLAN
 
+Dave asked for a follow-up to the `CRO` label just added: when a GitHub issue carrying that label is
+closed, `asana-mirror` should automatically post a comment on the **GitHub issue itself** with text
+ready to copy and paste into the Asana task, so Dave can tell the requester (today: Johnno) where to
+see the result.
+
+Clarified with Dave: the "where to view the result" link cannot be derived reliably from anything this
+script reads (the issue, its pull requests, its labels) -- it depends on what the ticket was about, and
+a wrong guess would read as authoritative to a colleague who never checked it. So the comment carries a
+placeholder for the link, which Dave fills in by hand before pasting the paragraph into Asana. This
+mirrors how every other label on this tracker is judged rather than derived.
+
+Scope: the `closed` event only, no reconciliation-sweep backstop -- the same accepted gap this workflow
+already carries for a dropped `reopened` event, so a missed close is a comment that never posts rather
+than new machinery to detect it after the fact.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add `Test-IssueIsCro` and `New-CroClosingComment` (pure helpers) plus `Add-GithubIssueComment`
+  (the network call) to `templates/asana-mirror.ps1`.
+- [x] Call the new step from `Invoke-EventMode`, gated on `$Event -eq 'closed'` and the issue's own
+  `Labels` (already read by the existing `Get-IssueLinkState` call -- no extra API round trip).
+- [x] Document the behaviour in `WORKFLOW-portable.md`, as a subsection of step 4, with a cross-link
+  from the `CRO` label's own subsection.
+- [x] Add the two new pure helpers to the docstring's list of what the test suite exercises, and write
+  the tests themselves in `scripts/tests/dkj-policy-bwj.tests.ps1`.
 
 ### TEST
 
+`scripts/tests/dkj-policy-bwj.tests.ps1` -- added assertions for `Test-IssueIsCro` (true/false on
+various label sets) and `New-CroClosingComment` (names the label, carries the `[ADD LINK]` placeholder,
+names the issue, invents no URL of its own). Full suite run: `318` asserts, all passing. The lint gate
+(`check-plugin-integrity.ps1`) also ran clean, including the dead-link scan against the new cross-linked
+anchors in `WORKFLOW-portable.md`.
+
+`Add-GithubIssueComment` itself (the network call) is not unit-tested -- it has no pure logic beyond a
+`gh` invocation, consistent with how this file's other network functions (`Add-AsanaComment`,
+`Set-IssuePrioLabel`) are treated: the docstring says explicitly only the pure helpers are exercised
+here. It will run for real the first time a `CRO`-labelled issue closes in a store repo that has
+adopted this template refresh.
+
 ### DEPLOY: feat/cro-closing-comment
 
-**Score:**
+When a GitHub issue carrying the `CRO` label is closed, `asana-mirror` now posts a second comment --
+on the GitHub issue itself, not on Asana -- carrying a paragraph ready to paste into the Asana task,
+with a placeholder for the "where to view the result" link. This is additive to the existing close
+update (which still goes to Asana unchanged) and fires only for `CRO`-labelled issues. No reconciliation
+backstop: a missed `closed` event is not repaired later, matching the existing gap for a dropped
+`reopened`.
+
+**Score:** 1 -- this repo's own developers notice a new function in a plugin template they already
+read; the mechanism itself only runs in a consumer that has adopted this refresh, and only on a `CRO`
+issue closing there.
 
 #### What makes this deploy extra special
 
-**Score:**
+A colleague closing a CRO-team ticket in a store repo (`smartwatchbanden`, `xoxowildhearts`) gets a
+ready-made Asana message the moment they close the issue, instead of composing one from scratch --
+saving them the round trip of figuring out what to tell the requester.
+
+**Score:** 2 -- small and welcome the moment it fires, but nothing is required to change today: it
+waits for the next `asana-mirror.ps1` refresh in a store repo and the next `CRO` issue closed there.
 
 #### Pull Request
 
