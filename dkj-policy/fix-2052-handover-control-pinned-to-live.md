@@ -39,19 +39,77 @@
 
 ### PLAN
 
+Two inbound reports against the same file pair in `dkj-policy-bwj`, taken on one branch because both
+touch `PREVIEW-portable.md` and splitting them would only conflict there.
+
+#### What the verification found -- and why the two issues end differently
+
+**#2052 stands in full.** `Get-MarketHandoverPairs` returned `LiveUrl = $row.Url`, the bare storefront
+URL, which is precisely the control form the chapter it claims to implement spends a measured table
+ruling out. Confirmed verbatim in the source.
+
+**#2054's symptom is real and its reason is disproven.** It reports that a `301` path drops
+`preview_theme_id` and therefore lands the reviewer on live. The first half is true; the second is not.
+Measured here September 17, 2026 against `smartwatch-straps.co.uk` on a fresh cookie jar: a `301` path
+carrying the preview parameters rendered the **preview** theme (`200170373503`), not live
+(`170064871700`). Shopify's own handshake `302` sets the preview cookie *before* the storefront's handle
+redirect fires, so the preview survives it. The report's own table is also confounded -- it reads `200`
+for `/collections/all`, which redirects too once the preview parameters are on it.
+
+Building the repair #2054 proposes -- a per-path `200` gate -- would refuse correct cards, and run
+against the preview URLs the function actually holds it would refuse *every* card. So it is closed on
+the measurement, and the measurement is written into the chapter instead, because the inference is the
+natural one and the next reader will make it too.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ControlThemeId`: resolve the live theme id from `-LiveThemeId`, else the consumer's
+      `Get-ShopifyLiveThemeId` seam, using the inline `GetCommands` probe idiom `Get-MarketTable` argues for
+- [x] `Get-MarketHandoverPairs`: pin `LiveUrl` to that id, resolved once before the loop
+- [x] Throw rather than fall back -- a bare-URL fallback would silently rebuild the reported defect
+- [x] `PREVIEW-portable.md`: record that the builder now does all three bullets, and that it did not before
+- [x] `PREVIEW-portable.md`: the measured non-trap, so a redirect is not "repaired" by a later reader
+- [~] A per-path `200`/HEAD check in the pair builder -- dropped: the measurement above shows it would
+      refuse correct cards and, against preview URLs, all of them
 
 ### TEST
 
+- [x] Two existing asserts pinned the defect (`the control half ... carries none`, and the bare-URL
+      equality) -- inverted, with a comment saying a suite can hold a bug in place as firmly as code
+- [x] New cases: explicit `-LiveThemeId` wins; the no-seam throw names the function and the file and
+      hands back no URL; an empty seam answer is refused; the seam path pins the control
+- [x] `Get-ControlThemeId` added to the superset export assertion
+- [x] `bwj-market-urls.tests.ps1`: 95 pass, 0 fail
+- [x] Full lint + test gate via `open-pr.ps1`
+- [~] A test for the redirect measurement -- dropped: it asserts about a live storefront over the
+      network, which is not this suite's job and would go red on any store change
+
 ### DEPLOY: fix/2052-handover-control-pinned-to-live
 
-**Score:**
+`Get-MarketHandoverPairs` returned the bare storefront URL as its control half -- the exact form
+`PREVIEW-portable.md` rules out, because `preview_theme_id` sets a per-domain cookie and the bare URL
+keeps rendering the *preview* once the preview link has been opened. Both tabs of a handover then
+agreed and the reviewer concluded the change was not visible. The control is now pinned to the live
+theme id, read from the consumer's own `Get-ShopifyLiveThemeId` seam or passed as `-LiveThemeId`, and
+the builder **throws rather than falling back** -- a fallback would rebuild the same silent defect. Two
+tests that had pinned the old behaviour were inverted.
+
+The chapter also gains a measured section on what is *not* a trap: a `301` path drops
+`preview_theme_id` from the address bar but does **not** lose the preview, because Shopify's handshake
+sets the cookie before the handle redirect fires. That closes a second report which proposed gating
+handovers on a per-path `200` -- a check that would have refused correct cards, and every card built
+from a preview URL.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+Both BWJ stores build preview handovers through this function, so both have been publishing controls
+in the wrong form. A reviewer who opened the preview link first saw the preview theme in *both* tabs
+and reported the change as not visible -- a false negative on work that had shipped correctly. The fix
+is invisible to a colleague but the handovers they receive stop lying to them.
+
+**Score:** 3
 
 #### Pull Request
 
