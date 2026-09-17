@@ -81,33 +81,79 @@ here* has told the reader both things and settled neither.
 
 ### CREATE
 
-- [ ] `scripts/lib/claim-issue-lib.ps1`: `Get-IssuePathCitations` -- the path-shaped tokens an issue
+- [x] `scripts/lib/claim-issue-lib.ps1`: `Get-IssuePathCitations` -- the path-shaped tokens an issue
       body cites, URLs stripped, deduped, capped
-- [ ] `scripts/lib/claim-issue-lib.ps1`: `Get-LsTreePaths` -- the parse of `git ls-tree`'s output
-- [ ] `scripts/lib/claim-issue-lib.ps1`: `Format-PrerequisiteReport` -- the block, with its three
+- [x] `scripts/lib/claim-issue-lib.ps1`: `Get-LsTreePaths` -- the parse of `git ls-tree`'s output
+- [x] `scripts/lib/claim-issue-lib.ps1`: `Format-PrerequisiteReport` -- the block, with its three
       honest endings (no path cited / none missing / a prerequisite found)
-- [ ] `scripts/task/claim-issue.ps1`: collect the branches both scans surface, measure them, print the
+- [x] `scripts/task/claim-issue.ps1`: collect the branches both scans surface, measure them, print the
       block, and let a find reach the closing headline
-- [ ] `scripts/task/claim-issue.ps1`: `body` added to the `gh issue view --json` fields
-- [ ] `scripts/sync/build-shared-scripts.ps1`: mirror both files into `plugins/dkj-policy/`
-- [ ] `plugins/dkj-policy/skills/claim-issue/SKILL.md`: the sixth signal documented beside the other five
+- [x] `scripts/task/claim-issue.ps1`: `body` added to the `gh issue view --json` fields
+- [x] `scripts/sync/build-shared-scripts.ps1`: mirror both files into `plugins/dkj-policy/`
+- [x] `plugins/dkj-policy/skills/claim-issue/SKILL.md`: the sixth signal documented beside the other five
 
 ### TEST
 
-- [ ] `scripts/tests/claim-issue.tests.ps1`: cases for the three new lib functions and for the
+- [x] `scripts/tests/claim-issue.tests.ps1`: cases for the three new lib functions and for the
       script's structural properties
-- [ ] the full suite + `check-plugin-integrity.ps1` green
-- [ ] the block exercised by hand against this checkout (it needs a live tracker)
+- [x] the full suite + `check-plugin-integrity.ps1` green
+- [x] the block exercised by hand against this checkout (it needs a live tracker)
 
 ### DEPLOY: feat/2064-prerequisite-branch-signal
 
-**Score:**
+`claim-issue` now asks a sixth question at pickup, and it is the first one that is not about
+ownership: **is a surfaced branch in my way rather than racing me?** Where the parked-fix or
+title-overlap scan names a branch, the step weighs it -- how far ahead of the trunk it is -- and holds
+the paths the issue's own text cites against the trunk. A path that is **absent from the trunk and
+present on that branch** reaches its own verdict: *PREREQUISITE, NOT A COMPETITOR*, with the ordering
+handed to the owner.
+
+The five signals before it all answer *is somebody mid-flight on this work?*, which is why the
+strongest ends in *ASK THEM BEFORE YOU WRITE ANYTHING*. Measured on the #2051 pickup (#2064): that
+verdict fired on `origin/fix/2048-closeout-repair-strategy`, and reading settled it -- the commit
+merely *mentioned* #2051 because it had filed it. What nothing named was that #2051's subject,
+`scripts/maintenance/measure-closeouts.ps1`, existed only on that branch, so every route to the issue
+ran through it landing first. No other check can see that: `triage-inbound`'s *subject does not exist*
+is about a name that names nothing, while a subject on an unmerged branch greps, opens and has
+history -- present to every check, and blocking the work exactly as hard as absence.
+
+Three endings, deliberately not two. A prerequisite found; every cited path already on the trunk; or a
+body citing no path at all, where the overlap question was never asked. Printing *not a dependency*
+where nothing was tested is the failure this signal exists to remove, one layer in.
+
+Advisory, like every signal in this family -- a claim that blocks costs the whole assignment (#1485).
+What it does change is the closing line: where both verdicts fire the headline names **both**, because
+they are different questions and naming one sends the reader to the block that settles the other.
+
+Free on an ordinary claim: nothing surfaced, no git call made. Where something was surfaced the bill is
+one `rev-list` per branch plus **one** `ls-tree` on the trunk carrying every cited path at once -- the
+per-branch read runs only for the paths the trunk turned out to lack, which is normally none. Weights
+are measured against `origin/<trunk>` where it exists, because a local trunk sitting behind origin
+reports landed commits as unlanded and inflates a branch in the one direction this must not err.
+
+Noticed the first time a pickup lands behind somebody else's branch, which is the day it saves the
+whole detour.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+It is the first pickup signal that answers a question the others were not asking. The four before it
+add evidence on one axis -- who else is working this -- and #2064's cost was a verdict that was
+*correct on that axis* and pointed at the wrong question: the reader spent the time working out why
+the branch mattered, from a block that had already told them to ask about ownership. Widening an
+existing verdict would have made weaker evidence share a headline with stronger, which #2018 refused
+by name one signal earlier; a second question gets its own block and its own hedges instead.
+
+The issue body is read for the first time here, and it is read as **data**: bounded to path-shaped
+tokens with a directory and an extension, URLs stripped first, nothing absolute, no `..`, no
+option-shaped token, and none of it printed verbatim. Anybody who can open an issue writes that text,
+and it now reaches a git argument list.
+
+**Score:** 2
 
 #### Pull Request
 
 A surfaced branch is weighed, so a prerequisite is not read as a competitor
 
+Plugins: dkj-policy

@@ -41,11 +41,14 @@ The script:
 
 1. Resolves **which account** this checkout claims under -- see the next section. It never sends
    `@me`.
-2. Reads the issue (`gh issue view --json number,title,state,url,assignees`).
+2. Reads the issue (`gh issue view --json number,title,state,url,assignees,body`).
 3. **Judges it** -- five verdicts, three of them refusals (below).
 4. On a claim or a resume, **scans the branches** for a fix that is already pushed (below). A warning,
    never a refusal.
-5. Writes the assignee, then **reads the claim back** and fails if it did not land.
+5. **Weighs whatever that scan surfaced** -- how far ahead of the trunk each branch is, and whether
+   anything the issue names sits there and not on the trunk (below). A warning, never a refusal, and
+   no git call at all where nothing was surfaced.
+6. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
 ## Two parameters
 
@@ -219,6 +222,96 @@ checked-out branch and the trunk are excluded, so a session resuming its own bra
 about itself. Where the fetch does not answer, the scan still runs on the refs already there and says
 that they may be behind -- *"I found nothing"* and *"I could not refresh what I looked at"* are
 different sentences, and a failed fetch must not be able to read as a clean scan.
+
+## The branch may be a PREREQUISITE, not a competitor
+
+**Every signal above asks one question in a different way: is somebody else mid-flight on this work?**
+The verdicts read the state and the assignees, `Get-TargetIssueWarnings` reads a pull request, the
+parked-fix scan reads commit messages, and the title-overlap scan reads branch names. All of them are
+about **ownership**, which is why the strongest of them ends in *ASK THEM BEFORE YOU WRITE ANYTHING*.
+
+**A branch can be in your way without being a rival.** Measured September 16, 2026
+([#2064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2064)): picking up #2051, the
+parked-fix scan found `origin/fix/2048-closeout-repair-strategy` and printed its ownership verdict.
+Read, that verdict dissolved -- the commit *mentioned* #2051 because it had filed it, which this page
+itself calls "both ordinary and correct". **What nothing named was the fact that mattered**: #2051's
+subject, `scripts/maintenance/measure-closeouts.ps1`, existed **only on that branch**. Every route to
+the issue ran through that branch landing first, so the real choice was to ship somebody else's parked
+branch, stack their 29 commits under this pull request, or stop. That is a blocking question for the
+owner, and it is not the question the verdict asked.
+
+**No other check can catch it, and each misses for its own reason.** The parked-fix scan finds the
+branch and reads it only as a collision -- and its own advice, *do not settle this by reading the
+commit*, is right about a park commit and points away from the read that would have shown the
+dependency. `triage-inbound`'s *the subject does not exist* check is about a name that names
+**nothing**; a subject sitting on an unmerged branch greps, opens and has history, so it reads as
+present to every check **while blocking the work exactly as hard as absence**. And
+`Get-TargetIssueWarnings` resolves an issue to a pull request, which a parked branch has none of by
+design.
+
+So on a find, the script asks the cheap second question about each branch the scans above surfaced:
+
+```
+  branch-weight scan: the branch named above, measured against origin/main --
+    origin/fix/2048-closeout-repair-strategy  -- 29 commits ahead
+        scripts/maintenance/measure-closeouts.ps1  -- here, and NOT on origin/main
+
+  PREREQUISITE, NOT A COMPETITOR: #2051 names a file that exists only on a branch above, so
+  every route to this issue runs through that branch landing first. The ownership verdict asks
+  whether somebody is mid-flight on the same work; this asks whether YOUR route runs through
+  theirs, and the two have different answers -- a branch you have to build ON is not a branch
+  you are racing.
+  That ordering is the OWNER'S call, not this check's and not yours: shipping their parked
+  branch first, stacking your work on top of it, and waiting are three answers with three
+  different costs. ASK BEFORE YOU BUILD ON IT OR AROUND IT.
+```
+
+**Two measurements, and the second is the decisive one.** The **weight** -- `rev-list --count
+<trunk>..<branch>` -- separates 29 commits of unlanded work from a one-commit stray mention, which
+printed as the same line until now. The **overlap** -- a path the issue's own text cites that is
+absent from the trunk and present on that branch -- is what turns *may be a prerequisite* into *is
+one*.
+
+**Against the remote trunk where there is one, and it says which.** A local trunk sitting behind
+`origin` reports commits as unlanded that have in fact landed, inflating a branch's weight in the one
+direction this signal must not err in -- so the ref is picked as `origin/<trunk>` when it exists and
+named in the output either way. A reader who sees *29 commits ahead* with no ref cannot tell whether a
+stale checkout produced it.
+
+**It costs nothing on an ordinary claim.** Nothing surfaced, no git call made. Where something was
+surfaced the bill is one `rev-list` per branch plus **one** `ls-tree` on the trunk carrying every cited
+path at once -- and the per-branch `ls-tree` runs only for the paths the trunk turned out to lack,
+which is normally none. Trunk first is what keeps the shape at one call per branch instead of one per
+branch per path. Both lists are capped (five branches, eight paths) and a truncation says so.
+
+**Which paths it can see.** The ones the issue's **own text** cites: a token with a directory and a
+file extension, URLs stripped first, so a GitHub link's path-shaped tail is not held against a tree it
+does not belong to. The cost is stated rather than hidden -- a file cited bare at the repo root
+(`README.md`) is not collected, because nothing distinguishes it from a word with a full stop after
+it. An issue body is untrusted text, so what leaves that reader is a bounded list of path-shaped
+tokens: no leading `-`, no `..`, nothing absolute, and none of it printed verbatim.
+
+**Three endings, and they are deliberately not two.** A prerequisite found; every cited path already
+on the trunk (*not a dependency, as far as this can see*); or a body citing **no path at all**, where
+the overlap question was never asked and the weight is all there is. Collapsing the last two --
+printing *not a dependency* where nothing was tested -- is the failure this signal exists to remove,
+one layer in: a check that cannot tell silence from a clean answer teaches a reader to trust the wrong
+one.
+
+**Advisory, like every signal in this family, and for the same reason.** A path missing from the trunk
+is strong evidence and still not proof of an ordering: the branch may be about to be abandoned, the
+file may be about to move, and the issue may be repairable without it. A claim that blocks costs the
+whole assignment ([#1485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1485)). **What it
+does change is the closing line** -- where a prerequisite was found the `[OK]` points at that verdict
+instead of saying *the work starts here*, and where the ownership verdict fired too, the headline names
+**both**, because they are different questions and a headline naming one sends the reader to the block
+that settles the other.
+
+**Where it is a real dependency, the decision is the owner's.** Shipping somebody else's parked branch
+first, stacking your work on top of it, and waiting are three answers with three different costs, and
+none of them is a call a pickup check gets to make. That is the one place this workflow's *file it,
+do not ask* rule does not reach: an ordering between two people's branches is exactly the blocking
+question the owner is for.
 
 ## Every `gh` call is bounded, so a stall is reported rather than waited out
 
