@@ -70,6 +70,24 @@ function Get-RepoThemePrefix {
     $script:RepoThemePrefix
 }
 
+# SHOPIFY'S OWN CEILING ON A THEME NAME (inbound #2055). 50 characters, refused by the platform and not
+# by the CLI's argument parsing -- so a name one character over reaches the network and comes back as
+# 'Name is too long (maximum is 50 characters)', AFTER the run has already announced which theme it is
+# creating. Measured in the consumer that filed it, on branch
+# 'liquid/477-continue-browsing-below-model-picker': the composed name is 51 characters.
+#
+# HERE RATHER THAN AT THE CALLER, for the same reason the prefix is: three call sites compose this name
+# and they MUST agree on one string -- push-preview creates the theme, the sweep composes it again for
+# the current branch and for every branch still alive in order to SPARE it. A ceiling applied outside
+# the builder puts the bound on one of the three and lets the others drift, and that drift is silent in
+# the direction that costs most: a preview the sweep composes differently is a preview it does not
+# recognise as spared, on a destructive operation.
+$script:ShopifyThemeNameMaxLength = 50
+
+# The characters of the discriminator appended to a truncated name, and the reason there is one at all
+# is in Get-RepoPreviewThemeName's own docstring.
+$script:RepoThemeNameHashChars = 6
+
 function Test-RepoOwnedThemeName {
     <#
     .SYNOPSIS
@@ -100,15 +118,48 @@ function Test-RepoOwnedThemeName {
 function Get-RepoPreviewThemeName {
     <#
     .SYNOPSIS
-        The reserved name for a branch's preview theme: '<prefix><flattened branch name>'.
+        The reserved name for a branch's preview theme: '<prefix><flattened branch name>', shortened
+        to Shopify's 50-character ceiling where that does not fit.
 
     .DESCRIPTION
         THE FLATTENING IS THE CALLER'S AND IS NOT REDONE HERE -- push-preview already has it, from
         Get-BranchInfo's SafeName where the repo has it and a '/'->'-' replace where it does not. What
         this adds is the namespace, and it refuses a name that would be illegal at the CLI rather than
         letting the caller find out from an opaque Shopify error, exactly as Get-ThemeCreateArgs does.
+
+        THE CEILING IS THE SAME CLASS OF RULE AS THE SLASH, FROM THE SAME VENDOR (inbound #2055), and
+        it was the one case this function did not cover: an over-long name was composed, handed to the
+        creating push, and refused by the platform. It is enforced HERE and not at the caller because
+        three call sites compose this name and all three have to agree on one string -- see
+        $script:ShopifyThemeNameMaxLength above for what disagreement costs.
+
+        A NAME THAT FITS IS RETURNED UNCHANGED, which is what keeps every preview theme created before
+        this landed findable by the lookup and sparable by the sweep. Only an over-long name is
+        rewritten, and it is rewritten as:
+
+            <prefix> + <branch part, truncated> + '-' + <6 hex of SHA256(the full over-long name)>
+
+        THE DISCRIMINATOR IS NOT DECORATION. Truncation alone maps every branch sharing a long enough
+        head onto ONE theme name, so two branches would push over each other onto a preview that looks
+        correct from both -- a wrong theme reviewed as if it were the right one, which is worse than
+        the failed push this repairs. Taking the hash from the FULL name rather than from the truncated
+        head is what keeps it discriminating; hashing the head would collide exactly where the
+        truncation does. SHA256 here is a discriminator and not a security primitive -- the same
+        shortened-hex idiom Get-SessionCacheFileName uses one lib over, for the same "short
+        deterministic tail in a name" reason.
+
+        IDEMPOTENT ON ITS OWN OUTPUT, which the already-prefixed branch below depends on: what this
+        composes fits the ceiling by construction, so handing it back returns it unchanged rather than
+        truncating and hashing a second time.
+
+    .PARAMETER MaxLength
+        The ceiling, so a consumer can pin the number if Shopify ever moves it. Defaults to the 50 that
+        platform enforces today.
     #>
-    param([Parameter(Mandatory = $true)][string]$FlatBranchName)
+    param(
+        [Parameter(Mandatory = $true)][string]$FlatBranchName,
+        [int]$MaxLength = $script:ShopifyThemeNameMaxLength
+    )
 
     $n = ([string]$FlatBranchName).Trim()
     if (-not $n) { throw 'Get-RepoPreviewThemeName: -FlatBranchName must not be blank.' }
@@ -116,11 +167,41 @@ function Get-RepoPreviewThemeName {
         throw ("Get-RepoPreviewThemeName: a Shopify theme name may not contain '/': '$n'. Pass the " +
             "FLATTENED branch name -- slashes replaced by dashes.")
     }
-    # ALREADY-PREFIXED IS RETURNED UNCHANGED rather than prefixed twice. A caller that has been through
-    # a name lookup may hand back the name it found, and 'dkj-dkj-feat-x' would be a theme neither the
-    # lookup nor the sweep recognises -- an orphan, on a store with a finite ceiling.
-    if (Test-RepoOwnedThemeName -Name $n) { return $n }
-    return ($script:RepoThemePrefix + $n)
+
+    $prefix = $script:RepoThemePrefix
+    $hashChars = $script:RepoThemeNameHashChars
+    # A CEILING TOO SMALL TO HOLD THE NAMESPACE AND THE DISCRIMINATOR CANNOT BE HONOURED, and silently
+    # returning something over it would defeat the whole point of the parameter. At least one character
+    # of the branch part has to survive, or the name carries no label at all and Test-RepoOwnedThemeName
+    # would not even call it ours.
+    $floor = $prefix.Length + $hashChars + 2
+    if ($MaxLength -lt $floor) {
+        throw ("Get-RepoPreviewThemeName: -MaxLength $MaxLength cannot hold the reserved prefix " +
+            "'$prefix' plus a $hashChars-character discriminator and at least one character of the " +
+            "branch name; $floor is the smallest workable ceiling.")
+    }
+
+    # ALREADY-PREFIXED IS NOT PREFIXED TWICE. A caller that has been through a name lookup may hand back
+    # the name it found, and 'dkj-dkj-feat-x' would be a theme neither the lookup nor the sweep
+    # recognises -- an orphan, on a store with a finite ceiling.
+    $full = if (Test-RepoOwnedThemeName -Name $n) { $n } else { $prefix + $n }
+    if ($full.Length -le $MaxLength) { return $full }
+
+    $keep = $MaxLength - $prefix.Length - 1 - $hashChars
+    $head = $full.Substring($prefix.Length, $keep)
+    # A TRUNCATION LANDING ON A SEPARATOR would produce 'dkj-feat-x--a1b2c3'. Trimming is cosmetic and
+    # deterministic, and it is skipped where it would leave nothing, so the name always keeps a label.
+    $trimmed = $head.TrimEnd('-')
+    if ($trimmed) { $head = $trimmed }
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($full))
+    } finally {
+        $sha.Dispose()
+    }
+    $hex = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+    return ($prefix + $head + '-' + $hex.Substring(0, $hashChars))
 }
 
 function Get-BackupThemeName {

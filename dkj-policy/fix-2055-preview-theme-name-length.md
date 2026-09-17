@@ -43,19 +43,61 @@ Inbound #2055: the shared preview-theme name builder does not bound its result, 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-RepoPreviewThemeName` bounds its result: a name that fits is returned unchanged, an
+      over-long one keeps the prefix, truncates the branch part, and takes a 6-hex SHA256 tail of the
+      FULL name as a discriminator.
+- [x] The ceiling and the discriminator length sit beside `$script:RepoThemePrefix` as named
+      constants, with `-MaxLength` exposed so a consumer can pin the number if Shopify moves it.
+- [x] A ceiling too small to hold the prefix plus the discriminator plus one character of label is
+      refused rather than quietly exceeded.
+- [x] Mirrored to the plugin payload with `scripts/sync/build-shared-scripts.ps1`.
 
 ### TEST
 
+- [x] `scripts/tests/theme-lifecycle-rules.tests.ps1` -- 102 pass, 0 fail, including nine new
+      asserts: the measured 51-character case, the untouched short name, idempotency on the
+      function's own output, two long branches sharing a head composing to DIFFERENT names,
+      determinism, `-MaxLength`, and the refused floor.
+- [x] The full gate (`check-plugin-integrity.ps1` plus every suite) via `open-pr.ps1`.
+
+#### What could NOT be asserted here
+
+The platform's own refusal. This repo publishes plugins and reaches no Shopify store, so the 50 is
+the consumer's measurement cited as theirs -- which is exactly why the suite asserts the literal `50`
+rather than reading the constant back out of the lib it is testing.
+
 ### DEPLOY: fix/2055-preview-theme-name-length
 
-**Score:**
+`Get-RepoPreviewThemeName` now bounds a branch's preview theme name to Shopify's 50-character
+ceiling (inbound #2055). A branch name long enough to compose past it used to reach the platform and
+come back as `Name is too long (maximum is 50 characters)` -- after the run had already announced
+which theme it was creating, so the push read as half-done. A name that FITS is returned unchanged,
+so every preview theme that exists today keeps its name and stays findable; only an over-long one is
+rewritten, as `<prefix><truncated branch part>-<6 hex of SHA256(the full name)>`.
+
+The bound belongs in the shared builder rather than at the caller because three call sites compose
+this name and all three have to agree on one string: `push-preview.ps1` creates the theme, and
+`sweep-preview-themes.ps1` composes it again -- once for the current branch and once for every branch
+still alive -- in order to SPARE it. A ceiling applied outside the builder would leave the sweep
+composing a name it no longer recognises as spared, which is silent and destructive.
+
+The discriminator is not decoration: plain truncation maps every branch sharing a long enough head
+onto one theme name, so two branches would push over each other onto a preview that looks correct
+from both.
+
+A consumer whose branch names run long cannot create a preview theme at all today; everyone else sees
+no change, because a name that fits is untouched. Noticed the moment that consumer pushes.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+It closes the class rather than the instance. `Get-RepoPreviewThemeName` already refused a name
+illegal at the CLI -- a `/` in it -- and its own docstring named that as its job; the length ceiling
+is the same kind of rule from the same vendor, and it was the one case the function did not cover.
+
+**Score:** 2
 
 #### Pull Request
 
 Get-RepoPreviewThemeName bounds the theme name to Shopify's 50-character limit
-
