@@ -912,6 +912,30 @@ try {
     Assert-Says $rU.Out 'PR #42' 'mid-run budget: the PR check itself ran -- it had room'
     Assert-Says $rU.Out 'did NOT check whether another session is on' 'mid-run budget: and the look after it is reported as skipped, not as empty'
     Assert-True (-not (Test-Says -Text $rU.Out -Phrase 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH')) 'mid-run budget: no collision report is invented for a look that did not happen'
+
+    # --- (v) STRUCTURAL: an unmeasurable exit code is consulted, not folded in (#2068) --------------
+    # THIS ONE IS STRUCTURAL BECAUSE THE STATE CANNOT BE FIXTURED, AND SAYING SO IS THE POINT.
+    # ExitCodeUnknown is a race inside System.Diagnostics.Process -- .ExitCode handing back PowerShell's
+    # own $null after a CLEAN exit (#1931) -- so no gh shim can produce it: a shim controls what the child
+    # DOES, and this is about what .NET reports afterwards. A behavioural case here would need to inject a
+    # fake capture result, which would assert against the mock rather than against the script.
+    #
+    # THE TEST GAP IS THEREFORE REAL AND NAMED RATHER THAN PAPERED OVER: nothing in this suite exercises
+    # the retry or the third wording. What IS checkable is that the judgement consults the field at all,
+    # which is exactly the half that was missing -- `-ne 0` alone reports $null as a measured failure.
+    # Same idiom as worktree-lane.tests.ps1's "no --force on the hand-back": a safety property of the
+    # CODE, asserted on the code.
+    Write-Host "park-cycle.ps1 -- structural: the PR check consults ExitCodeUnknown" -ForegroundColor Cyan
+    $srcLines = [System.IO.File]::ReadAllLines($ParkCycleSrc)
+    $unknownReads = @($srcLines | Where-Object { $_ -match '\$prList\.ExitCodeUnknown' })
+    Assert-True ($unknownReads.Count -ge 2) 'unknown exit: the field is read -- once to re-ask, once to word the refusal'
+    # AND THE RE-ASK IS BUDGET-GATED. An unbounded extra network call inside a Stop hook is #1958's own
+    # defect, one call over; this asserts the guard travels with the retry rather than being remembered.
+    $retryGuard = @($unknownReads | Where-Object { $_ -match 'Test-NativeCaptureBudgetHasRoom' })
+    Assert-Equal 1 $retryGuard.Count 'unknown exit: the re-ask is gated on the network budget'
+    # AND THE REFUSAL STILL FIRES. The retry must not have turned an unknown answer into a push: the
+    # `-ne 0` arm is what holds the DEPLOY lock, and $null -ne 0 stays true after a failed re-ask.
+    Assert-True (@($srcLines | Where-Object { $_ -match '^if \(\$prList\.ExitCode -ne 0\) \{' }).Count -eq 1) 'unknown exit: the fail-safe arm is still the one that decides'
 } finally {
     foreach ($f in $script:fixtures) {
         if (Test-Path -LiteralPath $f) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }
