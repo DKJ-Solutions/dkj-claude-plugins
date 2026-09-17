@@ -43,7 +43,57 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 15 minor entries** <!-- pending-tally -->
+**13 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2083-failed-fetch-not-all-clear · 20260917-191911
+
+`park-cycle.ps1`'s collision detector no longer reports a **failed** fetch as "nothing to report". The
+reader `Get-BranchCollisionNote` is the earliest collision detector in this workflow -- it runs from
+the `cycle-autopark` Stop hook, in the one place where no operator is watching -- and `''` is its own
+word for *no collision*. A fetch that exited non-zero returned exactly that, so a network blip, a
+credential that had just expired or a stale ref made it answer all-clear and the turn went on building
+on top of somebody else's tip.
+
+It still returns `''`, deliberately: a collision report is a claim about another session's work, and a
+failed fetch is no evidence for one. What changes is that the function now says so, from inside, on
+both call sites at once -- `the fetch of 'origin/<branch>' failed (git exit code 128), so this run did
+NOT read who is on the far side. That is NOT an all-clear` -- which is the sentence the neighbouring
+spent-budget path has printed since #1958. A **timeout** is named apart and carries
+`Invoke-NativeCapture`'s own `[timeout]` diagnosis, which this site had been discarding.
+
+**It is the second of two arms, and #2081 is the first.** That change landed days earlier in the same
+release and gives the same sentence to a fetch whose exit code came back *unmeasurable*. The two sit
+next to each other in `Get-BranchCollisionNote` by design and only one of them ever speaks: unreadable
+above, unsuccessful below. A reader meeting both lines in this changelog is not reading a repair made
+twice.
+
+**Not a sighting.** #2083 says outright that nobody has measured this firing, and `git fetch` of one
+branch against a configured origin is reliable; it is priced as the latent hazard it is. The failure it
+prevents is the one #1439 measured -- two sessions building the same branch end to end, discovered at
+the push -- arriving through a fetch that could not answer rather than through a look nobody bought.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `dkj-policy`'s `cycle-autopark` Stop hook gets a line where it previously got
+silence, and only in the state where the silence was wrong: a turn with something to push, on a branch
+with an open PR or a refused push, whose fetch of that branch did not succeed. Nothing else changes --
+no new refusal, no new network call, and a healthy fetch is byte-identical to before. They notice it
+the first time their network, credential or remote ref is having a bad day, which is precisely the
+turn on which the old answer was a confident wrong one.
+
+**Score:** 2
+
+#### Pull Request
+
+park-cycle's collision detector says a FAILED fetch out loud instead of reporting it as 'nothing to report'
+
+Plugins: dkj-policy
+
+[PR #2089](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2089)
+
+---
 
 ### DEPLOY: fix/2081-exitcodeunknown-audit · 20260917-190004
 
