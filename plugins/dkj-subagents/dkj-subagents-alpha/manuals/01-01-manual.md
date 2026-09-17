@@ -124,6 +124,57 @@ mid-dump is plausible and unmeasured, and is not the reason.
 **This is still not a fifth sharpening of the persona**, and it must not become one: nothing was added
 to the always-on passage. What changed is the delivery of a shape whose three parts are unchanged.
 
+### And then it was counted — the gate, and why advice stopped being the answer
+
+[#2048](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2048) asked why five repairs each
+correctly diagnosed the previous failure and did not prevent the next, and named that pattern as itself
+the finding. It is, and the mechanism is not subtle: **none of them was ever measured.** Each was judged
+by waiting to see whether Dave complained again — a sample of one, weeks later, from whichever repo he
+happened to be in. Judged that way, a repair that did nothing and a repair that halved the problem are
+indistinguishable.
+
+The instrument is `scripts/maintenance/measure-closeouts.ps1`, and the first number it produced over 263
+real close-outs is the one that changes the argument:
+
+| | |
+|---|---|
+| over the 3-line ceiling | **222 / 263 — 84%** |
+| over 6 lines | 146 / 263 — 56% |
+| median / mean / p90 / max lines | 7 / 8.5 / 16 / 76 |
+
+**So the rule had never been in force anywhere.** Five complaints are five of two hundred and
+twenty-two. That reframes the whole table above: those were not guardrails that kept slipping, they were
+advice against a baseline nobody had counted — and the repo that *writes* the rule is its best performer
+at 50%, while two consumers sit at 97% and 88%.
+
+**The paragraph above about the alternative that was weighed and not built is now half expired, and only
+half.** Its first objection — that a `Stop` hook must parse a transcript shape differing across harness
+versions — is gone: the harness hands the hook the close-out directly in `last_assistant_message`, and
+the reference says hooks needing the final assistant text should use that field *instead of* reading the
+transcript. Its second objection stands and settles the shape rather than refusing it: a hook that merely
+**reports** arrives after the close-out is written. Worse than it knew — a `Stop` hook exiting 0 puts
+plain stdout in the debug log, `systemMessage` reaches the reader after the fact, and `additionalContext`
+reaches the model a turn late. **Exit 2 is the only channel that reaches the writer before the writing
+stands**, so the only shape that can change anything is one that blocks.
+
+**That is what [#2050](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2050) built**, and the
+part to know before being surprised by it: `closeout-gate.ps1` refuses a close-out over the repo's band
+and asks for it again. It fires **once per work chain** — the marker `Write-CloseOutReceipt` drops is
+consumed as it is read, so the message written after a block is never judged a second time — and it is
+**off in every repo that does not answer `Get-CloseOutGateBand`**. A blocked turn is the gate working,
+not a malfunction; the way through it is a receipt inside the band, with what does not fit **rehoused**
+into the branch document, the PR body or an issue the receipt cites by number.
+
+**It reverses `cycle-autopark.ps1`'s stated contract, narrowly, and the bound is the point.** That file
+says a `Stop` hook never blocks, which is right for a hook whose worst outcome is a document one turn
+stale on the remote, and stays true of `cycle-autopark`. What carries over is the half about failing:
+every path in the gate that cannot answer its question exits 0.
+
+**What is not claimed is that it works.** Six confident repairs preceded it. What is different is that
+there is now an instrument and a recorded baseline, so unlike all six this one can be re-measured rather
+than judged by whether a complaint arrives — and the band is a starting number against a population that
+has never been held to anything, not the rule itself.
+
 ## Delegating parallel work — fresh agents, no forks
 
 When Chris (or an executing specialist) fans a job out across multiple subagents in parallel, the

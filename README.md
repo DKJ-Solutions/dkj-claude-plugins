@@ -408,6 +408,18 @@ outcome. What earns it a place beside the read-only set above is that it is repo
 document, whose path the shared resolver decides; the four bounds that keep it that narrow are in the
 `park` skill.
 
+**And since September 17, 2026 one that genuinely does refuse** — the second widening, and a larger one,
+so it is named just as explicitly: `closeout-gate` (a **Stop** hook, in `dkj-policy`) blocks a turn whose
+close-out runs past the band the repo states, and asks for it again
+([#2050](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2050)). That reverses the sentence
+above for this one hook and for no other, which is why the two are separate files: `cycle-autopark`'s own
+header argues that a `Stop` hook must never block, correctly, for a hook whose worst outcome is a document
+one turn stale. What makes the exception bounded is that it is **off in every repo that does not answer
+`Get-CloseOutGateBand`** in its `scripts/repo-config.ps1` — absence and a malformed answer both mean off —
+that it fires at most once per work chain, and that every path in it which cannot answer its question
+exits 0. The measurement that argued for a gate over a seventh piece of advice, and the band, are in
+`scripts/lib/closeout-gate-lib.ps1`.
+
 **Those last two moved out of the core on August 8, 2026, and the reason is the doctrine rather than
 tidiness.** `connector-sessioncheck` reads a register of *Dave's own* repos, and
 `script-contract-sessioncheck` demands that a repo supply functions for scripts that now ship in the
@@ -827,8 +839,8 @@ Cowork and in Claude Code — in a plain Claude.ai Chat session they show up gra
 [Use plugins in Claude](https://support.claude.com/en/articles/13837440-use-plugins-in-claude)).
 Concretely for claude-code-specialists: the specialists roster (the subagents under Chris), the
 SessionStart hooks the enabled plugins ship (read them in each plugin's `hooks/hooks.json` — a
-hand-written list here was named as three and went stale twice inside two days) and the Stop hook
-`cycle-autopark`
+hand-written list here was named as three and went stale twice inside two days) and the Stop hooks
+`cycle-autopark` and `closeout-gate`
 function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session — only the skills
 <!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `park`, `fix-mojibake`,
 `specialists-init`, `specialists-teardown`, `sync-roster`, `start-task`, `adopt-shopify-floor`,

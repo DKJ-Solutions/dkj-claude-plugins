@@ -96,6 +96,27 @@
 # written yet. The parameter is kept for a caller that wants to suppress its own single call.
 $script:CloseOutSuppressVar = 'DKJ_CLOSEOUT_SUPPRESS'
 
+# AND THE GATE THAT REFUSES ONE (issue #2050). closeout-gate-lib.ps1 carries the band, the marker and
+# the verdict; this file's only part in it is dropping the marker at the same moment it prints, so the
+# printed shape and the gated turn have exactly ONE trigger between them and no future caller has to
+# remember to do both.
+#
+# GUARDED, on the reasoning gate-lib.ps1 already gives for its own dot-source of THIS file: these libs
+# are mirrored into every consumer's plugin cache and arrive by plugin UPDATE rather than by choice, so
+# a consumer whose mirror predates the gate lib must not crash on LOAD of the file every chain-ending
+# script loads. Without it the receipt still prints and the gate is simply off, which is the same
+# direction every other path in the gate fails in.
+#
+# THE LOAD IS RECORDED RATHER THAN PROBED FOR AFTERWARDS. An inline `Get-Command Write-CloseOutMarker`
+# at the call site is exactly the function-table probe #1729 retired, and it would answer the wrong
+# question anyway: a consumer whose repo-config happens to define that name would pass the probe while
+# this file's own dependency was absent. What the receipt needs to know is whether IT loaded the lib.
+$script:CloseOutGateLoaded = $false
+$closeoutGateLib = Join-Path $PSScriptRoot 'closeout-gate-lib.ps1'
+if (Test-Path -LiteralPath $closeoutGateLib -PathType Leaf) {
+    try { . $closeoutGateLib; $script:CloseOutGateLoaded = $true } catch { $script:CloseOutGateLoaded = $false }
+}
+
 function Write-CloseOutReceipt {
     <#
     .SYNOPSIS
@@ -160,6 +181,22 @@ function Write-CloseOutReceipt {
     # carries, and the reason this is not folded into the three lines above.
     if (-not [string]::IsNullOrWhiteSpace($Bypass)) {
         Write-Host "  This run skipped $($Bypass.Trim()): a deliberate gate bypass belongs in the PR body, with a clause in the receipt." -ForegroundColor DarkGray
+    }
+
+    # THE MARKER, AND IT IS THE LAST THING THIS FUNCTION DOES (issue #2050). It says "a work chain ended
+    # in this repo", which is what lets the Stop hook tell a close-out from an ordinary turn -- gating
+    # every turn would refuse a mid-work answer or a question to the reader, which would be actively
+    # wrong. Written HERE rather than at each caller for the reason the suppression is an environment
+    # variable rather than a switch: a rule enforced by nothing but memory is one that gets skipped.
+    #
+    # IT SITS BELOW BOTH EARLY RETURNS ON PURPOSE. A -Quiet call and a link in the middle of somebody
+    # else's chain print no receipt, and neither is the moment a close-out gets written -- so neither
+    # should arm the gate. One chain, one receipt, one marker.
+    #
+    # Silent and best-effort: an unwritable cache means no gate on this chain, never a chain-ending
+    # script that fails over one.
+    if ($script:CloseOutGateLoaded) {
+        try { $null = Write-CloseOutMarker } catch { }
     }
 }
 
