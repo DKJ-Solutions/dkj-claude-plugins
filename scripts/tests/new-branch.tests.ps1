@@ -1562,6 +1562,31 @@ Write-Output `$t.Type
     Assert-True (-not (Test-Phrase -Text $rT3.Out -Phrase 'is being cut from')) 'empty branch base: and no stack is claimed -- that base carries nothing'
     Assert-True (-not (Test-Phrase -Text $rT3.Out -Phrase 'but that base is')) 'empty branch base: nor on the currency line'
 
+    # --- (t4) BEHIND *AND* STACKED: both are said, and the refusal still fires (#2074) ---------------
+    # THE ONE BEHAVIOUR THE SKILL PAGE CALLS OUT AS CROSS-CUTTING, and it had no assertion behind it until
+    # a copy-edit pass on the same branch asked for one. The two checks are independent -- one reads how far
+    # the base is BEHIND the trunk, the other what the base carries that the trunk does not -- so a base can
+    # be both, and the stack note is deliberately placed ABOVE the gap chain so that a REFUSED run still
+    # says what it was standing on. Refusing while withholding that is the worse half: the operator is told
+    # to bring 'the base' up to date without being told the base is somebody else's branch.
+    Write-Host "new-branch.ps1 -- a base both behind the trunk AND another branch's tip says both (#2074)" -ForegroundColor Cyan
+    $fixBoth = New-Fixture -Label 't4'
+    $bareBoth = New-BareOrigin -Dir $fixBoth -Label 't4'
+    Publish-FixtureTrunk -Dir $fixBoth
+    Invoke-FixtureGitIn $fixBoth checkout -q -b 'fix/stale-and-stacked'
+    Set-Content -LiteralPath (Join-Path $fixBoth 'theirs.txt') -Value 'theirs' -Encoding utf8
+    Invoke-FixtureGitIn $fixBoth add -A
+    Invoke-FixtureGitIn $fixBoth commit -q -m 'fix: their only commit'
+    Add-OriginCommits -Bare $bareBoth -Label 't4' -Count 3
+
+    $rT4 = Invoke-NewBranch -Dir $fixBoth -Name 'feat/cut-from-stale-stack-v1' -Title 'Cut from a stale stack'
+    Assert-ExitCode 1 $rT4 'behind and stacked: the stale-base refusal still fires -- the stack note does not soften it'
+    Assert-True (Test-Phrase -Text $rT4.Out -Phrase '3 behind origin/main') 'behind and stacked: the gap is named'
+    Assert-True (Test-Phrase -Text $rT4.Out -Phrase "is being cut from 'fix/stale-and-stacked'") 'behind and stacked: and so is the base -- a refused run still says what it was standing on'
+    Assert-True (Test-Phrase -Text $rT4.Out -Phrase '1 commit origin/main does not') 'behind and stacked: counted, and in the singular at one'
+    $branchesT4 = ((& git -C $fixBoth branch --list 'feat/cut-from-stale-stack-v1') -join '').Trim()
+    Assert-True (-not [bool]$branchesT4) 'behind and stacked: and nothing was created -- the refusal is still before the checkout'
+
     # --- (u) NO REMOTE-TRACKING TRUNK: not asked, not claimed (#1046) -------------------------------
     # THE OFFLINE GUARANTEE, and the reason the local question gates the network one. A repo with an
     # origin it has never fetched from -- every other fixture in this file -- has nothing to compare

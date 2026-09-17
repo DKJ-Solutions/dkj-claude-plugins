@@ -144,12 +144,13 @@ really is the trunk, and 0 for a branch freshly cut and not yet committed on -- 
 either. So this says nothing at all unless the base carries commits the trunk does not, which is exactly
 the set that would ride into the pull request.
 
-**A warning, never a refusal**, for the reason the remote-ahead note gives for itself rather than the one
-the stale-base check gives for its refusal: stacking on purpose sits on the intended happy path, and
-`worktree-lane.ps1` delegates here having chosen its base seconds earlier. **A detached `HEAD` is not a
-subject** either, deliberately -- that is the lane, which already removes the hazard -- and a `HEAD` on the
-trunk is excluded by *name* rather than by its count, so this workflow's own direct-on-trunk commits stay
-silent too.
+**A warning, never a refusal.** The stale-base check's argument does not carry here: it refuses a base
+nobody wants, while stacking on purpose is a thing people do deliberately, so a refusal would sit across a
+route rather than across a mistake. What was missing was never a gate but the **signal** that you are on
+that route -- which is the remote-ahead warning's own reason, one hazard over. **The lane is silent for
+the reason the paragraph above already gives**, and needs nothing of its own: it is detached at
+`origin/<trunk>`, and a detached `HEAD` is not a subject here. A `HEAD` on the **trunk** is excluded by
+*name* rather than by its count, so this workflow's own direct-on-trunk commits stay silent too.
 
 **It is not the stale-base check one argument over.** That fires on a base *behind* the trunk, and this
 base was behind nothing; the two are independent, which is why this warning prints on the refusing path as

@@ -702,16 +702,32 @@ if ($gap.Measured -and -not $resuming) {
     # route that already removes this hazard. A HEAD on the trunk is excluded by NAME rather than by its
     # count, so this workflow's own direct-on-trunk commits -- the fold, the release -- stay silent too.
     #
-    # IT WARNS AND NEVER REFUSES, for the reason the remote-ahead note gives for itself rather than the one
-    # the stale-base check gives for its refusal: stacking on purpose sits on the intended happy path, and
-    # the lane has chosen its base seconds earlier. What is missing is the SIGNAL that you are doing it.
+    # IT WARNS AND NEVER REFUSES. The stale-base check's argument does not carry over: it refuses a base
+    # nobody wants, while stacking on purpose is something people do deliberately -- so a refusal here would
+    # sit across a route rather than across a mistake. What was missing was never a gate but the SIGNAL that
+    # you are on that route, which is the remote-ahead note's own reason, one hazard over.
     #
     # NOT THE STALE-BASE CHECK ONE ARGUMENT OVER. That one fires on a base BEHIND the trunk, and this base
     # was behind nothing. The two are independent, which is why this sits ABOVE the gap chain and prints on
     # the refusing path as well: a refused run should still say what it was standing on.
+    #
+    # SEEDED, LIKE EVERY OTHER NOTE THIS SCRIPT THREADS THROUGH TO A LATE REPEAT ($staleBaseNote,
+    # $remoteAheadNote, $alreadyDoneNote). An unset variable reads as $null and is falsy, so the two later
+    # `if ($baseStackNote)` reads work either way under the defaults -- but a caller with Set-StrictMode in
+    # their $PROFILE turns the second of them into a throw, and that one is among the last lines of the run,
+    # after the checkout, the commit and the push. Same hazard this file already names one screen up, where
+    # an absent constant is read through Get-Variable rather than bare for exactly that reason.
+    $baseStackNote = ''
     $headBranch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'symbolic-ref', '--quiet', '--short', 'HEAD') -DiscardStderr
     $baseBranch = if ($headBranch.ExitCode -eq 0) { ((@($headBranch.Output) -join '')).Trim() } else { '' }
     if ($baseBranch -and $baseBranch -ne $trunk) {
+        # AN UNREADABLE COUNT DEGRADES TO SILENCE, DELIBERATELY, and that is the one place this note is
+        # weaker than the gap above it -- which says 'Base not compared' rather than nothing. The
+        # difference is what the two could not answer: the gap's question is gated on a ref that a clone
+        # may genuinely not have, so "could not ask" is a real and common state worth a line. This one
+        # runs only where that ref DOES exist, against a HEAD this process is standing on, so a failure
+        # here is git itself misbehaving rather than a repo shape. A third sentence for a state that does
+        # not occur is noise on every run that reads it, and this check's whole cost argument is silence.
         $aheadCapture = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-list', '--count', "refs/remotes/origin/$trunk..HEAD") -DiscardStderr
         $baseAhead = -1
         if ($aheadCapture.ExitCode -eq 0) {

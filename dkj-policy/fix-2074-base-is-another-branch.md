@@ -82,15 +82,33 @@ diff is what found it.
 
 ### TEST
 
-- [x] `scripts/tests/new-branch.tests.ps1` gains two cases beside the existing (t):
+- [x] `scripts/tests/new-branch.tests.ps1` gains three cases beside the existing (t):
       **(t2)** a base that is another branch's tip carrying two commits -- exit 0, branch created, the
       base named, the count named, the currency line carrying it, `behind origin/main` *absent* (this is
       not the stale-base check), and the warning counted at exactly **2** occurrences;
       **(t3)** a branch base carrying nothing -- silent on both lines, which is what keeps the check off
-      the ordinary run
+      the ordinary run;
+      **(t4)** a base that is *both* behind the trunk and another branch's tip -- exit 1, both sentences
+      said, the count in the singular at one, and nothing created
 - [x] (t) gains one assert: a `HEAD` on the trunk claims no stack
-- [x] `new-branch.tests.ps1`: 297 asserts, all passing
+- [x] `new-branch.tests.ps1`: 302 asserts, all passing
 - [x] Lint gate green (`check-plugin-integrity.ps1`, 0 errors), full suite via open-pr
+
+#### Review, and what it changed
+
+- [x] Code review (Victor): one finding, applied -- `$baseStackNote` was the only note in this file
+      threaded through to a late repeat without being seeded to `''` first. Harmless under the defaults
+      and a throw under a caller whose `$PROFILE` sets `Set-StrictMode`, on one of the last lines of the
+      run. The same hazard this file already names one screen up for an absent constant
+- [x] The reviewer also flagged, as an open question rather than a defect, that an unreadable count
+      degrades to silence where the gap above says `Base not compared`. Kept, with the reason written at
+      the code: that gap is gated on a ref a clone may genuinely lack, while this runs only where the ref
+      exists and against a `HEAD` this process is standing on
+- [x] Copy edit (Edith): three findings, all applied -- the new section restated the lane/detached-HEAD
+      exclusion the paragraph above it already gives (collapsed to a pointer); it claimed to borrow the
+      remote-ahead note's reasoning while quoting the stale-base section's lane clause (attribution
+      rewritten); and the one behaviour the prose calls out as cross-cutting -- the warning printing on
+      the *refusing* path -- had no assertion behind it, which is where (t4) came from
 
 #### Not built, and why
 
