@@ -2598,7 +2598,17 @@ Assert-True ($shipText -like '*-TimeoutSeconds $tailMaxWaitSec*') 'and the bound
 # A TIMEOUT IS NOT A FAILED CHECK, and exit code 124 is why this needs asserting: Invoke-NativeCapture
 # substitutes it for a killed child so the number and TimedOut agree, which means a timed-out report
 # reaches the failure branch as a non-zero exit unless TimedOut is read.
-Assert-True ($shipText -like '*if ($tailChecks.ExitCode -ne 0 -and -not $tailChecks.TimedOut) {*') 'a timed-out report does not announce that a check failed -- TimedOut is read, not just the exit code'
+#
+# ASSERTED AS ITS CLAUSES RATHER THAN AS THE WHOLE LINE (#2081). This pinned the condition verbatim and
+# went red the moment a THIRD exclusion was added to it -- an unmeasurable exit code (#1931), which is
+# `-ne 0` with TimedOut $false and so reached this arm exactly as a timeout used to. That addition is
+# this assert's own reasoning applied one field over, so a pin that refuses it is pinning the spelling
+# instead of the subject. The subject is that the failure arm excludes the non-answers; the arm may
+# grow another one without a suite having to be edited to permit it.
+$tailFailArm = @($shipText -split "`n" | Where-Object { $_ -like '*if ($tailChecks.ExitCode -ne 0*' })
+Assert-Equal 1 $tailFailArm.Count 'step 8 has exactly one arm judging the tail report''s exit code'
+Assert-True ($tailFailArm[0] -like '*-not $tailChecks.TimedOut*') 'a timed-out report does not announce that a check failed -- TimedOut is read, not just the exit code'
+Assert-True ($tailFailArm[0] -like '*Test-NativeExitMeasured*') 'and neither does a report whose exit code was never measured (#1931) -- the same non-answer, one field over'
 Assert-True ($shipText -like '*} elseif (-not $tailChecks.TimedOut) {*') 'and it does not claim every check is green either -- neither arm fires on a timeout'
 Assert-True ($shipText -like '*giving up on the REPORT, not on the ship (#1602)*') 'the timeout says what it gave up on, since the ship really is complete'
 

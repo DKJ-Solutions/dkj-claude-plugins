@@ -163,6 +163,39 @@ if (Test-Path -LiteralPath $closeoutGateLib -PathType Leaf) {
     try { . $closeoutGateLib; $script:CloseOutGateLoaded = $true } catch { $script:CloseOutGateLoaded = $false }
 }
 
+# THE FIVE CHAIN ENDERS, NAMED ONCE (issue #2060). This list has two readers with nothing in common --
+# closeout-lib.tests.ps1, which asserts that each of these scripts actually reaches Write-CloseOutReceipt,
+# and measure-closeouts.ps1, which decides from a transcript whether a session's last message was a
+# close-out at all. The instrument restated it by hand and got it wrong IN BOTH DIRECTIONS: it named
+# park-cycle.ps1, which the cycle-autopark Stop hook runs after every single turn and which prints no
+# receipt at all, and it omitted park-branch.ps1, which prints two -- so close-out shape C, the parked
+# blocker, was excluded from the measured population while every ordinary turn was a candidate for it.
+# The committed baseline, and every figure quoted from it in #2048, #2050 and this file's own header,
+# was computed through that filter.
+#
+# IT LIVES HERE BECAUSE THIS IS THE FILE THEY ALL DOT-SOURCE. The list is the answer to "who calls the
+# function in this file", so any other home makes it a fact about the callers held somewhere the callers
+# do not look. What keeps the list itself honest is not this comment but closeout-lib.tests.ps1, which
+# greps the tree for callers of Write-CloseOutReceipt and refuses to pass unless the set it finds is
+# exactly this one -- so a SIXTH chain ender cannot be added without this line going red.
+#
+# LEAF NAMES, not paths. The instrument matches them against a serialised tool invocation in a
+# transcript, where the same script appears as a Bash command line, as a PowerShell one, and inside a
+# skill's arguments -- so the only part that is stable across all three is the file name.
+function Get-ChainEndingScripts {
+    <#
+    .SYNOPSIS
+        The scripts whose ending IS a close-out, by file name -- the one definition both readers use.
+    #>
+    return @(
+        'ship-pr.ps1'
+        'open-pr.ps1'
+        'fold-changelog-entry.ps1'
+        'cut-release.ps1'
+        'park-branch.ps1'
+    )
+}
+
 function Write-CloseOutReceipt {
     <#
     .SYNOPSIS

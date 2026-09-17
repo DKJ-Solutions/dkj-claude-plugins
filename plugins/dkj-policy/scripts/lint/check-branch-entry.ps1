@@ -348,8 +348,15 @@ if ($Pr) {
     # report drift that is not there -- the advisory twin of the refusal ship-pr.ps1 makes on the same
     # read. The reason is carried rather than assumed, because the sentence below was written for a
     # token or a network and says the wrong thing about a read this run lost.
+    #
+    # AND AN UNMEASURABLE EXIT CODE IS A THIRD REASON (issue #1931, audited under #2081), ahead of both:
+    # `$null -ne 0` is true, so it took the token-or-network arm and printed a cause this run never
+    # measured -- the failure mode #1931 named, arriving at an advisory gate. Same class as the short
+    # read beside it: a fact about this run, settled by running it again.
     $lockUnread = ''
-    if ($lockView.ExitCode -ne 0) {
+    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+        $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read -- that is a fact about this run rather than about the token, the network or the section, and it normally settles on a re-run'
+    } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = 'That is a statement about the token or the network, not about the section'
     } elseif ($lockView.ShortRead) {
         $lockUnread = 'gh exited 0 but its capture was still being written when it was read, so the body may be truncated -- a re-run normally settles it'

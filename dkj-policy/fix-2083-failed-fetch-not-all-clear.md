@@ -41,20 +41,24 @@
 
 Get-BranchCollisionNote returns '' -- its own word for 'no collision' -- when the bounded git fetch exits non-zero, so a network blip, an expired credential or a stale ref makes the workflow's earliest collision detector answer all-clear. Give the plain non-zero arm the same voice the spent-budget arm already has: still return '', but print from inside the function that the look did not happen.
 
-#### The overlap with `fix/2081-exitcodeunknown-audit`, named because a reviewer will meet it
+#### The overlap with #2081, which landed while this branch's CI was running
 
-That branch is parked on origin under another account and edits the same eight lines: it inserts a
-`Test-NativeExitMeasured` arm directly above `if ($fetch.ExitCode -ne 0)`, and its own comment there
-says in so many words that the plain non-zero case is **not** repaired by it and is #2083's. So this
-is not duplicate work -- the claim's parked-fix scan raised it as a locked door, and reading that
-branch's tree is what settled it.
+#2081 was parked on origin under another account when this branch was cut, and it edits the same eight
+lines: it inserts a `Test-NativeExitMeasured` arm directly above `if ($fetch.ExitCode -ne 0)`, and its
+own comment there said in so many words that the plain non-zero case was **not** repaired by it and was
+#2083's. So this was never duplicate work -- the claim's parked-fix scan raised it as a locked door, and
+reading that branch's tree is what settled it.
 
-What it does mean is that whichever of the two lands second resolves a textual conflict in
-`Get-BranchCollisionNote`, in both copies. The two arms are designed to sit next to each other: theirs
-catches the unmeasurable code and returns `''` with its own line, this one catches the remainder. The
-`$codeClause` here is the seam -- it omits the code rather than guessing at it, so it is correct on
-`main` today, where an unmeasurable code still reaches this arm, and still correct once theirs takes
-that case away.
+It merged as PR #2088 during this branch's CI run, which is what the stale-CI gate then refused on. The
+conflict is resolved here in the shape both sides designed for: their arm first for the unmeasurable
+code, this one after it for the remainder, and their placeholder comment removed because the case it
+pointed forward to is now the code beneath it. Their `''` return and their wording are untouched.
+
+One thing the resolution changed in this branch's own code: `$codeClause` was written to omit the code
+on a `$null`, which on the pre-#2081 `main` was the unmeasurable case reaching this arm. It is kept, and
+its comment now names the reason that survives -- `Test-NativeExitMeasured` answers `$true` for a capture
+carrying no `ExitCodeUnknown` field at all, which is how it degrades an older lib, and that is the one
+remaining way a `$null` arrives here.
 
 ### CREATE
 
@@ -101,6 +105,12 @@ both call sites at once -- `the fetch of 'origin/<branch>' failed (git exit code
 NOT read who is on the far side. That is NOT an all-clear` -- which is the sentence the neighbouring
 spent-budget path has printed since #1958. A **timeout** is named apart and carries
 `Invoke-NativeCapture`'s own `[timeout]` diagnosis, which this site had been discarding.
+
+**It is the second of two arms, and #2081 is the first.** That change landed days earlier in the same
+release and gives the same sentence to a fetch whose exit code came back *unmeasurable*. The two sit
+next to each other in `Get-BranchCollisionNote` by design and only one of them ever speaks: unreadable
+above, unsuccessful below. A reader meeting both lines in this changelog is not reading a repair made
+twice.
 
 **Not a sighting.** #2083 says outright that nobody has measured this firing, and `git fetch` of one
 branch against a configured origin is reliable; it is priced as the latent hazard it is. The failure it

@@ -43,7 +43,79 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**12 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2081-exitcodeunknown-audit · 20260917-190004
+
+`ExitCodeUnknown` had no reader outside the lib that defines it, so all 56 bounded native-capture sites
+went on judging `$r.ExitCode` against a value that is `$null` about once in 300 fresh child processes.
+The direction made it worse than a wrong number: `$null -ne 0` is true, so every site that refuses on a
+failure refused, and PowerShell renders `$null` as the empty string, so twelve of them printed a reason
+with the number missing out of it -- `gh refused the read (exit ) -- no access, or no such branch`. The
+field now has two consumers, `Test-NativeExitMeasured` and `Get-NativeExitLabel`, and the audit's verdict
+per family is recorded where the next reader of the field will find it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Most of the repaired scripts are the ones this marketplace ships -- `claim-issue`, `open-pr`,
+`new-branch`, `park-cycle`, `sync-main`, `update-plugins`, the fold. In a consuming repo the sentences
+that were wrong are the ones a session acts on: *the claim failed -- #N is NOT yours* over a claim
+sitting on the tracker, *git push failed* over a branch that reached origin, and `park-cycle`'s
+collision detector reporting all-clear on a fetch it never read. Nothing changes on a healthy run; what
+changes is what a consumer is told on the rare one, and that none of the nine writes reaching a remote
+may call itself a failure any more.
+
+**Score:** 3
+
+#### Pull Request
+
+The bounded native-capture sites audited against an unmeasurable exit code, and the ones that diagnose gain a third state
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2088](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2088)
+
+---
+
+### DEPLOY: fix/2060-chain-ending-list-one-definition · 20260917-184309
+
+The instrument the close-out ceiling is measured with was filtering on a hand-typed list of "chain-ending
+scripts" that was wrong in both directions: it named `park-cycle.ps1`, which the autopark Stop hook runs
+after every turn and which prints no receipt, and it omitted `park-branch.ps1`, which prints one -- so
+close-out shape C was outside the governed population and ordinary turns were candidates for it. The list
+now exists once, as `Get-ChainEndingScripts` in `closeout-lib.ps1`, the file those callers already
+dot-source, and the suite holds that definition against a scan of the tree, so a sixth chain ender cannot
+be added without going red.
+
+Re-measured over one frozen snapshot of this machine's corpus, old filter against new: the population did
+not move (n=252 both) and one session's anchor did -- over-ceiling 193 to 192, over-six 120 to 119. Small
+because `park-cycle` reaches a transcript almost never (a Stop hook runs it, not a tool call) and every
+park session here had already run another chain ender. So the committed baseline is deliberately left as
+it stands; what was wrong was the definition, not the recorded number.
+
+The report's second finding does not stand: `-UpdateBaseline` writes the flat shape the committed baseline
+carries, and only `-Json` emits the nested `All`/`CloseOuts`. Nothing is stale there.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- an instrument used inside this repo to evaluate its own close-out rule. A consumer running the
+workflow gets the corrected filter with the next release, but nothing they do changes on account of it.
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-closeouts reads the chain-ending list from one definition
+
+Plugins: dkj-policy
+
+[PR #2086](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2086)
+
+---
 
 ### DEPLOY: feat/2058-shared-sha256-hex-helper · 20260917-182501
 

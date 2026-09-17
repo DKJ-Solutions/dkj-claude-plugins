@@ -125,7 +125,18 @@ function Get-GitUserName {
     } catch {
         return ''
     }
-    if (-not $res -or $res.ExitCode -ne 0) { return '' }
+    # AN UNMEASURABLE EXIT CODE FALLS THROUGH TO THE PAYLOAD (issue #1931, audited under #2081), which is
+    # the one place in this audit where the right answer is to read ON rather than to refuse. `$null -ne 0`
+    # is true, so this returned '' -- "no name configured" -- while the name it was asked for was sitting
+    # in $res.Output. That is a false reading fed straight into the split-identity comparison at the
+    # claim step, where an empty name is not a neutral value.
+    #
+    # THE FALLTHROUGH IS SAFE BECAUSE THE FUNCTION ALREADY VALIDATES WHAT IT FOUND: an empty or
+    # whitespace-only capture still returns '', so a genuinely unreadable run reaches exactly the answer
+    # it reached before. Same shape as Get-IssueStateVerdict, which trusts its payload for the same
+    # reason -- the code is the weaker evidence of the two when the output is right there.
+    if (-not $res) { return '' }
+    if ($res.ExitCode -ne 0 -and (Test-NativeExitMeasured -Capture $res)) { return '' }
     $value = (@($res.Output) | Where-Object { $_ -and ([string]$_).Trim() } | Select-Object -First 1)
     if (-not $value) { return '' }
     return ([string]$value).Trim()
@@ -242,6 +253,13 @@ function Test-GitCanCommit {
     # must be read before the number is. Property-guarded: a caller holding an older capture lib gets
     # an object without the field rather than a strict-mode throw.
     if ($res.PSObject.Properties['TimedOut'] -and $res.TimedOut) { return $true }
+    # AND A CODE THAT IS NOT A MEASUREMENT IS THE SAME CLASS OF NON-ANSWER (issue #1931, audited under
+    # #2081). This function was cited as ExitCodeUnknown's one existing consumer and was not: it is
+    # immune BY ACCIDENT of the comparison's direction, because the only refusal below is written
+    # `-ne 128` and `$null -ne 128` is true, so an unmeasurable code already fell through to $true.
+    # Right answer, reached without asking the question -- and that lasts exactly as long as nobody
+    # rewrites the refusal as a positive test. Stated here so the safe direction is a decision.
+    if (-not (Test-NativeExitMeasured -Capture $res)) { return $true }
     if ($res.ExitCode -eq 0) { return $true }
     # THE ONLY REFUSAL. Anything else is a probe that did not answer the question, which is the
     # "unknown" case above -- see the docstring for why this is an exit code and not a message match.

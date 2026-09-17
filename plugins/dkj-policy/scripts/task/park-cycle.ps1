@@ -172,7 +172,8 @@ function Write-CycleParkNote {
 # skipped look is NOT the same answer as a look that found nothing, and a reader is told which they got
 # whichever way the look was lost: '' means nothing to report, the caller prints the skip line when
 # there was no room to ask, and the function itself prints one when the fetch it did buy came back
-# unsuccessful. The bound it passes is whatever the budget has left -- see Get-NativeCaptureBudgetBound.
+# unreadable (#2081) or unsuccessful (#2083) -- one arm each, and only one of them ever speaks.
+# The bound it passes is whatever the budget has left -- see Get-NativeCaptureBudgetBound.
 function Get-BranchCollisionNote {
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
@@ -181,6 +182,21 @@ function Get-BranchCollisionNote {
     )
     $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'fetch', 'origin', $Branch) `
                                   -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $Budget)
+    # A LOOK THAT COULD NOT BE JUDGED IS SAID OUT LOUD (issue #1931, audited under #2081). '' is this
+    # function's word for "nothing to report", and an unmeasurable exit code satisfies `-ne 0` -- so the
+    # collision detector answered "all clear" on a fetch whose outcome it never read. That is the exact
+    # silence the block above this function already refuses for a SPENT budget, where the caller prints
+    # "this run did NOT read who is on the far side"; the same sentence is owed here, and it is printed
+    # from inside rather than returned so that neither caller's collision wording has to change.
+    #
+    # STILL '' RATHER THAN A NOTE, because a collision report is a claim about another session's work and
+    # this run has no evidence for one. Write-Host rather than Write-CycleParkNote, for the reason the
+    # collision report itself gives: -Quiet is for a turn that did nothing, and a look that did not happen
+    # is not nothing.
+    if (-not (Test-NativeExitMeasured -Capture $fetch)) {
+        Write-Host "park-cycle: the fetch of 'origin/$(Get-DisplayRef -Ref $Branch)' ran with an exit code that came back unmeasurable (issue #1931), so this run did NOT read who is on the far side. That is not an all-clear." -ForegroundColor Yellow
+        return ''
+    }
     # A FETCH THAT DID NOT SUCCEED IS SAID OUT LOUD (issue #2083). '' is this function's own word for
     # "nothing to report", and the block above already refuses exactly this silence for a SPENT budget --
     # where the caller prints "this run did NOT read who is on the far side". A fetch that exited non-zero
@@ -204,11 +220,13 @@ function Get-BranchCollisionNote {
     # keeps git's plumbing off this stream, and Output is not re-opened to remote-influenced text just to
     # reach them.
     #
-    # AND THE EXIT CODE IS NAMED ONLY WHEN THERE IS ONE. `$null -ne 0` is true, so an UNMEASURABLE code
-    # reaches this arm as well -- that is #2081's subject, not this one, and it gets an arm of its own
-    # above this one when that branch lands. Until then the clause is omitted rather than filled with a
-    # guess: this line says the look did not happen, which is true either way, and diagnoses nothing it
-    # did not read.
+    # AND THE EXIT CODE IS NAMED ONLY WHEN THERE IS ONE. The arm directly above takes the unmeasurable
+    # case, so by here the code is normally a real measurement -- but Test-NativeExitMeasured answers
+    # $true for a capture carrying no ExitCodeUnknown field at all, which is how it degrades an older
+    # lib to the reading every site had before that field existed. That is the one way a $null still
+    # arrives, and `$null -ne 0` is true, so it would print an empty code clause as though it had read
+    # one. Omitted rather than filled with a guess: this line says the look did not happen, which is
+    # true either way, and diagnoses nothing it did not read.
     if ($fetch.ExitCode -ne 0) {
         $codeClause = if ($null -eq $fetch.ExitCode) { '' } else { " (git exit code $($fetch.ExitCode))" }
         $why = if ($fetch.TimedOut) { 'ran out of time' } else { "failed$codeClause" }
