@@ -138,7 +138,7 @@ whole detour.
 
 #### What makes this deploy extra special
 
-It is the first pickup signal that answers a question the others were not asking. The four before it
+It is the first pickup signal that answers a question the others were not asking. The five before it
 add evidence on one axis -- who else is working this -- and #2064's cost was a verdict that was
 *correct on that axis* and pointed at the wrong question: the reader spent the time working out why
 the branch mattered, from a block that had already told them to ask about ownership. Widening an
