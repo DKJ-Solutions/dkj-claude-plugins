@@ -43,7 +43,58 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 17 minor entries** <!-- pending-tally -->
+**14 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2087-ship-pr-converges-under-parallel-lanes · 20260917-231934
+
+`ship-pr` now lands a branch on a busy trunk instead of refusing it. Two blockers are gone, and neither
+gate was weakened to do it.
+
+A **stale certificate is repaired rather than reported**: on a stale reading the script brings the branch
+up to date through GitHub's own `update-branch`, waits for a genuinely new certifying run, and takes the
+same measurement again -- up to `-MaxForwardLaps` times, default 2. The predicate is untouched, so
+`-SkipStaleCheck` is still the only way to merge on an old certificate; what changes is that the remedy
+costs a CI cycle instead of however long it takes somebody to read a refusal and retype four commands.
+Each lap is CI-bound, so the TRUNK takes one merge per CI cycle instead of none. That is a claim about
+throughput and not about any one lane: a lap absorbs exactly one trunk merge, so a lane contending with
+several others can still exhaust its budget and refuse -- the bound is a stop-loss, and the refusal says
+so. A conflict, a branch already current, or a red check on the forwarded head all end the run rather
+than lapping. Worth knowing before upgrading: the trigger is "the trunk moved", not "several lanes are
+shipping", so a single-lane repo meets this too -- and a lap pushes a merge commit to the branch, made by
+GitHub, which is what the printed remedy always told an operator to do by hand. `-MaxForwardLaps 0` keeps
+the old behaviour.
+
+And **a trunk held by another checkout no longer blocks the merge** where a CI runner folds. That
+refusal's ground -- "step 5 could not fold" -- stopped being true when `fold-on-merge.yml` began folding
+off every push to the trunk, not only a merge queue's; it was gated on the queue when the thing it
+depends on is the runner. A repo with no such runner is refused exactly as before, and the refusal now
+says which read came back empty.
+
+Measured, September 17, 2026: five pull requests sat `CLEAN` and `MERGEABLE` with every check green and
+none of them merged, against a trunk taking 33 first-parent commits in a day. PR #2062 recorded seven
+refusals in a row, one of them 48 commits behind; PR #2076 was refused on the worktree instead.
+
+**Score:** 5
+
+#### What makes this deploy extra special
+
+A consumer running this workflow with more than one lane could not land work on a busy trunk, and the
+two mechanisms that stopped them are both repaired in the shared scripts -- so the fix arrives with a
+plugin update and needs no repo setting, which is the half a merge queue could not deliver: GitHub
+offers one on a private repo only under Enterprise Cloud, and otherwise only on a public repo owned by
+an organisation.
+
+**Score:** 4
+
+#### Pull Request
+
+ship-pr converges under parallel lanes: it forwards the branch itself, and a busy trunk no longer blocks the merge
+
+Plugins: dkj-policy
+
+[PR #2094](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2094)
+
+---
 
 ### DEPLOY: fix/2090-anchor-ordering-asserts · 20260917-220352
 
