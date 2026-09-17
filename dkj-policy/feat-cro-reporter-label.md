@@ -39,19 +39,53 @@
 
 ### PLAN
 
+Dave asked for a new GitHub label, `CRO`, known only to consumers of the `dkj-policy-bwj` plugin: it
+marks a GitHub issue filed by, or on behalf of, the CRO team (today: Johnno), and it applies only in a
+repo that is an actual Shopify store linked to an Asana project -- `smartwatchbanden` and
+`xoxowildhearts`, never this plugin's own source repo `dkj-claude-plugins`, which has no store.
+
+Every existing classification label on this tracker (`documentation`, the reach label, `needs-info`) is
+set by judgement at the moment `report-issue` files the issue, never derived automatically from GitHub
+metadata -- so `CRO` follows the same shape: documented as a fourth classification axis (who reported it,
+not what it is), with no seam, since the scope is a fixed list of two repos rather than something a
+function needs to answer.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add the `CRO` row to the classification table in `WORKFLOW-portable.md`, and its own subsection
+  explaining the axis and the store-repos-only scope.
+- [x] Add the matching row to `report-issue`'s own step-1 table, pointing back at the portable page.
+- [x] Add the label-creation step to `adopt-dkj-policy-bwj`'s step 4, explicit that it is skipped for
+  `dkj-claude-plugins`.
 
 ### TEST
 
+Documentation-only change to the `dkj-policy-bwj` plugin's portable pages -- no script or config
+touched, so no test suite applies. Verified by reading the three edited files back for internal
+consistency (the table row, the subsection anchor link, and the skip-here instruction all agree), and
+the lint gate (`open-pr.ps1` / `check-plugin-integrity.ps1`) is the mechanical check for dead links and
+frontmatter before the PR opens.
+
 ### DEPLOY: feat/cro-reporter-label
 
-**Score:**
+Documents a new GitHub classification label, `CRO`, for the `dkj-policy-bwj` workflow: it marks an
+issue filed by, or on behalf of, the CRO team (currently Johnno), set by judgement at filing time like
+`documentation` and the reach label. Scoped to repos that are an actual Shopify store linked to an
+Asana project (`smartwatchbanden`, `xoxowildhearts`); `adopt-dkj-policy-bwj`'s label step explicitly
+skips it for the plugin's own source repo, `dkj-claude-plugins`, which has no store. No mechanism
+changes -- three portable pages only.
+
+**Score:** 1 -- this repo's own developers notice a new paragraph in a plugin page they already read;
+nothing here changes what this repo does or how it is checked.
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `dkj-policy-bwj` (a BWJ store repo) gains a documented, ready-to-create label the
+next time `adopt-dkj-policy-bwj` or `report-issue` is run there, and the CRO team's tickets become
+filterable on GitHub (`is:open label:CRO`) the moment it exists.
+
+**Score:** 2 -- small and welcome once it reaches a store repo, but nothing breaks and nothing is
+required to change today; it waits for the next adoption run or the next CRO-filed finding there.
 
 #### Pull Request
 
