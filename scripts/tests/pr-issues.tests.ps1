@@ -396,23 +396,75 @@ Write-Host "Get-TargetIssueWarnings -- the already-done check (issue #1282)" -Fo
 Assert-Equal 0 (@(Get-TargetIssueWarnings -TargetIssues @()).Count) 'no target issues -> nothing to say'
 
 # Target still open, no rival PR -> nothing to say.
-$stillOpen = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270, 42))
+$stillOpen = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @())
 Assert-Equal 0 $stillOpen.Count 'an open target with no rival PR produces no warning'
 
-# Target CLOSED (the open list is known and does not contain it).
-$closed = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(42, 99))
+# Target CLOSED -- the caller CONFIRMED it, which since inbound #2056 is the only thing that sets this.
+$closed = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @(1270))
 Assert-Equal 1     $closed.Count       'a closed target produces one record'
 Assert-Equal 1270  $closed[0].Issue    'the record names the issue'
 Assert-True  $closed[0].IsClosed       'and marks it closed'
 Assert-Equal 0     @($closed[0].ClaimingPrs).Count 'with no claiming PR when none was supplied'
 
-# Open list undeterminable -> IsClosed is never asserted (the not-blocking treatment).
-$noList = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues $null)
-Assert-Equal 0 $noList.Count 'an undeterminable open-issue state claims nothing'
+# Undeterminable -> IsClosed is never asserted (the not-blocking treatment).
+$noList = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues $null)
+Assert-Equal 0 $noList.Count 'an undeterminable closed-issue state claims nothing'
+
+# --- Get-IssueStateVerdict -- the three-state rule itself (inbound #2056) --------------------------
+#
+# THE PURE HALF, ASSERTED WITHOUT A NETWORK. Get-ClosedIssueSet's loop cannot be asserted here at all
+# (it calls gh), which is exactly why the rule was split out of it: what decides the answer is a pure
+# function of what gh said, and that is this.
+#
+# EVERY PAYLOAD BELOW IS A REAL SHAPE, measured against DKJ-Solutions/dkj-claude-plugins on 2026-09-17.
+Assert-Equal 'closed' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"CLOSED","url":"https://github.com/o/r/issues/1282"}') 'a CLOSED issue is the one answer that sets the signal -- #1282''s real case'
+Assert-Equal 'other'  (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"OPEN","url":"https://github.com/o/r/issues/2055"}')   'an OPEN issue is not'
+
+# A NUMBER THIS REPO DOES NOT HAVE -- the #2056 case. gh exits 1 and says so; that is an ANSWER, not a
+# failure, and reading it as a closure is the whole defect.
+Assert-Equal 'other' (Get-IssueStateVerdict -ExitCode 1 -Output 'GraphQL: Could not resolve to an issue or pull request with the number of 99999. (repository.issue)') 'a number this repo does not have is not closed -- it is nothing'
+
+# A PULL REQUEST IS THE SECOND HALF OF THE SAME CONFLATION: issues and PRs share one counter, and this
+# workflow's documents cite PR numbers constantly.
+Assert-Equal 'other' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"MERGED","url":"https://github.com/o/r/pull/2053"}') 'a MERGED pull request is not a closed issue'
+Assert-Equal 'other' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"CLOSED","url":"https://github.com/o/r/pull/1281"}') 'and NEITHER is a CLOSED pull request -- which is why the URL and not the state is the discriminator'
+
+# A BROKEN gh MUST NOT LOOK LIKE A TIDY SILENCE. Exit 1 covers both "no such number" and "gh is
+# unwell"; only the message tells them apart.
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 1 -Output 'gh: Bad credentials')       'an auth failure is unreadable, not "not here"'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 1 -Output '')                          'and so is a non-zero exit that said nothing at all'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output 'not json')                  'an unparseable payload is unreadable'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output '{"url":"https://github.com/o/r/issues/7"}') 'and so is a payload with no state field -- absent is not OPEN'
+
+# --- THE THREE-STATE READ, AS THE WARNINGS SEE IT (inbound #2056) ----------------------------------
+#
+# THE DEFECT: the rule used to be "the open list was determinable AND this number is not in it", which
+# has no third state -- so a number that has never existed in this repo was reported as CLOSED, and the
+# caller told the author the branch may repeat work that is already merged. It fired loudest on the
+# branches that follow this workflow's own documented route, because the inbound route PRESCRIBES
+# citing an issue in another repo and every such citation is a bare '#<n>' after scraping.
+#
+# THE TWO CASES BELOW ARE THE SAME ASSERT FROM OPPOSITE SIDES, and both are the point of the repair:
+# absence from the closed set no longer means anything at all.
+$foreign = @(Get-TargetIssueWarnings -TargetIssues @(2055) -ClosedIssues @())
+Assert-Equal 0 $foreign.Count 'a number that is not a closed issue here is SILENT, not reported as closed (the #2056 case: a cross-repo inbound citation)'
+
+$mixed = @(Get-TargetIssueWarnings -TargetIssues @(1270, 2055) -ClosedIssues @(1270))
+Assert-Equal 1    $mixed.Count    'a branch citing one genuinely closed issue and one foreign number reports exactly one'
+Assert-Equal 1270 $mixed[0].Issue '...and it is the local closed one, which is the #1282 signal the repair had to keep'
+
+# AN EMPTY ARRAY IS A DETERMINATE ANSWER AND $null IS NOT. Both produce no warning here, so the two
+# are only told apart by what the caller does with them -- which is why the pair is asserted together:
+# a later refactor that collapses "I looked and none is closed" into "I could not look" would leave
+# both of these green while destroying the distinction the callers act on.
+$determinateJson = '[{"number":1276,"state":"OPEN","headRefName":"fix/other-v1","body":"Closes #1270"}]'
+$determinateNone = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $determinateJson -CurrentBranch 'fix/mine-v1')
+Assert-Equal 1      $determinateNone.Count      'a determinate "none closed" still reports a rival PR'
+Assert-Equal $false $determinateNone[0].IsClosed '...with IsClosed false rather than absent'
 
 # A rival OPEN PR whose body closes the number.
 $rivalJson = '[{"number":1276,"state":"OPEN","headRefName":"fix/other-v1","body":"Closes #1270"}]'
-$rival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $rivalJson -CurrentBranch 'fix/mine-v1')
+$rival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $rivalJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 1     $rival.Count                  'a rival PR that closes the number produces a record'
 Assert-Equal $false $rival[0].IsClosed           'the issue itself is still open here'
 Assert-Equal 1276  @($rival[0].ClaimingPrs)[0].Number 'the claiming PR number comes through'
@@ -420,26 +472,26 @@ Assert-Equal 'OPEN' @($rival[0].ClaimingPrs)[0].State 'and its state'
 
 # A MERGED rival counts too -- that is the exact #1282 case.
 $mergedJson = '[{"number":1276,"state":"MERGED","headRefName":"fix/other-v1","body":"Closes #1270"}]'
-$merged = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $mergedJson -CurrentBranch 'fix/mine-v1')
+$merged = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $mergedJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 'MERGED' @($merged[0].ClaimingPrs)[0].State 'a merged rival is reported'
 
 # A CLOSED rival PR is an abandoned attempt (in #1282, the duplicate itself) -- NOT evidence the work is done.
 $closedRivalJson = '[{"number":1281,"state":"CLOSED","headRefName":"fix/other-v1","body":"Closes #1270"}]'
-$closedRival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $closedRivalJson -CurrentBranch 'fix/mine-v1')
+$closedRival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $closedRivalJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 0 $closedRival.Count 'a CLOSED rival PR is not reported'
 
 # This branch's OWN open PR carries the keyword by design on a resumed run -- not a rival.
 $ownJson = '[{"number":500,"state":"OPEN","headRefName":"fix/mine-v1","body":"Closes #1270"}]'
-$own = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $ownJson -CurrentBranch 'fix/mine-v1')
+$own = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $ownJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 0 $own.Count "this branch's own PR is never reported as a rival claimant"
 
 # A rival PR that only MENTIONS the number (no closing keyword) does not count -- same reader as the gate.
 $mentionOnlyJson = '[{"number":1276,"state":"MERGED","headRefName":"fix/other-v1","body":"context from #1270, unrelated"}]'
-$mentionOnly = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $mentionOnlyJson -CurrentBranch 'fix/mine-v1')
+$mentionOnly = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $mentionOnlyJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 0 $mentionOnly.Count 'a bare mention in a rival PR body is not a claim'
 
 # Unparseable PR JSON -> no claiming PRs, and IsClosed is still evaluated from the open list.
-$badJson = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(42) -OtherPrsJson 'not json' -CurrentBranch 'fix/mine-v1')
+$badJson = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @(1270) -OtherPrsJson 'not json' -CurrentBranch 'fix/mine-v1')
 Assert-Equal 1 $badJson.Count            'unparseable PR JSON does not throw'
 Assert-True  $badJson[0].IsClosed        'and the closed-target signal still fires'
 Assert-Equal 0 @($badJson[0].ClaimingPrs).Count 'with no claiming PR from JSON that would not parse'
@@ -447,7 +499,7 @@ Assert-Equal 0 @($badJson[0].ClaimingPrs).Count 'with no claiming PR from JSON t
 # The whole #1282 scenario in one call: target #1270, closed; PR #1276 merged resolving it; PR #1281
 # closed on this branch also carrying the keyword. One record: closed, claimed by #1276 alone.
 $scenarioJson = '[{"number":1276,"state":"MERGED","headRefName":"fix/unfolded-entry-on-main-unguarded-v1","body":"Closes #1270"},{"number":1281,"state":"CLOSED","headRefName":"fix/unfolded-entry-on-main-sessioncheck-v1","body":"Closes #1270"}]'
-$scenario = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(42, 99) -OtherPrsJson $scenarioJson -CurrentBranch 'fix/unfolded-entry-on-main-sessioncheck-v1')
+$scenario = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @(1270) -OtherPrsJson $scenarioJson -CurrentBranch 'fix/unfolded-entry-on-main-sessioncheck-v1')
 Assert-Equal 1     $scenario.Count       'the #1282 scenario produces exactly one record'
 Assert-True  $scenario[0].IsClosed       'the target is reported closed'
 Assert-Equal 1     @($scenario[0].ClaimingPrs).Count 'and exactly one claiming PR (the merged one, not the abandoned duplicate)'
@@ -455,7 +507,7 @@ Assert-Equal 1276  @($scenario[0].ClaimingPrs)[0].Number 'which is #1276'
 
 # Two target issues, one closed and one open+claimed -> a record for each, with the right signal.
 $twoJson = '[{"number":90,"state":"OPEN","headRefName":"fix/other-v1","body":"Closes #401"}]'
-$two = @(Get-TargetIssueWarnings -TargetIssues @(400, 401) -OpenIssues @(401) -OtherPrsJson $twoJson -CurrentBranch 'fix/mine-v1')
+$two = @(Get-TargetIssueWarnings -TargetIssues @(400, 401) -ClosedIssues @(400) -OtherPrsJson $twoJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 2 $two.Count 'both targets that have something to say are reported'
 $rec400 = $two | Where-Object { $_.Issue -eq 400 }
 $rec401 = $two | Where-Object { $_.Issue -eq 401 }

@@ -272,6 +272,11 @@ if (-not (Test-Path -LiteralPath $branchInfoPath)) {
 # beside it -- ConvertTo-IssueNumberList and Get-TargetIssueWarnings are what -Resolves below runs
 # against, before anything else in this script has read a single line of it.
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
+# AND THE IMPURE HALF OF THAT SAME CHECK (inbound #2056). Get-ClosedIssueSet asks gh what a cited
+# number actually IS -- an open issue, a closed one, or neither -- so Get-TargetIssueWarnings can be
+# TOLD which are closed instead of inferring it from an absence. Its own file because the lib above
+# promises to be a pure function of its input, and its suite depends on that.
+. (Join-Path $PSScriptRoot '..\lib\issue-state-lib.ps1')
 # AND THE SEAM READER (inbound #967). The guidance this script writes into the document states WHERE a
 # relative link in the DEPLOY section has to resolve from, and that is the changelog's directory -- a seam,
 # not the repo root, since #914 made it isolate-by-default. Resolved in the script and passed in, the way
@@ -785,7 +790,25 @@ if ($resolveList.Count -gt 0) {
             Write-Warning "could not ask gh whether another PR already resolves $targetList ($searchUnread) -- the already-done check runs on issue state alone."
         }
 
-        $doneWarnings = @(Get-TargetIssueWarnings -TargetIssues $resolveList -OpenIssues $openAll -OtherPrsJson $otherPrsJson -CurrentBranch $Name)
+        # THE THREE-STATE READ (inbound #2056). Only the numbers the open list did not already account
+        # for are resolved; asking gh about one it found open is a round trip for an answer in hand.
+        # $null stays $null -- an unreadable open list leaves the whole signal undeterminable, exactly
+        # as it did before. -Resolves is normally one number and normally open, so on the ordinary run
+        # this asks gh nothing extra at all.
+        $closedTargets = $null
+        if ($null -ne $openAll) {
+            $unaccounted = @($resolveList | Where-Object { $openAll -notcontains $_ })
+            $closedTargets = @()
+            if ($unaccounted.Count -gt 0) {
+                $resolvedStates = Get-ClosedIssueSet -Repo $ghRepoName -Numbers $unaccounted
+                $closedTargets = @($resolvedStates.Closed)
+                if ($resolvedStates.Unreadable) {
+                    Write-Warning ("could not ask gh what every number in $targetList actually is -- the already-done check reports only what it could confirm.")
+                }
+            }
+        }
+
+        $doneWarnings = @(Get-TargetIssueWarnings -TargetIssues $resolveList -ClosedIssues $closedTargets -OtherPrsJson $otherPrsJson -CurrentBranch $Name)
         if ($doneWarnings.Count -gt 0) {
             $parts = @()
             foreach ($w in $doneWarnings) {

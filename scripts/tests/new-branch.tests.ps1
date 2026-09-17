@@ -59,6 +59,11 @@ $SeamLibSrc       = Join-Path $RepoRoot 'scripts\lib\seam-lib.ps1'
 # which -Resolves below runs against. Without it in the fixture, every -Resolves case here dies on a
 # raw path-not-found instead of testing anything, exactly like the entry-scaffold lib above.
 $PrIssuesLibSrc   = Join-Path $RepoRoot 'scripts\lib\pr-issues-lib.ps1'
+# And the IMPURE half (inbound #2056) -- Get-ClosedIssueSet, which asks gh what each cited number
+# actually IS so the pure half can be told rather than infer it. Its own file precisely because the lib
+# above is pure; same fixture consequence as every lib here, and the (x) cases below drive it through
+# their fake gh.
+$IssueStateLibSrc = Join-Path $RepoRoot 'scripts\lib\issue-state-lib.ps1'
 # The remote-ahead note composer (issue #1450), extracted out of new-branch.ps1 into its own shared
 # lib once open-pr.ps1 became a second reader. Without it in the fixture, every resume case below dies
 # on a raw path-not-found instead of testing anything, exactly like the two libs above.
@@ -304,6 +309,7 @@ function New-Fixture {
     # refusal degrades to silence and the (y) case would pass for the wrong reason, saying nothing.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\git-identity-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\git-identity-lib.ps1') -Force
     Copy-Item -LiteralPath $PrIssuesLibSrc   -Destination (Join-Path $dir 'scripts\lib\pr-issues-lib.ps1')           -Force
+    Copy-Item -LiteralPath $IssueStateLibSrc -Destination (Join-Path $dir 'scripts\lib\issue-state-lib.ps1')         -Force
     Copy-Item -LiteralPath $RemoteAheadLibSrc -Destination (Join-Path $dir 'scripts\lib\remote-ahead-lib.ps1')       -Force
     Copy-Item -LiteralPath $RefPrintLibSrc    -Destination (Join-Path $dir 'scripts\lib\ref-print-lib.ps1')          -Force
 
@@ -1882,6 +1888,11 @@ Write-Output `$t.Type
         # Records every call (one line per invocation) and answers:
         #   issue list -> a JSON array of {"number":N} for each id in GH_OPEN_ISSUES (or fails under
         #                 GH_FAIL_ISSUE_LIST)
+        #   issue view -> the per-number resolve inbound #2056 added: a CLOSED issue for each id in
+        #                 GH_CLOSED_ISSUES, and gh's own "Could not resolve" refusal for anything else.
+        #                 THAT DEFAULT IS THE #2056 CASE ITSELF -- a number this repo does not have --
+        #                 so a case that names no closed issue gets exactly the answer the old rule
+        #                 misread as CLOSED.
         #   pr list    -> the raw JSON in GH_PR_LIST_JSON, '[]' by default (or fails under GH_FAIL_PR_LIST)
         $xGhImpl = @'
 if ($env:GH_CALL_LOG) { Add-Content -Path $env:GH_CALL_LOG -Value ($args -join ' ') }
@@ -1892,6 +1903,17 @@ if ($args -contains 'issue' -and $args -contains 'list') {
     $items = @($nums | Where-Object { $_ } | ForEach-Object { "{`"number`":$_}" }) -join ','
     Write-Output "[$items]"
     exit 0
+}
+if ($args -contains 'issue' -and $args -contains 'view') {
+    $asked = @($args | Where-Object { $_ -match '^\d+$' })[0]
+    $closed = @()
+    if ($env:GH_CLOSED_ISSUES) { $closed = $env:GH_CLOSED_ISSUES -split ',' }
+    if ($closed -contains $asked) {
+        Write-Output "{`"state`":`"CLOSED`",`"url`":`"https://github.com/o/r/issues/$asked`"}"
+        exit 0
+    }
+    [Console]::Error.WriteLine("GraphQL: Could not resolve to an issue or pull request with the number of $asked. (repository.issue)")
+    exit 1
 }
 if ($args -contains 'pr' -and $args -contains 'list') {
     if ($env:GH_FAIL_PR_LIST) { [Console]::Error.WriteLine('fake gh: pr list failed'); exit 1 }
@@ -1914,6 +1936,7 @@ exit 1
                 [Parameter(Mandatory = $true)][string]$Name,
                 [Parameter(Mandatory = $true)][string]$Resolves,
                 [string]$OpenIssues = '',
+                [string]$ClosedIssues = '',
                 [string]$PrListJson = '',
                 [switch]$FailIssueList,
                 [switch]$FailPrList
@@ -1921,6 +1944,7 @@ exit 1
             Remove-Item -Path $xCallLog -Force -ErrorAction SilentlyContinue
             $env:GH_CALL_LOG = $xCallLog
             $env:GH_OPEN_ISSUES = $OpenIssues
+            $env:GH_CLOSED_ISSUES = $ClosedIssues
             $env:GH_PR_LIST_JSON = $PrListJson
             if ($FailIssueList) { $env:GH_FAIL_ISSUE_LIST = '1' } else { Remove-Item Env:\GH_FAIL_ISSUE_LIST -ErrorAction SilentlyContinue }
             if ($FailPrList) { $env:GH_FAIL_PR_LIST = '1' } else { Remove-Item Env:\GH_FAIL_PR_LIST -ErrorAction SilentlyContinue }
@@ -1966,7 +1990,7 @@ exit 1
         # number or a reopened issue must not wedge a real branch).
         $fixX4 = New-Fixture -Label 'x4'
         Add-FixtureRepoConfig -Dir $fixX4 -RepoName 'fake/repo'
-        $rX4 = Invoke-NewBranchX -Dir $fixX4 -Name 'fix/1409-something' -Resolves '1409' -OpenIssues '9999'
+        $rX4 = Invoke-NewBranchX -Dir $fixX4 -Name 'fix/1409-something' -Resolves '1409' -OpenIssues '9999' -ClosedIssues '1409'
         Assert-ExitCode 0 $rX4 'issue already closed: exits 0 -- warned, never refused'
         Assert-True (Test-Phrase -Text $rX4.Out -Phrase 'already-done check: issue #1409 is already CLOSED') 'issue already closed: names the issue and the state'
         $flatX4 = Get-FlatOutput $rX4.Out
@@ -1988,7 +2012,7 @@ exit 1
         # and proof the still-open one is not swept along into the same sentence.
         $fixX6 = New-Fixture -Label 'x6'
         Add-FixtureRepoConfig -Dir $fixX6 -RepoName 'fake/repo'
-        $rX6 = Invoke-NewBranchX -Dir $fixX6 -Name 'fix/1409-and-1410' -Resolves '1409,1410' -OpenIssues '1410'
+        $rX6 = Invoke-NewBranchX -Dir $fixX6 -Name 'fix/1409-and-1410' -Resolves '1409,1410' -OpenIssues '1410' -ClosedIssues '1409'
         Assert-True (Test-Phrase -Text $rX6.Out -Phrase 'issue #1409 is already CLOSED') 'two issues, one done: names the closed one'
         Assert-True (-not (Test-Phrase -Text $rX6.Out -Phrase '#1410 is already')) 'two issues, one done: and says nothing about the still-open one'
         Assert-True (($rX6.Log | Where-Object { $_ -match [regex]::Escape('--search 1409 OR 1410 in:body') }).Count -eq 1) 'two issues, one done: both numbers went into one PR search'
@@ -2006,13 +2030,30 @@ exit 1
         # state alone rather than failing outright.
         $fixX8 = New-Fixture -Label 'x8'
         Add-FixtureRepoConfig -Dir $fixX8 -RepoName 'fake/repo'
-        $rX8 = Invoke-NewBranchX -Dir $fixX8 -Name 'fix/1409-blind-pr' -Resolves '1409' -OpenIssues '9999' -FailPrList
+        $rX8 = Invoke-NewBranchX -Dir $fixX8 -Name 'fix/1409-blind-pr' -Resolves '1409' -OpenIssues '9999' -ClosedIssues '1409' -FailPrList
         Assert-ExitCode 0 $rX8 'gh pr list unreadable: exits 0'
         Assert-True (Test-Phrase -Text $rX8.Out -Phrase 'could not ask gh whether another PR already resolves') 'gh pr list unreadable: warns about the blind spot'
         Assert-True (Test-Phrase -Text $rX8.Out -Phrase 'issue #1409 is already CLOSED') 'gh pr list unreadable: and still reports what issue state alone could determine'
+
+        # (x9) INBOUND #2056, THE WHOLE CASE, WIRED. The number is not in the open list AND is not an
+        # issue of this repo at all -- the shape this workflow's own inbound route produces on every
+        # branch citing a finding filed upstream. It used to be reported as 'already CLOSED', which is
+        # why x4 above needs -ClosedIssues now: before the repair those two cases were indistinguishable
+        # by construction, so x4 and this one were the SAME call with the same answer.
+        #
+        # THE ASSERT PAIR IS THE POINT. Silence alone would also be produced by the check never running,
+        # so the call log is read too: gh WAS asked what #1409 is, and its answer was believed.
+        $fixX9 = New-Fixture -Label 'x9'
+        Add-FixtureRepoConfig -Dir $fixX9 -RepoName 'fake/repo'
+        $rX9 = Invoke-NewBranchX -Dir $fixX9 -Name 'fix/1409-foreign-citation' -Resolves '1409' -OpenIssues '9999'
+        Assert-ExitCode 0 $rX9 'a number that is not an issue here: exits 0'
+        Assert-True (-not (Test-Phrase -Text $rX9.Out -Phrase 'already-done check:')) 'a number that is not an issue here: SILENT -- not reported as closed (inbound #2056)'
+        Assert-True (($rX9.Log | Where-Object { $_ -match [regex]::Escape('issue view 1409 --repo fake/repo') }).Count -eq 1) 'a number that is not an issue here: and the silence comes from having ASKED, not from skipping the check'
+        $branchesX9 = ((& git -C $fixX9 branch --list 'fix/1409-foreign-citation') -join '').Trim()
+        Assert-True ([bool]$branchesX9) 'a number that is not an issue here: the branch is created as normal'
     } finally {
         $env:PATH = $prevPathX
-        'GH_CALL_LOG', 'GH_OPEN_ISSUES', 'GH_PR_LIST_JSON', 'GH_FAIL_ISSUE_LIST', 'GH_FAIL_PR_LIST' | ForEach-Object {
+        'GH_CALL_LOG', 'GH_OPEN_ISSUES', 'GH_CLOSED_ISSUES', 'GH_PR_LIST_JSON', 'GH_FAIL_ISSUE_LIST', 'GH_FAIL_PR_LIST' | ForEach-Object {
             Remove-Item "Env:\$_" -ErrorAction SilentlyContinue
         }
         Remove-Item -Path $xBin -Recurse -Force -ErrorAction SilentlyContinue

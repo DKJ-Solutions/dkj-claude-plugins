@@ -135,7 +135,26 @@ caught before any of that cost is paid:
 |---|---|
 | the target issue is CLOSED, or another open/merged PR already carries a closing keyword for it | **warns**, naming the issue and what it found -- twice, once before the checkout and once as the last line of the run |
 | the target issue is open and unclaimed | nothing -- silence, same as the base check above when there is nothing to say |
+| the number is **not an issue of this repo** -- it names another repository, or it is a pull request | nothing. It used to read as CLOSED; see below |
 | `scripts/repo-config.ps1` supplies no `Get-RepoName` | one line saying the check is skipped -- `gh` is never called |
+
+**That third row is inbound #2056, and it earns a paragraph because this workflow PRODUCED the case it
+repairs.** The rule was "the open-issue list was determinable and this number is not in it", which has
+no third state -- so a number this repo has never had was reported as closed, and the author was told
+the branch may repeat work that is already merged. The numbers being read are scraped as bare integers
+out of the development document, while the inbound route *prescribes* citing an issue in **another**
+repo: a shared-core finding is filed on the marketplace repo, and the consumer then cites that number
+in a docstring, a README entry and the DEPLOY section. So the check was loudest on exactly the branches
+that follow the documented route. Measured in the consumer that filed it: `issue #2055 is already
+CLOSED`, on a branch that had opened #2055 upstream twenty minutes earlier.
+
+**A pull request number is the same conflation from the other side** -- issues and pull requests share
+one counter, and these documents cite PR numbers constantly. Both are silent now, because the check
+resolves each unaccounted number instead of inferring anything from its absence.
+
+**The cost was trust rather than a wedged PR.** This check has never blocked, so the damage was that an
+author who learns its warnings are usually wrong stops reading them -- and #1282's real signal goes
+with them.
 
 **It warns and never refuses**, for the same reason #1282 chose that shape at `open-pr`: a shared
 number, a reopened issue, or a rival PR abandoned mid-flight must not wedge a real branch.

@@ -390,6 +390,11 @@ $repo = Get-RepoName
 # line above (registered in shared-scripts-lib.ps1 for the mirror + drift lint).
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
 
+# THE IMPURE HALF OF THE ALREADY-DONE CHECK (inbound #2056) -- Get-ClosedIssueSet asks gh what a cited
+# number actually IS, which is exactly why it cannot live in the file above: that one promises to be a
+# pure function of its input, and its suite depends on that. Same payload reasoning as the libs here.
+. (Join-Path $PSScriptRoot '..\lib\issue-state-lib.ps1')
+
 # The PR-body helpers: Get-EntryDescription (shared by the fresh and the -RefreshBody path, so they read
 # the entry the same way) and Update-PrBodySection. Same payload reasoning as the two libs above.
 . (Join-Path $PSScriptRoot '..\lib\pr-body-lib.ps1')
@@ -826,10 +831,11 @@ Both are honest answers; the gate only refuses to guess.
     # the merge conflict. WARN and move on: a shared number or a reopened issue must not wedge a
     # real PR, which is why #1282 asked for a warning rather than a refusal.
     #
-    # ONE EXTRA `gh` CALL, and only when the branch targets an issue at all. It rides the open-issue
-    # list already fetched above for the OpenIssues half; the ClaimingPrs half needs a PR-body
-    # search that the other queries here do not cover. A failed query is said out loud and skipped,
-    # never fatal -- same rule as every other lookup in this script.
+    # THE `gh` CALLS, and only when the branch targets an issue at all. The ClaimingPrs half needs a
+    # PR-body search that the other queries here do not cover; the IsClosed half needs a per-number
+    # resolve for whatever the open-issue list above did not already account for (inbound #2056 --
+    # see Get-ClosedIssueSet for why an absence from that list cannot stand in for a closure). A
+    # failed query is said out loud and skipped, never fatal -- same rule as every other lookup here.
     $targetIssues = @(@($mentions) + @($resolveList) | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
     if ($targetIssues.Count -gt 0) {
         $otherPrsJson = ''
@@ -852,7 +858,27 @@ Both are honest answers; the gate only refuses to guess.
             Write-Warning ("could not ask gh whether another PR already resolves " + (($targetIssues | ForEach-Object { "#$_" }) -join ', ') + " ($searchUnread) -- the already-done check is skipped.")
         }
 
-        foreach ($w in @(Get-TargetIssueWarnings -TargetIssues $targetIssues -OpenIssues $openAll -OtherPrsJson $otherPrsJson -CurrentBranch $branch)) {
+        # THE THREE-STATE READ (inbound #2056). Only the numbers the open list did not already
+        # account for are resolved -- asking gh about a number known to be open is a round trip for
+        # an answer in hand. $null stays $null: an open list that could not be read leaves the whole
+        # signal undeterminable, exactly as it did before.
+        $closedTargets = $null
+        if ($null -ne $openAll) {
+            $unaccounted = @($targetIssues | Where-Object { $openAll -notcontains $_ })
+            $closedTargets = @()
+            if ($unaccounted.Count -gt 0) {
+                $resolved = Get-ClosedIssueSet -Repo $repo -Numbers $unaccounted
+                $closedTargets = @($resolved.Closed)
+                if ($resolved.Unreadable) {
+                    Write-Warning ("could not ask gh what every cited number is (" + (($unaccounted | ForEach-Object { "#$_" }) -join ', ') + ") -- the already-done check reports only what it could confirm.")
+                }
+                if ($resolved.Truncated) {
+                    Write-Warning ("this branch cites more numbers than the already-done check resolves in one run -- the ones past the limit are not reported either way.")
+                }
+            }
+        }
+
+        foreach ($w in @(Get-TargetIssueWarnings -TargetIssues $targetIssues -ClosedIssues $closedTargets -OtherPrsJson $otherPrsJson -CurrentBranch $branch)) {
             $says = @()
             if ($w.IsClosed) { $says += 'is already CLOSED' }
             foreach ($p in $w.ClaimingPrs) { $says += "is already resolved by PR #$($p.Number) ($($p.State.ToLowerInvariant()))" }
