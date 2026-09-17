@@ -279,6 +279,14 @@ Four parameters, all for callers rather than for you:
 - **`-BudgetSeconds <n>`** -- the same deadline as an explicit number, for a suite that needs to reach a
   skip arm without waiting for it. Wins over `-UnderHook` where both are given, an explicit number being
   the more specific of the two. `0` (the default) means no budget at all.
+- **`-BudgetDeadlineEpochSeconds <n>`** -- the same deadline stated as an **absolute instant** (Unix epoch
+  seconds, UTC) rather than as a duration. Wins over both of the two above, being the most specific of the
+  three. **You do not type this either**: it is for a caller that already knows when the turn's ceiling
+  falls due. A duration is measured from the line inside the script that builds the budget, which is after
+  its own start-up and five dot-sourced libs -- time a hook's ceiling has already spent -- so a caller
+  holding the real deadline says it instead of having it re-derived from a later moment. It also takes the
+  budget off the wall clock, which is what a suite needs to reach the arm where one call has room and the
+  next does not without the answer depending on how loaded the machine was (#2077).
 - **`-RepoRoot <path>`** -- act on that tree instead of the one resolved from `${CLAUDE_PROJECT_DIR}` or the
   git root. For the suite, and for a caller acting on a worktree lane.
 

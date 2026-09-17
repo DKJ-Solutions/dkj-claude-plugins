@@ -84,6 +84,9 @@ a constant.
       at creation and floored at 0
 - [x] `scripts/task/park-cycle.ps1`: `-BudgetDeadlineEpochSeconds`, winning over `-BudgetSeconds` and
       `-UnderHook`, documented in the comment-based help and at the seam
+- [x] `plugins/dkj-policy/skills/park/SKILL.md`: the new parameter documented beside its two
+      siblings -- the lint gate's `[skill-param]` check refuses a mirrored parameter a consumer
+      could not learn about from the page they have
 - [x] `scripts/sync/build-shared-scripts.ps1`: the three mirrors regenerated
 
 ### TEST
