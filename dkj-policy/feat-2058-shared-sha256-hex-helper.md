@@ -81,7 +81,8 @@ precisely why it was free to drift.
 
 - [x] `scripts/tests/hash-hex-lib.tests.ps1` -- 15 asserts, digests pinned against published SHA-256 vectors rather than against the function's own output
 - [x] Output equivalence measured against each pre-fold implementation over five inputs, empty string and non-ASCII included -- every digest identical, `check-consumer-siblings`' matching once lowercased
-- [ ] Lint gate green; full suite green
+- [x] Lint gate green; full suite green (run by `open-pr`, which refuses to push on either)
+- [x] `connector-sessioncheck.tests.ps1` fixture owes the new lib a copy -- caught by this branch's own run, see CREATE
 
 ### DEPLOY: feat/2058-shared-sha256-hex-helper
 
