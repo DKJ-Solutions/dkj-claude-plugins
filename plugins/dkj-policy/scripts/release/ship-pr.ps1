@@ -572,6 +572,13 @@ try {
     # $ciFold.Recovered $false, which is the behaviour every ship had before this block existed.
     Write-Warning "could not read this repo's workflow files -- assuming no CI fold, which is the behaviour before issue #2087."
 }
+# THE WORKFLOW'S NAME IS FOREIGN TEXT AND IS STRIPPED BEFORE IT IS PRINTED, exactly like $branchShown
+# two blocks up (issue #1623's class, extended here). It is a FILENAME read straight off disk by
+# Get-ChildItem, and NTFS accepts a format character in one -- so a name carrying U+202E or a zero-width
+# run would repaint or reorder the sentence that exists to tell the operator who now owns their fold.
+# Get-DisplayPath rather than Get-DisplayRef, for that function's own reason: a filename may legitimately
+# carry spaces, and collapsing them would report a name that is not the name.
+$ciFoldShown = Get-DisplayPath -Path $ciFold.Workflow
 
 # --- Step 0b: CAN THIS ACCOUNT PUSH THE FOLD AT ALL? (issue #1278) -------------------------------
 # THE SIBLING OF THE CHECK ABOVE, and the same half-state by a different route. Step 0a asks whether
@@ -671,7 +678,7 @@ if ($trunkHolder -and -not $queueActive -and $ciFold.Recovered) {
     # be taken back.
     $foldDeferredToCi = $true
     Write-Host "ship-pr: 'main' is held by another worktree ($trunkHolder) -- this run will MERGE and leave the fold to CI (#2087)." -ForegroundColor Cyan
-    Write-Host "  $($ciFold.Workflow) runs on every push to 'main' and folds what it finds there (#1493), so the fold is not lost -- it is somebody else's." -ForegroundColor DarkGray
+    Write-Host "  $ciFoldShown runs on every push to 'main' and folds what it finds there (#1493), so the fold is not lost -- it is somebody else's." -ForegroundColor DarkGray
     Write-Host "  Nothing is taken away from that worktree, and step 5 will not touch the trunk." -ForegroundColor DarkGray
 }
 if ($trunkHolder -and -not $queueActive -and -not $ciFold.Recovered) {
@@ -1350,9 +1357,16 @@ function Wait-ForwardedCertificate {
             # function's own design -- which would read as "finished" -- so the payload is required to be
             # non-empty before the emptiness is believed. That is the one place this poll is stricter
             # than step 3, and it is stricter in the direction of waiting rather than merging.
+            #
+            # BOTH PAYLOADS ARE REQUIRED TO BE NON-EMPTY, not just the check one. This poll is only
+            # reached when the ruleset names a required check, so an empty `--required` payload here is
+            # a transient read failure rather than "this repo requires nothing" -- and trusting it would
+            # hand the caller a verdict that re-parses the same empty payload, correctly reads it as
+            # blocked, and refuses with "the required check went RED" about a check nobody could read.
+            # Timing out instead says what actually happened.
             $unfinished = $null
             try { $unfinished = @((Get-MergeBlockVerdict -RequiredChecksJson $facts.Required -ChecksJson $facts.Checks).UnfinishedRequired) } catch { $unfinished = $null }
-            if ($null -ne $unfinished -and $facts.Checks -and $unfinished.Count -eq 0) { return $facts }
+            if ($null -ne $unfinished -and $facts.Checks -and $facts.Required -and $unfinished.Count -eq 0) { return $facts }
         }
 
         $elapsed = [int][math]::Round(((Get-Date) - $began).TotalSeconds)
@@ -1764,27 +1778,15 @@ while ($true) {
     # INSIDE THE LOOP SINCE #1219, and that is where they were already going to be needed: the retry
     # decision is made from this same payload, so reading it per attempt costs a dropped watch two gh
     # calls and costs the ordinary run -- one attempt -- exactly what it cost before.
-    $checkFactsJson = ''
-    $requiredFactsJson = ''
-    try {
-        # `link` rides along for inbound #1044: it is the only field in this payload that names the
-        # Actions RUN behind a check, and the fact separating "the job never started" from "a check went
-        # red" lives on the run rather than on the check. It costs nothing on a green run -- the block
-        # that reads it is inside the refusal below.
-        $checkFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--json', 'name,bucket,state,startedAt,completedAt,link', '--repo', $repo)
-        if ($checkFacts.ExitCode -eq 0) { $checkFactsJson = $checkFacts.Output -join "`n" }
-        # `--required` exits non-zero on a repo whose ruleset requires nothing, which is a legitimate state
-        # and not an error. For the wait report the label is then simply omitted rather than guessed; for
-        # the verdict it is the case that keeps refusing, since "requires nothing" and "the required checks
-        # have not reported" are indistinguishable from here.
-        $requiredFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--required', '--json', 'name,bucket,state,startedAt,completedAt', '--repo', $repo)
-        if ($requiredFacts.ExitCode -eq 0) { $requiredFactsJson = $requiredFacts.Output -join "`n" }
-    } catch {
-        $checkFactsJson = ''
-        $requiredFactsJson = ''
-    }
+    # THE TWO CALLS ARE Get-CheckFactsNow's, AND THIS IS THE SITE IT WAS LIFTED OUT OF (issue #2087).
+    # They were written out here; step 3b's forward lap needs the identical pair after the branch has
+    # been brought forward, and a second hand-written copy of the payload every downstream verdict is
+    # made from is the drift this file has already paid for elsewhere. The function's own header carries
+    # the field list's reasoning -- `link` for inbound #1044, and why a non-zero `--required` is a
+    # legitimate state rather than an error.
+    $freshCheckFacts = Get-CheckFactsNow -Pr "$pr" -Repo $repo
+    $checkFactsJson = $freshCheckFacts.Checks
+    $requiredFactsJson = $freshCheckFacts.Required
 
     # THE WATCH MODE FOLLOWS THE FRESHEST READING (issue #1602). The probe above ran before the first
     # watch, when a required workflow may not have created its check run yet; this read is one watch
@@ -2342,11 +2344,21 @@ certificate anyway.
                         $conflictHint = if ($updateOutcome.Outcome -eq 'conflict') {
                             "`n`nThis is a CONFLICT between 'main' and this branch, which no number of laps can clear. Merge 'main' in by hand, resolve it, and push."
                         } else { '' }
+                        # GITHUB'S SENTENCE IS FOREIGN TEXT, SO IT IS STRIPPED AND CAPPED BEFORE IT IS
+                        # RELAYED. This is the same class as Get-AuthoredFailureNote's relay of a failing
+                        # workflow's own annotation (#1103, stripped since #1612) and it gets the same
+                        # treatment for the same reason: a control or format character in a message this
+                        # run did not author repaints the terminal, and an RTL override makes a refusal
+                        # read as something other than what it says. Capped at 500, the bound that relay
+                        # already uses -- an API error is a sentence, and anything past that is a payload.
+                        $updateSaid = ConvertTo-ConsoleStrippedText -Text $updateOutcome.Message
+                        if ($updateSaid.Length -gt 500) { $updateSaid = $updateSaid.Substring(0, 500) + ' [...]' }
+                        if (-not $updateSaid.Trim()) { $updateSaid = '(gh printed nothing readable)' }
                         Write-Error @"
 stale-CI certificate: PR #$pr could not be brought up to date with 'main' -- NOT merged (issue #2087).
 
 GitHub's own answer to 'PUT repos/$repo/pulls/$pr/update-branch':
-$($updateOutcome.Message)$conflictHint
+$updateSaid$conflictHint
 
 The certificate is still stale, so nothing has been merged. -SkipStaleCheck ships on the old
 certificate anyway; -MaxForwardLaps 0 refuses on the first stale reading and prints the manual remedy.
@@ -2821,7 +2833,7 @@ PR that is already queued is a no-op gh reports on its own terms.
     # the trigger it has to carry, which is what Get-CiFoldRecoveryVerdict matches on. The verdict is
     # already in hand from step 0a, so this arm now costs nothing at all.
     if ($ciFold.Recovered) {
-        Write-Host "  $($ciFold.Workflow) folds the entry off that push (#1493) -- not this session (#1506)." -ForegroundColor DarkGray
+        Write-Host "  $ciFoldShown folds the entry off that push (#1493) -- not this session (#1506)." -ForegroundColor DarkGray
     } else {
         Write-Host "  NOTHING HERE FOLDS THAT ENTRY -- $($ciFold.Reason)," -ForegroundColor Yellow
         Write-Host "  and under a queue the fold is not this session's to make (#1506): the merge lands in a" -ForegroundColor Yellow
@@ -3007,9 +3019,18 @@ $foldScript = Join-Path $PSScriptRoot 'fold-changelog-entry.ps1'
 # a new failure mode: the fold simply is not this run's, and step 5c's "already folded upstream" case
 # (#1792) is the same sentence arriving by the same runner a few seconds later.
 if ($foldDeferredToCi) {
-    Write-Host "ship-pr: not folding here -- $($ciFold.Workflow) folds off the merge's own push to 'main' (#2087)." -ForegroundColor Cyan
+    Write-Host "ship-pr: not folding here -- $ciFoldShown folds off the merge's own push to 'main' (#2087)." -ForegroundColor Cyan
     Write-Host "  'main' is held by $trunkHolder, so this checkout has no trunk to fold in and is not taking one." -ForegroundColor DarkGray
-    Write-Host "  Watch it: gh run list --workflow=$($ciFold.Workflow) --limit 3" -ForegroundColor DarkGray
+    # THE PROSE NAME AND THE PASTEABLE ONE ARE NOT THE SAME STRING (issue #1594's distinction, one file
+    # type over). $ciFoldShown is stripped so it cannot repaint this terminal -- which means it is no
+    # longer the filename gh has to be given. Where the two agree, which is every name a repo actually
+    # has, the command is printed as-is; where they do not, printing it would hand over a line that
+    # cannot work, so the unfiltered command is printed instead and the name stays in the prose above.
+    if ($ciFoldShown -eq $ciFold.Workflow) {
+        Write-Host "  Watch it: gh run list --workflow=$ciFoldShown --limit 3" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  Watch it: gh run list --limit 5  (the workflow's name carries characters this console will not print)" -ForegroundColor DarkGray
+    }
     # NOT A SILENT SKIP, AND THE DETECTOR IS WHY THIS IS SAFE TO SAY SO PLAINLY. If the runner does not
     # fold -- it fails, its token has expired, somebody deleted it between step 0a and here --
     # check-unfolded-entry.ps1 reports the leftover from a SessionStart hook in every consumer and from
@@ -3478,19 +3499,17 @@ if (-not $watchNarrowed) {
 
     # Best-effort by construction, like every diagnostic in this file: a read that throws costs this
     # report and never the ship, which has already landed.
-    $tailFactsJson = ''
-    $tailRequiredJson = ''
-    try {
-        $tailFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--json', 'name,bucket,state,startedAt,completedAt,link', '--repo', $repo)
-        if ($tailFacts.ExitCode -eq 0) { $tailFactsJson = $tailFacts.Output -join "`n" }
-        $tailRequired = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--required', '--json', 'name,bucket,state', '--repo', $repo)
-        if ($tailRequired.ExitCode -eq 0) { $tailRequiredJson = $tailRequired.Output -join "`n" }
-    } catch {
-        $tailFactsJson = ''
-        $tailRequiredJson = ''
-    }
+    # THE THIRD HAND-WRITTEN COPY OF THIS PAYLOAD, RETIRED WITH THE OTHER TWO (issue #2087). It asked for
+    # a NARROWER `--required` list than the pair at step 3 -- name,bucket,state where that one also takes
+    # startedAt and completedAt -- so Get-CheckFactsNow's answer is a SUPERSET of what this report reads,
+    # and the two extra fields cost nothing on a call this step was already making. What it buys is that
+    # the field list every verdict in this file is made from is written out once: a reader who needs to
+    # know what ship-pr asks gh for has one place to look, and a field added for one caller cannot go
+    # missing for another. Same best-effort posture as before -- the function swallows its own read
+    # failure and returns empty, which is exactly what this block's try/catch did.
+    $tailAllFacts = Get-CheckFactsNow -Pr "$pr" -Repo $repo
+    $tailFactsJson = $tailAllFacts.Checks
+    $tailRequiredJson = $tailAllFacts.Required
 
     # THE WAIT REPORTED IS THIS STEP'S OWN, not step 3's. Handing step 3's seconds here would double
     # count the required wait; handing this step's says what the tail actually cost after the merge,

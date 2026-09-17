@@ -120,6 +120,50 @@ on:
 "@
 Assert-True (-not (Test-PushTriggerOnBranch -WorkflowText $ignored -Branch 'main')) 'branches-ignore answers no without being evaluated'
 
+# A TAG FILTER WITH NO BRANCH FILTER FIRES ON TAG PUSHES AND NOT ON BRANCH PUSHES AT ALL. Reading
+# "no branches: key" as "every branch" is the false positive this case exists to pin -- and it needs
+# no unusual workflow to hit: a release runner is written exactly this way.
+$tagsOnly = @"
+on:
+  push:
+    tags: ['v*']
+"@
+Assert-True (-not (Test-PushTriggerOnBranch -WorkflowText $tagsOnly -Branch 'main')) 'a tags-only push trigger does not fire on the trunk'
+Assert-True (-not (Test-PushTriggerOnBranch -WorkflowText "on:`n  push:`n    tags-ignore: ['v*']" -Branch 'main')) '...and neither does a tags-ignore-only one'
+
+# BUT A TAG FILTER BESIDE A BRANCH FILTER STILL FIRES ON THE NAMED BRANCH.
+$tagsAndBranches = @"
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+"@
+Assert-True (Test-PushTriggerOnBranch -WorkflowText $tagsAndBranches -Branch 'main') 'a tag filter beside a branch filter does not cancel the branch'
+
+# A LIST ENTRY BELONGS TO THE KEY ABOVE IT. A paths: entry spelled exactly like the trunk must not
+# answer for branches:, which is what reading every dash-item in the push block did.
+$pathsNamedLikeTrunk = @"
+on:
+  push:
+    branches: [release]
+    paths:
+      - main
+"@
+Assert-True (-not (Test-PushTriggerOnBranch -WorkflowText $pathsNamedLikeTrunk -Branch 'main')) "a paths: entry spelled like the trunk does not answer for branches:"
+
+# AND THE MIRROR CASE: the branch list is read, and a later key does not end it early.
+$branchesThenPaths = @"
+on:
+  push:
+    branches:
+      - release
+      - main
+    paths:
+      - scripts/**
+"@
+Assert-True (Test-PushTriggerOnBranch -WorkflowText $branchesThenPaths -Branch 'main') 'a block branch list is read to its end, past a sibling key'
+Assert-True (-not (Test-PushTriggerOnBranch -WorkflowText $branchesThenPaths -Branch 'scripts/**')) '...and a sibling key entry is not read as a branch'
+
 # THE WORD 'push' IN A COMMENT OR A PATH MUST NOT READ AS A TRIGGER. This is why the key is matched by
 # indentation rather than by a bare search for the word.
 $mentionOnly = @"
@@ -152,6 +196,81 @@ jobs:
     runs-on: ubuntu-latest
 "@
 Assert-True (-not (Test-PushTriggerOnBranch -WorkflowText $pushBelowJobs -Branch 'main')) "a job named 'push' below the on: block is not a trigger"
+
+Write-Host ''
+Write-Host 'Test-WorkflowRunsScript -- a mention is not an invocation' -ForegroundColor Cyan
+
+# THE CASE THAT WAS LIVE IN THIS REPO. unfolded-entry.yml triggers on a push to the trunk and names the
+# fold script in a COMMENT on line 3, while running only the detector -- and the first build of this lib,
+# which asked the whole file text, qualified it. It was masked by alphabetical order: fold-on-merge.yml
+# is read first and the verdict stops at the first match. This assert is the recogniser being asked the
+# question directly, so the ordering cannot answer it.
+$commentOnly = @"
+# WHAT IT CATCHES. The fold (fold-changelog-entry.ps1) runs from exactly one place -- ship-pr.ps1.
+on:
+  push:
+    branches: [main]
+jobs:
+  detect:
+    steps:
+      - run: pwsh -File dkj/scripts/lint/check-unfolded-entry.ps1 -Branch main
+"@
+Assert-True (-not (Test-WorkflowRunsScript -WorkflowText $commentOnly -ScriptName 'fold-changelog-entry.ps1')) 'a mention in a header comment is NOT an invocation'
+$commentOnlyVerdict = Get-CiFoldRecoveryVerdict -Workflow @(New-Record 'unfolded-entry.yml' $commentOnly) -TrunkBranch 'main'
+Assert-Equal $false $commentOnlyVerdict.Recovered '...so the verdict does not read it as recovery'
+
+# AND THE SAME SHAPE THE ORDERING WAS HIDING: the commented one read FIRST, with no real runner behind it.
+$orderingTrap = Get-CiFoldRecoveryVerdict -Workflow @(
+    New-Record 'aaa-unfolded-entry.yml' $commentOnly
+    New-Record 'zzz-ci.yml' $pushNoFold
+) -TrunkBranch 'main'
+Assert-Equal $false $orderingTrap.Recovered 'a repo whose only mention is a comment has no recovery, whatever the file order'
+
+Assert-True (Test-WorkflowRunsScript -WorkflowText "jobs:`n  x:`n    steps:`n      - run: pwsh -File a/fold-changelog-entry.ps1 -Push" -ScriptName 'fold-changelog-entry.ps1') 'an inline run: naming the script IS an invocation'
+
+# THE BLOCK SCALAR FORM, which is how a multi-line step is written.
+$blockRun = @"
+jobs:
+  fold:
+    steps:
+      - name: fold
+        run: |
+          pwsh -NoProfile -File dkj/scripts/release/fold-changelog-entry.ps1 -Commit -Push
+      - run: echo done
+"@
+Assert-True (Test-WorkflowRunsScript -WorkflowText $blockRun -ScriptName 'fold-changelog-entry.ps1') 'a run: block scalar naming the script is an invocation'
+
+# A COMMENTED-OUT CALL INSIDE A RUN BLOCK IS NOT ONE. The language there is a shell, where '#' opens a
+# comment in both sh and PowerShell -- so this is the shape a disabled step actually takes.
+$commentedOutCall = @"
+jobs:
+  fold:
+    steps:
+      - run: |
+          # pwsh -File dkj/scripts/release/fold-changelog-entry.ps1 -Push
+          echo 'not folding today'
+"@
+Assert-True (-not (Test-WorkflowRunsScript -WorkflowText $commentedOutCall -ScriptName 'fold-changelog-entry.ps1')) 'a commented-out call inside a run: block is not an invocation'
+Assert-True (-not (Test-WorkflowRunsScript -WorkflowText "jobs:`n  x:`n    steps:`n      - run: echo hi  # fold-changelog-entry.ps1 used to run here" -ScriptName 'fold-changelog-entry.ps1')) '...nor is a comment tail on a run: line'
+
+# THE BLOCK ENDS AT THE KEY'S OWN DEPTH. A mention in a LATER key of the same step -- 'with:', 'env:',
+# 'if:' -- is not the command.
+$afterBlock = @"
+jobs:
+  fold:
+    steps:
+      - run: |
+          echo hello
+        env:
+          NOTE: fold-changelog-entry.ps1
+"@
+Assert-True (-not (Test-WorkflowRunsScript -WorkflowText $afterBlock -ScriptName 'fold-changelog-entry.ps1')) 'a mention in a sibling key after the run: block is not an invocation'
+
+# 'uses:' IS DELIBERATELY NOT ACCEPTED -- it names an action, not a script. A consumer folding through a
+# composite action reads as no recovery, which costs them the refusal they already had.
+Assert-True (-not (Test-WorkflowRunsScript -WorkflowText "jobs:`n  x:`n    steps:`n      - uses: ./.github/actions/fold-changelog-entry.ps1" -ScriptName 'fold-changelog-entry.ps1')) 'a uses: step is not read as running the script'
+
+Assert-True (-not (Test-WorkflowRunsScript -WorkflowText '' -ScriptName 'fold-changelog-entry.ps1')) 'empty text runs nothing'
 
 Write-Host ''
 Write-Host 'Get-CiFoldRecoveryVerdict -- both conditions are required' -ForegroundColor Cyan

@@ -27,14 +27,48 @@
     WHY A LAP CONVERGES WHERE A HUMAN LOOP DOES NOT. The window that voids a certificate is roughly as
     long as CI; the human loop adds however long it takes somebody to read a refusal, retype four
     commands and come back -- which on a busy trunk is most of the day. Run by the script, each lap is
-    CI-bound, and each lap at least one contending lane is certified after the last merge and wins. That
-    is one merge per CI cycle rather than none: five lanes drain in about half an hour instead of never.
+    CI-bound, and each lap at least one contending lane is certified after the last merge and wins.
 
-    THE PRICE, STATED RATHER THAN HIDDEN. Losing lanes re-run CI, so N contending lanes cost about
-    N(N+1)/2 runs instead of N -- fifteen runs for five lanes. It buys a trunk that drains, and it is
-    only paid when several lanes ship at once. FAIRNESS IS NOT GUARANTEED: a lane can lose the race
-    repeatedly, which is what the lap bound is for -- on exhaustion the run refuses with the message it
-    always had, plus a sentence naming the laps it spent.
+    AND THAT IS A CLAIM ABOUT THE TRUNK, NOT ABOUT ANY PARTICULAR LANE. Written first as "five lanes
+    drain in about half an hour", it was red-teamed on the branch that introduced it and does not hold
+    in that form. One lap absorbs exactly ONE trunk merge, so a lane contending with N others may need
+    up to N laps -- the winner spends none, the last one spends N-1 -- and at the default of 2 the
+    deepest lanes of a five-way contention still refuse. What converges is the TRUNK's throughput: one
+    merge per CI cycle instead of none. A given lane is not promised a landing, and a lane that keeps
+    losing exhausts its budget and gets exactly the refusal this was built to replace.
+
+    SO THE DEFAULT IS SIZED FOR ORDINARY CHURN, NOT FOR A DRAINING QUEUE. Two laps absorb the one or two
+    merges that land during an ordinary ship, which is the case #2087 measured most of. Deep contention
+    needs the budget raised, and the exhaustion refusal says so in as many words rather than leaving the
+    operator to infer it from a number.
+
+    THE TRIGGER IS "THE TRUNK MOVED", NOT "SEVERAL LANES ARE SHIPPING" -- and that distinction is the one
+    a consumer feels. Step 3b fires on any qualifying commit landing between the certifying run and the
+    merge: a scheduled bump, an unrelated direct push, somebody else's docs branch. So a SOLO repo with
+    one lane pays this too, and what it pays is not only CI minutes: a lap PUSHES A MERGE COMMIT TO THAT
+    BRANCH, made by GitHub, without asking. That is precisely what the printed remedy always told the
+    operator to do by hand, which is the argument for doing it -- but it is a write to somebody's branch
+    that they did not type, so it is stated here rather than discovered.
+
+    THE PRICE IN CI, STATED RATHER THAN HIDDEN. Losing lanes re-run CI, so N contending lanes cost about
+    N(N+1)/2 runs instead of N -- fifteen for five -- and that figure is an UPPER BOUND reached only with
+    a lap budget deep enough to let the model finish. FAIRNESS IS NOT GUARANTEED and the lap bound is a
+    stop-loss rather than a fairness mechanism: the race favours whoever is certified most recently,
+    which is the lane with the fastest suite and the smallest diff.
+
+    AND IT NEEDS THE SESSION ALIVE. A backgrounded ship is a child process of the harness and dies with
+    it, which the lap does not change -- so a lane whose operator closes the harness mid-wait simply
+    stops lapping, with nothing said until somebody re-runs ship-pr. "CI-bound rather than human-bound"
+    is about the WAIT, not about the session.
+
+    A FIFO TICKET WAS NAMED AND NOT TAKEN, and it is the strongest alternative on the table. Letting only
+    the OLDEST open, currently-mergeable PR forward at a time -- readable with one `gh pr list --sort
+    created` and the same update-branch call -- would cut the cost from O(N^2) to O(N) and remove the
+    starvation this design concedes, on no GitHub plan feature at all. It is not taken here because it
+    needs a shared "whose turn is it" answer that two sessions agree on, and the failure mode of getting
+    that wrong is a lane that waits forever on a head-of-queue whose session has died -- a bigger design
+    than the one #2087 asked for, and one that reintroduces the serialisation the lanes exist to avoid.
+    Recorded so the next reader meets it as a considered option rather than a gap.
 
     AND THIS IS NOT A MERGE QUEUE, DELIBERATELY. The mechanism that removes the race by construction was
     retired as policy on 2026-09-07 (#1546) because most repos running this workflow cannot have one --

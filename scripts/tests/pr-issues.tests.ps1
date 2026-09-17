@@ -1179,8 +1179,17 @@ Assert-True ($shipText -like '*Get-StalledRunNote -RunJson*') 'and asks whether 
 Assert-True ($shipText -like '*startedAt,completedAt,link*') 'which needs the link field, the only one naming the run behind a check'
 Assert-True ($shipText -like '*CI never RAN for PR*') 'and a stalled run gets its own lead sentence rather than "CI did not pass"'
 Assert-True ($shipText -like '*Fix CI and re-run, or merge manually once green.*') 'while an ordinary red check keeps the wording that is correct for it'
-$idxWatch   = $shipText.IndexOf("'--watch'")
-$idxVerdict = $shipText.IndexOf('Get-MergeBlockVerdict')
+# MEASURED FROM STEP 3'S OWN BANNER, NOT FROM THE TOP OF THE FILE (issue #2087). These are position
+# asserts over source text, so they are only about the wait as long as both indices are inside the wait.
+# Since #2087 ship-pr defines two helper functions ABOVE step 3 -- Get-CheckFactsNow and
+# Wait-ForwardedCertificate, the latter of which consults Get-MergeBlockVerdict for its own poll -- so a
+# whole-file IndexOf finds the verdict before the watch and reports a wait that has not moved as broken.
+# The claim being pinned is unchanged; what changed is that the file now has more than one caller of the
+# verdict, and the assert has to say WHICH one it means.
+$idxStep3 = $shipText.IndexOf('# --- Step 3: wait for the required CI check')
+Assert-True ($idxStep3 -ge 0) "step 3's banner is where this suite anchors its ordering asserts"
+$idxWatch   = $shipText.IndexOf("'--watch'", $idxStep3)
+$idxVerdict = $shipText.IndexOf('Get-MergeBlockVerdict', $idxStep3)
 Assert-True ($idxWatch -ge 0 -and $idxVerdict -gt $idxWatch) 'the wait still happens FIRST and the verdict second -- #831 kept the wait, #943 changed only the verdict'
 
 # AND THE GREEN PATH READS THE PENDING LIST (inbound #1549). The field asserts above prove the function
@@ -1260,15 +1269,25 @@ Assert-True ($lostNoId -notlike '*gh pr checks  --watch*') 'and no command is pr
 Assert-True ($shipText -like '*Get-LostWatchNote -ChecksJson*') 'ship-pr.ps1 asks whether a non-zero watch was the connection rather than a check (#1219)'
 Assert-True ($shipText -like '*maxWatchAttempts*') 'and the retry is BOUNDED rather than a loop with no ceiling'
 Assert-True ($shipText -like '*CI is still RUNNING for PR*') 'a dropped watch gets its own lead sentence, beside "CI never RAN" and "CI did not pass"'
-$idxWatchCall = $shipText.IndexOf("'--watch'")
-$idxLost      = $shipText.IndexOf('Get-LostWatchNote -ChecksJson')
+# ANCHORED AT STEP 3'S BANNER for the reason given at the first ordering block above (#2087).
+$idxWatchCall = $shipText.IndexOf("'--watch'", $idxStep3)
+$idxLost      = $shipText.IndexOf('Get-LostWatchNote -ChecksJson', $idxStep3)
 Assert-True ($idxLost -gt $idxWatchCall) 'the read happens AFTER the watch it is diagnosing'
 # The retry needs the check payload, so the fact-pair read moved inside the loop -- and the loop has to
 # close after it, or the second attempt would judge the first attempt's payload.
-$idxLoopHead  = $shipText.IndexOf('$watchAttempt++')
+$idxLoopHead  = $shipText.IndexOf('$watchAttempt++', $idxStep3)
 Assert-True ($idxLoopHead -ge 0 -and $idxLoopHead -lt $idxWatchCall) 'the watch call sits inside the attempt loop rather than before it'
-$idxFacts     = $shipText.IndexOf('startedAt,completedAt,link')
+# THE PAYLOAD IS NOW READ THROUGH Get-CheckFactsNow (issue #2087), so the per-attempt read is pinned on
+# the CALL rather than on the field list -- the field list itself moved into that function, which sits
+# above step 3, and asserting on it here would pass on a definition instead of on a read. The field list
+# is still asserted separately above, where the claim is that ship-pr asks for `link` at all.
+$idxFacts     = $shipText.IndexOf('Get-CheckFactsNow -Pr', $idxStep3)
 Assert-True ($idxFacts -gt $idxWatchCall -and $idxFacts -lt $idxLost) 'and the check facts are re-read per attempt, which is what the decision is made from'
+# AND THE FUNCTION IS DEFINED ONCE AND CALLED TWICE -- step 3's per-attempt read and step 3b's forward
+# lap. Its own docstring says it was lifted out of step 3, and a caller left hand-written there would
+# make that sentence false while leaving three live copies of the payload in one file (#2087).
+Assert-True ([regex]::Matches($shipText, 'Get-CheckFactsNow -Pr').Count -ge 2) 'Get-CheckFactsNow has both its callers -- step 3 and the forward lap'
+Assert-True ([regex]::Matches($shipText, 'name,bucket,state,startedAt,completedAt,link').Count -eq 1) 'and the payload shape it reads is written out exactly once'
 
 
 # --- issue #1350: the watch started BEFORE the checks registered ---------------------------------
@@ -2239,16 +2258,31 @@ Assert-Equal 0 $mqOnly.Blocking.Count 'and merge_queue is NOT a fold-push blocke
 # the refusal fires only where -not $queueActive. Same shape and justification #1506 gave the fold-push
 # verdict one block down. Without these asserts a later edit can slide the refusal back above the verdict
 # and re-break the lane workflow with every helper test still green -- this file is ship-pr's only caller.
+# AND SINCE #2087 THE REFUSAL CARRIES A SECOND GATE, on the same reasoning one axis over: the ground
+# "step 5 could not fold" stopped being queue-specific when fold-on-merge.yml began folding off EVERY
+# push to the trunk (#1493), so the refusal now also stands down where a CI runner folds. The ordering
+# claim is unchanged and so is its reason -- what these asserts pin is that BOTH stand-downs are known
+# before the refusal, and that neither of them is the one that got dropped in a later edit.
 $idxTrunkRead   = $shipText.IndexOf('Get-WorktreeHoldingBranch -PorcelainLines')
 $idxQueueRead   = $shipText.IndexOf('Get-MergeQueueVerdict -BranchRulesJson')
-$idxTrunkRefuse = $shipText.IndexOf('if ($trunkHolder -and -not $queueActive)')
+$idxCiFoldRead  = $shipText.IndexOf('Get-CiFoldRecoveryVerdict -Workflow')
+$idxTrunkRefuse = $shipText.IndexOf('if ($trunkHolder -and -not $queueActive -and -not $ciFold.Recovered)')
 $idxTrunkNote   = $shipText.IndexOf('if ($trunkHolder -and $queueActive)')
+$idxTrunkDefer  = $shipText.IndexOf('if ($trunkHolder -and -not $queueActive -and $ciFold.Recovered)')
 Assert-True ($idxTrunkRead -ge 0) 'ship-pr.ps1 reads whether another worktree holds the trunk (#1069)'
-Assert-True ($idxTrunkRefuse -ge 0) 'and its refusal is gated on -not $queueActive (#1572)'
+Assert-True ($idxTrunkRefuse -ge 0) 'and its refusal is gated on -not $queueActive (#1572) AND on no CI fold runner (#2087)'
 Assert-True ($idxTrunkRead -lt $idxQueueRead) 'the free local worktree read runs before the network queue read -- the network read must not cost the local one'
 Assert-True ($idxQueueRead -lt $idxTrunkRefuse) 'and the queue verdict is known BEFORE the trunk-holder refusal, so a lane ship is not refused on a queue where step 5 folds nothing'
+Assert-True ($idxCiFoldRead -ge 0 -and $idxCiFoldRead -lt $idxTrunkRefuse) 'and so is the CI-fold verdict, for the same reason one axis over (#2087)'
 Assert-True ($idxTrunkNote -ge 0 -and $idxTrunkNote -gt $idxQueueRead) 'under a queue the held trunk is noted, not refused'
+Assert-True ($idxTrunkDefer -ge 0 -and $idxTrunkDefer -lt $idxTrunkRefuse) 'and where a runner folds, the deferring arm is reached before the refusing one'
 Assert-True ($shipText -like '*not a blocker under a queue: step 5 folds nothing here (#1572)*') 'and the note says why, naming the issue'
+# THE DEFERRED DECISION IS TAKEN ONCE, BEFORE THE MERGE, AND ONLY READ AFTER IT. Re-deriving it at step 5
+# would be a second chance to get it wrong on the far side of an irreversible act, and the fold body plus
+# step 5b both have to honour it -- a merge with the flag set that then folds anyway takes a trunk this
+# clone cannot give.
+Assert-True ($shipText -like '*if (-not $foldDeferredToCi) {*') "step 5's fold body is guarded by the deferred flag (#2087)"
+Assert-True ($shipText -like '*if (-not $foldDeferredToCi -and -not $foldTree -and -not $shipTreeIsPrimary)*') 'and step 5b does not hand back a trunk it never took'
 
 # --- Get-RequiredCheckRunIds: which Actions run sits behind a named check? (issue #1292 re-anchor) ---
 # THE RE-ANCHOR: the retired Get-CertifyingRunTimestamp read a check's own startedAt directly out of

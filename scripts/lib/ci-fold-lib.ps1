@@ -184,30 +184,145 @@ function Test-PushTriggerOnBranch {
     }
     if ($pushIndent -lt 0) { return $false }
 
-    # PUSH WITH NO FILTER AT ALL RUNS ON EVERY BRANCH. That is GitHub's documented default, and it is
-    # the shape a minimal fold runner is most likely to be written in.
+    # THE FILTER KEYS ARE READ AS A SET FIRST, and the branch list is read only from under its OWN key.
+    # Both halves of that are repairs of a first build that asked simpler questions:
+    #
+    #   - "no `branches:` key means every branch" is WRONG when a tag filter is present. GitHub runs a
+    #     `push:` carrying only `tags:` (or `tags-ignore:`) on TAG pushes and not on branch pushes at
+    #     all, so reading it as "every branch" is a false positive -- the expensive direction, and one
+    #     no consumer's own workflow has to be unusual to hit.
+    #   - reading every `- <item>` in the whole push sub-block lets a `paths:` entry spelled exactly
+    #     like the trunk (`- main`) answer for `branches:`. That was noted as an accepted limitation in
+    #     the first build; it is cheaper to read the list properly than to keep explaining it.
+    $wanted = $Branch.Trim()
+    $branchesIndent = -1
     $hasBranches = $false
     $hasIgnore = $false
-    foreach ($line in $sub) {
-        if ($line -match '^\s*(?:branches-ignore|tags-ignore)\s*:') { $hasIgnore = $true }
-        elseif ($line -match '^\s*branches\s*:') { $hasBranches = $true }
-    }
-    if ($hasIgnore) { return $false }
-    if (-not $hasBranches) { return $true }
+    $hasTagFilter = $false
+    $inBranchList = $false
 
-    # THE NAME, IN EITHER FORM. The flow form sits on the `branches:` line; the block form is the
-    # `- <name>` entries under it, read without tracking depth a second time -- a `push:` sub-block
-    # carrying another list (`paths:`) would need an entry equal to the trunk's own name to produce a
-    # false positive, and a path spelled exactly like the branch is not a shape this defends against.
-    $wanted = $Branch.Trim()
     foreach ($line in $sub) {
-        if ($line -match '^\s*branches\s*:\s*\[(.*)\]\s*$') {
-            $items = @($Matches[1] -split ',' | ForEach-Object { $_.Trim().Trim("'", '"') })
-            if ($items -contains $wanted) { return $true }
+        if ($line -match '^\s*$' -or $line -match '^\s*#') { continue }
+        $null = $line -match '^(\s*)'
+        $indent = $Matches[1].Length
+
+        # A LIST ENTRY BELONGS TO THE KEY ABOVE IT, and the key's own indent is what ends the list.
+        if ($inBranchList) {
+            if ($indent -le $branchesIndent) { $inBranchList = $false }
+            elseif ($line -match '^\s*-\s*(.+?)\s*$') {
+                $item = ($Matches[1].Trim() -split '\s+#')[0].Trim().Trim("'", '"')
+                if ($item -eq $wanted) { return $true }
+                continue
+            } else { continue }
         }
-        if ($line -match '^\s*-\s*(.+?)\s*$') {
-            $item = ($Matches[1].Trim() -split '\s+#')[0].Trim().Trim("'", '"')
-            if ($item -eq $wanted) { return $true }
+
+        if ($line -match '^\s*(branches|branches-ignore|tags|tags-ignore)\s*:\s*(.*)$') {
+            $key = $Matches[1]
+            $value = $Matches[2].Trim()
+            switch ($key) {
+                'branches-ignore' { $hasIgnore = $true }
+                'tags-ignore'     { $hasTagFilter = $true }
+                'tags'            { $hasTagFilter = $true }
+                'branches'        {
+                    $hasBranches = $true
+                    if ($value -match '^\[(.*)\]$') {
+                        $items = @($Matches[1] -split ',' | ForEach-Object { $_.Trim().Trim("'", '"') })
+                        if ($items -contains $wanted) { return $true }
+                    } elseif (-not $value) {
+                        # A block sequence follows: its entries are the lines deeper than this key.
+                        $branchesIndent = $indent
+                        $inBranchList = $true
+                    }
+                }
+            }
+        }
+    }
+
+    # `branches-ignore:` ANSWERS NO WITHOUT BEING EVALUATED -- see this function's own description.
+    if ($hasIgnore) { return $false }
+    # A BRANCH LIST THAT DID NOT NAME THE TRUNK IS A NO, whatever else the block carries.
+    if ($hasBranches) { return $false }
+    # NO BRANCH FILTER, BUT A TAG ONE: this workflow fires on tag pushes and not on branch pushes.
+    if ($hasTagFilter) { return $false }
+    # PUSH WITH NO FILTER AT ALL RUNS ON EVERY BRANCH. That is GitHub's documented default, and it is
+    # the shape a minimal fold runner is most likely to be written in.
+    return $true
+}
+
+function Test-WorkflowRunsScript {
+    <#
+    .SYNOPSIS
+        Does this workflow actually RUN $ScriptName, as opposed to merely mentioning it?
+
+    .DESCRIPTION
+        THE FALSE POSITIVE THIS CLOSES WAS LIVE IN THE SOURCE REPO, which is why it is a function
+        rather than a sharpened regex. The first build asked `$body -match <script name>` over the
+        whole file, and this repo has TWO workflows that trigger on a push to the trunk and name
+        fold-changelog-entry.ps1: fold-on-merge.yml, which runs it, and unfolded-entry.yml, which
+        mentions it in a COMMENT on line 3 while running only the detector. The second one qualified.
+
+        IT WAS MASKED BY ALPHABETICAL ORDER, AND THAT IS THE WORST PART. Get-ChildItem returns
+        fold-on-merge.yml first, the verdict stops at the first qualifying file, and the suite's assert
+        on the real directory passed -- on the ordering, not on the recogniser. Rename or delete the
+        real runner and this repo would have believed CI folds while nothing did, which is the
+        merged-and-unfolded state this whole file exists to avoid producing.
+
+        SO THE MENTION HAS TO SIT IN A COMMAND. A `run:` step is what executes something; a comment, a
+        `paths:` filter, a job name and a workflow description do not. `uses:` is deliberately NOT
+        accepted: it names an action rather than a script, so a consumer folding through a composite
+        action reads as no recovery -- a false negative, which costs the refusal they already had.
+
+        BOTH RUN FORMS, because a workflow writes either. An inline `run: pwsh -File ...` carries the
+        command on the key's own line; a block scalar (`run: |`) carries it on the lines indented under
+        it, and those end at the first line back at the key's own depth or shallower.
+
+        A COMMENT IS DROPPED WHEREVER IT SITS -- a whole line, or the tail of one. Inside a `run:` block
+        the language is a shell, where `#` opens a comment in both sh and PowerShell, so a commented-out
+        call is exactly the thing this must not read as a fold. The tail is cut on whitespace-then-hash
+        so a value legitimately carrying one is not cut in half; a `#` inside a quoted string would cut
+        early, which loses the mention and answers no. That is the safe direction, and it is the file
+        header's ambiguity rule reaching one layer further in.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$WorkflowText,
+        [Parameter(Mandatory = $true)][string]$ScriptName
+    )
+
+    if (-not $WorkflowText) { return $false }
+    $needle = [regex]::Escape($ScriptName)
+    $lines = $WorkflowText -split "`r`n|`n|`r"
+
+    $runIndent = -1
+    foreach ($line in $lines) {
+        # A whole-line comment is never a command, inside a block or outside one.
+        if ($line -match '^\s*#') { continue }
+
+        if ($runIndent -ge 0) {
+            if ($line -match '^\s*$') { continue }
+            $null = $line -match '^(\s*)'
+            if ($Matches[1].Length -le $runIndent) {
+                # Back at the key's own depth or shallower: the block has ended. Fall through so this
+                # same line can still open a `run:` of its own -- the next step in the same list.
+                $runIndent = -1
+            } else {
+                if ((($line -split '\s+#')[0]) -match $needle) { return $true }
+                continue
+            }
+        }
+
+        # THE KEY ITSELF. The optional '- ' is the sequence marker of a step whose first key is `run`,
+        # and the indent that matters is the KEY's, not the marker's, because that is what the block's
+        # own lines are measured against.
+        if ($line -match '^(\s*)((?:-\s+)?)run\s*:\s*(.*)$') {
+            # THE MARKER'S WIDTH COUNTS TOWARDS THE KEY'S COLUMN. '      - run: |' puts `run` at column
+            # 8, not 6, and the step's sibling keys (`env:`, `with:`, `if:`) sit at that same 8 -- so
+            # measuring from the dash reads them as part of the block and any script name under them as
+            # a command. Caught by this file's own suite, against the comment two lines up that already
+            # said the key's indent was what mattered.
+            $keyIndent = $Matches[1].Length + $Matches[2].Length
+            $value = $Matches[3].Trim()
+            if ($value -match '^[|>][+-]?\d*$') { $runIndent = $keyIndent; continue }
+            if ($value -and (($value -split '\s+#')[0]) -match $needle) { return $true }
         }
     }
     return $false
@@ -267,8 +382,10 @@ function Get-CiFoldRecoveryVerdict {
         $readable++
         if ($found) { continue }
         $body = [string]$text
-        # The filename is data here, so it is escaped rather than trusted to carry no metacharacter.
-        if ($body -notmatch [regex]::Escape($FoldScriptName)) { continue }
+        # THE MENTION HAS TO BE A COMMAND, not a substring of the file. See Test-WorkflowRunsScript:
+        # asking the whole text qualified this repo's own unfolded-entry.yml, which triggers on a push
+        # to the trunk and names the fold script in a comment while running only the detector.
+        if (-not (Test-WorkflowRunsScript -WorkflowText $body -ScriptName $FoldScriptName)) { continue }
         if (Test-PushTriggerOnBranch -WorkflowText $body -Branch $TrunkBranch) { $found = $name }
     }
 
@@ -276,7 +393,7 @@ function Get-CiFoldRecoveryVerdict {
         if ($found)                 { '' }
         elseif ($files.Count -eq 0) { 'no workflow files were found' }
         elseif ($readable -eq 0)    { 'no workflow file could be read' }
-        else                        { "no workflow runs on a push to '$TrunkBranch' and names $FoldScriptName" }
+        else                        { "no workflow runs $FoldScriptName on a push to '$TrunkBranch'" }
 
     return [pscustomobject]@{
         Recovered = [bool]$found

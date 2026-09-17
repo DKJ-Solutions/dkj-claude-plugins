@@ -372,12 +372,12 @@ back is still `worktree-lane.ps1 -HandBack`, and it is still the better move tha
 
 The refusal's whole ground is *"step 5 could not fold after the merge"*, and that was exactly right when
 #1069 wrote it: the local fold was the only fold there was. Since
-[#1493](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1493) it is not —
+[#1493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1493) it is not —
 `fold-on-merge.yml` triggers on `push: branches: [main]`, which is **every** push to the trunk and not
 only a merge queue's. This script has relied on that on the ordinary path since #1792, whose step 5c
 calls a fold *lost* to that runner a success rather than a failed ship.
 
-The refusal was already skipped under a merge queue ([#1572](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1572)),
+The refusal was already skipped under a merge queue ([#1572](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1572)),
 on the ground that this session never folds there — and the same sentence is true of **any** repo whose
 trunk is folded by a runner, queue or no queue. So what is read now is the runner.
 
@@ -661,19 +661,41 @@ way to merge on an old certificate.
 
 | what the lap does | why it is that and not the printed remedy |
 |---|---|
-| `PUT repos/<o>/<r>/pulls/<n>/update-branch` | GitHub merges the base into the head **server-side**, so it needs no checkout, no clean tree and no opinion about where `HEAD` is standing — the three things that made the printed remedy fail silently ([#1588](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1588)). An API call cannot fast-forward the wrong branch. |
+| `PUT repos/<o>/<r>/pulls/<n>/update-branch` | GitHub merges the base into the head **server-side**, so it needs no checkout, no clean tree and no opinion about where `HEAD` is standing — the three things that made the printed remedy fail silently ([#1588](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1588)). An API call cannot fast-forward the wrong branch. |
 | waits for the run **id** to change, then for it to finish | For a few seconds after a forward the check API still answers with the **previous** run — completed, green, certifying a head that no longer exists. A wait that believed it would spend the whole budget in seconds without ever waiting for CI. |
 | fast-forwards this checkout's own `refs/heads/<branch>` | Step 4 reads the step list and the DEPLOY lock from that ref, on the stated invariant that it **is** the PR's head commit. The forward breaks that invariant, and merging while the two disagree would gate the merge on a document the PR does not contain. Both routes are fast-forward-only, so a local commit made during the CI wait is refused rather than discarded. |
 
-**Why it converges.** Each lap is CI-bound rather than human-bound, and each lap at least one contending
-lane is certified *after* the last merge and wins. That is one merge per CI cycle rather than none: five
-lanes drain in about half an hour instead of never.
+**What converges is the trunk's throughput, not any particular lane.** Each lap is CI-bound rather than
+human-bound, so each cycle at least one contending lane is certified *after* the last merge and wins:
+one merge per CI cycle instead of none.
 
-**What it costs, stated rather than hidden.** Losing lanes re-run CI, so N contending lanes cost about
-N(N+1)/2 runs instead of N — fifteen runs for five lanes. It is only paid when several lanes ship at
-once. **Fairness is not guaranteed**: a lane can lose the race repeatedly, which is what the lap bound is
-for. On exhaustion the run refuses with the message it always had, plus a clause naming the laps it spent
-and suggesting you ship that lane on its own.
+**A given lane is not promised a landing, and the arithmetic says why.** One lap absorbs exactly **one**
+trunk merge, so a lane contending with N others may need up to N laps — the winner spends none, the last
+one spends N−1. At the default of 2 the deepest lanes of a five-way contention still refuse. The race
+favours whoever is certified most recently, which is the lane with the fastest suite and the smallest
+diff, so a slow lane can lose repeatedly. **The lap bound is a stop-loss, not a fairness mechanism**: on
+exhaustion the run refuses with the message it always had, plus a clause naming the laps it spent and
+suggesting you ship that lane on its own, or raise `-MaxForwardLaps`.
+
+**So the default of 2 is sized for ordinary churn, not for draining a queue.** Two laps absorb the one or
+two merges that land during an ordinary ship. Deep contention needs the budget raised deliberately.
+
+**The trigger is "the trunk moved", not "several lanes are shipping" — and that is the part a small repo
+feels.** Step 3b fires on any qualifying commit landing between the certifying run and the merge: a
+scheduled bump, an unrelated direct push, somebody else's docs branch. A solo repo with one lane pays
+this too, and what it pays is not only CI minutes — **a lap pushes a merge commit to that branch**, made
+by GitHub, without asking. That is exactly what the printed remedy always told the operator to do by
+hand, which is the argument for doing it; it is stated here so it is not discovered. `-MaxForwardLaps 0`
+turns it off.
+
+**What it costs in CI.** Losing lanes re-run CI, so N contending lanes cost about N(N+1)/2 runs instead
+of N — fifteen for five. That figure is an **upper bound**, reached only with a lap budget deep enough
+to let the model finish.
+
+**And it needs the session alive.** A backgrounded ship is a child process of the harness and dies with
+it, which the lap does not change — so a lane whose operator closes the harness mid-wait simply stops
+lapping, with nothing said until somebody re-runs `ship-pr`. "CI-bound rather than human-bound" is about
+the **wait**, not about the session.
 
 **Three things end the run instead of lapping again**, because a lap is only worth spending on a
 certificate that was *read* and found stale:
@@ -687,11 +709,24 @@ certificate that was *read* and found stale:
   one.
 
 **This is deliberately not a merge queue.** That mechanism removes the race by construction and was
-retired as policy on 2026-09-07 ([#1546](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1546))
+retired as policy on 2026-09-07 ([#1546](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1546))
 because most repos running this workflow cannot have one — GitHub offers it on a private repo only under
 Enterprise Cloud, otherwise only on a public repo owned by an organisation. A prescription a consumer
 cannot follow turns their correct state into an open gap. The lap is script, so it reaches every consumer
 through the ordinary release rather than through a repo setting half of them are not allowed to make.
+
+**And the repo-setting alternative is out of reach for the same tier**, which is worth stating beside it:
+`strict_required_status_checks_policy` — named above as the setting that closes the gap completely —
+needs branch protection, which a private repo on the Free plan does not have either. For that consumer
+the lap is not the more convenient of two options; it is the only tier-independent one on the table.
+
+**A FIFO ticket was weighed and not taken.** Letting only the *oldest* open, currently-mergeable PR
+forward at a time — readable with one `gh pr list --sort created` and the same `update-branch` call —
+would cut the cost from O(N²) to O(N) and remove the starvation this design concedes, on no GitHub plan
+feature at all. It is not taken here because it needs a shared "whose turn is it" answer that two
+sessions agree on, and getting that wrong leaves a lane waiting forever on a head-of-queue whose session
+has died. That is a bigger design than #2087 asked for, and it reintroduces the serialisation the lanes
+exist to avoid — but it is the strongest alternative, and it is recorded rather than left unnamed.
 
 ## The merge method is repo policy
 
