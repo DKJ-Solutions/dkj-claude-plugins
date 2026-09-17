@@ -119,9 +119,14 @@ up to date through GitHub's own `update-branch`, waits for a genuinely new certi
 same measurement again -- up to `-MaxForwardLaps` times, default 2. The predicate is untouched, so
 `-SkipStaleCheck` is still the only way to merge on an old certificate; what changes is that the remedy
 costs a CI cycle instead of however long it takes somebody to read a refusal and retype four commands.
-Each lap is CI-bound, so at least one contending lane wins per cycle: five lanes drain in about half an
-hour instead of never. A conflict, a branch already current, or a red check on the forwarded head all end
-the run rather than lapping.
+Each lap is CI-bound, so the TRUNK takes one merge per CI cycle instead of none. That is a claim about
+throughput and not about any one lane: a lap absorbs exactly one trunk merge, so a lane contending with
+several others can still exhaust its budget and refuse -- the bound is a stop-loss, and the refusal says
+so. A conflict, a branch already current, or a red check on the forwarded head all end the run rather
+than lapping. Worth knowing before upgrading: the trigger is "the trunk moved", not "several lanes are
+shipping", so a single-lane repo meets this too -- and a lap pushes a merge commit to the branch, made by
+GitHub, which is what the printed remedy always told an operator to do by hand. `-MaxForwardLaps 0` keeps
+the old behaviour.
 
 And **a trunk held by another checkout no longer blocks the merge** where a CI runner folds. That
 refusal's ground -- "step 5 could not fold" -- stopped being true when `fold-on-merge.yml` began folding
