@@ -912,7 +912,11 @@ if (-not $SkipLint) {
         exit 1
     }
     Write-Host "lint gate: integrity check for the release ($lintRel)..." -ForegroundColor Cyan
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $lintPath
+    # `| Out-Host` -- ordering (issue #2044). The lint gate is a CHILD process, so without this its whole
+    # report lands in this script's success stream and any caller that pipes or captures the cut replays it
+    # after everything the cut itself printed. The full reasoning is at ship-pr.ps1's open-pr spawn; the
+    # defect is identical here, and the lint report is the longest block this script relays.
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $lintPath | Out-Host
     if ($LASTEXITCODE -ne 0) { Write-Error "the lint gate found errors -- release aborted. Fix them, or run with -SkipLint."; exit 1 }
 }
 

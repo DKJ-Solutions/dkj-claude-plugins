@@ -229,7 +229,11 @@ $verify = Join-Path $PSScriptRoot 'verify-resolved-issues.ps1'
 foreach ($number in $numbers) {
     $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $verify, '-Pr', "$number", '-Repo', $Repo)
     if ($ReportOnly) { $arguments += '-ReportOnly' }
-    & powershell @arguments
+    # `| Out-Host` -- ordering (issue #2044). Reasoning at ship-pr.ps1's open-pr spawn; the defect is
+    # identical here and costs more, because this loop INTERLEAVES its own per-PR lines with each child's
+    # output. Without it a piped or captured run prints every "merge check:" line first and every child's
+    # report afterwards, so which report belongs to which PR stops being readable from the order.
+    & powershell @arguments | Out-Host
     # verify-resolved-issues.ps1 never fails on a still-open issue -- that is the case it repairs. A
     # non-zero here is the script itself having broken, which is worth a line and not worth abandoning
     # the remaining PRs of a batch for.

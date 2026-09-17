@@ -216,17 +216,17 @@ and safe hook construction.
   which arrivals are expendable, because some will be. And verify it the only way that works: read the
   conclusions of the runs the group has actually produced, not the YAML.
 
-## Twelve PowerShell traps that produce well-formed wrong output
+## Thirteen PowerShell traps that produce well-formed wrong output
 
-All twelve were measured in this system, not read about, and eleven share the property that makes
+All thirteen were measured in this system, not read about, and twelve share the property that makes
 them expensive: **nothing errors.** The script runs, the output parses, the markdown renders — and it
 says something other than what the author meant. None is caught by a linter, so each is worth an
-assert. Eleven are PowerShell's own; the last is the same class one layer out, in the tooling you
-reach for to repair a PowerShell file. **One of the twelve throws**, and is here on that deviation
+assert. Twelve are PowerShell's own; the last is the same class one layer out, in the tooling you
+reach for to repair a PowerShell file. **One of the thirteen throws**, and is here on that deviation
 rather than despite it: what is well-formed and wrong there is the *exception's own report*, which
 blames the wrong line and names neither the operator nor the type. It says so in its first line, and
 the title is not widened for a single member — the closing sentence below is the shape that already
-holds all twelve.
+holds all thirteen.
 
 - **`[ordered]@{ 2 = '...' }`'s indexer takes a positional index as well as a key.** For an integer the
   positional overload wins, so `$map[2]` returns the **third value**, not the value for key `2`. In a
@@ -364,6 +364,25 @@ holds all twelve.
   cannot collide** — a config-derived value gets a name the config does not use (`$targetRepo`, not
   `$repoName`) — and where a skip path exists, **assert that the happy path produced no skip**, because
   both are exit 0 and only the assert can tell them apart.
+- **A child process's narration lands in the PARENT SCRIPT'S RETURN VALUE, so any caller that pipes or
+  captures the run replays every child after everything the parent printed.** `Write-Host` writes to the
+  information stream, which the host renders live; a child started with `& powershell -File ...` has its
+  stdout handed to the **success stream** — the script's return value. Those two reach one console in the
+  printed order only while nobody touches the success stream. Pipe the script, capture it into a variable,
+  or `Tee-Object` it, and the narration still prints live while the children are collected and replayed at
+  the end. The output is not scrambled, which is what makes it expensive: it is every parent line in file
+  order, then every child line in file order — well-formed, plausible, wrong. Measured on a consumer
+  shipping a pull request, where `ship-pr.ps1`'s closing receipt (deliberately the last statement in the
+  file) printed **above** a child's first line from hundreds of lines earlier. **The obvious explanation is
+  wrong and worth ruling out by hand**: it is not stdout-versus-stderr. A child's `Write-Warning` travels
+  with that child's `Write-Host`, because by the time the parent sees either it is just text on the child's
+  stdout — so the split is parent-versus-child, not stream-versus-stream, and chasing the stream theory
+  costs a session. **The cost is not the ordering but that PLACEMENT STOPS BEING A MECHANISM**: anything
+  printed where it will be read last is only last for an unpiped caller. **Route every narrating spawn to
+  the host — `& powershell @args | Out-Host`** — which keeps the text with the narration and leaves the
+  success stream empty, where a child's console output never belonged. `$LASTEXITCODE` survives the pipe;
+  do **not** reach for `2>&1`, which merges the child's stderr into the pipeline and buys the
+  `NativeCommandError` trap above.
 - **A `sed` substitution meant to write a code-point escape can silently write the wrong literal instead.**
   GNU `sed`'s replacement syntax treats `\u` as "uppercase the next character," not as a code-point escape —
   so `sed -i 's/\[-–—,\]/[-\u2013\u2014,]/'` consumed the backslash before each escape and wrote the literal
@@ -378,7 +397,7 @@ holds all twelve.
   written line back and check the code points rather than trusting the substitution. No gate can stand in
   for that read-back, because a mangled repair passes an ASCII check by construction.
 
-The general shape behind all twelve, worth carrying to the next one: when a mistake cannot announce
+The general shape behind all thirteen, worth carrying to the next one: when a mistake cannot announce
 itself, the assert is the announcement. Prefer a test over a comment for anything in this class.
 
 ## Sylvester is lazy

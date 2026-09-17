@@ -683,7 +683,27 @@ Write-Host "ship-pr: opening the PR..." -ForegroundColor Cyan
 # in the middle when this script runs it -- so the conductor claims the receipt and the child says
 # nothing. Without this an ordinary ship printed the reminder here, before CI had even started.
 if (Test-FunctionDefined 'Push-CloseOutSuppression') { Push-CloseOutSuppression }
-try { & powershell @openArgs } finally { if (Test-FunctionDefined 'Pop-CloseOutSuppression') { Pop-CloseOutSuppression } }
+# `| Out-Host` IS WHAT KEEPS THIS RUN IN THE ORDER IT WAS PRINTED (issue #2044), and it is the reason all
+# three child spawns in this script carry it. A child started with `& powershell` writes its narration to
+# ITS stdout, which PowerShell hands to THIS script's SUCCESS stream -- its return value -- while every
+# line this script says itself goes to the information stream, via Write-Host. Those two reach one console
+# in the printed order only for as long as nobody touches the success stream. Pipe this script, capture it
+# into a variable, or Tee it, and the information stream still prints live while the success stream is
+# collected and replayed at the END: every line the parent printed in file order, then every line all three
+# children printed in file order. Measured on a consumer shipping PR #683 -- the closing receipt from the
+# foot of this file appeared ABOVE `PR created for ...`, printed by the child spawned on the next line, and
+# step 6's child had the last word on screen. Reproduced here against a two-child fixture, where `| Tee-Object`
+# alone splits it exactly that way.
+#
+# SO PLACEMENT STOPS BEING A MECHANISM, which is the real cost: anything this workflow prints where it will
+# be read last is only last for an unpiped caller. Out-Host renders to the host instead of returning, so the
+# child's text joins the narration and this script's success stream stays empty -- which is what it should
+# always have been, because a child's console output was never this script's return value.
+#
+# NOT `2>&1`: the child's stderr already flows straight to this script's stderr, and merging it into the
+# pipeline is the NativeCommandError trap this repo documents elsewhere. $LASTEXITCODE survives the pipe --
+# asserted in ordering-passthrough.tests.ps1 -- which is what the line below still reads.
+try { & powershell @openArgs | Out-Host } finally { if (Test-FunctionDefined 'Pop-CloseOutSuppression') { Pop-CloseOutSuppression } }
 if ($LASTEXITCODE -ne 0) { Write-Error "open-pr failed -- ship-pr stops (nothing merged)."; exit 1 }
 
 if ($NoMerge) {
@@ -2817,7 +2837,8 @@ $foldArgs = @(
 if ($foldTree) { $foldArgs += @('-RepoRoot', $foldTree) }
 # ONE CHAIN, ONE RECEIPT (issue #1884) -- the same reason as the open-pr spawn above.
 if (Test-FunctionDefined 'Push-CloseOutSuppression') { Push-CloseOutSuppression }
-try { & powershell @foldArgs } finally { if (Test-FunctionDefined 'Pop-CloseOutSuppression') { Pop-CloseOutSuppression } }
+# `| Out-Host` -- ordering (issue #2044); the reasoning is written out once, at the open-pr spawn in step 1.
+try { & powershell @foldArgs | Out-Host } finally { if (Test-FunctionDefined 'Pop-CloseOutSuppression') { Pop-CloseOutSuppression } }
 $foldExit = $LASTEXITCODE
 
 # AND IT COMES DOWN WHETHER THE FOLD SUCCEEDED OR NOT, before the exit code is judged -- the last of the
@@ -2946,7 +2967,9 @@ if ($foldStoodDown) {
 # Its own script, so this state-MUTATING logic (it comments and closes) is testable against a fake gh
 # instead of only reachable through a full live ship -- and so the same check is usable on its own to
 # repair bookkeeping after the fact. It never fails the ship: the merge already succeeded.
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-resolved-issues.ps1') -Pr $pr -Repo $repo
+# `| Out-Host` -- ordering (issue #2044); the reasoning is written out once, at the open-pr spawn in step 1.
+# THIS is the spawn whose output was measured BELOW the closing receipt at the foot of this file.
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-resolved-issues.ps1') -Pr $pr -Repo $repo | Out-Host
 if ($LASTEXITCODE -ne 0) { Write-Warning "the issue-closing check reported a problem -- verify by hand with: gh issue list --repo $repo --state open" }
 
 # THE CLOSING LINE SAYS WHO FOLDED (issue #1792). On a stood-down fold the trunk is just as folded and
