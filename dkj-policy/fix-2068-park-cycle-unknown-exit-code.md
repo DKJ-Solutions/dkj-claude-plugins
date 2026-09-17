@@ -110,6 +110,10 @@ sites, and the audit #1931 asked for has no visible product. Deliberately not sw
 - [x] Two more asserts in (v), earned by the review finding: exactly one arm claims two asks, and it
       fires only when `$reAsked` says the re-ask ran. A defect caught by eye gets a test so the next one
       is not. `OK: all 126 asserts passed.`
+- [x] `scripts/tests/native-capture.tests.ps1` caught the re-ask under the gate, correctly: it pins the
+      count of `Test-NativeCaptureBudgetHasRoom` in `park-cycle.ps1` **exactly**, so a dropped guard is
+      red rather than a silently weaker promise (#1958). A conditional second `gh` call is a call like
+      any other and owes the same check, so the pin moves 4 -> 5 and names the re-ask. `204 pass, 0 fail.`
 - [~] Dropped: a behavioural case for the retry and the third wording. The state is a race inside
       `System.Diagnostics.Process`, not anything a shim controls, so the only way to reach it is to
       inject a fake capture result -- which asserts against the mock and not the script. The gap is
