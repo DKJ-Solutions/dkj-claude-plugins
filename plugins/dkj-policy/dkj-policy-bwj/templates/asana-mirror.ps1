@@ -146,6 +146,7 @@
 
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
     New-MirrorComment, Get-MirrorCommentMarker, New-AsanaCommentRequest, Get-IssueRefFromNotes,
+    Test-IssueIsCro, New-CroClosingComment,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
     Get-DefaultGithubStatusMap, Test-GithubStatusMap, Select-ProjectStatus, Get-StageForProjectStatus,
@@ -484,6 +485,64 @@ function New-MirrorComment {
 
     $lines += 'This ticket stays open on purpose. Tick it off yourself once you have checked that it does what you meant.'
     return ($lines -join "`n")
+}
+
+function Test-IssueIsCro {
+    <#
+        Whether this issue carries the CRO label -- the one gate that turns the closing-comment step
+        below on. Pure. See WORKFLOW-portable.md's "The CRO label -- who reported it, not what it is".
+    #>
+    param([string[]]$Labels = @())
+    return ($Labels -contains 'CRO')
+}
+
+function New-CroClosingComment {
+    <#
+        The GitHub comment posted on a CRO-labelled issue once it closes: a paragraph ready to paste
+        into the Asana task, so whoever closes the ticket can tell the requester (today: Johnno) where
+        to see the result, without composing that message from scratch.
+
+        A PLACEHOLDER, NOT A DERIVED LINK (Dave, September 17, 2026). "Where the result can be viewed"
+        depends on what the ticket was about -- a live storefront page, a preview theme, something else
+        entirely -- and nothing this script reads (the issue, its pull requests, its labels) says that
+        reliably. Guessing would hand a colleague a link nobody checked, presented as though the
+        workflow knew it was right. So this composes everything AROUND the link and leaves the link
+        itself for a person to fill in before the paragraph goes to Asana.
+
+        Pure -- no network.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    return @(
+        'This issue carries the **CRO** label. Fill in the link below and paste the block into the' +
+            ' Asana task, so the requester knows where to look:',
+        '',
+        '---',
+        "The fix for $IssueRef is done. You can view the result here: [ADD LINK]",
+        '---'
+    ) -join "`n"
+}
+
+function Add-GithubIssueComment {
+    <#
+        Post a comment on a GitHub issue, body piped through stdin rather than passed as an inline
+        argument -- the same reason every multi-line gh/git call in this family writes to a file or a
+        pipe instead of a string: a shell can mangle quoting and embedded newlines silently rather than
+        loudly. Never throws; a failure is named and nothing else happens.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][string]$Text
+    )
+
+    $parts = $IssueRef -split '#'
+    $ErrorActionPreference = 'Continue'
+    $Text | & gh issue comment $parts[1] --repo $parts[0] --body-file - 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  Could not post the CRO closing-comment template on $IssueRef."
+        return
+    }
+    Write-Host "  Posted a CRO closing-comment template on $IssueRef (paste-ready for Asana)."
 }
 
 function Get-StageFromSectionName {
@@ -1632,6 +1691,13 @@ function Invoke-EventMode {
         }
         Add-AsanaComment -Gid $ref.Gid -Text $text -Pat $AsanaPat
         Write-Host "Asana task $($ref.Gid) updated: $IssueRef $Event (matched by $($ref.Source)). The task was NOT completed -- that is the requester's call."
+    }
+
+    # A second, independent comment -- on GITHUB, not Asana -- gated on the CRO label rather than on
+    # every closed issue. No backstop: a missed event here is not repaired by the reconciliation
+    # sweep, the same accepted gap this workflow already carries for a dropped 'reopened'.
+    if ($Event -eq 'closed' -and (Test-IssueIsCro -Labels $link.Labels)) {
+        Add-GithubIssueComment -IssueRef $IssueRef -Text (New-CroClosingComment -IssueRef $IssueRef)
     }
 
     # And the card follows. The status comes from the query above rather than from -Event, so a close

@@ -337,6 +337,17 @@ Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-ecommerce/smart
 Assert-Equal 'BWJ-ecommerce/smartwatchbanden#42' (Get-IssueRefFromNotes -Notes 'see https://github.com/BWJ-ecommerce/smartwatchbanden/issues/42 for detail') 'Get-IssueRefFromNotes pulls owner/repo#n from a GitHub URL'
 Assert-True  ($null -eq (Get-IssueRefFromNotes -Notes 'no link at all')) 'Get-IssueRefFromNotes returns null without a GitHub issue URL'
 
+# the CRO closing comment -- gated on the label, and the link is a placeholder for a person to fill in
+Assert-True  (Test-IssueIsCro -Labels @('CRO', 'prio-2')) 'Test-IssueIsCro is true when the issue carries CRO'
+Assert-True  (-not (Test-IssueIsCro -Labels @('prio-2'))) 'and false without it'
+Assert-True  (-not (Test-IssueIsCro -Labels @()))         'and false on no labels at all'
+
+$croComment = New-CroClosingComment -IssueRef 'BWJ-Development/smartwatchbanden#500'
+Assert-True ($croComment -match 'CRO')                                   'the CRO closing comment names the label it is gated on'
+Assert-True ($croComment -match '\[ADD LINK\]')                          'and leaves the link as an explicit placeholder'
+Assert-True ($croComment -match 'BWJ-Development/smartwatchbanden#500')  'and names the issue it belongs to'
+Assert-True ($croComment -notmatch 'https://')                           'and invents no URL of its own'
+
 # --- the prio label ------------------------------------------------------------------------------
 # Dave's mapping, September 2, 2026: 1.00-1.99 prio-1 | 2.00-2.99 prio-2 | 3.00-3.99 prio-3 |
 # 4.00-5.00 prio-4. EVERY boundary is asserted from both sides, because an off-by-a-hundredth
