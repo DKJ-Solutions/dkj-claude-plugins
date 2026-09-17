@@ -283,10 +283,15 @@ is worth stating precisely because the wrong one is what kept the second site un
    check-ref-format` enforces `\p{Cc}` and **accepts** `\p{Cf}`, so a branch created by hand, cloned or
    fetched carries U+202E or a zero-width run straight into those lines; `sync-main`'s come off `git
    ls-remote` and its seam answers, which git never validated at all. Not capped.
-5. **`claim-issue`'s own report** -- the issue TITLE off the tracker, plus the commit subjects and
-   branch names its parked-fix scan prints (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`,
-   #1858). The title is the one entry here whose author needed no push access at all: on a public
-   tracker anybody can open an issue. Not capped.
+5. **`claim-issue`'s own report** (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`, #1858) --
+   **four** classes of value, not one, because that report grew a pickup signal at a time and each one
+   arrived carrying its own: the issue TITLE off the tracker; the AUTHOR, the SUBJECT and the BRANCH
+   NAMES its **parked-fix scan** prints per commit; the BRANCH NAMES its **title-overlap scan** prints
+   (#2018), which come off a `git branch -a` capture the per-commit strip above never reaches and so
+   need a second call at the caller (#2069); and the BRANCH NAMES plus the cited FILE PATHS its
+   **prerequisite scan** prints (#2064). The title is the entry here whose author needed no push
+   access at all -- on a public tracker anybody can open an issue -- and those cited paths are read
+   out of an issue BODY, so they are that same author one field over. Not capped.
 6. **`asana-mirror`'s stage lines** -- the Asana task NAME, the GitHub project board's STATUS names,
    and the phrase saying WHY a card moved, which carries a submitter's name off the task's notes
    (`Format-ForConsole`, `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1`,
@@ -313,6 +318,14 @@ of two of its values, and an audit that read the comment instead of the composin
 straight over it. **So the unit is a VALUE, never a variable that looks like the script's own**: what
 matters is where the characters were typed, and a phrase this workflow assembles out of somebody
 else's words is somebody else's words.
+
+**And an entry goes stale exactly the way the list does, one level in.** Entry 5 named one scan back
+when `claim-issue`'s report had one, and went on naming only that scan while three further pickup
+signals were built on the same report -- so the count in front of the list stayed right while entry 5
+quietly stopped describing its own site (#2073, September 17, 2026, and found the same way entry 6 was:
+by a security review of an unrelated repair, not by this page). **So a new signal, a new field or a new
+caller inside a site the list already carries is an edit to that entry**, and what decides whether one
+is owed is the rule above -- a site prints a set of VALUES, and the entry has to name all of them.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and
