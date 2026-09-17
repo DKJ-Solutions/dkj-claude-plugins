@@ -1392,8 +1392,17 @@ Assert-True ($idxLost -gt $idxWatchCall) 'the read happens AFTER the watch it is
 # close after it, or the second attempt would judge the first attempt's payload.
 $idxLoopHead  = Get-ShipIdx -Needle '$watchAttempt++' -In 'Step 3:' -Code
 Assert-True ($idxLoopHead -ge 0 -and $idxLoopHead -lt $idxWatchCall) 'the watch call sits inside the attempt loop rather than before it'
-$idxFacts     = Get-ShipIdx -Needle 'startedAt,completedAt,link' -In 'Step 3:' -Code
+# THE PAYLOAD IS NOW READ THROUGH Get-CheckFactsNow (issue #2087), so the per-attempt read is pinned on
+# the CALL rather than on the field list -- the field list itself moved into that function, which sits
+# above step 3, and asserting on it here would pass on a definition instead of on a read. The field list
+# is still asserted separately above, where the claim is that ship-pr asks for `link` at all.
+$idxFacts     = Get-ShipIdx -Needle 'Get-CheckFactsNow -Pr' -In 'Step 3:' -Code
 Assert-True ($idxFacts -gt $idxWatchCall -and $idxFacts -lt $idxLost) 'and the check facts are re-read per attempt, which is what the decision is made from'
+# AND THE FUNCTION IS DEFINED ONCE AND CALLED TWICE -- step 3's per-attempt read and step 3b's forward
+# lap. Its own docstring says it was lifted out of step 3, and a caller left hand-written there would
+# make that sentence false while leaving three live copies of the payload in one file (#2087).
+Assert-True ([regex]::Matches($shipText, 'Get-CheckFactsNow -Pr').Count -ge 2) 'Get-CheckFactsNow has both its callers -- step 3 and the forward lap'
+Assert-True ([regex]::Matches($shipText, 'name,bucket,state,startedAt,completedAt,link').Count -eq 1) 'and the payload shape it reads is written out exactly once'
 
 
 # --- issue #1350: the watch started BEFORE the checks registered ---------------------------------
@@ -2368,16 +2377,31 @@ Assert-Equal 0 $mqOnly.Blocking.Count 'and merge_queue is NOT a fold-push blocke
 # the refusal fires only where -not $queueActive. Same shape and justification #1506 gave the fold-push
 # verdict one block down. Without these asserts a later edit can slide the refusal back above the verdict
 # and re-break the lane workflow with every helper test still green -- this file is ship-pr's only caller.
+# AND SINCE #2087 THE REFUSAL CARRIES A SECOND GATE, on the same reasoning one axis over: the ground
+# "step 5 could not fold" stopped being queue-specific when fold-on-merge.yml began folding off EVERY
+# push to the trunk (#1493), so the refusal now also stands down where a CI runner folds. The ordering
+# claim is unchanged and so is its reason -- what these asserts pin is that BOTH stand-downs are known
+# before the refusal, and that neither of them is the one that got dropped in a later edit.
 $idxTrunkRead   = Get-ShipIdx -Needle 'Get-WorktreeHoldingBranch -PorcelainLines' -In 'Step 0:' -Code
 $idxQueueRead   = Get-ShipIdx -Needle 'Get-MergeQueueVerdict -BranchRulesJson' -In 'Step 0b' -Code
-$idxTrunkRefuse = Get-ShipIdx -Needle 'if ($trunkHolder -and -not $queueActive)' -In "Step 0a's refusal" -Code
+$idxCiFoldRead  = Get-ShipIdx -Needle 'Get-CiFoldRecoveryVerdict -Workflow' -In "Step 0a's second question" -Code
+$idxTrunkRefuse = Get-ShipIdx -Needle 'if ($trunkHolder -and -not $queueActive -and -not $ciFold.Recovered)' -In "Step 0a's refusal" -Code
 $idxTrunkNote   = Get-ShipIdx -Needle 'if ($trunkHolder -and $queueActive)' -In "Step 0a's refusal" -Code
+$idxTrunkDefer  = Get-ShipIdx -Needle 'if ($trunkHolder -and -not $queueActive -and $ciFold.Recovered)' -In "Step 0a's refusal" -Code
 Assert-True ($idxTrunkRead -ge 0) 'ship-pr.ps1 reads whether another worktree holds the trunk (#1069)'
-Assert-True ($idxTrunkRefuse -ge 0) 'and its refusal is gated on -not $queueActive (#1572)'
+Assert-True ($idxTrunkRefuse -ge 0) 'and its refusal is gated on -not $queueActive (#1572) AND on no CI fold runner (#2087)'
 Assert-True ($idxTrunkRead -lt $idxQueueRead) 'the free local worktree read runs before the network queue read -- the network read must not cost the local one'
 Assert-True ($idxQueueRead -lt $idxTrunkRefuse) 'and the queue verdict is known BEFORE the trunk-holder refusal, so a lane ship is not refused on a queue where step 5 folds nothing'
+Assert-True ($idxCiFoldRead -ge 0 -and $idxCiFoldRead -lt $idxTrunkRefuse) 'and so is the CI-fold verdict, for the same reason one axis over (#2087)'
 Assert-True ($idxTrunkNote -ge 0 -and $idxTrunkNote -gt $idxQueueRead) 'under a queue the held trunk is noted, not refused'
+Assert-True ($idxTrunkDefer -ge 0 -and $idxTrunkDefer -lt $idxTrunkRefuse) 'and where a runner folds, the deferring arm is reached before the refusing one'
 Assert-True ($shipText -like '*not a blocker under a queue: step 5 folds nothing here (#1572)*') 'and the note says why, naming the issue'
+# THE DEFERRED DECISION IS TAKEN ONCE, BEFORE THE MERGE, AND ONLY READ AFTER IT. Re-deriving it at step 5
+# would be a second chance to get it wrong on the far side of an irreversible act, and the fold body plus
+# step 5b both have to honour it -- a merge with the flag set that then folds anyway takes a trunk this
+# clone cannot give.
+Assert-True ($shipText -like '*if (-not $foldDeferredToCi) {*') "step 5's fold body is guarded by the deferred flag (#2087)"
+Assert-True ($shipText -like '*if (-not $foldDeferredToCi -and -not $foldTree -and -not $shipTreeIsPrimary)*') 'and step 5b does not hand back a trunk it never took'
 
 # --- Get-RequiredCheckRunIds: which Actions run sits behind a named check? (issue #1292 re-anchor) ---
 # THE RE-ANCHOR: the retired Get-CertifyingRunTimestamp read a check's own startedAt directly out of

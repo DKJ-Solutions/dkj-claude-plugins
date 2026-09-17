@@ -727,6 +727,44 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # DOES A CI RUNNER FOLD OFF A PUSH TO THE TRUNK? (issue #2087, September 17, 2026) -- the
+            # question that decides whether a shipping session which cannot fold locally has LOST the
+            # fold or handed it over. ship-pr.ps1 step 0a refused every ship while another worktree held
+            # the trunk, on the ground that step 5 could not then fold; since #1493 that ground holds
+            # only where nothing else folds, because fold-on-merge.yml triggers on every push to main
+            # and not only a merge queue's.
+            #
+            # MIRRORED BECAUSE ITS ONLY CALLER IS. ship-pr.ps1 dot-sources it unguarded as a
+            # $PSScriptRoot sibling, so a consumer running the mirror without this file would fail at
+            # load -- which is the intended failure: the alternative is silently falling back to
+            # refusing every ship a second checkout could have shipped.
+            #
+            # NO CONTRACT ROW FOLLOWS: nothing in it is repo-owned. It reads .github/workflows off disk
+            # and matches on a script name this workflow owns -- no seam, no git, no network.
+            Name    = 'ci-fold-lib'
+            Source  = 'scripts\lib\ci-fold-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            # THE FORWARD LAP'S DECISIONS (issue #2087) -- whether ship-pr brings the branch up to date
+            # and re-certifies rather than refusing, what GitHub's update-branch call said, and how the
+            # local ref catches up afterwards. Extracted rather than written inline for worktree-lib's
+            # own stated reason: the decisions are the part of that repair that CAN be tested, and
+            # ship-pr.ps1 cannot be.
+            #
+            # PURE FUNCTIONS, WHICH IS ALSO WHY THE SPLIT IS WORTH HAVING. Every call the lap makes --
+            # the gh api PUT, the fetch, the ff-only merge -- stays in ship-pr.ps1 where the rest of its
+            # network and git work lives; what moves here is the four judgements those calls hang on.
+            #
+            # Mirrored because its only caller is, and for the same load-time reason as ci-fold-lib
+            # above. NO CONTRACT ROW: nothing in it is repo-owned.
+            Name    = 'forward-lane-lib'
+            Source  = 'scripts\lib\forward-lane-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a

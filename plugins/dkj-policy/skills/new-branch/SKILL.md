@@ -308,7 +308,7 @@ file, and the rule flips with the destination rather than with the text.
 
 **It is NOT the only console this workflow writes somebody else's words to** -- that claim stood here
 and was false from the day `ship-pr` began relaying the sentence a failing workflow wrote about itself
-(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are six**, and the count
+(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are seven**, and the count
 is worth stating precisely because the wrong one is what kept the second site unguarded:
 
 1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch` and `open-pr`
@@ -344,10 +344,21 @@ is worth stating precisely because the wrong one is what kept the second site un
    less than entry 5's: a colleague types a task name and its notes through Asana's web UI and a
    board's column names through GitHub's project settings, none of which touches a repository at all.
    Not capped -- the console here is a CI log, which wraps rather than truncates.
+7. **`ship-pr`'s forward lap** -- GitHub's own answer to `PUT .../update-branch`, relayed in the refusal
+   when the lap cannot bring the branch up to date, and the NAME of the workflow that now owns this
+   run's fold, read straight off disk by `Get-RepoWorkflowRecord`
+   (`scripts/release/ship-pr.ps1`, `scripts/lib/ci-fold-lib.ps1`,
+   [#2087](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2087)). The API answer is capped
+   at 500 and stripped, entry 2's own bound, because it is the same thing one endpoint over; the
+   filename goes through `Get-DisplayPath`, since NTFS accepts a format character in a name and a
+   filename may legitimately carry spaces that `Get-DisplayRef` would collapse. **The pasteable
+   spelling and the printed one are kept apart here**: the `gh run list --workflow=<name>` line is
+   printed only where the stripped name still equals the real one, because a stripped name is no longer
+   the file gh has to be given -- #1594's distinction, one file type over.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
-September 11, five until September 15, and each new one arrived as a counter-example to a sentence
-that had stopped being checked. **The list is the thing that has to be kept true, not the number in
+September 11, five until September 15, six until September 17, and each new one arrived as a
+counter-example to a sentence that had stopped being checked. **The list is the thing that has to be kept true, not the number in
 front of it** -- entry 5 sat outside it for as long as the list existed, guarded by an ASCII-only
 strip nobody had re-read, and entry 6 sat outside it while carrying no strip of any kind. **Entry 6
 is also the first one this list did not find**: it was measured by a security review of an unrelated
