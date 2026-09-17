@@ -228,7 +228,7 @@ different sentences, and a failed fetch must not be able to read as a clean scan
 the issue's **number**, and a branch cut for the subject rather than the issue writes none of them:
 `new-branch`'s creation commit is `park: <branch> (the branch files only)`, which names the branch and
 nothing else. So `fix/asana-stage-letter-codes` carries no match on this claim, and none on any future
-one either, however many commits it grows.
+one either, however many commits are added to it later.
 
 Measured, September 15, 2026
 ([#2018](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2018)): claiming #2016 read clean
@@ -282,8 +282,8 @@ something that only shows up as console noise on a live repo.
 At 1 the scan prints a quarter of the repo at every claim; at 3 it prints nothing at all, including
 the branch it exists for. At 2 the three surviving cross-hits are themselves genuinely related work
 sharing a real word (`exit`+`code` between two exit-code issues, `prio`+`labels` between two
-priority-label issues), and it is the last floor that still catches the branch #2018 was measured
-against.
+priority-label issues, `update`+`plugins` between two update-plugins issues), and it is the last
+floor that still catches the branch #2018 was measured against.
 
 **It is weaker evidence than the fourth signal, and everything about how it prints says so.** It gets
 a block of its own rather than joining that scan's `NOT YOURS` verdict, because a shared word is a

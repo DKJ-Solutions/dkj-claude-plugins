@@ -69,6 +69,10 @@ signal's section is the model; #2018's own measurement is the material.
 - [x] Every claim in the section checked against `scripts/task/claim-issue.ps1` and
       `scripts/lib/claim-issue-lib.ps1`: the shared fetch, the exclusions, the three skip paths and
       the fact that this signal never sets `$foreignParked` and so never moves the closing `[OK]`
+- [x] Copy-edit pass on the diff (Edith), against the two source scripts rather than against the
+      prose: two findings, both applied -- the cross-hit examples named two of the three the corpus
+      actually produces (`update`+`plugins` between #1890 and #1988 was dropped), and one transitive
+      use of *grows* reworded
 - [x] Lint gate + all suites green (`check-plugin-integrity.ps1` and `scripts/tests/*`, via open-pr)
 
 #### Filed, not fixed here
