@@ -123,6 +123,14 @@ foreach ($id in $runIds) {
     # -Utf8 because this output is PARSED, not echoed: Windows PowerShell 5.1 decodes a child's stdout
     # with the console code page, so the same log yields different strings on cp850 and cp65001.
     $run = Invoke-NativeCapture -FilePath 'gh' -Arguments @('run', 'view', $id, '--repo', $slug, '--log') -Utf8
+    # THE UNMEASURABLE CODE IS ASKED FOR FIRST (issue #1931, audited under #2081). `$null -ne 0` is true,
+    # so the throw below would fire on a read that may have SUCCEEDED -- and it quotes the first three
+    # captured lines as the reason, which on that path are the log's own opening lines rather than an
+    # error. Fail-closed is right either way here (a duration table parsed off a half-known capture is
+    # worse than no table), so only the sentence changes.
+    if (-not (Test-NativeExitMeasured -Capture $run)) {
+        throw "gh ran but its exit code could not be measured reading run ${id} (issue #1931) -- nothing is known about the read, so no durations were taken from it. Run this again; the next process almost always answers."
+    }
     if ($run.ExitCode -ne 0) { throw "gh could not read run ${id}: $(@($run.Output) | Select-Object -First 3)" }
 
     $found = 0
