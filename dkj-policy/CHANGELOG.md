@@ -43,7 +43,132 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 14 minor entries** <!-- pending-tally -->
+**13 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2090-anchor-ordering-asserts · 20260917-220352
+
+`scripts/tests/pr-issues.tests.ps1` no longer locates anything in `ship-pr.ps1` with a whole-file
+`IndexOf`. All 45 reads go through one region-scoped helper, `Get-ShipIdx`, which searches inside a
+single `function` or `# --- Step ` region and, with `-Code`, skips comments and docstrings. A needle
+it cannot find is a named failure instead of a silent `-1` that a `-lt` assert would read as a pass.
+
+This closes both directions of the defect. The red one is what #2087 met: two helpers added above
+step 3 turned four asserts red about behaviour that had not moved. The green one was measured on the
+repair -- of the 39 distinct needles those 45 reads used, eight already matched in more than one
+place, and two of them resolved to prose rather than to code, so the assert pinning ship-pr's wait
+order was passing on a comment 121 lines above the call, and the check-suite read was pinned to a
+docstring line.
+
+Nobody outside this repo runs this suite, and nothing it guards changed behaviour. What it buys is
+the next person who adds a helper to `ship-pr.ps1`: they no longer meet a red suite naming a
+behaviour they did not touch, whose cheapest reading is to delete the assert.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A test that is green about the wrong text is worse than one that is red, because nothing ever asks it
+again. Two of these had drifted onto prose -- one onto a comment, one into a docstring -- while
+reporting that ship-pr's wait order was pinned. The branch then reproduced the same failure in its own
+writing: the first counts were taken with a grep line count, which missed the one LastIndexOf site,
+and every figure above is re-measured off the AST.
+
+The reader of a tier-2 change is the subscriber of a service; this is a test suite inside the repo
+that authors the workflow, and it reaches nobody who installs it.
+
+**Score:** N/A
+
+#### Pull Request
+
+pr-issues.tests.ps1's ship-pr ordering asserts are region-scoped instead of whole-file
+
+[PR #2093](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2093)
+
+---
+
+### DEPLOY: fix/2083-failed-fetch-not-all-clear · 20260917-191911
+
+`park-cycle.ps1`'s collision detector no longer reports a **failed** fetch as "nothing to report". The
+reader `Get-BranchCollisionNote` is the earliest collision detector in this workflow -- it runs from
+the `cycle-autopark` Stop hook, in the one place where no operator is watching -- and `''` is its own
+word for *no collision*. A fetch that exited non-zero returned exactly that, so a network blip, a
+credential that had just expired or a stale ref made it answer all-clear and the turn went on building
+on top of somebody else's tip.
+
+It still returns `''`, deliberately: a collision report is a claim about another session's work, and a
+failed fetch is no evidence for one. What changes is that the function now says so, from inside, on
+both call sites at once -- `the fetch of 'origin/<branch>' failed (git exit code 128), so this run did
+NOT read who is on the far side. That is NOT an all-clear` -- which is the sentence the neighbouring
+spent-budget path has printed since #1958. A **timeout** is named apart and carries
+`Invoke-NativeCapture`'s own `[timeout]` diagnosis, which this site had been discarding.
+
+**It is the second of two arms, and #2081 is the first.** That change landed days earlier in the same
+release and gives the same sentence to a fetch whose exit code came back *unmeasurable*. The two sit
+next to each other in `Get-BranchCollisionNote` by design and only one of them ever speaks: unreadable
+above, unsuccessful below. A reader meeting both lines in this changelog is not reading a repair made
+twice.
+
+**Not a sighting.** #2083 says outright that nobody has measured this firing, and `git fetch` of one
+branch against a configured origin is reliable; it is priced as the latent hazard it is. The failure it
+prevents is the one #1439 measured -- two sessions building the same branch end to end, discovered at
+the push -- arriving through a fetch that could not answer rather than through a look nobody bought.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `dkj-policy`'s `cycle-autopark` Stop hook gets a line where it previously got
+silence, and only in the state where the silence was wrong: a turn with something to push, on a branch
+with an open PR or a refused push, whose fetch of that branch did not succeed. Nothing else changes --
+no new refusal, no new network call, and a healthy fetch is byte-identical to before. They notice it
+the first time their network, credential or remote ref is having a bad day, which is precisely the
+turn on which the old answer was a confident wrong one.
+
+**Score:** 2
+
+#### Pull Request
+
+park-cycle's collision detector says a FAILED fetch out loud instead of reporting it as 'nothing to report'
+
+Plugins: dkj-policy
+
+[PR #2089](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2089)
+
+---
+
+### DEPLOY: fix/2081-exitcodeunknown-audit · 20260917-190004
+
+`ExitCodeUnknown` had no reader outside the lib that defines it, so all 56 bounded native-capture sites
+went on judging `$r.ExitCode` against a value that is `$null` about once in 300 fresh child processes.
+The direction made it worse than a wrong number: `$null -ne 0` is true, so every site that refuses on a
+failure refused, and PowerShell renders `$null` as the empty string, so twelve of them printed a reason
+with the number missing out of it -- `gh refused the read (exit ) -- no access, or no such branch`. The
+field now has two consumers, `Test-NativeExitMeasured` and `Get-NativeExitLabel`, and the audit's verdict
+per family is recorded where the next reader of the field will find it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Most of the repaired scripts are the ones this marketplace ships -- `claim-issue`, `open-pr`,
+`new-branch`, `park-cycle`, `sync-main`, `update-plugins`, the fold. In a consuming repo the sentences
+that were wrong are the ones a session acts on: *the claim failed -- #N is NOT yours* over a claim
+sitting on the tracker, *git push failed* over a branch that reached origin, and `park-cycle`'s
+collision detector reporting all-clear on a fetch it never read. Nothing changes on a healthy run; what
+changes is what a consumer is told on the rare one, and that none of the nine writes reaching a remote
+may call itself a failure any more.
+
+**Score:** 3
+
+#### Pull Request
+
+The bounded native-capture sites audited against an unmeasurable exit code, and the ones that diagnose gain a third state
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2088](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2088)
+
+---
 
 ### DEPLOY: fix/2060-chain-ending-list-one-definition · 20260917-184309
 

@@ -198,7 +198,24 @@ foreach ($mp in $marketplaces) {
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $marketplaceFailures++
-        Write-Host "    FAILED (exit $($r.ExitCode))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
+        # THE REASON IS COMPOSED RATHER THAN INTERPOLATED (issue #1931, audited under #2081), at this
+        # line and at its twin in step 2. An unmeasurable exit code satisfies `-ne 0` and prints as
+        # nothing, so a lost code read "FAILED (exit )" -- and this script is the one a reader runs
+        # BECAUSE something already looked wrong, so a failure with no reason in it is the worst shape
+        # here.
+        #
+        # IT IS STILL COUNTED AS A FAILURE, AND THAT IS THE ONE PLACE IN THIS AUDIT WHERE AN UNKNOWN IS
+        # DELIBERATELY REPORTED AS A FAILURE. The reason is the direction of the question: this script
+        # answers "did every update succeed", and for an updater the conservative answer to "I could not
+        # tell" is no. The seven WRITES elsewhere in this audit are the opposite case -- there the
+        # conservative answer is to stop claiming a failure, because a reader acting on one re-does a
+        # write that may have landed. Here re-running is the remedy anyway, and it is idempotent.
+        #
+        # SAID PRECISELY BECAUSE THE FIRST WORDING OVERCLAIMED (caught in review): step 3's receipt
+        # prints the versions actually installed, so it corrects what the CONSOLE says -- it does not
+        # touch this script's own exit code, and a caller reading that still gets the conservative
+        # verdict above.
+        Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
     }
 }
 
@@ -214,7 +231,7 @@ foreach ($t in $targets) {
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $updateFailures++
-        Write-Host "    FAILED (exit $($r.ExitCode))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
+        Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
     }
 }
 

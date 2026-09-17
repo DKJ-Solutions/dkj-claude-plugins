@@ -866,8 +866,13 @@ if ($resolveList.Count -gt 0) {
         # -- so the already-done warning #1409 exists to raise would silently not fire. Nothing else here
         # could tell the two apart: gh prints '[]' when it finds nothing, so at THIS call an empty capture
         # has no legitimate reading at all. Same repair as open-pr.ps1 makes on the same search.
+        # AN UNMEASURABLE EXIT CODE IS THE THIRD READING (issue #1931, audited under #2081), asked ahead
+        # of the number because `$null -ne 0` is true and the warning otherwise came out as "(exit )".
+        # Same repair as open-pr.ps1 makes on the same search, for the same reason.
         $searchUnread = ''
-        if ($prSearch.ExitCode -ne 0) {
+        if (-not (Test-NativeExitMeasured -Capture $prSearch)) {
+            $searchUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the search; a re-run normally settles it'
+        } elseif ($prSearch.ExitCode -ne 0) {
             $searchUnread = "exit $($prSearch.ExitCode)"
         } elseif ($prSearch.ShortRead) {
             $searchUnread = 'gh exited 0 but its capture was still being written when it was read, so the result may be truncated'

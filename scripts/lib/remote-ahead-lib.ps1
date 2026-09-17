@@ -108,8 +108,17 @@ function Get-RemoteAheadNote {
     # or ref problem, an empty capture on exit 0 is this run's own read, and a tip that strips to nothing
     # is a hostile subject rather than a failure. The third is unreachable while %h holds, and it is here
     # so that the arm below cannot print "whose tip is: " with nothing after it.
+    #
+    # A FOURTH ONE JOINED THEM UNDER #2081, and it is first because the arm below would otherwise take
+    # it: an unmeasurable exit code (#1931) is `-ne 0`, so it printed "git log exited " -- the reason
+    # sentence with the number missing out of it, sending the reader after a repo or ref problem that
+    # was never measured. It is a fact about this run, like the empty capture one line down, and it
+    # resolves the same way.
     $tipUnread = ''
-    if ($tip.ExitCode -ne 0) { $tipUnread = "git log exited $($tip.ExitCode)" }
+    if (-not (Test-NativeExitMeasured -Capture $tip)) {
+        $tipUnread = 'git log ran and its exit code came back unmeasurable (issue #1931) -- a fact about this run rather than about the branch, and it normally settles on a re-run'
+    }
+    elseif ($tip.ExitCode -ne 0) { $tipUnread = "git log exited $($tip.ExitCode)" }
     elseif (-not $tipRaw)    { $tipUnread = 'git log exited 0 and its capture came back empty' }
     elseif (-not $tipLine)   { $tipUnread = 'its author and subject carry no printable characters at all' }
 
