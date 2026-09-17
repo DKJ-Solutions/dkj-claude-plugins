@@ -43,7 +43,90 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2055-preview-theme-name-length · 20260917-150335
+
+`Get-RepoPreviewThemeName` now bounds a branch's preview theme name to Shopify's 50-character
+ceiling (inbound #2055). A branch name long enough to compose past it used to reach the platform and
+come back as `Name is too long (maximum is 50 characters)` -- after the run had already announced
+which theme it was creating, so the push read as half-done. A name that FITS is returned unchanged,
+so every preview theme that exists today keeps its name and stays findable; only an over-long one is
+rewritten, as `<prefix><truncated branch part>-<6 hex of SHA256(the full name)>`.
+
+The bound belongs in the shared builder rather than at the caller because three call sites compose
+this name and all three have to agree on one string: `push-preview.ps1` creates the theme, and
+`sweep-preview-themes.ps1` composes it again -- once for the current branch and once for every branch
+still alive -- in order to SPARE it. A ceiling applied outside the builder would leave the sweep
+composing a name it no longer recognises as spared, which is silent and destructive.
+
+The discriminator is not decoration: plain truncation maps every branch sharing a long enough head
+onto one theme name, so two branches would push over each other onto a preview that looks correct
+from both.
+
+A consumer whose branch names run long cannot create a preview theme at all today; everyone else sees
+no change, because a name that fits is untouched. Noticed the moment that consumer pushes.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It closes the class rather than the instance. `Get-RepoPreviewThemeName` already refused a name
+illegal at the CLI -- a `/` in it -- and its own docstring named that as its job; the length ceiling
+is the same kind of rule from the same vendor, and it was the one case the function did not cover.
+
+**Score:** 2
+
+#### Pull Request
+
+Get-RepoPreviewThemeName bounds the theme name to Shopify's 50-character limit
+
+Plugins: dkj-subagents-shopify
+
+[PR #2059](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2059)
+
+---
+
+### DEPLOY: fix/2048-closeout-repair-strategy · 20260917-143821
+
+The close-out ceiling is now measured instead of argued about. `measure-closeouts.ps1` reads this
+machine's recorded sessions and reports how the close-out actually behaved, separating the two
+populations that matter -- every session's final message, and the close-outs that follow a
+chain-ending script, which is the set the ceiling governs and the only set a verdict may be read off.
+
+It answers the question inbound #2048 called open and real. Over 328 sessions, 263 of them real
+close-outs: **84% exceed the three-line ceiling, 56% exceed even six, and the median is seven.** So the
+rule has never been in force anywhere -- five complaints are five of two hundred and twenty-two -- and
+every previous repair was advice against a baseline nobody had counted, evaluated by waiting for the
+next complaint. That is a sample of one, which cannot tell a repair that worked from one that did not,
+and it is the mechanism behind the pattern the report identified.
+
+It also settles the report's leading hypothesis, that the trigger is volume of work: measured,
+`r = 0.207` over n=263 -- real, about 4% of the variance, and not the cause, because the smallest
+quarter of sessions already averages 5.8 lines against a ceiling of 3.
+
+Nothing about what the close-out print says was changed, deliberately. The finding is about how
+repairs are evaluated, and the instrument plus its recorded baseline is what lets the next change here
+be shown to have done something.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- this repo's audience tier is the developers maintaining it. The instrument reads session
+transcripts on the machine it runs on and ships to no consumer in this change.
+
+**Score:** N/A
+
+#### Pull Request
+
+The close-out repair strategy, investigated across five recurrences
+
+Plugins: dkj-policy
+
+[PR #2057](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2057)
+
+---
 
 ### DEPLOY: fix/2049-asana-block-before-close · 20260917-125439
 

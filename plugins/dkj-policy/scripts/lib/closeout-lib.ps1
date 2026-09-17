@@ -79,6 +79,52 @@
     script's clothes. The bypass clause is the one place it runs to a fourth line, because that fact
     has nowhere else to live -- see Write-CloseOutReceipt's -Bypass.
 
+    AND THEN IT WAS COUNTED, WHICH IS THE ONLY THING NONE OF THE SIX REPAIRS ABOVE HAD EVER DONE
+    (inbound #2048, September 17, 2026). That report asked why five repairs each correctly diagnosed
+    the previous failure and did not prevent the next, and named that pattern as itself the finding.
+    It is, and the mechanism behind it is not subtle: NO REPAIR WAS EVER MEASURED. Each was evaluated
+    by waiting to see whether Dave complained again -- a sample of one, weeks later, from whichever
+    repo he happened to be in. Judged that way, a repair that did nothing and a repair that halved the
+    problem are indistinguishable, and six rounds of that is what the history above actually records.
+
+    THE NUMBER, measured by scripts/maintenance/measure-closeouts.ps1 over 328 recorded sessions on
+    this machine, 263 of them ending in a real close-out (one that follows a chain-ending script, i.e.
+    exactly where this file prints):
+
+        over the 3-line ceiling   222 / 263   84%
+        over 6 lines              146 / 263   56%
+        median / mean / p90 / max lines       7 / 8.5 / 16 / 76
+
+    SO THE RULE HAS NEVER BEEN IN FORCE ANYWHERE. Five complaints are five of two hundred and
+    twenty-two. That reframes every entry in the table above: they were not guardrails that kept
+    slipping, they were advice against an 84% baseline nobody had ever counted -- and the one repo
+    that writes the rule is its best performer at 50%, while two consumers sit at 97% and 88%.
+
+    THE REPORT'S LEADING HYPOTHESIS IS ANSWERED, AND IT IS NOT THE CAUSE. #2048 proposed that the
+    trigger is VOLUME OF WORK rather than forgetting, and said that if so, no amount of print
+    placement touches it. Measured: r(tool calls, close-out lines) = 0.207 over n=263 -- significant
+    at that n, and about 4% of the variance. The quartile means are what settle it: the SMALLEST
+    quarter of sessions (9-58 tool calls) already averages 5.8 lines against a ceiling of 3. The
+    effect is real and removing it entirely would leave the rule broken, so a repair aimed at long
+    sessions would have been the sixth correct diagnosis of the wrong thing.
+
+    AND THE MEASURE-IT ROUTE #1884 DECLINED IS NO LONGER THE ROUTE IT DECLINED. That paragraph rejected
+    a Stop hook on the ground that it "has to parse a transcript shape that differs across the harness
+    versions consumers run". The harness now hands a Stop hook the close-out directly -- the documented
+    field is last_assistant_message, and the reference says in so many words that hooks needing the
+    final assistant text "should use last_assistant_message on Stop and SubagentStop instead of reading
+    the transcript" (code.claude.com/docs/en/hooks). So the objection has expired on its facts rather
+    than on its reasoning. Its SECOND objection stands and is now the whole question: a hook that
+    merely reports arrives after the close-out is written. Worse than #1884 knew -- a Stop hook exiting
+    0 puts plain stdout in the debug log, where neither Dave nor the model reads it -- so the only
+    shape that can change anything is one that BLOCKS, and this workflow has never blocked on a
+    close-out. That decision is open and is deliberately not taken here.
+
+    NOTHING IN THIS FILE CHANGED FOR #2048, AND THAT IS THE POINT. The finding is about how repairs are
+    evaluated, not about what this file prints; a seventh sharpening of the text below would be the
+    exact move the measurement says has never once worked. What the investigation added is an
+    instrument and a recorded baseline, so the NEXT change here can be shown to have done something.
+
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
     Pure ASCII (repo convention for .ps1).
 #>
