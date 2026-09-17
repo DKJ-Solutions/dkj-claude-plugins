@@ -43,4 +43,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**1 / 1 minor entry** <!-- pending-tally -->
+
+### DEPLOY: fix/2044-child-output-to-host · 20260917-091623
+
+A child process's narration could arrive after everything its parent printed, so where a line was placed
+stopped predicting where it was read. `ship-pr.ps1`, `cut-release.ps1` and `verify-pushed-merges.ps1`
+each started their children with `& powershell`, which hands the child's stdout to the parent script's
+**success stream** -- its return value -- while the parent's own `Write-Host` narration goes to the
+information stream. The two reach one console in printed order only while nothing consumes the success
+stream; pipe such a run, capture it, or `Tee-Object` it, and the narration prints live while every
+child is collected and replayed at the end. The output is not scrambled, which is what made it hard to
+read as a defect: it is every parent line in file order, then every child line in file order.
+
+All five narrating spawns across the three scripts now route through `| Out-Host`, which keeps the
+child's text with the narration and leaves the success stream empty -- where a child's console output
+never belonged. `$LASTEXITCODE` is unaffected, and `2>&1` is deliberately not used.
+
+The repair went further than #2044 asked. The issue named `ship-pr.ps1` alone and expected to need three
+consumer-side facts before anything could change; none was needed, because the reproduction it had
+already written only had to be run through a pipe. Going looking then found the same defect in two
+sibling scripts it had not reported. `../scripts/tests/ordering-passthrough.tests.ps1` pins both halves:
+that the defect is real, and that no narrating spawn in either copy of `scripts/release/` is left
+unrouted.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer is where this was measured -- a ship whose output arrives grouped rather than interleaved
+costs a debugging session to explain, and #2044 was filed only after a second issue had already been
+misdiagnosed from the resulting screen order. Consumers running a ship in a foreground shell see no
+change at all; those who pipe, capture or background one get output they can read in order again.
+Conditional reach is why this is not scored higher: nothing was blocked, and the workflow no longer
+depends on placement anyway.
+
+**Score:** 2
+
+#### Pull Request
+
+A child process's output no longer lands after everything the parent printed
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2046](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2046)
+
+---
+
