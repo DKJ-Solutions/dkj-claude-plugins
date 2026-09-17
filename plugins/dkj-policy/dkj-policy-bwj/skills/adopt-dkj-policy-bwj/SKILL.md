@@ -338,6 +338,19 @@ report a failure, and the reach label is the one a consumer has actually renamed
 written here, where it has been paid for, rather than four times on speculation. If a second rename
 lands on one of the others, that is the moment for its own seam -- not a reason to widen this one now.
 
+**And the `CRO` label -- store repos only, never here.** It marks an issue filed by, or on behalf of,
+the CRO team (today: Johnno), and it exists in exactly two repos: `smartwatchbanden` and
+`xoxowildhearts`. **Skip this label entirely when this skill runs against `dkj-claude-plugins`** -- that
+repo has no Shopify store for a CRO team to measure, and it is a permitted adoption target for the
+ticket-handling chapter alone, not for this label. See
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----who-reported-it-not-what-it-is)
+for the reasoning.
+
+```bash
+gh label create CRO --repo <owner>/<repo> --color 5319e7 \
+  --description "Filed by, or on behalf of, the CRO team (currently Johnno) -- store repos only"
+```
+
 **And the four prio labels**, which the reconcile sweep needs: it sets one of them on every open
 issue from its Asana task's `Prio-Score`, and `gh issue edit` fails on a label the repo does not have
 exactly as `gh issue create` does.

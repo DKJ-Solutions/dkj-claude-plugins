@@ -80,6 +80,7 @@ gh issue create --repo <owner>/<repo> --title "<precise technical title>" --body
 | `--type` | **Bug** for a defect in behaviour that already exists, **Feature** for a capability the store does not have yet, **Task** for everything else -- which is most of it, doc findings included. Always one of the three; both BWJ orgs have exactly these and no others (measured September 7, 2026 -- `gh api orgs/<org>/issue-types` returns Task, Bug, Feature in `BWJ-ecommerce` and in `BWJ-Development` alike) |
 | the reach label (`Get-ReachLabel`, default `minor`) | **only** where management or the commissioner would notice it. The test is whether that reader notices the **defect**, not whether the file renders to them: a customer-facing template with a developer-only defect is tier 0, and a build script whose breakage stops a release the business is waiting on is not. **In doubt, leave it off** |
 | `--label documentation` | on a doc finding, on top of its type -- the one content distinction the three types cannot express here |
+| `--label CRO` (store repos only) | on an issue filed by, or on behalf of, the CRO team (today: Johnno). Never in this plugin's own source repo `dkj-claude-plugins` -- it has no Shopify store for a CRO team to measure. See `WORKFLOW-portable.md`'s classification section |
 
 **Write it in English -- the title as much as the body.** Every consumer of `dkj-policy` runs this same
 cycle, so the issue takes the workflow's language no matter which language the session is being spoken

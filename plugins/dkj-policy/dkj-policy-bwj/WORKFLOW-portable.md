@@ -105,6 +105,7 @@ issues across the two -- and that state holds only if every filing from here on 
 | **issue type** | Bug / Feature / Task | `--type Bug` -- a defect in behaviour that already exists is **Bug**, a capability the store does not have yet is **Feature**, and **Task** is everything else, which is most of it |
 | **the reach label** | how far the issue reaches | one `--label`, and only where it reaches the audience tier. Absence is the answer for tier 0 and is not a missing field. Its **name** is `Get-ReachLabel`'s, default `minor` -- see below |
 | **`documentation` label** | the one content distinction the type system cannot express here | `--label documentation` on a doc finding, on top of whatever type it has |
+| **`CRO` label** | who raised it, not what it is -- store repos only | `--label CRO` on an issue filed by, or on behalf of, the CRO team (today: Johnno), on top of whatever type it has -- see below |
 
 **The type is set directly, not derived from a label.** `bug` and `enhancement` were deleted from both
 repos on September 1, 2026, because the type already carried them: all 28 `bug` issues held type `Bug`
@@ -146,6 +147,29 @@ names what the landing does to the release rather than a tier number. `xoxowildh
 leaving it at neither is not. So **read `Get-ReachLabel` from your own `scripts/repo-config.ps1`, never a
 literal**: `gh issue create` fails outright on a label the repo does not have, so a typed default gets you
 an error instead of an issue.
+
+#### The CRO label -- who reported it, not what it is
+
+**A fourth, independent axis: not what the issue is, but who raised it.** `--label CRO` marks an issue
+filed by, or on behalf of, the CRO team -- today that is Johnno. It is written from judgement at the
+moment of filing, exactly like `documentation` and the reach label above: there is no automatic
+detection from a GitHub account, and none is planned -- a session files every issue itself, so
+`created_by` would read identically whether a CRO finding or anybody else's went through it, the same
+trap `SubmitterPattern` elsewhere in this page warns against for a different field.
+
+**This label exists ONLY in a repo that is an actual Shopify store**, because a CRO team measures
+conversion on a live storefront and this plugin's own source repo, `dkj-claude-plugins`, has none --
+admitted as a [`report-issue`](skills/report-issue/SKILL.md) target for the ticket-handling chapter
+alone, not for this axis. Concretely:
+
+- `smartwatchbanden` and `xoxowildhearts` -- create it, and set it where it applies.
+- `dkj-claude-plugins` -- never create it, and never set it. A finding filed here has no CRO team
+  behind it to attribute, whatever else the ticket-handling chapter permits there.
+
+**It carries no seam and needs none** -- the same shape `Get-ReachLabel`'s own paragraph reasons from:
+nobody has renamed this label, and which repos it applies to is a fixed list of two, stated here rather
+than read from a function nothing else needs. [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md)'s
+labelling step creates it only where the repo is one of those two.
 
 ### 2. Then Asana -- a translation, not a copy
 
