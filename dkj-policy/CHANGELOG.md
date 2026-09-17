@@ -43,7 +43,117 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2051-mirror-closeout-instrument · 20260917-154400
+
+The close-out instrument now ships to the consumers it measures worst. `measure-closeouts.ps1` landed
+in #2048 as a source-repo maintenance script, which was the wrong way round for what it measures: per
+repo, close-outs over the three-line ceiling ran `smartwatchbanden` 97%, `xoxowildhearts` 88%,
+`claude-code-specialists` 86%, `thumbnail-generator` 67% -- and the repo that owns the instrument is
+its best performer at 50%. The two worst were consumers who could not run it, and every close-out
+complaint on the record came from a consumer.
+
+It is registered, mirrored byte-identically into `dkj-policy`, and documented by its own
+`measure-closeouts` skill page rather than filed under `measure-skill`'s, whose subject is what a skill
+costs in tokens. Two things the mirror needed came with it: the source-repo guard, so a stale cached
+copy is refused instead of reporting a plausible number, and a baseline that lands in the consumer's
+own repo rather than in the plugin cache the next update replaces.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer of this workflow gains an instrument they could not run before, and it needs nothing
+configured: it reads `~/.claude/projects` rather than the repo, is read-only, always exits 0, and only
+counts leave it -- no transcript content -- so it is safe in a repo whose measurements are published
+while its sessions stay private. It costs one more always-on skill description in every session that
+enables `dkj-policy`, which was weighed and accepted rather than discovered.
+
+**Score:** 3
+
+#### Pull Request
+
+The close-out instrument ships to the consumers whose rates are worst
+
+Plugins: dkj-policy
+
+[PR #2063](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2063)
+
+---
+
+### DEPLOY: feat/2050-closeout-gate · 20260917-151732
+
+Step 6 of the ritual now has a gate instead of a seventh piece of advice. A Stop hook refuses a
+close-out over this repo's band and asks for it again, once per work chain; every other turn, and
+every repo that has not answered the new seam, is untouched.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Six repairs to the close-out are on the record and all six were advice. #2048 built the instrument and
+measured the baseline none of them had ever been argued against -- 84% of close-outs over the stated
+ceiling, which means the rule had never been in force anywhere. This is the first one that can be
+measured rather than judged by whether a complaint arrives.
+
+It also reverses a written doctrine, narrowly: `cycle-autopark.ps1` says a Stop hook never blocks, and
+that stays true of `cycle-autopark`. The exception is bounded to a measured over-run on a turn that
+ended a work chain in a repo that opted in by name.
+
+**Score:** 2
+
+#### Pull Request
+
+A close-out gate: a Stop hook that blocks a receipt over the band
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2065](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2065)
+
+---
+
+### DEPLOY: fix/2055-preview-theme-name-length · 20260917-150335
+
+`Get-RepoPreviewThemeName` now bounds a branch's preview theme name to Shopify's 50-character
+ceiling (inbound #2055). A branch name long enough to compose past it used to reach the platform and
+come back as `Name is too long (maximum is 50 characters)` -- after the run had already announced
+which theme it was creating, so the push read as half-done. A name that FITS is returned unchanged,
+so every preview theme that exists today keeps its name and stays findable; only an over-long one is
+rewritten, as `<prefix><truncated branch part>-<6 hex of SHA256(the full name)>`.
+
+The bound belongs in the shared builder rather than at the caller because three call sites compose
+this name and all three have to agree on one string: `push-preview.ps1` creates the theme, and
+`sweep-preview-themes.ps1` composes it again -- once for the current branch and once for every branch
+still alive -- in order to SPARE it. A ceiling applied outside the builder would leave the sweep
+composing a name it no longer recognises as spared, which is silent and destructive.
+
+The discriminator is not decoration: plain truncation maps every branch sharing a long enough head
+onto one theme name, so two branches would push over each other onto a preview that looks correct
+from both.
+
+A consumer whose branch names run long cannot create a preview theme at all today; everyone else sees
+no change, because a name that fits is untouched. Noticed the moment that consumer pushes.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It closes the class rather than the instance. `Get-RepoPreviewThemeName` already refused a name
+illegal at the CLI -- a `/` in it -- and its own docstring named that as its job; the length ceiling
+is the same kind of rule from the same vendor, and it was the one case the function did not cover.
+
+**Score:** 2
+
+#### Pull Request
+
+Get-RepoPreviewThemeName bounds the theme name to Shopify's 50-character limit
+
+Plugins: dkj-subagents-shopify
+
+[PR #2059](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2059)
+
+---
 
 ### DEPLOY: fix/2048-closeout-repair-strategy · 20260917-143821
 

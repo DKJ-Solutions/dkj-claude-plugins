@@ -155,6 +155,42 @@ try {
     $out = & $ScriptPath -TranscriptRoot $absent *>&1
     Assert-Equal 0 $LASTEXITCODE 'a missing root still exits 0'
     Assert-True (($out | Out-String) -match '\[SKIP\]') '...and says so rather than reporting a rate of nothing'
+
+    Write-Host ''
+    Write-Host 'The baseline: an explicit path is honoured, and the committed one is left alone' -ForegroundColor Cyan
+
+    # -BaselinePath is asserted by RUNNING it rather than by reading the source, because what would break
+    # is the write landing somewhere else -- and the somewhere else it would land is this repo's own
+    # committed baseline. A suite that overwrote that file would BE the regression it is here to catch,
+    # so the untouched-timestamp assert below is part of the subject and not politeness.
+    $blPath          = Join-Path $fixtureRoot 'baseline\closeout-ceiling.json'
+    $committed       = Join-Path $RepoRoot 'scripts\maintenance\baselines\closeout-ceiling.json'
+    $committedBefore = if (Test-Path -LiteralPath $committed) { (Get-Item -LiteralPath $committed).LastWriteTimeUtc } else { '(absent)' }
+
+    & $ScriptPath -TranscriptRoot $fixtureRoot -UpdateBaseline -BaselinePath $blPath *>&1 | Out-Null
+    Assert-Equal 0 $LASTEXITCODE '-UpdateBaseline with an explicit -BaselinePath still exits 0'
+    Assert-True (Test-Path -LiteralPath $blPath) '...and the baseline lands where it was told, parent directory created'
+
+    $committedAfter = if (Test-Path -LiteralPath $committed) { (Get-Item -LiteralPath $committed).LastWriteTimeUtc } else { '(absent)' }
+    Assert-Equal "$committedBefore" "$committedAfter" "...and this repo's committed baseline was not touched"
+
+    Write-Host ''
+    Write-Host 'The two copies disagree about WHERE the baseline lives, on purpose' -ForegroundColor Cyan
+
+    $src = Get-Content -LiteralPath $ScriptPath -Raw
+
+    # THE ONE CLASS A BYTE-IDENTICAL MIRROR CAN STILL GET WRONG (#2051). Both copies run this same line;
+    # $PSScriptRoot is what differs. In the repo this file is maintained in it sits inside the repo and the
+    # baseline belongs beside the script, where the committed one already is. In the plugin mirror it is the
+    # version-scoped plugin cache, which the next `claude plugin update` replaces -- so a baseline written
+    # there is lost without anybody being told. Pinned in the SOURCE because the mirror is held byte-identical
+    # to it by check 8, and a run from a real plugin cache cannot be staged from here.
+    Assert-True ($src -match 'repoRoot .dkj-policy.baselines.closeout-ceiling') 'the mirror copy writes its baseline into the consumer repo, not into the plugin cache'
+    Assert-True ($src -match '\$env:CLAUDE_PROJECT_DIR') '...resolved dual-context, which is what makes that answer right in a consumer'
+
+    # The guard matters MORE on an instrument than on a gate: a stale gate fails loudly, a stale measurement
+    # hands back a plausible number nobody can tell from a fresh one.
+    Assert-True ($src -match 'Assert-OwnCopy') 'the source-repo guard is carried, so a stale mirror run in the source repo is refused rather than reporting'
 }
 finally {
     if (Test-Path -LiteralPath $fixtureRoot) {
