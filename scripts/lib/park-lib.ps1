@@ -737,6 +737,22 @@ function Invoke-GitPark {
     $pushRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'push', '-u', 'origin', $Branch) `
                                     -TimeoutSeconds $pushBound
     $pushRes.Output | ForEach-Object { Write-Host $_ }
+    # A PUSH WHOSE EXIT CODE WAS NEVER MEASURED IS NOT A FAILED PUSH (issue #1931, audited under #2081),
+    # and this is the first of the family's seven WRITES to say so. The branch below reads a non-zero as
+    # git's verdict and hands Get-GitPushFailureMessage the captured output to diagnose -- so on an
+    # unmeasurable code it would compose a reason for a failure nobody established, off output that may
+    # be a clean push's. THE CALLER IS WHY IT MATTERS MOST HERE: $false is what cycle-autopark reports as
+    # the turn's parking failure, so an unattended hook would announce work as unparked while it sits on
+    # origin. $false is still the answer -- this run cannot say the push landed -- but the reader is told
+    # which of the two states it is in, and that re-running is safe because `git push` of the same commits
+    # is idempotent.
+    if (-not (Test-NativeExitMeasured -Capture $pushRes)) {
+        if (-not $NoFailureMessage) {
+            Write-Error ("git push ran but its exit code could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether '$Branch' reached origin. " +
+                         'Look before you act -- `git ls-remote --heads origin ' + $Branch + '` -- and simply run this again: pushing the same commits twice is harmless.') -ErrorAction Continue
+        }
+        return $false
+    }
     if ($pushRes.ExitCode -ne 0) {
         # Flattened before it is matched: with stderr merged in (2>&1) the captured output is an ARRAY that
         # can hold ErrorRecords as well as strings, and -match against an array returns the matching

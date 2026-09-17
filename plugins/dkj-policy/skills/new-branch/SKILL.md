@@ -44,7 +44,9 @@ The script:
    `refs/remotes/origin/<name>`. That question comes first because the answer decides whether step 4 has
    a base to talk about at all.
 4. **Measures the base it is about to cut from** and **refuses** if it is behind `origin/<trunk>`, naming
-   the count and `-SkipStaleBase` -- see below. It does not move `HEAD` for you either way; refusing is
+   the count and `-SkipStaleBase`; and where that base is **another branch's tip** rather than the trunk,
+   **warns**, naming the branch and the commits it carries that the trunk does not (#2074) -- see below.
+   It does not move `HEAD` for you either way; refusing is
    how it avoids having to. Skipped on a resume: the count is `HEAD..origin/<trunk>` and on a resume
    `HEAD` is whatever you were standing on, so it would hand you the trunk's gap under the resumed
    branch's name -- which is also why a resume is never refused.
@@ -81,6 +83,7 @@ So `new-branch` measures `HEAD..origin/<trunk>` and acts on what it found:
 | the base is behind by N | **refuses**, naming N, the local remedy (`git pull --ff-only`), the lane route, and `-SkipStaleBase` |
 | the base is behind by N, and `-SkipStaleBase` was given | cuts anyway, warning with N -- **twice**, once before the checkout and once as the last line of the run |
 | the base is current | one dim line saying so, so silence is never ambiguous |
+| the base is current **and it is another branch's tip** | **warns**, naming that branch and how many commits it carries that `origin/<trunk>` does not -- **twice**, and the dim line above names the branch as well |
 | no `refs/remotes/origin/<trunk>` in the repo | one dim line saying the question could not be asked -- no fetch is attempted and no gap is claimed |
 
 **It refuses, and the refusal costs nothing**, which is the argument for it. The check sits *before* the
@@ -116,6 +119,47 @@ rather than a reading about a trunk it was never cut from. **The local question 
 the remote-tracking ref is read first, which is what keeps the script usable offline and costs nothing in
 a repo that cannot answer. In a lane worktree (detached at `origin/<trunk>`) it reads 0, so the route that
 already handles this hazard is never warned about.
+
+### And zero is two different facts (issue #2074)
+
+That count is the right measurement and it was the whole of what the run said. **A branch cut from the
+trunk and a branch cut from another branch that has just merged the trunk both read zero**, and both were
+told *"Base is current with `origin/<trunk>`"* -- so nothing on screen said the base was somebody else's
+branch tip. Stacking is deliberately permitted; what was missing is the signal that you are doing it.
+
+**Measured, September 17, 2026:** two sessions sharing one working copy. The other had checked out a
+branch and merged `origin/main` into it minutes earlier; `new-branch` printed *"Base is current with
+origin/main"* and cut from that tip, and the new branch carried five of that branch's commits -- 22 files,
+1257 insertions -- under a two-line repair. **Every downstream guard reads the branch, and the branch was
+fine**: the lint gate, all suites and CI went green on it, and a reviewer reading the diff is what found
+it. The session-start `git status` had said `main`, clean, which is why nothing looked wrong -- the other
+session moved the checkout after that snapshot was taken.
+
+So where `HEAD` is a **branch other than the trunk**, the run names it and counts `origin/<trunk>..HEAD`:
+*"'feat/x' is being cut from 'fix/y', which is not main -- that base carries 2 commits origin/main does
+not."* Said twice, on the same schedule as the stale-base note and for the same reason.
+
+**That second number is what keeps the ordinary run silent.** `origin/<trunk>..HEAD` is 0 for a base that
+really is the trunk, and 0 for a branch freshly cut and not yet committed on -- where nothing would travel
+either. So this says nothing at all unless the base carries commits the trunk does not, which is exactly
+the set that would ride into the pull request.
+
+**A warning, never a refusal.** The stale-base check's argument does not carry here: it refuses a base
+nobody wants, while stacking on purpose is a thing people do deliberately, so a refusal would sit across a
+route rather than across a mistake. What was missing was never a gate but the **signal** that you are on
+that route -- which is the remote-ahead warning's own reason, one hazard over. **The lane is silent for
+the reason the paragraph above already gives**, and needs nothing of its own: it is detached at
+`origin/<trunk>`, and a detached `HEAD` is not a subject here. A `HEAD` on the **trunk** is excluded by
+*name* rather than by its count, so this workflow's own direct-on-trunk commits stay silent too.
+
+**It is not the stale-base check one argument over.** That fires on a base *behind* the trunk, and this
+base was behind nothing; the two are independent, which is why this warning prints on the refusing path as
+well. And it is not the remote-ahead warning (#1439) either, which is about the branch you are **resuming**
+rather than the base you are **cutting from**.
+
+**The neighbouring question it does not answer:** two sessions sharing one working copy at all. That is
+#1973's subject (worktrees), and this is worth having regardless of how that lands -- a stale `HEAD` left
+by your own earlier checkout produces the same silence with one session.
 
 ## The already-done check (issue #1409)
 
@@ -264,7 +308,7 @@ file, and the rule flips with the destination rather than with the text.
 
 **It is NOT the only console this workflow writes somebody else's words to** -- that claim stood here
 and was false from the day `ship-pr` began relaying the sentence a failing workflow wrote about itself
-(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are six**, and the count
+(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are seven**, and the count
 is worth stating precisely because the wrong one is what kept the second site unguarded:
 
 1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch` and `open-pr`
@@ -283,10 +327,15 @@ is worth stating precisely because the wrong one is what kept the second site un
    check-ref-format` enforces `\p{Cc}` and **accepts** `\p{Cf}`, so a branch created by hand, cloned or
    fetched carries U+202E or a zero-width run straight into those lines; `sync-main`'s come off `git
    ls-remote` and its seam answers, which git never validated at all. Not capped.
-5. **`claim-issue`'s own report** -- the issue TITLE off the tracker, plus the commit subjects and
-   branch names its parked-fix scan prints (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`,
-   #1858). The title is the one entry here whose author needed no push access at all: on a public
-   tracker anybody can open an issue. Not capped.
+5. **`claim-issue`'s own report** (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`, #1858) --
+   **four** classes of value, not one, because that report grew a pickup signal at a time and each one
+   arrived carrying its own: the issue TITLE off the tracker; the AUTHOR, the SUBJECT and the BRANCH
+   NAMES its **parked-fix scan** prints per commit; the BRANCH NAMES its **title-overlap scan** prints
+   (#2018), which come off a `git branch -a` capture the per-commit strip above never reaches and so
+   need a second call at the caller (#2069); and the BRANCH NAMES plus the cited FILE PATHS its
+   **prerequisite scan** prints (#2064). The title is the entry here whose author needed no push
+   access at all -- on a public tracker anybody can open an issue -- and those cited paths are read
+   out of an issue BODY, so they are that same author one field over. Not capped.
 6. **`asana-mirror`'s stage lines** -- the Asana task NAME, the GitHub project board's STATUS names,
    and the phrase saying WHY a card moved, which carries a submitter's name off the task's notes
    (`Format-ForConsole`, `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1`,
@@ -295,10 +344,21 @@ is worth stating precisely because the wrong one is what kept the second site un
    less than entry 5's: a colleague types a task name and its notes through Asana's web UI and a
    board's column names through GitHub's project settings, none of which touches a repository at all.
    Not capped -- the console here is a CI log, which wraps rather than truncates.
+7. **`ship-pr`'s forward lap** -- GitHub's own answer to `PUT .../update-branch`, relayed in the refusal
+   when the lap cannot bring the branch up to date, and the NAME of the workflow that now owns this
+   run's fold, read straight off disk by `Get-RepoWorkflowRecord`
+   (`scripts/release/ship-pr.ps1`, `scripts/lib/ci-fold-lib.ps1`,
+   [#2087](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2087)). The API answer is capped
+   at 500 and stripped, entry 2's own bound, because it is the same thing one endpoint over; the
+   filename goes through `Get-DisplayPath`, since NTFS accepts a format character in a name and a
+   filename may legitimately carry spaces that `Get-DisplayRef` would collapse. **The pasteable
+   spelling and the printed one are kept apart here**: the `gh run list --workflow=<name>` line is
+   printed only where the stripped name still equals the real one, because a stripped name is no longer
+   the file gh has to be given -- #1594's distinction, one file type over.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
-September 11, five until September 15, and each new one arrived as a counter-example to a sentence
-that had stopped being checked. **The list is the thing that has to be kept true, not the number in
+September 11, five until September 15, six until September 17, and each new one arrived as a
+counter-example to a sentence that had stopped being checked. **The list is the thing that has to be kept true, not the number in
 front of it** -- entry 5 sat outside it for as long as the list existed, guarded by an ASCII-only
 strip nobody had re-read, and entry 6 sat outside it while carrying no strip of any kind. **Entry 6
 is also the first one this list did not find**: it was measured by a security review of an unrelated
@@ -313,6 +373,14 @@ of two of its values, and an audit that read the comment instead of the composin
 straight over it. **So the unit is a VALUE, never a variable that looks like the script's own**: what
 matters is where the characters were typed, and a phrase this workflow assembles out of somebody
 else's words is somebody else's words.
+
+**And an entry goes stale exactly the way the list does, one level in.** Entry 5 named one scan back
+when `claim-issue`'s report had one, and went on naming only that scan while three further pickup
+signals were built on the same report -- so the count in front of the list stayed right while entry 5
+quietly stopped describing its own site (#2073, September 17, 2026, and found the same way entry 6 was:
+by a security review of an unrelated repair, not by this page). **So a new signal, a new field or a new
+caller inside a site the list already carries is an edit to that entry**, and what decides whether one
+is owed is the rule above -- a site prints a set of VALUES, and the entry has to name all of them.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and

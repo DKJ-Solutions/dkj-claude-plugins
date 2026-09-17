@@ -103,6 +103,13 @@ function Get-ClosedIssueSet {
             'issue', 'view', "$n", '--repo', $Repo, '--json', 'state,url'
         ) -TimeoutSeconds $TimeoutSeconds
 
+        # AUDITED UNDER #2081 AND LEFT AS IT IS, on a mechanism worth stating because it is invisible:
+        # Get-IssueStateVerdict declares `[int]$ExitCode = 0`, and PowerShell coerces $null to 0 on the
+        # way in -- so an unmeasurable code (#1931) arrives as a clean exit and the verdict is reached
+        # from the PAYLOAD instead. That is the right answer rather than a lucky one: the child ran, its
+        # JSON is in hand, and the code is the weaker of the two pieces of evidence. A payload that is
+        # missing or unparseable still returns 'unreadable', which this caller turns into silence.
+        # IT DEPENDS ON THAT [int], so do not relax the parameter's type without replacing this reading.
         switch (Get-IssueStateVerdict -ExitCode $q.ExitCode -Output (@($q.Output) -join "`n")) {
             'closed'     { $closed += [int]$n }
             'unreadable' { $result.Unreadable = $true }
