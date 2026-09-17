@@ -43,7 +43,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2050-closeout-gate · 20260917-151732
+
+Step 6 of the ritual now has a gate instead of a seventh piece of advice. A Stop hook refuses a
+close-out over this repo's band and asks for it again, once per work chain; every other turn, and
+every repo that has not answered the new seam, is untouched.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Six repairs to the close-out are on the record and all six were advice. #2048 built the instrument and
+measured the baseline none of them had ever been argued against -- 84% of close-outs over the stated
+ceiling, which means the rule had never been in force anywhere. This is the first one that can be
+measured rather than judged by whether a complaint arrives.
+
+It also reverses a written doctrine, narrowly: `cycle-autopark.ps1` says a Stop hook never blocks, and
+that stays true of `cycle-autopark`. The exception is bounded to a measured over-run on a turn that
+ended a work chain in a repo that opted in by name.
+
+**Score:** 2
+
+#### Pull Request
+
+A close-out gate: a Stop hook that blocks a receipt over the band
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2065](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2065)
+
+---
 
 ### DEPLOY: fix/2055-preview-theme-name-length · 20260917-150335
 
