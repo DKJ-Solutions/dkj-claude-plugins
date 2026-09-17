@@ -43,7 +43,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 29 minor entries** <!-- pending-tally -->
+**19 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/cro-reporter-label · 20260917-074046
+
+Documents a new GitHub classification label, `CRO`, for the `dkj-policy-bwj` workflow: it marks an
+issue filed by, or on behalf of, the CRO team (currently Johnno), set by judgement at filing time like
+`documentation` and the reach label. Scoped to repos that are an actual Shopify store linked to an
+Asana project (`smartwatchbanden`, `xoxowildhearts`); `adopt-dkj-policy-bwj`'s label step explicitly
+skips it for the plugin's own source repo, `dkj-claude-plugins`, which has no store. No mechanism
+changes -- three portable pages only.
+
+**Score:** 1 -- this repo's own developers notice a new paragraph in a plugin page they already read;
+nothing here changes what this repo does or how it is checked.
+
+#### What makes this deploy extra special
+
+A consumer running `dkj-policy-bwj` (a BWJ store repo) gains a documented, ready-to-create label the
+next time `adopt-dkj-policy-bwj` or `report-issue` is run there, and the CRO team's tickets become
+filterable on GitHub (`is:open label:CRO`) the moment it exists.
+
+**Score:** 2 -- small and welcome once it reaches a store repo, but nothing breaks and nothing is
+required to change today; it waits for the next adoption run or the next CRO-filed finding there.
+
+#### Pull Request
+
+dkj-policy-bwj: add the CRO reporter label
+
+Plugins: dkj-policy-bwj
+
+[PR #2042](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2042)
+
+---
 
 ### DEPLOY: docs/2040-list-object-array-trap · 20260916-114430
 
