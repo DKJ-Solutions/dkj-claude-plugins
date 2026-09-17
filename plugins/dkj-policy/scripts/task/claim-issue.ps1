@@ -465,7 +465,19 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                 Write-Host "  [branch-weight scan] $($allSurfaced.Count) branches were surfaced; the first $($weighed.Count) were weighed." -ForegroundColor DarkGray
             }
 
-            $citedPaths = @(Get-IssuePathCitations -Text ([string]$facts.body))
+            # ONE MORE THAN WILL BE USED, so that a truncation here can be STATED like the other two
+            # in this block. The reader function returns paths rather than a record, and an extra
+            # element is the cheapest evidence that a ninth existed -- one regex pass over a string
+            # already in memory, no second git call, and no contract change for a pure function three
+            # suites hold. The notice says 'more than N' rather than a count, because that is exactly
+            # what a +1 probe measured: a cap a reader cannot see is the defect the parked-fix scan's
+            # own overflow line exists to remove, one layer in.
+            $maxCitedPaths = 8
+            $probedPaths = @(Get-IssuePathCitations -Text ([string]$facts.body) -MaxPaths ($maxCitedPaths + 1))
+            $citedPaths = @($probedPaths | Select-Object -First $maxCitedPaths)
+            if ($probedPaths.Count -gt $citedPaths.Count) {
+                Write-Host "  [branch-weight scan] #$number cites more than $maxCitedPaths paths; the first $maxCitedPaths were held against $weighTrunk." -ForegroundColor DarkGray
+            }
             # WHICH OF THEM THE TRUNK ALREADY CARRIES -- one call, every path as its own pathspec.
             # ls-tree answers by omission and exits 0 either way, so the verdict is which came back;
             # where the call itself fails, $missingFromTrunk stays empty and the report falls to its

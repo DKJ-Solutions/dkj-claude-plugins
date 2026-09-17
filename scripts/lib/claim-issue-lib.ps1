@@ -1333,8 +1333,15 @@ function Format-PrerequisiteReport {
 
     $lines.Add('') | Out-Null
     if ($withPaths.Count -gt 0) {
-        $lines.Add("PREREQUISITE, NOT A COMPETITOR: #$Issue names a file that exists only on a branch above, so") | Out-Null
-        $lines.Add('every route to this issue runs through that branch landing first. The ownership verdict asks') | Out-Null
+        # AGREEMENT HERE TOO, and this ending is the one that most needs it: more than one branch can
+        # carry a missing path, and one branch can carry several. DISTINCT paths, because the same file
+        # sitting on two branches is one file the trunk lacks, not two.
+        $prereqPaths = @($withPaths | ForEach-Object { @(@($_.OnlyThere) | Where-Object { $_ }) } | Select-Object -Unique)
+        $filePhrase = if ($prereqPaths.Count -eq 1) { 'a file that exists' } else { "$($prereqPaths.Count) files that exist" }
+        $wherePhrase = if ($withPaths.Count -eq 1) { 'a branch above' } else { "$($withPaths.Count) branches above" }
+        $thosePhrase = if ($withPaths.Count -eq 1) { 'that branch' } else { 'those branches' }
+        $lines.Add("PREREQUISITE, NOT A COMPETITOR: #$Issue names $filePhrase only on $wherePhrase, so every") | Out-Null
+        $lines.Add("route to this issue runs through $thosePhrase landing first. The ownership verdict asks") | Out-Null
         $lines.Add('whether somebody is mid-flight on the same work; this asks whether YOUR route runs through') | Out-Null
         $lines.Add('theirs, and the two have different answers -- a branch you have to build ON is not a branch') | Out-Null
         $lines.Add('you are racing.') | Out-Null

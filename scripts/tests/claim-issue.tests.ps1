@@ -895,6 +895,24 @@ Assert-True ($prereqText -match 'PREREQUISITE, NOT A COMPETITOR') 'a path missin
 Assert-True ($prereqText -match 'YOUR route runs through') 'and it says which question it is answering, against the ownership verdict above it'
 Assert-True ($prereqText -match "OWNER'S call") 'the ordering is handed to the owner rather than decided here'
 
+# MORE THAN ONE OF EITHER, and both are reachable: $maxWeighedBranches is 5, and one branch can carry
+# several missing paths. The singular was hardcoded here when the other two endings already agreed,
+# which is the same bug class as the 'all 1 path ... is' this function shipped with for an hour.
+$many = @(Format-PrerequisiteReport -Issue 2051 -TrunkLabel 'origin/main' -CitedPathCount 4 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/a'; Ahead = 9; OnlyThere = @('lib/one.ps1', 'lib/two.ps1') },
+    [pscustomobject]@{ Branch = 'origin/fix/b'; Ahead = 4; OnlyThere = @('lib/three.ps1') }
+)) -join "`n"
+Assert-True ($many -match '3 files that exist only on 2 branches above') 'two branches and three paths are counted, not called "a file" on "a branch"'
+Assert-True ($many -match 'runs through those branches landing first') 'and the sentence that follows agrees with them'
+
+# THE SAME FILE ON TWO BRANCHES IS ONE FILE THE TRUNK LACKS. Counting the records rather than the
+# distinct paths would say two, which is a claim about the tree that is not true.
+$dup = @(Format-PrerequisiteReport -Issue 1 -TrunkLabel 'origin/main' -CitedPathCount 1 -Branches @(
+    [pscustomobject]@{ Branch = 'origin/fix/a'; Ahead = 2; OnlyThere = @('lib/one.ps1') },
+    [pscustomobject]@{ Branch = 'origin/fix/b'; Ahead = 2; OnlyThere = @('lib/one.ps1') }
+)) -join "`n"
+Assert-True ($dup -match 'names a file that exists only on 2 branches above') 'one path on two branches is one file, and two branches'
+
 $clean = @(Format-PrerequisiteReport -Issue 2051 -TrunkLabel 'origin/main' -CitedPathCount 2 -Branches @(
     [pscustomobject]@{ Branch = 'origin/fix/x'; Ahead = 3; OnlyThere = @() }
 ))
@@ -957,6 +975,14 @@ Assert-True ($body -match 'if \(\$missingFromTrunk\.Count -gt 0\)') 'so nothing 
 
 Assert-True ($body -match '\$maxWeighedBranches\s*=\s*[0-9]+') 'the branches weighed have a stated ceiling'
 Assert-True ($body -match 'were weighed\.') 'and a truncation says so, like every other cap in this script'
+
+# THE THIRD CAP HAD NO VOICE, and the skill page asserted it did -- "both lists are capped ... and a
+# truncation says so" was true of the branches and silently false of the paths. A body citing nine
+# would have had one dropped and the verdict computed on a partial set, with nothing on screen.
+Assert-True ($body -match '\$maxCitedPaths\s*=\s*[0-9]+') 'the cited paths have a stated ceiling of their own'
+Assert-True ($body -match 'Get-IssuePathCitations[^\r\n]*-MaxPaths \(\$maxCitedPaths \+ 1\)') 'asked for one more than will be used, which is what makes the truncation measurable'
+Assert-True ($body -match 'if \(\$probedPaths\.Count -gt \$citedPaths\.Count\)') 'and the extra element is actually tested for'
+Assert-True ($body -match 'cites more than \$maxCitedPaths paths') 'a truncated citation list says so -- and says "more than", which is what a +1 probe measured'
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)

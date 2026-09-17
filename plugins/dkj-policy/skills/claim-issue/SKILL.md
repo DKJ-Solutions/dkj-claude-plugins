@@ -256,8 +256,8 @@ So on a find, the script asks the cheap second question about each branch the sc
     origin/fix/2048-closeout-repair-strategy  -- 29 commits ahead
         scripts/maintenance/measure-closeouts.ps1  -- here, and NOT on origin/main
 
-  PREREQUISITE, NOT A COMPETITOR: #2051 names a file that exists only on a branch above, so
-  every route to this issue runs through that branch landing first. The ownership verdict asks
+  PREREQUISITE, NOT A COMPETITOR: #2051 names a file that exists only on a branch above, so every
+  route to this issue runs through that branch landing first. The ownership verdict asks
   whether somebody is mid-flight on the same work; this asks whether YOUR route runs through
   theirs, and the two have different answers -- a branch you have to build ON is not a branch
   you are racing.
