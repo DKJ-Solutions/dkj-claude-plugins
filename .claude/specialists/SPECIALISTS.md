@@ -72,15 +72,17 @@ routes; every specialist executes according to the shared safety rules and their
 
 SessionStart hooks the enabled plugins ship -- `roster-sessioncheck` in the core team and the rest in
 
-`dkj-policy`, none of them blocking and all read-only but one -- `claude-home-sessioncheck` snapshots
+`dkj-policy`, all read-only but one -- `claude-home-sessioncheck` snapshots
 
 your `~/.claude` plugin administration while it reads healthy, so a clobber of it can be restored
 
-rather than re-installed (#1609); it touches nothing in any repo -- and one Stop hook that acts rather
+rather than re-installed (#1609); it touches nothing in any repo -- and two Stop hooks that act:
 
-than reports (`cycle-autopark`, #900 -- it pushes the branch's development cycle to origin until a PR
+`cycle-autopark` (#900) pushes the branch's cycle to origin until a PR does;
 
-publishes it). **The set is NOT listed here**: it was named as three, went stale twice inside two days
+`closeout-gate` (#2050) BLOCKS a close-out past this repo's band.
+
+**The set is NOT listed here**: it was named as three, went stale twice inside two days
 
 as hooks were added, and each plugin's own `hooks/hooks.json` is the one place that cannot -- so read it
 

@@ -1274,3 +1274,28 @@ function Get-AlwaysOnBudget {
        Optional in the script contract: a repo that states nothing runs on the built-in 100,000. #>
     return $script:AlwaysOnBudget
 }
+
+# THE CLOSE-OUT BAND (issue #2050, September 17, 2026). The gate this answers is OFF in every repo that
+# does not answer it -- unlike Get-AlwaysOnBudget above, whose absence falls back to a built-in ceiling.
+# A ceiling on a document is worth defaulting; a hook that blocks a turn is not something to arrive in
+# somebody's session because they updated a plugin. This repo opts in because it is the repo that WRITES
+# the rule, and because it is where the measurement behind the number was taken.
+#
+# SIX, AND IT IS THE DISTRIBUTION THAT PICKED IT RATHER THAN THE CEILING. The receipt asks for two or
+# three lines; gating there would fire on 73-84% of close-outs, which is a gate nobody would leave on
+# for a week. Measured over 83 real close-outs on the maintainer's machine: over 6 is 27%, over 8 is
+# 17%, over 12 is 7%. Six is double the stated ceiling -- far enough out that reaching it is a runaway
+# rather than a long-ish receipt, close enough in that the median (5) sits comfortably inside. Dave's
+# answer, September 17, 2026, from that table.
+#
+# LOWERING IT TOWARDS 3 IS THE POINT OF HAVING A NUMBER HERE, once the baseline has moved -- re-run
+# scripts/maintenance/measure-closeouts.ps1 and read the share over the candidate band first. Six is a
+# starting band against a population that has never been held to anything, not the rule itself.
+$script:CloseOutGateBand = 6
+
+function Get-CloseOutGateBand {
+    <# The band, in non-empty lines, a close-out may not exceed before the Stop hook refuses the turn.
+       Optional in the script contract: a repo that states nothing has no close-out gate at all. 0 is a
+       real answer and switches the gate off without deleting this function. #>
+    return $script:CloseOutGateBand
+}
