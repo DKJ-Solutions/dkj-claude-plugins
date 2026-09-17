@@ -105,6 +105,7 @@ $script:infos  = 0
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\sibling-divergence-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\shared-scripts-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\hash-hex-lib.ps1')
 
 if ($ConnectorDir -eq '') { $ConnectorDir = Join-Path $RepoRoot 'connectors' }
 
@@ -127,6 +128,11 @@ function Test-GhCanAnswer {
     try {
         $r = Invoke-NativeCapture -FilePath 'gh' -Arguments @('auth', 'status') `
                                   -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        # AUDITED UNDER #2081 AND LEFT AS IT IS. An unmeasurable exit code (#1931) is not `-eq 0`, so this
+        # already answers $false -- "assume no credential", which skips the remote route and keeps the
+        # register on disk. That is the fail-safe direction and it costs nothing but one sweep's reach, so
+        # the site needs no third state; the positive comparison is what makes it right, and that is the
+        # decision rather than an accident.
         return ($r.ExitCode -eq 0 -and -not $r.TimedOut)
     } catch { return $false }
 }
@@ -151,6 +157,12 @@ function Get-GitHubInventory {
         -Arguments @('api', "repos/$Repo", '--jq', '.default_branch') `
         -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     if ($head.TimedOut) { return @{ Ok = $false; Reason = "gh did not answer within $NativeCaptureNetworkTimeoutSeconds seconds"; Paths = @{} } }
+    # AN UNMEASURABLE EXIT CODE IS ASKED FOR AHEAD OF THE NUMBER (issue #1931, audited under #2081), at
+    # both of this function's reads. `$null -ne 0` is true, so the arm below fired and the Reason printed
+    # as "gh exited  reading the default branch (no access, or the repo is gone)" -- a missing number, and
+    # two diagnoses about a consumer repository that this run measured nothing about. Ok stays $false
+    # either way; it is the sentence the register carries to a reader that had to change.
+    if (-not (Test-NativeExitMeasured -Capture $head)) { return @{ Ok = $false; Reason = 'gh ran and its exit code came back unmeasurable (issue #1931) reading the default branch -- a fact about this run rather than about that repository; it normally settles on a re-run'; Paths = @{} } }
     if ($head.ExitCode -ne 0) { return @{ Ok = $false; Reason = "gh exited $($head.ExitCode) reading the default branch (no access, or the repo is gone)"; Paths = @{} } }
     $branch = ([string]($head.Output -join '')).Trim()
     if ($branch -eq '') { return @{ Ok = $false; Reason = 'the default branch came back empty'; Paths = @{} } }
@@ -159,6 +171,7 @@ function Get-GitHubInventory {
         -Arguments @('api', "repos/$Repo/git/trees/$branch`?recursive=1", '--jq', '.tree[] | select(.type=="blob") | "\(.sha) \(.path)"') `
         -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     if ($call.TimedOut) { return @{ Ok = $false; Reason = "gh did not answer within $NativeCaptureNetworkTimeoutSeconds seconds"; Paths = @{} } }
+    if (-not (Test-NativeExitMeasured -Capture $call)) { return @{ Ok = $false; Reason = 'gh ran and its exit code came back unmeasurable (issue #1931) reading the tree -- a fact about this run rather than about that repository; it normally settles on a re-run'; Paths = @{} } }
     if ($call.ExitCode -ne 0) { return @{ Ok = $false; Reason = "gh exited $($call.ExitCode) reading the tree of $branch"; Paths = @{} } }
 
     $paths = @{}
@@ -192,10 +205,14 @@ function Get-DiskInventory {
             $text = ''
             try { $text = [System.IO.File]::ReadAllText($f.FullName) } catch { $text = '' }
             $norm = $text -replace "`r`n", "`n"
-            $sha  = [System.BitConverter]::ToString(
-                        [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-                            [System.Text.Encoding]::UTF8.GetBytes($norm))).Replace('-', '')
-            $paths[$rel] = $sha
+            # SHARED SINCE #2058, and this site is why the issue's "nothing observable is wrong"
+            # turned out to be the weaker half of its own case. The copy that stood here disposed
+            # nothing -- one provider per file, inside the Get-ChildItem -Recurse above -- and
+            # rendered UPPERCASE, where every other copy of the idiom rendered lowercase. The case is
+            # unobservable because a run picks ONE scheme ($useGitHub) and these values are only ever
+            # compared with each other, never printed, stored or carried across runs; that is what
+            # let it drift unnoticed rather than what made it harmless to fix.
+            $paths[$rel] = Get-Sha256Hex -Text $norm
         }
     }
     return @{ Ok = $true; Reason = 'disk'; Paths = $paths }
@@ -244,6 +261,12 @@ function Get-OnlyInContentMap {
             $call = Invoke-NativeCapture -FilePath 'gh' `
                 -Arguments @('api', "repos/$($src.Repo)/contents/$($f.Path)?ref=$($src.Branch)", '--jq', '.content') `
                 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+            # AUDITED UNDER #2081 AND LEFT AS IT IS, for the reason the positive comparison already gives:
+            # an unmeasurable exit code (#1931) is not `-eq 0`, so $text stays empty and the file drops out
+            # of the comparison -- exactly what the disk route above does for a file it cannot read. A file
+            # this sweep did not read produces no drift finding, which under-reports rather than
+            # mis-reports, and the register is advisory. A per-file warning was the alternative and was
+            # declined: it would fire on every legitimately absent path too.
             if (-not $call.TimedOut -and $call.ExitCode -eq 0) {
                 $b64 = (@($call.Output) -join '') -replace '\s', ''
                 if ($b64 -ne '') {

@@ -671,7 +671,16 @@ function Write-SyncReconciliationBase {
     $push = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '-u', 'origin', $Branch) `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $push.Output | ForEach-Object { Write-Host $_ }
-    if ($push.ExitCode -ne 0) {
+    # A PUSH THIS RUN COULD NOT JUDGE IS NOT A FAILED PUSH (issue #1931, audited under #2081). The arm
+    # below is reached by `$null -ne 0` and states as fact that both commits are local -- on a push that
+    # may be on origin, after which the hand-push it advises is a no-op at best. The advice is nearly the
+    # same and the wording is not, which is the whole point: this one says to LOOK first.
+    if (-not (Test-NativeExitMeasured -Capture $push)) {
+        Write-Host "git push ran with an exit code that came back unmeasurable (issue #1931), so whether $BranchShown reached origin is unknown here." -ForegroundColor Yellow
+        Write-Host "  Nothing is lost either way -- both commits' content is already on live and in the trunk. Look, then push if it is not there:" -ForegroundColor Yellow
+        Write-Host "    git ls-remote --heads origin $($BranchPaste.Token)" -ForegroundColor Yellow
+        if ($BranchPaste.Note) { Write-Host $BranchPaste.Note -ForegroundColor Yellow }
+    } elseif ($push.ExitCode -ne 0) {
         # NOT FATAL, AND NOT THE SAME BARGAIN AS THE TAKE-LIVE PUSH. That one is bounded because until it
         # lands the only copy of a third party's work is a local branch; here both commits' content
         # already exists on live and in the trunk, so an unpushed branch costs a push and nothing else.
@@ -833,6 +842,11 @@ if ($DryRun) {
     $pull = Invoke-NativeCapture -FilePath 'git' -Arguments @('pull', '--ff-only') `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $pull.Output | ForEach-Object { Write-Host $_ }
+    # AUDITED UNDER #2081 AND LEFT AS IT IS -- as are $prView, $post and the merged-PR list further down.
+    # All four already say the right thing about an unmeasurable code (#1931) without naming it: each
+    # refuses or degrades to unknown, and NONE of them interpolates the number, so there is no "(exit )"
+    # to repair and no wrong cause to withdraw. "Could not fast-forward" is exactly true of a pull this
+    # run could not judge. A third arm here would add a sentence and change no outcome.
     if ($pull.ExitCode -ne 0) {
         Write-Host "Could not fast-forward $trunkShown from origin." -ForegroundColor Red
         if ($pull.TimedOut) {
@@ -948,7 +962,14 @@ if ($lsRemote.ExitCode -ne 0) {
         $why = if ($lsRemote.TimedOut) {
             "'git ls-remote' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds"
         } else {
-            "'git ls-remote --heads origin' exited $($lsRemote.ExitCode)"
+            # COMPOSED, NOT INTERPOLATED (issue #1931, audited under #2081): an unmeasurable exit code
+            # satisfies `-ne 0` and prints as nothing, so this read "exited " with the number missing out
+            # of it. The verdict is unchanged in both arms -- a dry run skips, a real run refuses -- and
+            # refusing is right for a list this run cannot vouch for whichever produced it.
+            # A COLON, NOT A VERB SLOT. Get-NativeExitLabel returns a NOUN phrase ("exit 3"), so splicing
+            # it where "exited $(...)" used to sit reads "'git ls-remote --heads origin' exit 3" on every
+            # ordinary failure -- a regression in the common case to repair the rare one. Caught in review.
+            "'git ls-remote --heads origin': $(Get-NativeExitLabel -Capture $lsRemote)"
         }
         Write-Host "      origin could not be listed ($why) -- the standing-predecessor check is skipped for this dry run." -ForegroundColor Yellow
         Write-Host '      A real run refuses here; a dry run writes nothing, so it continues to the verdict below.' -ForegroundColor DarkGray
@@ -958,7 +979,7 @@ if ($lsRemote.ExitCode -ne 0) {
         if ($lsRemote.TimedOut) {
             Write-Host "  'git ls-remote' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above." -ForegroundColor Red
         } else {
-            Write-Host "  'git ls-remote --heads origin' exited $($lsRemote.ExitCode)." -ForegroundColor Red
+            Write-Host "  'git ls-remote --heads origin': $(Get-NativeExitLabel -Capture $lsRemote)." -ForegroundColor Red
         }
         Write-Host '  Nothing was changed. Fix the remote or the credential and run again.' -ForegroundColor Red
         exit 1
@@ -995,7 +1016,10 @@ elseif ($candidates.Count -eq 0) {
         if ($fetch.TimedOut) {
             Write-Host "  'git fetch' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above." -ForegroundColor Red
         } else {
-            Write-Host "  'git fetch --quiet origin' exited $($fetch.ExitCode)." -ForegroundColor Red
+            # THE LABEL, NOT A BARE INTERPOLATION (issue #1931, audited under #2081). Refusing is right
+            # for a fetch this run cannot vouch for -- the standing-predecessor test reads the refs it
+            # was supposed to refresh -- so the arm is unchanged and only the reason is composed.
+            Write-Host "  'git fetch --quiet origin': $(Get-NativeExitLabel -Capture $fetch)." -ForegroundColor Red
         }
         Write-Host '  Nothing was changed. Fix the remote or the credential and run again.' -ForegroundColor Red
         exit 1
@@ -1479,6 +1503,17 @@ try {
     $push = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '-u', 'origin', $branch) `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $push.Output | ForEach-Object { Write-Host $_ }
+    # THE TAKE-LIVE PUSH, AND HERE THE BARGAIN IS THE OTHER ONE (issue #1931, audited under #2081): until
+    # this lands, the only copy of a third party's work is a local branch. So an unmeasurable exit code
+    # stops the run exactly as a failure does -- what changes is that it no longer states the commit is
+    # local when it may be on origin, and it names the read that settles it before anything is redone.
+    if (-not (Test-NativeExitMeasured -Capture $push)) {
+        Write-Host "git push ran with an exit code that came back unmeasurable (issue #1931), so whether $branchShown reached origin is unknown here." -ForegroundColor Red
+        Write-Host '  The commit is safe locally and nothing was lost. Look before you act, then run this again:' -ForegroundColor Red
+        Write-Host "    git ls-remote --heads origin $($branchPaste.Token)" -ForegroundColor Red
+        if ($branchPaste.Note) { Write-Host $branchPaste.Note -ForegroundColor Red }
+        exit 1
+    }
     if ($push.ExitCode -ne 0) {
         Write-Host "Push failed. The commit is local on $branchShown." -ForegroundColor Red
         if ($push.TimedOut) {
@@ -1583,6 +1618,21 @@ try {
                                                  '--title', $msg, '--body', $body) + $labelArgs) `
                                    -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $create.Output | ForEach-Object { Write-Host $_ }
+    # THE SEVENTH WRITE, AND THE ONE WHOSE OLD REMEDY WAS ACTIVELY WRONG (issue #1931, audited under
+    # #2081; found by the code review on this branch after the first pass missed this site entirely --
+    # the regex that enumerated the family could not see a call that opens `@(` without a trailing
+    # backtick, which is exactly how this one is written). `$null -ne 0` is true, so an unmeasurable code
+    # printed "Could not open the PR ... open it by hand" -- over a create that may have landed, which is
+    # an instruction to open a second pull request for the same branch. open-pr.ps1 met the identical
+    # shape at its own create and answers it by RE-CHECKING; there is no re-check here to route into, so
+    # this reports the state as itself and hands over the one read that settles it.
+    if (-not (Test-NativeExitMeasured -Capture $create)) {
+        Write-Host 'gh pr create ran with an exit code that could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether the PR was opened.' -ForegroundColor Red
+        Write-Host '  The branch IS on origin and nothing was lost. Do NOT open a second one until you have looked:' -ForegroundColor Red
+        Write-Host "    gh pr view $($branchPaste.Token) --json number,state" -ForegroundColor Red
+        if ($branchPaste.Note) { Write-Host $branchPaste.Note -ForegroundColor Red }
+        exit 1
+    }
     if ($create.ExitCode -ne 0) {
         Write-Host 'Could not open the PR. The branch is pushed; open it by hand.' -ForegroundColor Red
         if ($create.TimedOut) {
@@ -1687,6 +1737,17 @@ try {
                                                '--subject', "merge: $branch (#$pr)") `
                                   -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     $merge.Output | ForEach-Object { Write-Host $_ }
+    # AND THE EIGHTH, WHICH THE SAME REGEX MISSED FOR THE SAME REASON (issue #1931, audited under #2081).
+    # This is the sharpest write in the file: `gh pr merge` on an unmeasurable code printed "The merge
+    # failed. PR #$pr is open and green; merge it by hand" over a merge that may already have landed, and
+    # its own TIMEOUT arm twelve lines down has said the right thing all along -- check whether it landed
+    # before retrying. The two states are the same state, so they now get the same sentence.
+    if (-not (Test-NativeExitMeasured -Capture $merge)) {
+        Write-Host "gh pr merge ran with an exit code that could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether PR #$pr was merged." -ForegroundColor Red
+        Write-Host '  It is NOT evidence that the merge was refused. Check whether it landed before retrying:' -ForegroundColor Red
+        Write-Host "    gh pr view $pr --json state" -ForegroundColor Red
+        exit 1
+    }
     if ($merge.ExitCode -ne 0) {
         Write-Host "The merge failed. PR #$pr is open and green; merge it by hand." -ForegroundColor Red
         if ($merge.TimedOut) {

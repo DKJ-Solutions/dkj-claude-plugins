@@ -53,6 +53,8 @@ $SeamLibSrc        = Join-Path $RepoRoot 'scripts\lib\seam-lib.ps1'
 # And the already-done check's pure half (#1409), which new-branch.ps1 now dot-sources unconditionally --
 # same reasoning as the lib above, this fixture runs new-branch and has to carry it too.
 $PrIssuesLibSrc    = Join-Path $RepoRoot 'scripts\lib\pr-issues-lib.ps1'
+# And the IMPURE half (inbound #2056), dot-sourced just as unconditionally beside it.
+$IssueStateLibSrc  = Join-Path $RepoRoot 'scripts\lib\issue-state-lib.ps1'
 # The remote-ahead note composer (issue #1450), which new-branch.ps1 now dot-sources unconditionally
 # too -- same reasoning as the lib above, this fixture runs new-branch and has to carry it too.
 $RemoteAheadLibSrc = Join-Path $RepoRoot 'scripts\lib\remote-ahead-lib.ps1'
@@ -203,6 +205,7 @@ function New-Fixture {
     # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fetch-attempt-lib.ps1') -Force
     Copy-Item -LiteralPath $PrIssuesLibSrc   -Destination (Join-Path $dir 'scripts\lib\pr-issues-lib.ps1')       -Force
+    Copy-Item -LiteralPath $IssueStateLibSrc -Destination (Join-Path $dir 'scripts\lib\issue-state-lib.ps1')     -Force
     Copy-Item -LiteralPath $RemoteAheadLibSrc -Destination (Join-Path $dir 'scripts\lib\remote-ahead-lib.ps1')   -Force
     Copy-Item -LiteralPath $RefPrintLibSrc    -Destination (Join-Path $dir 'scripts\lib\ref-print-lib.ps1')      -Force
 

@@ -396,23 +396,105 @@ Write-Host "Get-TargetIssueWarnings -- the already-done check (issue #1282)" -Fo
 Assert-Equal 0 (@(Get-TargetIssueWarnings -TargetIssues @()).Count) 'no target issues -> nothing to say'
 
 # Target still open, no rival PR -> nothing to say.
-$stillOpen = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270, 42))
+$stillOpen = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @())
 Assert-Equal 0 $stillOpen.Count 'an open target with no rival PR produces no warning'
 
-# Target CLOSED (the open list is known and does not contain it).
-$closed = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(42, 99))
+# Target CLOSED -- the caller CONFIRMED it, which since inbound #2056 is the only thing that sets this.
+$closed = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @(1270))
 Assert-Equal 1     $closed.Count       'a closed target produces one record'
 Assert-Equal 1270  $closed[0].Issue    'the record names the issue'
 Assert-True  $closed[0].IsClosed       'and marks it closed'
 Assert-Equal 0     @($closed[0].ClaimingPrs).Count 'with no claiming PR when none was supplied'
 
-# Open list undeterminable -> IsClosed is never asserted (the not-blocking treatment).
-$noList = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues $null)
-Assert-Equal 0 $noList.Count 'an undeterminable open-issue state claims nothing'
+# Undeterminable -> IsClosed is never asserted (the not-blocking treatment).
+$noList = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues $null)
+Assert-Equal 0 $noList.Count 'an undeterminable closed-issue state claims nothing'
+
+# --- Get-IssueStateVerdict -- the three-state rule itself (inbound #2056) --------------------------
+#
+# THE PURE HALF, ASSERTED WITHOUT A NETWORK. Get-ClosedIssueSet's loop cannot be asserted here at all
+# (it calls gh), which is exactly why the rule was split out of it: what decides the answer is a pure
+# function of what gh said, and that is this.
+#
+# EVERY PAYLOAD BELOW IS A REAL SHAPE, measured against DKJ-Solutions/dkj-claude-plugins on 2026-09-17.
+Assert-Equal 'closed' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"CLOSED","url":"https://github.com/o/r/issues/1282"}') 'a CLOSED issue is the one answer that sets the signal -- #1282''s real case'
+Assert-Equal 'other'  (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"OPEN","url":"https://github.com/o/r/issues/2055"}')   'an OPEN issue is not'
+
+# A NUMBER THIS REPO DOES NOT HAVE -- the #2056 case. gh exits 1 and says so; that is an ANSWER, not a
+# failure, and reading it as a closure is the whole defect.
+Assert-Equal 'other' (Get-IssueStateVerdict -ExitCode 1 -Output 'GraphQL: Could not resolve to an issue or pull request with the number of 99999. (repository.issue)') 'a number this repo does not have is not closed -- it is nothing'
+
+# A PULL REQUEST IS THE SECOND HALF OF THE SAME CONFLATION: issues and PRs share one counter, and this
+# workflow's documents cite PR numbers constantly.
+Assert-Equal 'other' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"MERGED","url":"https://github.com/o/r/pull/2053"}') 'a MERGED pull request is not a closed issue'
+Assert-Equal 'other' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"CLOSED","url":"https://github.com/o/r/pull/1281"}') 'and NEITHER is a CLOSED pull request -- which is why the URL and not the state is the discriminator'
+
+# A BROKEN gh MUST NOT LOOK LIKE A TIDY SILENCE. Exit 1 covers both "no such number" and "gh is
+# unwell"; only the message tells them apart.
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 1 -Output 'gh: Bad credentials')       'an auth failure is unreadable, not "not here"'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 1 -Output '')                          'and so is a non-zero exit that said nothing at all'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output 'not json')                  'an unparseable payload is unreadable'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output '{"url":"https://github.com/o/r/issues/7"}') 'and so is a payload with no state field -- absent is not OPEN'
+Assert-Equal 'unreadable' (Get-IssueStateVerdict -ExitCode 0 -Output 'A new release of gh is available')          'and so is an exit-0 capture carrying no payload at all'
+
+# THE STREAMS ARE MERGED BY THE CALLER, AND THESE TWO ASSERTS ARE WHY. gh writes the "Could not
+# resolve" sentence to STDERR, so a capture that discards it collapses "not an issue here" into "gh is
+# broken" -- which is precisely how the first cut of this repair went on warning about the citations it
+# was written to silence (measured on gh 2.74.0 during this branch's review, and invisible to the
+# asserts above because they feed the string directly).
+#
+# WHAT MERGING COSTS is the guarantee that a successful capture is pure JSON, since gh puts its notices
+# there too. So the payload is EXTRACTED from the capture rather than parsed whole, and this is the
+# case that proves it.
+Assert-Equal 'closed' (Get-IssueStateVerdict -ExitCode 0 -Output "A new release of gh is available: 2.74.0 -> 2.80.0`n{`"state`":`"CLOSED`",`"url`":`"https://github.com/o/r/issues/1282`"}") 'a notice merged in front of the payload does not make a closed issue unreadable'
+Assert-Equal 'other'  (Get-IssueStateVerdict -ExitCode 0 -Output "some notice`n{`"state`":`"MERGED`",`"url`":`"https://github.com/o/r/pull/2053`"}")                                        '...and the pull-request discriminator survives the same merge'
+
+# --- Get-IssueResolveBatch -- which numbers survive the cap (inbound #2056) ------------------------
+#
+# THE JUDGEMENT THIS PINS is which END of the list is dropped, and it is asserted because the natural
+# way to write a cap -- sort, then take the first N -- takes the WRONG end. In a document that cites
+# many numbers the old ones are historical context; the branch's own target is among the newest, so
+# keeping the lowest drops exactly what the check exists to judge.
+$underCap = Get-IssueResolveBatch -Numbers @(5, 3, 9) -Limit 25
+Assert-Equal '3 5 9' (@($underCap.Numbers) -join ' ') 'under the cap: every number is kept, sorted and unique'
+Assert-Equal $false  $underCap.Truncated              '...and nothing is reported as dropped'
+
+$overCap = Get-IssueResolveBatch -Numbers @(100, 7, 2055, 42, 2056) -Limit 2
+Assert-Equal '2055 2056' (@($overCap.Numbers) -join ' ') 'over the cap: the NEWEST numbers survive, not the lowest'
+Assert-True  $overCap.Truncated                          '...and the run says something was left out'
+
+Assert-Equal '3 9' (@((Get-IssueResolveBatch -Numbers @(9, 3, 9, 3, -1, 0) -Limit 25).Numbers) -join ' ') 'duplicates and non-positive numbers are dropped before the cap is applied'
+Assert-Equal $false (Get-IssueResolveBatch -Numbers @() -Limit 25).Truncated 'nothing in, nothing truncated'
+
+# --- THE THREE-STATE READ, AS THE WARNINGS SEE IT (inbound #2056) ----------------------------------
+#
+# THE DEFECT: the rule used to be "the open list was determinable AND this number is not in it", which
+# has no third state -- so a number that has never existed in this repo was reported as CLOSED, and the
+# caller told the author the branch may repeat work that is already merged. It fired loudest on the
+# branches that follow this workflow's own documented route, because the inbound route PRESCRIBES
+# citing an issue in another repo and every such citation is a bare '#<n>' after scraping.
+#
+# THE TWO CASES BELOW ARE THE SAME ASSERT FROM OPPOSITE SIDES, and both are the point of the repair:
+# absence from the closed set no longer means anything at all.
+$foreign = @(Get-TargetIssueWarnings -TargetIssues @(2055) -ClosedIssues @())
+Assert-Equal 0 $foreign.Count 'a number that is not a closed issue here is SILENT, not reported as closed (the #2056 case: a cross-repo inbound citation)'
+
+$mixed = @(Get-TargetIssueWarnings -TargetIssues @(1270, 2055) -ClosedIssues @(1270))
+Assert-Equal 1    $mixed.Count    'a branch citing one genuinely closed issue and one foreign number reports exactly one'
+Assert-Equal 1270 $mixed[0].Issue '...and it is the local closed one, which is the #1282 signal the repair had to keep'
+
+# AN EMPTY ARRAY IS A DETERMINATE ANSWER AND $null IS NOT. Both produce no warning here, so the two
+# are only told apart by what the caller does with them -- which is why the pair is asserted together:
+# a later refactor that collapses "I looked and none is closed" into "I could not look" would leave
+# both of these green while destroying the distinction the callers act on.
+$determinateJson = '[{"number":1276,"state":"OPEN","headRefName":"fix/other-v1","body":"Closes #1270"}]'
+$determinateNone = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $determinateJson -CurrentBranch 'fix/mine-v1')
+Assert-Equal 1      $determinateNone.Count      'a determinate "none closed" still reports a rival PR'
+Assert-Equal $false $determinateNone[0].IsClosed '...with IsClosed false rather than absent'
 
 # A rival OPEN PR whose body closes the number.
 $rivalJson = '[{"number":1276,"state":"OPEN","headRefName":"fix/other-v1","body":"Closes #1270"}]'
-$rival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $rivalJson -CurrentBranch 'fix/mine-v1')
+$rival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $rivalJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 1     $rival.Count                  'a rival PR that closes the number produces a record'
 Assert-Equal $false $rival[0].IsClosed           'the issue itself is still open here'
 Assert-Equal 1276  @($rival[0].ClaimingPrs)[0].Number 'the claiming PR number comes through'
@@ -420,26 +502,26 @@ Assert-Equal 'OPEN' @($rival[0].ClaimingPrs)[0].State 'and its state'
 
 # A MERGED rival counts too -- that is the exact #1282 case.
 $mergedJson = '[{"number":1276,"state":"MERGED","headRefName":"fix/other-v1","body":"Closes #1270"}]'
-$merged = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $mergedJson -CurrentBranch 'fix/mine-v1')
+$merged = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $mergedJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 'MERGED' @($merged[0].ClaimingPrs)[0].State 'a merged rival is reported'
 
 # A CLOSED rival PR is an abandoned attempt (in #1282, the duplicate itself) -- NOT evidence the work is done.
 $closedRivalJson = '[{"number":1281,"state":"CLOSED","headRefName":"fix/other-v1","body":"Closes #1270"}]'
-$closedRival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $closedRivalJson -CurrentBranch 'fix/mine-v1')
+$closedRival = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $closedRivalJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 0 $closedRival.Count 'a CLOSED rival PR is not reported'
 
 # This branch's OWN open PR carries the keyword by design on a resumed run -- not a rival.
 $ownJson = '[{"number":500,"state":"OPEN","headRefName":"fix/mine-v1","body":"Closes #1270"}]'
-$own = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $ownJson -CurrentBranch 'fix/mine-v1')
+$own = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $ownJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 0 $own.Count "this branch's own PR is never reported as a rival claimant"
 
 # A rival PR that only MENTIONS the number (no closing keyword) does not count -- same reader as the gate.
 $mentionOnlyJson = '[{"number":1276,"state":"MERGED","headRefName":"fix/other-v1","body":"context from #1270, unrelated"}]'
-$mentionOnly = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(1270) -OtherPrsJson $mentionOnlyJson -CurrentBranch 'fix/mine-v1')
+$mentionOnly = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @() -OtherPrsJson $mentionOnlyJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 0 $mentionOnly.Count 'a bare mention in a rival PR body is not a claim'
 
 # Unparseable PR JSON -> no claiming PRs, and IsClosed is still evaluated from the open list.
-$badJson = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(42) -OtherPrsJson 'not json' -CurrentBranch 'fix/mine-v1')
+$badJson = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @(1270) -OtherPrsJson 'not json' -CurrentBranch 'fix/mine-v1')
 Assert-Equal 1 $badJson.Count            'unparseable PR JSON does not throw'
 Assert-True  $badJson[0].IsClosed        'and the closed-target signal still fires'
 Assert-Equal 0 @($badJson[0].ClaimingPrs).Count 'with no claiming PR from JSON that would not parse'
@@ -447,7 +529,7 @@ Assert-Equal 0 @($badJson[0].ClaimingPrs).Count 'with no claiming PR from JSON t
 # The whole #1282 scenario in one call: target #1270, closed; PR #1276 merged resolving it; PR #1281
 # closed on this branch also carrying the keyword. One record: closed, claimed by #1276 alone.
 $scenarioJson = '[{"number":1276,"state":"MERGED","headRefName":"fix/unfolded-entry-on-main-unguarded-v1","body":"Closes #1270"},{"number":1281,"state":"CLOSED","headRefName":"fix/unfolded-entry-on-main-sessioncheck-v1","body":"Closes #1270"}]'
-$scenario = @(Get-TargetIssueWarnings -TargetIssues @(1270) -OpenIssues @(42, 99) -OtherPrsJson $scenarioJson -CurrentBranch 'fix/unfolded-entry-on-main-sessioncheck-v1')
+$scenario = @(Get-TargetIssueWarnings -TargetIssues @(1270) -ClosedIssues @(1270) -OtherPrsJson $scenarioJson -CurrentBranch 'fix/unfolded-entry-on-main-sessioncheck-v1')
 Assert-Equal 1     $scenario.Count       'the #1282 scenario produces exactly one record'
 Assert-True  $scenario[0].IsClosed       'the target is reported closed'
 Assert-Equal 1     @($scenario[0].ClaimingPrs).Count 'and exactly one claiming PR (the merged one, not the abandoned duplicate)'
@@ -455,7 +537,7 @@ Assert-Equal 1276  @($scenario[0].ClaimingPrs)[0].Number 'which is #1276'
 
 # Two target issues, one closed and one open+claimed -> a record for each, with the right signal.
 $twoJson = '[{"number":90,"state":"OPEN","headRefName":"fix/other-v1","body":"Closes #401"}]'
-$two = @(Get-TargetIssueWarnings -TargetIssues @(400, 401) -OpenIssues @(401) -OtherPrsJson $twoJson -CurrentBranch 'fix/mine-v1')
+$two = @(Get-TargetIssueWarnings -TargetIssues @(400, 401) -ClosedIssues @(400) -OtherPrsJson $twoJson -CurrentBranch 'fix/mine-v1')
 Assert-Equal 2 $two.Count 'both targets that have something to say are reported'
 $rec400 = $two | Where-Object { $_.Issue -eq 400 }
 $rec401 = $two | Where-Object { $_.Issue -eq 401 }
@@ -1090,6 +1172,128 @@ Assert-True ($noteNoId -notlike '*gh run view *') 'and does not print a command 
 $shipPrPath = Join-Path $PSScriptRoot '..\release\ship-pr.ps1'
 Assert-True (Test-Path -LiteralPath $shipPrPath) 'ship-pr.ps1 exists where this suite looks for it'
 $shipText = [System.IO.File]::ReadAllText((Resolve-Path $shipPrPath).Path, [System.Text.Encoding]::UTF8)
+
+# --- WHERE IN ship-pr.ps1? The ordering asserts below are REGION-SCOPED (issue #2090) -------------
+# Every assert in this file that pins ship-pr.ps1's ORDER used to locate its needle with a whole-file
+# IndexOf, which finds the FIRST occurrence anywhere. So a helper function defined ABOVE the step being
+# asserted about silently re-pointed the index at the definition instead of at the call -- and the
+# assert then went red while nothing it was about had moved, or, in the worse direction, stayed green
+# on a definition after the call site it meant to pin had been deleted. The red direction is how this
+# was found (#2087, four asserts red on two new functions); the green direction is what was measured
+# when it was repaired, September 17, 2026, counted off the AST rather than by grep: the 45 reads used
+# 39 distinct needles, EIGHT of which already matched in more than one place, and ELEVEN of the reads
+# used one of those eight. Two resolved to PROSE rather than to code -- 'Get-MergeBlockVerdict' to a
+# comment 121 lines above its first call, and 'Get-MissingCheckSuiteNote' to a docstring line under
+# .PARAMETER Mergeable. Both asserts were green about text, not about behaviour.
+#
+# Get-ShipIdx closes both directions and is the ONLY way this suite locates anything in ship-pr.ps1:
+#
+#   -In     the region to search. A region runs from a top-level 'function' or a '# --- Step ' banner
+#           to the next one of either -- the two boundaries that move WITH the script rather than with
+#           a line number, and the reason a new helper above step 3 can no longer reach step 3's
+#           asserts. The non-Step '# ---' sub-banners are deliberately NOT boundaries: they divide the
+#           prose inside a step, not the steps themselves. Omit -In only for something genuinely
+#           file-wide, such as a step banner.
+#   -Code   skip a match that falls on a comment line or inside a <# #> block. This is what turns
+#           "the text appears here" back into "the call sits here"; leave it off where the needle IS
+#           prose, such as a banner or an ALL-CAPS comment marking a block.
+#   -Last   the last match in the region instead of the first (the #1350 re-entry needs it).
+#   -From   start no earlier than this absolute index, for a sequence pinned INSIDE one region. A
+#           NEGATIVE one is refused rather than ignored: -1 is what a failed lookup hands back, and
+#           quietly searching the whole region instead would answer a question nobody asked.
+#   -Optional  a PROBE rather than an assertion: a miss returns -1 quietly, for the one read below
+#           that legitimately tries two line endings and expects one of them to fail.
+#
+# A needle it cannot find is a FAILURE of this suite, named, rather than a silent -1 -- because -1
+# compares as "earlier than everything", so a `-lt` assert would read a deleted call site as a pass.
+$script:shipRegions = $null
+$script:shipProse   = $null
+
+function Get-ShipRegions {
+    if ($null -ne $script:shipRegions) { return $script:shipRegions }
+    $opens = [regex]::Matches($script:shipText, '(?m)^(?:#\s+---\s+Step\s|function\s).*$')
+    $regions = @()
+    for ($i = 0; $i -lt $opens.Count; $i++) {
+        $end = if ($i + 1 -lt $opens.Count) { $opens[$i + 1].Index } else { $script:shipText.Length }
+        $regions += [pscustomobject]@{ Line = $opens[$i].Value; Start = $opens[$i].Index; End = $end }
+    }
+    $script:shipRegions = $regions
+    return $regions
+}
+
+function Get-ShipProseMap {
+    <#
+        One bool per character: is this position inside a comment? Both shapes count -- a line whose
+        first non-blank character is '#', and a BLOCK comment (the docstring form), which is where the
+        .PARAMETER line this repair found had been hiding. A map rather than a range list so a lookup
+        is O(1); ship-pr.ps1 is ~230 KB, so the array costs nothing worth measuring.
+    #>
+    if ($null -ne $script:shipProse) { return $script:shipProse }
+    $map = New-Object 'bool[]' $script:shipText.Length
+    foreach ($pattern in @('(?s)<#.*?#>', '(?m)^[ \t]*#.*$')) {
+        foreach ($m in [regex]::Matches($script:shipText, $pattern)) {
+            for ($i = $m.Index; $i -lt $m.Index + $m.Length; $i++) { $map[$i] = $true }
+        }
+    }
+    $script:shipProse = $map
+    return $map
+}
+
+function Get-ShipIdx {
+    param(
+        [Parameter(Mandatory = $true)][string]$Needle,
+        [string]$In = '',
+        [int]$From = -1,
+        [switch]$Code,
+        [switch]$Last,
+        [switch]$Optional
+    )
+    $start = 0
+    $end   = $script:shipText.Length
+    $where = 'ship-pr.ps1'
+    if ($In) {
+        $region = @(Get-ShipRegions | Where-Object { $_.Line -like "*$In*" })[0]
+        if (-not $region) {
+            $script:fail++
+            Write-Host "  [FAIL] ship-pr.ps1 has no region opening with '$In' -- the assert below cannot be placed" -ForegroundColor Red
+            return -1
+        }
+        $start = $region.Start; $end = $region.End; $where = "ship-pr.ps1 / $In"
+    }
+    # The anchor a caller chains in may itself be a miss. Searching the region unanchored would then
+    # answer a different question and could still "pass" a -lt comparison; the read that missed has
+    # already printed its own named [FAIL], so this one stops quietly.
+    if ($PSBoundParameters.ContainsKey('From') -and $From -lt 0) { return -1 }
+    if ($From -gt $start) { $start = $From }
+    $prose = if ($Code) { Get-ShipProseMap } else { $null }
+    $hits = @()
+    $pos  = $start
+    while ($pos -lt $end) {
+        $i = $script:shipText.IndexOf($Needle, $pos)
+        if ($i -lt 0 -or $i -ge $end) { break }
+        if (-not $Code -or -not $prose[$i]) { $hits += $i }
+        $pos = $i + 1
+    }
+    if ($hits.Count -eq 0) {
+        if (-not $Optional) {
+            $what = if ($Code) { "a CODE line with '$Needle'" } else { "'$Needle'" }
+            $script:fail++
+            Write-Host "  [FAIL] $where no longer holds $what" -ForegroundColor Red
+        }
+        return -1
+    }
+    if ($Last) { return $hits[$hits.Count - 1] }
+    return $hits[0]
+}
+
+# THE HELPER'S OWN TWO PROPERTIES, pinned against ship-pr.ps1 itself rather than against a fixture --
+# it reads one script by design, and a fixture would only prove something about the fixture. Both
+# asserts are the measured defect turned around: if either goes red, every ordering assert below it is
+# reading the wrong occurrence again, and they will not say so themselves.
+Write-Host "pr-issues.tests.ps1 -- the ship-pr lookups are region-scoped and code-only (#2090)" -ForegroundColor Cyan
+Assert-True ((Get-ShipIdx -Needle "'--watch'" -In 'Step 3:' -Code) -lt (Get-ShipIdx -Needle "'--watch'" -In 'Step 8:' -Code)) 'the same needle in two steps resolves to two different places -- the region is what decides which'
+Assert-True ((Get-ShipIdx -Needle 'Get-MergeBlockVerdict' -In 'Step 3:' -Code) -gt (Get-ShipIdx -Needle 'Get-MergeBlockVerdict' -In 'Step 3:')) '-Code walks past the comment that merely mentions the verdict and lands on the call'
+
 Assert-True ($shipText -like '*Get-MergeBlockVerdict -RequiredChecksJson*') 'ship-pr.ps1 consults the verdict rather than the --watch exit code alone'
 Assert-True ($shipText -like '*--required*name,bucket,state*') 'and asks gh for the required checks WITH their state, since --json mode does not carry it in the exit code'
 Assert-True ($shipText -like '*Get-FailedCheckRunIds -ChecksJson*') 'ship-pr.ps1 asks which runs failed before it words the refusal (#1044)'
@@ -1097,8 +1301,8 @@ Assert-True ($shipText -like '*Get-StalledRunNote -RunJson*') 'and asks whether 
 Assert-True ($shipText -like '*startedAt,completedAt,link*') 'which needs the link field, the only one naming the run behind a check'
 Assert-True ($shipText -like '*CI never RAN for PR*') 'and a stalled run gets its own lead sentence rather than "CI did not pass"'
 Assert-True ($shipText -like '*Fix CI and re-run, or merge manually once green.*') 'while an ordinary red check keeps the wording that is correct for it'
-$idxWatch   = $shipText.IndexOf("'--watch'")
-$idxVerdict = $shipText.IndexOf('Get-MergeBlockVerdict')
+$idxWatch   = Get-ShipIdx -Needle "'--watch'" -In 'Step 3:' -Code
+$idxVerdict = Get-ShipIdx -Needle 'Get-MergeBlockVerdict' -In 'Step 3:' -Code
 Assert-True ($idxWatch -ge 0 -and $idxVerdict -gt $idxWatch) 'the wait still happens FIRST and the verdict second -- #831 kept the wait, #943 changed only the verdict'
 
 # AND THE GREEN PATH READS THE PENDING LIST (inbound #1549). The field asserts above prove the function
@@ -1107,8 +1311,11 @@ Assert-True ($idxWatch -ge 0 -and $idxVerdict -gt $idxWatch) 'the wait still hap
 # them: reverting this one line would leave every assert in this suite green while ship-pr merged past
 # a pending required check again.
 Assert-True ($shipText -like '*.UnfinishedRequired*') 'ship-pr.ps1 reads the pending-required list, not just the --watch exit code, before calling CI green'
-$idxGreenBreak = $shipText.IndexOf('$pendingRequired.Count -eq 0')
-Assert-True ($idxGreenBreak -gt $idxVerdict -or $shipText -like '*$pendingRequired.Count -eq 0*') 'and it breaks out of the wait only when that list is EMPTY'
+$idxGreenBreak = Get-ShipIdx -Needle '$pendingRequired.Count -eq 0' -In 'Step 3:' -Code
+# The second half this assert used to carry -- an -or on a whole-file -like -- went with #2090. It made
+# the assert true whenever the text existed ANYWHERE in the script, which is to say it cost the
+# ordering claim entirely; it was a hedge against exactly the lookup this repair removed.
+Assert-True ($idxGreenBreak -gt $idxVerdict) 'and it breaks out of the wait only when that list is EMPTY'
 Assert-True ($shipText -like '*went green off a NOT-required check*') 'a green watch over a pending required check re-enters the wait, in a sentence that says which reading was wrong'
 Assert-True ($shipText -like '*still not finished after*') 'and the bounded case refuses rather than merging into the base-branch policy'
 # The fail-open direction, pinned as text because it is a decision rather than a behaviour this suite can
@@ -1178,15 +1385,24 @@ Assert-True ($lostNoId -notlike '*gh pr checks  --watch*') 'and no command is pr
 Assert-True ($shipText -like '*Get-LostWatchNote -ChecksJson*') 'ship-pr.ps1 asks whether a non-zero watch was the connection rather than a check (#1219)'
 Assert-True ($shipText -like '*maxWatchAttempts*') 'and the retry is BOUNDED rather than a loop with no ceiling'
 Assert-True ($shipText -like '*CI is still RUNNING for PR*') 'a dropped watch gets its own lead sentence, beside "CI never RAN" and "CI did not pass"'
-$idxWatchCall = $shipText.IndexOf("'--watch'")
-$idxLost      = $shipText.IndexOf('Get-LostWatchNote -ChecksJson')
+$idxWatchCall = Get-ShipIdx -Needle "'--watch'" -In 'Step 3:' -Code
+$idxLost      = Get-ShipIdx -Needle 'Get-LostWatchNote -ChecksJson' -In 'Step 3:' -Code
 Assert-True ($idxLost -gt $idxWatchCall) 'the read happens AFTER the watch it is diagnosing'
 # The retry needs the check payload, so the fact-pair read moved inside the loop -- and the loop has to
 # close after it, or the second attempt would judge the first attempt's payload.
-$idxLoopHead  = $shipText.IndexOf('$watchAttempt++')
+$idxLoopHead  = Get-ShipIdx -Needle '$watchAttempt++' -In 'Step 3:' -Code
 Assert-True ($idxLoopHead -ge 0 -and $idxLoopHead -lt $idxWatchCall) 'the watch call sits inside the attempt loop rather than before it'
-$idxFacts     = $shipText.IndexOf('startedAt,completedAt,link')
+# THE PAYLOAD IS NOW READ THROUGH Get-CheckFactsNow (issue #2087), so the per-attempt read is pinned on
+# the CALL rather than on the field list -- the field list itself moved into that function, which sits
+# above step 3, and asserting on it here would pass on a definition instead of on a read. The field list
+# is still asserted separately above, where the claim is that ship-pr asks for `link` at all.
+$idxFacts     = Get-ShipIdx -Needle 'Get-CheckFactsNow -Pr' -In 'Step 3:' -Code
 Assert-True ($idxFacts -gt $idxWatchCall -and $idxFacts -lt $idxLost) 'and the check facts are re-read per attempt, which is what the decision is made from'
+# AND THE FUNCTION IS DEFINED ONCE AND CALLED TWICE -- step 3's per-attempt read and step 3b's forward
+# lap. Its own docstring says it was lifted out of step 3, and a caller left hand-written there would
+# make that sentence false while leaving three live copies of the payload in one file (#2087).
+Assert-True ([regex]::Matches($shipText, 'Get-CheckFactsNow -Pr').Count -ge 2) 'Get-CheckFactsNow has both its callers -- step 3 and the forward lap'
+Assert-True ([regex]::Matches($shipText, 'name,bucket,state,startedAt,completedAt,link').Count -eq 1) 'and the payload shape it reads is written out exactly once'
 
 
 # --- issue #1350: the watch started BEFORE the checks registered ---------------------------------
@@ -1202,14 +1418,14 @@ Assert-True ($shipText -like '*function Wait-CheckRegistration*') 'step 3''s reg
 # THE WORDING WIDENED AT #1602 (gh says `no required checks reported` on a narrowed watch), and the
 # claim is unchanged: the poll breaks out on the TEXT, not on the exit code.
 Assert-True ($shipText -like "*-notmatch 'no (required )?checks reported'*") 'and it still breaks out on the TEXT, not the exit code, exactly as the inline loop did'
-$idxFn       = $shipText.IndexOf('function Wait-CheckRegistration')
-$idxFirstUse = $shipText.IndexOf('Wait-CheckRegistration -Pr')
-$idxReentry  = $shipText.LastIndexOf('Wait-CheckRegistration -Pr')
+$idxFn       = Get-ShipIdx -Needle 'function Wait-CheckRegistration' -Code
+$idxFirstUse = Get-ShipIdx -Needle 'Wait-CheckRegistration -Pr' -In 'Step 3:' -Code
+$idxReentry  = Get-ShipIdx -Needle 'Wait-CheckRegistration -Pr' -In 'Step 3:' -Code -Last
 Assert-True ($idxFn -ge 0 -and $idxFirstUse -gt $idxFn) 'the function is defined before it is called'
 Assert-True ($idxFirstUse -lt $idxWatchCall) 'step 3 runs the wait before the --watch call, as the inline loop did'
 Assert-True ($idxReentry -gt $idxWatchCall) 'and the watch loop re-enters that SAME wait after --watch (#1350)'
 Assert-True ($shipText -like '*back to the registration wait (#1350)*') 'the fallback says what it is doing, rather than wording the transient as a CI failure'
-$idxGuard = $shipText.IndexOf("-match 'no (required )?checks reported'")
+$idxGuard = Get-ShipIdx -Needle "-match 'no (required )?checks reported'" -In 'Step 3:' -Code
 Assert-True ($idxGuard -gt $idxWatchCall -and $idxGuard -lt $idxReentry) 'the re-entry is guarded by the watch''s own no-checks output -- a real red check (a table, not that phrase) still falls through to the verdict'
 Assert-True ($shipText -like '*-AlreadyWaited $waited*') 'and it shares the 180s budget rather than restarting it, so a race that will not settle still ends in the #1234 refusal'
 $countSuiteNote = ([regex]::Matches($shipText, 'Get-MissingCheckSuiteNote -SuitesJson')).Count
@@ -1320,9 +1536,13 @@ Assert-True ($shipText -like '*Check the workflow, or merge manually once it is 
 # call site actually reads the state and passes it, and nothing else in this suite would notice.
 Assert-True ($shipText -like '*-Mergeable $mergeable*') 'ship-pr.ps1 passes the PR''s mergeable state, so the conflict branch is reachable at all (#1247)'
 Assert-True ($shipText -like "*'--json', 'mergeable'*") 'and reads it from gh rather than inferring it from the checkout'
-$idxSuiteNote = $shipText.IndexOf('Get-MissingCheckSuiteNote')
-$idxWatchArg  = $shipText.IndexOf("'--watch'")
-Assert-True ($idxSuiteNote -ge 0 -and $idxSuiteNote -lt $idxWatchArg) 'the read sits in the PRE-watch probe it diagnoses, not beside the post-watch notes'
+# THE REGION IS WHAT CARRIES "PRE-WATCH" NOW (#2090). #1584 lifted this read out of step 3's inline
+# probe into the shared builder, so a whole-file lookup on the bare name found the builder's own
+# .PARAMETER line -- a docstring -- and this ordering became a fact about prose. Pinned to the
+# builder's CODE instead, which is where the read actually lives.
+$idxSuiteNote = Get-ShipIdx -Needle 'Get-MissingCheckSuiteNote -SuitesJson' -In 'function Get-MissingCheckSuiteRefusalNote' -Code
+$idxWatchArg  = Get-ShipIdx -Needle "'--watch'" -In 'Step 3:' -Code
+Assert-True ($idxSuiteNote -ge 0 -and $idxSuiteNote -lt $idxWatchArg) 'the read sits in the shared PRE-watch builder it diagnoses from, not beside the post-watch notes'
 
 
 # --- issue #1584: a CONFLICTING PR is refused BEFORE the 180s wait, not inside its timeout ---------
@@ -1333,18 +1553,18 @@ Assert-True ($idxSuiteNote -ge 0 -and $idxSuiteNote -lt $idxWatchArg) 'the read 
 # shared function (Get-MissingCheckSuiteRefusalNote) so the early exit and the timeout refusal word
 # from the same builder; text asserts, like every other call-site pin in this suite.
 Write-Host "ship-pr.ps1 -- a CONFLICTING PR is refused up front, not after 180s (#1584)" -ForegroundColor Cyan
-$idxWaitFn   = $shipText.IndexOf('function Wait-CheckRegistration')
-$idxWaitLoop = $shipText.IndexOf('while ($true) {', $idxWaitFn)
+$idxWaitFn   = Get-ShipIdx -Needle 'function Wait-CheckRegistration' -Code
+$idxWaitLoop = Get-ShipIdx -Needle 'while ($true) {' -In 'function Wait-CheckRegistration' -Code
 Assert-True ($idxWaitFn -ge 0 -and $idxWaitLoop -gt $idxWaitFn) 'the registration poll loop is found inside Wait-CheckRegistration'
 
 Assert-True ($shipText -like '*function Get-MissingCheckSuiteRefusalNote*') 'the #1234 / #1247 note-building read is a function now, shared by the early exit and the timeout'
 $countRefusalBuilder = ([regex]::Matches($shipText, 'Get-MissingCheckSuiteRefusalNote -Pr')).Count
 Assert-Equal 2 $countRefusalBuilder 'and it is CALLED twice -- once before the wait on a known conflict, once inside the timeout as before'
 
-$idxEarlyBlock = $shipText.IndexOf('EARLY EXIT ON A CONFLICTING PR -- issue #1584')
+$idxEarlyBlock = Get-ShipIdx -Needle 'EARLY EXIT ON A CONFLICTING PR -- issue #1584' -In 'function Wait-CheckRegistration'
 Assert-True ($idxEarlyBlock -ge 0 -and $idxEarlyBlock -lt $idxWaitLoop) 'ship-pr reads the mergeable state BEFORE the poll loop, so a conflict never costs a poll interval'
 Assert-True ($shipText -like "*`$mergeNow.ToUpperInvariant() -eq 'CONFLICTING'*") 'only a definitive CONFLICTING short-circuits -- UNKNOWN (GitHub still computing) falls through to the wait'
-$idxConflictExit = $shipText.IndexOf('NOT merged (CONFLICTING).')
+$idxConflictExit = Get-ShipIdx -Needle 'NOT merged (CONFLICTING).' -In 'function Wait-CheckRegistration' -Code
 Assert-True ($idxConflictExit -ge 0 -and $idxConflictExit -lt $idxWaitLoop) 'and the refusal is written before the loop, not from inside its 180s timeout'
 
 # The folded-entry sub-case: the reporter's PR #1582 conflicted because its branch entry had already
@@ -1352,7 +1572,7 @@ Assert-True ($idxConflictExit -ge 0 -and $idxConflictExit -lt $idxWaitLoop) 'and
 Assert-True ($shipText -like '*function Test-BranchEntryAlreadyFolded*') 'ship-pr can tell the folded-entry conflict from an ordinary one'
 Assert-True (($shipText -like '*--diff-filter=D*') -and ($shipText -like '*refs/remotes/origin/main*')) 'and it decides that on a DELETE commit in the trunk history, not on "file absent from main" (true for every fresh branch)'
 Assert-True ($shipText -match "fresh branch off 'main' \(#1584\)") 'so a spent branch is told to move the follow-up work, not to resolve an unresolvable conflict'
-$idxFoldedTest = $shipText.IndexOf('Test-BranchEntryAlreadyFolded -Branch')
+$idxFoldedTest = Get-ShipIdx -Needle 'Test-BranchEntryAlreadyFolded -Branch' -In 'function Wait-CheckRegistration' -Code
 Assert-True ($idxFoldedTest -gt $idxEarlyBlock -and $idxFoldedTest -lt $idxWaitLoop) 'the folded-entry note augments the early conflict refusal -- it is not a second code path'
 
 
@@ -1740,8 +1960,8 @@ Assert-True ($shipText -like '*check-runs/*/annotations*') 'reading it from the 
 # which is near the top of the file with the other script-local helpers.
 Assert-True ($shipText -like '*$filter.Count -gt 0 -and $filter -notcontains $ref.Name*') 'the relay filters on the names it is given -- an empty list means no filter, which is step 8''s case'
 Assert-True ($shipText -like '*Write-FailedCheckReasons -ChecksJson $checkFactsJson -Repo $repo -OnlyNames $verdict.FailedOther*') 'and step 3 gives it only the NOT-REQUIRED failures -- a required one is a refusal, not a merge that walks past'
-$idxProceed = $shipText.IndexOf('a check FAILED but the merge is not blocked')
-$idxSpoken  = $shipText.IndexOf('Write-FailedCheckReasons -ChecksJson $checkFactsJson')
+$idxProceed = Get-ShipIdx -Needle 'a check FAILED but the merge is not blocked' -In 'Step 3:' -Code
+$idxSpoken  = Get-ShipIdx -Needle 'Write-FailedCheckReasons -ChecksJson $checkFactsJson' -In 'Step 3:' -Code
 Assert-True ($idxProceed -ge 0 -and $idxSpoken -gt $idxProceed) 'the reason is printed under that warning, where the reader has just landed'
 Write-Host ""
 # --- The PRODUCER of the annotation everything above relays (issue #1118) -------------------------
@@ -2080,13 +2300,13 @@ Assert-Equal 'DKJ-Solutions' $orgRec.Source 'and so does the org name the detail
 # while the orchestrator merges first and folds into a rejection again -- which IS the defect, not a
 # regression in the helper. Same reasoning as the open-pr ordering asserts above: this file is the one
 # caller no suite gets to run.
-$idxFoldGate = $shipText.IndexOf('Get-FoldPushVerdict -BranchRulesJson')
-$idxOpenPr   = $shipText.IndexOf("'-File', (Join-Path `$PSScriptRoot 'open-pr.ps1')")
-$idxMergeNow = $shipText.IndexOf("@('pr', 'merge'")
+$idxFoldGate = Get-ShipIdx -Needle 'Get-FoldPushVerdict -BranchRulesJson' -In "Step 0a's refusal" -Code
+$idxOpenPr   = Get-ShipIdx -Needle "'-File', (Join-Path `$PSScriptRoot 'open-pr.ps1')" -In 'Step 1:' -Code
+$idxMergeNow = Get-ShipIdx -Needle "@('pr', 'merge'" -In 'Step 4:' -Code
 Assert-True ($idxFoldGate -ge 0) 'ship-pr.ps1 asks whether it can push the fold (#1278)'
 Assert-True ($idxOpenPr -gt $idxFoldGate) 'and it asks BEFORE step 1, so nothing is pushed and no PR exists when it refuses'
 Assert-True ($idxMergeNow -gt $idxFoldGate) 'and long before the merge, which is the whole repair'
-$idxWorktree = $shipText.IndexOf("Get-WorktreeHoldingBranch -PorcelainLines")
+$idxWorktree = Get-ShipIdx -Needle 'Get-WorktreeHoldingBranch -PorcelainLines' -In 'Step 0:' -Code
 Assert-True ($idxWorktree -ge 0 -and $idxWorktree -lt $idxFoldGate) 'the free local check still runs first -- a network read must not cost the one that needs no network'
 Assert-True ($shipText -like '*rules/branches/main*') 'the trunk rules are read from the branch endpoint, which does NOT filter by bypass'
 Assert-True ($shipText -like '*current_user_can_bypass*') 'and the bypass from the ruleset detail, which is the only endpoint carrying it'
@@ -2157,16 +2377,31 @@ Assert-Equal 0 $mqOnly.Blocking.Count 'and merge_queue is NOT a fold-push blocke
 # the refusal fires only where -not $queueActive. Same shape and justification #1506 gave the fold-push
 # verdict one block down. Without these asserts a later edit can slide the refusal back above the verdict
 # and re-break the lane workflow with every helper test still green -- this file is ship-pr's only caller.
-$idxTrunkRead   = $shipText.IndexOf('Get-WorktreeHoldingBranch -PorcelainLines')
-$idxQueueRead   = $shipText.IndexOf('Get-MergeQueueVerdict -BranchRulesJson')
-$idxTrunkRefuse = $shipText.IndexOf('if ($trunkHolder -and -not $queueActive)')
-$idxTrunkNote   = $shipText.IndexOf('if ($trunkHolder -and $queueActive)')
+# AND SINCE #2087 THE REFUSAL CARRIES A SECOND GATE, on the same reasoning one axis over: the ground
+# "step 5 could not fold" stopped being queue-specific when fold-on-merge.yml began folding off EVERY
+# push to the trunk (#1493), so the refusal now also stands down where a CI runner folds. The ordering
+# claim is unchanged and so is its reason -- what these asserts pin is that BOTH stand-downs are known
+# before the refusal, and that neither of them is the one that got dropped in a later edit.
+$idxTrunkRead   = Get-ShipIdx -Needle 'Get-WorktreeHoldingBranch -PorcelainLines' -In 'Step 0:' -Code
+$idxQueueRead   = Get-ShipIdx -Needle 'Get-MergeQueueVerdict -BranchRulesJson' -In 'Step 0b' -Code
+$idxCiFoldRead  = Get-ShipIdx -Needle 'Get-CiFoldRecoveryVerdict -Workflow' -In "Step 0a's second question" -Code
+$idxTrunkRefuse = Get-ShipIdx -Needle 'if ($trunkHolder -and -not $queueActive -and -not $ciFold.Recovered)' -In "Step 0a's refusal" -Code
+$idxTrunkNote   = Get-ShipIdx -Needle 'if ($trunkHolder -and $queueActive)' -In "Step 0a's refusal" -Code
+$idxTrunkDefer  = Get-ShipIdx -Needle 'if ($trunkHolder -and -not $queueActive -and $ciFold.Recovered)' -In "Step 0a's refusal" -Code
 Assert-True ($idxTrunkRead -ge 0) 'ship-pr.ps1 reads whether another worktree holds the trunk (#1069)'
-Assert-True ($idxTrunkRefuse -ge 0) 'and its refusal is gated on -not $queueActive (#1572)'
+Assert-True ($idxTrunkRefuse -ge 0) 'and its refusal is gated on -not $queueActive (#1572) AND on no CI fold runner (#2087)'
 Assert-True ($idxTrunkRead -lt $idxQueueRead) 'the free local worktree read runs before the network queue read -- the network read must not cost the local one'
 Assert-True ($idxQueueRead -lt $idxTrunkRefuse) 'and the queue verdict is known BEFORE the trunk-holder refusal, so a lane ship is not refused on a queue where step 5 folds nothing'
+Assert-True ($idxCiFoldRead -ge 0 -and $idxCiFoldRead -lt $idxTrunkRefuse) 'and so is the CI-fold verdict, for the same reason one axis over (#2087)'
 Assert-True ($idxTrunkNote -ge 0 -and $idxTrunkNote -gt $idxQueueRead) 'under a queue the held trunk is noted, not refused'
+Assert-True ($idxTrunkDefer -ge 0 -and $idxTrunkDefer -lt $idxTrunkRefuse) 'and where a runner folds, the deferring arm is reached before the refusing one'
 Assert-True ($shipText -like '*not a blocker under a queue: step 5 folds nothing here (#1572)*') 'and the note says why, naming the issue'
+# THE DEFERRED DECISION IS TAKEN ONCE, BEFORE THE MERGE, AND ONLY READ AFTER IT. Re-deriving it at step 5
+# would be a second chance to get it wrong on the far side of an irreversible act, and the fold body plus
+# step 5b both have to honour it -- a merge with the flag set that then folds anyway takes a trunk this
+# clone cannot give.
+Assert-True ($shipText -like '*if (-not $foldDeferredToCi) {*') "step 5's fold body is guarded by the deferred flag (#2087)"
+Assert-True ($shipText -like '*if (-not $foldDeferredToCi -and -not $foldTree -and -not $shipTreeIsPrimary)*') 'and step 5b does not hand back a trunk it never took'
 
 # --- Get-RequiredCheckRunIds: which Actions run sits behind a named check? (issue #1292 re-anchor) ---
 # THE RE-ANCHOR: the retired Get-CertifyingRunTimestamp read a check's own startedAt directly out of
@@ -2395,8 +2630,8 @@ Assert-True ($shipText -notlike '*''--watch'', ''--interval'', "$PollSeconds", '
 # regression: the rules payload is asked FIRST, and the old probe survives only as the fall-back.
 Assert-True ($shipText -like '*Get-RequiredCheckContexts -BranchRulesJson $foldRulesJson*') 'the wait mode is read from the branch-rules payload step 0b already fetched -- no registration race, no extra call'
 Assert-True ($shipText -like '*Get-RequiredCheckNames -RequiredChecksJson $requiredWaitJson*') 'and the PR check list survives as the FALL-BACK, for a checkout that cannot read the trunk''s rules'
-$idxCtx   = $shipText.IndexOf('Get-RequiredCheckContexts -BranchRulesJson $foldRulesJson')
-$idxProbe = $shipText.IndexOf('Get-RequiredCheckNames -RequiredChecksJson $requiredWaitJson')
+$idxCtx   = Get-ShipIdx -Needle 'Get-RequiredCheckContexts -BranchRulesJson $foldRulesJson' -In 'Step 3:' -Code
+$idxProbe = Get-ShipIdx -Needle 'Get-RequiredCheckNames -RequiredChecksJson $requiredWaitJson' -In 'Step 3:' -Code
 Assert-True ($idxCtx -ge 0 -and $idxProbe -gt $idxCtx) 'and the ruleset is asked BEFORE the probe -- the ordering is the fix, not merely having both'
 
 # FAIL-OPEN IS THE HALF A CONSUMER FEELS, and the two reasons for it are now told apart, because the
@@ -2456,9 +2691,12 @@ Assert-True ($shipText -like '*-RequiredNames $requiredWaitNames*') 'the call si
 Assert-True ($shipText -like '*$maxRequiredWaitSec = 1800*') 'the required-registration wait has a budget sized for CI, not for a registration race'
 Assert-True ($shipText -like '*-MaxWaitSec $maxRequiredWaitSec -AlreadyWaited $waited*') 'and the second call uses it, sharing the seconds the first already spent'
 Assert-True ($shipText -like '*$maxWaitSec = 180*') 'while the FIRST wait keeps #1234''s 180s -- a repo with no check suite still hears in seconds'
-$idxAnyWait = $shipText.IndexOf('-PollSeconds $PollSeconds -MaxWaitSec $maxWaitSec' + "`r`n")
-if ($idxAnyWait -lt 0) { $idxAnyWait = $shipText.IndexOf('-PollSeconds $PollSeconds -MaxWaitSec $maxWaitSec' + "`n") }
-$idxReqWait = $shipText.IndexOf('-MaxWaitSec $maxRequiredWaitSec -AlreadyWaited $waited')
+# The needle keeps its LINE ENDING, which is the one part of this claim a region cannot make: it says
+# the first wait passes $maxWaitSec and nothing after it, so a later parameter appended to that call
+# would be a different call. Hence -Optional on the CRLF probe -- on an LF checkout it is meant to miss.
+$idxAnyWait = Get-ShipIdx -Needle ('-PollSeconds $PollSeconds -MaxWaitSec $maxWaitSec' + "`r`n") -In 'Step 3:' -Code -Optional
+if ($idxAnyWait -lt 0) { $idxAnyWait = Get-ShipIdx -Needle ('-PollSeconds $PollSeconds -MaxWaitSec $maxWaitSec' + "`n") -In 'Step 3:' -Code }
+$idxReqWait = Get-ShipIdx -Needle '-MaxWaitSec $maxRequiredWaitSec -AlreadyWaited $waited' -In 'Step 3:' -Code
 Assert-True ($idxAnyWait -ge 0 -and $idxReqWait -gt $idxAnyWait) 'the any-check wait runs BEFORE the required-check wait, so the narrowed refusal can say "CI is running, the required check is not there"'
 Assert-True ($shipText -like '*$reentryMaxWaitSec = if ($requiredWaitNames.Count -gt 0) { $maxRequiredWaitSec } else { $maxWaitSec }*') 'and the #1350 re-entry inherits whichever budget its own question deserves'
 
@@ -2467,14 +2705,14 @@ Assert-True ($shipText -like '*$reentryMaxWaitSec = if ($requiredWaitNames.Count
 Assert-True ($shipText -like '*never registered on PR #$Pr within*') 'the narrowed timeout names the required check rather than claiming no CI registered'
 Assert-True ($shipText -like '*Other checks DID register, so CI is running*') 'and says so, since the first wait already proved it'
 Assert-True ($shipText -like '*a rename or a typo in the*') 'and names the cause a reader can actually act on -- a required context no workflow produces'
-$idxNarrowRefusal = $shipText.IndexOf('never registered on PR #$Pr within')
-$idxSuiteNote = $shipText.IndexOf('$suiteNote = Get-MissingCheckSuiteRefusalNote')
+$idxNarrowRefusal = Get-ShipIdx -Needle 'never registered on PR #$Pr within' -In 'function Wait-CheckRegistration' -Code
+$idxSuiteNote = Get-ShipIdx -Needle '$suiteNote = Get-MissingCheckSuiteRefusalNote' -In 'function Wait-CheckRegistration' -Code
 Assert-True ($idxNarrowRefusal -ge 0 -and $idxSuiteNote -gt $idxNarrowRefusal) 'and it returns before the no-check-suite note, whose subject is already ruled out on this path'
 
 # ORDER IS THE REPAIR, not tidiness: the wait cannot wait for the right thing before the mode is
 # known. Asserted by offset, since that is the actual claim.
-$idxMode = $shipText.IndexOf('Get-RequiredCheckContexts -BranchRulesJson $foldRulesJson')
-$idxWait = $shipText.IndexOf('$waited = Wait-CheckRegistration -Pr')
+$idxMode = Get-ShipIdx -Needle 'Get-RequiredCheckContexts -BranchRulesJson $foldRulesJson' -In 'Step 3:' -Code
+$idxWait = Get-ShipIdx -Needle '$waited = Wait-CheckRegistration -Pr' -In 'Step 3:' -Code
 Assert-True ($idxMode -ge 0 -and $idxWait -gt $idxMode) 'the mode is decided BEFORE the registration wait runs, so the wait knows what to wait for'
 
 # AND THE REFUSAL AND PROGRESS LINES NAME WHAT THEY WAITED FOR, so a timeout on a narrowed wait does
@@ -2490,18 +2728,18 @@ Assert-True ($shipText -like '*Step 8: what the NOT-required checks said (issue 
 Assert-True ($shipText -like '*Get-CheckWaitReport -ChecksJson $tailFactsJson*') 'and it is #831''s own report over the full payload, not a new summary invented here'
 Assert-True ($shipText -like '*-WaitedSeconds $tailWaitedSec -PostMerge*') 'passed -PostMerge, so it does not claim a check governed a merge that has already happened'
 Assert-True ($shipText -like '*-RequiredNamesJson $requiredFactsJson -WaitedSeconds $waitedSec*') 'while step 3, which runs BEFORE the merge, does not pass it'
-$idxPost = $shipText.IndexOf('-WaitedSeconds $tailWaitedSec -PostMerge')
-$idxPre  = $shipText.IndexOf('-RequiredNamesJson $requiredFactsJson -WaitedSeconds $waitedSec')
+$idxPost = Get-ShipIdx -Needle '-WaitedSeconds $tailWaitedSec -PostMerge' -In 'Step 8:' -Code
+$idxPre  = Get-ShipIdx -Needle '-RequiredNamesJson $requiredFactsJson -WaitedSeconds $waitedSec' -In 'Step 3:' -Code
 Assert-True ($idxPre -ge 0 -and $idxPost -gt $idxPre) 'and the un-switched call is the earlier one in the file, i.e. the pre-merge report'
 Assert-True ($shipText -like '*Get-AuthoredFailureNote -AnnotationsJson*') 'the #1103 relay of what the failing check said about itself rides along -- it matters more here, being the only place the reader meets the failure'
 
 # AND IT RUNS AFTER EVERYTHING OWED TO THE TRUNK. A wait on somebody else's CI placed above the fold
 # would sit in the one gap nothing reports -- merged upstream, branch document still on the trunk
 # (#1270). Asserted by offset rather than by prose, since that is the actual claim.
-$foldIdx = $shipText.IndexOf('Step 5: main + fold + commit + push')
-$tailIdx = $shipText.IndexOf('Step 8: what the NOT-required checks said')
+$foldIdx = Get-ShipIdx -Needle 'Step 5: main + fold + commit + push'
+$tailIdx = Get-ShipIdx -Needle 'Step 8: what the NOT-required checks said'
 Assert-True ($foldIdx -gt 0 -and $tailIdx -gt $foldIdx) 'step 8 sits BELOW the fold, so it can stall or be abandoned without leaving a half-state'
-$verifyIdx = $shipText.IndexOf('Step 6: the issues the PR declared it closes')
+$verifyIdx = Get-ShipIdx -Needle 'Step 6: the issues the PR declared it closes'
 Assert-True ($verifyIdx -gt 0 -and $tailIdx -gt $verifyIdx) 'and below the resolved-issues check, so nothing that mutates state outside this repo waits on it'
 
 # THE QUEUE PATH MERGES NOTHING HERE, so it has no fold to report after and says where to read them.
@@ -2516,7 +2754,17 @@ Assert-True ($shipText -like '*-TimeoutSeconds $tailMaxWaitSec*') 'and the bound
 # A TIMEOUT IS NOT A FAILED CHECK, and exit code 124 is why this needs asserting: Invoke-NativeCapture
 # substitutes it for a killed child so the number and TimedOut agree, which means a timed-out report
 # reaches the failure branch as a non-zero exit unless TimedOut is read.
-Assert-True ($shipText -like '*if ($tailChecks.ExitCode -ne 0 -and -not $tailChecks.TimedOut) {*') 'a timed-out report does not announce that a check failed -- TimedOut is read, not just the exit code'
+#
+# ASSERTED AS ITS CLAUSES RATHER THAN AS THE WHOLE LINE (#2081). This pinned the condition verbatim and
+# went red the moment a THIRD exclusion was added to it -- an unmeasurable exit code (#1931), which is
+# `-ne 0` with TimedOut $false and so reached this arm exactly as a timeout used to. That addition is
+# this assert's own reasoning applied one field over, so a pin that refuses it is pinning the spelling
+# instead of the subject. The subject is that the failure arm excludes the non-answers; the arm may
+# grow another one without a suite having to be edited to permit it.
+$tailFailArm = @($shipText -split "`n" | Where-Object { $_ -like '*if ($tailChecks.ExitCode -ne 0*' })
+Assert-Equal 1 $tailFailArm.Count 'step 8 has exactly one arm judging the tail report''s exit code'
+Assert-True ($tailFailArm[0] -like '*-not $tailChecks.TimedOut*') 'a timed-out report does not announce that a check failed -- TimedOut is read, not just the exit code'
+Assert-True ($tailFailArm[0] -like '*Test-NativeExitMeasured*') 'and neither does a report whose exit code was never measured (#1931) -- the same non-answer, one field over'
 Assert-True ($shipText -like '*} elseif (-not $tailChecks.TimedOut) {*') 'and it does not claim every check is green either -- neither arm fires on a timeout'
 Assert-True ($shipText -like '*giving up on the REPORT, not on the ship (#1602)*') 'the timeout says what it gave up on, since the ship really is complete'
 
@@ -2565,9 +2813,9 @@ Assert-True ($shipText -like '*git merge origin/main*') 'the remedy tells the op
 # THE TOKEN, NOT THE RAW REF (issue #1594). The remedy prints $branchPaste.Token so a branch name
 # carrying a shell metacharacter cannot enter a command the reader pastes; the ORDER this block exists to
 # pin is unchanged, so only the string being located moved.
-$idxCheckout = $shipText.IndexOf('  git checkout $($branchPaste.Token)')
-$idxFetchRem = if ($idxCheckout -ge 0) { $shipText.IndexOf('  git fetch origin main', $idxCheckout) } else { -1 }
-$idxMergeRem = if ($idxFetchRem -ge 0) { $shipText.IndexOf('  git merge origin/main', $idxFetchRem) } else { -1 }
+$idxCheckout = Get-ShipIdx -Needle '  git checkout $($branchPaste.Token)' -In 'Step 3b'
+$idxFetchRem = Get-ShipIdx -Needle '  git fetch origin main' -In 'Step 3b' -From $idxCheckout
+$idxMergeRem = Get-ShipIdx -Needle '  git merge origin/main' -In 'Step 3b' -From $idxFetchRem
 Assert-True ($idxCheckout -ge 0) 'the stale-CI remedy names the branch to check out, using the branch the gate already read'
 Assert-True ($idxFetchRem -gt $idxCheckout -and $idxMergeRem -gt $idxFetchRem) 'and it comes FIRST -- checkout, then fetch, then merge, in that order'
 Assert-True ($shipText -like '*CHECKOUT IS THE FIRST STEP*') 'the refusal says why that line is there, so nobody reads it as a stray step'

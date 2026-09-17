@@ -116,6 +116,24 @@ try {
         '{"type":"assistant","message":{"content":[{"type":"tex'
     ) | Set-Content -LiteralPath (Join-Path $projB 'bbbb4444.jsonl') -Encoding ascii
 
+    # SESSION 5 -- a PARK. park-branch.ps1 prints a receipt and its ending is close-out shape C, so this
+    # belongs in the governed population. It was excluded until #2060, which is what made the baseline
+    # blind to a whole shape -- and plausibly the longest one, since a park reports a state rather than a
+    # completion. Two non-empty lines, so it also proves the inclusion is not free: it moves the rate.
+    @(
+        (New-Record -ToolCommand 'powershell -File scripts/task/park-branch.ps1')
+        (New-Record -Text @("Parked: filed #99.`nSession can be cleared."))
+    ) | Set-Content -LiteralPath (Join-Path $projB 'bbbb5555.jsonl') -Encoding ascii
+
+    # SESSION 6 -- park-cycle.ps1, which the cycle-autopark Stop hook runs after EVERY turn and which
+    # prints no receipt at all. It was in the filter until #2060, so any turn that happened to name it
+    # was measured as a close-out. Its final message is long on purpose: were it counted, the rate below
+    # would move, which is what makes this assert about the exclusion rather than about the fixture.
+    @(
+        (New-Record -ToolCommand 'powershell -File scripts/task/park-cycle.ps1')
+        (New-Record -Text @("one`ntwo`nthree`nfour`nfive`nsix`nseven"))
+    ) | Set-Content -LiteralPath (Join-Path $projB 'bbbb6666.jsonl') -Encoding ascii
+
     Write-Host ''
     Write-Host 'It separates the two populations' -ForegroundColor Cyan
 
@@ -124,10 +142,18 @@ try {
 
     $result = ($json | Out-String) | ConvertFrom-Json
 
-    Assert-Equal 3 $result.All.N              'ALL counts the three sessions that have assistant text'
-    Assert-Equal 2 $result.CloseOuts.N        'CLOSE-OUTS counts only the two that ran a chain-ending script'
-    Assert-Equal 1 $result.CloseOuts.OverCeiling 'one of the two close-outs is over the ceiling'
-    Assert-Equal 50 $result.CloseOuts.OverCeilingPct 'so the violation rate is 50%'
+    Assert-Equal 5 $result.All.N              'ALL counts the five sessions that have assistant text'
+    Assert-Equal 3 $result.CloseOuts.N        'CLOSE-OUTS counts only the three that ran a chain-ending script'
+    Assert-Equal 1 $result.CloseOuts.OverCeiling 'one of the three close-outs is over the ceiling'
+    Assert-Equal 33 $result.CloseOuts.OverCeilingPct 'so the violation rate is 33%'
+
+    # THE TWO HALVES OF #2060, asserted as MEMBERSHIP rather than as a rate. Session 5 (a park, 2 lines)
+    # is in the population and session 6 (an autopark, 7 lines) is not, and n alone cannot tell you that:
+    # with park-cycle counted and park-branch not -- the state before #2060 -- n would read 3 here too,
+    # and org-beta below would still read 2. Measured against the old script on this fixture: over-six
+    # 1 -> 0, over-ceiling 2 -> 1, median 5 -> 2. Only the autopark's message clears six lines.
+    Assert-Equal 0 $result.CloseOuts.OverSix 'the park-cycle session (7 lines) is NOT in the governed population'
+    Assert-Equal 2 $result.CloseOuts.MedianLines '...and the park (2 lines) IS, which is what pulls the median there'
 
     # Five non-empty lines out of six physical ones -- the blank is not counted.
     Assert-Equal 5 $result.CloseOuts.MaxLines 'the blank separator line is not counted towards the ceiling'
@@ -142,8 +168,12 @@ try {
     Write-Host 'The project filter selects a subset' -ForegroundColor Cyan
 
     $onlyBeta = (& $ScriptPath -TranscriptRoot $fixtureRoot -Project 'org-beta' -Json | Out-String) | ConvertFrom-Json
-    Assert-Equal 1 $onlyBeta.CloseOuts.N 'one close-out in org-beta'
-    Assert-Equal 0 $onlyBeta.CloseOuts.OverCeiling '...and it is within the ceiling'
+    # TWO, not one: session 5's park lands here. The COUNT is deliberately not offered as evidence for
+    # #2060 -- the old filter also read 2 in this project, with the autopark standing where the park now
+    # does. What separates the two filters is the membership above, which is why that assert is stated
+    # in over-six and median rather than in n.
+    Assert-Equal 2 $onlyBeta.CloseOuts.N 'two close-outs in org-beta -- the PR and the park'
+    Assert-Equal 0 $onlyBeta.CloseOuts.OverCeiling '...and both are within the ceiling'
 
     Write-Host ''
     Write-Host 'A missing transcript root is reported, not fatal' -ForegroundColor Cyan

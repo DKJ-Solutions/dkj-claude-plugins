@@ -59,6 +59,11 @@ $SeamLibSrc       = Join-Path $RepoRoot 'scripts\lib\seam-lib.ps1'
 # which -Resolves below runs against. Without it in the fixture, every -Resolves case here dies on a
 # raw path-not-found instead of testing anything, exactly like the entry-scaffold lib above.
 $PrIssuesLibSrc   = Join-Path $RepoRoot 'scripts\lib\pr-issues-lib.ps1'
+# And the IMPURE half (inbound #2056) -- Get-ClosedIssueSet, which asks gh what each cited number
+# actually IS so the pure half can be told rather than infer it. Its own file precisely because the lib
+# above is pure; same fixture consequence as every lib here, and the (x) cases below drive it through
+# their fake gh.
+$IssueStateLibSrc = Join-Path $RepoRoot 'scripts\lib\issue-state-lib.ps1'
 # The remote-ahead note composer (issue #1450), extracted out of new-branch.ps1 into its own shared
 # lib once open-pr.ps1 became a second reader. Without it in the fixture, every resume case below dies
 # on a raw path-not-found instead of testing anything, exactly like the two libs above.
@@ -304,6 +309,7 @@ function New-Fixture {
     # refusal degrades to silence and the (y) case would pass for the wrong reason, saying nothing.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\git-identity-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\git-identity-lib.ps1') -Force
     Copy-Item -LiteralPath $PrIssuesLibSrc   -Destination (Join-Path $dir 'scripts\lib\pr-issues-lib.ps1')           -Force
+    Copy-Item -LiteralPath $IssueStateLibSrc -Destination (Join-Path $dir 'scripts\lib\issue-state-lib.ps1')         -Force
     Copy-Item -LiteralPath $RemoteAheadLibSrc -Destination (Join-Path $dir 'scripts\lib\remote-ahead-lib.ps1')       -Force
     Copy-Item -LiteralPath $RefPrintLibSrc    -Destination (Join-Path $dir 'scripts\lib\ref-print-lib.ps1')          -Force
 
@@ -1503,6 +1509,83 @@ Write-Output `$t.Type
     Assert-ExitCode 0 $rT 'current base: new-branch exit 0'
     Assert-True (Test-Phrase -Text $rT.Out -Phrase 'Base is current with origin/main') 'current base: says so, so silence is never ambiguous'
     Assert-True (-not (Test-Phrase -Text $rT.Out -Phrase 'behind origin/main')) 'current base: and warns about nothing'
+    Assert-True (-not (Test-Phrase -Text $rT.Out -Phrase 'but that base is')) 'current base: and claims no stack where HEAD is the trunk (#2074)'
+
+    # --- (t2) THE BASE IS ANOTHER BRANCH'S TIP: named, counted, and said twice (#2074) ---------------
+    # THE CASE (t) CANNOT TELL ITSELF APART FROM. Both read HEAD..origin/main == 0, so both used to end on
+    # the same reassuring line. #2074's measurement is a second session that had merged origin/main into
+    # its own branch minutes earlier and left the checkout standing there: the base was behind nothing,
+    # the stale-base check was correct and silent, and five of that branch's commits -- 22 files -- rode
+    # into a two-line repair's pull request. The fixture is that shape exactly: a branch off the published
+    # trunk, carrying commits of its own, checked out, with nothing at all to be behind.
+    Write-Host "new-branch.ps1 -- a base that is another branch's tip is named and counted (#2074)" -ForegroundColor Cyan
+    $fixStack = New-Fixture -Label 't2'
+    $null = New-BareOrigin -Dir $fixStack -Label 't2'
+    Publish-FixtureTrunk -Dir $fixStack
+    Invoke-FixtureGitIn $fixStack checkout -q -b 'fix/another-session-work'
+    Set-Content -LiteralPath (Join-Path $fixStack 'their-first.txt')  -Value 'theirs' -Encoding utf8
+    Invoke-FixtureGitIn $fixStack add -A
+    Invoke-FixtureGitIn $fixStack commit -q -m 'fix: their first commit'
+    Set-Content -LiteralPath (Join-Path $fixStack 'their-second.txt') -Value 'theirs' -Encoding utf8
+    Invoke-FixtureGitIn $fixStack add -A
+    Invoke-FixtureGitIn $fixStack commit -q -m 'fix: their second commit'
+
+    $rT2 = Invoke-NewBranch -Dir $fixStack -Name 'feat/cut-from-a-branch-v1' -Title 'Cut from a branch'
+    Assert-ExitCode 0 $rT2 'stacked base: exit 0 -- it warns and never refuses, because stacking on purpose is allowed'
+    $branchesT2 = ((& git -C $fixStack branch --list 'feat/cut-from-a-branch-v1') -join '').Trim()
+    Assert-True ([bool]$branchesT2) 'stacked base: and the branch really is created'
+    Assert-True (Test-Phrase -Text $rT2.Out -Phrase "is being cut from 'fix/another-session-work'") 'stacked base: the base is named, which is the whole finding'
+    Assert-True (Test-Phrase -Text $rT2.Out -Phrase '2 commits origin/main does not') 'stacked base: and counted -- that is the set which would ride into the PR'
+    Assert-True (Test-Phrase -Text $rT2.Out -Phrase "but that base is 'fix/another-session-work', not main") 'stacked base: the currency line carries it too, so the reassuring sentence is not read alone'
+    Assert-True (-not (Test-Phrase -Text $rT2.Out -Phrase 'behind origin/main')) 'stacked base: and this is NOT the stale-base check -- that base is behind nothing'
+    # THE REPEAT, for the reason the three notes beside it are repeated: everything printed after the
+    # measurement -- the checkout, the scaffold, the tier rubric, the commit, the push -- buries the first
+    # copy, and this is the one case where nothing else in the run looks wrong.
+    $flatT2 = Get-FlatOutput $rT2.Out
+    $stackHits = @([regex]::Matches($flatT2, [regex]::Escape((Get-Squeezed "is being cut from 'fix/another-session-work'")))).Count
+    Assert-Equal 2 $stackHits 'stacked base: said twice -- once before the checkout, once near the last line'
+
+    # --- (t3) A BASE THAT IS A BRANCH BUT CARRIES NOTHING: silent (#2074) ----------------------------
+    # THE NEGATIVE HALF, and it is what keeps this off the ordinary run. origin/main..HEAD is the number
+    # that matters precisely because it is 0 for a branch freshly cut and not yet committed on -- nothing
+    # would travel from such a base, so there is nothing to warn about. Without this the check would fire
+    # on every second branch of a session and be trained away.
+    Write-Host "new-branch.ps1 -- a branch base carrying nothing is not warned about (#2074)" -ForegroundColor Cyan
+    $fixEmptyStack = New-Fixture -Label 't3'
+    $null = New-BareOrigin -Dir $fixEmptyStack -Label 't3'
+    Publish-FixtureTrunk -Dir $fixEmptyStack
+    Invoke-FixtureGitIn $fixEmptyStack checkout -q -b 'feat/nothing-on-it-yet'
+
+    $rT3 = Invoke-NewBranch -Dir $fixEmptyStack -Name 'feat/cut-from-empty-branch-v1' -Title 'Cut from an empty branch'
+    Assert-ExitCode 0 $rT3 'empty branch base: new-branch exit 0'
+    Assert-True (Test-Phrase -Text $rT3.Out -Phrase 'Base is current with origin/main') 'empty branch base: the ordinary line, unchanged'
+    Assert-True (-not (Test-Phrase -Text $rT3.Out -Phrase 'is being cut from')) 'empty branch base: and no stack is claimed -- that base carries nothing'
+    Assert-True (-not (Test-Phrase -Text $rT3.Out -Phrase 'but that base is')) 'empty branch base: nor on the currency line'
+
+    # --- (t4) BEHIND *AND* STACKED: both are said, and the refusal still fires (#2074) ---------------
+    # THE ONE BEHAVIOUR THE SKILL PAGE CALLS OUT AS CROSS-CUTTING, and it had no assertion behind it until
+    # a copy-edit pass on the same branch asked for one. The two checks are independent -- one reads how far
+    # the base is BEHIND the trunk, the other what the base carries that the trunk does not -- so a base can
+    # be both, and the stack note is deliberately placed ABOVE the gap chain so that a REFUSED run still
+    # says what it was standing on. Refusing while withholding that is the worse half: the operator is told
+    # to bring 'the base' up to date without being told the base is somebody else's branch.
+    Write-Host "new-branch.ps1 -- a base both behind the trunk AND another branch's tip says both (#2074)" -ForegroundColor Cyan
+    $fixBoth = New-Fixture -Label 't4'
+    $bareBoth = New-BareOrigin -Dir $fixBoth -Label 't4'
+    Publish-FixtureTrunk -Dir $fixBoth
+    Invoke-FixtureGitIn $fixBoth checkout -q -b 'fix/stale-and-stacked'
+    Set-Content -LiteralPath (Join-Path $fixBoth 'theirs.txt') -Value 'theirs' -Encoding utf8
+    Invoke-FixtureGitIn $fixBoth add -A
+    Invoke-FixtureGitIn $fixBoth commit -q -m 'fix: their only commit'
+    Add-OriginCommits -Bare $bareBoth -Label 't4' -Count 3
+
+    $rT4 = Invoke-NewBranch -Dir $fixBoth -Name 'feat/cut-from-stale-stack-v1' -Title 'Cut from a stale stack'
+    Assert-ExitCode 1 $rT4 'behind and stacked: the stale-base refusal still fires -- the stack note does not soften it'
+    Assert-True (Test-Phrase -Text $rT4.Out -Phrase '3 behind origin/main') 'behind and stacked: the gap is named'
+    Assert-True (Test-Phrase -Text $rT4.Out -Phrase "is being cut from 'fix/stale-and-stacked'") 'behind and stacked: and so is the base -- a refused run still says what it was standing on'
+    Assert-True (Test-Phrase -Text $rT4.Out -Phrase '1 commit origin/main does not') 'behind and stacked: counted, and in the singular at one'
+    $branchesT4 = ((& git -C $fixBoth branch --list 'feat/cut-from-stale-stack-v1') -join '').Trim()
+    Assert-True (-not [bool]$branchesT4) 'behind and stacked: and nothing was created -- the refusal is still before the checkout'
 
     # --- (u) NO REMOTE-TRACKING TRUNK: not asked, not claimed (#1046) -------------------------------
     # THE OFFLINE GUARANTEE, and the reason the local question gates the network one. A repo with an
@@ -1882,6 +1965,11 @@ Write-Output `$t.Type
         # Records every call (one line per invocation) and answers:
         #   issue list -> a JSON array of {"number":N} for each id in GH_OPEN_ISSUES (or fails under
         #                 GH_FAIL_ISSUE_LIST)
+        #   issue view -> the per-number resolve inbound #2056 added: a CLOSED issue for each id in
+        #                 GH_CLOSED_ISSUES, and gh's own "Could not resolve" refusal for anything else.
+        #                 THAT DEFAULT IS THE #2056 CASE ITSELF -- a number this repo does not have --
+        #                 so a case that names no closed issue gets exactly the answer the old rule
+        #                 misread as CLOSED.
         #   pr list    -> the raw JSON in GH_PR_LIST_JSON, '[]' by default (or fails under GH_FAIL_PR_LIST)
         $xGhImpl = @'
 if ($env:GH_CALL_LOG) { Add-Content -Path $env:GH_CALL_LOG -Value ($args -join ' ') }
@@ -1892,6 +1980,17 @@ if ($args -contains 'issue' -and $args -contains 'list') {
     $items = @($nums | Where-Object { $_ } | ForEach-Object { "{`"number`":$_}" }) -join ','
     Write-Output "[$items]"
     exit 0
+}
+if ($args -contains 'issue' -and $args -contains 'view') {
+    $asked = @($args | Where-Object { $_ -match '^\d+$' })[0]
+    $closed = @()
+    if ($env:GH_CLOSED_ISSUES) { $closed = $env:GH_CLOSED_ISSUES -split ',' }
+    if ($closed -contains $asked) {
+        Write-Output "{`"state`":`"CLOSED`",`"url`":`"https://github.com/o/r/issues/$asked`"}"
+        exit 0
+    }
+    [Console]::Error.WriteLine("GraphQL: Could not resolve to an issue or pull request with the number of $asked. (repository.issue)")
+    exit 1
 }
 if ($args -contains 'pr' -and $args -contains 'list') {
     if ($env:GH_FAIL_PR_LIST) { [Console]::Error.WriteLine('fake gh: pr list failed'); exit 1 }
@@ -1914,6 +2013,7 @@ exit 1
                 [Parameter(Mandatory = $true)][string]$Name,
                 [Parameter(Mandatory = $true)][string]$Resolves,
                 [string]$OpenIssues = '',
+                [string]$ClosedIssues = '',
                 [string]$PrListJson = '',
                 [switch]$FailIssueList,
                 [switch]$FailPrList
@@ -1921,6 +2021,7 @@ exit 1
             Remove-Item -Path $xCallLog -Force -ErrorAction SilentlyContinue
             $env:GH_CALL_LOG = $xCallLog
             $env:GH_OPEN_ISSUES = $OpenIssues
+            $env:GH_CLOSED_ISSUES = $ClosedIssues
             $env:GH_PR_LIST_JSON = $PrListJson
             if ($FailIssueList) { $env:GH_FAIL_ISSUE_LIST = '1' } else { Remove-Item Env:\GH_FAIL_ISSUE_LIST -ErrorAction SilentlyContinue }
             if ($FailPrList) { $env:GH_FAIL_PR_LIST = '1' } else { Remove-Item Env:\GH_FAIL_PR_LIST -ErrorAction SilentlyContinue }
@@ -1966,7 +2067,7 @@ exit 1
         # number or a reopened issue must not wedge a real branch).
         $fixX4 = New-Fixture -Label 'x4'
         Add-FixtureRepoConfig -Dir $fixX4 -RepoName 'fake/repo'
-        $rX4 = Invoke-NewBranchX -Dir $fixX4 -Name 'fix/1409-something' -Resolves '1409' -OpenIssues '9999'
+        $rX4 = Invoke-NewBranchX -Dir $fixX4 -Name 'fix/1409-something' -Resolves '1409' -OpenIssues '9999' -ClosedIssues '1409'
         Assert-ExitCode 0 $rX4 'issue already closed: exits 0 -- warned, never refused'
         Assert-True (Test-Phrase -Text $rX4.Out -Phrase 'already-done check: issue #1409 is already CLOSED') 'issue already closed: names the issue and the state'
         $flatX4 = Get-FlatOutput $rX4.Out
@@ -1988,7 +2089,7 @@ exit 1
         # and proof the still-open one is not swept along into the same sentence.
         $fixX6 = New-Fixture -Label 'x6'
         Add-FixtureRepoConfig -Dir $fixX6 -RepoName 'fake/repo'
-        $rX6 = Invoke-NewBranchX -Dir $fixX6 -Name 'fix/1409-and-1410' -Resolves '1409,1410' -OpenIssues '1410'
+        $rX6 = Invoke-NewBranchX -Dir $fixX6 -Name 'fix/1409-and-1410' -Resolves '1409,1410' -OpenIssues '1410' -ClosedIssues '1409'
         Assert-True (Test-Phrase -Text $rX6.Out -Phrase 'issue #1409 is already CLOSED') 'two issues, one done: names the closed one'
         Assert-True (-not (Test-Phrase -Text $rX6.Out -Phrase '#1410 is already')) 'two issues, one done: and says nothing about the still-open one'
         Assert-True (($rX6.Log | Where-Object { $_ -match [regex]::Escape('--search 1409 OR 1410 in:body') }).Count -eq 1) 'two issues, one done: both numbers went into one PR search'
@@ -2006,13 +2107,36 @@ exit 1
         # state alone rather than failing outright.
         $fixX8 = New-Fixture -Label 'x8'
         Add-FixtureRepoConfig -Dir $fixX8 -RepoName 'fake/repo'
-        $rX8 = Invoke-NewBranchX -Dir $fixX8 -Name 'fix/1409-blind-pr' -Resolves '1409' -OpenIssues '9999' -FailPrList
+        $rX8 = Invoke-NewBranchX -Dir $fixX8 -Name 'fix/1409-blind-pr' -Resolves '1409' -OpenIssues '9999' -ClosedIssues '1409' -FailPrList
         Assert-ExitCode 0 $rX8 'gh pr list unreadable: exits 0'
         Assert-True (Test-Phrase -Text $rX8.Out -Phrase 'could not ask gh whether another PR already resolves') 'gh pr list unreadable: warns about the blind spot'
         Assert-True (Test-Phrase -Text $rX8.Out -Phrase 'issue #1409 is already CLOSED') 'gh pr list unreadable: and still reports what issue state alone could determine'
+
+        # (x9) INBOUND #2056, THE WHOLE CASE, WIRED. The number is not in the open list AND is not an
+        # issue of this repo at all -- the shape this workflow's own inbound route produces on every
+        # branch citing a finding filed upstream. It used to be reported as 'already CLOSED', which is
+        # why x4 above needs -ClosedIssues now: before the repair those two cases were indistinguishable
+        # by construction, so x4 and this one were the SAME call with the same answer.
+        #
+        # THE ASSERT PAIR IS THE POINT. Silence alone would also be produced by the check never running,
+        # so the call log is read too: gh WAS asked what #1409 is, and its answer was believed.
+        $fixX9 = New-Fixture -Label 'x9'
+        Add-FixtureRepoConfig -Dir $fixX9 -RepoName 'fake/repo'
+        $rX9 = Invoke-NewBranchX -Dir $fixX9 -Name 'fix/1409-foreign-citation' -Resolves '1409' -OpenIssues '9999'
+        Assert-ExitCode 0 $rX9 'a number that is not an issue here: exits 0'
+        Assert-True (-not (Test-Phrase -Text $rX9.Out -Phrase 'already-done check:')) 'a number that is not an issue here: not reported as closed (inbound #2056)'
+        # SILENT MEANS SILENT, AND THIS ASSERT IS THE ONE THAT SAYS SO. Testing only for the absence of
+        # 'already-done check:' passed while the run printed "could not ask gh what every number ...
+        # actually is" on every such branch -- the first cut discarded gh's stderr, which is where the
+        # "Could not resolve" sentence lives, so the case landed on 'unreadable' instead of 'other'.
+        # The label claimed silence and the assert never checked for it.
+        Assert-True (-not (Test-Phrase -Text $rX9.Out -Phrase 'could not ask gh what every number')) 'a number that is not an issue here: and NOT reported as unreadable either -- genuinely silent'
+        Assert-True (($rX9.Log | Where-Object { $_ -match [regex]::Escape('issue view 1409 --repo fake/repo') }).Count -eq 1) 'a number that is not an issue here: and the silence comes from having ASKED, not from skipping the check'
+        $branchesX9 = ((& git -C $fixX9 branch --list 'fix/1409-foreign-citation') -join '').Trim()
+        Assert-True ([bool]$branchesX9) 'a number that is not an issue here: the branch is created as normal'
     } finally {
         $env:PATH = $prevPathX
-        'GH_CALL_LOG', 'GH_OPEN_ISSUES', 'GH_PR_LIST_JSON', 'GH_FAIL_ISSUE_LIST', 'GH_FAIL_PR_LIST' | ForEach-Object {
+        'GH_CALL_LOG', 'GH_OPEN_ISSUES', 'GH_CLOSED_ISSUES', 'GH_PR_LIST_JSON', 'GH_FAIL_ISSUE_LIST', 'GH_FAIL_PR_LIST' | ForEach-Object {
             Remove-Item "Env:\$_" -ErrorAction SilentlyContinue
         }
         Remove-Item -Path $xBin -Recurse -Force -ErrorAction SilentlyContinue

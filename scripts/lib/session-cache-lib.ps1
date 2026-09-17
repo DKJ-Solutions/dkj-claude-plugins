@@ -94,6 +94,13 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
+# THE SHA-256 RENDERING Get-SessionCacheFileName cuts a cache file name out of (issue #2058). A leaf
+# with no dependencies of its own, and loaded UNGUARDED: the file name cannot be composed without it,
+# so a payload missing this file must fail at LOAD rather than one call deeper, where the error would
+# no longer name what is absent. It is registered in the shared-scripts registry for dkj-policy, the
+# plugin this file is mirrored into, so the mirror always carries it.
+. (Join-Path $PSScriptRoot 'hash-hex-lib.ps1')
+
 function Get-HookPayloadRaw {
     <#
     .SYNOPSIS
@@ -266,15 +273,7 @@ function Get-SessionCacheFileName {
         [Parameter(Mandatory = $true)][string]$Key
     )
 
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Key)
-        $hash  = $sha.ComputeHash($bytes)
-    } finally {
-        $sha.Dispose()
-    }
-    $hex = -join ($hash | ForEach-Object { $_.ToString('x2') })
-    return ("$SessionId-" + $hex.Substring(0, 16) + '.json')
+    return ("$SessionId-" + (Get-Sha256Hex -Text $Key -Chars 16) + '.json')
 }
 
 function Get-SessionCacheEntry {

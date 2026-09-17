@@ -390,6 +390,11 @@ $repo = Get-RepoName
 # line above (registered in shared-scripts-lib.ps1 for the mirror + drift lint).
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
 
+# THE IMPURE HALF OF THE ALREADY-DONE CHECK (inbound #2056) -- Get-ClosedIssueSet asks gh what a cited
+# number actually IS, which is exactly why it cannot live in the file above: that one promises to be a
+# pure function of its input, and its suite depends on that. Same payload reasoning as the libs here.
+. (Join-Path $PSScriptRoot '..\lib\issue-state-lib.ps1')
+
 # The PR-body helpers: Get-EntryDescription (shared by the fresh and the -RefreshBody path, so they read
 # the entry the same way) and Update-PrBodySection. Same payload reasoning as the two libs above.
 . (Join-Path $PSScriptRoot '..\lib\pr-body-lib.ps1')
@@ -579,7 +584,15 @@ $existingPr = $null
 # -Utf8 because 'body' is in the field list (issue #907): the record this builds carries the existing
 # PR's prose, and -RefreshBody then compares against it. number and url would not have cared.
 $prLookup = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number,url,body', '--limit', '1', '--repo', $repo) -DiscardStderr
-if ($prLookup.ExitCode -ne 0) {
+if (-not (Test-NativeExitMeasured -Capture $prLookup)) {
+    # THE SAME NON-ANSWER, SAID AS ITSELF (issue #1931, audited under #2081). `$null -ne 0` is true, so an
+    # unmeasurable code took the arm below and printed "(exit )" -- the number missing out of a sentence
+    # that promises one. The CONTINUATION is unchanged and is the point: "as if it has none" is already
+    # this site's decided direction for a query it could not make, and gh pr create refuses a duplicate
+    # itself. What was wrong was only the reason given for it.
+    Write-Warning ("gh ran but its exit code could not be measured (issue #1931), so whether '$branch' already has an open PR is unknown here - continuing as if it has none, " +
+                   'which gh pr create judges again in a moment. A re-run normally settles it.')
+} elseif ($prLookup.ExitCode -ne 0) {
     Write-Warning "could not ask gh whether '$branch' already has an open PR (exit $($prLookup.ExitCode)) - continuing as if it has none."
 } else {
     # The parse itself lives in pr-issues-lib.ps1 (Get-ExistingPrRecord) so the 5.1 array-flattening
@@ -652,6 +665,10 @@ if (-not $prTitle -and -not $existingPr -and (Get-BranchEntryExemptPrefix -Branc
         # re-splits it -- the idiom claim-issue.ps1 uses on the same call.
         $log = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--no-merges',
                                                                 '--reverse', '--format=%s', "$base..$branch") -DiscardStderr -Utf8
+        # AUDITED UNDER #2081 AND LEFT AS IT IS: a POSITIVE test, so an unmeasurable code (#1931) is not
+        # `-eq 0` and this base is simply not taken -- the loop tries the next one, and an exhausted loop
+        # leaves $subjects empty, which the caller already treats as "no subjects to read". Under-reading
+        # is the safe direction for a title hint, and nothing here prints the number.
         if ($log.ExitCode -eq 0) {
             $subjects = @(@($log.Output) | Where-Object { $_ -and ([string]$_).Trim() })
             break
@@ -826,10 +843,11 @@ Both are honest answers; the gate only refuses to guess.
     # the merge conflict. WARN and move on: a shared number or a reopened issue must not wedge a
     # real PR, which is why #1282 asked for a warning rather than a refusal.
     #
-    # ONE EXTRA `gh` CALL, and only when the branch targets an issue at all. It rides the open-issue
-    # list already fetched above for the OpenIssues half; the ClaimingPrs half needs a PR-body
-    # search that the other queries here do not cover. A failed query is said out loud and skipped,
-    # never fatal -- same rule as every other lookup in this script.
+    # THE `gh` CALLS, and only when the branch targets an issue at all. The ClaimingPrs half needs a
+    # PR-body search that the other queries here do not cover; the IsClosed half needs a per-number
+    # resolve for whatever the open-issue list above did not already account for (inbound #2056 --
+    # see Get-ClosedIssueSet for why an absence from that list cannot stand in for a closure). A
+    # failed query is said out loud and skipped, never fatal -- same rule as every other lookup here.
     $targetIssues = @(@($mentions) + @($resolveList) | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
     if ($targetIssues.Count -gt 0) {
         $otherPrsJson = ''
@@ -840,8 +858,14 @@ Both are honest answers; the gate only refuses to guess.
         # -- so the already-done warning #1409 exists to raise would silently not fire, on exactly the
         # loaded machine where the search matters. Nothing else here could tell the two apart: gh prints
         # '[]' when it finds nothing, so at THIS call an empty capture has no legitimate reading at all.
+        # AND AN UNMEASURABLE EXIT CODE IS THE THIRD READING (issue #1931, audited under #2081), asked
+        # ahead of the number for the reason this whole family shares: `$null -ne 0` is true, so it fell
+        # into the arm below and the warning came out as "(exit )". Skipping the check is the right
+        # direction here and is unchanged -- what it could not say before is which of the two it was in.
         $searchUnread = ''
-        if ($prSearch.ExitCode -ne 0) {
+        if (-not (Test-NativeExitMeasured -Capture $prSearch)) {
+            $searchUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the search; a re-run normally settles it'
+        } elseif ($prSearch.ExitCode -ne 0) {
             $searchUnread = "exit $($prSearch.ExitCode)"
         } elseif ($prSearch.ShortRead) {
             $searchUnread = 'gh exited 0 but its capture was still being written when it was read, so the result may be truncated'
@@ -852,7 +876,27 @@ Both are honest answers; the gate only refuses to guess.
             Write-Warning ("could not ask gh whether another PR already resolves " + (($targetIssues | ForEach-Object { "#$_" }) -join ', ') + " ($searchUnread) -- the already-done check is skipped.")
         }
 
-        foreach ($w in @(Get-TargetIssueWarnings -TargetIssues $targetIssues -OpenIssues $openAll -OtherPrsJson $otherPrsJson -CurrentBranch $branch)) {
+        # THE THREE-STATE READ (inbound #2056). Only the numbers the open list did not already
+        # account for are resolved -- asking gh about a number known to be open is a round trip for
+        # an answer in hand. $null stays $null: an open list that could not be read leaves the whole
+        # signal undeterminable, exactly as it did before.
+        $closedTargets = $null
+        if ($null -ne $openAll) {
+            $unaccounted = @($targetIssues | Where-Object { $openAll -notcontains $_ })
+            $closedTargets = @()
+            if ($unaccounted.Count -gt 0) {
+                $resolved = Get-ClosedIssueSet -Repo $repo -Numbers $unaccounted
+                $closedTargets = @($resolved.Closed)
+                if ($resolved.Unreadable) {
+                    Write-Warning ("could not ask gh what every cited number is (" + (($unaccounted | ForEach-Object { "#$_" }) -join ', ') + ") -- the already-done check reports only what it could confirm.")
+                }
+                if ($resolved.Truncated) {
+                    Write-Warning ("this branch cites more numbers than the already-done check resolves in one run -- the oldest were left unresolved and are reported neither way.")
+                }
+            }
+        }
+
+        foreach ($w in @(Get-TargetIssueWarnings -TargetIssues $targetIssues -ClosedIssues $closedTargets -OtherPrsJson $otherPrsJson -CurrentBranch $branch)) {
             $says = @()
             if ($w.IsClosed) { $says += 'is already CLOSED' }
             foreach ($p in $w.ClaimingPrs) { $says += "is already resolved by PR #$($p.Number) ($($p.State.ToLowerInvariant()))" }
@@ -1437,8 +1481,12 @@ if (-not $existingPr) {
         # reasoning the existing-PR lookup gives. An old gh with no --json, a network hiccup or a repo with
         # no labels at all leaves the behaviour this script always had: gh judges the label at the create.
         $repoLabels = @()
-        if ($labelLookup.ExitCode -ne 0) {
-            Write-Warning "label gate: could not ask gh which labels $repo has (exit $($labelLookup.ExitCode)) - continuing, so 'gh pr create' is again the one that judges '$label', after the push."
+        # THE REASON IS COMPOSED RATHER THAN INTERPOLATED (issue #1931, audited under #2081): an
+        # unmeasurable exit code satisfies `-ne 0` and prints as nothing, so this read "(exit )". The
+        # verdict needs no third state -- not asking and not being able to ask both end in gh judging the
+        # label at the create -- so only the sentence changes, via the lib's own label.
+        if (-not (Test-NativeExitMeasured -Capture $labelLookup) -or $labelLookup.ExitCode -ne 0) {
+            Write-Warning "label gate: could not ask gh which labels $repo has ($(Get-NativeExitLabel -Capture $labelLookup)) - continuing, so 'gh pr create' is again the one that judges '$label', after the push."
         } else {
             $repoLabels = @(Get-LabelNames -Json ($labelLookup.Output -join "`n"))
             if ($repoLabels.Count -eq 0) {
@@ -1664,8 +1712,12 @@ Commit it yourself and run again:
 # cause. A genuine divergence is still caught at the push below, after the gates -- exactly today's
 # behaviour -- so a failed fetch here costs nothing this script did not already risk.
 $remoteAheadFetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'fetch', 'origin', ('+refs/heads/' + $branch + ':refs/remotes/origin/' + $branch)) -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-if ($remoteAheadFetch.ExitCode -ne 0) {
-    Write-Warning "could not fetch origin/$branch before the gates (exit $($remoteAheadFetch.ExitCode)) -- the remote-ahead gate is skipped; a genuine divergence is still caught at the push below, after the gates have already run."
+if (-not (Test-NativeExitMeasured -Capture $remoteAheadFetch) -or $remoteAheadFetch.ExitCode -ne 0) {
+    # ONE ARM, TWO REASONS (issue #1931, audited under #2081). Skipping the gate is the decided answer for
+    # a fetch this run cannot vouch for, whichever of the two produced it, and the push below is the
+    # backstop either way -- so this needs no third verdict, only a reason that is not "(exit )" with the
+    # number missing out of it. Get-NativeExitLabel is what supplies the difference.
+    Write-Warning "could not fetch origin/$branch before the gates ($(Get-NativeExitLabel -Capture $remoteAheadFetch)) -- the remote-ahead gate is skipped; a genuine divergence is still caught at the push below, after the gates have already run."
 } else {
     $remoteAheadNote = Get-RemoteAheadNote -RepoRoot $repoRoot -LocalRef 'HEAD' -RemoteRef "refs/remotes/origin/$branch" -BranchLabel $branch -FreshLabel "origin/$branch" -StaleLabel "origin/$branch" -Fresh $true
     if ($remoteAheadNote) {
@@ -1761,6 +1813,17 @@ if (-not (Invoke-WorkflowGates -RepoRoot $repoRoot -SkipLint:$SkipLint -SkipTest
 $push = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '-u', 'origin', $branch) `
                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
 $push.Output | ForEach-Object { Write-Host $_ }
+# A WRITE WHOSE EXIT CODE WAS NEVER MEASURED IS NOT A FAILED WRITE (issue #1931, audited under #2081) --
+# the doctrine this script already carries at the create below for a transient gh (#1916), one field
+# over. `$null -ne 0` is true, so an unmeasurable code printed the bare "git push failed." over a push
+# that may have landed, and the branch is then genuinely on origin while the reader has been told it is
+# not. It still stops, because nothing was established and the PR must not be opened on an assumption;
+# re-running is safe and cheap, since pushing the same commits twice is a no-op and the gates have
+# already passed.
+if (-not (Test-NativeExitMeasured -Capture $push)) {
+    Write-Error "git push ran but its exit code could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether '$branch' reached origin -- no PR was opened. Look with 'git ls-remote --heads origin $branch' and simply run this again; the gates passed, so a re-run costs only the gate time."
+    exit 1
+}
 if ($push.ExitCode -ne 0) {
     if ($push.TimedOut) {
         Write-Error "git push did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above. The branch is NOT on origin and no PR was opened; the gates passed, so re-running after fixing the credential costs only the gate time."
@@ -2227,7 +2290,30 @@ try {
         # then to their network. The hint is kept for the case it is still the best available answer: a gh
         # that printed nothing at all.
         $reason = Get-PrCreateFailureReason -OutputLines $create.Output
-        $reasonOrExit = if ($reason) { $reason } else { "gh printed no reason (exit $($create.ExitCode))" }
+        # THE UNMEASURED CASE GETS ITS OWN CLAUSE RATHER THAN THE LABEL IN A PARENTHETICAL: this string is
+        # read back as "gh pr create: $reasonOrExit -- this may have landed anyway", and "gh printed no
+        # reason (no measurable exit code -- ...)" buries the operative fact inside a bracket about a
+        # different one. The reason gh printed and the code this run could not read are two statements.
+        $reasonOrExit = if ($reason) {
+            $reason
+        } elseif (-not (Test-NativeExitMeasured -Capture $create)) {
+            'gh ran with no measurable exit code (issue #1931)'
+        } else {
+            "gh printed no reason (exit $($create.ExitCode))"
+        }
+
+        # AN UNMEASURABLE EXIT CODE IS THE PUREST CASE #1916 ALREADY BUILT FOR (issue #1931, audited under
+        # #2081), and until now it was the one that could not reach the machine. `$null -ne 0` is true, so
+        # it entered this branch -- but Test-GhMutationTransient reads gh's OUTPUT for a 5xx or a transport
+        # failure, and a create that actually SUCCEEDED printed a PR URL rather than either, so the probe
+        # said "not transient" and the run fell through to the hard failure below. That is the exact
+        # measured shape #1916 was filed for, reached through the exit code instead of through the answer.
+        #
+        # SO IT JOINS THE RECHECK RATHER THAN GAINING A VERDICT OF ITS OWN. The recheck asks the only
+        # question that settles it -- does '$branch' now have an open PR -- and it already ends both ways
+        # correctly: exit 0 naming the PR that landed, or a stop saying in so many words that this run does
+        # not know. Nothing about that path needed changing; it only needed to be reachable from here.
+        $createUnmeasured = -not (Test-NativeExitMeasured -Capture $create)
 
         # A NON-ZERO EXIT IS NOT PROOF THE CREATE DID NOT LAND (inbound #1916) -- the same doctrine
         # claim-issue already carries for its own write (its SKILL.md, "Every gh call is bounded"): a
@@ -2238,7 +2324,7 @@ try {
         # by 'PR #591 was already open'. Test-GhMutationTransient (pr-issues-lib.ps1) tells a 5xx/
         # transport failure like that apart from a 4xx, which is a real refusal and stays a hard failure
         # below unchanged.
-        if (Test-GhMutationTransient -OutputLines $create.Output) {
+        if ($createUnmeasured -or (Test-GhMutationTransient -OutputLines $create.Output)) {
             Write-Warning "gh pr create: $reasonOrExit -- this may have landed anyway. Checking whether '$branch' now has an open PR before deciding (inbound #1916)."
             $recheck = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--base', 'main', '--state', 'open', '--json', 'number,url', '--limit', '1', '--repo', $repo) -DiscardStderr
             $recheckPr = if ($recheck.ExitCode -eq 0) { Get-ExistingPrRecord -Json ($recheck.Output -join "`n") } else { $null }

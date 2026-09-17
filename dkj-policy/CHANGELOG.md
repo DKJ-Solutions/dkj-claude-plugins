@@ -43,7 +43,427 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**14 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2087-ship-pr-converges-under-parallel-lanes · 20260917-231934
+
+`ship-pr` now lands a branch on a busy trunk instead of refusing it. Two blockers are gone, and neither
+gate was weakened to do it.
+
+A **stale certificate is repaired rather than reported**: on a stale reading the script brings the branch
+up to date through GitHub's own `update-branch`, waits for a genuinely new certifying run, and takes the
+same measurement again -- up to `-MaxForwardLaps` times, default 2. The predicate is untouched, so
+`-SkipStaleCheck` is still the only way to merge on an old certificate; what changes is that the remedy
+costs a CI cycle instead of however long it takes somebody to read a refusal and retype four commands.
+Each lap is CI-bound, so the TRUNK takes one merge per CI cycle instead of none. That is a claim about
+throughput and not about any one lane: a lap absorbs exactly one trunk merge, so a lane contending with
+several others can still exhaust its budget and refuse -- the bound is a stop-loss, and the refusal says
+so. A conflict, a branch already current, or a red check on the forwarded head all end the run rather
+than lapping. Worth knowing before upgrading: the trigger is "the trunk moved", not "several lanes are
+shipping", so a single-lane repo meets this too -- and a lap pushes a merge commit to the branch, made by
+GitHub, which is what the printed remedy always told an operator to do by hand. `-MaxForwardLaps 0` keeps
+the old behaviour.
+
+And **a trunk held by another checkout no longer blocks the merge** where a CI runner folds. That
+refusal's ground -- "step 5 could not fold" -- stopped being true when `fold-on-merge.yml` began folding
+off every push to the trunk, not only a merge queue's; it was gated on the queue when the thing it
+depends on is the runner. A repo with no such runner is refused exactly as before, and the refusal now
+says which read came back empty.
+
+Measured, September 17, 2026: five pull requests sat `CLEAN` and `MERGEABLE` with every check green and
+none of them merged, against a trunk taking 33 first-parent commits in a day. PR #2062 recorded seven
+refusals in a row, one of them 48 commits behind; PR #2076 was refused on the worktree instead.
+
+**Score:** 5
+
+#### What makes this deploy extra special
+
+A consumer running this workflow with more than one lane could not land work on a busy trunk, and the
+two mechanisms that stopped them are both repaired in the shared scripts -- so the fix arrives with a
+plugin update and needs no repo setting, which is the half a merge queue could not deliver: GitHub
+offers one on a private repo only under Enterprise Cloud, and otherwise only on a public repo owned by
+an organisation.
+
+**Score:** 4
+
+#### Pull Request
+
+ship-pr converges under parallel lanes: it forwards the branch itself, and a busy trunk no longer blocks the merge
+
+Plugins: dkj-policy
+
+[PR #2094](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2094)
+
+---
+
+### DEPLOY: fix/2090-anchor-ordering-asserts · 20260917-220352
+
+`scripts/tests/pr-issues.tests.ps1` no longer locates anything in `ship-pr.ps1` with a whole-file
+`IndexOf`. All 45 reads go through one region-scoped helper, `Get-ShipIdx`, which searches inside a
+single `function` or `# --- Step ` region and, with `-Code`, skips comments and docstrings. A needle
+it cannot find is a named failure instead of a silent `-1` that a `-lt` assert would read as a pass.
+
+This closes both directions of the defect. The red one is what #2087 met: two helpers added above
+step 3 turned four asserts red about behaviour that had not moved. The green one was measured on the
+repair -- of the 39 distinct needles those 45 reads used, eight already matched in more than one
+place, and two of them resolved to prose rather than to code, so the assert pinning ship-pr's wait
+order was passing on a comment 121 lines above the call, and the check-suite read was pinned to a
+docstring line.
+
+Nobody outside this repo runs this suite, and nothing it guards changed behaviour. What it buys is
+the next person who adds a helper to `ship-pr.ps1`: they no longer meet a red suite naming a
+behaviour they did not touch, whose cheapest reading is to delete the assert.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A test that is green about the wrong text is worse than one that is red, because nothing ever asks it
+again. Two of these had drifted onto prose -- one onto a comment, one into a docstring -- while
+reporting that ship-pr's wait order was pinned. The branch then reproduced the same failure in its own
+writing: the first counts were taken with a grep line count, which missed the one LastIndexOf site,
+and every figure above is re-measured off the AST.
+
+The reader of a tier-2 change is the subscriber of a service; this is a test suite inside the repo
+that authors the workflow, and it reaches nobody who installs it.
+
+**Score:** N/A
+
+#### Pull Request
+
+pr-issues.tests.ps1's ship-pr ordering asserts are region-scoped instead of whole-file
+
+[PR #2093](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2093)
+
+---
+
+### DEPLOY: fix/2083-failed-fetch-not-all-clear · 20260917-191911
+
+`park-cycle.ps1`'s collision detector no longer reports a **failed** fetch as "nothing to report". The
+reader `Get-BranchCollisionNote` is the earliest collision detector in this workflow -- it runs from
+the `cycle-autopark` Stop hook, in the one place where no operator is watching -- and `''` is its own
+word for *no collision*. A fetch that exited non-zero returned exactly that, so a network blip, a
+credential that had just expired or a stale ref made it answer all-clear and the turn went on building
+on top of somebody else's tip.
+
+It still returns `''`, deliberately: a collision report is a claim about another session's work, and a
+failed fetch is no evidence for one. What changes is that the function now says so, from inside, on
+both call sites at once -- `the fetch of 'origin/<branch>' failed (git exit code 128), so this run did
+NOT read who is on the far side. That is NOT an all-clear` -- which is the sentence the neighbouring
+spent-budget path has printed since #1958. A **timeout** is named apart and carries
+`Invoke-NativeCapture`'s own `[timeout]` diagnosis, which this site had been discarding.
+
+**It is the second of two arms, and #2081 is the first.** That change landed days earlier in the same
+release and gives the same sentence to a fetch whose exit code came back *unmeasurable*. The two sit
+next to each other in `Get-BranchCollisionNote` by design and only one of them ever speaks: unreadable
+above, unsuccessful below. A reader meeting both lines in this changelog is not reading a repair made
+twice.
+
+**Not a sighting.** #2083 says outright that nobody has measured this firing, and `git fetch` of one
+branch against a configured origin is reliable; it is priced as the latent hazard it is. The failure it
+prevents is the one #1439 measured -- two sessions building the same branch end to end, discovered at
+the push -- arriving through a fetch that could not answer rather than through a look nobody bought.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `dkj-policy`'s `cycle-autopark` Stop hook gets a line where it previously got
+silence, and only in the state where the silence was wrong: a turn with something to push, on a branch
+with an open PR or a refused push, whose fetch of that branch did not succeed. Nothing else changes --
+no new refusal, no new network call, and a healthy fetch is byte-identical to before. They notice it
+the first time their network, credential or remote ref is having a bad day, which is precisely the
+turn on which the old answer was a confident wrong one.
+
+**Score:** 2
+
+#### Pull Request
+
+park-cycle's collision detector says a FAILED fetch out loud instead of reporting it as 'nothing to report'
+
+Plugins: dkj-policy
+
+[PR #2089](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2089)
+
+---
+
+### DEPLOY: fix/2081-exitcodeunknown-audit · 20260917-190004
+
+`ExitCodeUnknown` had no reader outside the lib that defines it, so all 56 bounded native-capture sites
+went on judging `$r.ExitCode` against a value that is `$null` about once in 300 fresh child processes.
+The direction made it worse than a wrong number: `$null -ne 0` is true, so every site that refuses on a
+failure refused, and PowerShell renders `$null` as the empty string, so twelve of them printed a reason
+with the number missing out of it -- `gh refused the read (exit ) -- no access, or no such branch`. The
+field now has two consumers, `Test-NativeExitMeasured` and `Get-NativeExitLabel`, and the audit's verdict
+per family is recorded where the next reader of the field will find it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Most of the repaired scripts are the ones this marketplace ships -- `claim-issue`, `open-pr`,
+`new-branch`, `park-cycle`, `sync-main`, `update-plugins`, the fold. In a consuming repo the sentences
+that were wrong are the ones a session acts on: *the claim failed -- #N is NOT yours* over a claim
+sitting on the tracker, *git push failed* over a branch that reached origin, and `park-cycle`'s
+collision detector reporting all-clear on a fetch it never read. Nothing changes on a healthy run; what
+changes is what a consumer is told on the rare one, and that none of the nine writes reaching a remote
+may call itself a failure any more.
+
+**Score:** 3
+
+#### Pull Request
+
+The bounded native-capture sites audited against an unmeasurable exit code, and the ones that diagnose gain a third state
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2088](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2088)
+
+---
+
+### DEPLOY: fix/2060-chain-ending-list-one-definition · 20260917-184309
+
+The instrument the close-out ceiling is measured with was filtering on a hand-typed list of "chain-ending
+scripts" that was wrong in both directions: it named `park-cycle.ps1`, which the autopark Stop hook runs
+after every turn and which prints no receipt, and it omitted `park-branch.ps1`, which prints one -- so
+close-out shape C was outside the governed population and ordinary turns were candidates for it. The list
+now exists once, as `Get-ChainEndingScripts` in `closeout-lib.ps1`, the file those callers already
+dot-source, and the suite holds that definition against a scan of the tree, so a sixth chain ender cannot
+be added without going red.
+
+Re-measured over one frozen snapshot of this machine's corpus, old filter against new: the population did
+not move (n=252 both) and one session's anchor did -- over-ceiling 193 to 192, over-six 120 to 119. Small
+because `park-cycle` reaches a transcript almost never (a Stop hook runs it, not a tool call) and every
+park session here had already run another chain ender. So the committed baseline is deliberately left as
+it stands; what was wrong was the definition, not the recorded number.
+
+The report's second finding does not stand: `-UpdateBaseline` writes the flat shape the committed baseline
+carries, and only `-Json` emits the nested `All`/`CloseOuts`. Nothing is stale there.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- an instrument used inside this repo to evaluate its own close-out rule. A consumer running the
+workflow gets the corrected filter with the next release, but nothing they do changes on account of it.
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-closeouts reads the chain-ending list from one definition
+
+Plugins: dkj-policy
+
+[PR #2086](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2086)
+
+---
+
+### DEPLOY: feat/2058-shared-sha256-hex-helper · 20260917-182501
+
+The SHA-256-to-lowercase-hex idiom now has one definition, `Get-Sha256Hex` in
+`scripts/lib/hash-hex-lib.ps1`, and three of the five files that carried it by hand call it:
+`gate-lib.ps1`, `session-cache-lib.ps1` and `check-consumer-siblings.ps1`. Text or bytes in,
+lowercase hex out, with an optional `-Chars` cut for the callers that put a short hash in a name.
+
+**The fold found the drift the issue predicted, already there.** #2058 filed this as a reuse note and
+said in so many words that nothing observable was wrong. The copy in `check-consumer-siblings.ps1`
+disagreed: it never disposed its SHA-256 provider -- and it creates one **per file**, inside a
+`Get-ChildItem -Recurse` over every comparable path in a consumer checkout -- and it rendered
+uppercase hex where every other copy rendered lowercase. Both are repaired by the adoption. The case
+change is unobservable, checked rather than assumed: a run picks one scheme, those values are only
+ever compared with each other, and none of them is printed, stored or carried across runs -- which is
+exactly what let it drift unnoticed.
+
+**Two of the five are deliberately left hand-written**, and that is a departure from what the issue
+asked for. `theme-archive-rules.ps1` and `theme-lifecycle-rules.ps1` are registered with an argued
+dependency-free property that their own registrations call a safety property: the live-theme guard
+reads `repo-config.ps1` on every command inside a catch that returns no live theme id, so a lib in
+that family which pulls anything in is a way to disarm a guard over a revenue-serving theme. Adopting
+there would also need a second registration of the new lib for a separately versioned plugin. The
+cost is that the six-character theme-name renderer stays hand-written; the reasoning is in the lib's
+header and on the issue.
+
+The fold is output-preserving, measured against each pre-fold implementation over five inputs
+including the empty string and a non-ASCII one. `sync-rules.ps1` is untouched, as the issue asked:
+its SHA-1 composes git's own object id, and the new function's name is the fence that keeps it out.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- nothing a subscriber of this service can observe. This is internal tooling: one shared helper
+behind three call sites whose output is byte-identical to what it replaced, so no consumer-visible
+behaviour changes. The undisposed provider it repairs was a slow leak in a maintenance check that
+runs in this repo, not in anything a consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+One shared SHA-256-to-hex helper for the four sites that hand-copied it
+
+Plugins: dkj-policy
+
+[PR #2085](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2085)
+
+---
+
+### DEPLOY: fix/2074-base-is-another-branch · 20260917-175423
+
+`new-branch` no longer reports `Base is current with origin/main` and nothing else when the base is
+another branch's tip. Where `HEAD` is a branch other than the trunk and carries commits `origin/<trunk>`
+does not, the run names that branch and that count -- twice, once before the checkout and once near the
+last line -- and the dim currency line names the branch as well, so the sentence that reads as *"the base
+is the trunk"* cannot be read alone. It warns and never refuses: stacking on purpose is on the happy path
+and the lane chooses its base seconds before delegating here. A detached `HEAD` is not a subject, which
+keeps the lane itself silent, and `origin/<trunk>..HEAD` is zero for a base that really is the trunk and
+for a branch not yet committed on, which keeps the ordinary run silent.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This is the gap every other guard in the family reads straight past. The stale-base refusal fires on a
+base *behind* the trunk and this base is behind nothing; the remote-ahead warning is about the branch you
+are resuming; the claim step reads the tracker; the lint gate, the suites and CI all read the branch, and
+the branch is valid. The measured run went green on all of them while carrying 22 files of somebody
+else's unlanded work into a two-line repair's pull request, and was caught by a human reading a diff.
+Since two sessions can now share one working copy without either typing a git command, the accidental
+stack is reachable without anyone doing anything wrong.
+
+**Score:** 3
+
+#### Pull Request
+
+new-branch names the base when it is another branch's tip, so a stack is not silent
+
+Plugins: dkj-policy
+
+[PR #2080](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2080)
+
+---
+
+### DEPLOY: docs/2073-entry-five-whole-report · 20260917-171859
+
+Entry 5 of `new-branch/SKILL.md`'s six-site injection-surface inventory now names every value
+`claim-issue`'s report prints, instead of the one scan that existed when the entry was written: the
+issue title off the tracker, the parked-fix scan's author/subject/branch names, the title-overlap
+scan's branch names off the `git branch -a` capture the per-commit strip never reaches (#2018, and why
+#2069 needs a second call at the caller), and the prerequisite scan's branch names plus the file paths
+it reads out of an issue body (#2064). The list's closing lessons gain the one this repaired: an entry
+goes stale the same way the list does, one level in, so a new signal, field or caller inside a site
+already listed is an edit to that entry.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+This is the document a consumer audits their own console against -- the page that says which of their
+printed lines carry somebody else's characters and what guards each one. An entry that under-describes
+its own site is worse than a missing entry, because it reads as having been checked: a reader taking
+entry 5 at face value was told the title-overlap scan's branch names were already accounted for by
+text that had never mentioned them. The list's own discipline covered the case one level up and not
+this one; it does now.
+
+**Score:** 2
+
+#### Pull Request
+
+Entry 5 of the six-site list names every value claim-issue's report prints, not two
+
+Plugins: dkj-policy
+
+[PR #2078](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2078)
+
+---
+
+### DEPLOY: docs/2066-title-overlap-section · 20260917-163712
+
+`claim-issue`'s fifth pickup signal -- the title-overlap scan, which matches an issue's own title
+against every branch name off the trunk to catch a branch cut for the subject rather than the number
+-- now has its section on the skill page, between the fourth signal and the bounded-call section. It
+carries #2018's own measurement (two complete independent implementations of #2016 inside half an
+hour, every other pickup signal reading clean), how the word matching filters and why, the corpus
+measurement behind the floor of two shared words, and the hedges that make it weaker evidence than the
+fourth signal -- including that it deliberately never moves this script's closing line. The page's
+numbered summary of what the script does names the scan as its own step.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who installs `dkj-policy` reads this page and nothing else, and the scan has been printing
+its block to their console with no document behind it: nothing saying what it measured, how strong a
+shared word is as evidence, or that it is advisory like every other signal in the family. That is
+exactly the hedging every neighbouring section is careful to state, and the reader most in need of it
+is the one furthest from the code.
+
+**Score:** 3
+
+#### Pull Request
+
+The title-overlap scan gets its own section on claim-issue's page
+
+Plugins: dkj-policy
+
+[PR #2072](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2072)
+
+---
+
+### DEPLOY: fix/2056-already-done-three-state · 20260917-161539
+
+The already-done check no longer reads **"this number is not an open issue in this repo"** as
+**"this issue is CLOSED"** (inbound #2056). It had no third state, so a number this repo has never had
+was reported as closed and the author was told the branch "may repeat work that is already merged".
+
+**This workflow produced the case it is repairing**, which is why it fired so often. The numbers being
+tested are scraped as bare integers out of the branch's development document, and the inbound route
+*prescribes* citing an issue in another repo: a shared-core finding is filed on the marketplace repo,
+and the consumer then cites that number in a docstring, a README entry and the DEPLOY section. Every
+one of those is a bare `#<n>` after scraping, pointing at a repo the check never queried -- so it was
+loudest on exactly the branches that follow the documented route.
+
+`Get-TargetIssueWarnings` now takes `-ClosedIssues` instead of `-OpenIssues`: it is told what is
+closed rather than inferring it, because an absence cannot be the evidence for a positive claim. The
+caller does the resolving, one `gh issue view` per number the open list did not already account for --
+per number rather than one `--state all` list, because that list is paged and this repo is past 2000
+issues, so a genuinely closed issue behind the page boundary would come back as "not here" and take
+#1282's real signal with it.
+
+**One thing the report did not name is fixed with it: a pull request number.** Issues and pull requests
+share one counter, so a document citing `PR #1276` handed the check a number that is not an issue
+either, and it read as CLOSED for the same reason. Measured here: `gh issue view 2053` answers exit 0
+with state `MERGED`. A *closed* pull request answers exactly what a closed issue answers, so the
+discriminator is the `/pull/` in the URL rather than the state.
+
+What did NOT change: the check still warns and never blocks, and a state it cannot determine still
+claims nothing.
+
+The cost this removes is trust rather than a blocked PR -- an author who learns these warnings are
+usually wrong stops reading them, and #1282's real signal goes with them. Every branch citing an
+upstream finding saw it, so the noise was routine rather than occasional.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is the second attempt at this class and the first one to reach the cause. #1718 narrowed the scraped
+region so the scaffold's own guidance block stopped contributing foreign numbers -- a real repair, and
+one that removed a *source* rather than the conflation: a foreign number written in the branch's own
+prose, which the inbound route requires, still landed in the target set and still read as closed.
+
+**Score:** 2
+
+#### Pull Request
+
+The already-done check tells a closed issue apart from a number that is not an issue here
+
+Plugins: dkj-policy
+
+[PR #2067](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2067)
+
+---
 
 ### DEPLOY: feat/2064-prerequisite-branch-signal · 20260917-160011
 

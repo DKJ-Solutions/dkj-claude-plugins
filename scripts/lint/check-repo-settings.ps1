@@ -272,6 +272,14 @@ function Read-Payload {
         # must not be decoded with whatever console code page the run inherited. Same two flags, and
         # the same reasoning, as adopt-ci-floor.ps1's read of this endpoint.
         $read = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Utf8 -Arguments $GhArgs
+        # AN UNMEASURABLE EXIT CODE IS NOT A REFUSAL (issue #1931, audited under #2081), and it has to be
+        # asked BEFORE the number is read: `$null -ne 0` is true, so this arm fired and composed
+        # "gh refused the read (exit ) -- no access, or no such branch" -- a missing number inside a
+        # sentence whose grammar promises one, plus two causes nobody measured. Same class as the short
+        # read below, and it carries the same remedy.
+        if (-not (Test-NativeExitMeasured -Capture $read)) {
+            return (& $fail 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about this read -- not the access and not whether it exists; run again')
+        }
         if ($read.ExitCode -ne 0) {
             return (& $fail "gh refused the read (exit $($read.ExitCode)) -- no access, or no such $What")
         }

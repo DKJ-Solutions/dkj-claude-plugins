@@ -252,12 +252,25 @@ Write-Host "== the policy travels: what a CONSUMER under a queue needs (#1516) =
 # 1. THE ENQUEUE ARM MUST NOT PROMISE A RUNNER THAT IS NOT THERE. In the source repo fold-on-merge.yml
 #    exists, so a flat sentence naming it is true; in a consumer it is not plugin payload -- a plugin
 #    install writes nothing into a repo -- and the sentence is then a lie told at the exact moment the
-#    entry is being stranded. Matched on the FILE TEST rather than on the wording, so rephrasing the
+#    entry is being stranded. Matched on the CONDITION rather than on the wording, so rephrasing the
 #    message keeps this green and deleting the condition does not.
+#
+#    THE CONDITION IS NOW THE SHARED VERDICT, NOT A LITERAL FILE TEST (issue #2087). It was
+#    `Test-Path -LiteralPath $foldRunner` against the literal name .github/workflows/fold-on-merge.yml,
+#    and that answers a narrower question than the one being asked: a consumer may rename the runner --
+#    adopt-dkj-policy places it under that name without promising it forever -- so the name-only test
+#    reads "nothing folds here" on a repo that folds perfectly well, and the arm then hands over a hand
+#    repair nobody needs. Get-CiFoldRecoveryVerdict matches on the trigger and the script the runner has
+#    to RUN, neither of which a rename touches. What this assert pins is unchanged: the arm asks before
+#    it promises.
 $idxMergeCall = $ship.IndexOf("'pr', 'merge'")
 $tail = if ($idxMergeCall -gt 0) { $ship.Substring($idxMergeCall) } else { $ship }
-Assert-True ($tail -match "Test-Path -LiteralPath \`$foldRunner") `
-    'the enqueue arm TESTS for .github/workflows/fold-on-merge.yml before promising it folds anything'
+Assert-True ($tail -match "if \(\`$ciFold\.Recovered\)") `
+    'the enqueue arm ASKS whether a runner folds this trunk before promising it folds anything'
+Assert-True ($ship -match 'Get-CiFoldRecoveryVerdict -Workflow') `
+    'and that question is the shared verdict, so a renamed runner is not read as an absent one (#2087)'
+Assert-True (-not ($ship -match "Test-Path -LiteralPath \`$foldRunner")) `
+    'the literal fold-on-merge.yml file test is gone, so there is one answer to this question and not two'
 Assert-True ($tail -match 'NOTHING HERE FOLDS THAT ENTRY') `
     'and where there is none it says so, instead of naming a workflow this repo does not have'
 # THE TOKEN, NOT THE RAW REF (issue #1594). The handed-over command prints $branchPaste.Token so a
