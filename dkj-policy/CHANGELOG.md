@@ -43,7 +43,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2043-closeout-fillable-template · 20260917-103912
+
+The close-out reminder the chain-ending scripts print now hands over a line to fill in rather than
+describing the shape to compose: `<what happened> -- see PR #1885. [Filed #<n>.] Session can be
+cleared.`, with the citation slot already answered from the run's own knowledge. The three parts, the
+ceiling and the rehousing rule are unchanged; only the delivery is.
+
+It is the fifth repair of a rule that keeps losing, and the first taken after verifying that the
+previous one was in force and still lost. Inbound #2043 asked for the print to be moved last -- it was
+already last, the final statement of `ship-pr.ps1`. What put ~35 lines under it was the child
+processes' output arriving after the parent's, which no placement can fix and whose cause does not
+reproduce in this repo -- filed on its own as #2044. That **retires** the placement repair without
+arguing for this one: a template printed in a buried position is exactly as buried as prose was, so
+this change does not repair the ordering and is not offered as doing so. What it stands on is the
+report's other argument, independent of where the line lands -- **a shape that is described has to be
+composed, and a shape that is handed over has to be filled.** The general lesson banked alongside it is
+that **last in the file is not last on the screen**.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running this workflow gets the new line at every `open-pr`, `ship-pr`, `park-branch`,
+`fold-changelog-entry` and `cut-release`, on its next plugin update. Nothing to do and nothing breaks
+-- the parameters, the suppression and the bypass clause are untouched -- but what a session reads at
+the end of every chain changes wording.
+
+**Score:** 3
+
+#### Pull Request
+
+The close-out receipt hands over a fillable template instead of describing one
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2047](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2047)
+
+---
 
 ### DEPLOY: fix/2044-child-output-to-host · 20260917-091623
 
