@@ -193,6 +193,10 @@ function Get-BranchCollisionNote {
         Write-Host "park-cycle: the fetch of 'origin/$(Get-DisplayRef -Ref $Branch)' ran with an exit code that came back unmeasurable (issue #1931), so this run did NOT read who is on the far side. That is not an all-clear." -ForegroundColor Yellow
         return ''
     }
+    # THE PLAIN NON-ZERO IS THE SAME SILENCE AND IS NOT REPAIRED HERE -- issue #2083. It has been there
+    # since this function was written, and it is outside #2081's subject, which is the UNMEASURABLE code
+    # one arm up. Named rather than left for the next reader to rediscover: the two arms now sit next to
+    # each other and only one of them speaks, which is the whole of that issue.
     if ($fetch.ExitCode -ne 0) { return '' }
     return Get-RemoteAheadNote -RepoRoot $RepoRoot -LocalRef 'HEAD' -RemoteRef 'FETCH_HEAD' `
                                -BranchLabel $Branch -FreshLabel "origin/$Branch" -StaleLabel "origin/$Branch" -Fresh $true

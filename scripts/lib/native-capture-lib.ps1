@@ -1425,7 +1425,17 @@ function Get-NativeExitLabel {
     param([Parameter(Mandatory = $true)][AllowNull()]$Capture)
 
     if (-not (Test-NativeExitMeasured -Capture $Capture)) {
-        return 'no measurable exit code -- the child ran and its code came back unreadable (issue #1931); this normally settles on a re-run'
+        # A NOUN PHRASE, AND THE CALL SITE HAS TO GIVE IT A NOUN SLOT. Both returns are things rather than
+        # verbs -- "exit 3", not "exited 3" -- because the measured form has to drop into the parenthetical
+        # every existing caller already wrote: "(exit $($r.ExitCode))". A site whose sentence wants a verb
+        # gets "'git ls-remote' exit 3", which is a regression in the COMMON case to repair a rare one, so
+        # such a site takes a colon or a parenthetical instead. Caught in review on this branch's own two
+        # sync-main call sites, where it had been spliced into exactly that verb slot.
+        #
+        # AND THE WORD IS "MEASURED" THROUGHOUT, never "readable": this whole family says measurable or
+        # could not be measured, and a lone "unreadable" here would propagate to every site that reuses
+        # this one string -- which is most of them.
+        return 'no measurable exit code -- the child ran, and what came back was not a measurement of how it ended (issue #1931); this normally settles on a re-run'
     }
     return "exit $($Capture.ExitCode)"
 }

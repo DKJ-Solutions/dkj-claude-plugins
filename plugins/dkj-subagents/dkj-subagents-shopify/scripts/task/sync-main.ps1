@@ -961,7 +961,10 @@ if ($lsRemote.ExitCode -ne 0) {
             # satisfies `-ne 0` and prints as nothing, so this read "exited " with the number missing out
             # of it. The verdict is unchanged in both arms -- a dry run skips, a real run refuses -- and
             # refusing is right for a list this run cannot vouch for whichever produced it.
-            "'git ls-remote --heads origin' $(Get-NativeExitLabel -Capture $lsRemote)"
+            # A COLON, NOT A VERB SLOT. Get-NativeExitLabel returns a NOUN phrase ("exit 3"), so splicing
+            # it where "exited $(...)" used to sit reads "'git ls-remote --heads origin' exit 3" on every
+            # ordinary failure -- a regression in the common case to repair the rare one. Caught in review.
+            "'git ls-remote --heads origin': $(Get-NativeExitLabel -Capture $lsRemote)"
         }
         Write-Host "      origin could not be listed ($why) -- the standing-predecessor check is skipped for this dry run." -ForegroundColor Yellow
         Write-Host '      A real run refuses here; a dry run writes nothing, so it continues to the verdict below.' -ForegroundColor DarkGray
@@ -971,7 +974,7 @@ if ($lsRemote.ExitCode -ne 0) {
         if ($lsRemote.TimedOut) {
             Write-Host "  'git ls-remote' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above." -ForegroundColor Red
         } else {
-            Write-Host "  'git ls-remote --heads origin' $(Get-NativeExitLabel -Capture $lsRemote)." -ForegroundColor Red
+            Write-Host "  'git ls-remote --heads origin': $(Get-NativeExitLabel -Capture $lsRemote)." -ForegroundColor Red
         }
         Write-Host '  Nothing was changed. Fix the remote or the credential and run again.' -ForegroundColor Red
         exit 1

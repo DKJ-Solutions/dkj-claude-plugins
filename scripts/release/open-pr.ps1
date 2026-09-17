@@ -2286,7 +2286,17 @@ try {
         # then to their network. The hint is kept for the case it is still the best available answer: a gh
         # that printed nothing at all.
         $reason = Get-PrCreateFailureReason -OutputLines $create.Output
-        $reasonOrExit = if ($reason) { $reason } else { "gh printed no reason ($(Get-NativeExitLabel -Capture $create))" }
+        # THE UNMEASURED CASE GETS ITS OWN CLAUSE RATHER THAN THE LABEL IN A PARENTHETICAL: this string is
+        # read back as "gh pr create: $reasonOrExit -- this may have landed anyway", and "gh printed no
+        # reason (no measurable exit code -- ...)" buries the operative fact inside a bracket about a
+        # different one. The reason gh printed and the code this run could not read are two statements.
+        $reasonOrExit = if ($reason) {
+            $reason
+        } elseif (-not (Test-NativeExitMeasured -Capture $create)) {
+            'gh ran with no measurable exit code (issue #1931)'
+        } else {
+            "gh printed no reason (exit $($create.ExitCode))"
+        }
 
         # AN UNMEASURABLE EXIT CODE IS THE PUREST CASE #1916 ALREADY BUILT FOR (issue #1931, audited under
         # #2081), and until now it was the one that could not reach the machine. `$null -ne 0` is true, so
