@@ -43,17 +43,45 @@ Verified: the report's repair 1 is already shipped (the print IS ship-pr's last 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verify the report against the tree before repairing it. Its repair 1 ("print the close-out shape LAST") is ALREADY SHIPPED: the call is the final statement of `scripts/release/ship-pr.ps1`, with a comment saying so deliberately, and the released 5.3.0 mirror the report measured is byte-identical on that block.
+- [x] Establish what the ~35 trailing lines actually were: the child processes' output. `ship-pr` spawns `open-pr`, the fold and `verify-resolved-issues`, and on the reporting run every parent line appeared above every child line -- `Done: PR #683 shipped` above `PR created for`, the reverse of the file order. Filed in the report as a secondary observation; it is the primary cause.
+- [x] Probe the interleaving in this harness (a parent script printing around a `& powershell` child): it interleaves CORRECTLY here, so the inversion is environment-dependent and not reproducible from this checkout.
+- [x] `scripts/lib/closeout-lib.ps1`: the print hands over a fillable template instead of describing a shape -- `<what happened> -- see PR #1885. [Filed #<n>.] Session can be cleared.` The `-Cite` slot arrives already answered, the other two arrive blank.
+- [x] Record the verification in the lib's own docstring -- that repair 1 was a no-op, what the trailing lines were, and the general lesson: last in the file is not last on the screen.
+- [x] `plugins/dkj-subagents/dkj-subagents-alpha/manuals/01-01-manual.md`: the fifth recurrence and its lesson, under the section the persona already points at. Nothing added to the always-on persona passage.
+- [x] Regenerate the plugin mirror (`scripts/sync/build-shared-scripts.ps1`).
 
 ### TEST
 
+- [x] `scripts/tests/closeout-lib.tests.ps1` updated: the three parts asserted in their new form, plus four new asserts on the property that is the repair -- exactly one template line, indented, carrying a bracketed filing slot, and nothing else. 87 pass, 0 fail.
+- [x] The output inspected by eye in all three shapes (citation, citation + bypass, no citation): the ceiling still holds at three lines, four with a bypass.
+- [x] Full lint + test gate green before the PR.
+
 ### DEPLOY: fix/2043-closeout-fillable-template
 
-**Score:**
+The close-out reminder the chain-ending scripts print now hands over a line to fill in rather than
+describing the shape to compose: `<what happened> -- see PR #1885. [Filed #<n>.] Session can be
+cleared.`, with the citation slot already answered from the run's own knowledge. The three parts, the
+ceiling and the rehousing rule are unchanged; only the delivery is.
+
+It is the fifth repair of a rule that keeps losing, and the first taken after verifying that the
+previous one was in force and still lost. Inbound #2043 asked for the print to be moved last -- it was
+already last, the final statement of `ship-pr.ps1`. What put ~35 lines under it was the child
+processes' output arriving after the parent's, which no placement can fix and which does not reproduce
+in this repo -- filed on its own as #2044. So the lesson that licensed this change is the general one:
+**last in the file is not last on the screen**, and a mechanism cannot be built on being read last. A
+template with blanks in it is recognisable in the middle of a dump; three lines of prose are not.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running this workflow gets the new line at every `open-pr`, `ship-pr`, `park-branch`, fold
+and release cut, on its next plugin update. Nothing to do and nothing breaks -- the parameters, the
+suppression and the bypass clause are untouched -- but what a session reads at the end of every chain
+changes wording.
+
+**Score:** 3
 
 #### Pull Request
 

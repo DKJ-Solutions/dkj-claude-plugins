@@ -103,11 +103,22 @@ Assert-Equal '' $lines[0] 'it opens with a blank line, so it is not read as part
 $said = @($lines | Where-Object { $_.Trim() -ne '' })
 Assert-Equal 3 $said.Count 'three non-empty lines with no bypass -- its own stated ceiling'
 
-Assert-True ($body -match 'receipt, not a report') 'part 0: it names the rule it is enforcing'
-Assert-True ($body -match 'What happened')          'part 1: what happened'
-Assert-True ($body -match 'where to read it')       'part 2: where to read it'
-Assert-True ($body -match 'session can be cleared') 'part 3: whether the session can be cleared'
-Assert-True ($body -match 'two or three lines')     'the ceiling is stated, not implied'
+Assert-True ($body -match 'receipt, not a report')   'part 0: it names the rule it is enforcing'
+Assert-True ($body -match '<what happened>')         'part 1: what happened -- a BLANK to complete, not a noun to expand (issue #2043)'
+Assert-True ($body -match 'see PR #1885')            'part 2: where to read it, already filled in from the caller'
+Assert-True ($body -match 'Session can be cleared')  'part 3: whether the session can be cleared'
+Assert-True ($body -match 'two or three lines')      'the ceiling is stated, not implied'
+
+# THE TEMPLATE IS HANDED OVER, NOT DESCRIBED (inbound #2043). The fifth recurrence fired with this
+# file already in place and in front of the session, so the repair is not a sixth sharpening of the
+# prose: a shape that is described has to be composed, and one that is handed over has to be filled.
+# What is asserted is the property, not the wording -- that the middle line carries fillable slots and
+# reads as a sentence somebody completes rather than as a rule somebody obeys.
+$template = @($lines | Where-Object { $_ -match '<what happened>' })
+Assert-Equal 1 $template.Count 'the template is exactly one line, so there is no question which line to fill'
+Assert-True ($template[0] -match '^\s+\S')        '...indented under the heading, like the other body lines'
+Assert-True ($template[0] -match '\[Filed #<n>\.\]') '...with the filing slot bracketed, so a run that filed nothing drops it'
+Assert-True ($template[0] -notmatch 'rehoused')   '...and carrying nothing but the receipt itself'
 
 # REHOUSED, NOT CUT. #1408 settled that the ceiling is a ceiling and not the word budget the August 27
 # decision refused: over it, a surplus moves to a durable home rather than being deleted. A reminder
@@ -118,14 +129,16 @@ Assert-True ($body -match 'PR body')    '...and the reminder names a home for it
 Write-Host ''
 Write-Host "The citation -- the middle part is the caller's to fill in" -ForegroundColor Cyan
 
-Assert-True (($lines -join '') -match [regex]::Escape('(PR #1885)')) 'a supplied citation is printed in the line'
+Assert-True (($lines -join '') -match [regex]::Escape('see PR #1885.')) 'a supplied citation is dropped straight into the template, unparenthesised'
 
+# NO CITATION IS STILL A TEMPLATE, not a sentence with a hole in it -- the slot simply arrives blank
+# like the other two, which is what keeps every caller's output the same shape to fill in.
 $bare = (Get-ReceiptLines) -join "`n"
-Assert-True ($bare -match 'where to read it, and')   'no citation: the sentence still reads'
-Assert-True ($bare -notmatch '\(\s*\)')              '...and prints no empty parenthesis'
+Assert-True ($bare -match [regex]::Escape('see <where to read it>.')) 'no citation: the slot falls back to a blank of its own'
+Assert-True ($bare -match '<what happened>')                          '...and the line is still the template'
 
 $padded = (Get-ReceiptLines @{ Cite = '  issue #1884  ' }) -join ''
-Assert-True ($padded -match [regex]::Escape('(issue #1884)')) "a citation is trimmed, so a caller's padding cannot reach the line"
+Assert-True ($padded -match [regex]::Escape('see issue #1884.')) "a citation is trimmed, so a caller's padding cannot reach the line"
 
 Write-Host ''
 Write-Host "The bypass clause -- #1884's second finding" -ForegroundColor Cyan
