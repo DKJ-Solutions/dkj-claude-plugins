@@ -45,7 +45,9 @@ The script:
 3. **Judges it** -- five verdicts, three of them refusals (below).
 4. On a claim or a resume, **scans the branches** for a fix that is already pushed (below). A warning,
    never a refusal.
-5. Writes the assignee, then **reads the claim back** and fails if it did not land.
+5. **Matches the issue's own TITLE against every branch name** off the trunk, for the branch cut for
+   the subject rather than the number (below). A warning too, and weaker evidence than the scan above.
+6. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
 ## Two parameters
 
@@ -219,6 +221,92 @@ checked-out branch and the trunk are excluded, so a session resuming its own bra
 about itself. Where the fetch does not answer, the scan still runs on the refs already there and says
 that they may be behind -- *"I found nothing"* and *"I could not refresh what I looked at"* are
 different sentences, and a failed fetch must not be able to read as a clean scan.
+
+## The fifth signal: a branch named for the SUBJECT, not the number
+
+**The fourth signal reads "untouched" in one shape of its own.** All three spellings it greps for are
+the issue's **number**, and a branch cut for the subject rather than the issue writes none of them:
+`new-branch`'s creation commit is `park: <branch> (the branch files only)`, which names the branch and
+nothing else. So `fix/asana-stage-letter-codes` carries no match on this claim, and none on any future
+one either, however many commits it grows.
+
+Measured, September 15, 2026
+([#2018](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2018)): claiming #2016 read clean
+-- open, unassigned, no rival pull request, the parked-fix scan silent -- while
+`origin/fix/asana-stage-letter-codes` was already on the remote under another account, carrying a plan
+document for the same repair. Two complete independent implementations of one issue, to the same
+design, inside about thirty minutes, found only because a copy-editing subagent ran `git branch -a`
+for an unrelated reason. **All four signals above missed it, each for its own reason:** the assignee
+field was correctly empty, `Get-TargetIssueWarnings` resolves an issue to a pull request and that
+branch has none, the parked-fix scan matches the number and those commits name only the branch, and
+`new-branch`'s remote-ahead check compares `refs/heads/<name>` with `origin/<name>` -- a *different*
+branch name is not that ref.
+
+**So the fifth signal reads the one trace that branch does carry: its own NAME**, matched against the
+issue's own TITLE. It spends the fetch the fourth signal has already made plus one further `git branch
+-a` -- every branch off the trunk this time, not only the ones a commit walk resolved, because the
+branch this exists for never reaches that walk at all:
+
+```
+  title-overlap scan: 1 branch off the trunk share words with #2016's title, though no commit on
+    them names the number --
+    origin/fix/asana-stage-letter-codes  -- shares: asana, stage
+    A SHARED WORD IS NOT A MATCHED NUMBER: this cannot tell "about the same thing" from
+    "happens to use the same word", so read the branch before you write anything, and
+    before you dismiss this.
+```
+
+**What counts as a shared word is filtered three times, because the unfiltered form was measured too
+noisy to use.** A word is kept only if it is four characters or longer, is not on a short stop list of
+structural English (`with`, `that`, `still`, ...), and is not purely digits -- a number belongs to the
+fourth signal, and letting it in here would have this scan rediscover that one's findings under a
+weaker verdict. Both sides are tokenized the same way, **splitting camelCase as well as punctuation**:
+an issue title quotes an identifier verbatim (`Get-StageFromSectionName`) where a branch name never
+does, so without that split `stagefromsectionname` could never match the `stage`, `from`, `section`,
+`name` it was built out of. A branch's **type prefix and leading issue number are stripped** before it
+is tokenized -- every branch has a prefix, so keeping it would inflate every comparison by a word
+nobody chose, and a bare number matches no title word anyway.
+
+**Two shared words is the floor, and it was measured rather than picked** -- closing #2018's own "not
+measured" note. Against this repo's own history: 21 branches off the trunk, matched against the 21
+issue titles behind them, 462 comparisons in all, with the corpus pinned in
+`scripts/tests/claim-issue.tests.ps1` so the threshold is something a suite holds rather than
+something that only shows up as console noise on a live repo.
+
+| floor | a branch vs. its OWN issue | other cross-hits |
+|---|---|---|
+| 1 | 19 | 27 |
+| 2 | 14 | 3 |
+| 3 | 7 | 0 -- and it misses the real case too |
+
+At 1 the scan prints a quarter of the repo at every claim; at 3 it prints nothing at all, including
+the branch it exists for. At 2 the three surviving cross-hits are themselves genuinely related work
+sharing a real word (`exit`+`code` between two exit-code issues, `prio`+`labels` between two
+priority-label issues), and it is the last floor that still catches the branch #2018 was measured
+against.
+
+**It is weaker evidence than the fourth signal, and everything about how it prints says so.** It gets
+a block of its own rather than joining that scan's `NOT YOURS` verdict, because a shared word is a
+coincidence a matched number cannot be -- and **it deliberately does not move this script's closing
+line**: a run that finds only an overlap still ends with *the work starts here*, where a foreign
+numbered commit points the `[OK]` at its verdict instead. The asymmetry is the decision rather than an
+omission. That redirect exists because a numbered mention under somebody else's account is the
+locked-door shape, and a name collision is not that; what this block asks for is one read, and its own
+last line says that dismissing it takes the same read.
+
+**It warns and never refuses**, for the reason the fourth signal's section gives: a claim that blocks
+costs the whole assignment
+([#1485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1485)). Two branches can share two
+words and have nothing to do with each other, and this check cannot tell which case it has found.
+
+**Three ways it does not run, and only one of them says so.** An unreadable `git branch -a` prints
+`[title-overlap scan skipped]` and names that. The other two are silent by construction: a title with
+no significant word leaves nothing to compare, so no branches are listed and the `git branch -a` is
+never spent, and a repo with no verifiable trunk ref skips this scan and the fourth together, since
+without a trunk to subtract every branch in the repo is "off the trunk". Neither prints a line, so on
+this one point the absence of a block is not by itself evidence that nothing was found. The trunk and
+the checked-out branch are excluded exactly as above, so a session resuming its own branch is never
+reported to itself as a stranger.
 
 ## Every `gh` call is bounded, so a stall is reported rather than waited out
 
