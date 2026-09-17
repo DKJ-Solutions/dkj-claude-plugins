@@ -43,7 +43,71 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 18 minor entries** <!-- pending-tally -->
+**15 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2069-title-overlap-strip-and-plural-v2 · 20260917-234831
+
+`claim-issue`'s title-overlap scan no longer prints a branch name it has not sanitised, and its lead
+line now agrees with itself when it reports one branch -- which is the common case and the one #2018
+itself measured.
+
+The strip is the half with teeth. `git check-ref-format` enforces `\p{Cc}` and **accepts** `\p{Cf}`,
+so a branch fetched from `origin` can carry U+202E or a zero-width run -- and the line it lands in is
+the one whose whole job is to tell a reader which branch to go and look at before writing anything.
+The fourth signal strips exactly these values, off exactly this `git branch -a` capture, at the
+caller; the fifth signal was written one signal later and never acquired the call. The convention it
+skipped is stated in `ConvertFrom-CommitScanLog`'s docstring -- *"neither free field is stripped here.
+The caller prints them and the caller runs them through `Format-ForConsole`"* -- and the fourth
+signal's caller holds up that end while the fifth signal's did not.
+
+**Where it is placed is the part worth reading, because the obvious placement is wrong now.** #2069
+proposed either stripping the names on the way into the scan or the report on the way out, and
+between the filing and this repair #2064 decided it: its sixth signal collects
+`$overlaps[].Branch` and puts each name back to git (`rev-list --count`, `ls-tree`). A name this
+strip has rewritten is a ref git does not have, so stripping on the way in would leave that scan
+silent exactly where it should report a prerequisite -- in the adversarial case the strip exists for,
+and with no error anywhere. So the record keeps git's spelling and the **report** gets a stripped
+copy, which is the same seam the weighing loop below it already draws between its printed `Branch`
+field and the `$branch` it queries. The exclusion above needs the git spelling for the same reason,
+which is why the strip also sits below it.
+
+The lead line was the smaller slip and the more visible one: `1 branch ... share words ... though no
+commit on them`. `$branchWord` already switched; the verb and the pronoun were left fixed at the
+plural. They switch together now.
+
+Both are held by tests the suite did not have, and the seam is asserted in both directions -- a strip
+that creeps back onto the scan input would pass every behavioural test in the file, because on an
+ordinary ASCII branch name the two placements are indistinguishable. The strip assert reads the fifth
+signal's block **extracted on its own**: the existing `$scan` capture runs as far as the verdict
+switch and therefore contains the fifth signal, so the fourth signal's own calls would have satisfied
+it while this block printed raw. That is #2019's lesson one turn later, in the place it was filed
+about -- the unit is a **value** that reaches the terminal, never a variable that looks like the
+script's own.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Both lines are shipped plugin payload, so a consumer's console is where they are read -- with nothing
+beside them to compare against. That is the whole reason the grammar was worth filing rather than
+leaving: it is the first line of a warning arguing that the reader should stop and look, and a
+consumer cannot tell an unfinished sentence from house style. The strip closes a terminal-spoofing
+route in a consumer's own checkout, where a branch name arrives off whichever remote they fetch, and
+it does so without blinding the prerequisite scan that landed one release earlier. Nothing to do on
+upgrade and no behaviour to relearn: the scan reports the same branches, printed safely and read
+correctly.
+
+**Score:** 2
+
+#### Pull Request
+
+The title-overlap scan sanitises the branch names it prints, and its lead line agrees with itself in the singular
+
+Plugins: dkj-policy
+
+[PR #2076](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2076)
+
+---
 
 ### DEPLOY: fix/2087-ship-pr-converges-under-parallel-lanes · 20260917-231934
 
