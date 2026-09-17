@@ -666,6 +666,42 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE SHA-256 RENDERING (issue #2058, September 17, 2026) -- bytes or text in, lowercase
+            # hex out, optionally cut to N characters. Five files carried the same seven lines; three
+            # call this now, and the two Shopify ones deliberately still do not (the lib's own header
+            # argues that carve-out, and the two registrations below this file's readers state the
+            # dependency-free property it respects).
+            #
+            # MIRRORED INTO dkj-policy ONLY, because both mirrored readers ship there: gate-lib.ps1
+            # and session-cache-lib.ps1 dot-source it as a $PSScriptRoot sibling. The third reader,
+            # scripts/sync/check-consumer-siblings.ps1, is source-only and travels nowhere.
+            #
+            # BOTH DOT-SOURCES ARE UNGUARDED, unlike closeout-lib.ps1's at gate-lib. That one is
+            # optional and may be absent from an older mirror; this one is not -- neither a gate
+            # fingerprint nor a cache file name can be composed without it -- so a payload missing
+            # this file must fail at LOAD, where the error names the missing file, rather than one
+            # call deeper where it no longer does. merged-pr-lib.ps1 states the same rule at
+            # sync-main.ps1. The payload is generated as a SET and the drift lint holds source and
+            # mirror identical, so a mirror carrying one of these two without the other is not a
+            # state a release can produce.
+            #
+            # WHAT THE SESSION-CACHE READER DOES WITH THAT IS ITS OWN, AND IT IS WORTH KNOWING. The
+            # hook dot-sources session-cache-lib.ps1 inside a try/catch that degrades to
+            # $sessionId = '' -- deliberately, so a payload predating the cache keeps working -- so a
+            # missing sibling there does not surface as a load error at all. It turns the cache
+            # silently OFF and every SessionStart firing re-spawns the engine. That is invisible in
+            # production: nothing is wrong, only slower and quieter. Measured on the branch that added
+            # this entry, where the test fixture's copy list had not learned the new sibling and
+            # connector-sessioncheck case 5a counted 2 spawns against the 1 it asserts.
+            #
+            # NO CONTRACT ROW FOLLOWS: nothing in it is repo-owned. It takes a value and returns a
+            # string -- no seam, no path, no git, no network.
+            Name    = 'hash-hex-lib'
+            Source  = 'scripts\lib\hash-hex-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a

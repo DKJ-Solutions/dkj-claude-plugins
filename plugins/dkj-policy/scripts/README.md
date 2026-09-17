@@ -125,6 +125,7 @@ an absent link is a fact rather than an oversight.
 | `lib/seam-lib.ps1` | `Get-SeamValue` — reads an optional repo-config seam, falling back to a default when the repo does not define one | none — dot-sourced lib |
 | `lib/gate-lib.ps1` | records what the gates proved, against which exact working state, and notices when that state moved while they ran | none — dot-sourced lib |
 | `lib/fetch-attempt-lib.ps1` | records which remote was fetched, at which scope and how it went, so two scripts meeting seconds apart do not each buy the same network call — and an unreachable one is not waited out twice | none — dot-sourced lib |
+| `lib/hash-hex-lib.ps1` | SHA-256 over text or bytes, rendered as lowercase hex and optionally cut to N characters — the one definition of an idiom that had been hand-copied, and had already drifted into an undisposed provider and an uppercase rendering | none — dot-sourced lib |
 | `lib/remote-ahead-lib.ps1` | composes the "behind the remote" sentence a caller prints when a local ref has fallen behind its own remote-tracking ref | none — dot-sourced lib |
 | `lib/worktree-lib.ps1` | reads `git worktree list --porcelain`: who holds which branch, and which tree is the primary one | none — dot-sourced lib |
 | `lib/git-identity-lib.ps1` | the identity a checkout acts as on the tracker, the identity it commits as, and whether it can commit at all -- read once for every caller that needs one of them | none — dot-sourced lib |
