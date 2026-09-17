@@ -43,7 +43,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 10 minor entries** <!-- pending-tally -->
+**10 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2073-entry-five-whole-report · 20260917-171859
+
+Entry 5 of `new-branch/SKILL.md`'s six-site injection-surface inventory now names every value
+`claim-issue`'s report prints, instead of the one scan that existed when the entry was written: the
+issue title off the tracker, the parked-fix scan's author/subject/branch names, the title-overlap
+scan's branch names off the `git branch -a` capture the per-commit strip never reaches (#2018, and why
+#2069 needs a second call at the caller), and the prerequisite scan's branch names plus the file paths
+it reads out of an issue body (#2064). The list's closing lessons gain the one this repaired: an entry
+goes stale the same way the list does, one level in, so a new signal, field or caller inside a site
+already listed is an edit to that entry.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+This is the document a consumer audits their own console against -- the page that says which of their
+printed lines carry somebody else's characters and what guards each one. An entry that under-describes
+its own site is worse than a missing entry, because it reads as having been checked: a reader taking
+entry 5 at face value was told the title-overlap scan's branch names were already accounted for by
+text that had never mentioned them. The list's own discipline covered the case one level up and not
+this one; it does now.
+
+**Score:** 2
+
+#### Pull Request
+
+Entry 5 of the six-site list names every value claim-issue's report prints, not two
+
+Plugins: dkj-policy
+
+[PR #2078](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2078)
+
+---
 
 ### DEPLOY: docs/2066-title-overlap-section · 20260917-163712
 
