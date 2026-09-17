@@ -848,7 +848,7 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `check-branch-entry`,
 `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
-`measure-skill`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `publish-page`,
+`measure-skill`, `measure-closeouts`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `publish-page`,
 `build-backlog-page`,
 `orchestrator`)<!-- /skills:all -->
 remain available there.
@@ -934,7 +934,7 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 `new-branch`, `claim-issue`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `check-branch-entry`, `check-policy-drift`,
-`prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `worktree-lane`, `check-fanout`,
+`prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `measure-closeouts`, `worktree-lane`, `check-fanout`,
 `publish-page`, `build-backlog-page`) are a thin wrapper around a script — procedural
 **mechanism** (branch, claiming an issue on the tracker before the work on it starts, PR, ship, fold,
 bootstrap, teardown, roster-sync, encoding repair, reading a

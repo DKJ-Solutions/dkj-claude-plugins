@@ -101,6 +101,7 @@ an absent link is a fact rather than an oversight.
 | `maintenance/fix-mojibake.ps1` | repairs encoding damage in the markdown the repo names | [`fix-mojibake`](../skills/fix-mojibake/SKILL.md) |
 | `maintenance/measure-skill.ps1` | what a skill costs: token cost per skill and the wall-clock of the script it drives | [`measure-skill`](../skills/measure-skill/SKILL.md) |
 | `maintenance/measure-always-on.ps1` | what the always-on document path costs — `CLAUDE.md` plus everything it `@`-imports — per document and per section | [`measure-skill`](../skills/measure-skill/SKILL.md) |
+| `maintenance/measure-closeouts.ps1` | what the CLOSE-OUT costs the reader: how the receipt behaved against its stated three-line ceiling, across every recorded session on this machine, with a baseline delta. Reads transcripts in place and emits only counts | [`measure-closeouts`](../skills/measure-closeouts/SKILL.md) |
 | `sync/check-script-contract.ps1` | read-only script-contract drift check | none — invoked by the `script-contract-sessioncheck` SessionStart hook |
 | `lib/release-lib.ps1` | the pure release logic: version bump, changelog transformation, notes construction, `Test-ReleaseBumpEarned` | none — dot-sourced lib |
 | `lib/entry-scaffold-lib.ps1` | the one definition of the entry format, read by the script that writes it and the gates that refuse it | none — dot-sourced lib |
