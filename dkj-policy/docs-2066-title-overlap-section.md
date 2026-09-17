@@ -75,6 +75,14 @@ signal's section is the model; #2018's own measurement is the material.
       use of *grows* reworded
 - [x] Lint gate + all suites green (`check-plugin-integrity.ps1` and `scripts/tests/*`, via open-pr)
 
+- [x] `main` gained #2064's merge (795b8669) while this branch was shipping -- the very branch flagged
+      in PLAN. Brought forward with `git merge origin/main` and the one conflict resolved by keeping
+      BOTH: the fifth signal's section above the sixth's, and both steps in the numbered list (5
+      title-overlap, 6 weigh, 7 write), which is the order `claim-issue.ps1` runs them in
+- [x] One paragraph added at the end of the fifth signal's section, since the merge made it true: a
+      branch this scan surfaces feeds `$surfacedBranches` (claim-issue.ps1:435) and is weighed by the
+      sixth signal
+
 #### Filed, not fixed here
 
 - [x] #2069 -- the fifth signal prints branch names with no `Format-ForConsole` strip, unlike the
