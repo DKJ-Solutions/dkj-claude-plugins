@@ -1142,6 +1142,34 @@ Assert-True (-not (Test-NativeCaptureBudgetHasRoom -Budget $spent))      'spent 
 Assert-True ((Get-NativeCaptureBudgetBound -Budget $spent) -gt 0)        'spent budget: the bound is never 0 -- 0 means unbounded'
 Assert-Equal (Get-NativeCaptureBudgetBound -Budget $spent) $NativeCaptureHookNetworkFloorSeconds 'spent budget: it falls back to the floor'
 
+# --- THE DEADLINE STATED ABSOLUTELY (issue #2077) -------------------------------------------------
+# A duration is measured from whenever the factory was called, which for a script under a hook is after
+# its start-up and its dot-sources -- time the hook's ceiling has already spent. -ExpiresUtc lets a
+# caller that KNOWS when the turn falls due say so, and it is what makes a budget's behaviour independent
+# of how loaded the machine was between launch and that line.
+$absolute = New-NativeCaptureBudget -ExpiresUtc ((Get-Date).ToUniversalTime().AddSeconds(30))
+Assert-True (Test-NativeCaptureBudgetSet -Budget $absolute)             'absolute deadline: it is a set budget'
+Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $absolute)         'absolute deadline: 30s out, it has room'
+Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $absolute) -le 30) 'absolute deadline: no more is left than the instant allows'
+Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $absolute) -ge 25) 'absolute deadline: and very nearly all of it'
+
+# IT WINS OVER -TotalSeconds where both are given -- the most specific of the knobs, which is the same
+# ordering park-cycle.ps1 states for its three. Asserted because the precedence is the whole contract:
+# silently preferring the duration would put the budget back on the clock this repair took it off.
+$bothGiven = New-NativeCaptureBudget -TotalSeconds 600 -ExpiresUtc ((Get-Date).ToUniversalTime().AddSeconds(10))
+Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $bothGiven) -le 10) 'absolute deadline: it wins over -TotalSeconds, it does not lose to it'
+
+# A DEADLINE ALREADY PAST IS SET AND SPENT, never "no budget". The two mean opposite things at the call
+# site -- no budget lets every call through -- so a turn whose ceiling has already fallen due must land
+# on the refusal and not on the open door.
+$past = New-NativeCaptureBudget -ExpiresUtc ((Get-Date).ToUniversalTime().AddSeconds(-5))
+Assert-True (Test-NativeCaptureBudgetSet -Budget $past)                  'a past deadline is still a budget, not the no-budget shape'
+Assert-True (-not (Test-NativeCaptureBudgetHasRoom -Budget $past))       'and it has no room -- the call is skipped, not let through'
+Assert-Equal $past.TotalSeconds 0                                       'its TotalSeconds is floored at 0, so the object never reports a negative budget'
+
+# AND THE DEFAULT IS UNTOUCHED: no -ExpiresUtc means the duration path, byte for byte as before.
+Assert-True (-not (Test-NativeCaptureBudgetSet -Budget (New-NativeCaptureBudget))) 'no -ExpiresUtc and no -TotalSeconds is still the no-budget shape'
+
 # A BUDGET INSIDE THE FLOOR HAS NO ROOM EITHER -- the half the issue asked about: a call given two
 # seconds reports no more than a call never made, and it spends the margin the kill and the report need.
 $sliver = [pscustomobject]@{ TotalSeconds = 45; Expires = (Get-Date).ToUniversalTime().AddSeconds($NativeCaptureHookNetworkFloorSeconds - 1) }

@@ -126,6 +126,14 @@
     no budget: every call keeps the shared per-call bound, so a run typed by hand behaves exactly as it
     did before this existed. A suite passes a small number to reach the skip arms without waiting for them.
 
+.PARAMETER BudgetDeadlineEpochSeconds
+    (Optional) the same budget stated as an ABSOLUTE instant -- Unix epoch seconds, UTC -- rather than as
+    a duration from now. It WINS over both -BudgetSeconds and -UnderHook, being the most specific of the
+    three. A duration starts when this script reaches the line that creates the budget, which is after
+    its own process start-up and five dot-sourced libs; a caller that already knows when the turn's
+    ceiling falls due can state that instead of having it re-derived from a later moment. 0 (the default)
+    means it was not given and the two knobs above decide, exactly as before.
+
 .PARAMETER Quiet
     (Optional switch) print nothing when there is nothing to do. What the hook passes: a turn in which
     the document did not change must not add a line to the session. A push still reports itself, and so
@@ -143,7 +151,8 @@ param(
     [string]$RepoRoot = '',
     [switch]$Quiet,
     [switch]$UnderHook,
-    [int]$BudgetSeconds = 0
+    [int]$BudgetSeconds = 0,
+    [long]$BudgetDeadlineEpochSeconds = 0
 )
 
 Set-StrictMode -Version Latest
@@ -224,8 +233,20 @@ function Write-CycleCollisionReport {
 # -BudgetSeconds WINS OVER -UnderHook where both are given: an explicit number is a deliberate statement
 # and a switch is a category, so the number is the more specific of the two. That ordering is what lets a
 # suite exercise the hook path AND pin a small budget in the same run.
+#
+# AND -BudgetDeadlineEpochSeconds WINS OVER BOTH (#2077), by the same reasoning one rung further: an
+# absolute instant is more specific than a duration, because a duration is measured from THIS line and
+# this line sits after the process start-up and the five dot-sources above it. That time is the hook's
+# already, so a caller holding the turn's real deadline states it rather than having it re-derived from
+# a moment that is only near the truth. It is also what makes the deadline testable: everything the
+# budget decides then stops depending on how loaded the machine was between launch and here, which is
+# the variance that turned this suite's mid-run case red on CI with no defect behind it.
 $budget = if ($BudgetSeconds -gt 0) { $BudgetSeconds } elseif ($UnderHook) { $NativeCaptureHookNetworkBudgetSeconds } else { 0 }
-$netBudget = New-NativeCaptureBudget -TotalSeconds $budget
+$netBudget = if ($BudgetDeadlineEpochSeconds -gt 0) {
+    New-NativeCaptureBudget -ExpiresUtc ([System.DateTimeOffset]::FromUnixTimeSeconds($BudgetDeadlineEpochSeconds).UtcDateTime)
+} else {
+    New-NativeCaptureBudget -TotalSeconds $budget
+}
 
 # Dual-context repo root: a consumer running the plugin mirror gets it from CLAUDE_PROJECT_DIR, the
 # source root copy falls back to the git root. Same resolution as every other mirrored script -- but via

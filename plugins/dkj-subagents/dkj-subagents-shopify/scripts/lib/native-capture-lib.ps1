@@ -738,8 +738,29 @@ function New-NativeCaptureBudget {
         A PLAIN OBJECT WITH AN ABSOLUTE EXPIRY, not a Stopwatch. The three readers below only ever ask
         "how much is left", a UTC instant answers that with no state to start, stop or forget to pass on,
         and a test can build one by hand to exercise the exhausted arm without waiting for it.
+
+        -ExpiresUtc STATES THAT INSTANT DIRECTLY, and it WINS over -TotalSeconds (#2077). A duration is
+        measured from whenever this function happened to be called, which under a hook is after the
+        script's own start-up and lib loading -- time the hook's ceiling has already spent. A caller that
+        KNOWS the deadline can now say it, which is strictly more correct than re-deriving it here: it
+        makes the budget a fact about the turn rather than about this process. Pass a DateTime whose
+        value is UTC ([DateTimeOffset]::FromUnixTimeSeconds(n).UtcDateTime is the shape the callers
+        have); the readers below subtract it from UtcNow and never convert it.
+
+        TotalSeconds is then what the budget had LEFT at creation, floored at 0, so the object stays
+        self-consistent for anything that reads that field. A deadline already past yields an Expires
+        that is set and spent, which is the honest answer and the one every reader below already handles.
     #>
-    param([int]$TotalSeconds = 0)
+    param(
+        [int]$TotalSeconds = 0,
+        [datetime]$ExpiresUtc = ([datetime]::MinValue)
+    )
+
+    if ($ExpiresUtc -ne [datetime]::MinValue) {
+        $leftAtBirth = [int][math]::Floor(($ExpiresUtc - (Get-Date).ToUniversalTime()).TotalSeconds)
+        if ($leftAtBirth -lt 0) { $leftAtBirth = 0 }
+        return [pscustomobject]@{ TotalSeconds = $leftAtBirth; Expires = $ExpiresUtc }
+    }
 
     $expires = $null
     if ($TotalSeconds -gt 0) { $expires = (Get-Date).ToUniversalTime().AddSeconds($TotalSeconds) }
