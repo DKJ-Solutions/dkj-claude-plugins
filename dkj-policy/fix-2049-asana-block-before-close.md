@@ -42,7 +42,7 @@
 Inbound #2049, filed from `BWJ-Development/smartwatchbanden`. BWJ (Maikel, September 17, 2026) has
 reversed the order for issues that carry a mirrored Asana task: the paste-ready block goes on the
 issue **before** it closes, written by the session that shipped the work, and closing the issue is a
-person's confirmation that the handover reached Asana.
+person's confirmation that the block reached Asana.
 
 #### What the verification found (six axes, read against the tree rather than the report)
 
@@ -76,7 +76,7 @@ Widening the gate was therefore a deletion, not a new matcher.
 - [x] `asana-mirror.ps1`: the close-event gate drops the label condition and gains the de-duplication;
       an unreadable issue answers "already posted", the same default `Test-MirrorUpdatePosted` takes.
 - [x] `asana-mirror.ps1`: record why the sweep still does not carry it -- a first sweep would post a
-      placeheld block on every Asana-linked issue closed in the last 30 days.
+      placeholder-only block on every Asana-linked issue closed in the last 30 days.
 - [x] `WORKFLOW-portable.md`: step 4 is renamed and states the ordering, the block's exact shape, the
       three reasons the old order failed, the Asana-link gate, and the `-NoResolves` interaction; the
       backstop gets its own `#####` under it.
@@ -98,7 +98,7 @@ Widening the gate was therefore a deletion, not a new matcher.
 
 ### DEPLOY: fix/2049-asana-block-before-close
 
-`dkj-policy-bwj` reverses the order of its Asana handover: the paste-ready block is written by the
+`dkj-policy-bwj` reverses the order of its Asana notification: the paste-ready block is written by the
 session that shipped the work, while the issue is still **open**, and closing the issue is a person's
 confirmation that the block reached Asana. It is gated on the issue having a linked Asana task rather
 than on the `CRO` label, which was narrower than the need. `asana-mirror` still writes a block on the

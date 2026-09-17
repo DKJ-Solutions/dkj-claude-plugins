@@ -172,8 +172,8 @@ than read from a function nothing else needs. [`adopt-dkj-policy-bwj`](skills/ad
 labelling step creates it only where the repo is one of those two.
 
 **It triggers nothing on its own, and it used to.** Until inbound
-[#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049) this label was what turned the
-paste-ready Asana comment on at the close. That comment is now gated on the **Asana link** instead --
+[#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049) this label was what
+turned on the paste-ready block at the close. That block is now gated on the **Asana link** instead --
 a mirrored task is a mirrored task -- and it is written before the close rather than at it. See
 [step 4 below](#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work).
 This label is purely a filing axis again: who raised it, and nothing else.
@@ -334,7 +334,12 @@ settle it is to add a marker.
 task carries a paragraph ready to paste into that task, telling the requester (today: Johnno) where to
 see the result -- and that paragraph goes on the issue **while it is still open**, written by the
 session that shipped the work, as the closing act of its own chain. **Closing the issue is then the
-confirmation that the handover happened**, and it is a person's act rather than a script's.
+confirmation that the block reached Asana**, and it is a person's act rather than a script's.
+
+**Read "the block reached Asana" narrowly -- it is not the `ReadyToTest` handover further down this
+page.** Two different moments tell two different people something: this one is a paragraph a person
+carries into the task by hand, and `Get-SubmitterHandoff`'s is the submitter being told their card has
+moved. They sit in the same pipeline, so this page never says "the handover" bare for either.
 
 It is one comment on the **GitHub** issue -- not on Asana -- and it has a fixed shape, because the
 backstop below has to be able to recognise it:
@@ -385,17 +390,24 @@ not the route to it.
 
 **It de-duplicates on the block's own marker, and on its lead sentence for one somebody typed by
 hand** -- the same two-matcher shape, in the same order, as the task link itself: the machine marker
-first and unconditionally, prose second. So a session that did its job never sees a second, placeheld
-copy appear under its own.
+first and unconditionally, prose second. So a session that did its job never sees a second,
+placeholder-only copy appear under its own.
+
+**Either matcher anywhere in any comment counts, so anybody who can comment can switch the backstop
+off** -- including by quoting this page, which publishes both strings verbatim so the block can be
+written by hand. That is accepted rather than tightened. What is suppressed is an informational
+paragraph, in the case where the shipping session had already skipped its own step, so the worst
+outcome is the state this workflow was in before #2049; and no exact-match rule survives a person who
+can equally well delete the real block.
 
 **An issue whose comments cannot be read gets nothing**, and the run says so. The costs are not
 symmetrical: a missed backstop leaves a closed issue without a paragraph nobody was going to read there
-anyway, while a blind post puts a placeheld copy underneath a block that was already filled in
+anyway, while a blind post puts a placeholder-only copy underneath a block that was already filled in
 correctly.
 
 **It runs on the `closed` event only, and the accepted gap is unchanged.** The de-duplication would now
 make a sweep safe, and it is still deliberately not swept: a sweep walks every Asana-linked issue closed
-in the last 30 days, so its first run would post a placeheld block on every one of them that predates
+in the last 30 days, so its first run would post a placeholder-only block on every one of them that predates
 this rule -- a burst of comments on a colleague's tracker, each asking somebody to go back to a closed
 issue, which is exactly what #2049 measured as not working. A close that happens while the workflow
 cannot run is therefore still a block that never posts, the same accepted gap this page already carries
@@ -860,7 +872,7 @@ instead, per the section above.
 - **The block before the close, and not at it**, because the close is the only event a person in this
   chain actually performs, and hanging the composition on it put the paragraph underneath an item that
   had already left every open-issue view. Writing it first turns the close into a **receipt** -- the
-  issue is open for exactly as long as the handover is outstanding -- and it puts the composing in the
+  issue is open for exactly as long as the block is outstanding -- and it puts the composing in the
   hands of the one party that knows the link, which is what retires the `[ADD LINK]` placeholder
   instead of working around it.
 - **An update and not a tick**, because the two are different claims by different people. The build

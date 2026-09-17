@@ -518,8 +518,17 @@ function Test-AsanaPasteBlockPosted {
         AN UNREADABLE ISSUE ANSWERS $true, so a run that cannot check does not comment blindly --
         the same default Test-MirrorUpdatePosted takes on the Asana side. The cost of each mistake
         is what settles it: a missed backstop leaves a closed issue without a paragraph nobody was
-        going to read there anyway, while a blind post puts a second, placeheld copy underneath a
+        going to read there anyway, while a blind post puts a second, placeholder-only copy underneath a
         block the session had already filled in correctly.
+
+        A LOOSE SUBSTRING MATCH, AND ANYBODY WHO CAN COMMENT CAN SUPPRESS THIS. Either matcher
+        anywhere in any comment answers $true -- including a comment that QUOTES WORKFLOW-portable.md,
+        which publishes both strings verbatim so a session can write the block by hand. That is
+        accepted rather than tightened: what is suppressed is an informational paragraph in the
+        already-degraded case where the shipping session skipped its own step, so the worst outcome
+        is the state this workflow had before #2049 anyway. Tightening it (an exact whole-comment
+        compare, or an author check) would buy nothing against a person who can equally well delete
+        the real block, and would cost the hand-written case the marker exists to serve.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
@@ -530,7 +539,7 @@ function Test-AsanaPasteBlockPosted {
         Write-Host "  Comments of $IssueRef are not readable -- no paste-ready block posted, rather than posting one blindly."
         return $true
     }
-    try { $comments = (($raw -join "`n") | ConvertFrom-Json).comments } catch {
+    try { $comments = (($raw | Out-String) | ConvertFrom-Json).comments } catch {
         Write-Host "  Comments of $IssueRef did not parse -- no paste-ready block posted, rather than posting one blindly."
         return $true
     }
@@ -554,13 +563,13 @@ function New-AsanaPasteBlockComment {
         A BACKSTOP, NOT THE ROUTE (BWJ/Maikel, September 17, 2026, inbound #2049). The block belongs
         on the issue BEFORE it closes, written by the session that shipped the work -- which is the
         only party that knows the link -- and closing the issue is then a person's confirmation that
-        the handover happened. This function is what runs when that did not happen, and it is gated
+        the block reached Asana. This function is what runs when that did not happen, and it is gated
         on the de-duplication above so it never lands under a block that is already there.
 
         GATED ON THE ASANA LINK, NOT ON THE CRO LABEL, and structurally so: Invoke-EventMode has
         already returned when no task resolved, so reaching this line IS the link. The CRO gate was
         narrower than the need -- measured in BWJ-Development/smartwatchbanden on September 17, 2026:
-        of 14 open issues 13 carried an Asana link and 6 carried CRO.
+        of 14 open issues, 13 carried an Asana link and 6 carried CRO.
 
         A PLACEHOLDER, NOT A DERIVED LINK (Dave, September 17, 2026). "Where the result can be viewed"
         depends on what the ticket was about -- a live storefront page, a preview theme, something else
@@ -1763,7 +1772,7 @@ function Invoke-EventMode {
     # structurally: the no-task return above has already fired.
     #
     # STILL EVENT-ONLY, although the de-duplication above would now make a sweep safe. A sweep would
-    # walk every Asana-linked issue closed in the last 30 days, and on its first run post a placeheld
+    # walk every Asana-linked issue closed in the last 30 days, and on its first run post a placeholder-only
     # block on every one of them that predates this rule -- a burst of comments on a colleague's
     # tracker, each of them asking somebody to go back to a closed issue, which is the very thing
     # #2049 measured as not working. The accepted gap is unchanged and stated on the page.
