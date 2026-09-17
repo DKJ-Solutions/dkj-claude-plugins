@@ -109,18 +109,13 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   suite holding UTF-8 turning the failing assert green under the gate while it was red on its own. And a
   suite that is green under the gate and red standalone is reporting a **real** defect until proven
   otherwise; the gate is the run with the shared state in it.
-  **AND THE OTHER DIRECTION IS NOT THE SAME RULE, WHICH IS WHY IT IS NAMED HERE TOO** (#2068,
-  September 17, 2026). A suite **red under the gate and green standalone** is the commoner event and the
-  opposite verdict: a red here is evidence about the *run* before it is evidence about the tree, and the
-  standing response is to re-run that suite alone. That is written out in full, with its measurements,
-  in `Invoke-TestSuiteGate`'s own docstring in
-  [`scripts/lib/native-capture-lib.ps1`](../../scripts/lib/native-capture-lib.ps1) under #1033 — which
-  also records that a **crash** is told apart from a verdict and re-run once (#1723), while a plain exit 1
-  under the pool is deliberately *not* retried, because it has measured the tree and said no. The reason
-  the pointer belongs here: this page is the one a session actually loads on a `scripts/**` edit, and
-  stating only the first direction reads as the whole rule. #2068 was filed on exactly that reading —
-  correctly citing this paragraph, and concluding the converse was unrecorded when it was recorded a
-  file away.
+  **The converse is a different rule, and it is the commoner event**: a suite **red under the gate
+  and green standalone** is evidence about the *run* before it is evidence about the tree, and the
+  response is to re-run it alone. Stated here only so this paragraph is not read as the whole rule —
+  it is argued, with its measurements, in `Invoke-TestSuiteGate`'s docstring in
+  [`scripts/lib/native-capture-lib.ps1`](../../scripts/lib/native-capture-lib.ps1) (#1033, plus
+  #1723 on telling a crash from a verdict). #2068 was filed on the one-directional reading of this
+  page.
 - **Technical identifiers/flags** keep their original form — the scaffold marker `VUL-IN` (used across
   the plugin's scaffold scripts, e.g. `bootstrap.ps1`, `new-branch.ps1`) is one example; Dave's
   explicit decision. The job id **`lint-en-tests`** in [`ci.yml`](../../.github/workflows/ci.yml) is a

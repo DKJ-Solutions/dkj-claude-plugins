@@ -928,7 +928,7 @@ try {
     Write-Host "park-cycle.ps1 -- structural: the PR check consults ExitCodeUnknown" -ForegroundColor Cyan
     $srcLines = [System.IO.File]::ReadAllLines($ParkCycleSrc)
     $unknownReads = @($srcLines | Where-Object { $_ -match '\$prList\.ExitCodeUnknown' })
-    Assert-True ($unknownReads.Count -ge 2) 'unknown exit: the field is read -- once to re-ask, once to word the refusal'
+    Assert-True ($unknownReads.Count -ge 2) 'unknown exit: the field is read -- to re-ask, and twice more to word the refusal'
     # AND THE RE-ASK IS BUDGET-GATED. An unbounded extra network call inside a Stop hook is #1958's own
     # defect, one call over; this asserts the guard travels with the retry rather than being remembered.
     $retryGuard = @($unknownReads | Where-Object { $_ -match 'Test-NativeCaptureBudgetHasRoom' })
@@ -936,6 +936,14 @@ try {
     # AND THE REFUSAL STILL FIRES. The retry must not have turned an unknown answer into a push: the
     # `-ne 0` arm is what holds the DEPLOY lock, and $null -ne 0 stays true after a failed re-ask.
     Assert-True (@($srcLines | Where-Object { $_ -match '^if \(\$prList\.ExitCode -ne 0\) \{' }).Count -eq 1) 'unknown exit: the fail-safe arm is still the one that decides'
+    # AND THE "ASKED TWICE" WORDING IS GUARDED BY WHETHER IT WAS. The re-ask is budget-gated, so an
+    # unknown code on a spent budget reaches the refusal in the same state a FAILED re-ask leaves it
+    # in -- and a sentence claiming two runs where one happened is the defect this branch exists to
+    # repair, reappearing one elseif over. Caught in review rather than by a test, which is why it
+    # gets one of its own.
+    $twiceArm = @($srcLines | Where-Object { $_ -match 'answered twice' })
+    Assert-Equal 1 $twiceArm.Count 'unknown exit: exactly one arm claims two asks'
+    Assert-True ($twiceArm[0] -match '\$reAsked') 'unknown exit: and it fires only when the re-ask actually ran'
 } finally {
     foreach ($f in $script:fixtures) {
         if (Test-Path -LiteralPath $f) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }

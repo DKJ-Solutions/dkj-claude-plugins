@@ -419,7 +419,15 @@ $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
 # came back 0 of 600 at 16 lanes (instrument validated at 40/40 against a shim exiting 1), against
 # #1931's 2.8%, so the rate is environment-dependent and this is not established as that flake's cause.
 # It is repaired because reporting an unmeasured state as a measured one is wrong on its own terms.
+#
+# AND WHETHER THE RE-ASK HAPPENED IS TRACKED RATHER THAN INFERRED FROM THE STATE IT LEAVES BEHIND.
+# The gate below is three conditions, and the budget is one of them -- so an unknown code on a budget
+# with no room left skips the retry and arrives at the refusal in the SAME state a failed retry leaves.
+# Wording that arm "asked twice" would be this branch's own defect, one elseif over: a sentence
+# describing a run that did not happen. $reAsked is the only thing that can tell them apart afterwards.
+$reAsked = $false
 if ($prList.ExitCodeUnknown -and -not $prList.TimedOut -and (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+    $reAsked = $true
     $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
                                    -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
 }
@@ -431,11 +439,14 @@ if ($prList.ExitCode -ne 0) {
     # one half hardened, which is the shape #1953 already had to repair once in this same file. Low risk
     # (this is the checkout's OWN branch, not somebody else's ref) and repaired anyway, because the line
     # was being reworded regardless and leaving it would say the strip is optional.
-    # THREE STATES, NOT TWO (#2068): a stall, an exit code that is not a measurement, and a gh that
-    # genuinely failed or is absent. The middle one reached this line as the third, which told a
-    # reader to go and check an installation that was never the problem.
+    # FOUR STATES, WHERE THERE WERE TWO (#2068). The two were a stall and "could not be asked", and an
+    # exit code that is not a measurement was folded into the second -- sending a reader to check a gh
+    # installation that was never the problem. It splits in two here because the re-ask above is
+    # budget-gated, so an unreadable code that was asked once and one that was asked twice are different
+    # facts about what this run did, and only $reAsked knows which.
     $why = if ($prList.TimedOut) { "did not answer in time" }
-           elseif ($prList.ExitCodeUnknown) { "answered twice over, but neither run's exit code could be read (see #1931)" }
+           elseif ($prList.ExitCodeUnknown -and $reAsked) { "answered twice, and neither run's exit code could be read (#1931)" }
+           elseif ($prList.ExitCodeUnknown) { "answered, but its exit code could not be read, and the network budget had no room to ask again (#1931)" }
            else { "could not be asked" }
     Write-CycleParkNote "gh $why whether '$(Get-DisplayRef -Ref $branch)' has a PR -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
     exit 0

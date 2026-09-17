@@ -68,15 +68,25 @@ It repairs the `ExitCodeUnknown` gap on its own merits -- a state that was never
 printed as a neighbouring verdict -- and records the converse direction where a session can reach it.
 It does **not** claim to have fixed #2068's flake, and #2068 stays open.
 
+The tree-wide half is **#2081**, filed from this pickup: outside the lib and its tests, this branch is
+the only consumer of `ExitCodeUnknown` in `scripts/` -- 126 `-ne 0` judgements and 32 bounded capture
+sites, and the audit #1931 asked for has no visible product. Deliberately not swept in here.
+
 ### CREATE
 
 - [x] `scripts/task/park-cycle.ps1`: the PR check consults `ExitCodeUnknown`. On that state alone it
       **re-asks once**, budget-gated; `gh pr list` is read-only, so a second draw costs nothing but the
       call. This is not the retry #1931 declined -- that was re-READING one handle inside 200ms -- and it
       cannot live in the lib, which cannot know a command is idempotent.
-- [x] The refusal gained its **third wording**. It had two -- a stall and "could not be asked" -- and
-      the middle state arrived as the second, sending a reader to check a `gh` installation that was
-      never the problem. Same shape #1628 and #2056 each repaired once in this family.
+- [x] The refusal went from **two wordings to four**. It had a stall and "could not be asked", and an
+      exit code that is not a measurement was folded into the second -- sending a reader to check a `gh`
+      installation that was never the problem. Same shape #1628 and #2056 each repaired once in this
+      family. It is four rather than three because the re-ask is budget-gated, so "asked once, unreadable"
+      and "asked twice, unreadable" are different facts about the run.
+- [x] `$reAsked` tracks whether the re-ask actually ran, because the three-condition gate means a spent
+      budget skips it and lands at the refusal in the SAME state a failed re-ask leaves. Victor caught
+      the first draft wording that arm "answered twice over" unconditionally -- this branch's own defect,
+      one `elseif` over: a sentence describing a run that did not happen.
 - [x] The fail-safe arm is untouched: `$null -ne 0` stays true after a failed re-ask, so an unknown
       answer still does not push and the DEPLOY lock still holds.
 - [x] `.claude/rules/language-layers.md`: the converse direction named beside the one it stated, with
@@ -95,8 +105,11 @@ It does **not** claim to have fixed #2068's flake, and #2068 stays open.
 - [x] What that means, stated rather than glossed: the mechanism fits the symptom exactly and is the
       only one measured in this tree, but its rate is environment-dependent -- a light probe at 16 lanes
       is not a gate at 30 lanes under memory pressure -- so it is **not established** as the cause.
-- [x] New structural case (v) in `scripts/tests/park-cycle.tests.ps1`: the field is read twice, the
-      re-ask is budget-gated, and the fail-safe arm still decides. `OK: all 124 asserts passed.`
+- [x] New structural case (v) in `scripts/tests/park-cycle.tests.ps1`: the field is consulted, the
+      re-ask is budget-gated, and the fail-safe arm still decides.
+- [x] Two more asserts in (v), earned by the review finding: exactly one arm claims two asks, and it
+      fires only when `$reAsked` says the re-ask ran. A defect caught by eye gets a test so the next one
+      is not. `OK: all 126 asserts passed.`
 - [~] Dropped: a behavioural case for the retry and the third wording. The state is a race inside
       `System.Diagnostics.Process`, not anything a shim controls, so the only way to reach it is to
       inject a fake capture result -- which asserts against the mock and not the script. The gap is
@@ -115,8 +128,11 @@ call in the hook. That is not the retry #1931 declined: that one re-read a singl
 and still left 7 of 240 unresolved, where this is a fresh child and an independent draw. It belongs at
 the call site rather than in the lib for the reason the lib cannot act on -- `gh pr list` is read-only
 and safe to repeat, and the lib cannot know that of a command in general. If the re-ask comes back
-unreadable too, the refusal fires exactly as before, with a **third wording** that says which of the
-three states it is in. The fail-safe direction is unchanged: an unknown answer still does not push.
+unreadable too, the refusal fires exactly as before -- with a wording that says which of **four**
+states it is in, where there were two. Four rather than three because the re-ask is budget-gated: an
+unreadable code asked once and one asked twice are different facts about the run, and only a flag set
+inside the retry can tell them apart afterwards. The fail-safe direction is unchanged: an unknown
+answer still does not push.
 
 `.claude/rules/language-layers.md` now also names the direction it was missing. It stated that a suite
 **green under the gate and red standalone** reports a real defect; the converse -- red under the gate,
@@ -126,7 +142,7 @@ green alone -- is the commoner event and the opposite verdict, and it was record
 **This does not claim to close #2068, and that issue stays open.** A repro harness built for it came
 back **0 of 600 at 16 lanes** where #1931 measured 2.8%, with the instrument validated at 40 of 40
 against a shim exiting 1. The mechanism fits the reported symptom exactly and is the only one measured
-in this tree; its rate is evidently environment-dependent, and a light probe is not a loaded gate. What
+in this tree; its rate is environment-dependent, and a light probe is not a loaded gate. What
 is repaired here is repaired because it is wrong on its own terms.
 
 **Score:** 2
