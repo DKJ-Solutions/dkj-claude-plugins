@@ -147,6 +147,22 @@ function Write-RunProgress {
 
         IT NEVER THROWS. A producer calls this from inside its hot loop; a progress record that
         cannot be written must cost that run nothing at all. Every failure path returns $false.
+
+        -WriterPid PUBLISHES ON BEHALF OF ANOTHER PROCESS (issue #2104), and it exists because the
+        liveness test above is the writer's PROCESS. The two producers this file was built for are
+        long-lived -- the gate and ship-pr each stay alive for the whole run they describe -- so
+        stamping $PID was the same thing as stamping the run. A HOOK is not: a PostToolUse hook that
+        wants to publish a backgrounded shell's progress lives about 400 ms and then exits, so a record
+        under its own pid is reaped by the very next statusline read, two seconds later.
+
+        So the caller may name the process whose life IS the run. The pid and its start ticks are read
+        together, from that process, because the pair is what makes the liveness test safe against pid
+        reuse -- passing one without the other would leave a record that a recycled pid could resurrect.
+        Omitted, it is $PID exactly as before, which is what every existing producer wants.
+
+        IT IS NOT VALIDATED AGAINST ANYTHING. A pid that is already gone simply produces a record the
+        next read drops, which is the correct outcome and not an error worth a return value: the run it
+        described was over before the record landed.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Id,
@@ -155,7 +171,9 @@ function Write-RunProgress {
         [AllowNull()][object]$Total = $null,
         [string]$Note = '',
         [AllowNull()][object]$StartedUtc = $null,
-        [string]$Root = ''
+        [string]$Root = '',
+        # 0 means "this process" -- see -WriterPid in the block above.
+        [int]$WriterPid = 0
     )
 
     try {
@@ -165,6 +183,7 @@ function Write-RunProgress {
         }
 
         $started = if ($StartedUtc -is [datetime]) { ([datetime]$StartedUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
+        $writerProcessId = if ($WriterPid -gt 0) { $WriterPid } else { $PID }
 
         $record = [ordered]@{
             id             = $Id
@@ -174,8 +193,11 @@ function Write-RunProgress {
             total          = $(if ($null -ne $Total) { [int]$Total } else { $null })
             startedUtc     = $started.ToString('o')
             updatedUtc     = (Get-Date).ToUniversalTime().ToString('o')
-            writerPid      = $PID
-            writerStartTicks = (Get-RunProgressProcessStartTicks -ProcessId $PID)
+            # READ ONCE INTO A LOCAL, so the pid in the record and the pid the ticks were read from
+            # cannot drift apart -- the pair is the whole reuse guard, and two separate conditionals
+            # would be two chances to answer them differently.
+            writerPid      = $writerProcessId
+            writerStartTicks = (Get-RunProgressProcessStartTicks -ProcessId $writerProcessId)
         }
 
         $path = Join-Path $dir ($Id + '.json')

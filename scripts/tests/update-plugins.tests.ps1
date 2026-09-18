@@ -94,6 +94,56 @@ function Assert-Before {
     Assert-True (($i1 -ge 0) -and ($i2 -ge 0) -and ($i1 -lt $i2)) $Label
 }
 
+# Runs in which a capture came back with no measurable exit code -- see Assert-CleanExit (issue #2114).
+$script:unmeasured = 0
+
+function Assert-CleanExit {
+    <#
+        Assert that a run the script should finish cleanly exited 0 -- UNLESS a capture inside it came
+        back with no measurable exit code, which the script is SPECIFIED to answer with exit 1.
+
+        THE TWO STATEMENTS COULD NOT BOTH HOLD, and that is the whole of #2114. update-plugins.ps1
+        drives the CLI through Invoke-NativeCapture's -Utf8 arm, and that arm can hand back an ExitCode
+        which is literally $null -- the child ran, but the value is not a measurement of it (#1931). The
+        script consults that state through Get-NativeExitLabel and DELIBERATELY counts it as a failure:
+        #2081's audit argues the point at scripts/task/update-plugins.ps1:207 -- this script answers
+        "did every update succeed", and for an updater the conservative answer to "I could not tell" is
+        no. That decision stands. What could not stand beside it was a suite asserting exit 0 on eight
+        scenarios regardless.
+
+        AND THE ARITHMETIC IS WHY THIS IS NOT A RARE EDGE. #1931 measured the state at 2.8% PER CAPTURE
+        under 16 lanes of fresh PowerShell children. A full run of this suite makes on the order of 30
+        captures through that arm, so the chance of at least one landing in a run is roughly 50% -- not
+        the 1-in-300 that the per-capture figure suggests to a quick reader. Measured on PR #2113: red
+        in CI twice out of two, green standalone on the same tree, and NOT contention (the focus
+        reproducer passed 4/4 under 30 lanes).
+
+        SO THE RUN IS STILL ASSERTED ON, JUST NOT ON THE NUMBER THE RACE OWNS. Everything else in each
+        scenario -- which commands ran, with which ids, at which scopes, in which order -- is unaffected
+        by this state and is asserted exactly as before. Those are the assertions that carry the
+        scenario's meaning; the exit code was the one field a documented race is allowed to move.
+
+        IT IS NOT A BLANKET "0 OR 1". The marker has to be in the output: a run that exits 1 without one
+        is a real failure and still fails here.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object]$Run,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    if ($Run.Code -eq 0) { Assert-Equal 0 $Run.Code $Label; return }
+
+    # The phrase Get-NativeExitLabel emits for the unmeasurable case. Matched on its stable opening
+    # rather than the whole sentence, which carries an issue number and a remedy clause.
+    if ("$($Run.Text)" -match 'no measurable exit code') {
+        $script:unmeasured++
+        Write-Host "  [UNMEASURED] $Label -- a capture in this run had no measurable exit code (#1931), which this script is specified to answer with exit 1" -ForegroundColor Yellow
+        return
+    }
+
+    Assert-Equal 0 $Run.Code $Label
+}
+
 # --- fixture builders --------------------------------------------------------------------------
 
 function New-Case {
@@ -216,7 +266,7 @@ try {
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
-    Assert-Equal 0 $r.Code '1: exit 0'
+    Assert-CleanExit -Run $r -Label '1: exit 0'
     Assert-Has $r 'CLAUDE-SHIM-CALLED plugin marketplace update ccs-fixture' '1: the marketplace was refreshed'
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '1: plugin 1 was updated, --scope project'
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '1: plugin 2 was updated, --scope project'
@@ -231,7 +281,7 @@ try {
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
-    Assert-Equal 0 $r.Code '2: exit 0'
+    Assert-CleanExit -Run $r -Label '2: exit 0'
     Assert-Has   $r 'claude plugin marketplace update ccs-fixture' '2: the marketplace command is printed'
     Assert-Has   $r "claude plugin update $ID1 --scope project" '2: the plugin update command is printed'
     Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '2: the shim never ran -- nothing was actually executed'
@@ -244,7 +294,7 @@ try {
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @()
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
-    Assert-Equal 0 $r.Code '3: exit 0'
+    Assert-CleanExit -Run $r -Label '3: exit 0'
     Assert-Has   $r 'Nothing to update' '3: says so plainly'
     Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '3: the shim never ran'
     Assert-Lacks $r 'FIXTURE-RECEIPT'    '3: no receipt either'
@@ -257,7 +307,7 @@ try {
     $bad = 'Not A Slug@ccs-fixture'
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $bad)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
-    Assert-Equal 0 $r.Code '4: exit 0 -- the valid id still updated cleanly'
+    Assert-CleanExit -Run $r -Label '4: exit 0 -- the valid id still updated cleanly'
     Assert-Has $r 'Skipped' '4: a Skipped line is printed'
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '4: the valid id was still updated'
     Assert-Lacks $r "plugin update $bad" '4: the malformed id was never handed to the CLI'
@@ -309,7 +359,7 @@ try {
     $idB = 'some-plugin@zzz-marketplace'
     Set-Enabled -RepoDir $c.Repo -Ids @($idB, $idA)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
-    Assert-Equal 0 $r.Code '8: exit 0'
+    Assert-CleanExit -Run $r -Label '8: exit 0'
     Assert-Has    $r 'CLAUDE-SHIM-CALLED plugin marketplace update aaa-marketplace' '8: the first marketplace was refreshed'
     Assert-Has    $r 'CLAUDE-SHIM-CALLED plugin marketplace update zzz-marketplace' '8: the second marketplace was refreshed'
     Assert-Before $r 'update aaa-marketplace' 'update zzz-marketplace' '8: refreshed in ordinal order'
@@ -330,7 +380,7 @@ try {
         $ID2 = @( @{ scope = 'project'; projectPath = $c.Repo } )
     }
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
-    Assert-Equal 0 $r.Code '9: exit 0'
+    Assert-CleanExit -Run $r -Label '9: exit 0'
     Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope user" '9: the machine-wide plugin is updated at USER scope -- the command that can actually move it'
     Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '9: the plugin installed here keeps project scope'
     Assert-Lacks $r "plugin update $ID1 --scope project" '9: and the machine-wide plugin is NOT handed the scope it is not installed at'
@@ -348,7 +398,7 @@ try {
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
     Set-InstallRecords -HomeDir $c.Home -Records @{ $ID1 = @( @{ scope = 'local'; projectPath = $c.Repo } ) }
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
-    Assert-Equal 0 $r.Code '10: exit 0'
+    Assert-CleanExit -Run $r -Label '10: exit 0'
     Assert-Has   $r "claude plugin update $ID1 --scope local" '10: the printed command carries the record''s own scope'
     Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '10: and still nothing ran'
 
@@ -363,7 +413,7 @@ try {
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
     Set-InstallRecords -HomeDir $c.Home -Records @{ $ID1 = @( @{ projectPath = $c.Repo } ) }
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
-    Assert-Equal 0 $r.Code '11: exit 0'
+    Assert-CleanExit -Run $r -Label '11: exit 0'
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '11: falls back to project, exactly as before'
     Assert-Has $r 'Scope could not be read from the install administration for 1 plugin(s)' '11: and the fallback is stated rather than silent'
     Assert-Has $r 'states no scope' '11: the line names what the administration failed to say'
@@ -373,7 +423,46 @@ finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }
 
+# --- the tolerance itself, DRIVEN (issue #2114) ---------------------------------------------------
+# THE STATE IT EXISTS FOR CANNOT BE WAITED FOR -- it is a race at a few percent per capture, so a
+# scenario that waited for it would be the flakiest thing in the tree. The three inputs are fabricated
+# instead, and the counters are asserted rather than the console.
+Write-Host ''
+Write-Host 'Assert-CleanExit: the three inputs' -ForegroundColor Cyan
+
+$unmeasuredBefore = $script:unmeasured
+$passBefore = $script:pass
+$failBefore = $script:fail
+
+$label = 'no measurable exit code -- the child ran, and what came back was not a measurement of how it ended (issue #1931); this normally settles on a re-run'
+Assert-CleanExit -Run ([pscustomobject]@{ Code = 1; Text = "  FAILED ($label)" }) -Label 'driven: tolerated'
+$afterUnmeasured = $script:unmeasured
+$afterPass = $script:pass
+$afterFail = $script:fail
+
+Assert-Equal ($unmeasuredBefore + 1) $afterUnmeasured 'driven: an exit 1 carrying the unmeasured marker is COUNTED as tolerated'
+Assert-Equal $passBefore $afterPass 'driven: ...and is not recorded as a pass -- the scenario proved less than a green line would claim'
+Assert-Equal $failBefore $afterFail 'driven: ...nor as a failure -- the script did what it is specified to do'
+
+# A REAL FAILURE STILL FAILS. Without this the helper would be a blanket "0 or 1" and every scenario
+# above would stop testing the thing it was written for.
+$failBeforeReal = $script:fail
+Assert-CleanExit -Run ([pscustomobject]@{ Code = 1; Text = '  FAILED (exit 3)' }) -Label 'driven: a real exit 1 -- THIS RED LINE IS THE ASSERT WORKING, and it is given back below'
+Assert-Equal ($failBeforeReal + 1) $script:fail 'driven: an exit 1 WITHOUT the marker is still a failure, so this is no blanket tolerance'
+# ...and that deliberate failure is given back, so this suite's own verdict stays honest.
+$script:fail = $failBeforeReal
+$script:unmeasured = $unmeasuredBefore
+
+Assert-CleanExit -Run ([pscustomobject]@{ Code = 0; Text = 'all good' }) -Label 'driven: a clean exit 0 is asserted exactly as before'
+
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
+# COUNTED AND PRINTED, NEVER FOLDED INTO EITHER FIGURE ABOVE. A tolerated exit is not a passed assert,
+# and a run that quietly tolerated several is one where this suite proved less than its pass count
+# suggests. It does not fail the run -- the script did what it is specified to do -- but a reader who
+# sees this line knows which scenarios were waved through and why.
+if ($script:unmeasured -gt 0) {
+    Write-Host "         $script:unmeasured scenario(s) exited 1 on an UNMEASURED capture (#1931) and were tolerated rather than asserted -- see Assert-CleanExit." -ForegroundColor Yellow
+}
 if ($script:fail -gt 0) { exit 1 }
 exit 0

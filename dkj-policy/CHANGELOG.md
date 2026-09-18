@@ -43,7 +43,156 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2117-neutral-reopen-comment · 20260918-144639
+
+`asana-mirror`'s reopen comment told the requester the work was being worked on again and to hold off
+testing. The workflow knows neither: a reopen means the work was picked up again OR that the ticket
+has gone back to the requester, and in the second case both halves are false -- the expensive half
+being the one that tells the person who now has to act to sit still. The comment reports the state
+change, names both readings without picking one, points at the issue for which applies, and says
+plainly that it is not a request to test. Its two docstrings, `asana-mirror.yml`'s dropped-reopen
+argument, `WORKFLOW-portable.md` and the plugin README follow it, and the suite pins the new contract
+so restoring the old sentence fails.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The report offered a second shape -- let the `needs-info` label choose the sentence -- and it is
+declined on the measurement rather than on taste. No label was set on the three issues the report was
+written from; they were simply reopened, so the label-absent branch would have printed the same false
+sentence on all three cards. It also contradicts the script's own rule that a label event moves the
+card and says nothing. The mechanism for it exists, so this is a decision and not a shortage of seam.
+
+Two review findings are worth carrying, because both are about a tick made in good faith on half a
+job. Victor found a second docstring twenty lines above the one that was repaired, still asserting
+the retired claim -- the CREATE step had been worded as though the file held one. Edith found the
+same concept phrased two ways across the four places that describe it, including the shipped card
+text, which read "it may be being worked on again": the cost of splitting one sentence across three
+hands, and the reason the copy edit was applied in one.
+
+For a consuming repo this lands as a changed message on a colleague's Asana card, which they read
+rather than the issue. It arrives when they re-adopt the template, and it is noticed the next time an
+issue is reopened.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-mirror's reopen comment no longer asserts why the issue was reopened
+
+Plugins: dkj-policy-bwj
+
+[PR #2119](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2119)
+
+---
+
+### DEPLOY: fix/2110-git-path-decoding · 20260918-143440
+
+Two git reads whose answer is a PATH no longer depend on the console code page. `fold-changelog-entry`
+splits the paths it is about to commit into tracked and untracked with a `git ls-files` whose output it
+then COMPARES -- so a mis-decoded name failed that comparison, dropped out of `git commit -- <paths>`,
+and the run printed *"git never tracked them ... the fold deleted them from disk all the same"* about a
+file it had just deleted. `find-specialist-mentions` built its whole scan set from a bare
+`@(git ls-files 2>$null)`: a mis-decoded name keeps its `.md` tail, passes the extension filter and then
+cannot be opened, so the file left the mention scan silently -- the one failure a report whose job is
+*"do not miss a place"* must not have. Both now force `core.quotePath=true` and decode with
+`Convert-GitQuotedPath`, the repair [`.claude/rules/language-layers.md`](../.claude/rules/language-layers.md)
+prescribes and #2109 applied one caller over; the second is routed through `Invoke-NativeCapture` as
+well, so its exit code is readable instead of swallowed.
+
+The fold's instance is LATENT today, and it is the only one whose safety rests on a constraint in
+another file: everything that comparison tests is named after the branch, and `branch-info.ps1` holds a
+branch name to ASCII. The code now says so, which it did not before -- and says which path is *not* on
+either side of it, since `CHANGELOG.md` enters the commit's pathspec without ever being compared.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- neither reader reaches a consumer as behaviour. The fold is mirrored into every consumer's
+`dkj-policy` cache, but its instance is latent for the reason above, and the mention scan is a
+source-repo reporter that never travels.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two more git path readers decode with the console code page
+
+Plugins: dkj-policy
+
+[PR #2118](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2118)
+
+---
+
+### DEPLOY: feat/2104-backgrounded-call-progress · 20260918-131800
+
+The progress bar now covers a backgrounded call this workflow does not own. A `PostToolUse` hook reads
+the structured `backgroundTaskId`, finds the shell actually running the command, and publishes a record
+attributed to **that** process -- so the existing liveness test shows the bar while the run lives and
+removes it within two seconds of the run ending. There is no completion event for a backgrounded shell
+and no state to poll; measured, both. `Write-RunProgress` gained `-WriterPid` for it, and existing
+producers are untouched.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Three of the issue's own premises changed under measurement, and the one it did not have turned out to
+be the decisive one: liveness is the writer's process, so a 400 ms hook could not be the writer at all.
+The whole design is the answer to that -- attribute the record to the shell, and the mechanism that
+already exists does the rest.
+
+It is also a reminder about what a unit test cannot buy. Every decision here is driven from a payload
+string, 38 asserts, all green -- and the first real backgrounded call published nothing, because both
+sides of the comparison were fixtures and the shell re-quotes what it is handed.
+
+**Score:** N/A
+
+#### Pull Request
+
+The progress bar covers a backgrounded call this workflow does not own
+
+Plugins: dkj-policy
+
+[PR #2113](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2113)
+
+---
+
+### DEPLOY: fix/2114-unmeasured-capture-not-a-failure · 20260918-130202
+
+`update-plugins.tests.ps1` asserted `exit 0` on eight scenarios while the script it drives is
+specified to exit 1 whenever a capture comes back with no measurable exit code -- a state measured at
+2.8% per capture, which over a run's ~30 captures is roughly a coin flip. The suite now asserts on the
+work done and tolerates that one documented state, counted and reported apart rather than folded into
+the pass count. The script is untouched: counting an unmeasured capture as a failure is #2081's stated
+decision and it still holds.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The report that produced it was wrong, and the correction is the useful part. It was filed as the script
+failing to consult `ExitCodeUnknown`; the script consults it and the counting is argued at the exact
+line. What made that misreading easy is worth keeping: the shim was called with the right ids at the
+right scopes and the run still exited 1, which reads as a defect and is in fact the specification.
+
+The other half is arithmetic. A per-capture probability is not a per-run one, and 2.8% quoted as a rare
+race becomes an even-odds failure once a suite makes thirty captures. The number was in the tree all
+along; nobody had multiplied it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The update-plugins suite stops asserting an exit code a documented race owns
+
+[PR #2116](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2116)
+
+---
 
 ### DEPLOY: feat/2101-background-progress-bar · 20260918-105021
 
