@@ -98,7 +98,8 @@ function New-FakeSuite {
 # irrelevant against the multi-second margins the timing cases work with.
 function Invoke-Gate {
     param([string]$TestsDir, [int]$MaxParallel = 0, [string]$WorkDir = '', [string]$CommandsFile = '', [int]$ResidentCount = -1,
-          [int]$SuiteTimeoutSeconds = 0, [string]$FocusSuite = '', [int]$FocusRepeat = 0)
+          [int]$SuiteTimeoutSeconds = 0, [string]$FocusSuite = '', [int]$FocusRepeat = 0,
+          [double]$SuspendCreditSeconds = 0, [int]$SuspendCreditOnCall = 2)
     # NOT $args: that is an automatic variable holding a function's unbound arguments, and splatting it
     # after assignment is the kind of collision this repo already documents for $script:-owned names.
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:Driver, '-TestsDir', $TestsDir, '-MaxParallel', "$MaxParallel")
@@ -107,6 +108,10 @@ function Invoke-Gate {
     # the gate and not in this helper (issues #1941, #1944).
     if ($SuiteTimeoutSeconds -ne 0) { $psArgs += @('-SuiteTimeoutSeconds', "$SuiteTimeoutSeconds") }
     if ($FocusSuite) { $psArgs += @('-FocusSuite', $FocusSuite, '-FocusRepeat', "$FocusRepeat") }
+    # 0 (the default) means the child never touches the clock seam at all, so every other case in this
+    # file drives the REAL Get-GateSuspendCredit -- which is what keeps their silence about suspend
+    # evidence that the gate is silent about it (issue #2095).
+    if ($SuspendCreditSeconds -gt 0) { $psArgs += @('-SuspendCreditSeconds', "$SuspendCreditSeconds", '-SuspendCreditOnCall', "$SuspendCreditOnCall") }
     if ($WorkDir) { $psArgs += @('-WorkDir', $WorkDir) }
     if ($CommandsFile) { $psArgs += @('-CommandsFile', $CommandsFile) }
     # -1 (the default) means "let the real Get-Process answer" -- OS-wide process state is not
@@ -316,12 +321,43 @@ try {
         [System.Threading.Thread]::CurrentThread.CurrentCulture = $prevCulture
     }
 
+    # Get-GateSuspendCredit -- the judgement that decides whether a jump in the gate's own clock was
+    # time the pool spent running (issue #2095). In-process, because it is pure: the end-to-end case
+    # below drives the REBASE by handing the pool a staged jump, and this is the only place the
+    # judgement it stages can itself be asserted.
+    Write-Host "the clock judgement -- what counts as a jump no poll could have produced" -ForegroundColor Cyan
+    Assert-Equal 0 (Get-GateSuspendCredit -GapSeconds 0.1) `
+        'Get-GateSuspendCredit: an ordinary 100ms poll credits nothing'
+    # 99s IS THE LARGEST HONEST GAP #2095 MEASURED, on the very run it was filed off -- four of that
+    # run's five gaps over 60s were 62-99s, all of them a busy reap pass. A threshold that called one
+    # of those a suspend would hand a wedged tree 99 extra seconds every time the pool got busy, which
+    # is the failure the bound exists to prevent, so this assert is the one that pins the sizing.
+    Assert-Equal 0 (Get-GateSuspendCredit -GapSeconds 99) `
+        'Get-GateSuspendCredit: a busy reap pass is not a suspend, however slow it was'
+    Assert-Equal 0 (Get-GateSuspendCredit -GapSeconds 300) `
+        'Get-GateSuspendCredit: the threshold itself is not over it'
+    Assert-Equal 10896 (Get-GateSuspendCredit -GapSeconds 10896) `
+        'Get-GateSuspendCredit: the 3.03h jump #2095 measured is credited -- in FULL, not minus the threshold'
+    # THE THRESHOLD IS A PARAMETER so both sides of the boundary can be asserted without this suite
+    # pinning itself to whatever the constant currently says -- and so a consumer that needs a
+    # different one is a supported call rather than a fork.
+    Assert-Equal 0  (Get-GateSuspendCredit -GapSeconds 40 -ThresholdSeconds 50) `
+        'Get-GateSuspendCredit: an explicit threshold is honoured -- under it'
+    Assert-Equal 60 (Get-GateSuspendCredit -GapSeconds 60 -ThresholdSeconds 50) `
+        'Get-GateSuspendCredit: and over it'
+    # A DEADLOCKED TREE PRODUCES NO GAP AT ALL, which is why this cannot disarm #1941: the loop goes on
+    # polling ten times a second while the suite does not move. Asserted as the poll value it would
+    # actually see, so the claim in the constant's own comment is held to something.
+    Assert-Equal 0 (Get-GateSuspendCredit -GapSeconds 0.105) `
+        'Get-GateSuspendCredit: a wedged suite still polls normally, so #1941 keeps its bound'
+
     # The driver dot-sources the REAL lib -- not a copy. A fixture copy would let the lib change without
     # this suite noticing, which is the whole failure mode it exists to catch.
     $script:Driver = Join-Path $Fixture 'drive-gate.ps1'
     $driverBody = @"
 param([string]`$TestsDir, [int]`$MaxParallel = 0, [string]`$WorkDir = '', [string]`$CommandsFile = '', [int]`$ResidentCount = -1,
-      [int]`$SuiteTimeoutSeconds = 0, [string]`$FocusSuite = '', [int]`$FocusRepeat = 0)
+      [int]`$SuiteTimeoutSeconds = 0, [string]`$FocusSuite = '', [int]`$FocusRepeat = 0,
+      [double]`$SuspendCreditSeconds = 0, [int]`$SuspendCreditOnCall = 2)
 `$ErrorActionPreference = 'Stop'
 . '$LibPath'
 if (`$WorkDir) { Set-Location -LiteralPath `$WorkDir }
@@ -336,6 +372,23 @@ if (`$CommandsFile) {
 if (`$ResidentCount -ge 0) {
     `$script:GateResidentCount = `$ResidentCount
     function Get-ResidentPowerShellCount { return `$script:GateResidentCount }
+}
+# Shadows the clock seam the same way, and for a stronger version of the same reason (issue #2095):
+# nothing in a fixture can suspend a laptop, so the ONLY way to drive the pool's rebase is to hand it
+# the jump a suspend would have produced. The real Get-GateSuspendCredit is a pure judgement and is
+# asserted directly above, so what this stub leaves unproven is the THRESHOLD -- not the rebase.
+#
+# ON A CHOSEN CALL, NOT THE FIRST. The detection runs at the top of the poll loop, ahead of the launch
+# block, so on pass 1 there are no open lanes to rebase and a credit handed over then would be silently
+# correct while proving nothing. Pass 2 is the first one that observes a lane.
+if (`$SuspendCreditSeconds -gt 0) {
+    `$script:GateSuspendCalls = 0
+    function Get-GateSuspendCredit {
+        param([double]`$GapSeconds, [double]`$ThresholdSeconds = 0)
+        `$script:GateSuspendCalls++
+        if (`$script:GateSuspendCalls -eq `$SuspendCreditOnCall) { return [double]`$SuspendCreditSeconds }
+        return [double]0
+    }
 }
 # THE CHILD'S OWN PID, printed so the retention cases (issue #1636) can find the capture directory of
 # THIS run rather than diffing the temp folder for one. \$captureDir is "test-suite-gate-\$PID-<guid>"
@@ -947,6 +1000,54 @@ exit -1
     $unbounded = Invoke-Gate -TestsDir $noBoundDir -MaxParallel 1 -SuiteTimeoutSeconds -1
     Assert-True ($unbounded.Text -match 'GATE-RESULT: True') '-SuiteTimeoutSeconds -1 still runs the suites'
     Assert-True ($unbounded.Flat -notmatch 'each suite is bounded at') 'and says nothing about a bound, because there is none'
+
+    # 10c. THE BOUND MEASURES TIME THE MACHINE WAS AWAKE FOR -- issue #2095.
+    #
+    # THE DEFECT THIS PROVES CLOSED. The bound is read off a Stopwatch, and a Stopwatch keeps counting
+    # while the machine is suspended. An unattended overnight run therefore woke to find every open lane
+    # 10,900s past a 1,800s bound, killed the two suites that happened to be in flight -- both of which
+    # pass in seconds -- and refused the push with 'Fix the tests', naming a defect that does not exist.
+    # Nothing in the mechanism could tell that apart from a wedged tree, which is what #1941 built it for.
+    #
+    # WHAT IS STAGED AND WHAT IS REAL. A fixture cannot suspend a laptop, so the jump is handed to the
+    # pool through the one seam that decides one (Get-GateSuspendCredit, shadowed in the driver the way
+    # #1464 shadows Get-ResidentPowerShellCount). Everything downstream of that judgement is the real
+    # thing: the rebase, the sweep, the verdict. The judgement itself is asserted directly, in-process,
+    # beside the Format-GateSeconds cases above -- so the two halves together cover what one run cannot.
+    #
+    # THE NEGATIVE CONTROL IS THE CASE. Every assert below would also pass on a gate that had simply
+    # been given a bound the sleeper fits inside, so the same fixture is run twice against the same 3s
+    # bound: without the jump it TIMES OUT, with it the suite finishes and the gate is green. Only the
+    # pair proves the credit is what saved it.
+    Write-Host "the clock: a suspend is credited back, and does not become somebody's timeout" -ForegroundColor Cyan
+    # ITS OWN FIXTURE DIRECTORY, for the reason #2005 gave case 10 one: every assert here reads a
+    # verdict over the whole pool, and a shared directory would put a second name on it.
+    $suspDir = Join-Path $Fixture 'suites-suspend'
+    New-FakeSuite -Dir $suspDir -Name 's-sleeper.tests.ps1' -Body "Write-Host 'MARKER-SLEEPER'`r`nStart-Sleep -Seconds 5`r`nexit 0`r`n"
+    $noJump = Invoke-Gate -TestsDir $suspDir -MaxParallel 1 -SuiteTimeoutSeconds 3
+    $script:KeptCaptureDirs += $noJump.CaptureDir
+    Assert-True ($noJump.Text -match 'GATE-RESULT: False') 'the control: a 5s suite under a 3s bound times out'
+    Assert-True ($noJump.Flat -notmatch 'the clock jumped') 'and an ordinary run says nothing about the clock at all'
+    Assert-True ($noJump.Flat -notmatch 'machine suspend') 'nor carries a suspend note on its verdict'
+    # 30s AGAINST A 3s BOUND AND A 5s SLEEPER, deliberately far apart. The lane's start offset moves
+    # forward by the credit, so its deadline lands ~33s in while the suite finishes in ~5s -- a margin
+    # that survives the 3.25s child bring-up #1939 measured under a 30-lane pool, which a credit of 10
+    # would not reliably do.
+    $jump = Invoke-Gate -TestsDir $suspDir -MaxParallel 1 -SuiteTimeoutSeconds 3 -SuspendCreditSeconds 30
+    $script:KeptCaptureDirs += $jump.CaptureDir
+    Assert-True ($jump.Text -match 'GATE-RESULT: True') `
+        'the same suite under the same bound PASSES once the jump is credited back to its lane'
+    Assert-True ($jump.Flat -notmatch 'TIMED OUT') 'and nothing is reported as having timed out'
+    Assert-Says $jump.Flat 'the clock jumped 30.0s between two polls' `
+        'the run says what it measured, on its own line, rather than swallowing it'
+    Assert-Says $jump.Flat 'the machine was suspended' 'and names the cause that produces one'
+    # THE QUOTED FIGURE CANNOT MISLEAD. #2095 was filed off '11,749s' for a pool that did 853s of work,
+    # and that line is the one a session copies into a branch document or an issue.
+    Assert-Says $jump.Flat '30s of that was machine suspend' `
+        "and the verdict line says which part of its own seconds nothing was running for"
+    # THE OTHER HALF OF THE SAME PROMISE: crediting it must not make the run CLAIM to have been quick.
+    # The seconds stay wall clock, which is what the note above is there to qualify.
+    Assert-True ($jump.Text -match 'GATE-RESULT: True') 'the green verdict still stands on the wall clock it really occupied'
 
     # --- 11. A focus run: one suite under the pool's real contention (issue #1944) ------------------
     #
