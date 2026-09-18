@@ -558,6 +558,24 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE JUDGEMENT BEHIND hooks/publish-background-run.ps1 (issue #2104), split off from the
+            # hook on the entry above's reasoning and for the same gain: Get-BackgroundRunPublishPlan is
+            # a pure function of the payload text, so every decision it makes is driven from a string in
+            # the suite rather than by starting a process and feeding it stdin. The one part that cannot
+            # be -- Get-BackgroundShellProcessId, which asks the live machine which shell is running the
+            # command -- sits beside it precisely so the split is visible.
+            #
+            # IT IS MIRRORED THOUGH THE MECHANISM IT FEEDS IS NOT (yet). run-progress-lib.ps1 is
+            # source-repo only until #2103 mirrors it, and the hook is guarded so it publishes nothing
+            # where that lib is absent. This pair still travels, because the hook does: a plugin that
+            # ships a hook must ship what the hook dot-sources, or the mirror is a broken install rather
+            # than an inert one.
+            Name    = 'background-run-lib'
+            Source  = 'scripts\lib\background-run-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE SECOND MIRROR OF THE SAME SOURCE, on check-report-lib-workflow's precedent five entries
             # up -- read its two banners for why a second entry rather than a list of mirrors, and why the
             # name carries the plugin. Nothing here needs restating.
