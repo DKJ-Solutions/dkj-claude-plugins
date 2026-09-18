@@ -43,7 +43,141 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 7 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2103-progress-bar-reaches-consumers · 20260918-153030
+
+The background progress bar reaches consumers. #2101 built it in this repo and deliberately mirrored
+none of it: `native-capture-lib.ps1` reached `run-progress-lib.ps1` through a **guarded** dot-source,
+so in a consumer the `Test-Path` failed and the gate behaved exactly as it had. That was a parked
+state, not a destination. Registering the lib as a shared pair is what turns the guard's false arm
+into its true one -- in `dkj-policy` and in `dkj-subagents-shopify`, which carries the second mirror of
+the file that reaches for it -- without editing `native-capture-lib.ps1` again. The statusline that
+draws the bar is mirrored beside it.
+
+The third part is new machinery, because `statusLine` is a **settings** key: `plugin.json` has no such
+key, a plugin-root `settings.json` supports only `agent` and `subagentStatusLine`, and
+`${CLAUDE_PLUGIN_ROOT}` is not expanded there. Nothing a plugin ships can place it, so
+`adopt-statusline.ps1` does -- Part 5 of `adopt-dkj-policy`, dry-run by default like its siblings.
+
+**What it places is a shim rather than a path, and that is the decision the part is built around.**
+The plugin cache is keyed by version, so writing today's cache path into a consumer's settings would
+leave them rendering that payload after every future update: still working, still stale, and reported
+by nothing. Copying the two scripts into the consumer trades it for two live copies drifting each
+release with no lint over them. The shim is one file that never changes, resolving the installed
+payload at render time -- so the settings path cannot go stale and the logic stays where a release can
+reach it. An existing `statusLine` is never replaced: there is one per settings file, so the run leaves
+it alone and prints the block.
+
+Where several install records name this repo -- which a marketplace rename produces, and this repo
+renamed its own on September 10, 2026 -- the shim takes the most recently updated rather than whichever
+the file happens to list first. Resolving that tie by enumeration order would have rendered a stale
+payload permanently with nothing saying so: the same failure the shim exists to prevent, one layer in.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber of this workflow gets the progress bar at all, which until now existed only in the repo
+that built it. The visible half is a status line that keeps rendering while a backgrounded gate or CI
+wait shows nothing anywhere else; the durable half is that the path they adopt cannot be stranded by
+the next plugin update. It needs one command -- `adopt-statusline.ps1 -Apply` -- and it takes nothing
+away from a repo that already has a status line of its own.
+
+**Score:** 3
+
+#### Pull Request
+
+The progress bar reaches consumers: run-progress-lib mirrored, show-progress shared, and the statusLine seam in adopt-dkj-policy
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2122](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2122)
+
+---
+
+### DEPLOY: fix/2117-neutral-reopen-comment · 20260918-144639
+
+`asana-mirror`'s reopen comment told the requester the work was being worked on again and to hold off
+testing. The workflow knows neither: a reopen means the work was picked up again OR that the ticket
+has gone back to the requester, and in the second case both halves are false -- the expensive half
+being the one that tells the person who now has to act to sit still. The comment reports the state
+change, names both readings without picking one, points at the issue for which applies, and says
+plainly that it is not a request to test. Its two docstrings, `asana-mirror.yml`'s dropped-reopen
+argument, `WORKFLOW-portable.md` and the plugin README follow it, and the suite pins the new contract
+so restoring the old sentence fails.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The report offered a second shape -- let the `needs-info` label choose the sentence -- and it is
+declined on the measurement rather than on taste. No label was set on the three issues the report was
+written from; they were simply reopened, so the label-absent branch would have printed the same false
+sentence on all three cards. It also contradicts the script's own rule that a label event moves the
+card and says nothing. The mechanism for it exists, so this is a decision and not a shortage of seam.
+
+Two review findings are worth carrying, because both are about a tick made in good faith on half a
+job. Victor found a second docstring twenty lines above the one that was repaired, still asserting
+the retired claim -- the CREATE step had been worded as though the file held one. Edith found the
+same concept phrased two ways across the four places that describe it, including the shipped card
+text, which read "it may be being worked on again": the cost of splitting one sentence across three
+hands, and the reason the copy edit was applied in one.
+
+For a consuming repo this lands as a changed message on a colleague's Asana card, which they read
+rather than the issue. It arrives when they re-adopt the template, and it is noticed the next time an
+issue is reopened.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-mirror's reopen comment no longer asserts why the issue was reopened
+
+Plugins: dkj-policy-bwj
+
+[PR #2119](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2119)
+
+---
+
+### DEPLOY: fix/2110-git-path-decoding · 20260918-143440
+
+Two git reads whose answer is a PATH no longer depend on the console code page. `fold-changelog-entry`
+splits the paths it is about to commit into tracked and untracked with a `git ls-files` whose output it
+then COMPARES -- so a mis-decoded name failed that comparison, dropped out of `git commit -- <paths>`,
+and the run printed *"git never tracked them ... the fold deleted them from disk all the same"* about a
+file it had just deleted. `find-specialist-mentions` built its whole scan set from a bare
+`@(git ls-files 2>$null)`: a mis-decoded name keeps its `.md` tail, passes the extension filter and then
+cannot be opened, so the file left the mention scan silently -- the one failure a report whose job is
+*"do not miss a place"* must not have. Both now force `core.quotePath=true` and decode with
+`Convert-GitQuotedPath`, the repair [`.claude/rules/language-layers.md`](../.claude/rules/language-layers.md)
+prescribes and #2109 applied one caller over; the second is routed through `Invoke-NativeCapture` as
+well, so its exit code is readable instead of swallowed.
+
+The fold's instance is LATENT today, and it is the only one whose safety rests on a constraint in
+another file: everything that comparison tests is named after the branch, and `branch-info.ps1` holds a
+branch name to ASCII. The code now says so, which it did not before -- and says which path is *not* on
+either side of it, since `CHANGELOG.md` enters the commit's pathspec without ever being compared.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- neither reader reaches a consumer as behaviour. The fold is mirrored into every consumer's
+`dkj-policy` cache, but its instance is latent for the reason above, and the mention scan is a
+source-repo reporter that never travels.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two more git path readers decode with the console code page
+
+Plugins: dkj-policy
+
+[PR #2118](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2118)
+
+---
 
 ### DEPLOY: feat/2104-backgrounded-call-progress · 20260918-131800
 

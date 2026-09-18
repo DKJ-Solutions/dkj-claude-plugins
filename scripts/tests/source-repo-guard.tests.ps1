@@ -345,7 +345,25 @@ $guardExempt = @(
     # nothing repo-relative at all, so the released copy and this one are not merely both acceptable:
     # they compute the identical answer. There is no version of this script whose age can make it wrong.
     'scripts\lint\check-claude-home.ps1',
-    'scripts\task\park-cycle.ps1'              # Stop: cycle-autopark (#900)
+    'scripts\task\park-cycle.ps1',             # Stop: cycle-autopark (#900)
+    # statusLine: the command Claude Code runs on its own clock (#2103). THE FIRST ENTRY HERE THAT IS
+    # NOT A HOOK, and it is on this list for the hooks' own reason one settings key over: nobody invokes
+    # it, the harness does, from '${CLAUDE_PLUGIN_ROOT}/scripts/task/' in a consumer -- so Assert-OwnCopy
+    # would refuse the released copy, which is the only copy a consumer has.
+    #
+    # AND HERE THE REFUSAL WOULD BE WORSE THAN AT A HOOK, which is why this is argued rather than
+    # inherited. A SessionStart hook that refuses prints once and the session continues; this one runs
+    # every couple of seconds for the life of every session, so a refusal is a permanent error where the
+    # status line should be. The file's whole contract is the opposite of a guard's -- it never throws,
+    # it always exits 0, and every failure path means "print nothing" -- so wiring a script that CAN
+    # refuse into it would be the one change this file is written to make impossible.
+    #
+    # THE STALENESS THE GUARD EXISTS TO REFUSE IS ANSWERED ELSEWHERE, rather than going unanswered: a
+    # consumer's statusLine names a shim that resolves the CURRENTLY installed payload at render time
+    # (adopt-statusline.ps1), so the copy this file runs as is the current one by construction. That is
+    # the same reasoning check-claude-home.ps1 carries above -- the released copy and this one compute
+    # the identical answer -- reached by a different route.
+    'scripts\task\show-progress.ps1'
 )
 
 $entryPoints = @(Get-SharedScriptPairs -RepoRoot $RepoRoot |

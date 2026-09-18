@@ -455,6 +455,27 @@ Assert-True ($foldSrcText -match 'Format-EntryFoldFooter') 'the closing line is 
 Assert-True ($foldSrcText -match 'Set-EntryMergeStamp') 'and the merge moment is stamped on the Pull Request heading beside it'
 Assert-True ($foldSrcText -notmatch '\$entryHashes #\$num') 'and the heading prepend is gone from the source, not merely unused'
 
+# --- the tracked/untracked split reads PATHS, so its wire is held to ASCII (issue #2110) -------------
+# SOURCE PINS, and they are the honest instrument here rather than a second-best one. The failure this
+# repairs is LATENT: everything that comparison tests is $writtenPaths -- the entry files and the legacy
+# step list, every one named after the branch -- and branch-info.ps1 constrains a branch name to ASCII,
+# so no fixture this suite can build reaches the mis-decode, and one that forced it would be testing a
+# state the writer cannot produce. (CHANGELOG.md is NOT one of the two sides: it is spliced into the
+# pathspec unconditionally and never tested against the ls-files answer.) What CAN be
+# asserted is that the read no longer depends on that constraint holding somewhere else, which is the
+# whole of what #2110 asked for. The same instrument #2109 used for check 43's call site, one caller over.
+#
+# WHY IT MATTERS THAT IT IS LATENT AND STILL WORTH PINNING: a path git DOES track, mis-decoded, fails the
+# -contains and lands in $untracked -- so the fold drops it from `git commit -- <paths>` and prints "git
+# never tracked them ... the fold deleted them from disk all the same" about a file it has just deleted.
+# A fold commit that clears half the pair, reported as a correct one.
+Assert-True ($foldSrcText -match "'-c',\s*'core\.quotePath=true',\s*'ls-files'") 'the tracked/untracked split FORCES core.quotePath rather than trusting git default -- a repo may set core.quotepath in its own config'
+Assert-True ($foldSrcText -match 'Convert-GitQuotedPath -Path \$line') 'and it decodes what came back, rather than comparing escapes as literal text'
+Assert-True ($foldSrcText -match 'git-porcelain-lib\.ps1') 'and the decoder is dot-sourced rather than re-typed here'
+# GUARDED, like every other dot-source in this mirrored script: a consumer whose plugin cache predates
+# git-porcelain-lib must not crash on LOAD of the script that folds their changelog.
+Assert-True ($foldSrcText -match '\$foldPorcelainLib = Join-Path[^\r\n]+\r?\n\s*if \(Test-Path -LiteralPath \$foldPorcelainLib') 'and that dot-source is GUARDED, so an older mirror degrades instead of dying on load'
+
 # ---------------------------------------------------------------------------------------------------
 Write-Host "fold-all -Commit -- a reserved page never enters the commit's pathspec (#1493)" -ForegroundColor Cyan
 #      Since #1437 CHANGELOG.md, CONTRIBUTING.md and README.md all live in the SAME directory

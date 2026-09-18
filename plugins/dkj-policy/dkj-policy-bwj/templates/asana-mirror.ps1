@@ -63,8 +63,9 @@
 
                        'closed' and 'reopened' COMMENT and move the card. The comment on 'closed'
                        names the pull request(s) that closed the issue and says the work is ready to
-                       test; 'reopened' says to hold off. Neither de-duplicates -- an event is a real
-                       state change, and a second close after a reopen is news again.
+                       test; 'reopened' reports the state change and asserts no cause for it, see
+                       New-MirrorComment. Neither de-duplicates -- an event is a real state change,
+                       and a second close after a reopen is news again.
 
                        'labeled' and 'unlabeled' ONLY move the card, deliberately: a label going on
                        or off is a change in our state, and narrating it would put a comment on the
@@ -433,7 +434,11 @@ function New-MirrorComment {
                    wants when they are about to test, and GitHub itself says it that way
                    ("closed this as completed in #434"). Empty means the issue was closed by hand,
                    and the update then says so rather than implying a PR that does not exist.
-        'reopened' it is being worked on again; do not test yet.
+        'reopened' a reopen carries at least two opposite meanings -- picked up again, or back with
+                   the requester -- and the workflow has no way of telling which, so the comment
+                   reports the state change, leaves the reason on the issue, and says plainly that
+                   it is not a request to test. Guessing is what inbound #2117 measured: told to
+                   hold off, a requester the ticket had just come back to sits still.
 
         -StateReason 'not_planned' turns the close update into its opposite: nothing was built, so
         asking somebody to test it would be worse than saying nothing.
@@ -453,8 +458,10 @@ function New-MirrorComment {
 
     if ($Event -eq 'reopened') {
         return @(
-            "GitHub issue $IssueRef has been reopened: it is being worked on again, so hold off on testing.",
-            $url
+            "GitHub issue $IssueRef has been reopened.",
+            $url,
+            '',
+            'Why it was reopened is on the issue -- it may be back with you, or it may have been picked up again. This update is not a request to test.'
         ) -join "`n"
     }
 

@@ -325,8 +325,12 @@ Assert-True ($notPlanned -notmatch 'ready to test')      'rather than asking the
 Assert-True ($notPlanned.StartsWith((Get-MirrorCommentMarker -IssueRef 'o/r#1'))) 'and it still carries the de-duplication marker'
 
 $reopened = New-MirrorComment -IssueRef 'BWJ-ecommerce/smartwatchbanden#388' -Event 'reopened'
-Assert-True ($reopened -match 'reopened')            'the reopen update says so'
-Assert-True ($reopened -match 'hold off on testing') 'and tells the requester not to test yet'
+Assert-True ($reopened -match 'has been reopened')                                              'the reopen update says so'
+Assert-True ($reopened -match '#388')                                                            'and names the issue'
+Assert-True ($reopened -match 'https://github\.com/BWJ-ecommerce/smartwatchbanden/issues/388')  'and its URL'
+Assert-True ($reopened -notmatch 'it is being worked on again, so hold off on testing')          'and does not assert a cause, unlike the old text'
+Assert-True ($reopened -notmatch 'hold off')                                                     'nor tells the requester to hold off'
+Assert-True ($reopened -match 'not a request to test')                                           'and withdraws the ready-to-test invitation without claiming to describe it'
 
 # the de-duplication key is the close update's own opening sentence, and it names the issue --
 # so two issues mirrored onto one task never mask each other
