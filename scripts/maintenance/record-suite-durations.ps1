@@ -79,10 +79,13 @@ if ($RepoRoot -match '^\d{6,}$') {
 # asserts for every script in this tree.
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 
+# WHERE THE REPO ROOT COMES FROM (issue #2115). --show-toplevel returns a raw path and -Utf8 was never
+# passed here, so Windows PowerShell 5.1 decoded it with [Console]::OutputEncoding: under an accented
+# checkout the Resolve-Path below failed on a root that was really there.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
+
 if (-not $RepoRoot) {
-    $top = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--show-toplevel') -DiscardStderr
-    if ($top.ExitCode -ne 0) { throw 'Not in a git repository - pass -RepoRoot.' }
-    $RepoRoot = (@($top.Output) | Select-Object -First 1)
+    $RepoRoot = (Get-GitTopLevelPath).Path
     if (-not $RepoRoot) { throw 'Not in a git repository - pass -RepoRoot.' }
 }
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path

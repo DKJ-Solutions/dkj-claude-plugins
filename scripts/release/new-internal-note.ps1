@@ -78,6 +78,10 @@ $ErrorActionPreference = 'Stop'
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
 if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy -ScriptPath $PSCommandPath }
 
+# WHERE THE REPO ROOT COMES FROM (issue #2115). $PSScriptRoot-relative, so it resolves in the plugin
+# mirror as well as here, and loaded before the anchor block that reads it.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
+
 # --- Anchor the repo root -------------------------------------------------------------------------
 # Every path below is absolute and derived from this root. Deliberately no Set-Location: then a
 # divergent process cwd cannot write into the wrong repo (the pitfall cut-release.ps1 has to close with
@@ -86,9 +90,12 @@ if (-not $RepoRoot) {
     $RepoRoot = if ($env:CLAUDE_PROJECT_DIR) {
         $env:CLAUDE_PROJECT_DIR
     } else {
-        $topLevel = git rev-parse --show-toplevel | Select-Object -First 1
+        # NOT --show-toplevel (issue #2115): a raw path, decoded by Windows PowerShell 5.1 with
+        # [Console]::OutputEncoding, so every path derived from this root pointed at nothing under an
+        # accented checkout.
+        $topLevel = (Get-GitTopLevelPath).Path
         if (-not $topLevel) { Write-Error "No git repo found. Run this from the repo, or pass -RepoRoot."; exit 1 }
-        $topLevel.Trim()
+        $topLevel
     }
 }
 if (-not (Test-Path -LiteralPath $RepoRoot -PathType Container)) {

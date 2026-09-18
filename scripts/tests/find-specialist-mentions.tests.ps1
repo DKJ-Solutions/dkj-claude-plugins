@@ -45,8 +45,10 @@ $ScriptSrc = Join-Path $RepoRoot 'scripts\sync\find-specialist-mentions.ps1'
 # block above describes: the copy list went stale the moment the script grew a dot-source, and all 24
 # failing asserts then reported on a child that never reached its first statement. One list is also what
 # the read-only assert at the foot subtracts, so a lib added here cannot be forgotten there.
+# repo-root-lib.ps1 joined the list under #2115: check-report-lib now loads it UNGUARDED at file scope
+# to resolve the git-root fallback, so a fixture without it dies on load rather than degrading.
 $FixtureLibNames = @('check-report-lib.ps1', 'native-capture-lib.ps1', 'git-porcelain-lib.ps1',
-                     'command-probe-lib.ps1', 'run-progress-lib.ps1')
+                     'command-probe-lib.ps1', 'run-progress-lib.ps1', 'repo-root-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -233,7 +235,14 @@ function New-Fixture {
 
 function Invoke-Script {
     param([string]$Fixture, [string[]]$ScriptArgs = @())
-    $copied = Join-Path $Fixture 'find-specialist-mentions.ps1'
+    # COPIED TO THE PATH IT REALLY LIVES AT, scripts\sync\ (issue #2115). It used to land in the
+    # fixture ROOT, which was invisible for as long as every lib this script loads was resolved from
+    # $repoRoot -- CLAUDE_PROJECT_DIR points at the fixture, so those found their way. A
+    # $PSScriptRoot-relative sibling load cannot: from the fixture root '..\lib' resolves OUTSIDE the
+    # fixture entirely. The fixture was misplacing the script; the script was right.
+    $syncDir = Join-Path $Fixture 'scripts\sync'
+    if (-not (Test-Path -LiteralPath $syncDir)) { New-Item -ItemType Directory -Path $syncDir -Force | Out-Null }
+    $copied = Join-Path $syncDir 'find-specialist-mentions.ps1'
     Copy-Item -LiteralPath $ScriptSrc -Destination $copied -Force
 
     $libDir = Join-Path $Fixture 'scripts\lib'
@@ -364,7 +373,12 @@ try {
         # plus every lib in the one copy list above, so this subtraction cannot go stale independently of
         # it the way a hand-written pair of names could.
         $harnessNames = @('find-specialist-mentions.ps1') + $FixtureLibNames
-        $status = @(git status --porcelain 2>$null | Where-Object {
+        # -uall, AND IT IS LOAD-BEARING (#2115). Plain --porcelain COLLAPSES a wholly untracked
+        # DIRECTORY into a single entry, and the script's copy target moved into scripts\sync\, which
+        # the fixture does not track -- so the entry reads '?? scripts/sync/' and matches no name in
+        # the list below, whose patterns are anchored on a filename. scripts\lib\ never had the
+        # problem: the fixture tracks a file there, so git already lists its members one by one.
+        $status = @(git status --porcelain -uall 2>$null | Where-Object {
             $line = $_
             -not ($harnessNames | Where-Object { $line -match ([regex]::Escape($_) + '$') })
         })

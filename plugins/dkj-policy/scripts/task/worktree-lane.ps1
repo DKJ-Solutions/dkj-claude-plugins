@@ -248,12 +248,14 @@ if ($HandBack) {
         }
         $laneRoot = Resolve-LanePath $Lane
     } else {
-        $topRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--show-toplevel')
-        if ($topRes.ExitCode -ne 0) {
+        # NOT --show-toplevel (issue #2115): a raw path, decoded by Windows PowerShell 5.1 with
+        # [Console]::OutputEncoding, so under an accented checkout this named a lane that does not exist.
+        $topPath = (Get-GitTopLevelPath).Path
+        if (-not $topPath) {
             Write-Error "Cannot tell which worktree you are in. Run this from inside a lane, or pass -Lane."
             exit 1
         }
-        $laneRoot = Resolve-LanePath (($topRes.Output | Out-String).Trim())
+        $laneRoot = Resolve-LanePath $topPath
     }
 
     if ($laneRoot -ieq $primaryRoot) {

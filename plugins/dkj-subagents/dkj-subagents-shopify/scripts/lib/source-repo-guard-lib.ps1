@@ -78,13 +78,23 @@ function Resolve-GuardRepoRoot {
     if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR -PathType Container)) {
         return (Resolve-Path -LiteralPath $env:CLAUDE_PROJECT_DIR).ProviderPath
     }
+    # NOT --show-toplevel (issue #2115): its output is a raw path that Windows PowerShell 5.1 decodes
+    # with [Console]::OutputEncoding, so under an accented checkout this guard resolved a root that
+    # failed the Test-Path below -- and a guard that cannot tell which repo it is in switches itself
+    # off. Read repo-root-lib's synopsis for why the rule's usual repair does not reach this call.
+    #
+    # GUARDED AND LAZY, on consumer-check-lib's reasoning rather than check-report-lib's: this lib is
+    # itself dot-sourced guarded, by a caller that runs it on the first line that executes and may rely
+    # on nothing being loaded yet. A missing sibling returns $null, which is this function's own
+    # documented "cannot tell" and switches the guard off exactly as before.
+    $rootLib = Join-Path $PSScriptRoot 'repo-root-lib.ps1'
+    if (-not (Test-Path -LiteralPath $rootLib -PathType Leaf)) { return $null }
+    . $rootLib
+
     try {
-        $top = & git rev-parse --show-toplevel 2>$null
-        if ($LASTEXITCODE -eq 0 -and $top) {
-            $p = ([string]$top).Trim()
-            if ($p -and (Test-Path -LiteralPath $p -PathType Container)) {
-                return (Resolve-Path -LiteralPath $p).ProviderPath
-            }
+        $p = (Get-GitTopLevelPath).Path
+        if ($p -and (Test-Path -LiteralPath $p -PathType Container)) {
+            return (Resolve-Path -LiteralPath $p).ProviderPath
         }
     } catch { }
     return $null

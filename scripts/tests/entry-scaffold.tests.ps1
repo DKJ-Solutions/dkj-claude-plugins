@@ -241,6 +241,10 @@ Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $fixture 'scripts
 # the very unjudged .Trim() this repair removes.
 Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\check-report-lib.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\command-probe-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\command-probe-lib.ps1') -Force
+# repo-root-lib.ps1 likewise (#2115): check-report-lib.ps1 resolves the repo root through
+# Get-GitTopLevelPath, which lives there. UNGUARDED in that lib, deliberately -- it is mirrored
+# beside it into every plugin that carries it, so a payload missing it is broken rather than old.
+Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\repo-root-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\repo-root-lib.ps1') -Force
 # document-newline-lib.ps1 likewise (#1832): entry-scaffold-lib.ps1 and pr-body-lib.ps1 dot-source it
 # for Get-DocumentNewline, unconditionally and for the same reason -- so the fixture owes it too.
 Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\document-newline-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\document-newline-lib.ps1') -Force

@@ -67,6 +67,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# WHERE THE REPO ROOT COMES FROM (issue #2115). $PSScriptRoot-relative, so it resolves in the plugin
+# mirror as well as here, and loaded BEFORE the block below because that block is what reads it.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
+
 if (-not $RepoRoot) {
     # DUAL-CONTEXT, because this script is mirrored into the plugin: in a consumer the harness sets
     # CLAUDE_PROJECT_DIR and the mirror runs from the plugin cache, where a git root would be either
@@ -79,10 +83,14 @@ if (-not $RepoRoot) {
     # try/catch is the exonerated form: outside a repository git errors, the catch leaves $RepoRoot
     # empty, and the throw below says something a reader can act on.
     #
-    # Invoke-NativeCapture is the house helper for this class, and it is deliberately NOT used here:
-    # it lives beside this script, and the dot-source below runs after this line.
+    # Invoke-NativeCapture is the house helper for the CAPTURE and is still not used here: it lives
+    # beside this script and the dot-source below runs after this line. The READ, though, is now one
+    # definition (issue #2115) and is loaded above precisely so it can be -- `rev-parse --show-toplevel`
+    # returns a raw path that Windows PowerShell 5.1 decodes with [Console]::OutputEncoding, so in a
+    # consumer whose checkout sits under an accented directory name this resolved a root that the
+    # GetFullPath below turned into a path pointing at nothing.
     if ($env:CLAUDE_PROJECT_DIR) { $RepoRoot = $env:CLAUDE_PROJECT_DIR }
-    else { try { $RepoRoot = (git rev-parse --show-toplevel) } catch { $RepoRoot = $null } }
+    else { $RepoRoot = (Get-GitTopLevelPath).Path }
 }
 if (-not $RepoRoot) { throw 'Not inside a git repository, and -RepoRoot was not given.' }
 $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot.Trim())

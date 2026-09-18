@@ -161,6 +161,10 @@ try {
     # and the fixture's whole point is that it does not. See fixture-dep-lib.ps1 for the declaration.
     Copy-Item (Join-Path $realRepo 'scripts\lint\check-branch-entry.ps1') (Join-Path $awayDir 'scripts\lint\check-branch-entry.ps1')
     Copy-Item $GuardLib (Join-Path $awayDir 'scripts\lib\source-repo-guard-lib.ps1')
+    # repo-root-lib.ps1 (#2115): the guard resolves its root through Get-GitTopLevelPath, which lives
+    # there. Its load is GUARDED, so omitting it would not crash -- it would switch the guard off and
+    # quietly turn every refusal assert below into a pass, which is the silence #1693 exists to remove.
+    Copy-Item (Join-Path $RepoRoot 'scripts\lib\repo-root-lib.ps1') (Join-Path $awayDir 'scripts\lib\repo-root-lib.ps1')
     $prev = $env:CLAUDE_PROJECT_DIR
     try {
         $env:CLAUDE_PROJECT_DIR = $realRepo

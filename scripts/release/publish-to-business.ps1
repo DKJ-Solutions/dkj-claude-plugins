@@ -150,6 +150,9 @@ $ErrorActionPreference = 'Stop'
 # terminating NativeCommandError under EAP=Stop -- and git clone/push write their progress to stderr,
 # so every git call below runs through this one tested guard instead of a raw `& git 2>&1`.
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+# Get-GitTopLevelPath for Resolve-RepoRoot below (issue #2115). Named here rather than inherited: this
+# script dot-sources no lib that already carries it.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
 # ---------------------------------------------------------------- the published set
 
@@ -192,8 +195,11 @@ function Resolve-RepoRoot {
     if ($Explicit) { return (Resolve-Path -LiteralPath $Explicit).Path }
     if ($env:CLAUDE_PROJECT_DIR) { return (Resolve-Path -LiteralPath $env:CLAUDE_PROJECT_DIR).Path }
 
-    $top = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--show-toplevel') -DiscardStderr
-    if ($top.ExitCode -eq 0 -and $top.Output) { return (Resolve-Path -LiteralPath ("$($top.Output)".Trim())).Path }
+    # NOT --show-toplevel, AND NOT -Utf8 EITHER (issue #2115): that flag's output is a raw path which
+    # Windows PowerShell 5.1 decodes with [Console]::OutputEncoding, so under an accented checkout the
+    # Resolve-Path here threw on a root that was really there.
+    $top = (Get-GitTopLevelPath).Path
+    if ($top) { return (Resolve-Path -LiteralPath $top).Path }
 
     throw 'Cannot determine the repo root. Pass -RepoRoot, or run from inside the repo.'
 }
