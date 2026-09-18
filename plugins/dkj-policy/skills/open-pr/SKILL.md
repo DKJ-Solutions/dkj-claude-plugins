@@ -163,12 +163,14 @@ prints which of the reasons it was.
 
 **It is for the release-notes commit**
 ([#2102](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2102), September 18, 2026), the one
-`-GatesOnly` was built for. Measured on the `v5.5.0` cut: **325s** of test gate beside **27s** of lint,
-over one hand-written markdown file — 56% of a 19-minute release spent running the same 114 suites a
-second time.
+`-GatesOnly` was built for. On the `v5.5.0` cut that second gate leg cost **325s**, over one hand-written
+markdown file — one of the two runs that together are 652s of a 1,166s release, **56%** of it spent on
+the same 114 suites twice. What the switch leaves standing is the lint half, measured **here** at 27s
+against 249s for the suites; that cut never broke its own 325s into the two halves, so neither figure is
+credited to it.
 
-**The deduction was measured, not argued.** The whole release tree was moved aside and all 114 suites run
-against the result. Four went red, and not one of them reads a release note:
+**The deduction was measured, not argued.** The whole release tree was moved aside and all 114 suites were
+run against the result. Four went red, and not one of them reads a release note:
 
 | suite | why it went red |
 |---|---|
@@ -190,7 +192,7 @@ the fallback is today's behaviour, so being wrong costs a full gate run rather t
 
 **A clean tree is deliberately not proven**, which reads backwards and is not: the claim is about what
 *changed*, and with nothing changed the run would be deducing a gate away on an empty set. The genuinely
-unchanged tree is the gate evidence above, one branch earlier and free.
+unchanged tree is already the gate evidence above — consulted first, and costing a file read.
 
 **It is not `-SkipTests`, and the difference is what the run records.** That switch says *"this run did not
 measure"* and is the valve for a broken gate. This one says the measurement was made and had only one

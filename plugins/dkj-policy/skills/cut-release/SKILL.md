@@ -471,9 +471,12 @@ a release for a missing timestamp would be ceremony rather than a guard.
    **`-NoteTreeOnly` is what stops this step paying for the suites twice**
    ([#2102](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2102), September 18, 2026). It asks
    whether every path that differs from `HEAD` sits inside the note tree this exception already bounds the
-   commit to — the two paths named three paragraphs up — and only where that is **proven** does it skip the
-   test gate. The lint gate runs either way. Measured on the `v5.5.0` cut: **325s** of test gate beside
-   **27s** of lint, over one hand-written markdown file.
+   commit to — the two paths the **Bounded** paragraph above names — and only where that is **proven** does
+   it skip the test gate. The lint gate runs either way. On the `v5.5.0` cut this step cost **325s**, over
+   one hand-written markdown file; it is one of the two gate runs that together are 652s of that 1,166s
+   release, **56%** of it spent on the same 114 suites twice. The lint half it leaves standing measured
+   **27s** in the source repo — that cut never split its own 325s, so the figure comes from there rather
+   than from the cut.
 
    **What makes the skip a deduction rather than a favour** is that the suites have no coverage of that tree
    to lose. The whole release tree was moved aside and all 114 suites run: four went red, one on an

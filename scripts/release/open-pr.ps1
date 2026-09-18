@@ -310,12 +310,14 @@
 
     IT EXISTS FOR THE RELEASE-NOTES COMMIT (issue #2102, September 18, 2026). That commit lands on the
     trunk under the third direct-on-`main` exception, so it meets no CI and the gates are run by hand
-    through -GatesOnly. Measured on the v5.5.0 cut: 325s of test gate beside 27s of lint, over ONE
-    hand-written markdown file -- 56% of a 19-minute release spent running the same 114 suites a second
-    time.
+    through -GatesOnly. On the v5.5.0 cut that second gate leg cost 325s over ONE hand-written markdown
+    file -- one of the two runs that together are 652s of a 1,166s release, 56% of it spent on the same
+    114 suites twice. What this switch leaves standing is the lint half, measured at 27s here against
+    249s for the suites; the cut's own 325s is nowhere broken into those two halves, so neither figure is
+    credited to it.
 
     THE DEDUCTION WAS MEASURED, NOT ASSUMED. The whole of the release tree was moved aside and all 114
-    suites run against the result. Four went red and none of them reads a release note: one fails an
+    suites were run against the result. Four went red and none of them reads a release note: one fails an
     EXISTENCE assert over a path list (which a cut, adding notes, can only satisfy more firmly), and the
     other three fail because they run the lint script over the live repo as a smoke assert. So the
     suites' entire coverage of that tree IS the lint gate -- which means this switch removes no coverage

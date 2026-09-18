@@ -43,7 +43,7 @@ Answer the issue's own question: can any of the 114 suites fail on a change conf
 
 #### What the measurement found
 
-The whole of dkj-policy/releases/ was moved aside and all 114 suites run against the result. Four
+The whole of dkj-policy/releases/ was moved aside and all 114 suites were run against the result. Four
 went red, and the answer inverts the question:
 
 | suite | why |
@@ -57,7 +57,10 @@ So no suite reads the CONTENT of a release note. The suites' entire coverage of 
 gate, run three more times -- which makes lint-only there not an approximation of the test gate's
 answer but that answer.
 
-Cost, this machine: lint 27s against 249s for the pair (the v5.5.0 cut measured 325s). The makespan
+Cost, each figure credited to the run that produced it. THIS machine, 30 lanes: the suites alone 249s,
+the lint gate alone 27s. The v5.5.0 cut, at 6 lanes: the whole second gate leg 325s, never split into
+its two halves anywhere -- and one of the two runs that together are 652s of a 1,166s release, the 56%
+the issue reports. The makespan
 is set by check-plugin-integrity-docs.tests.ps1 at 247.5s, so the three embedded lint runs are not
 themselves on the critical path -- this is a coverage finding, not a second cost one.
 
@@ -83,8 +86,10 @@ Dave chose the mechanical repair over documenting the measurement alone.
 The release-notes commit no longer pays for the test gate it cannot use. open-pr.ps1 -GatesOnly
 -NoteTreeOnly asks whether every path differing from HEAD sits inside the release-note tree the
 third direct-on-main exception already bounds that commit to, and only where that is PROVEN does it
-skip the suites -- the lint gate runs either way. Measured on the v5.5.0 cut: 325s of test gate
-beside 27s of lint, over one hand-written markdown file, 56% of a 19-minute release.
+skip the suites -- the lint gate runs either way. On the v5.5.0 cut that second gate leg cost 325s
+over one hand-written markdown file: one of the two runs that together are 652s of a 1,166s release, 56%
+of it spent on the same 114 suites twice. What the switch leaves standing is the lint half, 27s here
+against 249s for the suites; the cut never split its own 325s, so neither figure is credited to it.
 
 The skip is a deduction rather than a favour because the suites have no coverage of that tree to lose.
 Moving the whole release tree aside and running all 114 turned four red: one on an existence assert over

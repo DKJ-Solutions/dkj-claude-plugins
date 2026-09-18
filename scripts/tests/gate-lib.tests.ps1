@@ -865,6 +865,16 @@ try {
     Assert-True ($gateSrc -match 'if \(-not \$gateNoteTree\.Proven\) \{') 'the not-proven case has its own printed refusal'
     Assert-True ($gateSrc -match 'Running every suite, exactly as without the switch') 'which states that the fallback is unchanged behaviour'
 
+    # AND IT IS ONLY SAID WHERE THE SUITES ACTUALLY RUN. Both cheaper skips above it -- the evidence
+    # record and the CI certificate -- skip for reasons of their own, so a refusal printed ahead of them
+    # puts 'running every suite' and 'skipped' on two adjacent lines and contradicts itself. The
+    # behaviour was right either way; the transcript was not, and this file's bar is that what a gate
+    # prints IS the argument. The same gating is what keeps the git call off the cheap path.
+    Assert-True ($gateSrc -match '\$NoteTreeOnly -and -not \$gateTestsProved -and -not \$TestsProvedByCi') `
+        'the verdict is measured only where neither cheaper skip already applies -- so the refusal cannot contradict them'
+    Assert-Equal 2 ([regex]::Matches($gatesFuncBody, 'Test-GateEvidence').Count) `
+        'and hoisting the tests consult into a variable kept it at one per gate, not two for the test half'
+
     # AND open-pr WIRES IT AT THE -GatesOnly SITE ONLY, naming it on the PR path rather than letting it
     # do nothing quietly -- the failure class that script already refuses to tolerate for its own flags.
     Assert-Equal 1 ([regex]::Matches($openPr, '-NoteTreeOnly:\$NoteTreeOnly').Count) 'open-pr forwards -NoteTreeOnly at exactly one call site'

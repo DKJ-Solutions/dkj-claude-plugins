@@ -699,8 +699,8 @@ function Get-NoteTreeOnlyVerdict {
         came back clean, so every failure mode lands on $false and the caller runs the gate it always ran.
 
         WHY THE DEDUCTION IS SOUND, MEASURED RATHER THAN ASSUMED (issue #2102, September 18, 2026). The
-        whole of dkj-policy/releases/ was moved aside and all 114 suites run against the result. Four went
-        red, and none of the four reads a release note:
+        whole of dkj-policy/releases/ was moved aside and all 114 suites were run against the result. Four
+        went red, and none of the four reads a release note:
 
           - repo-config.tests.ps1 fails one EXISTENCE assert over the path set Get-MojibakePaths returns
             ('reaches the archived release notes'). It reads the list, never a file in it, and a cut only
@@ -713,7 +713,13 @@ function Get-NoteTreeOnlyVerdict {
         not already providing in the same run. That is the inversion worth stating plainly: lint-only here
         is not an APPROXIMATION of the test gate's answer, it is that answer.
 
-        Cost on the v5.5.0 cut: 325s of test gate against 27s of lint, over one hand-written markdown file.
+        WHAT IT COSTS, WITH EACH FIGURE CREDITED TO THE RUN THAT PRODUCED IT. On the v5.5.0 cut, the
+        second gate leg -- the gates run again from the trunk, over one hand-written markdown file -- cost
+        325s. It is one of the two runs that together are 652s of that 1,166s release: 56% of it spent on
+        the same 114 suites twice, which is what #2102 was filed about. What this switch leaves standing is
+        the LINT half, and that half was measured here rather than there: 27s, against 249s for the suites
+        at 30 lanes, on the machine that filed the issue. The cut's own 325s is not broken down into the
+        two halves anywhere, so no lint figure is attributed to it.
 
         IT PROVES, IT DOES NOT FILTER, and the difference is the reason this shape was built rather than a
         path predicate. A filter decides what to run FROM the paths and is silent when its pattern is
@@ -725,8 +731,9 @@ function Get-NoteTreeOnlyVerdict {
 
         A CLEAN TREE IS NOT PROVEN, which looks backwards and is not. The claim being made is about what
         CHANGED; with nothing changed there is no note-tree change to reason from, and the run would be
-        deducing a gate away on the strength of an empty set. The tree that is genuinely unchanged is
-        Test-GateEvidence's subject one branch up, and it is free -- so nothing is lost by refusing here.
+        deducing a gate away on the strength of an empty set. The genuinely unchanged tree is already
+        Test-GateEvidence's subject, consulted ahead of this and costing a file read -- so nothing is lost
+        by refusing here.
 
         A RENAME IS JUDGED ON BOTH HALVES. Porcelain reports 'old -> new', and a note dragged OUT of the
         tree changes a path the suites might read even though the surviving path is inside -- so From is
@@ -735,6 +742,17 @@ function Get-NoteTreeOnlyVerdict {
         PATH MATCHING IS ORDINAL, case and all, because the wrong direction here is silent. Git reports
         the on-disk spelling; a root whose case has drifted from it simply fails to match and the run
         gates for real, which is the harmless half of being wrong.
+
+        WHAT IT TRUSTS, STATED SO A LATER READER DOES NOT HAVE TO DERIVE IT. The roots are taken at face
+        value as exactly the release-note tree and nothing more, so widening Get-ReleaseNoteRoot or
+        Get-ReleaseInternalNotesRoot widens what this can be asked to skip over -- pointed at a repo's
+        whole workflow folder rather than at its note tree, it would prove a deduction nobody measured.
+        That is the same trust Get-LintScript and -TestsProvedByCi already carry and it is not new here,
+        but those two seams are now load-bearing for a gate as well as for a directory, which is worth a
+        reviewer's eye on any change to them. Every malformed answer fails SAFE rather than open -- '',
+        '/', '.', '..' and an absolute path each match nothing a git-relative path can be, so the run
+        gates for real -- so what is left is the deliberate widening, which no check can tell from a
+        deliberate move.
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
@@ -1018,13 +1036,23 @@ function Invoke-WorkflowGates {
         # all PowerShell names the rest in the optional Get-TestCommands (repo-config); Invoke-TestSuiteGate
         # reads it itself, so every call site stays identical (inbound #644).
         if (-not $SkipTests) {
-            # THE NOTE-TREE VERDICT, MEASURED ONCE AND BEFORE THE CHAIN (issue #2102). Computed here rather
-            # than inside the branch that consumes it so the REFUSAL has somewhere to be said: a run that
-            # asked for the deduction and did not get it has to learn which of the five reasons it was,
-            # and a verdict computed inside its own success branch can only ever report the success.
-            # $null when nothing asked, which every branch below reads as "not applicable".
+            # THE NOTE-TREE VERDICT, MEASURED BEFORE THE CHAIN AND ONLY WHERE IT CAN DECIDE ANYTHING
+            # (issue #2102). Computed here rather than inside the branch that consumes it so the REFUSAL
+            # has somewhere to be said: a run that asked for the deduction and did not get it has to learn
+            # which of the five reasons it was, and a verdict computed inside its own success branch can
+            # only ever report the success.
+            #
+            # GATED ON THE TWO CHEAPER SKIPS, which is not an optimisation but the refusal's own honesty.
+            # Both of them skip the suites for reasons of their own, so a run that prints "NOT proven --
+            # running every suite" and is then told "already proved against this exact tree -- skipped"
+            # has contradicted itself on two adjacent lines. The behaviour was right either way; what was
+            # wrong was the transcript, and this file's own bar is that what it prints IS the argument.
+            # So the refusal is only ever said where the suites are actually about to run -- and the git
+            # call it costs is only ever spent there too. $null when nothing asked or nothing to decide,
+            # which every branch below reads as "not applicable".
+            $gateTestsProved = Test-GateEvidence -RepoRoot $RepoRoot -Gate 'tests' -Fingerprint $gateFingerprint
             $gateNoteTree = $null
-            if ($NoteTreeOnly) {
+            if ($NoteTreeOnly -and -not $gateTestsProved -and -not $TestsProvedByCi) {
                 $gateNoteTree = Get-NoteTreeOnlyVerdict -RepoRoot $RepoRoot -NoteRoots (Get-ReleaseNoteTreeRoots -RepoRoot $RepoRoot)
                 if (-not $gateNoteTree.Proven) {
                     Write-Host ("test gate: -NoteTreeOnly was asked for and is NOT proven -- {0}. Running every suite, exactly as without the switch." -f $gateNoteTree.Reason) -ForegroundColor Yellow
@@ -1037,7 +1065,7 @@ function Invoke-WorkflowGates {
                 }
             }
 
-            if (Test-GateEvidence -RepoRoot $RepoRoot -Gate 'tests' -Fingerprint $gateFingerprint) {
+            if ($gateTestsProved) {
                 Write-Host "test gate: all suites already proved against this exact tree -- skipped." -ForegroundColor DarkGray
             } elseif ($TestsProvedByCi) {
                 # THE CI CERTIFICATE, CONSULTED AFTER THE LOCAL RECORD AND BEFORE THE RUN (issue #1715).
