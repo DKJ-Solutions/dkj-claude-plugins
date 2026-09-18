@@ -43,7 +43,58 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 22 minor entries** <!-- pending-tally -->
+**19 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2068-park-cycle-unknown-exit-code · 20260918-051605
+
+`park-cycle.ps1`'s PR check no longer reports an exit code it could not read as a `gh` it could not
+ask. That call always takes the `-Utf8`/`Start-Process` arm -- `-TimeoutSeconds` is never 0 there --
+and that is the one arm where `.ExitCode` comes back as literal `$null` after a **clean** exit (#1931).
+`$null -ne 0` is `$true`, so the fail-safe fired and told the reader `gh` could not be asked, while
+`gh` had answered and its answer was sitting in `Output`.
+
+On that state alone the check now **re-asks once**, gated on the same network budget as every other
+call in the hook. That is not the retry #1931 declined: that one re-read a single handle inside 200ms
+and still left 7 of 240 unresolved, where this is a fresh child and an independent draw. It belongs at
+the call site rather than in the lib for the reason the lib cannot act on -- `gh pr list` is read-only
+and safe to repeat, and the lib cannot know that of a command in general. If the re-ask comes back
+unreadable too, the refusal fires exactly as before -- with a wording that says which of **four**
+states it is in, where there were two. Four rather than three because the re-ask is budget-gated: an
+unreadable code asked once and one asked twice are different facts about the run, and only a flag set
+inside the retry can tell them apart afterwards. The fail-safe direction is unchanged: an unknown
+answer still does not push.
+
+`.claude/rules/language-layers.md` now also names the direction it was missing. It stated that a suite
+**green under the gate and red standalone** reports a real defect; the converse -- red under the gate,
+green alone -- is the commoner event and the opposite verdict, and it was recorded only inside
+`Invoke-TestSuiteGate`'s docstring (#1033, with #1723's crash/verdict split beside it).
+
+**This does not claim to close #2068, and that issue stays open.** A repro harness built for it came
+back **0 of 600 at 16 lanes** where #1931 measured 2.8%, with the instrument validated at 40 of 40
+against a shim exiting 1. The mechanism fits the reported symptom exactly and is the only one measured
+in this tree; its rate is environment-dependent, and a light probe is not a loaded gate. What
+is repaired here is repaired because it is wrong on its own terms.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`park-cycle.ps1` ships in `dkj-policy` and runs as a consumer's `cycle-autopark` Stop hook, so this
+sentence is one a consumer reads on their own machine with none of this tree's context. Sent to check a
+`gh` that was working, they find nothing wrong and learn to distrust the note -- on the one hook whose
+whole job is to get unattended work onto origin before a session ends.
+
+**Score:** 2
+
+#### Pull Request
+
+park-cycle reports an unreadable exit code as itself
+
+Plugins: dkj-policy
+
+[PR #2082](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2082)
+
+---
 
 ### DEPLOY: fix/2052-handover-control-pinned-to-live · 20260918-043046
 
