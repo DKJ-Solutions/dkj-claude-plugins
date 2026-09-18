@@ -148,6 +148,7 @@
     Default 30, which is the production answer; the parameter exists so this hook's own suite can
     raise it, and so a scenario can lower it to force the degraded branch. See the param block.
 #>
+[CmdletBinding()]
 param(
     [string]$WorkshopPathOverride = '',
     [switch]$SkipDrift,

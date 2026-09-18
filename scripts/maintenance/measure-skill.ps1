@@ -117,6 +117,7 @@
 .EXAMPLE
     ./scripts/maintenance/measure-skill.ps1 -IncludeSpeed -Runs 5 -OutFile report.md
 #>
+[CmdletBinding()]
 param(
     [string[]]$Plugin,
     [string[]]$Skill,

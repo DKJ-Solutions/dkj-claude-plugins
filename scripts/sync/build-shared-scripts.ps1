@@ -19,6 +19,7 @@
 .EXAMPLE
     ./scripts/sync/build-shared-scripts.ps1 -Check
 #>
+[CmdletBinding()]
 param([switch]$Check)
 
 Set-StrictMode -Version Latest

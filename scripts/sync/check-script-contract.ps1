@@ -145,6 +145,7 @@
 .EXAMPLE
     .\scripts\sync\check-script-contract.ps1
 #>
+[CmdletBinding()]
 param(
     [string]$ConsumerPathOverride = '',
     [switch]$SkipReachability

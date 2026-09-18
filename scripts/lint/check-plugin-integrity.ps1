@@ -447,6 +447,7 @@
 .EXAMPLE
     ./scripts/lint/check-plugin-integrity.ps1
 #>
+[CmdletBinding()]
 param([string[]]$SkipCheck = @())
 
 Set-StrictMode -Version Latest

@@ -135,6 +135,7 @@
 .EXAMPLE
     .\scripts\sync\check-roster-sync.ps1
 #>
+[CmdletBinding()]
 param(
     [string]$ConsumerPathOverride = '',
     [string]$CacheRootOverride = '',

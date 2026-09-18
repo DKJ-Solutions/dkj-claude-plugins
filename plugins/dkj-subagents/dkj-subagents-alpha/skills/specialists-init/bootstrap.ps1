@@ -65,6 +65,7 @@
 .EXAMPLE
     powershell -File bootstrap.ps1 -ConsumerRoot C:\path\to\my-repo
 #>
+[CmdletBinding()]
 param(
     [string]$ConsumerRoot = (Get-Location).Path
 )

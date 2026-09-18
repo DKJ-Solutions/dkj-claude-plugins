@@ -35,6 +35,7 @@
 .PARAMETER ConsumerPathOverride
     (Optional, for tests) Passed through to check-script-contract.ps1 as the repo-root to inspect.
 #>
+[CmdletBinding()]
 param(
     [string]$CheckScriptOverride = '',
     [string]$ConsumerPathOverride = ''

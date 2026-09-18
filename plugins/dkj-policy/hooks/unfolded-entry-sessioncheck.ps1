@@ -43,6 +43,7 @@
     (Optional, for tests) Passed through to check-unfolded-entry.ps1 as -RootOverride, the repo root
     to inspect.
 #>
+[CmdletBinding()]
 param(
     [string]$CheckScriptOverride = '',
     [string]$ConsumerPathOverride = ''

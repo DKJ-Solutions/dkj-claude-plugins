@@ -52,6 +52,7 @@
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/skills/sync-roster/sync-roster.ps1"
 #>
+[CmdletBinding()]
 param(
     [string]$ConsumerPathOverride = '',
     [string]$CacheRootOverride = '',

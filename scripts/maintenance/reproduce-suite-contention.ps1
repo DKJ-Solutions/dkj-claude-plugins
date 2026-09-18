@@ -60,6 +60,7 @@
 .NOTES
     Pure ASCII, English -- repo convention for .ps1 (.claude/rules/language-layers.md).
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Suite,
     [int]$Repeat = 5,

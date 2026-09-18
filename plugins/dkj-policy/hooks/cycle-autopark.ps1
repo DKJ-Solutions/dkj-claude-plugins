@@ -99,6 +99,7 @@
 .PARAMETER RepoRootOverride
     (Optional, for tests) Passed through to park-cycle.ps1 as the tree to act on.
 #>
+[CmdletBinding()]
 param(
     [string]$ScriptOverride = '',
     [string]$RepoRootOverride = ''

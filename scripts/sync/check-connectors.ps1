@@ -154,6 +154,7 @@
 .EXAMPLE
     .\scripts\sync\check-connectors.ps1 -RemoteRunners
 #>
+[CmdletBinding()]
 param(
     [string]$Manifest = '',
     [string]$ConsumerPathOverride = '',

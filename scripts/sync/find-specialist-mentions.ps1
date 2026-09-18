@@ -59,6 +59,7 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync/find-specialist-mentions.ps1 -Name Tessa
     # every live mention of Tessa, grouped by layer, with file:line
 #>
+[CmdletBinding()]
 param(
     [string]$Name = '',
     [switch]$IncludeHistory
