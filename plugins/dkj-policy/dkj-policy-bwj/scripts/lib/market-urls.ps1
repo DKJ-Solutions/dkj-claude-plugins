@@ -333,6 +333,40 @@ function Get-MarketPreviewUrls {
     return @($out)
 }
 
+function Get-ControlThemeId {
+    <#
+        The theme id a CONTROL url must name -- the store's live theme.
+
+        -LiveThemeId wins where a caller holds one; otherwise this reads the consuming repo's own
+        Get-ShopifyLiveThemeId, which is the seam dkj-subagents-shopify's live-theme guard already
+        reads, so a store that republishes under a new id keeps ONE place to correct. The seam probe
+        is the inline GetCommands expression for the reason written out in Get-MarketTable.
+
+        IT THROWS RATHER THAN FALLING BACK, and that is the whole point of it. The bare URL is a
+        syntactically perfect control that renders the PREVIEW theme on any domain where the preview
+        link was opened first -- so a fallback would reproduce, silently, the exact defect this
+        function exists to close (issue #2052).
+    #>
+    param([string]$LiveThemeId = '')
+
+    if ($LiveThemeId) { return $LiveThemeId }
+
+    if (-not [bool](@($ExecutionContext.InvokeCommand.GetCommands('Get-ShopifyLiveThemeId', 'Function', $false)).Count)) {
+        throw ("market-urls: no live theme id, so no control URL can be built. Either pass " +
+               "-LiveThemeId, or add Get-ShopifyLiveThemeId to scripts/repo-config.ps1 -- the same " +
+               "seam dkj-subagents-shopify's live-theme guard reads. A control without it would be " +
+               "the bare URL, which renders the PREVIEW theme once the preview link has been opened " +
+               "on that domain.")
+    }
+
+    $id = [string](Get-ShopifyLiveThemeId)
+    if (-not $id) {
+        throw ("market-urls: Get-ShopifyLiveThemeId answered nothing. A control URL names the live " +
+               "theme explicitly; there is no safe default for it.")
+    }
+    return $id
+}
+
 function Get-MarketHandoverPairs {
     <# Per market and per path, the PREVIEW url beside the LIVE one.
 
@@ -342,18 +376,30 @@ function Get-MarketHandoverPairs {
        recollection. Neither store could build that from its own copy: smartwatchbanden's produced
        preview URLs only, and both left the pairing to whoever was writing the handover page. This is
        the smallest expression of what that chapter asks for, and it is the input a handover page
-       takes. #>
+       takes.
+
+       THE CONTROL HALF NAMES THE LIVE THEME ID, and this function got that wrong until issue #2052.
+       It returned the bare storefront URL -- precisely the form that chapter spends a measured table
+       ruling out, because preview_theme_id sets a per-domain COOKIE and the bare URL keeps rendering
+       the preview once the preview link has been opened. Both tabs then agree and the reviewer
+       concludes the change is not visible. The docstring above is why that mattered more than an
+       ordinary mismatch: this function is named as the answer to the recollection problem, so a
+       consumer trusting it got the half the chapter proves. #>
     param(
         [Parameter(Mandatory = $true)][string]$ThemeId,
         [string[]]$Path = @('/'),
-        [object[]]$Markets = $null
+        [object[]]$Markets = $null,
+        [string]$LiveThemeId = ''
     )
+    # Resolved ONCE, before the loop, so a store with no seam fails on the first call rather than
+    # per market -- and so the throw lands before any half-built pair is handed back.
+    $liveId = Get-ControlThemeId -LiveThemeId $LiveThemeId
     $out = foreach ($row in (Get-MarketUrls -Path $Path -Markets $Markets)) {
         [pscustomobject]@{
             Market     = $row.Market
             Path       = $row.Path
             PreviewUrl = Add-PreviewQuery -Url $row.Url -ThemeId $ThemeId
-            LiveUrl    = $row.Url
+            LiveUrl    = Add-PreviewQuery -Url $row.Url -ThemeId $liveId
         }
     }
     return @($out)
