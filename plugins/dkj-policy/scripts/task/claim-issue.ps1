@@ -437,6 +437,17 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                         AuthorEpoch = $commit.AuthorEpoch
                         Subject     = (Format-ForConsole -Text $commit.Subject)
                         Branches    = @($branches | ForEach-Object { Format-ForConsole -Text $_ })
+                        # THE SAME NAMES AS GIT SPELLS THEM, carried BESIDE the stripped copies rather
+                        # than instead of them (#2075). Branches is what the report prints and stays
+                        # stripped; GitBranches is what the sixth signal ASKS GIT ABOUT -- `rev-list
+                        # --count` and `ls-tree` -- and Format-ForConsole replaces each stripped
+                        # character with a SPACE, so a stripped name is a ref git does not have. Both
+                        # of those calls pass -DiscardStderr and are guarded on their exit code, so the
+                        # scan reported no dependency without printing or erroring: indistinguishable
+                        # from there being none, and only ever in the adversarial case the strip exists
+                        # for. Same seam the weighing loop below already draws for itself, where Branch
+                        # is stripped into the printed record and $branch is not.
+                        GitBranches = @($branches)
                     }
                 }
 
@@ -455,8 +466,12 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                 if (Get-ForeignParkedCommit -Findings $findings -SelfNames $selfNames) { $foreignParked = $true }
                 # The same records the report prints from, so the sixth signal weighs exactly what the
                 # reader was just pointed at -- a finding whose branches were all excluded is already gone.
+                # OFF GitBranches AND NOT Branches (#2075): same records, one field over. The sixth
+                # signal QUERIES these names rather than printing them, so it needs the spelling git
+                # has; "the records the report prints from" was right about WHICH records and wrong
+                # about which field of them.
                 foreach ($f in $findings) {
-                    foreach ($b in @(@($f.Branches) | Where-Object { $_ })) { $surfacedBranches.Add([string]$b) | Out-Null }
+                    foreach ($b in @(@($f.GitBranches) | Where-Object { $_ })) { $surfacedBranches.Add([string]$b) | Out-Null }
                 }
             }
         }
