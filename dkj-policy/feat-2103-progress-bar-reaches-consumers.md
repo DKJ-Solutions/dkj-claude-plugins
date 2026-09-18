@@ -96,6 +96,14 @@ permanently. Three answers were put to Dave with their failure modes; he chose t
       too, after the reviewer had already found the same omission by eye. A second assert now holds the
       count against the body actually carrying that part, so the number and the thing it counts cannot
       drift apart in the other direction.
+- [x] Two more the full gate found, both about `show-progress.ps1` being registered as an ordinary
+      entry point when it is not one -- the harness runs it on a clock, like a hook. They are answered
+      differently on purpose. The **dual-context** invariant is satisfied rather than exempted:
+      `$env:CLAUDE_PROJECT_DIR` joins the context line's fallback chain, which costs no subprocess and
+      repairs a real defect -- `..\..` means the repo root here and the PLUGIN root in the mirror, so a
+      consumer's context line named the plugin's own directory. The **source-repo guard** is exempted,
+      categorically and with the argument written at the exemption: this file never throws and always
+      exits 0, so wiring in something that CAN refuse is the one change it exists to make impossible.
 - [x] The full gate's first run reported 44 of 116 suites failing. ONE was real -- the pin above. The
       rest were the run: `new-branch` (302 asserts) and `worktree-lane` (39) are green standalone, and
       the gate had 30 lanes on a machine that had just finished four review subagents and a 200-

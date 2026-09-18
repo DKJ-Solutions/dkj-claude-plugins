@@ -88,6 +88,17 @@ try {
             if ($session.workspace -and $session.workspace.current_dir) { $dir = "$($session.workspace.current_dir)" }
         }
     }
+    # THE FALLBACK CHAIN, AND THE MIDDLE LINK IS THE ONE THAT MATTERS IN A CONSUMER. The payload
+    # normally carries workspace.current_dir and nothing below this runs. Where it does not -- somebody
+    # running this by hand, a payload that did not parse -- $env:CLAUDE_PROJECT_DIR is the dual-context
+    # answer every shared script resolves its root by, and reading an environment variable costs no
+    # subprocess, which is the one thing this file may not spend.
+    #
+    # WITHOUT IT THE LAST LINK IS WRONG IN THE MIRROR, silently: '..\..' is the repo root from this
+    # copy and the PLUGIN root from the mirror a consumer runs, so the context line would name the
+    # plugin's own directory as the workspace. Byte-identical copies, different answers -- the exact
+    # class MirrorRun is declared for on this entry.
+    if (-not $dir -and $env:CLAUDE_PROJECT_DIR) { $dir = $env:CLAUDE_PROJECT_DIR }
     if (-not $dir) { $dir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 
     $branch = ''
