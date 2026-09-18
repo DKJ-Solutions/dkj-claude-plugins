@@ -262,21 +262,55 @@ $probeOut = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $probeFile 2
 Assert-True ($probeOut -contains 'PUBLISHED') 'native-capture-lib: Publish-GateProgress writes the gate record'
 Assert-True ($probeOut -contains 'CLEARED')   'native-capture-lib: Clear-GateProgress removes it again'
 
-# THE MIRRORS MUST NOT CARRY A DOT-SOURCE THEY CANNOT RESOLVE -- and they do not, because the guard is
-# a Test-Path. Asserted here rather than left to the drift lint, which proves the files are identical
-# and says nothing about whether the shared line is SAFE in the place it was copied to.
+# THE MIRRORS NOW RESOLVE THAT DOT-SOURCE -- issue #2103, and this block is the inversion of what it
+# asserted under #2101. Then, run-progress-lib.ps1 was deliberately unmirrored, the Test-Path failed in
+# a consumer, $script:RunProgressAvailable stayed $false and the gate behaved exactly as it had. That
+# was the design's parked state, not its destination: registering the lib as a shared pair is what
+# turns the guard's false arm into its true one, in every consumer, without editing native-capture-lib
+# again.
+#
+# ASSERTED HERE RATHER THAN LEFT TO THE DRIFT LINT, for the reason the old block gave and which did not
+# change with the direction: the lint proves the files are IDENTICAL and says nothing about whether the
+# shared line RESOLVES in the place it was copied to. A mirrored lib landing in the wrong plugin is
+# byte-perfect and still dead.
 foreach ($mirror in @(
         'plugins\dkj-policy\scripts\lib\native-capture-lib.ps1',
         'plugins\dkj-subagents\dkj-subagents-shopify\scripts\lib\native-capture-lib.ps1')) {
     $full = Join-Path $RepoRoot $mirror
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $full) 'run-progress-lib.ps1'))) `
-        "mirror: $mirror has no run-progress-lib beside it, so the guarded dot-source is the path that runs there"
+    Assert-True (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $full) 'run-progress-lib.ps1')) `
+        "mirror: $mirror has run-progress-lib beside it, so the guarded dot-source resolves there"
     $probe = Join-Path (New-Root 'mirror') 'probe.ps1'
     [System.IO.File]::WriteAllText($probe, ". '$full'`nWrite-Output `"AVAILABLE=`$(`$script:RunProgressAvailable)`"", (New-Object System.Text.UTF8Encoding($false)))
     $mirrorOut = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1 | ForEach-Object { "$_" })
-    Assert-True ($mirrorOut -contains 'AVAILABLE=False') `
-        "mirror: $mirror dot-sources cleanly and simply has no bar"
+    Assert-True ($mirrorOut -contains 'AVAILABLE=True') `
+        "mirror: $mirror dot-sources cleanly and publishes a bar"
 }
+
+# AND THE GUARD ITSELF STAYS, WHICH IS A SEPARATE CLAIM FROM THE TWO ABOVE. It is no longer the arm
+# that runs in the mirrors, and it is still the only thing that makes this file safe to dot-source in a
+# tree that has not received the lib yet -- a consumer mid-update, and every payload released before
+# this one. A Test-Path removed because "the file is always there now" is the sort of repair that is
+# correct on the day it is made and wrong at the next install.
+$captureSource = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'))
+Assert-True ($captureSource -match "Test-Path -LiteralPath \`$runProgressLib -PathType Leaf") `
+    'native-capture-lib: the dot-source is still GUARDED, so a payload without the lib still loads'
+
+# THE STATUSLINE ITSELF IS MIRRORED, AND IT RESOLVES THE LIB AS A '..\lib\' SIBLING -- the other half of
+# the pair. Registered separately, so this asserts they actually landed in the same plugin rather than
+# trusting that two rows in one registry imply one destination.
+$showMirror = Join-Path $RepoRoot 'plugins\dkj-policy\scripts\task\show-progress.ps1'
+Assert-True (Test-Path -LiteralPath $showMirror -PathType Leaf) `
+    'mirror: dkj-policy carries show-progress.ps1'
+Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\scripts\lib\run-progress-lib.ps1')) `
+    'mirror: dkj-policy carries run-progress-lib.ps1 at the ..\lib\ path show-progress.ps1 dot-sources'
+
+# AND IT RUNS FROM THE MIRROR'S OWN DEPTH, not merely compares byte-for-byte. show-progress.ps1 reaches
+# its lib through $PSScriptRoot, which is the one thing a content comparison cannot check -- the same
+# reasoning MirrorRun carries for the three entries that declare it.
+$mirrorRoot = New-Root 'showmirror'
+$mirrorOut = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $showMirror -Root $mirrorRoot -Payload '{}' 2>&1 | ForEach-Object { "$_" })
+Assert-True ($LASTEXITCODE -eq 0) 'mirror: show-progress.ps1 exits 0 when run from the plugin tree'
+Assert-True ($mirrorOut.Count -ge 1) 'mirror: show-progress.ps1 still prints its context line from the plugin tree'
 
 # --- teardown ------------------------------------------------------------------------------------
 foreach ($tree in $script:trees) {
