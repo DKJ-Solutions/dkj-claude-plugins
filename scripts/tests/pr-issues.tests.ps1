@@ -69,6 +69,193 @@ function Assert-NameSet {
     Assert-Equal $e $a $Name
 }
 
+# --- WHERE IN A SCRIPT? Every ordering assert here is REGION-SCOPED (issues #2090, #2091) ----------
+# This suite pins the ORDER of things inside two scripts it cannot run -- ship-pr.ps1 and open-pr.ps1 --
+# by locating a needle in the source text and comparing indices. Every such read used to be a whole-file
+# IndexOf, which finds the FIRST occurrence anywhere in the file. So an assert could silently pin
+# something other than the call site it names, and it fails in both directions: red while nothing it was
+# about had moved, or -- worse -- green on a comment or a definition after the call site it meant to pin
+# had been deleted.
+#
+# Both directions are measured, in both scripts:
+#
+#   ship-pr.ps1 (#2090, September 17, 2026). Found red: #2087, four asserts pointing at two newly added
+#     helper functions instead of at step 3. Counted off the AST when it was repaired: the 45 reads used
+#     39 distinct needles, EIGHT of which already matched in more than one place, and ELEVEN of the reads
+#     used one of those eight. Two resolved to PROSE -- 'Get-MergeBlockVerdict' to a comment 121 lines
+#     above its first call, and 'Get-MissingCheckSuiteNote' to a docstring line under .PARAMETER Mergeable.
+#   open-pr.ps1 (#2091, September 17, 2026). Of the 13 needles its reads used, three matched in more than
+#     one place -- 'if ($existingPr) {' three times, 'if ($RefreshBody) {' and 'Invoke-WorkflowGates
+#     -RepoRoot' twice each -- and ONE was already pinning the wrong block: the #919 body-ordering assert
+#     anchored on 'if ($existingPr) {' and resolved to the -Title warning, 1188 lines above the
+#     existing-PR path it is about. Both of its asserts passed on that anchor.
+#
+# Get-SourceIdx closes both directions and is the ONLY way this suite locates anything in either script:
+#
+#   -Source the registered script to read. Register-SourceScript supplies its text AND its own opener
+#           pattern, because the two scripts are not built the same way (see below) -- that pattern is
+#           the whole of what had to generalise, and is why this is one helper rather than two.
+#   -In     the region to search. A region runs from one opener to the next -- boundaries that move WITH
+#           the script rather than with a line number, and the reason a new helper above a step can no
+#           longer reach that step's asserts. Omit -In only for something genuinely file-wide, such as a
+#           banner. NOTE a region is named after what OPENS it, not after everything in it: open-pr's
+#           push and gate run at the tail of the region the remote-ahead gate opens.
+#   -Code   skip a match that falls on a comment line or inside a <# #> block. This is what turns
+#           "the text appears here" back into "the call sits here"; leave it off where the needle IS
+#           prose, such as a banner or an ALL-CAPS comment marking a block.
+#   -Last   the last match in the region instead of the first (the #1350 re-entry needs it).
+#   -From   start no earlier than this absolute index, for a sequence pinned INSIDE one region. A
+#           NEGATIVE one is refused rather than ignored: -1 is what a failed lookup hands back, and
+#           quietly searching the whole region instead would answer a question nobody asked. Use it
+#           SPARINGLY, and never as the anchor of a `-gt` assert against the same index -- a search that
+#           starts at X can only return something greater than X, so that compare proves nothing. Where
+#           the region already isolates the match, the region is the anchor and the compare stays real.
+#   -Optional  a PROBE rather than an assertion: a miss returns -1 quietly, for the one read below
+#           that legitimately tries two line endings and expects one of them to fail.
+#
+# A needle it cannot find is a FAILURE of this suite, named, rather than a silent -1 -- because -1
+# compares as "earlier than everything", so a `-lt` assert would read a deleted call site as a pass.
+$script:sourceScripts = @{}
+
+function Register-SourceScript {
+    <#
+        The opener pattern is a PER-SCRIPT argument because the two scripts divide themselves up
+        differently, and reading either one by the other's rule would be worse than not scoping at all:
+
+          ship-pr.ps1   top-level 'function' and '# --- Step ' banners. Its non-Step '# ---' sub-banners
+                        are deliberately NOT boundaries -- they divide the prose inside a step, not the
+                        steps themselves.
+          open-pr.ps1   has NO top-level functions and NO Step banners; its ten '# --- ' banners at
+                        column 0 ARE its top-level divisions, so there the plain banner is the boundary.
+                        'function' is kept in the pattern anyway, so that a top-level helper added later
+                        opens a region rather than silently joining the one above it.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$OpenPattern
+    )
+    $script:sourceScripts[$Name] = [pscustomobject]@{
+        Text = $Text; OpenPattern = $OpenPattern; Regions = $null; Prose = $null
+    }
+}
+
+function Get-SourceRegions {
+    param([Parameter(Mandatory = $true)]$Source)
+    if ($null -ne $Source.Regions) { return $Source.Regions }
+    $opens = [regex]::Matches($Source.Text, $Source.OpenPattern)
+    $regions = @()
+    for ($i = 0; $i -lt $opens.Count; $i++) {
+        $end = if ($i + 1 -lt $opens.Count) { $opens[$i + 1].Index } else { $Source.Text.Length }
+        $regions += [pscustomobject]@{ Line = $opens[$i].Value; Start = $opens[$i].Index; End = $end }
+    }
+    $Source.Regions = $regions
+    return $regions
+}
+
+function Get-SourceProseMap {
+    <#
+        One bool per character: is this position inside a comment? Both shapes count -- a line whose
+        first non-blank character is '#', and a BLOCK comment (the docstring form), which is where the
+        .PARAMETER line #2090 found had been hiding. A map rather than a range list so a lookup is
+        O(1); ship-pr.ps1 is 262 KB and open-pr.ps1 166 KB (measured September 18, 2026), so the
+        arrays cost nothing worth measuring. Built per source and cached, so a suite reading both
+        pays for each once.
+    #>
+    param([Parameter(Mandatory = $true)]$Source)
+    if ($null -ne $Source.Prose) { return $Source.Prose }
+    $map = New-Object 'bool[]' $Source.Text.Length
+    foreach ($pattern in @('(?s)<#.*?#>', '(?m)^[ \t]*#.*$')) {
+        foreach ($m in [regex]::Matches($Source.Text, $pattern)) {
+            for ($i = $m.Index; $i -lt $m.Index + $m.Length; $i++) { $map[$i] = $true }
+        }
+    }
+    $Source.Prose = $map
+    return $map
+}
+
+function Get-SourceIdx {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Needle,
+        [string]$In = '',
+        [int]$From = -1,
+        [switch]$Code,
+        [switch]$Last,
+        [switch]$Optional
+    )
+    $src = $script:sourceScripts[$Source]
+    if (-not $src) {
+        $script:fail++
+        Write-Host "  [FAIL] no source script is registered as '$Source' -- the assert below cannot be placed" -ForegroundColor Red
+        return -1
+    }
+    $start = 0
+    $end   = $src.Text.Length
+    $where = $Source
+    if ($In) {
+        $region = @(Get-SourceRegions -Source $src | Where-Object { $_.Line -like "*$In*" })[0]
+        if (-not $region) {
+            $script:fail++
+            Write-Host "  [FAIL] $Source has no region opening with '$In' -- the assert below cannot be placed" -ForegroundColor Red
+            return -1
+        }
+        $start = $region.Start; $end = $region.End; $where = "$Source / $In"
+    }
+    # The anchor a caller chains in may itself be a miss. Searching the region unanchored would then
+    # answer a different question and could still "pass" a -lt comparison; the read that missed has
+    # already printed its own named [FAIL], so this one stops quietly.
+    if ($PSBoundParameters.ContainsKey('From') -and $From -lt 0) { return -1 }
+    if ($From -gt $start) { $start = $From }
+    $prose = if ($Code) { Get-SourceProseMap -Source $src } else { $null }
+    $hits = @()
+    $pos  = $start
+    while ($pos -lt $end) {
+        $i = $src.Text.IndexOf($Needle, $pos)
+        if ($i -lt 0 -or $i -ge $end) { break }
+        if (-not $Code -or -not $prose[$i]) { $hits += $i }
+        $pos = $i + 1
+    }
+    if ($hits.Count -eq 0) {
+        if (-not $Optional) {
+            $what = if ($Code) { "a CODE line with '$Needle'" } else { "'$Needle'" }
+            $script:fail++
+            Write-Host "  [FAIL] $where no longer holds $what" -ForegroundColor Red
+        }
+        return -1
+    }
+    if ($Last) { return $hits[$hits.Count - 1] }
+    return $hits[0]
+}
+
+# ONE THIN WRAPPER PER SCRIPT, so a call site names the script it reads and the 45 ship-pr reads below
+# keep the spelling they were written with. Splatting $PSBoundParameters is what carries -From's
+# "explicitly passed" bit through: the core distinguishes an omitted -From from a negative one, and a
+# wrapper that forwarded the DEFAULT would collapse that distinction into a silent whole-region search.
+function Get-ShipIdx {
+    param(
+        [Parameter(Mandatory = $true)][string]$Needle,
+        [string]$In = '',
+        [int]$From = -1,
+        [switch]$Code,
+        [switch]$Last,
+        [switch]$Optional
+    )
+    return (Get-SourceIdx -Source 'ship-pr.ps1' @PSBoundParameters)
+}
+
+function Get-OpenPrIdx {
+    param(
+        [Parameter(Mandatory = $true)][string]$Needle,
+        [string]$In = '',
+        [int]$From = -1,
+        [switch]$Code,
+        [switch]$Last,
+        [switch]$Optional
+    )
+    return (Get-SourceIdx -Source 'open-pr.ps1' @PSBoundParameters)
+}
+
 Write-Host "ConvertTo-IssueNumberList" -ForegroundColor Cyan
 # This function exists because `powershell -File` cannot bind an [int[]]: '332,340' arrives as one
 # string and casts to 332340, reading the comma as a THOUSANDS SEPARATOR -- silently, no error.
@@ -817,9 +1004,31 @@ Assert-Equal 1 ([regex]::Matches($newOrder, '(?m)^\s*Closes\s+#919\b').Count) 'e
 $openPrPath = Join-Path $PSScriptRoot '..\release\open-pr.ps1'
 Assert-True (Test-Path -LiteralPath $openPrPath) 'open-pr.ps1 exists where this suite looks for it'
 $openPrText  = [System.IO.File]::ReadAllText((Resolve-Path $openPrPath).Path, [System.Text.Encoding]::UTF8)
-$idxExisting = $openPrText.IndexOf('if ($existingPr) {')
-$idxRefresh  = if ($idxExisting -ge 0) { $openPrText.IndexOf('if ($RefreshBody) {', $idxExisting) } else { -1 }
-$idxAppend   = if ($idxExisting -ge 0) { $openPrText.IndexOf('Add-ResolvesBlock -Body $newBody', $idxExisting) } else { -1 }
+# WHERE IN open-pr.ps1? Same machinery, same reasoning, and the reasoning is at the top of this file.
+# open-pr has no top-level functions and no Step banners, so its ten '# --- ' banners at column 0 are
+# its regions. Every positional read of this script below goes through Get-OpenPrIdx.
+Register-SourceScript -Name 'open-pr.ps1' -Text $openPrText -OpenPattern '(?m)^(?:#\s+---\s|function\s).*$'
+
+# THE HELPER'S OWN TWO PROPERTIES for this script, pinned against open-pr.ps1 itself for the same reason
+# the ship-pr pair below is: it reads one real script by design, and a fixture would only prove something
+# about the fixture. Both are the measured defect turned around -- if either goes red, every ordering
+# assert over open-pr.ps1 is reading the wrong occurrence again, and they will not say so themselves.
+Write-Host "pr-issues.tests.ps1 -- the open-pr lookups are region-scoped and code-only (#2091)" -ForegroundColor Cyan
+Assert-True ((Get-OpenPrIdx -Needle 'if ($existingPr) {' -In 'Already open' -Code) -gt (Get-OpenPrIdx -Needle 'if ($existingPr) {' -In 'Resolves gate' -Code)) `
+    'the same needle in two regions resolves to two different places -- the region is what decides which'
+Assert-True ((Get-OpenPrIdx -Needle 'Add-ResolvesBlock' -In 'Already open' -Code) -gt (Get-OpenPrIdx -Needle 'Add-ResolvesBlock' -In 'Already open')) `
+    '-Code walks past the two comments that merely mention the append and lands on the call'
+
+# THE #919 ORDER ITSELF. 'if ($existingPr) {' matches THREE times in open-pr.ps1 -- the -Title warning,
+# the resolves gate's body fold, and the existing-PR path this assert is about. Unscoped it resolved to
+# the first, 1188 lines above the block named here, and both asserts passed on that anchor (#2091).
+#
+# NO -From CHAINING HERE, deliberately: the region already isolates all three needles, and anchoring the
+# refresh search at $idxExisting would make `$idxRefresh -gt $idxExisting` true by construction. The
+# compare is the assertion, so it has to be made between two independently located indices.
+$idxExisting = Get-OpenPrIdx -Needle 'if ($existingPr) {'              -In 'Already open' -Code
+$idxRefresh  = Get-OpenPrIdx -Needle 'if ($RefreshBody) {'             -In 'Already open' -Code
+$idxAppend   = Get-OpenPrIdx -Needle 'Add-ResolvesBlock -Body $newBody' -In 'Already open' -Code
 Assert-True ($idxExisting -ge 0) 'the existing-PR path is still recognisable in open-pr.ps1'
 Assert-True ($idxRefresh -gt $idxExisting) 'the -RefreshBody block sits on the existing-PR path'
 Assert-True ($idxAppend -gt $idxRefresh)   'open-pr.ps1 appends the closing block AFTER the refresh, not before it (#919)'
@@ -1173,118 +1382,11 @@ $shipPrPath = Join-Path $PSScriptRoot '..\release\ship-pr.ps1'
 Assert-True (Test-Path -LiteralPath $shipPrPath) 'ship-pr.ps1 exists where this suite looks for it'
 $shipText = [System.IO.File]::ReadAllText((Resolve-Path $shipPrPath).Path, [System.Text.Encoding]::UTF8)
 
-# --- WHERE IN ship-pr.ps1? The ordering asserts below are REGION-SCOPED (issue #2090) -------------
-# Every assert in this file that pins ship-pr.ps1's ORDER used to locate its needle with a whole-file
-# IndexOf, which finds the FIRST occurrence anywhere. So a helper function defined ABOVE the step being
-# asserted about silently re-pointed the index at the definition instead of at the call -- and the
-# assert then went red while nothing it was about had moved, or, in the worse direction, stayed green
-# on a definition after the call site it meant to pin had been deleted. The red direction is how this
-# was found (#2087, four asserts red on two new functions); the green direction is what was measured
-# when it was repaired, September 17, 2026, counted off the AST rather than by grep: the 45 reads used
-# 39 distinct needles, EIGHT of which already matched in more than one place, and ELEVEN of the reads
-# used one of those eight. Two resolved to PROSE rather than to code -- 'Get-MergeBlockVerdict' to a
-# comment 121 lines above its first call, and 'Get-MissingCheckSuiteNote' to a docstring line under
-# .PARAMETER Mergeable. Both asserts were green about text, not about behaviour.
-#
-# Get-ShipIdx closes both directions and is the ONLY way this suite locates anything in ship-pr.ps1:
-#
-#   -In     the region to search. A region runs from a top-level 'function' or a '# --- Step ' banner
-#           to the next one of either -- the two boundaries that move WITH the script rather than with
-#           a line number, and the reason a new helper above step 3 can no longer reach step 3's
-#           asserts. The non-Step '# ---' sub-banners are deliberately NOT boundaries: they divide the
-#           prose inside a step, not the steps themselves. Omit -In only for something genuinely
-#           file-wide, such as a step banner.
-#   -Code   skip a match that falls on a comment line or inside a <# #> block. This is what turns
-#           "the text appears here" back into "the call sits here"; leave it off where the needle IS
-#           prose, such as a banner or an ALL-CAPS comment marking a block.
-#   -Last   the last match in the region instead of the first (the #1350 re-entry needs it).
-#   -From   start no earlier than this absolute index, for a sequence pinned INSIDE one region. A
-#           NEGATIVE one is refused rather than ignored: -1 is what a failed lookup hands back, and
-#           quietly searching the whole region instead would answer a question nobody asked.
-#   -Optional  a PROBE rather than an assertion: a miss returns -1 quietly, for the one read below
-#           that legitimately tries two line endings and expects one of them to fail.
-#
-# A needle it cannot find is a FAILURE of this suite, named, rather than a silent -1 -- because -1
-# compares as "earlier than everything", so a `-lt` assert would read a deleted call site as a pass.
-$script:shipRegions = $null
-$script:shipProse   = $null
-
-function Get-ShipRegions {
-    if ($null -ne $script:shipRegions) { return $script:shipRegions }
-    $opens = [regex]::Matches($script:shipText, '(?m)^(?:#\s+---\s+Step\s|function\s).*$')
-    $regions = @()
-    for ($i = 0; $i -lt $opens.Count; $i++) {
-        $end = if ($i + 1 -lt $opens.Count) { $opens[$i + 1].Index } else { $script:shipText.Length }
-        $regions += [pscustomobject]@{ Line = $opens[$i].Value; Start = $opens[$i].Index; End = $end }
-    }
-    $script:shipRegions = $regions
-    return $regions
-}
-
-function Get-ShipProseMap {
-    <#
-        One bool per character: is this position inside a comment? Both shapes count -- a line whose
-        first non-blank character is '#', and a BLOCK comment (the docstring form), which is where the
-        .PARAMETER line this repair found had been hiding. A map rather than a range list so a lookup
-        is O(1); ship-pr.ps1 is ~230 KB, so the array costs nothing worth measuring.
-    #>
-    if ($null -ne $script:shipProse) { return $script:shipProse }
-    $map = New-Object 'bool[]' $script:shipText.Length
-    foreach ($pattern in @('(?s)<#.*?#>', '(?m)^[ \t]*#.*$')) {
-        foreach ($m in [regex]::Matches($script:shipText, $pattern)) {
-            for ($i = $m.Index; $i -lt $m.Index + $m.Length; $i++) { $map[$i] = $true }
-        }
-    }
-    $script:shipProse = $map
-    return $map
-}
-
-function Get-ShipIdx {
-    param(
-        [Parameter(Mandatory = $true)][string]$Needle,
-        [string]$In = '',
-        [int]$From = -1,
-        [switch]$Code,
-        [switch]$Last,
-        [switch]$Optional
-    )
-    $start = 0
-    $end   = $script:shipText.Length
-    $where = 'ship-pr.ps1'
-    if ($In) {
-        $region = @(Get-ShipRegions | Where-Object { $_.Line -like "*$In*" })[0]
-        if (-not $region) {
-            $script:fail++
-            Write-Host "  [FAIL] ship-pr.ps1 has no region opening with '$In' -- the assert below cannot be placed" -ForegroundColor Red
-            return -1
-        }
-        $start = $region.Start; $end = $region.End; $where = "ship-pr.ps1 / $In"
-    }
-    # The anchor a caller chains in may itself be a miss. Searching the region unanchored would then
-    # answer a different question and could still "pass" a -lt comparison; the read that missed has
-    # already printed its own named [FAIL], so this one stops quietly.
-    if ($PSBoundParameters.ContainsKey('From') -and $From -lt 0) { return -1 }
-    if ($From -gt $start) { $start = $From }
-    $prose = if ($Code) { Get-ShipProseMap } else { $null }
-    $hits = @()
-    $pos  = $start
-    while ($pos -lt $end) {
-        $i = $script:shipText.IndexOf($Needle, $pos)
-        if ($i -lt 0 -or $i -ge $end) { break }
-        if (-not $Code -or -not $prose[$i]) { $hits += $i }
-        $pos = $i + 1
-    }
-    if ($hits.Count -eq 0) {
-        if (-not $Optional) {
-            $what = if ($Code) { "a CODE line with '$Needle'" } else { "'$Needle'" }
-            $script:fail++
-            Write-Host "  [FAIL] $where no longer holds $what" -ForegroundColor Red
-        }
-        return -1
-    }
-    if ($Last) { return $hits[$hits.Count - 1] }
-    return $hits[0]
-}
+# WHERE IN ship-pr.ps1? Every ordering assert below is region-scoped through Get-ShipIdx, and the whole
+# of why is at the top of this file, with Get-SourceIdx. ship-pr's regions are its top-level 'function'
+# definitions and its '# --- Step ' banners; its non-Step '# ---' sub-banners are deliberately NOT
+# boundaries, because they divide the prose inside a step rather than the steps themselves.
+Register-SourceScript -Name 'ship-pr.ps1' -Text $shipText -OpenPattern '(?m)^(?:#\s+---\s+Step\s|function\s).*$'
 
 # THE HELPER'S OWN TWO PROPERTIES, pinned against ship-pr.ps1 itself rather than against a fixture --
 # it reads one script by design, and a fixture would only prove something about the fixture. Both
@@ -2123,18 +2225,20 @@ Assert-True ($manyNote -notlike '*label-7*') 'so the refusal cannot become a wal
 # while the label is resolved one line before `gh pr create` again -- which IS the defect, not a
 # regression in the helper. Same reasoning as the #919 ordering assert above and the #1044 call-site one
 # below: the script is the one caller no suite gets to run.
-$idxLabelGate = $openPrText.IndexOf('Get-MissingLabelNote -Labels')
-$idxPush      = $openPrText.IndexOf("Invoke-NativeCapture -FilePath 'git' -Arguments @('push'")
-# LastIndexOf BEFORE the push, not IndexOf: -GatesOnly calls Invoke-WorkflowGates near the top of the
-# script and exits, so the first occurrence is not the one on the push path.
-$idxGates     = if ($idxPush -ge 0) { $openPrText.LastIndexOf('Invoke-WorkflowGates -RepoRoot', $idxPush) } else { -1 }
-$idxCreate    = $openPrText.IndexOf("@('pr', 'create'")
+$idxLabelGate = Get-OpenPrIdx -Needle 'Get-MissingLabelNote -Labels' -In 'LABEL GATE' -Code
+$idxPush      = Get-OpenPrIdx -Needle "Invoke-NativeCapture -FilePath 'git' -Arguments @('push'" -In 'Remote-ahead gate' -Code
+# THE REGION IS WHAT PICKS THE RIGHT GATE CALL, where a LastIndexOf(..., $idxPush) used to: -GatesOnly
+# calls Invoke-WorkflowGates near the top of the script and exits, so the first occurrence is not the one
+# on the push path. A region is named after what OPENS it, not after everything in it -- the push and the
+# gate both run at the tail of the region the remote-ahead gate opens, which is why they name it here.
+$idxGates     = Get-OpenPrIdx -Needle 'Invoke-WorkflowGates -RepoRoot' -In 'Remote-ahead gate' -Code
+$idxCreate    = Get-OpenPrIdx -Needle "@('pr', 'create'" -In 'Already open' -Code
 Assert-True ($idxLabelGate -ge 0) 'open-pr.ps1 asks whether the label exists (inbound #1221)'
 Assert-True ($idxPush -gt $idxLabelGate) 'and it asks BEFORE the push, which is the whole repair -- a failed create after the push leaves a pushed branch with no PR'
 Assert-True ($idxGates -gt $idxLabelGate) 'and before the lint and test gates, so the author hears it in seconds rather than after the suites'
 Assert-True ($idxCreate -gt $idxLabelGate) 'and the create still gets the label that was checked'
 Assert-True ($openPrText -like "*@('label', 'list', '--json', 'name', '--limit', '500'*") 'the query names --limit, because gh label list defaults to 30 and a truncated list would refuse a label that exists'
-$idxResolve = $openPrText.IndexOf('$label = $info.Label')
+$idxResolve = Get-OpenPrIdx -Needle '$label = $info.Label' -In 'LABEL GATE' -Code
 Assert-True ($idxResolve -ge 0 -and $idxResolve -lt $idxPush) 'the label is RESOLVED before the push too -- a check on a label resolved later would be checking nothing'
 Assert-True (([regex]::Matches($openPrText, '\$label = \$info\.Label')).Count -eq 1) 'and resolved in exactly one place, so the checked label and the sent label cannot differ'
 Assert-True ($openPrText -like '*if (-not $existingPr) {*') 'the gate is on the create path only -- an existing PR keeps its own labels and is never sent one'
@@ -2149,7 +2253,7 @@ Write-Host "open-pr.ps1 sends NO --label when the seam answers none (inbound #13
 #
 # TEXT ASSERTS, for the same reason the block above gives: the script is the one caller no suite gets to
 # run, and the helper being right is exactly what was already true when this failed.
-$idxCreateLine = $openPrText.IndexOf("@('pr', 'create'")
+$idxCreateLine = Get-OpenPrIdx -Needle "@('pr', 'create'" -In 'Already open' -Code
 $createLine    = if ($idxCreateLine -ge 0) { ($openPrText.Substring($idxCreateLine) -split "`n")[0] } else { '' }
 Assert-True ($createLine -notlike '*--label'', $label*') 'the create no longer interpolates the label into its fixed argument list -- an empty answer became `--label ''''`, a label gh cannot find'
 Assert-True ($createLine -like '*+ $labelArgs*') 'it appends a composed $labelArgs instead, the way it already appends the optional assignee and milestone'
@@ -2158,15 +2262,15 @@ Assert-True ($openPrText -like '*$labelArgs = if ($label) { @(''--label'', $labe
 
 # THE NORMALISATION IS PART OF THE REPAIR, not tidiness: the seam is free to answer $null, and $null in a
 # native argument list is an EMPTY ARGUMENT rather than an absent one. Trimmed too -- ' ' is not a label.
-$idxTrim = $openPrText.IndexOf('$label = "$label".Trim()')
+$idxTrim = Get-OpenPrIdx -Needle '$label = "$label".Trim()' -In 'LABEL GATE' -Code
 Assert-True ($idxTrim -ge 0) 'the resolved label is normalised to a trimmed string, so a $null or blank seam answer cannot reach gh as an argument'
 Assert-True ($idxTrim -gt $idxResolve -and $idxTrim -lt $idxLabelGate) 'and it happens between the resolve and the gate, so both read the same value'
 
 # THE QUERY IS SKIPPED, not merely the compare: a `gh label list` whose answer cannot change the outcome
 # is the cheapest call in this script to leave out, and both of its failure warnings would otherwise name
 # a label there is none of.
-$idxEmptyBranch = $openPrText.IndexOf('if (-not $label) {')
-$idxLabelList   = $openPrText.IndexOf("@('label', 'list', '--json'")
+$idxEmptyBranch = Get-OpenPrIdx -Needle 'if (-not $label) {' -In 'LABEL GATE' -Code
+$idxLabelList   = Get-OpenPrIdx -Needle "@('label', 'list', '--json'" -In 'LABEL GATE' -Code
 Assert-True ($idxEmptyBranch -ge 0) 'open-pr.ps1 recognises "this repo attaches no label" as an answer rather than a gap'
 Assert-True ($idxEmptyBranch -lt $idxLabelList) 'and it recognises it BEFORE asking gh for a label list whose answer cannot matter'
 Assert-True ($idxEmptyBranch -lt $idxLabelGate) 'and before the compare, so the success line can never announce that '''' exists in the repository'
@@ -2175,7 +2279,7 @@ Write-Host ""
 Write-Host "open-pr.ps1 wires in the already-done check (issue #1282)" -ForegroundColor Cyan
 # The helper is proven pure above; this proves the script actually calls it, and BEFORE the push --
 # a warning that arrives after forty test suites and a push is the failure #1282 describes, not a fix.
-$idxAlreadyDone = $openPrText.IndexOf('Get-TargetIssueWarnings -TargetIssues')
+$idxAlreadyDone = Get-OpenPrIdx -Needle 'Get-TargetIssueWarnings -TargetIssues' -In 'Resolves gate' -Code
 Assert-True ($idxAlreadyDone -ge 0) 'open-pr.ps1 calls Get-TargetIssueWarnings'
 Assert-True ($idxAlreadyDone -lt $idxPush) 'and it runs before the push, so the author hears it in seconds'
 Assert-True ($idxAlreadyDone -lt $idxGates) 'and before the lint and test gates'
@@ -2191,7 +2295,7 @@ Assert-True ($openPrText -like '*-CurrentBranch $branch*') "the current branch i
 # entry-scaffold.tests.ps1; this is the assert that the script actually uses it.
 Assert-True ($openPrText -match '\$mentionText = Get-DevelopmentBranchText -Text \(\[System\.IO\.File\]::ReadAllText\(\$entryPath') `
     'the mention text is the branch''s own content, not the whole file -- the guidance block cites issues of its own'
-$idxBranchText = $openPrText.IndexOf('$mentionText = Get-DevelopmentBranchText')
+$idxBranchText = Get-OpenPrIdx -Needle '$mentionText = Get-DevelopmentBranchText' -In 'Resolves gate' -Code
 Assert-True ($idxBranchText -ge 0 -and $idxBranchText -lt $idxAlreadyDone) 'and the narrowing happens before the already-done check reads it'
 Assert-True ($openPrText -notmatch '\$mentionText = \[System\.IO\.File\]::ReadAllText') 'with no second, unnarrowed read left behind'
 
