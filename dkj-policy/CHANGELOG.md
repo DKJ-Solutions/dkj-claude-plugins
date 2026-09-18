@@ -43,7 +43,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 7 minor entries** <!-- pending-tally -->
+**2 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2110-git-path-decoding · 20260918-143440
+
+Two git reads whose answer is a PATH no longer depend on the console code page. `fold-changelog-entry`
+splits the paths it is about to commit into tracked and untracked with a `git ls-files` whose output it
+then COMPARES -- so a mis-decoded name failed that comparison, dropped out of `git commit -- <paths>`,
+and the run printed *"git never tracked them ... the fold deleted them from disk all the same"* about a
+file it had just deleted. `find-specialist-mentions` built its whole scan set from a bare
+`@(git ls-files 2>$null)`: a mis-decoded name keeps its `.md` tail, passes the extension filter and then
+cannot be opened, so the file left the mention scan silently -- the one failure a report whose job is
+*"do not miss a place"* must not have. Both now force `core.quotePath=true` and decode with
+`Convert-GitQuotedPath`, the repair [`.claude/rules/language-layers.md`](../.claude/rules/language-layers.md)
+prescribes and #2109 applied one caller over; the second is routed through `Invoke-NativeCapture` as
+well, so its exit code is readable instead of swallowed.
+
+The fold's instance is LATENT today, and it is the only one whose safety rests on a constraint in
+another file: everything that comparison tests is named after the branch, and `branch-info.ps1` holds a
+branch name to ASCII. The code now says so, which it did not before -- and says which path is *not* on
+either side of it, since `CHANGELOG.md` enters the commit's pathspec without ever being compared.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- neither reader reaches a consumer as behaviour. The fold is mirrored into every consumer's
+`dkj-policy` cache, but its instance is latent for the reason above, and the mention scan is a
+source-repo reporter that never travels.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two more git path readers decode with the console code page
+
+Plugins: dkj-policy
+
+[PR #2118](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2118)
+
+---
 
 ### DEPLOY: feat/2104-backgrounded-call-progress · 20260918-131800
 
