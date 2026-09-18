@@ -43,7 +43,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 24 minor entries** <!-- pending-tally -->
+**19 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2091-openpr-idx-region-scoped · 20260918-063047
+
+`pr-issues.tests.ps1` located things inside `open-pr.ps1` with a whole-file `IndexOf`, which finds
+the first occurrence anywhere in the file. Three of its 13 needles already matched in more than one
+place, and one assert was pinning a block **1188 lines** from the one it names -- green on the
+`-Title` warning while claiming to be about the existing-PR body path (#2091).
+
+#2090's region-scoped lookup is now generalised: one `Get-SourceIdx` core with the **opener pattern
+supplied per script**, since `open-pr.ps1` divides itself by plain `# --- ` banners where
+`ship-pr.ps1` divides itself by `# --- Step ` banners and top-level functions. `Get-ShipIdx` and
+`Get-OpenPrIdx` are thin wrappers over it, so all 45 existing ship-pr call sites are untouched. All
+13 open-pr reads are now region-scoped and code-only, a `LastIndexOf` workaround is gone, and the
+`#919` block no longer chains its searches -- an assert anchored at the index it compares against
+could only ever pass.
+
+**Score:** 2
+
+Nothing a consumer runs changes: this is a test suite pinning two scripts it cannot run, and both
+scripts are byte-identical after the branch. What changes is whether those asserts can be believed
+the next time one of them goes red -- and one of them was already answering about the wrong block.
+
+#### What makes this deploy extra special
+
+The repair carries its own proof in both directions, which is the thing a test-integrity change
+usually cannot show. The forward measurement lists all 13 needles whole-file against region-scoped,
+so "this changed nothing" is refuted with three moved anchors and ten deliberately unmoved ones. The
+two negative tests then break the script on purpose -- once structurally, once in the ordering the
+assert is actually about -- and both go red in exactly the right place. The first attempt at the
+structural one silently passed because `-like` is case-insensitive and the perturbation left the
+matched words in place; that is recorded above rather than quietly re-run, because a negative test
+nobody verified had bitten is a green tick for nothing.
+
+**Score:** N/A
+
+The subscriber of this service takes nothing from this branch -- no shipped script, hook, manual or
+agent def changes. It is a suite in the source repo, guarding two scripts in the source repo.
+
+#### Pull Request
+
+open-pr's ordering asserts are region-scoped and code-only, like ship-pr's
+
+[PR #2098](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2098)
+
+---
 
 ### DEPLOY: fix/2077-park-cycle-budget-deadline · 20260918-061758
 
