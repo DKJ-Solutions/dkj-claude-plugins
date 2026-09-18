@@ -336,12 +336,14 @@
 
 .PARAMETER MaxParallel
     How many test suites the test gate runs at once. 0 (the default) leaves the resolution to
-    Invoke-TestSuiteGate exactly as before -- ProcessorCount minus two, floor 2 -- so passing nothing
-    is byte-identical to the behaviour this parameter was added to.
+    Invoke-TestSuiteGate, which since issue #2121 takes the LOWER of two reservations: the machine's
+    cores minus two, and its free physical memory divided by a measured per-lane budget, floor 2 on
+    both. Passing a number here skips that resolution entirely.
 
-    IT EXISTS BECAUSE THE DEFAULT CAN FAIL TO FINISH (issue #1443, September 5, 2026). Each lane
-    spawns a `powershell` child that spawns children of its own, and the reservation formula reasons
-    about CORES, not memory. Measured on an 18-core machine, same 68 suites, same function: 16 lanes
+    IT EXISTS BECAUSE THE DEFAULT COULD FAIL TO FINISH (issue #1443, September 5, 2026). Each lane
+    spawns a `powershell` child that spawns children of its own, and the reservation formula reasoned
+    about CORES, not memory -- past tense since #2121, under THE DEFAULT IS NO LONGER CORES ALONE below.
+    Measured on an 18-core machine, same 68 suites, same function: 16 lanes
     passed once in 716s and was then killed twice by the harness for running the machine out of
     memory; `-MaxParallel 4` passed in 888s. 24% slower, and it finishes.
 
@@ -356,9 +358,18 @@
     trustworthy than a killed run's verdict -- the same class of untrustworthy red as the tree-moved
     warning above, reached by a different cause.
 
-    THE DEFAULT IS DELIBERATELY UNCHANGED. Whether the reservation formula should account for memory
-    as well as cores is a separate question, on one machine's worth of evidence, and #1443 did not
-    measure it. This adds the way past, not a new policy.
+    THE DEFAULT IS NO LONGER CORES ALONE, and that is issue #2121 (September 18, 2026) answering the
+    question #1443 left open here -- "whether the reservation formula should account for memory as well
+    as cores is a separate question, on one machine's worth of evidence". The second machine's worth
+    arrived at pool scale: at the core-derived default of 30 lanes the gate reported 44 of 116 suites
+    red, then 43 on a rerun of the same tree, naming different suites each time, where a 6-lane run of
+    that tree found the two real failures. So Invoke-TestSuiteGate's automatic count now takes the lower
+    of the two reservations; $script:TestSuiteGateLaneMemoryMB in native-capture-lib.ps1 carries the
+    measurement behind the per-lane figure.
+
+    THE KNOB IS UNCHANGED AND STILL THE WAY PAST. A better default narrows the case for typing one, and
+    it does not remove it: the budget is sized off one repo's suite mix on one machine, and a run that
+    still will not finish is answered here rather than with -SkipTests, for the reason stated above.
 .EXAMPLE
     ./scripts/release/open-pr.ps1
 

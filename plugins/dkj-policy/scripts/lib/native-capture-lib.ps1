@@ -189,6 +189,44 @@ $script:NativeCaptureSettleMilliseconds = 1000
 # kill that would otherwise look like "the machine is slow today".
 $script:ResidentPowerShellWarnThreshold = 20
 
+# THE MEMORY A SINGLE LANE IS BUDGETED, in MB, and the second half of Invoke-TestSuiteGate's automatic
+# lane count (issue #2121, September 18, 2026). The formula reserved two CORES and reasoned about nothing
+# else, while what a lane actually exhausts is MEMORY: every lane is a powershell child that spawns
+# children of its own, and powershell.exe is expensive to start and cheap to compute with.
+#
+# WHY A DEFAULT THAT ONLY COUNTED CORES WAS NOT MERELY SUBOPTIMAL. #1443 measured it killing a run
+# outright -- 16 lanes on an 18-core machine, OOM-killed twice where -MaxParallel 4 finished -- and
+# #2121 measured the quieter half on a wider box: at 30 lanes the gate reported 44 of 116 suites red,
+# then 43, on a tree where six of those suites were spot-checked green standalone minutes later and a
+# 6-lane run of the same tree found the two real failures. The two red runs did not even name the same
+# suites (37 shared, 7 and 6 unique), which is what tells load from logic. A verdict a session cannot
+# trust is worse than a slow one: that session paid three full gate runs to tell one real failure from
+# forty false ones, and the summary line gave it no reason to suspect the lane count at all.
+#
+# 512 MB, AND WHAT THE NUMBER IS SIZED OFF. Measured on DAVE-KOK-BWJ (18 logical processors, 16 GB),
+# shard 1 of 4 at 8 lanes over this repo's own 116 suites, sampling every 1.5s for the whole 401s run:
+# peak 26 resident powershell.exe (~3.25 per lane), peak 1,922 MB private bytes and 2,280 MB working set
+# across them -- so a lane's own peak is about 240 MB private / 285 MB working set. 512 is roughly 1.8x
+# that, and the margin is deliberate rather than rounding: the figure above is THIS repo's suite mix on
+# ONE machine, and a consumer's suites are not bound by it.
+#
+# AND THE MARGIN IS WHAT THE SAME RUN SURVIVED ON, which is the check worth doing before trusting the
+# 1.8x. That run started with 3,063 MB free and dipped to 1,686 MB while 8 lanes were open -- so it was
+# BUDGETED 383 MB of the starting figure per lane and still finished, where this constant would have
+# budgeted 512 and opened 5. The dip is the separate fact that says how little was left over: 1,686 MB
+# across 8 lanes is 211 MB each, under the 240 MB private a lane peaked at, which is how close to the
+# wall a core-only formula had already brought a machine it thought had room for 16.
+#
+# BEING TOO CONSERVATIVE IS CHEAP, WHICH IS THE WHOLE ARGUMENT FOR THE MARGIN. Lanes have heavily
+# diminishing returns here because the suites spend their time waiting on children rather than
+# computing: open-pr.ps1's own .PARAMETER MaxParallel records 4 lanes finishing the same 68 suites in
+# 888s against 16 lanes' 716s -- 24% slower, and it finishes. So the worst case of a low number is a
+# quarter more wall clock, and the worst case of a high one is a verdict nobody can trust.
+#
+# IT DOES NOT REACH CI. ci.yml passes -MaxParallel ([Environment]::ProcessorCount) explicitly, for the
+# reason written there, so a hosted runner's four lanes are unchanged by anything here.
+$script:TestSuiteGateLaneMemoryMB = 512
+
 # THE DEADLINE A SINGLE SUITE RUNS UNDER inside Invoke-TestSuiteGate's pool (issue #1941,
 # September 13, 2026). Until this existed the reap loop had NO deadline of any kind -- it slept 100 ms
 # and looped for as long as a lane took, whatever had stopped that lane progressing -- so one wedged
@@ -2038,6 +2076,105 @@ function Get-TestSuiteFocusOrder {
 }
 
 
+function Get-AvailableMemoryMB {
+    <#
+        Physical memory this machine could hand a new process RIGHT NOW, in MB, or 0 when the question
+        cannot be asked. Split out from Invoke-TestSuiteGate for exactly the reason
+        Get-ResidentPowerShellCount above is: OS-wide state is not something a test fixture can set up,
+        but a plain function can be shadowed by redefining it after this file is dot-sourced -- which is
+        how test-suite-gate.tests.ps1 measures the lane formula against a machine it does not have.
+
+        Win32_OperatingSystem.FreePhysicalMemory, and NOT Get-Counter '\Memory\Available MBytes', which
+        is the figure a reader would reach for first. Performance-counter paths are LOCALISED: on the
+        Dutch-language Windows this was measured on, that exact call fails with "The specified object
+        was not found on the computer", and a lane formula that silently loses its memory term on every
+        non-English machine is worse than one that never had it. The CIM property is language-independent.
+
+        FREE rather than AVAILABLE, deliberately. Win32_PerfRawData_PerfOS_Memory.AvailableBytes is the
+        wider definition -- it also counts the standby cache Windows can reclaim -- so by definition it
+        is at least this class's figure, and reading it would mean a second CIM class for a number the
+        caller then divides by a per-lane reservation carrying its own margin.
+
+        THE MEASURED PAIR CAME OUT THE OTHER WAY ROUND, AND THAT IS THE POINT RATHER THAN A CONTRADICTION:
+        2,963 MB from AvailableBytes against 3,063 MB from this class, read seconds apart on a machine
+        whose free memory was moving between the two calls. So the gap between the definitions is smaller
+        here than the noise on either of them -- which is the whole argument for taking the cheaper
+        property, and also the reason this figure is never treated as precise anywhere downstream.
+
+        Returns 0 rather than throwing, the same contract Get-ResidentPowerShellCount states: a gate
+        must not fail because a diagnostic it only wanted to size a pool with could not be read. The
+        caller reads 0 as "do not apply a memory term" and falls back to the core formula alone.
+    #>
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        if ($null -eq $os -or $null -eq $os.FreePhysicalMemory) { return 0 }
+        return [int]([double]$os.FreePhysicalMemory / 1024.0)
+    } catch {
+        return 0
+    }
+}
+
+
+function Get-TestSuiteGateLaneCount {
+    <#
+        Invoke-TestSuiteGate's automatic lane count, as a PURE judgement over two integers -- issue #2121.
+
+        WHY IT IS A FUNCTION AND NOT FOUR LINES INSIDE THE POOL, which is where it lived until this
+        change. Both inputs are properties of the MACHINE, so the arithmetic inside the gate is only
+        reachable by running a real pool on a real box, and what that pool then reports is clamped to the
+        suite count and therefore says nothing about the formula. Get-GateSuspendCredit above is the same
+        shape for the same reason and is the precedent followed here: the judgement is asserted directly,
+        and the stub around it proves only the plumbing.
+
+        THE LOWER OF TWO RESERVATIONS. Cores minus two -- the older term, whose own reasoning is at the
+        call site -- and free physical memory divided by $script:TestSuiteGateLaneMemoryMB, the newer one,
+        whose measurement is in that constant's banner. Floor 2 on each, and therefore on the result.
+
+        -AvailableMemoryMB 0 MEANS 'COULD NOT ASK', NOT 'NO MEMORY', which is Get-AvailableMemoryMB's
+        stated contract one caller up. It resolves to the core count alone, exactly the behaviour this
+        function replaced -- so a machine that cannot answer is never throttled to the floor on the
+        strength of a reading nobody took. Any negative value is treated the same way.
+
+        Returns the count and the two terms behind it, because the caller prints them: a run that chose 6
+        lanes where the cores would have allowed 30 has made the largest single decision about its own
+        trustworthiness, and #2121 is a report about that decision being invisible.
+    #>
+    param(
+        [int]$ProcessorCount,
+        [int]$AvailableMemoryMB
+    )
+
+    $coreLanes = [Math]::Max(2, $ProcessorCount - 2)
+    if ($AvailableMemoryMB -le 0) {
+        return [pscustomobject]@{
+            Lanes       = $coreLanes
+            CoreLanes   = $coreLanes
+            MemoryLanes = 0
+            BoundBy     = 'cores'
+        }
+    }
+
+    $memoryLanes = [Math]::Max(2, [int][Math]::Floor($AvailableMemoryMB / [double]$script:TestSuiteGateLaneMemoryMB))
+    # TIES GO TO 'cores', deliberately: the caller prints only when memory bound, and a line announcing
+    # that memory chose a number the cores would have chosen anyway is noise that teaches a reader to
+    # stop reading it.
+    if ($memoryLanes -lt $coreLanes) {
+        return [pscustomobject]@{
+            Lanes       = $memoryLanes
+            CoreLanes   = $coreLanes
+            MemoryLanes = $memoryLanes
+            BoundBy     = 'memory'
+        }
+    }
+    return [pscustomobject]@{
+        Lanes       = $coreLanes
+        CoreLanes   = $coreLanes
+        MemoryLanes = $memoryLanes
+        BoundBy     = 'cores'
+    }
+}
+
+
 function Get-ResidentPowerShellCount {
     <#
         The number of powershell.exe processes on this MACHINE right now (this repo's gate targets
@@ -2498,8 +2635,33 @@ function Invoke-TestSuiteGate {
     # would fall back to the sequential loop this replaced -- and the suites spend most of their time
     # waiting on children rather than computing, so a little oversubscription is cheap. A runner nobody is
     # sitting at should pass its own core count instead; ci.yml does.
+    #
+    # AND THE CORES ARE ONLY HALF THE QUESTION -- issue #2121. What a lane exhausts is memory, not CPU,
+    # so the automatic count is the LOWER of the two reservations: cores minus two, and free physical
+    # memory divided by $script:TestSuiteGateLaneMemoryMB. The constant's own banner carries the
+    # measurement, both the runs that produced it and why the margin is deliberate. The floor of 2
+    # survives both terms -- a machine too small for two lanes is one the sequential loop this replaced
+    # would not help either, and refusing to run at all is not a verdict a gate gets to reach.
+    #
+    # A MEMORY READING OF 0 MEANS 'COULD NOT ASK', NOT 'NO MEMORY'. Get-AvailableMemoryMB returns 0 on
+    # any failure, by the same contract Get-ResidentPowerShellCount states, so a machine that cannot
+    # answer falls back to exactly the core formula it had before this change rather than to two lanes.
+    # The two states are distinguishable here and nowhere downstream, which is why the branch is here.
+    $laneLimitReason = ''
     if ($MaxParallel -le 0) {
-        $MaxParallel = [Math]::Max(2, [Environment]::ProcessorCount - 2)
+        $availableMB = Get-AvailableMemoryMB
+        $laneChoice  = Get-TestSuiteGateLaneCount -ProcessorCount ([Environment]::ProcessorCount) -AvailableMemoryMB $availableMB
+        $MaxParallel = $laneChoice.Lanes
+        if ($laneChoice.BoundBy -eq 'memory') {
+            # SAID OUT LOUD, BECAUSE THE SILENCE IS HALF OF WHAT #2121 REPORTED. The knob existed and
+            # worked; what no line anywhere told a session was that the lane count was worth suspecting.
+            # A run that quietly picks 6 where the core formula would have picked 30 has made the single
+            # largest decision about its own trustworthiness, and it now names the figures it made it on
+            # -- so a later reader of this console can check the arithmetic instead of re-deriving the
+            # whole finding from three gate runs, which is what #2121 cost.
+            $laneLimitReason = ("memory, not cores: $availableMB MB free / $($script:TestSuiteGateLaneMemoryMB) MB per lane " +
+                                "= $($laneChoice.MemoryLanes), under the $($laneChoice.CoreLanes) this machine's cores would allow (issue #2121)")
+        }
     }
 
     # THE QUEUE, AS ITEMS RATHER THAN FILES. Every entry carries File/IsTarget/Label/Stem -- see
@@ -2619,6 +2781,13 @@ function Invoke-TestSuiteGate {
         Write-Host "test gate: running $scopeLabel test suites for $Context ($modeLabel)..." -ForegroundColor Cyan
         if ($focusMode) {
             Write-Host "  FOCUS RUN (issue #1944) -- this is a reproduction, not a gate: only $FocusSuite decides the verdict, the rest is load." -ForegroundColor Yellow
+        }
+        # WHICH RESERVATION CHOSE THE LANE COUNT, whenever it was not the cores -- issue #2121. Printed
+        # only when the memory term actually bound, so an ordinary run sees no byte it did not see
+        # before; a caller that passed -MaxParallel never reaches this, because it made the decision
+        # itself and has nothing to be told.
+        if ($laneLimitReason) {
+            Write-Host "  lanes set by $laneLimitReason -- pass -MaxParallel to override." -ForegroundColor DarkGray
         }
         if ($suiteDeadline -gt 0) {
             Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s (issue #1941); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
@@ -3219,8 +3388,17 @@ function Invoke-TestSuiteGate {
     # and the workflow's DEPLOY-section rule asks a quoted gate figure to name what produced it. Only when the pool
     # actually ran: a commands-only gate never resolves $MaxParallel and runs its commands one at a time,
     # so there is no lane count to state. The MACHINE is deliberately left off -- CI passes
-    # -MaxParallel ([Environment]::ProcessorCount) while a dev box takes ([Environment]::ProcessorCount - 2),
-    # so the lane number already tells a hosted runner from a workstation without naming either.
+    # -MaxParallel ([Environment]::ProcessorCount) while a dev box resolves its own count, so the lane
+    # number already tells a hosted runner from a workstation without naming either.
+    #
+    # THAT NUMBER IS NO LONGER A FUNCTION OF THE CORES ALONE -- issue #2121. A dev box used to take
+    # ([Environment]::ProcessorCount - 2) and nothing else, which made the lane count on this line a
+    # reading of the machine's width; since the automatic count also divides free memory by
+    # $script:TestSuiteGateLaneMemoryMB, the same box can quote a different number on two runs. The
+    # sentence above survives that, because it only ever claimed to separate a hosted runner from a
+    # workstation -- but do NOT read a quoted lane count back as a core count, which is what the
+    # arithmetic it used to name invited. The run that produced it says which reservation bound it, on
+    # its own opening line.
     $laneNote = ''
     if ($runItems.Count -gt 0) {
         $laneWord = if ($MaxParallel -eq 1) { 'lane' } else { 'lanes' }

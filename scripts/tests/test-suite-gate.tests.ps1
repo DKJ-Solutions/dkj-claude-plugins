@@ -99,7 +99,7 @@ function New-FakeSuite {
 function Invoke-Gate {
     param([string]$TestsDir, [int]$MaxParallel = 0, [string]$WorkDir = '', [string]$CommandsFile = '', [int]$ResidentCount = -1,
           [int]$SuiteTimeoutSeconds = 0, [string]$FocusSuite = '', [int]$FocusRepeat = 0,
-          [double]$SuspendCreditSeconds = 0, [int]$SuspendCreditOnCall = 2)
+          [double]$SuspendCreditSeconds = 0, [int]$SuspendCreditOnCall = 2, [int]$AvailableMemoryMB = -1)
     # NOT $args: that is an automatic variable holding a function's unbound arguments, and splatting it
     # after assignment is the kind of collision this repo already documents for $script:-owned names.
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:Driver, '-TestsDir', $TestsDir, '-MaxParallel', "$MaxParallel")
@@ -117,6 +117,12 @@ function Invoke-Gate {
     # -1 (the default) means "let the real Get-Process answer" -- OS-wide process state is not
     # something this suite controls, so a case that cares about the count stubs it explicitly instead.
     if ($ResidentCount -ge 0) { $psArgs += @('-ResidentCount', "$ResidentCount") }
+    # -1 (the default) means "let the real Win32_OperatingSystem query answer", for the same reason the
+    # line above gives: how much memory is free on the machine running this suite is not something a
+    # fixture controls, and a case that asserts on the lane formula has to state the number itself
+    # (issue #2121). 0 is a MEANINGFUL value here and not "unset" -- it is what the real function
+    # returns when the query fails, and the fallback case below drives exactly that.
+    if ($AvailableMemoryMB -ge 0) { $psArgs += @('-AvailableMemoryMB', "$AvailableMemoryMB") }
     # THE CHILD RUNS AT THE TOP LEVEL, WHATEVER THIS SUITE IS RUNNING UNDER -- issue #1717. The gate
     # sets DKJ_TEST_GATE_DEPTH for its children, and THIS SUITE IS ONE OF THEM whenever it runs under
     # the pool: without this, every driver run inherits depth 1 and reports depth 2, while the gate a
@@ -357,7 +363,7 @@ try {
     $driverBody = @"
 param([string]`$TestsDir, [int]`$MaxParallel = 0, [string]`$WorkDir = '', [string]`$CommandsFile = '', [int]`$ResidentCount = -1,
       [int]`$SuiteTimeoutSeconds = 0, [string]`$FocusSuite = '', [int]`$FocusRepeat = 0,
-      [double]`$SuspendCreditSeconds = 0, [int]`$SuspendCreditOnCall = 2)
+      [double]`$SuspendCreditSeconds = 0, [int]`$SuspendCreditOnCall = 2, [int]`$AvailableMemoryMB = -1)
 `$ErrorActionPreference = 'Stop'
 . '$LibPath'
 if (`$WorkDir) { Set-Location -LiteralPath `$WorkDir }
@@ -372,6 +378,14 @@ if (`$CommandsFile) {
 if (`$ResidentCount -ge 0) {
     `$script:GateResidentCount = `$ResidentCount
     function Get-ResidentPowerShellCount { return `$script:GateResidentCount }
+}
+# Shadows the memory query the same way and for the same reason (issue #2121): how much memory is free
+# on this machine is not something a fixture can set, and the lane formula is now a function of it. The
+# real Get-AvailableMemoryMB is a thin CIM read whose only judgement is "0 means could not ask", so what
+# this stub leaves unproven is the READ -- not the arithmetic the gate does with it.
+if (`$AvailableMemoryMB -ge 0) {
+    `$script:GateAvailableMB = `$AvailableMemoryMB
+    function Get-AvailableMemoryMB { return `$script:GateAvailableMB }
 }
 # Shadows the clock seam the same way, and for a stronger version of the same reason (issue #2095):
 # nothing in a fixture can suspend a laptop, so the ONLY way to drive the pool's rebase is to hand it
@@ -708,6 +722,77 @@ try {
     # never defines the shadow and Get-ResidentPowerShellCount runs its real Get-Process body.
     $r = Invoke-Gate -TestsDir $ok
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'the real, unshadowed resident-count path still passes suites'
+
+    # --- 7b. The automatic lane count is memory-aware (issue #2121) --------------------------------
+    #
+    # THE JUDGEMENT IS ASSERTED DIRECTLY AND THE POOL ONLY PROVES THE PLUMBING, which is the split
+    # Get-GateSuspendCredit above already uses: both of this formula's inputs are properties of the
+    # MACHINE, so a pool-driven assert on a literal lane number would be a claim about whatever box
+    # happens to run this suite. The values below are the ones that produced #2121 and #1443 -- a
+    # 32-thread workstation at 30 lanes, an 18-core one at 16 -- so the table is a regression test on
+    # the two reported failures rather than a set of round numbers.
+    Write-Host "the automatic lane count -- the lower of cores-minus-two and memory-over-budget" -ForegroundColor Cyan
+    Assert-Equal 30 (Get-TestSuiteGateLaneCount -ProcessorCount 32 -AvailableMemoryMB 32000).Lanes `
+        'plenty of memory: the core reservation still decides, exactly as before #2121'
+    Assert-Equal 'cores' (Get-TestSuiteGateLaneCount -ProcessorCount 32 -AvailableMemoryMB 32000).BoundBy `
+        'and it says so, so the caller stays silent'
+    # DELIBERATELY SYNTHETIC, AND IT COMBINES TWO MACHINES: the 32 threads are #2121's reporting machine,
+    # where the core formula chose 30, and the 3,063 MB is the free figure measured HERE, on the 18-core
+    # box that took the per-lane measurement. Neither machine produced this pair, and the row is not a
+    # claim that one did -- it is the formula asked what it would do with the worst half of each, which
+    # is the case the constant has to survive.
+    $tight = Get-TestSuiteGateLaneCount -ProcessorCount 32 -AvailableMemoryMB 3063
+    Assert-Equal 5 $tight.Lanes 'the memory term binds where the core term would have chosen 30 -- the #2121 defect'
+    Assert-Equal 'memory' $tight.BoundBy 'and names memory as what bound it'
+    Assert-Equal 30 $tight.CoreLanes 'while still reporting what the cores would have allowed, because the caller prints it'
+    # #1443's machine, whose 16 lanes were OOM-killed twice where -MaxParallel 4 finished.
+    Assert-Equal 4 (Get-TestSuiteGateLaneCount -ProcessorCount 18 -AvailableMemoryMB 2048).Lanes `
+        'the 18-core machine of #1443 lands on the lane count that was measured to finish there'
+    # THE FLOOR SURVIVES BOTH TERMS. A machine with almost nothing free still runs two lanes rather than
+    # falling back to the sequential loop this pool replaced -- refusing to run is not a verdict a gate
+    # gets to reach on the strength of one CIM read.
+    Assert-Equal 2 (Get-TestSuiteGateLaneCount -ProcessorCount 32 -AvailableMemoryMB 100).Lanes `
+        'a machine with 100 MB free still gets the floor of 2, not 0'
+    # 0 IS 'COULD NOT ASK', NOT 'NO MEMORY' -- Get-AvailableMemoryMB's stated contract. Getting this
+    # backwards would throttle every machine whose CIM query fails to the floor, silently, which is a
+    # worse version of the defect being repaired here.
+    Assert-Equal 30 (Get-TestSuiteGateLaneCount -ProcessorCount 32 -AvailableMemoryMB 0).Lanes `
+        'a memory reading of 0 means the question could not be asked -- fall back to cores, not to the floor'
+    Assert-Equal 'cores' (Get-TestSuiteGateLaneCount -ProcessorCount 32 -AvailableMemoryMB 0).BoundBy `
+        'and it is reported as a core-bound run, so nothing claims a measurement that was never taken'
+    # A TIE IS NOT A MEMORY-BOUND RUN. Equal terms resolve to 'cores' so the caller prints nothing:
+    # announcing that memory chose the number the cores would have chosen anyway is the kind of line a
+    # reader learns to skip, taking the real one with it.
+    Assert-Equal 'cores' (Get-TestSuiteGateLaneCount -ProcessorCount 18 -AvailableMemoryMB 8192).BoundBy `
+        'both terms agreeing on 16 is reported as cores -- a tie is not news'
+
+    # AND THE PLUMBING: the number this function returns is the number the pool actually opens, and the
+    # line is printed exactly when it said memory bound. Asserted against the function rather than
+    # against a literal, because the core half of the answer belongs to whichever machine is running
+    # this suite -- a 4-core hosted runner reserves down to 2 and can never be memory-bound at all, so a
+    # literal here would pass on a workstation and fail in CI.
+    $stubMB   = 1024
+    $expected = Get-TestSuiteGateLaneCount -ProcessorCount ([Environment]::ProcessorCount) -AvailableMemoryMB $stubMB
+    $r = Invoke-Gate -TestsDir $ok -AvailableMemoryMB $stubMB
+    Assert-True ($r.Text -match 'GATE-RESULT: True') 'a memory-sized pool still runs its suites'
+    Assert-True ($r.Text -match "test gate: all 3 suites passed in \d+s \($($expected.Lanes) lanes?\)\.") `
+        'and the lanes it opened are the ones the formula chose'
+    if ($expected.BoundBy -eq 'memory') {
+        Assert-Says $r.Flat "$stubMB MB free" 'the memory-bound run names the free memory it read'
+        Assert-Says $r.Flat 'memory, not cores' 'and says which of the two reservations bound it'
+        Assert-Says $r.Flat 'issue #2121' 'and cites the measurement, so the console points somewhere'
+        Assert-Says $r.Flat '-MaxParallel' 'and names the override, which is what #2121 found nothing pointing at'
+    } else {
+        Assert-True ($r.Flat -notmatch 'memory, not cores') `
+            'a machine whose cores reserve below the memory term says nothing about memory -- no noise on a hosted runner'
+    }
+
+    # THE REAL, UNSHADOWED READ still sizes a pool that runs. -AvailableMemoryMB is omitted entirely
+    # (Invoke-Gate's -1 default), so the driver never defines the shadow and Get-AvailableMemoryMB runs
+    # its real CIM body -- the one thing the stub above cannot prove.
+    $r = Invoke-Gate -TestsDir $ok
+    Assert-True ($r.Text -match 'GATE-RESULT: True') 'the real, unshadowed memory read still sizes a pool that passes'
+    Assert-True ($r.Text -match 'test gate: all 3 suites passed in \d+s \(\d+ lanes?\)\.') 'and it resolves to a lane count'
 
     # --- 8. A CRASHED suite is not a FAILED one (issue #1723) ---------------------------------------
     #
