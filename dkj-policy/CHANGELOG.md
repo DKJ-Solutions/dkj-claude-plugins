@@ -43,7 +43,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 11 minor entries** <!-- pending-tally -->
+**5 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2121-gate-lane-count-memory · 20260918-170256
+
+The test gate's automatic lane count is the lower of two reservations now, not just one: the machine's
+cores minus two, and its free physical memory divided by a measured 512 MB per lane. Until now it
+reasoned about cores alone, while what a lane actually exhausts is memory -- every lane is a
+`powershell` child that spawns children of its own. On the machine that filed #2121 that default was 30
+lanes, and at 30 lanes the gate reported 44 of 116 suites red, then 43 on a rerun of the same tree,
+naming different suites each time; a 6-lane run of that tree found the two real failures. A verdict a
+session cannot trust is worse than a slow one, and the cost of the other direction is small: 4 lanes
+finish the same suites 24% slower than 16 and they finish.
+
+A run whose lanes were set by memory now says so, with the free figure, the per-lane budget and the
+count the cores would have allowed. That is the half of the report that was not about the number: the
+`-MaxParallel` knob has existed since #1443 and worked, and nothing anywhere pointed a session at it or
+suggested the lane count was why a third of the pool was red.
+
+Nothing changes for CI, which passes its own lane count explicitly, or for any caller that passes
+`-MaxParallel`. A machine whose memory query cannot be answered falls back to exactly the core formula
+it had before.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- this is the gate a developer of this repo and its consumers runs before a push. No subscriber of
+anything this repo ships meets it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The test gate's automatic lane count accounts for memory as well as cores
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2125](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2125)
+
+---
 
 ### DEPLOY: fix/2115-repo-root-decoding · 20260918-155721
 
