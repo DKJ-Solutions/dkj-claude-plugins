@@ -43,7 +43,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 26 minor entries** <!-- pending-tally -->
+**21 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2092-unknown-flag-runs-for-real · 20260918-065742
+
+A flag that does not exist is now **refused** instead of silently discarded. Under `-File`, a script
+whose param block carried no `[CmdletBinding()]` accepted any unrecognised named parameter, dropped it
+into `$args`, and ran with its defaults -- so `fold-changelog-entry.ps1 -DryRun`, a flag that script
+has never declared, did not print what it would do and did not refuse. It folded: it deleted the
+branch document from the working tree and rewrote `CHANGELOG.md`. The only reason nothing was lost is
+that the document happened to have been committed minutes earlier.
+
+**The attribute is the whole axis, and that is the half #2092 reported wrongly.** The report explained
+the defect as the flag being bound as the value of the first positional parameter, and scoped it to
+the 33 scripts taking a `[string]` first. Neither holds: `-DryRun` binds to nothing, an unknown flag
+swallows the token **behind** it as well, and a param block whose first parameter is a `[switch]` is
+exactly as open. Read on the real axis, 111 files here carry a top-level param block and **29** were
+missing the attribute -- while seven of the eight "acting" scripts the report named as hazards
+already declared it and already refused. The fold was the one that was open, which is why it is the
+one that bit.
+
+`scripts/tests/param-binding-strictness.tests.ps1` is the tripwire, and it pins the reasoning as well
+as the rule: it drives two fixtures through the real `-File` entry point so the mechanism can be
+re-run rather than believed, and asserts both of the things the report got wrong so neither can be
+reinstated as a filter. Its tree-wide gate has **no exception list** -- the defect is a script
+silently accepting what it does not understand, and an exempt script is one that still does.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+`fold-changelog-entry.ps1` ships in `dkj-policy` and is what a consumer runs at the end of every
+cycle, and the ten `SessionStart`/`Stop` hooks in that same plugin run on their machine unattended. A
+consumer reaching for a `-DryRun` that does not exist got no refusal and no dry run -- they got the
+fold, against their own working tree, with their branch document deleted. Nothing in the parameter
+comments warned them: the fold's stated guard is that `-Commit` and `-Push` are off by default, which
+is true about the commit and says nothing about the local write.
+
+**Score:** 3
+
+#### Pull Request
+
+An unknown flag is silently discarded, so the script runs for real
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2097](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2097)
+
+---
 
 ### DEPLOY: A machine suspend no longer counts against a suite's bound · 20260918-064215
 
