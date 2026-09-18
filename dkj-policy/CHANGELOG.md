@@ -43,7 +43,51 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 10 minor entries** <!-- pending-tally -->
+**5 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2115-repo-root-decoding · 20260918-155721
+
+Every repo-root read in this workflow now asks a question a console code page cannot corrupt. `git
+rev-parse --show-toplevel` returns a RAW path, and Windows PowerShell 5.1 decodes a native child's
+stdout with `[Console]::OutputEncoding` -- so in a checkout under an accented directory name it
+returned a well-formed string that matched nothing, and what followed was a `Test-Path` miss reported
+as *"cannot determine the repo root"*, or a silent skip in the branch of a session hook with no
+`CLAUDE_PROJECT_DIR` to fall back on. The read is now `--is-inside-work-tree --show-cdup`, whose output
+is a run of `../` segments and no filename at all, joined onto a base PowerShell already holds
+correctly; the second flag is not decoration, because `--show-cdup` alone exits 0 inside `.git` where
+`--show-toplevel` exits 128. One definition in `scripts/lib/repo-root-lib.ps1`, mirrored into the three
+plugins that carry a reader, 18 call sites converted plus the two that may not reach a lib, and a
+repo-wide guard that refuses the flag anywhere in the tree.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is **latent here and live for a consumer**, which is the shape that accumulates. This checkout's
+path is ASCII, so nothing here has ever failed on it; a consumer whose checkout sits under an accented
+directory name is the ordinary case on a non-English Windows box -- `C:\Users\<name>\Bureaublad\...`,
+a company folder with a diacritic -- and the shared libs and lint checks this workflow mirrors into
+their plugin cache are exactly the files that would fail there.
+
+The lesson worth keeping is about the **sweep**, not the flag. #2110's sweep concluded *"every other
+reader is already correct"* while about twenty call sites were reading it, because its predicate --
+*"neither forces `core.quotePath=true` nor passes `-Utf8`"* -- silently assumed its own repair was
+available. `core.quotePath` governs the path output of the porcelain that consults it, and `rev-parse`
+is not such a porcelain: under the forced flag `ls-files` returns `"café.md"` ASCII-quoted while
+`rev-parse --show-toplevel` returns raw UTF-8. A predicate that names a repair reads as *"these sites
+are fine"* where it means *"these sites do not use a mechanism that could not have helped them"*.
+
+**Score:** 4
+
+#### Pull Request
+
+Repo-root reads ask a question no code page can corrupt
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2123](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2123)
+
+---
 
 ### DEPLOY: feat/2103-progress-bar-reaches-consumers · 20260918-153030
 
