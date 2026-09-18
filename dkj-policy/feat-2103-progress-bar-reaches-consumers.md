@@ -91,6 +91,17 @@ permanently. Three answers were put to Dave with their failure modes; he chose t
       is `True`. Three asserts added beside it: the dot-source is still GUARDED, the statusline and its
       lib landed in the same plugin, and the mirror runs from its own depth. 51 asserts.
 - [x] Lint gate green, script contract unchanged (no new seam).
+- [x] `reach-label.tests.ps1`'s frontmatter pin bumped to five. That assert reads three -> four -> five
+      once per part ever added, and each time it is what catches the half-done edit; it caught this one
+      too, after the reviewer had already found the same omission by eye. A second assert now holds the
+      count against the body actually carrying that part, so the number and the thing it counts cannot
+      drift apart in the other direction.
+- [x] The full gate's first run reported 44 of 116 suites failing. ONE was real -- the pin above. The
+      rest were the run: `new-branch` (302 asserts) and `worktree-lane` (39) are green standalone, and
+      the gate had 30 lanes on a machine that had just finished four review subagents and a 200-
+      iteration timing harness. Read the way the language-layers rule prescribes -- red under the gate
+      and green alone is evidence about the run before it is evidence about the tree -- rather than
+      repaired blind.
 
 #### The four-reviewer pass, and what it changed
 
