@@ -43,7 +43,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 6 minor entries** <!-- pending-tally -->
+**2 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2104-backgrounded-call-progress · 20260918-131800
+
+The progress bar now covers a backgrounded call this workflow does not own. A `PostToolUse` hook reads
+the structured `backgroundTaskId`, finds the shell actually running the command, and publishes a record
+attributed to **that** process -- so the existing liveness test shows the bar while the run lives and
+removes it within two seconds of the run ending. There is no completion event for a backgrounded shell
+and no state to poll; measured, both. `Write-RunProgress` gained `-WriterPid` for it, and existing
+producers are untouched.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Three of the issue's own premises changed under measurement, and the one it did not have turned out to
+be the decisive one: liveness is the writer's process, so a 400 ms hook could not be the writer at all.
+The whole design is the answer to that -- attribute the record to the shell, and the mechanism that
+already exists does the rest.
+
+It is also a reminder about what a unit test cannot buy. Every decision here is driven from a payload
+string, 38 asserts, all green -- and the first real backgrounded call published nothing, because both
+sides of the comparison were fixtures and the shell re-quotes what it is handed.
+
+**Score:** N/A
+
+#### Pull Request
+
+The progress bar covers a backgrounded call this workflow does not own
+
+Plugins: dkj-policy
+
+[PR #2113](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2113)
+
+---
 
 ### DEPLOY: fix/2114-unmeasured-capture-not-a-failure · 20260918-130202
 
