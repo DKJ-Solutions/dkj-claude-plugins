@@ -41,6 +41,52 @@ infrastructure.
   and carry `isSidechain: true` plus `agentId`, which is the same distinction the guard gates on. A
   measurement that walks only `*.jsonl` at the top of the project directory reads **zero** subagent
   calls and looks complete while answering the wrong question.
+- **The `statusLine` in [`.claude/settings.json`](../../settings.json), and the progress mechanism behind
+  it** — `scripts/task/show-progress.ps1` renders, `scripts/lib/run-progress-lib.ps1` is what a
+  long-running script publishes to, and the two producers wired up so far are the test gate (both lane
+  events in `Invoke-TestSuiteGate`) and `ship-pr`'s CI wait
+  ([#2101](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2101), September 18, 2026).
+  **A run this repo does not own still publishes nothing** — a backgrounded `npm test`, a `gh run watch`,
+  a dispatched subagent — so the bar covers the two long waits of this workflow rather than everything a
+  session backgrounds; the gap, and the `PreToolUse` shape that would close it, are parked as
+  [#2104](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2104).
+
+  **Why a published record rather than a printed line, which is the whole reason this exists.** A run
+  this session backgrounds prints to nobody: a `Bash` call made with `run_in_background` streams no
+  stdout to any surface a person can see, in the terminal CLI and in the VS Code extension alike, and
+  the output is only retrievable afterwards. So `Format-GateProgressLine` (#1717) and `ship-pr`'s watch
+  were both written for a reader who, in the one case they were needed for, is not there. The statusline
+  is the one surface that keeps rendering while that is true, and **`refreshInterval` is not optional
+  decoration**: Claude Code's own documentation says the event-driven triggers "can go quiet when the
+  main session is idle", which is exactly the state a backgrounded run leaves a session in. There is no
+  native progress UI to hook instead and no marker a script can emit that becomes one — measured on
+  2.1.276 against the shipped docs.
+
+  **Four decisions in it are worth knowing before touching it.** First, **liveness is the writer's
+  process, never the record's age** — a healthy `gh pr checks --watch` publishes once and then blocks
+  for twelve minutes, and #1941's gate sat for 141 minutes printing nothing, so an age test would hide
+  precisely the run a reader most wants to see. The record carries the run's START and the renderer
+  derives the elapsed, which is what keeps the readout moving across a producer that is blocked. Second,
+  **the pid is paired with that process's start time**, so a pid the OS has handed on cannot resurrect a
+  finished run's bar. Third, **the glyphs are ASCII** — a block-character bar would have to survive
+  PowerShell 5.1's stdout encoder, whose only repair is the console-wide `[Console]::OutputEncoding`
+  that [`language-layers.md`](../../rules/language-layers.md) forbids outright, and mojibake in the one
+  line that is always on screen is not a cosmetic defect. Fourth, **no bar without counts and no ETA
+  ever**: a fraction nobody measured is an invention, which is #1717's own argument carried over intact.
+
+  **What it costs, measured:** 206 ms per refresh on DAVE-KOK-BWJ, nearly all of it the bare `powershell`
+  launch a command statusline cannot avoid — the same floor the `PreToolUse` guard above pays. At the
+  2,000 ms interval set here that is about a tenth of one core while a session is open. The script reads
+  the branch out of `.git/HEAD` as a **file** rather than calling git for exactly that reason, and at
+  this cadence it never throws and always exits 0: a failure here is not an error report, it is a broken
+  status line repeated forever.
+
+  **The dot-source into `native-capture-lib.ps1` is guarded, and that is what keeps that file
+  byte-identical to its two mirrors.** `run-progress-lib.ps1` is not mirrored into the plugins, so in a
+  consumer the `Test-Path` fails and the gate behaves exactly as it did. Shipping the bar to consumers is
+  therefore one more mirrored file plus an `adopt-dkj-policy` seam for the settings entry, not another
+  edit to the gate — parked as
+  [#2103](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2103).
 - **`scripts/lint/check-plugin-integrity.ps1`** — the PR lint gate: validates `marketplace.json` +
   every `plugin.json` and the agent-def/manual frontmatter (`name`/`id`/`group` + filename match),
   scans for dead links (in `README.md`, `CHANGELOG.md`, the manuals, `SKILL.md`s, and `releases/**`),
