@@ -436,7 +436,9 @@ function New-MirrorComment {
                    and the update then says so rather than implying a PR that does not exist.
         'reopened' a reopen carries at least two opposite meanings -- picked up again, or back with
                    the requester -- and the workflow has no way of telling which, so the comment
-                   reports the state change only and leaves the reason on the issue.
+                   reports the state change, leaves the reason on the issue, and says plainly that
+                   it is not a request to test. Guessing is what inbound #2117 measured: told to
+                   hold off, a requester the ticket had just come back to sits still.
 
         -StateReason 'not_planned' turns the close update into its opposite: nothing was built, so
         asking somebody to test it would be worse than saying nothing.
@@ -459,7 +461,7 @@ function New-MirrorComment {
             "GitHub issue $IssueRef has been reopened.",
             $url,
             '',
-            'Why it was reopened is on the issue -- it may be back with you, or it may be being worked on again. This update is not a request to test.'
+            'Why it was reopened is on the issue -- it may be back with you, or it may have been picked up again. This update is not a request to test.'
         ) -join "`n"
     }
 
