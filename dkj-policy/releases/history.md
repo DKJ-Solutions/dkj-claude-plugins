@@ -83,6 +83,7 @@ list sits at the **end** of the page:
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.5.0](audience/5.x/5.5.0.md) | 2026-09-18 | Minor | The close-out gets a gate, and the cycle's scripts stop failing silently |
 | [5.4.0](audience/5.x/5.4.0.md) | 2026-09-17 | Minor | Release version 5.4.0 |
 | [5.3.0](audience/5.x/5.3.0.md) | 2026-09-14 | Minor | One shared Cloudflare Worker for both BWJ stores |
 | [5.2.0](audience/5.x/5.2.0.md) | 2026-09-14 | Minor | Native-capture argv quoting closed as a class, the fixture-load guard reaches every copying suite, and the BWJ theme lifecycle ships |
