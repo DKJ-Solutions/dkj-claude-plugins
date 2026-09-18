@@ -199,6 +199,11 @@ jobs:
       # holds two cores back so a developer's machine stays usable while it runs; a GitHub runner has
       # nobody sitting at it and only four cores, so that reservation would cost half the box. The
       # knowledge of which kind of machine this is lives here, not in the lib.
+      # SINCE ISSUE #2121 THE DEFAULT ALSO SIZES ITSELF ON FREE MEMORY, and that term is wrong here for
+      # the same reason the core one is: it is calibrated for a machine somebody is sitting at, with an
+      # editor and a browser on it. Both are skipped by passing a number, so this line needs no change
+      # to stay correct -- it is noted because a reader who only met the core sentence above would
+      # conclude the override has one reason, and act on it when that one stops applying.
       # repo-config.ps1 IS DOT-SOURCED HERE TOO (inbound #644): the gate reads the optional
       # Get-TestCommands from it, and open-pr and cut-release have it in scope from their own
       # dot-source. Leaving it out here would make CI -- the one caller that actually blocks the

@@ -168,8 +168,8 @@
 
 .PARAMETER MaxParallel
     How many test suites the gate above runs at once. 0 (the default) leaves the resolution to
-    Invoke-TestSuiteGate exactly as before, so passing nothing is byte-identical to the behaviour this
-    parameter was added to.
+    Invoke-TestSuiteGate, which since issue #2121 sizes the pool on free memory as well as cores and
+    takes the lower of the two; passing a number here skips that resolution entirely.
 
     IT MATTERS MOST HERE, of the three callers that got it in issue #1443 (September 5, 2026). The other
     two open a PR, and a PR that does not open costs a retry. This one commits and tags on main -- and the
