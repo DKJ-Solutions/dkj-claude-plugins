@@ -43,7 +43,51 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 20 minor entries** <!-- pending-tally -->
+**17 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2075-sixth-signal-git-spelled-branches · 20260918-040316
+
+`claim-issue`'s sixth signal now asks git about the branch names **git has**. It is fed by two scans,
+and one of them handed it names that had already been through the console sanitiser -- which replaces
+what it strips with a space, so the ref it named did not exist. `rev-list --count` and `ls-tree` both
+came back empty, both are guarded on their exit code and discard stderr, and the block printed *not a
+dependency*: the one verdict in that report a reader cannot distinguish from the truth.
+
+The finding record now carries both spellings and each reader takes its own -- `Branches` stripped for
+the report, `GitBranches` as git wrote it for the scan. That is the seam the sixth signal's own weighing
+loop already drew for itself, and the one `fix/2069-title-overlap-strip-and-plural-v2` draws for the
+fifth signal; the fourth signal's input was the place it had never been drawn.
+
+Pinned with three structural asserts rather than a behavioural case, deliberately: `git
+check-ref-format` accepts `\p{Cf}`, so the failure needs a branch carrying a bidi override or a
+zero-width run, and on every ordinary name the two fields hold the identical string. No run can tell
+them apart, so the direction is the whole finding and an assert is the only thing that can state it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `claim-issue` gets a signal that had a silent hole in it: the one case the branch-name
+strip was added for was also the one case the prerequisite scan could not answer. Nobody has hit it --
+it needs somebody to push a branch whose name carries a formatting character -- so this is a failure
+named rather than a failure repaired, and that is worth saying plainly.
+
+What generalises past this one script is the rule the repair states twice in comments and three times in
+asserts: **sanitise on the way out, never on the way in.** A value that is going to be printed and a
+value that is going back to the tool it came from are two different values, and where one variable
+carries both, the tool is the one that loses -- quietly, and only when it matters.
+
+**Score:** 1
+
+#### Pull Request
+
+The sixth signal is fed git-spelled branch names, not the stripped copies the report prints
+
+Plugins: dkj-policy
+
+[PR #2079](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2079)
+
+---
 
 ### DEPLOY: fix/2061-lane-forwards-resolves · 20260918-001347
 
