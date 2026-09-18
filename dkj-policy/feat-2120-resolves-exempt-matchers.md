@@ -103,6 +103,16 @@ marker, so a built-in set would be one family's tracker imposed on every consume
 - [x] `scripts/tests/script-contract.tests.ps1` -- the record count 42 -> 43 and the undefined-seam counts,
       each with its reason in the assert message. 316 pass.
 - [x] The lint gate and the full suite before the push, via `open-pr.ps1`.
+- [x] **Two census asserts moved, each after its own audit** -- both caught this branch on the first full
+      run, which is exactly what they are written to do. `config-blueprint.tests.ps1` counts the seams the
+      source itself leaves at the fallback: 8 -> 9, because `Get-ResolvesExemptMatchers` is undeclared here
+      *deliberately* (see PLAN) and the artefact records that rather than dropping it.
+      `native-capture.tests.ps1` counts bounded `Invoke-NativeCapture` sites: 57 -> 58, the new one being
+      `Get-IssueBodySet`'s `gh issue view --json body` -- bounded by the caller's `-TimeoutSeconds`, capped
+      by the same `$script:IssueStateResolveLimit` as `Get-ClosedIssueSet` beside it, and reached only when
+      the seam is answered. Its companion assert -- that a negatively-judged capture asks
+      `Test-NativeExitMeasured` about *that* capture -- stayed green through the change, which is the half
+      that matters: the new site is judged, not merely counted. 205 and 233 pass, 0 fail.
 
 ### DEPLOY: feat/2120-resolves-exempt-matchers
 

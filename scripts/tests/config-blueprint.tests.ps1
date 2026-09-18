@@ -300,8 +300,15 @@ Assert-Equal 0 $shared.Count "no `$script: variable is assigned by more than one
 # and this repo's label is called exactly that -- so a function here would restate the default and become
 # a value somebody has to maintain. Recorded as declared=false, which tells a consumer the truth: the
 # source does not state it either, and neither should they unless their own label is spelled otherwise.
+#
+# NINE SINCE SEPTEMBER 18, 2026 (inbound #2120): Get-ResolvesExemptMatchers joined, and it is the member
+# of this set whose silence is the feature. The seam names the text that marks an issue a MERGE MUST NOT
+# CLOSE -- a ticket-mirror marker, a task link -- and those markers belong to another system entirely. A
+# built-in default would be one family's tracker imposed on every consumer, so the workflow's answer is
+# "nothing", the gate is silent, and it makes no extra `gh` call at all. This repo runs no such mirror,
+# so its own answer IS that default; recorded as declared=false, which tells a consumer exactly that.
 $undeclared = @($bp.records | Where-Object { -not $_.declared })
-Assert-Equal 8 $undeclared.Count 'the eight functions the source itself leaves at the fallback are recorded, not dropped'
+Assert-Equal 9 $undeclared.Count 'the nine functions the source itself leaves at the fallback are recorded, not dropped'
 foreach ($rec in $undeclared) {
     Assert-Equal '' $rec.text "$($rec.function): an undeclared record carries no text to copy"
 }
