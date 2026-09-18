@@ -1,12 +1,12 @@
 ---
 name: adopt-dkj-policy
-description: Adopt the dkj-policy workflow in a consuming repo, in four independent parts that can run in any order or alone. Part 1 scaffolds the workflow's own root folder -- dkj-policy/ -- the folder docs (README and CONTRIBUTING), the releases root with this repo's release answers, the branch-entry CI gate, the always-on budget CI gate that holds every PR to not growing what every session pays before a single assignment is given, and the PR template open-pr fills in; use this right after installing the plugin, or when the script-contract session check reports the folder missing, since an install alone writes nothing into the repo. Part 2 adopts the source repo's workflow configuration from the shipped blueprint -- placing the values that state the shared way of working into this repo's own seam libs, and proposing the rest for a person to answer; use this after specialists-init has laid down scripts/repo-config.ps1 and scripts/lib/branch-info.ps1, or whenever the script-contract check reports functions this repo has never configured. Part 3 builds the CI floor -- it places the runners that keep the fold and the resolves verification alive across a merge the shipping session never observes (a merge queue, or the GitHub UI merge button), places a scheduled runner that checks whether a GitHub-side repo setting still matches what this repo declares, and reports whether a required status check exists at all, which is the certificate ship-pr dates its staleness guard from; use it after installing the plugin, when ship-pr says the staleness guard is off because no required check is known, when a merge landed and nothing folded, or when a repo setting may have drifted. A merge queue is optional and is not this workflow policy: most repos cannot have one, so a missing queue is reported as the ordinary state rather than as a gap. Part 4 puts the one issue label this workflow prescribes on the tracker -- the reach label, minor by default, which is the tier model read on an issue instead of on a changelog entry; use it after installing the plugin, or when a filing fails because the label does not exist. Parts 1 to 3 are strictly additive and dry-run by default; none overwrites anything, and part 4 is a person's gh call rather than a script.
+description: Adopt the dkj-policy workflow in a consuming repo, in five independent parts that can run in any order or alone. Part 1 scaffolds the workflow's own root folder -- dkj-policy/ -- the folder docs (README and CONTRIBUTING), the releases root with this repo's release answers, the branch-entry CI gate, the always-on budget CI gate that holds every PR to not growing what every session pays before a single assignment is given, and the PR template open-pr fills in; use this right after installing the plugin, or when the script-contract session check reports the folder missing, since an install alone writes nothing into the repo. Part 2 adopts the source repo's workflow configuration from the shipped blueprint -- placing the values that state the shared way of working into this repo's own seam libs, and proposing the rest for a person to answer; use this after specialists-init has laid down scripts/repo-config.ps1 and scripts/lib/branch-info.ps1, or whenever the script-contract check reports functions this repo has never configured. Part 3 builds the CI floor -- it places the runners that keep the fold and the resolves verification alive across a merge the shipping session never observes (a merge queue, or the GitHub UI merge button), places a scheduled runner that checks whether a GitHub-side repo setting still matches what this repo declares, and reports whether a required status check exists at all, which is the certificate ship-pr dates its staleness guard from; use it after installing the plugin, when ship-pr says the staleness guard is off because no required check is known, when a merge landed and nothing folded, or when a repo setting may have drifted. A merge queue is optional and is not this workflow policy: most repos cannot have one, so a missing queue is reported as the ordinary state rather than as a gap. Part 4 puts the one issue label this workflow prescribes on the tracker -- the reach label, minor by default, which is the tier model read on an issue instead of on a changelog entry; use it after installing the plugin, or when a filing fails because the label does not exist. Part 5 wires up the statusLine that draws the progress bar for the long runs this workflow backgrounds -- the test gate and ship-pr's CI wait, which stream no stdout anywhere visible; use it after installing the plugin, or when a backgrounded run leaves the session looking idle. statusLine is a settings key, so no plugin component can place it. Parts 1 to 3 and part 5 are strictly additive and dry-run by default; none overwrites anything, and part 4 is a person's gh call rather than a script.
 ---
 
 # adopt-dkj-policy -- scaffold the folder, place the config seams, build the CI floor
 
 An install writes nothing into your repo: it clones the plugin into your cache, and that is all. This
-command is the four things that actually place `dkj-policy` on your side, and they are independent of
+command is the five things that actually place `dkj-policy` on your side, and they are independent of
 each other -- run them in any order, or run only the one you need:
 
 - **Part 1** creates the workflow's own root folder and its CI gate.
@@ -15,11 +15,14 @@ each other -- run them in any order, or run only the one you need:
   required check exists for the staleness guard to read, and a scheduled check that a GitHub-side repo
   setting has not silently drifted. A merge queue is optional here.
 - **Part 4** puts the one issue label this workflow prescribes on your tracker.
+- **Part 5** wires up the statusLine that draws a progress bar for the long runs this workflow
+  backgrounds, which otherwise print to nobody.
 
-No part depends on another having run. Parts 1 to 3 are dry-run by default and never overwrite a file
-that already exists. Part 1 makes exactly one write **into** an existing file -- it appends the folder
-README's marked UPDATE section when that page does not carry it -- and it replaces nothing; see its
-rules below.
+No part depends on another having run. Parts 1 to 3 and Part 5 are dry-run by default and never
+overwrite a file that already exists. Two of them make a bounded write **into** an existing file and
+neither replaces anything: Part 1 appends the folder README's marked UPDATE section when that page
+does not carry it, and Part 5 adds one key to `.claude/settings.json` -- refusing where that key is
+already there, since there is only one of it. See their rules below.
 
 ## Part 1 -- scaffold the workflow folder
 
@@ -615,3 +618,104 @@ whose label and seam disagree gets an `HTTP 422` from `gh issue create` instead 
 Nothing else reads this label -- no gate refuses on it and no script writes it. What it buys is the
 worklist: `is:open label:<reach label>` is every open issue whose landing will be visible past this
 repo's own developers.
+
+## Part 5 -- the progress bar's statusline
+
+A run this session **backgrounds prints to nobody**. Measured and stated in Claude Code's own
+documentation: a Bash call made with `run_in_background` streams no stdout to any visible surface,
+in the terminal CLI and in the VS Code extension alike. Its output is retrievable afterwards, which
+is a different thing from watching a run. So this workflow's two long waits -- the test gate, and
+`ship-pr` waiting on CI -- print a progress line for a reader who, in the one case they were written
+for, is not there.
+
+The **statusLine** is the one surface that keeps rendering while that is true. This part wires it up:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-statusline.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-statusline.ps1" -Apply
+```
+
+Dry run by default, like Parts 1 to 3: the first run prints exactly what it would place and touches
+nothing.
+
+### Why this is a command and not payload
+
+`statusLine` is a **settings** key, so nothing a plugin ships can place it. That is the one claim this
+part turns on, and it is verified against the plugin reference rather than assumed:
+
+- `plugin.json` carries no `statusLine` key.
+- A plugin-root `settings.json` supports only `agent` and `subagentStatusLine`.
+- `${CLAUDE_PLUGIN_ROOT}` is **not** expanded in a statusLine command, and is not exported to it.
+
+An install clones the plugin into your cache and writes nothing into your repo, so a command is the
+only route there is.
+
+### What it places, and why one of them is a shim
+
+Two files:
+
+| path | what it is |
+|---|---|
+| `.claude/statusline/dkj-progress.ps1` | a small shim that resolves the **currently installed** payload and hands over to it |
+| `.claude/settings.json` | the `statusLine` key, pointing at that shim |
+
+**The shim is the whole design decision, so it is worth one paragraph.** The obvious thing is to write
+today's plugin-cache path straight into your settings. That fails in the worst available way: the cache
+is keyed **by version**, so a machine holds `dkj-policy/5.0.0` through `5.5.0` side by side, and the next
+`claude plugin update` leaves the old payload exactly where it was. Your statusline goes on rendering it
+-- it keeps working, it renders stale code, and nothing reports it. Copying the two scripts into your
+repo instead trades that for two live copies drifting at every release with no lint over them. The shim
+is the third answer: one file that never changes, resolving the payload at render time, so the path in
+your settings cannot go stale and the logic stays in the plugin where a release can reach it.
+
+It reads `~/.claude/plugins/installed_plugins.json` itself rather than through the shared lib that
+already does, because that lib lives in the payload the shim is looking for. It prefers a record naming
+**this** repo, falls back to a pathless (user-scope) one, and never uses a record naming somebody else's
+repo. Every failure path -- no administration, one it cannot parse, a payload that is gone -- prints
+nothing and exits 0: a status line runs every couple of seconds for as long as a session is open, so a
+failure there is not an error report, it is a broken status line repeated forever.
+
+### An existing statusLine is never replaced
+
+There is **one** `statusLine` key per settings file, so placing this one over yours would take your
+status line away without asking. This part leaves it exactly as it is and prints the block for you to
+place by hand -- the additive-and-never-overwrites rule the rest of this page follows. The shim is
+placed either way, so wiring it up later is a settings edit and nothing else.
+
+A settings file that does not **parse** is refused outright rather than repaired: the run exits 1, the
+file is left byte for byte as it was, and the block is printed.
+
+### Afterwards
+
+With something running you get a bar; with nothing running, the directory, the branch and the model:
+
+```
+[#####-------] 37/84  test gate (12 running)  +6m12s
+my-repo  feat/1234-something  Opus 5
+```
+
+Nothing else has to be switched on. The two producers publish from inside their own process, and they
+are already in the payload you installed.
+
+**If no bar ever appears**, run [`plugin-versions`](../plugin-versions/SKILL.md): a payload released
+before this landed carries no `scripts/task/show-progress.ps1` at all, and the shim then prints
+nothing, by design.
+
+### What it costs, measured
+
+A status line is a command Claude Code runs as a **fresh process** on every render, so at a 2-second
+refresh this is about **0.3 s of CPU per tick, or roughly 9 minutes per hour of open session**,
+measured on a Windows machine (September 18, 2026). Around 70-90% of that is the PowerShell process
+spawn and its cold start; the shim's own work -- the `installed_plugins.json` read, the parse and the
+record scan -- is **~1.4 ms**, under half a percent of the tick.
+
+**Which is why the shim does not cache that read, and the numbers are here so nobody 'fixes' it.**
+Caching would save one or two milliseconds out of three hundred, and it would buy that by holding on
+to a resolved `installPath` -- which is precisely the stale, invisible, unreported state this whole
+part is built to avoid. The cost is inherent to `statusLine` being a process per render rather than to
+anything in this design, so the honest answer to finding it too expensive is to not run a status line,
+not to make this one lie about which payload it is rendering.
+
+**This part is refused in the repo that publishes this workflow.** That repo runs the statusline script
+from its own tree by a repo-relative path, and a shim there would resolve an install record to find the
+payload it is itself the source of.

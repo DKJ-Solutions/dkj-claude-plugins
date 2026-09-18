@@ -229,6 +229,38 @@ function Get-SharedScriptPairs {
             MirrorRun = 'policy-drift-report.tests.ps1'
         },
         @{
+            # THE STATUSLINE THAT DRAWS THE BAR -- issue #2103, the reader's half of #2101. A run this
+            # session backgrounds prints to nobody, so the record the gate publishes has to be RENDERED
+            # somewhere that keeps rendering; this file is that somewhere. Mirrored for the ordinary
+            # reason every entry here is: the alternative is each consumer hand-copying a file whose
+            # whole job is to be cheap and correct at a two-second cadence.
+            #
+            # IT RESOLVES run-progress-lib.ps1 AS A '..\lib\' SIBLING, which the entry further down
+            # mirrors into this same plugin -- so the pair lands together or not at all.
+            #
+            # NO SKILL, AND THAT IS A DECLARATION RATHER THAN AN OMISSION (#2103 asked the question
+            # outright). check-script-contract's row states the test: nobody INVOKES this as a
+            # procedure. Claude Code runs it, on its own clock, because .claude/settings.json names it
+            # -- the same shape as a hook, one settings key over. What a person does invoke is the
+            # command that WIRES it up, and that has a page: adopt-statusline below, Part 5 of
+            # 'adopt-dkj-policy'. A skill here would document a script no reader ever types.
+            Name   = 'show-progress'
+            Source = 'scripts\task\show-progress.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            # Timeable with no arguments: it reads a directory of small JSON records and .git/HEAD as a
+            # file, prints, and exits 0. Its own header makes costing no subprocess the point, so the
+            # figure is worth having.
+            MeasureArgs = @()
+            # THE CONTEXT LINE'S DIRECTORY FALLBACK ascends two levels off $PSScriptRoot, so it means
+            # the repo root in this copy and the PLUGIN root in the mirror -- and check 8 cannot see
+            # the difference, because the two files are byte-identical (#1857). It is the fallback
+            # rather than the normal path (Claude Code always sends workspace.current_dir), which makes
+            # it exactly the kind of divergence nobody would notice: the line still renders, naming the
+            # wrong directory. So the suite runs the mirror from its own depth.
+            MirrorRun = 'run-progress.tests.ps1'
+        },
+        @{
             # Issue #411. Was excluded as "workshop-only" on the reasoning that merge policy and the CI
             # check name are repo-specific. Only the first half held: the check NAME never entered the
             # logic (step 3 watches whatever checks exist and reads the exit code), and the merge METHOD
@@ -501,6 +533,23 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE PROGRESS RECORD native-capture-lib's GATE PUBLISHES -- issue #2103, the consumer half
+            # of #2101. #2101 built the whole mechanism in this repo and mirrored none of it, on purpose
+            # and only for now: native-capture-lib reaches this file through a GUARDED dot-source, so in
+            # a consumer the Test-Path failed, $script:RunProgressAvailable stayed $false, and the gate
+            # behaved exactly as it had. That guard is what let native-capture-lib stay byte-identical to
+            # its two mirrors while the bar existed only here.
+            #
+            # SO THIS ROW IS THE WHOLE OF THE GATE'S HALF. The producers already live in the shared,
+            # mirrored file; registering the lib they reach for is what turns the guard's false arm into
+            # its true one, in every consumer, without editing native-capture-lib again. That was the
+            # design #2101 recorded, and this is it being used rather than a change of mind.
+            Name    = 'run-progress-lib'
+            Source  = 'scripts\lib\run-progress-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE FALSE-POSITIVE MACHINERY A PreToolUse COMMAND GUARD NEEDS (issue #1669), dot-sourced
             # by hooks/guard-working-copy.ps1. It exists as a lib rather than inside that hook because
             # this repo already ships a second command guard -- dkj-subagents-shopify's guard-live-theme.ps1 --
@@ -590,6 +639,27 @@ function Get-SharedScriptPairs {
             # a payload missing this file must fail at load, not push unbounded.
             Name    = 'native-capture-lib-shopify'
             Source  = 'scripts\lib\native-capture-lib.ps1'
+            Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
+            # THE SECOND MIRROR OF THE SAME SOURCE, on native-capture-lib-shopify's precedent directly
+            # above -- read check-report-lib-workflow's banner for why a second entry rather than a list
+            # of mirrors, and why the name carries the plugin. Nothing there needs restating.
+            #
+            # WHY dkj-subagents-shopify NEEDS ITS OWN COPY: it is the entry above that needs it. The gate's
+            # publish sites live in native-capture-lib.ps1, which is mirrored into this plugin too, and
+            # their guarded dot-source resolves '..\lib\run-progress-lib.ps1' INSIDE the plugin the mirror
+            # landed in. Registered only for dkj-policy, a Shopify consumer running this team without the
+            # workflow plugin would keep the silent no-bar arm forever -- and a cross-plugin dot-source is
+            # not the way out, for the reason the entry above states: the two are separately versioned and
+            # separately installed, so that dependency breaks on a version mismatch without saying so.
+            #
+            # THE GUARD STAYS, AND IT IS NOT NOW REDUNDANT. It is what makes this file safe to dot-source
+            # in a tree that has not received the lib yet -- a consumer mid-update, and every payload
+            # released before this one.
+            Name    = 'run-progress-lib-shopify'
+            Source  = 'scripts\lib\run-progress-lib.ps1'
             Plugin  = 'dkj-subagents-shopify'
             LibOnly = $true
         },
@@ -1166,6 +1236,42 @@ function Get-SharedScriptPairs {
             SkillParamsExempt = @('RulesJsonOverride')
             # Timeable with no arguments: the default is a dry run that writes nothing. It does make one
             # gh call, so the figure carries a network leg -- which is the honest cost of this command.
+            MeasureArgs = @()
+        },
+        @{
+            # THE STATUSLINE SEAM (issue #2103), Part 5 of the same page. A plugin install writes nothing
+            # into a repo, and this is the one component where that is structural rather than incidental:
+            # statusLine is a SETTINGS key. Verified against the plugin reference rather than assumed --
+            # plugin.json carries no statusLine, a plugin-root settings.json supports only 'agent' and
+            # 'subagentStatusLine', and ${CLAUDE_PLUGIN_ROOT} is not expanded in a statusLine command at
+            # all. So nothing in the payload can place this, and a command is the only route.
+            #
+            # IT PLACES A SHIM, NOT A PATH, AND THAT IS THE WHOLE DESIGN DECISION (Dave, September 18,
+            # 2026). The obvious thing -- write today's plugin-cache path into settings.json -- fails in
+            # the worst available way: the cache is keyed BY VERSION (this machine holds dkj-policy 5.0.0
+            # through 5.5.0 side by side), so the next plugin update leaves the old payload on disk and
+            # the statusline goes on rendering it. It keeps working, it renders stale code, and no check
+            # reports it. Copying the two scripts into the consumer instead trades that for two live
+            # copies drifting every release with no lint over them. The shim is the third answer: one
+            # small file that never changes, resolving the CURRENT payload through the install record
+            # that plugin-versions.ps1 already reads, so the logic stays in the plugin and travels by
+            # release like everything else.
+            #
+            # STRICTLY ADDITIVE AND REFUSE-AND-PRINT, on adopt-*'s own precedent everywhere else in this
+            # family -- #2103's body left that open and its own argument answers it. statusLine is
+            # singular per settings file, so a consumer that already has one would have it REPLACED;
+            # this run leaves it alone and prints the block instead.
+            Name   = 'adopt-statusline'
+            Source = 'scripts\task\adopt-statusline.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'adopt-dkj-policy'
+            # A test points the command at a fixture repo root, so a whole settings state can be put in
+            # front of it. A consumer never types it. ONE SEAM, NOT THE USUAL TWO: this command never
+            # reads the install administration -- resolving the payload is the shim's job at render
+            # time -- so there is no home seam here to exempt.
+            SkillParamsExempt = @('RootOverride')
+            # Timeable with no arguments: the default is a dry run that writes nothing and makes no
+            # network call at all.
             MeasureArgs = @()
         },
         @{
