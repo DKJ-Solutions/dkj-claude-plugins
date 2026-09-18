@@ -452,8 +452,44 @@ if (-not (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
     Write-CycleParkNote "the network budget for this turn is spent before the PR check -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
     exit 0
 }
-$prList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branch, '--state', 'all', '--json', 'number,state', '--limit', '1') `
+$ghArgs = @('pr', 'list', '--head', $branch, '--state', 'all', '--json', 'number,state', '--limit', '1')
+$prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
                                -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
+
+# AN UNMEASURABLE EXIT CODE IS ITS OWN STATE, AND UNTIL #2068 IT WAS FOLDED INTO "COULD NOT BE ASKED".
+# -TimeoutSeconds is always > 0 here (Get-NativeCaptureBudgetBound returns a floor, never 0), so this
+# call ALWAYS takes the -Utf8/Start-Process arm -- the one arm where .ExitCode can come back as literal
+# $null on a CLEAN exit (#1931, 27 of 960 captures under 16 lanes). ExitCode is then $null, `$null -ne 0`
+# is $true, and the arm below fired with a sentence saying gh could not be asked -- while gh had in fact
+# answered, and its answer was sitting in Output. That is the shape #1628 and #2056 have each already
+# repaired once in this family: a state that was never measured must be reported as itself, not printed
+# as whichever neighbouring verdict happens to share an if.
+#
+# SO IT IS RE-ASKED ONCE, AND THAT IS NOT THE RETRY #1931 DECLINED. What it declined is re-READING the
+# same handle inside a 200ms budget, which it measured as still leaving 7 of 240 unresolved. This is a
+# fresh child and an independent draw, and `gh pr list` is read-only, so re-running it is free of
+# consequence -- the one property that decides whether a retry belongs at a call site at all, and the
+# reason it cannot live in the lib, which cannot know a command is idempotent (`git push` is not).
+# Budget-gated like every other network call here, so a spent budget skips it rather than overrunning.
+#
+# WHAT THIS IS NOT: a proven repair for #2068's flaky suite. That issue reports park-cycle.tests.ps1
+# red under the gate and green standalone, with THIS sentence as the observable. The mechanism above
+# fits it exactly and is the only one measured in this tree -- but a probe built to reproduce it here
+# came back 0 of 600 at 16 lanes (instrument validated at 40/40 against a shim exiting 1), against
+# #1931's 2.8%, so the rate is environment-dependent and this is not established as that flake's cause.
+# It is repaired because reporting an unmeasured state as a measured one is wrong on its own terms.
+#
+# AND WHETHER THE RE-ASK HAPPENED IS TRACKED RATHER THAN INFERRED FROM THE STATE IT LEAVES BEHIND.
+# The gate below is three conditions, and the budget is one of them -- so an unknown code on a budget
+# with no room left skips the retry and arrives at the refusal in the SAME state a failed retry leaves.
+# Wording that arm "asked twice" would be this branch's own defect, one elseif over: a sentence
+# describing a run that did not happen. $reAsked is the only thing that can tell them apart afterwards.
+$reAsked = $false
+if ($prList.ExitCodeUnknown -and -not $prList.TimedOut -and (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+    $reAsked = $true
+    $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
+                                   -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
+}
 if ($prList.ExitCode -ne 0) {
     # THE NAME IS STRIPPED HERE TOO, for the reason the arm below already states at its own
     # interpolation (#1623): `git check-ref-format` accepts \p{Cf}, so a fetched or hand-made branch can
@@ -462,7 +498,15 @@ if ($prList.ExitCode -ne 0) {
     # one half hardened, which is the shape #1953 already had to repair once in this same file. Low risk
     # (this is the checkout's OWN branch, not somebody else's ref) and repaired anyway, because the line
     # was being reworded regardless and leaving it would say the strip is optional.
-    $why = if ($prList.TimedOut) { "did not answer in time" } else { "could not be asked" }
+    # FOUR STATES, WHERE THERE WERE TWO (#2068). The two were a stall and "could not be asked", and an
+    # exit code that is not a measurement was folded into the second -- sending a reader to check a gh
+    # installation that was never the problem. It splits in two here because the re-ask above is
+    # budget-gated, so an unreadable code that was asked once and one that was asked twice are different
+    # facts about what this run did, and only $reAsked knows which.
+    $why = if ($prList.TimedOut) { "did not answer in time" }
+           elseif ($prList.ExitCodeUnknown -and $reAsked) { "answered twice, and neither run's exit code could be read (#1931)" }
+           elseif ($prList.ExitCodeUnknown) { "answered, but its exit code could not be read, and the network budget had no room to ask again (#1931)" }
+           else { "could not be asked" }
     Write-CycleParkNote "gh $why whether '$(Get-DisplayRef -Ref $branch)' has a PR -- not pushing (the DEPLOY lock must not be broken from here)." 'DarkYellow'
     exit 0
 }

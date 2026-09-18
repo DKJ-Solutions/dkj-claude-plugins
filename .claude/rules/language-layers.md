@@ -109,6 +109,13 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   suite holding UTF-8 turning the failing assert green under the gate while it was red on its own. And a
   suite that is green under the gate and red standalone is reporting a **real** defect until proven
   otherwise; the gate is the run with the shared state in it.
+  **The converse is a different rule, and it is the commoner event**: a suite **red under the gate
+  and green standalone** is evidence about the *run* before it is evidence about the tree, and the
+  response is to re-run it alone. Stated here only so this paragraph is not read as the whole rule —
+  it is argued, with its measurements, in `Invoke-TestSuiteGate`'s docstring in
+  [`scripts/lib/native-capture-lib.ps1`](../../scripts/lib/native-capture-lib.ps1) (#1033, plus
+  #1723 on telling a crash from a verdict). #2068 was filed on the one-directional reading of this
+  page.
 - **Technical identifiers/flags** keep their original form — the scaffold marker `VUL-IN` (used across
   the plugin's scaffold scripts, e.g. `bootstrap.ps1`, `new-branch.ps1`) is one example; Dave's
   explicit decision. The job id **`lint-en-tests`** in [`ci.yml`](../../.github/workflows/ci.yml) is a

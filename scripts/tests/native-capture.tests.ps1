@@ -1185,8 +1185,13 @@ Assert-Equal $parkBudgeted.Count $parkNetCalls.Count 'and every one of them take
 # pin tolerates losing one call and still passes. Comments are stripped and the count is exact, so a
 # dropped guard is a red rather than a silently weaker promise.
 $parkCycleCode = ($parkCycleJoined -split '\r?\n' | Where-Object { $_.TrimStart() -notmatch '^#' }) -join "`n"
-Assert-Equal (@([regex]::Matches($parkCycleCode, 'Test-NativeCaptureBudgetHasRoom')).Count) 4 `
-    'park-cycle asks whether there is room before each call it might make -- the PR check, the open-PR look, the push, and the refused-push look'
+# FIVE SINCE #2068, NOT FOUR. The PR check gained a conditional SECOND gh call -- it re-asks once when
+# the first answer came back with an exit code that is not a measurement (ExitCodeUnknown, #1931) --
+# and a retry that can reach the network is a call like any other, so it owes the same room check.
+# The pin is exact on purpose (see the paragraph above), so adding the call without the guard is red
+# and adding the guard without updating this number is red too. Both are the intended behaviour.
+Assert-Equal (@([regex]::Matches($parkCycleCode, 'Test-NativeCaptureBudgetHasRoom')).Count) 5 `
+    'park-cycle asks whether there is room before each call it might make -- the PR check, its re-ask, the open-PR look, the push, and the refused-push look'
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1304,7 +1309,18 @@ foreach ($af in $auditFiles) {
     }
 }
 
-Assert-Equal 56 $boundedTotal 'the parser still counts 56 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# MOVED 56 -> 57 ON THIS BRANCH, DELIBERATELY, WHICH IS THE WHOLE POINT OF THIS ASSERT. The new
+# bounded site is park-cycle.ps1's RE-ASK -- the repair this branch exists for: a second `gh pr list`
+# taken ONLY when the first came back with an exit code .NET could not measure (#1931). It is not a
+# new round trip in the general case, and it carries every guard the one it retries carries:
+#   * reachable only on $prList.ExitCodeUnknown -and -not $prList.TimedOut -- never after a timeout,
+#   * gated on Test-NativeCaptureBudgetHasRoom, so a Stop hook cannot spend an unbounded extra call
+#     (#1958's own defect, one call over), and
+#   * bounded by Get-NativeCaptureBudgetBound, the same bound as the original.
+# The exempt list above ALREADY ANTICIPATED IT: 'task\park-cycle.ps1|prList' names this branch by
+# name as the worked instance #2081 was split out of. The companion assert below stayed green through
+# the change, which is the half that matters -- the new site is judged, not merely counted.
+Assert-Equal 57 $boundedTotal 'the parser still counts 57 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
