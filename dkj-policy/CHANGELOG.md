@@ -43,7 +43,47 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2109-tracked-name-code-page · 20260918-103318
+
+The `[tracked-name]` check now reads git's path list as ASCII on the wire and decodes it itself, so it
+fires on the machine where a mangled name is created instead of only in CI after the push.
+
+It read `git ls-files -z` and let Windows PowerShell 5.1 decode the bytes with
+`[Console]::OutputEncoding`. The whole subject of the check is a name made of bytes no ordinary code
+page has an opinion about -- so on cp850 the U+F03A it exists to catch arrived as three unrelated
+characters in no class at all. Measured on the commit that produced the case: the local gate reported
+`checked 761 -- 0 finding(s)` and CI, on a console whose code page differs, failed the SAME commit with
+the finding. That inverts the guard -- it went blind on the developer machine where such a name is
+created and spoke only once the object was in the remote's store forever.
+
+The repair is the one [`.claude/rules/language-layers.md`](../.claude/rules/language-layers.md) already
+prescribes for this class: `core.quotePath=true` plus `Convert-GitQuotedPath`, because every candidate
+code page agrees below 0x80. Dropping `-z` costs the newline guarantee nothing -- git C-quotes a
+control character in every `core.quotePath` setting, so such a path is still one record.
+
+Resolves [#2109](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2109).
+
+A guard that only fires in CI reports damage instead of preventing it. Anyone running the lint gate on
+a non-UTF-8 console -- the default on a Dutch or German Windows box -- now gets the answer at the point
+where it is still free, and notices it the moment they touch that part.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Internal to this repo's own lint gate. Nothing a subscriber runs or upgrades changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+check 43 reads git's path list through the console code page
+
+[PR #2112](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2112)
+
+---
 
 ### DEPLOY: fix/2107-premise-reads-unmeasured-exit · 20260918-101548
 

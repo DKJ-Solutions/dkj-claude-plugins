@@ -5508,12 +5508,34 @@ Write-Coverage -Category 'exec-policy/script' -Checked $epsChecked `
 if (Test-Path -LiteralPath (Join-Path $RepoRoot '.git')) {
     try {
         . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
-        # -z, so a path holding a newline is one record rather than two. That is not hypothetical here:
-        # a control character IS one of the three classes below, and a line-based read would split such a
-        # path and then report two paths that do not exist instead of the one that does.
-        $tpList = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'ls-files', '-z')
+        . (Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1')
+        # THE WIRE IS HELD TO ASCII AND DECODED HERE, WHICH IS WHY `-z` IS GONE (issue #2109,
+        # September 18, 2026). This check read `ls-files -z` and let Windows PowerShell 5.1 decode the
+        # bytes with [Console]::OutputEncoding -- and the whole subject of the check is a name made of
+        # bytes no ordinary code page has an opinion about. On cp850, the U+F03A this check exists to
+        # catch arrived as U+00B4 U+00C7 U+2551 and Get-UncheckoutableNameClass correctly said nothing
+        # about it. Measured on the commit that produced the case: the local gate reported
+        # `checked 761 -- 0 finding(s)` and CI, on a console whose code page differs, failed the SAME
+        # commit with the finding. That inverts the guard -- it went blind on the developer machine
+        # where such a name is created and spoke only after the push, with the object in the remote's
+        # store forever. `.claude/rules/language-layers.md` states the class and prescribes the repair:
+        # `core.quotePath=true` plus Convert-GitQuotedPath, because every candidate code page agrees
+        # below 0x80. The flag is FORCED rather than left to git's default, since a repo may set
+        # core.quotepath in its own config and put the answer back at the mercy of the decoder.
+        #
+        # AND DROPPING `-z` COSTS THE NEWLINE NOTHING, which is the one thing the old comment here was
+        # right to worry about: a control character IS one of the three classes below, so a line-based
+        # read that split such a path would report two paths that do not exist instead of the one that
+        # does. Measured against git 2.55 on a tree built with `mktree -z`: a path holding a newline
+        # comes back as `"bad\nname.txt"` -- quoted, with the newline escaped -- in BOTH quotePath
+        # settings, because git C-quotes a control character regardless. So the record stays one line
+        # and Convert-GitQuotedPath unpacks the escape back into a real newline. The two mechanisms are
+        # mutually exclusive on the wire (`-z` suppresses the quoting), and quoting is the one that also
+        # answers the decoding half.
+        $tpList = Invoke-NativeCapture -FilePath 'git' -Arguments @('-c', 'core.quotePath=true', '-C', $RepoRoot, 'ls-files')
         if ($tpList.ExitCode -eq 0) {
-            $tpPaths = @((@($tpList.Output) -join "`n") -split "`0" | Where-Object { $_ -ne '' })
+            $tpPaths = @($tpList.Output | Where-Object { $_ -ne $null } |
+                ForEach-Object { Convert-GitQuotedPath -Path ([string]$_) } | Where-Object { $_ -ne '' })
             $tpFindings = 0
             # THE PREDICATE IS check-report-lib's, NOT THIS FILE'S, and that split is the one this repo
             # already makes wherever a check is a query plus a judgement (pr-issues-lib's whole first
@@ -5537,7 +5559,7 @@ if (Test-Path -LiteralPath (Join-Path $RepoRoot '.git')) {
                 Add-Error ("[tracked-name] '{0}' is tracked under a name containing {1}. A Windows checkout cannot write it, so `git clone` fails there -- and it is almost certainly a scratch artefact that a `git add -A` swept up rather than anything the tree wants. Remove it with `git rm`, and write scratch output to the scratchpad directory instead of to a path built by hand." -f (Format-SafePathToken -Value $tp -MaxLength 200), $tpClass)
             }
             Write-Coverage -Category 'tracked-name' -Checked $tpPaths.Count `
-                -Note "tracked path(s) held to being a name a Windows checkout can write -- $tpFindings finding(s) across three classes: a Unicode PRIVATE USE character (U+E000-U+F8FF), one of Windows' reserved characters, and a control character. THE FIRST IS THE ONE THAT BIT (September 14, 2026): a tool wrote to an absolute path, Windows substituted U+F03A for the drive colon, the path collapsed into ONE 53 KB filename in the repo root, and a 'git add -A' put it on main -- green through the lint gate, the test gate and CI, because nothing here had an opinion about what a path is CALLED. Not a .gitignore job: a pattern has to predict the mangled spelling, and not predicting it is the whole shape of the failure. THE SUBJECT IS WHAT GIT TRACKS rather than what is on disk -- an untracked scratch file is what a scratchpad is for, and a working-tree check would fire on every run made mid-task and be trained away. Born green: 717 paths, 0 findings, 0 exemptions. WHAT IT DOES NOT REACH: history. A name already committed stays in every clone's object store, so this stops the next one and repairs no past one"
+                -Note "tracked path(s) held to being a name a Windows checkout can write -- $tpFindings finding(s) across three classes: a Unicode PRIVATE USE character (U+E000-U+F8FF), one of Windows' reserved characters, and a control character. THE FIRST IS THE ONE THAT BIT (September 14, 2026): a tool wrote to an absolute path, Windows substituted U+F03A for the drive colon, the path collapsed into ONE 53 KB filename in the repo root, and a 'git add -A' put it on main -- green through the lint gate, the test gate and CI, because nothing here had an opinion about what a path is CALLED. Not a .gitignore job: a pattern has to predict the mangled spelling, and not predicting it is the whole shape of the failure. THE SUBJECT IS WHAT GIT TRACKS rather than what is on disk -- an untracked scratch file is what a scratchpad is for, and a working-tree check would fire on every run made mid-task and be trained away. Born green: 717 paths, 0 findings, 0 exemptions. AND IT WAS BLIND ON HALF THE MACHINES IT RAN ON UNTIL #2109 (September 18, 2026): the read was 'ls-files -z', decoded by Windows PowerShell 5.1 with [Console]::OutputEncoding, so on cp850 that same U+F03A came back as three characters in no class at all -- the local gate said 'checked 761 -- 0 finding(s)' and CI failed the identical commit. A guard that only speaks after the push is inverted, because the push is where the damage becomes permanent. The wire is now held to ASCII ('core.quotePath=true') and decoded here (Convert-GitQuotedPath), the repair .claude/rules/language-layers.md prescribes for this whole class. WHAT IT DOES NOT REACH: history. A name already committed stays in every clone's object store, so this stops the next one and repairs no past one"
         }
     } catch {
         # Same posture as the nested-worktree probe above: a git that will not answer is not a finding
