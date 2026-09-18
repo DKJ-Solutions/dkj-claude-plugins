@@ -60,6 +60,8 @@ Assert-Equal 'dkj-policy-bwj' $manifest.name 'plugin.json name is dkj-policy-bwj
 foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 'PREVIEW-portable.md',
                    'THEME-LIFECYCLE-portable.md',
                    'skills\report-issue\SKILL.md', 'skills\adopt-dkj-policy-bwj\SKILL.md',
+                   'skills\golive-block\SKILL.md',
+                   'scripts\lib\golive-block-rules.ps1', 'scripts\task\build-golive-block.ps1',
                    'templates\asana-mirror.yml', 'templates\asana-mirror.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
 }
@@ -92,7 +94,7 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'agents'))) 'ca
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'manuals'))) 'carries no manuals/ (workflow rule)'
 
 # skill folder name matches its frontmatter name:
-foreach ($skill in @('report-issue', 'adopt-dkj-policy-bwj')) {
+foreach ($skill in @('report-issue', 'adopt-dkj-policy-bwj', 'golive-block')) {
     $txt = Get-Content -LiteralPath (Join-Path $PluginRoot "skills\$skill\SKILL.md") -Raw
     $nm  = [regex]::Match($txt, '(?m)^name:\s*(\S+)\s*$')
     Assert-Equal $skill $nm.Groups[1].Value "skill '$skill' frontmatter name matches its folder"
@@ -873,6 +875,75 @@ if ($grepMatches.Count -eq 1) {
             "step 4 creates the '$labelName' label its own check greps for"
     }
 }
+
+# --- the go-live half of the paste-ready block (issue #2100) --------------------------------------
+Write-Host "`n-- the go-live block --" -ForegroundColor Cyan
+
+. (Join-Path $PluginRoot 'scripts\lib\golive-block-rules.ps1')
+
+# THE NEXT RELEASE DAY IS STRICTLY AFTER, and the Monday-on-a-Monday case is the one that matters: BWJ
+# cuts in the morning, so work closing later that day ships with the NEXT one. A block naming today
+# would send a colleague looking for something that went out before it was built.
+Assert-Equal ([datetime]'2026-09-21') (Get-NextReleaseDate -From ([datetime]'2026-09-18')) 'a Friday resolves to the following Monday'
+Assert-Equal ([datetime]'2026-09-28') (Get-NextReleaseDate -From ([datetime]'2026-09-21')) 'a Monday resolves to the NEXT Monday, never to itself'
+Assert-Equal ([datetime]'2026-09-21') (Get-NextReleaseDate -From ([datetime]'2026-09-20')) 'a Sunday resolves to the day after'
+Assert-Equal ([datetime]'2026-09-21') (Get-NextReleaseDate -From ([datetime]'2026-09-18 23:59')) 'the time of day is discarded'
+Assert-Equal ([datetime]'2026-09-25') (Get-NextReleaseDate -From ([datetime]'2026-09-21') -ReleaseDay ([System.DayOfWeek]::Friday)) 'another cadence is a parameter, not a fork'
+
+# INVARIANT CULTURE: it is the workflow speaking, not the subject, so a machine's locale must not
+# decide which language a colleague's ticket is written in.
+Assert-Equal 'Monday 21 September 2026' (Format-GoLiveDate -Date ([datetime]'2026-09-21')) 'the date reads as a colleague reads it'
+
+# THE TALLY LINE IS THE SOURCE FOR THE BUMP, never a second copy of the tier arithmetic -- which this
+# plugin could not reach anyway, since the tier parser lives in dkj-policy's own libs.
+Assert-Equal 'minor' (Get-PendingBumpFromTally -Changelog "## [Unreleased]`n`n**4 / 9 minor entries** <!-- pending-tally -->") 'the tally names a minor'
+Assert-Equal 'patch' (Get-PendingBumpFromTally -Changelog '**9 patch entries** <!-- pending-tally -->') 'the tally names a patch'
+Assert-True ($null -eq (Get-PendingBumpFromTally -Changelog '**Nothing pending.** The last release took every entry. <!-- pending-tally -->')) 'nothing pending yields no bump -- there is no next version to name yet'
+Assert-True ($null -eq (Get-PendingBumpFromTally -Changelog '# Changelog')) 'a changelog with no tally yields no bump'
+Assert-True ($null -eq (Get-PendingBumpFromTally -Changelog '')) 'an empty changelog is answered, not thrown on'
+# A TRANSLATED TALLY IS A MISSING NUMBER, NOT A WRONG ONE. The two words are seamed, so this is the
+# correct failure, and -Version on the driver is the way past it.
+Assert-True ($null -eq (Get-PendingBumpFromTally -Changelog '**4 / 9 kleine wijzigingen** <!-- pending-tally -->')) 'a translated tally yields no bump rather than a guess'
+# THE MARKER MUST NOT BE READ OUT OF A SENTENCE THAT QUOTES IT -- the changelog intro is the one
+# document that will ever describe this line, and inline backticks are how it names the marker.
+Assert-True ($null -eq (Get-PendingBumpFromTally -Changelog 'the line ends with `<!-- pending-tally -->`, a minor detail')) 'a quoted marker is not a tally'
+
+Assert-Equal '1.4.0' (Step-SemVer -Current '1.3.4' -Bump 'minor') 'a minor zeroes the patch component'
+Assert-Equal '1.3.5' (Step-SemVer -Current '1.3.4' -Bump 'patch') 'a patch steps the patch component'
+Assert-Throws { Step-SemVer -Current 'v1.3.4' -Bump 'patch' } 'a non-X.Y.Z current version throws rather than producing a number'
+# NO 'major' CASE: a major recaps the minors behind it and is somebody's decision, so nothing that
+# PREDICTS a version may produce one.
+Assert-Throws { Step-SemVer -Current '1.3.4' -Bump 'major' } 'major is not a bump this may predict'
+
+$goLiveBlock = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef 'BWJ-Development/smartwatchbanden#500' `
+    -GoLiveDate 'Monday 21 September 2026' -ResultLink 'https://example.invalid/preview' -Version '1.4.0' `
+    -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/nl/p' },
+               [pscustomobject]@{ Market = 'DE'; Url = 'https://example.invalid/de/p' })
+
+# ONE SPELLING OF THE MARKER, and this is the assert that holds it: the driver reads
+# Get-AsanaPasteBlockMarker and hands it to a lib that hard-codes nothing, so the CI backstop's
+# de-duplication cannot start posting a duplicate under a block this route already wrote.
+Assert-True ($goLiveBlock.Contains((Get-AsanaPasteBlockMarker))) 'the block carries the marker the backstop de-duplicates on'
+Assert-True ($goLiveBlock -notmatch '\[ADD LINK\]') 'it never writes the backstop placeholder -- this route knows the link'
+Assert-True ($goLiveBlock.Contains('Planned to go live')) 'the release fact is worded as a plan'
+Assert-True ($goLiveBlock -notmatch '(?m)will go live') 'and never as a promise'
+Assert-True ($goLiveBlock.Contains('as version v1.4.0.')) 'it names the version it is on course for'
+Assert-True ($goLiveBlock.Contains('- NL -- https://example.invalid/nl/p')) 'one live URL per market, labelled by market'
+Assert-True ($goLiveBlock.Contains('- DE -- https://example.invalid/de/p')) 'and the market order is the table order'
+
+# THE MARKER SITS OUTSIDE THE PASTED BLOCK -- the same property the backstop's own copy is held to,
+# for the same reason: everything between the rules lands in a colleague's ticket.
+$goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
+Assert-True ($goLivePasted -notmatch [regex]::Escape((Get-AsanaPasteBlockMarker))) 'the marker is outside the block that gets pasted'
+Assert-True ($goLivePasted.Contains('Planned to go live')) 'and the go-live half is INSIDE it -- it is what the requester reads'
+
+# A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED.
+$goLiveBare = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026'
+Assert-True ($goLiveBare.Contains('The fix for o/r#1 is done.')) 'with no link, the block still says the work is done'
+Assert-True ($goLiveBare -notmatch 'view the result here') 'and simply omits the sentence rather than placeholdering it'
+Assert-True ($goLiveBare.Contains('release of Monday 21 September 2026.')) 'with no version, the sentence names the day alone'
+Assert-True ($goLiveBare -notmatch 'as version') 'and no version clause at all'
+Assert-True ($goLiveBare -notmatch 'Once it is live') 'with no markets, there is no live-URL list'
 
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
