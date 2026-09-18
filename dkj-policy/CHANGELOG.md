@@ -43,7 +43,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2107-premise-reads-unmeasured-exit · 20260918-101548
+
+A test suite read an exit code that had never been measured as though it were a refusal, so
+`ref-print-lib.tests.ps1` went red on a premise -- reporting that git rejects a branch name it
+accepts. The reading is now three-state, and an unmeasured capture is reported rather than asserted
+on. The same blindness in the opposite direction, where the unreachable half went green on nothing,
+is closed by the same helper.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The interesting half is not the red that was visible. Six of the eight premise call sites failed
+loudly on an unmeasured capture; the other two passed silently on one, and nothing in the repo would
+ever have reported that. A guard asserted as defence in depth had a state in which it proved nothing
+and said so to no one.
+
+It is also a defect of reading rather than of mechanism: `ExitCodeUnknown` has existed since `#1931`,
+six files already consult it, and this suite simply did not. The repair is to consult the field that
+was built for exactly this, not to add anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+The ref-print premise assert reads an unmeasured exit code as a refusal
+
+[PR #2111](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2111)
+
+---
 
 ### DEPLOY: feat/2102-release-gate-rerun · 20260918-095038
 
