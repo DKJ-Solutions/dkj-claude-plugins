@@ -1490,7 +1490,7 @@ $waitBegan = Get-Date
 # reader gets the label and the run's own clock, which are both measurements. The record carries the START
 # and the statusline derives the elapsed, so the readout keeps moving for the whole twelve minutes this
 # script spends inside a single call that writes nothing.
-if (Get-Command -Name Write-RunProgress -ErrorAction SilentlyContinue) {
+if (Test-FunctionDefined 'Write-RunProgress') {
     try {
         [void](Write-RunProgress -Id (Get-RunProgressId -Name 'ship-pr-ci') `
             -Label "ship-pr: CI on PR #$pr" -StartedUtc $waitBegan.ToUniversalTime())
@@ -1908,7 +1908,7 @@ $waitedSec = [int][math]::Round(((Get-Date) - $waitBegan).TotalSeconds)
 # even though the reader drops any record whose writer is gone: this script goes on for several more
 # minutes after the watch -- it merges, it folds, it watches the non-required checks at step 8 -- and a
 # record still reading "CI on PR #2103" through all of that would be describing a wait that ended.
-if (Get-Command -Name Complete-RunProgress -ErrorAction SilentlyContinue) {
+if (Test-FunctionDefined 'Complete-RunProgress') {
     try { [void](Complete-RunProgress -Id (Get-RunProgressId -Name 'ship-pr-ci')) } catch { }
 }
 

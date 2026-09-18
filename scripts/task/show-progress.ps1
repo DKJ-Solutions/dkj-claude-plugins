@@ -25,6 +25,7 @@
 
     Pure ASCII (repo convention for .ps1) -- and here it is also what the line is made of; see the lib.
 #>
+[CmdletBinding()]
 param(
     # The record directory, for the suite. Nothing in settings.json passes it.
     [string]$Root = '',

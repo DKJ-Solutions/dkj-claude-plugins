@@ -42,6 +42,7 @@ $WorktreeLaneSrc   = Join-Path $RepoRoot 'scripts\task\worktree-lane.ps1'
 $NewBranchSrc      = Join-Path $RepoRoot 'scripts\task\new-branch.ps1'
 $BranchInfoSrc     = Join-Path $RepoRoot 'scripts\lib\branch-info.ps1'
 $NativeCaptureSrc  = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc  = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 $EntryScaffoldSrc  = Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1'
 $ParkLibSrc        = Join-Path $RepoRoot 'scripts\lib\park-lib.ps1'
 # park-lib dot-sources this one (#1682), guarded -- so a fixture that omits it loses Get-GitParkBacking
@@ -186,6 +187,7 @@ function New-Fixture {
     Copy-Item -LiteralPath $NewBranchSrc     -Destination (Join-Path $dir 'scripts\task\new-branch.ps1')         -Force
     Copy-Item -LiteralPath $BranchInfoSrc    -Destination (Join-Path $dir 'scripts\lib\branch-info.ps1')         -Force
     Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $dir 'scripts\lib\native-capture-lib.ps1')  -Force
+    Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $dir 'scripts\lib\run-progress-lib.ps1')  -Force
     Copy-Item -LiteralPath $EntryScaffoldSrc -Destination (Join-Path $dir 'scripts\lib\entry-scaffold-lib.ps1')  -Force
     Copy-Item -LiteralPath $ParkLibSrc       -Destination (Join-Path $dir 'scripts\lib\park-lib.ps1')            -Force
     Copy-Item -LiteralPath $PorcelainSrc     -Destination (Join-Path $dir 'scripts\lib\git-porcelain-lib.ps1')   -Force
