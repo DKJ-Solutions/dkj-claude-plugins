@@ -849,7 +849,7 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
 `measure-skill`, `measure-closeouts`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `publish-page`,
-`build-backlog-page`,
+`build-backlog-page`, `golive-block`,
 `orchestrator`)<!-- /skills:all -->
 remain available there.
 
@@ -935,7 +935,7 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `measure-closeouts`, `worktree-lane`, `check-fanout`,
-`publish-page`, `build-backlog-page`) are a thin wrapper around a script — procedural
+`publish-page`, `build-backlog-page`, `golive-block`) are a thin wrapper around a script — procedural
 **mechanism** (branch, claiming an issue on the tracker before the work on it starts, PR, ship, fold,
 bootstrap, teardown, roster-sync, encoding repair, reading a
 repo's own conventions, placing an add-on team's operational floor, pushing a branch to its own preview
@@ -946,8 +946,10 @@ whether this checkout's installed plugin matches the marketplace clone and which
 gap, closing that gap in one command instead of one per plugin, pricing what a skill costs the sessions that carry it, giving a branch its own worktree so
 another one can ship, reading the working copy on both sides of a dispatched fan-out to say whether
 a subagent discarded any of it, putting a built page on the one Cloudflare Worker BWJ's two store
-repos share, and building the minor-backlog page itself from the open, reach-labelled issues and each
-one's mirrored Asana task text). `cut-release`, `orchestrator`, `report-issue` and `adopt-dkj-policy-bwj`<!-- /skills:all --> are the
+repos share, building the minor-backlog page itself from the open, reach-labelled issues and each
+one's mirrored Asana task text, and writing the paste-ready block a colleague reads before an issue
+closes — where the result can be seen, which release day it is planned for, which version, and the
+live URL per market). `cut-release`, `orchestrator`, `report-issue` and `adopt-dkj-policy-bwj`<!-- /skills:all --> are the
 deliberate exceptions: a checklist with no script of its own (see below); a skill that must not have
 one — `orchestrator` reads a persona file into the conversation, and the environment it exists for is
 precisely the one where `powershell` is absent; and the two `dkj-policy-bwj` procedures, which run over

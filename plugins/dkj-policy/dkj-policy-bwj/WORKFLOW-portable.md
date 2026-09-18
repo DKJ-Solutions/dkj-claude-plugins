@@ -347,10 +347,15 @@ backstop below has to be able to recognise it:
 ```text
 <!-- asana-paste-block -->
 
-Fill in the link below and paste the block into the Asana task, so the requester knows where to look:
+Paste the block into the Asana task, so the requester knows where to look and when it lands:
 
 ---
 The fix for <owner>/<repo>#<n> is done. You can view the result here: <the actual link>
+
+Planned to go live with the release of <weekday> <date>, as version <vX.Y.Z>.
+Once it is live you can see it here:
+
+- <market> -- <live url>
 ---
 ```
 
@@ -381,6 +386,51 @@ the **merge** -- before anybody has written a block, and with nobody's confirmat
 issue ships with **`-NoResolves`** and cites the issue as context, and the person closes it by hand once
 the block is on it. That is the whole of the answer today; a third flag that declares the citation
 deliberately without a closing keyword is named in #2049 as a larger change and is not assumed here.
+
+##### The go-live half -- the three facts the requester asks for next
+
+**The block used to answer *where*, and stop there** (Dave, September 18, 2026,
+[#2100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2100)). The requester's next
+question is always *and when do I actually see it?*, and the ticket is the only place they are looking,
+so the block carries three more facts. It is one of the two steps this plugin adds to `dkj-policy`'s
+cycle -- the other is the storefront-visibility step in
+[`PREVIEW-portable.md`](PREVIEW-portable.md) -- and both are indexed in
+[the README](README.md#what-the-cycle-gains-here).
+
+| fact | where it comes from |
+|---|---|
+| **when it goes live** | the next release day. BWJ cuts on **Mondays**, so it is the next Monday -- strictly the next one, never today, because a Monday's release is cut before the day's work closes |
+| **which version** | the newest `vX.Y.Z` tag, bumped by what the pending changelog has earned -- patch where everything pending is tier 0, minor where anything reaches further |
+| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, with the preview half left off |
+
+**It is written by a script, because all three are derivable and none of them is a judgement** --
+[`build-golive-block.ps1`](skills/golive-block/SKILL.md), which prints the block and, with `-Post`,
+puts it on the issue. That is the difference from the link in the first line, which stays a person's
+answer for the reason the backstop below gives.
+
+**Both halves of the release fact are a PLAN, and the block says so in that word.** *"Planned to go
+live with the release of Monday 22 September, as version v1.4.0"* is a cadence and a projection, not a
+commitment anybody made: a tier-1 entry landing on the Friday turns that patch into a minor, and a
+release can slip. Writing it as *will* would hand a colleague a promise this workflow never made, on
+the one surface they will quote back.
+
+**Where a fact cannot be derived it is left out, never guessed.** No `v*` tag, or a changelog whose
+pending tally cannot be read, means the version line names no number; a repo that has declared no
+storefront markets gets no live-URL list. The whole reason the link in the first line is a person's to
+fill in is that a plausible wrong answer is worse than a missing one, and that reasoning does not stop
+applying one paragraph further down.
+
+**The script does not touch Asana, and that is the rule above rather than a gap.** It writes the
+GitHub half; a person carries the block into the task, and closing the issue is their confirmation that
+it landed there. An automation posting into the ticket would take back exactly the decision this
+chapter keeps with the person who asked for the work.
+
+**It carries the marker, and only the marker.** The framing sentence is no longer the backstop's own
+`Get-AsanaPasteBlockLead` -- `Fill in the link below and paste the block into the Asana task` is
+false once the links are filled in -- so the de-duplication rides on `<!-- asana-paste-block -->`,
+which is the matcher tried first and unconditionally. That lead sentence stays exactly what it always
+was -- the backstop's own wording, and the second matcher -- and it is quoted in full one line up for
+the reason this page quotes both strings at all: so a block can be written by hand.
 
 ##### The backstop: `asana-mirror` still writes one, only where the session did not
 
