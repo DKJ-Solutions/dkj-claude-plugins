@@ -43,7 +43,79 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 12 minor entries** <!-- pending-tally -->
+**6 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2120-resolves-exempt-matchers · 20260918-180452
+
+`open-pr`'s resolves gate can now be TOLD which issues a merge must not close. A repo answers the optional
+`Get-ResolvesExemptMatchers` seam in its own `scripts/repo-config.ps1` with the text that marks such an
+issue -- a ticket-mirror marker, a task link -- and the gate fetches the body of every issue the merge would
+close, refuses `-Resolves` on a match, and names `-NoResolves` as the way through. Unstated, which is every
+repo's default and this one's, it judges nothing and makes no extra `gh` call: the seam is read before any
+lookup, so a repo with no second tracker pays nothing for a rule that is not theirs. The set judged is what
+the body will say at the merge -- `-Resolves` plus any closing keyword already published on the open PR --
+because `-NoResolves` does not strip a keyword the body already carries, and a gate reading the flag alone
+would be skipped by the very flag its own refusal recommends.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+**The rule this enforces was already written down, and that is exactly the problem it closes.**
+`dkj-policy-bwj`'s `WORKFLOW-portable.md` has carried the paste-first close order since inbound #2049, naming
+the `dkj-policy` interaction explicitly -- and nothing read it. Inbound #2120 measured what that costs: an
+issue carrying an `asana-task:` marker shipped with `-Resolves`, the merge closed it, and the mirror posted
+its fallback handover afterwards, carrying the literal `[ADD LINK]` placeholder it writes because CI cannot
+know where the result is visible. The rule was followed correctly on other issues in the same period; the
+difference was whether the session remembered.
+
+**The report proposed sharing the mirror's own matchers, and that half is deliberately not built.** Those
+three matchers live in `dkj-policy-bwj`'s `asana-mirror.ps1`, which ships standalone into a consumer's
+`.github/`; `dkj-policy` cannot reference it without inverting the layering. So the matchers are data the
+consuming repo states, and `adopt-dkj-policy-bwj` proposes exactly the shapes `WORKFLOW-portable.md` already
+defines -- one definition per layer rather than a third. It proposes two of the three: the header-row
+matcher is an anchored read of one table row, and the sole-URL matcher already covers that row's link. The
+asymmetry is the right direction to be wrong in -- this gate refuses a close, so reaching slightly wider
+stops a merge that wanted `-NoResolves` anyway, while the mirror's narrower matcher decides which task to
+write to and must not guess.
+
+**A matcher is data and never a predicate**, which is the other thing the report left open. A scriptblock
+from `repo-config.ps1` would be the shorter seam and it would put repo-authored code inside the one gate
+that decides whether a PR may be opened -- a throw in it takes the gate with it. Data can be validated,
+printed back inside the refusal, and asserted without a repo; so an uncompilable pattern is reported and
+skipped while the rest of the list goes on working, which is the one failure a repo cannot otherwise see.
+
+**Two review findings are worth carrying, and the first is the same argument arriving by another road.** The
+design refuses to run repo-authored CODE inside this gate on the ground that a throw in it would take the
+gate down -- and the security review pointed out that an unbounded regex match is that failure by another
+mechanism: a consumer's own pattern, a body crafted against it by anybody who can open an issue, and
+`open-pr` hangs for whoever resolves that issue. So every match is bounded at two seconds and a timed-out
+one is reported as unjudged rather than read as a pass. The reasoning was already written down; what it
+had not been applied to was the one input the gate does not own.
+
+**The second is a seam answer this repo does not have and a consumer plausibly does.** A repo saying "not
+configured" with `return $null` -- behind a guard clause, say -- was read as ONE malformed matcher rather
+than none, because `@($null)` is a one-element array holding nothing: the gate stayed correctly silent, and
+printed a rejection for an entry nobody wrote on every PR open. The call site now passes the seam's answer
+unwrapped, which is also what lets a repo state a single matcher without wrapping it, and both shapes are
+asserted.
+
+For a consuming repo this lands as a gate that is silent until they answer it. The two BWJ store repos get
+it the moment they add the proposed function; every other consumer sees nothing change, which is the point.
+`BWJ-Development/smartwatchbanden`'s repo-side `PreToolUse` hook was written as a temporary bridge citing
+this issue and can come out once this reaches them.
+
+**Score:** 3
+
+#### Pull Request
+
+The resolves gate can be told which issues must not be auto-closed
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2126](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2126)
+
+---
 
 ### DEPLOY: fix/2121-gate-lane-count-memory · 20260918-170256
 
