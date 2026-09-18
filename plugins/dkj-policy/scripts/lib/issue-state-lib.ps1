@@ -120,3 +120,71 @@ function Get-ClosedIssueSet {
     $result.Closed = @($closed | Sort-Object -Unique)
     return $result
 }
+
+function Get-IssueBodySet {
+    <#
+    .SYNOPSIS
+        The BODY of each of these issues, as a hashtable of number -> text. Returns an object with
+        Bodies, Unreadable (the numbers gh could not answer for) and Truncated ($true when the resolve
+        limit was reached).
+
+    .DESCRIPTION
+        THE IMPURE HALF OF THE RESOLVES-EXEMPT GATE (inbound #2120). The rule it feeds is
+        Get-ResolvesExemptFindings in pr-issues-lib.ps1, where a suite asserts it exactly and without a
+        network; what is left here is the loop and the calls. The same split this file already makes for
+        Get-ClosedIssueSet, and the reason is unchanged.
+
+        ONE 'gh issue view <n> --repo <owner/name> --json body' PER NUMBER, over the issues a PR is about
+        to declare it CLOSES -- a set of one or two on an ordinary branch, and bounded at the same
+        resolve limit as Get-ClosedIssueSet above rather than at the size of the tracker. The caller only
+        reaches this at all when the repo has stated matchers, so a repo that carves out no class of
+        issue pays nothing.
+
+        -Utf8, UNLIKE Get-ClosedIssueSet ABOVE, and the difference is what is being read. That function
+        reads a state field -- 'OPEN' or 'CLOSED', ASCII whatever the console code page is. This one
+        reads prose somebody typed, so a body carrying an accented word or a dash decoded through the
+        console code page comes back mangled, and a matcher over mangled text matches by luck.
+
+        UNREADABLE IS A LIST AND NOT A BOOLEAN, because the caller's sentence names the numbers: a gate
+        that refuses on what it read has to be able to say which issue it could NOT read, or the author
+        cannot tell a clean pass from a gap. An empty body is a READ body and not an unreadable one --
+        it simply matches nothing.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Repo,
+        [int[]]$Numbers = @(),
+        [int]$TimeoutSeconds = 120
+    )
+
+    $batch  = Get-IssueResolveBatch -Numbers $Numbers -Limit $script:IssueStateResolveLimit
+    $wanted = @($batch.Numbers)
+    $result = [pscustomobject]@{ Bodies = @{}; Unreadable = @(); Truncated = [bool]$batch.Truncated }
+    if ($wanted.Count -eq 0) { return $result }
+
+    $unreadable = @()
+    foreach ($n in $wanted) {
+        # -DiscardStderr, WHERE Get-ClosedIssueSet DELIBERATELY KEEPS IT: that function turns gh's
+        # "Could not resolve to an issue" sentence into a verdict, so it needs the stream. Here stderr
+        # would be MERGED INTO THE PAYLOAD this function parses as JSON, and the only thing a failed
+        # read produces here is a number on the Unreadable list either way.
+        $q = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @(
+            'issue', 'view', "$n", '--repo', $Repo, '--json', 'body'
+        ) -TimeoutSeconds $TimeoutSeconds -DiscardStderr
+
+        # ASKED BEFORE THE NUMBER (issue #1931): an unmeasurable exit code is $null, and both spellings
+        # of the comparison against 0 fail toward "something went wrong" without being able to say so.
+        if (-not (Test-NativeExitMeasured -Capture $q)) { $unreadable += [int]$n; continue }
+        if ($q.ExitCode -ne 0)                          { $unreadable += [int]$n; continue }
+        if ($q.ShortRead)                               { $unreadable += [int]$n; continue }
+
+        try {
+            $parsed = (@($q.Output) -join "`n") | ConvertFrom-Json
+            $result.Bodies[[int]$n] = [string]$parsed.body
+        } catch {
+            $unreadable += [int]$n
+        }
+    }
+
+    $result.Unreadable = @($unreadable | Sort-Object -Unique)
+    return $result
+}

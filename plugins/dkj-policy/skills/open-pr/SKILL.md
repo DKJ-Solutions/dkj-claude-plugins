@@ -845,8 +845,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   the thousands separator, so `-Resolves 332,340` would silently become issue `332340`.
 
 **An issue somebody else has to close by hand is `-NoResolves`, not `-Resolves`** — and the flag is
-the only place that distinction can be made, because `Closes #<n>` hands the decision to GitHub at the
-merge, where no person is present. The measured case is `dkj-policy-bwj`: an issue with a mirrored
+where that distinction is *made*, because `Closes #<n>` hands the decision to GitHub at the merge, where
+no person is present. Whether it is also *checked* is the seam below. The measured case is `dkj-policy-bwj`: an issue with a mirrored
 Asana task carries a paste-ready block that the shipping session writes while the issue is **open**,
 and closing it is a person's confirmation that the block reached Asana (inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). A `Closes #<n>` bypasses
@@ -863,13 +863,58 @@ So such a branch ships with `-NoResolves` and cites the issue as context.
   repairs #n and a person closes it"*. That is a larger change than a wording note and is not made
   here.
 
+### `Get-ResolvesExemptMatchers` — naming the class of issue a merge must not close
+
+**The rule above was enforced by memory alone until inbound
+[#2120](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2120)**, and the measurement is what
+that costs: an issue carrying an `asana-task:` marker shipped with `-Resolves`, the merge closed it, and
+the mirror posted its fallback handover afterwards — the weaker route the rule exists to replace. No gate
+objected, because none read the issue's body. The rule was followed correctly on other issues in the same
+period, which is the point: the difference was whether the session remembered.
+
+So a repo can state the class in `scripts/repo-config.ps1`:
+
+```powershell
+function Get-ResolvesExemptMatchers {
+    return @(
+        @{ Name    = 'an Asana task marker'
+           Pattern = '<!--\s*asana-task:\s*[0-9]+\s*-->'
+           Why     = 'the handover is pasted onto the issue while it is open, and closing it is a person''s confirmation that it landed.' },
+        @{ Name    = 'an Asana task link'
+           Pattern = 'https://app\.asana\.com/' }
+    )
+}
+```
+
+- **`Pattern` is required; `Name` and `Why` are not.** `Name` is what the refusal calls the thing it
+  recognised, `Why` is the repo's own one-line reason. A bare string is read as a pattern named after
+  itself, which is the shape most people write first.
+- **Matched case-insensitively against the body of every issue the merge would close** — which is
+  `-Resolves` *plus* any closing keyword already published on an open PR for this branch. That second
+  half matters: `-NoResolves` does not strip a keyword the body already carries (this script only ever
+  *adds* a closing block), so a gate reading the flag alone would be skipped by the very flag its own
+  refusal recommends. Where the PR already carries one, the refusal says so and points at `gh pr edit`.
+- **Most-authoritative first, and the first match wins.** One issue, one reason — a second matcher on the
+  same body would add a sentence and no decision. Write the machine marker before the link a person typed,
+  which is the order a ticket mirror already resolves them in.
+- **Unstated is the default and costs nothing.** The seam is read *before* any lookup, so a repo with no
+  second tracker makes no extra `gh` call, sees no message, and keeps exactly the gate it had before. This
+  is a seam rather than a built-in rule for that reason: a matcher names another system's marker, so a
+  canonical one would be one family's tracker imposed on everybody else's.
+- **A pattern that does not compile is reported and skipped**, and the other matchers still apply. It is
+  the one failure a repo cannot see from the outside — a silently dropped matcher is indistinguishable
+  from the class not being there — so it is named rather than swallowed.
+- **An issue whose body cannot be read is warned about and not blocked on**, the same direction every
+  other lookup in this gate takes: wedging the PR flow on a network hiccup would be worse than the slip
+  it guards against.
 ## Requirements in the consumer
 
 The script is repo-agnostic, but reads its repo data from the **root** of the consumer
 (dual-context via `${CLAUDE_PROJECT_DIR}`):
 
 - `scripts/repo-config.ps1` with `Get-RepoName` (the `gh --repo` target) and `Get-LintScript`
-  (repo-root-relative path to the repo's own lint gate).
+  (repo-root-relative path to the repo's own lint gate). `Get-ResolvesExemptMatchers` is optional and
+  unstated by default — see the section above.
 - `scripts/lib/branch-info.ps1` (label/type from the branch prefix).
 - `scripts/tests/*.tests.ps1` (the test gate; convention, not config).
 - `.github/pull_request_template.md`, `git`, and a logged-in `gh` CLI.

@@ -3174,6 +3174,107 @@ Assert-True ($shipText -like '*Get-InterruptedShipResumeNote -Candidates $resume
 Assert-True ($shipText -like '*if ($openPrList.ExitCode -eq 0 -and $localHeads.ExitCode -eq 0) {*') 'both reads must succeed before anything is diagnosed'
 Assert-True ($shipText -like '*$resumeNote = ''''*') 'and the note starts empty, so a gh that cannot answer leaves the original refusal'
 Assert-True ($shipText -like '*further commit(s) landed in the same window and were discounted as folds*') 'and the refusal states the difference between its count and what git log shows'
+# --- The resolves-exempt matchers: the seam's answer, normalised (inbound #2120) -------------------
+#
+# WHY NORMALISING IS ITS OWN STEP WITH ITS OWN RESULT. The gate that reads these decides whether a PR
+# may be opened, and the seam it reads is written by whoever owns the consuming repo -- so a malformed
+# answer must cost that matcher and nothing else. These asserts pin both halves: what came through, and
+# what was refused and why.
+$seamEmpty = ConvertTo-ResolvesExemptMatchers -Matchers @()
+Assert-Equal 0 (@($seamEmpty.Matchers).Count) 'the default answer -- no matchers at all'
+Assert-Equal 0 (@($seamEmpty.Rejected).Count) 'and nothing rejected either: an unanswered seam is not an error'
+
+$seamString = ConvertTo-ResolvesExemptMatchers -Matchers @('app\.asana\.com')
+Assert-Equal 1 (@($seamString.Matchers).Count) 'a bare string is a matcher -- the shape a repo-config author writes first'
+Assert-Equal "the pattern 'app\.asana\.com'" $seamString.Matchers[0].Name 'and it is named after itself, so a refusal can still point at something'
+
+$seamFull = ConvertTo-ResolvesExemptMatchers -Matchers @(
+    @{ Name = 'an Asana task marker'; Pattern = '<!--\s*asana-task:\s*[0-9]+\s*-->'; Why = 'the handover is pasted onto the issue first, and a person closes it.' },
+    [pscustomobject]@{ Name = 'an Asana task link'; Pattern = 'https://app\.asana\.com/' }
+)
+Assert-Equal 2 (@($seamFull.Matchers).Count) 'a hashtable and a pscustomobject are both read'
+Assert-Equal 'an Asana task marker' $seamFull.Matchers[0].Name 'the repo''s own order survives -- most authoritative first'
+Assert-Equal 'the handover is pasted onto the issue first, and a person closes it.' $seamFull.Matchers[0].Why 'and the repo''s own reason travels with it into the refusal'
+Assert-Equal '' $seamFull.Matchers[1].Why 'a matcher stating no Why is not an error -- the caller supplies the generic sentence'
+
+# THE REJECTIONS, WHICH ARE THE POINT OF THE SECOND RESULT. A pattern that does not compile is the one
+# failure a repo cannot see from the outside: the gate would simply stop recognising the class it was
+# configured for, which is indistinguishable from that class not being there.
+$seamBad = ConvertTo-ResolvesExemptMatchers -Matchers @('[unclosed', @{ Name = 'nameless' }, $null, 'app\.asana\.com')
+Assert-Equal 1 (@($seamBad.Matchers).Count)  'one bad matcher does not take the others with it'
+Assert-Equal 3 (@($seamBad.Rejected).Count)  'and each refused entry is reported, not dropped'
+Assert-True ($seamBad.Rejected[0].Reason -like '*not a valid regular expression*') 'an uncompilable pattern says so'
+Assert-Equal 'it states no Pattern' $seamBad.Rejected[1].Reason 'a record with no Pattern says that instead'
+Assert-Equal 'the entry is empty'   $seamBad.Rejected[2].Reason 'and an empty entry is named rather than skipped'
+
+# --- Get-ResolvesExemptFindings -- the rule, without a network ------------------------------------
+#
+# THE PURE HALF, the same split this file already asserts for Get-IssueStateVerdict: the fetch
+# (Get-IssueBodySet, in issue-state-lib.ps1) calls gh and cannot be asserted here; what DECIDES is a
+# pure function of the bodies it returns, and that is this.
+$mBody = @('## What', '<!-- asana-task: 1211234567890 -->', 'the finding') -join [char]10
+$lBody = '| **Asana** | https://app.asana.com/0/123/456 |'
+$exemptBodies = @{ 731 = $mBody; 732 = $lBody; 733 = 'an ordinary issue with no ticket behind it' }
+
+Assert-Equal 0 (@(Get-ResolvesExemptFindings -Issues @(731, 732) -Bodies $exemptBodies -Matchers @()).Count) 'no matchers, no findings -- a repo that carves out no class of issue is never judged'
+
+$found = @(Get-ResolvesExemptFindings -Issues @(731, 732, 733) -Bodies $exemptBodies -Matchers $seamFull.Matchers)
+Assert-Equal 2 $found.Count 'only the two mirrored issues are found; the ordinary one is not'
+Assert-Equal 731 $found[0].Issue 'and the findings come back in issue order'
+Assert-Equal 'an Asana task marker' $found[0].Name 'each names the matcher that recognised it'
+Assert-Equal 'an Asana task link'   $found[1].Name 'including the one a person typed rather than a machine wrote'
+
+# FIRST MATCHER WINS, because the report names ONE reason per issue and a repo's list is written
+# most-authoritative-first. A body carrying both would otherwise produce two sentences and no decision.
+$both = @(Get-ResolvesExemptFindings -Issues @(740) -Bodies @{ 740 = ($mBody + [char]10 + $lBody) } -Matchers $seamFull.Matchers)
+Assert-Equal 1 $both.Count 'a body matching two matchers is one finding'
+Assert-Equal 'an Asana task marker' $both[0].Name '...decided by the first matcher the repo stated'
+
+# CASE-INSENSITIVE, because every matcher this exists for reads something a person may have typed.
+Assert-Equal 1 (@(Get-ResolvesExemptFindings -Issues @(741) -Bodies @{ 741 = '<!-- ASANA-TASK: 99 -->' } -Matchers $seamFull.Matchers).Count) 'the match ignores case -- a marker somebody shouted still counts'
+
+# AN ISSUE THE CALLER COULD NOT READ CONTRIBUTES NOTHING, and the caller is what says so out loud. An
+# unread body matches nothing and fails nothing; silence here is the only honest answer.
+Assert-Equal 0 (@(Get-ResolvesExemptFindings -Issues @(999) -Bodies $exemptBodies -Matchers $seamFull.Matchers).Count) 'an issue absent from the fetched bodies is not judged'
+Assert-Equal 0 (@(Get-ResolvesExemptFindings -Issues @(742) -Bodies @{ 742 = '' } -Matchers $seamFull.Matchers).Count) 'and an empty body is a READ body that simply matches nothing'
+Assert-Equal 1 (@(Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = $mBody } -Matchers $seamFull.Matchers).Count) 'a table keyed by the string spelling is read too -- a caller is not held to one of them'
+
+# --- Get-IssueBodySet -- the impure half, asserted as a call site ----------------------------------
+#
+# Its loop calls gh, so nothing here runs it. What CAN be held is that it asks the right question in the
+# right shape -- the same treatment Get-ClosedIssueSet's own reasoning gets one section up.
+$issueStateText = [System.IO.File]::ReadAllText((Resolve-Path (Join-Path $PSScriptRoot '..\lib\issue-state-lib.ps1')).Path, [System.Text.Encoding]::UTF8)
+Assert-True ($issueStateText -like '*function Get-IssueBodySet*') 'the fetch lives beside the other impure issue read, not in the pure lib'
+Assert-True ($issueStateText -like "*'issue', 'view'*" -and $issueStateText -like "*'--json', 'body'*") 'it asks gh for the body, per number, with the repo the caller named'
+Assert-True ($issueStateText -like '*Invoke-NativeCapture -Utf8*') 'with -Utf8, because a body is prose a person typed and a matcher over mangled text matches by luck'
+Assert-True ($issueStateText -like '*Get-IssueResolveBatch -Numbers $Numbers -Limit $script:IssueStateResolveLimit*') 'and it is bounded by the same resolve limit as the closed-issue read'
+
+# --- The gate itself: open-pr asks, and refuses ----------------------------------------------------
+#
+# The asserts above prove the functions; these prove the caller uses them. A reverted call site leaves
+# every assert above green while the rule goes back to being enforced by memory alone, which is the
+# state inbound #2120 was filed about.
+$exemptText = [System.IO.File]::ReadAllText((Resolve-Path (Join-Path $PSScriptRoot '..\release\open-pr.ps1')).Path, [System.Text.Encoding]::UTF8)
+Assert-True ($exemptText -like "*Get-SeamValue -Name 'Get-ResolvesExemptMatchers' -Default @()*") 'open-pr reads the matchers from the repo''s own seam, defaulting to none'
+Assert-True ($exemptText -like '*Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge*') 'it fetches the bodies of exactly what the merge would close'
+Assert-True ($exemptText -like '*Get-ResolvesExemptFindings -Issues $closingAtMerge -Bodies $bodySet.Bodies -Matchers $exemptSeam.Matchers*') 'and judges them with the tested rule rather than a regex of its own'
+Assert-True ($exemptText -like '*must NOT be closed by the merge*') 'the refusal says what it is refusing'
+Assert-True ($exemptText -like '*-NoResolves   -- ship citing the issue as context*') 'and names the way through, which is the flag the rule asks for'
+
+# THE COST MODEL IS AN ORDER, so it is asserted as one: the seam is asked FIRST, with no network, and a
+# repo that answers nothing never reaches the per-issue fetch. Read the other way round, every consumer
+# of this workflow would pay a gh call per resolved issue for a rule that is not theirs.
+$idxSeamRead  = $exemptText.IndexOf("Get-SeamValue -Name 'Get-ResolvesExemptMatchers'")
+$idxBodyFetch = $exemptText.IndexOf('Get-IssueBodySet -Repo $repo')
+Assert-True ($idxSeamRead -ge 0 -and $idxBodyFetch -gt $idxSeamRead) 'the seam is read before any body is fetched'
+Assert-True ($exemptText -like '*if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {*') 'and the fetch is gated on there being a matcher at all'
+
+# AND THE SET IT JUDGES IS WHAT THE BODY WILL SAY AT THE MERGE, not what this run declared. A closing
+# keyword already published on an open PR survives a -NoResolves run untouched -- the writer only ever
+# ADDS a closing block -- so a gate reading the declaration alone would be skipped by the very flag its
+# own refusal recommends, on exactly the resumed branch where the keyword is already live.
+Assert-True ($exemptText -like '*$closingAtMerge += @(Get-ClosedIssueNumbers -Text $existingPr.body)*') 'the open PR''s own closing keywords are folded into the judged set'
+Assert-True ($exemptText -like '*ALREADY CARRIES A CLOSING KEYWORD, and -NoResolves does not remove one*') 'and the refusal says so, because on that branch -NoResolves alone is not the repair'
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1

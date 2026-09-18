@@ -951,6 +951,69 @@ Both are honest answers; the gate only refuses to guess.
     }
 }
 
+# --- Resolves-exempt gate (inbound #2120) ---------------------------------------------------------
+# A repo that mirrors its tickets into a second tracker has a CLOSE ORDER: the handover paragraph is
+# written onto the issue while it is still open, and closing the issue is the confirmation that the
+# handover landed. `Closes #<n>` hands that close to GitHub at the merge instead -- before the paragraph
+# exists and with nobody's confirmation -- so such an issue ships cited as context and is closed by a
+# person. Until this gate that carve-out was enforced by memory alone, and the cost of forgetting is not
+# tidiness: the mirror's fallback handover carries a literal placeholder where the link belongs, because
+# CI cannot know where the result is visible, and it lands under an issue nobody returns to. Measured in
+# a consumer, September 18, 2026, on an issue shipped with -Resolves.
+#
+# SEAM-GATED, AND THE ORDER OF THE TWO QUESTIONS IS THE WHOLE COST MODEL. The matchers are asked of the
+# repo FIRST, with no network at all, and answer empty by default; only a repo that states one pays a
+# `gh issue view` per issue this PR would close. A repo with no second tracker sees nothing, spends
+# nothing, and is not told about a rule that is not theirs.
+#
+# OUTSIDE THE BLOCK ABOVE, DELIBERATELY, BECAUSE -NoResolves IS NOT ALWAYS THE ANSWER IT LOOKS LIKE. The
+# set that matters is what the body will say AT THE MERGE, and a `Closes #<n>` already published on an
+# open PR survives a -NoResolves run untouched (the writer below only ever ADDS a closing block; the
+# marker path runs when there is nothing to add). Read inside that block, this gate would be skipped by
+# the one flag its own refusal recommends, on exactly the resumed branch where the keyword is already
+# live.
+$closingAtMerge = @($resolveIssues)
+if ($existingPr) { $closingAtMerge += @(Get-ClosedIssueNumbers -Text $existingPr.body) }
+$closingAtMerge = @($closingAtMerge | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
+
+$exemptSeam = ConvertTo-ResolvesExemptMatchers -Matchers @(Get-SeamValue -Name 'Get-ResolvesExemptMatchers' -Default @())
+foreach ($bad in @($exemptSeam.Rejected)) {
+    Write-Warning ("Get-ResolvesExemptMatchers: ignoring " + $bad.Name + " -- " + $bad.Reason + ". The other matchers still apply.")
+}
+
+if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {
+    $bodySet = Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge
+    if (@($bodySet.Unreadable).Count -gt 0) {
+        Write-Warning ("could not read the body of issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the resolves-exempt check cannot judge them and does not block on them.")
+    }
+    if ($bodySet.Truncated) {
+        Write-Warning ("this PR closes more issues than the resolves-exempt check reads in one run -- the oldest were not judged.")
+    }
+
+    $exempt = @(Get-ResolvesExemptFindings -Issues $closingAtMerge -Bodies $bodySet.Bodies -Matchers $exemptSeam.Matchers)
+    if ($exempt.Count -gt 0) {
+        $exemptLines = (@($exempt | ForEach-Object {
+            $why = if ($_.Why) { $_.Why } else { 'this repo declares that such an issue is closed by a person, not by a merge.' }
+            "  #$($_.Issue) -- carries $($_.Name). $why"
+        }) -join "`n")
+        $publishedNote = ''
+        if ($existingPr -and @(Get-ClosedIssueNumbers -Text $existingPr.body).Count -gt 0) {
+            $publishedNote = "`n`nPR #$($existingPr.number) ALREADY CARRIES A CLOSING KEYWORD, and -NoResolves does not remove one: this script only ever adds a closing block. Strip that line from the PR body (gh pr edit $($existingPr.number) --body-file <file>), because GitHub reads the body it has at merge time.`n"
+        }
+        Write-Error @"
+resolves gate: this repo declares that the issue(s) below must NOT be closed by the merge - nothing pushed, no PR opened.
+
+$exemptLines
+
+Pick one:
+  -NoResolves   -- ship citing the issue as context, and close it by hand once the handover is on it
+  or, if the issue is not actually mirrored, take the matched text out of its body and run this again
+$publishedNote
+"@
+        exit 1
+    }
+}
+
 # --- Machine-local path gate (issue #1559): advisory, never a refusal -----------------------------
 #
 # A tracked file a person edited for their own clone -- .claude/settings.json with extra plugins

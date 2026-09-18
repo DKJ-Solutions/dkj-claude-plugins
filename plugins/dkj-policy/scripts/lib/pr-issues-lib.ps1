@@ -1021,6 +1021,138 @@ function Get-ResolvesDecision {
     }
 }
 
+function ConvertTo-ResolvesExemptMatchers {
+    <#
+    .SYNOPSIS
+        Normalise whatever the Get-ResolvesExemptMatchers seam answered into records this lib can match
+        with. Returns an object with Matchers (the usable ones, in the order the repo stated them) and
+        Rejected (one record per answer that could not be used, each with a Reason the caller prints).
+
+    .DESCRIPTION
+        THE SEAM IS OPT-IN AND ANSWERS NOTHING BY DEFAULT (inbound #2120), so a repo with no ticket
+        mirror keeps exactly the gate it had before this existed: no matcher, no verdict, and -- because
+        the caller asks this question first -- not one extra gh call per resolved issue. That ceiling is
+        the reason the seam exists at all rather than a hard-coded rule: the class of issue being carved
+        out is one that only some repos have.
+
+        WHY A LIST OF PATTERNS AND NOT A PREDICATE. A scriptblock from repo-config would be the shorter
+        seam and it is refused deliberately: the gate that decides whether a PR may be opened would then
+        be running repo-authored code inside itself, and a throw in it would take the gate down with it.
+        Data can be validated, printed back inside a refusal, and asserted by a suite without a repo;
+        a predicate can only be run.
+
+        REJECTED IS A SECOND RESULT AND NOT A SILENT DROP. A pattern that does not compile is the one
+        failure a repo cannot see from the outside: the gate simply stops recognising the class it was
+        configured for, which is indistinguishable from that class not being present. So a bad record is
+        named to the caller and the rest of the list goes on working -- the same shape as Get-ClosedIssueSet's
+        Unreadable, one lib over, and for the same reason.
+
+    .PARAMETER Matchers
+        The seam's raw answer. Three shapes are accepted per entry, because all three are what a
+        repo-config author reasonably writes:
+          - a plain string   -- the pattern, named after itself in the report
+          - a hashtable      -- @{ Name = '...'; Pattern = '...'; Why = '...' }
+          - a pscustomobject -- the same three properties
+        Name and Why are optional; Pattern is not.
+    #>
+    param([object[]]$Matchers = @())
+
+    $usable   = @()
+    $rejected = @()
+    $index    = 0
+    foreach ($m in @($Matchers)) {
+        $index++
+        if ($null -eq $m) {
+            $rejected += [pscustomobject]@{ Name = "entry $index"; Pattern = ''; Reason = 'the entry is empty' }
+            continue
+        }
+
+        $name = ''; $pattern = ''; $why = ''
+        if ($m -is [string]) {
+            $pattern = $m
+        } elseif ($m -is [hashtable]) {
+            if ($m.ContainsKey('Pattern')) { $pattern = [string]$m['Pattern'] }
+            if ($m.ContainsKey('Name'))    { $name    = [string]$m['Name'] }
+            if ($m.ContainsKey('Why'))     { $why     = [string]$m['Why'] }
+        } else {
+            # PROPERTY-GUARDED, because a caller runs under Set-StrictMode -Version Latest and a bare
+            # $m.Pattern on an object without the property THROWS -- inside the gate, before the push.
+            $props = @($m.PSObject.Properties | ForEach-Object { $_.Name })
+            if ($props -contains 'Pattern') { $pattern = [string]$m.Pattern }
+            if ($props -contains 'Name')    { $name    = [string]$m.Name }
+            if ($props -contains 'Why')     { $why     = [string]$m.Why }
+        }
+
+        if (-not $name) { $name = if ($pattern) { "the pattern '$pattern'" } else { "entry $index" } }
+        if (-not $pattern) {
+            $rejected += [pscustomobject]@{ Name = $name; Pattern = ''; Reason = 'it states no Pattern' }
+            continue
+        }
+        try { $null = [regex]::new($pattern) }
+        catch {
+            $rejected += [pscustomobject]@{ Name = $name; Pattern = $pattern; Reason = "its Pattern is not a valid regular expression ($($_.Exception.Message))" }
+            continue
+        }
+        $usable += [pscustomobject]@{ Name = $name; Pattern = $pattern; Why = $why }
+    }
+
+    return [pscustomobject]@{ Matchers = @($usable); Rejected = @($rejected) }
+}
+
+function Get-ResolvesExemptFindings {
+    <#
+    .SYNOPSIS
+        Which of the issues this PR would close are ones the repo has declared must NOT be closed by a
+        merge. One record per matching issue -- Issue, Name, Why, Pattern -- and an empty array when
+        there is nothing to say.
+
+    .DESCRIPTION
+        PURE, and the impure half is Get-IssueBodySet in issue-state-lib.ps1 -- the same split
+        Get-IssueStateVerdict and Get-ClosedIssueSet already make one question over, for the same reason:
+        the rule is assertable without a network, the fetch is not.
+
+        FIRST MATCHER WINS, in the order the repo stated them, because the report names ONE reason per
+        issue and a repo's list is written most-authoritative-first (a machine marker before a link a
+        person typed, which is the order the ticket mirror's own three matchers are already tried in).
+        A second matcher on the same issue would add a second sentence and no decision.
+
+        AN ISSUE WHOSE BODY THE CALLER COULD NOT READ IS ABSENT FROM $Bodies AND CONTRIBUTES NOTHING.
+        Silence is the only honest answer -- an unread body matches nothing and fails nothing -- and it
+        is the caller that says out loud which numbers it could not read, because here that silence is
+        the difference between a gate that checked and a gate that could not.
+
+        CASE-INSENSITIVE, deliberately. Every matcher this is written for reads something a person may
+        have typed or pasted -- an HTML comment marker, a task URL -- and a repo that wants case to
+        matter says so in its own pattern with (?-i).
+
+    .PARAMETER Bodies
+        A hashtable of issue number -> body text. Both an int key and its string spelling are accepted,
+        so a caller composing the table by hand is not held to one of them.
+    #>
+    param(
+        [int[]]$Issues = @(),
+        [hashtable]$Bodies = @{},
+        [object[]]$Matchers = @()
+    )
+
+    if (@($Matchers).Count -eq 0) { return @() }
+
+    $findings = @()
+    foreach ($n in @($Issues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)) {
+        $key = @(@([int]$n), @("$n")) | ForEach-Object { $_ } | Where-Object { $Bodies.ContainsKey($_) } | Select-Object -First 1
+        if ($null -eq $key) { continue }
+        $body = [string]$Bodies[$key]
+        if (-not $body) { continue }
+        foreach ($m in @($Matchers)) {
+            if ([regex]::IsMatch($body, $m.Pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
+                $findings += [pscustomobject]@{ Issue = [int]$n; Name = [string]$m.Name; Why = [string]$m.Why; Pattern = [string]$m.Pattern }
+                break
+            }
+        }
+    }
+    return @($findings)
+}
+
 function Get-TargetIssueWarnings {
     <#
     .SYNOPSIS

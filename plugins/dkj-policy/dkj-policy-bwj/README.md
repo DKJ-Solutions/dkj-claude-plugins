@@ -394,6 +394,15 @@ the project:
   ([#1841](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1841)): `gh issue create` fails
   outright on a label the repo does not have, so the filing half broke loudly -- while
   `adopt-dkj-policy-bwj`, being strictly additive, would have quietly re-created `tier-1` beside it.
+- `Get-ResolvesExemptMatchers` -- **which issues a merge must not close**, and the one function in this
+  list that a `dkj-policy` gate reads directly rather than this plugin's own machinery. An issue with a
+  mirrored task is closed by a person, once the paste-ready block is on it, so `Closes #<n>` is the one
+  thing its pull request must not carry -- and until inbound
+  [#2120](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2120) nothing read that rule at all.
+  Answer it with the marker and task-link shapes above and `open-pr`'s resolves gate refuses a
+  `-Resolves` naming such an issue, pointing at `-NoResolves`. **Optional, and unstated it is silent** --
+  no matcher, no verdict, and not one extra `gh` call -- which is also what a repo outside this family
+  gets.
 
 `adopt-dkj-policy-bwj` **proposes** these, it never places them: they state what your repo *is*, and the
 project may differ per brand. The CI half reads the project from the repo variable

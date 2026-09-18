@@ -453,6 +453,27 @@ $script:ContractRecords = @(
        Adopt = 'copy'; AdoptWhy = "the same reasoning as Get-ReachLabel above, one axis over: 'prio-1' through 'prio-4' are four rungs of urgency that mean the same thing in every repo running this workflow, so adopting them asserts nothing about the consuming repo -- unlike Get-BranchInfo, whose three prefixes ARE a fact about THIS repo (a release lands directly on its trunk here) and would impose that fact on a consumer if copied. Refusing to share the four rungs would leave every consumer reinventing four names and four colours on their own, which is the 'prose in one family's page' #1895 was filed about";
        Optional = $true; Default = "the same four labels, built into adopt-triage-labels.ps1 as its own fallback -- a consumer who has never answered this seam is already told the canonical set rather than a degraded one";
        Returns = "an array of objects with Name, Color and Description -- the four canonical triage-priority labels 'prio-1' (lowest) through 'prio-4' (highest), exactly the fields a 'gh label create' call needs. NOT a gate: nothing in this workflow refuses a PR or a merge over a missing triage label, unlike the reach label whose absence a consumer's own 'gh issue create' call fails on -- this seam exists only so adopt-triage-labels.ps1 has something authoritative to compose its paste-ready commands from" },
+    # THE CLASS OF ISSUE A MERGE MUST NOT CLOSE (inbound #2120). A repo that mirrors its tickets into a
+    # second tracker has a close ORDER -- the handover paragraph goes onto the issue while it is still
+    # open, and the close is a person's confirmation that it landed -- so `Closes #<n>` is the one thing
+    # such an issue must not carry. Until this record the carve-out was prose in one family's page and
+    # nothing read it; the measured cost of forgetting is a colleague receiving a placeholder where the
+    # link belongs, under an issue nobody returns to.
+    #
+    # 'decide', AND IT IS THE STRAIGHTFORWARD KIND: the value states WHAT THIS REPO IS -- that it has a
+    # second tracker at all, and which text in an issue body means a ticket is mirrored there. Writing
+    # the source's answer into a consumer would assert both, and the source's own answer is that it has
+    # none. The seam is the reason this is a gate rather than a hard-coded rule: a repo with no mirror
+    # must not pay a gh call per resolved issue, let alone a refusal.
+    #
+    # OPTIONAL, AND THE DEFAULT IS SILENCE RATHER THAN A BUILT-IN SET, unlike Get-TriageLabels above.
+    # There is no canonical matcher to fall back to: a matcher names another system's marker, so a
+    # built-in one would be this family's own tracker imposed on everyone else's. An unanswered repo
+    # keeps exactly the gate it had before this existed.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-ResolvesExemptMatchers'; Scripts = @('open-pr');
+       Adopt = 'decide'; AdoptWhy = "it states what this repo IS -- whether its issues are mirrored into a second tracker, and which text in a body says so. Copying the source's answer asserts that about a consumer; and the source repo runs no mirror, so it states nothing here itself. A repo that adopts this writes the matchers of ITS OWN tracker: for the BWJ family, adopt-dkj-policy-bwj proposes them, keyed on the same marker and task-link shapes the ticket mirror already uses to decide which task an issue belongs to";
+       Optional = $true; Default = "no matchers at all -- the gate is silent, judges nothing, and makes no gh call. A repo that has never answered this keeps exactly the resolves gate it had before the seam existed";
+       Returns = "an array of matchers, each a string (the regex) or an object with Pattern (required), Name (what it recognises, printed in the refusal) and Why (one line: why a merge must not close such an issue, and what to do instead). Matched CASE-INSENSITIVELY against the body of every issue the PR would close, most-authoritative first -- the first match wins and open-pr REFUSES, naming -NoResolves as the way through. A pattern that does not compile is reported and skipped rather than taking the gate with it" },
     # AND WHERE THAT DOCUMENT GOES (inbound #616). Declared because the knob above was UNANSWERABLE
     # without it for a repo whose hand-written notes live somewhere else: naming the bumps would point
     # the cut at a directory that does not exist there, so the only safe value was @() -- the tier
