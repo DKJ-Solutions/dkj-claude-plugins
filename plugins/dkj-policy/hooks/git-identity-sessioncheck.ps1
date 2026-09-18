@@ -53,6 +53,7 @@
     (Optional, for tests) Passed through to check-git-identity.ps1 as -RootOverride, the repo root
     whose `git config` is read.
 #>
+[CmdletBinding()]
 param(
     [string]$CheckScriptOverride = '',
     [string]$ConsumerPathOverride = ''

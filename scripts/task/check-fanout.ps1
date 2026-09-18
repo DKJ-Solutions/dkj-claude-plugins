@@ -85,6 +85,7 @@
     Tested by scripts/tests/fanout-lib.tests.ps1 in the source repo -- change one, run the other.
 #>
 
+[CmdletBinding()]
 param(
     # Take the baseline. Prints the path to hand to -Compare.
     [switch]$Capture,

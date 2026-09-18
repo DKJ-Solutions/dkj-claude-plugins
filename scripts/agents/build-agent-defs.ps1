@@ -23,6 +23,7 @@
 .EXAMPLE
     ./scripts/agents/build-agent-defs.ps1 -Check
 #>
+[CmdletBinding()]
 param([switch]$Check)
 
 Set-StrictMode -Version Latest

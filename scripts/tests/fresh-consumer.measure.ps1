@@ -42,6 +42,7 @@
     # After: the same fixture once the documented bootstrap has run
     ./scripts/tests/fresh-consumer.measure.ps1 -FixtureRoot $env:TEMP\fresh-consumer -WithBootstrap
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$FixtureRoot,
     [string]$PluginRoot = '',

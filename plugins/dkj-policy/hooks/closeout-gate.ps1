@@ -59,6 +59,7 @@
 .PARAMETER CacheRootOverride
     (Optional, for tests) Claim the marker from this directory instead of the per-user session cache.
 #>
+[CmdletBinding()]
 param(
     [string]$LibOverride = '',
     [string]$RepoRootOverride = '',

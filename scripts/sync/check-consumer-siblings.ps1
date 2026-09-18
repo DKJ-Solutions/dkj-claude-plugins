@@ -85,6 +85,7 @@
 .EXAMPLE
     .\scripts\sync\check-consumer-siblings.ps1 -Group bwj-store -SkipAliasCheck
 #>
+[CmdletBinding()]
 param(
     [string]$Group = '',
     [ValidateSet('auto', 'github', 'disk')][string]$Source = 'auto',

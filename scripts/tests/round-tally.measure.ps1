@@ -65,6 +65,7 @@
     # Capture it for pasting, without codepage damage
     ./scripts/tests/round-tally.measure.ps1 -Path .\RESULTATEN.md -OutFile .\tally.md
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Path,
     [string]$ColumnPattern = '^v\d+$',

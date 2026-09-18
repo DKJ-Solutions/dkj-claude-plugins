@@ -62,6 +62,7 @@
     # Capture the block for pasting into the papers
     ./scripts/tests/round-baseline.measure.ps1 -RepoPath C:\tmp\fixture > baseline.md
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$RepoPath,
     [string]$Ref = 'HEAD',

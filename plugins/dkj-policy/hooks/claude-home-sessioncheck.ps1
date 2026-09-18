@@ -53,6 +53,7 @@
     exercised a check about polluting the real ~/.claude by polluting the real ~/.claude would be the
     defect wearing a test's clothes.
 #>
+[CmdletBinding()]
 param(
     [string]$CheckScriptOverride = '',
     [string]$HomeOverride = ''

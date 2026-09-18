@@ -60,6 +60,7 @@
 .EXAMPLE
     ./scripts/release/new-internal-note.ps1 -Version 3.2.0
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)]
     [string]$Version,

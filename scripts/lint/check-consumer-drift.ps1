@@ -57,6 +57,7 @@
 .EXAMPLE
     ./scripts/lint/check-consumer-drift.ps1 -ConsumerPath C:\path\to\smartwatchbanden -Quiet
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$ConsumerPath,
     [switch]$Quiet

@@ -73,6 +73,7 @@
 .EXAMPLE
     ./scripts/maintenance/fix-mojibake.ps1 -Check
 #>
+[CmdletBinding()]
 param(
     [string[]]$Path,
     [switch]$Check

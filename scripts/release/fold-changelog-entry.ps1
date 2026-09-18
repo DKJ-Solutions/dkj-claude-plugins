@@ -148,6 +148,7 @@ commit. The two codes must not be confused: after 2 nothing was written, after 3
 the local trunk that its caller has to tell the operator about.
 #>
 
+[CmdletBinding()]
 param(
     [string]$Branch,
     # #101: explicit override of the repo root, for a consumer that runs the fold from a

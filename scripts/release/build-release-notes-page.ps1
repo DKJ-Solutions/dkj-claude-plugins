@@ -101,6 +101,7 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+[CmdletBinding()]
 param(
     [string]$OutFile,
     [switch]$Worker,
