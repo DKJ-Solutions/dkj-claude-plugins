@@ -93,6 +93,13 @@ lags its own source by however many merges have landed since.
   from it rolls the lane back.
 - **`-Title`** (optional) the entry title, passed straight through to `new-branch`.
 - **`-Intent`** (optional) a note on what the lane is for, passed straight through to `new-branch`.
+- **`-Resolves`** (optional) the issue number(s) this lane is being opened to fix, passed straight
+  through to `new-branch`, which owns what it means. It drives the **already-done check** -- one `gh`
+  call, before the checkout, asking whether the issue is already closed or already resolved by a merged
+  PR. **Pass it whenever a lane is opened for an issue** (#2061): without it a lane pays exactly the
+  cost #1409 was filed to remove -- a branch, its commits, its reviews and its test runs, all spent
+  before the warning arrives at `open-pr` -- and it bites hardest here, because a lane is opened during
+  a busy window, which is when another session is likeliest to have just closed that issue.
 - **`-Path`** (optional) where to put the worktree. Default: a sibling of the primary checkout,
   `<repo>-lanes/<branch name with the separator flattened>`. Supply it only when that default is wrong
   for your machine.
@@ -123,6 +130,11 @@ What it does, in order:
    origin moved in between -- which would refuse the lane, roll it straight back at step 5, and offer
    `git pull --ff-only` as the remedy for a *detached* worktree, where it is not the remedy. The warning
    still prints; only the refusal is waived.
+   **`-Resolves` is forwarded, and the two are not a pair** (#2061). The waiver above is earned: this
+   script chose the base, so that check has nothing left to discover. Nothing equivalent holds for the
+   already-done check, which asks the *tracker* a question no step here has asked -- so it was simply
+   missing, and a lane silently ran without it until #2061. Passing none leaves the run as it was:
+   `new-branch` treats an empty `-Resolves` as "ask nothing of `gh`".
 5. If that delegation fails, **removes the worktree again** and exits non-zero. That rollback is what
    lets step 3 run before the branch name has ever been validated.
 

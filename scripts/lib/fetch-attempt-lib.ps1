@@ -365,6 +365,17 @@ function Invoke-RecordedRemoteFetch {
         $result.TimedOut = $true
         $result.ExitCode = $fetch.ExitCode
         $result.Note = "git fetch did not answer within $TimeoutSeconds seconds"
+    } elseif (-not (Test-NativeExitMeasured -Capture $fetch)) {
+        # AN UNMEASURABLE EXIT CODE IS NOT A FAILED FETCH (issue #1931, audited under #2081), and here it
+        # was reported as one in a sentence with the number missing from it: `$null` interpolates empty,
+        # so the note came out as "git fetch exited " and Fresh stayed $false. Every caller of this lib
+        # reads Fresh as "is the remote-tracking ref current", so the cost is a freshness claim the run
+        # never measured -- and the stamp written below then suppresses the retry for the next window.
+        # Fresh stays $false, which is the honest direction and unchanged; what changes is that the note
+        # now says which of the two states this is, so a reader is not sent after a fetch that may well
+        # have worked.
+        $result.ExitCode = $fetch.ExitCode
+        $result.Note = "git fetch ran but its exit code could not be measured (issue #1931) -- whether the ref is current is unknown here; this normally settles on a re-run"
     } elseif ($fetch.ExitCode -ne 0) {
         $result.ExitCode = $fetch.ExitCode
         $result.Note = "git fetch exited $($fetch.ExitCode)"

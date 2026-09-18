@@ -720,6 +720,15 @@ Assert-True (@(Format-TitleOverlapReport -Issue 2016 -Title $title2016 -Overlaps
 $oneOverlap = @([pscustomobject]@{ Branch = 'fix/asana-stage-letter-codes'; SharedWords = @('asana', 'stage') })
 $overlapReport = @(Format-TitleOverlapReport -Issue 2016 -Title $title2016 -Overlaps $oneOverlap)
 Assert-True ($overlapReport[0] -match '1 branch off the trunk') 'the lead line counts in the singular for one branch'
+
+# EVERY WORD THE COUNT GOVERNS, NOT ONLY THE NOUN (#2070). The singular was the case that printed
+# wrong -- '1 branch ... share words ... no commit on them' -- and it is the common one, so the noun
+# alone passing is exactly the silence this pair closes. Pinned as the whole lead line rather than as
+# three separate word matches: what was broken was the AGREEMENT between them.
+Assert-True ($overlapReport[0] -match "1 branch off the trunk shares words with #2016's title, though no commit on") `
+    'the verb agrees with the singular noun -- "1 branch ... shares", not "share" (#2070)'
+Assert-True ($overlapReport[1] -match '^\s*it names the number --$') `
+    'and so does the pronoun on the line under it -- "it", not "them" (#2070)'
 Assert-True (@($overlapReport | Where-Object { $_ -match 'fix/asana-stage-letter-codes\s+--\s+shares: asana, stage' }).Count -eq 1) 'the branch and its shared words are printed together'
 Assert-True (@($overlapReport | Where-Object { $_ -match 'NOT YOURS' }).Count -eq 0) `
     'the fifth signal never borrows the fourth signal''s stronger verdict wording'
@@ -733,6 +742,12 @@ $twoOverlaps = @(
 )
 $twoReport = @(Format-TitleOverlapReport -Issue 2016 -Title $title2016 -Overlaps $twoOverlaps)
 Assert-True ($twoReport[0] -match '2 branches off the trunk') 'the lead line counts in the plural for more than one'
+# A REGRESSION GUARD RATHER THAN A PINNING ASSERT, and it is worth saying which: the plural path was
+# never broken, so these two pass against the pre-repair code too. What they stop is the repair MOVING
+# the defect from one arm of the `if` to the other, which is the shape a three-way word switch invites.
+Assert-True ($twoReport[0] -match "2 branches off the trunk share words with #2016's title, though no commit on") `
+    'the plural keeps the plural verb (#2070)'
+Assert-True ($twoReport[1] -match '^\s*them names the number --$') 'and the plural pronoun with it (#2070)'
 
 Write-Host ''
 Write-Host 'The parked-fix scan inside claim-issue.ps1 (#1853)' -ForegroundColor Cyan
@@ -779,6 +794,20 @@ Assert-True ($scan -match '\$staleDetail') 'and those lines are actually printed
 # same place -- anyone who can push -- and the branch name was the half printed raw.
 Assert-True ($scan -match '(?s)Subject\s*=\s*\(Format-ForConsole') 'the commit subject is stripped before printing'
 Assert-True ($scan -match '(?s)Branches\s*=\s*@\(\$branches\s*\|\s*ForEach-Object\s*\{\s*Format-ForConsole') 'and so is every branch name'
+
+# AND THE SIXTH SIGNAL IS HANDED THE OTHER SPELLING (#2075). These three are a PAIR-PLUS-GUARD and no
+# one of them means anything alone: the record keeps a stripped copy for the REPORT and a git-spelled
+# one for the SCAN, which puts each name back to git (`rev-list --count`, `ls-tree`). Format-ForConsole
+# replaces what it strips with a SPACE, so a stripped name is a ref git does not have -- and both of
+# those calls pass -DiscardStderr and are guarded on their exit code, so the scan reported no
+# dependency without printing or erroring.
+#
+# STRUCTURAL AND NOT BEHAVIOURAL, deliberately: on an ordinary ASCII branch name the two fields hold
+# the identical string, so no run and no fixture can tell them apart. The direction is the whole
+# finding, and an assert is the only thing that can state it.
+Assert-True ($scan -match '(?s)GitBranches\s*=\s*@\(\$branches\)') 'the record also carries the branch names as git spells them, unstripped (#2075)'
+Assert-True ($scan -match 'foreach \(\$b in @\(@\(\$f\.GitBranches\)') 'and the sixth signal is fed those -- it queries the names, it does not print them (#2075)'
+Assert-True ($scan -notmatch 'foreach \(\$b in @\(@\(\$f\.Branches\)') 'never the stripped copies, which are the report''s and no ref git has (#2075)'
 
 # WITHOUT A TRUNK REF TO SUBTRACT, `git log --all` reports the issue's own merged repair on the trunk --
 # the noise that teaches a reader to skip the warning. So: no trunk ref, no scan.
@@ -983,6 +1012,48 @@ Assert-True ($body -match '\$maxCitedPaths\s*=\s*[0-9]+') 'the cited paths have 
 Assert-True ($body -match 'Get-IssuePathCitations[^\r\n]*-MaxPaths \(\$maxCitedPaths \+ 1\)') 'asked for one more than will be used, which is what makes the truncation measurable'
 Assert-True ($body -match 'if \(\$probedPaths\.Count -gt \$citedPaths\.Count\)') 'and the extra element is actually tested for'
 Assert-True ($body -match 'cites more than \$maxCitedPaths paths') 'a truncated citation list says so -- and says "more than", which is what a +1 probe measured'
+
+Write-Host ''
+Write-Host 'The title-overlap scan sanitises what it PRINTS and not what it hands on (#2069)' -ForegroundColor Cyan
+
+# ITS OWN BLOCK, NOT $scan. The capture above spans as far as the verdict switch, so it CONTAINS the
+# fifth signal -- which means the fourth signal's own Format-ForConsole calls satisfy a strip assert
+# written against $scan while this block prints raw. That is the shape #2069 measured: one capture of
+# `git branch -a`, two readers, one call. The unit is the VALUE that reaches the terminal, never a
+# variable that looks like the script's own.
+$overlapScan = if ($body -match "(?s)# THE FIFTH SIGNAL \(#2018\).*?\n(.*?)\n\s*# THE SIXTH SIGNAL \(#2064\)") { $Matches[1] } else { '' }
+Assert-True ($overlapScan -ne '') 'the title-overlap block is present, between the fourth signal and the sixth'
+# Held on the fourth signal's own strip SITES rather than on its report function's NAME: the block
+# cites that name in a comment explaining where the shape came from, and an assert a comment can fail
+# is an assert about prose.
+Assert-True ($overlapScan -notmatch 'Subject\s*=\s*\(Format-ForConsole') 'and it is the fifth signal alone -- the fourth signal strip sites are outside it'
+
+Assert-True ($overlapScan -match '(?s)\$safeOverlaps\s*=\s*@\(\$overlaps\s*\|\s*ForEach-Object') `
+    'the printed records are a stripped COPY of the scan result (#2069)'
+Assert-True ($overlapScan -match 'Branch\s*=\s*\(Format-ForConsole') 'and the branch name is what gets stripped in them'
+Assert-True ($overlapScan -match 'Format-TitleOverlapReport[^\r\n]*-Overlaps\s+\$safeOverlaps') `
+    'the report reads the stripped copy, so nothing unsanitised reaches the terminal'
+
+# THE HALF THAT MAKES THE PLACEMENT LOAD-BEARING (#2064 one block down). $overlaps keeps the ref AS
+# GIT WROTE IT, because the sixth signal puts each name back to git -- `rev-list --count` and
+# `ls-tree` -- and a stripped name is a ref git does not have. Strip on the way IN and that scan
+# reports nothing exactly where it should report a prerequisite: in the adversarial case the strip
+# exists for. So this is not a style preference and an assert is the only thing that says so.
+Assert-True ($overlapScan -match 'Get-TitleOverlapBranches[^\r\n]*-Branches\s+\$allBranches') `
+    'the scan itself still reads the git-spelled capture, not the stripped copy (#2069 vs #2064)'
+Assert-True ($overlapScan -match 'foreach \(\$o in \$overlaps\) \{ \$surfacedBranches\.Add') `
+    'and the sixth signal is fed the git-spelled names, which are the only ones it can ask git about'
+Assert-True ($overlapScan -notmatch '\$surfacedBranches\.Add\(\[string\]\$o\.Branch\)[^\r\n]*safe') 'nothing stripped is handed to it'
+
+# AFTER THE EXCLUSION TOO, for the reason the fourth signal states in its own comment: the exclusion
+# has to compare the ref as git spells it, so a strip above it would compare a name git never wrote.
+Assert-True ($overlapScan.IndexOf('-Exclude $excludeBranches') -lt $overlapScan.IndexOf('$safeOverlaps =')) `
+    'the strip sits below the exclusion, not above it'
+
+# ADVISORY, LIKE THE FOURTH -- a shared word is weaker evidence than a number (#2018).
+Assert-True ($overlapScan -notmatch '(?m)^\s*exit\s') 'nothing in the title-overlap block exits'
+Assert-True ($overlapScan -notmatch '\$foreignParked') 'and it never sets the fourth signal flag the closing verdict reads'
+
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
