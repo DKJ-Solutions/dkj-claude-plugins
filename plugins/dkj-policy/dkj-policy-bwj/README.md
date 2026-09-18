@@ -53,6 +53,12 @@ owes at a push and a cut*. It says
 open a PR, or what a release is -- those are still `dkj-policy`'s answers, unchanged. So the two do not hand
 the specialists two contradicting answers to the same question; they answer different questions.
 
+**One clause of that sentence was overtaken on September 18, 2026 and is corrected rather than
+deleted.** *"Which changes owe a preview"* is no longer something this plugin says nothing about: it
+now states that the **question** is asked on every branch, as the last step under `### CREATE` (see
+below). What it still enumerates nowhere is which changes count as visible -- that judgement, and the
+consumer's own reach rule, are untouched.
+
 That is the deliberate reading of the "second workflow" note left in
 [the `dkj-policy` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/README.md)
 and the root README after
@@ -63,6 +69,29 @@ safe here **because it is additive and non-overlapping**, not because the old gu
 Enabling this without `dkj-subagents-alpha` gives you a skill with nobody to invoke it; it also expects
 `dkj-policy` to be enabled, because its rule begins where that workflow's ticket-work
 step begins.
+
+## What the cycle gains here
+
+**Install this beside `dkj-policy` and that workflow's cycle gains exactly two steps.** Everything
+before the step list is unchanged -- the issue, the branch, its `dkj-policy/<branch>.md`, the writing of
+`### PLAN` / `### CREATE` / `### TEST` -- and nothing already in that document is rewritten
+(Dave, September 18, 2026,
+[#2100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2100)).
+
+| the step | where it sits in the cycle | the rule |
+|---|---|---|
+| **Is the change visible in the frontend / storefront?** | the **last** step under `### CREATE` | a `- [~]` with its reason where nothing renders; otherwise a preview theme, a comment on the GitHub issue carrying the steps and the URLs, and `- [x]` only once a **person** confirms they looked -- [`PREVIEW-portable.md`](PREVIEW-portable.md) |
+| **The go-live half of the paste-ready block** | just before the GitHub issue is closed | the block gains the next release date, the version it will carry and the live URLs per market, written by `build-golive-block.ps1` -- [`WORKFLOW-portable.md`](WORKFLOW-portable.md) |
+
+**They are not a fifth chapter, deliberately.** Each belongs to the subject a chapter already owns --
+previews, and ticket handling -- so it is written there, and this table is an index rather than a
+third copy. What the index buys is the one question neither chapter answers on its own: *what does my
+cycle gain by installing this?*
+
+**Their reach is each chapter's own reach, not a new one.** The storefront step is chapter three's, so
+it applies in the two store repos and nowhere else -- a repo with no theme has nothing to preview. The
+go-live block is chapter one's, so it reaches the source repo too; there the live-URL list is simply
+empty, because that repo declares no markets.
 
 ## Chapter one -- ticket handling, in one paragraph
 
@@ -300,6 +329,7 @@ matched, so the sibling check could see the pair only as `ALIASED`
 | [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md) | one-time setup in a store repo -- copies the CI mechanism into `.github/`, proposes the Asana config seam, and prints the secret/variable setup |
 | [`build-backlog-page`](skills/build-backlog-page/SKILL.md) | the minor-backlog page needs refreshing -- reads the open, reach-labelled issues and shows each one's mirrored Asana task text, never the issue's own |
 | [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
+| [`golive-block`](skills/golive-block/SKILL.md) | the work is shipped and the issue is about to close -- writes the paste-ready block with its go-live half: where the result can be seen, the next release day, the version it is on course for, and the live URL per market |
 
 <!-- /skills:plugin -->
 

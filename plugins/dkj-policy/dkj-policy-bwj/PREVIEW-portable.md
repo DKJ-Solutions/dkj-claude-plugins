@@ -249,6 +249,69 @@ This paragraph exists because the section above it reads as complete without it.
 client-side"* is a full answer to a rendering problem, and a later editor taking the CSP as the whole
 reason picks whichever library renders -- including one that phones home.
 
+## The step that asks the question -- always last under `### CREATE`
+
+**Everything above says what a handover contains once one is owed. This says when the question gets
+asked, and it is: on every branch** (Dave, September 18, 2026,
+[#2100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2100)). It is one of the two steps
+this plugin adds to `dkj-policy`'s cycle -- the other is the go-live half of the paste-ready block in
+[`WORKFLOW-portable.md`](WORKFLOW-portable.md) -- and both are indexed in
+[the README](README.md#what-the-cycle-gains-here).
+
+**The last step under `### CREATE` is always the same one, in these words:**
+
+```text
+- [ ] Is the change visible in the frontend / storefront?
+```
+
+Nothing before the step list changes. `dkj-policy`'s cycle up to and including the writing of `###
+PLAN` / `### CREATE` / `### TEST` is untouched; this is a step *inside* CREATE, and it is the last
+one.
+
+**Two answers, and only one of them costs anything.**
+
+- **No** -- nothing renders differently: a script, a gate, a manual, a workflow file. Resolve it
+  `- [~]` with that reason on the line, exactly as any dropped step. This is the common case in a
+  repo that is not only a theme, and it is a complete answer rather than a skipped step.
+- **Yes** -- three things happen, in order, and the checkbox waits for the third:
+  1. **A preview theme is pushed** (`push-preview`), and its handover is built the way the rest of
+     this page describes -- a pair per market, carried as one link.
+  2. **A comment goes on the GitHub issue**: how to see the change -- the steps, the device, the
+     viewport, the condition it depends on -- and every URL a reviewer needs. Where a handover page
+     was published, the comment links it and does not restate its cards.
+  3. **A person confirms they have looked.** Only then does the step become `- [x]`.
+
+### Why the ticket and not only the terminal
+
+**The handover page is the reviewing surface; the issue comment is the record.** They are not two
+copies of one thing, and the page's own carrier argument does not reach the comment: a table is
+refused *in a terminal*, which wraps it past selecting, and a GitHub comment renders it, scrolls on a
+phone and is still there tomorrow. What a comment cannot carry is the QR code, which is the whole
+reason the published page still exists.
+
+**And the ticket is where the requester is looking.** The terminal printout reaches whoever was
+looking at the terminal, and the session that produced it ends. Everything downstream of this step
+already lives on the issue -- the paste-ready block, the close, the Asana mirror -- so a handover that
+never reaches the issue is a handover the ticket has no memory of.
+
+### Why an agent may never tick this one itself
+
+**It can prove the theme exists and the URL answers. It cannot prove somebody looked.** Ticking the
+box on the preview's existence converts the one human gate in this chapter into a machine one, and it
+does so invisibly: the document afterwards is indistinguishable from the document a person confirmed.
+The confirmation is the content of this step, not the preview.
+
+**Being LAST is what enforces it, and that is why the position is part of the rule.** The step-list
+gate refuses the push and refuses the merge while anything under CREATE is still `- [ ]`, with no
+`-Force` -- so an unconfirmed preview stands between the work and the pull request. A rule enforced by
+nothing but memory is one that gets skipped, and this one is now held by the gate that was already
+there.
+
+**The bound on that, stated because the gate cannot state it:** the gate reads a mark, not a fact. A
+session that ticks the box without the confirmation passes every check in this workflow. What the
+position buys is that the step is the last thing between the branch and the PR, so skipping it is a
+deliberate act rather than an oversight -- which is the most a mark can be asked to carry.
+
 ## Where the rule is carried
 
 A policy page that nothing loads at the moment a preview is pushed loses to the printed list every
@@ -268,9 +331,14 @@ multi-market Shopify repo, and *this* page states what BWJ's handover actually i
 
 ## What this page does not decide
 
-- **Which changes owe a preview at all.** That reach test lives in the consumer's `CLAUDE.md` and in
-  `dkj-policy`, and this page neither widens nor narrows it.
-- **When the PR may open.** Also the consumer's rule, unchanged: where a preview is owed, its approval
-  is what the PR waits on.
+- **Which changes are visible in the storefront.** The *question* is now always asked -- that is the
+  step above, and it is this page's -- but the answer is a judgement about the change, and this page
+  enumerates nothing. **It used to disclaim the question too** ("which changes owe a preview at all"),
+  and that half stopped being true on September 18, 2026 with #2100: a rule that says what a handover
+  contains and never says when one is owed leaves the trigger to memory, which is where it had been.
+- **When the PR may open.** Still the consumer's rule, and unchanged in substance: where a preview is
+  owed, its approval is what the PR waits on. What #2100 added is the *mechanism* for that, not a new
+  rule -- the step is last under `### CREATE`, so `dkj-policy`'s own step-list gate holds the PR while
+  it is open.
 - **Anything about pushing to live.** A control URL previews the published theme read-only. It is not a
   live action, it writes nothing, and it goes nowhere near the live-push procedure or its guard.
