@@ -825,8 +825,11 @@ try {
         Assert-Equal 'windows-reserved' (Get-UncheckoutableNameClass -Path $res) "a Windows-reserved character is reported: '$res'"
     }
 
-    # The third class. A newline in a path is why check 43 reads `git ls-files -z`: a line-based read
-    # would split such a path and then report two paths that do not exist instead of the one that does.
+    # The third class. A newline in a path is why check 43 USED to read `git ls-files -z`: a line-based
+    # read would split such a path and then report two paths that do not exist instead of the one that
+    # does. Since #2109 it reads the quoted form instead, which keeps that guarantee by a different
+    # route -- git C-quotes a control character in every core.quotePath setting, so `"bad\nname.txt"`
+    # is still one record and Convert-GitQuotedPath puts the newline back. See the reader pin below.
     Assert-Equal 'control' (Get-UncheckoutableNameClass -Path ("a`nb.md")) 'a newline in a path is reported'
     Assert-Equal 'control' (Get-UncheckoutableNameClass -Path ("a" + [char]0x07 + "b.md")) 'so is a bare control character'
 
@@ -834,6 +837,40 @@ try {
     # class at once, and the reader needs the likeliest CAUSE named -- which for anything produced by
     # the mangling is always the private-use one.
     Assert-Equal 'private-use' (Get-UncheckoutableNameClass -Path ('C' + [char]0xF03A + 'a<b' + "`n")) 'a path failing all three classes is reported as the likeliest cause, not the first character found'
+    # --- and the QUERY half, which was blind on half the machines it ran on (issue #2109) -----------
+    # THE PREDICATE ABOVE WAS NEVER WRONG; IT WAS NEVER ASKED. check 43 read `git ls-files -z` and let
+    # Windows PowerShell 5.1 decode the bytes with [Console]::OutputEncoding, so on a cp850 console the
+    # U+F03A this whole block exists to pin arrived as three characters in no class at all. Measured
+    # September 18, 2026 on the commit that produced the case: the local gate said
+    # `checked 761 -- 0 finding(s)` and CI, on a console whose code page differs, failed the SAME commit
+    # with the finding. Every assert above passed throughout -- which is the reason these two exist.
+    # A judgement suite that pins only the judgement cannot tell a check that is silent from a check
+    # that is never consulted.
+    #
+    # THE FIRST ASSERT IS THE FAILURE, and it is deterministic on any console: the decode is done here,
+    # by .NET, against an explicit code page, so nothing about the machine running the suite can change
+    # the answer. Never by setting [Console]::OutputEncoding -- that setter is console-WIDE and the test
+    # gate runs every suite on one shared console, which is exactly how inbound #821 stayed invisible
+    # (.claude/rules/language-layers.md states the prohibition outright).
+    $u    = [System.Text.Encoding]::UTF8.GetBytes('C' + [char]0xF03A + 'Usersx.txt')
+    $cp   = [System.Text.Encoding]::GetEncoding(850)
+    $seen = $cp.GetString($u)
+    Assert-Equal '' (Get-UncheckoutableNameClass -Path $seen) 'the raw-byte read decoded on cp850 is SILENT about the very name check 43 exists for -- the defect #2109 repaired, pinned so the old read cannot come back unnoticed'
+
+    # THE SECOND IS THE REPAIR, against the bytes git actually puts on the wire under the forced flag:
+    # pure ASCII, octal-escaped, so every candidate code page agrees and the decoding is ours.
+    . (Join-Path $RepoRoot 'scripts\lib\git-porcelain-lib.ps1')
+    $wire = '"C\357\200\272Usersx.txt"'
+    Assert-Equal ('C' + [char]0xF03A + 'Usersx.txt') (Convert-GitQuotedPath -Path $wire) 'core.quotePath=true puts the mangled name on the wire as ASCII, and the decoder returns the real code point'
+    Assert-Equal 'private-use' (Get-UncheckoutableNameClass -Path (Convert-GitQuotedPath -Path $wire)) 'and THEN the predicate fires -- the two halves together are the check'
+
+    # AND THE CALL SITE IS PINNED, because the asserts above prove the mechanism works and say nothing
+    # about check 43 using it. A source read is the only thing that can: the query needs a live checkout,
+    # which is why it has no fixture here in the first place.
+    $c43 = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\lint\check-plugin-integrity.ps1'))
+    Assert-True ($c43 -match "'-c',\s*'core\.quotePath=true',\s*'-C',\s*\`$RepoRoot,\s*'ls-files'") "check 43's read FORCES core.quotePath rather than trusting git's default -- a repo may set core.quotepath in its own config"
+    Assert-True ($c43 -notmatch "'ls-files',\s*'-z'") "and it no longer asks for -z, which suppresses the quoting and hands the bytes back to the console decoder"
+    Assert-True ($c43 -match 'Convert-GitQuotedPath -Path \(\[string\]\$_\)') 'and it decodes what came back, rather than reading the escapes as literal text'
 
     # --- Resolve-PluginDir: the record decides which version, the cache scan is the fallback ----------
     #     A shared cache holds every version any consumer on the machine pulled, so "highest present" and
