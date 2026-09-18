@@ -182,7 +182,30 @@ if ($identity.Reason -eq 'split') {
 # rather than anything a reader sees verbatim.
 $view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $number) + $repoArgs + @('--json', 'number,title,state,url,assignees,body')) -Utf8 -DiscardStderr `
                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-if (-not $view -or $view.ExitCode -ne 0) {
+# AND IT RE-ASKS ONCE WHEN THE EXIT CODE WAS NOT A MEASUREMENT (issue #1931, audited under #2081). This
+# is the ONE site in the audited family that re-asks rather than reporting the state as itself, and the
+# two conditions that make it sound are both met here and almost nowhere else:
+#
+#   IT IS IDEMPOTENT AND READ-ONLY. `gh issue view` changes nothing, so a second call cannot double
+#   anything -- the same test park-cycle.ps1's own re-ask was argued on (#2068), and the reason the lib
+#   cannot make this decision for every caller: it has no way to know that `git push` is not.
+#
+#   THE COST OF NOT ASKING IS THE WHOLE ASSIGNMENT. This is the first step of an issue-driven session
+#   (#1485). Every other site in this audit degrades to a skipped check or a stated unknown; here a
+#   non-answer means the session never starts, and it would say so by printing a list of three causes --
+#   the number does not exist, gh is not logged in, this account cannot see it -- not one of which can
+#   produce an unmeasurable exit code. The reader is sent to `gh auth status` over a race in
+#   Start-Process, which is the "confident wrong verdict" #1931 was filed about, at the sharpest site.
+#
+# ONCE, NOT IN A LOOP: the race is measured at roughly 1 in 300 fresh processes, so a single retry takes
+# the residue to about 1 in 90,000, and a loop would trade a rare wrong sentence for an unbounded wait.
+# A second unmeasurable read falls through to the branch below, which now names the state.
+if ($view -and -not (Test-NativeExitMeasured -Capture $view)) {
+    Write-Host "  [re-asking] gh's exit code came back unmeasurable reading #$number (issue #1931) -- asking once more." -ForegroundColor DarkGray
+    $view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $number) + $repoArgs + @('--json', 'number,title,state,url,assignees,body')) -Utf8 -DiscardStderr `
+                                 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+}
+if (-not $view -or -not (Test-NativeExitMeasured -Capture $view) -or $view.ExitCode -ne 0) {
     Write-Host "[ERROR] could not read issue #$number." -ForegroundColor Red
     if ($view -and $view.TimedOut) {
         # A STALL IS NOT ONE OF THE THREE BELOW, so it does not get their list. Each of those is a
@@ -191,6 +214,14 @@ if (-not $view -or $view.ExitCode -ne 0) {
         Write-Host "        gh did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] line above." -ForegroundColor Red
         Write-Host '        That is a stall, not a verdict about the issue: nothing was read and nothing was claimed.' -ForegroundColor Red
         Write-Host '        Check that gh is healthy here (gh auth status) and run this again -- it costs one read.' -ForegroundColor Red
+    } elseif ($view -and -not (Test-NativeExitMeasured -Capture $view)) {
+        # THE SECOND UNMEASURABLE READ IN A ROW, which the re-ask above has already spent its one retry
+        # on. It belongs with the stall rather than with the three below for the same reason the stall
+        # does: each of those is a verdict gh reached, and this is gh reaching one this run could not
+        # read. Nothing was claimed, so re-running is free.
+        Write-Host "        gh's exit code came back unmeasurable twice in a row (issue #1931) -- see that issue for the race." -ForegroundColor Red
+        Write-Host '        That is a fact about this run, not a verdict about the issue: nothing was read and nothing was claimed.' -ForegroundColor Red
+        Write-Host '        Run this again -- it costs one read, and two in a row is rare enough to be worth reporting if it repeats.' -ForegroundColor Red
     } else {
         Write-Host '        Three things this is, in the order they are worth checking:' -ForegroundColor Red
         Write-Host "          1. the number does not exist in $(if ($repoName) { $repoName } else { 'this repo' }), or names a pull request rather than an issue;" -ForegroundColor Red
@@ -342,8 +373,15 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
         if ($scanPattern) {
             $logArgs = @('-C', $repoRoot, 'log', '--all', '-E', "--grep=$scanPattern", '--format=%H%x1f%an%x1f%at%x1f%s', '--not') + $trunkRefs
             $scanLog = Invoke-NativeCapture -FilePath 'git' -Arguments $logArgs -Utf8 -DiscardStderr
-            if (-not $scanLog -or $scanLog.ExitCode -ne 0 -or $scanLog.ShortRead) {
-                $why = if (-not $scanLog) { 'it could not be run at all' } elseif ($scanLog.ShortRead) { 'its capture was still being written when it was read' } else { "it exited $($scanLog.ExitCode)" }
+            if (-not $scanLog -or -not (Test-NativeExitMeasured -Capture $scanLog) -or $scanLog.ExitCode -ne 0 -or $scanLog.ShortRead) {
+                # THE UNMEASURABLE CODE GETS ITS OWN CLAUSE (issue #1931, audited under #2081), ahead of
+                # the exit-code one it was falling into: `$null -ne 0` is true, so the skip line read
+                # "it exited " with nothing after it. Skipping the scan is unchanged and is right -- it is
+                # a warning-only signal -- so what this buys is a reader who knows to run it again.
+                $why = if (-not $scanLog) { 'it could not be run at all' }
+                       elseif (-not (Test-NativeExitMeasured -Capture $scanLog)) { 'its exit code came back unmeasurable (issue #1931), so this run could not judge the read' }
+                       elseif ($scanLog.ShortRead) { 'its capture was still being written when it was read' }
+                       else { "it exited $($scanLog.ExitCode)" }
                 Write-Host "  [parked-fix scan skipped] git log for #$number was not readable -- $why." -ForegroundColor DarkGray
             } else {
                 # THE CONTAINMENT LOOP IS BOUNDED, and the display cap in Format-ParkedFixReport does NOT
@@ -371,6 +409,14 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                 $findings = @()
                 foreach ($commit in $resolved) {
                     $contains = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'branch', '-a', '--contains', $commit.Sha) -Utf8 -DiscardStderr
+                    # AUDITED UNDER #2081, WITH THE FOUR `-eq 0` READS BELOW IT (the trunk ls-tree, the
+                    # rev-list count, the per-branch ls-tree) AND LEFT AS THEY ARE. An unmeasurable exit
+                    # code (#1931) makes this `continue` and makes each of those keep its already-chosen
+                    # neutral value -- an empty $missingFromTrunk, an $ahead of -1, an empty $onlyThere --
+                    # every one of which the report renders as "not measured" rather than as a finding.
+                    # These signals warn and never refuse, so under-reporting is their safe direction and
+                    # a third state would buy a sentence about one commit inside a scan that already
+                    # states its own caps. Recorded as deliberate; that is this family's audited verdict.
                     if (-not $contains -or $contains.ExitCode -ne 0) { continue }
                     $branches = @(Get-ContainingBranchNames -Text ((@($contains.Output) -join "`n")) -Exclude $excludeBranches)
                     if ($branches.Count -eq 0) { continue }
@@ -443,7 +489,27 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
             } else {
                 $allBranches = @(Get-ContainingBranchNames -Text ((@($allBranchesCapture.Output) -join "`n")) -Exclude $excludeBranches)
                 $overlaps = @(Get-TitleOverlapBranches -Title ([string]$facts.title) -Branches $allBranches)
-                $overlapReport = @(Format-TitleOverlapReport -Issue ([int]$number) -Title ([string]$facts.title) -Overlaps $overlaps)
+                # THE BRANCH NAME IS THE ONLY UNTRUSTED FIELD THIS BLOCK PRINTS, and it reached the
+                # terminal raw until #2069 -- the same class #1858 closed one signal up, off the same
+                # `git branch -a` text, reintroduced by a block written afterwards that never acquired
+                # the call. `git check-ref-format` enforces \p{Cc} and ACCEPTS \p{Cf}, so a branch
+                # fetched from origin can carry U+202E or a zero-width run into the one line whose
+                # whole job is to say which branch to go and read before writing anything.
+                #
+                # STRIPPED ON THE WAY OUT, NOT ON THE WAY IN, and that is what #2064 decided one block
+                # down rather than a preference: $overlaps feeds the sixth signal, which puts each name
+                # back to git (`rev-list --count`, `ls-tree`), so a name this strip has rewritten is a
+                # ref git does not have -- and the scan would report nothing where it should report a
+                # prerequisite, in exactly the adversarial case the strip exists for. The exclusion
+                # above needs the git spelling for the same reason. So the record keeps the ref as git
+                # wrote it and the REPORT gets a stripped copy: the same seam the weighing loop below
+                # draws, where Branch is stripped into the printed record and $branch is not.
+                # The `shares:` words need nothing -- Get-SignificantWords tokenizes on [^A-Za-z0-9]+,
+                # so nothing outside that class survives into them.
+                $safeOverlaps = @($overlaps | ForEach-Object {
+                    [pscustomobject]@{ Branch = (Format-ForConsole -Text ([string]$_.Branch)); SharedWords = @($_.SharedWords) }
+                })
+                $overlapReport = @(Format-TitleOverlapReport -Issue ([int]$number) -Title ([string]$facts.title) -Overlaps $safeOverlaps)
                 foreach ($line in $overlapReport) {
                     Write-Host "  $line" -ForegroundColor Yellow
                 }
@@ -633,6 +699,26 @@ if ($edit -and $edit.TimedOut) {
     Write-Host "        $($facts.url)" -ForegroundColor Red
     exit 1
 }
+if ($edit -and -not (Test-NativeExitMeasured -Capture $edit)) {
+    # THE SECOND PLACE A NON-ANSWER IS NOT A FAILURE, and it is the block above one field over (issue
+    # #1931, audited under #2081). `$null -ne 0` is true, so an unmeasurable code took the arm below and
+    # printed "the claim failed -- #N is NOT yours" -- about a write that may be sitting on the tracker,
+    # and then went on to blame a split identity for it. That is the worst sentence this script can say
+    # wrongly: a session told the claim failed either stops, or claims again under another account.
+    #
+    # IT DOES NOT RE-ASK, unlike the READ at the top of this script. The re-ask there is sound precisely
+    # because `gh issue view` changes nothing; this is a write, and a write whose outcome is unknown is
+    # the one thing that must never be repeated blind. Re-running the SCRIPT is the way out, and it is
+    # safe for the reason the timeout arm above already gives: the pre-write read reports 'already yours'
+    # if it landed, which is a complete answer.
+    Write-Host "[ERROR] 'gh issue edit' ran but its exit code could not be measured (issue #1931)." -ForegroundColor Red
+    Write-Host '        THIS RUN DOES NOT KNOW whether the claim landed -- the write may be on the tracker already.' -ForegroundColor Red
+    Write-Host '        It is NOT evidence that the claim was refused, so do not re-claim under another account.' -ForegroundColor Red
+    Write-Host '        Look, then run this again -- a claim that did land comes back as "already yours".' -ForegroundColor Red
+    Write-Host "          gh issue view $number --json assignees" -ForegroundColor Red
+    Write-Host "        $($facts.url)" -ForegroundColor Red
+    exit 1
+}
 if (-not $edit -or $edit.ExitCode -ne 0) {
     Write-Host "[ERROR] the claim failed -- #$number is NOT yours." -ForegroundColor Red
     foreach ($line in @($edit.Output)) { Write-Host "        $line" -ForegroundColor Red }
@@ -714,10 +800,24 @@ if (-not $readOk) {
     # either -- and unlike a stall it arrives at exit 0, so naming the exit code here would print
     # "exited 0" as the reason the read-back failed. That is the misleading half; it must be named
     # before the exit-code arm or it can never print.
+    #
+    # AND THE UNMEASURABLE EXIT CODE IS THE FOURTH (issue #1931, audited under #2081), by the same
+    # argument again: it is a read whose outcome this run could not judge, so it says nothing about the
+    # tracker -- and `$readOk` already excludes it, because that test is written `-eq 0` and `$null` is
+    # not. So the verdict was right and only the REASON was wrong: the arm below would have printed
+    # "exited " with nothing after it. It is named before that arm for exactly the reason the short read
+    # is, one paragraph up.
     $why = if ($after -and $after.TimedOut) {
         "did not answer within $NativeCaptureNetworkTimeoutSeconds seconds"
     } elseif ($after -and $after.ShortRead) {
         'exited 0 with its capture still being written, so what came back may be truncated'
+    } elseif ($after -and -not (Test-NativeExitMeasured -Capture $after)) {
+        # THE WORDING AVOIDS THE BARE WORD "exit" ON PURPOSE, and it is not squeamishness: this branch's
+        # own suite asserts that no `exit` STATEMENT appears in it, over the code with comments stripped
+        # -- the non-blocking promise #1485 turns on. A string carrying the word reads to that assert as
+        # the defect returning, and a test that a correct sentence can fail teaches the next author to
+        # write a worse one. "returned a code this run could not measure" says the same thing.
+        'returned a code this run could not measure (issue #1931), so the read-back could not be judged'
     } elseif ($after) {
         "exited $($after.ExitCode)"
     } else {

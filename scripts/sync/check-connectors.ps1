@@ -278,7 +278,14 @@ if ($RemoteRunners -and -not $OnlyConsumer) {
         # -DiscardStderr because `gh auth status` writes its whole report to stderr even when it
         # succeeds, and nothing here parses it: the exit code is the answer.
         $ghAuth = Invoke-NativeCapture -FilePath 'gh' -Arguments @('auth', 'status') -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-        if ($ghAuth.ExitCode -ne 0) {
+        if (-not (Test-NativeExitMeasured -Capture $ghAuth)) {
+            # A THIRD STATE, BECAUSE THE ADVICE IS WRONG IN IT (issue #1931, audited under #2081). An
+            # unmeasurable exit code satisfies `-ne 0`, so this printed "'gh auth status' exited " and then
+            # told the reader to log in -- on a run where gh may be perfectly authenticated and only its
+            # exit code was lost. The remote read is still skipped, which is the honest direction, but the
+            # remedy offered is now the one that fits.
+            Write-Info "-RemoteRunners was asked for, but 'gh auth status' ran and its exit code could not be measured (issue #1931) -- no consumer's runners were read over the network. That says nothing about your credential; run this again."
+        } elseif ($ghAuth.ExitCode -ne 0) {
             Write-Info "-RemoteRunners was asked for, but 'gh auth status' exited $($ghAuth.ExitCode) -- no consumer's runners were read over the network. Run 'gh auth login' and try again: this register's manifests carry a 'visibility' field and the private ones cannot be read without a credential, which is exactly the set this switch exists for."
         } else {
             $RemoteRunnerRead = $true
@@ -623,7 +630,13 @@ function Get-RemoteConsumerWorkflow {
         # credential that cannot see the repo: the reader would go looking at the register or at their
         # auth for something that settles on a re-run. Same split, and the same remedy sentence, that
         # claim-issue.ps1 and verify-resolved-issues.ps1 already make at their own gh calls.
-        $reason = if ($call.ShortRead) {
+        # AND THE UNMEASURABLE EXIT CODE IS THE SAME KIND OF FACT (issue #1931, audited under #2081),
+        # which is why it sits beside the short read rather than in the generic arm: the arm below would
+        # have printed "gh exited  and answered with nothing this could parse as JSON", a sentence about
+        # that repository built on a number this run never had. Same split, same remedy.
+        $reason = if (-not (Test-NativeExitMeasured -Capture $call)) {
+            'gh ran and its exit code came back unmeasurable (issue #1931), so nothing arrived that this could judge -- a fact about this run rather than about that repository, and it normally settles on a re-run'
+        } elseif ($call.ShortRead) {
             'gh exited 0 but its capture was still being written when this run read it, so what arrived was not a whole JSON document -- a fact about this run rather than about that repository, and it normally settles on a re-run'
         } else {
             "gh exited $($call.ExitCode) and answered with nothing this could parse as JSON"
@@ -643,7 +656,11 @@ function Get-RemoteConsumerWorkflow {
         $reason = if ($apiSaid) {
             "the API answered: $apiSaid -- so it does not exist, or this credential cannot see it"
         } else {
-            "the API returned no repository (gh exited $($call.ExitCode)) -- it does not exist, or this credential cannot see it"
+            # THE LABEL HERE TOO (issue #1931, audited under #2081). This is the SIBLING of the repaired
+            # branch above it, and it was missed on the first pass: the parse can succeed while the exit
+            # code itself is the unmeasurable one -- two independent races on the same object -- and then
+            # this printed "(gh exited )". Nothing else changes; the verdict was already right.
+            "the API returned no repository (gh $(Get-NativeExitLabel -Capture $call)) -- it does not exist, or this credential cannot see it"
         }
         return @{ Status = 'unavailable'; Reason = $reason; Branch = ''; Files = @() }
     }
