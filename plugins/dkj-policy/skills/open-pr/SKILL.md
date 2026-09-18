@@ -846,9 +846,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 
 **An issue somebody else has to close by hand is `-NoResolves`, not `-Resolves`** — and the flag is
 where that distinction is *made*, because `Closes #<n>` hands the decision to GitHub at the merge, where
-no person is present. Whether it is also *checked* is the seam below. The measured case is `dkj-policy-bwj`: an issue with a mirrored
-Asana task carries a paste-ready block that the shipping session writes while the issue is **open**,
-and closing it is a person's confirmation that the block reached Asana (inbound
+no person is present. Whether it is also *checked* is the seam below. The measured case is
+`dkj-policy-bwj`: an issue with a mirrored Asana task carries a paste-ready block that the shipping
+session writes while the issue is **open**, and closing it is a person's confirmation that the block
+reached Asana (inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). A `Closes #<n>` bypasses
 that silently — the issue closes at the merge, the confirmation never happens, and nothing reports it.
 So such a branch ships with `-NoResolves` and cites the issue as context.
@@ -904,9 +905,15 @@ function Get-ResolvesExemptMatchers {
 - **A pattern that does not compile is reported and skipped**, and the other matchers still apply. It is
   the one failure a repo cannot see from the outside — a silently dropped matcher is indistinguishable
   from the class not being there — so it is named rather than swallowed.
+- **Every match is bounded at two seconds**, and a match that does not finish is reported rather than
+  read as "no match". The two inputs are a pattern *your repo* wrote and a body *anybody who can open an
+  issue* wrote, which is the catastrophic-backtracking pair exactly; unbounded, a pathological pattern
+  and a crafted body hang `open-pr` for whoever resolves that issue. The remaining matchers still run,
+  so one bad pattern is not a verdict about the rest of the list.
 - **An issue whose body cannot be read is warned about and not blocked on**, the same direction every
   other lookup in this gate takes: wedging the PR flow on a network hiccup would be worse than the slip
   it guards against.
+
 ## Requirements in the consumer
 
 The script is repo-agnostic, but reads its repo data from the **root** of the consumer

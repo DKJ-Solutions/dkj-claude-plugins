@@ -3184,6 +3184,17 @@ $seamEmpty = ConvertTo-ResolvesExemptMatchers -Matchers @()
 Assert-Equal 0 (@($seamEmpty.Matchers).Count) 'the default answer -- no matchers at all'
 Assert-Equal 0 (@($seamEmpty.Rejected).Count) 'and nothing rejected either: an unanswered seam is not an error'
 
+# A REPO SAYING "NOT CONFIGURED" WITH `return $null` IS THE SAME ANSWER AS NOT ANSWERING, and it is
+# asserted because the obvious call site gets it wrong: `@($null)` is a ONE-element array holding nothing,
+# so a wrapped answer arrives as a malformed record and every run in that repo reports an entry nobody
+# wrote. Found in review of inbound #2120.
+$seamNull = ConvertTo-ResolvesExemptMatchers -Matchers $null
+Assert-Equal 0 (@($seamNull.Matchers).Count) 'a $null seam answer is no matchers'
+Assert-Equal 0 (@($seamNull.Rejected).Count) '...and nothing is rejected: the repo answered, it just answered "none"'
+
+# AND A SINGLE MATCHER NEED NOT BE WRAPPED EITHER -- the same parameter binding, the other direction.
+$seamOne = ConvertTo-ResolvesExemptMatchers -Matchers @{ Name = 'a lone matcher'; Pattern = 'x' }
+Assert-Equal 1 (@($seamOne.Matchers).Count) 'a bare hashtable binds as one matcher'
 $seamString = ConvertTo-ResolvesExemptMatchers -Matchers @('app\.asana\.com')
 Assert-Equal 1 (@($seamString.Matchers).Count) 'a bare string is a matcher -- the shape a repo-config author writes first'
 Assert-Equal "the pattern 'app\.asana\.com'" $seamString.Matchers[0].Name 'and it is named after itself, so a refusal can still point at something'
@@ -3216,9 +3227,9 @@ $mBody = @('## What', '<!-- asana-task: 1211234567890 -->', 'the finding') -join
 $lBody = '| **Asana** | https://app.asana.com/0/123/456 |'
 $exemptBodies = @{ 731 = $mBody; 732 = $lBody; 733 = 'an ordinary issue with no ticket behind it' }
 
-Assert-Equal 0 (@(Get-ResolvesExemptFindings -Issues @(731, 732) -Bodies $exemptBodies -Matchers @()).Count) 'no matchers, no findings -- a repo that carves out no class of issue is never judged'
+Assert-Equal 0 (@((Get-ResolvesExemptFindings -Issues @(731, 732) -Bodies $exemptBodies -Matchers @()).Findings).Count) 'no matchers, no findings -- a repo that carves out no class of issue is never judged'
 
-$found = @(Get-ResolvesExemptFindings -Issues @(731, 732, 733) -Bodies $exemptBodies -Matchers $seamFull.Matchers)
+$found = @((Get-ResolvesExemptFindings -Issues @(731, 732, 733) -Bodies $exemptBodies -Matchers $seamFull.Matchers).Findings)
 Assert-Equal 2 $found.Count 'only the two mirrored issues are found; the ordinary one is not'
 Assert-Equal 731 $found[0].Issue 'and the findings come back in issue order'
 Assert-Equal 'an Asana task marker' $found[0].Name 'each names the matcher that recognised it'
@@ -3226,18 +3237,32 @@ Assert-Equal 'an Asana task link'   $found[1].Name 'including the one a person t
 
 # FIRST MATCHER WINS, because the report names ONE reason per issue and a repo's list is written
 # most-authoritative-first. A body carrying both would otherwise produce two sentences and no decision.
-$both = @(Get-ResolvesExemptFindings -Issues @(740) -Bodies @{ 740 = ($mBody + [char]10 + $lBody) } -Matchers $seamFull.Matchers)
+$both = @((Get-ResolvesExemptFindings -Issues @(740) -Bodies @{ 740 = ($mBody + [char]10 + $lBody) } -Matchers $seamFull.Matchers).Findings)
 Assert-Equal 1 $both.Count 'a body matching two matchers is one finding'
 Assert-Equal 'an Asana task marker' $both[0].Name '...decided by the first matcher the repo stated'
 
 # CASE-INSENSITIVE, because every matcher this exists for reads something a person may have typed.
-Assert-Equal 1 (@(Get-ResolvesExemptFindings -Issues @(741) -Bodies @{ 741 = '<!-- ASANA-TASK: 99 -->' } -Matchers $seamFull.Matchers).Count) 'the match ignores case -- a marker somebody shouted still counts'
+Assert-Equal 1 (@((Get-ResolvesExemptFindings -Issues @(741) -Bodies @{ 741 = '<!-- ASANA-TASK: 99 -->' } -Matchers $seamFull.Matchers).Findings).Count) 'the match ignores case -- a marker somebody shouted still counts'
 
+# EVERY MATCH IS BOUNDED, and a match that cannot finish is a QUESTION THAT WENT UNANSWERED rather than
+# a pass. The two inputs are a pattern the consuming repo wrote and a body anybody who can open an issue
+# wrote, which is the catastrophic-backtracking pair exactly; without a bound, open-pr hangs for whoever
+# resolves that issue. Raised by the security review of inbound #2120.
+$slowSeam = ConvertTo-ResolvesExemptMatchers -Matchers @(
+    @{ Name = 'a pathological pattern'; Pattern = '^(a+)+$' },
+    @{ Name = 'an Asana task link';     Pattern = 'https://app\.asana\.com/' }
+)
+$slowBody = ('a' * 40) + '! https://app.asana.com/0/123/456'
+$slowVerdict = Get-ResolvesExemptFindings -Issues @(750) -Bodies @{ 750 = $slowBody } -Matchers $slowSeam.Matchers -MatchTimeoutSeconds 1
+Assert-Equal 1 (@($slowVerdict.Unjudged).Count) 'a match that does not finish inside its bound is reported, not read as "no match"'
+Assert-Equal 'a pathological pattern' $slowVerdict.Unjudged[0].Name 'and the report names the matcher that could not answer'
+Assert-Equal 1 (@($slowVerdict.Findings).Count) 'the NEXT matcher still runs -- one bad pattern is not a verdict about the rest of the list'
+Assert-Equal 'an Asana task link' $slowVerdict.Findings[0].Name '...so an issue that IS mirrored is still caught'
 # AN ISSUE THE CALLER COULD NOT READ CONTRIBUTES NOTHING, and the caller is what says so out loud. An
 # unread body matches nothing and fails nothing; silence here is the only honest answer.
-Assert-Equal 0 (@(Get-ResolvesExemptFindings -Issues @(999) -Bodies $exemptBodies -Matchers $seamFull.Matchers).Count) 'an issue absent from the fetched bodies is not judged'
-Assert-Equal 0 (@(Get-ResolvesExemptFindings -Issues @(742) -Bodies @{ 742 = '' } -Matchers $seamFull.Matchers).Count) 'and an empty body is a READ body that simply matches nothing'
-Assert-Equal 1 (@(Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = $mBody } -Matchers $seamFull.Matchers).Count) 'a table keyed by the string spelling is read too -- a caller is not held to one of them'
+Assert-Equal 0 (@((Get-ResolvesExemptFindings -Issues @(999) -Bodies $exemptBodies -Matchers $seamFull.Matchers).Findings).Count) 'an issue absent from the fetched bodies is not judged'
+Assert-Equal 0 (@((Get-ResolvesExemptFindings -Issues @(742) -Bodies @{ 742 = '' } -Matchers $seamFull.Matchers).Findings).Count) 'and an empty body is a READ body that simply matches nothing'
+Assert-Equal 1 (@((Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = $mBody } -Matchers $seamFull.Matchers).Findings).Count) 'a table keyed by the string spelling is read too -- a caller is not held to one of them'
 
 # --- Get-IssueBodySet -- the impure half, asserted as a call site ----------------------------------
 #
@@ -3255,9 +3280,13 @@ Assert-True ($issueStateText -like '*Get-IssueResolveBatch -Numbers $Numbers -Li
 # every assert above green while the rule goes back to being enforced by memory alone, which is the
 # state inbound #2120 was filed about.
 $exemptText = [System.IO.File]::ReadAllText((Resolve-Path (Join-Path $PSScriptRoot '..\release\open-pr.ps1')).Path, [System.Text.Encoding]::UTF8)
-Assert-True ($exemptText -like "*Get-SeamValue -Name 'Get-ResolvesExemptMatchers' -Default @()*") 'open-pr reads the matchers from the repo''s own seam, defaulting to none'
+Assert-True ($exemptText -like "*ConvertTo-ResolvesExemptMatchers -Matchers (Get-SeamValue -Name 'Get-ResolvesExemptMatchers' -Default @())*") 'open-pr reads the matchers from the repo''s own seam, defaulting to none'
+# AND IT PASSES THAT ANSWER UNWRAPPED, which is the whole of the fix above: @() around it turns a repo's
+# `return $null` into one malformed record and a warning on every PR open.
+Assert-True (-not ($exemptText -like "*ConvertTo-ResolvesExemptMatchers -Matchers @(Get-SeamValue*")) 'and it does not wrap that answer in @(), which would read a $null answer as one empty entry'
 Assert-True ($exemptText -like '*Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge*') 'it fetches the bodies of exactly what the merge would close'
-Assert-True ($exemptText -like '*Get-ResolvesExemptFindings -Issues $closingAtMerge -Bodies $bodySet.Bodies -Matchers $exemptSeam.Matchers*') 'and judges them with the tested rule rather than a regex of its own'
+Assert-True ($exemptText -like '*$exemptVerdict = Get-ResolvesExemptFindings -Issues $closingAtMerge -Bodies $bodySet.Bodies -Matchers $exemptSeam.Matchers*') 'and judges them with the tested rule rather than a regex of its own'
+Assert-True ($exemptText -like '*the resolves-exempt check could not judge #$($u.Issue) against*') 'and it reports a matcher that could not answer, which is neither a block nor a silent pass'
 Assert-True ($exemptText -like '*must NOT be closed by the merge*') 'the refusal says what it is refusing'
 Assert-True ($exemptText -like '*-NoResolves   -- ship citing the issue as context*') 'and names the way through, which is the flag the rule asks for'
 

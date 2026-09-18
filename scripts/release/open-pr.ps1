@@ -976,7 +976,12 @@ $closingAtMerge = @($resolveIssues)
 if ($existingPr) { $closingAtMerge += @(Get-ClosedIssueNumbers -Text $existingPr.body) }
 $closingAtMerge = @($closingAtMerge | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
 
-$exemptSeam = ConvertTo-ResolvesExemptMatchers -Matchers @(Get-SeamValue -Name 'Get-ResolvesExemptMatchers' -Default @())
+# THE SEAM'S ANSWER IS PASSED UNWRAPPED, AND THE MISSING @() IS THE POINT (found in review). A repo may
+# say "not configured" with `return $null` -- behind a guard clause, say -- and `@($null)` is a ONE-ELEMENT
+# array holding nothing, not an empty one. Wrapped, that lone $null arrives as a malformed record and every
+# PR open in that repo prints a rejection for an entry nobody wrote. Passed straight in, the [object[]]
+# parameter binds $null to no elements and a bare hashtable to one, which is both answers read correctly.
+$exemptSeam = ConvertTo-ResolvesExemptMatchers -Matchers (Get-SeamValue -Name 'Get-ResolvesExemptMatchers' -Default @())
 foreach ($bad in @($exemptSeam.Rejected)) {
     Write-Warning ("Get-ResolvesExemptMatchers: ignoring " + $bad.Name + " -- " + $bad.Reason + ". The other matchers still apply.")
 }
@@ -990,7 +995,14 @@ if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {
         Write-Warning ("this PR closes more issues than the resolves-exempt check reads in one run -- the oldest were not judged.")
     }
 
-    $exempt = @(Get-ResolvesExemptFindings -Issues $closingAtMerge -Bodies $bodySet.Bodies -Matchers $exemptSeam.Matchers)
+    # UNJUDGED IS REPORTED BEFORE THE VERDICT IS READ, and it is not a find: a matcher whose match did
+    # not finish inside its bound answered nothing at all, so it neither blocks nor passes in silence --
+    # the same treatment, one line up, that a body gh could not hand over already gets.
+    $exemptVerdict = Get-ResolvesExemptFindings -Issues $closingAtMerge -Bodies $bodySet.Bodies -Matchers $exemptSeam.Matchers
+    foreach ($u in @($exemptVerdict.Unjudged)) {
+        Write-Warning ("the resolves-exempt check could not judge #$($u.Issue) against " + $u.Name + " -- " + $u.Reason + ", so it does not block on that matcher.")
+    }
+    $exempt = @($exemptVerdict.Findings)
     if ($exempt.Count -gt 0) {
         $exemptLines = (@($exempt | ForEach-Object {
             $why = if ($_.Why) { $_.Why } else { 'this repo declares that such an issue is closed by a person, not by a merge.' }
@@ -1007,6 +1019,8 @@ $exemptLines
 
 Pick one:
   -NoResolves   -- ship citing the issue as context, and close it by hand once the handover is on it
+  -Resolves with only the OTHER numbers, where this run declared several and just some are listed above:
+                the rest still close at the merge, and these are reported as mentioned-but-undeclared
   or, if the issue is not actually mirrored, take the matched text out of its body and run this again
 $publishedNote
 "@

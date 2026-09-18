@@ -1048,8 +1048,14 @@ function ConvertTo-ResolvesExemptMatchers {
         Unreadable, one lib over, and for the same reason.
 
     .PARAMETER Matchers
-        The seam's raw answer. Three shapes are accepted per entry, because all three are what a
-        repo-config author reasonably writes:
+        The seam's raw answer, passed straight from Get-SeamValue and never wrapped in @() by the caller.
+        A repo saying "not configured" with `return $null` is read here as NO matchers, because binding a
+        scalar $null to [object[]] yields no elements -- while `@($null)` at the call site would yield one
+        element holding nothing, and every run in that repo would then report a malformed record nobody
+        wrote. A bare hashtable binds as one matcher, so a repo stating a single one need not wrap it.
+
+        Three shapes are accepted per entry, because all three are what a repo-config author reasonably
+        writes:
           - a plain string   -- the pattern, named after itself in the report
           - a hashtable      -- @{ Name = '...'; Pattern = '...'; Why = '...' }
           - a pscustomobject -- the same three properties
@@ -1103,8 +1109,9 @@ function Get-ResolvesExemptFindings {
     <#
     .SYNOPSIS
         Which of the issues this PR would close are ones the repo has declared must NOT be closed by a
-        merge. One record per matching issue -- Issue, Name, Why, Pattern -- and an empty array when
-        there is nothing to say.
+        merge. Returns an object with Findings (one record per matching issue -- Issue, Name, Why,
+        Pattern) and Unjudged (one record per matcher that could not be run against a body, each with a
+        Reason the caller prints).
 
     .DESCRIPTION
         PURE, and the impure half is Get-IssueBodySet in issue-state-lib.ps1 -- the same split
@@ -1125,34 +1132,73 @@ function Get-ResolvesExemptFindings {
         have typed or pasted -- an HTML comment marker, a task URL -- and a repo that wants case to
         matter says so in its own pattern with (?-i).
 
+        EVERY MATCH IS BOUNDED, AND UNJUDGED IS WHY THE RESULT IS AN OBJECT. The two inputs here are a
+        pattern the CONSUMING REPO wrote and a body ANYBODY WHO CAN OPEN AN ISSUE wrote, which is the
+        classic catastrophic-backtracking pair: a consumer's own pattern, a long body crafted against it,
+        and open-pr hangs for whoever resolves that issue. The design already refuses to run repo-authored
+        CODE inside this gate on the ground that a throw in it would take the gate down; an unbounded
+        match is that same failure by another mechanism, so it gets the same answer. A timed-out match is
+        NOT a match and not a pass either -- it is a question that went unanswered, and the caller reports
+        it exactly as it reports a body it could not read. Found in review of inbound #2120.
+
     .PARAMETER Bodies
         A hashtable of issue number -> body text. Both an int key and its string spelling are accepted,
         so a caller composing the table by hand is not held to one of them.
+
+    .PARAMETER MatchTimeoutSeconds
+        The per-match bound. Two seconds: a matcher for this job reads a marker or a URL and answers in
+        microseconds over any body GitHub accepts, so anything near this bound is a pathological pattern
+        rather than a slow one, and the number is generous enough that no honest matcher can reach it on
+        a loaded machine.
     #>
     param(
         [int[]]$Issues = @(),
         [hashtable]$Bodies = @{},
-        [object[]]$Matchers = @()
+        [object[]]$Matchers = @(),
+        [int]$MatchTimeoutSeconds = 2
     )
 
-    if (@($Matchers).Count -eq 0) { return @() }
+    $result = [pscustomobject]@{ Findings = @(); Unjudged = @() }
+    if (@($Matchers).Count -eq 0) { return $result }
 
+    $opts     = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    $bound    = [timespan]::FromSeconds([Math]::Max(1, $MatchTimeoutSeconds))
     $findings = @()
+    $unjudged = @()
+
     foreach ($n in @($Issues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)) {
-        $key = @(@([int]$n), @("$n")) | ForEach-Object { $_ } | Where-Object { $Bodies.ContainsKey($_) } | Select-Object -First 1
-        if ($null -eq $key) { continue }
-        $body = [string]$Bodies[$key]
+        # BOTH SPELLINGS OF THE KEY, asked plainly rather than through a pipeline: the fetcher writes int
+        # keys and a caller composing the table by hand reaches for either.
+        $body = ''
+        if     ($Bodies.ContainsKey([int]$n)) { $body = [string]$Bodies[[int]$n] }
+        elseif ($Bodies.ContainsKey("$n"))    { $body = [string]$Bodies["$n"] }
+        else                                  { continue }
         if (-not $body) { continue }
         foreach ($m in @($Matchers)) {
-            if ([regex]::IsMatch($body, $m.Pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
+            $hit = $false
+            try {
+                $hit = [regex]::IsMatch($body, $m.Pattern, $opts, $bound)
+            } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                # NOT a match and not a clean pass. The next matcher still runs: one pathological pattern
+                # says nothing about the rest of the repo's list.
+                $unjudged += [pscustomobject]@{
+                    Issue  = [int]$n
+                    Name   = [string]$m.Name
+                    Reason = "the match did not finish within $($bound.TotalSeconds)s -- that pattern and this body backtrack against each other"
+                }
+                continue
+            }
+            if ($hit) {
                 $findings += [pscustomobject]@{ Issue = [int]$n; Name = [string]$m.Name; Why = [string]$m.Why; Pattern = [string]$m.Pattern }
                 break
             }
         }
     }
-    return @($findings)
-}
 
+    $result.Findings = @($findings)
+    $result.Unjudged = @($unjudged)
+    return $result
+}
 function Get-TargetIssueWarnings {
     <#
     .SYNOPSIS

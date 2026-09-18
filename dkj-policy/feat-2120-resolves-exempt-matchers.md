@@ -95,10 +95,11 @@ marker, so a built-in set would be one family's tracker imposed on every consume
 
 ### TEST
 
-- [x] `scripts/tests/pr-issues.tests.ps1` -- 42 new asserts: the three accepted matcher shapes, each
-      rejection reason, first-matcher-wins, case-insensitivity, an unread body and an empty one, the
-      match bound below, plus the call site (the seam read BEFORE any fetch, the union with the existing
-      PR body, the refusal's wording). The suite runs 1057 asserts, all passing, against 1015 on `main`.
+- [x] `scripts/tests/pr-issues.tests.ps1` -- 46 new asserts: the three accepted matcher shapes, a `$null`
+      seam answer and an unwrapped single one, each rejection reason, first-matcher-wins,
+      case-insensitivity, an unread body and an empty one, the match bound below, plus the call site (the
+      seam read BEFORE any fetch and passed unwrapped, the union with the existing PR body, the refusal's
+      wording). The suite runs 1061 asserts, all passing, against 1015 on `main`.
 - [x] `scripts/tests/script-contract.tests.ps1` -- the record count 42 -> 43 and the undefined-seam counts,
       each with its reason in the assert message. 316 pass.
 - [x] The lint gate and the full suite before the push, via `open-pr.ps1`.
@@ -143,13 +144,20 @@ that decides whether a PR may be opened -- a throw in it takes the gate with it.
 printed back inside the refusal, and asserted without a repo; so an uncompilable pattern is reported and
 skipped while the rest of the list goes on working, which is the one failure a repo cannot otherwise see.
 
-**One review finding is worth carrying, because it is the same argument arriving by another road.** The
+**Two review findings are worth carrying, and the first is the same argument arriving by another road.** The
 design refuses to run repo-authored CODE inside this gate on the ground that a throw in it would take the
 gate down -- and the security review pointed out that an unbounded regex match is that failure by another
 mechanism: a consumer's own pattern, a body crafted against it by anybody who can open an issue, and
 `open-pr` hangs for whoever resolves that issue. So every match is bounded at two seconds and a timed-out
 one is reported as unjudged rather than read as a pass. The reasoning was already written down; what it
 had not been applied to was the one input the gate does not own.
+
+**The second is a seam answer this repo does not have and a consumer plausibly does.** A repo saying "not
+configured" with `return $null` -- behind a guard clause, say -- was read as ONE malformed matcher rather
+than none, because `@($null)` is a one-element array holding nothing: the gate stayed correctly silent, and
+printed a rejection for an entry nobody wrote on every PR open. The call site now passes the seam's answer
+unwrapped, which is also what lets a repo state a single matcher without wrapping it, and both shapes are
+asserted.
 
 For a consuming repo this lands as a gate that is silent until they answer it. The two BWJ store repos get
 it the moment they add the proposed function; every other consumer sees nothing change, which is the point.
