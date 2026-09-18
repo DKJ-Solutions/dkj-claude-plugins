@@ -104,8 +104,10 @@ repo jargon, so any BWJ colleague can read it. The two are **cross-linked both w
 **GitHub issue is closed, the Asana task gets an update** saying the work is built and ready to test,
 naming the pull request that closed it
 -- by a small GitHub Actions workflow this plugin ships as a template for each repo to copy into its
-own `.github/`. Reopening the issue posts the counterpart; a daily reconciliation sweep carries over
-anything a missed event left behind, without ever saying the same thing twice.
+own `.github/`. Reopening the issue posts a comment pointing to the issue for why: it does not guess
+whether the work has been picked up again or the issue is going back to the requester. A daily
+reconciliation sweep carries over anything a missed event left behind, without ever saying the same
+thing twice.
 
 And that same daily run carries exactly one thing the other way: the Asana task's **`Prio-Score`**
 becomes one of four prio labels on the GitHub issue (`prio-4` / `prio-3` / `prio-2` / `prio-1`), so

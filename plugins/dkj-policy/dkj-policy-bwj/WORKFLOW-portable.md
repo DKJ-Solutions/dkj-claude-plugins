@@ -276,8 +276,18 @@ GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copie
 |---|---|
 | issue **closed** | a comment on the linked task: the work is built and ready to test, with the issue URL **and the pull request that closed it** -- number, title and link. The task stays open |
 | issue **closed as not planned** | the opposite comment: nothing was built, so there is nothing to test, and the reason is on the issue |
-| issue **reopened** | a comment saying it is being worked on again, so hold off on testing |
+| issue **reopened** | a comment pointing to the issue for why -- it may be back with the requester, or it may have been picked up again -- and saying this is not a request to test |
 | daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
+
+**A reopen carries at least two opposite meanings, the event cannot tell them apart, and so the
+comment asserts neither.** Either the work has been picked up again, or the issue is going back to
+the requester because what was built was reverted or was never this workflow's to begin with -- and
+in the second case a comment guessing "it is being worked on again, so hold off on testing" tells the
+person who has to act to sit still. So the comment names both possibilities, points to the issue for
+which one applies, and says plainly that it is not a request to test. That is the failure inbound
+#2117 measured, 2026-09-18: on three real Asana cards the guessed line contradicted the true state
+and outranked a colleague's own correction posted underneath it, because it carried the system's
+authority.
 
 **The task is never completed by any of this, and the script has no code path that can do it**
 (Dave, September 1, 2026). Closing a GitHub issue is a statement by whoever built the thing; resolving

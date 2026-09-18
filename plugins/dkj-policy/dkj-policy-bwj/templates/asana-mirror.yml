@@ -43,8 +43,8 @@ permissions:
 # state, so a dropped one is a comment nobody ever posts. A dropped `closed` is recovered within a
 # day by reconciliation sweeps (a)/(b), which de-duplicate. A DROPPED `reopened` IS NOT RECOVERED AT
 # ALL: no sweep comments on a reopen, and the reopen is also the only thing that sets AllowBackward
-# while every sweep moves a card forward only -- so it loses the 'hold off on testing' notice
-# permanently AND leaves the card stuck at its forward floor. Giving those two their own group means
+# while every sweep moves a card forward only -- so it loses the reopen notice permanently AND
+# leaves the card stuck at its forward floor. Giving those two their own group means
 # a triage burst can no longer displace one, while two of them on one issue still serialise, which
 # is what keeps a close and a reopen in the order they actually happened.
 #
