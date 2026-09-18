@@ -155,19 +155,45 @@ try {
 
     # A PROJECT RECORD FOR THIS REPO FIRST, A PATHLESS ONE SECOND. A user-scope install carries no
     # projectPath and still serves this repo; a project record for SOMEBODY ELSE'S repo never does.
-    $best = $null
-    $fallback = $null
+    #
+    # THE MATCH IS ON THE PLUGIN NAME AND NOT ON THE WHOLE ID, DELIBERATELY. An id is
+    # '<plugin>@<marketplace>', and the marketplace half is exactly the part that has changed under
+    # this repo before -- so pinning the full id would strand every consumer whose marketplace is
+    # named anything else, which is the staleness this whole file exists to avoid, arriving through
+    # the matcher instead of through the path. ('dkj-policy-bwj@...' does not match: the character
+    # after the name has to be the '@'.)
+    #
+    # WHICH MAKES SEVERAL MATCHES POSSIBLE, AND THAT IS THE CASE TO GET RIGHT. A marketplace rename
+    # leaves a stale 'dkj-policy@<old>' record beside the current one, both naming this repo --
+    # check-report-lib's Get-InstallRecord documents that exact pair as real and hands back ALL of
+    # them so a caller can see the disagreement. This file cannot do that: its contract is to print
+    # nothing and never report. So it collects every candidate and takes the most recently updated,
+    # rather than whichever the enumeration happened to reach first -- an order nothing controls,
+    # which is how a machine would render a stale payload permanently with no signal.
+    $matched  = @()
+    $pathless = @()
     foreach ($entry in @($admin.plugins.PSObject.Properties)) {
         if ("$($entry.Name)" -notlike 'dkj-policy@*') { continue }
         foreach ($record in @($entry.Value)) {
             if (-not $record -or -not $record.installPath) { continue }
             $projectPath = "$($record.projectPath)".TrimEnd('\', '/')
-            if (-not $projectPath) { if (-not $fallback) { $fallback = $record }; continue }
-            if ($projectPath -eq $here) { $best = $record; break }
+            if (-not $projectPath) { $pathless += $record; continue }
+            if ($projectPath -eq $here) { $matched += $record }
         }
-        if ($best) { break }
     }
-    if (-not $best) { $best = $fallback }
+    $candidates = @(if ($matched.Count) { $matched } else { $pathless })
+    if (-not $candidates.Count) { exit 0 }
+
+    $best = @($candidates | Sort-Object -Property @{ Expression = {
+        # lastUpdated first, installedAt behind it: an update rewrites the first and leaves the
+        # second at the original install. An unparseable or absent stamp sorts oldest, which is the
+        # safe direction -- it loses a tie rather than winning one.
+        $stamp = [datetime]::MinValue
+        foreach ($field in @($_.lastUpdated, $_.installedAt)) {
+            if ($field -and [datetime]::TryParse("$field", [ref]$stamp)) { break }
+        }
+        $stamp
+    } } -Descending)[0]
     if (-not $best) { exit 0 }
 
     $target = Join-Path "$($best.installPath)" 'scripts\task\show-progress.ps1'

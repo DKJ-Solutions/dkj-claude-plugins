@@ -146,10 +146,20 @@ Assert-True ($res.Output -match 'does not parse') 'unparseable settings: and it 
 $root = New-FixtureRepo 'merge'
 Write-Utf8 (Join-Path $root '.claude\settings.json') '{"permissions":{"allow":["Bash(git status:*)"]},"enabledPlugins":{"x@y":true}}'
 $null = Invoke-Adopt -Root $root -Apply
-$settings = Get-Content -LiteralPath (Join-Path $root '.claude\settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$mergedRaw = Get-Content -LiteralPath (Join-Path $root '.claude\settings.json') -Raw -Encoding UTF8
+$settings = $mergedRaw | ConvertFrom-Json
 Assert-True (@($settings.permissions.allow) -contains 'Bash(git status:*)') 'merge: an existing permission survives'
 Assert-True ("$($settings.enabledPlugins.'x@y')" -eq 'True') 'merge: an existing enabledPlugins entry survives'
 Assert-True ($null -ne $settings.statusLine) 'merge: and the statusLine was added beside them'
+
+# A SINGLE-ELEMENT ARRAY IS STILL AN ARRAY, ASSERTED ON THE RAW TEXT. The three asserts above cannot
+# see this: '@($x) -contains' is true whether $x came back as a one-element array or as a bare string,
+# so a round trip that collapsed 'allow' to a scalar would pass all three. It does not collapse -- that
+# trap is a top-level PIPELINE artefact and this value is a nested property -- but the claim being made
+# here is about somebody else's settings file surviving a parse-and-rewrite, and an assert that cannot
+# fail is not evidence for it.
+Assert-True ($mergedRaw -match '"allow":\s*\[') `
+    'merge: a one-element array is written back as an array, not flattened to a string'
 
 # --- 6. re-running finds nothing to do ------------------------------------------------------------
 # Additive, like every file this family places. It is what makes running this again after a plugin
@@ -237,7 +247,69 @@ $res = Invoke-Shim -UserHome $fixtureHome
 Assert-True ($res.Output -match 'PAYLOAD-REACHED') `
     'shim: a user-scope install carries no projectPath and still serves this repo'
 
-# --- 10. every missing thing is silence, never an error -------------------------------------------
+# --- 10. two records for this repo: the NEWEST wins, not the first enumerated ---------------------
+# THE CASE THIS REPO'S OWN HISTORY PRODUCES. An id is '<plugin>@<marketplace>', and the marketplace
+# half was renamed on September 10, 2026 -- which leaves a stale 'dkj-policy@<old>' record sitting
+# beside the current one, both naming this repo. check-report-lib's Get-InstallRecord documents that
+# pair as real and hands back ALL matches so a caller can see the disagreement; the shim cannot do
+# that, because its contract is to print nothing and never report. So it has to RESOLVE the tie, and
+# resolving it by enumeration order is how a machine renders a stale payload permanently with nothing
+# saying so -- the exact failure this whole design was chosen to avoid, one layer in.
+$stale = New-FixturePayload -Label 'stale' -Marker 'STALE-PAYLOAD'
+$escapedStale = $stale -replace '\\', '\\'
+$fixtureHome = New-FixtureHome -Label 'twokeys' -AdminJson @"
+{"version":2,"plugins":{
+  "dkj-policy@claude-code-specialists":[
+    {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedStale","version":"4.0.0",
+     "installedAt":"2026-08-01T10:00:00.000Z","lastUpdated":"2026-08-01T10:00:00.000Z"}
+  ],
+  "dkj-policy@dkj-claude-plugins":[
+    {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"5.5.0",
+     "installedAt":"2026-09-11T08:56:14.373Z","lastUpdated":"2026-09-18T08:30:50.300Z"}
+  ]
+}}
+"@
+$res = Invoke-Shim -UserHome $fixtureHome
+Assert-True ($res.Output -match 'PAYLOAD-REACHED') 'shim: with two records for this repo, the most recently updated one is used'
+Assert-True ($res.Output -notmatch 'STALE-PAYLOAD') 'shim: and the stale one from the retired marketplace name is not'
+
+# THE STALE KEY FIRST IN THE FILE, which is the ordering that would have passed before the tiebreak
+# existed. Without this the case above proves nothing: PSObject.Properties enumerates in insertion
+# order, so a single fixture can only ever exercise one side of the bug it is written for.
+$fixtureHome = New-FixtureHome -Label 'twokeys-reversed' -AdminJson @"
+{"version":2,"plugins":{
+  "dkj-policy@dkj-claude-plugins":[
+    {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"5.5.0",
+     "installedAt":"2026-09-11T08:56:14.373Z","lastUpdated":"2026-09-18T08:30:50.300Z"}
+  ],
+  "dkj-policy@claude-code-specialists":[
+    {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedStale","version":"4.0.0",
+     "installedAt":"2026-08-01T10:00:00.000Z","lastUpdated":"2026-08-01T10:00:00.000Z"}
+  ]
+}}
+"@
+$res = Invoke-Shim -UserHome $fixtureHome
+Assert-True ($res.Output -match 'PAYLOAD-REACHED') 'shim: and the answer does not depend on which key the file lists first'
+Assert-True ($res.Output -notmatch 'STALE-PAYLOAD') 'shim: the stale payload loses from either position'
+
+# A RECORD WITH NO STAMPS AT ALL still loses to one that has them, rather than winning by accident.
+# An unparseable or absent stamp sorts oldest, which is the safe direction: it loses a tie instead of
+# taking one.
+$fixtureHome = New-FixtureHome -Label 'nostamp' -AdminJson @"
+{"version":2,"plugins":{
+  "dkj-policy@claude-code-specialists":[
+    {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedStale","version":"4.0.0"}
+  ],
+  "dkj-policy@dkj-claude-plugins":[
+    {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"5.5.0",
+     "installedAt":"2026-09-11T08:56:14.373Z","lastUpdated":"2026-09-18T08:30:50.300Z"}
+  ]
+}}
+"@
+$res = Invoke-Shim -UserHome $fixtureHome
+Assert-True ($res.Output -match 'PAYLOAD-REACHED') 'shim: a record carrying no timestamp sorts oldest rather than winning'
+
+# --- 11. every missing thing is silence, never an error -------------------------------------------
 # A status line runs every couple of seconds for as long as a session is open. A failure here is not an
 # error report; it is a broken status line, repeated forever.
 $fixtureHome = New-FixtureHome -Label 'nopayload' -AdminJson @"
@@ -257,7 +329,7 @@ $fixtureHome = New-FixtureRepo 'noadmin'
 $res = Invoke-Shim -UserHome $fixtureHome
 Assert-True ($res.ExitCode -eq 0) 'shim: no administration at all exits 0'
 
-# --- 11. the shim names no version ----------------------------------------------------------------
+# --- 12. the shim names no version ----------------------------------------------------------------
 # The property the whole design turns on, asserted against the file rather than against the argument
 # for it: nothing in here pins a release, so nothing in here can go stale at one.
 $shimText = Get-Content -LiteralPath $shimPath -Raw

@@ -80,7 +80,7 @@ permanently. Three answers were put to Dave with their failure modes; he chose t
 
 ### TEST
 
-- [x] `scripts/tests/adopt-statusline.tests.ps1` -- 38 asserts. Weighted towards the refusals and the
+- [x] `scripts/tests/adopt-statusline.tests.ps1` -- 44 asserts. Weighted towards the refusals and the
       shim's contract rather than the happy path: an existing statusLine survives, an unparseable
       settings file is untouched, a neighbouring settings key survives, a re-run rewrites nothing, and
       the shim prefers this repo's install record, falls back to a pathless one, never uses another
@@ -91,6 +91,45 @@ permanently. Three answers were put to Dave with their failure modes; he chose t
       is `True`. Three asserts added beside it: the dot-source is still GUARDED, the statusline and its
       lib landed in the same plugin, and the mirror runs from its own depth. 51 asserts.
 - [x] Lint gate green, script contract unchanged (no new seam).
+
+#### The four-reviewer pass, and what it changed
+
+- [x] **Victor** disproved the concern this branch was most worried about: he ran the settings
+      round trip on the actual Windows PowerShell 5.1 interpreter and nothing is lost -- single-element
+      arrays stay arrays, empty containers survive, integers past 2^53 round-trip exactly, surrogate
+      pairs survive, key order holds. The "array collapses to a scalar" trap is a top-level PIPELINE
+      artefact and does not reach a nested property.
+- [x] **Victor's real find, repaired:** the shim resolved several matching install records by
+      enumeration order. An id is `<plugin>@<marketplace>` and the marketplace half was renamed on
+      September 10, 2026, so this repo's own history produces a stale record sitting beside the current
+      one, both naming the same repo. It now collects every candidate and takes the most recently
+      updated. Five asserts cover it, including the same fixture with the keys in both orders --
+      without that second ordering the case would prove nothing, since one ordering passes by accident.
+- [x] **Victor's weak-assert find, repaired:** test 5 wrapped its read-back in `@(...)` before
+      `-contains`, so it would have passed under exactly the scalar-collapse regression it was there to
+      catch. It now asserts on the written JSON text.
+- [x] **Victor's standing constraint, written down where it binds:** `show-progress.ps1`'s
+      `-Payload`/stdin contract is now frozen, because deployed shims that are never rewritten call it
+      by name. A future blocking stdin read there would hang a status line in repos whose shim predates
+      the change by any number of releases. The note is on that file's own parameter, not only in the
+      shim's prose.
+- [x] **Sebastian** reached the same line from the other side (the wildcard match) and traced
+      `$payload` end to end: it travels as a bound parameter, never through string interpolation, and
+      `show-progress.ps1` only deserializes and prints it -- no injection path. He confirmed all three
+      refusals hold in code and in test, and found no secrets or machine paths.
+- [x] **Edith** found the costliest defect in the branch: the skill's frontmatter `description:` still
+      opened with "four independent parts" -- always-on text in every consumer session -- while this
+      document's own checked-off step claimed it had been fixed. Repaired, along with Part 5's command
+      placeholder, which used `<plugin>` where Parts 1 to 4 all use `${CLAUDE_PLUGIN_ROOT}`.
+- [x] **Nolan** measured the shim rather than estimating it and the numbers confirm the design:
+      ~0.3 s per tick, of which the install-record read, parse and scan is ~1.4 ms. Caching it would
+      save under half a percent and would buy that by holding a resolved path -- the stale, invisible
+      state this part exists to prevent. The figures are now in Part 5, so the next reader does not
+      "fix" it.
+- [~] Nolan's second measurement -- the description grew ~118 always-on tokens, +15.7% for this skill
+      -- is noted, not acted on. The new clause is 63 words against Parts 1 to 4's ~96-word average, so
+      it is in convention rather than bloated, and trimming it would have to keep the "use it when"
+      trigger every other part carries. A prose-budget pass is Tessa's, not this branch's.
 
 ### DEPLOY: feat/2103-progress-bar-reaches-consumers
 
@@ -115,6 +154,11 @@ release with no lint over them. The shim is one file that never changes, resolvi
 payload at render time -- so the settings path cannot go stale and the logic stays where a release can
 reach it. An existing `statusLine` is never replaced: there is one per settings file, so the run leaves
 it alone and prints the block.
+
+Where several install records name this repo -- which a marketplace rename produces, and this repo
+renamed its own on September 10, 2026 -- the shim takes the most recently updated rather than whichever
+the file happens to list first. Resolving that tie by enumeration order would have rendered a stale
+payload permanently with nothing saying so: the same failure the shim exists to prevent, one layer in.
 
 **Score:** 3
 

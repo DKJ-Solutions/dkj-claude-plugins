@@ -30,6 +30,19 @@ param(
     # The record directory, for the suite. Nothing in settings.json passes it.
     [string]$Root = '',
     # The session payload, for the suite -- normally read from stdin the way Claude Code sends it.
+    #
+    # THIS PARAMETER'S CONTRACT IS FROZEN, AND NOT ONLY FOR THE SUITE ANY MORE (#2103). A consumer's
+    # statusLine names a SHIM in their own repo -- placed once by adopt-statusline.ps1 and never
+    # rewritten, which is what keeps their settings path from going stale across a release. That shim
+    # drains stdin itself and hands the payload here BY NAME, so every deployed copy of it, at every
+    # age, calls this file exactly this way.
+    #
+    # WHAT THAT FORBIDS: renaming this parameter, making it mandatory, or reintroducing a stdin read
+    # that can block once a payload is already in hand. The guard below is the third one -- it reads
+    # stdin only where -Payload is empty AND the stream is redirected, so a shim that has already
+    # drained it cannot be made to wait for an end that is never coming. A change here degrades to
+    # "no bar" in the good case and to a HUNG STATUS LINE in the bad one, in repos whose shim predates
+    # the change by any number of releases. Nothing enforces this but this comment.
     [string]$Payload = '',
     # How many live runs may draw a bar at once. Two is the real ceiling of this workflow: a ship
     # whose own gate is running inside it. A third would be noise, and a status line that grows
