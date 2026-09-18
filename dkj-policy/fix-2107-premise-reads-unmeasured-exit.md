@@ -39,21 +39,98 @@
 
 ### PLAN
 
+#### What this repairs
+
+`ref-print-lib.tests.ps1` asked git whether it accepts a hostile branch name, and read the answer with
+`return ($r.ExitCode -eq 0)`. That reading cannot see the one state `Invoke-NativeCapture`'s
+`-Utf8`/Start-Process arm is documented to produce: an `ExitCode` that is literally `$null` -- the child
+ran, but the value is not a measurement of it. `#1931` measured that at 27 of 960 captures under 16
+lanes, confined to the FIRST Start-Process in a fresh process, and the lib already reports it as
+`ExitCodeUnknown`. This suite never consulted the field.
+
+`$null -eq 0` is `$false`, so an exit code nobody measured read as *"git refused this ref"*, and the
+premise assert then failed claiming the opposite of what had happened.
+
+#### Why it mattered more than an ordinary red
+
+The failure is on a PREMISE rather than on the behaviour under test, so the red says *"the guard could
+not be exercised"* while reading as *"the guard is broken"*. A reader triaging it goes looking for a
+regression in `ref-print-lib.ps1` and finds nothing wrong there.
+
+And it blocked: `ship-pr` on PR #2106 refused at its stale-certificate re-lap -- *"The required check
+went RED on the forwarded head -- NOT merged"* -- on a branch touching neither the lib nor this suite.
+
+#### The half that was worse, and that nothing would have caught
+
+The eight premise call sites ran in two directions, and only one of them went red:
+
+    Assert-True (Test-GitAcceptsRef -Ref $x)          -- $null is falsy, so it FAILED wrongly
+    Assert-True (-not (Test-GitAcceptsRef -Ref $x))   -- -not $null is $true, so it PASSED wrongly
+
+The negative direction is the unreachable half, asserted as defence in depth. On an unmeasured capture
+it went green on nothing, silently, and would have gone on doing so. The CI red was only ever the
+louder symptom of the same missing state.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-GitAcceptsRef` returns three states -- `$true` / `$false` / `$null`, where `$null` is
+      *"this run could not measure it"*. `ExitCodeUnknown` is probed with the
+      `PSObject.Properties[...]` idiom native-capture-lib uses on itself, since a bare read throws
+      under `Set-StrictMode -Version Latest` on a capture predating the field; a `$null` `ExitCode` is
+      caught as well, so neither spelling of the state can slip through.
+- [x] `Assert-GitRefPremise` added, and all eight call sites go through it in both directions
+      (`-Expect $true` for the reachable half, `-Expect $false` for the unreachable one). An
+      unmeasured premise is reported as `[UNMEASURED]`, counted in `$script:unmeasured`, and is
+      neither a pass nor a failure.
+- [x] The footer prints the unmeasured count when it is non-zero, and the suite still exits 0 on it.
+      A premise that could not be established is not a premise that is false, and failing the run on
+      it would hand back exactly the wrong diagnosis -- the one this issue was filed on.
+- [~] A retry around the capture -- dropped deliberately. native-capture-lib's own header declines it
+      on measurement: `#1931` found a 200ms re-read budget still leaves 7 of 240 unresolved, so a loop
+      buys an unreliable recovery at the price of wall-clock on every capture. Reporting the state is
+      what the field exists for.
 
 ### TEST
 
+- [x] The suite is green standalone: **468 pass, 0 fail**, up from 461 -- no premise was lost in the
+      rewrite, and the seven added asserts are the driven block below.
+- [x] All three states driven, by substituting `Invoke-NativeCapture` in this scope and restoring it
+      immediately: a measured acceptance, a measured refusal, and the `ExitCodeUnknown` shape. The
+      real git is still asked by every assert outside that block.
+- [x] Both directions of the unmeasured case asserted to move NEITHER counter -- the negative one
+      first, since that is the half that used to go green on nothing.
+- [x] A capture with no `ExitCodeUnknown` property asserted not to throw, because the probe is the
+      kind of line a later edit simplifies away.
+- [x] The fixture gives its own two unmeasured back (`$script:unmeasured = $before`), so the footer
+      warning fires only on a genuine gap. Without it the warning would print on every healthy run,
+      which is how a real unmeasured premise would go unnoticed -- the same defect one layer up.
+- [x] Pure ASCII confirmed by byte count (check 27), and the diff introduces no `?`: the bulk rewrite
+      went through `Set-Content -Encoding ascii`, which would have silently mangled any non-ASCII the
+      file held.
+
 ### DEPLOY: fix/2107-premise-reads-unmeasured-exit
 
-**Score:**
+A test suite read an exit code that had never been measured as though it were a refusal, so
+`ref-print-lib.tests.ps1` went red on a premise -- reporting that git rejects a branch name it
+accepts. The reading is now three-state, and an unmeasured capture is reported rather than asserted
+on. The same blindness in the opposite direction, where the unreachable half went green on nothing,
+is closed by the same helper.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The interesting half is not the red that was visible. Six of the eight premise call sites failed
+loudly on an unmeasured capture; the other two passed silently on one, and nothing in the repo would
+ever have reported that. A guard asserted as defence in depth had a state in which it proved nothing
+and said so to no one.
+
+It is also a defect of reading rather than of mechanism: `ExitCodeUnknown` has existed since `#1931`,
+six files already consult it, and this suite simply did not. The repair is to consult the field that
+was built for exactly this, not to add anything new.
+
+**Score:** N/A
 
 #### Pull Request
 
 The ref-print premise assert reads an unmeasured exit code as a refusal
-
