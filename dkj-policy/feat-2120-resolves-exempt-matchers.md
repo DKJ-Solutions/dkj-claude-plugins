@@ -81,6 +81,11 @@ flag is typed.
       `dkj-policy-bwj`'s `WORKFLOW-portable.md` that said nothing enforces this, the proposed seam in
       `adopt-dkj-policy-bwj` step 2, and the seam list in `dkj-policy-bwj`'s README.
 - [x] The shared-script mirror regenerated.
+- [x] **Every match bounded at two seconds**, from the security review: the two inputs are a pattern the
+      consuming repo wrote and a body anybody who can open an issue wrote, which is the
+      catastrophic-backtracking pair exactly. A timed-out match is reported as *unjudged* -- neither a
+      block nor a silent pass -- the remaining matchers still run, and the result is therefore an object
+      with `Findings` and `Unjudged` rather than a bare array.
 
 #### This repo states nothing, deliberately
 
@@ -90,13 +95,14 @@ marker, so a built-in set would be one family's tracker imposed on every consume
 
 ### TEST
 
-- [x] `scripts/tests/pr-issues.tests.ps1` -- 31 new asserts: the three accepted matcher shapes, each
-      rejection reason, first-matcher-wins, case-insensitivity, an unread body and an empty one, plus the
-      call site (the seam read BEFORE any fetch, the union with the existing PR body, the refusal's
-      wording). 1052 asserts pass.
+- [x] `scripts/tests/pr-issues.tests.ps1` -- 42 new asserts: the three accepted matcher shapes, each
+      rejection reason, first-matcher-wins, case-insensitivity, an unread body and an empty one, the
+      match bound below, plus the call site (the seam read BEFORE any fetch, the union with the existing
+      PR body, the refusal's wording). The suite runs 1057 asserts, all passing, against 1015 on `main`.
 - [x] `scripts/tests/script-contract.tests.ps1` -- the record count 42 -> 43 and the undefined-seam counts,
       each with its reason in the assert message. 316 pass.
 - [x] The lint gate and the full suite before the push, via `open-pr.ps1`.
+
 ### DEPLOY: feat/2120-resolves-exempt-matchers
 
 `open-pr`'s resolves gate can now be TOLD which issues a merge must not close. A repo answers the optional
@@ -136,6 +142,14 @@ from `repo-config.ps1` would be the shorter seam and it would put repo-authored 
 that decides whether a PR may be opened -- a throw in it takes the gate with it. Data can be validated,
 printed back inside the refusal, and asserted without a repo; so an uncompilable pattern is reported and
 skipped while the rest of the list goes on working, which is the one failure a repo cannot otherwise see.
+
+**One review finding is worth carrying, because it is the same argument arriving by another road.** The
+design refuses to run repo-authored CODE inside this gate on the ground that a throw in it would take the
+gate down -- and the security review pointed out that an unbounded regex match is that failure by another
+mechanism: a consumer's own pattern, a body crafted against it by anybody who can open an issue, and
+`open-pr` hangs for whoever resolves that issue. So every match is bounded at two seconds and a timed-out
+one is reported as unjudged rather than read as a pass. The reasoning was already written down; what it
+had not been applied to was the one input the gate does not own.
 
 For a consuming repo this lands as a gate that is silent until they answer it. The two BWJ store repos get
 it the moment they add the proposed function; every other consumer sees nothing change, which is the point.
