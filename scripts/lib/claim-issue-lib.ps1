@@ -1080,9 +1080,20 @@ function Format-TitleOverlapReport {
     if ($real.Count -eq 0) { return @() }
 
     $lines = New-Object System.Collections.Generic.List[string]
-    $branchWord = if ($real.Count -eq 1) { 'branch' } else { 'branches' }
-    $lines.Add("title-overlap scan: $($real.Count) $branchWord off the trunk share words with #$Issue's title, though no commit on") | Out-Null
-    $lines.Add('  them names the number --') | Out-Null
+    # THE NOUN, THE VERB AND THE PRONOUN SWITCH TOGETHER (issue #2070). Only $branchWord did, so the
+    # two words agreeing with it stayed at the plural and the SINGULAR case -- the common one, and the
+    # one #2018 itself measured -- printed '1 branch ... share words ... though no commit on them'. The
+    # fourth signal's neighbouring lead line switches every word its counts govern ($commitWord,
+    # $branchWord), which is what made this one read as unfinished rather than as house style. It is
+    # the FIRST line of a warning whose whole argument is that the reader should go and look before
+    # writing anything, and it is shipped plugin payload -- a consumer reads it with nothing to compare
+    # it against.
+    $isOne = ($real.Count -eq 1)
+    $branchWord = if ($isOne) { 'branch' } else { 'branches' }
+    $shareWord = if ($isOne) { 'shares' } else { 'share' }
+    $themWord = if ($isOne) { 'it' } else { 'them' }
+    $lines.Add("title-overlap scan: $($real.Count) $branchWord off the trunk $shareWord words with #$Issue's title, though no commit on") | Out-Null
+    $lines.Add("  $themWord names the number --") | Out-Null
     foreach ($o in $real) {
         $words = @($o.SharedWords) -join ', '
         $lines.Add("  $($o.Branch)  -- shares: $words") | Out-Null

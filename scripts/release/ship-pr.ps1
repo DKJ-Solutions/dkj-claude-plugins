@@ -303,6 +303,24 @@
     from the current changelog entry. Opt-in, so a body edited on github.com is never overwritten unasked.
     No effect when the PR is being created in this run.
 
+.PARAMETER MaxForwardLaps
+    How many times step 3b may bring this branch up to date with the trunk and wait for a fresh
+    certificate before it refuses (issue #2087). Default 2.
+
+    WHAT IT IS FOR. Step 3b refuses once 'main' has gained a non-fold commit since the run that
+    certified this PR, and the remedy it printed was for a person to type: forward, push, wait for CI,
+    re-run. That remedy takes about as long as CI, so on a trunk merging every twenty to forty minutes
+    the branch is stale again by the time it is green -- measured on five PRs that sat green and unmerged
+    for hours (#2087). Run by the script the lap is CI-bound instead, and each lap at least one
+    contending lane wins, so the set drains at one merge per CI cycle.
+
+    IT DOES NOT WEAKEN THE GATE. The predicate is unchanged: what a lap buys is a certificate that is
+    genuinely fresh, by re-testing this branch against the trunk as it now stands. -SkipStaleCheck is
+    still the only way to merge on an old certificate.
+
+    0 RESTORES THE OLD BEHAVIOUR -- refuse on the first stale reading and print the remedy -- and the
+    refusal then says so, rather than implying the laps ran out.
+
 .EXAMPLE
     ./scripts/release/ship-pr.ps1
 
@@ -322,7 +340,11 @@ param(
     [switch]$NoResolves,
     [switch]$RefreshBody,
     # Lanes for open-pr's test gate; 0 forwards nothing. See .PARAMETER MaxParallel.
-    [int]$MaxParallel = 0
+    [int]$MaxParallel = 0,
+    # How many times step 3b may bring the branch forward and re-certify before refusing. See
+    # .PARAMETER MaxForwardLaps. 0 restores the detect-and-rebase behaviour this repo had before #2087.
+    [ValidateRange(0, 10)]
+    [int]$MaxForwardLaps = 2
 )
 $ErrorActionPreference = 'Stop'
 
@@ -380,6 +402,16 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 # dot-source as the six above -- a payload missing this file must fail at load rather than print an
 # unguarded command.
 . (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
+# For step 0a's refusal and step 5's fold arm (#2087): Get-RepoWorkflowRecord + Get-CiFoldRecoveryVerdict
+# answer whether a CI runner folds off a push to the trunk, which is what decides whether a session that
+# cannot fold locally has LOST the fold or handed it over. Same plugin-payload sibling and the same
+# unguarded dot-source as the seven above -- a payload missing this file must fail at load rather than
+# silently fall back to refusing every ship a second checkout could have shipped.
+. (Join-Path $PSScriptRoot '..\lib\ci-fold-lib.ps1')
+# For step 3b's forward lap (#2087): the four decisions behind bringing the branch up to date and
+# re-certifying rather than refusing. Pure functions, for worktree-lib's own stated reason -- the
+# decisions are the part that can be tested and this file cannot be.
+. (Join-Path $PSScriptRoot '..\lib\forward-lane-lib.ps1')
 
 # THE CLOSE-OUT RECEIPT SHAPE (issue #1884), printed as this run's last line -- see closeout-lib.ps1
 # for why step 6 of the ritual got a mechanism after losing four times in prose. Guarded on
@@ -511,6 +543,43 @@ if ($wtList.ExitCode -eq 0) {
     Write-Warning "could not read 'git worktree list' -- shipping anyway; step 5 will report it if 'main' turns out to be held elsewhere."
 }
 
+# --- Step 0a's second question: does a CI runner fold off a push to the trunk? (issue #2087) -------
+# THE REFUSAL BELOW RESTS ON A GROUND THAT HAS PARTLY EXPIRED, and this read is what tells the two halves
+# apart. "Step 5 could not fold after the merge" was exactly right when #1069 wrote it: the local fold was
+# the only fold there was. Since #1493 it is not -- fold-on-merge.yml triggers on `push: branches: [main]`,
+# which is EVERY push to the trunk and not only a merge queue's, so a merge whose local fold cannot run is
+# already recovered by CI. This script has relied on that on the ordinary path since #1792, whose step 5c
+# calls a fold LOST to that runner a success rather than a failed ship.
+#
+# SO THE QUEUE GATE BELOW WAS ASKING THE NARROWER QUESTION. #1572 skipped the refusal under a merge queue
+# on the ground that this session never folds there; the same sentence is true of any repo whose trunk is
+# folded by a runner, queue or no queue. What is read here is therefore the runner, and the queue keeps its
+# own separate line for its own separate reason.
+#
+# AND THE COST OF ASKING THE NARROW QUESTION IS NOT AN EDGE CASE. The close-out rule and step 5b both END
+# sessions on the trunk, deliberately -- that is what makes a session safe to clear -- so a second live
+# checkout standing on 'main' is the ORDINARY state of this workflow. Two lanes shipping in the same period
+# then block each other even when CI is fresh. Measured on PR #2076 (#2087, September 17, 2026).
+#
+# LOCAL, AND FREE. It reads .github/workflows off disk: no network, no gh, nothing that can fail in a way
+# that costs the ship. Every ambiguity the recogniser meets answers "no recovery", which is the refusal
+# this repo already had -- so a consumer that never adopted the CI floor is unchanged by this block.
+$ciFold = [pscustomobject]@{ Recovered = $false; Workflow = ''; Files = 0; Readable = 0; Reason = 'the workflow directory could not be read' }
+try {
+    $ciFold = Get-CiFoldRecoveryVerdict -Workflow @(Get-RepoWorkflowRecord -RepoRoot $repoRoot) -TrunkBranch 'main'
+} catch {
+    # BEST-EFFORT IN THE SAFE DIRECTION, like the worktree list above: a read that throws leaves
+    # $ciFold.Recovered $false, which is the behaviour every ship had before this block existed.
+    Write-Warning "could not read this repo's workflow files -- assuming no CI fold, which is the behaviour before issue #2087."
+}
+# THE WORKFLOW'S NAME IS FOREIGN TEXT AND IS STRIPPED BEFORE IT IS PRINTED, exactly like $branchShown
+# two blocks up (issue #1623's class, extended here). It is a FILENAME read straight off disk by
+# Get-ChildItem, and NTFS accepts a format character in one -- so a name carrying U+202E or a zero-width
+# run would repaint or reorder the sentence that exists to tell the operator who now owns their fold.
+# Get-DisplayPath rather than Get-DisplayRef, for that function's own reason: a filename may legitimately
+# carry spaces, and collapsing them would report a name that is not the name.
+$ciFoldShown = Get-DisplayPath -Path $ciFold.Workflow
+
 # --- Step 0b: CAN THIS ACCOUNT PUSH THE FOLD AT ALL? (issue #1278) -------------------------------
 # THE SIBLING OF THE CHECK ABOVE, and the same half-state by a different route. Step 0a asks whether
 # step 5 can CHECK OUT the trunk; this asks whether step 5 can PUSH to it. Measured on PR #1271,
@@ -599,7 +668,20 @@ if ($queueActive) {
 # #1073) blocks nothing. Where no queue is read, $queueActive is $false and the guard fires exactly as
 # it always did -- unreadable keeps meaning "assume the session folds", the safe direction #1506 insists
 # on. The two remedies below cost something a queue makes unnecessary, which is the point of the gate.
-if ($trunkHolder -and -not $queueActive) {
+$foldDeferredToCi = $false
+if ($trunkHolder -and -not $queueActive -and $ciFold.Recovered) {
+    # THE THIRD ARM, AND IT IS THE QUEUE ARM'S OWN SENTENCE WITH THE RIGHT SUBJECT IN IT (#2087). Under a
+    # queue this run says "the fold is not this session's to push"; here it says the same thing for the
+    # same mechanism, reached because the trunk is locked rather than because the merge is somebody
+    # else's. The flag is what step 5 reads, so the decision is made once, here, where the worktree list
+    # was already in hand -- rather than re-derived after the merge, which is the side of it that cannot
+    # be taken back.
+    $foldDeferredToCi = $true
+    Write-Host "ship-pr: 'main' is held by another worktree ($trunkHolder) -- this run will MERGE and leave the fold to CI (#2087)." -ForegroundColor Cyan
+    Write-Host "  $ciFoldShown runs on every push to 'main' and folds what it finds there (#1493), so the fold is not lost -- it is somebody else's." -ForegroundColor DarkGray
+    Write-Host "  Nothing is taken away from that worktree, and step 5 will not touch the trunk." -ForegroundColor DarkGray
+}
+if ($trunkHolder -and -not $queueActive -and -not $ciFold.Recovered) {
     Write-Error @"
 'main' is checked out in ANOTHER worktree, so step 5 could not fold after the merge:
 
@@ -611,6 +693,11 @@ then run ship-pr again. If that worktree is a finished lane, hand it back:
   powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\task\worktree-lane.ps1" -HandBack -Lane "$trunkHolder"
 
 If it is a checkout you still want, move it off the trunk yourself (git -C "$trunkHolder" checkout <its branch>).
+
+AND THERE IS A THIRD WAY OUT THIS REPO DOES NOT HAVE (issue #2087). Where a CI runner folds off a push
+to the trunk, this refusal does not fire at all: the merge happens and the runner folds. Here that read
+came back empty -- $($ciFold.Reason) -- so the fold is still this session's, and it needs the trunk.
+adopt-dkj-policy's CI floor places that runner.
 "@
     exit 1
 }
@@ -1159,6 +1246,135 @@ finished. Compare the two:
     }
 }
 
+function Get-CheckFactsNow {
+    <#
+    .SYNOPSIS
+        Re-read the two `gh pr checks --json` payloads step 3 reads, as one object.
+
+    .DESCRIPTION
+        THE SAME TWO CALLS, WITH THE SAME FIELDS AND THE SAME FAILURE POSTURE as the pair inside step 3's
+        watch loop -- lifted into a function because step 3b's forward lap (#2087) needs them a second
+        time, after the branch has been brought forward, and two hand-written copies of a payload every
+        downstream verdict is made from is the drift this file has already paid for elsewhere.
+
+        `link` RIDES ALONG BECAUSE THE STALENESS ANCHOR IS READ FROM IT. Get-RequiredCheckRunIds resolves
+        the Actions run behind each check out of that field, and step 3b then dates the run. A payload
+        without it would send the lap back into the "no run could be found" refusal, which is a sentence
+        about an external CI service and not about this.
+
+        AN UNREADABLE PAYLOAD COMES BACK EMPTY RATHER THAN THROWING, exactly as at the call site it was
+        lifted from: every reader downstream already treats empty as "could not be read" and fails closed
+        on it, and a throw here would turn a network blip into a crash between the CI wait and the merge.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Pr,
+        [Parameter(Mandatory = $true)][string]$Repo
+    )
+
+    $checksJson = ''
+    $requiredJson = ''
+    try {
+        $checkFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
+            'pr', 'checks', "$Pr", '--json', 'name,bucket,state,startedAt,completedAt,link', '--repo', $Repo)
+        if ($checkFacts.ExitCode -eq 0) { $checksJson = $checkFacts.Output -join "`n" }
+        # `--required` exits non-zero on a repo whose ruleset requires nothing, which is a legitimate
+        # state and not an error -- the same reason the call this was lifted from gives.
+        $requiredFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
+            'pr', 'checks', "$Pr", '--required', '--json', 'name,bucket,state,startedAt,completedAt', '--repo', $Repo)
+        if ($requiredFacts.ExitCode -eq 0) { $requiredJson = $requiredFacts.Output -join "`n" }
+    } catch {
+        $checksJson = ''
+        $requiredJson = ''
+    }
+    return [pscustomobject]@{ Checks = $checksJson; Required = $requiredJson }
+}
+
+function Wait-ForwardedCertificate {
+    <#
+    .SYNOPSIS
+        After a forward, wait until GitHub has created a NEW certifying run and it has finished. Returns
+        the fresh facts, or $null on a timeout.
+
+    .DESCRIPTION
+        TWO CONDITIONS IN ORDER, AND THE FIRST ONE IS THE WHOLE REASON THIS IS NOT STEP 3'S WAIT
+        (issue #2087). For a few seconds after `update-branch` is accepted, the check API still answers
+        with the PREVIOUS run -- completed, green, and certifying a head that no longer exists. A wait
+        that only asked "are the required checks finished?" would be satisfied instantly by that old
+        answer, step 3b would re-read the identical staleness verdict, and the run would burn its whole
+        lap budget in seconds without ever waiting for CI. So this waits for the run ID to CHANGE first
+        (Test-CertificateRenewed), and only then for it to finish.
+
+        IT IS NOT A SECOND COPY OF STEP 3'S WATCH, AND THAT IS DELIBERATE RATHER THAN A SHORTCUT. Step 3
+        handles a much wider world -- a PR with no check suite at all, a CONFLICTING PR, a dropped
+        `--watch` socket, a non-required check ending the watch on a required one's behalf. None of those
+        is reachable here: the PR is open and MERGEABLE (update-branch just succeeded, which it cannot do
+        on a conflict), its checks have already registered once in this very run, and the required names
+        are in hand. What is left is a poll, and a poll is what this is.
+
+        THE BUDGET IS PER LAP AND GENEROUS, because what it is waiting on is a full CI cycle rather than
+        a registration. In this repo CI takes 310-461s (median 374s); the 1800s default leaves room for a
+        busy Actions queue without turning a stuck run into an unbounded wait. A timeout returns $null,
+        and the caller refuses -- it does NOT lap again, because the state it would lap from is exactly
+        the one it could not read.
+
+        A RED CHECK IS NOT THIS FUNCTION'S REFUSAL. It returns the facts it read and lets the caller put
+        them through Get-MergeBlockVerdict, which is the one place in this script that decides what a
+        check payload means. Splitting that decision would give the run two answers to "is CI green".
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Pr,
+        [Parameter(Mandatory = $true)][string]$Repo,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$PreviousRunIds,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$RequiredNames,
+        [int]$PollSeconds = 15,
+        [int]$MaxWaitSec = 1800
+    )
+
+    $began = Get-Date
+    $renewed = $false
+    $announcedRenewal = $false
+
+    while ($true) {
+        $facts = Get-CheckFactsNow -Pr $Pr -Repo $Repo
+
+        if (-not $renewed) {
+            $nowIds = @()
+            # Best-effort like every read in this loop: an unparseable payload is a reason to poll again,
+            # never a reason to crash between the merge gate and the merge.
+            try { $nowIds = @(Get-RequiredCheckRunIds -ChecksJson $facts.Checks -Names $RequiredNames) } catch { $nowIds = @() }
+            if (Test-CertificateRenewed -Before $PreviousRunIds -After $nowIds) {
+                $renewed = $true
+                if (-not $announcedRenewal) {
+                    Write-Host "  a new certifying run has been created for the forwarded head -- waiting for it to finish." -ForegroundColor DarkGray
+                    $announcedRenewal = $true
+                }
+            }
+        }
+
+        if ($renewed) {
+            # UNFINISHED IS READ THROUGH THE SAME VERDICT STEP 3 USES, so "finished" means here exactly
+            # what it means there. An unreadable payload yields an EMPTY UnfinishedRequired by that
+            # function's own design -- which would read as "finished" -- so the payload is required to be
+            # non-empty before the emptiness is believed. That is the one place this poll is stricter
+            # than step 3, and it is stricter in the direction of waiting rather than merging.
+            #
+            # BOTH PAYLOADS ARE REQUIRED TO BE NON-EMPTY, not just the check one. This poll is only
+            # reached when the ruleset names a required check, so an empty `--required` payload here is
+            # a transient read failure rather than "this repo requires nothing" -- and trusting it would
+            # hand the caller a verdict that re-parses the same empty payload, correctly reads it as
+            # blocked, and refuses with "the required check went RED" about a check nobody could read.
+            # Timing out instead says what actually happened.
+            $unfinished = $null
+            try { $unfinished = @((Get-MergeBlockVerdict -RequiredChecksJson $facts.Required -ChecksJson $facts.Checks).UnfinishedRequired) } catch { $unfinished = $null }
+            if ($null -ne $unfinished -and $facts.Checks -and $facts.Required -and $unfinished.Count -eq 0) { return $facts }
+        }
+
+        $elapsed = [int][math]::Round(((Get-Date) - $began).TotalSeconds)
+        if ($elapsed -ge $MaxWaitSec) { return $null }
+        Start-Sleep -Seconds $PollSeconds
+    }
+}
+
 # --- Step 3: wait for the required CI check ------------------------------------------------------
 # The CI checks can lag a few seconds behind the push: `gh pr checks` prints "no checks reported"
 # and exits 0 while none are registered yet -- indistinguishable by exit code from "all passed", so
@@ -1562,27 +1778,15 @@ while ($true) {
     # INSIDE THE LOOP SINCE #1219, and that is where they were already going to be needed: the retry
     # decision is made from this same payload, so reading it per attempt costs a dropped watch two gh
     # calls and costs the ordinary run -- one attempt -- exactly what it cost before.
-    $checkFactsJson = ''
-    $requiredFactsJson = ''
-    try {
-        # `link` rides along for inbound #1044: it is the only field in this payload that names the
-        # Actions RUN behind a check, and the fact separating "the job never started" from "a check went
-        # red" lives on the run rather than on the check. It costs nothing on a green run -- the block
-        # that reads it is inside the refusal below.
-        $checkFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--json', 'name,bucket,state,startedAt,completedAt,link', '--repo', $repo)
-        if ($checkFacts.ExitCode -eq 0) { $checkFactsJson = $checkFacts.Output -join "`n" }
-        # `--required` exits non-zero on a repo whose ruleset requires nothing, which is a legitimate state
-        # and not an error. For the wait report the label is then simply omitted rather than guessed; for
-        # the verdict it is the case that keeps refusing, since "requires nothing" and "the required checks
-        # have not reported" are indistinguishable from here.
-        $requiredFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--required', '--json', 'name,bucket,state,startedAt,completedAt', '--repo', $repo)
-        if ($requiredFacts.ExitCode -eq 0) { $requiredFactsJson = $requiredFacts.Output -join "`n" }
-    } catch {
-        $checkFactsJson = ''
-        $requiredFactsJson = ''
-    }
+    # THE TWO CALLS ARE Get-CheckFactsNow's, AND THIS IS THE SITE IT WAS LIFTED OUT OF (issue #2087).
+    # They were written out here; step 3b's forward lap needs the identical pair after the branch has
+    # been brought forward, and a second hand-written copy of the payload every downstream verdict is
+    # made from is the drift this file has already paid for elsewhere. The function's own header carries
+    # the field list's reasoning -- `link` for inbound #1044, and why a non-zero `--required` is a
+    # legitimate state rather than an error.
+    $freshCheckFacts = Get-CheckFactsNow -Pr "$pr" -Repo $repo
+    $checkFactsJson = $freshCheckFacts.Checks
+    $requiredFactsJson = $freshCheckFacts.Required
 
     # THE WATCH MODE FOLLOWS THE FRESHEST READING (issue #1602). The probe above ran before the first
     # watch, when a required workflow may not have created its check run yet; this read is one watch
@@ -1894,9 +2098,28 @@ if ($SkipStaleCheck) {
         # that exact ambiguity.
         Write-Host "  stale-CI check: no required check name is known -- not checked (no ruleset, or unreadable; this is not a finding)." -ForegroundColor DarkGray
     } else {
-        $staleRunIds = @(Get-RequiredCheckRunIds -ChecksJson $checkFactsJson -Names $staleCheckNames)
-        if ($staleRunIds.Count -eq 0) {
-            Write-Error @"
+        # THE FORWARD LAP (issue #2087). Everything from here to the verdict is ONE READING of the
+        # certificate, and it is now taken up to $MaxForwardLaps + 1 times rather than once. A stale
+        # reading no longer ends the run: the branch is brought up to date with the trunk, a fresh
+        # certificate is waited for, and the SAME measurement is made again against it. Nothing about
+        # the predicate changes -- what changes is that the remedy it used to print is now run here,
+        # where it costs a CI cycle instead of however long it takes somebody to read a refusal.
+        #
+        # THE READS ARE ALL INSIDE THE LOOP BECAUSE EVERY ONE OF THEM GOES STALE WITH THE CERTIFICATE:
+        # the run ids come off a check payload the forward replaces, the anchor is that run's own
+        # created_at, and the trunk has moved since -- which is the whole reason a lap was spent. A
+        # reading that reused any of them would be measuring the previous lap.
+        #
+        # THE FAIL-CLOSED REFUSALS INSIDE IT STAY REFUSALS AND ARE NOT LAPPED. An unresolvable run, an
+        # unreadable created_at, a failed fetch: each means the gate could not measure, and lapping on
+        # a measurement that did not happen would spend the budget learning nothing. Only a certificate
+        # that was READ and found stale is worth another lap.
+        $forwardLapsUsed = 0
+        $forwardSituation = 'stale'
+        while ($true) {
+            $staleRunIds = @(Get-RequiredCheckRunIds -ChecksJson $checkFactsJson -Names $staleCheckNames)
+            if ($staleRunIds.Count -eq 0) {
+                Write-Error @"
 stale-CI check: no GitHub Actions run could be found behind the required check(s)
 ($(Format-CheckNameList -Names $staleCheckNames)) -- NOT merged (issue #1292).
 
@@ -1905,188 +2128,328 @@ resolvable Actions run (an external CI service posting its own status has no run
 way). -SkipStaleCheck ships anyway once you have confirmed by hand that 'main' has not moved in a way
 that matters, or that the check in question is not subject to this staleness mechanism.
 "@
-            exit 1
-        }
-
-        $createdAtValues = @()
-        $createdAtReadFailed = $false
-        foreach ($runId in $staleRunIds) {
-            $runRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @('api', "repos/$repo/actions/runs/$runId", '--jq', '.created_at')
-            if ($runRead.ExitCode -eq 0) {
-                $createdAtValues += (($runRead.Output -join '').Trim())
-            } else {
-                $createdAtReadFailed = $true
+                exit 1
             }
-        }
-        if ($createdAtReadFailed) {
-            Write-Error @"
+
+            $createdAtValues = @()
+            $createdAtReadFailed = $false
+            foreach ($runId in $staleRunIds) {
+                $runRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @('api', "repos/$repo/actions/runs/$runId", '--jq', '.created_at')
+                if ($runRead.ExitCode -eq 0) {
+                    $createdAtValues += (($runRead.Output -join '').Trim())
+                } else {
+                    $createdAtReadFailed = $true
+                }
+            }
+            if ($createdAtReadFailed) {
+                Write-Error @"
 stale-CI check: could not read 'created_at' for at least one run behind PR #$pr's required check(s) --
 NOT merged (issue #1292).
 
 Run id(s) asked: $($staleRunIds -join ', '). -SkipStaleCheck ships on the old certificate anyway.
 "@
-            exit 1
-        }
+                exit 1
+            }
 
-        $certifiedSince = Get-CertifyingRunCreatedAt -CreatedAtValues $createdAtValues
-        if ($null -eq $certifiedSince) {
-            Write-Error @"
+            $certifiedSince = Get-CertifyingRunCreatedAt -CreatedAtValues $createdAtValues
+            if ($null -eq $certifiedSince) {
+                Write-Error @"
 stale-CI check: the run(s) behind PR #$pr's required check(s) reported no readable 'created_at' -- NOT
 merged (issue #1292). Run id(s) asked: $($staleRunIds -join ', '). -SkipStaleCheck ships on the old
 certificate anyway.
 "@
-            exit 1
-        }
+                exit 1
+            }
 
-        # NO -DiscardStderr ON THE FETCH, AND THE REASON IT ONCE CARRIED IS THE POINT (issue #1334).
-        # This line shipped with a security justification -- "a failing git fetch echoes the remote URL,
-        # which in a repo cloned over HTTPS with a credential in the URL is a secret" -- cited from
-        # new-branch.ps1's base-freshness fetch. That reason is WRONG, measured on git 2.55.0.windows.5
-        # (issues #1313, #1330): git anonymizes the URL itself through transport_anonymize_url, so
-        # `user:token@host`, `token@host` and an unresolvable host all come back as a bare
-        # `https://host/o/r.git`. None of the three leaked.
-        #
-        # THE MEASUREMENT LIVES AT ONE SEAM, and this comment points at it rather than restating it:
-        # scripts/lib/native-capture-lib.ps1, under "-DiscardStderr IS NOT A CREDENTIAL GUARD". Read it
-        # before reaching for this flag on any call that talks to a remote -- the same measurement is
-        # why #1313's proposal to add it to three other fetches was DECLINED, for removing git's own
-        # diagnosis from three failure paths in exchange for nothing.
-        #
-        # SO GIT'S WORDS STAY, AND THE REFUSAL PRINTS THEM. 'fetch failed' on its own leaves an operator
-        # with no auth error, no host and no git reason. This is the cheaper end of that loss -- step 3b
-        # runs BEFORE the merge, so a reader can retry, where at the fold step the PR is already merged
-        # and git's reason is all they have -- but it is the same loss for the same nothing.
-        $fetchMain = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', 'main', '--quiet')
-        if ($fetchMain.ExitCode -ne 0) {
-            $fetchMain.Output | Where-Object { $_ -and "$_".Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkYellow }
-            Write-Error "stale-CI check: 'git fetch origin main' failed -- NOT merged (issue #1292). -SkipStaleCheck ships on the old certificate anyway."
-            exit 1
-        }
-        $sinceStr = $certifiedSince.ToString('yyyy-MM-ddTHH:mm:ssZ')
-        # -DiscardStderr for the same reason the gh api call above carries it, and NOT for the reason the
-        # fetch above deliberately does without: this output is PARSED (it becomes $newMainCommits below),
-        # so a git warning merged into it would break the parse.
-        $mainLog = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -Arguments @('log', 'origin/main', '--first-parent', '--since', $sinceStr, '--pretty=format:%H')
-        if ($mainLog.ExitCode -ne 0) {
-            Write-Error "stale-CI check: could not read the history of 'origin/main' -- NOT merged (issue #1292). -SkipStaleCheck ships on the old certificate anyway."
-            exit 1
-        }
+            # NO -DiscardStderr ON THE FETCH, AND THE REASON IT ONCE CARRIED IS THE POINT (issue #1334).
+            # This line shipped with a security justification -- "a failing git fetch echoes the remote URL,
+            # which in a repo cloned over HTTPS with a credential in the URL is a secret" -- cited from
+            # new-branch.ps1's base-freshness fetch. That reason is WRONG, measured on git 2.55.0.windows.5
+            # (issues #1313, #1330): git anonymizes the URL itself through transport_anonymize_url, so
+            # `user:token@host`, `token@host` and an unresolvable host all come back as a bare
+            # `https://host/o/r.git`. None of the three leaked.
+            #
+            # THE MEASUREMENT LIVES AT ONE SEAM, and this comment points at it rather than restating it:
+            # scripts/lib/native-capture-lib.ps1, under "-DiscardStderr IS NOT A CREDENTIAL GUARD". Read it
+            # before reaching for this flag on any call that talks to a remote -- the same measurement is
+            # why #1313's proposal to add it to three other fetches was DECLINED, for removing git's own
+            # diagnosis from three failure paths in exchange for nothing.
+            #
+            # SO GIT'S WORDS STAY, AND THE REFUSAL PRINTS THEM. 'fetch failed' on its own leaves an operator
+            # with no auth error, no host and no git reason. This is the cheaper end of that loss -- step 3b
+            # runs BEFORE the merge, so a reader can retry, where at the fold step the PR is already merged
+            # and git's reason is all they have -- but it is the same loss for the same nothing.
+            $fetchMain = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', 'main', '--quiet')
+            if ($fetchMain.ExitCode -ne 0) {
+                $fetchMain.Output | Where-Object { $_ -and "$_".Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkYellow }
+                Write-Error "stale-CI check: 'git fetch origin main' failed -- NOT merged (issue #1292). -SkipStaleCheck ships on the old certificate anyway."
+                exit 1
+            }
+            $sinceStr = $certifiedSince.ToString('yyyy-MM-ddTHH:mm:ssZ')
+            # -DiscardStderr for the same reason the gh api call above carries it, and NOT for the reason the
+            # fetch above deliberately does without: this output is PARSED (it becomes $newMainCommits below),
+            # so a git warning merged into it would break the parse.
+            $mainLog = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -Arguments @('log', 'origin/main', '--first-parent', '--since', $sinceStr, '--pretty=format:%H')
+            if ($mainLog.ExitCode -ne 0) {
+                Write-Error "stale-CI check: could not read the history of 'origin/main' -- NOT merged (issue #1292). -SkipStaleCheck ships on the old certificate anyway."
+                exit 1
+            }
 
-        $newMainCommits = @($mainLog.Output | Where-Object { $_ -and "$_".Trim() })
+            $newMainCommits = @($mainLog.Output | Where-Object { $_ -and "$_".Trim() })
 
-        # THE FOLD IS DISCOUNTED, AND ONLY THE FOLD (issue #1592, September 8, 2026). A commit whose whole
-        # diff is the changelog plus the removal of a branch document is written by fold-changelog-entry.ps1
-        # under a named exception bounded to exactly those two paths -- it carries no script, no test, no
-        # manifest and no agent def, so it cannot be the "test block on the trunk that this branch's CI never
-        # ran" that #1292 exists to catch. Test-IsFoldOnlyCommit decides that from the commit's OWN diff, not
-        # from its subject line, and its header carries the measurement: of the three commits that voided PR
-        # #1571's two refused certificates, all three were folds, and folds were 10 of the trunk's 19
-        # first-parent commits in that window.
-        #
-        # ONE LOCAL git show PER GAINED COMMIT, and the count is what makes that cheap: this block only runs
-        # when 'main' has moved at all, and it had moved by 1 or 2 commits in the measured refusals. No
-        # network, and nothing is read when the trunk has not moved.
-        #
-        # FAILS CLOSED, LIKE EVERY OTHER READ IN THIS STEP. A diff that will not read, or a seam that does
-        # not resolve, leaves the commit counted exactly as it was before this exemption existed -- the
-        # refusal below is then the same refusal it always was, which is the safe direction for a gate whose
-        # only job is catching "green PR, red trunk".
-        $foldExemptCommits = @()
-        if ($newMainCommits.Count -gt 0) {
-            $changelogForFold = ''
-            $entryDirForFold = ''
-            # Read once and held: Get-BranchFilePaths is pure and static, so two calls could never answer
-            # differently -- but a reader has to establish that before they can be sure, and one variable
-            # says it instead.
-            $reservedForFold = @()
-            try {
-                $changelogForFold = Get-SeamValue -Name 'Get-ChangelogPath' -Default (Get-DefaultChangelogPath -RepoRoot $repoRoot)
-                $branchPathsForFold = Get-BranchFilePaths
-                $entryDirForFold = $branchPathsForFold.Directory
-                $reservedForFold = @($branchPathsForFold.ReservedNames)
-            } catch {
+            # THE FOLD IS DISCOUNTED, AND ONLY THE FOLD (issue #1592, September 8, 2026). A commit whose whole
+            # diff is the changelog plus the removal of a branch document is written by fold-changelog-entry.ps1
+            # under a named exception bounded to exactly those two paths -- it carries no script, no test, no
+            # manifest and no agent def, so it cannot be the "test block on the trunk that this branch's CI never
+            # ran" that #1292 exists to catch. Test-IsFoldOnlyCommit decides that from the commit's OWN diff, not
+            # from its subject line, and its header carries the measurement: of the three commits that voided PR
+            # #1571's two refused certificates, all three were folds, and folds were 10 of the trunk's 19
+            # first-parent commits in that window.
+            #
+            # ONE LOCAL git show PER GAINED COMMIT, and the count is what makes that cheap: this block only runs
+            # when 'main' has moved at all, and it had moved by 1 or 2 commits in the measured refusals. No
+            # network, and nothing is read when the trunk has not moved.
+            #
+            # FAILS CLOSED, LIKE EVERY OTHER READ IN THIS STEP. A diff that will not read, or a seam that does
+            # not resolve, leaves the commit counted exactly as it was before this exemption existed -- the
+            # refusal below is then the same refusal it always was, which is the safe direction for a gate whose
+            # only job is catching "green PR, red trunk".
+            $foldExemptCommits = @()
+            if ($newMainCommits.Count -gt 0) {
                 $changelogForFold = ''
                 $entryDirForFold = ''
-            }
-            if ($changelogForFold -and $entryDirForFold) {
-                foreach ($gained in $newMainCommits) {
-                    $sha = "$gained".Trim()
-                    # --format= empties the header so only the name-status body comes back; -DiscardStderr
-                    # because this output is PARSED, the same reason the first-parent log above carries it.
-                    #
-                    # AND -Utf8, BECAUSE THESE PATHS ARE DATA (issue #907). Branch names here are ASCII by
-                    # this repo's own naming rule, so the console code page cannot change today's answer --
-                    # but this call compares its output against two seam-supplied paths, which is exactly the
-                    # class the lib's own header says must not be decoded with the console's code page. It
-                    # fails in the safe direction either way (a mis-decoded path matches nothing and the
-                    # commit stays counted), so this is the convention being followed rather than a bug being
-                    # fixed; the alternative was a comment explaining why this one call is the odd one out.
-                    $diffRead = Invoke-NativeCapture -Utf8 -FilePath 'git' -DiscardStderr -Arguments @('show', '--name-status', '--format=', $sha)
-                    if ($diffRead.ExitCode -ne 0) { continue }
-                    # NO ShortRead BRANCH HERE, AND THAT IS A MEASUREMENT RATHER THAN AN OMISSION
-                    # (issue #1679). This call was listed with the five sites that read an empty capture
-                    # on exit 0 as a substantive answer -- "this commit changed no files" -- and it does.
-                    # But Test-IsFoldOnlyCommit FAILS CLOSED on exactly that: an unreadable diff returns
-                    # $false, the commit is not exempted, and it stays counted in the staleness verdict.
-                    # A ShortRead guard would `continue`, which leaves it counted too, so the two are
-                    # behaviourally identical and the guard would be a no-op wearing a citation. What a
-                    # short read costs here is one spurious stale-CI refusal, never a merge that should
-                    # have been refused -- and an empty capture is LEGITIMATE at this call anyway (`git
-                    # show --name-status --format=` on a commit that changed no files: measured, 0 bytes
-                    # at exit 0), which is the other reason not to treat empty as failure.
-                    if (Test-IsFoldOnlyCommit -NameStatusLines @($diffRead.Output) -ChangelogPath $changelogForFold `
-                            -EntryDirectory $entryDirForFold -ReservedNames $reservedForFold) {
-                        $foldExemptCommits += $sha
+                # Read once and held: Get-BranchFilePaths is pure and static, so two calls could never answer
+                # differently -- but a reader has to establish that before they can be sure, and one variable
+                # says it instead.
+                $reservedForFold = @()
+                try {
+                    $changelogForFold = Get-SeamValue -Name 'Get-ChangelogPath' -Default (Get-DefaultChangelogPath -RepoRoot $repoRoot)
+                    $branchPathsForFold = Get-BranchFilePaths
+                    $entryDirForFold = $branchPathsForFold.Directory
+                    $reservedForFold = @($branchPathsForFold.ReservedNames)
+                } catch {
+                    $changelogForFold = ''
+                    $entryDirForFold = ''
+                }
+                if ($changelogForFold -and $entryDirForFold) {
+                    foreach ($gained in $newMainCommits) {
+                        $sha = "$gained".Trim()
+                        # --format= empties the header so only the name-status body comes back; -DiscardStderr
+                        # because this output is PARSED, the same reason the first-parent log above carries it.
+                        #
+                        # AND -Utf8, BECAUSE THESE PATHS ARE DATA (issue #907). Branch names here are ASCII by
+                        # this repo's own naming rule, so the console code page cannot change today's answer --
+                        # but this call compares its output against two seam-supplied paths, which is exactly the
+                        # class the lib's own header says must not be decoded with the console's code page. It
+                        # fails in the safe direction either way (a mis-decoded path matches nothing and the
+                        # commit stays counted), so this is the convention being followed rather than a bug being
+                        # fixed; the alternative was a comment explaining why this one call is the odd one out.
+                        $diffRead = Invoke-NativeCapture -Utf8 -FilePath 'git' -DiscardStderr -Arguments @('show', '--name-status', '--format=', $sha)
+                        # AN UNMEASURABLE EXIT CODE LANDS IN THE SAME `continue` (issue #1931, audited under
+                        # #2081), and it needs no arm of its own for the reason the block below gives about a
+                        # short read: both leave the commit COUNTED in the staleness verdict, which is the
+                        # fail-closed direction, so a separate branch would be a no-op wearing a citation.
+                        # Recorded rather than repaired -- that is this site's audited verdict.
+                        if ($diffRead.ExitCode -ne 0) { continue }
+                        # NO ShortRead BRANCH HERE, AND THAT IS A MEASUREMENT RATHER THAN AN OMISSION
+                        # (issue #1679). This call was listed with the five sites that read an empty capture
+                        # on exit 0 as a substantive answer -- "this commit changed no files" -- and it does.
+                        # But Test-IsFoldOnlyCommit FAILS CLOSED on exactly that: an unreadable diff returns
+                        # $false, the commit is not exempted, and it stays counted in the staleness verdict.
+                        # A ShortRead guard would `continue`, which leaves it counted too, so the two are
+                        # behaviourally identical and the guard would be a no-op wearing a citation. What a
+                        # short read costs here is one spurious stale-CI refusal, never a merge that should
+                        # have been refused -- and an empty capture is LEGITIMATE at this call anyway (`git
+                        # show --name-status --format=` on a commit that changed no files: measured, 0 bytes
+                        # at exit 0), which is the other reason not to treat empty as failure.
+                        if (Test-IsFoldOnlyCommit -NameStatusLines @($diffRead.Output) -ChangelogPath $changelogForFold `
+                                -EntryDirectory $entryDirForFold -ReservedNames $reservedForFold) {
+                            $foldExemptCommits += $sha
+                        }
                     }
                 }
             }
-        }
 
-        $staleVerdict = Get-StaleCertificateVerdict -NewMainCommits $newMainCommits -ExemptCommits $foldExemptCommits
-        if ($staleVerdict.ExemptCount -gt 0) {
-            Write-Host "  stale-CI check: $($staleVerdict.ExemptCount) of $($newMainCommits.Count) commit(s) 'main' gained are fold commits (changelog + branch document only) -- discounted (issue #1592)." -ForegroundColor DarkGray
-        }
-        if ($staleVerdict.Stale) {
-            # SUBSTRING GUARDED BY LENGTH, not assumed. -DiscardStderr above makes a non-SHA line in
-            # $newMainCommits unlikely, not impossible, and this refusal is the one place in the whole
-            # gate where a short string would otherwise turn a careful message into a raw .NET
-            # exception (Substring throwing "length must refer to a location within the string") --
-            # right before the sentence that tells the operator what to do. A short entry is shown
-            # whole rather than dropped, so the count and the list still agree.
-            $shownShas = ($staleVerdict.Commits | Select-Object -First 5 | ForEach-Object {
-                if ($_.Length -gt 8) { $_.Substring(0, 8) } else { $_ }
-            }) -join ', '
-            # The discounted folds are named in the refusal too, because the operator's next move is to look
-            # at the trunk -- and a count that is smaller than what 'git log' shows them reads as a bug in
-            # this gate unless the difference is stated here.
-            $exemptClause = if ($staleVerdict.ExemptCount -gt 0) {
-                "`n($($staleVerdict.ExemptCount) further commit(s) landed in the same window and were discounted as folds -- changelog plus a branch document, issue #1592.)"
-            } else { '' }
-            # THE REMEDY LEADS WITH A CHECKOUT, BECAUSE THIS RUN HAS ALREADY MOVED THE TREE (#1588).
-            # Step 2b hands the primary checkout back to the trunk the moment the PR exists (#1073), and
-            # this gate fires long after that -- past the whole CI wait. So the operator reading the
-            # refusal is standing on 'main', not on the branch the two git commands are about. WHAT THAT
-            # COSTS IS A SILENT NO-OP, NOT AN ERROR, which is why nothing caught it for five days: on a
-            # trunk behind origin/main, `git merge origin/main` fast-forwards local 'main' and prints a
-            # full diffstat -- reading exactly like the branch being brought forward -- and the push after
-            # it is `Everything up-to-date`. The first thing to say anything is the re-run of ship-pr, one
-            # full CI cycle later, and what it says is `You are on main` -- a message about the wrong
-            # problem. Measured twice: PR #1583 (issue #1579) on September 8, 2026, and PR #1316 on
-            # September 3, recorded as a parenthetical in #1325 and never repaired because that issue
-            # closed on a different axis (CI sharding). THE OPERATOR CANNOT BE THE GUARD HERE: the branch
-            # check fires at the start of an assignment, and this is the middle of one -- re-reading `git
-            # branch` between a refusal and its own prescribed remedy is not a step anything asks for.
-            #
-            # $branch IS THE GATE'S OWN READING rather than a guess -- captured at line 357 before step 2b
-            # ran, so it still names the branch even though HEAD no longer does. It is printed
-            # UNCONDITIONALLY, not gated on the trunk-return decision: where step 2b declined to move (a
-            # dirty tree, another worktree on the trunk) the line is a harmless no-op, and a remedy that
-            # is sometimes missing a step is worse than one that sometimes repeats a checkout you have.
-            # AND THE CHECKOUT NAMES A PASTE-SAFE TOKEN, not the raw ref (issue #1594): this remedy is the
-            # first of the seven sites that issue measured, and the one whose reader is most often an
-            # agent session pasting it back verbatim. $branchPasteNoteBlock explains a refused name and is
-            # '' for every name this workflow creates, so the line above is unchanged in the common case.
-            Write-Error @"
+            $staleVerdict = Get-StaleCertificateVerdict -NewMainCommits $newMainCommits -ExemptCommits $foldExemptCommits
+            if ($staleVerdict.ExemptCount -gt 0) {
+                Write-Host "  stale-CI check: $($staleVerdict.ExemptCount) of $($newMainCommits.Count) commit(s) 'main' gained are fold commits (changelog + branch document only) -- discounted (issue #1592)." -ForegroundColor DarkGray
+            }
+            if ($staleVerdict.Stale) {
+                # SUBSTRING GUARDED BY LENGTH, not assumed. -DiscardStderr above makes a non-SHA line in
+                # $newMainCommits unlikely, not impossible, and this refusal is the one place in the whole
+                # gate where a short string would otherwise turn a careful message into a raw .NET
+                # exception (Substring throwing "length must refer to a location within the string") --
+                # right before the sentence that tells the operator what to do. A short entry is shown
+                # whole rather than dropped, so the count and the list still agree.
+                $shownShas = ($staleVerdict.Commits | Select-Object -First 5 | ForEach-Object {
+                    if ($_.Length -gt 8) { $_.Substring(0, 8) } else { $_ }
+                }) -join ', '
+                # The discounted folds are named in the refusal too, because the operator's next move is to look
+                # at the trunk -- and a count that is smaller than what 'git log' shows them reads as a bug in
+                # this gate unless the difference is stated here.
+                $exemptClause = if ($staleVerdict.ExemptCount -gt 0) {
+                    "`n($($staleVerdict.ExemptCount) further commit(s) landed in the same window and were discounted as folds -- changelog plus a branch document, issue #1592.)"
+                } else { '' }
+                # THE REMEDY LEADS WITH A CHECKOUT, BECAUSE THIS RUN HAS ALREADY MOVED THE TREE (#1588).
+                # Step 2b hands the primary checkout back to the trunk the moment the PR exists (#1073), and
+                # this gate fires long after that -- past the whole CI wait. So the operator reading the
+                # refusal is standing on 'main', not on the branch the two git commands are about. WHAT THAT
+                # COSTS IS A SILENT NO-OP, NOT AN ERROR, which is why nothing caught it for five days: on a
+                # trunk behind origin/main, `git merge origin/main` fast-forwards local 'main' and prints a
+                # full diffstat -- reading exactly like the branch being brought forward -- and the push after
+                # it is `Everything up-to-date`. The first thing to say anything is the re-run of ship-pr, one
+                # full CI cycle later, and what it says is `You are on main` -- a message about the wrong
+                # problem. Measured twice: PR #1583 (issue #1579) on September 8, 2026, and PR #1316 on
+                # September 3, recorded as a parenthetical in #1325 and never repaired because that issue
+                # closed on a different axis (CI sharding). THE OPERATOR CANNOT BE THE GUARD HERE: the branch
+                # check fires at the start of an assignment, and this is the middle of one -- re-reading `git
+                # branch` between a refusal and its own prescribed remedy is not a step anything asks for.
+                #
+                # $branch IS THE GATE'S OWN READING rather than a guess -- captured at line 357 before step 2b
+                # ran, so it still names the branch even though HEAD no longer does. It is printed
+                # UNCONDITIONALLY, not gated on the trunk-return decision: where step 2b declined to move (a
+                # dirty tree, another worktree on the trunk) the line is a harmless no-op, and a remedy that
+                # is sometimes missing a step is worse than one that sometimes repeats a checkout you have.
+                # AND THE CHECKOUT NAMES A PASTE-SAFE TOKEN, not the raw ref (issue #1594): this remedy is the
+                # first of the seven sites that issue measured, and the one whose reader is most often an
+                # agent session pasting it back verbatim. $branchPasteNoteBlock explains a refused name and is
+                # '' for every name this workflow creates, so the line above is unchanged in the common case.
+                #
+                # AND THE REMEDY IS RUN BEFORE IT IS PRINTED (issue #2087). Everything above this line is
+                # what a reader gets when the laps are spent or were never offered; what comes first is the
+                # run doing it itself. The four commands in that remedy are exactly what the lap performs,
+                # one layer up -- GitHub's own update-branch rather than a local checkout-and-merge, which
+                # is the same operation with the #1588 trap designed out of it: an API call cannot
+                # fast-forward the wrong branch, and it does not care where this checkout is standing.
+                $lap = Get-ForwardLapDecision -LapsUsed $forwardLapsUsed -MaxLaps $MaxForwardLaps -Situation $forwardSituation
+                if ($lap.Forward) {
+                    $forwardLapsUsed++
+                    Write-Host "ship-pr: the certificate is stale -- bringing '$branchShown' up to date with 'main' and re-certifying (lap $forwardLapsUsed of $MaxForwardLaps, issue #2087)." -ForegroundColor Cyan
+
+                    # THE FORWARD ITSELF. `update-branch` merges the base into the head ON GITHUB, so it
+                    # needs no checkout, no clean tree and no opinion about where HEAD is standing -- the
+                    # three things that made the printed remedy fail silently (#1588).
+                    $updateRead = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
+                        'api', '--method', 'PUT', "repos/$repo/pulls/$pr/update-branch")
+                    $updateOutcome = Get-UpdateBranchOutcome -ExitCode $updateRead.ExitCode -OutputLines @($updateRead.Output)
+
+                    if ($updateOutcome.Outcome -eq 'already-current') {
+                        # NOT A FAILURE AND NOT A LAP. GitHub says there is nothing to bring across, so a
+                        # fresh run would never be created and the wait below would time out on it. The
+                        # situation is carried into the next decision, which turns it into a refusal that
+                        # says what happened rather than one implying the budget ran out.
+                        Write-Host "  GitHub reports the branch is not behind its base -- there is nothing to forward." -ForegroundColor DarkYellow
+                        $forwardSituation = 'already-current'
+                        continue
+                    }
+                    if ($updateOutcome.Outcome -ne 'forwarded') {
+                        # REFUSES RATHER THAN LAPPING, on the block's own rule: a lap is only worth spending
+                        # on a certificate that was read and found stale. A conflict needs a person, and a
+                        # failed call needs to be understood before it is repeated.
+                        $conflictHint = if ($updateOutcome.Outcome -eq 'conflict') {
+                            "`n`nThis is a CONFLICT between 'main' and this branch, which no number of laps can clear. Merge 'main' in by hand, resolve it, and push."
+                        } else { '' }
+                        # GITHUB'S SENTENCE IS FOREIGN TEXT, SO IT IS STRIPPED AND CAPPED BEFORE IT IS
+                        # RELAYED. This is the same class as Get-AuthoredFailureNote's relay of a failing
+                        # workflow's own annotation (#1103, stripped since #1612) and it gets the same
+                        # treatment for the same reason: a control or format character in a message this
+                        # run did not author repaints the terminal, and an RTL override makes a refusal
+                        # read as something other than what it says. Capped at 500, the bound that relay
+                        # already uses -- an API error is a sentence, and anything past that is a payload.
+                        $updateSaid = ConvertTo-ConsoleStrippedText -Text $updateOutcome.Message
+                        if ($updateSaid.Length -gt 500) { $updateSaid = $updateSaid.Substring(0, 500) + ' [...]' }
+                        if (-not $updateSaid.Trim()) { $updateSaid = '(gh printed nothing readable)' }
+                        Write-Error @"
+stale-CI certificate: PR #$pr could not be brought up to date with 'main' -- NOT merged (issue #2087).
+
+GitHub's own answer to 'PUT repos/$repo/pulls/$pr/update-branch':
+$updateSaid$conflictHint
+
+The certificate is still stale, so nothing has been merged. -SkipStaleCheck ships on the old
+certificate anyway; -MaxForwardLaps 0 refuses on the first stale reading and prints the manual remedy.
+"@
+                        exit 1
+                    }
+
+                    # THE WAIT IS FOR A DIFFERENT RUN, NOT FOR A GREEN ONE. See Wait-ForwardedCertificate:
+                    # the check API answers with the old, completed, green run for a few seconds after the
+                    # forward, and a wait that believed it would spend the whole budget in seconds.
+                    $freshFacts = Wait-ForwardedCertificate -Pr "$pr" -Repo $repo -PreviousRunIds $staleRunIds `
+                        -RequiredNames $staleCheckNames -PollSeconds $PollSeconds
+                    if ($null -eq $freshFacts) {
+                        Write-Error @"
+stale-CI certificate: PR #$pr was brought up to date, but no fresh certificate finished in time -- NOT
+merged (issue #2087).
+
+The forward itself succeeded, so the branch on GitHub IS current with 'main'; what did not arrive is a
+completed run of $(Format-CheckNameList -Names $staleCheckNames) against the new head. Nothing is wrong
+with the branch. Re-run ship-pr once CI is green:
+
+  gh pr checks $pr --repo $repo
+"@
+                        exit 1
+                    }
+                    $checkFactsJson = $freshFacts.Checks
+                    $requiredFactsJson = $freshFacts.Required
+
+                    # A RED CHECK ON THE FORWARDED HEAD IS A REAL FAILURE AND ENDS THE RUN. This is the case
+                    # the whole gate exists to catch, arriving the way it was always meant to: the trunk
+                    # gained something this branch had never been tested against, it has now been tested,
+                    # and it does not pass. Lapping here would re-run a suite that has just given its
+                    # answer.
+                    $freshVerdict = $null
+                    try { $freshVerdict = Get-MergeBlockVerdict -RequiredChecksJson $requiredFactsJson -ChecksJson $checkFactsJson } catch { $freshVerdict = $null }
+                    if ($null -ne $freshVerdict -and $freshVerdict.Blocked) {
+                        Write-Error @"
+The required check went RED on the forwarded head -- NOT merged (issue #2087).
+
+This branch was green against an older 'main' and is not green against the current one, which is
+exactly what the stale-certificate gate exists to find. Fix it on the branch and re-run ship-pr:
+
+  gh pr checks $pr --repo $repo
+"@
+                        exit 1
+                    }
+
+                    # THE LOCAL REF CATCHES UP LAST, once the new head provably exists. Step 4 reads the
+                    # step list and the DEPLOY lock from refs/heads/<branch> on the stated invariant that
+                    # it is the PR's head commit -- which the forward has just broken. Get-LocalRefForwardPlan
+                    # decides which of the two ff-only commands restores it from where HEAD happens to be.
+                    $headAtForwardRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
+                    $headAtForwardLine = @($headAtForwardRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
+                    $headAtForward = if ($headAtForwardRead.ExitCode -eq 0 -and $headAtForwardLine) { "$headAtForwardLine".Trim() } else { '' }
+                    $forwardPlan = Get-LocalRefForwardPlan -Head $headAtForward -Branch $branch
+                    $refCatchUp = if ($forwardPlan -eq 'merge-ff-only') {
+                        $fetchForBranch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', $branch, '--quiet')
+                        if ($fetchForBranch.ExitCode -ne 0) { $fetchForBranch } else {
+                            Invoke-NativeCapture -FilePath 'git' -Arguments @('merge', '--ff-only', "origin/$branch")
+                        }
+                    } else {
+                        # THE REFSPEC IS ITSELF FAST-FORWARD-ONLY without a leading '+', which is the point:
+                        # a local ref that has diverged is refused rather than rewritten.
+                        Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', "${branch}:${branch}")
+                    }
+                    if ($refCatchUp.ExitCode -ne 0) {
+                        $refCatchUp.Output | Where-Object { $_ -and "$_".Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkYellow }
+                        Write-Error @"
+The branch was forwarded on GitHub, but this checkout's own copy of it could not be fast-forwarded --
+NOT merged (issue #2087).
+
+git's own reason is above. Step 4 reads the step list and the DEPLOY lock from refs/heads/$branchShown on
+the invariant that it IS the PR's head commit, so merging while the two disagree would gate the merge on
+a document the PR does not contain. The usual cause is a commit made on this branch locally during the CI
+wait: push it, or reset onto origin/$branchShown, then re-run ship-pr.
+"@
+                        exit 1
+                    }
+                    Write-Host "  forwarded and re-certified -- measuring the certificate again." -ForegroundColor DarkGray
+                    continue
+                }
+                # THE LAP DECISION SAID NO, so this is the refusal #1292 always printed, with one clause
+                # added saying why no lap was spent. The clause is appended rather than woven in: the
+                # sentence below is the one operators have been reading since #1292 and it is not this
+                # issue's to rewrite.
+                Write-Error @"
 stale-CI certificate: 'main' gained $($staleVerdict.Count) commit(s) after the run that certified PR #$pr
 started (issue #1292) -- NOT merged.$exemptClause
 
@@ -2106,10 +2469,14 @@ without it the merge below fast-forwards 'main' and leaves the branch untouched,
 -SkipStaleCheck ships on the old certificate anyway -- use it only when the window is known-harmless
 (e.g. the gained commits are docs-only). There is no re-run of the wait for this gate: fixing it means
 bringing the branch forward, not retrying the same read.
+
+$($lap.Note)
 "@
-            exit 1
+                exit 1
+            }
+            Write-Host "  stale-CI check: 'main' has not moved since the certifying run -- certificate still holds." -ForegroundColor DarkGray
+            break
         }
-        Write-Host "  stale-CI check: 'main' has not moved since the certifying run -- certificate still holds." -ForegroundColor DarkGray
     }
 }
 
@@ -2240,9 +2607,16 @@ if ($null -ne $shipCycleText) {
     # shape as remote-ahead-lib.ps1's three reasons (#1676). Both land in the branch the comment above
     # already settled -- an unreadable body is NOT a finding -- so this widens what counts as
     # unreadable rather than adding a verdict.
+    #
+    # A THIRD REASON JOINED THEM UNDER #2081, and it is asked first: an unmeasurable exit code (#1931)
+    # satisfies `-ne 0`, so this printed "gh exited " -- the sentence built to send the reader to their
+    # network or token, with the number that would justify it missing out of it. Like the short read
+    # beside it, it is a fact about this run rather than about the PR, and it lands in the same branch.
     $lockUnread = ''
     $lockShortRead = $false
-    if ($lockView.ExitCode -ne 0) {
+    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+        $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read'
+    } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = "gh exited $($lockView.ExitCode)"
     } elseif ($lockView.ShortRead) {
         $lockUnread = 'gh exited 0 but its capture was still being written when it was read, so the body this run holds may be truncated'
@@ -2457,16 +2831,23 @@ PR that is already queued is a no-op gh reports on its own terms.
     # entry then sits on their trunk until check-unfolded-entry.ps1 reports it after the fact, with the
     # one line that could have said so having said the opposite.
     #
-    # A FILE TEST, NOT A WORKFLOW-RUN QUERY, deliberately. The question is whether this repo has put
+    # A TREE READ, NOT A WORKFLOW-RUN QUERY, deliberately. The question is whether this repo has put
     # SOMETHING in the fold's place, and the tree answers that for free; asking the API which workflows
     # exist would cost a call per ship to be marginally more literal about a file the repo owns. A repo
-    # that folds by some other route renames nothing and simply sees the second arm, which names the
-    # command rather than refusing -- the enqueue itself is not in doubt either way.
-    $foldRunner = Join-Path $repoRoot '.github\workflows\fold-on-merge.yml'
-    if (Test-Path -LiteralPath $foldRunner -PathType Leaf) {
-        Write-Host "  fold-on-merge.yml folds the entry off that push (#1493) -- not this session (#1506)." -ForegroundColor DarkGray
+    # that folds by some other route sees the second arm, which names the command rather than refusing --
+    # the enqueue itself is not in doubt either way.
+    #
+    # AND IT IS THE SAME READ STEP 0a MAKES, SINCE #2087, rather than a second one that can disagree with
+    # it. This was `Test-Path` on the literal name .github/workflows/fold-on-merge.yml, which answers a
+    # narrower question than the one being asked: a consumer may rename that runner, and adopt-dkj-policy
+    # places it under that name without promising it forever, so the name-only test reads "nothing folds
+    # here" on a repo that folds perfectly well. What cannot be renamed is the SCRIPT it has to call and
+    # the trigger it has to carry, which is what Get-CiFoldRecoveryVerdict matches on. The verdict is
+    # already in hand from step 0a, so this arm now costs nothing at all.
+    if ($ciFold.Recovered) {
+        Write-Host "  $ciFoldShown folds the entry off that push (#1493) -- not this session (#1506)." -ForegroundColor DarkGray
     } else {
-        Write-Host "  NOTHING HERE FOLDS THAT ENTRY. This repo has no .github/workflows/fold-on-merge.yml," -ForegroundColor Yellow
+        Write-Host "  NOTHING HERE FOLDS THAT ENTRY -- $($ciFold.Reason)," -ForegroundColor Yellow
         Write-Host "  and under a queue the fold is not this session's to make (#1506): the merge lands in a" -ForegroundColor Yellow
         Write-Host "  process this run never observes. The branch document will sit on 'main' unfolded, so the" -ForegroundColor Yellow
         Write-Host '  changelog never receives the entry and a release cut in that window misses the change.' -ForegroundColor Yellow
@@ -2639,42 +3020,86 @@ function Remove-ShipFoldWorktree {
 # them -- so it is hoisted here, above the first arm that can reach it.
 $foldScript = Join-Path $PSScriptRoot 'fold-changelog-entry.ps1'
 
-$foldTree = $null
-$headRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
-$headLine = @($headRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
-# AN UNREADABLE HEAD TAKES THE WORKTREE ROUTE, deliberately. It is the arm that leaves somebody else's
-# checkout alone, so being wrong about it costs a temporary directory, while being wrong the other way
-# costs the two outcomes above.
-$headNow = if ($headRead.ExitCode -eq 0 -and $headLine) { "$headLine".Trim() } else { '' }
-
-# AND SO DOES AN UNCLEAN TREE (issue #1753). The `git checkout main` below is the SAME checkout step 2b
-# declined before the CI wait -- "a checkout would take them to the trunk or fail on them" -- and until
-# this read it was made anyway, after the merge instead of before it, which is where that cost stops
-# being recoverable. Measured shipping PR #1752: one unrelated uncommitted path, dragged onto the trunk
-# by this line, and the ff-only merge below then failed on it. Merged, not folded.
+# THE FOLD THIS RUN DELIBERATELY DOES NOT MAKE (issue #2087). Step 0a decided this before anything was
+# pushed: another worktree holds the trunk, and a CI runner folds off every push to it, so this session
+# merges and hands the fold over. The decision is READ here rather than re-taken, for the reason every
+# other flag carried down from step 0 gives -- the worktree list was in hand there, this is after the
+# merge, and a decision remade on the far side of an irreversible act is a second chance to get it wrong.
 #
-# READ HERE RATHER THAN REUSED FROM STEP 2B, and the CI wait is why: that reading was taken before the
-# longest step in the run, and this arm turns on what the tree holds NOW. The verdict itself is
-# Get-FoldTreeDecision's, and tested there -- including why the trunk arm is exempt from the dirt test.
-$statusAtFold = Invoke-NativeCapture -FilePath 'git' -Arguments @('status', '--porcelain')
-# AN UNREADABLE STATUS COUNTS AS DIRTY, which is the opposite of step 2b's best-effort posture and is
-# deliberate: there, an unreadable answer costs a convenience (the tree stays on its branch); here it
-# would cost the fold. The worktree arm is correct whatever the tree holds, so guessing toward it is
-# free -- one temporary directory -- while guessing the other way is the half-state above.
-$statusAtFoldLines = if ($statusAtFold.ExitCode -eq 0) { @($statusAtFold.Output) } else { @('?? <unreadable>') }
-$foldDecision = Get-FoldTreeDecision -Head $headNow -ShipBranch $branch -TrunkBranch 'main' -StatusLines $statusAtFoldLines
+# IT IS THE QUEUE PATH'S OWN SHAPE. Under a queue this script has always merged and folded nothing, on
+# exactly this mechanism; all that differs here is why the trunk is out of reach. So nothing below needs
+# a new failure mode: the fold simply is not this run's, and step 5c's "already folded upstream" case
+# (#1792) is the same sentence arriving by the same runner a few seconds later.
+if ($foldDeferredToCi) {
+    Write-Host "ship-pr: not folding here -- $ciFoldShown folds off the merge's own push to 'main' (#2087)." -ForegroundColor Cyan
+    Write-Host "  'main' is held by $trunkHolder, so this checkout has no trunk to fold in and is not taking one." -ForegroundColor DarkGray
+    # THE PROSE NAME AND THE PASTEABLE ONE ARE NOT THE SAME STRING (issue #1594's distinction, one file
+    # type over). $ciFoldShown is stripped so it cannot repaint this terminal -- which means it is no
+    # longer the filename gh has to be given. Where the two agree, which is every name a repo actually
+    # has, the command is printed as-is; where they do not, printing it would hand over a line that
+    # cannot work, so the unfiltered command is printed instead and the name stays in the prose above.
+    if ($ciFoldShown -eq $ciFold.Workflow) {
+        Write-Host "  Watch it: gh run list --workflow=$ciFoldShown --limit 3" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  Watch it: gh run list --limit 5  (the workflow's name carries characters this console will not print)" -ForegroundColor DarkGray
+    }
+    # NOT A SILENT SKIP, AND THE DETECTOR IS WHY THIS IS SAFE TO SAY SO PLAINLY. If the runner does not
+    # fold -- it fails, its token has expired, somebody deleted it between step 0a and here --
+    # check-unfolded-entry.ps1 reports the leftover from a SessionStart hook in every consumer and from
+    # this repo's own push workflow. An unfolded trunk is a state that gets found; it is not one nobody
+    # is looking for, which is the condition step 0a's refusal was written under.
+    Write-Host "  If it does not land, check-unfolded-entry.ps1 reports it at the next session start." -ForegroundColor DarkGray
+}
 
-if ($foldDecision.InPlace) {
-    $co = Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', 'main')
-    $co.Output | ForEach-Object { Write-Host $_ }
-    # A BARE "git checkout main failed" USED TO BE THE WHOLE MESSAGE HERE, and this is the exact line the
-    # merge has already run past -- so it is the one place in the script where a one-line error is most
-    # expensive (issue #1069, measured on PR #1068). Step 0 turns the common cause into a refusal before
-    # anything is pushed; what reaches here is the narrow window it cannot cover, where another session
-    # took 'main' while step 3 watched CI. So say the same thing the worktree arm below says: the state
-    # the repo is actually in, and the two commands that finish the job by hand.
-    if ($co.ExitCode -ne 0) {
-        Write-Error @"
+$foldTree = $null
+# EVERYTHING BELOW IS THE LOCAL FOLD, AND A DEFERRED RUN MAKES NONE OF IT (issue #2087). The decision
+# was taken at step 0a, before anything was pushed: another worktree holds the trunk and a CI runner
+# folds off every push to it. There is no arm of the tree choice below that fits -- the in-place arm
+# needs a trunk this clone cannot give it, and the throwaway-worktree arm needs one git will not add
+# while another worktree holds the branch -- so the whole block is skipped rather than given a fourth
+# outcome that does nothing.
+#
+# $foldTree STAYS DECLARED ABOVE THIS GUARD, because step 5b reads it to decide whether this tree owes
+# the trunk back, and a deferred run has to answer that with 'no worktree was made' rather than with
+# an undefined variable. $foldStoodDown is initialised for step 5c's sake on the same grounds: it asks
+# whether this run LOST the fold race, and a run that never entered it did not.
+$foldStoodDown = $false
+if (-not $foldDeferredToCi) {
+    $headRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
+    $headLine = @($headRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
+    # AN UNREADABLE HEAD TAKES THE WORKTREE ROUTE, deliberately. It is the arm that leaves somebody else's
+    # checkout alone, so being wrong about it costs a temporary directory, while being wrong the other way
+    # costs the two outcomes above.
+    $headNow = if ($headRead.ExitCode -eq 0 -and $headLine) { "$headLine".Trim() } else { '' }
+
+    # AND SO DOES AN UNCLEAN TREE (issue #1753). The `git checkout main` below is the SAME checkout step 2b
+    # declined before the CI wait -- "a checkout would take them to the trunk or fail on them" -- and until
+    # this read it was made anyway, after the merge instead of before it, which is where that cost stops
+    # being recoverable. Measured shipping PR #1752: one unrelated uncommitted path, dragged onto the trunk
+    # by this line, and the ff-only merge below then failed on it. Merged, not folded.
+    #
+    # READ HERE RATHER THAN REUSED FROM STEP 2B, and the CI wait is why: that reading was taken before the
+    # longest step in the run, and this arm turns on what the tree holds NOW. The verdict itself is
+    # Get-FoldTreeDecision's, and tested there -- including why the trunk arm is exempt from the dirt test.
+    $statusAtFold = Invoke-NativeCapture -FilePath 'git' -Arguments @('status', '--porcelain')
+    # AN UNREADABLE STATUS COUNTS AS DIRTY, which is the opposite of step 2b's best-effort posture and is
+    # deliberate: there, an unreadable answer costs a convenience (the tree stays on its branch); here it
+    # would cost the fold. The worktree arm is correct whatever the tree holds, so guessing toward it is
+    # free -- one temporary directory -- while guessing the other way is the half-state above.
+    $statusAtFoldLines = if ($statusAtFold.ExitCode -eq 0) { @($statusAtFold.Output) } else { @('?? <unreadable>') }
+    $foldDecision = Get-FoldTreeDecision -Head $headNow -ShipBranch $branch -TrunkBranch 'main' -StatusLines $statusAtFoldLines
+
+    if ($foldDecision.InPlace) {
+        $co = Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', 'main')
+        $co.Output | ForEach-Object { Write-Host $_ }
+        # A BARE "git checkout main failed" USED TO BE THE WHOLE MESSAGE HERE, and this is the exact line the
+        # merge has already run past -- so it is the one place in the script where a one-line error is most
+        # expensive (issue #1069, measured on PR #1068). Step 0 turns the common cause into a refusal before
+        # anything is pushed; what reaches here is the narrow window it cannot cover, where another session
+        # took 'main' while step 3 watched CI. So say the same thing the worktree arm below says: the state
+        # the repo is actually in, and the two commands that finish the job by hand.
+        if ($co.ExitCode -ne 0) {
+            Write-Error @"
 PR #$pr IS MERGED but NOT folded -- this tree could not check out main.
 
 git's own reason is above. The usual one is that another worktree took main while the CI wait ran
@@ -2689,23 +3114,23 @@ release trips over it. Fold from the tree that HOLDS main -- fold-changelog-entr
 
 `git worktree list` names it.
 "@
-        exit 1
-    }
-} else {
-    $foldTree = New-ScratchPath -Label "ship-pr-fold-$pr"
-    # THE SENTENCE COMES FROM THE DECISION, not from this arm (issue #1753). There are three ways to
-    # reach it now -- HEAD moved, HEAD unreadable, the tree unclean -- and a hard-coded "this checkout
-    # moved while CI ran" is false on two of them. The composer owns its own wording, which is also what
-    # keeps #1623's strip on it: $headNow IS a second ref name, read off HEAD exactly as $branch was, so
-    # leaving it raw beside a stripped $branchShown would sanitise one half of this sentence and print
-    # the other. Get-FoldTreeDecision runs both names through Get-DisplayRef for that reason, and its
-    # suite asserts it. The raw $headNow stays raw here: it is compared, not printed.
-    Write-Host "ship-pr: $($foldDecision.Reason)" -ForegroundColor Yellow
-    Write-Host "  Folding in a throwaway worktree instead, so nothing here is touched: $foldTree" -ForegroundColor Yellow
-    $wtAdd = Invoke-NativeCapture -FilePath 'git' -Arguments @('worktree', 'add', $foldTree, 'main')
-    $wtAdd.Output | ForEach-Object { Write-Host $_ }
-    if ($wtAdd.ExitCode -ne 0) {
-        Write-Error @"
+            exit 1
+        }
+    } else {
+        $foldTree = New-ScratchPath -Label "ship-pr-fold-$pr"
+        # THE SENTENCE COMES FROM THE DECISION, not from this arm (issue #1753). There are three ways to
+        # reach it now -- HEAD moved, HEAD unreadable, the tree unclean -- and a hard-coded "this checkout
+        # moved while CI ran" is false on two of them. The composer owns its own wording, which is also what
+        # keeps #1623's strip on it: $headNow IS a second ref name, read off HEAD exactly as $branch was, so
+        # leaving it raw beside a stripped $branchShown would sanitise one half of this sentence and print
+        # the other. Get-FoldTreeDecision runs both names through Get-DisplayRef for that reason, and its
+        # suite asserts it. The raw $headNow stays raw here: it is compared, not printed.
+        Write-Host "ship-pr: $($foldDecision.Reason)" -ForegroundColor Yellow
+        Write-Host "  Folding in a throwaway worktree instead, so nothing here is touched: $foldTree" -ForegroundColor Yellow
+        $wtAdd = Invoke-NativeCapture -FilePath 'git' -Arguments @('worktree', 'add', $foldTree, 'main')
+        $wtAdd.Output | ForEach-Object { Write-Host $_ }
+        if ($wtAdd.ExitCode -ne 0) {
+            Write-Error @"
 PR #$pr IS MERGED but NOT folded -- no worktree on main could be added at $foldTree.
 
 git's own reason is above. The usual one is that another worktree already has main checked out
@@ -2717,44 +3142,44 @@ release trips over it. Fold by hand from any tree standing on an up-to-date main
   git checkout main; git fetch --prune origin; git merge --ff-only origin/main
   & "$foldScript" -Branch $($branchPaste.Token) -Push$branchPasteNoteBlock
 "@
-        exit 1
+            exit 1
+        }
+        # GIT'S OWN SPELLING OF THE PATH, not the one composed above. GetTempPath() can hand back an 8.3 short
+        # name (%TEMP% under a service account is what does it) while `git worktree list` reports the long one,
+        # and the two would then never compare equal -- so the take-down would report a worktree as still
+        # registered when git had in fact removed it. Resolved while the directory certainly exists, which is
+        # exactly the moment the take-down no longer can.
+        $resolved = Resolve-Path -LiteralPath $foldTree -ErrorAction SilentlyContinue
+        if ($resolved) { $foldTree = $resolved.ProviderPath }
     }
-    # GIT'S OWN SPELLING OF THE PATH, not the one composed above. GetTempPath() can hand back an 8.3 short
-    # name (%TEMP% under a service account is what does it) while `git worktree list` reports the long one,
-    # and the two would then never compare equal -- so the take-down would report a worktree as still
-    # registered when git had in fact removed it. Resolved while the directory certainly exists, which is
-    # exactly the moment the take-down no longer can.
-    $resolved = Resolve-Path -LiteralPath $foldTree -ErrorAction SilentlyContinue
-    if ($resolved) { $foldTree = $resolved.ProviderPath }
-}
-# The tree the rest of this step works in: this checkout, or the throwaway worktree. `-C` on every call
-# rather than two copies of the same three commands -- with $foldRoot equal to $repoRoot, which is where
-# this script already stands, it is a no-op and the in-place path runs exactly what it ran before.
-$foldRoot = if ($foldTree) { $foldTree } else { $repoRoot }
+    # The tree the rest of this step works in: this checkout, or the throwaway worktree. `-C` on every call
+    # rather than two copies of the same three commands -- with $foldRoot equal to $repoRoot, which is where
+    # this script already stands, it is a no-op and the in-place path runs exactly what it ran before.
+    $foldRoot = if ($foldTree) { $foldTree } else { $repoRoot }
 
-# Fetch + an EXPLICIT ff-only merge of origin/main, not a bare `git pull --ff-only` (lesson of
-# July 29, 2026, PR #257). The bare pull aborted with "Cannot fast-forward to multiple branches" on a
-# clean main immediately after a merge + prune -- and it aborts HERE, in the one gap between the merge
-# and the fold, which is the state nothing reports: the PR is merged, the entry file is still in the
-# root, and every gate stays green until a release trips over it. Git raises that error when handed more
-# than one ref to merge; naming origin/main explicitly hands it exactly one, so this step cannot reach
-# that failure mode, whereas a bare pull depends on whatever FETCH_HEAD happens to hold. Why the pull
-# got more than one ref was deliberately not guessed at -- see Derek's lens for that reasoning.
-#
-# BOUNDED (inbound #1179), and this is the worse of the two places to hang: the PR is already MERGED by
-# the time this line runs, so a stall here parks the tree in the one gap nothing reports -- merged
-# upstream, entry file still in the root -- and reports it as a ship still in progress. The lib's
-# non-interactive environment closes the measured cause; the bound is what turns any remaining stall
-# into a message naming this step.
+    # Fetch + an EXPLICIT ff-only merge of origin/main, not a bare `git pull --ff-only` (lesson of
+    # July 29, 2026, PR #257). The bare pull aborted with "Cannot fast-forward to multiple branches" on a
+    # clean main immediately after a merge + prune -- and it aborts HERE, in the one gap between the merge
+    # and the fold, which is the state nothing reports: the PR is merged, the entry file is still in the
+    # root, and every gate stays green until a release trips over it. Git raises that error when handed more
+    # than one ref to merge; naming origin/main explicitly hands it exactly one, so this step cannot reach
+    # that failure mode, whereas a bare pull depends on whatever FETCH_HEAD happens to hold. Why the pull
+    # got more than one ref was deliberately not guessed at -- see Derek's lens for that reasoning.
+    #
+    # BOUNDED (inbound #1179), and this is the worse of the two places to hang: the PR is already MERGED by
+    # the time this line runs, so a stall here parks the tree in the one gap nothing reports -- merged
+    # upstream, entry file still in the root -- and reports it as a ship still in progress. The lib's
+    # non-interactive environment closes the measured cause; the bound is what turns any remaining stall
+    # into a message naming this step.
 
-# THE STATE SENTENCE, WRITTEN ONCE FOR ALL THREE EXITS BELOW THIS LINE (issue #1753). Everything from
-# here on runs AFTER the merge, so every failure past it is the merged-but-unfolded half-state -- and
-# only one of the three said so. The timed-out fetch carried the full sentence; the plain fetch failure
-# said "git fetch of origin failed." and the ff-only failure "git merge --ff-only of origin/main
-# failed.", which is the arm that actually fired on PR #1752. Two adjacent arms of one block, and the
-# one a reader meets was the quiet one -- so the difference between them is now only the FIRST line,
-# which is the half that genuinely differs.
-$mergedNotFoldedNote = @"
+    # THE STATE SENTENCE, WRITTEN ONCE FOR ALL THREE EXITS BELOW THIS LINE (issue #1753). Everything from
+    # here on runs AFTER the merge, so every failure past it is the merged-but-unfolded half-state -- and
+    # only one of the three said so. The timed-out fetch carried the full sentence; the plain fetch failure
+    # said "git fetch of origin failed." and the ff-only failure "git merge --ff-only of origin/main
+    # failed.", which is the arm that actually fired on PR #1752. Two adjacent arms of one block, and the
+    # one a reader meets was the quiet one -- so the difference between them is now only the FIRST line,
+    # which is the half that genuinely differs.
+    $mergedNotFoldedNote = @"
 
 PR #$pr IS MERGED; only the fold is outstanding. The branch document is still on the trunk and every
 gate stays green until a release trips over it.
@@ -2765,118 +3190,131 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
   git checkout main; git fetch --prune origin; git merge --ff-only origin/main
   & "$foldScript" -Branch $($branchPaste.Token) -Push$branchPasteNoteBlock
 "@
-$fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'fetch', '--prune', 'origin') `
-                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-$fetch.Output | ForEach-Object { Write-Host $_ }
-if ($fetch.ExitCode -ne 0) {
-    Remove-ShipFoldWorktree -Path $foldTree
-    if ($fetch.TimedOut) {
-        Write-Error "git fetch of origin did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above. Fix the credential first.$mergedNotFoldedNote"
-    } else {
-        Write-Error "git fetch of origin failed.$mergedNotFoldedNote"
+    $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'fetch', '--prune', 'origin') `
+                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    $fetch.Output | ForEach-Object { Write-Host $_ }
+    # AN UNMEASURABLE EXIT CODE STOPS HERE TOO, AND SAYS SO AS ITSELF (issue #1931, audited under #2081).
+    # Stopping is the right direction -- the ff-only merge below has to be made against a ref this run can
+    # vouch for, and the merge has already landed, so the fold is the only thing at stake. What was wrong was
+    # the sentence: `$null -ne 0` is true, so this printed the flat "git fetch of origin failed" over a fetch
+    # that may have worked, and the reader was sent after a remote that was fine.
+    if (-not (Test-NativeExitMeasured -Capture $fetch)) {
+        Remove-ShipFoldWorktree -Path $foldTree
+        Write-Error "git fetch of origin ran but its exit code could not be measured (issue #1931), so this run cannot vouch for the ref the fold would be made against. Nothing is wrong with the remote as far as this knows -- run the fold again.$mergedNotFoldedNote"
+        exit 1
     }
-    exit 1
-}
+    if ($fetch.ExitCode -ne 0) {
+        Remove-ShipFoldWorktree -Path $foldTree
+        if ($fetch.TimedOut) {
+            Write-Error "git fetch of origin did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above. Fix the credential first.$mergedNotFoldedNote"
+        } else {
+            Write-Error "git fetch of origin failed.$mergedNotFoldedNote"
+        }
+        exit 1
+    }
 
-$ff = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'merge', '--ff-only', 'origin/main')
-$ff.Output | ForEach-Object { Write-Host $_ }
-if ($ff.ExitCode -ne 0) { Remove-ShipFoldWorktree -Path $foldTree; Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"; exit 1 }
+    $ff = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'merge', '--ff-only', 'origin/main')
+    $ff.Output | ForEach-Object { Write-Host $_ }
+    if ($ff.ExitCode -ne 0) { Remove-ShipFoldWorktree -Path $foldTree; Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"; exit 1 }
 
-# The fold, its commit AND its push are all fold-changelog-entry.ps1's job (-Push implies -Commit).
-# This used to be a fold followed by `git add -A` + commit + push right here, and that was a real
-# defect rather than a duplication: `git add -A` stages the WHOLE tree, so anything else modified or
-# already staged was swept into a commit that lands directly on main under a named exception to "never
-# commit directly". The fold script commits with an explicit pathspec -- CHANGELOG.md plus the entry
-# files it actually folded, and nothing else can enter, whatever is lying around. It also knows which
-# of those paths git tracks, so an entry that was never committed does not fail the pathspec after the
-# fold has already deleted it.
-#
-# -Push rather than a separate push here, for the reason that flag exists: a fold commit sitting
-# unpushed on main is its own silent half-state, and splitting the commit from the push across two
-# scripts is how you get one.
-#
-# THE FOLD STAYS ITS OWN COMMIT, AND THE REASON IS GIT'S RATHER THAN THIS REPO'S (Dave, August 10, 2026;
-# inbound #571). The obvious tidy-up is to fold INTO the merge -- `git merge --no-ff --no-commit <branch>`,
-# run the fold without -Commit so it writes to disk only, then one `git commit` -- so a PR leaves one
-# commit on main instead of a merge with a `fold: ...` sitting on top of it. The request is
-# well-founded on its symptom: measured on August 10, 2026 this repo held 398 merge commits (206 typed
-# 'merge: ', 192 older 'Merge pull request') against 410 folds, 394 of which sit directly on a merge in
-# first-parent order. They really are one movement written as two commits.
-#
-# IT IS DECLINED, AND THE DECIDING FACT WAS MEASURED RATHER THAN ARGUED. The pathspec above is not merely
-# weakened by that flow -- git refuses to express it at all:
-#
-#     $ git commit -m "merge: feat/x (#1)" -- CHANGELOG.md dkj-policy/feat-x.md
-#     fatal: cannot do a partial commit during a merge.
-#
-# The only commit git will make while MERGE_HEAD exists is a whole-index one, and in the same test it swept
-# an unrelated stray.txt straight into the merge commit -- the exact `git add -A` defect the pathspec was
-# introduced to remove. So the guarantee could not move, only be downgraded to a pre-flight "was the
-# tree clean before the merge?", which is checked earlier and on different state than the commit it
-# protects.
-#
-# TWO FURTHER COSTS, both real and neither decisive on its own. The merge date loses its provenance: a
-# local merge leaves the PR open, so mergedAt is empty and Format-EntryFoldFooter falls back to the clock
-# -- the source #469 deliberately moved away from. And the merge stops going through the button, so the
-# repo ruleset's required check no longer gates it; CLAUDE.md already records the release commit as the
-# least-gated commit in this workflow, and this would extend that to every PR.
-#
-# WHAT A CONSUMER SHOULD DO INSTEAD: nothing. Two commits per PR is the cost of a fold whose scope git
-# enforces, and the typed merge subject above already makes the pair scannable. A repo on squash that wants
-# the readable arc should switch to merge on its own merits and accept the trailing fold commit.
-Write-Host "ship-pr: folding the changelog entry..." -ForegroundColor Cyan
-# -RepoRoot ONLY on the worktree arm. The flag has been there since #101 and its own param comment names
-# this exact caller -- "a consumer that runs the fold from a temporary/detached worktree (e.g. a
-# ship-pr.ps1 that checks out main elsewhere)" -- so the fold script needed no change for this. It is not
-# passed on the in-place arm even though it would resolve to the same directory: that arm is meant to run
-# what it always ran, and "unchanged behavior below" is what the fold script promises when it is omitted.
-$foldArgs = @(
-    '-NoProfile', '-ExecutionPolicy', 'Bypass',
-    '-File', (Join-Path $PSScriptRoot 'fold-changelog-entry.ps1'),
-    '-Branch', $branch, '-Push')
-if ($foldTree) { $foldArgs += @('-RepoRoot', $foldTree) }
-# ONE CHAIN, ONE RECEIPT (issue #1884) -- the same reason as the open-pr spawn above.
-if (Test-FunctionDefined 'Push-CloseOutSuppression') { Push-CloseOutSuppression }
-# `| Out-Host` -- ordering (issue #2044); the reasoning is written out once, at the open-pr spawn in step 1.
-try { & powershell @foldArgs | Out-Host } finally { if (Test-FunctionDefined 'Pop-CloseOutSuppression') { Pop-CloseOutSuppression } }
-$foldExit = $LASTEXITCODE
+    # The fold, its commit AND its push are all fold-changelog-entry.ps1's job (-Push implies -Commit).
+    # This used to be a fold followed by `git add -A` + commit + push right here, and that was a real
+    # defect rather than a duplication: `git add -A` stages the WHOLE tree, so anything else modified or
+    # already staged was swept into a commit that lands directly on main under a named exception to "never
+    # commit directly". The fold script commits with an explicit pathspec -- CHANGELOG.md plus the entry
+    # files it actually folded, and nothing else can enter, whatever is lying around. It also knows which
+    # of those paths git tracks, so an entry that was never committed does not fail the pathspec after the
+    # fold has already deleted it.
+    #
+    # -Push rather than a separate push here, for the reason that flag exists: a fold commit sitting
+    # unpushed on main is its own silent half-state, and splitting the commit from the push across two
+    # scripts is how you get one.
+    #
+    # THE FOLD STAYS ITS OWN COMMIT, AND THE REASON IS GIT'S RATHER THAN THIS REPO'S (Dave, August 10, 2026;
+    # inbound #571). The obvious tidy-up is to fold INTO the merge -- `git merge --no-ff --no-commit <branch>`,
+    # run the fold without -Commit so it writes to disk only, then one `git commit` -- so a PR leaves one
+    # commit on main instead of a merge with a `fold: ...` sitting on top of it. The request is
+    # well-founded on its symptom: measured on August 10, 2026 this repo held 398 merge commits (206 typed
+    # 'merge: ', 192 older 'Merge pull request') against 410 folds, 394 of which sit directly on a merge in
+    # first-parent order. They really are one movement written as two commits.
+    #
+    # IT IS DECLINED, AND THE DECIDING FACT WAS MEASURED RATHER THAN ARGUED. The pathspec above is not merely
+    # weakened by that flow -- git refuses to express it at all:
+    #
+    #     $ git commit -m "merge: feat/x (#1)" -- CHANGELOG.md dkj-policy/feat-x.md
+    #     fatal: cannot do a partial commit during a merge.
+    #
+    # The only commit git will make while MERGE_HEAD exists is a whole-index one, and in the same test it swept
+    # an unrelated stray.txt straight into the merge commit -- the exact `git add -A` defect the pathspec was
+    # introduced to remove. So the guarantee could not move, only be downgraded to a pre-flight "was the
+    # tree clean before the merge?", which is checked earlier and on different state than the commit it
+    # protects.
+    #
+    # TWO FURTHER COSTS, both real and neither decisive on its own. The merge date loses its provenance: a
+    # local merge leaves the PR open, so mergedAt is empty and Format-EntryFoldFooter falls back to the clock
+    # -- the source #469 deliberately moved away from. And the merge stops going through the button, so the
+    # repo ruleset's required check no longer gates it; CLAUDE.md already records the release commit as the
+    # least-gated commit in this workflow, and this would extend that to every PR.
+    #
+    # WHAT A CONSUMER SHOULD DO INSTEAD: nothing. Two commits per PR is the cost of a fold whose scope git
+    # enforces, and the typed merge subject above already makes the pair scannable. A repo on squash that wants
+    # the readable arc should switch to merge on its own merits and accept the trailing fold commit.
+    Write-Host "ship-pr: folding the changelog entry..." -ForegroundColor Cyan
+    # -RepoRoot ONLY on the worktree arm. The flag has been there since #101 and its own param comment names
+    # this exact caller -- "a consumer that runs the fold from a temporary/detached worktree (e.g. a
+    # ship-pr.ps1 that checks out main elsewhere)" -- so the fold script needed no change for this. It is not
+    # passed on the in-place arm even though it would resolve to the same directory: that arm is meant to run
+    # what it always ran, and "unchanged behavior below" is what the fold script promises when it is omitted.
+    $foldArgs = @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', (Join-Path $PSScriptRoot 'fold-changelog-entry.ps1'),
+        '-Branch', $branch, '-Push')
+    if ($foldTree) { $foldArgs += @('-RepoRoot', $foldTree) }
+    # ONE CHAIN, ONE RECEIPT (issue #1884) -- the same reason as the open-pr spawn above.
+    if (Test-FunctionDefined 'Push-CloseOutSuppression') { Push-CloseOutSuppression }
+    # `| Out-Host` -- ordering (issue #2044); the reasoning is written out once, at the open-pr spawn in step 1.
+    try { & powershell @foldArgs | Out-Host } finally { if (Test-FunctionDefined 'Pop-CloseOutSuppression') { Pop-CloseOutSuppression } }
+    $foldExit = $LASTEXITCODE
 
-# AND IT COMES DOWN WHETHER THE FOLD SUCCEEDED OR NOT, before the exit code is judged -- the last of the
-# three paths the function above exists for.
-Remove-ShipFoldWorktree -Path $foldTree
+    # AND IT COMES DOWN WHETHER THE FOLD SUCCEEDED OR NOT, before the exit code is judged -- the last of the
+    # three paths the function above exists for.
+    Remove-ShipFoldWorktree -Path $foldTree
 
-# --- THE FOLD CAN BE LOST TO A RACE AND HAVE HAPPENED ANYWAY (issue #1792) ------------------------
-#
-# THE RACE. fold-on-merge.yml runs on EVERY push to main, so the merge one line above triggers it -- and
-# with the merge queue retired (#1720) that job and this step both fold on the ordinary path. Whichever
-# gets its push in second is refused. When the loser is this session the fold script commits on the LOCAL
-# trunk, cannot push, establishes that the entry is already upstream with an identical body, and stops.
-#
-# EXIT 3 IS THAT VERDICT AND NOTHING ELSE (see the fold script's own EXIT CODES block). It is not "the
-# fold failed": it is "the fold happened, somebody else made it". So the SHIP succeeded -- merged, folded,
-# pushed -- and this run carries on to step 5b, step 6 and the report, exactly as on a clean fold.
-#
-# WHY THE OLD `-ne 0` WAS EXPENSIVE OUT OF PROPORTION TO ITS SIZE. Measured shipping PR #1789 on
-# 2026-09-10: the two fold commits had IDENTICAL TREES and origin/main was correct, so nothing was at
-# stake in the content -- and yet this line reported a hard failure and left the session's own main
-# diverged 1/1, a state this repo's rules reserve every obvious way out of (reset --hard, a rebase on a
-# shared branch) to Dave. A correct ship must not end by handing the operator a trunk they may not fix.
-#
-# IT REPORTS THE LEFTOVER RATHER THAN CLEARING IT, and that boundary is the fold script's, kept here for
-# the same reason: every route off a trunk is a history operation the constitution reserves to a person.
-# What was missing was never the power to rewrite, it was the sentence saying WHICH two commands to run --
-# so those are printed, after step 5b, once this tree has finished moving (a lane hands the trunk back
-# there, and that changes which of the two realignments is the correct one).
-$foldStoodDown = $false
-if ($foldExit -eq 3) {
-    $foldStoodDown = $true
-    Write-Host "ship-pr: this session LOST the fold race -- the entry was already on 'main' when the push went out." -ForegroundColor Yellow
-    Write-Host "  Not a failed ship: PR #$pr is merged AND folded (by fold-on-merge.yml, or by another device), and the fold script's" -ForegroundColor DarkGray
-    Write-Host "  lines above prove it -- the entry is upstream once, with a body identical to the one this run wrote." -ForegroundColor DarkGray
-    Write-Host "  What is left is local only: a redundant fold commit on this checkout's 'main'. Reported at the end of the run." -ForegroundColor DarkGray
-} elseif ($foldExit -ne 0) {
-    Write-Error "fold-changelog-entry failed -- the fold is NOT committed or NOT pushed. Its own output above says which; do not re-run the fold if it already removed the entry file."
-    exit 1
+    # --- THE FOLD CAN BE LOST TO A RACE AND HAVE HAPPENED ANYWAY (issue #1792) ------------------------
+    #
+    # THE RACE. fold-on-merge.yml runs on EVERY push to main, so the merge one line above triggers it -- and
+    # with the merge queue retired (#1720) that job and this step both fold on the ordinary path. Whichever
+    # gets its push in second is refused. When the loser is this session the fold script commits on the LOCAL
+    # trunk, cannot push, establishes that the entry is already upstream with an identical body, and stops.
+    #
+    # EXIT 3 IS THAT VERDICT AND NOTHING ELSE (see the fold script's own EXIT CODES block). It is not "the
+    # fold failed": it is "the fold happened, somebody else made it". So the SHIP succeeded -- merged, folded,
+    # pushed -- and this run carries on to step 5b, step 6 and the report, exactly as on a clean fold.
+    #
+    # WHY THE OLD `-ne 0` WAS EXPENSIVE OUT OF PROPORTION TO ITS SIZE. Measured shipping PR #1789 on
+    # 2026-09-10: the two fold commits had IDENTICAL TREES and origin/main was correct, so nothing was at
+    # stake in the content -- and yet this line reported a hard failure and left the session's own main
+    # diverged 1/1, a state this repo's rules reserve every obvious way out of (reset --hard, a rebase on a
+    # shared branch) to Dave. A correct ship must not end by handing the operator a trunk they may not fix.
+    #
+    # IT REPORTS THE LEFTOVER RATHER THAN CLEARING IT, and that boundary is the fold script's, kept here for
+    # the same reason: every route off a trunk is a history operation the constitution reserves to a person.
+    # What was missing was never the power to rewrite, it was the sentence saying WHICH two commands to run --
+    # so those are printed, after step 5b, once this tree has finished moving (a lane hands the trunk back
+    # there, and that changes which of the two realignments is the correct one).
+    #
+    # INITIALISED ABOVE THE GUARD RATHER THAN HERE (issue #2087), because step 5c reads it on a path that
+    # never enters this block: a run that handed the fold to CI made no fold and therefore lost no race.
+    if ($foldExit -eq 3) {
+        $foldStoodDown = $true
+        Write-Host "ship-pr: this session LOST the fold race -- the entry was already on 'main' when the push went out." -ForegroundColor Yellow
+        Write-Host "  Not a failed ship: PR #$pr is merged AND folded (by fold-on-merge.yml, or by another device), and the fold script's" -ForegroundColor DarkGray
+        Write-Host "  lines above prove it -- the entry is upstream once, with a body identical to the one this run wrote." -ForegroundColor DarkGray
+        Write-Host "  What is left is local only: a redundant fold commit on this checkout's 'main'. Reported at the end of the run." -ForegroundColor DarkGray
+    } elseif ($foldExit -ne 0) {
+        Write-Error "fold-changelog-entry failed -- the fold is NOT committed or NOT pushed. Its own output above says which; do not re-run the fold if it already removed the entry file."
+        exit 1
+    }
 }
 
 # --- Step 5b: give the trunk back, if this is not the primary checkout (issue #1069) ---------------
@@ -2899,7 +3337,12 @@ if ($foldExit -eq 3) {
 # fallback and not the preference: it always works (nothing can hold a commit) but it hands back a tree
 # whose HEAD reads as nothing in particular. Either way the lock is released, which is the part that
 # matters to every other worktree on the machine.
-if (-not $foldTree -and -not $shipTreeIsPrimary) {
+# AND A DEFERRED RUN HAS NOTHING TO HAND BACK (issue #2087). This block exists because the in-place arm
+# leaves the tree standing on the trunk; a run that handed the fold to CI never took the trunk, and step 2b
+# had already declined to move for the same reason -- another worktree holds it. Without this clause the
+# condition is satisfied ($foldTree is $null, the tree may be a lane) and the run announces that it is
+# "releasing 'main'" while checking out the branch it never left: a no-op under a sentence that is false.
+if (-not $foldDeferredToCi -and -not $foldTree -and -not $shipTreeIsPrimary) {
     Write-Host "ship-pr: this is not the primary checkout -- releasing 'main' so other worktrees can use it." -ForegroundColor Cyan
     $back = Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', $branch)
     if ($back.ExitCode -ne 0) {
@@ -3078,19 +3521,17 @@ if (-not $watchNarrowed) {
 
     # Best-effort by construction, like every diagnostic in this file: a read that throws costs this
     # report and never the ship, which has already landed.
-    $tailFactsJson = ''
-    $tailRequiredJson = ''
-    try {
-        $tailFacts = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--json', 'name,bucket,state,startedAt,completedAt,link', '--repo', $repo)
-        if ($tailFacts.ExitCode -eq 0) { $tailFactsJson = $tailFacts.Output -join "`n" }
-        $tailRequired = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
-            'pr', 'checks', "$pr", '--required', '--json', 'name,bucket,state', '--repo', $repo)
-        if ($tailRequired.ExitCode -eq 0) { $tailRequiredJson = $tailRequired.Output -join "`n" }
-    } catch {
-        $tailFactsJson = ''
-        $tailRequiredJson = ''
-    }
+    # THE THIRD HAND-WRITTEN COPY OF THIS PAYLOAD, RETIRED WITH THE OTHER TWO (issue #2087). It asked for
+    # a NARROWER `--required` list than the pair at step 3 -- name,bucket,state where that one also takes
+    # startedAt and completedAt -- so Get-CheckFactsNow's answer is a SUPERSET of what this report reads,
+    # and the two extra fields cost nothing on a call this step was already making. What it buys is that
+    # the field list every verdict in this file is made from is written out once: a reader who needs to
+    # know what ship-pr asks gh for has one place to look, and a field added for one caller cannot go
+    # missing for another. Same best-effort posture as before -- the function swallows its own read
+    # failure and returns empty, which is exactly what this block's try/catch did.
+    $tailAllFacts = Get-CheckFactsNow -Pr "$pr" -Repo $repo
+    $tailFactsJson = $tailAllFacts.Checks
+    $tailRequiredJson = $tailAllFacts.Required
 
     # THE WAIT REPORTED IS THIS STEP'S OWN, not step 3's. Handing step 3's seconds here would double
     # count the required wait; handing this step's says what the tail actually cost after the merge,
@@ -3121,7 +3562,13 @@ if (-not $watchNarrowed) {
     # story -- which means a timeout arrives here as a non-zero exit, and without this clause the run
     # would announce that a check FAILED because a report ran out of time. TimedOut is the field to
     # read when certainty is needed, exactly as native-capture-lib says.
-    if ($tailChecks.ExitCode -ne 0 -and -not $tailChecks.TimedOut) {
+    #
+    # AND AN UNMEASURABLE EXIT CODE IS EXCLUDED ON THE SAME REASONING (issue #1931, audited under #2081).
+    # `$null -ne 0` is true and TimedOut is $false there, so this arm fired and announced that a check had
+    # FAILED after the merge -- a verdict about somebody's CI, composed from a code this run never read.
+    # It is the same overclaim the TimedOut clause beside it exists to prevent, one field over, and it
+    # lands in the same place: neither arm speaks, and the third one says why.
+    if ($tailChecks.ExitCode -ne 0 -and -not $tailChecks.TimedOut -and (Test-NativeExitMeasured -Capture $tailChecks)) {
         $tailVerdict = $null
         try { $tailVerdict = Get-MergeBlockVerdict -RequiredChecksJson $tailRequiredJson -ChecksJson $tailFactsJson } catch { $tailVerdict = $null }
         if ($tailVerdict -and -not $tailVerdict.Blocked) {
@@ -3138,6 +3585,12 @@ if (-not $watchNarrowed) {
         if ($tailVerdict) { $tailFailedOther = @($tailVerdict.FailedOther) }
         Write-FailedCheckReasons -ChecksJson $tailFactsJson -Repo $repo -OnlyNames $tailFailedOther
         Write-Host "  Nothing here fixes it, and nothing here needs undoing: the ship is complete." -ForegroundColor Yellow
+    } elseif (-not (Test-NativeExitMeasured -Capture $tailChecks)) {
+        # THE THIRD ARM #2081 ADDED, and it exists because the green line below would otherwise claim it.
+        # Excluding the unmeasurable code from the failure arm above is only half a repair: with no arm of
+        # its own it falls into "Every check is green", which is the same overclaim pointing the other way.
+        Write-Host "  gh pr checks ran with an exit code that could not be measured (issue #1931), so the NOT-required checks were NOT judged -- read them yourself: gh pr checks $pr --repo $repo" -ForegroundColor DarkYellow
+        Write-Host "  PR #$pr is merged and folded regardless; this is a report, not the ship." -ForegroundColor DarkYellow
     } elseif (-not $tailChecks.TimedOut) {
         Write-Host "  Every check on PR #$pr is green." -ForegroundColor Green
     }

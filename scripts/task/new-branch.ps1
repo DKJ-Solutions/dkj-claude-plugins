@@ -44,6 +44,14 @@
     offline. It is measured only where a base is being chosen -- see the resume rule below, which settles
     that question first.
 
+    AND THE BASE IS NAMED WHERE IT IS ANOTHER BRANCH'S TIP (issue #2074, September 17, 2026). That count
+    reads zero for a base cut from the trunk AND for one cut from a branch that has just merged the trunk,
+    and both were told "Base is current with origin/<trunk>" -- so an unintended stack was silent while
+    every downstream guard read the branch and found it fine. Where HEAD is a branch other than the trunk
+    and carries commits origin/<trunk> does not, the run now says which branch and how many, twice, on the
+    same schedule as the stale-base note. A WARNING and never a refusal: stacking on purpose is on the
+    happy path, and the lane chooses its base seconds before delegating here. See the block itself.
+
     WHY THIS REFUSES NOW, WHERE #1046 DELIBERATELY DID NOT. That report warned as its own first step and
     named the stronger option, holding back because this file reaches consumers by plugin UPDATE rather
     than by choice -- a refusal nobody asked for, on the script they are told to re-run to RESUME a
@@ -667,6 +675,81 @@ if ($branchExists -and $remoteRef.ExitCode -eq 0) {
 # costs one process and buys one definition of the measurement. Nothing a reader sees moves, which is what
 # the wording asserts in new-branch.tests.ps1 hold.
 if ($gap.Measured -and -not $resuming) {
+    # --- AND WHAT IS THAT BASE? NAMED WHEN IT IS ANOTHER BRANCH'S TIP (issue #2074) ------------------
+    #
+    # ZERO IS TWO DIFFERENT FACTS AND THE LINE BELOW SAYS ONLY ONE OF THEM. HEAD..origin/<trunk> asks
+    # "what is my base MISSING", which is the right question and is deliberately not a trunk-versus-origin
+    # comparison -- a branch stacked on another branch gets the gap it actually carries rather than a
+    # reading about a trunk it was never cut from. But a branch cut from the trunk and a branch cut from
+    # somebody else's branch that has just merged the trunk BOTH read zero, and both were told 'Base is
+    # current with origin/<trunk>'. Nothing on screen said the base was another branch's tip.
+    #
+    # MEASURED, September 17, 2026 (#2074): two sessions sharing one working copy. The other had checked
+    # out fix/2056-already-done-three-state and merged origin/main into it minutes earlier; this script
+    # printed 'Base is current with origin/main' and cut from that tip, and the new branch carried five of
+    # that branch's commits -- 22 files, 1257 insertions -- under a two-line repair. Every downstream guard
+    # reads the BRANCH and the branch was fine: the lint gate, all suites and CI went green on it, and a
+    # reviewer reading the diff is what found it. The session-start `git status` had said main, clean,
+    # which is why nothing looked wrong -- the other session moved the checkout after that snapshot.
+    #
+    # THE SECOND NUMBER IS THE ONE THAT MATTERS, and it is what keeps the ordinary run silent.
+    # origin/<trunk>..HEAD is 0 for a base that really is the trunk, and 0 for a branch freshly cut and not
+    # yet committed on -- where nothing would travel either. So this says nothing at all unless the base
+    # carries commits the trunk does not, which is exactly the set that would ride into the pull request.
+    #
+    # DETACHED IS NOT A SUBJECT, deliberately: worktree-lane.ps1 bases its worktree detached at
+    # origin/<trunk> and then delegates here, so reading a detached HEAD as a stack would warn about the one
+    # route that already removes this hazard. A HEAD on the trunk is excluded by NAME rather than by its
+    # count, so this workflow's own direct-on-trunk commits -- the fold, the release -- stay silent too.
+    #
+    # IT WARNS AND NEVER REFUSES. The stale-base check's argument does not carry over: it refuses a base
+    # nobody wants, while stacking on purpose is something people do deliberately -- so a refusal here would
+    # sit across a route rather than across a mistake. What was missing was never a gate but the SIGNAL that
+    # you are on that route, which is the remote-ahead note's own reason, one hazard over.
+    #
+    # NOT THE STALE-BASE CHECK ONE ARGUMENT OVER. That one fires on a base BEHIND the trunk, and this base
+    # was behind nothing. The two are independent, which is why this sits ABOVE the gap chain and prints on
+    # the refusing path as well: a refused run should still say what it was standing on.
+    #
+    # SEEDED, LIKE EVERY OTHER NOTE THIS SCRIPT THREADS THROUGH TO A LATE REPEAT ($staleBaseNote,
+    # $remoteAheadNote, $alreadyDoneNote). An unset variable reads as $null and is falsy, so the two later
+    # `if ($baseStackNote)` reads work either way under the defaults -- but a caller with Set-StrictMode in
+    # their $PROFILE turns the second of them into a throw, and that one is among the last lines of the run,
+    # after the checkout, the commit and the push. Same hazard this file already names one screen up, where
+    # an absent constant is read through Get-Variable rather than bare for exactly that reason.
+    $baseStackNote = ''
+    $headBranch = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'symbolic-ref', '--quiet', '--short', 'HEAD') -DiscardStderr
+    $baseBranch = if ($headBranch.ExitCode -eq 0) { ((@($headBranch.Output) -join '')).Trim() } else { '' }
+    if ($baseBranch -and $baseBranch -ne $trunk) {
+        # AN UNREADABLE COUNT DEGRADES TO SILENCE, DELIBERATELY, and that is the one place this note is
+        # weaker than the gap above it -- which says 'Base not compared' rather than nothing. The
+        # difference is what the two could not answer: the gap's question is gated on a ref that a clone
+        # may genuinely not have, so "could not ask" is a real and common state worth a line. This one
+        # runs only where that ref DOES exist, against a HEAD this process is standing on, so a failure
+        # here is git itself misbehaving rather than a repo shape. A third sentence for a state that does
+        # not occur is noise on every run that reads it, and this check's whole cost argument is silence.
+        $aheadCapture = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-list', '--count', "refs/remotes/origin/$trunk..HEAD") -DiscardStderr
+        $baseAhead = -1
+        if ($aheadCapture.ExitCode -eq 0) {
+            $rawAhead = ((@($aheadCapture.Output) -join '')).Trim()
+            if ($rawAhead -match '^\d+$') { $baseAhead = [int]$rawAhead }
+        }
+        if ($baseAhead -gt 0) {
+            $commitWord = if ($baseAhead -eq 1) { 'commit' } else { 'commits' }
+            # A BRANCH NAME OFF A REF IS SOMEBODY ELSE'S TEXT, and the base is the clearest case of it in
+            # this file: it is whatever HEAD was pointing at, which on the measured run was another
+            # session's branch. Get-DisplayRef is the shared strip for exactly that (#1623), and both names
+            # go through it -- see this script's own skill page for the inventory of consoles this workflow
+            # prints such text to.
+            $baseStackNote = "'$(Get-DisplayRef -Ref $Name)' is being cut from '$(Get-DisplayRef -Ref $baseBranch)', which is not $trunk -- that base carries $baseAhead $commitWord origin/$trunk does not."
+            Write-Warning $baseStackNote
+            Write-Host "  Stacking on purpose is allowed and nothing is refused here. But a checkout another session moved, or a" -ForegroundColor Yellow
+            Write-Host "  branch you forgot you were standing on, looks exactly like a deliberate stack from here -- and those" -ForegroundColor Yellow
+            Write-Host "  $baseAhead $commitWord travel into this branch, into its diff and into its pull request." -ForegroundColor Yellow
+            Write-Host "  Cut from the trunk instead: git checkout $trunk, then git pull --ff-only, then run this command again." -ForegroundColor Yellow
+        }
+    }
+
     if ($gap.Behind -gt 0) {
         $against = if ($gap.Fresh) { "origin/$trunk" } else { "the origin/$trunk this repo last fetched (git fetch failed -- the real gap may be larger)" }
         $staleBaseNote = "'$Name' is based on a commit $($gap.Behind) behind $against."
@@ -707,7 +790,12 @@ if ($gap.Measured -and -not $resuming) {
         }
         Write-Host "  -SkipStaleBase given -- cutting from that base anyway." -ForegroundColor DarkGray
     } elseif ($gap.Fresh) {
-        Write-Host "Base is current with origin/$trunk." -ForegroundColor DarkGray
+        # AND THIS LINE CARRIES THE BASE TOO WHEN THERE IS ONE TO CARRY (#2074). The warning above is the
+        # loud copy and the one that repeats; this is the line a reader scans for the base question, and
+        # left bare it answers "is the base stale" while reading as "the base is the trunk". Both
+        # sentences were true on the measured run and only one of them was the question.
+        $baseLabel = if ($baseStackNote) { " -- but that base is '$(Get-DisplayRef -Ref $baseBranch)', not $trunk" } else { '' }
+        Write-Host "Base is current with origin/$trunk$baseLabel." -ForegroundColor DarkGray
     }
 } elseif ($resuming -and $gap.Measured) {
     # GATED ON THE MEASUREMENT AS WELL, so this cannot print a SECOND 'Base not compared' underneath the
@@ -778,8 +866,13 @@ if ($resolveList.Count -gt 0) {
         # -- so the already-done warning #1409 exists to raise would silently not fire. Nothing else here
         # could tell the two apart: gh prints '[]' when it finds nothing, so at THIS call an empty capture
         # has no legitimate reading at all. Same repair as open-pr.ps1 makes on the same search.
+        # AN UNMEASURABLE EXIT CODE IS THE THIRD READING (issue #1931, audited under #2081), asked ahead
+        # of the number because `$null -ne 0` is true and the warning otherwise came out as "(exit )".
+        # Same repair as open-pr.ps1 makes on the same search, for the same reason.
         $searchUnread = ''
-        if ($prSearch.ExitCode -ne 0) {
+        if (-not (Test-NativeExitMeasured -Capture $prSearch)) {
+            $searchUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the search; a re-run normally settles it'
+        } elseif ($prSearch.ExitCode -ne 0) {
             $searchUnread = "exit $($prSearch.ExitCode)"
         } elseif ($prSearch.ShortRead) {
             $searchUnread = 'gh exited 0 but its capture was still being written when it was read, so the result may be truncated'
@@ -1203,12 +1296,29 @@ if ($alreadyDoneNote) {
     Write-Warning $alreadyDoneNote
 }
 
-# THE REPEAT, same reason and same shape as the two above (issue #1439), and DELIBERATELY THE LAST OF
-# THE THREE. The other two are backed by something else -- the stale-base note is only reachable when a
+# THE REPEAT, same reason and same shape as the two above (issue #2074): the base is measured before HEAD
+# moves, and everything since -- the checkout, the scaffold, its tier rubric, the commit, the push --
+# prints in between and buries it. It matters more here than in any of the three, because the case this
+# was built for is one where NOTHING else looks wrong: the branch is valid, the base is not stale, the
+# issue is open and unclaimed, and every gate downstream goes green on the stack. These two lines are the
+# only place the run says whose commits it is carrying.
+#
+# NOT LAST, THOUGH. The remote-ahead repeat keeps that position for the reason stated below it, and this
+# one is read at the same depth either way -- both are inside the last four lines of the run.
+if ($baseStackNote) {
+    Write-Warning "$baseStackNote Read that diff before you build on it, or cut again from $trunk."
+}
+
+# THE REPEAT, same reason and same shape as the three above (issue #1439), and DELIBERATELY THE LAST OF
+# THE FOUR. Two of the others are backed by something else -- the stale-base note is only reachable when a
 # refusal was overridden on purpose, and the already-done note names an issue somebody can go and read.
 # This one never refuses and has no issue behind it, so these two lines are the entire record that the
 # branch under your feet carries work you have not seen. Everything since the first copy -- the
 # checkout, the scaffold, the tier rubric, the commit, the push -- prints in between and buries it.
+#
+# THE BASE-STACK NOTE ABOVE IS UNBACKED IN THE SAME WAY (#2074) and sits immediately before this one for
+# that reason: the two say the same kind of thing about two different refs -- the branch you are resuming
+# and the base you are cutting from -- and neither has anything else in the run standing behind it.
 Write-RemoteAheadRepeat
 
 exit 0

@@ -913,7 +913,57 @@ try {
     Assert-Says $rU.Out 'did NOT check whether another session is on' 'mid-run budget: and the look after it is reported as skipped, not as empty'
     Assert-True (-not (Test-Says -Text $rU.Out -Phrase 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH')) 'mid-run budget: no collision report is invented for a look that did not happen'
 
-    # --- (v) STRUCTURAL: an unmeasurable exit code is consulted, not folded in (#2068) --------------
+    # --- (v) THE LOOK WAS BOUGHT AND THE FETCH FAILED ----------------------------------------------
+    # (u) ABOVE PROVES THE SKIP IS SAID; THIS ONE PROVES THE FAILURE IS (issue #2083). They are different
+    # losses of the same answer: (u) never spends the round trip, this one spends it and gets nothing
+    # back. Until this case the second was reported as the FIRST kind of nothing -- Get-BranchCollisionNote
+    # returned '', which is its own word for "no collision", so a network blip, an expired credential or a
+    # stale ref made the workflow's earliest collision detector answer all-clear on the one path where no
+    # operator is watching.
+    #
+    # THE FIXTURE PUTS A REAL COLLISION ON THE OTHER SIDE AND THEN BLINDS THE RUN, which is the whole
+    # point: origin genuinely carries another session's commit, so a run that says nothing is not merely
+    # quiet -- it is wrong, and the assert below would have passed on an empty origin either way. The
+    # remote URL is repointed at a path that is not a repository AFTER the peer has pushed, so `git fetch
+    # origin <branch>` exits 128 while every step before it ran against a working origin.
+    #
+    # AND IT ASSERTS THE SILENCE IS GONE IN BOTH DIRECTIONS: the line is printed, and no collision report
+    # is invented from a look that produced no evidence. The exit code is asserted as a CLAUSE rather than
+    # as the number 128, which is git's to change.
+    Write-Host "park-cycle.ps1 -- a fetch that failed is said out loud, not reported as 'nothing to report'" -ForegroundColor Cyan
+    $fixV = New-Fixture -Label 'v' -GhAnswer 'pr'
+    Switch-ToBranch -Dir $fixV -Name 'fix/blind-fetch-v1'
+    $relV = New-CycleDocument -Dir $fixV -Branch 'fix/blind-fetch-v1'
+    $peerTipV = New-PeerDivergence -Dir $fixV -Branch 'fix/blind-fetch-v1' -Rel $relV `
+                                   -PeerSubject 'fix: the other session got here first'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Invoke-FixtureGitIn $fixV remote set-url origin (Join-Path $fixV '_no_such_remote.git')
+    } finally { $ErrorActionPreference = $prevEap }
+
+    $rV = Invoke-ParkCycle -Dir $fixV
+    Assert-Equal 0 $rV.Code 'failed fetch: exit 0 -- a look that could not answer costs the note, never the run'
+    Assert-Says $rV.Out 'PR #42' 'failed fetch: the run got as far as the bound, so the look really was bought'
+    Assert-Says $rV.Out 'did NOT read who is on the far side' 'failed fetch: and the failure is reported as a look that did not happen'
+    Assert-Says $rV.Out 'NOT an all-clear' 'failed fetch: named as such, because '''' from the reader is what used to be read as one'
+    Assert-Says $rV.Out 'git exit code' 'failed fetch: with the code it did read, since there was one to name'
+    Assert-True (-not (Test-Says -Text $rV.Out -Phrase 'ANOTHER SESSION OR DEVICE IS WORKING THIS BRANCH')) 'failed fetch: and no collision is claimed -- a failed fetch is no evidence for one'
+    Assert-Equal 2 (Get-CommitCount -Dir $fixV) 'failed fetch: nothing committed -- the DEPLOY lock still refuses the write'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Assert-Equal $peerTipV ((((& git -C "$fixV.git" rev-parse 'refs/heads/fix/blind-fetch-v1') | Out-String).Trim())) 'failed fetch: origin still carries the other session tip -- nothing was pushed over it'
+    } finally { $ErrorActionPreference = $prevEap }
+
+    # AND IT SURVIVES -Quiet, which is the only run that matters here: -Quiet is what cycle-autopark
+    # passes, so a line suppressed by it is a line nobody ever reads. Same reasoning as the collision
+    # report's own -Quiet assert -- a look that did not happen is not "a turn that did nothing".
+    $rV2 = Invoke-ParkCycle -Dir $fixV -Quiet
+    Assert-Equal 0 $rV2.Code 'failed fetch under -Quiet: exit 0'
+    Assert-Says $rV2.Out 'did NOT read who is on the far side' 'failed fetch under -Quiet: the line still reaches the Stop hook''s reader'
+
+    # --- (w) STRUCTURAL: an unmeasurable exit code is consulted, not folded in (#2068) --------------
     # THIS ONE IS STRUCTURAL BECAUSE THE STATE CANNOT BE FIXTURED, AND SAYING SO IS THE POINT.
     # ExitCodeUnknown is a race inside System.Diagnostics.Process -- .ExitCode handing back PowerShell's
     # own $null after a CLEAN exit (#1931) -- so no gh shim can produce it: a shim controls what the child

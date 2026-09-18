@@ -140,6 +140,50 @@ Three consequences, in descending order of how easily they are missed:
   once. Read it from there rather than pasting a number into a handover, and a store that republishes
   under a new theme id keeps one place to correct.
 
+**`Get-MarketHandoverPairs` does all three for you, and did not until September 17, 2026.** It returned
+the bare URL as its `LiveUrl` -- the first bullet's own failure, handed back by the function this chapter
+names as the answer to it
+([#2052](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2052)). It now pins the control to
+the live id, read from that seam, and **throws rather than falling back** when neither the seam nor its
+`-LiveThemeId` parameter answers: a silent fallback would rebuild exactly the trap above. A handover
+built before that date has a bare control and is worth re-checking.
+
+### A redirect does NOT lose the preview -- measured, because the obvious reading says it does
+
+A fourth shape gets reported as a trap and is not one. A path that answers `301` -- a market-localised
+collection handle, say, where `/collections/amazfit-active-2-bandjes` on the UK market redirects to
+`/collections/amazfit-active-2-straps` -- **drops the query string**, so the redirect target carries no
+`preview_theme_id`. Reading that off `curl`'s `redirect_url` makes it look like the reviewer lands on
+live, which is the same failure direction as the two traps above and reads as worse: the reviewer
+scanned a QR and sees a normal-looking page.
+
+**It does not happen, and the reason is the order of the two redirects.** Measured September 17, 2026
+against `smartwatch-straps.co.uk`, preview theme `200170373503`, live theme `170064871700`, on a
+**fresh** cookie jar, reading `Shopify.theme` out of the rendered markup:
+
+| what was requested | what actually rendered |
+|---|---|
+| a `200` path with the preview parameters | the preview theme -- correct |
+| a **`301`** path with the preview parameters | **the preview theme** -- correct |
+| the same `301` path, no parameters, no cookie | the live theme -- correct |
+
+Every preview URL redirects once, including the paths that answer `200` on their own: that `302` is
+Shopify's own handshake, which **sets the preview cookie and then redirects to the clean URL**. It fires
+*before* the storefront's handle redirect, so by the time the `301` runs the cookie is already set and
+the preview survives it. The parameter is genuinely gone from the address bar in both cases, and in both
+cases it has already done its work.
+
+**So do not gate a handover on a per-path `200` check.** It would refuse correct cards, and run against
+the preview URLs -- which is the form `Get-MarketHandoverPairs` holds -- it would refuse *every* card,
+because they all redirect. What a `301` costs is cosmetic: the reviewer lands on the market's own handle
+rather than the one written on the card. Worth knowing when a card looks wrong; not worth a gate.
+
+**What is still worth checking per market is the `404`**, which this measurement says nothing about: a
+handle that exists on one market and not another is a card pointing at nothing, and that is a different
+finding from this one
+([#2054](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2054), filed as a redirect trap and
+closed on the measurement above).
+
 ## The shape of the handover
 
 Three blocks on the page, and each is there because the other two cannot supply it:

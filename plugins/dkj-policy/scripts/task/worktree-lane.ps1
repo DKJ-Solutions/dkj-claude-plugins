@@ -48,8 +48,9 @@
          a second implementation of the one thing that script exists for.
       4. Delegate to new-branch.ps1 with the lane as its -RepoRoot, so the branch, the cycle file and
          the deployment entry all come into being INSIDE the lane. Every rule new-branch enforces --
-         the prefix taxonomy, Test-BranchName, the entry scaffold, the tier sections -- therefore
-         holds in a lane without being restated here. That parameter was added for this caller, on the
+         the prefix taxonomy, Test-BranchName, the entry scaffold, the tier sections, and the
+         already-done check -Resolves drives -- therefore holds in a lane without being restated
+         here. That parameter was added for this caller, on the
          #101 precedent fold-changelog-entry.ps1 already set; the comment at the call site records why
          the cheaper-looking route (repointing CLAUDE_PROJECT_DIR) is wrong.
       5. If that delegation fails for any reason, REMOVE the worktree again and exit non-zero. A
@@ -114,6 +115,24 @@
 .PARAMETER Intent
     (Optional) a short note on what this lane is for, passed straight through to new-branch.ps1.
 
+.PARAMETER Resolves
+    (Optional) the issue number(s) this lane is being opened to fix, passed straight through to
+    new-branch.ps1, which owns what it means and how it is parsed.
+
+    IT IS FORWARDED, AND IT AND -SkipStaleBase ARE NOT A PAIR (issue #2061) -- which is worth saying
+    because they sit one line apart at the call site and read as one decision. They are opposite
+    verdicts from a single test: has this script already answered the question that check asks?
+    -SkipStaleBase's reads the BASE, which step 2 has just set from origin/$trunk, so it has nothing
+    left to discover and the refusal is waived. -Resolves drives the already-done check, which reads
+    the TRACKER -- a question no step here asks or answers, so nothing made it redundant. One is
+    declined because this script answered it; the other never could be.
+
+    THE COST OF NOT FORWARDING IT IS EXACTLY THE COST #1409 WAS FILED TO REMOVE -- a branch cut, its
+    commits, its reviews and its test runs all spent before the warning arrives -- and a lane is where
+    that bites hardest, because a lane is opened during a busy window, which is precisely when another
+    session is most likely to have just closed the issue being picked up. Passing none leaves the run
+    exactly as it was: new-branch treats an empty -Resolves as "ask nothing of gh".
+
 .PARAMETER Path
     (Optional) where to put the lane's worktree. Default: a sibling of the primary checkout,
     `<repo>-lanes/<branch name with the separator flattened>`. Supply this only when that default is
@@ -129,6 +148,9 @@
     ./scripts/task/worktree-lane.ps1 -Name "feat/next-thing" -Title "The next thing"
 
 .EXAMPLE
+    ./scripts/task/worktree-lane.ps1 -Name "fix/1402-something" -Title "Fix something" -Resolves 1402
+
+.EXAMPLE
     ./scripts/task/worktree-lane.ps1 -HandBack
 
 .EXAMPLE
@@ -139,6 +161,7 @@ param(
     [Parameter(ParameterSetName = 'Open', Mandatory = $true)][string]$Name,
     [Parameter(ParameterSetName = 'Open')][string]$Title = '',
     [Parameter(ParameterSetName = 'Open')][string]$Intent = '',
+    [Parameter(ParameterSetName = 'Open')][string]$Resolves = '',
     [Parameter(ParameterSetName = 'Open')][string]$Path = '',
     [Parameter(ParameterSetName = 'HandBack', Mandatory = $true)][switch]$HandBack,
     [Parameter(ParameterSetName = 'HandBack')][string]$Lane = ''
@@ -411,7 +434,14 @@ try {
     # back at step 5, and print `git pull --ff-only` as the remedy for a DETACHED worktree, where it is
     # not the remedy. The warning still prints, which is the honest half; the refusal is the half that
     # would be answering a question nobody asked here.
-    & $newBranch -Name $Name -Title $Title -Intent $Intent -RepoRoot $lanePath -SkipStaleBase
+    #
+    # -Resolves (issue #2061) IS FORWARDED, AND THE TWO ARE NOT A PAIR. The decline above is earned:
+    # step 2 chose this base, so new-branch's stale-base check has nothing left to discover. Nothing
+    # equivalent is true of the already-done check -- it asks the tracker whether the issue is already
+    # closed, which no step of this script has asked or answered. It was simply absent, and a lane
+    # therefore paid #1409's full cost -- a branch, its commits, its reviews, its test runs -- to learn
+    # at open-pr what one gh call says here. Empty is the ordinary case and asks gh nothing.
+    & $newBranch -Name $Name -Title $Title -Intent $Intent -Resolves $Resolves -RepoRoot $lanePath -SkipStaleBase
     $delegateOk = ($LASTEXITCODE -eq 0 -or $null -eq $LASTEXITCODE)
 } catch {
     Write-Host $_.Exception.Message -ForegroundColor Red

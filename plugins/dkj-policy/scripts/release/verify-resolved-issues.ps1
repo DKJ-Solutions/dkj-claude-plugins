@@ -82,10 +82,15 @@ if (-not $Repo) {
 # shifts nothing about them -- what it does is corrupt the surrounding prose this same string is
 # reported back in, and the class is the one the language rule says never to leave to the console.
 $view = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @('pr', 'view', "$Pr", '--repo', $Repo, '--json', 'body', '-q', '.body') -DiscardStderr
-if ($view.ExitCode -ne 0) {
+if (-not (Test-NativeExitMeasured -Capture $view) -or $view.ExitCode -ne 0) {
     # A warning, not an error: the merge itself already succeeded, and failing here must not make a
     # completed ship look failed. The pointer names the manual check.
-    Write-Warning "could not read the body of PR #$Pr (exit $($view.ExitCode)) -- the issue-closing check was skipped. Verify by hand with: gh issue list --repo $Repo --state open"
+    #
+    # ONE ARM, TWO REASONS (issue #1931, audited under #2081). An unmeasurable exit code satisfies
+    # `-ne 0`, so it already reached this line and printed "(exit )" with the number missing out of it.
+    # Skipping the check and naming the manual one is the decided answer for a body this run could not
+    # read, and neither reason changes that -- so only the wording is composed rather than interpolated.
+    Write-Warning "could not read the body of PR #$Pr ($(Get-NativeExitLabel -Capture $view)) -- the issue-closing check was skipped. Verify by hand with: gh issue list --repo $Repo --state open"
     exit 0
 }
 

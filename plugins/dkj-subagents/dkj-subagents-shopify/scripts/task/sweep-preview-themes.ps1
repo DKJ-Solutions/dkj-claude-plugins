@@ -188,6 +188,12 @@ $refListReliable = $true
 
 $lsRemote = Invoke-NativeCapture -FilePath 'git' -Arguments @('ls-remote', '--heads', 'origin') `
                                  -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+# AUDITED UNDER #2081 AND LEFT AS IT IS, here and at the local `git branch` below. Both are written as a
+# POSITIVE test, so an unmeasurable exit code (#1931) is not `-eq 0` and clears $refListReliable -- which
+# is what makes a real run REFUSE and a dry run say the list was incomplete. That is the fail-closed
+# direction for a sweep whose whole hazard is deleting a theme whose branch it could not see, and the
+# refusal's own sentence already names the two commands rather than a number, so nothing here printed an
+# empty "(exit )". Recorded as deliberate.
 $remoteBranchNames = @()
 if ($lsRemote.ExitCode -eq 0) {
     $remoteBranchNames = @(@($lsRemote.Output) | ForEach-Object {

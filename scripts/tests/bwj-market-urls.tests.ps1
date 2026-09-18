@@ -224,11 +224,48 @@ Assert-True ($null -eq (Get-AppliedThemeId -Html '')) 'so does an empty body'
 Write-Host ''
 Write-Host 'The handover pair -- what chapter three asks for' -ForegroundColor Cyan
 
-$pair = @(Get-MarketHandoverPairs -ThemeId 5 -Path '/products/foo' -Markets $SWB)
+$pair = @(Get-MarketHandoverPairs -ThemeId 5 -Path '/products/foo' -Markets $SWB -LiveThemeId 9)
 Assert-Equal 5 $pair.Count 'a pair per market'
 Assert-True ($pair[0].PreviewUrl -like '*preview_theme_id=5*') 'the preview half carries the theme id'
-Assert-True ($pair[0].LiveUrl -notlike '*preview_theme_id*') 'the control half is the LIVE page and carries none'
-Assert-Equal 'https://smartwatchbanden.nl/products/foo' $pair[0].LiveUrl '...which is the same page on the same market'
+
+# THESE TWO ASSERTS USED TO PIN THE DEFECT (#2052). They read 'the control half carries none' and
+# 'the control is the bare URL' -- which is the one control form PREVIEW-portable.md spends a measured
+# table ruling out, because the preview cookie survives on the bare URL. A suite can hold a bug in
+# place as firmly as code does, and this is what that looks like.
+Assert-True ($pair[0].LiveUrl -like '*preview_theme_id=9*') 'the control half names the LIVE theme id explicitly'
+Assert-Equal 'https://smartwatchbanden.nl/products/foo?preview_theme_id=9&_ab=0&_fd=0&_sc=1' $pair[0].LiveUrl `
+    '...on the same page and the same market, with the preview parameters'
+Assert-True ($pair[0].LiveUrl -ne $pair[0].PreviewUrl) 'the two halves of a pair are never the same URL'
+
+# The control resolver, in isolation.
+Assert-Equal '7' (Get-ControlThemeId -LiveThemeId 7) 'an explicit -LiveThemeId wins'
+
+# IT FAILS RATHER THAN FALLING BACK -- a bare-URL fallback would be exactly the silent defect above.
+$noLiveSeam = Invoke-Probe -Body @'
+function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }
+try { Get-MarketHandoverPairs -ThemeId 4 } catch { Write-Host $_.Exception.Message }
+'@
+Assert-True ($noLiveSeam.Text -like '*Get-ShopifyLiveThemeId*') `
+    'with no live-theme seam, the pair builder refuses and names the function to add'
+Assert-True ($noLiveSeam.Text -like '*repo-config.ps1*') '...and the file it belongs in'
+Assert-True ($noLiveSeam.Text -notlike '*preview_theme_id*') `
+    '...and it does NOT hand back a URL -- no fallback control is built'
+
+$emptyLiveSeam = Invoke-Probe -Body @'
+function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }
+function Get-ShopifyLiveThemeId { '' }
+try { Get-MarketHandoverPairs -ThemeId 4 } catch { Write-Host $_.Exception.Message }
+'@
+Assert-True ($emptyLiveSeam.Text -like '*answered nothing*') `
+    'a seam that answers nothing is refused too -- there is no safe default for a control'
+
+$withLiveSeam = Invoke-Probe -Body @'
+function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }
+function Get-ShopifyLiveThemeId { '170064871700' }
+(Get-MarketHandoverPairs -ThemeId 4)[0].LiveUrl
+'@
+Assert-Equal 'https://seam.example/?preview_theme_id=170064871700&_ab=0&_fd=0&_sc=1' $withLiveSeam.Text.Trim() `
+    'with the seam declared, the control is pinned to the live theme without the caller passing anything'
 
 Write-Host ''
 Write-Host 'The table is validated, because a wrong one produces a URL that looks right' -ForegroundColor Cyan
@@ -281,7 +318,7 @@ Assert-Equal 5 (Get-MarketDomains -Markets $SWB).Count '...and both are derived 
 
 foreach ($fn in @('Get-MarketTable', 'Get-MarketUrls', 'Get-MarketPreviewUrls', 'Write-MarketPreviewUrls',
                   'Get-MarketDomains', 'Get-MarketPaths', 'Get-NormalizedPaths', 'Test-MangledStorefrontPath',
-                  'Get-AppliedThemeId', 'Get-PreviewPrimeUrls', 'Get-MarketHandoverPairs')) {
+                  'Get-AppliedThemeId', 'Get-PreviewPrimeUrls', 'Get-MarketHandoverPairs', 'Get-ControlThemeId')) {
     Assert-True (Test-FunctionDefined -Name $fn) "the superset still exports $fn"
 }
 
