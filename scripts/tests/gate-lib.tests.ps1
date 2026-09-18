@@ -758,6 +758,120 @@ try {
     $certBranch = [regex]::Match($gateSrc, 'elseif \(\$TestsProvedByCi\)(.|\n)*?\} elseif').Value
     Assert-Equal 0 ([regex]::Matches($certBranch, 'Save-GateEvidence').Count) 'the CI certificate is NOT written into the local evidence record'
 
+    # --- 18. THE NOTE-TREE DEDUCTION (issue #2102) --------------------------------------------------
+    #
+    #     WRITTEN FROM THE REFUSING SIDE, exactly as this file's header says the fingerprint cases are,
+    #     and for the sharper version of the same reason. A false negative here costs one gate run; a
+    #     false positive skips 114 suites over a commit that changed something they read. So one case
+    #     asserts the happy path and the rest assert that the deduction is REFUSED -- including the two
+    #     shapes that look like they should pass and must not (a clean tree, and a sibling directory
+    #     whose name merely starts with a root).
+    Write-Host "`n== 18. Get-NoteTreeOnlyVerdict -- the deduction refuses by default ==" -ForegroundColor Cyan
+
+    $rN = New-GitFixture
+    New-Item -ItemType Directory -Path (Join-Path $rN 'notes\audience') -Force | Out-Null
+    $noteRoots = @('notes/audience', 'notes/internal')
+
+    # A CLEAN TREE IS NOT PROVEN, and this is the case most likely to be "fixed" into a bug. The claim
+    # is about what CHANGED; with nothing changed there is no note-tree change to reason from.
+    $vClean = Get-NoteTreeOnlyVerdict -RepoRoot $rN -NoteRoots $noteRoots
+    Assert-True (-not $vClean.Proven) 'a clean tree is NOT proven -- there is no note-tree change to deduce from'
+    Assert-True ($vClean.Reason -match 'nothing differs from HEAD') 'and the reason says so rather than leaving the caller to guess'
+
+    # The happy path: one untracked file, inside a root.
+    Set-FixtureFile -Dir $rN -Name 'notes\audience\1.0.0.md' -Content "# 1.0.0`n"
+    $vNote = Get-NoteTreeOnlyVerdict -RepoRoot $rN -NoteRoots $noteRoots
+    Assert-True $vNote.Proven 'a change confined to the note tree IS proven'
+    Assert-Equal 1 $vNote.Inside.Count 'and the run can name what it proved the deduction over'
+    Assert-Equal 0 $vNote.Outside.Count 'with nothing outside'
+
+    # ONE STRAY PATH IS ENOUGH TO REFUSE, which is the property the whole shape rests on.
+    Set-FixtureFile -Dir $rN -Name 'tracked.txt' -Content "two`n"
+    $vStray = Get-NoteTreeOnlyVerdict -RepoRoot $rN -NoteRoots $noteRoots
+    Assert-True (-not $vStray.Proven) 'one path outside the note tree refuses the whole deduction'
+    Assert-True ($vStray.Outside -contains 'tracked.txt') 'and the stray path is named, so the refusal is actionable'
+    Assert-True ($vStray.Inside -contains 'notes/audience/1.0.0.md') 'while the inside paths are still reported'
+
+    # NO ROOTS MEANS NO BOUND, and the empty case must be the REFUSING one -- the inversion where an
+    # empty list reads as "everything qualifies" is the whole hazard of this family.
+    $vNoRoots = Get-NoteTreeOnlyVerdict -RepoRoot $rN -NoteRoots @()
+    Assert-True (-not $vNoRoots.Proven) 'a repo naming no note tree is NOT proven -- an empty bound refuses, it does not admit'
+    Assert-True ($vNoRoots.Reason -match 'names no release-note tree') 'and it says which of the reasons it was'
+    Assert-True (-not (Get-NoteTreeOnlyVerdict -RepoRoot $rN -NoteRoots @('', '   ')).Proven) 'and blank entries do not count as a bound either'
+
+    Write-Host "`n== 18b. the prefix trap, the rename, and the case rule ==" -ForegroundColor Cyan
+
+    # THE PREFIX TRAP. 'notes/audience-extra' starts with 'notes/audience' as a STRING and is a
+    # different directory -- a StartsWith without the separator would silently admit it.
+    $rP = New-GitFixture
+    New-Item -ItemType Directory -Path (Join-Path $rP 'notes\audience-extra') -Force | Out-Null
+    Set-FixtureFile -Dir $rP -Name 'notes\audience-extra\x.md' -Content "x`n"
+    $vPrefix = Get-NoteTreeOnlyVerdict -RepoRoot $rP -NoteRoots @('notes/audience')
+    Assert-True (-not $vPrefix.Proven) 'a sibling directory whose name merely STARTS with a root is not inside it'
+    Assert-True ($vPrefix.Outside -contains 'notes/audience-extra/x.md') 'and it is reported as outside'
+
+    # THE ROOT ITSELF, as a path, counts as inside -- the equality half of the same comparison.
+    Assert-True (Get-NoteTreeOnlyVerdict -RepoRoot $rP -NoteRoots @('notes/audience-extra')).Proven 'a root pointed straight at the changed tree proves it'
+
+    # A RENAME IS JUDGED ON BOTH HALVES. A note dragged OUT of the tree changes a path the suites might
+    # read, even though the surviving path is inside -- so From is held to the same bound as Path.
+    $rR = New-GitFixture
+    New-Item -ItemType Directory -Path (Join-Path $rR 'notes\audience') -Force | Out-Null
+    Set-FixtureFile -Dir $rR -Name 'notes\audience\2.0.0.md' -Content "# 2.0.0`n"
+    Invoke-FixtureGit -Dir $rR 'add' '-A'
+    Invoke-FixtureGit -Dir $rR 'commit' '-qm' 'note'
+    Invoke-FixtureGit -Dir $rR 'mv' 'notes/audience/2.0.0.md' 'moved-out.md'
+    $vRenameOut = Get-NoteTreeOnlyVerdict -RepoRoot $rR -NoteRoots @('notes/audience')
+    Assert-True (-not $vRenameOut.Proven) 'a rename OUT of the note tree refuses, though one half of it is inside'
+    Assert-True ($vRenameOut.Outside -contains 'moved-out.md') 'and the half that left is what is named'
+
+    # And the mirror: a rename WITHIN the tree keeps both halves inside, so it still proves.
+    $rR2 = New-GitFixture
+    New-Item -ItemType Directory -Path (Join-Path $rR2 'notes\audience') -Force | Out-Null
+    Set-FixtureFile -Dir $rR2 -Name 'notes\audience\3.0.0.md' -Content "# 3.0.0`n"
+    Invoke-FixtureGit -Dir $rR2 'add' '-A'
+    Invoke-FixtureGit -Dir $rR2 'commit' '-qm' 'note'
+    Invoke-FixtureGit -Dir $rR2 'mv' 'notes/audience/3.0.0.md' 'notes/audience/3.0.1.md'
+    Assert-True (Get-NoteTreeOnlyVerdict -RepoRoot $rR2 -NoteRoots @('notes/audience')).Proven 'a rename WITHIN the note tree still proves'
+
+    # CASE IS ORDINAL, and the direction of being wrong is the point: a root whose case has drifted
+    # from git's on-disk spelling simply fails to match, and the run gates for real.
+    Assert-True (-not (Get-NoteTreeOnlyVerdict -RepoRoot $rP -NoteRoots @('NOTES/AUDIENCE-EXTRA')).Proven) `
+        'a root whose case does not match git''s spelling refuses rather than admitting'
+
+    Write-Host "`n== 18c. the roots resolver, and the wiring that consumes it ==" -ForegroundColor Cyan
+
+    # THE RESOLVER READS TWO OPTIONAL SEAMS AND NEITHER IS REQUIRED. With neither defined it must hand
+    # back an EMPTY list -- which the verdict above refuses on -- rather than a default anybody inherits.
+    Assert-Equal 0 (@(Get-ReleaseNoteTreeRoots -RepoRoot $rN)).Count 'with neither seam defined the resolver returns nothing to hold anything to'
+    function Get-ReleaseNoteRoot { return 'dkj-policy/releases/audience/' }
+    Assert-Equal 'dkj-policy/releases/audience' (@(Get-ReleaseNoteTreeRoots -RepoRoot $rN))[0] 'a trailing slash is normalised away, so the caller never has to'
+    function Get-ReleaseInternalNotesRoot { return 'dkj-policy\releases\internal' }
+    $bothRoots = @(Get-ReleaseNoteTreeRoots -RepoRoot $rN)
+    Assert-Equal 2 $bothRoots.Count 'both seams are read when both are defined'
+    Assert-True ($bothRoots -contains 'dkj-policy/releases/internal') 'and a backslashed answer is forward-slashed, so it matches what git reports'
+    Remove-Item -LiteralPath 'function:Get-ReleaseNoteRoot', 'function:Get-ReleaseInternalNotesRoot' -ErrorAction SilentlyContinue
+
+    # THE SKIP MUST WRITE NOTHING, on -SkipTests' own rule: this run did not measure the suites, so
+    # filing evidence would make the NEXT run skip a gate this one never earned. Asserted on the source
+    # the same way the CI certificate's own branch is, two cases up.
+    $noteBranch = [regex]::Match($gateSrc, '\} elseif \(\$gateNoteTree -and \$gateNoteTree\.Proven\) \{(.|\n)*?\n            \} elseif').Value
+    Assert-True ([bool]$noteBranch) 'the note-tree branch is found as its own elseif'
+    Assert-Equal 0 ([regex]::Matches($noteBranch, 'Save-GateEvidence').Count) 'and it records NO gate evidence -- a deduction is not a measurement'
+    Assert-True ($noteBranch -match 'Get-DisplayPath') 'the paths it prints go through the console strip, like every other path this workflow prints'
+
+    # THE REFUSAL IS PRINTED WHERE THE VERDICT IS TAKEN, not inside the branch that consumes it -- a
+    # verdict computed inside its own success branch can only ever report the success.
+    Assert-True ($gateSrc -match 'if \(-not \$gateNoteTree\.Proven\) \{') 'the not-proven case has its own printed refusal'
+    Assert-True ($gateSrc -match 'Running every suite, exactly as without the switch') 'which states that the fallback is unchanged behaviour'
+
+    # AND open-pr WIRES IT AT THE -GatesOnly SITE ONLY, naming it on the PR path rather than letting it
+    # do nothing quietly -- the failure class that script already refuses to tolerate for its own flags.
+    Assert-Equal 1 ([regex]::Matches($openPr, '-NoteTreeOnly:\$NoteTreeOnly').Count) 'open-pr forwards -NoteTreeOnly at exactly one call site'
+    $gatesOnlyRegion = [regex]::Match($openPr, '(?s)if \(\$GatesOnly\) \{.*?\n\}').Value
+    Assert-True ($gatesOnlyRegion -match '-NoteTreeOnly:\$NoteTreeOnly') 'and that site is the -GatesOnly one, which is the case it was measured on'
+    Assert-True ($openPr -match '-NoteTreeOnly applies to -GatesOnly only') 'the PR path says the flag was ignored instead of silently dropping it'
+
 } finally {
     if (Test-Path -LiteralPath $FixtureRoot) {
         Remove-Item -Recurse -Force -LiteralPath $FixtureRoot -ErrorAction SilentlyContinue

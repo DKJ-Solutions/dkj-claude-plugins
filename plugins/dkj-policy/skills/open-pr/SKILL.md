@@ -149,6 +149,56 @@ different verdict about the same tree.
 this already proved. And it is placed *after* both pre-flights and *before* the branch check, deliberately:
 everything below that check is about a branch, a push or a PR, and none of it applies here.
 
+### `-NoteTreeOnly`: the one commit where the test gate can be deduced away
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly -NoteTreeOnly
+```
+
+Asks whether **every** path that differs from `HEAD` sits inside this repo's release-note tree —
+`Get-ReleaseNoteRoot`, plus `Get-ReleaseInternalNotesRoot` where a repo still runs the two-document flow.
+Where that is **proven**, the test gate is skipped and the lint gate runs as normal. Where it is not
+proven — for any reason at all — every suite runs exactly as it does without the switch, and the run
+prints which of the reasons it was.
+
+**It is for the release-notes commit**
+([#2102](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2102), September 18, 2026), the one
+`-GatesOnly` was built for. Measured on the `v5.5.0` cut: **325s** of test gate beside **27s** of lint,
+over one hand-written markdown file — 56% of a 19-minute release spent running the same 114 suites a
+second time.
+
+**The deduction was measured, not argued.** The whole release tree was moved aside and all 114 suites run
+against the result. Four went red, and not one of them reads a release note:
+
+| suite | why it went red |
+|---|---|
+| `repo-config.tests.ps1` | one **existence** assert over the path set `Get-MojibakePaths` returns. It reads the list, never a file in it — and a cut only ever *adds* notes, so the assert can only become more true |
+| `bootstrap-drift.tests.ps1` | runs `check-plugin-integrity.ps1` over the live repo as a smoke assert |
+| `fix-mojibake.tests.ps1` | the same |
+| `subagent-shared.tests.ps1` | the same |
+
+So the suites' entire coverage of that tree **is** the lint gate, run three more times. That is the
+inversion worth stating plainly: lint-only here is not an *approximation* of the test gate's answer over a
+release note, it is that answer.
+
+**It proves; it does not filter.** #2102 declined a docs-only path predicate by name, on the grounds that a
+wrong matcher is silent. This asks one question whose only affirmative answer is *"every changed path is
+inside the exception's own bound"* — the same bound the release-notes commit already has to name in its own
+commit message — and answers no to everything else: an unreadable `git`, a repo that names no note tree, a
+**clean** tree, one stray path, a rename that drags a note *out* of the tree. The narrow case is proved and
+the fallback is today's behaviour, so being wrong costs a full gate run rather than a skipped one.
+
+**A clean tree is deliberately not proven**, which reads backwards and is not: the claim is about what
+*changed*, and with nothing changed the run would be deducing a gate away on an empty set. The genuinely
+unchanged tree is the gate evidence above, one branch earlier and free.
+
+**It is not `-SkipTests`, and the difference is what the run records.** That switch says *"this run did not
+measure"* and is the valve for a broken gate. This one says the measurement was made and had only one
+possible answer. **Neither writes gate evidence** — nothing here earns the *next* run a skip.
+
+**Scoped to `-GatesOnly`.** On the PR path it is named as ignored rather than silently dropped: a branch has
+CI behind it, and the case this was measured on is the trunk commit that does not.
+
 ## The CI certificate: when the test gate does not run at all
 
 The gate records what it proved and skips a tree it has already seen — that is the gate evidence above,

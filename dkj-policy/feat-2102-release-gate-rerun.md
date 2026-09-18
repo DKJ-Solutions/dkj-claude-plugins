@@ -41,21 +41,72 @@
 
 Answer the issue's own question: can any of the 114 suites fail on a change confined to releases/**? Measure, then decide whether the lint half alone answers it.
 
+#### What the measurement found
+
+The whole of dkj-policy/releases/ was moved aside and all 114 suites run against the result. Four
+went red, and the answer inverts the question:
+
+| suite | why |
+|---|---|
+| repo-config.tests.ps1 | one EXISTENCE assert over the path set Get-MojibakePaths returns. It reads the list, never a file in it -- and a cut only ADDS notes, so the assert can only become more true |
+| bootstrap-drift.tests.ps1 | runs check-plugin-integrity.ps1 over the live repo as a smoke assert |
+| fix-mojibake.tests.ps1 | the same |
+| subagent-shared.tests.ps1 | the same |
+
+So no suite reads the CONTENT of a release note. The suites' entire coverage of that tree IS the lint
+gate, run three more times -- which makes lint-only there not an approximation of the test gate's
+answer but that answer.
+
+Cost, this machine: lint 27s against 249s for the pair (the v5.5.0 cut measured 325s). The makespan
+is set by check-plugin-integrity-docs.tests.ps1 at 247.5s, so the three embedded lint runs are not
+themselves on the critical path -- this is a coverage finding, not a second cost one.
+
+Dave chose the mechanical repair over documenting the measurement alone.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Get-ReleaseNoteTreeRoots + Get-NoteTreeOnlyVerdict in scripts/lib/gate-lib.ps1
+- [x] -NoteTreeOnly on Invoke-WorkflowGates, consumed in the test-gate chain after the evidence record and the CI certificate
+- [x] -NoteTreeOnly on open-pr.ps1, forwarded at the -GatesOnly site and named as ignored on the PR path
+- [x] the shared-script mirrors rebuilt
+- [x] cut-release step 4 and the open-pr skill page carry the switch and the measurement behind it
 
 ### TEST
 
+- [x] gate-lib.tests.ps1 case 18: the happy path, plus the refusals -- clean tree, stray path, empty bound, prefix trap, rename out, ordinal case
+- [x] lint gate green
+- [x] all 114 suites green
+- [x] end-to-end on a note-only working tree: the deduction fires and the suites do not run
+
 ### DEPLOY: feat/2102-release-gate-rerun
 
-**Score:**
+The release-notes commit no longer pays for the test gate it cannot use. open-pr.ps1 -GatesOnly
+-NoteTreeOnly asks whether every path differing from HEAD sits inside the release-note tree the
+third direct-on-main exception already bounds that commit to, and only where that is PROVEN does it
+skip the suites -- the lint gate runs either way. Measured on the v5.5.0 cut: 325s of test gate
+beside 27s of lint, over one hand-written markdown file, 56% of a 19-minute release.
+
+The skip is a deduction rather than a favour because the suites have no coverage of that tree to lose.
+Moving the whole release tree aside and running all 114 turned four red: one on an existence assert over
+a path list, which a cut only satisfies more firmly, and three because they run the lint script over the
+live repo as a smoke assert. The suites' entire coverage of a release note IS the lint gate.
+
+It proves rather than filters, which is what makes it survivable: #2102 declined a docs-only path
+predicate by name, on the grounds that a wrong matcher is silent. This answers no to an unreadable git,
+a repo naming no note tree, a clean tree, one stray path, and a rename dragging a note out of the tree --
+so being wrong costs a full gate run rather than a skipped one, and the fallback is byte-for-byte the
+un-flagged run.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running this workflow gets the switch and the measurement behind it through the plugin, and
+their own release-notes commit stops paying for a gate that cannot reach a different verdict there. It
+is opt-in and scoped to -GatesOnly, so a consumer who never types it sees no change at all.
+
+**Score:** 2
 
 #### Pull Request
 
 The release-notes gate re-run, measured
-

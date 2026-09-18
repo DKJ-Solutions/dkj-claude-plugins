@@ -298,6 +298,40 @@
     run also records gate evidence like any other, so a later `open-pr` on the identical tree skips what
     this already proved.
 
+    `-NoteTreeOnly` IS THE ONE THING WORTH PAIRING IT WITH, and it is documented below: on the
+    release-notes commit -- the case this flag was built for -- it is what stops the run paying for 114
+    suites over one hand-written markdown file (issue #2102).
+
+.PARAMETER NoteTreeOnly
+    Ask whether every path that differs from HEAD sits inside this repo's release-note tree, and where
+    that is PROVEN, skip the test gate. The lint gate runs either way. Where it is not proven -- for any
+    reason at all -- the suites run exactly as they do without the switch, and the run says which reason
+    it was.
+
+    IT EXISTS FOR THE RELEASE-NOTES COMMIT (issue #2102, September 18, 2026). That commit lands on the
+    trunk under the third direct-on-`main` exception, so it meets no CI and the gates are run by hand
+    through -GatesOnly. Measured on the v5.5.0 cut: 325s of test gate beside 27s of lint, over ONE
+    hand-written markdown file -- 56% of a 19-minute release spent running the same 114 suites a second
+    time.
+
+    THE DEDUCTION WAS MEASURED, NOT ASSUMED. The whole of the release tree was moved aside and all 114
+    suites run against the result. Four went red and none of them reads a release note: one fails an
+    EXISTENCE assert over a path list (which a cut, adding notes, can only satisfy more firmly), and the
+    other three fail because they run the lint script over the live repo as a smoke assert. So the
+    suites' entire coverage of that tree IS the lint gate -- which means this switch removes no coverage
+    the same run is not already providing, rather than trading some away for time.
+
+    IT PROVES, IT DOES NOT FILTER. #2102 declined a docs-only path predicate by name, on the grounds that
+    a wrong matcher is silent. This asks one question whose only affirmative answer is "every changed
+    path is inside the exception's own bound" -- the same bound the release-notes commit already has to
+    name in its own commit message -- and answers no to everything else: an unreadable git, a repo that
+    names no note tree, a clean tree, one stray path. The narrow case is proved and the fallback is
+    today's behaviour, so being wrong costs a full gate run rather than a skipped one.
+
+    NOT -SkipTests, AND THE DIFFERENCE IS WHAT THE RUN RECORDS. That switch says "this run did not
+    measure" and is the valve for a broken gate; this one says the measurement was made and had only one
+    possible answer. Neither writes gate evidence -- nothing here earns the next run a skip.
+
 .PARAMETER MaxParallel
     How many test suites the test gate runs at once. 0 (the default) leaves the resolution to
     Invoke-TestSuiteGate exactly as before -- ProcessorCount minus two, floor 2 -- so passing nothing
@@ -343,6 +377,8 @@ param(
     [switch]$Force,
     [switch]$RefreshBody,
     [switch]$GatesOnly,
+    # Ask whether the test gate can be deduced away over a note-tree-only change. See .PARAMETER NoteTreeOnly.
+    [switch]$NoteTreeOnly,
     # Lanes for the test gate; 0 keeps Invoke-TestSuiteGate's own default. See .PARAMETER MaxParallel.
     [int]$MaxParallel = 0
 )
@@ -445,11 +481,19 @@ if ($GatesOnly) {
         Write-Warning ("-GatesOnly runs the gates and nothing else, so these were ignored: " + ($ignored -join ', ') + ".")
     }
 
-    if (-not (Invoke-WorkflowGates -RepoRoot $repoRoot -SkipLint:$SkipLint -SkipTests:$SkipTests -MaxParallel $MaxParallel -Context 'the gate run' -FailureConsequence 'nothing else ran, nothing was written')) {
+    if (-not (Invoke-WorkflowGates -RepoRoot $repoRoot -SkipLint:$SkipLint -SkipTests:$SkipTests -NoteTreeOnly:$NoteTreeOnly -MaxParallel $MaxParallel -Context 'the gate run' -FailureConsequence 'nothing else ran, nothing was written')) {
         exit 1
     }
     Write-Host "gates green -- nothing was pushed and no PR was opened (-GatesOnly)." -ForegroundColor Green
     exit 0
+}
+
+# AND THE MIRROR OF THE LIST ABOVE (issue #2102). -NoteTreeOnly is scoped to -GatesOnly, because the
+# case it was measured on is the release-notes commit and a branch already has CI behind it -- so on the
+# PR path it is a flag that quietly does nothing, which this script names as a failure class two dozen
+# lines up rather than tolerating. Named, not refused: the run is still what was asked for.
+if ($NoteTreeOnly) {
+    Write-Warning "-NoteTreeOnly applies to -GatesOnly only -- it was ignored, and the test gate below runs in full."
 }
 
 $branch = (git rev-parse --abbrev-ref HEAD).Trim()

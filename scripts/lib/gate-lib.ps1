@@ -105,6 +105,16 @@ if (Test-Path -LiteralPath $gateCloseoutLib -PathType Leaf) { . $gateCloseoutLib
 # required rather than optional.
 . (Join-Path $PSScriptRoot 'hash-hex-lib.ps1')
 
+# AND THE PORCELAIN READ AND ITS LINE PARSE (issue #2102), which park-lib.ps1 and fanout-lib.ps1 both
+# dot-source too -- that shared ownership is the whole point of the file, and Get-NoteTreeOnlyVerdict
+# below is its third consumer. GUARDED, on fanout-lib's grounds rather than hash-hex-lib's above: this
+# file is mirrored into every consumer's plugin cache and arrives by plugin UPDATE rather than by
+# choice, and everything else in this lib works without it -- so a mirror that predates the porcelain
+# lib must not crash on LOAD of the file that gates their push. The one function that needs it reports
+# "could not be read", which is already its answer for a git call that fails.
+$gatePorcelainLib = Join-Path $PSScriptRoot 'git-porcelain-lib.ps1'
+if (Test-Path -LiteralPath $gatePorcelainLib -PathType Leaf) { . $gatePorcelainLib }
+
 # How long a recorded pass is allowed to stand in for a fresh run. Not a content property -- the
 # fingerprint already covers content exactly -- but a bound on the environment drifting underneath
 # it. Four hours comfortably covers the measured case (open-pr and ship-pr minutes apart) while
@@ -649,6 +659,148 @@ function Get-CiTestCertificate {
     }
 }
 
+function Get-ReleaseNoteTreeRoots {
+    <#
+        The repo-root-relative directories the RELEASE-NOTES exception covers -- the hand-written note
+        tree Get-ReleaseNoteRoot names, plus the internal tree Get-ReleaseInternalNotesRoot names where
+        a repo still runs the two-document flow. Forward-slashed and trailing-slash-free, so a caller
+        comparing against a porcelain path does not have to normalise either side.
+
+        BOTH SEAMS ARE OPTIONAL and neither is reached for directly: a consumer that has stated only one
+        gets one root, and one that has stated neither gets an EMPTY list -- which every caller reads as
+        "nothing can be deduced here", never as "everything qualifies". That inversion is the whole
+        hazard of this family, so the empty case is the refusing one by construction rather than by a
+        check somebody has to remember.
+
+        THE BOUND IS THE EXCEPTION'S OWN, deliberately, and it is narrower than what was measured. The
+        measurement in #2102 moved the whole of dkj-policy/releases/ aside; this reads only the two
+        trees the third direct-on-`main` exception already names and that the release-notes commit
+        already has to name in its own commit message. A deduction sized to the exception cannot outlive
+        it, and the wider tree buys nothing the cut actually needs.
+    #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $roots = New-Object System.Collections.ArrayList
+    foreach ($seam in @('Get-ReleaseNoteRoot', 'Get-ReleaseInternalNotesRoot')) {
+        if (-not (Test-FunctionDefined $seam)) { continue }
+        $value = ''
+        try { $value = "$(& $seam)" } catch { $value = '' }
+        $value = $value.Replace('\', '/').Trim().TrimEnd('/')
+        if ($value) { [void]$roots.Add($value) }
+    }
+    return @($roots)
+}
+
+function Get-NoteTreeOnlyVerdict {
+    <#
+        Whether every path that differs from HEAD right now sits inside one of $NoteRoots -- the question
+        that decides whether the TEST gate can be deduced away on a release-notes commit. Returns
+        {Proven, Inside, Outside, Roots, Reason}; Proven is $true only when the answer was measured AND
+        came back clean, so every failure mode lands on $false and the caller runs the gate it always ran.
+
+        WHY THE DEDUCTION IS SOUND, MEASURED RATHER THAN ASSUMED (issue #2102, September 18, 2026). The
+        whole of dkj-policy/releases/ was moved aside and all 114 suites run against the result. Four went
+        red, and none of the four reads a release note:
+
+          - repo-config.tests.ps1 fails one EXISTENCE assert over the path set Get-MojibakePaths returns
+            ('reaches the archived release notes'). It reads the list, never a file in it, and a cut only
+            ever ADDS notes -- so the assert it makes can only become more true.
+          - bootstrap-drift.tests.ps1, fix-mojibake.tests.ps1 and subagent-shared.tests.ps1 fail because
+            all three run check-plugin-integrity.ps1 over the LIVE repo as a smoke assert.
+
+        So the entire coverage the 114 suites have of that tree IS the lint gate, run three more times --
+        which means skipping the suites over a note-tree-only change removes no coverage the lint half is
+        not already providing in the same run. That is the inversion worth stating plainly: lint-only here
+        is not an APPROXIMATION of the test gate's answer, it is that answer.
+
+        Cost on the v5.5.0 cut: 325s of test gate against 27s of lint, over one hand-written markdown file.
+
+        IT PROVES, IT DOES NOT FILTER, and the difference is the reason this shape was built rather than a
+        path predicate. A filter decides what to run FROM the paths and is silent when its pattern is
+        wrong; this asks one question whose only affirmative answer is "every changed path is inside the
+        exception's own bound", and answers $false to everything else -- an unreadable git, a repo that
+        names no note tree, a clean tree, one stray path. #2102 declined a docs-only predicate by name for
+        exactly that reason, and this is the shape that survives the objection: the narrow case is proved,
+        never assumed, and the fallback is today's behaviour rather than a smaller gate.
+
+        A CLEAN TREE IS NOT PROVEN, which looks backwards and is not. The claim being made is about what
+        CHANGED; with nothing changed there is no note-tree change to reason from, and the run would be
+        deducing a gate away on the strength of an empty set. The tree that is genuinely unchanged is
+        Test-GateEvidence's subject one branch up, and it is free -- so nothing is lost by refusing here.
+
+        A RENAME IS JUDGED ON BOTH HALVES. Porcelain reports 'old -> new', and a note dragged OUT of the
+        tree changes a path the suites might read even though the surviving path is inside -- so From is
+        held to the same bound as Path, and a rename out of the tree is Outside.
+
+        PATH MATCHING IS ORDINAL, case and all, because the wrong direction here is silent. Git reports
+        the on-disk spelling; a root whose case has drifted from it simply fails to match and the run
+        gates for real, which is the harmless half of being wrong.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string[]]$NoteRoots = @()
+    )
+
+    $roots = @(@($NoteRoots) | ForEach-Object { "$_".Replace('\', '/').Trim().TrimEnd('/') } |
+        Where-Object { $_ })
+
+    $verdict = [pscustomobject]@{
+        Proven  = $false
+        Inside  = @()
+        Outside = @()
+        Roots   = @($roots)
+        Reason  = ''
+    }
+
+    if ($roots.Count -eq 0) {
+        $verdict.Reason = 'this repo names no release-note tree (Get-ReleaseNoteRoot / Get-ReleaseInternalNotesRoot), so there is no bound to hold anything to'
+        return $verdict
+    }
+
+    if (-not (Test-FunctionDefined 'Get-GitPorcelainStatus')) {
+        $verdict.Reason = 'git-porcelain-lib.ps1 is not loaded, so the working copy could not be read'
+        return $verdict
+    }
+
+    $status = Get-GitPorcelainStatus -RepoRoot $RepoRoot
+    if (-not $status.Known) {
+        $verdict.Reason = 'git could not be read, so nothing about the working copy was measured'
+        return $verdict
+    }
+
+    $inside = New-Object System.Collections.ArrayList
+    $outside = New-Object System.Collections.ArrayList
+    foreach ($entry in @($status.Entries)) {
+        # Both halves of a rename, for the reason the header gives. From is empty on everything else.
+        $paths = @($entry.Path) + @(if ($entry.From) { $entry.From } else { @() })
+        foreach ($p in $paths) {
+            $isInside = $false
+            foreach ($root in $roots) {
+                if ($p -ceq $root -or $p.StartsWith(($root + '/'), [System.StringComparison]::Ordinal)) {
+                    $isInside = $true
+                    break
+                }
+            }
+            if ($isInside) { [void]$inside.Add($p) } else { [void]$outside.Add($p) }
+        }
+    }
+
+    $verdict.Inside = @($inside)
+    $verdict.Outside = @($outside)
+
+    if ($inside.Count -eq 0 -and $outside.Count -eq 0) {
+        $verdict.Reason = 'nothing differs from HEAD, so there is no note-tree change to deduce from'
+        return $verdict
+    }
+    if ($outside.Count -gt 0) {
+        $verdict.Reason = ("{0} changed path(s) sit outside the release-note tree" -f $outside.Count)
+        return $verdict
+    }
+
+    $verdict.Proven = $true
+    return $verdict
+}
+
 function Invoke-WorkflowGates {
     <#
         Runs the repo's two gates -- the lint script, then every test suite -- against the working tree,
@@ -721,7 +873,15 @@ function Invoke-WorkflowGates {
         # parameter cannot disagree with itself the way a switch plus a message can. The caller decides
         # whether a certificate exists, because it is the caller that can reach `gh`; this function
         # only decides what a certificate is worth.
-        [string]$TestsProvedByCi = ''
+        [string]$TestsProvedByCi = '',
+        # OPT-IN, AND NEVER THE DEFAULT (issue #2102). Ask whether every path that differs from HEAD sits
+        # inside the release-note tree, and where that is PROVEN, skip the test gate -- because the suites'
+        # entire coverage of that tree is the lint gate this same run has just executed. Where it is not
+        # proven, for any reason at all, the suites run exactly as they always did and the run says which
+        # reason it was. A SWITCH AND NOT A DEFAULT because a deduction nobody asked for is the silent
+        # matcher #2102 declined: the caller states that this is a note-tree commit, and this function
+        # then refuses to take their word for it.
+        [switch]$NoteTreeOnly
     )
     # A GATE RUN IS NOT PART OF THE CHAIN WHOSE RECEIPT IS BEING SUPPRESSED (issue #1910). Both gates
     # below spawn CHILD PROCESSES -- the lint script, and every scripts\tests\*.tests.ps1 the test gate
@@ -858,6 +1018,25 @@ function Invoke-WorkflowGates {
         # all PowerShell names the rest in the optional Get-TestCommands (repo-config); Invoke-TestSuiteGate
         # reads it itself, so every call site stays identical (inbound #644).
         if (-not $SkipTests) {
+            # THE NOTE-TREE VERDICT, MEASURED ONCE AND BEFORE THE CHAIN (issue #2102). Computed here rather
+            # than inside the branch that consumes it so the REFUSAL has somewhere to be said: a run that
+            # asked for the deduction and did not get it has to learn which of the five reasons it was,
+            # and a verdict computed inside its own success branch can only ever report the success.
+            # $null when nothing asked, which every branch below reads as "not applicable".
+            $gateNoteTree = $null
+            if ($NoteTreeOnly) {
+                $gateNoteTree = Get-NoteTreeOnlyVerdict -RepoRoot $RepoRoot -NoteRoots (Get-ReleaseNoteTreeRoots -RepoRoot $RepoRoot)
+                if (-not $gateNoteTree.Proven) {
+                    Write-Host ("test gate: -NoteTreeOnly was asked for and is NOT proven -- {0}. Running every suite, exactly as without the switch." -f $gateNoteTree.Reason) -ForegroundColor Yellow
+                    foreach ($p in ($gateNoteTree.Outside | Select-Object -First 8)) {
+                        Write-Host ("           outside the note tree: " + (Get-DisplayPath -Path $p)) -ForegroundColor Yellow
+                    }
+                    if ($gateNoteTree.Outside.Count -gt 8) {
+                        Write-Host ("           ... and {0} more" -f ($gateNoteTree.Outside.Count - 8)) -ForegroundColor Yellow
+                    }
+                }
+            }
+
             if (Test-GateEvidence -RepoRoot $RepoRoot -Gate 'tests' -Fingerprint $gateFingerprint) {
                 Write-Host "test gate: all suites already proved against this exact tree -- skipped." -ForegroundColor DarkGray
             } elseif ($TestsProvedByCi) {
@@ -874,6 +1053,26 @@ function Invoke-WorkflowGates {
                 # (The suite asserts the absence, and it also counts the record's writers by name -- which
                 # is why this comment does not spell either of them out.)
                 Write-Host "test gate: satisfied by CI -- $TestsProvedByCi. Not run again locally (#1715)." -ForegroundColor DarkGray
+            } elseif ($gateNoteTree -and $gateNoteTree.Proven) {
+                # THE DEDUCTION, THIRD AND NOT FIRST (issue #2102). The local record above is a file read
+                # and the CI certificate is already paid for by the time we are here; this one costs a git
+                # call, so it goes last among the three. Order changes no verdict -- it keeps the cheaper
+                # answer first, which is the reasoning the certificate's own branch states one line up.
+                #
+                # WHAT IT PRINTS IS THE ARGUMENT, not the conclusion. A skip nobody can audit is a gate
+                # nobody can trust, so the line names the bound that was proved and the paths it was proved
+                # over -- the same standard -TestsProvedByCi is held to, where the note IS the parameter.
+                Write-Host ("test gate: every changed path is inside the release-note tree ({0}) -- so the suites add nothing the lint gate above has not already run (#2102). Not run." -f ($gateNoteTree.Roots -join ', ')) -ForegroundColor DarkGray
+                foreach ($p in ($gateNoteTree.Inside | Select-Object -First 8)) {
+                    Write-Host ("           proved over: " + (Get-DisplayPath -Path $p)) -ForegroundColor DarkGray
+                }
+                if ($gateNoteTree.Inside.Count -gt 8) {
+                    Write-Host ("           ... and {0} more" -f ($gateNoteTree.Inside.Count - 8)) -ForegroundColor DarkGray
+                }
+                # NOTHING IS RECORDED, on -SkipTests' own rule one branch down: this run did not measure the
+                # suites, so filing evidence would make the NEXT run skip a gate this one never earned. The
+                # deduction is re-made in one git call whenever it is asked for again, so there is nothing
+                # worth caching and every reason not to blur what the record means.
             } elseif (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $RepoRoot 'scripts\tests') -Context $Context -MaxParallel $MaxParallel)) {
                 # THIS IS THE GATE THE MOVEMENT CHECK WAS MEASURED ON (issue #1145). One suite of 55 went red
                 # inside a backgrounded ship while prune-merged.ps1 held the trunk in the same checkout, and
