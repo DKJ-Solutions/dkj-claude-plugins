@@ -249,16 +249,33 @@ if (Test-Path -LiteralPath $crLib -PathType Leaf) {
     $repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'new-branch.ps1' -OverrideName '-RepoRoot' `
         -Consequence 'Nothing was created: no branch, no document, nothing on origin.'
 } elseif (-not $repoRoot) {
+    # THE ONE SITE THAT KEEPS THE READ INLINE (issue #2115), and the paragraph above says why: this is
+    # the branch that runs when check-report-lib is NOT present, and a refusal that itself needs a file
+    # to be there cannot report a tree where that file is missing. Dot-sourcing repo-root-lib here would
+    # put the same dependency back one file over. So Get-GitTopLevelPath's QUESTION is written out by
+    # hand, and only its question -- --is-inside-work-tree joined to --show-cdup, whose output is a run
+    # of '../' segments and therefore pure ASCII. --show-toplevel returned a raw path for
+    # [Console]::OutputEncoding to mangle, and --show-cdup ALONE would resolve the .git directory as the
+    # root, because it exits 0 there while --show-toplevel exits 128.
     $prevEapRoot = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $topLevel = & git rev-parse --show-toplevel 2>&1
+        $topLevel = & git rev-parse --is-inside-work-tree --show-cdup 2>&1
         $topLevelCode = $LASTEXITCODE
     } finally { $ErrorActionPreference = $prevEapRoot }
-    $repoRoot = if ($topLevelCode -eq 0) { "$(@($topLevel) | Select-Object -First 1)".Trim() } else { '' }
+    $topLines = @(@($topLevel) | ForEach-Object { "$_".Trim() })
+    $repoRoot = ''
+    if ($topLevelCode -eq 0 -and $topLines.Count -ge 1 -and $topLines[0] -eq 'true') {
+        $cdup = $(if ($topLines.Count -ge 2) { $topLines[1] } else { '' })
+        $base = $PWD.ProviderPath
+        $full = $(if ($cdup) { [System.IO.Path]::GetFullPath((Join-Path $base $cdup)) }
+                  else       { [System.IO.Path]::GetFullPath($base) })
+        if ($full.Length -gt 3 -and ($full.EndsWith('\') -or $full.EndsWith('/'))) { $full = $full.TrimEnd('\', '/') }
+        $repoRoot = $full
+    }
     if (-not $repoRoot) {
         Write-Host "new-branch cannot run -- it could not work out which repository it is in." -ForegroundColor Red
-        Write-Host "  git rev-parse --show-toplevel exited $topLevelCode here and named no repository root." -ForegroundColor Red
+        Write-Host "  git rev-parse --is-inside-work-tree --show-cdup exited $topLevelCode here and named no work tree." -ForegroundColor Red
         Write-Host "  It said: $((@($topLevel) -join ' ').Trim())" -ForegroundColor Red
         Write-Host "  Nothing was created: no branch, no document, nothing on origin. Run this from inside" -ForegroundColor Red
         Write-Host "  the checkout, or set CLAUDE_PROJECT_DIR to its root, and run again." -ForegroundColor Red

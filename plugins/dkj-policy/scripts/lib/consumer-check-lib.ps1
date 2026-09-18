@@ -88,10 +88,23 @@ function Resolve-CheckRepoRoot {
     if ($RootOverride) { return $RootOverride }
     if ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
 
-    $root = ''
-    try { $root = (git rev-parse --show-toplevel 2>$null | Select-Object -First 1) } catch { return '' }
-    if (-not $root) { return '' }
-    return ([string]$root).Trim()
+    # THE GIT READ IS ONE DEFINITION AND IT IS NOT --show-toplevel (issue #2115): that flag's output is
+    # a raw path, which Windows PowerShell 5.1 decodes with [Console]::OutputEncoding, so a consumer
+    # whose checkout sits under an accented directory name resolved a root that matched nothing. Read
+    # repo-root-lib's synopsis for why the rule's usual repair does not reach this call.
+    #
+    # GUARDED AND LAZY, the idiom Get-CheckProseCorpus below already uses for measure-context-lib,
+    # rather than check-report-lib's unguarded file-scope load. This lib is dot-sourced GUARDED by the
+    # five lint checks precisely so an older mirror degrades instead of throwing, and a hard sibling
+    # dependency here would undo that one layer down. Missing lib -> '' -- which is this function's
+    # documented "could not tell", and the caller's own verdict decides what that means.
+    $rootLib = Join-Path $PSScriptRoot 'repo-root-lib.ps1'
+    if (-not (Test-Path -LiteralPath $rootLib -PathType Leaf)) { return '' }
+    . $rootLib
+
+    $read = Get-GitTopLevelPath
+    if (-not $read.Path) { return '' }
+    return $read.Path
 }
 
 function Get-CheckProseCorpus {

@@ -65,9 +65,17 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 # Repo-root -- dual-context, identical rule to check-roster-sync.ps1: -ConsumerPathOverride wins, then
 # CLAUDE_PROJECT_DIR (a consumer session), else the git-root.
+#
+# THE GIT ARM IS NOT --show-toplevel (issue #2115): its output is a RAW path, which Windows PowerShell
+# 5.1 decodes with [Console]::OutputEncoding, so in a consumer whose checkout sits under an accented
+# directory name the Resolve-Path below threw on a root that was really there. Get-GitTopLevelPath is
+# this plugin's OWN mirrored copy of the shared lib -- ..\..\scripts\lib\ resolves inside
+# dkj-subagents-alpha, so this crosses no plugin boundary.
+. (Join-Path $PSScriptRoot '..\..\scripts\lib\repo-root-lib.ps1')
+
 $repoRoot = if ($ConsumerPathOverride) { $ConsumerPathOverride }
             elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR }
-            else { (git rev-parse --show-toplevel).Trim() }
+            else { (Get-GitTopLevelPath).Path }
 $repoRoot = (Resolve-Path -LiteralPath $repoRoot).Path
 
 # Plugin cache root (overridable for tests) -- same default as check-roster-sync.ps1.

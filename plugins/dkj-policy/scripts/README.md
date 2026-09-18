@@ -125,6 +125,7 @@ an absent link is a fact rather than an oversight.
 | `lib/measure-skill-lib.ps1` | the parsing/formatting half of `measure-skill.ps1`: turns `claude plugin details` output into figures, with no I/O of its own | none — dot-sourced lib |
 | `lib/measure-context-lib.ps1` | the shared helpers for measuring the always-on document path: the `@`-import walk, the byte-exact section split, and the calibrated chars-per-token factor | none — dot-sourced lib |
 | `lib/consumer-check-lib.ps1` | the two things every consumer-facing lint check opens with: which tree it is operating on, and which always-on documents it may read | none — dot-sourced lib |
+| `lib/repo-root-lib.ps1` | `Get-GitTopLevelPath` — where the repo root is, asked as `--is-inside-work-tree --show-cdup` so the answer carries no filename for a console code page to corrupt. `--show-toplevel` returns a raw path, which Windows PowerShell 5.1 decodes with `[Console]::OutputEncoding`, so a checkout under an accented directory name resolved a root that matched nothing | none — dot-sourced lib |
 | `lib/merged-pr-lib.ps1` | the merged-PR proof, as one source: was this ref merged, or only a branch that once wore its name? | none — dot-sourced lib |
 | `lib/seam-lib.ps1` | `Get-SeamValue` — reads an optional repo-config seam, falling back to a default when the repo does not define one | none — dot-sourced lib |
 | `lib/gate-lib.ps1` | records what the gates proved, against which exact working state, and notices when that state moved while they ran | none — dot-sourced lib |

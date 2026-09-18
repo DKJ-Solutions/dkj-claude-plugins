@@ -204,12 +204,22 @@ function New-Fixture {
 
 function Invoke-Script {
     param([string]$Fixture, [string[]]$ScriptArgs = @())
-    $copied = Join-Path $Fixture 'find-specialist-mentions.ps1'
+    # COPIED TO THE PATH IT REALLY LIVES AT, scripts\sync\ (issue #2115). It used to land in the
+    # fixture ROOT, which was invisible for as long as every lib this script loads was resolved from
+    # $repoRoot -- CLAUDE_PROJECT_DIR points at the fixture, so those found their way. A
+    # $PSScriptRoot-relative sibling load cannot: from the fixture root '..\lib' resolves OUTSIDE the
+    # fixture entirely. The fixture was misplacing the script; the script was right.
+    $syncDir = Join-Path $Fixture 'scripts\sync'
+    if (-not (Test-Path -LiteralPath $syncDir)) { New-Item -ItemType Directory -Path $syncDir -Force | Out-Null }
+    $copied = Join-Path $syncDir 'find-specialist-mentions.ps1'
     Copy-Item -LiteralPath $ScriptSrc -Destination $copied -Force
 
     $libDir = Join-Path $Fixture 'scripts\lib'
     if (-not (Test-Path -LiteralPath $libDir)) { New-Item -ItemType Directory -Path $libDir -Force | Out-Null }
     Copy-Item -LiteralPath $ReportLibSrc -Destination (Join-Path $libDir 'check-report-lib.ps1') -Force
+    # repo-root-lib.ps1 (#2115): the script resolves its git-root fallback through Get-GitTopLevelPath,
+    # loaded $PSScriptRoot-relative -- so it is a sibling of the COPY above, not of the original.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\repo-root-lib.ps1') -Destination (Join-Path $libDir 'repo-root-lib.ps1') -Force
 
     $prev = $env:CLAUDE_PROJECT_DIR
     $env:CLAUDE_PROJECT_DIR = $Fixture
@@ -328,9 +338,16 @@ try {
     Write-Host '-- read-only'
     Push-Location $fixture
     try {
-        # The two files Invoke-Script copies in are the harness, not the script's doing.
-        $status = @(git status --porcelain 2>$null |
-            Where-Object { $_ -notmatch 'find-specialist-mentions\.ps1' -and $_ -notmatch 'check-report-lib\.ps1' })
+        # The files Invoke-Script copies in are the harness, not the script's doing -- the script
+        # itself, and the two libs it loads ($PSScriptRoot-relative repo-root-lib since #2115).
+        # -uall, AND IT IS LOAD-BEARING SINCE #2115. Plain --porcelain COLLAPSES a wholly untracked
+        # directory into one entry, and this suite's copy target moved into scripts\sync\, which the
+        # fixture does not track -- so the entry read '?? scripts/sync/' and matched no filename in the
+        # filter below. scripts\lib\ never had the problem: the fixture tracks a file there, so git
+        # already listed its members one by one. -uall makes every entry a FILE path, which is what the
+        # filter is written against and what a stray write would have to appear as anyway.
+        $status = @(git status --porcelain -uall 2>$null |
+            Where-Object { $_ -notmatch 'find-specialist-mentions\.ps1' -and $_ -notmatch 'check-report-lib\.ps1' -and $_ -notmatch 'repo-root-lib\.ps1' })
     } finally {
         Pop-Location
     }

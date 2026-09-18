@@ -110,6 +110,13 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
+# THE REPO ROOT COMES FROM ONE DEFINITION (issue #2115), and it is asked for in a way the console code
+# page cannot corrupt -- read repo-root-lib's own synopsis for why `rev-parse --show-toplevel` could
+# not be repaired in place. Unconditional and unguarded, on command-probe-lib's precedent: this lib is
+# mirrored into three plugins and the registry mirrors that one beside it in each, so the sibling is
+# always there in any payload the generator wrote.
+. (Join-Path $PSScriptRoot 'repo-root-lib.ps1')
+
 # --- Scope: naming WHICH repo a finding is about (inbound #203) ----------------------------------
 # A finding is only actionable when you know which repo it concerns. The three SessionStart hooks
 # filter their child's output down to the signal lines, and that filter threw away the one line
@@ -443,33 +450,16 @@ function Resolve-CheckRoot {
         }
     }
 
-    $top = $null
-    $gitCode = $null
-    $gitErr = ''
-    try {
-        # Stderr is captured rather than let through, because it is the ONLY thing that says why git
-        # declined and it is what the refusal below quotes (#1917). Without it the reader gets an exit
-        # code and nothing else; git's own line reaches the console by accident at best, and in a
-        # redirected child not at all. 2>&1 merges it into the stream, so the ErrorRecord objects are
-        # split back out by type -- a native command's stderr arrives as ErrorRecord under
-        # $ErrorActionPreference = 'Stop' and would otherwise terminate the call it is explaining.
-        $prevEap = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        try {
-            # -C goes BEFORE the subcommand, and only when anchored -- an empty -C is not the same as
-            # no -C at all: git reads it as a path and fails.
-            if ($From) { $raw = @(& git -C $From rev-parse --show-toplevel 2>&1) }
-            else       { $raw = @(& git rev-parse --show-toplevel 2>&1) }
-            $gitCode = $LASTEXITCODE
-        } finally { $ErrorActionPreference = $prevEap }
-        $outLines = @($raw | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
-        $errLines = @($raw | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
-        $gitErr = (($errLines | ForEach-Object { [string]$_ }) -join '; ').Trim()
-        if ($gitCode -eq 0 -and $outLines.Count -gt 0) { $top = ([string]$outLines[0]).Trim() }
-    } catch {
-        $top = $null
-        if (-not $gitErr) { $gitErr = $_.Exception.Message }
-    }
+    # ONE DEFINITION, AND IT IS NOT --show-toplevel ANY MORE (issue #2115). Everything this branch used
+    # to do inline -- the EAP wrap, the stderr capture that the refusal below quotes, the ErrorRecord
+    # split, the exit code -- moved into Get-GitTopLevelPath unchanged, because all of it was learned
+    # here (#1917) and none of it was the defect. What changed is the question put to git: the old form
+    # read a path whose bytes Windows PowerShell 5.1 decodes with [Console]::OutputEncoding, so the root
+    # of a checkout under an accented directory name came back mis-decoded and matched nothing.
+    $rootRead = Get-GitTopLevelPath -From $From
+    $top      = $rootRead.Path
+    $gitCode  = $rootRead.ExitCode
+    $gitErr   = $rootRead.Error
     $resolved = $(if ($top) { Resolve-Path -LiteralPath $top -ErrorAction SilentlyContinue } else { $null })
     return [pscustomobject]@{
         Path   = $(if ($resolved) { $resolved.Path } else { $null })
@@ -589,7 +579,10 @@ function Resolve-RepoRootOrFail {
             # otherwise the working directory. Naming the cwd on an anchored call would send the
             # reader to look at the wrong place.
             $asked = $(if ($From) { $From } else { (Get-Location).Path })
-            Write-Host ("  'git rev-parse --show-toplevel' in {0} -- and git declined." -f $asked) -ForegroundColor Yellow
+            # NAMES THE COMMAND THAT WAS ACTUALLY RUN (#2115). It said --show-toplevel for as long as
+            # that was the call; a refusal quoting a command the script no longer issues sends the
+            # reader to reproduce something that is not the thing that failed.
+            Write-Host ("  'git rev-parse --is-inside-work-tree --show-cdup' in {0} -- and git declined or it is not a work tree." -f $asked) -ForegroundColor Yellow
             Write-Host ("  git exit code: {0}" -f $(if ($null -ne $scope.GitExitCode) { $scope.GitExitCode } else { '(git could not be run at all)' }))
             Write-Host ("  git said:      {0}" -f $(if ($scope.GitError) { $scope.GitError } else { '(nothing on stderr)' }))
             Write-Host ''

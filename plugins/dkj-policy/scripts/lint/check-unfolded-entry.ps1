@@ -103,6 +103,13 @@ $ErrorActionPreference = 'Stop'
 # every miss -- and a miss is the normal case for an optional seam. $PSScriptRoot-relative, so it
 # resolves in the plugin mirror as well as here.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
+
+# WHERE THE REPO ROOT COMES FROM (issue #2115), beside the probe above and unguarded for the same
+# reason: it is $PSScriptRoot-relative, so it resolves in the plugin mirror as well as here. The
+# degraded branch below reads it -- `rev-parse --show-toplevel` returns a RAW path, which Windows
+# PowerShell 5.1 decodes with [Console]::OutputEncoding, so a consumer whose checkout sits under an
+# accented directory name resolved a root that matched nothing.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 # and thereby the hook -- at every session start in the source repo. The CI half runs the in-repo copy
 # (via actions/checkout), which the guard would not have fired on anyway.
 
@@ -119,19 +126,14 @@ $repoRoot = if (Test-FunctionDefined 'Resolve-CheckRepoRoot') {
     # answers: '' for "could not tell", leaving the verdict to the block below, which is the one place
     # each of these checks decides what '' means for it. It must NOT refuse here, and it must not die on
     # $null.Trim() either, which is what it used to do before anything could read the guard.
-    # EAP NEUTRALISED AROUND THE NATIVE CALL, exactly as Resolve-CheckRoot does it, and for a measured
-    # reason rather than symmetry: under $ErrorActionPreference = 'Stop' -- which this file sets -- a
-    # native command that SUCCEEDS and also writes to stderr throws non-deterministically, depending on
-    # how stdout and stderr interleave. Measured in review: 7 of 8 identical runs threw, and the catch
-    # below then turned a perfectly resolvable root into '' -- "could not tell" about a tree that was
-    # right there. The catch is the backstop; this wrap is what stops it firing on a success.
-    $t = ''
-    $prevEap = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try { $t = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1) }
-    catch { $t = '' }
-    finally { $ErrorActionPreference = $prevEap }
-    if ($t) { ([string]$t).Trim() } else { '' }
+    # THE READ AND ITS EAP WRAP BOTH MOVED INTO Get-GitTopLevelPath (issue #2115), and the measurement
+    # that earned the wrap travelled with it verbatim -- under $ErrorActionPreference = 'Stop' a native
+    # command that SUCCEEDS and also writes to stderr throws non-deterministically (7 of 8 identical
+    # runs), turning a perfectly resolvable root into a "could not tell". None of that was the defect;
+    # the QUESTION was. --show-toplevel returns a raw path for [Console]::OutputEncoding to mangle, and
+    # the lib asks one whose answer is pure ASCII instead. It returns $null where this returns ''.
+    $p = (Get-GitTopLevelPath).Path
+    if ($p) { $p } else { '' }
 }
 
 # '' MEANS "COULD NOT TELL". This runs from a SessionStart hook as well as from CI, and the hook's case

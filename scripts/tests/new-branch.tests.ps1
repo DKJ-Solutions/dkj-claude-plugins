@@ -299,6 +299,10 @@ function New-Fixture {
     # the very unjudged .Trim() this repair removes.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\check-report-lib.ps1') -Force
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\command-probe-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\command-probe-lib.ps1') -Force
+    # repo-root-lib.ps1 likewise (#2115): check-report-lib.ps1 resolves the repo root through
+    # Get-GitTopLevelPath, which lives there. UNGUARDED in that lib, deliberately -- it is mirrored
+    # beside it into every plugin that carries it, so a payload missing it is broken rather than old.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\repo-root-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\repo-root-lib.ps1') -Force
     # document-newline-lib.ps1 likewise (#1832): entry-scaffold-lib.ps1 and pr-body-lib.ps1 dot-source it
     # for Get-DocumentNewline, unconditionally and for the same reason -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\document-newline-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\document-newline-lib.ps1') -Force
@@ -2244,6 +2248,12 @@ exit 1
     # git answers nothing that is `$null.Trim()`: exit 1, nothing created, and the only thing printed is
     # a PowerShell error naming a line number in a script the reader did not write.
     #
+    # AND THE COMMAND IT NAMES CHANGED UNDER #2115, which is what the phrase below pins. The read is
+    # now `rev-parse --is-inside-work-tree --show-cdup`: --show-toplevel returns a raw path for
+    # [Console]::OutputEncoding to mangle, so the question was changed rather than the decode. A
+    # refusal quoting a command the script no longer issues sends the reader to reproduce something
+    # that is not the thing that failed, which is why this assert has to move with it.
+    #
     # WHY THIS IS ASSERTED RATHER THAN LEFT TO THE OTHER CASES. It is the one failure mode that is
     # INVISIBLE to every fixture above, because every fixture above is a real repository -- so the
     # regression back to the silent form would pass this whole suite. It is also the mode #1913's own
@@ -2262,7 +2272,7 @@ exit 1
     $rZ = Invoke-NewBranch -Dir $notARepo -Name 'docs/outside-a-repo-v1' -Title 'Outside a repo' -NoPush
     Assert-ExitCode 1 $rZ 'no repo root: exits 1 rather than dying on a null dereference'
     Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'could not work out which repository') 'no repo root: says which question it could not answer'
-    Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'rev-parse --show-toplevel') 'no repo root: names the command whose answer it needed'
+    Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'rev-parse --is-inside-work-tree --show-cdup') 'no repo root: names the command whose answer it needed'
     Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'Nothing was created') 'no repo root: and states that nothing was created, which is what a reader needs before re-running'
     Assert-True (-not (Test-Phrase -Text $rZ.Out -Phrase 'null-valued expression')) 'no repo root: and NOT the null-dereference this replaced'
 } finally {

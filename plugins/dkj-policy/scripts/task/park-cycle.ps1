@@ -275,6 +275,10 @@ function Write-CycleCollisionReport {
 # and the in-repo mirror alike. LOADED BEFORE THE ROOT IS RESOLVED, because resolving it takes a git
 # call and this is the lib that makes one safe -- see the block below.
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+# Get-GitTopLevelPath for the repo-root read below (issue #2115). Named here rather than inherited:
+# this script dot-sources no lib that already carries it, unlike worktree-lane and check-connectors,
+# which reach it through check-report-lib.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\park-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
@@ -319,8 +323,11 @@ $root = if ($RepoRoot) {
 } elseif ($env:CLAUDE_PROJECT_DIR) {
     $env:CLAUDE_PROJECT_DIR
 } else {
-    $topRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--show-toplevel') -DiscardStderr
-    if ($topRes.ExitCode -eq 0) { (($topRes.Output | Out-String).Trim()) } else { '' }
+    # NOT --show-toplevel (issue #2115): a raw path, decoded by Windows PowerShell 5.1 with
+    # [Console]::OutputEncoding, so under an accented checkout the Test-Path below rejected a root that
+    # was really there and this hook parked nothing while reporting that there was nothing to park.
+    $topPath = (Get-GitTopLevelPath).Path
+    if ($topPath) { $topPath } else { '' }
 }
 if (-not $root -or -not (Test-Path -LiteralPath $root -PathType Container)) {
     Write-CycleParkNote "no repository resolved -- nothing to do."

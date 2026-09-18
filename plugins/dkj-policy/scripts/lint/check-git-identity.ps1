@@ -114,6 +114,13 @@ $ErrorActionPreference = 'Stop'
 # every miss -- and a miss is the normal case for an optional seam. $PSScriptRoot-relative, so it
 # resolves in the plugin mirror as well as here.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
+
+# WHERE THE REPO ROOT COMES FROM (issue #2115), beside the probe above and unguarded for the same
+# reason: it is $PSScriptRoot-relative, so it resolves in the plugin mirror as well as here. The
+# degraded branch below reads it -- `rev-parse --show-toplevel` returns a RAW path, which Windows
+# PowerShell 5.1 decodes with [Console]::OutputEncoding, so a consumer whose checkout sits under an
+# accented directory name resolved a root that matched nothing.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 # repo.
 
 # THE ROOT COMES FROM ONE DEFINITION (#1422), and this script's wrapped variant is the one that BECAME
@@ -132,8 +139,11 @@ if (Test-FunctionDefined 'Resolve-CheckRepoRoot') {
 } elseif ($env:CLAUDE_PROJECT_DIR) {
     $repoRoot = $env:CLAUDE_PROJECT_DIR
 } else {
-    try { $repoRoot = (git rev-parse --show-toplevel 2>$null | Select-Object -First 1) } catch { $repoRoot = '' }
-    if ($repoRoot) { $repoRoot = $repoRoot.Trim() }
+    # ONE DEFINITION FOR THE GIT READ (issue #2115): --show-toplevel returns a RAW path, decoded by
+    # Windows PowerShell 5.1 with [Console]::OutputEncoding, so an accented checkout resolved a root
+    # that matched nothing. Get-GitTopLevelPath asks a question whose answer is pure ASCII instead.
+    $repoRoot = (Get-GitTopLevelPath).Path
+    if (-not $repoRoot) { $repoRoot = '' }
 }
 
 # THE THREE IDENTITY READS ARE A LIB NOW, not this file's own (claim-issue.ps1). They were written

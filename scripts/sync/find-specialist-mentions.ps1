@@ -67,10 +67,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# WHERE THE REPO ROOT COMES FROM (issue #2115). Not `rev-parse --show-toplevel`: it returns a raw path
+# that Windows PowerShell 5.1 decodes with [Console]::OutputEncoding, so under an accented checkout the
+# Test-Path below refused a root that was really there. Unconditional -- this script is workshop-only,
+# never mirrored, so the lib is always beside it.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
+
 $repoRoot = if ($env:CLAUDE_PROJECT_DIR) {
     $env:CLAUDE_PROJECT_DIR
 } else {
-    try { (git rev-parse --show-toplevel 2>$null).Trim() } catch { '' }
+    (Get-GitTopLevelPath).Path
 }
 if (-not $repoRoot -or -not (Test-Path -LiteralPath $repoRoot)) {
     Write-Error 'Cannot determine the repo root. Run this from inside the repo.'

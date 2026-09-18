@@ -12,7 +12,7 @@
     backlog-page-rules.ps1); this fits the same pattern rather than being a new kind of dependency.
 
     `2>$null` ON A NATIVE COMMAND IS A TRAP UNDER EAP=Stop, and every task script in this plugin runs
-    under it. `git rev-parse --show-toplevel` writes to stderr in the ordinary case this handles -- a
+    under it. `git rev-parse` writes to stderr in the ordinary case this handles -- a
     run started outside a work tree -- and PowerShell turns each of those lines into a terminating
     error, so the fallback below would never be reached unless the redirect is protected first. The
     repo-wide guard in scripts/tests/shared-scripts.tests.ps1 refuses an unprotected redirect
@@ -41,11 +41,34 @@ function Resolve-BwjRepoRoot {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $top  = & git rev-parse --show-toplevel 2>$null
+        # NOT --show-toplevel (issue #2115). Its output is a RAW path, and Windows PowerShell 5.1
+        # decodes a native child's stdout with [Console]::OutputEncoding -- so in a store checkout
+        # under an accented directory name this returned a well-formed string that matched nothing,
+        # and every page path composed from it pointed at a file that was not there.
+        #
+        # --show-cdup reports the root RELATIVE to here, which is a run of '../' segments and no
+        # filename at all, so there is nothing in it for a code page to corrupt; the base it is joined
+        # onto is a string PowerShell already holds. --is-inside-work-tree rides along in the same
+        # call because --show-cdup alone exits 0 inside the .git directory and prints nothing, where
+        # --show-toplevel exited 128 -- without it this would resolve .git itself as the root.
+        #
+        # INLINE RATHER THAN SHARED, deliberately: scripts\lib\repo-root-lib.ps1 in the workshop root
+        # carries the same mechanism with its full measurement, but it mirrors into dkj-policy,
+        # dkj-subagents-alpha and dkj-subagents-shopify -- not into this plugin -- and reaching for it
+        # would cross exactly the plugin boundary this file's own header keeps.
+        $raw  = & git rev-parse --is-inside-work-tree --show-cdup 2>$null
         $code = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $prev
     }
-    if ($code -eq 0 -and $top) { return ((@($top)[0]) -replace '/', '\').Trim() }
+    $lines = @(@($raw) | ForEach-Object { "$_".Trim() })
+    if ($code -eq 0 -and $lines.Count -ge 1 -and $lines[0] -eq 'true') {
+        $cdup = $(if ($lines.Count -ge 2) { $lines[1] } else { '' })
+        $base = $PWD.ProviderPath
+        $full = $(if ($cdup) { [System.IO.Path]::GetFullPath((Join-Path $base $cdup)) }
+                  else       { [System.IO.Path]::GetFullPath($base) })
+        if ($full.Length -gt 3 -and ($full.EndsWith('\') -or $full.EndsWith('/'))) { $full = $full.TrimEnd('\', '/') }
+        return $full
+    }
     return (Get-Location).Path
 }

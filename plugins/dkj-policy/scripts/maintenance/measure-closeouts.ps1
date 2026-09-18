@@ -180,9 +180,15 @@ $script:ChainEndingScripts = (@($chainEnders | ForEach-Object { [regex]::Escape(
 # CLAUDE_PROJECT_DIR for a consumer (the mirror runs from the plugin cache, where a git root would be
 # either wrong or absent), otherwise the git root. The try/catch is the exonerated form: outside a
 # repository git errors and the catch leaves this null, which the baseline rule below tolerates.
+# WHERE THE REPO ROOT COMES FROM (issue #2115). Not `rev-parse --show-toplevel`: it returns a raw path
+# that Windows PowerShell 5.1 decodes with [Console]::OutputEncoding, so a consumer whose checkout sits
+# under an accented directory name got a baseline path pointing at nothing. $PSScriptRoot-relative, so
+# it resolves in the plugin mirror as well as here.
+. (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
+
 $repoRoot = $null
 if ($env:CLAUDE_PROJECT_DIR) { $repoRoot = $env:CLAUDE_PROJECT_DIR }
-else { try { $repoRoot = (git rev-parse --show-toplevel) } catch { $repoRoot = $null } }
+else { $repoRoot = (Get-GitTopLevelPath).Path }
 if ($repoRoot) { $repoRoot = [System.IO.Path]::GetFullPath($repoRoot.Trim()) }
 
 # WHERE THE BASELINE LIVES, and the rule is one question: is this script INSIDE the repo being measured?

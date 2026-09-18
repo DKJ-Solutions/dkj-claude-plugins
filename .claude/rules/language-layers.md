@@ -103,6 +103,26 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   prevent. The repair is to **hold the wire to ASCII and decode it yourself** — `core.quotePath=true` plus
   `Convert-GitQuotedPath` — because every candidate code page agrees below 0x80. Forcing the flag rather
   than relying on git's default is part of it: a repo may set `core.quotepath` in its own config.
+  **That repair does NOT reach every git path read, and assuming it did is what made this class look
+  empty when it was not** (#2115, September 18, 2026). `core.quotePath` governs the path *output of the
+  porcelain that consults it*, and **`rev-parse` is not such a porcelain**. Measured in a repo at
+  `…/café-repo`, both calls under the forced flag: `ls-files` returns `"café.md"` ASCII-quoted, and
+  `rev-parse --show-toplevel` returns the raw UTF-8 bytes. So the *repo-root* read — which is the first
+  statement of most scripts here — was never repairable this way, and a sweep written as *"neither forces
+  `core.quotePath=true` nor passes `-Utf8`"* silently exonerated about twenty call sites: #2110's sweep
+  concluded *"every other reader is already correct"* while they were all reading it. **The repair for
+  this half is to change the QUESTION, not the decode**: ask
+  `git rev-parse --is-inside-work-tree --show-cdup` and join the `../` run onto a base PowerShell already
+  holds. `--show-cdup` names no file at all, so there is nothing in it for a code page to corrupt, and it
+  needs no lib — which matters, because a script resolving its root has not loaded one yet. The second
+  flag is not optional: `--show-cdup` alone exits 0 inside `.git`, where `--show-toplevel` exits 128, so
+  a straight swap resolves the `.git` directory as the root. It is one definition, in
+  [`scripts/lib/repo-root-lib.ps1`](../../scripts/lib/repo-root-lib.ps1), and a repo-wide guard in
+  `shared-scripts.tests.ps1` refuses a new executable `--show-toplevel` anywhere in the tree.
+  **The general lesson is about the sweep rather than the flag:** a predicate that names a repair assumes
+  the repair applies, so it reads as *"these sites are fine"* where it means *"these sites do not use a
+  mechanism that could not have helped them"*. Check that the prescription reaches the call before
+  counting a call site as clean.
   **Two things to know before touching this class again.** Never repair it by setting
   `[Console]::OutputEncoding`: that setter is `SetConsoleOutputCP`, console-**wide**, and the test gate
   runs every suite on one shared console — which is precisely how this bug stayed invisible, a sibling

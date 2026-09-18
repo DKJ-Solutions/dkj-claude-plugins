@@ -448,6 +448,35 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # WHERE THE REPO ROOT COMES FROM (issue #2115). Three mirrors, one per plugin that carries a
+            # reader of it, on check-report-lib-shopify's own reasoning below: a script may only
+            # dot-source a lib that ships in ITS OWN plugin, because the mirror resolves the sibling
+            # inside the plugin it landed in.
+            #
+            # ITS READERS ARE THE THREE ROOT RESOLVERS, and they are already mirrored across exactly
+            # these three plugins -- check-report-lib into all three, consumer-check-lib and
+            # source-repo-guard-lib into dkj-policy, source-repo-guard-lib into dkj-subagents-shopify.
+            # check-report-lib loads this one UNGUARDED at file scope, so a payload missing it would
+            # fail on load rather than degrade: these three entries are what makes that safe, and they
+            # are the reason the other two readers guard instead (their own comments say which and why).
+            Name    = 'repo-root-lib'
+            Source  = 'scripts\lib\repo-root-lib.ps1'
+            Plugin  = 'dkj-subagents-alpha'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'repo-root-lib-workflow'
+            Source  = 'scripts\lib\repo-root-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'repo-root-lib-shopify'
+            Source  = 'scripts\lib\repo-root-lib.ps1'
+            Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
             Name    = 'check-report-lib'
             Source  = 'scripts\lib\check-report-lib.ps1'
             Plugin  = 'dkj-subagents-alpha'

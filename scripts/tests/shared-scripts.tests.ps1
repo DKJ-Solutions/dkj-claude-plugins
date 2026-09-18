@@ -513,6 +513,101 @@ $y = git status --porcelain 2>$null
     Remove-Item -Path $guardFixture -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+Write-Host 'repo-root decoding -- repo-wide guard over every rev-parse --show-toplevel' -ForegroundColor Cyan
+# THE SAME ARGUMENT AS THE GUARD ABOVE, one defect over (issue #2115). `git rev-parse --show-toplevel`
+# prints a RAW path, and Windows PowerShell 5.1 decodes a native child's stdout with
+# [Console]::OutputEncoding -- so under a non-UTF-8 console the root of a checkout carrying a non-ASCII
+# character comes back as a well-formed string that matches nothing. It is LATENT in this repo (this
+# checkout's path is ASCII) and live for any consumer on a non-English Windows box, which is exactly
+# the shape that accumulates: #2110's sweep concluded this class was empty and ~20 call sites were
+# reading it at the time, because the repair the language rule prescribes for path reads
+# (core.quotePath=true + Convert-GitQuotedPath) DOES NOT REACH rev-parse -- that flag governs the
+# porcelain that consults it, and rev-parse is not such a porcelain. Measured: under the forced flag,
+# `ls-files` returns "caf\303\251.md" (ASCII) while `rev-parse --show-toplevel` returns raw UTF-8.
+#
+# So the flag itself is what is refused here, rather than a missing wrapper around it. The replacement
+# is --is-inside-work-tree joined to --show-cdup, whose output is a run of '../' segments and no
+# filename at all; scripts\lib\repo-root-lib.ps1 carries it, and the two sites that may not reach a lib
+# (new-branch's no-lib refusal branch, dkj-policy-bwj's own self-contained lib) write that same
+# question out by hand -- which is why this scans for the FLAG and not for "did you call the lib".
+$rawToplevelRx = [regex]'rev-parse[^\r\n]*--show-toplevel'
+
+function Get-RawTopLevelReads {
+    <#
+        Return one string per executable `rev-parse --show-toplevel` ("<relative path>:<line> -- <code>").
+
+        BLOCK COMMENTS AND '#' LINES ARE SKIPPED, and that is load-bearing rather than tidiness: the
+        libs that REPLACED this call document what they replaced, quoting the old form verbatim --
+        check-report-lib's Resolve-RepoRootOrFail docstring still carries the exact one-line shape
+        #1917 measured, and repo-root-lib's synopsis names the flag a dozen times. A scan that could
+        not tell prose from a call would either fail on that documentation or have to be weakened
+        until it stopped finding calls.
+    #>
+    param([System.IO.FileInfo[]]$Files, [string]$BasePath)
+    $found = New-Object System.Collections.Generic.List[string]
+    foreach ($sf in $Files) {
+        $lines = @(Get-Content -LiteralPath $sf.FullName -Encoding UTF8)
+        $rel = $sf.FullName
+        if ($BasePath -and $rel.StartsWith($BasePath, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $rel = $rel.Substring($BasePath.Length).TrimStart('\')
+        }
+        $inBlockComment = $false
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            $trim = $lines[$i].Trim()
+            if ($trim -like '<#*') { $inBlockComment = $true }
+            if ($inBlockComment) {
+                if ($trim -like '*#>*') { $inBlockComment = $false }
+                continue
+            }
+            if ($trim.StartsWith('#')) { continue }
+            if ($rawToplevelRx.IsMatch($trim)) { $found.Add("${rel}:$($i + 1) -- $trim") }
+        }
+    }
+    return $found
+}
+
+# The same scan set as the guard above -- the workshop's own scripts/ AND the whole plugin payload,
+# with scripts/tests excluded because the fixture below writes the forbidden shape on purpose.
+$rawReads = @(Get-RawTopLevelReads -Files $scanFiles -BasePath $RepoRoot)
+Assert-Equal 0 $rawReads.Count 'no executable `rev-parse --show-toplevel` anywhere in the repo'
+foreach ($r in $rawReads) { Write-Host "         $r" -ForegroundColor Red }
+
+# A guard that can no longer find anything is not a guard -- the same fixture argument as above, and
+# here it carries the documentation case explicitly, because that exemption is the one that could
+# silently swallow the whole scan.
+$rootFixture = Join-Path ([System.IO.Path]::GetTempPath()) "toplevel-guard-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
+New-Item -ItemType Directory -Force -Path $rootFixture | Out-Null
+try {
+    [System.IO.File]::WriteAllText((Join-Path $rootFixture 'bad.ps1'), @'
+$ErrorActionPreference = 'Stop'
+$x = (git rev-parse --show-toplevel).Trim()
+'@)
+    [System.IO.File]::WriteAllText((Join-Path $rootFixture 'good-cdup.ps1'), @'
+$ErrorActionPreference = 'Stop'
+$x = & git rev-parse --is-inside-work-tree --show-cdup
+'@)
+    [System.IO.File]::WriteAllText((Join-Path $rootFixture 'doc-block.ps1'), @'
+<#
+    This lib replaced `git rev-parse --show-toplevel`, quoted here so a reader can see what went.
+#>
+$x = 1
+'@)
+    [System.IO.File]::WriteAllText((Join-Path $rootFixture 'doc-line.ps1'), @'
+# NOT git rev-parse --show-toplevel any more -- see repo-root-lib.
+$x = 1
+'@)
+
+    $rootHits = @(Get-RawTopLevelReads -Files @(Get-ChildItem -Path $rootFixture -File -Filter '*.ps1') -BasePath $rootFixture)
+    $rootText = ($rootHits -join "`n")
+    Assert-Equal 1 $rootHits.Count 'the repo-root scan finds exactly the one executable --show-toplevel'
+    Assert-True ($rootText -match 'bad\.ps1:2') 'the executable call is the one reported'
+    Assert-True (-not ($rootText -match 'good-cdup')) 'the --is-inside-work-tree/--show-cdup replacement is not flagged'
+    Assert-True (-not ($rootText -match 'doc-block')) 'a block comment quoting the old form is exonerated'
+    Assert-True (-not ($rootText -match 'doc-line')) 'a line comment quoting the old form is exonerated'
+} finally {
+    Remove-Item -Path $rootFixture -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 # Sweep guard (after the v1.12.0 breakage): the other release scripts that mutate native git/gh must
 # not carry the #107 pitfall. cut-release.ps1 now routes its git mutations through the same shared
 # Invoke-NativeCapture helper (#114 follow-up) instead of a bare 'git add' under a hand-rolled

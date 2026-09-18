@@ -887,16 +887,28 @@ foreach ($mf in $manifestFiles) {
     # checkout's own identity. Two ways that goes wrong: a folder that was never cloned produces a
     # false arm-3 [ERROR] blaming a repository that has nothing to do with it, or -- in the unlucky
     # case where the enclosing repo happens to match the manifest -- a false SILENT arm-1 agreement for
-    # a folder that was never a clone of anything. --show-toplevel asks the question this check
-    # actually needs (IS $checkout itself the work tree's root) and REPLACES --is-inside-work-tree
-    # outright rather than joining it: a folder that is not inside any work tree at all fails it the
-    # same way, so this is not a third git call, only a different second one.
+    # a folder that was never a clone of anything. The ROOT COMPARISON is the question this check
+    # actually needs (IS $checkout itself the work tree's root), and it is what decides the verdict
+    # below; --is-inside-work-tree on its own never could, for the reason just given.
+    #
+    # THE TWO FLAGS ARE NOW ASKED TOGETHER, IN ONE CALL (issue #2115), which this paragraph used to say
+    # was unnecessary -- "REPLACES --is-inside-work-tree outright rather than joining it". That was
+    # right about the VERDICT and is no longer right about the CALL. The root read moved to
+    # Get-GitTopLevelPath, which resolves the root from --show-cdup because --show-toplevel's raw path
+    # is decoded with the console code page -- and --show-cdup alone cannot tell a work tree from the
+    # .git directory, where it exits 0. So the second flag is back as a GUARD on the first, not as a
+    # rival to it, and it is still not a third git call: `git rev-parse` takes both at once.
     $originRepo = $null
     $checkoutToplevel = ''
     $notCheckoutRoot = $false
     try {
-        $rawToplevel = (& git -C $checkout rev-parse --show-toplevel 2>$null)
-        if ($LASTEXITCODE -eq 0 -and $rawToplevel) {
+        # NOT A BARE --show-toplevel (issue #2115): its output is a raw path, decoded by Windows
+        # PowerShell 5.1 with [Console]::OutputEncoding, so a registered checkout under an accented
+        # directory name never matched $checkout and was reported as "not the root of its work tree".
+        # Get-GitTopLevelPath joins --is-inside-work-tree to --show-cdup, which is the same pair this
+        # block already wanted: a folder inside no work tree at all still fails it the same way.
+        $rawToplevel = (Get-GitTopLevelPath -From $checkout).Path
+        if ($rawToplevel) {
             # Normalised before comparing: git answers with forward slashes even on Windows, while
             # $checkout has been through Resolve-Path (backslashes), and a trailing separator on
             # either side must not turn a real match into a false one.
