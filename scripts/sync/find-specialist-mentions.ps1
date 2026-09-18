@@ -84,6 +84,14 @@ if (-not $repoRoot -or -not (Test-Path -LiteralPath $repoRoot)) {
 # which makes it a silent copy free to drift rather than a degraded last resort.
 . (Join-Path $repoRoot 'scripts/lib/check-report-lib.ps1')
 
+# The transport and the decode for this script's ONE git call (issue #2110). Unconditional for the same
+# reason as the lib above -- workshop-only, never mirrored, so both libs are always beside it and a
+# guarded dot-source here would only be a fallback nobody can reach. Invoke-NativeCapture is what every
+# other reader in this tree already uses instead of a bare native call, and Convert-GitQuotedPath is the
+# decode the raw call did not have.
+. (Join-Path $repoRoot 'scripts/lib/native-capture-lib.ps1')
+. (Join-Path $repoRoot 'scripts/lib/git-porcelain-lib.ps1')
+
 # ---------------------------------------------------------------------------
 # 1. The roster: derived from the plugin payload, never hardcoded.
 # ---------------------------------------------------------------------------
@@ -185,13 +193,32 @@ $script:LayerTitle = @{
 # ---------------------------------------------------------------------------
 
 function Get-ScannableFiles {
-    <# Every tracked text file, via git so that ignored files and .git/ are excluded for free. #>
-    Push-Location $repoRoot
-    try {
-        $files = @(git ls-files 2>$null)
-    } finally {
-        Pop-Location
-    }
+    <# Every tracked text file, via git so that ignored files and .git/ are excluded for free.
+
+       THE WIRE IS HELD TO ASCII AND DECODED HERE (issue #2110, September 18, 2026), the repair
+       .claude/rules/language-layers.md prescribes for this class. This read was a bare native call --
+       `@(git ls-files 2>$null)` -- so Windows PowerShell 5.1 decoded the bytes with
+       [Console]::OutputEncoding, whatever code page the run happened to inherit. A mis-decoded name keeps
+       its `.md` tail, so it passes the extension filter below, and then cannot be OPENED: the file drops
+       out of the mention scan silently, which is the one failure a scan whose whole job is "do not miss a
+       place" must not have. The flag is FORCED rather than left to git's default, since a repo may set
+       core.quotepath in its own config.
+
+       AND THE TRANSPORT CHANGED WITH IT, which is the other half of #2110's item 2: a bare native call is
+       the shape every other git reader in this tree has already left behind, and Invoke-NativeCapture is
+       what makes the exit code readable instead of being swallowed by `2>$null`. `-C $repoRoot` replaces
+       the Push-Location/Pop-Location pair -- git is told which tree to read rather than the process being
+       moved into it, which is one fewer piece of global state for a reporter to restore.
+
+       A GIT THAT WILL NOT ANSWER RETURNS NOTHING, as before. This script is a reporter that exits 0 on
+       every finding; an empty scan set is reported by the counts it prints, and there is no verdict here
+       to falsify. #>
+    $lsFiles = Invoke-NativeCapture -FilePath 'git' `
+        -Arguments @('-C', $repoRoot, '-c', 'core.quotePath=true', 'ls-files') -DiscardStderr
+    if ($lsFiles.ExitCode -ne 0) { return @() }
+    $files = @($lsFiles.Output | Where-Object { $_ } | ForEach-Object {
+        Convert-GitQuotedPath -Path ([string]$_)
+    })
     return @($files | Where-Object {
         $_ -match '\.(md|ps1|json|yml|yaml|txt)$'
     })

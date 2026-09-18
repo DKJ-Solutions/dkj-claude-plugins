@@ -43,17 +43,54 @@ Force core.quotePath=true + Convert-GitQuotedPath in fold-changelog-entry's trac
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fold-changelog-entry.ps1`: the tracked/untracked `ls-files` read forces `core.quotePath=true`
+      and decodes with `Convert-GitQuotedPath`, behind a guarded dot-source of `git-porcelain-lib.ps1`
+- [x] `find-specialist-mentions.ps1`: the scan set goes through `Invoke-NativeCapture` with the same
+      forced flag and decode, replacing the bare `@(git ls-files 2>$null)` and its `Push-Location` pair
+- [x] `build-shared-scripts.ps1` re-run, so the `dkj-policy` mirror of the fold carries the repair
 
 ### TEST
 
+- [x] `find-specialist-mentions.tests.ps1`: fixture copy list rebuilt as one closure list (the two new
+      dot-sources plus `command-probe-lib`/`run-progress-lib`), a note whose FILENAME carries a
+      non-ASCII character added to the fixture, and the deterministic cp850 half plus three source pins
+- [x] `fold-changelog.tests.ps1`: four source pins on the repaired call site, since the fold's own
+      failure is latent and no fixture it can build reaches the mis-decode
+- [x] `fixture-lib-deps.tests.ps1` green -- the gate that holds a fixture copy list against what the
+      copied script dot-sources
+- [x] Lint gate + full suite via `open-pr`
+- [~] A live end-to-end assert on the fold's mis-decode -- dropped: both sides of that comparison are
+      branch-document names and `CHANGELOG.md`, and `branch-info.ps1` constrains a branch name to
+      ASCII, so the state cannot be produced by the writer. Pinned at the source instead, and the
+      dependency is now named in the code
+
 ### DEPLOY: fix/2110-git-path-decoding
 
-**Score:**
+Two git reads whose answer is a PATH no longer depend on the console code page. `fold-changelog-entry`
+splits the paths it is about to commit into tracked and untracked with a `git ls-files` whose output it
+then COMPARES -- so a mis-decoded name failed that comparison, dropped out of `git commit -- <paths>`,
+and the run printed *"git never tracked them ... the fold deleted them from disk all the same"* about a
+file it had just deleted. `find-specialist-mentions` built its whole scan set from a bare
+`@(git ls-files 2>$null)`: a mis-decoded name keeps its `.md` tail, passes the extension filter and then
+cannot be opened, so the file left the mention scan silently -- the one failure a report whose job is
+*"do not miss a place"* must not have. Both now force `core.quotePath=true` and decode with
+`Convert-GitQuotedPath`, the repair [`.claude/rules/language-layers.md`](../.claude/rules/language-layers.md)
+prescribes and #2109 applied one caller over; the second is routed through `Invoke-NativeCapture` as
+well, so its exit code is readable instead of swallowed.
+
+The fold's instance is LATENT today, and it is the only one whose safety rests on a constraint in
+another file: both sides of that comparison are branch-document names and `CHANGELOG.md`, which
+`branch-info.ps1` holds to ASCII. The code now says so, which it did not before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- neither reader reaches a consumer as behaviour. The fold is mirrored into every consumer's
+`dkj-policy` cache, but its instance is latent for the reason above, and the mention scan is a
+source-repo reporter that never travels.
+
+**Score:** N/A
 
 #### Pull Request
 
