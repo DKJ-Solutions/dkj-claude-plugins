@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 25 minor entries** <!-- pending-tally -->
+**20 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: A machine suspend no longer counts against a suite's bound · 20260918-064215
+
+The test gate's per-suite bound (#1941) is measured off a `Stopwatch`, which keeps counting while the
+machine is suspended. An unattended overnight run therefore woke to find every open lane hours past a
+1,800s bound, killed the two suites that happened to be in flight -- both of which pass in seconds --
+and refused the push with *"Fix the tests"*, naming a defect that did not exist in two files picked by
+nothing more than which lanes were open at suspend. The gate now watches its own clock: a jump no
+100 ms poll could have produced is credited back to the lanes that were open across it, and the
+verdict says which part of its own seconds nothing was running for. A deadlocked tree produces no such
+jump -- the loop goes on polling while the suite does not move -- so #1941 keeps its bound.
+
+Resolves #2095.
+
+**Score:** 4 -- it silently turns innocent suites into a red gate and costs the whole of an unattended
+run, and the remedy it printed sent the reader after a defect that does not exist. Anyone running this
+gate on a laptop meets it the first night they leave one going.
+
+#### What makes this deploy extra special
+
+It plausibly answers #1704, which closed with *"cause not established"* over a gate that reported
+11,112s for a pool it runs in ~225s -- the same shape as #2095's 11,749s, a normal run plus one
+multi-hour discontinuity with no CPU behind it. #1941's bound was filed off that same investigation,
+so the bound had been converting an unexplained stall into an unexplained test failure.
+
+It also writes down the option that was measured and **declined**: judging a lane on CPU consumed
+cannot tell a suspend from a deadlock, because #1941's own wedged tree burned 0.23s across 29 children
+over 141 minutes. Building it would have disarmed the bound for the one case it exists for.
+
+**Score:** 2 -- a consumer of this workflow gets a gate that stops failing them overnight, but the
+reasoning above is for whoever next touches the bound.
+
+#### Pull Request
+
+A machine suspend no longer counts against a suite's bound
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2099](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2099)
+
+---
 
 ### DEPLOY: fix/2091-openpr-idx-region-scoped · 20260918-063047
 
