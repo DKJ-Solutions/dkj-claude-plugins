@@ -223,6 +223,73 @@ $script:GateSuiteTimeoutSeconds = 1800
 # the suite did not finish and that killing it did not work, and both facts belong on the console.
 $script:GateSuiteKillGraceSeconds = 30
 
+# HOW BIG A JUMP IN THE GATE'S OWN CLOCK IS NO LONGER TIME THIS POOL SPENT RUNNING (issue #2095).
+#
+# THE DEFECT. The bound above is measured off a Stopwatch, and a Stopwatch keeps counting while the
+# machine is SUSPENDED -- so nothing in the mechanism could tell a suite that would not finish from a
+# workstation that had gone to sleep underneath one that was finishing fine. Measured on an unattended
+# overnight run: the machine suspended ~7s into two suites and woke 3.03 h later, the first poll after
+# the wake read $sw.Elapsed - StartOffset as ~10,900s against the 1,800s bound, and both process trees
+# were killed. Neither suite is broken -- both pass in seconds, and the same tree had just run all 113
+# green twice. What that cost is the whole night: the gate refuses, so nothing is pushed, and the
+# remedy it prints ('Fix the tests') names a defect that does not exist, in two files picked by nothing
+# more than which lanes happened to be open at suspend.
+#
+# WHAT IS ACTUALLY MEASURED HERE. The poll loop sleeps 100 ms and goes round again, so the seconds
+# between two consecutive passes are that sleep plus the loop's own work. A suspend leaves a
+# discontinuity in that series which the loop cannot otherwise produce, because nothing ran across it
+# -- the watchdog included. That gap, and only that gap, is what gets credited back.
+#
+# 300 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. #2095's own progress stream carried five gaps over
+# 60s, four of them 62-99s: a reap pass settles up to $script:NativeCaptureSettleMilliseconds per
+# capture file and then writes a whole suite's output per lane, so a busy iteration is legitimately
+# slow and a tight threshold would call it a suspend. This sits at ~3x the largest honest gap that run
+# recorded and at a sixth of the bound it protects -- and the asymmetry is the argument, not the
+# midpoint: a gap wrongly credited only makes the pool 300s MORE patient with a wedged tree, while a
+# suspend not credited turns a passing suite red and refuses the push.
+#
+# IT CANNOT DISARM #1941, WHICH IS THE ONE THING THIS MUST NOT DO. A deadlocked tree produces no gap at
+# all -- the loop goes on polling ten times a second while nothing in the suite moves -- so the sweep
+# kills it at the bound exactly as before. #1941's own measurement is the proof: 141 minutes, 90
+# processes alive, AND a gate that was still looping. What is credited here is wall clock that no
+# process was running across, the gate's own included.
+#
+# AND THE THIRD OPTION #2095 LISTED IS DELIBERATELY NOT BUILT: judging a lane on CPU consumed cannot
+# tell these two apart, because a deadlock burns no CPU either -- #1941 measured 0.23s across 29
+# children over 141 minutes. A signal that reads identically in both states is not a discriminator.
+$script:GateSuspendGapSeconds = 300
+
+function Get-GateSuspendCredit {
+    <#
+        HOW MUCH OF THIS GAP WAS NOT TIME THE POOL SPENT RUNNING -- issue #2095.
+
+        Given the seconds the gate's own stopwatch advanced between two consecutive passes of the poll
+        loop, return the seconds to credit back to every open lane: the whole gap where it is a
+        discontinuity the loop cannot produce, and 0 otherwise. $script:GateSuspendGapSeconds carries
+        the defect this exists for, what the threshold is sized off, and why it cannot disarm #1941.
+
+        THE WHOLE GAP, NOT THE GAP MINUS THE THRESHOLD. At most the threshold's worth of a 10,896s jump
+        could be the loop's own work, and subtracting it would leave every lane 300s nearer a bound none
+        of them was anywhere near. Rounding towards patience is the same asymmetry the threshold itself
+        is sized on.
+
+        A FUNCTION RATHER THAN THREE INLINE LINES, BECAUSE IT IS THE SEAM. Nothing in a fixture can put
+        a laptop to sleep, so the pool's rebase is proven by redefining this after the dot-source -- the
+        way test-suite-gate.tests.ps1 already shadows Get-ResidentPowerShellCount (#1464) for OS state a
+        test cannot control either. Being pure is what lets the judgement itself be asserted directly,
+        rather than only through a run that has to be staged around it.
+    #>
+    param(
+        [double]$GapSeconds,
+        # 0 = resolve the module default. A caller naming its own threshold is how the suite asserts
+        # both sides of the boundary without pinning itself to whatever the constant currently says.
+        [double]$ThresholdSeconds = 0
+    )
+    $limit = if ($ThresholdSeconds -gt 0) { $ThresholdSeconds } else { $script:GateSuspendGapSeconds }
+    if ($GapSeconds -gt $limit) { return [double]$GapSeconds }
+    return [double]0
+}
+
 function Test-GateSuiteCrashed {
     <#
         DID THIS SUITE FAIL, OR DID ITS PROCESS DIE? -- issue #1723.
@@ -2196,6 +2263,22 @@ function Invoke-TestSuiteGate {
         suite it was, and keeps the evidence -- which is also what closes the residual #1704 was left
         with, a degraded run that keeps no per-suite table.
 
+        AND THAT BOUND COUNTED MACHINE SUSPEND UNTIL ISSUE #2095, September 18, 2026. The deadline is
+        read off a Stopwatch, which keeps accruing while the machine sleeps, so the first poll after a
+        wake found every open lane hours past a 1,800s bound and killed the two suites that happened to
+        be in flight -- both of which pass in seconds, and both of which the same tree had just run
+        green twice. The verdict was false, the remedy it printed ('Fix the tests') named a defect that
+        did not exist, and the gate refused the push, which on an unattended overnight run is the rest
+        of the night. It also plausibly answers #1704's 'cause not established' -- a gate that reported
+        11,112s for a pool it runs in ~225s is the same shape, a normal run plus one multi-hour
+        discontinuity with no CPU behind it, so #1941's bound had been converting that unexplained
+        stall into an unexplained test failure.
+        SO THE POLL LOOP WATCHES ITS OWN CLOCK (Get-GateSuspendCredit, $script:GateSuspendGapSeconds).
+        A jump no 100 ms poll can produce is credited back to every lane that was open across it, by
+        moving their start offsets rather than the clock -- a lane opened after the wake was not asleep
+        and must not be credited. #1941 is untouched by this: a deadlocked tree produces no jump, since
+        the loop goes on polling while the suite does not move.
+
         -FocusSuite PUTS ONE SUITE UNDER THIS POOL'S REAL CONTENTION -- issue #1944. This repo has a
         whole CLASS of defect visible only here: a suite red under the pool and green standalone (#1915,
         #1939, three days apart, different files, identical discovery path -- the gate refusing a push on
@@ -2396,6 +2479,12 @@ function Invoke-TestSuiteGate {
 
     $launchDir  = (Get-Location).Path
     $sw         = [System.Diagnostics.Stopwatch]::StartNew()
+    # WALL CLOCK THIS RUN OCCUPIED WITHOUT RUNNING, TALLIED -- issue #2095. Only the verdict reads it;
+    # the deadlines are corrected by rebasing the open lanes at the moment the jump is observed (see the
+    # poll loop), because a lane opened AFTER a suspend must not be credited for one. Kept so the line a
+    # session quotes can say which part of its own seconds nothing was running for -- the figure #2095
+    # was filed on is '11,749s' for a pool that did 853s of work.
+    $suspendedSeconds = 0.0
     $failedNames = New-Object System.Collections.ArrayList
     # THE SUITES WHOSE PROCESS DIED IN THE POOL, whatever their lone re-run then decided -- issue #1723.
     # Out here beside $failedNames because the verdict is printed after the pool block has closed, and a
@@ -2490,8 +2579,45 @@ function Invoke-TestSuiteGate {
             $queue = New-Object System.Collections.Queue
             foreach ($it in $runItems) { $queue.Enqueue($it) | Out-Null }
             $running = New-Object System.Collections.ArrayList
+            # WHEN THE LAST PASS OF THE POLL LOOP READ THE CLOCK -- issue #2095. Seeded before the first
+            # pass rather than at 0, so the pool's own bring-up is never read as a discontinuity.
+            $lastPollAt = $sw.Elapsed.TotalSeconds
 
             while ($queue.Count -gt 0 -or $running.Count -gt 0) {
+                # THE CLOCK IS CHECKED FOR A DISCONTINUITY BEFORE ANYTHING IS JUDGED AGAINST IT --
+                # issue #2095, and it runs ahead of the launch block so the pass that OBSERVES a
+                # suspend also acts on it. $sw is wall clock and a suspended machine keeps accruing it
+                # while nothing runs, so without this the first poll after a wake reads every open lane
+                # as hours past its bound and kills whichever suites happened to be in flight.
+                #
+                # REBASING THE OPEN LANES RATHER THAN SUBTRACTING FROM THE CLOCK. Both would fix the
+                # bound; only this one is right about a lane the suspend did not touch. A lane opened
+                # after the wake has a StartOffset on the far side of the jump and must be judged from
+                # there -- a global correction would hand it a credit for a sleep it was not alive for.
+                # It also leaves every reading of $sw honest: the progress line, the per-suite table and
+                # the verdict go on reporting the wall clock this run really occupied, and the verdict
+                # says separately how much of it nothing was running for.
+                $pollAt = $sw.Elapsed.TotalSeconds
+                $suspendCredit = Get-GateSuspendCredit -GapSeconds ($pollAt - $lastPollAt)
+                $lastPollAt = $pollAt
+                if ($suspendCredit -gt 0) {
+                    $suspendedSeconds += $suspendCredit
+                    foreach ($r in @($running)) {
+                        $r.StartOffset += $suspendCredit
+                        # THE GRACE WINDOW IS REBASED TOO, and leaving it out would be the same defect
+                        # one layer down: a lane killed just before the suspend would come back with
+                        # $sw.Elapsed - KilledAt in the hours, be abandoned on the first pass after the
+                        # wake, and be reported as a tree that refused to die when nothing had yet had
+                        # the chance to. 0 means it was never killed and is left alone.
+                        if ($r.KilledAt -gt 0) { $r.KilledAt += $suspendCredit }
+                    }
+                    # WHAT WAS MEASURED, THEN THE KNOWN CAUSE -- in that order, because this line has to
+                    # survive a reader who met it for some other reason. The gap is a fact; machine
+                    # suspend is what produces one, and #2095 is where the measurement is written down.
+                    Write-Host ("test gate: the clock jumped $(Format-GateSeconds $suspendCredit -Decimals 1)s between two polls and " +
+                                "nothing ran across it -- the machine was suspended. Not counted against any suite's bound (issue #2095).") -ForegroundColor Yellow
+                }
+
                 while ($queue.Count -gt 0 -and $running.Count -lt $MaxParallel) {
                     $item    = $queue.Dequeue()
                     $suite   = $item.File
@@ -3014,12 +3140,19 @@ function Invoke-TestSuiteGate {
     # tree, which it did not: it measured one suite, repeatedly, and ran the other 42 items purely as load
     # (issue #1944).
     $focusNote = if ($focusMode) { " [FOCUS RUN -- $FocusSuite x $FocusRepeat, not a gate]" } else { '' }
+    # AND SO DOES THE PART OF THOSE SECONDS NOTHING WAS RUNNING FOR -- issue #2095, for the reason
+    # #1318 put the lane count here and #1351 the shard: this is the line that gets quoted, and the
+    # seconds on it are the whole point of the function's shape. The run #2095 was filed on reported
+    # '11,749s' for a pool that did 853s of work, and a reader meeting that figure in a branch document
+    # has no way to tell it from a tree that got three hours slower. Absent on every ordinary run, so
+    # nothing that already reads this line sees a byte it did not see before.
+    $suspendNote = if ($suspendedSeconds -gt 0) { " [$(Format-GateSeconds $suspendedSeconds)s of that was machine suspend, issue #2095]" } else { '' }
     if ($failedNames.Count -eq 0) {
         $passScope = if ($focusMode) { "{0} focus repeat(s) of $FocusSuite passed" }
                      elseif ($ShardCount -gt 1) { "{0} of $poolTotal suites passed" }
                      else { 'all {0} suites passed' }
         $passCount = if ($focusMode) { $focusResults.Count } else { $total }
-        Write-Host ("test gate: $passScope in {1}s{2}{3}{4}." -f $passCount, $elapsed, $laneNote, $shardNote, $focusNote) -ForegroundColor Green
+        Write-Host ("test gate: $passScope in {1}s{2}{3}{4}{5}." -f $passCount, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote) -ForegroundColor Green
         # NAMED ON THE GREEN VERDICT TOO -- issue #1941. A timeout on a LOAD item cannot fail a focus run
         # (its verdict decides nothing), and a run that quietly abandoned a process while reporting green
         # is the silence this whole mechanism was built to end. Same shape as the crash note below it.
@@ -3041,7 +3174,7 @@ function Invoke-TestSuiteGate {
     $namesInOrder = @($failedNames | Sort-Object) -join ', '
     $redTotal = if ($focusMode) { $focusResults.Count } else { $total }
     $redUnit  = if ($focusMode) { 'focus repeat(s)' } else { 'suites' }
-    Write-Host ("test gate: {0} of {1} $redUnit FAILED in {2}s{3}{4}{5}: {6}" -f $failedNames.Count, $redTotal, $elapsed, $laneNote, $shardNote, $focusNote, $namesInOrder) -ForegroundColor Red
+    Write-Host ("test gate: {0} of {1} $redUnit FAILED in {2}s{3}{4}{5}{6}: {7}" -f $failedNames.Count, $redTotal, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote, $namesInOrder) -ForegroundColor Red
     # WHICH OF THE RED ONES DID NOT FINISH, spelled out under the verdict -- issue #1941. A reader who
     # only has this line cannot otherwise tell a suite that asserted and said no from one that never
     # answered, and the two send you to completely different places.
