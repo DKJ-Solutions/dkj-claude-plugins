@@ -63,8 +63,9 @@
 
                        'closed' and 'reopened' COMMENT and move the card. The comment on 'closed'
                        names the pull request(s) that closed the issue and says the work is ready to
-                       test; 'reopened' says to hold off. Neither de-duplicates -- an event is a real
-                       state change, and a second close after a reopen is news again.
+                       test; 'reopened' reports the state change and asserts no cause for it, see
+                       New-MirrorComment. Neither de-duplicates -- an event is a real state change,
+                       and a second close after a reopen is news again.
 
                        'labeled' and 'unlabeled' ONLY move the card, deliberately: a label going on
                        or off is a change in our state, and narrating it would put a comment on the

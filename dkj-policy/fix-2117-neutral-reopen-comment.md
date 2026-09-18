@@ -80,7 +80,9 @@ this is a decision and not a refusal for want of a seam.
 ### CREATE
 
 - [x] The reopen comment in `New-MirrorComment` asserts only the state change
-- [x] Its docstring stops stating the assumption as fact
+- [x] BOTH docstrings in that file stop stating the assumption as fact -- `New-MirrorComment`'s
+      and the `-Mode event` parameter help twenty lines above it, which Victor caught after the
+      first tick had already been made on a step worded as though there were one
 - [x] `asana-mirror.yml`'s dropped-reopen argument stops citing the old wording
 - [x] `WORKFLOW-portable.md` and `README.md` describe what the comment now says
 
