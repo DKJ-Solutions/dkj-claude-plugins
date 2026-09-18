@@ -43,7 +43,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 23 minor entries** <!-- pending-tally -->
+**19 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2077-park-cycle-budget-deadline · 20260918-061758
+
+A required check that goes red without a defect behind it costs a CI cycle, blocks a merge, and teaches
+the next session to rerun rather than to read. `park-cycle.tests.ps1`'s mid-run-budget case did exactly
+that on PR #2072 -- red on a GitHub runner, green on a rerun of the same commit -- and it is now off the
+wall clock.
+
+`New-NativeCaptureBudget` accepts the deadline as an absolute UTC instant (`-ExpiresUtc`), and
+`park-cycle.ps1` accepts it as `-BudgetDeadlineEpochSeconds`, ahead of both `-BudgetSeconds` and
+`-UnderHook`. That is not only a test seam: a duration starts at the line that builds the budget, after
+the process start-up and five dot-sources, and under a hook that time belongs to the ceiling already --
+a caller holding the turn's real deadline can now state it rather than have it re-derived from a later
+moment.
+
+**What the case looked like, and why raising the numbers could not have fixed it.** It ran a 12-second
+budget against a fixed 8-second `gh` sleep. The bound handed to that call *is* what the budget has left,
+so with `e` seconds of local plumbing before it the call needs `8 < 12 - e` to survive and
+`12 - e - 8 < 5` for the look after it to be skipped -- a window on `e` four seconds wide, which raising
+both numbers slides rather than widens. The margin the comment claimed to be protecting, "7s of process
+start-up", had costed the budget check and not the bound that check then hands out. Both instants now
+come from one reading of the clock taken after the fixture is built: the budget expires at `T+20`, the
+shim answers at `T+17`, so the second margin is a constant 3 against a floor of 5 and the first
+tolerates 15 seconds of start-up where it used to tolerate about 3.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- nothing a subscriber runs changes. `cycle-autopark` still calls `park-cycle.ps1 -UnderHook`, the
+duration path is byte-for-byte what it was, and no shipped caller passes the new parameter; it is a
+capability their own hook could use, not a behaviour they receive. The failure this repairs is in this
+repo's own gate.
+
+#### Pull Request
+
+The mid-run budget case is pinned to an absolute deadline, so a loaded runner cannot turn it red
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2096](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2096)
+
+---
 
 ### DEPLOY: fix/2068-park-cycle-unknown-exit-code · 20260918-051605
 
