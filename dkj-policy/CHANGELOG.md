@@ -43,7 +43,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2101-background-progress-bar · 20260918-105021
+
+A progress bar for the runs a session cannot see. A backgrounded `Bash` call streams no stdout to any
+visible surface, so the two longest waits in this workflow -- the test gate and `ship-pr`'s CI watch --
+now **publish** their progress to a small per-user record, and a new `statusLine` command
+(`scripts/task/show-progress.ps1`, at a 2-second refresh) draws it: `[#####-------] 37/84  test gate
+(7 running)  +6m12s` while the gate runs, `... ship-pr: CI on PR #2103  +11m48s` while the watch does.
+Liveness is the writer's **process** and never the record's age, so a run blocked for twelve minutes
+keeps its bar while a run that was killed loses it within seconds. A fraction nobody measured is never
+invented: a wait with no counts gets an elapsed readout and deliberately no bar, and there is no ETA
+anywhere. Consumers are unaffected -- the dot-source into `native-capture-lib.ps1` is guarded, so that
+file stays byte-identical to its two plugin mirrors and the gate behaves there exactly as it did.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- nothing here reaches a subscriber of this service. The bar is wired into this repo's own
+`.claude/settings.json`, and `statusLine` is a settings key rather than a plugin component, so no
+consumer receives it from a release; the shared files that changed carry a guarded dot-source and behave
+in a consumer exactly as they did before. Shipping it outward is #2103, and that is the change a
+subscriber would notice.
+
+**Score:** N/A
+
+#### Pull Request
+
+A progress bar for work the terminal cannot show
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2106](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2106)
+
+---
 
 ### DEPLOY: fix/2109-tracked-name-code-page · 20260918-103318
 
