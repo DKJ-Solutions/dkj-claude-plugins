@@ -1348,7 +1348,19 @@ foreach ($af in $auditFiles) {
 # The exempt list above ALREADY ANTICIPATED IT: 'task\park-cycle.ps1|prList' names this branch by
 # name as the worked instance #2081 was split out of. The companion assert below stayed green through
 # the change, which is the half that matters -- the new site is judged, not merely counted.
-Assert-Equal 57 $boundedTotal 'the parser still counts 57 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+#
+# MOVED 57 -> 58 ON THE #2120 BRANCH, DELIBERATELY AND AUDITED. The new bounded site is
+# Get-IssueBodySet's `gh issue view --json body` in scripts\lib\issue-state-lib.ps1 -- the impure half of
+# the resolves-exempt gate, sitting beside Get-ClosedIssueSet and built to its shape:
+#   * bounded by the same -TimeoutSeconds the caller passes, the workflow's standard network bound,
+#   * capped by the same $script:IssueStateResolveLimit, so a branch citing many numbers cannot turn one
+#     gate into an unbounded fan of round trips, and
+#   * reached only when the repo ANSWERS Get-ResolvesExemptMatchers -- the seam is read before any fetch,
+#     so a repo with no second tracker pays nothing for a rule that is not theirs.
+# It asks Test-NativeExitMeasured about that capture BEFORE testing the code against 0 (#1931), which is
+# why the companion assert below stayed green through the change -- the new site is judged, not merely
+# counted, and that remains the half that matters.
+Assert-Equal 58 $boundedTotal 'the parser still counts 58 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

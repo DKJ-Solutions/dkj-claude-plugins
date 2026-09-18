@@ -146,7 +146,31 @@ function Get-AsanaTypeFieldGid { $null }
 # default, so a store whose label is already called that never writes this function at all. Answer it
 # where yours is not: 'tier-1' in a store that has not renamed its label.
 function Get-ReachLabel { 'tier-1' }
+
+# WHICH ISSUES A MERGE MUST NOT CLOSE -- read by dkj-policy's resolves gate (inbound #2120). An issue
+# with a mirrored Asana task is closed by a PERSON, once the paste-ready block is on it, so `Closes #<n>`
+# is the one thing its pull request must not carry. These two matchers are the same marker and task-link
+# shapes the mirror itself uses to decide which task an issue belongs to -- deliberately not a third
+# definition. Without this function the rule still stands and nothing enforces it.
+function Get-ResolvesExemptMatchers {
+    return @(
+        @{ Name    = 'an Asana task marker'
+           Pattern = '<!--\s*asana-task:\s*[0-9]+\s*-->'
+           Why     = 'the paste-ready block goes on while the issue is OPEN, and closing it is the confirmation that the block reached Asana -- ship with -NoResolves and close it by hand.' },
+        @{ Name    = 'an Asana task link'
+           Pattern = 'https://app\.asana\.com/'
+           Why     = 'the same rule: a mirrored ticket is closed by a person, not by a merge.' }
+    )
+}
 ```
+
+**`Get-ResolvesExemptMatchers` is the one seam here that a `dkj-policy` gate reads directly**, and it is
+proposed rather than placed for the same reason as the rest: it asserts that this repo mirrors its issues
+into a second tracker. It carries **two** of the mirror's three matchers and not all three -- the
+header-row matcher is an anchored read of a `| **Asana** | ... |` row, and the sole-URL matcher above
+already covers that row's link. The cost of the difference is the direction to be wrong in: this gate
+refuses a close, so a matcher that reaches slightly wider stops a merge that should have been
+`-NoResolves` anyway, while the mirror's narrower one decides which task to write to and must not guess.
 
 **`Get-ReachLabel` is the one seam here that is NOT about Asana**, which is why it reads as the odd
 one out and belongs in the list anyway: every other value states something about a board, and this one

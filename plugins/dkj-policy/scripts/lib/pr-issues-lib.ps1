@@ -1021,6 +1021,184 @@ function Get-ResolvesDecision {
     }
 }
 
+function ConvertTo-ResolvesExemptMatchers {
+    <#
+    .SYNOPSIS
+        Normalise whatever the Get-ResolvesExemptMatchers seam answered into records this lib can match
+        with. Returns an object with Matchers (the usable ones, in the order the repo stated them) and
+        Rejected (one record per answer that could not be used, each with a Reason the caller prints).
+
+    .DESCRIPTION
+        THE SEAM IS OPT-IN AND ANSWERS NOTHING BY DEFAULT (inbound #2120), so a repo with no ticket
+        mirror keeps exactly the gate it had before this existed: no matcher, no verdict, and -- because
+        the caller asks this question first -- not one extra gh call per resolved issue. That ceiling is
+        the reason the seam exists at all rather than a hard-coded rule: the class of issue being carved
+        out is one that only some repos have.
+
+        WHY A LIST OF PATTERNS AND NOT A PREDICATE. A scriptblock from repo-config would be the shorter
+        seam and it is refused deliberately: the gate that decides whether a PR may be opened would then
+        be running repo-authored code inside itself, and a throw in it would take the gate down with it.
+        Data can be validated, printed back inside a refusal, and asserted by a suite without a repo;
+        a predicate can only be run.
+
+        REJECTED IS A SECOND RESULT AND NOT A SILENT DROP. A pattern that does not compile is the one
+        failure a repo cannot see from the outside: the gate simply stops recognising the class it was
+        configured for, which is indistinguishable from that class not being present. So a bad record is
+        named to the caller and the rest of the list goes on working -- the same shape as Get-ClosedIssueSet's
+        Unreadable, one lib over, and for the same reason.
+
+    .PARAMETER Matchers
+        The seam's raw answer, passed straight from Get-SeamValue and never wrapped in @() by the caller.
+        A repo saying "not configured" with `return $null` is read here as NO matchers, because binding a
+        scalar $null to [object[]] yields no elements -- while `@($null)` at the call site would yield one
+        element holding nothing, and every run in that repo would then report a malformed record nobody
+        wrote. A bare hashtable binds as one matcher, so a repo stating a single one need not wrap it.
+
+        Three shapes are accepted per entry, because all three are what a repo-config author reasonably
+        writes:
+          - a plain string   -- the pattern, named after itself in the report
+          - a hashtable      -- @{ Name = '...'; Pattern = '...'; Why = '...' }
+          - a pscustomobject -- the same three properties
+        Name and Why are optional; Pattern is not.
+    #>
+    param([object[]]$Matchers = @())
+
+    $usable   = @()
+    $rejected = @()
+    $index    = 0
+    foreach ($m in @($Matchers)) {
+        $index++
+        if ($null -eq $m) {
+            $rejected += [pscustomobject]@{ Name = "entry $index"; Pattern = ''; Reason = 'the entry is empty' }
+            continue
+        }
+
+        $name = ''; $pattern = ''; $why = ''
+        if ($m -is [string]) {
+            $pattern = $m
+        } elseif ($m -is [hashtable]) {
+            if ($m.ContainsKey('Pattern')) { $pattern = [string]$m['Pattern'] }
+            if ($m.ContainsKey('Name'))    { $name    = [string]$m['Name'] }
+            if ($m.ContainsKey('Why'))     { $why     = [string]$m['Why'] }
+        } else {
+            # PROPERTY-GUARDED, because a caller runs under Set-StrictMode -Version Latest and a bare
+            # $m.Pattern on an object without the property THROWS -- inside the gate, before the push.
+            $props = @($m.PSObject.Properties | ForEach-Object { $_.Name })
+            if ($props -contains 'Pattern') { $pattern = [string]$m.Pattern }
+            if ($props -contains 'Name')    { $name    = [string]$m.Name }
+            if ($props -contains 'Why')     { $why     = [string]$m.Why }
+        }
+
+        if (-not $name) { $name = if ($pattern) { "the pattern '$pattern'" } else { "entry $index" } }
+        if (-not $pattern) {
+            $rejected += [pscustomobject]@{ Name = $name; Pattern = ''; Reason = 'it states no Pattern' }
+            continue
+        }
+        try { $null = [regex]::new($pattern) }
+        catch {
+            $rejected += [pscustomobject]@{ Name = $name; Pattern = $pattern; Reason = "its Pattern is not a valid regular expression ($($_.Exception.Message))" }
+            continue
+        }
+        $usable += [pscustomobject]@{ Name = $name; Pattern = $pattern; Why = $why }
+    }
+
+    return [pscustomobject]@{ Matchers = @($usable); Rejected = @($rejected) }
+}
+
+function Get-ResolvesExemptFindings {
+    <#
+    .SYNOPSIS
+        Which of the issues this PR would close are ones the repo has declared must NOT be closed by a
+        merge. Returns an object with Findings (one record per matching issue -- Issue, Name, Why,
+        Pattern) and Unjudged (one record per matcher that could not be run against a body, each with a
+        Reason the caller prints).
+
+    .DESCRIPTION
+        PURE, and the impure half is Get-IssueBodySet in issue-state-lib.ps1 -- the same split
+        Get-IssueStateVerdict and Get-ClosedIssueSet already make one question over, for the same reason:
+        the rule is assertable without a network, the fetch is not.
+
+        FIRST MATCHER WINS, in the order the repo stated them, because the report names ONE reason per
+        issue and a repo's list is written most-authoritative-first (a machine marker before a link a
+        person typed, which is the order the ticket mirror's own three matchers are already tried in).
+        A second matcher on the same issue would add a second sentence and no decision.
+
+        AN ISSUE WHOSE BODY THE CALLER COULD NOT READ IS ABSENT FROM $Bodies AND CONTRIBUTES NOTHING.
+        Silence is the only honest answer -- an unread body matches nothing and fails nothing -- and it
+        is the caller that says out loud which numbers it could not read, because here that silence is
+        the difference between a gate that checked and a gate that could not.
+
+        CASE-INSENSITIVE, deliberately. Every matcher this is written for reads something a person may
+        have typed or pasted -- an HTML comment marker, a task URL -- and a repo that wants case to
+        matter says so in its own pattern with (?-i).
+
+        EVERY MATCH IS BOUNDED, AND UNJUDGED IS WHY THE RESULT IS AN OBJECT. The two inputs here are a
+        pattern the CONSUMING REPO wrote and a body ANYBODY WHO CAN OPEN AN ISSUE wrote, which is the
+        classic catastrophic-backtracking pair: a consumer's own pattern, a long body crafted against it,
+        and open-pr hangs for whoever resolves that issue. The design already refuses to run repo-authored
+        CODE inside this gate on the ground that a throw in it would take the gate down; an unbounded
+        match is that same failure by another mechanism, so it gets the same answer. A timed-out match is
+        NOT a match and not a pass either -- it is a question that went unanswered, and the caller reports
+        it exactly as it reports a body it could not read. Found in review of inbound #2120.
+
+    .PARAMETER Bodies
+        A hashtable of issue number -> body text. Both an int key and its string spelling are accepted,
+        so a caller composing the table by hand is not held to one of them.
+
+    .PARAMETER MatchTimeoutSeconds
+        The per-match bound. Two seconds: a matcher for this job reads a marker or a URL and answers in
+        microseconds over any body GitHub accepts, so anything near this bound is a pathological pattern
+        rather than a slow one, and the number is generous enough that no honest matcher can reach it on
+        a loaded machine.
+    #>
+    param(
+        [int[]]$Issues = @(),
+        [hashtable]$Bodies = @{},
+        [object[]]$Matchers = @(),
+        [int]$MatchTimeoutSeconds = 2
+    )
+
+    $result = [pscustomobject]@{ Findings = @(); Unjudged = @() }
+    if (@($Matchers).Count -eq 0) { return $result }
+
+    $opts     = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    $bound    = [timespan]::FromSeconds([Math]::Max(1, $MatchTimeoutSeconds))
+    $findings = @()
+    $unjudged = @()
+
+    foreach ($n in @($Issues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)) {
+        # BOTH SPELLINGS OF THE KEY, asked plainly rather than through a pipeline: the fetcher writes int
+        # keys and a caller composing the table by hand reaches for either.
+        $body = ''
+        if     ($Bodies.ContainsKey([int]$n)) { $body = [string]$Bodies[[int]$n] }
+        elseif ($Bodies.ContainsKey("$n"))    { $body = [string]$Bodies["$n"] }
+        else                                  { continue }
+        if (-not $body) { continue }
+        foreach ($m in @($Matchers)) {
+            $hit = $false
+            try {
+                $hit = [regex]::IsMatch($body, $m.Pattern, $opts, $bound)
+            } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                # NOT a match and not a clean pass. The next matcher still runs: one pathological pattern
+                # says nothing about the rest of the repo's list.
+                $unjudged += [pscustomobject]@{
+                    Issue  = [int]$n
+                    Name   = [string]$m.Name
+                    Reason = "the match did not finish within $($bound.TotalSeconds)s -- that pattern and this body backtrack against each other"
+                }
+                continue
+            }
+            if ($hit) {
+                $findings += [pscustomobject]@{ Issue = [int]$n; Name = [string]$m.Name; Why = [string]$m.Why; Pattern = [string]$m.Pattern }
+                break
+            }
+        }
+    }
+
+    $result.Findings = @($findings)
+    $result.Unjudged = @($unjudged)
+    return $result
+}
 function Get-TargetIssueWarnings {
     <#
     .SYNOPSIS

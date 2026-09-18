@@ -383,7 +383,11 @@ the [`open-pr` skill](skills/open-pr/SKILL.md) is the full account of each:
   two measurements behind that;
 - **the impact gate** — the Significance sections; see below;
 - **the resolves gate** — a plain `#123` in a PR body closes nothing on GitHub, so issues a PR resolves are
-  passed as `-Resolves` and written as their own `Closes #<n>` lines;
+  passed as `-Resolves` and written as their own `Closes #<n>` lines. **And a repo can name the class of
+  issue a merge must NOT close** — one whose close is somebody's deliberate act, typically because the
+  ticket is mirrored into a second tracker — in the optional `Get-ResolvesExemptMatchers` seam; the gate
+  then refuses `-Resolves` on such an issue and names `-NoResolves`. Unstated, which is the default, it
+  judges nothing and makes no extra `gh` call;
 - **the always-on budget gate** — the one gate here that judges neither your code nor your paperwork but
   what **every future session in this repo pays before a single assignment is given**: `CLAUDE.md` plus
   everything it `@`-imports. The unit is the whole import closure and not the root file, because the

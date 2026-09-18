@@ -394,8 +394,19 @@ September 17, 2026: of 14 open issues, **13** carried an Asana link and **6** ca
 `open-pr.ps1 -Resolves` writes `Closes #<n>` into the pull request body, so GitHub closes the issue at
 the **merge** -- before anybody has written a block, and with nobody's confirmation. So an Asana-linked
 issue ships with **`-NoResolves`** and cites the issue as context, and the person closes it by hand once
-the block is on it. That is the whole of the answer today; a third flag that declares the citation
-deliberately without a closing keyword is named in #2049 as a larger change and is not assumed here.
+the block is on it. A third flag that declares the citation deliberately without a closing keyword is named
+in #2049 as a larger change and is not assumed here.
+
+**And since inbound
+[#2120](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2120) the gate can be TOLD, so the rule
+is no longer carried by memory alone.** `open-pr`'s resolves gate reads the optional
+`Get-ResolvesExemptMatchers` seam in the repo's own `scripts/repo-config.ps1`, fetches the body of every
+issue the merge would close, and REFUSES `-Resolves` on one that matches -- naming `-NoResolves` as the
+way through. `adopt-dkj-policy-bwj`'s step 2 proposes the two matchers, keyed on the same marker and
+task-link shapes this page already defines above, so a repo that has run that step is enforced rather than
+reminded. **A repo that has NOT stated the seam is exactly where this paragraph left it before #2120**: the
+rule stands, nothing reads it, and the difference between a correct ship and a wrong one is whether the
+session remembered. The measurement behind that sentence is one of each, days apart, in the same repo.
 
 ##### The go-live half -- the three facts the requester asks for next
 
@@ -895,7 +906,9 @@ instead, per the section above.
 - **Closing an Asana-linked issue, once the paste-ready block is on it.** Step 4 reverses the old
   order: the session writes the block while the issue is open, and closing it is the confirmation that
   somebody pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
-  would have GitHub close the issue at the merge, with nobody having confirmed anything.
+  would have GitHub close the issue at the merge, with nobody having confirmed anything. Where the repo has
+  stated `Get-ResolvesExemptMatchers` (inbound #2120), the resolves gate refuses that `-Resolves` instead
+  of leaving it to memory.
 - **Resolving the ticket. That is the whole point of step 4**: the colleague who filed
   it ticks it off once they have tested the change, and nothing in this workflow will do it for them.
 - **The Asana project answer, and step 6 has now settled it.** This used to be an open BWJ decision --
