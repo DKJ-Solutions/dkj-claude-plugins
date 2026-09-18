@@ -42,6 +42,7 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # must fail loudly in this suite, not be silently supplied by a wildcard.
 $ParkCycleSrc     = Join-Path $RepoRoot 'scripts\task\park-cycle.ps1'
 $NativeCaptureSrc = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 $EntryScaffoldSrc = Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1'
 $ParkLibSrc       = Join-Path $RepoRoot 'scripts\lib\park-lib.ps1'
 # park-lib dot-sources this one (#1682) and its Get-GitParkBacking cannot answer without it. The
@@ -172,6 +173,7 @@ function New-Fixture {
     New-Item -ItemType Directory -Path (Join-Path $dir '_bin')         -Force | Out-Null
     Copy-Item -LiteralPath $ParkCycleSrc     -Destination (Join-Path $dir 'scripts\task\park-cycle.ps1')        -Force
     Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $dir 'scripts\lib\native-capture-lib.ps1') -Force
+    Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $dir 'scripts\lib\run-progress-lib.ps1') -Force
     Copy-Item -LiteralPath $EntryScaffoldSrc -Destination (Join-Path $dir 'scripts\lib\entry-scaffold-lib.ps1') -Force
     # command-probe-lib.ps1 is a sibling of a sibling (#1729): the three libs above dot-source it for
     # Test-FunctionDefined, so the fixture owes it exactly as it owes ref-print-lib.

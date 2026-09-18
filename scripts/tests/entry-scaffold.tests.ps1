@@ -49,6 +49,7 @@ $SeamLibSrc      = Join-Path $RepoRoot 'scripts\lib\seam-lib.ps1'
 # killed the run BEFORE the document existed, which is how a two-week-old hole surfaced. Same reasoning as
 # seam-lib above: in a real consumer these arrive with the plugin, so the stand-in tree has to hold them.
 $NativeCaptureSrc = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 $ParkLibSrc       = Join-Path $RepoRoot 'scripts\lib\park-lib.ps1'
 # park-lib dot-sources this one (#1682), guarded -- so a fixture that omits it loses Get-GitParkBacking
 # silently rather than crashing. park-cycle.tests.ps1 is where that cost ten asserts.
@@ -231,6 +232,7 @@ Copy-Item -LiteralPath $BranchInfoSrc -Destination (Join-Path $fixture 'scripts\
 Copy-Item -LiteralPath $LibSrc -Destination (Join-Path $fixture 'scripts\lib\entry-scaffold-lib.ps1') -Force
 Copy-Item -LiteralPath $SeamLibSrc -Destination (Join-Path $fixture 'scripts\lib\seam-lib.ps1') -Force
 Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $fixture 'scripts\lib\native-capture-lib.ps1') -Force
+Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $fixture 'scripts\lib\run-progress-lib.ps1') -Force
 # command-probe-lib.ps1 is a sibling of a sibling (#1729): the three libs above dot-source it for
 # Test-FunctionDefined, so the fixture owes it exactly as it owes ref-print-lib.
 # check-report-lib.ps1 likewise (#1917): the script under test resolves its repo root through

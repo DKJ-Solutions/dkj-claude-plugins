@@ -203,7 +203,7 @@ scripts named below the table, which nothing in this table reaches at all.
 | [`maintenance/measure-skill.ps1`](maintenance/measure-skill.ps1) | what a skill costs — always-on and on-invoke tokens against a stored baseline, and the wall-clock of the script behind it | `measure-skill` |
 | [`maintenance/measure-always-on.ps1`](maintenance/measure-always-on.ps1) | what the always-on **document** path costs — `CLAUDE.md` plus everything it `@`-imports, per document and per section | `measure-skill` |
 
-**Five scripts here are invoked by something other than a person**, and their absence from the table above
+**Six scripts here are invoked by something other than a person**, and their absence from the table above
 is a fact about how they are reached, not an omission.
 
 Four are **read-only checks a SessionStart hook runs**: `sync/check-roster-sync.ps1`,
@@ -213,6 +213,14 @@ Four are **read-only checks a SessionStart hook runs**: `sync/check-roster-sync.
 The fifth **acts rather than reports**: `task/park-cycle.ps1` pushes the branch's development document to
 origin until a PR publishes it, and the `cycle-autopark` **Stop** hook is what runs it. It is the automatic
 half of parking — `task/park-branch.ps1` in the table above is the half a person invokes.
+
+The sixth is **run by the harness on its own clock**: `task/show-progress.ps1` is the `statusLine` command
+in [`.claude/settings.json`](../.claude/settings.json), and Claude Code re-runs it every couple of seconds
+for as long as a session is open. It draws a progress bar for every run currently publishing one — see
+[`lib/run-progress-lib.ps1`](lib/run-progress-lib.ps1) for what a producer writes and why the surface is the
+status line rather than the run's own output (issue #2101): a Bash call made with `run_in_background`
+streams no stdout anywhere visible, so the gate's progress line and `ship-pr`'s watch are written for a
+reader who, in the one case they are needed for, is not there.
 
 ## The gates, and what each one refuses
 

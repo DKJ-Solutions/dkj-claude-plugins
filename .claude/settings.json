@@ -63,6 +63,11 @@
       "Bash(./scripts/release/publish-to-business.ps1*)"
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/task/show-progress.ps1\"",
+    "refreshInterval": 2000
+  },
   "enabledPlugins": {
     "dkj-subagents-alpha@dkj-claude-plugins": true,
     "dkj-subagents-ecomm@dkj-claude-plugins": true,

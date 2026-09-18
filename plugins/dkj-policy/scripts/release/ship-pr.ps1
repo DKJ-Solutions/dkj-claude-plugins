@@ -1477,6 +1477,25 @@ function Wait-ForwardedCertificate {
 # tree -- in a line whose whole job is to be acted on. Get-TrunkReturnGoAheadLine words both arms, and
 # $treeOnTrunk is set where the answer is actually known.
 $waitBegan = Get-Date
+# THE WAIT, PUBLISHED FOR THE STATUSLINE -- issue #2101. This is the exact moment the invitation three
+# lines down tells the reader to background the run, and from then on nothing this script prints reaches
+# anybody: a Bash call made with run_in_background streams no stdout to any visible surface. So the wait
+# announces itself where it can still be seen. Best-effort by construction -- the lib arrives through
+# native-capture-lib's guarded dot-source, so a tree without it simply has no bar and this script is
+# unchanged.
+#
+# NO COUNTS, AND THEREFORE NO BAR, WHICH IS THE HONEST SHAPE HERE. `gh pr checks --watch` is one blocking
+# call that returns when it is done; while it runs this script knows nothing about how many checks of how
+# many have gone green. A bar is a fraction, and a fraction nobody measured is an invention -- so the
+# reader gets the label and the run's own clock, which are both measurements. The record carries the START
+# and the statusline derives the elapsed, so the readout keeps moving for the whole twelve minutes this
+# script spends inside a single call that writes nothing.
+if (Test-FunctionDefined 'Write-RunProgress') {
+    try {
+        [void](Write-RunProgress -Id (Get-RunProgressId -Name 'ship-pr-ci') `
+            -Label "ship-pr: CI on PR #$pr" -StartedUtc $waitBegan.ToUniversalTime())
+    } catch { }
+}
 Write-Host "ship-pr: waiting for the CI check(s) on PR #$pr..." -ForegroundColor Cyan
 Write-Host "  Nothing here needs YOU -- background this run and the wait costs nothing." -ForegroundColor DarkGray
 Write-Host "  It does need this session's process: the merge and the fold are still owed, and both run from here (#1428)." -ForegroundColor DarkGray
@@ -1885,6 +1904,13 @@ one. Nothing has failed: re-run ship-pr once the required check is green, or mer
     Start-Sleep -Seconds $PollSeconds
 }
 $waitedSec = [int][math]::Round(((Get-Date) - $waitBegan).TotalSeconds)
+# THE WAIT IS OVER, SO ITS BAR GOES -- issue #2101. Cleared HERE rather than left to the process exiting,
+# even though the reader drops any record whose writer is gone: this script goes on for several more
+# minutes after the watch -- it merges, it folds, it watches the non-required checks at step 8 -- and a
+# record still reading "CI on PR #2103" through all of that would be describing a wait that ended.
+if (Test-FunctionDefined 'Complete-RunProgress') {
+    try { [void](Complete-RunProgress -Id (Get-RunProgressId -Name 'ship-pr-ci')) } catch { }
+}
 
 if ($checks.ExitCode -ne 0) {
     $verdict = Get-MergeBlockVerdict -RequiredChecksJson $requiredFactsJson -ChecksJson $checkFactsJson

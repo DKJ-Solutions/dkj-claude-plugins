@@ -33,6 +33,7 @@ $ParkBranchSrc    = Join-Path $RepoRoot 'scripts\task\park-branch.ps1'
 # park-branch dot-sources this sibling shared lib for every git call (the #107 stderr guard), so the
 # fixture must carry it too.
 $NativeCaptureSrc = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 # And the shared park implementation itself since #507 -- park-branch is now the thin entry point and
 # Invoke-GitPark does the work, so a fixture without this file has no script at all.
 $ParkLibSrc       = Join-Path $RepoRoot 'scripts\lib\park-lib.ps1'
@@ -159,6 +160,7 @@ function New-Fixture {
     New-Item -ItemType Directory -Path (Join-Path $dir 'scripts\lib')  -Force | Out-Null
     Copy-Item -LiteralPath $ParkBranchSrc    -Destination (Join-Path $dir 'scripts\task\park-branch.ps1')        -Force
     Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $dir 'scripts\lib\native-capture-lib.ps1')  -Force
+    Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $dir 'scripts\lib\run-progress-lib.ps1')  -Force
     # command-probe-lib.ps1 is a sibling of a sibling (#1729): the three libs above dot-source it for
     # Test-FunctionDefined, so the fixture owes it exactly as it owes ref-print-lib.
     # check-report-lib.ps1 likewise (#1917): the script under test resolves its repo root through

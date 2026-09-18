@@ -41,6 +41,7 @@ $BranchInfoSrc    = Join-Path $RepoRoot 'scripts\lib\branch-info.ps1'
 # new-branch -Park dot-sources this sibling shared lib for its git push (the #107 stderr guard),
 # so the fixture must carry it too.
 $NativeCaptureSrc = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 # And since #507 the -Park path dot-sources the shared park implementation as well: Invoke-GitPark does
 # the stage/commit/push that used to be written out here AND in park-branch.ps1, in two copies that had
 # drifted into writing the same commit message for different scopes.
@@ -285,6 +286,7 @@ function New-Fixture {
     Copy-Item -LiteralPath $NewBranchSrc     -Destination (Join-Path $dir 'scripts\task\new-branch.ps1')             -Force
     Copy-Item -LiteralPath $BranchInfoSrc    -Destination (Join-Path $dir 'scripts\lib\branch-info.ps1')             -Force
     Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $dir 'scripts\lib\native-capture-lib.ps1')      -Force
+    Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $dir 'scripts\lib\run-progress-lib.ps1')      -Force
     Copy-Item -LiteralPath $ParkLibSrc       -Destination (Join-Path $dir 'scripts\lib\park-lib.ps1')               -Force
     Copy-Item -LiteralPath $PorcelainSrc     -Destination (Join-Path $dir 'scripts\lib\git-porcelain-lib.ps1')      -Force
     Copy-Item -LiteralPath $EntryScaffoldSrc -Destination (Join-Path $dir 'scripts\lib\entry-scaffold-lib.ps1')      -Force

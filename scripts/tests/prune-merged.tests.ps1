@@ -45,6 +45,7 @@ $RepoRoot          = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..'
 $PruneMergedSrc    = Join-Path $RepoRoot 'scripts\task\prune-merged.ps1'
 # Dot-sourced by the script for every git call (the #107 stderr guard).
 $NativeCaptureSrc  = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc  = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 # And for Get-BranchTrunkName: the trunk comes from the seam rather than a literal, so a fixture
 # without this lib has no script at all.
 $EntryScaffoldSrc  = Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1'
@@ -224,6 +225,7 @@ function New-Fixture {
     New-Item -ItemType Directory -Path (Join-Path $dir 'scripts\lib')  -Force | Out-Null
     Copy-Item -LiteralPath $PruneMergedSrc   -Destination (Join-Path $dir 'scripts\task\prune-merged.ps1')       -Force
     Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $dir 'scripts\lib\native-capture-lib.ps1')  -Force
+    Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $dir 'scripts\lib\run-progress-lib.ps1')  -Force
     Copy-Item -LiteralPath $EntryScaffoldSrc -Destination (Join-Path $dir 'scripts\lib\entry-scaffold-lib.ps1')  -Force
     # command-probe-lib.ps1 is a sibling of a sibling (#1729): the three libs above dot-source it for
     # Test-FunctionDefined, so the fixture owes it exactly as it owes ref-print-lib.

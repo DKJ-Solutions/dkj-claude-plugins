@@ -51,6 +51,7 @@ $RepoRoot         = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')
 $FoldSrc          = Join-Path $RepoRoot 'scripts\release\fold-changelog-entry.ps1'
 $RepoConfigSrc    = Join-Path $RepoRoot 'scripts\repo-config.ps1'
 $NativeCaptureSrc = Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1'
+$RunProgressSrc = Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1'
 # The entry format: the heading levels the fold recognises and normalises to, the impact table it reads the
 # rank from, and the ranked insert offset. A $PSScriptRoot-relative sibling of the fold script, so the
 # fixture has to carry it.
@@ -169,6 +170,7 @@ function New-FoldFixture {
     New-Item -ItemType Directory -Path (Join-Path $dir 'scripts\lib')     -Force | Out-Null
     Copy-Item -LiteralPath $FoldSrc          -Destination (Join-Path $dir 'scripts\release\fold-changelog-entry.ps1') -Force
     Copy-Item -LiteralPath $NativeCaptureSrc -Destination (Join-Path $dir 'scripts\lib\native-capture-lib.ps1')       -Force
+    Copy-Item -LiteralPath $RunProgressSrc -Destination (Join-Path $dir 'scripts\lib\run-progress-lib.ps1')       -Force
     Copy-Item -LiteralPath $EntryScaffoldSrc -Destination (Join-Path $dir 'scripts\lib\entry-scaffold-lib.ps1')       -Force
     # A sibling of a sibling since #1650: entry-scaffold-lib.ps1 dot-sources ref-print-lib.ps1 for
     # Get-DisplayRef, so a fixture carrying the one and not the other loads a lib that throws.

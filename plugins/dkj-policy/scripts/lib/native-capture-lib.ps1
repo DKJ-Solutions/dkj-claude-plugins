@@ -223,6 +223,62 @@ $script:GateSuiteTimeoutSeconds = 1800
 # the suite did not finish and that killing it did not work, and both facts belong on the console.
 $script:GateSuiteKillGraceSeconds = 30
 
+# THE PROGRESS RECORD THE GATE PUBLISHES FOR A READER WHO CANNOT SEE ITS OUTPUT -- issue #2101.
+# Format-GateProgressLine below prints into the run's stdout, which is exactly the thing a backgrounded
+# run does not show anybody: Claude Code streams no stdout at all from a Bash call made with
+# run_in_background, in the terminal CLI and in the VS Code extension alike. So the same three numbers
+# are ALSO published to a file that the statusline -- the one surface that keeps rendering -- draws.
+#
+# THE DOT-SOURCE IS GUARDED, AND THAT IS WHAT LETS THIS FILE STAY BYTE-IDENTICAL TO ITS TWO MIRRORS.
+# run-progress-lib.ps1 is not mirrored into the plugins, so in a consumer the Test-Path simply fails and
+# the gate behaves exactly as it did -- the same shape the guarded dot-sources already in this tree use,
+# and the reason the bar can be turned on for a consumer later by shipping one more file rather than by
+# editing this one again.
+$script:RunProgressAvailable = $false
+try {
+    $runProgressLib = Join-Path $PSScriptRoot 'run-progress-lib.ps1'
+    if (Test-Path -LiteralPath $runProgressLib -PathType Leaf) {
+        . $runProgressLib
+        $script:RunProgressAvailable = $true
+    }
+} catch { $script:RunProgressAvailable = $false }
+
+function Publish-GateProgress {
+    <#
+        The gate's own progress, published for the statusline -- issue #2101. A no-op where the lib is
+        absent, and silent on every failure: a diagnostic must not be able to cost the run it describes.
+
+        THE DEPTH IS IN THE ID, not only in the line. A gate driving itself over a fixture is a second
+        live run, and Get-RunProgressId separates records by pid -- which a nested gate in the same
+        process tree does not necessarily change. Without the depth an inner run could overwrite the
+        outer one's record, which is precisely the confusion #1717 introduced the depth to end.
+
+        WHAT IS PUBLISHED IS DONE-OF-TOTAL, WITH STARTED CARRIED AS A NOTE. The console line reports
+        both counts because a done-count alone sits at 0 for the first quarter of an 84-suite run; a BAR
+        cannot show two numbers at once, so the bar is the one that means "finished" and the other rides
+        along as text. Neither is dropped and neither is invented.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int]$Started,
+        [Parameter(Mandatory = $true)][int]$Done,
+        [Parameter(Mandatory = $true)][int]$Total,
+        [Parameter(Mandatory = $true)][datetime]$StartedUtc,
+        [int]$Depth = 1
+    )
+    if (-not $script:RunProgressAvailable) { return }
+    try {
+        [void](Write-RunProgress -Id (Get-RunProgressId -Name "test-gate-d$Depth") -Label 'test gate' `
+            -Current $Done -Total $Total -Note "$($Started - $Done) running" -StartedUtc $StartedUtc)
+    } catch { }
+}
+
+function Clear-GateProgress {
+    <# The gate's record removed when the pool closes -- issue #2101. Never throws; see above. #>
+    param([int]$Depth = 1)
+    if (-not $script:RunProgressAvailable) { return }
+    try { [void](Complete-RunProgress -Id (Get-RunProgressId -Name "test-gate-d$Depth")) } catch { }
+}
+
 # HOW BIG A JUMP IN THE GATE'S OWN CLOCK IS NO LONGER TIME THIS POOL SPENT RUNNING (issue #2095).
 #
 # THE DEFECT. The bound above is measured off a Stopwatch, and a Stopwatch keeps counting while the
@@ -2500,6 +2556,11 @@ function Invoke-TestSuiteGate {
 
     $launchDir  = (Get-Location).Path
     $sw         = [System.Diagnostics.Stopwatch]::StartNew()
+    # THE SAME INSTANT AS $sw, AS A WALL-CLOCK STAMP -- issue #2101. The published record carries when
+    # the run STARTED rather than how long it has been going, because the statusline derives elapsed
+    # itself: a Stopwatch cannot cross a process boundary, and a run blocked inside one long child call
+    # must not have its bar freeze. Taken here so the bar's clock and the console line's are one clock.
+    $gateStartedUtc = (Get-Date).ToUniversalTime()
     # WALL CLOCK THIS RUN OCCUPIED WITHOUT RUNNING, TALLIED -- issue #2095. Only the verdict reads it;
     # the deadlines are corrected by rebasing the open lanes at the moment the jump is observed (see the
     # poll loop), because a lane opened AFTER a suspend must not be credited for one. Kept so the line a
@@ -2698,6 +2759,12 @@ function Invoke-TestSuiteGate {
                     Write-Host (Format-GateProgressLine -Action 'started' -Suite $item.Label `
                         -Started $startedCount -Done $doneCount -Running ($startedCount - $doneCount) `
                         -Total $runItems.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
+                    # AND THE SAME EVENT TO THE STATUSLINE -- issue #2101. Beside the Write-Host rather
+                    # than instead of it: the console line is what a foreground reader and a CI log get,
+                    # the record is what a backgrounded run has instead of a reader. One event, two
+                    # surfaces, and neither derived from the other's text.
+                    Publish-GateProgress -Started $startedCount -Done $doneCount -Total $runItems.Count `
+                        -StartedUtc $gateStartedUtc -Depth $gateDepth
                 }
 
                 # THE DEADLINE SWEEP -- issue #1941, and it runs BEFORE the reap so a lane that has just
@@ -2791,6 +2858,9 @@ function Invoke-TestSuiteGate {
                     Write-Host (Format-GateProgressLine -Action 'done' -Suite $d.Name `
                         -Started $startedCount -Done $doneCount -Running ($startedCount - $doneCount) `
                         -Total $runItems.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
+                    # The other half of the same event -- issue #2101; see the lane-opening call above.
+                    Publish-GateProgress -Started $startedCount -Done $doneCount -Total $runItems.Count `
+                        -StartedUtc $gateStartedUtc -Depth $gateDepth
                     # WHAT THIS ITEM IS FOR, said on its own header rather than inferred from the queue
                     # -- issue #1944. On an ordinary run every item decides and this is empty; in a focus
                     # run it is the difference between a red header that fails the run and one that is
@@ -2986,6 +3056,11 @@ function Invoke-TestSuiteGate {
             # driving this gate at a chosen depth) gets its own back -- Push-NativeNonInteractiveEnv's
             # rule, for the same reason, and the same $null-removes-it form.
             [Environment]::SetEnvironmentVariable($script:GateDepthEnvName, $gateDepthOuter, 'Process')
+            # AND THE PUBLISHED RECORD GOES WITH IT -- issue #2101. In the 'finally' so a gate that
+            # throws does not leave a bar standing at 61/84 for the rest of the session. It is a tidy-up
+            # and not a contract: a run KILLED outright never reaches this line, and the reader drops
+            # that record on its next pass because the writer is gone. Two seconds late, not forever.
+            Clear-GateProgress -Depth $gateDepth
             # A RED RUN KEEPS THE FAILING SUITES' OUTPUT; A GREEN ONE KEEPS NOTHING -- issue #1636 --
             # WITH ONE EXCEPTION SINCE #1723: a suite that CRASHED in the pool and then passed on its
             # lone re-run leaves the pool run's two capture files behind on an otherwise green run. That

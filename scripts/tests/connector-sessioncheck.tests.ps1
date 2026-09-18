@@ -319,6 +319,11 @@ function Invoke-HookWithFakeEngine {
         New-Item -ItemType Directory -Path (Join-Path $EngineDir 'scripts\lib') -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1') `
                   -Destination (Join-Path $EngineDir 'scripts\lib\native-capture-lib.ps1') -Force
+        # run-progress-lib.ps1 is native-capture-lib's own sibling dot-source (#2101). Guarded there, so
+        # its absence would not break this fixture -- copied anyway, because a fixture that differs from
+        # the tree in a way nobody wrote down is the shape #1693 exists to stop.
+        Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1') `
+                  -Destination (Join-Path $EngineDir 'scripts\lib\run-progress-lib.ps1') -Force
         # command-probe-lib.ps1 is a sibling of a sibling (#1729): the three libs above dot-source it for
         # Test-FunctionDefined, so the fixture owes it exactly as it owes ref-print-lib.
         Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\command-probe-lib.ps1') -Destination (Join-Path $EngineDir 'scripts\lib\command-probe-lib.ps1') -Force
