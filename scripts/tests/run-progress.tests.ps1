@@ -278,6 +278,40 @@ foreach ($mirror in @(
         "mirror: $mirror dot-sources cleanly and simply has no bar"
 }
 
+# --- -WriterPid: publishing on behalf of another process (issue #2104) ----------------------------
+# THE PARAMETER EXISTS BECAUSE LIVENESS IS THE WRITER'S PROCESS. A PostToolUse hook that wants to draw a
+# bar for a backgrounded shell lives about 400 ms, so a record under its own pid is reaped by the next
+# read -- the hook has to name the process whose life IS the run.
+Write-Host ''
+Write-Host '-- 13. -WriterPid --' -ForegroundColor Cyan
+$root = New-Root 'writerpid'
+
+# The current process stands in for "some other process": it is real, it is alive, and it is not the
+# default only because the default is also this process -- so the assert reads the RECORD rather than
+# the behaviour, which is what makes it honest.
+[void](Write-RunProgress -Id 'default' -Label 'gate' -Root $root)
+$defaultRec = (Get-Content (Join-Path $root 'default.json') -Raw | ConvertFrom-Json)
+Assert-Equal $PID $defaultRec.writerPid 'omitted, the writer is still this process -- every existing producer is unaffected'
+
+# A pid that is NOT this process, and is certainly not alive: the record must carry what it was told.
+[void](Write-RunProgress -Id 'other' -Label 'bg' -WriterPid 999999 -Root $root)
+$otherRec = (Get-Content (Join-Path $root 'other.json') -Raw | ConvertFrom-Json)
+Assert-Equal 999999 $otherRec.writerPid '-WriterPid is what lands in the record, not $PID'
+Assert-Equal 0 $otherRec.writerStartTicks '...and the ticks are read FROM THAT PID -- unreadable here, so 0, which degrades the reuse guard rather than the record'
+
+# AND THE REAPER THEN DOES THE WHOLE JOB, which is the entire design: no completion event is needed
+# because a record whose writer is gone is dropped on the next read.
+Assert-Equal 0 (@(Get-LiveRunProgress -Root $root | Where-Object { $_.Id -eq 'other' })).Count `
+    'a record naming a dead process is reaped on the next read -- why the hook needs no Complete-RunProgress'
+Assert-Equal 1 (@(Get-LiveRunProgress -Root $root | Where-Object { $_.Id -eq 'default' })).Count `
+    '...while the live one beside it is untouched, so the reap is per-record and not a sweep'
+
+# The pair must be read from ONE pid. A record carrying this process's ticks under another pid would
+# survive a reuse it should not, which is the one thing the two fields exist to prevent together.
+Assert-True ($defaultRec.writerStartTicks -gt 0) 'the default record does carry real ticks (otherwise the assert above proves nothing)'
+Assert-True ($otherRec.writerStartTicks -ne $defaultRec.writerStartTicks) `
+    'and the foreign record did NOT borrow this process ticks -- the pid and the ticks come from the same place'
+
 # --- teardown ------------------------------------------------------------------------------------
 foreach ($tree in $script:trees) {
     try { Remove-Item -LiteralPath $tree -Recurse -Force -ErrorAction SilentlyContinue } catch { }
