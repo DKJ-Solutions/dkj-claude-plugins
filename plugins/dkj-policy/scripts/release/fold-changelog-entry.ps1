@@ -1214,7 +1214,10 @@ if ($Commit) {
     # below both read characters -- and until the escapes are unpacked those are not the name's own.
     # GUARDED, like the dot-source it depends on: a mirror predating git-porcelain-lib decodes as it did
     # before rather than crashing, which is the pre-#2110 behaviour and no worse than it.
-    $canDecodePath = [bool](Get-Command -Name 'Convert-GitQuotedPath' -ErrorAction SilentlyContinue)
+    # Test-FunctionDefined, not Get-Command (issue #1729): the probe reads the function table directly,
+    # which is what keeps a hyphenated name off the wildcard matcher. command-probe-lib.ps1 is in scope
+    # here because native-capture-lib.ps1, dot-sourced above, loads it unguarded.
+    $canDecodePath = Test-FunctionDefined 'Convert-GitQuotedPath'
     $tracked = @($lsFiles.Output | Where-Object { $_ } | ForEach-Object {
         $line = [string]$_
         if ($canDecodePath) { $line = Convert-GitQuotedPath -Path $line }
