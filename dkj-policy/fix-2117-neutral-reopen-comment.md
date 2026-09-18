@@ -90,15 +90,42 @@ this is a decision and not a refusal for want of a seam.
 
 - [x] The suite pins the new contract, so restoring the old sentence fails
 - [x] `scripts/tests/dkj-policy-bwj.tests.ps1` green -- 362 asserts
-- [ ] The full gate green (lint + every suite), via `open-pr`
+- [~] The full gate (lint + every suite) is `open-pr`'s own step, not one this document can tick
+      ahead of it -- running a copy first proves nothing that gate would not catch
 
 ### DEPLOY: fix/2117-neutral-reopen-comment
 
-**Score:**
+`asana-mirror`'s reopen comment told the requester the work was being worked on again and to hold off
+testing. The workflow knows neither: a reopen means the work was picked up again OR that the ticket
+has gone back to the requester, and in the second case both halves are false -- the expensive half
+being the one that tells the person who now has to act to sit still. The comment reports the state
+change, names both readings without picking one, points at the issue for which applies, and says
+plainly that it is not a request to test. Its two docstrings, `asana-mirror.yml`'s dropped-reopen
+argument, `WORKFLOW-portable.md` and the plugin README follow it, and the suite pins the new contract
+so restoring the old sentence fails.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The report offered a second shape -- let the `needs-info` label choose the sentence -- and it is
+declined on the measurement rather than on taste. No label was set on the three issues the report was
+written from; they were simply reopened, so the label-absent branch would have printed the same false
+sentence on all three cards. It also contradicts the script's own rule that a label event moves the
+card and says nothing. The mechanism for it exists, so this is a decision and not a shortage of seam.
+
+Two review findings are worth carrying, because both are about a tick made in good faith on half a
+job. Victor found a second docstring twenty lines above the one that was repaired, still asserting
+the retired claim -- the CREATE step had been worded as though the file held one. Edith found the
+same concept phrased two ways across the four places that describe it, including the shipped card
+text, which read "it may be being worked on again": the cost of splitting one sentence across three
+hands, and the reason the copy edit was applied in one.
+
+For a consuming repo this lands as a changed message on a colleague's Asana card, which they read
+rather than the issue. It arrives when they re-adopt the template, and it is noticed the next time an
+issue is reopened.
+
+**Score:** 3
 
 #### Pull Request
 
