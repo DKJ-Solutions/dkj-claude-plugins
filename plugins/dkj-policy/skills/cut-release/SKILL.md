@@ -462,11 +462,33 @@ a release for a missing timestamp would be ceremony rather than a guard.
 
    ```powershell
    # from the repo root, standing on main -- the lint gate, then every suite. Nothing is pushed.
-   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly -NoteTreeOnly
    ```
 
-   **In the source repo, run its own copy instead** — `scripts/release/open-pr.ps1 -GatesOnly` — for the
-   reason given at the top of this page.
+   **In the source repo, run its own copy instead** — `scripts/release/open-pr.ps1 -GatesOnly -NoteTreeOnly` —
+   for the reason given at the top of this page.
+
+   **`-NoteTreeOnly` is what stops this step paying for the suites twice**
+   ([#2102](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2102), September 18, 2026). It asks
+   whether every path that differs from `HEAD` sits inside the note tree this exception already bounds the
+   commit to — the two paths the **Bounded** paragraph above names — and only where that is **proven** does
+   it skip the test gate. The lint gate runs either way. On the `v5.5.0` cut this step cost **325s**, over
+   one hand-written markdown file; it is one of the two gate runs that together are 652s of that 1,166s
+   release, **56%** of it spent on the same 114 suites twice. The lint half it leaves standing measured
+   **27s** in the source repo — that cut never split its own 325s, so the figure comes from there rather
+   than from the cut.
+
+   **What makes the skip a deduction rather than a favour** is that the suites have no coverage of that tree
+   to lose. The whole release tree was moved aside and all 114 suites run: four went red, one on an
+   *existence* assert over a path list (which a cut, adding notes, only satisfies more firmly) and three
+   because they run the lint script over the live repo as a smoke assert. So the suites' entire coverage of a
+   release note **is** the lint gate — which this step is running anyway, in the same invocation.
+
+   **Add nothing else to the commit and this holds by construction.** The switch refuses on one stray path,
+   on a clean tree, on an unreadable `git`, and on a rename that drags a note out of the tree — it prints
+   which, and runs every suite. So a step that widens past its own bound gets the full gate back
+   automatically rather than quietly keeping the saving. Drop `-NoteTreeOnly` and this step is exactly what
+   it was before; the fallback and the un-flagged run are the same run.
 
    **This line replaced *"exactly as `open-pr` would have run them for you"* on August 30, 2026
    ([#1156](https://github.com/DaveKJohn/claude-code-specialists/issues/1156)), and the old sentence was

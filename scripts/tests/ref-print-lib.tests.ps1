@@ -37,6 +37,10 @@ $LibPath  = Join-Path $RepoRoot 'scripts\lib\ref-print-lib.ps1'
 
 $script:pass = 0
 $script:fail = 0
+# Premises git could not be asked about on this run -- see Assert-GitRefPremise (issue #2107). Counted
+# and reported rather than folded into either of the two above, because an unmeasured premise is
+# neither a pass nor a failure and printing it as one of them is the defect that issue records.
+$script:unmeasured = 0
 
 function Assert-Equal {
     param($Expected, $Actual, [string]$Label)
@@ -72,10 +76,74 @@ function Test-GitAcceptsRef {
 
         Invoke-NativeCapture REFUSES the old spelling now rather than mis-delivering it, so this is not a
         convention anybody has to remember: the & arm throws on the three shapes it cannot pass.
+
+        THREE STATES, BECAUSE TWO OF THEM ARE OPPOSITE FACTS (issue #2107). -Utf8 routes to
+        Start-Process, and that arm can hand back an ExitCode which is LITERALLY $null -- the child ran,
+        but the value is not a measurement of it. #1931 measured 27 of 960 captures (2.8%) under 16
+        lanes of fresh PowerShell children, confined to the FIRST Start-Process in a fresh process, and
+        Invoke-NativeCapture reports it as ExitCodeUnknown for exactly this reason.
+
+        `$r.ExitCode -eq 0` cannot see that: $null -eq 0 is $false, so an exit code nobody measured
+        reads as "git refused this ref" -- the premise assert then fails, and it fails claiming the
+        opposite of what happened. Measured in CI on 18 September 2026, twice out of two runs: the
+        first of seventeen hostile names failed while the sixteen after it passed, which is that
+        confinement exactly. Green standalone on the same tree, 461 asserts.
+
+        So this returns $true / $false / $null, and $null means "this run could not measure it". The
+        caller reports that instead of asserting on it -- the same three-state repair claim-issue's
+        read-back got in #1628, for the same reason: a check that cannot tell silence from a clean
+        answer teaches its reader to trust the wrong one.
+
+        NOT A RETRY, deliberately. native-capture-lib's own header declines that on measurement --
+        #1931 found a 200ms re-read budget still leaves 7 of 240 unresolved -- so a loop here would buy
+        an unreliable recovery with wall-clock on every capture. Reporting the state honestly is what
+        the field was built for.
+
+        THE PROPERTY IS PROBED, NOT READ BARE: under Set-StrictMode -Version Latest a bare
+        $r.ExitCodeUnknown throws on a capture that predates the field, so this is the idiom
+        native-capture-lib uses on itself.
     #>
     param([string]$Ref)
     $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('check-ref-format', '--branch', $Ref) -DiscardStderr -Utf8
+    if ($r.PSObject.Properties['ExitCodeUnknown'] -and $r.ExitCodeUnknown) { return $null }
+    if ($null -eq $r.ExitCode) { return $null }
     return ($r.ExitCode -eq 0)
+}
+
+function Assert-GitRefPremise {
+    <#
+        Assert what git does with a ref name, in whichever direction the case needs -- and report
+        rather than assert when this run could not measure it (issue #2107).
+
+        EVERY PREMISE IN THIS FILE GOES THROUGH HERE, in both directions, and the negative direction is
+        why it had to be a helper rather than a rule to remember. The eight call sites were split:
+
+            Assert-True (Test-GitAcceptsRef -Ref $x)          -- $null is falsy, so it FAILED wrongly
+            Assert-True (-not (Test-GitAcceptsRef -Ref $x))   -- -not $null is $true, so it PASSED wrongly
+
+        The second is the worse half and the one nothing would have caught: a silent green on a premise
+        nobody established. The red in CI was only ever the louder symptom of the same missing state.
+
+        -Expect $true  : git must accept the name (the reachable half carries the finding).
+        -Expect $false : git must reject it (the unreachable half -- defence in depth, since the guard
+                         has to be a property of the STRING rather than an inference from git's rules).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Ref,
+        [Parameter(Mandatory = $true)][bool]$Expect,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $actual = Test-GitAcceptsRef -Ref $Ref
+    if ($null -eq $actual) {
+        $script:unmeasured++
+        # NOT A FAILURE AND NOT A PASS. The capture came back with an ExitCode that is not a
+        # measurement, so the only honest thing to say is that git was not asked. Yellow, named, and
+        # carried to the footer so a run cannot quietly contain a premise nobody established.
+        Write-Host "  [UNMEASURED] $Label -- the capture returned no usable exit code (#1931/#2107)" -ForegroundColor Yellow
+        return
+    }
+    Assert-True ($actual -eq $Expect) $Label
 }
 
 # --- the names this workflow actually uses are all safe -------------------------------------------
@@ -142,7 +210,7 @@ foreach ($bad in $hostileReachable) {
         # THE PREMISE, CHECKED RATHER THAN ASSUMED. If a future git tightened its ref rules this assert is
         # the one that should fail, and it should fail LOUDLY -- at that point the character is no longer
         # reachable and the case below has stopped testing anything real.
-        Assert-True (Test-GitAcceptsRef -Ref $bad) "git accepts '$bad' as a branch name (the premise of this whole guard)"
+        Assert-GitRefPremise -Ref $bad -Expect $true -Label "git accepts '$bad' as a branch name (the premise of this whole guard)"
     }
     Assert-True (-not (Test-RefPasteSafe -Ref $bad)) "refused: '$bad'"
     $v = Get-PasteableRef -Ref $bad
@@ -163,7 +231,7 @@ Write-Host 'Characters git rejects in a ref -- refused here independently of git
 
 foreach ($unreachable in @('fix/a^b', 'fix/a*b', 'fix/a~b', 'fix/a:b', 'fix/a[b]', 'fix/a\b', 'fix/a?b')) {
     if ($gitAvailable) {
-        Assert-True (-not (Test-GitAcceptsRef -Ref $unreachable)) "git itself rejects '$unreachable' (so this case is defence in depth, not a hole)"
+        Assert-GitRefPremise -Ref $unreachable -Expect $false -Label "git itself rejects '$unreachable' (so this case is defence in depth, not a hole)"
     }
     Assert-True (-not (Test-RefPasteSafe -Ref $unreachable)) "refused here anyway: '$unreachable'"
 }
@@ -181,7 +249,7 @@ Write-Host 'Whitespace and ASCII control characters -- refused here too, indepen
 
 foreach ($ws in @('fix/a b', "fix/a`tb", "fix/a`nb", "fix/a$([char]0x1B)[31mb")) {
     if ($gitAvailable) {
-        Assert-True (-not (Test-GitAcceptsRef -Ref $ws)) "git itself rejects this whitespace/control name (so this case is defence in depth, not a hole)"
+        Assert-GitRefPremise -Ref $ws -Expect $false -Label "git itself rejects this whitespace/control name (so this case is defence in depth, not a hole)"
     }
     Assert-True (-not (Test-RefPasteSafe -Ref $ws)) 'refused: a name carrying whitespace or an ASCII control character'
 }
@@ -206,7 +274,7 @@ foreach ($cf in @(
     @{ Ref = "fix/a$([char]0x2066)b"; Label = 'U+2066 LEFT-TO-RIGHT ISOLATE' }
 )) {
     if ($gitAvailable) {
-        Assert-True (Test-GitAcceptsRef -Ref $cf.Ref) "git ACCEPTS $($cf.Label) in a branch name (the #1617 premise)"
+        Assert-GitRefPremise -Ref $cf.Ref -Expect $true -Label "git ACCEPTS $($cf.Label) in a branch name (the #1617 premise)"
     }
     Assert-True (-not (Test-RefPasteSafe -Ref $cf.Ref)) "refused on the paste axis anyway: $($cf.Label)"
     $v = Get-PasteableRef -Ref $cf.Ref
@@ -271,7 +339,7 @@ foreach ($cf in @(
     @{ Cp = 0x2066; Name = 'U+2066 LEFT-TO-RIGHT ISOLATE' }
 )) {
     $ref = 'fix/a' + [char]$cf.Cp + 'b'
-    Assert-True (Test-GitAcceptsRef -Ref $ref) "premise: git accepts a branch carrying $($cf.Name)"
+    Assert-GitRefPremise -Ref $ref -Expect $true -Label "premise: git accepts a branch carrying $($cf.Name)"
     Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $ref) "and the prose strip turns it into a visible space -- $($cf.Name)"
 }
 
@@ -290,17 +358,17 @@ foreach ($sep in @(
     @{ Cp = 0x2029; Name = 'U+2029 PARAGRAPH SEPARATOR' }
 )) {
     $ref = 'fix/a' + [char]$sep.Cp + 'b'
-    Assert-True (Test-GitAcceptsRef -Ref $ref) "premise: git accepts a branch carrying $($sep.Name)"
+    Assert-GitRefPremise -Ref $ref -Expect $true -Label "premise: git accepts a branch carrying $($sep.Name)"
     Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $ref) "and the prose strip turns it into a visible space -- $($sep.Name), which could otherwise make one printed line read as two"
 }
 $refZalgo = 'fix/a' + [char]0x0301 + [char]0x0301 + 'b'
-Assert-True (Test-GitAcceptsRef -Ref $refZalgo) 'premise: git accepts a branch carrying stacking combining marks'
+Assert-GitRefPremise -Ref $refZalgo -Expect $true -Label 'premise: git accepts a branch carrying stacking combining marks'
 Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $refZalgo) 'and the prose strip removes a run of stacking combining marks ("Zalgo text") the same way it removes a run of format characters'
 
 # ISSUE #2024'S SECOND HALF, MEASURED WHILE REPAIRING #2025. A regex class over these six categories is
 # silently wrong twice on Windows PowerShell 5.1 -- these two are exactly the cases it misses.
 $refSoftHyphen = 'fix/a' + [char]0xAD + 'b'
-Assert-True (Test-GitAcceptsRef -Ref $refSoftHyphen) 'premise: git accepts a branch carrying U+00AD SOFT HYPHEN'
+Assert-GitRefPremise -Ref $refSoftHyphen -Expect $true -Label 'premise: git accepts a branch carrying U+00AD SOFT HYPHEN'
 Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $refSoftHyphen) 'U+00AD reads as Format to the runtime and Dash Punctuation to the regex engine -- a regex [\p{Cf}] class does not match it, and this strip does'
 $refTagBlock = 'fix/a' + [char]::ConvertFromUtf32(0xE0074) + 'b'
 Assert-Equal 'fix/a b' (Get-DisplayRef -Ref $refTagBlock) 'a format character above the BMP (the TAG block, a surrogate pair) is invisible to a regex [\p{Cf}] class outright -- this strip catches it, and the two spaces it emits collapse to one here, same as any other run'
@@ -702,7 +770,77 @@ foreach ($ok in @('fix/1594-printed-command-ref-safety', 'feat/a_b.c-d/e')) {
     Assert-True ((Test-BranchName -Branch $ok).IsValid) "Test-BranchName still accepts '$ok'"
 }
 
+# --- the three states, DRIVEN rather than argued (issue #2107) ------------------------------------
+# THE REPAIR IS ONLY WORTH HAVING IF THE UNMEASURED PATH REALLY FIRES, and nothing above can prove
+# that: the whole point is that the state appears once in roughly 300 fresh Start-Process children
+# under load, so a suite that waited for it would never see it. So the capture is substituted and all
+# three states are driven through the same helper the eight call sites use.
+#
+# WHY IT IS SUBSTITUTED HERE AND NOT MOCKED IN THE LIB: Test-GitAcceptsRef calls Invoke-NativeCapture
+# by name, so shadowing that name in this scope is the smallest thing that reaches it, and it is put
+# back immediately afterwards -- the asserts after this block still ask the real git.
+Write-Host ''
+Write-Host 'The three states of the premise helper -- driven (#2107)' -ForegroundColor Cyan
+
+$realCapture = ${function:Invoke-NativeCapture}
+$script:fakeCapture = $null
+${function:Invoke-NativeCapture} = { param($FilePath, $Arguments, [switch]$DiscardStderr, [switch]$Utf8) return $script:fakeCapture }
+
+# 1. An ordinary acceptance still reads as one.
+$script:fakeCapture = [pscustomobject]@{ Output = @('x'); ExitCode = 0; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $false }
+Assert-Equal $true (Test-GitAcceptsRef -Ref 'whatever') 'driven: exit 0 with a measured code is still an acceptance'
+
+# 2. And an ordinary refusal still reads as one -- the negative direction the helper had to keep.
+$script:fakeCapture = [pscustomobject]@{ Output = @(); ExitCode = 1; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $false }
+Assert-Equal $false (Test-GitAcceptsRef -Ref 'whatever') 'driven: a non-zero measured code is still a refusal'
+
+# 3. THE CASE THIS ISSUE IS ABOUT. ExitCodeUnknown set, ExitCode $null -- the shape #1931 documents.
+$before = $script:unmeasured
+$script:fakeCapture = [pscustomobject]@{ Output = @(); ExitCode = $null; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $true }
+Assert-True ($null -eq (Test-GitAcceptsRef -Ref 'whatever')) 'driven: an unmeasured exit code is $null, NOT a refusal'
+
+# ...and the helper reports it in BOTH directions without touching pass or fail. The negative case is
+# the one that used to pass silently, so it is asserted first.
+$failBefore = $script:fail
+$passBefore = $script:pass
+Assert-GitRefPremise -Ref 'whatever' -Expect $false -Label 'driven: negative premise, unmeasured'
+Assert-GitRefPremise -Ref 'whatever' -Expect $true  -Label 'driven: positive premise, unmeasured'
+${function:Invoke-NativeCapture} = $realCapture
+
+# THE THREE COUNTERS ARE SNAPSHOTTED BEFORE ANY OF THEM IS ASSERTED ON. Assert-Equal increments
+# $script:pass itself, so asserting the counters one after another reads a value the previous assert
+# has already moved -- which is how the first draft of this block failed, expecting 464 and getting
+# 466. Read all three, then judge all three.
+$unmeasuredAfter = $script:unmeasured
+$failAfter = $script:fail
+$passAfter = $script:pass
+
+Assert-Equal ($before + 2) $unmeasuredAfter 'driven: both unmeasured premises were COUNTED'
+Assert-Equal $failBefore $failAfter 'driven: ...and neither was counted as a failure -- the red this issue was filed on'
+Assert-Equal $passBefore $passAfter 'driven: ...nor as a pass -- which is how the negative direction used to go green on nothing'
+
+# AND THE FIXTURE'S OWN TWO ARE GIVEN BACK, which is the whole reason the counter is snapshotted above
+# rather than simply read at the end. These two were manufactured by substituting the capture, so
+# leaving them in would print the footer's warning on every healthy run -- and a warning that is always
+# there is exactly how a REAL unmeasured premise would go unnoticed. The counter must mean "git could
+# not be asked about something this suite actually wanted to know".
+$script:unmeasured = $before
+
+# A capture that predates the field must not throw -- the Set-StrictMode idiom, asserted rather than
+# trusted, because the probe is the kind of line a later edit simplifies away.
+${function:Invoke-NativeCapture} = { param($FilePath, $Arguments, [switch]$DiscardStderr, [switch]$Utf8) return [pscustomobject]@{ Output = @('x'); ExitCode = 0; TimedOut = $false } }
+Assert-Equal $true (Test-GitAcceptsRef -Ref 'whatever') 'driven: a capture with no ExitCodeUnknown property is read, not thrown on'
+${function:Invoke-NativeCapture} = $realCapture
+
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
+# THE UNMEASURED COUNT IS PRINTED, NEVER FOLDED INTO EITHER FIGURE ABOVE (issue #2107) -- and it does
+# NOT fail the run. The premise could not be established, which is not the same as the premise being
+# false, and a suite that exits 1 on it would hand back exactly the wrong diagnosis: a reader goes
+# looking for a regression in ref-print-lib and finds nothing wrong there. Silence would be worse
+# still, so it is named, counted, and visible on the line a reader actually reads.
+if ($script:unmeasured -gt 0) {
+    Write-Host "         $script:unmeasured premise(s) UNMEASURED -- git's exit code was not readable on this run (#1931); those cases proved nothing either way." -ForegroundColor Yellow
+}
 if ($script:fail -gt 0) { exit 1 }
 exit 0
