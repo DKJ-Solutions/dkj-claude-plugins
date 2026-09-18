@@ -433,7 +433,9 @@ function New-MirrorComment {
                    wants when they are about to test, and GitHub itself says it that way
                    ("closed this as completed in #434"). Empty means the issue was closed by hand,
                    and the update then says so rather than implying a PR that does not exist.
-        'reopened' it is being worked on again; do not test yet.
+        'reopened' a reopen carries at least two opposite meanings -- picked up again, or back with
+                   the requester -- and the workflow has no way of telling which, so the comment
+                   reports the state change only and leaves the reason on the issue.
 
         -StateReason 'not_planned' turns the close update into its opposite: nothing was built, so
         asking somebody to test it would be worse than saying nothing.
@@ -453,8 +455,10 @@ function New-MirrorComment {
 
     if ($Event -eq 'reopened') {
         return @(
-            "GitHub issue $IssueRef has been reopened: it is being worked on again, so hold off on testing.",
-            $url
+            "GitHub issue $IssueRef has been reopened.",
+            $url,
+            '',
+            'Why it was reopened is on the issue -- it may be back with you, or it may be being worked on again. This update is not a request to test.'
         ) -join "`n"
     }
 

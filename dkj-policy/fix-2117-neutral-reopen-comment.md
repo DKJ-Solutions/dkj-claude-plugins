@@ -39,13 +39,56 @@
 
 ### PLAN
 
-The reopen comment told the requester the work is being worked on again and to hold off testing. The workflow cannot know either, and both are false when the ticket goes back to the requester. Replace with text that asserts only what the workflow knows.
+The reopen comment told the requester the work is being worked on again and to hold off testing. The
+workflow cannot know either, and both are false when the ticket goes back to the requester. Replace
+with text that asserts only what the workflow knows.
+
+#### What the inbound report measured
+
+Three Asana tasks were mirrored into `smartwatchbanden` as development work, built, merged and
+reported as delivered. They were not ours to build -- all three belonged to a colleague and were
+still in his A/B-test stage. The work was reverted and the three GitHub issues reopened so the
+tickets went back to him, and `asana-mirror` then posted on each card:
+
+> GitHub issue BWJ-Development/smartwatchbanden#696 has been reopened: it is being worked on again,
+> so hold off on testing.
+
+The colleague reads the card, not the issue. In order, his card carried the *built and ready to
+test* update, then this reopen line, and only then the hand-written correction saying it was
+reverted and his again. The automated line contradicts the correction **and outranks it**, because
+it carries the authority of the system while the correction is one person's comment.
+
+#### Which of the two shapes, and why the other is declined
+
+The report offered two. **Shape 1, neutral text, is what lands.** It says only what the workflow
+knows, so it asserts nothing a later comment has to retract.
+
+**Shape 2, label-driven text** -- let the `NeedsInfoLabel` seam choose between *back with the
+requester* and *being worked on again* -- is declined on two grounds, and the first is decisive:
+
+1. **It would not have fixed the measured case.** No `needs-info` label was set on those three
+   issues; they were simply reopened. The label-absent branch still asserts *being worked on
+   again*, so all three cards get the same false sentence.
+2. **It contradicts the script's own stated design.** `Invoke-EventMode` carries the rule in
+   capitals -- *a label event moves the card and says nothing* -- because narrating a label would
+   put a comment on the submitter's ticket every time somebody triaged it. Letting that same label
+   choose the wording of a comment is the same signal speaking on the card by another route.
+
+The mechanism for shape 2 does exist (`$link.Labels` is in hand before the comment is built), so
+this is a decision and not a refusal for want of a seam.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The reopen comment in `New-MirrorComment` asserts only the state change
+- [x] Its docstring stops stating the assumption as fact
+- [x] `asana-mirror.yml`'s dropped-reopen argument stops citing the old wording
+- [x] `WORKFLOW-portable.md` and `README.md` describe what the comment now says
 
 ### TEST
+
+- [x] The suite pins the new contract, so restoring the old sentence fails
+- [x] `scripts/tests/dkj-policy-bwj.tests.ps1` green -- 362 asserts
+- [ ] The full gate green (lint + every suite), via `open-pr`
 
 ### DEPLOY: fix/2117-neutral-reopen-comment
 
