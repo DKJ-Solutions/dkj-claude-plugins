@@ -35,9 +35,18 @@ $RepoRoot  = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # document the child never got far enough to write, naming the absent lib not at all.
 . (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
 $ScriptSrc = Join-Path $RepoRoot 'scripts\sync\find-specialist-mentions.ps1'
-# The script dot-sources this sibling lib unconditionally for Get-DisplayName, so the fixture must
-# carry it too -- the same arrangement park-branch.tests.ps1 makes for native-capture-lib.
-$ReportLibSrc = Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1'
+# Every lib the copied script needs in the fixture -- the same arrangement park-branch.tests.ps1 makes
+# for native-capture-lib. THE CLOSURE, not the three names the script itself dot-sources: native-capture
+# loads command-probe unguarded, so a fixture carrying only the direct three still dies on load, and
+# run-progress rides along because its own load is what decides whether the progress bar exists at all
+# rather than being optional to the child's survival.
+#
+# A LIST rather than one variable per lib, because the #2110 repair arrived as exactly the failure the
+# block above describes: the copy list went stale the moment the script grew a dot-source, and all 24
+# failing asserts then reported on a child that never reached its first statement. One list is also what
+# the read-only assert at the foot subtracts, so a lib added here cannot be forgotten there.
+$FixtureLibNames = @('check-report-lib.ps1', 'native-capture-lib.ps1', 'git-porcelain-lib.ps1',
+                     'command-probe-lib.ps1', 'run-progress-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -187,6 +196,26 @@ function New-Fixture {
         'So is prezephyr.'
     )
 
+    # --- the non-ASCII FILENAME (issue #2110) --------------------------------------------
+    # THE NAME IS THE SUBJECT HERE, not the content. The scan set comes from `git ls-files`, and until
+    # #2110 that was a bare native call -- so Windows PowerShell 5.1 decoded the bytes with
+    # [Console]::OutputEncoding. A mis-decoded name keeps its `.md` tail, so it passes the extension
+    # filter and is then handed to a read that cannot open it: the file drops out of the scan silently,
+    # which is the one failure a report whose whole job is "do not miss a place" must not have.
+    #
+    # THE CHARACTER IS WRITTEN AS A CODE POINT because this file is a .ps1 and check 27 holds those to
+    # ASCII -- and for the reason that check exists: typed literally, the two UTF-8 bytes would be read
+    # back as two CP1252 characters and the fixture would test a name nobody chose.
+    #
+    # AND THIS ASSERT IS NOT THE DETERMINISTIC HALF, deliberately. On a cp65001 console the old read got
+    # the name right too, so this passes on such a machine either way; it is a real regression only where
+    # the code page differs, which is exactly the machine the defect hides on. The half that cannot
+    # depend on the console is at the foot of this file, where the wire form is decoded against an
+    # explicit code page -- the arrangement #2109 settled on for the same class.
+    Write-Fixture ("docs\caf" + [char]0x00E9 + "-note.md") @(
+        'Quill reviewed this note.'
+    )
+
     Push-Location $dir
     try {
         Invoke-FixtureGitJudged @('init', '--quiet')
@@ -209,7 +238,10 @@ function Invoke-Script {
 
     $libDir = Join-Path $Fixture 'scripts\lib'
     if (-not (Test-Path -LiteralPath $libDir)) { New-Item -ItemType Directory -Path $libDir -Force | Out-Null }
-    Copy-Item -LiteralPath $ReportLibSrc -Destination (Join-Path $libDir 'check-report-lib.ps1') -Force
+    foreach ($libName in $FixtureLibNames) {
+        Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\lib\$libName") `
+                  -Destination (Join-Path $libDir $libName) -Force
+    }
 
     $prev = $env:CLAUDE_PROJECT_DIR
     $env:CLAUDE_PROJECT_DIR = $Fixture
@@ -328,14 +360,54 @@ try {
     Write-Host '-- read-only'
     Push-Location $fixture
     try {
-        # The two files Invoke-Script copies in are the harness, not the script's doing.
-        $status = @(git status --porcelain 2>$null |
-            Where-Object { $_ -notmatch 'find-specialist-mentions\.ps1' -and $_ -notmatch 'check-report-lib\.ps1' })
+        # The files Invoke-Script copies in are the harness, not the script's doing -- the script itself
+        # plus every lib in the one copy list above, so this subtraction cannot go stale independently of
+        # it the way a hand-written pair of names could.
+        $harnessNames = @('find-specialist-mentions.ps1') + $FixtureLibNames
+        $status = @(git status --porcelain 2>$null | Where-Object {
+            $line = $_
+            -not ($harnessNames | Where-Object { $line -match ([regex]::Escape($_) + '$') })
+        })
     } finally {
         Pop-Location
     }
     Assert-Equal 0 $status.Count 'read-only: the tree is untouched after four runs'
     Assert-True ($d.Out -match 'only reads')             'read-only: and the script says so in its output'
+
+    # -- 9. the scan set survives a non-ASCII FILENAME (issue #2110) -------------------
+    # THE LIVE HALF. Quill is mentioned in exactly three places in this fixture: the persona's own H1,
+    # one line of CLAUDE.md, and the accented-named note New-Fixture writes. A scan set that lost the
+    # third would report two and say nothing about the one it dropped -- which is what the bare
+    # `@(git ls-files 2>$null)` did wherever the console code page was not the file system's.
+    Write-Host ''
+    Write-Host '-- non-ASCII filename in the scan set'
+    $q = Invoke-Script -Fixture $fixture -ScriptArgs @('-Name', 'Quill')
+    Assert-Equal 0 $q.Code 'non-ascii: exit code 0'
+    Assert-True ((Get-FlatOutput $q.Out) -match '3 live mentions') 'non-ascii: the note whose NAME carries a non-ASCII character is in the scan set -- not 2 of 3 with the third silently dropped'
+
+    # AND THE DETERMINISTIC HALF, which no console can change: the bytes are decoded here, by .NET,
+    # against an explicit code page. Never by setting [Console]::OutputEncoding -- that setter is
+    # console-WIDE and the gate runs every suite on one shared console, which is how inbound #821 stayed
+    # invisible (.claude/rules/language-layers.md states the prohibition outright).
+    . (Join-Path $RepoRoot 'scripts\lib\git-porcelain-lib.ps1')
+    $ncName = 'docs/caf' + [char]0x00E9 + '-note.md'
+    $ncSeen = [System.Text.Encoding]::GetEncoding(850).GetString([System.Text.Encoding]::UTF8.GetBytes($ncName))
+    Assert-True ($ncSeen -ne $ncName)                    'non-ascii: the raw-byte read decoded on cp850 is NOT the name on disk -- the defect #2110 repaired, pinned so the old read cannot come back unnoticed'
+    Assert-True ($ncSeen -match '\.md$')                 'non-ascii: and it still ends in .md, so it passes the extension filter and fails only at the open -- which is why the loss is silent'
+    Assert-Equal $ncName (Convert-GitQuotedPath -Path '"docs/caf\303\251-note.md"') 'non-ascii: core.quotePath=true puts the name on the wire as ASCII, and the decoder returns what is actually on disk'
+
+    # AND THE CALL SITE IS PINNED, because the asserts above prove the mechanism works and say nothing
+    # about this script using it -- the same source read #2109 added for check 43, one caller over.
+    $fsmSrc = [System.IO.File]::ReadAllText($ScriptSrc)
+    Assert-True ($fsmSrc -match "'-c',\s*'core\.quotePath=true',\s*'ls-files'") 'non-ascii: the scan FORCES core.quotePath rather than trusting git default -- a repo may set core.quotepath in its own config'
+    # THE TRANSPORT IS PINNED POSITIVELY, and the negative pin names the ASSIGNMENT rather than the bare
+    # call: the docstring on the repaired function quotes the old `@(git ls-files 2>$null)` verbatim as
+    # its evidence, so a pin on that fragment alone matches the comment explaining the repair and goes
+    # red on a correct tree. Quoting the defect is what a measurement in this repo is made of, so the
+    # assert bends around it rather than the other way.
+    Assert-True ($fsmSrc -match "Invoke-NativeCapture -FilePath 'git'") 'non-ascii: the scan goes through the shared capture helper, so the exit code comes back beside the output instead of sitting in $LASTEXITCODE unread'
+    Assert-True ($fsmSrc -notmatch '\$files\s*=\s*@\(git ls-files') 'non-ascii: and the bare native call it replaced cannot come back under the same name'
+    Assert-True ($fsmSrc -match 'Convert-GitQuotedPath -Path \(\[string\]\$_\)') 'non-ascii: and it decodes what came back, rather than reading the escapes as literal text'
 
 } finally {
     Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue

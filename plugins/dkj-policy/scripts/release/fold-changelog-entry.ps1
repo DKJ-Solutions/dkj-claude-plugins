@@ -276,6 +276,15 @@ if ($repo -match 'VUL-IN') {
 $foldCloseoutLib = Join-Path $PSScriptRoot '..\lib\closeout-lib.ps1'
 if (Test-Path -LiteralPath $foldCloseoutLib -PathType Leaf) { . $foldCloseoutLib }
 
+# Convert-GitQuotedPath, for the one place this script reads PATHS back off git -- the tracked/untracked
+# split of the paths it is about to commit (issue #2110). Guarded on the same grounds as the lib above and
+# as park-lib/gate-lib state for their own copies: this file is mirrored into every consumer's plugin
+# cache and arrives by plugin UPDATE rather than by choice, so a mirror predating this lib must not crash
+# on LOAD of the script that folds their changelog. The call site tests for the function rather than
+# assuming the dot-source took, and says what it falls back to.
+$foldPorcelainLib = Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1'
+if (Test-Path -LiteralPath $foldPorcelainLib -PathType Leaf) { . $foldPorcelainLib }
+
 # BOM-less UTF8 -- Set-Content -Encoding UTF8 always adds a BOM in Windows PowerShell 5.1,
 # and the rest of the repo (CHANGELOG.md etc.) has no BOM.
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -1177,11 +1186,43 @@ if ($Commit) {
     # itself removed beside them.
     $entryPaths = @($folded | ForEach-Object { $_.File })
     $writtenPaths = @($entryPaths) + @($removedPaths | Where-Object { $entryPaths -notcontains $_ })
-    $lsFiles = Invoke-NativeCapture -FilePath 'git' -Arguments (@('ls-files', '--') + $writtenPaths)
+    # THE WIRE IS HELD TO ASCII AND DECODED HERE (issue #2110, September 18, 2026), the repair
+    # .claude/rules/language-layers.md prescribes for this whole class and the one #2109 applied to
+    # check-plugin-integrity.ps1's tracked-name check. This read is a PATH read, and its answer is then
+    # COMPARED -- so a name Windows PowerShell 5.1 decoded with [Console]::OutputEncoding is not a display
+    # problem but a wrong answer: a path git does track fails the -contains below, lands in $untracked,
+    # and is dropped from `git commit -- <paths>` while the run prints "git never tracked them ... the
+    # fold deleted them from disk all the same" about a file it has just deleted. A fold commit that
+    # clears half the pair, reported as a correct one. The flag is FORCED rather than left to git's
+    # default, since a repo may set core.quotepath in its own config and put the answer back at the mercy
+    # of the decoder.
+    #
+    # LATENT RATHER THAN LIVE TODAY, and the dependency is worth naming because it lives somewhere else
+    # entirely: everything compared below is $writtenPaths -- the entry files and the legacy step list,
+    # every one of them named after the branch -- and branch-info.ps1 constrains a branch name to ASCII.
+    # Nothing in THIS file states that, so the safety of this comparison is an accident of another file's
+    # validation, which is exactly the shape that stops holding quietly.
+    #
+    # $changelogRel IS NOT ONE OF THE TWO SIDES, and saying it was would misplace the dependency: it is
+    # spliced into $paths unconditionally a few lines down and never tested against $tracked at all. It
+    # comes off the Get-ChangelogPath seam, so a consumer is free to give it a non-ASCII name -- and that
+    # name would ride into the commit untouched, because nothing here compares it.
+    $lsFiles = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-c', 'core.quotePath=true', 'ls-files', '--') + $writtenPaths)
     # git reports its own paths with forward slashes; the entry names are plain file names in the repo
     # root, so normalising both sides costs nothing and removes the one way this could silently drop a
-    # deletion from the commit.
-    $tracked = @($lsFiles.Output | Where-Object { $_ } | ForEach-Object { ($_ -replace '/', '\').Trim() })
+    # deletion from the commit. The decode runs FIRST, because the slash normalisation and the compare
+    # below both read characters -- and until the escapes are unpacked those are not the name's own.
+    # GUARDED, like the dot-source it depends on: a mirror predating git-porcelain-lib decodes as it did
+    # before rather than crashing, which is the pre-#2110 behaviour and no worse than it.
+    # Test-FunctionDefined, not Get-Command (issue #1729): the probe reads the function table directly,
+    # which is what keeps a hyphenated name off the wildcard matcher. command-probe-lib.ps1 is in scope
+    # here because native-capture-lib.ps1, dot-sourced above, loads it unguarded.
+    $canDecodePath = Test-FunctionDefined 'Convert-GitQuotedPath'
+    $tracked = @($lsFiles.Output | Where-Object { $_ } | ForEach-Object {
+        $line = [string]$_
+        if ($canDecodePath) { $line = Convert-GitQuotedPath -Path $line }
+        ($line -replace '/', '\').Trim()
+    })
     $paths = @($changelogRel) + @($writtenPaths | Where-Object { $tracked -contains ($_ -replace '/', '\') })
     $untracked = @($writtenPaths | Where-Object { $tracked -notcontains ($_ -replace '/', '\') })
     if ($untracked.Count -gt 0) {
