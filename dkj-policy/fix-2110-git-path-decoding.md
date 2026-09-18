@@ -59,10 +59,10 @@ Force core.quotePath=true + Convert-GitQuotedPath in fold-changelog-entry's trac
 - [x] `fixture-lib-deps.tests.ps1` green -- the gate that holds a fixture copy list against what the
       copied script dot-sources
 - [x] Lint gate + full suite via `open-pr`
-- [~] A live end-to-end assert on the fold's mis-decode -- dropped: both sides of that comparison are
-      branch-document names and `CHANGELOG.md`, and `branch-info.ps1` constrains a branch name to
-      ASCII, so the state cannot be produced by the writer. Pinned at the source instead, and the
-      dependency is now named in the code
+- [~] A live end-to-end assert on the fold's mis-decode -- dropped: everything that comparison tests is
+      named after the branch, and `branch-info.ps1` constrains a branch name to ASCII, so the state
+      cannot be produced by the writer. Pinned at the source instead, and the dependency is now named in
+      the code
 
 ### DEPLOY: fix/2110-git-path-decoding
 
@@ -79,8 +79,9 @@ prescribes and #2109 applied one caller over; the second is routed through `Invo
 well, so its exit code is readable instead of swallowed.
 
 The fold's instance is LATENT today, and it is the only one whose safety rests on a constraint in
-another file: both sides of that comparison are branch-document names and `CHANGELOG.md`, which
-`branch-info.ps1` holds to ASCII. The code now says so, which it did not before.
+another file: everything that comparison tests is named after the branch, and `branch-info.ps1` holds a
+branch name to ASCII. The code now says so, which it did not before -- and says which path is *not* on
+either side of it, since `CHANGELOG.md` enters the commit's pathspec without ever being compared.
 
 **Score:** 2
 

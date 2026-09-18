@@ -1198,9 +1198,15 @@ if ($Commit) {
     # of the decoder.
     #
     # LATENT RATHER THAN LIVE TODAY, and the dependency is worth naming because it lives somewhere else
-    # entirely: both sides here are branch-document names and CHANGELOG.md, and branch-info.ps1 constrains
-    # a branch name to ASCII. Nothing in THIS file states that, so the safety of this comparison is an
-    # accident of another file's validation -- which is exactly the shape that stops holding quietly.
+    # entirely: everything compared below is $writtenPaths -- the entry files and the legacy step list,
+    # every one of them named after the branch -- and branch-info.ps1 constrains a branch name to ASCII.
+    # Nothing in THIS file states that, so the safety of this comparison is an accident of another file's
+    # validation, which is exactly the shape that stops holding quietly.
+    #
+    # $changelogRel IS NOT ONE OF THE TWO SIDES, and saying it was would misplace the dependency: it is
+    # spliced into $paths unconditionally a few lines down and never tested against $tracked at all. It
+    # comes off the Get-ChangelogPath seam, so a consumer is free to give it a non-ASCII name -- and that
+    # name would ride into the commit untouched, because nothing here compares it.
     $lsFiles = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-c', 'core.quotePath=true', 'ls-files', '--') + $writtenPaths)
     # git reports its own paths with forward slashes; the entry names are plain file names in the repo
     # root, so normalising both sides costs nothing and removes the one way this could silently drop a

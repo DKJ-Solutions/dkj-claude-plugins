@@ -205,8 +205,10 @@ function Get-ScannableFiles {
        core.quotepath in its own config.
 
        AND THE TRANSPORT CHANGED WITH IT, which is the other half of #2110's item 2: a bare native call is
-       the shape every other git reader in this tree has already left behind, and Invoke-NativeCapture is
-       what makes the exit code readable instead of being swallowed by `2>$null`. `-C $repoRoot` replaces
+       the shape every other git reader in this tree has already left behind, and Invoke-NativeCapture
+       hands back the exit code beside the output instead of leaving it in $LASTEXITCODE for a caller to
+       remember to read -- which this one never did. `2>$null` was not what hid it (that redirects stderr
+       and leaves $LASTEXITCODE alone, measured); nothing asked. `-C $repoRoot` replaces
        the Push-Location/Pop-Location pair -- git is told which tree to read rather than the process being
        moved into it, which is one fewer piece of global state for a reporter to restore.
 

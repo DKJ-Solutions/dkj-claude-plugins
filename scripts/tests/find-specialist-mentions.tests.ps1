@@ -405,7 +405,7 @@ try {
     # its evidence, so a pin on that fragment alone matches the comment explaining the repair and goes
     # red on a correct tree. Quoting the defect is what a measurement in this repo is made of, so the
     # assert bends around it rather than the other way.
-    Assert-True ($fsmSrc -match "Invoke-NativeCapture -FilePath 'git'") 'non-ascii: the scan goes through the shared capture helper, so the exit code is readable instead of swallowed by 2>$null'
+    Assert-True ($fsmSrc -match "Invoke-NativeCapture -FilePath 'git'") 'non-ascii: the scan goes through the shared capture helper, so the exit code comes back beside the output instead of sitting in $LASTEXITCODE unread'
     Assert-True ($fsmSrc -notmatch '\$files\s*=\s*@\(git ls-files') 'non-ascii: and the bare native call it replaced cannot come back under the same name'
     Assert-True ($fsmSrc -match 'Convert-GitQuotedPath -Path \(\[string\]\$_\)') 'non-ascii: and it decodes what came back, rather than reading the escapes as literal text'
 

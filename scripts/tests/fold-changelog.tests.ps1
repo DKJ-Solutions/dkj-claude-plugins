@@ -453,9 +453,11 @@ Assert-True ($foldSrcText -notmatch '\$entryHashes #\$num') 'and the heading pre
 
 # --- the tracked/untracked split reads PATHS, so its wire is held to ASCII (issue #2110) -------------
 # SOURCE PINS, and they are the honest instrument here rather than a second-best one. The failure this
-# repairs is LATENT: both sides of that comparison are branch-document names and CHANGELOG.md, and
-# branch-info.ps1 constrains a branch name to ASCII -- so no fixture this suite can build reaches the
-# mis-decode, and one that forced it would be testing a state the writer cannot produce. What CAN be
+# repairs is LATENT: everything that comparison tests is $writtenPaths -- the entry files and the legacy
+# step list, every one named after the branch -- and branch-info.ps1 constrains a branch name to ASCII,
+# so no fixture this suite can build reaches the mis-decode, and one that forced it would be testing a
+# state the writer cannot produce. (CHANGELOG.md is NOT one of the two sides: it is spliced into the
+# pathspec unconditionally and never tested against the ls-files answer.) What CAN be
 # asserted is that the read no longer depends on that constraint holding somewhere else, which is the
 # whole of what #2110 asked for. The same instrument #2109 used for check 43's call site, one caller over.
 #
