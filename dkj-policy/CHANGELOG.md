@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 19 minor entries** <!-- pending-tally -->
+**16 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2061-lane-forwards-resolves · 20260918-001347
+
+`worktree-lane.ps1` now forwards `-Resolves` to `new-branch.ps1`, so a branch opened in a lane runs the
+same already-done check a direct `new-branch` run does -- one `gh` call, before the checkout, asking
+whether the issue is already closed or already resolved by a merged PR. The parameter did not exist on
+the lane script at all, so passing one was refused outright and a lane simply ran without the check,
+silently: nothing in the run said it had not happened.
+
+That is exactly the cost #1409 was filed to remove -- a branch cut, its commits, its development
+document, its reviews and its test runs, all spent before the warning finally arrives at `open-pr` --
+and a lane is where it bites hardest, because a lane is opened during a busy window, which is precisely
+when another session is likeliest to have just closed the issue being picked up.
+
+`-SkipStaleBase` stays declined and is now argued beside it, at the call site and on the skill page,
+because the two read as a pair and are not one: that check reads the BASE, which this script chose from
+`origin/<trunk>` seconds earlier, so it has nothing left to discover; the already-done check reads the
+TRACKER, which no step here has asked about. One is waived because the script already answered its
+question, the other could never have been.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer who installs `dkj-policy` gets the lane script and the skill page, and the page is what
+tells them a lane inherits every rule `new-branch` enforces. That sentence was not true of the check
+that costs the most to skip, and nothing in a lane's output reported the gap -- so the reader furthest
+from the code was the one most likely to believe it. The page now names `-Resolves` in the parameter
+list and says plainly to pass it whenever a lane is opened for an issue.
+
+**Score:** 3
+
+#### Pull Request
+
+worktree-lane forwards -Resolves to new-branch
+
+Plugins: dkj-policy
+
+[PR #2084](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2084)
+
+---
 
 ### DEPLOY: fix/2069-title-overlap-strip-and-plural-v2 · 20260917-234831
 
