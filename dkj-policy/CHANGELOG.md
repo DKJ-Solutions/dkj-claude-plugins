@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2102-release-gate-rerun · 20260918-095038
+
+The release-notes commit no longer pays for the test gate it cannot use. open-pr.ps1 -GatesOnly
+-NoteTreeOnly asks whether every path differing from HEAD sits inside the release-note tree the
+third direct-on-main exception already bounds that commit to, and only where that is PROVEN does it
+skip the suites -- the lint gate runs either way. On the v5.5.0 cut that second gate leg cost 325s
+over one hand-written markdown file: one of the two runs that together are 652s of a 1,166s release, 56%
+of it spent on the same 114 suites twice. What the switch leaves standing is the lint half, 27s here
+against 249s for the suites; the cut never split its own 325s, so neither figure is credited to it.
+
+The skip is a deduction rather than a favour because the suites have no coverage of that tree to lose.
+Moving the whole release tree aside and running all 114 turned four red: one on an existence assert over
+a path list, which a cut only satisfies more firmly, and three because they run the lint script over the
+live repo as a smoke assert. The suites' entire coverage of a release note IS the lint gate.
+
+It proves rather than filters, which is what makes it survivable: #2102 declined a docs-only path
+predicate by name, on the grounds that a wrong matcher is silent. This answers no to an unreadable git,
+a repo naming no note tree, a clean tree, one stray path, and a rename dragging a note out of the tree --
+so being wrong costs a full gate run rather than a skipped one, and the fallback is byte-for-byte the
+un-flagged run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer running this workflow gets the switch and the measurement behind it through the plugin, and
+their own release-notes commit stops paying for a gate that cannot reach a different verdict there. It
+is opt-in and scoped to -GatesOnly, so a consumer who never types it sees no change at all.
+
+**Score:** 2
+
+#### Pull Request
+
+The release-notes gate re-run, measured
+
+Plugins: dkj-policy
+
+[PR #2108](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2108)
+
+---
 
 ### DEPLOY: feat/2100-bwj-cycle-extensions · 20260918-081829
 
