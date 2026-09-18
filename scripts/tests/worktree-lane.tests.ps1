@@ -407,6 +407,24 @@ try {
     $forcedRemoval   = @($removeCalls | Where-Object { $_ -match '--force' })
     Assert-Equal 1 $handBackRemoval.Count "structural: exactly one unforced removal (the hand-back)"
     Assert-Equal 1 $forcedRemoval.Count   "structural: exactly one forced removal (the rollback)"
+
+    # --- (j) -Resolves reaches new-branch, so a lane runs the already-done check too (#2061) -------
+    # THE OBSERVABLE IS NEW-BRANCH'S OWN SENTENCE, not a mock and not a gh call. The fixture ships no
+    # scripts\repo-config.ps1, so the already-done check can resolve no repo name and says so -- naming
+    # the number it was handed, which is reachable only if this script forwarded -Resolves at all.
+    # Before #2061 the parameter did not exist here and the run died on "A parameter cannot be found
+    # that matches parameter name 'Resolves'", so this case fails loudly on the exact regression.
+    Write-Host "worktree-lane.ps1 -- forwards -Resolves to new-branch" -ForegroundColor Cyan
+    $fj = New-Fixture -Label 'j'
+    $rJ = Invoke-WorktreeLane -Dir $fj -From $fj -Arguments @('-Name', 'fix/lane-resolves', '-Title', 'Lane J', '-Resolves', '2061')
+    Assert-Equal 0 $rJ.Code "resolves: accepted, and the lane still opens"
+    Assert-Says $rJ.Out 'the check for #2061' "resolves: new-branch ran its already-done check on the number the lane was given"
+    # AND STRUCTURALLY, ON THE DELEGATION. The assert above proves the parameter arrives; this one
+    # proves it is passed on rather than merely declared -- the same defect one layer up, and the half
+    # that would keep the run above green for as long as the fixture has no Get-RepoName to reach past.
+    $delegationLines = @($srcLines | Where-Object { $_ -match '&\s+\$newBranch\s' })
+    Assert-Equal 1 $delegationLines.Count "resolves: exactly one delegation call site"
+    Assert-True ($delegationLines[0] -match '-Resolves\s+\$Resolves') "resolves: that call site forwards -Resolves"
 } finally {
     foreach ($f in ($script:fixtures | Select-Object -Unique)) {
         if ($f -and (Test-Path -LiteralPath $f)) {
