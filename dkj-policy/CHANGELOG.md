@@ -43,7 +43,58 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 9 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2103-progress-bar-reaches-consumers · 20260918-153030
+
+The background progress bar reaches consumers. #2101 built it in this repo and deliberately mirrored
+none of it: `native-capture-lib.ps1` reached `run-progress-lib.ps1` through a **guarded** dot-source,
+so in a consumer the `Test-Path` failed and the gate behaved exactly as it had. That was a parked
+state, not a destination. Registering the lib as a shared pair is what turns the guard's false arm
+into its true one -- in `dkj-policy` and in `dkj-subagents-shopify`, which carries the second mirror of
+the file that reaches for it -- without editing `native-capture-lib.ps1` again. The statusline that
+draws the bar is mirrored beside it.
+
+The third part is new machinery, because `statusLine` is a **settings** key: `plugin.json` has no such
+key, a plugin-root `settings.json` supports only `agent` and `subagentStatusLine`, and
+`${CLAUDE_PLUGIN_ROOT}` is not expanded there. Nothing a plugin ships can place it, so
+`adopt-statusline.ps1` does -- Part 5 of `adopt-dkj-policy`, dry-run by default like its siblings.
+
+**What it places is a shim rather than a path, and that is the decision the part is built around.**
+The plugin cache is keyed by version, so writing today's cache path into a consumer's settings would
+leave them rendering that payload after every future update: still working, still stale, and reported
+by nothing. Copying the two scripts into the consumer trades it for two live copies drifting each
+release with no lint over them. The shim is one file that never changes, resolving the installed
+payload at render time -- so the settings path cannot go stale and the logic stays where a release can
+reach it. An existing `statusLine` is never replaced: there is one per settings file, so the run leaves
+it alone and prints the block.
+
+Where several install records name this repo -- which a marketplace rename produces, and this repo
+renamed its own on September 10, 2026 -- the shim takes the most recently updated rather than whichever
+the file happens to list first. Resolving that tie by enumeration order would have rendered a stale
+payload permanently with nothing saying so: the same failure the shim exists to prevent, one layer in.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A subscriber of this workflow gets the progress bar at all, which until now existed only in the repo
+that built it. The visible half is a status line that keeps rendering while a backgrounded gate or CI
+wait shows nothing anywhere else; the durable half is that the path they adopt cannot be stranded by
+the next plugin update. It needs one command -- `adopt-statusline.ps1 -Apply` -- and it takes nothing
+away from a repo that already has a status line of its own.
+
+**Score:** 3
+
+#### Pull Request
+
+The progress bar reaches consumers: run-progress-lib mirrored, show-progress shared, and the statusLine seam in adopt-dkj-policy
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2122](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2122)
+
+---
 
 ### DEPLOY: fix/2117-neutral-reopen-comment · 20260918-144639
 
