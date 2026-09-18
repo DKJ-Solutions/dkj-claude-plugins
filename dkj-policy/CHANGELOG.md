@@ -43,7 +43,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**2 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2114-unmeasured-capture-not-a-failure · 20260918-130202
+
+`update-plugins.tests.ps1` asserted `exit 0` on eight scenarios while the script it drives is
+specified to exit 1 whenever a capture comes back with no measurable exit code -- a state measured at
+2.8% per capture, which over a run's ~30 captures is roughly a coin flip. The suite now asserts on the
+work done and tolerates that one documented state, counted and reported apart rather than folded into
+the pass count. The script is untouched: counting an unmeasured capture as a failure is #2081's stated
+decision and it still holds.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The report that produced it was wrong, and the correction is the useful part. It was filed as the script
+failing to consult `ExitCodeUnknown`; the script consults it and the counting is argued at the exact
+line. What made that misreading easy is worth keeping: the shim was called with the right ids at the
+right scopes and the run still exited 1, which reads as a defect and is in fact the specification.
+
+The other half is arithmetic. A per-capture probability is not a per-run one, and 2.8% quoted as a rare
+race becomes an even-odds failure once a suite makes thirty captures. The number was in the tree all
+along; nobody had multiplied it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The update-plugins suite stops asserting an exit code a documented race owns
+
+[PR #2116](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2116)
+
+---
 
 ### DEPLOY: feat/2101-background-progress-bar · 20260918-105021
 
