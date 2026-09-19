@@ -43,7 +43,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 14 minor entries** <!-- pending-tally -->
+**6 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2128-specialist-file-prefix · 20260919-105601
+
+That a dead `@`-import is silent has been this repo's position since #874 and is why lint check 28
+exists. It had never been measured, upstream documents none of it, and the #2128 rename plan turned on
+it -- so it was measured in an isolated checkout. The silence is confirmed and total: the rest of the
+file loads, and nothing is reported on stdout, on stderr, or under `--debug`.
+
+**One detail of check 28's own wording turned out to be wrong**, in all three places it appears: it says
+Claude Code *drops* the import, and the line is not dropped -- the raw `@path` survives in context as
+inert text. That is worse rather than merely different, because the document is gone while something
+that still looks like its import is sitting there. The wording is corrected.
+
+It lands in the system-administration lens, beside the clone-versus-cache measurements it belongs with,
+and **not** in `CLAUDE.md`. That was the first attempt, and the always-on budget gate refused it: the
+path is already 9,380 B over its ceiling, so it may not grow, and evidence for a decision is exactly
+what that gate says belongs in the owning specialist's lens. `CLAUDE.md` already points there for this
+subject, so it needed no edit at all.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- nothing here ships to a consumer. The paragraph lands in this repo's own governance document, and
+the rename it was measured for has not started; its six steps are #2130 through #2135.
+
+**Score:** N/A
+
+#### Pull Request
+
+A specialist- prefix on every specialist file, and one suffix per kind
+
+[PR #2136](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2136)
+
+---
 
 ### DEPLOY: docs/2127-inbound-prio-carve-out · 20260919-093551
 
