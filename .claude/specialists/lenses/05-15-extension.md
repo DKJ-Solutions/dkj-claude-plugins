@@ -1548,6 +1548,23 @@ this repo's:
   the ordinary state. What was wrong was the **expectation** — [`CLAUDE.md`](../../../CLAUDE.md) promised
   the "last pushed" version — and that sentence is what the repair changed.
 
+  **The same property makes this the one channel on which a file RENAMED here reaches a consumer with no
+  version behind it** (September 19, 2026,
+  [#2128](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2128)). A consumer's
+  `SPECIALISTS.md` names the orchestrator's body by absolute literal path, `bootstrap.ps1` never rewrites
+  that line once written, and the clone it resolves against tracks `main` — so a rename on `main` kills
+  the import on their next refresh, with no release and no bump in between.
+
+  **And a dead `@`-import is SILENT, which had been asserted since #874 but never measured.** Measured
+  here in an isolated checkout, because upstream documents none of it: the rest of the file **loads
+  normally** — a broken import is not fatal — and **nothing is reported**, not on stdout, not on stderr,
+  not under `--debug`. The consumer loses the whole imported document and the session carries on as
+  though it were there. **One detail of check 28's own wording was wrong and is corrected**: it said
+  Claude Code *drops* the import, and the line is not dropped — the raw `@path` survives in context as
+  inert text. That is worse rather than merely different, because a reader inspecting the assembled
+  context sees the line and concludes the import happened. Nothing else about check 28 changes; the half
+  it exists for is now measured rather than asserted.
+
   **The measurement check 11's comment relies on had never reached this boundary. It has now, and the
   answer is worse than the guess** (September 10, 2026, Claude Code 2.1.267, on a second machine of Dave's,
   [#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812)). What check 11 records,

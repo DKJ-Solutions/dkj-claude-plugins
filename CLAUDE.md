@@ -182,18 +182,7 @@ byte-identical, and both `plugin update` and `plugin install` then declined on t
 alone. So a change that lands without a version bump reaches no session at all, and an agent def you
 modify on a branch takes effect after merge, push *and a release* — not after a refresh. **The one
 thing that does load from the clone is a document named by an absolute `@`-import**, which is why the
-orchestrator's body below advances on that refresh alone and everything else waits for the cut. **And
-that is the one channel on which a file RENAMED here reaches a consumer with no version behind it** —
-their import names the old path by literal string, so it dies on their next `marketplace update`.
-**That a dead `@`-import is silent has been this repo's position since
-[#874](https://github.com/DKJ-Solutions/claude-code-specialists/issues/874)** — it is why lint check 28
-exists — **and it was measured for the first time on September 19, 2026**
-([#2128](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2128)), because upstream documents
-none of it and a rename plan turned on it. The silence is confirmed and is total: the rest of the file
-loads, and nothing is reported on stdout, on stderr, or under `--debug`. **One detail of check 28's own
-wording is wrong, though:** it says Claude Code *drops* the import, and the line is not dropped — the
-raw `@path` survives in context as inert text, which is if anything worse, because the document is gone
-while something that looks like its import is still sitting there. Between
+orchestrator's body below advances on that refresh alone and everything else waits for the cut. Between
 two releases **no version check can tell you either copy is behind**. A second: being a consumer,
 whichever machine has actually run `claude plugin install ... --scope project` for this checkout
 carries an install record keyed on its **folder path** there, and renaming or moving the checkout on

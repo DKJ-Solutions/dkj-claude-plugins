@@ -215,7 +215,7 @@ land before a single release cut, so consumers migrate once.
 - [x] Put the two open decisions to Dave, and record his answers here
 - [x] File the follow-up issues for the sequenced steps once the decisions are in -- #2130 … #2135
 - [x] Give the plan a durable home: a comment on #2128, since this document is removed at the fold
-- [x] Record the measured lesson in `CLAUDE.md`, where the clone channel is described
+- [x] Record the measured lesson in the system-administration lens, beside the clone-channel measurements
 - [x] Correct lint check 28's wording, which the measurement showed to be wrong on one detail
 
 ### TEST
@@ -234,10 +234,11 @@ Claude Code *drops* the import, and the line is not dropped -- the raw `@path` s
 inert text. That is worse rather than merely different, because the document is gone while something
 that still looks like its import is sitting there. The wording is corrected.
 
-`CLAUDE.md` now carries the measurement at the one place it already explains that an absolute
-`@`-import is the single thing loading from the marketplace clone rather than the version-pinned cache
--- which is also the one channel on which a file renamed here reaches a consumer with no version behind
-it.
+It lands in the system-administration lens, beside the clone-versus-cache measurements it belongs with,
+and **not** in `CLAUDE.md`. That was the first attempt, and the always-on budget gate refused it: the
+path is already 9,380 B over its ceiling, so it may not grow, and evidence for a decision is exactly
+what that gate says belongs in the owning specialist's lens. `CLAUDE.md` already points there for this
+subject, so it needed no edit at all.
 
 **Score:** 3
 
