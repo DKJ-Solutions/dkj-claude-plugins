@@ -67,15 +67,17 @@ resolver wins and the literal goes.
 - [x] The prose that names a manual: `README.md`, `CLAUDE.md`, `.claude/rules/language-layers.md`, the
       specialists handbook, 11 repo lenses, two plugin READMEs, three SKILL pages, and the three manuals
       that cross-link each other.
-- [x] The check 6b fixture in `scripts/tests/check-plugin-integrity-docs.tests.ps1`.
+- [x] The check 6b fixture in `scripts/tests/check-plugin-integrity-docs.tests.ps1`, and the synthetic
+      manual path in `scripts/tests/release-lib.tests.ps1` -- that one is fake data against a fake root and
+      no reader judges it, but left on the old spelling it reads as a spot the rename missed.
 - [x] The 25 manual-path citations -- 8 of them live links -- in the archived release documents under `dkj-policy/releases/**` -- see the
       note under TEST; the issue had placed this out of scope.
 
 ### TEST
 
 - [x] `check-plugin-integrity.ps1` green -- `[manual] checked 27`, `[specialist] checked 53`, 0 errors.
-- [ ] Every suite under `scripts/tests/` green.
-- [ ] The #1757 check: `git diff origin/main...HEAD | grep '^+' | grep -v '^+++' | grep -- '-manual\.md'`
+- [x] Every suite under `scripts/tests/` green -- 0 failing of the full set, run one by one as CI does.
+- [x] The #1757 check: `git diff origin/main...HEAD | grep '^+' | grep -v '^+++' | grep -- '-manual\.md'`
       names only the new spelling, apart from the lines of this document that quote the old one.
 
 #### The historical carve-out covers wording, not link targets
