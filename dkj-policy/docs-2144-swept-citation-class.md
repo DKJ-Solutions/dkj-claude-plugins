@@ -79,6 +79,12 @@ confirms a capture at `50348e62` reading `(team-alpha) 4.17.0`, swept twice sinc
       `.claude/specialists/lenses/05-15-extension.md`.
 - [x] Rewrap the 157-character comment line the #2139 repair left in `check-plugin-integrity.ps1`, and
       the two ragged paragraph wraps it left in the lens.
+- [x] Review pass on the diff: copy edit, code review, security review, and a red-team of the
+      do-not-build verdict. The red-team returned **WOBBLES** -- the conclusion held, the argument did
+      not -- so the lens, the manual and DEPLOY were rewritten to rest the decline on the attribution
+      floor rather than the undiluted 54, to answer the lens's own three-mode test instead of skipping
+      it, to name the one untested variant, and to record the proportionate alternative its own
+      "a decline that names no better route invites the same proposal again" rule requires.
 
 ### TEST
 
@@ -118,10 +124,23 @@ quotation* -- the detection half holds, the "always" does not. Over `*.md`, `*.p
 `*.yml` outside the archived release history: **54 pairings, 3 of them swept quotations**, 5
 illustrations, and 46 correct as written -- 32 synthetic test fixtures, where an invented version is the
 point, and 14 attributions or dated notes, two of which pair a plugin name with the *Claude Code CLI's*
-own version. It also missed a real quotation one line below a hit, because that line carries no version.
-As a gate that is 6% precision with a known blind spot; as the one-off sweep this branch is, it was
-exactly the right tool. The verdict is recorded where whoever owns check 28 will look, so the proposal
-is settled rather than standing.
+own version.
+
+**The 54 is not the figure the decline rests on, and the first draft of this entry wrongly let it be.**
+Excluding `scripts/tests/**` is one line and removes 32 by construction -- 3/22 strict, **8/22 actionable**
+-- which beats the 12.5% a comparable candidate was declined at a few hundred lines up the same lens. What
+carries the decline is the **floor**: 14 of those 22 are attributions, the form this branch decides to keep
+writing, so after the repairs the tree holds zero true findings against fourteen standing false ones and
+every future attribution adds another. Born red against correct prose, growing, and not improvable by
+narrowing -- the stale-path decline's shape exactly. Declined at all three modes, with the `[INFO]` audit
+declined on its own terms rather than as a hedge, and with one variant named as **untested** (restricting
+to fenced blocks) so *"settled"* does not quietly cover it. The lens also records the proportionate
+alternative, per its own rule that a decline naming no better route invites the same proposal again: check
+the **marking** rather than the anachronism.
+
+Marlowe red-teamed that verdict and returned **WOBBLES** -- the conclusion held, the argument did not, and
+both this entry and the lens were rewritten on it. Worth recording, because the failure he caught is the
+one this repo keeps naming: a real measurement, quoted accurately, chosen because it flattered the answer.
 
 The portable half is in the technical writer's manual, which already carried a rename-sweep rule with
 three exceptions. What it lacked is the part #2139 and #2144 measured: **the rule protects nothing on

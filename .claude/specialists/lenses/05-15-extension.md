@@ -2190,12 +2190,12 @@ seventeen times in released payload.
 **Both citations above were silently rewritten by the renames, and what saved the script's copy was luck
 rather than its file type** (#2139, September 19, 2026). The `.ps1` was in every sweep's file set — its
 own `team-alpha 4.21.0` line was swept three times, by #1437, by the `plugins/teams` rename and by #1698
-— while the *path-shaped* citation four lines above it was never touched. So the surviving copy survived
-because of the **shape of the token**, not because a comment is safe: a bare plugin name matched the
-sweep, a name embedded in a quoted path did not. The lens is markdown and its path-shaped citation was
-swept anyway, which rules out shape alone as protection too. **The marking is therefore the only guard
-there is**, and it is a convention rather than a check, because recognising a quotation is exactly the
-hard part.
+— while the *path-shaped* citation higher up the same comment block was never touched. So the copy that
+survived, survived because of the **shape of the token**, not because a comment is safe: a bare plugin
+name matched the sweep, a name embedded in a quoted path did not. The lens is markdown and its
+path-shaped citation was swept anyway, which rules out shape alone as protection too. **The marking is
+therefore the only guard there is**, and it is a convention rather than a check, because recognising a
+quotation is exactly the hard part.
 
 **What a check COULD see — proposed here, then measured, and the answer is DO NOT BUILD IT** (#2144,
 September 19, 2026). The proposal was that a name paired with a version older than the version that name
@@ -2208,11 +2208,46 @@ as written: 32 are synthetic test fixtures, where an invented version is the poi
 attributions or dated notes — two of which pair a plugin name with the *Claude Code CLI's* own version
 and have nothing to do with this class at all.
 
+**The 54 is the wrong figure to decline on, and saying so is the difference between a measurement and a
+number that flatters the conclusion.** Excluding `scripts/tests/**` is one line and removes 32 of the 54
+by construction, which lifts the strict rate from 3/54 to **3/22** and the actionable rate — counting the
+illustrations, which the check correctly surfaced — to **8/22, 36%**. That is *better* than the 12.5% the
+consumer-prose candidate was declined at a few hundred lines above, so the unnarrowed figure cannot carry
+the decline on its own.
+
+**What carries it is the floor, and the floor is by design rather than by accident.** Of the 22
+non-fixture pairings, **14 are attributions** — *"`dkj-policy` 4.21.0 shipped it"* — which the convention
+below deliberately keeps writing that way. They are syntactically indistinguishable from a swept
+quotation and they are correct. So once this branch's repairs land, the tree holds **zero** true findings
+against roughly fourteen standing false ones, and every future attribution adds another: a check born red
+against correct prose, growing, with no convention it could ever be made to read. That is the stale-path
+decline's shape exactly, and it does not improve with narrowing, because the noise is prose this repo
+chooses to write.
+
+**At all three modes, then, and the middle one is not a hedge.** Not a gate (it would refuse pull
+requests over correct sentences), not a SessionStart hook (same set, every session), and not a
+deliberately-run `[INFO]` audit either — at fourteen standing falses a reader learns to skim it, which is
+the failure the audit mode exists to avoid rather than a milder version of it. **One variant is genuinely
+untested**: restricting the match to fenced blocks and quoted transcripts, which is where a quotation
+mostly lives. It was not run, and *"settled"* does not cover it — whoever picks that up should measure it
+rather than inherit this verdict.
+
 **And it missed one**, on the line below a hit it found: `measure-skill.tests.ps1`'s captured
-`Source: team-alpha@claude-code-specialists` carries no version, so nothing paired. So as a **gate** the
-rule is 6% precision with a known blind spot — it would refuse pull requests over test fixtures and still
-let a swept quotation through. As a **one-off sweep tool** it is exactly right, and #2144 was that run.
-Whoever owns check 28 should read this as the measurement that settles it, not as a backlog item.
+`Source: team-alpha@claude-code-specialists` carries no version, so nothing paired. That blind spot is
+structural rather than incidental — any citation whose name and version sit on different lines is
+invisible to this strategy at any width. **As the one-off sweep #2144 was, it earned its run without
+being the hero of it**: of the four swept lines repaired it surfaced three, one of which the report had
+not named (`INSTALL.md`'s layout table) — the fourth, and the upgrade of one hit from "illustration" to
+"quotation", both came from reading the files it pointed at.
+
+**The proportionate alternative, recorded because a decline that names no better route invites the same
+proposal again.** Invert the subject: check the **marking**, not the anachronism. A citation that has
+been marked *do not sweep* is a line whose content is asserted to be frozen, so a check can hold it
+against its own history and report when a later commit changed it — precision near 100%, born green,
+self-anchoring in the way check 40 is, and growing only as markings are added rather than as correct
+prose is written. It needs the marking to be machine-readable first, which is the same bootstrap order
+`Get-LiveStage` and the script contract's reachability half already set. Not built here; named so the
+next reader starts from it instead of from the anachronism again.
 
 **The class is closed, and the convention that replaces the check is in
 [the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md):**
