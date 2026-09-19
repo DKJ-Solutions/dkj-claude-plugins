@@ -96,6 +96,19 @@ function Get-ShopifyLineText {
 
         SO TargetObject IS READ FIRST -- it is the raw stderr line, string-typed, empty string and all.
         The exception's message is the fallback for a record that is not a native stderr line at all.
+
+        BYTE-FOR-BYTE THE BODY OF Get-NativeLineText in native-capture-lib.ps1, AND THAT DUPLICATION IS
+        THE DECISION RATHER THAN AN OVERSIGHT (issue #2158, which weighed unifying them and closed on
+        this reason). The two libs do not depend on each other: this file dot-sources nothing, because
+        its wrapper is purpose-built for the two measured reasons in the header above -- these calls have
+        to STREAM, and the bounded/UTF-8 arm's Start-Process cannot run the npm .ps1 shim that 'shopify'
+        actually is. Promoting eight lines to a shared source would have to buy back a dependency this
+        file was written not to have, or invent a third lib; and both libs are mirrored separately --
+        native-capture-lib into dkj-policy and dkj-subagents-shopify, this one into
+        dkj-subagents-shopify -- so a shared copy would have to land in the mirror set of every plugin
+        carrying either caller and resolve $PSScriptRoot-relative at each mirror's own depth. Eight lines
+        is the cheaper half of that trade. THE COST IS THAT NOTHING ENFORCES IT: if the TargetObject-first
+        order ever changes, change it in both.
     #>
     param([Parameter(Mandatory = $true)][AllowNull()]$Line)
 
