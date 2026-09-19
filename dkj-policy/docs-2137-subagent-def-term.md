@@ -71,8 +71,8 @@ path the tooling resolves.
 
 ### TEST
 
-- [ ] Lint gate green (`check-plugin-integrity.ps1`), its dead-link scan included
-- [ ] All suites green
+- [x] Lint gate green (`check-plugin-integrity.ps1`), its dead-link scan included
+- [x] All suites green (118/118, 61 min)
 
 ### DEPLOY: docs/2137-subagent-def-term
 
