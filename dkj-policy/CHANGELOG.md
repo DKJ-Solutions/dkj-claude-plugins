@@ -43,7 +43,49 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 30 minor entries** <!-- pending-tally -->
+**16 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2133-lens-filenames · 20260919-232200
+
+This repo's 30 repo lenses are now named `specialist-<group>-<id>-lens.md`, and every reference naming one
+of them by its real path followed -- 84 files, 316 replacements, plus 43 link targets under
+`dkj-policy/releases/**` whose prose is left exactly as written. **No reader moved with it**: step A
+(#2130) had already put every one of them behind `Get-SpecialistFileShapes`, so what makes this the
+written name is a row in that table and a `git mv`, not a sweep through the scripts.
+`check-roster-sync.ps1` reports all 30 specialists rostered with a lens, the four main-loop personas
+included -- they carry their id only inside that filename, which is what #2130's lookbehind fix exists
+for. Step D of the rename plan in #2128.
+
+The always-on baseline rose 348 B and every byte of it is filename: the path names lens files and each
+one is nine bytes longer. Raised through the gate with that reason on the record rather than hand-edited.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+**A consumer's subagent defs now name a lens file their own tree does not have yet.** The defs that ship
+to every consuming repo tell a specialist to read
+`.claude/specialists/lenses/specialist-<group>-<id>-lens.md`, and a consumer who has not renamed still
+holds `<group>-<id>-extension.md`. Their lenses are authored content, so nothing here renames them --
+`bootstrap.ps1` is additive-only. The parenthetical those defs already carry names the **pre-seam**
+`.claude/plugins/<family>/` and `.claude/extensions/` layouts, which is a different thing from the
+current seam under its old filename, so it does not cover this.
+
+What closes it is #2134, the migration section in `INSTALL.md`, which lands next and carries the `git mv`
+for a consumer's own tree. Until they run it the named lens is simply not found, and the specialist
+carries on without one -- no error and no report, the same silence any dead path has here.
+
+**Score:** 4
+
+#### Pull Request
+
+Rename step D: this repo's 30 lenses to specialist-NN-NN-lens.md
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2165](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2165)
+
+---
 
 ### DEPLOY: fix/2163-statusline-refresh-interval-seconds · 20260919-185355
 
