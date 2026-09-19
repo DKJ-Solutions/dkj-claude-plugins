@@ -44,11 +44,18 @@
 #2155 was filed as a decision rather than a repair: should `Invoke-NativeCapture`'s `&` arm normalise
 `Output` to strings? Dave decided **yes**, September 19, 2026, on three things the issue did not have.
 
-**One: the premise of #2155 is not in the tree.** The issue says #2154's repair already added
-`Get-NativeOutputText` and moved seven renders in `prune-merged.ps1` onto it. It did not:
-`Get-NativeOutputText` exists nowhere, and `origin/fix/2154-flatten-refusal-reason` is a single `park:`
-commit carrying only its branch document. So #2154's site was never closed, and this branch closes it
-at the source instead -- without touching `prune-merged.ps1` at all.
+**One: the premise of #2155 was not in the tree WHEN THIS BRANCH OPENED, and stopped being true while
+it was open.** Recorded in both halves rather than rewritten, because the second half is the more
+useful one: #2154 landed on `main` mid-branch, from another session, and its repair arrived carrying a
+`Get-NativeLineText` **byte-identical in name and body** to the one written here -- two sessions, the
+same function, discovered at the merge. Neither pickup check could have caught it: #2154 was a
+different issue with its own assignee, and its branch was a bare `park:` scaffold, so the parked-fix
+scan on #2155 had nothing to match. Reconciled by keeping both layers -- their `Get-NativeOutputText`
+at the reader, this decision's normalisation at the capture -- and by rewriting the docstring paragraph
+in which their helper argued AGAINST the decision that has since been taken. What follows was the state
+at open: the issue said #2154's repair had already added `Get-NativeOutputText` and moved seven renders
+in `prune-merged.ps1` onto it, and it had not -- that function existed nowhere, and
+`origin/fix/2154-flatten-refusal-reason` was a single `park:` commit carrying only its branch document.
 
 **Two: the current shape is measurably wrong, not merely inconsistent.** Measured here against a
 `powershell.exe` child writing three stderr lines, the middle one empty:
@@ -95,8 +102,17 @@ the other spelling.
 - [x] Both branches of the `&` arm normalise through it in the pipeline -- IN the pipeline, so the
       container is untouched. (`arm` is the lib's own word for the `&` / `-Utf8` split; `-DiscardStderr`
       is a branch of the first, not a third arm.)
-- [x] `Get-NativeOutputText` deliberately NOT added: with `Output` normalised, `$res.Output | Out-String`
-      is already correct, and a helper nobody needs is the accumulation this repo keeps removing.
+- [x] `Get-NativeOutputText` was deliberately NOT added here -- and then arrived on `main` from #2154
+      mid-branch, so it is KEPT rather than removed. It is not redundant after this change: it trims
+      and normalises line endings, which `Out-String`'s console-width padding does not, and it is the
+      only correct reader for an `Output` that came from an older plugin release where the `&` arm had
+      not been repaired yet. Its docstring argued AGAINST this decision while the decision was open;
+      that paragraph is rewritten rather than left, because an argument for a road not taken reads as
+      current policy once the fork is behind you.
+- [x] #2154's own suite block repaired for the same reason: it proved the helper's worth by asserting
+      the defect still reproduced on a capture, which #2155 makes false. The contrast now comes from a
+      raw `& git ... 2>&1`, which is both still true and the exact shape the helper still exists for --
+      so the block proves more than it did, not less.
 - [x] Four passages in the lib that argued FROM the element-type difference updated rather than left
       to go quietly stale -- the `Output` docstring, the `-Utf8` mechanism note, the `-TimeoutSeconds`
       consequence note, and #1963's "a silent reroute is not the cheap alternative" block, whose
@@ -133,7 +149,8 @@ every caller rendering `$res.Output | Out-String` on a failure path got a PowerS
 naming this lib's own source line instead of the reason -- and an empty stderr line came out as the
 literal text `System.Management.Automation.RemoteException`. That is ~60 render sites across the
 workflow's scripts, including refusals `prune-merged`, `ship-pr`, `open-pr` and `park-cycle` print. It
-closes #2154 at the source rather than at the one site it was reported from.
+closes #2154's CLASS at the source; #2154 itself landed separately mid-branch and closed its own site
+at the reader, so the two layers now sit on top of each other deliberately.
 
 **Score:** 3
 

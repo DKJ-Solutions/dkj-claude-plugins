@@ -43,7 +43,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 24 minor entries** <!-- pending-tally -->
+**12 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2154-flatten-refusal-reason · 20260919-160659
+
+A refusal captured from a native command now reads as **the command's own words**. `prune-merged`'s
+verdict on a branch `git branch -d` declined was git's single line -- `error: the branch '<name>' is
+not fully merged` -- followed by a `CategoryInfo` line, a `FullyQualifiedErrorId` line and a
+source-line caret pointing into `native-capture-lib.ps1`: a file the operator never ran and cannot act
+on, in the middle of the sentence telling them what to do. `Get-NativeOutputText` flattens each
+captured line to the text the command actually wrote, and the seven failure-path renders in
+`prune-merged.ps1` go through it. git's own `hint:` lines survive -- the repair must not trade an
+exception dump for a truncation.
+
+**It normalises at the reader, not at the capture, and that was the branch's one real decision.**
+Making `Invoke-NativeCapture` hand back strings would fix every caller at once and change the result
+shape for every caller in every consumer, which the lib's own `#1963`/`#1966` reasoning already calls a
+decision of its own rather than a side effect of a repair. That reading is filed as [#2155](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2155), not dropped.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`prune-merged.ps1` and `native-capture-lib.ps1` both ship in `dkj-policy`, so this lands in every
+consuming repo that runs the tidy-up lanes: the next time a delete is refused there, the operator reads
+git's three lines instead of twelve, and nothing points them at a file inside the plugin. Small, and on
+a path nobody visits until something declines -- which is exactly when a readable message is worth the
+most.
+
+**Score:** 2
+
+#### Pull Request
+
+Render a refused git delete as git's own line, not a PowerShell ErrorRecord dump
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2156](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2156)
+
+---
 
 ### DEPLOY: docs/2137-subagent-def-term · 20260919-155253
 

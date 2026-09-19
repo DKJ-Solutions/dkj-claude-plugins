@@ -6,7 +6,8 @@
     instead of leaving a caller to guess what an empty capture on exit 0 meant (#1679), and that an
     unmeasurable exit code is reported (ExitCodeUnknown) and turned into a refusal rather than a
     silent wrong answer at the one caller in this file that would otherwise skip a merge-time gate
-    on it (#1931).
+    on it (#1931), and that a captured refusal renders as the command's own words rather than as the
+    ErrorRecord PowerShell wrapped them in (#2154).
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell. Exit code 0 if everything passes, 1 on a
@@ -795,6 +796,92 @@ try {
     Assert-True $timeoutRun.TimedOut 'the fixture actually timed out, so the assert below is about the field and not about a fluke'
     Assert-True ($null -ne $timeoutRun.PSObject.Properties['ExitCodeUnknown']) 'a timed-out call still returns an ExitCodeUnknown field'
     Assert-True (-not $timeoutRun.ExitCodeUnknown) 'and it is false -- the substituted timeout code is a verdict this function chose, not an unmeasured read'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host 'Get-NativeOutputText -- a refusal reads as the COMMAND said it (issue #2154)' -ForegroundColor Cyan
+
+    # THE DEFECT. On the & arm every stderr line arrives as an ErrorRecord wrapping a RemoteException,
+    # and under PowerShell 5.1 that record carries its own positional info. Out-String renders all of
+    # it, so prune-merged's refused-delete verdict printed git's single line followed by a
+    # CategoryInfo/FullyQualifiedErrorId block and a source-line caret pointing into
+    # native-capture-lib.ps1 -- naming a file the operator did not run and cannot act on.
+    #
+    # A REAL REFUSED DELETE RATHER THAN A HAND-BUILT ErrorRecord, because the wrapping is the subject:
+    # a fixture that constructs the record itself would assert this suite's idea of the shape, not the
+    # one PowerShell actually produces at the call site.
+    $refRepo = Join-Path $sandbox 'refusal-repo'
+    New-Item -ItemType Directory -Path $refRepo -Force | Out-Null
+    Invoke-NativeCapture -FilePath 'git' -Arguments @('init', '-q', $refRepo) | Out-Null
+    $gitIn = @('-C', $refRepo)
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('config', 'user.email', 'tests@example.invalid')) | Out-Null
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('config', 'user.name', 'tests')) | Out-Null
+    Set-Content -LiteralPath (Join-Path $refRepo 'a.txt') -Encoding Ascii -Value 'a'
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('add', '-A')) | Out-Null
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('commit', '-qm', 'one')) | Out-Null
+    $baseRef = (Get-NativeOutputText (Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('rev-parse', '--abbrev-ref', 'HEAD'))).Output)
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('checkout', '-qb', 'unmerged-fixture')) | Out-Null
+    Set-Content -LiteralPath (Join-Path $refRepo 'b.txt') -Encoding Ascii -Value 'b'
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('add', '-A')) | Out-Null
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('commit', '-qm', 'two')) | Out-Null
+    Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('checkout', '-q', $baseRef)) | Out-Null
+
+    $refusal = Invoke-NativeCapture -FilePath 'git' -Arguments ($gitIn + @('branch', '-d', 'unmerged-fixture'))
+    Assert-True ($refusal.ExitCode -ne 0) 'the fixture really was refused, so everything below is about a refusal and not about a fluke'
+
+    $new = Get-NativeOutputText $refusal.Output
+
+    # THE OLD RENDER IS PINNED TOO, and it is the assert that keeps the rest honest: without it, a
+    # future PowerShell that stopped wrapping stderr would turn this whole section green while proving
+    # nothing.
+    #
+    # IT IS SOURCED FROM A RAW '&' RATHER THAN FROM $refusal SINCE #2155, and the move is the point
+    # rather than a workaround. Invoke-NativeCapture's & arm now normalises, so a capture no longer
+    # carries records and this contrast reproduced nothing off one -- which read as "the defect is
+    # gone" when what had gone was only this lib's own exposure to it. PowerShell still wraps stderr
+    # exactly as before for anybody calling '&' directly, and that is the shape Get-NativeOutputText
+    # still has a job on: an Output handed across from a CONSUMER on an older plugin release, where
+    # the & arm had not been repaired yet. So the fixture is now that shape, deliberately.
+    $rawPrev = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $rawRefusal = & git @gitIn branch -d unmerged-fixture 2>&1
+    } finally { $ErrorActionPreference = $rawPrev }
+
+    Assert-True (@($rawRefusal | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }).Count -gt 0) `
+        'a raw & call still wraps stderr in ErrorRecords -- the shape the helper exists for has not gone away'
+    $old = ($rawRefusal | Out-String).Trim()
+    Assert-True ($old -match 'CategoryInfo')            'Out-String really does render the exception block -- the defect reproduces on a raw call'
+    Assert-True ($old -match 'native-capture-lib\.ps1|\.tests\.ps1') '...including a caret naming the file that ran the command'
+    Assert-True ((Get-NativeOutputText $rawRefusal) -notmatch 'CategoryInfo') `
+        '...and the helper strips it off THAT Output too, which is the older-consumer case in one assert'
+
+    # AND THE CAPTURE ITSELF NO LONGER CARRIES RECORDS, which is #2155 measured from this block's side.
+    Assert-True (@(@($refusal.Output) | Where-Object { $_ -isnot [string] }).Count -eq 0) `
+        "the same refusal through Invoke-NativeCapture holds only strings -- #2155 closed this defect at the source, and this section's subject is now what reaches the helper from ELSEWHERE"
+
+    Assert-True ($new -match 'not fully merged')          "the helper keeps git's own reason, which is the whole of what the reader needed"
+    Assert-True ($new -notmatch 'CategoryInfo')           'and drops the CategoryInfo line'
+    Assert-True ($new -notmatch 'FullyQualifiedErrorId')  '...the FullyQualifiedErrorId line'
+    Assert-True ($new -notmatch 'NativeCommandError')     '...the wrapper exception id'
+    Assert-True ($new -notmatch 'native-capture-lib')     '...and the source-line caret pointing into this lib'
+    Assert-True ($new -match "git branch -D unmerged-fixture") "git's own hint survives -- the repair must not trade an exception dump for a truncation"
+
+    # THE SUCCESS PATH IS UNCHANGED, which is what makes this safe to use at a site that renders both.
+    $plain = Invoke-NativeCapture -FilePath 'git' -Arguments @('--version')
+    Assert-Equal (($plain.Output | Out-String).Trim()) (Get-NativeOutputText $plain.Output) 'on plain stdout the helper agrees with Out-String exactly -- it normalises the wrapper, not the text'
+
+    Assert-Equal ''      (Get-NativeOutputText $null)          'a null Output is the empty string rather than a throw -- a caller renders a reason without first testing for one'
+    Assert-Equal 'solo'  (Get-NativeOutputText 'solo')         'a single string that never went through the pipeline is passed through'
+    Assert-Equal "a`nb"  (Get-NativeOutputText @('a', 'b'))    'an array is joined on newlines, so a multi-line reason stays multi-line'
+
+    # AND THE MEASURED CALL SITE USES IT. Same source-assert shape as the open-pr block above, and for
+    # the same reason: the property that matters is which spelling the call site carries, and asserting
+    # it live would mean driving prune-merged against a real checkout with a branch it would refuse.
+    $pruneSrc = Join-Path $PSScriptRoot '..\task\prune-merged.ps1'
+    Assert-True (Test-Path -LiteralPath $pruneSrc) 'prune-merged.ps1 is where this suite expects it'
+    $refusedLine = @(Get-Content -LiteralPath $pruneSrc | Where-Object { $_ -match 'git branch \$flag refused' })
+    Assert-Equal 1 $refusedLine.Count                                'exactly one refused-delete verdict, so the assert below cannot read the wrong one'
+    Assert-True  ($refusedLine[0] -match 'Get-NativeOutputText')     'and it renders the reason through the helper rather than through Out-String'
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- the code page cannot reach the answer (issue #907)' -ForegroundColor Cyan
