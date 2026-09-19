@@ -83,6 +83,8 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $root '.claude\settings.jso
     'dry run: no settings file is written'
 Assert-True ($res.Output -match 'would write') 'dry run: it says what it would place'
 Assert-True ($res.Output -match 'statusLine') 'dry run: and prints the block itself, so it can be placed by hand'
+Assert-True ($res.Output -match '"refreshInterval": 2\r?\n') `
+    'dry run: the printed block carries the interval in seconds, since a person places it by hand from that text'
 
 # --- 2. -Apply places both halves ----------------------------------------------------------------
 $root = New-FixtureRepo 'apply'
@@ -95,7 +97,18 @@ Assert-True (Test-Path -LiteralPath $settingsPath -PathType Leaf) 'apply: settin
 
 $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
 Assert-True ("$($settings.statusLine.type)" -eq 'command') 'apply: the statusLine is a command'
-Assert-True ("$($settings.statusLine.refreshInterval)" -eq '2000') 'apply: it carries a refreshInterval'
+# SECONDS, NOT MILLISECONDS (#2163). This asserted '2000' until September 19, 2026 -- the suite held the
+# defect in place: Claude Code reads the value in seconds, so 2000 is a 33-minute timer and the bar only
+# redrew on conversation events. Held to a small number rather than to '2' alone, so a future change of
+# cadence is free and a return to milliseconds is not.
+Assert-True ("$($settings.statusLine.refreshInterval)" -eq '2') 'apply: it carries a refreshInterval of 2 seconds'
+Assert-True ([int]"$($settings.statusLine.refreshInterval)" -le 60) `
+    'apply: and the interval is seconds -- a value in the hundreds would be a millisecond figure Claude Code reads as minutes'
+
+# The repo that prescribes this cadence runs it too, and its own settings are where the wrong unit sat.
+$repoSettings = Get-Content -LiteralPath (Join-Path $RepoRoot '.claude\settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+Assert-True ("$($repoSettings.statusLine.refreshInterval)" -eq "$($settings.statusLine.refreshInterval)") `
+    'the source repo''s own statusLine runs at the interval adopt-statusline places'
 
 # FORWARD SLASHES, AND THIS IS NOT A STYLE ASSERT. The statusline documentation names the trap: Git
 # Bash treats unquoted backslashes as escape characters, so a Windows-style path reaches the script

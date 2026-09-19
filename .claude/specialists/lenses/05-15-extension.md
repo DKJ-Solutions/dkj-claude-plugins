@@ -76,10 +76,23 @@ infrastructure.
 
   **What it costs, measured:** 206 ms per refresh on DAVE-KOK-BWJ, nearly all of it the bare `powershell`
   launch a command statusline cannot avoid — the same floor the `PreToolUse` guard above pays. At the
-  2,000 ms interval set here that is about a tenth of one core while a session is open. The script reads
+  2-second interval set here that is about a tenth of one core while a session is open. The script reads
   the branch out of `.git/HEAD` as a **file** rather than calling git for exactly that reason, and at
   this cadence it never throws and always exits 0: a failure here is not an error report, it is a broken
   status line repeated forever.
+
+  **`refreshInterval` is in SECONDS, and for its first day it was set in milliseconds**
+  ([#2163](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2163), September 19, 2026). The
+  value was `2000`, which Claude Code reads as 33 minutes, so the timer this section calls "not optional
+  decoration" never fired inside any real run and the bar redrew only on the event-driven triggers — a
+  message sent, a turn ending. Measured on a backgrounded gate: `34 / 118` while about 114 suites had
+  finished, then `113` the instant the operator typed, with nothing in the run having changed. The
+  cost figures above were per-refresh and stay true; what was never true was the cadence they were
+  multiplied by. The documentation states the unit and a minimum of `1`
+  (<https://code.claude.com/docs/en/statusline>, the `refreshInterval` field), and **this file's own
+  "2,000 ms" was the second place the wrong unit was written down**, so a reader trusting either one
+  would have re-derived it. `adopt-statusline.tests.ps1` now pins the unit itself, not only the value:
+  it refuses a figure above 60, which nothing sensible in seconds ever is.
 
   **The dot-source into `native-capture-lib.ps1` is guarded, and that is what keeps that file
   byte-identical to its two mirrors.** `run-progress-lib.ps1` is not mirrored into the plugins, so in a
