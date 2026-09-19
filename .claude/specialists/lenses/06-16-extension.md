@@ -294,6 +294,63 @@ great majority of its hits, and each carried this one along.
   needs the sentence's meaning, and a matcher flagging every dated paragraph that contains a plugin
   name would fire on every correct one too. This was found by reading, and the count of one is a floor.
 
+### "Subagent def" is the term; the 270 stale ones are corrected on edit, not swept
+
+The portable rule is in [Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md)
+under **"Guarding the naming convention"**; this is the instance it was decided on, and the boundary
+that applies here.
+
+**The measurement**, taken September 19, 2026 with `git grep` against `origin/main` -- the ref is
+named because the first pass was run on a local trunk 11 commits behind and reported different
+figures -- outside the `dkj-policy/releases/**`
+historical carve-out: **270 occurrences of `agent def` / `agent-def` / `agent defs` across 87
+markdown files**, against **11** of `subagent def(inition)`, plus **195 lines** of the same in `.ps1`
+comments, docstrings and console output across 50 scripts.
+
+**Three renames moved the thing and left the noun.**
+[#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698) moved `agents/` to
+`subagents/` and renamed the plugins to `dkj-subagents-*`; the roster, the plugin ids and the
+marketplace already said *subagent*; and
+[#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131) renamed the files themselves
+to `specialist-NN-NN-subagent.md`, landing as
+[#2147](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2147) while this branch was open. So
+the file is `specialist-06-16-subagent.md` on disk today, and 87 documents call it an "agent def".
+
+**The decision, Dave, September 19, 2026** ([#2137](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2137)),
+chosen from a menu of three: **correct-on-edit**. Not a sweep, and not *"the term stays"* either.
+`subagent def` is what new writing uses; the existing 270 are corrected when a file is edited for
+other reasons.
+
+**It is the repo-name answer one noun over, and that is the whole argument.** `CLAUDE.md` already
+faced this exact shape after the September 10 rename — *"Existing `DaveKJohn/` citations are corrected
+when a file is edited for other reasons, not swept"* — over ~830 citations, on the ground that both
+spellings resolve, so nothing is broken and a sweep buys consistency at the price of an unreviewable
+diff. Nothing about the noun differs, and two answers to one question would have been the worse
+outcome.
+
+**The boundary here, because a global replace would have crossed it.** The word `agent` stays where
+something **resolves** it rather than reads it: the `"agents"` key in all four `plugin.json`
+manifests is Claude Code's own schema, `scripts/agents/build-agent-defs.ps1` is a path the tooling
+resolves, and `check-consumer-drift.ps1` builds one of its own — `.claude\agents\<group>-<id>-agent.md`,
+resolved against a consumer's disk.
+[#1764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1764) is what a wrong shape in
+those manifests costs: four of six plugins uninstallable for a whole release.
+
+**What was repaired at once, and why only that.** The lines where the contradiction stood on the line
+itself: `README.md`'s `### Agent def vs. manual` heading and the bullet under it calling the file
+*"the agent definition"*, while `plugins/dkj-subagents/README.md` calls the same file *"the subagent
+definition"* — and, two bullets further down that page, *"the agent def"* again. Those read as two
+facts rather than as a lagging citation. And the merge of #2147 sharpened it into exactly the shape
+#2137 was filed about: the `README.md` bullet now names `subagents/specialist-<group>-<id>-subagent.md`
+and called it *"the agent definition"* in the same breath, until this branch resolved that conflict
+their-path-my-noun.
+
+**And what was deliberately left**, so nobody reopens it as an oversight: the `## Shared agent-def
+blocks` heading in `README.md`. It carries five inbound anchors, one of them in
+[`SPECIALISTS.md`](../SPECIALISTS.md) — which is on the always-on path, where the budget check already
+reports this repo **9,380 B over** its 100,000 B ceiling. Renaming a heading to repair a noun is how a
+bounded repair becomes the sweep it was chosen instead of.
+
 ### A conditional in always-on prose needs a detector behind it, or it is not written as a conditional
 
 Behind the `merge_queue` paragraph in

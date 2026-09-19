@@ -65,6 +65,35 @@ via a PR.
   This is separate from the **session-reply language**, which stays free per session: a specialist
   replies in whichever language the user addresses it in, regardless of what language the docs (or
   the scripts) are written in.
+- **Guarding the naming convention — the noun follows the artifact, and it is corrected on edit
+  rather than swept**: a rename moves a directory, a filename or an identifier, and the prose that
+  names the thing goes stale in the same moment — in far more places than the rename itself touched.
+  The rule has two halves, and it needs both, because either one alone is wrong:
+  - **New writing uses the new noun from the day the rename lands.** A document written after a
+    rename in the retired vocabulary is not drift inherited from the past, it is drift created on
+    purpose — and it is what makes the stale majority self-renewing, because the next writer copies
+    whichever example sits nearest.
+  - **Existing occurrences are corrected when a file is edited for other reasons.** A sweep buys
+    prose consistency at the price of a diff nobody can review, and **no gate reads prose**, so that
+    review is the only check there is. Both spellings resolve for a reader, so nothing is broken
+    while the tail drifts down.
+
+  **The exception is anything READ rather than SPOKEN, and it is not a matter of degree.** A schema
+  key, a path a script resolves, a frontmatter field, a marker find-replace tooling matches: those
+  are data. They change when the thing they name changes and not when the vocabulary does, so a
+  naming decision **states that boundary** instead of running a global replace. The test is
+  mechanical — *does something resolve this string, or does a person merely read it?* A citation may
+  lag; a lookup may not.
+
+  **One thing is repaired at once rather than on edit: prose that contradicts itself on its own
+  line.** A sentence naming the new spelling and calling it by the retired noun in the same breath is
+  not a lagging citation — it reads as two facts, and it teaches the retired noun to everyone who
+  arrives at it. That repair is small, bounded and reviewable, which is precisely what the sweep is
+  not, so the two do not trade against each other.
+
+  **Say which of the two a decision is, out loud, and say it where the term is defined.** The cost of
+  leaving it unsaid is not the stale prose but the re-opening: a reader who meets the mismatch and
+  finds no ruling has to relitigate it, and the second reader after them does it again.
 - **Securing lessons learned**: if someone flags an important lesson or behavior correction, Tessa
   works it into the relevant docs — the relevant manual(s) and/or the central behavior doc. A loose
   memory note is not enough; the record belongs in the docs. The orchestrator hands the lesson to her

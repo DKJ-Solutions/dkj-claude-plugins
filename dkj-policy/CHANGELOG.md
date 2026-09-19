@@ -43,7 +43,134 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 23 minor entries** <!-- pending-tally -->
+**13 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2150-marker-column-gate · 20260919-161919
+
+A new lint check, `[marker-column]`, holds a verdict marker to the **start** of the line a check
+writes -- the convention the SessionStart hooks have silently depended on since #2142 anchored their
+selector to `^\s*`. Before this, a future `Write-Host "note: [ERROR] ..."` in a check would have had
+its finding dropped by the hook with no error, no red check and nothing in session context: the exact
+failure the hooks exist to prevent, arriving through the front door.
+
+The subject set is **derived from the hooks rather than listed** -- a subject is a script whose output
+a hook reads through the anchored selector, so each hook contributes the markers its own
+`Select-CheckMarkerLine` calls name and the check its own path literal names. A new hook brings its
+check into scope on the day it is written, and no list goes stale. The markers are held per subject
+rather than as one union, so a marker no hook selects from a given script is not reported and the
+finding can name the hook that would do the dropping.
+
+The unit is the **emitted line**, not the string literal: a `+` concatenation, a `-f` format string
+and an argument array are all walked, with anything unknowable statically standing in as one
+non-whitespace placeholder. That is what makes `("note: " + "[ERROR] x")` a finding, which the
+per-literal shape the issue sketched would have passed.
+
+Born green: 14 hook files, 8 of which select on markers, 15 check scripts, 69 marker emissions, 0
+findings and 0 exemptions.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running this workflow receives the hooks whose selector this convention protects, so the
+guard travels with them. It changes nothing a consumer does and fires on nothing they have today --
+it only stops a future check script from writing a line whose finding would never arrive.
+
+**Score:** 1
+
+#### Pull Request
+
+A gate holds a check's verdict marker to the start of the line the hook selector anchors on
+
+[PR #2159](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2159)
+
+---
+
+### DEPLOY: fix/2154-flatten-refusal-reason · 20260919-160659
+
+A refusal captured from a native command now reads as **the command's own words**. `prune-merged`'s
+verdict on a branch `git branch -d` declined was git's single line -- `error: the branch '<name>' is
+not fully merged` -- followed by a `CategoryInfo` line, a `FullyQualifiedErrorId` line and a
+source-line caret pointing into `native-capture-lib.ps1`: a file the operator never ran and cannot act
+on, in the middle of the sentence telling them what to do. `Get-NativeOutputText` flattens each
+captured line to the text the command actually wrote, and the seven failure-path renders in
+`prune-merged.ps1` go through it. git's own `hint:` lines survive -- the repair must not trade an
+exception dump for a truncation.
+
+**It normalises at the reader, not at the capture, and that was the branch's one real decision.**
+Making `Invoke-NativeCapture` hand back strings would fix every caller at once and change the result
+shape for every caller in every consumer, which the lib's own `#1963`/`#1966` reasoning already calls a
+decision of its own rather than a side effect of a repair. That reading is filed as [#2155](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2155), not dropped.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`prune-merged.ps1` and `native-capture-lib.ps1` both ship in `dkj-policy`, so this lands in every
+consuming repo that runs the tidy-up lanes: the next time a delete is refused there, the operator reads
+git's three lines instead of twelve, and nothing points them at a file inside the plugin. Small, and on
+a path nobody visits until something declines -- which is exactly when a readable message is worth the
+most.
+
+**Score:** 2
+
+#### Pull Request
+
+Render a refused git delete as git's own line, not a PowerShell ErrorRecord dump
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2156](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2156)
+
+---
+
+### DEPLOY: docs/2137-subagent-def-term · 20260919-155253
+
+Three renames moved the thing and left the noun: `agents/` became `subagents/` (#1698), the plugins
+became `dkj-subagents-*`, and the defs themselves became `specialist-NN-NN-subagent.md` while this
+branch was open (#2131, landed as #2147) -- while 270 occurrences across 87 markdown files still
+said *agent def*, and `README.md` called the same file *"the agent definition"* two directories away
+from `plugins/dkj-subagents/README.md` calling it *"the subagent definition"*.
+
+**`subagent def` is now the term, and the 270 stale ones are corrected on edit rather than swept**
+(Dave, September 19, 2026). That is the answer `CLAUDE.md` already gives for the ~830 repo-name
+citations left by the September 10 rename, applied one noun over: both spellings read correctly, so
+nothing is broken, and a sweep would buy consistency at the price of a diff no gate reads and nobody
+can review -- landing mid-way through a six-PR round whose reviewability is its stated design
+property.
+
+The rule is portable and lives in the technical writer's manual, so it travels to every consuming
+repo and applies to the next rename rather than only to this one. `README.md` now states the term and
+its boundary where a reader meets the word, and the places where the contradiction stood **on the
+line itself** are repaired: the section heading that defines the term, the bullet naming the file, and
+the sentence that says which of the two is leading.
+
+**The boundary is stated rather than left to a reader's judgement:** the word `agent` stays wherever
+something *resolves* it instead of reading it -- the `"agents"` key in all four `plugin.json`
+manifests is Claude Code's own schema, and `scripts/agents/build-agent-defs.ps1` is a path the
+tooling reads. #1764 is what a wrong shape in those manifests costs: four of six plugins
+uninstallable for a whole release.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer's technical writer gets the rule for every rename, not this one: new writing takes the new
+noun, existing occurrences are corrected on edit, anything a machine resolves is out of scope, and
+prose that contradicts itself on its own line is repaired at once rather than left to drift. Read on
+demand from the manual, so it costs no always-on context.
+
+**Score:** 2
+
+#### Pull Request
+
+Record 'subagent def' as the term for new writing, and repair the prose that contradicts the filename on its own line
+
+Plugins: dkj-subagents-alpha
+
+[PR #2153](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2153)
+
+---
 
 ### DEPLOY: docs/2144-swept-citation-class · 20260919-142241
 

@@ -990,6 +990,65 @@ function Get-NativeCaptureBudgetBound {
     return $script:NativeCaptureNetworkTimeoutSeconds
 }
 
+
+function Get-NativeLineText {
+    <#
+        One object from a capture's Output, as the text a reader should see. Internal to this lib --
+        Get-NativeOutputText below is what callers reach for.
+
+        A '2>&1' redirect turns every stderr line into an ErrorRecord wrapping a RemoteException, and
+        under PowerShell 5.1 that record carries its own positional info: a CategoryInfo line, a
+        FullyQualifiedErrorId line, and a source-line caret pointing at whichever line of THIS lib ran
+        the command. Rendering such a record with Out-String prints all of it.
+
+        TargetObject IS READ FIRST -- it is the raw stderr line, string-typed, empty string and all --
+        with the exception's message as the fallback for a record that is not a native stderr line.
+        That order is Get-ShopifyLineText's, in shopify-cli-lib.ps1, and for the reason measured there:
+        on an EMPTY stderr line ToString() has no message to defer to and falls back to the TYPE NAME,
+        so a caller gets a literal 'System.Management.Automation.RemoteException' where the command's
+        own blank line belonged. The two libs stay separate copies rather than one shared helper
+        because shopify-cli-lib deliberately does not dot-source this file -- see its header for why
+        its wrapper is purpose-built.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Line)
+
+    if ($null -eq $Line) { return '' }
+    if ($Line -is [System.Management.Automation.ErrorRecord]) {
+        if ($Line.TargetObject -is [string]) { return [string]$Line.TargetObject }
+        return [string]$Line.Exception.Message
+    }
+    return [string]$Line
+}
+
+function Get-NativeOutputText {
+    <#
+        A capture's Output as PLAIN, TRIMMED TEXT -- what '($res.Output | Out-String).Trim()' was
+        always meant to produce. Pass it $res.Output; it returns a string.
+
+        WHY THIS EXISTS RATHER THAN Out-String (issue #2154). On the '&' arm, Output carries
+        ErrorRecords for every stderr line, and Out-String renders a record's full exception display.
+        So a caller interpolating a failure reason into an operator-facing message printed git's one
+        line followed by a CategoryInfo/FullyQualifiedErrorId block and a caret pointing into
+        native-capture-lib.ps1 -- naming a file the operator did not run and cannot act on. Measured on
+        prune-merged's refused-delete verdict, where 'error: the branch ... is not fully merged' -- the
+        whole of what the reader needed -- arrived buried in nine lines of exception text.
+
+        IT NORMALISES AT THE READER, NOT AT THE CAPTURE. Making Invoke-NativeCapture hand back strings
+        would give every caller in every consumer a different result shape, which is a decision of its
+        own rather than a side effect of a rendering repair -- the same line #1963 drew before #1966
+        took the other one deliberately. That wider reading is open as #2155. Here the loud, additive
+        form is available to any caller that renders output for a person, and the capture's contract
+        is untouched.
+
+        SAFE ON ANYTHING Output CAN HOLD: $null, a single object, or an array. Line endings are
+        normalised to "`n" so a caller splitting the result does not have to care which arm answered.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Output)
+
+    if ($null -eq $Output) { return '' }
+    $lines = @(@($Output) | ForEach-Object { Get-NativeLineText $_ })
+    return ($lines -join "`n").Replace("`r`n", "`n").Trim()
+}
 function Invoke-NativeCapture {
     <#
         Run $FilePath with $Arguments under $ErrorActionPreference = 'Continue' and return a
