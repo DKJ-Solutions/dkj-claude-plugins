@@ -43,7 +43,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 25 minor entries** <!-- pending-tally -->
+**13 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2150-marker-column-gate · 20260919-161919
+
+A new lint check, `[marker-column]`, holds a verdict marker to the **start** of the line a check
+writes -- the convention the SessionStart hooks have silently depended on since #2142 anchored their
+selector to `^\s*`. Before this, a future `Write-Host "note: [ERROR] ..."` in a check would have had
+its finding dropped by the hook with no error, no red check and nothing in session context: the exact
+failure the hooks exist to prevent, arriving through the front door.
+
+The subject set is **derived from the hooks rather than listed** -- a subject is a script whose output
+a hook reads through the anchored selector, so each hook contributes the markers its own
+`Select-CheckMarkerLine` calls name and the check its own path literal names. A new hook brings its
+check into scope on the day it is written, and no list goes stale. The markers are held per subject
+rather than as one union, so a marker no hook selects from a given script is not reported and the
+finding can name the hook that would do the dropping.
+
+The unit is the **emitted line**, not the string literal: a `+` concatenation, a `-f` format string
+and an argument array are all walked, with anything unknowable statically standing in as one
+non-whitespace placeholder. That is what makes `("note: " + "[ERROR] x")` a finding, which the
+per-literal shape the issue sketched would have passed.
+
+Born green: 14 hook files, 8 of which select on markers, 15 check scripts, 69 marker emissions, 0
+findings and 0 exemptions.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running this workflow receives the hooks whose selector this convention protects, so the
+guard travels with them. It changes nothing a consumer does and fires on nothing they have today --
+it only stops a future check script from writing a line whose finding would never arrive.
+
+**Score:** 1
+
+#### Pull Request
+
+A gate holds a check's verdict marker to the start of the line the hook selector anchors on
+
+[PR #2159](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2159)
+
+---
 
 ### DEPLOY: fix/2154-flatten-refusal-reason · 20260919-160659
 
