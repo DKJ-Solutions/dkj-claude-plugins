@@ -2175,14 +2175,36 @@ plugin is read.
 proposed the rule as *"must resolve to a target also under `plugins/`, because that is the subtree the
 plugin cache contains."* The cache contains no such subtree, and the weaker rule passes the one link that
 had **already shipped dead** — `cut-release/SKILL.md:123` pointing at
-`../../../../teams/dkj-subagents-alpha/manuals/06-25-manual.md`, verified against the installed v4.22.0 copy. So
+`../../../../teams/team-alpha/manuals/06-25-manual.md`, verified against the installed v4.22.0 copy.
+**Quoted as v4.22.0 shipped it — do not sweep.** `team-alpha` is what that directory was called then;
+`dkj-subagents-alpha` is a name from two renames later, so rewriting it here rewrites the evidence rather
+than the convention. So
 the boundary is the **plugin root**, not `plugins/`, and scenario 37 of
 `check-plugin-integrity-links.tests.ps1` exists to pin exactly that difference. The report also argued
 from an expected count of **zero** (*"which is itself the reason not to build it yet"*) and stated that
 nothing had shipped; the real count was **17 escapes in 5 files**, every one passing check 4, and
-resolved inside the installed copies (`dkj-team-alpha` 4.21.0, `dkj-policy` 4.22.0) **all 17 are
+resolved inside the installed copies (`team-alpha` 4.21.0, `contributing-davekjohn` 4.22.0 — their names at
+those versions, quoted and not swept) **all 17 are
 dead**. That inverted its conclusion rather than qualifying it: the repo's name-a-risk-and-leave-it rule
 holds until something bites, and this had bitten seventeen times in released payload.
+
+**Both citations above were silently rewritten by the renames, and what saved the script's copy was luck
+rather than its file type** (#2139, September 19, 2026). The `.ps1` was in every sweep's file set — its
+own `team-alpha 4.21.0` line was swept three times, by #1437, by the `plugins/teams` rename and by #1698
+— while the *path-shaped* citation four lines above it was never touched. So the surviving copy survived
+because of the **shape of the token**, not because a comment is safe: a bare plugin name matched the
+sweep, a name embedded in a quoted path did not. The lens is markdown and its path-shaped citation was
+swept anyway, which rules out shape alone as protection too. **The marking is therefore the only guard
+there is**, and it is a convention rather than a check, because recognising a quotation is exactly the
+hard part.
+
+**What a check COULD see, recorded here for whoever builds one:** a name paired with a version older than
+the version that name first shipped in is always a swept quotation. `dkj-subagents-*` first shipped in
+`v4.33.0` and `dkj-policy` in `v4.31.0`, so `dkj-subagents-alpha 4.21.0` is detectable without
+understanding a single sentence around it. That is mechanical, cheap, and narrower than "recognise a
+quotation" — which is what made the class sweepable at all. **The rest of the class is #2144**, including
+one instance in shipped plugin payload; whether the check above is worth building is a call for whoever
+owns check 28.
 
 **The two counts are different measurements and both are worth keeping**, because conflating them is how
 the report went wrong in the first place. *17 escapes* is a property of the source tree, found by asking
