@@ -43,7 +43,27 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 20 minor entries** <!-- pending-tally -->
+**9 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2141-xoxowildhearts-checkout-candidate · 20260919-135420
+
+`check-connectors` reported `[SKIP] checkout ... not present on this machine` for the xoxowildhearts consumer while its checkout sat at `bwj-development/xoxowildhearts`, so nothing about that consumer was checked here. Its manifest lacked the `bwj-development/` candidate that its sibling `smartwatchbanden.json` gained in #1831 -- the fourth time a candidate fix reached one manifest of a pair and not the other (#1524, #1807, #1831). The candidate is appended, and `connectors.tests.ps1` now holds every manifest of one `siblingGroup` to the same set of layouts, so the next drift fails the gate rather than reading as an absent checkout.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Maintainer-only: the register is read by this repo's own maintenance, and no subscriber of the service sees it. N/A.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors/xoxowildhearts.json resolves the bwj-development/ layout, so check-connectors stops reporting a false SKIP
+
+[PR #2149](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2149)
+
+---
 
 ### DEPLOY: docs/2145-reader-site-count · 20260919-134205
 
