@@ -43,7 +43,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 31 minor entries** <!-- pending-tally -->
+**17 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2134-consumer-rename-migration · 20260919-235850
+
+`INSTALL.md` gains a third migration section, for the `specialist-` filename rename. It is written
+**before** the rename lands, because the persona half of it breaks outside every version gate: that
+import resolves against the marketplace clone, which tracks `main` and advances on a refresh, so
+instructions arriving afterwards are instructions nobody had when they needed them.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose `SPECIALISTS.md` still names the old orchestrator path loses Chris's entire body --
+30,267 B of it -- and **nothing reports it**: not stdout, not stderr, not `--debug`. This section is
+the only thing standing between that and the six registered consumers, and it hands them a recipe
+with no broken window at all: carry both import lines through the overlap, which is sound exactly
+because a dead `@`-import is inert. It also names the one verification that answers "does my import
+resolve?" without opening a session to find out, and three consumer-side things the issue did not
+list -- the markdown links in their own prose, the `always-on-baseline.json` key, and the fact that
+their lenses need not move at all.
+
+That last one is the part a consumer will feel most: the two halves of this rename are not equally
+urgent, and only one of them is theirs to run today.
+
+**Score:** 4
+
+#### Pull Request
+
+The consumer migration section for the specialist filename rename
+
+[PR #2166](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2166)
+
+---
 
 ### DEPLOY: feat/2133-lens-filenames · 20260919-232200
 
