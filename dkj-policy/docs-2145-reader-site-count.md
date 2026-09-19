@@ -73,11 +73,11 @@ Correct the feat/2130 pending entry: thirteen -> fourteen sites, and stop the tw
 ### DEPLOY: docs/2145-reader-site-count
 
 The `feat/2130` entry claimed thirteen reader sites, that **all of it** now goes through the four-row
-table, and that **no reader is edited again**. All three were wrong by one site: step B (#2131) found
-`Get-PluginIds` in `check-connectors.ps1` the moment it moved files, because that reader carries a
-directory walk and a `-replace`, not one of the two shapes step A was sweeping for. The count now says
-what was converted instead of asserting a total, the two completeness clauses are gone, and a paragraph
-under them records the miss and states that a later step still sweeps before it moves anything.
+table, and that **no reader is edited again**. All three were wrong by one site, which step B (#2131)
+found the moment it moved files and whose entry already carries the reason the sweep could not have
+named it. The count now says what was converted instead of asserting a total, the two completeness
+clauses are gone, and a paragraph under them records the miss and states that a later step still sweeps
+before it moves anything.
 
 It is corrected now rather than after the cut for one reason: the entry is still under
 `## [Unreleased]`, so it is a live document, and four steps of the series (#2132, #2133, #2134, #2135)
