@@ -36,7 +36,7 @@ The Configuration Manager manages the theme landscape and the platform reference
 against the dev server, not by pushing a preview theme on every branch. Pushing to a preview theme
 (below) is the **fallback**: reach for it only when something demonstrably can't be tested through
 the dev server (a market/currency-specific behavior via Shopify Markets, or a third-party
-integration that needs the real published storefront). See [Sandra #21](05-21-manual.md#what-sandra-owns)
+integration that needs the real published storefront). See [Sandra #21](specialist-05-21-manual.md#what-sandra-owns)
 for who performs the fallback push and under what conditions.
 
 - **Local hot-reload** (the default way to build): `shopify theme dev --store <store>.myshopify.com` — automatically creates a hidden `Development (...)` theme (safe).

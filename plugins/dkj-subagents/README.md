@@ -76,7 +76,7 @@ the page a reader consults precisely because they assume the two halves match.
   with every other plugin in this repo.
 - **`subagents/specialist-<group>-<id>-subagent.md`** — the subagent definition per specialist, which Claude Code loads
   into every session of a repo that has the plugin enabled.
-- **`manuals/<group>-<id>-manual.md`** — the portable playbook the subagent def reads in on demand. The
+- **`manuals/specialist-<group>-<id>-manual.md`** — the portable playbook the subagent def reads in on demand. The
   split between the two, and the repo lens that completes it on the consumer's side, is described under
   [Manuals — the split model](../../README.md#manuals--the-split-model).
 - **`skills/`, `hooks/`, `scripts/`, `personas/`** — optional, and only where a team genuinely needs

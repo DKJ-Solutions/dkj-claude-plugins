@@ -43,7 +43,109 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 25 minor entries** <!-- pending-tally -->
+**14 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2132-manuals-specialist-prefix · 20260919-164945
+
+Every portable manual is now named `specialist-<group>-<id>-manual.md`, and what makes that the WRITTEN
+name is a single row: `Get-SpecialistFileShapes`'s Manual entry, where Current takes the `specialist-`
+prefix and AlsoRead keeps the bare spelling a consumer's cache may still be carrying. **No reader moved
+with it** -- step A (#2130) had already put every one of them behind that table, which is the property
+the table exists for, and a file left behind on the old name is still enumerated and still refused
+because the filter list is derived from the same row. Step C of the rename plan in #2128.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- nothing here needs a consumer to act. A manual is read through
+`${CLAUDE_PLUGIN_ROOT}/manuals/...`, which resolves into the version-pinned plugin cache, so the agent def
+and the manual it names travel together in one release and never disagree between two of them.
+
+**Score:** N/A
+
+#### Pull Request
+
+The manuals are renamed to specialist-NN-NN-manual.md
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2161](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2161)
+
+---
+
+### DEPLOY: fix/2155-normalise-capture-output · 20260919-163935
+
+A failure captured through `Invoke-NativeCapture` now reads as the command's own words. Before this,
+every caller rendering `$res.Output | Out-String` on a failure path got a PowerShell exception dump
+naming this lib's own source line instead of the reason -- and an empty stderr line came out as the
+literal text `System.Management.Automation.RemoteException`. That is ~60 render sites across the
+workflow's scripts, including refusals `prune-merged`, `ship-pr`, `open-pr` and `park-cycle` print. It
+closes #2154's CLASS at the source; #2154 itself landed separately mid-branch and closed its own site
+at the reader, so the two layers now sit on top of each other deliberately.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is a behaviour change to a lib mirrored into `dkj-policy` and `dkj-subagents-shopify`, so it reaches
+every consumer's scripts. Nothing that works today starts failing: no caller in this tree reads an
+`ErrorRecord` property off a capture's `Output`, and the container is deliberately unchanged. What
+changes is that text which was already wrong becomes right -- a consumer matching on
+`NativeCommandError` was matching the wrapper's noise, which is the defect rather than the contract.
+
+**Score:** 3
+
+#### Pull Request
+
+Invoke-NativeCapture returns plain text on both arms, so a failure reads as the command's own words
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2160](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2160)
+
+---
+
+### DEPLOY: fix/2150-marker-column-gate · 20260919-161919
+
+A new lint check, `[marker-column]`, holds a verdict marker to the **start** of the line a check
+writes -- the convention the SessionStart hooks have silently depended on since #2142 anchored their
+selector to `^\s*`. Before this, a future `Write-Host "note: [ERROR] ..."` in a check would have had
+its finding dropped by the hook with no error, no red check and nothing in session context: the exact
+failure the hooks exist to prevent, arriving through the front door.
+
+The subject set is **derived from the hooks rather than listed** -- a subject is a script whose output
+a hook reads through the anchored selector, so each hook contributes the markers its own
+`Select-CheckMarkerLine` calls name and the check its own path literal names. A new hook brings its
+check into scope on the day it is written, and no list goes stale. The markers are held per subject
+rather than as one union, so a marker no hook selects from a given script is not reported and the
+finding can name the hook that would do the dropping.
+
+The unit is the **emitted line**, not the string literal: a `+` concatenation, a `-f` format string
+and an argument array are all walked, with anything unknowable statically standing in as one
+non-whitespace placeholder. That is what makes `("note: " + "[ERROR] x")` a finding, which the
+per-literal shape the issue sketched would have passed.
+
+Born green: 14 hook files, 8 of which select on markers, 15 check scripts, 69 marker emissions, 0
+findings and 0 exemptions.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running this workflow receives the hooks whose selector this convention protects, so the
+guard travels with them. It changes nothing a consumer does and fires on nothing they have today --
+it only stops a future check script from writing a line whose finding would never arrive.
+
+**Score:** 1
+
+#### Pull Request
+
+A gate holds a check's verdict marker to the start of the line the hook selector anchors on
+
+[PR #2159](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2159)
+
+---
 
 ### DEPLOY: fix/2154-flatten-refusal-reason · 20260919-160659
 

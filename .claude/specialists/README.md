@@ -153,7 +153,7 @@ repo — and the two are indistinguishable while you are typing.
 
 Every specialist has a fixed, numeric **`id`** (permanent identity, never changes) and belongs to a
 **group** (organizational unit: **01 = Leadership, 02 = Staff, 03+ = teams**). The repo layer is
-named `<group>-<id>-extension.md`; the portable playbook `<group>-<id>-manual.md` and the
+named `<group>-<id>-extension.md`; the portable playbook `specialist-<group>-<id>-manual.md` and the
 subagent def `specialist-<group>-<id>-subagent.md` live in the plugin. **Name, emoji, and title are labels** — they
 may change freely; the filename and link paths hang off `id`/`group`, not the name. **The lint gate
 guards this** ([Sylvester #15](lenses/05-15-extension.md)): every filename matches the

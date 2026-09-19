@@ -759,17 +759,19 @@ function Invoke-GitPark {
         # as strings", and that -match against an array returns the matching elements rather than a
         # boolean. This capture is always bounded -- -TimeoutSeconds $pushBound, and $pushBound is never
         # 0 -- so it is always the Start-Process arm answering and Output is an ARRAY OF STRINGS, exactly
-        # as the comment 30 lines above already said. And the -match is not at this line at all:
+        # as the comment 30 lines above already said. #2155 has since normalised the & arm as well, so no
+        # arm of this lib returns records any more -- but this line never rested on that, and did not
+        # when the retired claim was written. And the -match is not at this line at all:
         # Get-GitPushFailureMessage takes [string]$Output, so an array would be coerced before any match
         # ran -- with $OFS, fusing git's lines onto one line with spaces. Rendering them AS LINES is what
         # Out-String is still for.
         #
-        # AND IT STAYS Out-String RATHER THAN Get-NativeOutputText, which is the reader-side helper #2154
-        # added for exactly this shape. The flattened text here is MATCHED AND NEVER PRINTED -- all three
-        # of that function's arms return a fixed sentence and none interpolates $Output -- so there is no
-        # reader for an ErrorRecord's exception display to reach, even on the & arm, which does still
-        # produce them (#2155 is the open question of whether it should). Reach for the helper where the
-        # captured text itself is shown to somebody, as prune-merged's verdicts do.
+        # AND IT STAYS Out-String RATHER THAN Get-NativeOutputText, the reader-side helper #2154 added for
+        # this shape. What that helper adds over Out-String once both arms normalise is a trim and "`n"
+        # line endings, and this caller wants neither: the flattened text here is MATCHED AND NEVER
+        # PRINTED -- all three of that function's arms return a fixed sentence and none interpolates
+        # $Output. Reach for the helper where the captured text itself is shown to somebody, as
+        # prune-merged's verdicts do.
         if (-not $NoFailureMessage) {
             Write-Error (Get-GitPushFailureMessage -Output ($pushRes.Output | Out-String)) -ErrorAction Continue
         }

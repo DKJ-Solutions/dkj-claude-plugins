@@ -228,7 +228,7 @@ a real store theme: **37 files** reported as modified with **zero changed lines*
   `binary` declarations, and nothing else.
 
 Both halves, with the three measurements behind them, are in
-[Steven's manual](manuals/05-22-manual.md#the-cli-rewrites-line-endings-and-that-is-a-property-of-the-tool).
+[Steven's manual](manuals/specialist-05-22-manual.md#the-cli-rewrites-line-endings-and-that-is-a-property-of-the-tool).
 This is a property of the **CLI**, not of any one store, so any Windows Shopify consumer meets it —
 which is exactly why it is here rather than in a repo lens (inbound
 [#788](https://github.com/DaveKJohn/claude-code-specialists/issues/788), reported by two consumers

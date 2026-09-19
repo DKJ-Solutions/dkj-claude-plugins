@@ -49,11 +49,14 @@ Verified against the tree before either was written, per the `triage-inbound` ru
 *reason* is checked as well as its symptom:
 
 - **#2157** says that since #2155 "neither arm of `Invoke-NativeCapture` returns `ErrorRecord`s any
-  more". It does not: #2155 is **still open**, and `Get-NativeOutputText`'s own docstring says in
-  capitals that it "NORMALISES AT THE READER, NOT AT THE CAPTURE" -- the `&` arm still hands back
-  `ErrorRecord`s. What is true is the report's *sharper* half, which it states itself: this call site
-  is always bounded, so it always routes to the Start-Process arm, whose `Output` is an array of
-  strings.
+  more". **That was false when it was filed and became true while this branch was open** -- #2155 was
+  open, and `Get-NativeOutputText` said in capitals that it "NORMALISES AT THE READER, NOT AT THE
+  CAPTURE", so the `&` arm still handed back records; then [PR #2160](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2160)
+  merged and normalised that arm. What was true throughout is the report's *sharper* half, which it
+  states itself: this call site is always bounded, so it always routes to the Start-Process arm, whose
+  `Output` is an array of strings. The comment written here rests on that half only, which is why it
+  needed no rewrite when the other half changed under it -- just the one sentence that named #2155 as
+  open.
 - **#2157's suggested repair is false too.** It proposes keeping the clause that "`-match` against an
   array returns the matching elements rather than a boolean, which is reason enough on its own". There
   is no `-match` at that line: `Get-GitPushFailureMessage` takes `[string]$Output`, so an array is
@@ -64,6 +67,12 @@ Verified against the tree before either was written, per the `triage-inbound` ru
   `shopify-cli-lib.ps1`'s header, which argues it at length with two measured reasons. So the repair is
   the narrow half of what the issue anticipated -- the reciprocal note, in the one docstring that was
   missing it -- not a unification and not a pair of new notes.
+- **And #2160 answered #2158's native half while this branch was open**, adding "That reason is the
+  answer to #2158, which asked the question from the other side" to the same docstring this branch had
+  edited. That is the merge conflict this branch resolved: its wording is kept, since it re-measured the
+  empty-stderr-line case rather than citing it, and only the pointer to the sibling docstring was
+  carried over. `shopify-cli-lib.ps1` was in neither that PR nor any other, so the reciprocal note
+  remains this branch's own work and the whole of what #2158 still needed.
 
 #### And #2157's own target contradicted the comment 30 lines above it
 
@@ -119,8 +128,9 @@ reader for an exception dump to reach.
 **Both issues proposed a repair that was itself wrong, and neither was built as filed.**
 [#2157](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2157) rested on
 [#2155](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2155) having closed the `ErrorRecord`
-class library-wide -- it is still open, and the `&` arm still produces them -- and its suggested
-rewording kept the `-match` clause that does not apply at that line.
+class library-wide, which was not true when it was filed and became true while this branch was open --
+so the comment rests on the half that held throughout, that a bounded capture answers from the
+Start-Process arm. Its suggested rewording kept the `-match` clause that does not apply at that line.
 [#2158](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2158) recorded the deliberate
 `Get-NativeLineText` / `Get-ShopifyLineText` duplication as *inferred*, with "nothing in either file
 says so"; `Get-NativeLineText` already said it, so what landed is the reciprocal note in the docstring
