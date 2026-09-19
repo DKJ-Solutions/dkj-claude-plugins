@@ -85,6 +85,20 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
+# EVERY VALUE THIS REPORT LIFTS OUT OF THE TREE IS WRAPPED BEFORE IT IS PRINTED (issue #2142).
+# Two fields below come from the repo rather than from this check -- the raw '@'-import target and the
+# path of the file importing it -- and this report is forwarded into session context by
+# always-on-sessioncheck.ps1, which decides what to surface by matching '[WARN]' and '[ERROR]' over it.
+# So an import line able to put those characters into a target had its own line forwarded to every
+# session start, and '[ERROR]' did more than add a line: it made the hook print its over-the-limit
+# headline and the WHOLE report on a run whose verdict was '[OK]'. Format-SafePathToken is the answer
+# check-connectors and check-consumer-prose already give for exactly this class (#309, #414, #1419,
+# #1808) -- it strips square brackets, which the hook counts, and control characters, which could
+# forge a line or repaint the terminal this lands in. Unguarded like command-probe-lib above, not
+# guarded like consumer-check-lib below: this lib predates this check script and ships in every mirror
+# that carries it, so a missing copy is a broken payload rather than an older one.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+
 # THE ROOT COMES FROM ONE DEFINITION (#1422). Dot-sourced guarded, so a mirror built before this lib
 # existed degrades rather than throwing.
 $checkLib = Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1'
@@ -166,14 +180,17 @@ if ($measurement.DiskBytes -ne $measurement.MeasuredBytes) {
 # in the repo, absolute when it is not. Both blocks below print this field, and a report that renders
 # one field two ways teaches a reader they are two fields. The absolute form has to survive rather than
 # be trimmed blindly -- a document on this path can itself be imported from outside the tree.
+#
+# IT SANITIZES ON THE WAY OUT, which is why every caller goes through it rather than printing $Path.
+# See the check-report-lib dot-source at the top of this file for what is stripped and why.
 function Format-ImporterPath {
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path)
     $p = ($Path -replace '\\', '/')
     $r = ($repoRoot -replace '\\', '/').TrimEnd('/')
     if ($p.StartsWith(($r + '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
-        return './' + $p.Substring($r.Length + 1)
+        return Format-SafePathToken -Value ('./' + $p.Substring($r.Length + 1))
     }
-    return $p
+    return Format-SafePathToken -Value $p
 }
 
 # A DEAD IMPORT AND AN UNSEEN ONE GET OPPOSITE INSTRUCTIONS, so they are separated before either is
@@ -182,7 +199,7 @@ $deadKeys = @{}
 foreach ($dd in @($verdict.Dead)) { $deadKeys[$dd.Key] = $true }
 
 foreach ($c in @($verdict.Carried)) {
-    Write-Host "    carried from the baseline, not measurable here: $(Format-MeasuredBytes $c.Bytes) B  $($c.Key)" -ForegroundColor DarkGray
+    Write-Host "    carried from the baseline, not measurable here: $(Format-MeasuredBytes $c.Bytes) B  $(Format-SafePathToken -Value $c.Key)" -ForegroundColor DarkGray
 }
 # The explanation, suppressed where nothing it describes is left. A carried term that is DEAD is not
 # "no marketplace clone on this machine" -- the clone is exactly what proved it dead -- and telling a
@@ -213,7 +230,7 @@ if (@(@($verdict.Carried) | Where-Object { -not $deadKeys.ContainsKey($_.Key) })
 # installed. In the source repo an in-tree dead import is a hard error already, from check 28 of
 # check-plugin-integrity.ps1, which is the gate that owns that half.
 foreach ($dd in @($verdict.Dead)) {
-    Write-Host "  [WARN]  DEAD '@'-import, loaded by NO session here: '$($dd.Target)'" -ForegroundColor Red
+    Write-Host "  [WARN]  DEAD '@'-import, loaded by NO session here: '$(Format-SafePathToken -Value $dd.Target)'" -ForegroundColor Red
     Write-Host ("  [WARN]    imported by $(Format-ImporterPath $dd.ImportedBy) -- Claude Code drops an import it" +
                 ' cannot resolve WITHOUT erroring, so that whole document is silently missing from every session' +
                 ' in this repo. Repair the import line; re-running this elsewhere cannot help.') -ForegroundColor Red
@@ -224,7 +241,7 @@ foreach ($dd in @($verdict.Dead)) {
 # rather than the answer, and a reader who does not know that is reading a healthier path than exists.
 $unseen = @(@($verdict.Unmeasured) | Where-Object { -not $deadKeys.ContainsKey($_.Key) })
 foreach ($u in $unseen) {
-    Write-Host "  [WARN]  not measured and not recorded: '$($u.Target)'" -ForegroundColor Yellow
+    Write-Host "  [WARN]  not measured and not recorded: '$(Format-SafePathToken -Value $u.Target)'" -ForegroundColor Yellow
     Write-Host "            imported by $(Format-ImporterPath $u.ImportedBy)" -ForegroundColor Yellow
 }
 if ($unseen.Count -gt 0) {

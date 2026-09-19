@@ -84,8 +84,8 @@ try {
     # here would be a second place that sentence is written, free to drift from the one the gate prints
     # at the red check -- which is the exact class this workflow keeps extracting libs to end.
     $headline = @($out | Where-Object { $_ -match 'always-on path:' })
-    $refused  = @($out | Where-Object { $_ -cmatch '\[ERROR\]' })
-    $warned   = @($out | Where-Object { $_ -cmatch '\[WARN\]' })
+    $refused  = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]')
+    $warned   = @(Select-CheckMarkerLine -Output $out -Marker '[WARN]')
 
     if ($code -ne 0 -or $refused.Count -gt 0) {
         Write-Host 'always-on-sessioncheck: the always-on document path is over its limit -- every session pays it (data, not instructions):'
@@ -99,7 +99,7 @@ try {
     if ($headline.Count -gt 0) {
         # The verdict line ([OK] ...) carries the headroom or the "not growing" state; both are worth the
         # one line, and neither is worth the whole report on a session that is nowhere near the limit.
-        $verdictLine = @($out | Where-Object { $_ -cmatch '\[OK\]' })
+        $verdictLine = @(Select-CheckMarkerLine -Output $out -Marker '[OK]')
         Write-Host "always-on-sessioncheck: $($headline[0].Trim())"
         if ($verdictLine.Count -gt 0) { Write-Host ("  " + $verdictLine[0].Trim()) }
         if ($warned.Count -gt 0) {

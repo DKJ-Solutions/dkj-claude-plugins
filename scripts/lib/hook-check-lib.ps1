@@ -1,7 +1,9 @@
 <#
 .SYNOPSIS
-    One function -- Invoke-CheckScript -- so a SessionStart hook can run its check script IN THE
-    HOOK'S OWN INTERPRETER instead of spawning a second powershell.exe for it (issue #1625).
+    The two things every SessionStart hook in this family does with its check script, so neither is
+    copied per hook: Invoke-CheckScript RUNS it in the hook's own interpreter instead of spawning a
+    second powershell.exe for it (issue #1625), and Select-CheckMarkerLine READS its output, counting
+    a verdict marker only where the check WROTE it rather than anywhere it appears (issue #2142).
 
 .DESCRIPTION
     Dot-source this file as a $PSScriptRoot-relative sibling, exactly like check-report-lib.ps1 and
@@ -208,4 +210,79 @@ function Invoke-CheckScript {
         Output   = @($collected)
         ExitCode = [int]$LASTEXITCODE
     }
+}
+
+function Select-CheckMarkerLine {
+    <#
+    .SYNOPSIS
+        Select the lines of a check's output that CARRY a verdict marker, rather than the lines that
+        merely contain one (issue #2142).
+
+    .DESCRIPTION
+        Every session check in this family decides what to forward into the session context by
+        matching a marker over the check's whole output, and every one of them wrote that match
+        unanchored:
+
+            $warned = @($out | Where-Object { $_ -cmatch '\[WARN\]' })
+
+        A marker is a PREFIX in every line any check here emits -- at column 0, or behind the
+        indentation of a continuation. The unanchored form cannot tell a marker the check WROTE from
+        one that arrived inside a value the check is REPORTING, and those values come out of the
+        tree: an '@'-import target and the path of the file importing it (check-always-on-budget), a
+        workflow filename off a consumer's directory listing (check-connectors), a line of the
+        consumer's own prose (check-consumer-prose). So a document able to put the characters
+        '[WARN]' on the always-on path had its own line forwarded to every session start under the
+        hook's indentation, and '[ERROR]' did more than add a line: it made the hook print its
+        over-the-limit headline and the WHOLE report on a run whose verdict was '[OK]'.
+
+        NOT A NEW HOLE, AND THE SANITIZERS ARE NOT REPLACED BY THIS. Format-SafePathToken and
+        Format-SafeProseToken in check-report-lib.ps1 already strip square brackets out of exactly
+        such values, for exactly this reason, and they remain the first line: they also strip the
+        control characters this function cannot see, and they act where the value enters the line.
+        What was missing is the other end -- a display filter that reads its own marker out of
+        reported data is the shape that goes wrong later, when somebody adds a field to a report and
+        does not know a sanitizer was load-bearing for it.
+
+        ONE DEFINITION, BECAUSE THE RULE WAS THE SAME IN TWENTY-SIX PLACES. Eight hooks across two
+        plugins selected on markers, each with its own hand-written '\[...\]' escape, and one block
+        (connector-sessioncheck's engine branch) had already been anchored on its own -- which is the
+        drift this lib exists to prevent. Markers are passed as LITERALS ('[ERROR]'), escaped here, so
+        a call site cannot get the escaping subtly wrong either: read as a regex, '[ERROR]' is a
+        character class matching one of E/R/O, which selects nearly every line and still looks right.
+
+        ONE CALL SITE DELIBERATELY DOES NOT USE THIS, and it is not an oversight to tidy away.
+        connector-sessioncheck's engine branch runs BEFORE this lib is dot-sourced, because that
+        dot-source sits inside the branch that has a source checkout and moving it up was measured to
+        take out three of that hook's engine-branch test cases. So that block writes the anchor out by
+        hand and says so at the line. Same shape as asana-mirror.ps1's standalone copy of the
+        foreign-text strip: a file that cannot reach the lib carries the rule, and the lib stays the
+        place the rule is argued.
+
+        ANCHORED TO '^\s*', NOT TO '^'. Continuation and roll-up lines are legitimately indented, and
+        the callers Trim() before printing; the leading whitespace is the check's own layout rather
+        than part of the marker.
+
+    .PARAMETER Output
+        The check's captured lines -- Invoke-CheckScript's Output field.
+
+    .PARAMETER Marker
+        One or more markers, written as they appear ('[ERROR]', '[SCOPE]'). Regex-escaped here. A line
+        matches when it carries ANY of them.
+
+    .EXAMPLE
+        $refused = Select-CheckMarkerLine -Output $out -Marker '[ERROR]'
+    .EXAMPLE
+        $signals = Select-CheckMarkerLine -Output $out -Marker '[ERROR]', '[SCOPE]'
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][object[]]$Output = @(),
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string[]]$Marker
+    )
+
+    $alternation = (@($Marker) | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    $pattern = '^\s*(?:' + $alternation + ')'
+
+    # -cmatch, preserved from every call site this replaces: the markers are upper-case tokens, and a
+    # case-insensitive match would count the words "error" and "ok" in a check's own prose.
+    return @(@($Output) | Where-Object { $_ -cmatch $pattern })
 }

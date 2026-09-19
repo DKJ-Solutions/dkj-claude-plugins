@@ -39,21 +39,85 @@
 
 ### PLAN
 
+#### What was verified before anything was repaired
+
+The report's symptom holds. `Get-ImportLinePath` reads an `@`-import as `^@(\S.*)$`, so a target may
+carry any character including a square bracket, and `check-always-on-budget.ps1` printed two
+tree-derived fields raw -- the target and the importing file's path. Measured on a fixture: an import
+line reading `@docs/forged[ERROR]-and-[WARN].md` produced a `[WARN]` line carrying a second `[WARN]`
+and an `[ERROR]`, and the hook's `[ERROR]` arm made it print the over-the-limit headline plus the
+whole report on a run whose verdict was `[OK]`.
+
+The report's *inferred* half -- that anchoring the match is "the whole repair" -- does not hold, and
+that is what set this branch's scope. This tree already has a settled doctrine for exactly this class,
+at the WRITER: `Format-SafePathToken` and `Format-SafeProseToken` (#309, #414, #1419, #1808) strip
+square brackets out of consumer-derived values *because the hooks count them*, and they also strip
+the control characters an anchor cannot see. `check-always-on-budget.ps1` was simply not using it.
+So the repair is both ends, and each is written not assuming the other is there.
+
+The sweep the report named as "probably the more useful half" was run and is the larger finding:
+**eight** hooks across two plugins selected on markers, 26 call sites, every one of them
+hand-writing its own `\[...\]` escape -- and one block in `connector-sessioncheck` had already been
+anchored on its own, which is the drift a shared definition exists to prevent.
+
+#### The scope this did NOT take
+
+Only the eight session hooks' marker selection. `^Summary: \d+ error`, `source read at`, the
+`always-on path:` headline and `connector-sessioncheck`'s per-line parse at its line 214 are not
+marker selections and are untouched.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Select-CheckMarkerLine` added to `scripts/lib/hook-check-lib.ps1`: anchored to `^\s*`, markers
+      passed as literals and regex-escaped, `-cmatch` preserved from every call site it replaces.
+- [x] 26 of the 29 marker selections in the eight session hooks moved onto it, across `dkj-policy` and
+      `dkj-subagents-alpha`, with the comments that named `-cmatch` updated to name the helper and the
+      anchoring.
+- [x] The remaining three -- `connector-sessioncheck`'s engine branch -- anchored BY HAND instead, and
+      the line says why. That branch runs before the lib is dot-sourced, and the dot-source's own
+      comment records the measurement that keeps it where it is: moving it up turned three of that
+      hook's engine-branch test cases into "skipped due to an error". Found by checking load order
+      after the rewrite, not before it.
+- [x] `check-always-on-budget.ps1` now wraps every tree-derived value it prints -- the two `Target`
+      fields, `Format-ImporterPath`'s return and the carried-baseline `Key` -- in
+      `Format-SafePathToken`.
+- [x] The three docstrings asserting that the hooks match "over a check's whole output"
+      (`Format-SafePathToken`, `Format-SafeProseToken`, `check-consumer-prose`, `check-connectors`)
+      corrected, stating both ends and why neither is written assuming the other.
+- [x] Mirrors rebuilt (`build-shared-scripts.ps1`): 7 updated.
 
 ### TEST
 
+- [x] `hook-check-lib.tests.ps1`: ten asserts on the helper's own contract, including the one that
+      fails loudest while looking right -- an unescaped `[ERROR]` read as a regex is a character class
+      matching one of `E`/`R`/`O`.
+- [x] `always-on-budget.tests.ps1`: an end-to-end regression on a fixture repo whose import target
+      carries both markers -- the strip at the writer, exactly one surviving `[WARN]` on the line, and
+      the hook run over it proving it no longer reports an over-the-limit path on an `[OK]` verdict.
+- [x] All eight hooks run by hand against this repo: output identical to this session's own start.
+- [x] Lint gate green (0 errors); full test gate green.
+
 ### DEPLOY: fix/2142-anchor-hook-marker-match
 
-**Score:**
+Every session hook now counts a verdict marker only where its check wrote it, through one shared
+`Select-CheckMarkerLine`, and `check-always-on-budget.ps1` sanitizes the tree-derived values it
+prints the way the rest of this tree already does. Before this, a document able to put `[WARN]` or
+`[ERROR]` on the always-on path had its own line forwarded into every session start -- and `[ERROR]`
+made the hook print its over-the-limit headline and the whole report on a run that was in fact `[OK]`.
+Reaching it needed content already merged into the tracked import chain, so this is robustness rather
+than a closed hole; what it removes is the shape that goes wrong later, when somebody adds a field to
+a report and does not know a sanitizer was load-bearing for it. The sweep is the bigger half: eight
+hooks across two plugins were selecting this way, each with its own hand-written escape.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- no subscriber of a service notices this. It changes which lines a session-start hook forwards
+in a repo running this workflow, and the visible behaviour of every healthy repo is unchanged.
+
+**Score:** N/A
 
 #### Pull Request
 
 Session hooks count a verdict marker only where the check wrote it
-
