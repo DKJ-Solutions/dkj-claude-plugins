@@ -31,6 +31,10 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $PSScriptRoot '..\lib\subagent-shared-lib.ps1')
+# The dual-name layer (#2130). Unguarded, like the lint gate's own load of it: this script is root-only
+# -- it is in no mirror registry -- so the sibling is always there, and a guard would only turn a missing
+# lib into a silent walk over an empty file set.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
 $SharedDir = Get-AgentSharedDir -RepoRoot $RepoRoot
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
@@ -53,10 +57,18 @@ Write-Host "== build-agent-defs$(if ($Check) {' -Check'}) -- $RepoRoot ==" -Fore
 # The outer @() is load-bearing: Sort-Object returns a SCALAR for a single-element collection, and a
 # scalar has no .Count under StrictMode. This repo has 30 of these so it would never show up here -- it
 # showed up in the lint's fixtures, which are one agent def and no persona.
+# BOTH FILE SPELLINGS, VIA THE DUAL-NAME LAYER (issue #2130), and the DIRECTORY filter repaired in the
+# same line. It read '\agents\', which matches no path in this tree: the defs live in 'subagents/' since
+# #1698, and '\agents\' requires a path separator immediately before 'agents' where that path has a 'b'.
+# So this generator has been walking the four personas and ZERO of the 26 agent defs. Nothing drifted
+# because the lint's check 7 builds its own set off '\subagents\' and compares every one of them --
+# which is exactly why it was invisible: the gate that would report the drift is the gate that made the
+# generator's blindness harmless. Measured before the repair (26 files, 0 matched) and after (26, 26),
+# with the generator then reporting nothing to change, which is the same tree the gate already proved.
 $sharedFiles = @(@(
-    Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-agent.md' -File |
-        Where-Object { $_.FullName -match '\\agents\\' }
-    Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-persona.md' -File |
+    Get-SpecialistFiles -Path $RepoRoot -Kind Subagent -Recurse |
+        Where-Object { $_.FullName -match '\\subagents\\' }
+    Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
         Where-Object { $_.FullName -match '\\personas\\' }
 ) | Sort-Object FullName)
 

@@ -5,7 +5,8 @@
   "localCheckout": [
     "../../bwjecommerce/xoxowildhearts",
     "../../GitHub/bwjecommerce/xoxowildhearts",
-    "../../davekokbwj/xoxowildhearts"
+    "../../davekokbwj/xoxowildhearts",
+    "../../bwj-development/xoxowildhearts"
   ],
   "plugins": [
     {

@@ -1,13 +1,13 @@
 {
     "schema":  1,
-    "bytes":  109380,
-    "recorded":  "2026-09-17",
-    "reason":  "",
+    "bytes":  109739,
+    "recorded":  "2026-09-19",
+    "reason":  "Rename step D (#2133): the 30 lens filenames become specialist-NN-NN-lens.md, so every lens path named on the always-on path is 9 bytes longer. 348 B of filename, no new prose.",
     "note":  "LF bytes of the always-on document path. Written by the always-on budget gate -- see always-on-budget-lib.ps1. Do not hand-edit this to make room: the gate lowers it on its own and raises it only behind -Raise, with a reason.",
     "documents":  {
-                      ".claude/specialists/SPECIALISTS.md":  10357,
+                      ".claude/specialists/SPECIALISTS.md":  10429,
                       "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md":  30267,
-                      "CLAUDE.md":  48872,
-                      "lenses/01-01-extension.md":  19884
+                      "CLAUDE.md":  48937,
+                      "lenses/specialist-01-01-lens.md":  20106
                   }
 }

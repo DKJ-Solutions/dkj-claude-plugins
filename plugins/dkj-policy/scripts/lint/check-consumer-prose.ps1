@@ -72,7 +72,9 @@
     WHAT IT PRINTS OUT OF A CONSUMER'S FILES IS SANITIZED (#1419). Each finding names a path and echoes a
     LINE of the consumer's prose, and the hook forwards this whole report into session context while
     deciding what to surface by matching '[ERROR]' over it -- so a raw echo lets untrusted text choose how
-    loudly it is reported, and repaint a terminal on the way past. Paths go through
+    loudly it is reported, and repaint a terminal on the way past. Since #2142 that hook counts a marker
+    only where this script WROTE it, which closes the loudness half from the other end; the strip below
+    stays, because it also removes the control characters an anchored match cannot see. Paths go through
     check-report-lib.ps1's Format-SafePathToken; prose goes through Format-SafeProseToken. The PLUGIN'S
     OWN strings stay raw, and in the retired-name block that is deliberate: Name comes from
     Get-BranchFileLegacyNames and Since is a sentence written in entry-scaffold-lib.ps1, so sanitizing

@@ -250,7 +250,14 @@ $lensDirs = @(
 )
 foreach ($dir in $lensDirs) {
     if (-not (Test-Path -LiteralPath $dir)) { continue }
-    $lenses = @(Get-ChildItem -LiteralPath $dir -Recurse -Filter '*-extension.md' -File -ErrorAction SilentlyContinue)
+    # Both spellings (#2130), on the same guarded-lib pattern as $seam above: a teardown that knows one
+    # spelling leaves the other behind, silently, and "remove one directory and one line" stops being
+    # true of exactly the consumers that kept up with the rename.
+    $lenses = if (Get-Command Get-SpecialistFiles -ErrorAction SilentlyContinue) {
+        @(Get-SpecialistFiles -Path $dir -Kind Lens -Recurse)
+    } else {
+        @(Get-ChildItem -LiteralPath $dir -Recurse -Filter '*-extension.md' -File -ErrorAction SilentlyContinue)
+    }
     foreach ($lens in $lenses) {
         $rel = $lens.FullName.Substring($root.Length).TrimStart('\', '/')
         if (Test-LooksGenerated -Path $lens.FullName -Kind 'lens') {
@@ -424,7 +431,16 @@ if (Test-Path -LiteralPath $claudeMd -PathType Leaf) {
 
     # Everything else in CLAUDE.md is authored text, and a roster row is not distinguishable from
     # ordinary prose by any rule this script could apply safely. Reported as the owner's call.
-    $rosterish = @($lines | Where-Object { $_ -match '(?<![\d-])\d{2}-\d{2}(?![\d])' -and $_ -notmatch '^\s*@' })
+    # The shared pattern where the lib loaded, the literal otherwise (#2130) -- the same guarded shape
+    # the second copy of this pattern already used 300 lines down, which is why only ONE of the two
+    # would have picked up the lookbehind repair. A hand-copy that happens to be correct today is still
+    # the drift #182 is about; both copies now ask the same function.
+    $rosterIdPattern = if (Get-Command Get-RosterIdTokenPattern -ErrorAction SilentlyContinue) {
+        Get-RosterIdTokenPattern
+    } else {
+        '(?<!\d)(?<!\d-)\d{2}-\d{2}(?!\d)'
+    }
+    $rosterish = @($lines | Where-Object { $_ -match $rosterIdPattern -and $_ -notmatch '^\s*@' })
     if ($rosterish.Count -gt 0) {
         $notes += "CLAUDE.md still holds $($rosterish.Count) line(s) mentioning a specialist id (the roster table, the routing, the chains). Authored text -- remove the sections you no longer want by hand. This script will not guess where a roster row ends and your own prose begins."
     }
@@ -756,7 +772,7 @@ $knownNames = @($knownNames | Where-Object { $_ } | Sort-Object -Unique)
 $idPattern = if (Get-Command Get-RosterIdTokenPattern -ErrorAction SilentlyContinue) {
     Get-RosterIdTokenPattern
 } else {
-    '(?<![\d-])\d{2}-\d{2}(?!\d)'
+    '(?<!\d)(?<!\d-)\d{2}-\d{2}(?!\d)'
 }
 # Word-bounded, so 'Cody' does not match inside 'Codyssey' and a name is never reported off a substring.
 #

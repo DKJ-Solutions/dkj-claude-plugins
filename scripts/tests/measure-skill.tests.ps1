@@ -68,11 +68,18 @@ function Assert-Equal {
 # ---------------------------------------------------------------------------------------------------
 # The fixture: real output, all 19 rows. Its rows sum to 3,010 against a printed total of 3,031 -- the
 # 21-token gap being the two-significant-figure rounding the tolerance exists for.
+#
+# REAL OUTPUT MEANS QUOTED, SO DO NOT SWEEP IT. 'team-alpha' and 'claude-code-specialists' are the plugin
+# and marketplace names at v4.17.0; two later renames had rewritten both, leaving a capture that quoted a
+# header the CLI never printed. The '02-09-agent' filenames below are the same kind of frozen string and
+# survived #2131 only by not matching its pattern. Nothing here is asserted on -- the assertions read the
+# version, the totals and the row counts -- so a name in this block is evidence, never a test input, and
+# the two later fixtures in this file carry TODAY's names because they were captured at v4.33.0 (#2144).
 # ---------------------------------------------------------------------------------------------------
 $script:Fixture = @(
-    'Claude Specialists - team alpha (the core team) (dkj-subagents-alpha) 4.17.0',
+    'Claude Specialists - team alpha (the core team) (team-alpha) 4.17.0',
     '  Description: Portable executable core of the Claude Specialists system.',
-    '  Source: dkj-subagents-alpha@dkj-claude-plugins',
+    '  Source: team-alpha@claude-code-specialists',
     '',
     'Component inventory',
     '  Skills (4)  orchestrator, specialists-init, specialists-teardown, sync-roster',

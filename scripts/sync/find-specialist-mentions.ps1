@@ -113,8 +113,15 @@ function Get-SpecialistRoster {
                        Where-Object { $_.Name -in @('subagents', 'agents', 'personas') })) {
         foreach ($f in @(Get-ChildItem -LiteralPath $dir.FullName -Filter '*.md' -File -ErrorAction SilentlyContinue)) {
             $txt = [System.IO.File]::ReadAllText($f.FullName, [System.Text.Encoding]::UTF8)
-            # The id comes from the filename, which the lint already holds to the frontmatter.
-            $id = if ($f.Name -match '^(\d{2}-\d{2})-') { $Matches[1] } else { '' }
+            # The id comes from the filename, which the lint already holds to the frontmatter. Read
+            # through the dual-name layer (#2130) rather than off a leading-digits anchor: under the
+            # #2128 names the id no longer starts the filename, and this loop walks THREE kinds at once
+            # -- so it asks each in turn and takes the first that recognises the name.
+            $id = ''
+            foreach ($kind in 'Subagent', 'Persona', 'Manual') {
+                $id = Get-SpecialistFileId -Kind $kind -Name $f.Name
+                if ($id) { break }
+            }
 
             $m = [regex]::Match($txt, '(?m)^name:\s*([A-Za-z0-9_-]+)\s*$')
             if ($m.Success) {

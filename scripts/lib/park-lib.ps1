@@ -728,7 +728,7 @@ function Invoke-GitPark {
     # THE OUTPUT'S SHAPE CHANGES WITH THE BOUND and both readers below are safe on it: -TimeoutSeconds
     # routes into the Start-Process arm, which returns an ARRAY OF STRINGS rather than the & operator's
     # objects. The Write-Host loop is indifferent, and Get-GitPushFailureMessage is handed
-    # ($pushRes.Output | Out-String) -- already flattened, for the array reason the comment below gives.
+    # ($pushRes.Output | Out-String) -- already flattened, for the reason the comment below gives.
     # stderr stays merged (no -DiscardStderr), because git's own words are the answer here (#1143).
     #
     # AND THE NUMBER IS THE CALLER'S WHERE THE CALLER IS ON A CLOCK (#1958). 0 means "use the shared one",
@@ -754,9 +754,24 @@ function Invoke-GitPark {
         return $false
     }
     if ($pushRes.ExitCode -ne 0) {
-        # Flattened before it is matched: with stderr merged in (2>&1) the captured output is an ARRAY that
-        # can hold ErrorRecords as well as strings, and -match against an array returns the matching
-        # elements rather than a boolean -- which an if() then reads as true for any non-empty result.
+        # FLATTENED FOR A [string] PARAMETER, and neither half of what this used to say was true here
+        # (issue #2157). It claimed the captured output is an ARRAY that "can hold ErrorRecords as well
+        # as strings", and that -match against an array returns the matching elements rather than a
+        # boolean. This capture is always bounded -- -TimeoutSeconds $pushBound, and $pushBound is never
+        # 0 -- so it is always the Start-Process arm answering and Output is an ARRAY OF STRINGS, exactly
+        # as the comment 30 lines above already said. #2155 has since normalised the & arm as well, so no
+        # arm of this lib returns records any more -- but this line never rested on that, and did not
+        # when the retired claim was written. And the -match is not at this line at all:
+        # Get-GitPushFailureMessage takes [string]$Output, so an array would be coerced before any match
+        # ran -- with $OFS, fusing git's lines onto one line with spaces. Rendering them AS LINES is what
+        # Out-String is still for.
+        #
+        # AND IT STAYS Out-String RATHER THAN Get-NativeOutputText, the reader-side helper #2154 added for
+        # this shape. What that helper adds over Out-String once both arms normalise is a trim and "`n"
+        # line endings, and this caller wants neither: the flattened text here is MATCHED AND NEVER
+        # PRINTED -- all three of that function's arms return a fixed sentence and none interpolates
+        # $Output. Reach for the helper where the captured text itself is shown to somebody, as
+        # prune-merged's verdicts do.
         if (-not $NoFailureMessage) {
             Write-Error (Get-GitPushFailureMessage -Output ($pushRes.Output | Out-String)) -ErrorAction Continue
         }

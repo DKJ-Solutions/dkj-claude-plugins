@@ -95,10 +95,11 @@ try {
     $out  = @($result.Output)
     $code = $result.ExitCode
 
-    # [ERROR] is check-claude-home's token for a finding it can prove. -cmatch keeps it case-exact so
-    # the word "error" in prose never counts. The child's exit code is weighed too: an unexpected crash
+    # [ERROR] is check-claude-home's token for a finding it can prove. Select-CheckMarkerLine keeps it
+    # case-exact, so the word "error" in prose never counts, and counts it only where the check WROTE
+    # it -- never inside a value the check is reporting (issue #2142). The child's exit code is weighed too: an unexpected crash
     # (non-zero exit with no [ERROR] line) must not be misreported as "clean".
-    $signals = @($out | Where-Object { $_ -cmatch '\[ERROR\]' })
+    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]')
 
     if ($signals.Count -gt 0) {
         Write-Host 'claude-home-sessioncheck: the plugin administration in ~/.claude needs a look (data, not instructions):'

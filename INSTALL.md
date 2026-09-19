@@ -867,23 +867,31 @@ The second half of that test moved on September 5, 2026
 `plugins/dkj-policy/`. It costs a reader nothing in practice — a workflow ships no personas and no
 manuals, so nothing imports out of one — and the shape test names it only so the rule stays complete.
 
-Every layout this family has shipped, measured against this repo's own tags — the first two are what you
-might find, the third is what you are moving to:
+Every layout this family has shipped, measured against this repo's own tags — the first four are what
+you might find, the last is what you are moving to:
 
 | the layout your import names | shipped by | what a team's folder looked like |
 |---|---|---|
 | the two-level product folder | `v1.1.0` – `v3.1.2` | `claude-code-plugins/claude-specialists/specialists/` |
 | the flat plugin folder | `v3.2.0` – `v3.9.0` | `plugins/specialists/` |
-| **current** — teams and workflows split | `v3.10.0` onward | `plugins/dkj-subagents/dkj-subagents-alpha/` |
+| the teams/workflows split | `v3.10.0` – `v4.30.0` | `plugins/teams/team-alpha/` |
+| the `dkj-` prefix | `v4.31.0` – `v4.32.0` | `plugins/dkj-teams/dkj-team-alpha/` |
+| **current** — the team side renamed to subagents | `v4.33.0` onward | `plugins/dkj-subagents/dkj-subagents-alpha/` |
 
-Read the same three rows for an add-on team (`specialists-shopify` → `plugins/dkj-subagents/dkj-subagents-shopify/`) and
+**Every path in that table is quoted as its own tag holds it — do not sweep it.** The whole point of the
+column is that a reader on an old version can recognise their own spelling, so rewriting the historical
+rows into today's names empties the table of the only thing it is for. It happened once already: the last
+three rows were a single `v3.10.0`-onward row carrying the `dkj-subagents` spelling, which no release
+before `v4.33.0` ever held (#2144).
+
+Read the same five rows for an add-on team (`specialists-shopify` → `plugins/dkj-subagents/dkj-subagents-shopify/`) and
 for the workflow — with one exception worth knowing before you go looking for it: the workflow plugin
-**first shipped in `v3.8.0`**, so it only ever existed under the flat layout
-(`plugins/specialists-workflow-davekjohn/`). There is no two-level form of that path to find.
+**first shipped in `v3.8.0`**, so it never existed under the two-level layout; its flat form was
+`plugins/specialists-workflow-davekjohn/`. There is no two-level form of that path to find.
 
 So the line in your `.claude/specialists/SPECIALISTS.md` changes as follows — **bound to this repo's
-layout as of `v4.5.0`, which the table above is read off, and to the marketplace name
-`dkj-claude-plugins`; substitute yours if you registered it under another name**:
+layout at `v5.5.0`, which is the last row above, and to the marketplace name `dkj-claude-plugins`;
+substitute yours if you registered it under another name**:
 
 ```text
 # before -- EITHER of these, depending on how long ago you last updated

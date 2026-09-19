@@ -98,14 +98,15 @@ try {
     # [ERROR] and [OK] are check-git-identity's tokens for "a comparison was made" -- the first for a
     # provable split identity, the second for provable agreement. [WARNING] is its token for the state
     # that outranks the comparison (inbound #1867): no usable git author identity, i.e. this checkout
-    # cannot commit at all. -cmatch keeps all three case-exact so the words "error"/"ok"/"warning" in
-    # prose never count. [SKIP] (nothing to compare) is deliberately NOT matched here: reporting it
+    # cannot commit at all. Select-CheckMarkerLine keeps all three case-exact, so the words
+    # "error"/"ok"/"warning" in prose never count, and counts them only where the check WROTE them
+    # (issue #2142). [SKIP] (nothing to compare) is deliberately NOT matched here: reporting it
     # falls through to the exit-code branch below, which stays silent, per the docstring's own promise.
     # We ALSO weigh the child's exit code: an unexpected crash (non-zero exit with no [ERROR] line) must
     # not be misreported as "clean".
-    $signals   = @($out | Where-Object { $_ -cmatch '\[ERROR\]' })
-    $agreement = @($out | Where-Object { $_ -cmatch '\[OK\]' })
-    $noIdent   = @($out | Where-Object { $_ -cmatch '\[WARNING\]' })
+    $signals   = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]')
+    $agreement = @(Select-CheckMarkerLine -Output $out -Marker '[OK]')
+    $noIdent   = @(Select-CheckMarkerLine -Output $out -Marker '[WARNING]')
 
     # FIRST, BECAUSE IT OUTRANKS THE COMPARISON (inbound #1867). check-git-identity exits on this
     # state before it compares anything, so in practice these arms are mutually exclusive; the order
