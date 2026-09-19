@@ -43,7 +43,98 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 16 minor entries** <!-- pending-tally -->
+**8 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2139-frozen-citation-restore · 20260919-125659
+
+Three verbatim citations that had been silently rewritten by the `dkj-`/`dkj-subagents-` renames are
+restored to what the releases actually shipped, and marked so the next sweep leaves them alone. The
+argument they belong to -- #1066's plugin-root boundary -- is evidence a reader is meant to check
+against a tag, and a quotation that has been rewritten twice no longer carries that.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the citations sit in this repo's own lens and lint script. Nothing a subscriber of this
+service installs or reads changes; the one instance that does sit in shipped plugin payload was
+deliberately left to #2144.
+
+**Score:** N/A
+
+#### Pull Request
+
+Restore the swept v4.22.0 citations and mark them as quotations
+
+[PR #2146](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2146)
+
+---
+
+### DEPLOY: fix/2138-dead-import-is-not-unmeasurable · 20260919-124159
+
+An unresolved `@`-import is now one of two things rather than one, and `check-always-on-budget.ps1`
+says which. **Dead** -- the run can PROVE the file is absent, because the target is in the repo or
+under a plugin marketplace root that exists on this machine -- is named as a dead import, and the
+report says the whole document is silently missing from every session here. **Unprovable** -- which is
+every CI runner, where there is no marketplace clone to prove anything with -- keeps the old wording
+and the old silence exactly.
+
+Those two words are the ones the code returns, and they are the only ones used for them here, in the
+tests and in the PR title -- the copy edit found the first draft reaching for "unmeasurable" and
+"unresolvable" as well. The branch NAME still carries "unmeasurable" and is left alone, because a
+branch name is quoted in commits that have already landed. And **unmeasured** is a different thing
+again: the pre-existing bucket for a document with no recorded figure, which a dead import may or may
+not also be in.
+
+The old report called every unresolved import "not measured and not recorded" and told the reader to
+run it again on a machine where the import resolves. On the machine #2138 was measured on, that was
+the machine they were already on.
+
+It warns and does not refuse: the exit code still belongs to the budget, and a dead import is partly a
+fact about the machine, so refusing would block a push over a plugin somebody has not installed. The
+in-tree half is already a hard error in check 28 of `check-plugin-integrity.ps1`, which is the gate
+that owns it.
+
+One containment test answers both halves of that question -- `Test-PathIsUnder` -- and check 28 of
+`check-plugin-integrity.ps1` now calls it too. Both had a bare `StartsWith` against a directory name
+with no separator appended, so a sibling whose name merely starts with the root's read as being inside
+it; in check 28 that meant reporting a dead link for a file the repo does not own. The branch's own code
+review found the first one, on a green suite, because the draft guarded one comparison and pinned only
+the guarded half.
+
+Two smaller things came with it. A dead import is now reported even when the baseline happens to hold a
+figure for it -- the question is asked ahead of the carried branch, so this lib's own memory cannot
+hide the one failure it exists to surface, and the recorded bytes are still carried so the next branch
+does not read as growth. And both lines of the block carry the `[WARN]` marker, because the
+session-start hook forwards only the marked lines; the existing unmeasured block keeps its remedy on a
+continuation line, which is why no session start has ever seen it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+All four files ship in the `dkj-policy` payload -- the two libs, the check script and the
+`always-on-sessioncheck` hook -- so every repo running this workflow gets this at the next release,
+with nothing to do and no migration. For most of them it changes nothing: their imports resolve, and a
+consumer with no marketplace root reads exactly as before.
+
+For the ones it does reach, it is the difference between a session that quietly has no orchestrator
+and a session that says so in its first four lines. The measured instance is a registered consumer
+that ran that way for over a week with a gate on the machine that had already seen it, because the
+gate's own sentence pointed the reader away from the repair. Nothing about the budget changes, and no
+gate starts refusing anything.
+
+**Score:** 3
+
+#### Pull Request
+
+a dead '@'-import is told apart from an unprovable one, and named as dead
+
+Plugins: dkj-policy
+
+[PR #2143](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2143)
+
+---
 
 ### DEPLOY: feat/2130-dual-name-specialist-readers · 20260919-113832
 
