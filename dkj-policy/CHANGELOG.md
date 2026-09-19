@@ -43,7 +43,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 19 minor entries** <!-- pending-tally -->
+**9 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2145-reader-site-count · 20260919-134205
+
+The `feat/2130` entry claimed thirteen reader sites, that **all of it** now goes through the four-row
+table, and that **no reader is edited again**. All three were wrong by one site, which step B (#2131)
+found the moment it moved files and whose entry already carries the reason the sweep could not have
+named it. The count now says what was converted instead of asserting a total, the two completeness
+clauses are gone, and a paragraph under them records the miss and states that a later step still sweeps
+before it moves anything.
+
+It is corrected now rather than after the cut for one reason: the entry is still under
+`## [Unreleased]`, so it is a live document, and four steps of the series (#2132, #2133, #2134, #2135)
+are parked against it. A session picking one up reads *"no reader is edited again"* as a licence to skip
+the sweep -- which is exactly the reasoning that let the fourteenth site through once already. After the
+next cut the sentence is archived history and the carve-out for `dkj-policy/releases/**` applies.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the correction sits in the entry's tier-0 body, so it reaches this repo's own changelog release
+document and nothing a subscriber installs or reads. No script, no plugin payload and no behaviour
+changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The #2130 entry's reader-site count and its completeness claims are corrected
+
+[PR #2148](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2148)
+
+---
 
 ### DEPLOY: feat/2131-subagent-def-filenames · 20260919-131555
 
