@@ -43,26 +43,30 @@ Step C of the rename plan in [#2128](https://github.com/DKJ-Solutions/dkj-claude
 the 27 portable manuals become `specialist-<group>-<id>-manual.md`, and every reader that constructs or
 judges that name moves with them.
 
-#### The PR waits on steps A and B -- Dave's instruction at pickup
+#### The hold on the PR is lifted -- steps A and B have landed
 
-The work is built now; the pull request is not opened until [#2130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2130)
+The work was built before either predecessor was on the trunk, on Dave's instruction at pickup: no pull
+request until [#2130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2130)
 (step A, the dual-name readers) and [#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131)
-(step B, the subagent defs) have landed. This branch is cut from the trunk rather than stacked on either,
-so it rebases onto them; where step A's dual-name layer replaces a literal this branch rewrote, A's
-resolver wins and the literal goes.
+(step B, the subagent defs) had landed. Both closed on September 19, 2026, and the trunk is **merged in
+here rather than rebased onto**: this branch is already pushed, so a rebase would need the force push
+the safety rules reserve for Dave's explicit word. Where step A's dual-name layer replaced a literal this
+branch had rewritten, A's resolver won and the literal went -- that is every edit this branch had made to
+lint checks 3b, 6a and 6b, and it is why the CREATE list below is shorter than the one that was built.
 
 ### CREATE
 
 - [x] The 27 files renamed with `git mv` -- `-alpha` (16), `-ecomm` (3), `-lifehub` (5), `-shopify` (3).
-- [x] Lint check 3b: the id extraction is now `^specialist-(\d{2})-(\d{2})-manual$`, and the refusal names
-      the new pattern. **The `*-manual.md` glob is deliberately left loose** -- it still matches both
-      spellings, which is what keeps a file left behind on the old name visible to 3b's refusal instead of
-      silently unscanned.
-- [x] Lint check 6a: the constructed `$manualBase` carries the prefix, so an agent def is held to naming
-      `manuals/specialist-<g>-<id>-manual.md`.
-- [x] Lint check 6b: the orphan walk's own `^(\d{2})-(\d{2})-manual$` moved too -- left behind it would
-      have matched nothing and skipped the whole check in silence -- and so did the persona-names-its-manual
-      string.
+- [x] `Get-SpecialistFileShapes`'s **Manual row** flipped in `scripts/lib/check-report-lib.ps1` (and its
+      three plugin mirrors, via `build-shared-scripts.ps1`): Current takes the `specialist-` prefix,
+      AlsoRead keeps the bare spelling a consumer's cache may still be carrying. That row is the whole
+      code change step C needs -- step A built the table as the flip point precisely so that no reader
+      moves with a rename.
+- [~] Dropped at the merge with the trunk: the literal rewrites this branch had made to lint checks 3b,
+      6a and 6b. Step A replaced the same literals with the resolver, and the resolver wins. The
+      loose-glob question those edits turned on is answered one layer down as well --
+      `Get-SpecialistFileFilters` derives the filter list from the table, so a file left behind on the
+      old name is still enumerated and still refused rather than silently unscanned.
 - [x] The 26 agent defs and Chris's persona body now name their manual at the new path.
 - [x] The prose that names a manual: `README.md`, `CLAUDE.md`, `.claude/rules/language-layers.md`, the
       specialists handbook, 11 repo lenses, three plugin READMEs, three SKILL pages, and the three manuals
@@ -97,11 +101,12 @@ the shape is deliberately not this repo's.
 
 ### DEPLOY: feat/2132-manuals-specialist-prefix
 
-Every portable manual is now named `specialist-<group>-<id>-manual.md`, and the readers that judge or
-construct that name were moved in the same commit -- check 3b's id extraction, check 6a's constructed
-path, check 6b's orphan walk and its persona-names-its-manual assert. The `*-manual.md` glob stayed loose
-on purpose: it is what keeps a file left on the old name inside 3b's refusal instead of outside its scan.
-Step C of the rename plan in #2128.
+Every portable manual is now named `specialist-<group>-<id>-manual.md`, and what makes that the WRITTEN
+name is a single row: `Get-SpecialistFileShapes`'s Manual entry, where Current takes the `specialist-`
+prefix and AlsoRead keeps the bare spelling a consumer's cache may still be carrying. **No reader moved
+with it** -- step A (#2130) had already put every one of them behind that table, which is the property
+the table exists for, and a file left behind on the old name is still enumerated and still refused
+because the filter list is derived from the same row. Step C of the rename plan in #2128.
 
 **Score:** 3
 
