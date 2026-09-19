@@ -78,9 +78,13 @@ lint checks 3b, 6a and 6b, and it is why the CREATE list below is shorter than t
 ### TEST
 
 - [x] `check-plugin-integrity.ps1` green -- `[manual] checked 27`, `[specialist] checked 53`, 0 errors.
-- [ ] Every suite under `scripts/tests/` green.
-- [ ] The #1757 check: `git diff origin/main...HEAD | grep '^+' | grep -v '^+++' | grep -- '-manual\.md'`
-      names only the new spelling, the two protected citations excepted.
+- [x] Every suite under `scripts/tests/` green -- `open-pr.ps1 -GatesOnly`, all 118 in 1,011s over 6
+      lanes, after the trunk was merged in.
+- [x] The #1757 check: `git diff origin/main...HEAD | grep '^+' | grep -v '^+++' | grep -- '-manual\.md'`
+      names only the new spelling, the two protected citations excepted. Four added lines carry the bare
+      spelling and all four are accounted for: the two protected citations, the `1.15.0.md` precedent
+      quoted under the carve-out below, and the `*-manual.md` glob, which is a wildcard rather than a
+      name.
 
 #### The historical carve-out covers wording, not link targets
 
