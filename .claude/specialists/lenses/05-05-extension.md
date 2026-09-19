@@ -508,7 +508,7 @@ layer says so in its own words:
 priority is an **offered** convention — *"nothing here reads it either"* — and that **exactly one**
 label is prescribed to a consumer, the reach label. A session filing inbound is running that layer's
 rules, not this one's. So an inbound issue arrives without a rung by design, and **gets one at triage
-here**, with the second `gh issue edit` line above. Chris's lens states the scope in one word (*"every
+here**, with the second `gh issue edit` line above. Chris's lens states the scope with one added word (*"every
 issue YOU file here"*) and points back to this block.
 
 **The net damage was nil, and that is measured rather than assumed.** On the day of the decision
