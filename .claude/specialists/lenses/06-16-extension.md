@@ -296,7 +296,7 @@ great majority of its hits, and each carried this one along.
 
 ### "Subagent def" is the term; the 270 stale ones are corrected on edit, not swept
 
-The portable rule is in [Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md)
+The portable rule is in [Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md)
 under **"Guarding the naming convention"**; this is the instance it was decided on, and the boundary
 that applies here.
 

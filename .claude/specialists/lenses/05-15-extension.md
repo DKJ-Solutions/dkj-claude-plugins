@@ -2250,7 +2250,7 @@ prose is written. It needs the marking to be machine-readable first, which is th
 next reader starts from it instead of from the anachronism again.
 
 **The class is closed, and the convention that replaces the check is in
-[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md):**
+[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md):**
 a quotation is frozen **and marked at the line**, an illustration is kept **true** rather than frozen, and
 an attribution — *"`dkj-policy` 4.21.0 shipped it"* — keeps today's name on purpose. Repaired under #2144:
 the `specialists-init` transcript in shipped payload (swept **four** times, marketplace name included, so
