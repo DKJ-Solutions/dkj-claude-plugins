@@ -177,6 +177,26 @@ via a PR.
   marketplace rename (#1769, September 10, 2026): the first pass renamed every occurrence, and a copy
   edit then found the new name inside six dated CLI transcripts, three migration tables' old columns,
   and one paragraph about a mirror whose rename had explicitly been deferred.
+- **The rule above protects nothing on its own — the MARKING at the line is the only guard.** It is
+  addressed to whoever runs the sweep, and a sweep is run by somebody who has not read it; a
+  find-and-replace over a tree cannot consult a manual. So a citation that has to survive renames says
+  so where it sits: one clause naming what it quotes and why it is frozen (*"quoted as v4.22.0 shipped
+  it -- do not sweep"*). **Do not expect the shape of the token to protect it either.** Measured in the
+  source repo (#2139 and #2144, September 19, 2026): a name inside a quoted *path* escaped three sweeps
+  in a script comment while a *bare* name eight lines below it was swept by all three -- and the same
+  path-shaped citation in a markdown document was swept twice. The copy that survived, survived by
+  luck, and the issue that reported it had written that luck up as a property of the file type.
+- **A fourth category, and this one must NOT be frozen: the illustration.** A comment or a sample
+  output showing the *shape* of a line -- `'... (plugin-name) 5.5.0'`, an error message, a fenced
+  example -- quotes nothing, so freezing it only preserves an anachronism the reader has to resolve.
+  Keep it **true**: pair a current name with a version that name actually had. The test is what a
+  reader does with the string -- **checks** it against a released artefact (a quotation: freeze it and
+  mark it) or **reads** it for its shape (an illustration: keep it true).
+  A third form is neither, and is left alone deliberately: **naming which release shipped something**
+  (*"`dkj-policy` 4.21.0 shipped it"*) uses today's name on purpose, because the name is how a reader
+  identifies the thing now while the version identifies the release. It has one cost worth knowing --
+  on disk that release sits under the name it had then -- which is why a repo that renames keeps a
+  layout table a reader can cross to.
 ## Tessa is lazy
 
 Recurring doc work runs through existing helpers instead of by hand. If a doc operation repeats,

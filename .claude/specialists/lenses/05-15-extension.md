@@ -2178,15 +2178,14 @@ had **already shipped dead** — `cut-release/SKILL.md:123` pointing at
 `../../../../teams/team-alpha/manuals/06-25-manual.md`, verified against the installed v4.22.0 copy.
 **Quoted as v4.22.0 shipped it — do not sweep.** `team-alpha` is what that directory was called then;
 `dkj-subagents-alpha` is a name from two renames later, so rewriting it here rewrites the evidence rather
-than the convention. So
-the boundary is the **plugin root**, not `plugins/`, and scenario 37 of
+than the convention. So the boundary is the **plugin root**, not `plugins/`, and scenario 37 of
 `check-plugin-integrity-links.tests.ps1` exists to pin exactly that difference. The report also argued
 from an expected count of **zero** (*"which is itself the reason not to build it yet"*) and stated that
 nothing had shipped; the real count was **17 escapes in 5 files**, every one passing check 4, and
-resolved inside the installed copies (`team-alpha` 4.21.0, `contributing-davekjohn` 4.22.0 — their names at
-those versions, quoted and not swept) **all 17 are
-dead**. That inverted its conclusion rather than qualifying it: the repo's name-a-risk-and-leave-it rule
-holds until something bites, and this had bitten seventeen times in released payload.
+resolved inside the installed copies (`team-alpha` 4.21.0, `contributing-davekjohn` 4.22.0 — their names
+at those versions, quoted and not swept) **all 17 are dead**. That inverted its conclusion rather than
+qualifying it: the repo's name-a-risk-and-leave-it rule holds until something bites, and this had bitten
+seventeen times in released payload.
 
 **Both citations above were silently rewritten by the renames, and what saved the script's copy was luck
 rather than its file type** (#2139, September 19, 2026). The `.ps1` was in every sweep's file set — its
@@ -2198,13 +2197,31 @@ swept anyway, which rules out shape alone as protection too. **The marking is th
 there is**, and it is a convention rather than a check, because recognising a quotation is exactly the
 hard part.
 
-**What a check COULD see, recorded here for whoever builds one:** a name paired with a version older than
-the version that name first shipped in is always a swept quotation. `dkj-subagents-*` first shipped in
-`v4.33.0` and `dkj-policy` in `v4.31.0`, so `dkj-subagents-alpha 4.21.0` is detectable without
-understanding a single sentence around it. That is mechanical, cheap, and narrower than "recognise a
-quotation" — which is what made the class sweepable at all. **The rest of the class is #2144**, including
-one instance in shipped plugin payload; whether the check above is worth building is a call for whoever
-owns check 28.
+**What a check COULD see — proposed here, then measured, and the answer is DO NOT BUILD IT** (#2144,
+September 19, 2026). The proposal was that a name paired with a version older than the version that name
+first shipped in *is always a swept quotation*. The detection half holds: `plugins/dkj-subagents/` first
+appears at `v4.33.0` and `plugins/dkj-policy/` at `v4.31.0`, so `dkj-subagents-alpha 4.21.0` is findable
+without understanding a single sentence around it. **The "always" does not.** Run over `*.md`, `*.ps1`,
+`*.json` and `*.yml` outside `dkj-policy/releases/**`, it returned **54 pairings, of which 3 were swept
+quotations** and 5 were illustrations worth correcting for a different reason. The other 46 are correct
+as written: 32 are synthetic test fixtures, where an invented version is the point, and 14 are
+attributions or dated notes — two of which pair a plugin name with the *Claude Code CLI's* own version
+and have nothing to do with this class at all.
+
+**And it missed one**, on the line below a hit it found: `measure-skill.tests.ps1`'s captured
+`Source: team-alpha@claude-code-specialists` carries no version, so nothing paired. So as a **gate** the
+rule is 6% precision with a known blind spot — it would refuse pull requests over test fixtures and still
+let a swept quotation through. As a **one-off sweep tool** it is exactly right, and #2144 was that run.
+Whoever owns check 28 should read this as the measurement that settles it, not as a backlog item.
+
+**The class is closed, and the convention that replaces the check is in
+[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md):**
+a quotation is frozen **and marked at the line**, an illustration is kept **true** rather than frozen, and
+an attribution — *"`dkj-policy` 4.21.0 shipped it"* — keeps today's name on purpose. Repaired under #2144:
+the `specialists-init` transcript in shipped payload (swept **four** times, marketplace name included, so
+the issue's own "half-swept" reading was wrong), the `measure-skill` capture and its unversioned
+neighbour, and `INSTALL.md`'s layout table, whose `v3.10.0`-onward row carried a spelling no release
+before `v4.33.0` ever held.
 
 **The two counts are different measurements and both are worth keeping**, because conflating them is how
 the report went wrong in the first place. *17 escapes* is a property of the source tree, found by asking

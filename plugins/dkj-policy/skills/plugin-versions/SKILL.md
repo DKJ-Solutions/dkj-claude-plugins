@@ -160,7 +160,7 @@ cannot run -- `check-connectors.ps1` is source-only and is not plugin-carried --
 *"check skipped"* and a session got no version signal at all.
 
 ```text
-[ERROR] dkj-subagents-ecomm@dkj-claude-plugins: the clone is AHEAD of your install (4.31.0 -> 4.32.0) -- claude plugin update dkj-subagents-ecomm@dkj-claude-plugins --scope project
+[ERROR] dkj-subagents-ecomm@dkj-claude-plugins: the clone is AHEAD of your install (5.4.0 -> 5.5.0) -- claude plugin update dkj-subagents-ecomm@dkj-claude-plugins --scope project
 [INFO] some-other@another-marketplace: cannot determine -- the clone's marketplace.json could not be read
 [SUMMARY] 7 plugin(s) enabled here: 1 behind, 1 undetermined, 5 up to date.
 ```
