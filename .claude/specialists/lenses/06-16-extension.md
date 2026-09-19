@@ -308,10 +308,10 @@ comments, docstrings and console output across 50 scripts.
 **Three renames moved the thing and left the noun.**
 [#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698) moved `agents/` to
 `subagents/` and renamed the plugins to `dkj-subagents-*`;
-[#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131) renames the files themselves
-to `specialist-NN-NN-subagent.md`; and the roster, the plugin ids and the marketplace all say
-*subagent*. So the tree reached a state where a file literally named `specialist-06-16-subagent.md` is
-called an "agent def" by 86 documents.
+[#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131) is renaming the files
+themselves to `specialist-NN-NN-subagent.md`; and the roster, the plugin ids and the marketplace
+already say *subagent*. So a file that is `06-16-agent.md` today, and `specialist-06-16-subagent.md`
+once #2131 lands, is called an "agent def" by 86 documents either way.
 
 **The decision, Dave, September 19, 2026** ([#2137](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2137)),
 chosen from a menu of three: **correct-on-edit**. Not a sweep, and not *"the term stays"* either.
@@ -327,16 +327,19 @@ outcome.
 
 **The boundary here, because a global replace would have crossed it.** The word `agent` stays where
 something **resolves** it rather than reads it: the `"agents"` key in all four `plugin.json`
-manifests is Claude Code's own schema, and `scripts/agents/build-agent-defs.ps1` is a path the
-tooling resolves. `check-consumer-drift.ps1` names it too.
-[#1764](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1764) is what a wrong shape in
+manifests is Claude Code's own schema, `scripts/agents/build-agent-defs.ps1` is a path the tooling
+resolves, and `check-consumer-drift.ps1` builds one of its own — `.claude\agents\<group>-<id>-agent.md`,
+resolved against a consumer's disk.
+[#1764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1764) is what a wrong shape in
 those manifests costs: four of six plugins uninstallable for a whole release.
 
-**What was repaired at once, and why only that.** The lines where the contradiction stands on the line
-itself — `README.md`'s `### Agent def vs. manual` heading sitting directly above a bullet naming a
-`subagents/…-subagent.md` path and calling it *"the agent definition"*, and
-`plugins/dkj-subagents/README.md` saying *"the subagent definition"* and *"the agent def"* two bullets
-apart. Those read as two facts rather than as a lagging citation.
+**What was repaired at once, and why only that.** The lines where the contradiction stood on the line
+itself: `README.md`'s `### Agent def vs. manual` heading and the bullet under it calling the file
+*"the agent definition"*, while `plugins/dkj-subagents/README.md` calls the same file *"the subagent
+definition"* — and, two bullets further down that page, *"the agent def"* again. Those read as two
+facts rather than as a lagging citation. Once #2131 lands, the `README.md` bullet will name a
+`subagents/specialist-…-subagent.md` path in the same breath, which is the shape #2137 was filed
+about.
 
 **And what was deliberately left**, so nobody reopens it as an oversight: the `## Shared agent-def
 blocks` heading in `README.md`. It carries five inbound anchors, one of them in
