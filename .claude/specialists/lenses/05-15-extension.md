@@ -5,7 +5,7 @@ group: 05
 
 # Sylvester ⚙️ · claude-code-specialists addendum
 
-> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md`). This file does not describe the craft, but what Sylvester does in this repo.
+> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md`). This file does not describe the craft, but what Sylvester does in this repo.
 
 A system administrator does the same thing everywhere — manage the harness and the tooling the team
 works in: scripts, config, the safety guards. **What is repo-specific in claude-code-specialists is not
@@ -197,7 +197,7 @@ infrastructure.
   gated at all.** The block used to key one group on `github.ref`, i.e. one group for the whole trunk,
   and leaned on `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` to keep the fold commit
   from cancelling the merge commit's run. It did not, and could not — the portable half of why is a hard
-  rule in [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md#sylvesters-hard-rules):
+  rule in [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
   the field governs the *in-progress* run, while a group also drops a **pending** one when a third
   arrives. **What made it bite here is this repo's own trunk rhythm**, which is the repo-specific half:
   `ship-pr` pushes twice per branch 6s apart, a run takes ~15 minutes, and `windows-latest` queues for
@@ -1277,7 +1277,7 @@ infrastructure.
 The **`simplify`** skill applies quality fixes — reuse, simplification, efficiency — and applying is the
 **author's** act, never the reviewer's: [Victor #19](06-19-extension.md) may report those same findings
 and is forbidden from applying them, which is why the portable layer gives the skill to
-[Cody #13](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/04-13-manual.md) rather than to a reviewer. Here
+[Cody #13](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-04-13-manual.md) rather than to a reviewer. Here
 the code is `scripts/**` and **those are Sylvester's**, so here he is that author: he runs the tidy pass
 over what he changed before the diff goes to review, and never over somebody else's change.
 
@@ -1849,7 +1849,7 @@ this repo's:
   60-entry allowlist were gone. The mechanism is the CLI's own settings writer — a JSON parse and
   re-serialise — so it is not this repo's code and there is nothing here to fix. The portable rule, with
   the remedy and the reason a gate is the wrong answer, is in
-  [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md#sylvesters-hard-rules);
+  [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules);
   what is local is why it is met so often and what it costs here:
   - **This repo consumes its own marketplace and enables all six plugins**, so plugin administration is
     routine maintenance rather than a one-off — the rename of #1698 alone needed nine commands.
@@ -2033,7 +2033,7 @@ measurement is why it stays that way.
 **What is left holding this class is the writing rule — and it is worth being exact about how strong
 that is, because it is weaker than "already covered".** *"A re-derivable figure states its method, so
 the next reader re-runs it instead of trusting it"* is in
-[Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md)
+[Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md)
 and describes #1779 exactly. But it **predates** #1779, and #1779 is seven sites that did not follow it
 — so it is a rule already measured failing, not one shown to suffice. Two things keep it as the answer
 anyway, and neither is that it works reliably: no digit-anchored gate can see the form the failure took,
@@ -2250,7 +2250,7 @@ prose is written. It needs the marking to be machine-readable first, which is th
 next reader starts from it instead of from the anachronism again.
 
 **The class is closed, and the convention that replaces the check is in
-[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md):**
+[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md):**
 a quotation is frozen **and marked at the line**, an illustration is kept **true** rather than frozen, and
 an attribution — *"`dkj-policy` 4.21.0 shipped it"* — keeps today's name on purpose. Repaired under #2144:
 the `specialists-init` transcript in shipped payload (swept **four** times, marketplace name included, so

@@ -12,7 +12,7 @@
       2. every <plugin>/.claude-plugin/plugin.json: valid JSON with a non-empty 'name'.
       3. every <plugin>/subagents/*.md: frontmatter contains 'name:', 'id:' and 'group:'.
       3b. every <plugin>/manuals/*-manual.md: frontmatter contains 'id:' and 'group:', and the
-         file name <group>-<id>-manual.md matches that frontmatter (the portable manual that the
+         file name specialist-<group>-<id>-manual.md matches that frontmatter (the portable manual that the
          corresponding agent def reads in via ${CLAUDE_PLUGIN_ROOT}/manuals/).
       3c. every <plugin>/personas/*-persona.md: frontmatter contains 'id:' and 'group:', and the
          file name <group>-<id>-persona.md matches that frontmatter. Personas (orchestrator +
@@ -32,7 +32,7 @@
       5. every scripts/**/*.ps1 parses without error (catches syntax errors in the orchestration
          itself, which would otherwise only break at execution time).
       6. specialists-system integrity: per plugin, every '<group>-<id>' is unique across the
-         agent defs, every agent def has a valid 'name:' + a corresponding manuals/<g>-<id>-manual.md
+         agent defs, every agent def has a valid 'name:' + a corresponding manuals/specialist-<g>-<id>-manual.md
          which it also names, and conversely every manual is backed by an agent def OR a persona of
          the same id (no orphan manual) -- a persona-backed manual must be named by that persona.
       7. shared agent-def blocks: every <!-- BEGIN/END shared:NAME --> region in an agent def still
@@ -843,7 +843,7 @@ if (Test-CheckEnabled 'agent-def') {
     Write-Skip 'agent-def -- not run (-SkipCheck). Nothing is asserted about agent-def frontmatter in this run.'
 }
 
-# --- 3b. manual frontmatter: id/group + file name <group>-<id>-manual.md -----------------------------
+# --- 3b. manual frontmatter: id/group + file name specialist-<group>-<id>-manual.md -----------------------------
 $manuals = @(Get-SpecialistFiles -Path $RepoRoot -Kind Manual -Recurse |
     Where-Object { $_.FullName -match '\\manuals\\' })
 $manuals | ForEach-Object {
@@ -1546,9 +1546,9 @@ if (Test-CheckEnabled 'parse') {
 # This repo is the source of the specialists system, so the agent-def<->manual link must be at
 # least as strict here as for a consumer. Per plugin (folder with subagents/ and manuals/):
 #   6a. every '<group>-<id>' is unique across all agent defs; every agent def has a valid 'name:'
-#       (Claude Code call name), a corresponding manuals/<g>-<id>-manual.md in the same plugin, and
+#       (Claude Code call name), a corresponding manuals/specialist-<g>-<id>-manual.md in the same plugin, and
 #       names that manual in its text.
-#   6b. no orphan manual: every manuals/<g>-<id>-manual.md is backed by a subagents/<g>-<id>-agent.md
+#   6b. no orphan manual: every manuals/specialist-<g>-<id>-manual.md is backed by a subagents/<g>-<id>-agent.md
 #       OR a personas/<g>-<id>-persona.md. A PERSONA MAY BACK A MANUAL (#1017). Being a persona says
 #       where a specialist RUNS -- in the main loop rather than as a subagent -- and says nothing
 #       about whether their craft has a playbook worth reading on demand. Until this changed it said

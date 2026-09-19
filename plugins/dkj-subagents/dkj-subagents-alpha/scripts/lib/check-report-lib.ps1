@@ -1487,10 +1487,11 @@ function Get-SpecialistFileShapes {
        AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. For a kind the series
        has not reached yet it holds the FUTURE name while Current holds the past one; after the step that
        renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES ARE LIVE IN THIS
-       TABLE from step B on -- Subagent has swapped (#2131), the other three have not -- so the field's
-       direction is not a property of the table at all, only of each row's place in the series. A field
-       called 'Legacy' would be a lie for exactly the window this layer exists to cover, and 'Legacy' is
-       what a later reader would reach for when deciding whether a candidate may be dropped.
+       TABLE from step B on -- Subagent has swapped (#2131) and Manual with it (#2132), the other two
+       have not -- so the field's direction is not a property of the table at all, only of each row's
+       place in the series. A field called 'Legacy' would be a lie for exactly the window this layer
+       exists to cover, and 'Legacy' is what a later reader would reach for when deciding whether a
+       candidate may be dropped.
 
        SO THIS TABLE IS THE FLIP POINT for the rest of the series. Step B..F each move one kind's files
        and swap that kind's row here; no reader is touched again, because no reader names a shape. A row
@@ -1505,8 +1506,8 @@ function Get-SpecialistFileShapes {
     # Plain hashtables in, pscustomobjects out: the table is data this function owns, and handing a
     # caller the hashtable would let one mutate the shape every other caller reads in the same session.
     $table = @{
-        Manual   = @{ Current = @{ Prefix = ''; Stem = 'manual' }
-                      AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'manual' }) }
+        Manual   = @{ Current = @{ Prefix = 'specialist-'; Stem = 'manual' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'manual' }) }
         Persona  = @{ Current = @{ Prefix = ''; Stem = 'persona' }
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'persona' }) }
         Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }

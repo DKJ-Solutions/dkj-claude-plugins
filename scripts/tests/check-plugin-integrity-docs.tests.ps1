@@ -1097,7 +1097,7 @@ Write-Host 'fixture'
     $spPersonas = Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-alpha\personas'
     New-Item -ItemType Directory -Path $spManuals  -Force | Out-Null
     New-Item -ItemType Directory -Path $spPersonas -Force | Out-Null
-    $spManualPath  = Join-Path $spManuals  '99-99-manual.md'
+    $spManualPath  = Join-Path $spManuals  'specialist-99-99-manual.md'
     $spPersonaPath = Join-Path $spPersonas '99-99-persona.md'
     $spAgentPath   = Join-Path $spAgents   '99-99-agent.md'
     [System.IO.File]::WriteAllText($spManualPath, "---`nid: 99`ngroup: 99`n---`n`n# Fixture manual`n", $Utf8NoBom)
@@ -1121,7 +1121,7 @@ Write-Host 'fixture'
 
     # 3. A persona that names it: clean.
     [System.IO.File]::WriteAllText($spPersonaPath,
-        "---`nid: 99`ngroup: 99`n---`n`n# Fixture persona`n`nPlaybook: manuals/99-99-manual.md`n", $Utf8NoBom)
+        "---`nid: 99`ngroup: 99`n---`n`n# Fixture persona`n`nPlaybook: manuals/specialist-99-99-manual.md`n", $Utf8NoBom)
     $b3 = Invoke-Integrity -FixtureRoot $Fixture
     # ASSERTED ON THE FINDING TEXT, not on '[specialist]'. That bracket also opens the coverage line
     # ('[specialist] checked 1'), which this check prints on every run including a clean one -- so the
