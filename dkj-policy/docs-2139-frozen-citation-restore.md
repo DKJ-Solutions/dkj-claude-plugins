@@ -41,19 +41,54 @@
 
 Restore the lens citation to what v4.22.0 shipped, and the same in check-plugin-integrity.ps1's own swept line; mark both as quotations. The wider class is filed separately.
 
+#### What the verification changed
+
+#2139's symptom holds and its repair direction is right, but its stated REASON does not survive
+reading the tree, so the repair is wider than it proposed:
+
+- It argued the script's copy survived *"because a `.ps1` comment was not in either sweep's file
+  set."* The `.ps1` was in all three sweeps' file sets -- its own `team-alpha 4.21.0` line was swept
+  by `17149edb`, `eaeb832b` and `e262121d`, eight lines below a path citation nothing has touched
+  since `7769d1e1`. What survived is the SHAPE of the token, not the file type.
+- The lens carries a SECOND swept citation #2139 did not report -- `dkj-team-alpha` 4.21.0 on the
+  line after the one it named, swept once rather than twice.
+- Verified one step past the issue: line 123 of `cut-release/SKILL.md` AT THE TAG `v4.22.0` reads
+  `../../../../teams/team-alpha/manuals/06-25-manual.md` verbatim, and `v4.22.0:plugins/teams/`
+  holds `team-alpha`. So the restored spelling is checked against the release, not inferred from
+  `git log`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Restore the lens path citation to `teams/team-alpha/...` and mark it as quoted-not-swept
+- [x] Restore the lens's second citation to `team-alpha` 4.21.0, `contributing-davekjohn` 4.22.0
+- [x] Restore and mark the same swept line in `scripts/lint/check-plugin-integrity.ps1`
+- [x] Mark the surviving path citation in that script, which carried no marking of its own
+- [x] Record the corrected mechanism in the lens, with the mechanical detection rule it implies
+- [~] Build a check for the class -- not done here. It touches check 28's guardrail, whose intent
+      belongs to whoever owns #874, and #2139 calls it an open design question. Filed as #2144.
 
 ### TEST
 
+- [x] Lint gate green (`check-plugin-integrity.ps1`): 0 errors, check 27 `[script-ascii]` included,
+      which the .ps1 edits had to stay inside
+- [x] All suites green via `open-pr.ps1`
+
 ### DEPLOY: docs/2139-frozen-citation-restore
 
-**Score:**
+Three verbatim citations that had been silently rewritten by the `dkj-`/`dkj-subagents-` renames are
+restored to what the releases actually shipped, and marked so the next sweep leaves them alone. The
+argument they belong to -- #1066's plugin-root boundary -- is evidence a reader is meant to check
+against a tag, and a quotation that has been rewritten twice no longer carries that.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the citations sit in this repo's own lens and lint script. Nothing a subscriber of this
+service installs or reads changes; the one instance that does sit in shipped plugin payload was
+deliberately left to #2144.
+
+**Score:** N/A
 
 #### Pull Request
 
