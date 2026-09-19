@@ -65,7 +65,7 @@ convention in a `-replace` on the following line -- so neither the anchored glob
 `^(\d{2})-(\d{2})-...$` regexes step A was hunting named it, seven lines above a converted walk whose
 comment describes this exact defect as fixed. It now goes through `Get-SpecialistFiles` +
 `Get-SpecialistFileId`, with the directory leaf through `Get-SubagentDirPath`. A tree-wide sweep found
-no second site; the entry's own claim of thirteen is filed as #2145.
+no second site; the entry's own claim of thirteen is corrected under #2145.
 
 The second stale thing the merge exposed was the flip itself: the `Subagent` row in
 `Get-SpecialistFileShapes` still named the old spelling as the written one, because this branch was
@@ -192,12 +192,19 @@ Plugins: dkj-policy
 
 The specialist filename readers now accept both conventions, so the #2128 rename can proceed one kind
 at a time without a flag day. Four filename shapes -- manual, persona, subagent def, lens -- were
-recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes across
-thirteen reader sites in nine scripts, four of them held byte-identical to plugin mirrors. All of it now
-goes through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing doctrine:
-both are read, one is written. Each later step of the series swaps one row and moves that kind's files;
-no reader is edited again. **Nothing is renamed by this change** and the tree is byte-unchanged apart
-from the readers.
+recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes. Thirteen
+such sites in nine scripts are converted here, four of them held byte-identical to plugin mirrors, and
+they now go through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing
+doctrine: both are read, one is written. Each later step of the series swaps one row and moves that
+kind's files. **Nothing is renamed by this change** and the tree is byte-unchanged apart from the
+readers.
+
+**Thirteen was not all of them, and this paragraph said it was** (#2145). It claimed that *all of it*
+now goes through the table and that *no reader is edited again*; step B (#2131) moved files and found a
+fourteenth, `Get-PluginIds` in `check-connectors.ps1`, which it converted -- that entry carries why the
+sweep could not have named it. Both claims are struck here rather than left to travel into a release
+note, because four steps of the series remain and a completeness claim reads as a licence to skip the
+sweep on each of them. **A later step still sweeps for readers before it moves anything.**
 
 Wiring them surfaced three defects that were already there. `build-agent-defs.ps1` had been walking
 **zero of the 26 agent defs** since the `agents/` -> `subagents/` rename, invisibly, because the lint
