@@ -162,22 +162,67 @@ if ($measurement.DiskBytes -ne $measurement.MeasuredBytes) {
                 "$(Format-MeasuredBytes $measurement.DiskBytes) B (CRLF).") -ForegroundColor DarkGray
 }
 
+# The importing file, said the way the rest of this report says a path: relative to the repo when it is
+# in the repo, absolute when it is not. Both blocks below print this field, and a report that renders
+# one field two ways teaches a reader they are two fields. The absolute form has to survive rather than
+# be trimmed blindly -- a document on this path can itself be imported from outside the tree.
+function Format-ImporterPath {
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path)
+    $p = ($Path -replace '\\', '/')
+    $r = ($repoRoot -replace '\\', '/').TrimEnd('/')
+    if ($p.StartsWith(($r + '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
+        return './' + $p.Substring($r.Length + 1)
+    }
+    return $p
+}
+
+# A DEAD IMPORT AND AN UNSEEN ONE GET OPPOSITE INSTRUCTIONS, so they are separated before either is
+# printed. Both arrive here as a document that did not resolve; only one of them is this repo's to fix.
+$deadKeys = @{}
+foreach ($dd in @($verdict.Dead)) { $deadKeys[$dd.Key] = $true }
+
 foreach ($c in @($verdict.Carried)) {
     Write-Host "    carried from the baseline, not measurable here: $(Format-MeasuredBytes $c.Bytes) B  $($c.Key)" -ForegroundColor DarkGray
 }
-if (@($verdict.Carried).Count -gt 0) {
+# The explanation, but only where it is true. A carried term that is DEAD is not "no marketplace clone
+# on this machine" -- the clone is exactly what proved it dead -- and telling a reader it is nothing to
+# do with their branch is the opposite of what the block below is about to tell them.
+if (@(@($verdict.Carried) | Where-Object { -not $deadKeys.ContainsKey($_.Key) }).Count -gt 0) {
     Write-Host '      (plugin payload -- no marketplace clone on this machine. It is not this branch to change,' -ForegroundColor DarkGray
     Write-Host '       and a local run re-measures and re-records it.)' -ForegroundColor DarkGray
+}
+
+# A DEAD IMPORT IS THE MOST CONSEQUENTIAL THING THIS RUN CAN FIND, AND IT IS NOT A BUDGET PROBLEM.
+# The cost of a document nobody loads is zero; what is lost is the document -- which on this path is
+# the roster, the safety rules or the orchestrator's own body, and the only symptom is a session
+# behaving as if it had never read them (issue #874's framing, measured for real in #2138).
+#
+# BOTH LINES CARRY THE [WARN] MARKER DELIBERATELY, and that is a wording constraint rather than a
+# style choice: always-on-sessioncheck.ps1 forwards the MARKED lines to every session start and drops
+# the indented continuations, so anything a reader has to act on must sit on a marked line or it never
+# leaves this gate. The existing unmeasured block below is the counter-example -- its remedy is on a
+# continuation line and a session start has never seen it.
+#
+# IT WARNS AND DOES NOT REFUSE. The exit code belongs to the budget, and a dead import is partly a fact
+# about the MACHINE: refusing here would block a contributor's push over a plugin they have not
+# installed. In the source repo an in-tree dead import is a hard error already, from check 28 of
+# check-plugin-integrity.ps1, which is the gate that owns that half.
+foreach ($dd in @($verdict.Dead)) {
+    Write-Host "  [WARN]  DEAD '@'-import, loaded by NO session here: '$($dd.Target)'" -ForegroundColor Red
+    Write-Host ("  [WARN]    imported by $(Format-ImporterPath $dd.ImportedBy) -- Claude Code drops an import it" +
+                ' cannot resolve WITHOUT erroring, so that whole document is silently missing from every session' +
+                ' in this repo. Repair the import line; re-running this elsewhere cannot help.') -ForegroundColor Red
 }
 
 # UNMEASURED IS NEVER ZERO, AND IT IS SAID LOUDLY. A document on the path that this run could not read
 # and the baseline has no figure for is cost the total below does not contain -- so the total is a floor
 # rather than the answer, and a reader who does not know that is reading a healthier path than exists.
-foreach ($u in @($verdict.Unmeasured)) {
+$unseen = @(@($verdict.Unmeasured) | Where-Object { -not $deadKeys.ContainsKey($_.Key) })
+foreach ($u in $unseen) {
     Write-Host "  [WARN]  not measured and not recorded: '$($u.Target)'" -ForegroundColor Yellow
-    Write-Host "            imported by $((($u.ImportedBy) -replace '\\', '/'))" -ForegroundColor Yellow
+    Write-Host "            imported by $(Format-ImporterPath $u.ImportedBy)" -ForegroundColor Yellow
 }
-if (@($verdict.Unmeasured).Count -gt 0) {
+if ($unseen.Count -gt 0) {
     Write-Host '          Its cost is NOT in the total above, so that total is a floor. Run this once on a' -ForegroundColor Yellow
     Write-Host '          machine where the import resolves, so the baseline records a figure CI can carry.' -ForegroundColor Yellow
 }

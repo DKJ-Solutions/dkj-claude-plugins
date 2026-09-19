@@ -205,6 +205,65 @@ function Get-UserHomeDirectory {
     return [System.Environment]::GetFolderPath('UserProfile')
 }
 
+function Get-PluginMarketplaceRoot {
+    <# Where a plugin marketplace clone lives on this machine: '<home>/.claude/plugins/marketplaces'.
+       Named once, here, because two different questions are asked of it -- Resolve-ImportPath turns a
+       '~/' target into a path under it without caring whether it exists, and Get-ImportAbsenceKind
+       asks whether it exists at all. It goes through Get-UserHomeDirectory, so a test overriding the
+       home overrides this too. #>
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $rel = '.claude/plugins/marketplaces' -replace '/', $sep
+    return [System.IO.Path]::GetFullPath((Join-Path (Get-UserHomeDirectory) $rel))
+}
+
+function Get-ImportAbsenceKind {
+    <#
+        An import target that does not exist is one of TWO DIFFERENT FACTS, and telling them apart is
+        the whole difference between "repair this line" and "re-run this somewhere else".
+
+          'dead'       -- the absence is PROVABLE here. The directory that would hold the file is on
+                          this machine, so nothing is missing except the file itself: Claude Code drops
+                          an import it cannot resolve WITHOUT erroring, so every session in this repo
+                          silently loads one document fewer and nothing says so.
+          'unprovable' -- this run can conclude nothing. A CI runner has no marketplace clone at all,
+                          so an import into one legitimately does not resolve there; erroring on it
+                          would fail every PR for a correct file. That is issue #874's own reasoning
+                          for excluding an external import, and it is kept rather than narrowed --
+                          what is added is that the reasoning is CONDITIONAL, and this function is
+                          where the condition is tested instead of assumed.
+
+        TWO PROOFS, AND DELIBERATELY ONLY TWO:
+          - the target is IN THE REPO, which is present by definition -- this run is reading it;
+          - the target is under the plugin marketplace root AND THAT ROOT EXISTS. A machine holding a
+            plugin administration that does not contain the named marketplace is not a machine that
+            cannot see; it is a machine where the import is broken.
+
+        Everything else is 'unprovable'. The absence of a proof is not a proof of absence, and keeping
+        those two apart is this function's only job.
+
+        Measured, issue #2138: a registered consumer had imported the ORCHESTRATOR's body from a
+        marketplace path retired eight days earlier. The budget gate saw the unresolved import and
+        reported it as "not measured and not recorded -- run this once on a machine where the import
+        resolves", which is the one instruction that cannot help: it was already on such a machine.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$RepoRoot
+    )
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $repo = [System.IO.Path]::GetFullPath($RepoRoot)
+    if ($full.StartsWith($repo, [System.StringComparison]::OrdinalIgnoreCase)) { return 'dead' }
+
+    $sep  = [System.IO.Path]::DirectorySeparatorChar
+    $root = Get-PluginMarketplaceRoot
+    # The separator is appended before the prefix test so a sibling directory whose name merely STARTS
+    # with 'marketplaces' is not read as being inside it.
+    if ($full.StartsWith(($root.TrimEnd($sep) + $sep), [System.StringComparison]::OrdinalIgnoreCase)) {
+        if (Test-Path -LiteralPath $root -PathType Container) { return 'dead' }
+    }
+    return 'unprovable'
+}
+
 function Split-FileIntoByteLines {
     <#
         Splits a file into lines WITH their byte lengths, working on the raw byte array.

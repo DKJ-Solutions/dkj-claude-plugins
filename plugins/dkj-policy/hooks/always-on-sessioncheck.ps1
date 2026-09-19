@@ -103,9 +103,17 @@ try {
         Write-Host "always-on-sessioncheck: $($headline[0].Trim())"
         if ($verdictLine.Count -gt 0) { Write-Host ("  " + $verdictLine[0].Trim()) }
         if ($warned.Count -gt 0) {
-            # An unmeasured document is cost the figure above does NOT contain, so the figure is a floor.
-            # Never folded into the happy-path line: a floor reported as a total is the one wrong answer
-            # this whole mechanism exists to stop.
+            # TWO KINDS OF WARNING REACH HERE, and both belong at a session start. An UNMEASURED
+            # document is cost the figure above does NOT contain, so the figure is a floor -- never
+            # folded into the happy-path line, because a floor reported as a total is the one wrong
+            # answer this whole mechanism exists to stop. A DEAD import (issue #2138) is not about the
+            # figure at all: the document is not being loaded by the session reading this line, which
+            # is the most consequential thing the check can find and the reason these lines are
+            # forwarded verbatim.
+            #
+            # ONLY THE MARKED LINES TRAVEL. The check's indented continuations are dropped here, so
+            # anything a reader must act on has to sit on a [WARN] line -- a constraint the check
+            # script's own comment states from the other side, since neither file can see the other.
             foreach ($w in $warned) { Write-Host ("  " + $w.Trim()) }
         }
         exit 0

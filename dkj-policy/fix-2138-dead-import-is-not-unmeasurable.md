@@ -39,23 +39,120 @@
 
 ### PLAN
 
-The always-on budget gate already SEES an unresolved '@'-import, but it classifies every one of them as 'not measured and not recorded' and tells the reader to re-run on a machine where the import resolves. Where the absence is PROVABLE on this machine -- an in-tree target, or an external one whose plugin-marketplace root exists -- that is the wrong diagnosis: the import is dead, the session is silently not loading the document, and the remedy is to repair the line. This branch adds that discriminator, so the session-start hook that already forwards these lines reports a dead orchestrator import as dead.
+Issue #2138: a registered consumer had been importing the ORCHESTRATOR's body from a marketplace path
+retired eight days earlier, and nothing reported it. The detector already existed -- the always-on
+budget gate resolves every `@`-import and names the ones that did not resolve.
+
+#### One half of the report's reasoning did not survive verification, and the repair changed with it
+
+The issue names two reasons nothing caught it. The first stands: lint check 28 in
+`check-plugin-integrity.ps1` deliberately excludes an import outside the repo, and that exclusion is
+right for CI -- #874 argued it by name, because a runner has no marketplace clone and erroring there
+would fail every PR for a correct file.
+
+The second does not. It says the budget gate "is a gate somebody runs, not a session-start check".
+`plugins/dkj-policy/hooks/always-on-sessioncheck.ps1` has been exactly that since #2037, and it
+already forwards every `[WARN]` line it prints. Read against the tree, the defect is not that the
+finding never reaches a session -- it is what the finding SAYS when it gets there:
+
+```
+[WARN]  not measured and not recorded: '<the retired path>'
+        Run this once on a machine where the import resolves, so the baseline records a figure CI can carry.
+```
+
+That instruction cannot help, because the reader is already on such a machine. So this branch builds
+neither of the three repairs the issue floated. It adds the discriminator the wording was missing.
+
+#### The discriminator, and why it does not touch check 28
+
+An import that does not resolve is two different facts, and only one of them is the repo's to fix:
+
+- **dead** -- the absence is PROVABLE here: the target is in the repo, which this run is reading, or it
+  is under the plugin marketplace root and that root exists on this machine. A machine holding a plugin
+  administration that does not contain the named marketplace is not a machine that cannot see.
+- **unprovable** -- nothing can be concluded. A CI runner has no marketplace root at all, which is
+  #874's premise, kept rather than narrowed.
+
+The exclusion check 28 carries stays exactly as it is. What is added is that its reasoning was always
+CONDITIONAL, and there is now one function that tests the condition instead of assuming it.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PluginMarketplaceRoot` and `Get-ImportAbsenceKind` in `scripts/lib/measure-context-lib.ps1`
+- [x] `Get-AlwaysOnMeasurement` gains a `Dead` row set, asked AHEAD of the carried branch -- a figure in
+      the baseline says what a document used to cost, never that anything still loads it
+- [x] `Get-AlwaysOnBudgetVerdict` passes `Dead` through to the reporting layer
+- [x] `check-always-on-budget.ps1` prints the dead block, splits the unmeasured block so one line never
+      gets both remedies, and stops telling a reader a DEAD carried term is "no marketplace clone on
+      this machine"
+- [x] both `[WARN]` lines of the dead block carry the marker, because `always-on-sessioncheck.ps1`
+      forwards only the marked lines -- the existing unmeasured block puts its remedy on a continuation
+      line, which is why no session start has ever seen it
+- [x] the importing file is printed repo-relative in both blocks, so one field is not rendered two ways
+      in one report
+- [x] `always-on-sessioncheck.ps1`'s comment states which two kinds of warning now reach it, from the
+      side the check script cannot see
+- [x] mirrors rebuilt with `scripts/sync/build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] `scripts/tests/always-on-budget.tests.ps1`: 23 new asserts, 77 passed / 0 failed. The two proofs
+      and the two non-proofs, including a sibling directory whose name merely starts with the root; the
+      carried-AND-dead regression, which is the one this lib's own memory could hide; that the verdict
+      carries `Dead`; that the check WARNS and does not refuse; that the remedy sits on a `[WARN]` line;
+      and the CI shape, where the same target is unprovable and both externals fall back to unmeasured
+- [x] driven against the real broken consumer, read-only: the dead import is named, with the remedy,
+      and the run still exits 0
+- [x] driven through the hook itself with `-CheckScriptOverride`/`-ConsumerPathOverride`: both marked
+      lines arrive at a session start
+- [x] this repo's own path is unchanged -- 4 documents measured, `[OK]`, no dead import
+
+#### Not repaired here, and why
+
+The consumer itself is a change in that repo. And the reason nothing in THIS repo noticed is a
+separate defect with its own mechanism: `connectors/xoxowildhearts.json` carries no `localCheckout`
+candidate that resolves on this machine's layout, so `check-connectors.ps1` reports a false `[SKIP]`
+for the one consumer that was broken. Filed as #2141 -- the fourth recurrence of a class that already
+has #1524, #1807 and #1831.
+
 ### DEPLOY: fix/2138-dead-import-is-not-unmeasurable
 
-**Score:**
+An unresolved `@`-import is now told apart from an unresolvable one. Where the run can PROVE the file
+is absent -- the target is in the repo, or under a plugin marketplace root that exists on this machine
+-- `check-always-on-budget.ps1` names it as a DEAD import and says the whole document is silently
+missing from every session in this repo, instead of reporting it as "not measured and not recorded"
+and telling the reader to re-run somewhere the import resolves. Where nothing can be proven, which is
+every CI runner, the old wording and the old silence are unchanged.
+
+It warns and does not refuse: the exit code still belongs to the budget, and a dead import is partly a
+fact about the machine, so refusing would block a push over a plugin somebody has not installed. The
+in-tree half is already a hard error in check 28 of `check-plugin-integrity.ps1`, which is the gate
+that owns it.
+
+Two smaller things came with it. A dead import is now reported even when the baseline happens to hold a
+figure for it -- the question is asked ahead of the carried branch, so this lib's own memory cannot
+hide the one failure it exists to surface, and the recorded bytes are still carried so the next branch
+does not read as growth. And both lines of the block carry the `[WARN]` marker, because the
+session-start hook forwards only the marked lines; the existing unmeasured block keeps its remedy on a
+continuation line, which is why no session start has ever seen it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+All four files ship in the `dkj-policy` payload -- the two libs, the check script and the
+`always-on-sessioncheck` hook -- so every repo running this workflow gets this at the next release,
+with nothing to do and no migration. For most of them it changes nothing: their imports resolve, and a
+consumer with no marketplace root reads exactly as before.
+
+For the ones it does reach, it is the difference between a session that quietly has no orchestrator
+and a session that says so in its first four lines. The measured instance is a registered consumer
+that ran that way for over a week with a gate on the machine that had already seen it, because the
+gate's own sentence pointed the reader away from the repair. Nothing about the budget changes, and no
+gate starts refusing anything.
+
+**Score:** 3
 
 #### Pull Request
 
 a dead '@'-import is told apart from an unmeasurable one, and named as dead
-
