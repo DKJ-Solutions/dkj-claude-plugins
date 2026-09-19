@@ -798,7 +798,12 @@ Get-ChildItem -Path $RepoRoot -Recurse -Filter 'plugin.json' -File |
 # one of them therefore closes with a [COVERAGE] line (issue #221): the verdict never travels without
 # the count behind it. Applied to all of them on purpose -- a partial rollout recreates exactly the
 # asymmetry that let check-consumer-drift's persona section state a clean verdict over 0 comparisons.
-$agentDefs = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-agent.md' -File |
+# BOTH SPELLINGS, ONE SOURCE (issue #2130). Get-SpecialistFiles walks the dual-name layer in
+# check-report-lib.ps1, so this set is the same set before and after the #2128 rename and this line is
+# not edited again by it. The DIRECTORY filter stays a literal here: the rename moves file names, not
+# the subagents/ leaf, and the one reader that has to tolerate both leaves (a consumer's plugin cache,
+# which may hold a pre-#1698 'agents/') goes through Get-SubagentDirName instead.
+$agentDefs = @(Get-SpecialistFiles -Path $RepoRoot -Kind Subagent -Recurse |
     Where-Object { $_.FullName -match '\\subagents\\' })
 # THE GATHER ABOVE IS OUTSIDE THE SKIP, DELIBERATELY. $agentDefs is read by three later checks
 # (specialist, shared, frontmatter-bom), so skipping the collection would quietly narrow THEIR scan
@@ -821,7 +826,7 @@ if (Test-CheckEnabled 'agent-def') {
 }
 
 # --- 3b. manual frontmatter: id/group + file name <group>-<id>-manual.md -----------------------------
-$manuals = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-manual.md' -File |
+$manuals = @(Get-SpecialistFiles -Path $RepoRoot -Kind Manual -Recurse |
     Where-Object { $_.FullName -match '\\manuals\\' })
 $manuals | ForEach-Object {
         $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
@@ -831,8 +836,8 @@ $manuals | ForEach-Object {
                 Add-Error "[manual] $rel is missing '$key`:' in the frontmatter."
             }
         }
-        if ($_.BaseName -match '^(\d{2})-(\d{2})-manual$') {
-            $fnG = $Matches[1]; $fnI = $Matches[2]
+        if ($_.BaseName -match (Get-SpecialistFileNamePattern -Kind Manual)) {
+            $fnG = $Matches['g']; $fnI = $Matches['i']
             $mI = [regex]::Match($text, '(?m)^id:\s*(\S+)\s*$')
             $mG = [regex]::Match($text, '(?m)^group:\s*(\S+)\s*$')
             if ($mI.Success -and $mI.Groups[1].Value.Trim() -ne $fnI) {
@@ -842,7 +847,7 @@ $manuals | ForEach-Object {
                 Add-Error "[manual] $rel`: file-name group '$fnG' != frontmatter 'group: $($mG.Groups[1].Value.Trim())'."
             }
         } else {
-            Add-Error "[manual] $rel`: file name does not follow the <group>-<id>-manual pattern."
+            Add-Error "[manual] $rel`: file name follows neither accepted <group>-<id> manual pattern ($((Get-SpecialistFileNameCandidates -Kind Manual -Id '<g>-<id>') -join ' or '))."
         }
     }
 Write-Coverage -Category 'manual' -Checked $manuals.Count `
@@ -854,7 +859,7 @@ Write-Coverage -Category 'manual' -Checked $manuals.Count `
 # skill copies to a consumer's repo layer (.claude/extensions/<g>-<id>-extension.md). Check 6
 # (agent-def<->manual link) therefore ignores them; here we validate their frontmatter + file name
 # on their own (mirrors 3b).
-$personas = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-persona.md' -File |
+$personas = @(Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
     Where-Object { $_.FullName -match '\\personas\\' })
 $personas | ForEach-Object {
         $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
@@ -864,8 +869,8 @@ $personas | ForEach-Object {
                 Add-Error "[persona] $rel is missing '$key`:' in the frontmatter."
             }
         }
-        if ($_.BaseName -match '^(\d{2})-(\d{2})-persona$') {
-            $fnG = $Matches[1]; $fnI = $Matches[2]
+        if ($_.BaseName -match (Get-SpecialistFileNamePattern -Kind Persona)) {
+            $fnG = $Matches['g']; $fnI = $Matches['i']
             $mI = [regex]::Match($text, '(?m)^id:\s*(\S+)\s*$')
             $mG = [regex]::Match($text, '(?m)^group:\s*(\S+)\s*$')
             if ($mI.Success -and $mI.Groups[1].Value.Trim() -ne $fnI) {
@@ -875,7 +880,7 @@ $personas | ForEach-Object {
                 Add-Error "[persona] $rel`: file-name group '$fnG' != frontmatter 'group: $($mG.Groups[1].Value.Trim())'."
             }
         } else {
-            Add-Error "[persona] $rel`: file name does not follow the <group>-<id>-persona pattern."
+            Add-Error "[persona] $rel`: file name follows neither accepted <group>-<id> persona pattern ($((Get-SpecialistFileNameCandidates -Kind Persona -Id '<g>-<id>') -join ' or '))."
         }
     }
 Write-Coverage -Category 'persona' -Checked $personas.Count `
@@ -1071,9 +1076,9 @@ foreach ($extDir in @(
 $linkFiles += $lensLinkFiles
 $linkFiles += (Get-ChildItem -Path $RepoRoot -Recurse -Filter 'SKILL.md' -File |
     Where-Object { $_.FullName -match '\\skills\\' } | Select-Object -ExpandProperty FullName)
-$linkFiles += (Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-manual.md' -File |
+$linkFiles += (Get-SpecialistFiles -Path $RepoRoot -Kind Manual -Recurse |
     Where-Object { $_.FullName -match '\\manuals\\' } | Select-Object -ExpandProperty FullName)
-$linkFiles += (Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-persona.md' -File |
+$linkFiles += (Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
     Where-Object { $_.FullName -match '\\personas\\' } | Select-Object -ExpandProperty FullName)
 # THE AGENT DEFS, THE SHARED BLOCKS, AND THE TWO CONFIG-ADJACENT DOC LAYERS (#481). Every category above
 # names a shape of file, and four kinds of markdown matched none of them: */subagents/*.md (26 files),
@@ -1539,11 +1544,11 @@ if (Test-CheckEnabled 'parse') {
 $idOwner = @{}
 $agentDefs | ForEach-Object {
         $rel = $_.FullName.Replace($RepoRoot, '.')
-        if ($_.BaseName -notmatch '^(\d{2})-(\d{2})-agent$') {
-            Add-Error "[specialist] $rel does not follow the <group>-<id>-agent.md pattern."
+        if ($_.BaseName -notmatch (Get-SpecialistFileNamePattern -Kind Subagent)) {
+            Add-Error "[specialist] $rel follows neither accepted subagent-def pattern ($((Get-SpecialistFileNameCandidates -Kind Subagent -Id '<g>-<id>') -join ' or '))."
             return
         }
-        $g = $Matches[1]; $id = $Matches[2]; $key = "$g-$id"
+        $g = $Matches['g']; $id = $Matches['i']; $key = "$g-$id"
         if ($idOwner.ContainsKey($key)) {
             Add-Error "[specialist] ${rel}: duplicate id '$key' (already claimed by $($idOwner[$key]))."
         } else {
@@ -1557,33 +1562,57 @@ $agentDefs | ForEach-Object {
         }
 
         $pluginRoot = Split-Path (Split-Path $_.FullName -Parent) -Parent
-        $manualBase = "$g-$id-manual"
-        $manualPath = Join-Path $pluginRoot ("manuals\$manualBase.md")
-        if (-not (Test-Path -LiteralPath $manualPath -PathType Leaf)) {
-            Add-Error "[specialist] ${rel}: corresponding manual 'manuals/$manualBase.md' is missing in the same plugin."
-        } elseif ($text -notmatch [regex]::Escape("manuals/$manualBase.md")) {
-            Add-Error "[specialist] ${rel}: agent def does not name its manual 'manuals/$manualBase.md'."
+        # THE PAIR MAY BE MID-RENAME, so both halves read both spellings (#2130). A def and its manual
+        # move in different steps of #2128, and for the window between them the def names one spelling
+        # while the file on disk carries the other -- so the EXISTENCE test walks the candidates and the
+        # NAMING test accepts either. Requiring the two to agree would turn every intermediate commit of
+        # the series into a gate failure, which is the state this layer exists to make impossible.
+        $manualNames = @(Get-SpecialistFileNameCandidates -Kind Manual -Id "$g-$id")
+        $manualShown = @($manualNames | ForEach-Object { "manuals/$_" }) -join ' or '
+        $manualPath = ''
+        foreach ($manualName in $manualNames) {
+            $manualCandidate = Join-Path $pluginRoot ("manuals\$manualName")
+            if (Test-Path -LiteralPath $manualCandidate -PathType Leaf) { $manualPath = $manualCandidate; break }
+        }
+        if (-not $manualPath) {
+            Add-Error "[specialist] ${rel}: corresponding manual ($manualShown) is missing in the same plugin."
+        } elseif ($text -notmatch (Get-SpecialistFileRefPattern -Kind Manual -Id "$g-$id" -Dir 'manuals')) {
+            Add-Error "[specialist] ${rel}: agent def does not name its manual ($manualShown)."
         }
     }
 
 $manuals | ForEach-Object {
-        if ($_.BaseName -match '^(\d{2})-(\d{2})-manual$') {
-            $g = $Matches[1]; $id = $Matches[2]
+        if ($_.BaseName -match (Get-SpecialistFileNamePattern -Kind Manual)) {
+            $g = $Matches['g']; $id = $Matches['i']
             $pluginRoot = Split-Path (Split-Path $_.FullName -Parent) -Parent
-            $agentPath   = Join-Path $pluginRoot ("subagents\$g-$id-agent.md")
-            $personaPath = Join-Path $pluginRoot ("personas\$g-$id-persona.md")
-            $hasAgent   = Test-Path -LiteralPath $agentPath   -PathType Leaf
-            $hasPersona = Test-Path -LiteralPath $personaPath -PathType Leaf
+            # Both spellings on both sides (#2130), on 6a's reasoning one block up: the def, the persona
+            # and the manual are renamed by three different steps of #2128, so a backing file is looked
+            # for under every name it could be carrying at that moment.
+            $agentPath = ''
+            foreach ($n in (Get-SpecialistFileNameCandidates -Kind Subagent -Id "$g-$id")) {
+                $c = Join-Path $pluginRoot ("subagents\$n")
+                if (Test-Path -LiteralPath $c -PathType Leaf) { $agentPath = $c; break }
+            }
+            $personaPath = ''
+            foreach ($n in (Get-SpecialistFileNameCandidates -Kind Persona -Id "$g-$id")) {
+                $c = Join-Path $pluginRoot ("personas\$n")
+                if (Test-Path -LiteralPath $c -PathType Leaf) { $personaPath = $c; break }
+            }
+            $hasAgent   = [bool]$agentPath
+            $hasPersona = [bool]$personaPath
             if (-not $hasAgent -and -not $hasPersona) {
                 $rel = $_.FullName.Replace($RepoRoot, '.')
-                Add-Error "[specialist] ${rel}: orphan manual -- no corresponding subagents/$g-$id-agent.md or personas/$g-$id-persona.md in the same plugin."
+                $agentShown   = @(Get-SpecialistFileNameCandidates -Kind Subagent -Id "$g-$id" | ForEach-Object { "subagents/$_" }) -join ' or '
+                $personaShown = @(Get-SpecialistFileNameCandidates -Kind Persona  -Id "$g-$id" | ForEach-Object { "personas/$_" })  -join ' or '
+                Add-Error "[specialist] ${rel}: orphan manual -- no corresponding $agentShown or $personaShown in the same plugin."
             } elseif (-not $hasAgent) {
                 # Persona-backed. The naming half of 6a applies here for the same reason it does there:
                 # the manual is only ever read because the body that IS loaded points at it.
                 $pText = [System.IO.File]::ReadAllText($personaPath, [System.Text.Encoding]::UTF8)
-                if ($pText -notmatch [regex]::Escape("manuals/$g-$id-manual.md")) {
+                if ($pText -notmatch (Get-SpecialistFileRefPattern -Kind Manual -Id "$g-$id" -Dir 'manuals')) {
                     $pRel = $personaPath.Replace($RepoRoot, '.')
-                    Add-Error "[specialist] ${pRel}: persona backs 'manuals/$g-$id-manual.md' but does not name it, so nothing would ever read it."
+                    $manualShown = @(Get-SpecialistFileNameCandidates -Kind Manual -Id "$g-$id" | ForEach-Object { "manuals/$_" }) -join ' or '
+                    Add-Error "[specialist] ${pRel}: persona backs $manualShown but does not name it, so nothing would ever read it."
                 }
             }
         }
@@ -3836,7 +3865,10 @@ foreach ($plugin in $publishedPlugins) {
     if (-not (Test-Path -LiteralPath $plugin.Root)) { continue }
     $pluginRootPrefix = $plugin.Root.TrimEnd('\') + '\'
     foreach ($pf in (Get-ChildItem -Path $plugin.Root -Recurse -Filter '*.md' -File)) {
-        if ($pf.FullName -match '\\personas\\.*-persona\.md$') { continue }
+        # The persona exclusion reads the NAME, so it goes through the dual-name layer (#2130): spelled
+        # as a literal it would stop excluding personas the moment step F renames them, and this check
+        # would then report every persona's deliberately-outward link as an escape.
+        if (($pf.FullName -match '\\personas\\') -and (Get-SpecialistFileId -Kind Persona -Name $pf.Name)) { continue }
         $pluginLinkFiles++
         $pluginText = [System.IO.File]::ReadAllText($pf.FullName, [System.Text.Encoding]::UTF8)
         # Masked, not stripped: check 4 removes code and comments outright because it never reports a
@@ -4807,7 +4839,10 @@ foreach ($akPlugin in $akRoots) {
     # THE PLUGIN'S OWN DEFS: every *-agent.md under its root that does not belong to a plugin nested
     # deeper. Discovered from disk rather than from a list, which is the whole point of the check.
     $akOwnDefs = @()
-    foreach ($akFile in @(Get-ChildItem -LiteralPath $akPlugin.Root -Recurse -Filter '*-agent.md' -File -ErrorAction SilentlyContinue)) {
+    # Both spellings (#2130): a def this plugin ships has to be held to the manifest's 'agents' list
+    # whichever name it currently carries, or step B of #2128 silently empties this check's own set --
+    # and an emptied set here reads as 'every def is declared', the one answer that is never a finding.
+    foreach ($akFile in @(Get-SpecialistFiles -Path $akPlugin.Root -Kind Subagent -Recurse)) {
         $akOwner = $true
         foreach ($akOther in $akRoots) {
             $akOtherPrefix = $akOther.Root.TrimEnd('\') + '\'

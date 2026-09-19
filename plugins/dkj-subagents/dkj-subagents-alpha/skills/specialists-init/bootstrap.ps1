@@ -74,6 +74,37 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
+# THE DUAL-NAME LAYER (issue #2130), from this plugin's own mirror of check-report-lib.ps1 -- the same
+# '..\..\scripts\lib\' hop sync-roster.ps1 makes, and only ever into THIS plugin, because the mirror
+# resolves its siblings inside the plugin it landed in.
+#
+# GUARDED, unlike the lint gate's load of the same file, and the difference is the caller rather than the
+# lib: this script runs in a CONSUMER, from whatever payload that machine last installed, and a payload
+# predating the lib would otherwise fail on load -- before it has printed a word, in the one script whose
+# whole job is to make a repo usable. Without it the two composers below fall back to the spelling this
+# version writes, which is exactly what this script did before the layer existed.
+$script:specialistLib = $false
+$specialistLibPath = Join-Path $PSScriptRoot '..\..\scripts\lib\check-report-lib.ps1'
+if (Test-Path -LiteralPath $specialistLibPath -PathType Leaf) {
+    . $specialistLibPath
+    $script:specialistLib = [bool](Get-Command Get-SpecialistFileNameCandidates -ErrorAction SilentlyContinue)
+}
+
+function Get-LensNameCandidates {
+    <# Every name a lens for $Id could be sitting under, written spelling first. The degraded arm is the
+       one spelling this version writes, which is what makes the guarded load above safe. #>
+    param([Parameter(Mandatory = $true)][string]$Id)
+    if ($script:specialistLib) { return @(Get-SpecialistFileNameCandidates -Kind Lens -Id $Id) }
+    return @("$Id-extension.md")
+}
+
+function Get-LensWriteName {
+    <# The single name this script WRITES for $Id. #>
+    param([Parameter(Mandatory = $true)][string]$Id)
+    if ($script:specialistLib) { return (Get-SpecialistFileName -Kind Lens -Id $Id) }
+    return "$Id-extension.md"
+}
+
 # The persona source is two levels above this script: <plugin>/skills/specialists-init/ -> <plugin>/personas/
 $personaDir = Join-Path $PSScriptRoot '../../personas'
 if (-not (Test-Path -LiteralPath $personaDir -PathType Container)) {
@@ -142,11 +173,16 @@ function Get-DurablePersonaDir([string]$PersonaDir, [string]$Plugin) {
     $clone = Join-Path (($parts[0..($cacheIdx - 1)] -join '\')) (Join-Path 'marketplaces' $marketplace)
     if (-not (Test-Path -LiteralPath $clone -PathType Container)) { return $PersonaDir }
     # Search clone for personas directory under a directory named exactly as the plugin and carrying
-    # the orchestrator body (01-01-persona.md is the import target -- it must actually exist).
+    # the orchestrator body is the import target -- it must actually exist. Under either spelling
+    # (#2130): the clone this searches is the MARKETPLACE clone, which tracks the source's tip and can
+    # therefore be a rename ahead of the installed payload running this line.
+    $orchestratorNames = if ($script:specialistLib) { @(Get-SpecialistFileNameCandidates -Kind Persona -Id '01-01') }
+                         else { @('01-01-persona.md') }
     $hit = Get-ChildItem -LiteralPath $clone -Recurse -Directory -Filter 'personas' -ErrorAction SilentlyContinue |
         Where-Object {
+            $dir = $_.FullName
             (Split-Path $_.Parent.FullName -Leaf) -eq $Plugin -and
-            (Test-Path -LiteralPath (Join-Path $_.FullName '01-01-persona.md'))
+            @($orchestratorNames | Where-Object { Test-Path -LiteralPath (Join-Path $dir $_) }).Count -gt 0
         } | Select-Object -First 1
     if ($hit) { return $hit.FullName }
     return $PersonaDir
@@ -194,8 +230,29 @@ function Get-LensDest {
         [Parameter(Mandatory = $true)][string]$Plugin,
         [Parameter(Mandatory = $true)][string]$Id
     )
-    if ($script:seamMode) { return (Join-Path $script:seam.LensDir "$Id-extension.md") }
-    return (Join-Path (Join-Path $script:padDirRoot $Plugin) "$Id-extension.md")
+    if ($script:seamMode) { return (Join-Path $script:seam.LensDir (Get-LensWriteName -Id $Id)) }
+    return (Join-Path (Join-Path $script:padDirRoot $Plugin) (Get-LensWriteName -Id $Id))
+}
+
+function Get-ExistingLensPath {
+    <# The lens for $Id AS IT ALREADY EXISTS in the destination directory, under EITHER spelling, or ''.
+
+       THE WRITER'S HALF OF THE DUAL-NAME LAYER (#2130), and the half that actually protects something.
+       Get-LensDest answers "where would I put it" and must name ONE path, so it names the written
+       spelling. Asking Test-Path about that path alone is what turns a rename into a DUPLICATE: a
+       consumer whose lenses already carry the other spelling reads as lens-less, and this script's
+       never-overwrite promise then writes a second, empty copy of a lens the owner has filled in --
+       additive, and destructive of the thing that mattered. #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Plugin,
+        [Parameter(Mandatory = $true)][string]$Id
+    )
+    $dir = Split-Path (Get-LensDest -Plugin $Plugin -Id $Id) -Parent
+    foreach ($n in (Get-LensNameCandidates -Id $Id)) {
+        $c = Join-Path $dir $n
+        if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
+    }
+    return ''
 }
 
 # What the console lines and the closing "next steps" call the lens location.
@@ -225,13 +282,21 @@ $personaDest = Split-Path (Get-LensDest -Plugin $personaPlugin -Id '01-01') -Par
 if (-not (Test-Path -LiteralPath $personaDest)) { New-Item -ItemType Directory -Path $personaDest -Force | Out-Null }
 
 $copied = 0; $kept = 0
-Get-ChildItem -Path $personaDir -Filter '*-persona.md' -File | Sort-Object Name | ForEach-Object {
-    if ($_.BaseName -notmatch '^(\d{2})-(\d{2})-persona$') { return }
-    $g = $Matches[1]; $id = $Matches[2]
-    $dest = Get-LensDest -Plugin $personaPlugin -Id "$g-$id"
-    Add-RegisterId -Inventory $registerInventory -Plugin $personaPlugin -Id "$g-$id"
-    if (Test-Path -LiteralPath $dest -PathType Leaf) {
-        Write-Host "  [keep]  $(Split-Path $dest -Leaf) already exists -- not overwritten." -ForegroundColor DarkGray
+$personaFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $personaDir -Kind Persona) }
+                else { @(Get-ChildItem -Path $personaDir -Filter '*-persona.md' -File) }
+$personaFiles | Sort-Object Name | ForEach-Object {
+    # The SOURCE side reads both spellings through the layer where it is available; the fallback is the
+    # anchor this loop always had, so a payload without the lib behaves exactly as before (#2130).
+    $personaId = if ($script:specialistLib) { Get-SpecialistFileId -Kind Persona -Name $_.Name }
+                 elseif ($_.BaseName -match '^(\d{2})-(\d{2})-persona$') { "$($Matches[1])-$($Matches[2])" }
+                 else { '' }
+    if (-not $personaId) { return }
+    $g, $id = $personaId.Split('-')
+    $dest = Get-LensDest -Plugin $personaPlugin -Id $personaId
+    Add-RegisterId -Inventory $registerInventory -Plugin $personaPlugin -Id $personaId
+    $existing = Get-ExistingLensPath -Plugin $personaPlugin -Id $personaId
+    if ($existing) {
+        Write-Host "  [keep]  $(Split-Path $existing -Leaf) already exists -- not overwritten." -ForegroundColor DarkGray
         $script:kept++
         return
     }
@@ -435,12 +500,19 @@ foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
     }
     $pluginPad = Split-Path (Get-LensDest -Plugin $pluginName -Id '00-00') -Parent
     if (-not (Test-Path -LiteralPath $pluginPad)) { New-Item -ItemType Directory -Path $pluginPad -Force | Out-Null }
-    Get-ChildItem -Path $agentsDir -Filter '*-agent.md' -File | Sort-Object Name | ForEach-Object {
-        if ($_.BaseName -notmatch '^(\d{2})-(\d{2})-agent$') { return }
-        $group = $Matches[1]; $id = $Matches[2]
-        $dest = Get-LensDest -Plugin $pluginName -Id "$group-$id"
-        Add-RegisterId -Inventory $registerInventory -Plugin $pluginName -Id "$group-$id"
-        if (Test-Path -LiteralPath $dest -PathType Leaf) { $script:lensKept++; return }
+    # The whole directory, both spellings (#2130) -- and the fallback is this loop's own anchor, so a
+    # payload without the lib enumerates and recognises exactly what it did before.
+    $agentFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $agentsDir -Kind Subagent) }
+                  else { @(Get-ChildItem -Path $agentsDir -Filter '*-agent.md' -File) }
+    $agentFiles | Sort-Object Name | ForEach-Object {
+        $defId = if ($script:specialistLib) { Get-SpecialistFileId -Kind Subagent -Name $_.Name }
+                 elseif ($_.BaseName -match '^(\d{2})-(\d{2})-agent$') { "$($Matches[1])-$($Matches[2])" }
+                 else { '' }
+        if (-not $defId) { return }
+        $group, $id = $defId.Split('-')
+        $dest = Get-LensDest -Plugin $pluginName -Id $defId
+        Add-RegisterId -Inventory $registerInventory -Plugin $pluginName -Id $defId
+        if (Get-ExistingLensPath -Plugin $pluginName -Id $defId) { $script:lensKept++; return }
         $midDot = [char]0x00B7
         # Rename-proof (issue #145): the header carries the STABLE '<group>-<id>' slug, never the
         # persona's first name -- so a later rename of the agent-def never drifts this generated
@@ -475,7 +547,7 @@ group: $group
      Portable expertise remains in plugin manual; only repo-specific matters belong here. -->
 "@
         [System.IO.File]::WriteAllText($dest, $template, $Utf8NoBom)
-        Write-Host "  [create] lens scaffold $lensRelDisplay/$group-$id-extension.md" -ForegroundColor Green
+        Write-Host "  [create] lens scaffold $lensRelDisplay/$(Get-LensWriteName -Id $defId)" -ForegroundColor Green
         $script:scaffolded++
     }
 }
@@ -808,7 +880,20 @@ foreach ($s in $scriptScaffolds) {
 # import other files, with a maximum depth of four hops" -- the seam spends two (CLAUDE.md ->
 # SPECIALISTS.md -> body/lens), and a relative import resolves against the file that CONTAINS it, which
 # is why SPECIALISTS.md can say '@lenses/...'.
-$bodyImport = "@$personaTilde/01-01-persona.md"
+# THE BODY IMPORT IS RESOLVED FROM DISK, NOT COMPOSED (#2130). An import that names a file which is not
+# there is not a dead link -- Claude Code drops the line silently and the session loses the WHOLE
+# document, which is the orchestrator in this case. The lib's Current spelling and the personas this
+# payload actually ships are renamed by different steps of #2128, so composing the name would be right
+# only while the two happen to agree. Reading the directory is right in every window; the composed name
+# is the fallback for the one case the directory cannot answer.
+$orchestratorNames = if ($script:specialistLib) { @(Get-SpecialistFileNameCandidates -Kind Persona -Id '01-01') }
+                     else { @('01-01-persona.md') }
+$orchestratorFile = ''
+foreach ($n in $orchestratorNames) {
+    if (Test-Path -LiteralPath (Join-Path $personaDir $n) -PathType Leaf) { $orchestratorFile = $n; break }
+}
+if (-not $orchestratorFile) { $orchestratorFile = $orchestratorNames[0] }
+$bodyImport = "@$personaTilde/$orchestratorFile"
 $claudeMd = Join-Path $ConsumerRoot 'CLAUDE.md'
 
 # The explanatory line is kept as its own variable so BOTH the idempotence guard below and
@@ -853,7 +938,7 @@ $importNoteSeam
 
 $bodyImport
 
-@lenses/01-01-extension.md
+@lenses/$(Get-LensWriteName -Id '01-01')
 
 ## The roster (VUL-IN)
 
@@ -869,7 +954,7 @@ $bodyImport
     $importBody = $seam.ImportLine
     $importTail = "from ``$($seam.RelDir)/``; that file carries the body import, the lens import and this repo's roster."
 } else {
-    $lensImport = "@$padRel/$personaPlugin/01-01-extension.md"
+    $lensImport = "@$padRel/$personaPlugin/$(Get-LensWriteName -Id '01-01')"
     $guardImport = $lensImport
     $importBody = "$bodyImport`n`n$lensImport"
     $importTail = "from plugin path; routes on-demand to specialists in ``$padRel/``."
@@ -1365,7 +1450,9 @@ if ($notInstalledIds.Count -gt 0) {
     }
 }
 Write-Host "Next steps (manual -- script intentionally leaves settings.json/hooks untouched):" -ForegroundColor Cyan
-Write-Host "  1. Fill '## Specific to this repo' slot in each $lensRelDisplay/*-extension.md with repo lens (VUL-IN scaffolds can stay empty until specialist has work here)." -ForegroundColor Gray
+# The directory, not a glob (#2130): this line is advice a reader follows by eye, and a glob that names
+# one spelling would tell a renamed consumer to look for files it does not have.
+Write-Host "  1. Fill '## Specific to this repo' slot in each lens under $lensRelDisplay/ with repo lens (VUL-IN scaffolds can stay empty until specialist has work here)." -ForegroundColor Gray
 # THE MARKER IS LOAD-BEARING, SO SAY SO WHERE THE FILLING IS INSTRUCTED (inbound #451). Replacing the slot
 # heading is what tells specialists-teardown the lens is authored; leaving a '(VUL-IN)' heading anywhere in
 # a lens you HAVE filled makes that script read it as a disposable scaffold. This bootstrap no longer marks
