@@ -235,8 +235,10 @@ try {
     Assert-Equal '' (@($merged3.Output)[1]) 'an EMPTY stderr line stays empty -- TargetObject is read, not ToString()'
 
     # THE RENDER IS WHAT #2154 REPORTED AND WHAT 60-ODD CALL SITES DO, so it is asserted as text rather
-    # than only per element: the four tells of a stringified ErrorRecord are this file's own name and
-    # line, the tilde run under the offending statement, CategoryInfo, and FullyQualifiedErrorId.
+    # than only per element. FIVE TELLS, and the list below is the whole of them: the type name
+    # RemoteException (what an EMPTY line used to stringify as, which is the half #2154 never saw), the
+    # lib file's own name, CategoryInfo, FullyQualifiedErrorId, and the tilde run under the offending
+    # statement.
     $rendered = ($merged3.Output | Out-String)
     Assert-True ($rendered.Contains('error: something went wrong')) "the caller's render carries the command's own first line"
     Assert-True ($rendered.Contains('hint: try again'))             '...and its last one'
@@ -252,6 +254,10 @@ try {
     $oneOut  = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo hello')
     $manyOut = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo a& echo b')
     Assert-True ($null -eq $noneOut.Output)      'a command that writes nothing still leaves Output $null, not an empty array'
+    # AND ITS EXIT CODE IS ASSERTED BESIDE IT, because this is the one shape where the pipeline carries
+    # ZERO objects -- the case where a reader would most expect $LASTEXITCODE to have been lost between
+    # the native call and the assignment. It is not, and nothing else in this suite pins that.
+    Assert-Equal 3 $noneOut.ExitCode             '...and its exit code survives a pipeline that carried nothing at all'
     Assert-True ($oneOut.Output -is [string])    'a ONE-line capture is still a bare string, not a 1-element array'
     Assert-Equal 2 (@($manyOut.Output).Count)    'a many-line capture is still an array, one entry per line'
 

@@ -92,7 +92,9 @@ the other spelling.
 - [x] `Get-NativeLineText` added to `scripts/lib/native-capture-lib.ps1` -- `TargetObject` first
       (the raw stderr line, string-typed, empty string and all), `Exception.Message` as the fallback.
       Named one word over from its sibling `Get-ShopifyLineText`, so the kinship is visible.
-- [x] Both `&` arms normalise through it in the pipeline, so the container is untouched.
+- [x] Both branches of the `&` arm normalise through it in the pipeline -- IN the pipeline, so the
+      container is untouched. (`arm` is the lib's own word for the `&` / `-Utf8` split; `-DiscardStderr`
+      is a branch of the first, not a third arm.)
 - [x] `Get-NativeOutputText` deliberately NOT added: with `Output` normalised, `$res.Output | Out-String`
       is already correct, and a helper nobody needs is the accumulation this repo keeps removing.
 - [x] Four passages in the lib that argued FROM the element-type difference updated rather than left
@@ -108,13 +110,21 @@ the other spelling.
       empty line surviving as empty, the caller's rendered text carrying the command's words and none
       of the five tells of wrapper noise, the container held at `$null` / scalar / array,
       `-DiscardStderr` still dropping stderr through the pipeline, and `Get-NativeLineText` itself
-      including the `TargetObject`-first order and its fallback. **255 pass, 0 fail.**
+      including the `TargetObject`-first order and its fallback. **256 pass, 0 fail.**
 - [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors.
 - [x] #2154's own site reproduced against the repaired lib in a throwaway repo: a refused
       `git branch -d` now renders git's three lines (`error: the branch ... is not fully merged`
       plus two hints) where it rendered the exception dump before.
 - [x] Exit code still measured through the normalising pipeline: 100/100 runs of `cmd /c exit 7`.
 - [x] The #1966 argument refusal still fires on the three undeliverable shapes.
+- [x] Reviewed in parallel by Victor #19, Edith #17 and Sebastian #23. No correctness and no security
+      findings; two review findings were applied on the branch -- the exit code asserted on the
+      zero-object pipeline (the one shape where a reader would most expect `$LASTEXITCODE` to be lost),
+      and six copy-edit corrections including a parenthetical that dated `Get-ShopifyLineText`'s repair
+      to #2155 and a comment naming four tells where the code checks five. Two findings outside this
+      diff were filed rather than fixed here: #2157 (`park-lib`'s now-stale flattening rationale) and
+      #2158 (`Get-NativeLineText` and `Get-ShopifyLineText` are the same function in two libs that do
+      not depend on each other -- a dependency decision, not a cleanup).
 
 ### DEPLOY: fix/2155-normalise-capture-output
 

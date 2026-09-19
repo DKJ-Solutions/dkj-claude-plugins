@@ -993,9 +993,10 @@ function Get-NativeCaptureBudgetBound {
 function Get-NativeLineText {
     <#
         One object from a native command's merged output, as the text a reader should see. Internal to
-        the & arm of Invoke-NativeCapture below; its sibling one lib over is Get-ShopifyLineText in
-        scripts/lib/shopify-cli-lib.ps1, which made this same repair first and for the same measured
-        reason (issue #2155, decided by Dave on September 19, 2026).
+        the & arm of Invoke-NativeCapture below (issue #2155, decided by Dave on September 19, 2026).
+        Its sibling one lib over is Get-ShopifyLineText in scripts/lib/shopify-cli-lib.ps1, which made
+        this same repair first, for the same measured reason, and before #2155 was ever filed -- that
+        repair carries no issue number of its own and is not dated by the one above.
 
         A '2>&1' redirect turns every stderr line into an ErrorRecord wrapping a RemoteException, and
         for a line with text in it ToString(), Exception.Message and TargetObject all agree. AN EMPTY
@@ -1003,8 +1004,8 @@ function Get-NativeLineText {
         to the TYPE NAME, so a caller doing '$res.Output | Out-String' captures a literal
         'System.Management.Automation.RemoteException' where the command's own blank line should be.
         Measured here against a powershell.exe child writing three stderr lines, the middle one empty:
-        TargetObject came back String-typed and empty, Exception.Message empty, and [string]$record the
-        type name.
+        on that middle record TargetObject came back String-typed and empty, Exception.Message empty,
+        and [string]$Line the type name.
 
         SO TargetObject IS READ FIRST -- it is the raw stderr line, string-typed, empty string and all.
         The exception's message is the fallback for a record that is not a native stderr line at all.
@@ -1134,8 +1135,11 @@ function Invoke-NativeCapture {
 
         THE -Utf8 PATH IS A DIFFERENT MECHANISM, not a flag on the same one, so two things differ and
         both are deliberate. Output comes back as an ARRAY OF LINES, always -- where the & arm returns
-        strings too since #2155 but keeps PowerShell's unrolling, so a one-line capture is a scalar
-        there and a 1-element array here. And the child is started by Start-Process, so $Arguments are
+        strings too since #2155 but keeps PowerShell's unrolling, so a one-line capture is a scalar on
+        the & arm and a 1-element array on this one. (The arms are named rather than pointed at: the
+        two passages that describe this pair sit either side of the dispatch below, so 'here' and
+        'there' swap referents between them -- which is why the #1963 block further down says 'this
+        arm' throughout.) And the child is started by Start-Process, so $Arguments are
         quoted here rather than by PowerShell; see ConvertTo-NativeArgumentToken above.
     #>
     param(
@@ -1154,8 +1158,9 @@ function Invoke-NativeCapture {
     # decode and its line-array Output. For the push and fetch progress the bound is applied to, that is
     # cosmetic-to-better; for a caller that PARSES the output it is a change of shape, which is why
     # -TimeoutSeconds is opt-in per call site rather than a default. SINCE #2155 THAT CHANGE IS SMALLER
-    # THAN IT WAS -- the element type no longer moves, only the container ($null/scalar/array here,
-    # always an array there) and the decode -- but it is not nothing, so the flag stays opt-in.
+    # THAN IT WAS -- the element type no longer moves, only the container ($null/scalar/array on the &
+    # arm, always an array on the -Utf8 one) and the decode -- but it is not nothing, so the flag stays
+    # opt-in.
     if ($Utf8 -or $TimeoutSeconds -gt 0) {
         return Invoke-NativeCaptureUtf8 -FilePath $FilePath -Arguments $Arguments `
                                         -DiscardStderr:$DiscardStderr -TimeoutSeconds $TimeoutSeconds
@@ -1224,7 +1229,8 @@ function Invoke-NativeCapture {
         # capture into a 1-element array, and a caller reading $res.Output as a string would break on a
         # change nobody asked for.
         #
-        # THE -DiscardStderr ARM IS NORMALISED TOO EVEN THOUGH IT CANNOT PRODUCE A RECORD, because a
+        # THE -DiscardStderr BRANCH IS NORMALISED TOO EVEN THOUGH IT CANNOT PRODUCE A RECORD (a branch
+        # of this arm, not a third arm -- 'arm' is this file's word for the & / -Utf8 split), because a
         # caller reads one field whichever arm answered it -- the same reasoning ShortRead and
         # ExitCodeUnknown are reported on this arm under. [string] on a string is a no-op; branching on
         # it would only add a second shape to reason about.
