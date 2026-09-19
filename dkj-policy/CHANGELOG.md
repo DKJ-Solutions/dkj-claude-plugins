@@ -43,7 +43,81 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 22 minor entries** <!-- pending-tally -->
+**10 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2144-swept-citation-class · 20260919-142241
+
+The class #2139 opened is closed, and the reading that closed it is not the one the report proposed.
+Three swept quotations are restored to what their releases actually shipped and **marked at the line**:
+the `specialists-init` transcript in shipped payload (swept four times, marketplace name included --
+`specialists@davekjohns-workshop`, not the "half-swept" pairing #2144 described), the
+`measure-skill.tests.ps1` capture its own comment calls *"real output"* together with the `Source:` line
+below it, and `INSTALL.md`'s layout table, whose single `v3.10.0`-onward row carried a path spelling no
+release before `v4.33.0` ever held -- now three measured rows, which is the only thing a reader on an
+old version can recognise themselves in.
+
+**The decision #2144 asked for: an illustration is kept TRUE, never frozen.** A comment or a sample
+showing the *shape* of a line quotes nothing, so freezing it only preserves an anachronism the reader
+has to resolve. Five sites (two of them shared-script mirrors) now pair a current name with a version
+that name actually had. A third form is named and deliberately left alone -- an **attribution**
+(*"`dkj-policy` 4.21.0 shipped it"*) keeps today's name on purpose, because the name is how a reader
+identifies the thing now while the version identifies the release. Without that third bullet the
+convention reads as a mandate to sweep fourteen correct sentences.
+
+**And #2144's proposed check was run rather than filed as an idea, and the answer is not to build it.**
+*A name paired with a version older than the version that name first shipped in is always a swept
+quotation* -- the detection half holds, the "always" does not. Over `*.md`, `*.ps1`, `*.json` and
+`*.yml` outside the archived release history: **54 pairings, 3 of them swept quotations**, 5
+illustrations, and 46 correct as written -- 32 synthetic test fixtures, where an invented version is the
+point, and 14 attributions or dated notes, two of which pair a plugin name with the *Claude Code CLI's*
+own version.
+
+**The 54 is not the figure the decline rests on, and the first draft of this entry wrongly let it be.**
+Excluding `scripts/tests/**` is one line and removes 32 by construction -- 3/22 strict, **8/22 actionable**
+-- which beats the 12.5% a comparable candidate was declined at a few hundred lines up the same lens. What
+carries the decline is the **floor**: 14 of those 22 are attributions, the form this branch decides to keep
+writing, so after the repairs the tree holds zero true findings against fourteen standing false ones and
+every future attribution adds another. Born red against correct prose, growing, and not improvable by
+narrowing -- the stale-path decline's shape exactly. Declined at all three modes, with the `[INFO]` audit
+declined on its own terms rather than as a hedge, and with one variant named as **untested** (restricting
+to fenced blocks) so *"settled"* does not quietly cover it. The lens also records the proportionate
+alternative, per its own rule that a decline naming no better route invites the same proposal again: check
+the **marking** rather than the anachronism.
+
+Marlowe red-teamed that verdict and returned **WOBBLES** -- the conclusion held, the argument did not, and
+both this entry and the lens were rewritten on it. Worth recording, because the failure he caught is the
+one this repo keeps naming: a real measurement, quoted accurately, chosen because it flattered the answer.
+
+The portable half is in the technical writer's manual, which already carried a rename-sweep rule with
+three exceptions. What it lacked is the part #2139 and #2144 measured: **the rule protects nothing on
+its own**, because a find-and-replace is run by somebody who has not read it, and **shape is not
+protection either** -- a quoted path survived three sweeps in one file while the same shape was swept
+twice in another. The marking at the line is the whole guard.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Three of the repaired documents are plugin payload a consumer receives at the next release --
+`specialists-init/SKILL.md`, `plugin-versions/SKILL.md` and the technical writer's manual -- plus
+`INSTALL.md`, which is the adoption page they read before any of it. **Nothing is asked of them and
+there is no migration.** What changes is that the transcript in the adoption skill now quotes what that
+CLI actually printed, so a consumer comparing their own output against it is comparing against
+something real, and the layout table names the spelling their own stale `@`-import is likely to carry
+instead of only today's. A consumer who has adopted the workflow also picks up the rename-sweep
+convention, which matters the first time they rename anything of their own.
+
+**Score:** 1
+
+#### Pull Request
+
+The swept-verbatim-citation class, closed
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2152](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2152)
+
+---
 
 ### DEPLOY: fix/2142-anchor-hook-marker-match · 20260919-141223
 
