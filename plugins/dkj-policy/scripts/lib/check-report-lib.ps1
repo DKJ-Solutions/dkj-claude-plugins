@@ -1475,11 +1475,13 @@ function Get-SpecialistFileShapes {
        plugin update rather than by choosing to, so both spellings have to resolve for as long as any
        cache can still be carrying the old one.
 
-       AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. Today it holds the
-       FUTURE name and Current holds the past one, because nothing has been renamed yet; after the step
-       that renames a kind the two swap and AlsoRead holds the past one. A field called 'Legacy' would be
-       a lie for exactly the window this layer exists to cover, and 'Legacy' is what a later reader would
-       reach for when deciding whether a candidate may be dropped.
+       AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. For a kind the series
+       has not reached yet it holds the FUTURE name while Current holds the past one; after the step that
+       renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES ARE LIVE IN THIS
+       TABLE from step B on -- Subagent has swapped (#2131), the other three have not -- so the field's
+       direction is not a property of the table at all, only of each row's place in the series. A field
+       called 'Legacy' would be a lie for exactly the window this layer exists to cover, and 'Legacy' is
+       what a later reader would reach for when deciding whether a candidate may be dropped.
 
        SO THIS TABLE IS THE FLIP POINT for the rest of the series. Step B..F each move one kind's files
        and swap that kind's row here; no reader is touched again, because no reader names a shape. A row
@@ -1498,8 +1500,8 @@ function Get-SpecialistFileShapes {
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'manual' }) }
         Persona  = @{ Current = @{ Prefix = ''; Stem = 'persona' }
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'persona' }) }
-        Subagent = @{ Current = @{ Prefix = ''; Stem = 'agent' }
-                      AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'subagent' }) }
+        Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
         Lens     = @{ Current = @{ Prefix = ''; Stem = 'extension' }
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'lens' }) }
     }

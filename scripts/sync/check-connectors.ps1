@@ -373,15 +373,33 @@ function Get-PluginDir([string]$PluginId) {
     return [pscustomobject]@{ Dir = $root.Root; Status = 'ok'; Name = $name }
 }
 
-# Ids (<group>-<id>) owned by a plugin: agents/ + personas/.
+# Ids (<group>-<id>) owned by a plugin: its subagent defs + personas/.
 function Get-PluginIds([string]$PluginDir) {
+    <# THE ID IS READ OUT OF THE NAME RATHER THAN SLICED OFF IT (#2131), for the reason the lens walk
+       below already states: a '-(agent|persona)$' strip is a second, quieter spelling of the convention,
+       and under the #2128 names it matches nothing -- 'specialist-06-23-subagent' ends in 'subagent', so
+       the strip leaves the whole base name standing and returns it as an id. Nothing throws; the ids
+       simply stop being ids, and every caller comparing against them silently matches nothing.
+
+       WHY IT SURVIVED #2130, which converted the other thirteen reader sites: this one is a HELPER in a
+       file whose other walk was converted, so a sweep for the anchored globs and '^(\d{2})-(\d{2})-...$'
+       regexes that step A was hunting did not name it. It reads a directory rather than a filename
+       pattern, and its convention lives in a -replace on the line after. Measured on step B: the eight
+       [INFO]/[INVENTORY] assertions in connectors.tests.ps1 that turn on $ownedIds, green on main and red
+       the moment the defs moved.
+
+       THE DIRECTORY LEAF IS Get-SubagentDirName's TOO, not a hand-held list: 'subagents' where the plugin
+       ships one and 'agents' where it ships the pre-rename shape (#1698), which is the same both-are-read
+       doctrine one layer down. #>
     $ids = @()
-    foreach ($sub in @('subagents', 'agents', 'personas')) {
-        $dir = Join-Path $PluginDir $sub
-        if (Test-Path -LiteralPath $dir) {
-            $ids += Get-ChildItem -LiteralPath $dir -Filter '*.md' -File |
-                ForEach-Object { $_.BaseName -replace '-(agent|persona)$', '' }
-        }
+    $dirs = @{ Subagent = (Get-SubagentDirPath -PluginDir $PluginDir)
+               Persona  = (Join-Path $PluginDir 'personas') }
+    foreach ($kind in @('Subagent', 'Persona')) {
+        $dir = $dirs[$kind]
+        if (-not $dir) { continue }
+        $ids += @(Get-SpecialistFiles -Path $dir -Kind $kind |
+            ForEach-Object { Get-SpecialistFileId -Kind $kind -Name $_.Name } |
+            Where-Object { $_ })
     }
     return $ids | Sort-Object -Unique
 }

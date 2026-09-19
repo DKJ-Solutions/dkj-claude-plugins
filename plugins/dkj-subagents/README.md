@@ -74,7 +74,7 @@ the page a reader consults precisely because they assume the two halves match.
 
 - **`.claude-plugin/plugin.json`** — the manifest, carrying the `version` that is bumped in lockstep
   with every other plugin in this repo.
-- **`subagents/<group>-<id>-agent.md`** — the subagent definition per specialist, which Claude Code loads
+- **`subagents/specialist-<group>-<id>-subagent.md`** — the subagent definition per specialist, which Claude Code loads
   into every session of a repo that has the plugin enabled.
 - **`manuals/<group>-<id>-manual.md`** — the portable playbook the agent def reads in on demand. The
   split between the two, and the repo lens that completes it on the consumer's side, is described under

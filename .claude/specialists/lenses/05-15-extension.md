@@ -2786,7 +2786,7 @@ well-formed wrong output.
 
 **The tree walks in this gate are FILESYSTEM walks, not git walks**, so a worktree registered inside the
 repo is a second complete copy of the tree the gate is standing in. Measured here with one probe at
-`.claude/worktrees/probe-1678`: every recursive count from the root doubles exactly — `*-agent.md` 26 to
+`.claude/worktrees/probe-1678`: every recursive count from the root doubles exactly — `*-subagent.md` 26 to
 52, `plugin.json` 6 to 12, `*.ps1` 233 to 466 — and the gate then fails with **26 errors, one per
 specialist id, each naming the REAL file as the offender** and the worktree's copy as the legitimate
 claimant, because that path sorts first. The coverage lines report the doubled sets as normal
@@ -2806,7 +2806,7 @@ grounds, each measured rather than argued:
    Excluding the path from them buys nothing a caller can reach — and what is past the refusal is
    `-SkipLint`, the switch that already means *this run did not measure*.
 2. **The price was quoted one suite too high.** #1678 names three root-walking suites; measured, there are
-   two. `subagent-shared.tests.ps1` (the `*-agent.md` and `*-persona.md` walks) and `shared-scripts.tests.ps1`
+   two. `subagent-shared.tests.ps1` (the `*-subagent.md` and `*-persona.md` walks) and `shared-scripts.tests.ps1`
    (the `*.ps1` scan) do walk `$RepoRoot` and do double. `template-selfcontained.tests.ps1` walks
    `Join-Path $RepoRoot 'plugins'`, and a worktree under `.claude/` is not inside that subtree: its
    templates count stayed at 1 with the probe standing. This does not change the verdict, but a declined
@@ -2941,7 +2941,7 @@ all 26 subagents in its own agent list, from these four plugins, out of `subagen
 Nothing in the report's evidence contradicted that, because none of it looked there.
 
 **The evidence that needs no rig at all, and it was in the room.** The specialist who red-teamed this
-conclusion is `06-29-agent.md`, and in the resolved plugin cache that def is reachable **only** through
+conclusion is `specialist-06-29-subagent.md`, and in the resolved plugin cache that def is reachable **only** through
 `dkj-subagents-alpha`'s `agents` key: the cache holds `subagents/` and **no** `agents/` directory, so no
 convention scan could have found him. A subagent arguing about whether subagents load is a primary
 measurement, and it costs nothing to take.
