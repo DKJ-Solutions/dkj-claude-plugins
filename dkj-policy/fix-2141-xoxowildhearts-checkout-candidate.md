@@ -53,7 +53,7 @@ altogether, so there is no measured layout to add.
 
 - [x] `check-connectors.ps1 -Manifest connectors/xoxowildhearts.json` no longer skips: the connector is checked, 0 errors
 - [x] Case 6b fails against the pre-fix manifest (`got: '../../bwj-development'`) and passes against the fixed one; suite 384 pass, 0 fail
-- [ ] Lint gate + all suites via `open-pr.ps1`
+- [x] `check-plugin-integrity.ps1`: 0 errors (the full suite run is `open-pr.ps1`'s own gate, which refuses the push on a failure)
 
 ### DEPLOY: fix/2141-xoxowildhearts-checkout-candidate
 
