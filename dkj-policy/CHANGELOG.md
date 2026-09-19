@@ -43,7 +43,56 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 28 minor entries** <!-- pending-tally -->
+**15 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2157-2158-capture-comment-accuracy · 20260919-181738
+
+Two comments in the capture family now say something true. `Invoke-GitPark` told a reader that its
+captured push output "can hold ErrorRecords as well as strings" and that `-match` against that array
+would return elements rather than a boolean -- while the comment thirty lines above, in the same
+function, correctly said the bound routes into the Start-Process arm and `Output` comes back as an
+array of strings. Neither claim survived being checked: the arm produces strings here, and the `-match`
+is inside `Get-GitPushFailureMessage`, whose `$Output` is `[string]`-typed, so an array never reaches
+it as an array. The replacement says what the `Out-String` flatten is still for -- rendering the lines
+*as lines*, where `$OFS` coercion would fuse them with spaces -- and why it deliberately is not
+`Get-NativeOutputText`, the helper [#2154](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2154)
+added for exactly this shape: the flattened text here is matched and never printed, so there is no
+reader for an exception dump to reach.
+
+**Both issues proposed a repair that was itself wrong, and neither was built as filed.**
+[#2157](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2157) rested on
+[#2155](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2155) having closed the `ErrorRecord`
+class library-wide, which was not true when it was filed and became true while this branch was open --
+so the comment rests on the half that held throughout, that a bounded capture answers from the
+Start-Process arm. Its suggested rewording kept the `-match` clause that does not apply at that line.
+[#2158](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2158) recorded the deliberate
+`Get-NativeLineText` / `Get-ShopifyLineText` duplication as *inferred*, with "nothing in either file
+says so"; `Get-NativeLineText` already said it, so what landed is the reciprocal note in the docstring
+that was missing it, with the trade written out -- two libs that depend on nothing, two separate mirror
+sets a shared eight-line source would have to land in, and the cost that nothing enforces the pair
+staying in step.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing here changes what any consumer's scripts do -- the diff has no executable line in it. The three
+files ship in `dkj-policy` and `dkj-subagents-shopify`, so the corrected text does reach every consuming
+repo at the next release, and the reader it is worth something to is the one who opens either lib to
+decide whether a flatten or a duplicated helper is still load-bearing. That reader was previously handed
+a contradiction inside one function and a decision recorded in only one of the two files it governs.
+
+**Score:** 1
+
+#### Pull Request
+
+Correct two stale comments about capture Output shape
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2162](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2162)
+
+---
 
 ### DEPLOY: feat/2132-manuals-specialist-prefix · 20260919-164945
 
