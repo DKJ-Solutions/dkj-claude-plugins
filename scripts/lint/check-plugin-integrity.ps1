@@ -184,7 +184,7 @@
          template. Check 14 sees that damage one layer downstream, in the generated markdown; this sees
          the literal upstream. A BOM is deliberately NOT a finding: on a .ps1 it is the fix.
      28. every '@'-import target resolves. A dead markdown link costs a reader one click; a dead import
-         costs the SESSION THE WHOLE DOCUMENT, because Claude Code drops one it cannot resolve without
+         costs the SESSION THE WHOLE DOCUMENT, because Claude Code silently does not perform one it cannot resolve, without
          erroring. Reuses measure-context-lib's own parser rather than restating its three resolution
          rules. (Listed here from August 26, 2026 -- the check shipped without its line in this list.)
      29. a plugin's OWN skill enumeration: an opt-in <!-- skills:plugin --> ... <!-- /skills:plugin -->
@@ -3500,7 +3500,8 @@ Write-Coverage -Category 'script-ascii' -Checked $asciiScripts.Count `
 # '@'-import -- a different syntax entirely -- matches none of it. Reported as issue #874.
 #
 # WHY IT IS NOT JUST ANOTHER DEAD LINK. A dead markdown link costs a reader one click. A dead '@'-import
-# costs the SESSION THE WHOLE DOCUMENT, silently: Claude Code drops an import it cannot resolve, nothing
+# costs the SESSION THE WHOLE DOCUMENT, silently: Claude Code does not PERFORM an import it cannot
+# resolve -- the raw @path line stays in context as inert text, measured September 19, 2026 (#2128) -- nothing
 # errors, and the instructions simply are not there. The failure is asymmetric in the worst direction,
 # because the always-on path of this repo is assembled entirely out of imports and the layer that would
 # vanish is the one carrying the safety rules or the roster. The only symptom is a session behaving as
@@ -3583,7 +3584,7 @@ Write-Coverage -Category 'import' -Checked $importScanFiles.Count `
     -Note $(if ($importScanFiles.Count -eq 0) {
         'the scan set is empty -- no dead @-import anywhere could be found, which is not the same as there being none'
     } else {
-        "every file check 4 reads for links, read again for column-0 '@'-imports and resolved through measure-context-lib's own parser. Found $importResolved resolving in-tree import(s) and $importExternal outside the repo (not a finding: a '~/'-relative import points into the plugin marketplace clone, which CI does not have). $importNotAPath line(s) began with '@' and were read as prose rather than as a path. Fenced blocks are excluded, as in check 4. A dead import is not a dead link: Claude Code drops it silently and the session loses the WHOLE document"
+        "every file check 4 reads for links, read again for column-0 '@'-imports and resolved through measure-context-lib's own parser. Found $importResolved resolving in-tree import(s) and $importExternal outside the repo (not a finding: a '~/'-relative import points into the plugin marketplace clone, which CI does not have). $importNotAPath line(s) began with '@' and were read as prose rather than as a path. Fenced blocks are excluded, as in check 4. A dead import is not a dead link: Claude Code silently does not perform it -- the raw @path line stays as inert text -- and the session loses the WHOLE document"
     })
 
 # --- 29. a plugin's OWN skill enumeration, scoped to that plugin and read from its links ------------------

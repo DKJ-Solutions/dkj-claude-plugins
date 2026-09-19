@@ -216,6 +216,7 @@ land before a single release cut, so consumers migrate once.
 - [x] File the follow-up issues for the sequenced steps once the decisions are in -- #2130 … #2135
 - [x] Give the plan a durable home: a comment on #2128, since this document is removed at the fold
 - [x] Record the measured lesson in `CLAUDE.md`, where the clone channel is described
+- [x] Correct lint check 28's wording, which the measurement showed to be wrong on one detail
 
 ### TEST
 
@@ -223,15 +224,20 @@ land before a single release cut, so consumers migrate once.
 
 ### DEPLOY: feat/2128-specialist-file-prefix
 
-A dead `@`-import is completely silent -- the rest of the file loads, the raw `@`-line stays in context
-as inert text, and nothing is reported even under `--debug`. `CLAUDE.md` now says so at the one place it
-already explains that an absolute `@`-import is the single thing loading from the marketplace clone
-rather than the version-pinned cache. That is also the one channel on which a file renamed here reaches
-a consumer with no version behind it, which is what makes the silence worth writing down: the failure
-mode is a consumer losing a whole imported document and carrying on as though it were there.
+That a dead `@`-import is silent has been this repo's position since #874 and is why lint check 28
+exists. It had never been measured, upstream documents none of it, and the #2128 rename plan turned on
+it -- so it was measured in an isolated checkout. The silence is confirmed and total: the rest of the
+file loads, and nothing is reported on stdout, on stderr, or under `--debug`.
 
-Measured rather than inferred, in an isolated checkout, because the behaviour is undocumented and the
-rename plan for #2128 turned on it.
+**One detail of check 28's own wording turned out to be wrong**, in all three places it appears: it says
+Claude Code *drops* the import, and the line is not dropped -- the raw `@path` survives in context as
+inert text. That is worse rather than merely different, because the document is gone while something
+that still looks like its import is sitting there. The wording is corrected.
+
+`CLAUDE.md` now carries the measurement at the one place it already explains that an absolute
+`@`-import is the single thing loading from the marketplace clone rather than the version-pinned cache
+-- which is also the one channel on which a file renamed here reaches a consumer with no version behind
+it.
 
 **Score:** 3
 
