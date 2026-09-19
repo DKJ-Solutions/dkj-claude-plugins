@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 27 minor entries** <!-- pending-tally -->
+**14 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2132-manuals-specialist-prefix · 20260919-164945
+
+Every portable manual is now named `specialist-<group>-<id>-manual.md`, and what makes that the WRITTEN
+name is a single row: `Get-SpecialistFileShapes`'s Manual entry, where Current takes the `specialist-`
+prefix and AlsoRead keeps the bare spelling a consumer's cache may still be carrying. **No reader moved
+with it** -- step A (#2130) had already put every one of them behind that table, which is the property
+the table exists for, and a file left behind on the old name is still enumerated and still refused
+because the filter list is derived from the same row. Step C of the rename plan in #2128.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- nothing here needs a consumer to act. A manual is read through
+`${CLAUDE_PLUGIN_ROOT}/manuals/...`, which resolves into the version-pinned plugin cache, so the agent def
+and the manual it names travel together in one release and never disagree between two of them.
+
+**Score:** N/A
+
+#### Pull Request
+
+The manuals are renamed to specialist-NN-NN-manual.md
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2161](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2161)
+
+---
 
 ### DEPLOY: fix/2155-normalise-capture-output · 20260919-163935
 
