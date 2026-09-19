@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/hook-check-lib.ps1 -- Invoke-CheckScript, the one place a hook runs its
-    script in its OWN interpreter instead of spawning a second one.
+    Tests for scripts/lib/hook-check-lib.ps1 -- Invoke-CheckScript, the one place a hook RUNS its
+    script in its OWN interpreter instead of spawning a second one, and Select-CheckMarkerLine, the
+    one place a hook READS that script's output for verdict markers.
 
 .DESCRIPTION
     WHY THIS SUITE EXISTS (issue #1641). The lib arrived with #1644 carrying no coverage of its own,
@@ -166,6 +167,43 @@ exit 0
     $with    = Invoke-CheckScript -Path $chk -OutputTo $sink
     Assert-Equal (@($without.Output) -join '|') (@($with.Output) -join '|') 'outputto: Output is identical with and without the sink'
     Assert-Equal (@($without.Output) -join '|') ($sink -join '|')           'outputto: and the sink holds the same lines'
+
+    # --- (j) Select-CheckMarkerLine: A MARKER COUNTS WHERE THE CHECK WROTE IT (issue #2142) --------
+    # Eight hooks across two plugins decide what reaches a session start with this one function, and
+    # every failure of it is silent in the same two directions: a forged marker that gets counted, or
+    # a real finding that stops being. Neither goes red anywhere else.
+    Write-Host "hook-check-lib -- Select-CheckMarkerLine counts a marker only where the check wrote it" -ForegroundColor Cyan
+
+    $sample = @(
+        '[ERROR] the check said so, at column 0',
+        '  [WARN]  and this one behind its indentation',
+        "  [WARN]  not measured: 'a[ERROR]b.md'",
+        '        a continuation line with no marker at all',
+        '[OK]    inside the budget'
+    )
+
+    Assert-Equal 1 @(Select-CheckMarkerLine -Output $sample -Marker '[ERROR]').Count 'only the line that OPENS with [ERROR] counts'
+    Assert-Equal '[ERROR] the check said so, at column 0' (@(Select-CheckMarkerLine -Output $sample -Marker '[ERROR]')[0]) 'and it is the one the check wrote, not the one reporting a value'
+    Assert-Equal 2 @(Select-CheckMarkerLine -Output $sample -Marker '[WARN]').Count 'indentation is the check''s own layout, so an indented marker still counts'
+    Assert-Equal 3 @(Select-CheckMarkerLine -Output $sample -Marker '[WARN]', '[OK]').Count 'several markers: a line matches when it carries ANY of them'
+    Assert-Equal 0 @(Select-CheckMarkerLine -Output $sample -Marker '[error]').Count 'the match is case-exact, so the word "error" in prose never counts'
+    Assert-Equal 0 @(Select-CheckMarkerLine -Output $sample -Marker '[MISSING]').Count 'a marker no line carries selects nothing'
+
+    # THE ESCAPE, pinned because getting it wrong fails in the loudest possible direction and still
+    # LOOKS right: '[ERROR]' read as a regex is a character class matching ONE of E/R/O, so an
+    # unescaped marker would select every line beginning with any of those letters.
+    Assert-Equal 0 @(Select-CheckMarkerLine -Output @('Everything is fine.', 'Ran clean.') -Marker '[ERROR]').Count `
+        'the marker is a LITERAL -- it is not read as a regex character class'
+
+    # The empty cases, because a hook hands this whatever Invoke-CheckScript returned and a check that
+    # printed nothing is an ordinary state rather than an error.
+    Assert-Equal 0 @(Select-CheckMarkerLine -Output @() -Marker '[ERROR]').Count 'no output selects nothing'
+    Assert-Equal 0 @(Select-CheckMarkerLine -Output $null -Marker '[ERROR]').Count 'null output selects nothing rather than throwing'
+
+    # It returns an ARRAY even for one hit: every caller does '@(...).Count' on the result, and a bare
+    # string would report its LENGTH instead.
+    $one = @(Select-CheckMarkerLine -Output @('[ERROR] just the one') -Marker '[ERROR]')
+    Assert-Equal 1 $one.Count 'a single hit comes back as a one-element array, not as a string'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }
