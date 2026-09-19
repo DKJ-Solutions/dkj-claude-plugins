@@ -184,9 +184,14 @@ foreach ($dd in @($verdict.Dead)) { $deadKeys[$dd.Key] = $true }
 foreach ($c in @($verdict.Carried)) {
     Write-Host "    carried from the baseline, not measurable here: $(Format-MeasuredBytes $c.Bytes) B  $($c.Key)" -ForegroundColor DarkGray
 }
-# The explanation, but only where it is true. A carried term that is DEAD is not "no marketplace clone
-# on this machine" -- the clone is exactly what proved it dead -- and telling a reader it is nothing to
-# do with their branch is the opposite of what the block below is about to tell them.
+# The explanation, suppressed where nothing it describes is left. A carried term that is DEAD is not
+# "no marketplace clone on this machine" -- the clone is exactly what proved it dead -- and telling a
+# reader it is nothing to do with their branch is the opposite of what the block below is about to
+# tell them. THE TEST IS BLOCK-LEVEL, NOT PER LINE, and that is a real limit rather than a rounding:
+# a carried set mixing a dead term with a live one still prints this footnote under both, because the
+# footnote is one sentence about the set. The dead term also gets its own loud block below, so the
+# reader is not left with only the wrong reading -- which is what makes the coarser test acceptable
+# here and would not make it acceptable if this were the only thing said.
 if (@(@($verdict.Carried) | Where-Object { -not $deadKeys.ContainsKey($_.Key) }).Count -gt 0) {
     Write-Host '      (plugin payload -- no marketplace clone on this machine. It is not this branch to change,' -ForegroundColor DarkGray
     Write-Host '       and a local run re-measures and re-records it.)' -ForegroundColor DarkGray

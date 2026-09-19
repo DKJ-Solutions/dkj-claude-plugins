@@ -40,8 +40,9 @@
 ### PLAN
 
 Issue #2138: a registered consumer had been importing the ORCHESTRATOR's body from a marketplace path
-retired eight days earlier, and nothing reported it. The detector already existed -- the always-on
-budget gate resolves every `@`-import and names the ones that did not resolve.
+whose two halves were retired on September 9 and 10, 2026 -- ten and nine days before this branch --
+and nothing reported it. The detector already existed: the always-on budget gate resolves every
+`@`-import and names the ones that did not resolve.
 
 #### One half of the report's reasoning did not survive verification, and the repair changed with it
 
@@ -100,7 +101,7 @@ CONDITIONAL, and there is now one function that tests the condition instead of a
 
 ### TEST
 
-- [x] `scripts/tests/always-on-budget.tests.ps1`: 27 new asserts, 81 passed / 0 failed. The two proofs
+- [x] `scripts/tests/always-on-budget.tests.ps1`: 24 new asserts, 81 passed / 0 failed. The two proofs
       and the two non-proofs, including a name-prefix sibling of EACH root -- the branch code review
       found unpinned -- plus `Test-PathIsUnder` directly; the
       carried-AND-dead regression, which is the one this lib's own memory could hide; that the verdict
@@ -122,12 +123,23 @@ has #1524, #1807 and #1831.
 
 ### DEPLOY: fix/2138-dead-import-is-not-unmeasurable
 
-An unresolved `@`-import is now told apart from an unresolvable one. Where the run can PROVE the file
-is absent -- the target is in the repo, or under a plugin marketplace root that exists on this machine
--- `check-always-on-budget.ps1` names it as a DEAD import and says the whole document is silently
-missing from every session in this repo, instead of reporting it as "not measured and not recorded"
-and telling the reader to re-run somewhere the import resolves. Where nothing can be proven, which is
-every CI runner, the old wording and the old silence are unchanged.
+An unresolved `@`-import is now one of two things rather than one, and `check-always-on-budget.ps1`
+says which. **Dead** -- the run can PROVE the file is absent, because the target is in the repo or
+under a plugin marketplace root that exists on this machine -- is named as a dead import, and the
+report says the whole document is silently missing from every session here. **Unprovable** -- which is
+every CI runner, where there is no marketplace clone to prove anything with -- keeps the old wording
+and the old silence exactly.
+
+Those two words are the ones the code returns, and they are the only ones used for them here, in the
+tests and in the PR title -- the copy edit found the first draft reaching for "unmeasurable" and
+"unresolvable" as well. The branch NAME still carries "unmeasurable" and is left alone, because a
+branch name is quoted in commits that have already landed. And **unmeasured** is a different thing
+again: the pre-existing bucket for a document with no recorded figure, which a dead import may or may
+not also be in.
+
+The old report called every unresolved import "not measured and not recorded" and told the reader to
+run it again on a machine where the import resolves. On the machine #2138 was measured on, that was
+the machine they were already on.
 
 It warns and does not refuse: the exit code still belongs to the budget, and a dead import is partly a
 fact about the machine, so refusing would block a push over a plugin somebody has not installed. The
@@ -167,4 +179,4 @@ gate starts refusing anything.
 
 #### Pull Request
 
-a dead '@'-import is told apart from an unmeasurable one, and named as dead
+a dead '@'-import is told apart from an unprovable one, and named as dead

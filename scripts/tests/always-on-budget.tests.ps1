@@ -234,7 +234,7 @@ try {
         Assert-Equal 'dead' (Get-ImportAbsenceKind -Path (Join-Path $RepoDead 'gone.md') -RepoRoot $RepoDead) `
             'a missing IN-TREE import is dead: the repo is present by definition -- this run is reading it'
         Assert-Equal 'dead' (Get-ImportAbsenceKind -Path (Join-Path $mktRoot 'retired-market\persona.md') -RepoRoot $RepoDead) `
-            'a missing import under an EXISTING marketplace root is dead, not unmeasurable'
+            'a missing import under an EXISTING marketplace root is dead, not unprovable'
         Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $Fixture 'elsewhere\x.md') -RepoRoot $RepoDead) `
             'a missing import that is neither in the repo nor under the marketplace root proves nothing'
         Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $homeLive '.claude\plugins\marketplaces-extra\x.md') -RepoRoot $RepoDead) `

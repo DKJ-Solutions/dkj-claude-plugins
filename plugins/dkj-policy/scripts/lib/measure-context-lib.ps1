@@ -269,7 +269,7 @@ function Get-ImportAbsenceKind {
         those two apart is this function's only job.
 
         Measured, issue #2138: a registered consumer had imported the ORCHESTRATOR's body from a
-        marketplace path retired eight days earlier. The budget gate saw the unresolved import and
+        marketplace path retired ten days earlier. The budget gate saw the unresolved import and
         reported it as "not measured and not recorded -- run this once on a machine where the import
         resolves", which is the one instruction that cannot help: it was already on such a machine.
     #>
