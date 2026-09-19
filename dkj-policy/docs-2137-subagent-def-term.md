@@ -71,8 +71,11 @@ path the tooling resolves.
 
 ### TEST
 
-- [x] Lint gate green (`check-plugin-integrity.ps1`), its dead-link scan included
-- [x] All suites green (118/118, 61 min)
+- [x] Lint gate green (`check-plugin-integrity.ps1`), dead-link scan included -- re-run after the
+      merge, 0 errors
+- [x] All suites green -- 118/118 in 61 min on the pre-merge tree (9dbe7f78). The merge of
+      origin/main came after and carries other branches' script changes, so the authority for THIS
+      commit is the required check `lint-en-tests`, which runs both gates on the merge commit
 
 ### DEPLOY: docs/2137-subagent-def-term
 
