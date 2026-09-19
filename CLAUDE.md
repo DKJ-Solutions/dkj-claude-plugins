@@ -182,7 +182,14 @@ byte-identical, and both `plugin update` and `plugin install` then declined on t
 alone. So a change that lands without a version bump reaches no session at all, and an agent def you
 modify on a branch takes effect after merge, push *and a release* — not after a refresh. **The one
 thing that does load from the clone is a document named by an absolute `@`-import**, which is why the
-orchestrator's body below advances on that refresh alone and everything else waits for the cut. Between
+orchestrator's body below advances on that refresh alone and everything else waits for the cut. **And
+that is the one channel on which a file RENAMED here reaches a consumer with no version behind it** —
+their import names the old path by literal string, so it dies on their next `marketplace update`.
+**Measured September 19, 2026 ([#2128](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2128)),
+because the behaviour is undocumented: a dead `@`-import is completely SILENT.** The rest of the file
+loads, the raw `@`-line stays in context as inert text, and nothing is reported — not on stdout, not on
+stderr, not under `--debug`. So the failure mode is a consumer silently losing the whole imported
+document and carrying on as though it were there. Between
 two releases **no version check can tell you either copy is behind**. A second: being a consumer,
 whichever machine has actually run `claude plugin install ... --scope project` for this checkout
 carries an install record keyed on its **folder path** there, and renaming or moving the checkout on

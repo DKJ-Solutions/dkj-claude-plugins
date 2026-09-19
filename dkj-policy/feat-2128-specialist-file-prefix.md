@@ -159,9 +159,25 @@ docstring warns about, where one convention was recognised by two different rule
 And #1698 adds the round rule: if any other rename is ever going to happen, do it in the same round --
 two rounds pay the consumer migration twice.
 
-#### The plan: one release round, five sequenced PRs
+#### Dave's two decisions, September 19, 2026
 
-Each PR leaves the lint gate green on its own, which is what makes the sequence reviewable. All five
+1. **The lens convention is renamed and all six consumers migrate.** Not a permanent dual-name state
+   and not a dropped convention 4: the round ends with one convention everywhere. The dual-name readers
+   from PR-A are the bridge, so nothing breaks on release day and each consumer repo does its own
+   `git mv` when it suits; the old names are retired once the connector register shows all six are over.
+2. **No persona compatibility shim.** The six consumers' `SPECIALISTS.md` import lines are updated by
+   hand instead.
+
+**The second decision reorders the sequence, and that is its whole cost.** The shim was what made the
+persona rename safe at any moment; without it, that rename is the one step in the round that breaks
+outside every version gate, silently, for any consumer whose marketplace clone advances before their
+`SPECIALISTS.md` is edited. So it moves to **last**, and the manual consumer update follows it
+immediately rather than at the end of the round. Everything before it is release-gated and can land at
+any pace.
+
+#### The plan: one release round, six sequenced PRs
+
+Each PR leaves the lint gate green on its own, which is what makes the sequence reviewable. All six
 land before a single release cut, so consumers migrate once.
 
 - **PR-A -- the readers learn both names.** Add the dual-name layer (a `Resolve-SpecialistFilePath`
@@ -169,12 +185,18 @@ land before a single release cut, so consumers migrate once.
   mirrors. **Renames nothing**, so it is a no-op against today's tree and provably safe. This must
   exist before any file moves, and it is what lets a consumer's old-named lenses keep working. Fix the
   lookbehind (hazard 2) here.
-- **PR-B -- manuals and personas** (31 files) + their references + the **persona compatibility shim**
-  (hazard 1) + regenerate `always-on-baseline.json`, whose keys are literal paths.
-- **PR-C -- subagent defs** (26 files) + the four `plugin.json` `agents` arrays + references.
-- **PR-D -- this repo's own 30 lenses** + the roster table in `SPECIALISTS.md`.
-- **PR-E -- the migration documentation**: an `INSTALL.md` section (the third of its kind), and the
-  consumer-side steps for the lens rename and the `SPECIALISTS.md` import line.
+- **PR-B -- subagent defs** (26 files) + the four `plugin.json` `agents` arrays + references. The
+  manifest arrays are the highest-consequence edit in the round (#1764).
+- **PR-C -- manuals** (27 files) + references.
+- **PR-D -- this repo's own 30 lenses** + the roster table in `SPECIALISTS.md` + the lens key in
+  `always-on-baseline.json`.
+- **PR-E -- the migration documentation**, which lands **before** the persona rename so the
+  instructions exist when the window opens: an `INSTALL.md` section (the third of its kind), the
+  consumer-side `git mv` for the lenses, and the exact `SPECIALISTS.md` import line to replace.
+- **PR-F -- the four personas** + the persona key in `always-on-baseline.json`. **Last, deliberately.**
+  The moment this merges to `main`, every consumer that refreshes its marketplace clone before its
+  `SPECIALISTS.md` is edited loses Chris's body with no diagnostic. The six manual consumer updates
+  follow this merge immediately; treat them as part of the same act rather than as follow-up work.
 
 **Two ordering constraints outside the sequence:**
 
@@ -184,33 +206,41 @@ land before a single release cut, so consumers migrate once.
   and says nothing about retired names inside the lines a branch *adds*, so the added-lines grep from
   that issue is run against each branch before it merges.
 
-#### Two questions for Dave, because both change what gets built
-
-1. **The lens convention (hazard 3)** -- rename it and migrate six consumers, keep the readers
-   dual-name permanently, or leave the lens filenames alone and rename only the plugin-side files.
-2. **The persona compatibility shim (hazard 1)** -- leave `01-01-persona.md` in place as a one-line
-   file importing the renamed body, so no adopted consumer breaks. The import depth allows it
-   (`CLAUDE.md` to `SPECIALISTS.md` to shim to body is 3 of the 4 permitted hops). It costs one
-   deliberate compat file per persona, retired once the register shows every consumer migrated.
-
 ### CREATE
 
 - [x] Research the machinery that resolves the four conventions, and the consumer propagation reach
 - [x] Measure what Claude Code does with a dead `@`-import, since the behaviour is undocumented
 - [x] Verify the sharpest claims against the tree rather than taking the reports at face value
 - [x] Write the step plan into this document
-- [ ] Put the two open decisions to Dave, and record his answers here
-- [ ] File the follow-up issues for PR-A through PR-E once the decisions are in
+- [x] Put the two open decisions to Dave, and record his answers here
+- [x] File the follow-up issues for the sequenced steps once the decisions are in -- #2130 … #2135
+- [x] Give the plan a durable home: a comment on #2128, since this document is removed at the fold
+- [x] Record the measured lesson in `CLAUDE.md`, where the clone channel is described
 
 ### TEST
 
+- [x] Lint gate + all suites green before the PR
+
 ### DEPLOY: feat/2128-specialist-file-prefix
 
-**Score:**
+A dead `@`-import is completely silent -- the rest of the file loads, the raw `@`-line stays in context
+as inert text, and nothing is reported even under `--debug`. `CLAUDE.md` now says so at the one place it
+already explains that an absolute `@`-import is the single thing loading from the marketplace clone
+rather than the version-pinned cache. That is also the one channel on which a file renamed here reaches
+a consumer with no version behind it, which is what makes the silence worth writing down: the failure
+mode is a consumer losing a whole imported document and carrying on as though it were there.
+
+Measured rather than inferred, in an isolated checkout, because the behaviour is undocumented and the
+rename plan for #2128 turned on it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nothing here ships to a consumer. The paragraph lands in this repo's own governance document, and
+the rename it was measured for has not started; its six steps are #2130 through #2135.
+
+**Score:** N/A
 
 #### Pull Request
 
