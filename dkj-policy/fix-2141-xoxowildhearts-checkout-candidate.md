@@ -39,19 +39,33 @@
 
 ### PLAN
 
+Verified the report before repairing it: the checkout is at `../../bwj-development/xoxowildhearts` on
+this machine, and the manifest lacks that candidate its sibling carries. The sweep the issue asked
+for found no other drift -- the three single-candidate manifests name checkouts absent from this machine
+altogether, so there is no measured layout to add.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Append `../../bwj-development/xoxowildhearts` to `connectors/xoxowildhearts.json`
+- [x] `connectors.tests.ps1` case 6b: members of one `siblingGroup` declare the same layouts, so a fifth recurrence fails the gate instead of printing a false `[SKIP]`
 
 ### TEST
 
+- [x] `check-connectors.ps1 -Manifest connectors/xoxowildhearts.json` no longer skips: the connector is checked, 0 errors
+- [x] Case 6b fails against the pre-fix manifest (`got: '../../bwj-development'`) and passes against the fixed one; suite 384 pass, 0 fail
+- [ ] Lint gate + all suites via `open-pr.ps1`
+
 ### DEPLOY: fix/2141-xoxowildhearts-checkout-candidate
 
-**Score:**
+`check-connectors` reported `[SKIP] checkout ... not present on this machine` for the xoxowildhearts consumer while its checkout sat at `bwj-development/xoxowildhearts`, so nothing about that consumer was checked here. Its manifest lacked the `bwj-development/` candidate that its sibling `smartwatchbanden.json` gained in #1831 -- the fourth time a candidate fix reached one manifest of a pair and not the other (#1524, #1807, #1831). The candidate is appended, and `connectors.tests.ps1` now holds every manifest of one `siblingGroup` to the same set of layouts, so the next drift fails the gate rather than reading as an absent checkout.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Maintainer-only: the register is read by this repo's own maintenance, and no subscriber of the service sees it. N/A.
+
+**Score:** N/A
 
 #### Pull Request
 
