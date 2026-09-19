@@ -216,6 +216,33 @@ function Get-PluginMarketplaceRoot {
     return [System.IO.Path]::GetFullPath((Join-Path (Get-UserHomeDirectory) $rel))
 }
 
+function Test-PathIsUnder {
+    <#
+        Is $Path inside $Parent -- the containment test, with the separator appended before the prefix
+        comparison so a SIBLING whose name merely starts with the parent's is not read as being inside
+        it ('C:\x\repo-dead' vs 'C:\x\repo-deadXYZ').
+
+        ONE DEFINITION BECAUSE THE TRAP IS ASYMMETRIC, not because two lines were repeated. The first
+        draft of Get-ImportAbsenceKind guarded its marketplace-root branch and left the repo-root branch
+        three lines above it bare -- with a test pinning the guarded half and nothing pinning the other,
+        so the asymmetry was invisible in a green suite. A comparison written twice is a comparison that
+        can be right once (code review of #2138).
+
+        The parent itself counts as inside: a target that resolves to the directory rather than to a file
+        in it is still a target this tree owns, and answering 'no' there would send it down the branch
+        for somewhere else entirely.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Parent
+    )
+    $sep   = [System.IO.Path]::DirectorySeparatorChar
+    $child = [System.IO.Path]::GetFullPath($Path)
+    $root  = [System.IO.Path]::GetFullPath($Parent).TrimEnd($sep)
+    if ($child.TrimEnd($sep).Equals($root, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    return $child.StartsWith(($root + $sep), [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Get-ImportAbsenceKind {
     <#
         An import target that does not exist is one of TWO DIFFERENT FACTS, and telling them apart is
@@ -250,15 +277,13 @@ function Get-ImportAbsenceKind {
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][string]$RepoRoot
     )
-    $full = [System.IO.Path]::GetFullPath($Path)
-    $repo = [System.IO.Path]::GetFullPath($RepoRoot)
-    if ($full.StartsWith($repo, [System.StringComparison]::OrdinalIgnoreCase)) { return 'dead' }
+    # BOTH CONTAINMENT TESTS GO THROUGH ONE FUNCTION, which is the repair code review made to the first
+    # draft of this one: it guarded the second test against the sibling-prefix trap and left the first
+    # bare, and the suite pinned only the guarded half. See Test-PathIsUnder's own header.
+    if (Test-PathIsUnder -Path $Path -Parent $RepoRoot) { return 'dead' }
 
-    $sep  = [System.IO.Path]::DirectorySeparatorChar
     $root = Get-PluginMarketplaceRoot
-    # The separator is appended before the prefix test so a sibling directory whose name merely STARTS
-    # with 'marketplaces' is not read as being inside it.
-    if ($full.StartsWith(($root.TrimEnd($sep) + $sep), [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (Test-PathIsUnder -Path $Path -Parent $root) {
         if (Test-Path -LiteralPath $root -PathType Container) { return 'dead' }
     }
     return 'unprovable'

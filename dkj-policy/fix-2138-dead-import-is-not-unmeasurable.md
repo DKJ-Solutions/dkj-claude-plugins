@@ -92,12 +92,17 @@ CONDITIONAL, and there is now one function that tests the condition instead of a
       in one report
 - [x] `always-on-sessioncheck.ps1`'s comment states which two kinds of warning now reach it, from the
       side the check script cannot see
+- [x] `Test-PathIsUnder`, after code review: the first draft guarded the marketplace-root comparison
+      against the sibling-prefix trap and left the repo-root comparison three lines above it bare, with
+      the suite pinning only the guarded half. One function now answers both, and check 28 of
+      `check-plugin-integrity.ps1` -- which carried the identical bare comparison -- calls it too
 - [x] mirrors rebuilt with `scripts/sync/build-shared-scripts.ps1`
 
 ### TEST
 
-- [x] `scripts/tests/always-on-budget.tests.ps1`: 23 new asserts, 77 passed / 0 failed. The two proofs
-      and the two non-proofs, including a sibling directory whose name merely starts with the root; the
+- [x] `scripts/tests/always-on-budget.tests.ps1`: 27 new asserts, 81 passed / 0 failed. The two proofs
+      and the two non-proofs, including a name-prefix sibling of EACH root -- the branch code review
+      found unpinned -- plus `Test-PathIsUnder` directly; the
       carried-AND-dead regression, which is the one this lib's own memory could hide; that the verdict
       carries `Dead`; that the check WARNS and does not refuse; that the remedy sits on a `[WARN]` line;
       and the CI shape, where the same target is unprovable and both externals fall back to unmeasured
@@ -128,6 +133,13 @@ It warns and does not refuse: the exit code still belongs to the budget, and a d
 fact about the machine, so refusing would block a push over a plugin somebody has not installed. The
 in-tree half is already a hard error in check 28 of `check-plugin-integrity.ps1`, which is the gate
 that owns it.
+
+One containment test answers both halves of that question -- `Test-PathIsUnder` -- and check 28 of
+`check-plugin-integrity.ps1` now calls it too. Both had a bare `StartsWith` against a directory name
+with no separator appended, so a sibling whose name merely starts with the root's read as being inside
+it; in check 28 that meant reporting a dead link for a file the repo does not own. The branch's own code
+review found the first one, on a green suite, because the draft guarded one comparison and pinned only
+the guarded half.
 
 Two smaller things came with it. A dead import is now reported even when the baseline happens to hold a
 figure for it -- the question is asked ahead of the carried branch, so this lib's own memory cannot

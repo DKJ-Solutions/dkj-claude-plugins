@@ -238,7 +238,19 @@ try {
         Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $Fixture 'elsewhere\x.md') -RepoRoot $RepoDead) `
             'a missing import that is neither in the repo nor under the marketplace root proves nothing'
         Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $homeLive '.claude\plugins\marketplaces-extra\x.md') -RepoRoot $RepoDead) `
-            'a SIBLING directory whose name merely starts with the root is not inside it'
+            'a SIBLING directory whose name merely starts with the MARKETPLACE root is not inside it'
+        # THE SAME ASSERT ON THE OTHER BRANCH, and its absence is why the first draft shipped with the
+        # guard on one test and not the other: 'repo-deadXYZ' is not in 'repo-dead', and the bare prefix
+        # comparison said it was. Both branches go through Test-PathIsUnder now, and both are pinned --
+        # a containment test written twice is one that can be right once (code review of #2138).
+        Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path ($RepoDead + 'XYZ\gone.md') -RepoRoot $RepoDead) `
+            'a SIBLING directory whose name merely starts with the REPO root is not inside it either'
+        Assert-True (Test-PathIsUnder -Path (Join-Path $RepoDead 'a\b.md') -Parent $RepoDead) `
+            'Test-PathIsUnder: a nested path is inside'
+        Assert-True (Test-PathIsUnder -Path $RepoDead -Parent $RepoDead) `
+            'Test-PathIsUnder: the parent itself counts as inside -- a target resolving to the directory is still this tree''s'
+        Assert-True (-not (Test-PathIsUnder -Path ($RepoDead + 'XYZ') -Parent $RepoDead)) `
+            'Test-PathIsUnder: a name-prefix sibling is not'
 
         [System.IO.File]::WriteAllText((Join-Path $RepoDead 'CLAUDE.md'),
             ("# Root`n@$liveTarget`n@$deadTarget`n" + ('x' * 2000) + "`n"), $Utf8NoBom)

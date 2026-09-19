@@ -3593,7 +3593,11 @@ foreach ($lf in $importScanFiles) {
         $importPath = $null
         try { $importPath = Resolve-ImportPath -Target $importTarget -ImportingFile $lf } catch { $importPath = $null }
         if (-not $importPath) { $importNotAPath++; continue }
-        if (-not $importPath.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        # Through measure-context-lib's Test-PathIsUnder rather than a bare StartsWith, which read a
+        # SIBLING directory whose name merely starts with the repo root's as being inside the repo --
+        # and then reported a dead link for a file the repo does not own. Same latent defect as the one
+        # code review found in Get-ImportAbsenceKind (#2138); one definition now answers both.
+        if (-not (Test-PathIsUnder -Path $importPath -Parent $RepoRoot)) {
             $importExternal++
             continue
         }
