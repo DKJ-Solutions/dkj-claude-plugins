@@ -3789,9 +3789,10 @@ Write-Coverage -Category 'skill-list-plugin' -Checked $pluginSkillSpanCount `
 # zero, which is itself the reason not to build it yet"), and added that the defect "never shipped".
 # The real count on the day the check landed was 17 escapes across 5 files, every one passing check 4 --
 # and resolving all 17 inside the INSTALLED copies (team-alpha 4.21.0, contributing-davekjohn 4.22.0 --
-# their names at those versions, quoted and not swept) rather than in this tree, all 17 are dead. Not one of them, all of them. That inverts the report's own
-# conclusion instead of qualifying it: the failure mode has bitten, in released payload, so the repo's
-# name-it-and-leave-it rule no longer holds it back.
+# their names at those versions, quoted and not swept) rather than in this tree, all 17 are dead. Not
+# one of them, all of them. That inverts the report's own conclusion instead of qualifying it: the
+# failure mode has bitten, in released payload, so the repo's name-it-and-leave-it rule no longer
+# holds it back.
 #
 # THE CONVENTION THIS ENFORCES IS ALREADY WRITTEN, in DEVELOPMENT-portable.md: "links into the source's
 # script tree are absolute on purpose". It was stated on one portable page, for that page, and enforced
