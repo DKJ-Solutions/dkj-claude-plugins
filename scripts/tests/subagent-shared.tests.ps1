@@ -139,6 +139,22 @@ try {
         Where-Object { $_.FullName -match '\\personas\\' })
     Assert-True ($realPersonas.Count -gt 0) 'there are personas to cover in the first place'
 
+    # THE LAYER SELECTS EXACTLY WHAT THE OLD LITERALS DID, over this tree (#2130). The two collections
+    # above are the pre-#2130 globs, kept deliberately: this branch's whole claim is that it changed the
+    # READERS and not what they read, and the only way to state that as an assert is to run both and
+    # compare. Once a kind is renamed the literals here stop matching and these three asserts are the
+    # first thing that says so -- which is the intended alarm, not a maintenance cost.
+    . (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1')
+    $layerAgents = @(Get-SpecialistFiles -Path $RepoRoot -Kind Subagent -Recurse |
+        Where-Object { $_.FullName -match '\\subagents\\' })
+    $layerPersonas = @(Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
+        Where-Object { $_.FullName -match '\\personas\\' })
+    Assert-Equal (($realAgents.FullName | Sort-Object) -join "`n") (($layerAgents.FullName | Sort-Object) -join "`n") `
+        'the dual-name layer selects exactly the agent defs the pre-#2130 glob did'
+    Assert-Equal (($realPersonas.FullName | Sort-Object) -join "`n") (($layerPersonas.FullName | Sort-Object) -join "`n") `
+        'and exactly the personas'
+    Assert-True ($layerAgents.Count -gt 0) 'and that set is not empty -- an empty agreement proves nothing'
+
     # The gate's own coverage line is the measurement: it states what it walked, so a gate that quietly
     # narrowed back to agents/ fails here instead of staying green on a smaller surface.
     $sharedCoverage = ($ri.Out -split "`n" | Where-Object { $_ -match '\[shared\]\s+checked\s+(\d+)' } | Select-Object -First 1)
@@ -150,9 +166,26 @@ try {
     # The generator's scope. A source assertion rather than a drift run, deliberately: build-agent-defs
     # resolves its own repo root and cannot be pointed at a fixture, so drifting a real persona to prove
     # the point would mean editing a shipped file inside a test.
+    #
+    # IT ASKS FOR THE KIND, NOT THE GLOB, SINCE #2130. The assert used to pin the literal '*-persona.md',
+    # which is the one spelling the dual-name layer exists to stop anybody writing: under the #2128 names
+    # a generator collecting exactly that glob would be the DEFECT, and this assert would have called it
+    # correct. What the test is actually for is the August 8, 2026 widening -- that personas are in scope
+    # at all -- so it now pins the widening and leaves the spelling to the layer.
     $buildSrc = [System.IO.File]::ReadAllText($Build, [System.Text.Encoding]::UTF8)
-    Assert-True ($buildSrc -match "'\*-persona\.md'") 'the generator collects *-persona.md'
-    Assert-True ($buildSrc -match "personas") 'and filters on the personas directory'
+    Assert-True ($buildSrc -match '-Kind\s+Persona') 'the generator collects personas by kind, through the dual-name layer'
+    Assert-True ($buildSrc -match '-Kind\s+Subagent') 'and the agent defs the same way'
+    Assert-True ($buildSrc -match 'personas') 'and filters on the personas directory'
+
+    # THE DIRECTORY FILTER IS PINNED TOO, and this is the assert that was missing (#2130). The generator
+    # filtered on '\agents\', which matches NO path in this tree -- the defs have lived in 'subagents/'
+    # since #1698, and that pattern needs a separator immediately before 'agents' where the path has a
+    # 'b'. So it walked the four personas and none of the 26 agent defs, for as long as the rename is
+    # old, and nothing said so: the lint's check 7 builds its own set correctly and compares every file,
+    # so the generator's blindness could never show up as drift. Asserted against the GATE's own count
+    # below rather than as a second literal, because two literals agreeing is what failed here.
+    Assert-True ($buildSrc -match '\\\\subagents\\\\') 'the generator filters on the subagents/ directory, the leaf that exists'
+    Assert-True ($buildSrc -notmatch "'\\\\agents\\\\'") 'and not on the pre-#1698 agents/ leaf, which matches nothing in this tree'
 
     # --- 8. Every specialist actually carries the way-of-working block ------------------------------
     # A block whose whole purpose is "adapt to the repo you are installed in" is worth nothing in the
