@@ -65,10 +65,10 @@ resolver wins and the literal goes.
       string.
 - [x] The 26 agent defs and Chris's persona body now name their manual at the new path.
 - [x] The prose that names a manual: `README.md`, `CLAUDE.md`, `.claude/rules/language-layers.md`, the
-      specialists handbook, 11 repo lenses, three plugin READMEs, three SKILL pages, and the three manuals
+      specialists handbook, 11 repo lenses, two plugin READMEs, three SKILL pages, and the three manuals
       that cross-link each other.
 - [x] The check 6b fixture in `scripts/tests/check-plugin-integrity-docs.tests.ps1`.
-- [x] The 23 manual links in the archived release documents under `dkj-policy/releases/**` -- see the
+- [x] The 25 manual-path citations -- 8 of them live links -- in the archived release documents under `dkj-policy/releases/**` -- see the
       note under TEST; the issue had placed this out of scope.
 
 ### TEST
@@ -76,7 +76,7 @@ resolver wins and the literal goes.
 - [x] `check-plugin-integrity.ps1` green -- `[manual] checked 27`, `[specialist] checked 53`, 0 errors.
 - [ ] Every suite under `scripts/tests/` green.
 - [ ] The #1757 check: `git diff origin/main...HEAD | grep '^+' | grep -v '^+++' | grep -- '-manual\.md'`
-      names only the new spelling, the two protected citations excepted.
+      names only the new spelling, apart from the lines of this document that quote the old one.
 
 #### The historical carve-out covers wording, not link targets
 
@@ -87,13 +87,22 @@ previous renames of this kind all rewrote the same links -- `e262121d` (#1698) i
 `1.15.0.md`. So the carve-out is about what those documents SAY, which is left exactly as written; a link
 target is a pointer, and a pointer that no longer resolves records nothing. Steps D and F inherit this.
 
-#### Two citations are deliberately left on the old name
+#### One citation is deliberately left on the old name -- and its twin turned out to be corrupt
 
-`.claude/specialists/lenses/05-15-extension.md` and `check-plugin-integrity.ps1`'s check-30 comment both
-quote `../../../../teams/team-alpha/manuals/06-25-manual.md` as it stood in the installed v4.22.0 copy,
-verified on disk. Renaming those would rewrite the evidence rather than the convention. A third,
-`scripts/tests/release-lib.tests.ps1:1328`, is a synthetic path against a fake root whose own comment says
-the shape is deliberately not this repo's.
+Check 30's comment in `check-plugin-integrity.ps1` quotes `../../../../teams/team-alpha/manuals/06-25-manual.md`
+as `cut-release/SKILL.md:123` read in the installed v4.22.0 copy, *verified on disk, not inferred*. Renaming
+that rewrites the evidence rather than the convention, so it stays exactly as it is.
+
+`.claude/specialists/lenses/05-15-extension.md:2161` writes the same sentence about the same measurement and
+quotes `teams/dkj-subagents-alpha/...`. Both cannot be verbatim, and `git log -L` says which one moved: the
+lens copy was swept by `eaeb832b` and then again by `e262121d` (#1698), so it now presents as a v4.22.0
+quotation a string that did not exist when v4.22.0 was cut. That is a defect on the trunk rather than
+anything this branch did; it is filed as
+[#2139](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2139) and this branch leaves the line
+exactly as it found it.
+
+The general half is the seam every remaining step of #2128 sits on: a path sweep cannot tell a **pointer
+somebody follows** from a **quotation somebody checks**, and both are spelled the same way.
 
 ### DEPLOY: feat/2132-manuals-specialist-prefix
 
