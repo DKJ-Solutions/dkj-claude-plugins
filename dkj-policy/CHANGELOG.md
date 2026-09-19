@@ -43,7 +43,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 17 minor entries** <!-- pending-tally -->
+**8 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2139-frozen-citation-restore · 20260919-125659
+
+Three verbatim citations that had been silently rewritten by the `dkj-`/`dkj-subagents-` renames are
+restored to what the releases actually shipped, and marked so the next sweep leaves them alone. The
+argument they belong to -- #1066's plugin-root boundary -- is evidence a reader is meant to check
+against a tag, and a quotation that has been rewritten twice no longer carries that.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the citations sit in this repo's own lens and lint script. Nothing a subscriber of this
+service installs or reads changes; the one instance that does sit in shipped plugin payload was
+deliberately left to #2144.
+
+**Score:** N/A
+
+#### Pull Request
+
+Restore the swept v4.22.0 citations and mark them as quotations
+
+[PR #2146](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2146)
+
+---
 
 ### DEPLOY: fix/2138-dead-import-is-not-unmeasurable · 20260919-124159
 
