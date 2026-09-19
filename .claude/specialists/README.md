@@ -57,7 +57,7 @@ just like inline text.
     part, no copy of the body — just like the subagent lens. That way every portable behavioral rule
     lives in one place (the plugin), not duplicated.
 - **Subagent definitions — from this marketplace's own team plugins, not local.** The compact,
-  executable form of a specialist (`<group>-<id>-agent.md`) is **not** kept by this repo in a local
+  executable form of a specialist (`specialist-<group>-<id>-subagent.md`) is **not** kept by this repo in a local
   `.claude/agents/` directory: they come from the team plugins of this very marketplace, enabled via
   [`settings.json`](../settings.json) and invocable as `@<plugin>:<name>` —
   `@dkj-subagents-alpha:<name>` for the core team, and the same shape for each add-on team.
@@ -97,7 +97,7 @@ manual sat on the always-on path. Measured before the split, his persona was 25,
 that path; three sections came off it for **5,166 B**.
 
 **What "leading" means for such a pair is different and narrower, and the root README states it** —
-[Manuals — the split model](../../README.md#agent-def-vs-manual--two-files-one-specialist) is this
+[Manuals — the split model](../../README.md#subagent-def-vs-manual--two-files-one-specialist) is this
 model's one canonical home, as the section above says. In short: split by **when** each half is
 needed, not by authority. What belongs here is only what it cost *this* repo. Chris's three moved
 sections — the phase model, parallel delegation, the six inbound checks — are each unknowable at the
@@ -153,8 +153,8 @@ repo — and the two are indistinguishable while you are typing.
 
 Every specialist has a fixed, numeric **`id`** (permanent identity, never changes) and belongs to a
 **group** (organizational unit: **01 = Leadership, 02 = Staff, 03+ = teams**). The repo layer is
-named `<group>-<id>-extension.md`; the portable playbook `<group>-<id>-manual.md` and the
-agent def `<group>-<id>-agent.md` live in the plugin. **Name, emoji, and title are labels** — they
+named `<group>-<id>-extension.md`; the portable playbook `specialist-<group>-<id>-manual.md` and the
+subagent def `specialist-<group>-<id>-subagent.md` live in the plugin. **Name, emoji, and title are labels** — they
 may change freely; the filename and link paths hang off `id`/`group`, not the name. **The lint gate
 guards this** ([Sylvester #15](lenses/specialist-05-15-lens.md)): every filename matches the
 frontmatter (`id:` and `group:`).

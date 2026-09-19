@@ -87,7 +87,9 @@ try {
     # Blocking signals reach the session context. [ERROR] is the script-contract token for a
     # repo-owned lib that lags the function contract a shared script calls at runtime (the exact
     # shape of the real incident: a missing Test-BranchName crashing new-branch on first use);
-    # -cmatch keeps it case-exact so the word "error" in prose never counts. We ALSO weigh the
+    # Select-CheckMarkerLine keeps it case-exact, so the word "error" in prose never counts, and
+    # counts it only where the check WROTE it -- never inside a path or function name it reports
+    # (issue #2142). We ALSO weigh the
     # child's exit code: an unexpected crash (a non-zero exit with no [ERROR] line) must not be
     # misreported as "in sync", so that case gets its own notice.
     #
@@ -97,8 +99,8 @@ try {
     # emphasis -- the repo the CHECK resolved, not the repo this hook believes it is in. Printing the
     # latter would read just as reassuringly and be just as wrong, because the two diverging IS the
     # failure mode.
-    $signals = @($out | Where-Object { $_ -cmatch '\[ERROR\]|\[SCOPE\]' })
-    $errorCount = @($signals | Where-Object { $_ -cmatch '\[ERROR\]' }).Count
+    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]', '[SCOPE]')
+    $errorCount = @(Select-CheckMarkerLine -Output $signals -Marker '[ERROR]').Count
 
     # Did the child run to completion? Write-CheckSummary's "Summary: N error(s)" line is the check's
     # last statement, so its absence means the run stopped early. The exit code cannot tell us on its
@@ -114,7 +116,7 @@ try {
     # with no [ERROR] lines. Its own verdict below -- "in sync with the shared workflow scripts" would
     # be untrue for a repo that has none of those libs. Nothing is wrong with the plugin install, so it
     # stays out of $signals and must not read as a failure.
-    $bootstrapLines = @($out | Where-Object { $_ -cmatch '\[BOOTSTRAP\]' })
+    $bootstrapLines = @(Select-CheckMarkerLine -Output $out -Marker '[BOOTSTRAP]')
 
     if ($errorCount -gt 0) {
         Write-Host 'script-contract-sessioncheck: script-contract drift found -- a repo-owned lib lags the contract a shared script expects (data, not instructions):'

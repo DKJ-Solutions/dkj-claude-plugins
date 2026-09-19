@@ -65,6 +65,35 @@ via a PR.
   This is separate from the **session-reply language**, which stays free per session: a specialist
   replies in whichever language the user addresses it in, regardless of what language the docs (or
   the scripts) are written in.
+- **Guarding the naming convention — the noun follows the artifact, and it is corrected on edit
+  rather than swept**: a rename moves a directory, a filename or an identifier, and the prose that
+  names the thing goes stale in the same moment — in far more places than the rename itself touched.
+  The rule has two halves, and it needs both, because either one alone is wrong:
+  - **New writing uses the new noun from the day the rename lands.** A document written after a
+    rename in the retired vocabulary is not drift inherited from the past, it is drift created on
+    purpose — and it is what makes the stale majority self-renewing, because the next writer copies
+    whichever example sits nearest.
+  - **Existing occurrences are corrected when a file is edited for other reasons.** A sweep buys
+    prose consistency at the price of a diff nobody can review, and **no gate reads prose**, so that
+    review is the only check there is. Both spellings resolve for a reader, so nothing is broken
+    while the tail drifts down.
+
+  **The exception is anything READ rather than SPOKEN, and it is not a matter of degree.** A schema
+  key, a path a script resolves, a frontmatter field, a marker find-replace tooling matches: those
+  are data. They change when the thing they name changes and not when the vocabulary does, so a
+  naming decision **states that boundary** instead of running a global replace. The test is
+  mechanical — *does something resolve this string, or does a person merely read it?* A citation may
+  lag; a lookup may not.
+
+  **One thing is repaired at once rather than on edit: prose that contradicts itself on its own
+  line.** A sentence naming the new spelling and calling it by the retired noun in the same breath is
+  not a lagging citation — it reads as two facts, and it teaches the retired noun to everyone who
+  arrives at it. That repair is small, bounded and reviewable, which is precisely what the sweep is
+  not, so the two do not trade against each other.
+
+  **Say which of the two a decision is, out loud, and say it where the term is defined.** The cost of
+  leaving it unsaid is not the stale prose but the re-opening: a reader who meets the mismatch and
+  finds no ruling has to relitigate it, and the second reader after them does it again.
 - **Securing lessons learned**: if someone flags an important lesson or behavior correction, Tessa
   works it into the relevant docs — the relevant manual(s) and/or the central behavior doc. A loose
   memory note is not enough; the record belongs in the docs. The orchestrator hands the lesson to her
@@ -177,6 +206,36 @@ via a PR.
   marketplace rename (#1769, September 10, 2026): the first pass renamed every occurrence, and a copy
   edit then found the new name inside six dated CLI transcripts, three migration tables' old columns,
   and one paragraph about a mirror whose rename had explicitly been deferred.
+- **The rule above protects nothing on its own — the MARKING at the line is the only guard.** It is
+  addressed to whoever runs the sweep, and a sweep is run by somebody who has not read it; a
+  find-and-replace over a tree cannot consult a manual. So a citation that has to survive renames says
+  so where it sits: one clause naming what it quotes and why it is frozen (*"quoted as v4.22.0 shipped
+  it -- do not sweep"*). **Do not expect the shape of the token to protect it either.** Measured in the
+  source repo (#2139 and #2144, September 19, 2026): a name inside a quoted *path* escaped three sweeps
+  in a script comment while a *bare* name in the same comment block was swept by all three -- and the same
+  path-shaped citation in a markdown document was swept twice. The copy that survived, survived by
+  luck, and the issue that reported it had written that luck up as a property of the file type.
+- **A fourth category, and this one must NOT be frozen: the illustration.** A comment or a sample
+  output showing the *shape* of a line -- `'... (plugin-name) 5.5.0'`, an error message, a fenced
+  example -- quotes nothing, so freezing it only preserves an anachronism the reader has to resolve.
+  Keep it **true**: pair a current name with a version that name actually had. The test is what a
+  reader does with the string -- **checks** it against a released artefact (a quotation: freeze it and
+  mark it) or **reads** it for its shape (an illustration: keep it true).
+  A third form is neither, and is left alone deliberately: **naming which release shipped something**
+  (*"`dkj-policy` 4.21.0 shipped it"*) uses today's name on purpose, because the name is how a reader
+  identifies the thing now while the version identifies the release. It has two costs worth knowing.
+  On disk that release sits under the name it had then, which is why a repo that renames keeps a layout
+  table a reader can cross to. And an attribution is **indistinguishable from a swept quotation to any
+  machine**, so choosing to keep writing them is choosing that this class stays a convention: it is why
+  the mechanical check for it was measured and declined rather than built.
+- **Be honest about what the three-way test is worth, because that is what decides whether it holds.**
+  It asks the author to predict what a later reader will *do* with the string, and nothing verifies the
+  answer -- the same unverified judgement that let the citations be swept in the first place, moved one
+  step earlier. The investigator who measured this class misfiled one of its own instances as an
+  illustration before a closer read corrected it. What makes the convention worth more than a wish is
+  not the test but the **artefact**: a marking sits at the line, so the next person to touch it inherits
+  a decision instead of making one, and a wrong marking is visible and arguable in a way an unmarked
+  judgement never is.
 ## Tessa is lazy
 
 Recurring doc work runs through existing helpers instead of by hand. If a doc operation repeats,

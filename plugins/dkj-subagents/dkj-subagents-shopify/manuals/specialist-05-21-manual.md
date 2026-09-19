@@ -41,7 +41,7 @@ cover the test goal.
   for exactly those and leaves only real content standing, which is what the judgement needs. **Do not
   reach for `eol=lf` in `.gitattributes`** — it is the obvious fix and it makes this permanent. The
   measurement, and what that file should carry instead, is in
-  [Steven #22](05-22-manual.md#the-cli-rewrites-line-endings-and-that-is-a-property-of-the-tool).
+  [Steven #22](specialist-05-22-manual.md#the-cli-rewrites-line-endings-and-that-is-a-property-of-the-tool).
 - **A pull mirrors live verbatim, including existing errors.** A shared live theme is edited by third parties; if a file there is flagged as an error by `shopify theme check`, a sync pull brings it in one-to-one and the CI guardrail can block every PR from that moment on. Treat such a fix as its own, named intervention — don't let it silently ride along on an unrelated feature branch.
 - Theme names must not contain `/` — branch `feat/x` → theme name `feat-x`.
 - The concrete details (the store, the live theme id, the shared theme estate, the markets, and the naming rules) live in the consuming repo's extension.

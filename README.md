@@ -371,7 +371,7 @@ They sit on different axes — one is "which platform," the other is "which mark
 ## What lives here and what doesn't
 
 **Does live here:** the plugin folders under [`plugins/`](plugins/) with **subagent definitions**
-(`agents/`) and the **portable playbook** per specialist (`manuals/<group>-<id>-manual.md`) that the
+(`agents/`) and the **portable playbook** per specialist (`manuals/specialist-<group>-<id>-manual.md`) that the
 agent def reads in via `${CLAUDE_PLUGIN_ROOT}/manuals/`. The core team (`dkj-subagents-alpha`) additionally
 carries two things that cover the **main-loop layer** (see
 [Adoption: the bootstrap path](#adoption-the-bootstrap-path)): the **persona templates**
@@ -591,7 +591,7 @@ a **persona template**.
 A specialist handbook splits into a **portable** part (repo-neutral, identical in every repo: the
 craft, the hard rules, the tone) and a **repo lens** (the `## Specific to this repo` part: which
 content/context of that repo the specialist serves). The portable part lives in
-`plugins/<plugin>/manuals/<group>-<id>-manual.md` in this marketplace; the consuming repo keeps only
+`plugins/<plugin>/manuals/specialist-<group>-<id>-manual.md` in this marketplace; the consuming repo keeps only
 the lens in `.claude/specialists/lenses/<group>-<id>-extension.md`. The agent def points to both.
 
 **All four teams have now been migrated** — every handbook lives here in the `manuals/` folder of
@@ -603,22 +603,32 @@ its plugin, and every consuming repo keeps only its repo lens in `.claude/specia
 - **`dkj-subagents-shopify` (an add-on team)** → `plugins/dkj-subagents/dkj-subagents-shopify/manuals/` (Liam, Sandra, Steven).
 - **`dkj-subagents-ecomm` (an add-on team)** → `plugins/dkj-subagents/dkj-subagents-ecomm/manuals/` (Sergio, Craig, Sean).
 
-### Agent def vs. manual — two files, one specialist
+### Subagent def vs. manual — two files, one specialist
 
 Every specialist in these plugins consists of two files, each with its own job:
 
-- **`agents/<group>-<id>-agent.md` — the agent definition**, the executable form. The frontmatter
+- **`subagents/specialist-<group>-<id>-subagent.md` — the subagent definition**, the executable form. The frontmatter
   (`name`, `description`, `tools`, `model`) is what Claude Code reads to register the subagent;
   the `description` is also the routing signal the main loop uses to pick a subagent. The body is
   deliberately just a compact operational core (working method, boundaries, deliverable format) and
   refers to the playbook for the actual craft.
-- **`manuals/<group>-<id>-manual.md` — the playbook**, the full description of the craft: the
+- **`manuals/specialist-<group>-<id>-manual.md` — the playbook**, the full description of the craft: the
   hard rules, the trade-offs behind them, and the personality & tone. It is read on demand — by the
   subagent itself when in doubt, and by the main loop (the orchestrator that assigns the work and
   the personas that are not subagents).
 
-**The manual is leading; the agent def is the executable abbreviation.** You change a craft rule in
-the manual; you only touch the agent def when the operational core or the tool set changes. The two
+**The noun is `subagent def`, and the retired `agent def` still appears throughout these documents.**
+Both name the same file. The old spelling is corrected as files are edited for other reasons rather
+than swept — the same answer this repo gives for the citations left by every other rename
+([#2137](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2137), September 19, 2026), and
+for the same reason: both read correctly, so nothing is broken, while a sweep would buy consistency
+at the price of a diff nobody can review. What does **not** change is anything a machine *resolves*:
+the `"agents"` key in every `plugin.json` is Claude Code's own schema, and
+[`scripts/agents/build-agent-defs.ps1`](scripts/agents/build-agent-defs.ps1) is a path the tooling
+reads. A citation may lag; a lookup may not.
+
+**The manual is leading; the subagent def is the executable abbreviation.** You change a craft rule in
+the manual; you only touch the subagent def when the operational core or the tool set changes. The two
 are kept deliberately separate: they serve different readers (the harness vs. humans and the main
 loop), the router-critical `description` and tool set should not sway along with every textual
 refinement, and the portable-vs-repo-lens model above relies on manuals as standalone, lintable
@@ -659,7 +669,7 @@ at all. He cannot: the auto-mode classifier blocks every write to `settings.json
 to improvise a recovery mid-task both times — while the correction, had it been written down, would
 have sat unread in his manual. Fixing only the manual would have produced a third collision.
 
-### Persona templates — a third artifact alongside agent def and manual
+### Persona templates — a third artifact alongside subagent def and manual
 
 The orchestrator and the main-loop specialists (Chris #01, Bianca #02, Derek #05, Rendall #06) run in
 the **main loop**, not as subagents. A plugin *can* inject always-on main-loop context — a root
@@ -1085,7 +1095,7 @@ measured fact — which changes its weight without removing it:
    whichever plugin happens to sit last, with nothing on screen to say so.
 2. **It changes every consumer's main loop on their next plugin update**, from a version bump they did
    not read. Outward-facing and effectively irreversible for anyone who pulls it before a revert.
-3. **Chris ships as a persona, not a subagent, so there is no `agents/01-01-agent.md` to point at.**
+3. **Chris ships as a persona, not a subagent, so there is no `subagents/specialist-01-01-subagent.md` to point at.**
    Creating one is not a formality: that file's `tools:` and `model` would become **the whole main
    thread's** tool policy and model.
 
@@ -1527,7 +1537,7 @@ reminder is what a derivation makes unnecessary.
 3. **The marketplace entry** — register the plugin in
    [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) with a repo-relative
    `source`.
-4. **The specialists** — `agents/<group>-<id>-agent.md` + `manuals/<group>-<id>-manual.md` per
+4. **The specialists** — `subagents/specialist-<group>-<id>-subagent.md` + `manuals/specialist-<group>-<id>-manual.md` per
    member, following the `<group>-<id>` convention (a globally unique `id`).
 5. **The docs that enumerate the plugins** — this README (the plugin count, the
    [teams-and-workflows table](#teams-and-workflows--whats-the-difference), the [invocation list](#invocation),

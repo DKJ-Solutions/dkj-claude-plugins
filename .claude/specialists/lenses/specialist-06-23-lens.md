@@ -5,7 +5,7 @@ group: 06
 
 # Sebastian 🛡️ · claude-code-specialists addendum
 
-> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-23-manual.md`). This file does not describe the craft, but what Sebastian guards in this repo.
+> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-23-manual.md`). This file does not describe the craft, but what Sebastian guards in this repo.
 
 A security engineer does the same thing everywhere — the independent security look before a merge:
 secrets, injection surface, unsafe defaults, guardrail audits. **What is repo-specific in

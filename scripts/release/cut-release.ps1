@@ -552,8 +552,9 @@ if ($pluginTier) {
     $marketplaceName = Get-MarketplaceName -MarketplaceJson (Get-MarketplaceJsonText)
     # KEYED ON THE PLUGIN NAME rather than the manifest path. The key is only ever read back in
     # Get-LockstepVersion's error text, where a lockstep disagreement has to be readable at a glance --
-    # 'dkj-subagents-alpha: 3.9.0' says which plugin is out of step; an absolute path makes the reader work out
-    # the same fact from a folder name.
+    # 'dkj-subagents-alpha: 5.4.0' says which plugin is out of step; an absolute path makes the reader
+    # work out the same fact from a folder name. That pair is an illustration of the shape, so it is
+    # kept true as names change rather than frozen the way a quotation is (#2144).
     $manifestContents = @{}
     foreach ($p in $manifests) { $manifestContents[$p.Name] = (Get-Content -Path $p.ManifestPath -Raw -Encoding UTF8) }
     $current = Get-LockstepVersion -ManifestContents $manifestContents

@@ -303,7 +303,7 @@ function Restore-StartCheckout {
         # A FAILED HAND-BACK IS LOUD, because this is the one outcome with no signal of its own: the
         # tree is clean and the checkout is on the trunk, which is exactly the state #1071's report
         # measured a commit being lost to.
-        Write-Warning "prune-merged could not put this checkout back on '$startBranch' -- it is standing on '$trunk'. Switch back by hand BEFORE you commit. ($(($backRes.Output | Out-String).Trim()))"
+        Write-Warning "prune-merged could not put this checkout back on '$startBranch' -- it is standing on '$trunk'. Switch back by hand BEFORE you commit. ($(Get-NativeOutputText $backRes.Output))"
     }
 }
 
@@ -419,7 +419,7 @@ if ($startBranch -eq $trunk) {
 # that state too (git will not write a ref that is checked out anywhere), but only the fast-forward is
 # lost, not the run.
 if ($ffRes.ExitCode -ne 0) {
-    $reason = ($ffRes.Output | Out-String).Trim()
+    $reason = (Get-NativeOutputText $ffRes.Output)
     # WHY THIS NAMES A DIRECTORY (issue #1069). git's own message says the ref is taken and, at best,
     # where -- never what to do about it. Best-effort: an unreadable worktree list falls back to git's
     # own message. Only asked on the fetch path; a run standing on the trunk itself holds it.
@@ -443,7 +443,7 @@ if ($ffRes.ExitCode -ne 0) {
 # `git ls-remote --heads <remote>`).
 $fetchRes = Invoke-Git -Arguments @('fetch', '--prune', $Remote)
 if ($fetchRes.ExitCode -ne 0) {
-    Write-Warning "could not fetch --prune from $Remote -- stale remote-tracking refs may remain. ($(($fetchRes.Output | Out-String).Trim()))"
+    Write-Warning "could not fetch --prune from $Remote -- stale remote-tracking refs may remain. ($(Get-NativeOutputText $fetchRes.Output))"
 } else {
     Write-Host "Pruned stale remote-tracking refs for $Remote." -ForegroundColor Green
 }
@@ -526,7 +526,7 @@ if ($branches.Count -gt 0 -or $IncludeRemote) {
                 Write-Warning "gh's merged-PR list could not be read as JSON -- a squash-merged branch cannot be proven merged and will be kept. ($($_.Exception.Message))"
             }
         } else {
-            Write-Warning "gh could not list merged PRs -- a squash-merged branch cannot be proven merged and will be kept. ($(($prRes.Output | Out-String).Trim()))"
+            Write-Warning "gh could not list merged PRs -- a squash-merged branch cannot be proven merged and will be kept. ($(Get-NativeOutputText $prRes.Output))"
         }
     } else {
         Write-Warning "gh is not available -- a squash-merged branch cannot be proven merged and will be kept."
@@ -677,7 +677,7 @@ foreach ($branch in $branches) {
     if ($branch -eq $startBranch) {
         $offRes = Invoke-Git -Arguments @('checkout', $trunk)
         if ($offRes.ExitCode -ne 0) {
-            $kept += [pscustomobject]@{ Branch = $branch; Why = "you are standing on it and this run could not step off onto '$trunk': $(($offRes.Output | Out-String).Trim())" }
+            $kept += [pscustomobject]@{ Branch = $branch; Why = "you are standing on it and this run could not step off onto '$trunk': $(Get-NativeOutputText $offRes.Output)" }
             continue
         }
         $steppedOff = $true
@@ -691,7 +691,7 @@ foreach ($branch in $branches) {
         # A REFUSED DELETE IS REPORTED AS KEPT, not as a failure of the run. `git branch -d` declining
         # is the safety check doing its job on a branch whose ancestry looked right a moment ago, and
         # the run has other branches to finish.
-        $kept += [pscustomobject]@{ Branch = $branch; Why = "git branch $flag refused: $(($delRes.Output | Out-String).Trim())" }
+        $kept += [pscustomobject]@{ Branch = $branch; Why = "git branch $flag refused: $(Get-NativeOutputText $delRes.Output)" }
     }
 }
 
@@ -727,7 +727,7 @@ if (-not $IncludeRemote) {
 
 $lsRes = Invoke-Git -Arguments @('ls-remote', '--heads', $Remote)
 if ($lsRes.ExitCode -ne 0) {
-    Write-Warning "could not read the heads on $Remote -- the remote pass is skipped, and nothing above it is affected. ($(($lsRes.Output | Out-String).Trim()))"
+    Write-Warning "could not read the heads on $Remote -- the remote pass is skipped, and nothing above it is affected. ($(Get-NativeOutputText $lsRes.Output))"
     Complete-Run
 }
 
