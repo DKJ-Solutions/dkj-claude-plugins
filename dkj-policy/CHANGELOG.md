@@ -43,7 +43,59 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 18 minor entries** <!-- pending-tally -->
+**9 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2131-subagent-def-filenames · 20260919-131555
+
+Step B of the #2128 rename series, and the one with the most ways to go wrong: the 26 subagent
+definitions become `specialist-<g>-<id>-subagent.md`, and the four `plugin.json` `agents` arrays that
+name every one of them literally move in the same commit. #1764 is why that pairing is not optional --
+a bad shape in those arrays made four of six plugins uninstallable for a whole release. Lint check 38
+holds all 26 entries against a file on disk and reports 0 findings. The suffix change finishes #1698,
+which moved `agents/` to `subagents/` and left the files inside called `<g>-<id>-agent.md`.
+
+**The rename was the easy half.** #2130 had converted thirteen reader sites to one four-row table so
+that a step like this one moves files and touches no reader -- and moving the files found a
+fourteenth it had missed. `Get-PluginIds` (`check-connectors.ps1:377`) sliced the specialist id off
+with `-replace '-(agent|persona)$'`, which matches nothing in `specialist-06-23-subagent`: the strip
+left the whole base name standing and returned it as an id, so `$ownedIds` silently stopped holding
+ids and the eight `[INFO]`/`[INVENTORY]` assertions filtering on it went red. Nothing threw. It
+survived step A because it reads a *directory* rather than a filename pattern, and keeps its
+convention in a `-replace` on the following line -- so neither the anchored globs nor the
+`^(\d{2})-(\d{2})-...$` regexes step A was hunting named it, seven lines above a converted walk whose
+comment describes this exact defect as fixed. It now goes through `Get-SpecialistFiles` +
+`Get-SpecialistFileId`, with the directory leaf through `Get-SubagentDirPath`. A tree-wide sweep found
+no second site; the entry's own claim of thirteen is filed as #2145.
+
+The second stale thing the merge exposed was the flip itself: the `Subagent` row in
+`Get-SpecialistFileShapes` still named the old spelling as the written one, because this branch was
+built before that table existed and could not have swapped a row that was not there. Swapped now, in
+all four byte-identical copies, with the paragraph that read *"nothing has been renamed yet"* rewritten
+-- from step B on, two of the four rows point in opposite directions, and that is the table's normal
+state for the rest of the series rather than a defect in it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The renamed files are plugin payload, so a consumer receives them at the next release: after
+`claude plugin update` their cache holds `specialist-<g>-<id>-subagent.md` and the old names are gone.
+**Nothing is asked of them and there is no migration** -- every reader this workflow ships accepts both
+spellings, which is what #2130 was built the release before for. The one case that is not covered is a
+consumer's *own* script globbing `*-agent.md` inside the plugin cache; that is not a reader this repo
+can see, and it is the whole of the exposure.
+
+**Score:** 1
+
+#### Pull Request
+
+The subagent definitions become specialist-NN-NN-subagent.md, with the four plugin.json agents arrays
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2147](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2147)
+
+---
 
 ### DEPLOY: docs/2139-frozen-citation-restore · 20260919-125659
 
