@@ -43,7 +43,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 21 minor entries** <!-- pending-tally -->
+**9 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2142-anchor-hook-marker-match · 20260919-141223
+
+Every session hook now counts a verdict marker only where its check wrote it, through one shared
+`Select-CheckMarkerLine`, and `check-always-on-budget.ps1` sanitizes the tree-derived values it
+prints the way the rest of this tree already does. Before this, a document able to put `[WARN]` or
+`[ERROR]` on the always-on path had its own line forwarded into every session start -- and `[ERROR]`
+made the hook print its over-the-limit headline and the whole report on a run that was in fact `[OK]`.
+Reaching it needed content in the tracked import chain of the checkout being measured -- which is a
+branch under review, not only the trunk: the check runs from `open-pr`, from CI and from a session
+start against whatever is checked out, so a pull request touching an `@`-import line already tripped
+it. So this is robustness rather than a closed hole, and the hole was one hop nearer than "already
+merged" suggests. What it removes is the shape that goes wrong later, when somebody adds a field to a
+report and does not know a sanitizer was load-bearing for it. The sweep is the bigger half: eight
+hooks across two plugins were selecting this way, each with its own hand-written escape.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- no subscriber of a service notices this. It changes which lines a session-start hook forwards
+in a repo running this workflow, and the visible behaviour of every healthy repo is unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+Session hooks count a verdict marker only where the check wrote it
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2151](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2151)
+
+---
 
 ### DEPLOY: fix/2141-xoxowildhearts-checkout-candidate · 20260919-135420
 
