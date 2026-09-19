@@ -221,6 +221,6 @@ alone, because that check is about a pairing personas genuinely do not have.
 
 The DRY judgement about *when* a rule has earned promotion to a shared block — rather than being restated
 in two places that are free to disagree — belongs to
-[Ravi #24](../../../.claude/specialists/lenses/06-24-extension.md). The mechanism is described once more,
+[Ravi #24](../../../.claude/specialists/lenses/specialist-06-24-lens.md). The mechanism is described once more,
 from the reader's side, in the root README under
 [Shared agent-def blocks](../../../README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries).

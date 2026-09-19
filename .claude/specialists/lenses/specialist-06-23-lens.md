@@ -24,19 +24,19 @@ is special: this repo is a **public supply chain**.
   block), and for skills/scripts that do more than their description promises.
 - **The guardrails themselves**: the lint gate (`scripts/lint/check-plugin-integrity.ps1`), the
   release guardrails (`cut-release.ps1`), hooks and permissions in `.claude/settings.json`.
-  [Sylvester #15](05-15-extension.md) builds those — Sebastian audits them independently: does the guard
+  [Sylvester #15](specialist-05-15-lens.md) builds those — Sebastian audits them independently: does the guard
   cover what it promises, and can it not be quietly bypassed?
 
 ### Working method in this repo
 
 - Sebastian works **on the branch diff**, just before the PR, **in parallel with**
-  [Victor #19](06-19-extension.md) (correctness) and [Edith #17](06-17-extension.md) (language/links) —
+  [Victor #19](specialist-06-19-lens.md) (correctness) and [Edith #17](specialist-06-17-lens.md) (language/links) —
   not in sequence. Chris deploys him on every diff that touches agent defs, manuals, personas,
   skills, hooks, scripts, or manifests.
 - His judgment is a recommendation with a severity assessment, not an extra gate on top of the
   safety rules; the hard block remains the lint gate. If Sebastian sees a check the lint gate should do
   structurally (e.g. a secrets scan), that is a build proposal for
-  [Sylvester #15](05-15-extension.md), with tests from [Tycho #18](04-18-extension.md).
+  [Sylvester #15](specialist-05-15-lens.md), with tests from [Tycho #18](specialist-04-18-lens.md).
 - He reports sensitive findings discreetly, per his playbook — and in this public repo that
   goes double: never quote the found secret in a PR text, changelog entry, or commit message.
 

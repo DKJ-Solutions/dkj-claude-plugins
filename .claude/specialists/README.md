@@ -21,7 +21,7 @@ themselves**. It is **not a replacement** for the safety rules or the routing.
 
 - The constitution remains [`../../CLAUDE.md#safety-rules`](../../CLAUDE.md#safety-rules).
 - **Chris still takes in and routes every assignment** — see his fixed ritual in
-  [`lenses/01-01-extension.md`](lenses/01-01-extension.md).
+  [`lenses/specialist-01-01-lens.md`](lenses/specialist-01-01-lens.md).
 
 ## Layout of this directory
 
@@ -48,7 +48,7 @@ just like inline text.
     stated in [`SPECIALISTS.md`](SPECIALISTS.md) rather than in `CLAUDE.md` itself — the seam spends
     two of the four allowed import hops), Derek and Rendall on demand from that same path. **Bianca
     is the fourth persona and currently has no trigger**: her body would load the same way, but
-    nothing in [Chris's lens](lenses/01-01-extension.md) routes an assignment to her, so in practice
+    nothing in [Chris's lens](lenses/specialist-01-01-lens.md) routes an assignment to her, so in practice
     she is never read here. That is a statement of the present, not a defect to route around — this
     repo does no intake interviews. The day it does, she needs a routing row like Derek's and
     Rendall's, and until then the honest reading of the table below is "has a lens, has no caller".
@@ -65,7 +65,7 @@ just like inline text.
   `DKJ-Solutions/claude-code-specialists` — the repo points to itself) + `enabledPlugins`, which holds
   **all six** of the marketplace's plugins rather than the core team alone — read the file for the
   list, since a spelling of it here is one plugin away from going stale.
-  [Sylvester #15](lenses/05-15-extension.md)'s domain.
+  [Sylvester #15](lenses/specialist-05-15-lens.md)'s domain.
 
 ## How a specialist is structured
 
@@ -83,9 +83,9 @@ here. What follows are the rules that build on that split:
 
 **Rules:** where a manual and an **agent def** both exist, the **manual is leading**; the agent def is
 the executable abbreviation. The *principle* and the manuals belong to
-[Tessa #16](lenses/06-16-extension.md); the agent-def config (frontmatter, tools, model) belongs to
-[Sylvester #15](lenses/05-15-extension.md). **Chris remains a persona** — he is the only one who can
-**ask** Dave anything. [Tessa #16](lenses/06-16-extension.md) guards the two-part manual split
+[Tessa #16](lenses/specialist-06-16-lens.md); the agent-def config (frontmatter, tools, model) belongs to
+[Sylvester #15](lenses/specialist-05-15-lens.md). **Chris remains a persona** — he is the only one who can
+**ask** Dave anything. [Tessa #16](lenses/specialist-06-16-lens.md) guards the two-part manual split
 (portable body vs. repo lens) on every change here.
 
 **A persona may back a manual too, and that pairing is leading in neither direction**
@@ -156,7 +156,7 @@ Every specialist has a fixed, numeric **`id`** (permanent identity, never change
 named `<group>-<id>-extension.md`; the portable playbook `specialist-<group>-<id>-manual.md` and the
 subagent def `specialist-<group>-<id>-subagent.md` live in the plugin. **Name, emoji, and title are labels** — they
 may change freely; the filename and link paths hang off `id`/`group`, not the name. **The lint gate
-guards this** ([Sylvester #15](lenses/05-15-extension.md)): every filename matches the
+guards this** ([Sylvester #15](lenses/specialist-05-15-lens.md)): every filename matches the
 frontmatter (`id:` and `group:`).
 
 **So a rename never breaks a reference — it only leaves the name behind in prose**, and
@@ -182,7 +182,7 @@ mentions across 59 files against Sebastian's **46** across 18 — a factor of fo
 could tell you that number *before* you started.
 
 **The same pass answered the question that prompted it**, which was whether the name in a link should
-become the id (`[#16]`) or the filename (`[06-16-extension]`) so a rename would need no edit there.
+become the id (`[#16]`) or the filename (`[specialist-06-16-lens]`) so a rename would need no edit there.
 Three measurements against that same tree said no:
 
 | | |
@@ -236,36 +236,36 @@ state, not a backlog item**, exactly as
 
 | # | Specialist | Repo lens | Agent def |
 |---|---|---|---|
-| 01 | Chris 🧭 — Chief of Staff | [`lenses/01-01-extension.md`](lenses/01-01-extension.md) | — (persona-only) |
-| 02 | Bianca 🎙️ — Biographer | [`lenses/03-02-extension.md`](lenses/03-02-extension.md) *(scaffold)* | — (persona-only) |
-| 05 | Derek 🐙 — DevOps Engineer | [`lenses/05-05-extension.md`](lenses/05-05-extension.md) | — (persona-only) |
-| 06 | Rendall 🎬 — Release Manager | [`lenses/05-06-extension.md`](lenses/05-06-extension.md) | — (persona-only) |
-| 07 | Rebecca 🔬 — Research Specialist | [`lenses/03-07-extension.md`](lenses/03-07-extension.md) | `@dkj-subagents-alpha:rebecca` |
-| 09 | Paula 📅 — Project Planner | [`lenses/02-09-extension.md`](lenses/02-09-extension.md) *(scaffold)* | `@dkj-subagents-alpha:paula` |
-| 11 | Vera 📊 — Data Analyst | [`lenses/04-11-extension.md`](lenses/04-11-extension.md) *(scaffold)* | `@dkj-subagents-alpha:vera` |
-| 12 | Gwen 🎨 — Graphic & Front-end Designer | [`lenses/04-12-extension.md`](lenses/04-12-extension.md) *(scaffold)* | `@dkj-subagents-alpha:gwen` |
-| 13 | Cody 💻 — App Developer | [`lenses/04-13-extension.md`](lenses/04-13-extension.md) *(scaffold)* | `@dkj-subagents-alpha:cody` |
-| 15 | Sylvester ⚙️ — System Administrator | [`lenses/05-15-extension.md`](lenses/05-15-extension.md) | `@dkj-subagents-alpha:sylvester` |
-| 16 | Tessa 📜 — Technical Writer | [`lenses/06-16-extension.md`](lenses/06-16-extension.md) | `@dkj-subagents-alpha:tessa` |
-| 17 | Edith 🔍 — Copy Editor | [`lenses/06-17-extension.md`](lenses/06-17-extension.md) | `@dkj-subagents-alpha:edith` |
-| 18 | Tycho 🧪 — Test Engineer | [`lenses/04-18-extension.md`](lenses/04-18-extension.md) | `@dkj-subagents-alpha:tycho` |
-| 19 | Victor 🧐 — Code Reviewer | [`lenses/06-19-extension.md`](lenses/06-19-extension.md) | `@dkj-subagents-alpha:victor` |
-| 23 | Sebastian 🛡️ — Security Engineer | [`lenses/06-23-extension.md`](lenses/06-23-extension.md) | `@dkj-subagents-alpha:sebastian` |
-| 24 | Ravi ♻️ — Refactoring Specialist | [`lenses/06-24-extension.md`](lenses/06-24-extension.md) | `@dkj-subagents-alpha:ravi` |
-| 25 | Nolan ⚡ — Performance Engineer | [`lenses/06-25-extension.md`](lenses/06-25-extension.md) | `@dkj-subagents-alpha:nolan` |
-| 29 | Marlowe 🕵️ — Investigative Journalist | [`lenses/06-29-extension.md`](lenses/06-29-extension.md) | `@dkj-subagents-alpha:marlowe` |
-| 30 | Auden 🖋️ — Academic & Long-form Writer | [`lenses/06-30-extension.md`](lenses/06-30-extension.md) *(scaffold)* | `@dkj-subagents-alpha:auden` |
+| 01 | Chris 🧭 — Chief of Staff | [`lenses/specialist-01-01-lens.md`](lenses/specialist-01-01-lens.md) | — (persona-only) |
+| 02 | Bianca 🎙️ — Biographer | [`lenses/specialist-03-02-lens.md`](lenses/specialist-03-02-lens.md) *(scaffold)* | — (persona-only) |
+| 05 | Derek 🐙 — DevOps Engineer | [`lenses/specialist-05-05-lens.md`](lenses/specialist-05-05-lens.md) | — (persona-only) |
+| 06 | Rendall 🎬 — Release Manager | [`lenses/specialist-05-06-lens.md`](lenses/specialist-05-06-lens.md) | — (persona-only) |
+| 07 | Rebecca 🔬 — Research Specialist | [`lenses/specialist-03-07-lens.md`](lenses/specialist-03-07-lens.md) | `@dkj-subagents-alpha:rebecca` |
+| 09 | Paula 📅 — Project Planner | [`lenses/specialist-02-09-lens.md`](lenses/specialist-02-09-lens.md) *(scaffold)* | `@dkj-subagents-alpha:paula` |
+| 11 | Vera 📊 — Data Analyst | [`lenses/specialist-04-11-lens.md`](lenses/specialist-04-11-lens.md) *(scaffold)* | `@dkj-subagents-alpha:vera` |
+| 12 | Gwen 🎨 — Graphic & Front-end Designer | [`lenses/specialist-04-12-lens.md`](lenses/specialist-04-12-lens.md) *(scaffold)* | `@dkj-subagents-alpha:gwen` |
+| 13 | Cody 💻 — App Developer | [`lenses/specialist-04-13-lens.md`](lenses/specialist-04-13-lens.md) *(scaffold)* | `@dkj-subagents-alpha:cody` |
+| 15 | Sylvester ⚙️ — System Administrator | [`lenses/specialist-05-15-lens.md`](lenses/specialist-05-15-lens.md) | `@dkj-subagents-alpha:sylvester` |
+| 16 | Tessa 📜 — Technical Writer | [`lenses/specialist-06-16-lens.md`](lenses/specialist-06-16-lens.md) | `@dkj-subagents-alpha:tessa` |
+| 17 | Edith 🔍 — Copy Editor | [`lenses/specialist-06-17-lens.md`](lenses/specialist-06-17-lens.md) | `@dkj-subagents-alpha:edith` |
+| 18 | Tycho 🧪 — Test Engineer | [`lenses/specialist-04-18-lens.md`](lenses/specialist-04-18-lens.md) | `@dkj-subagents-alpha:tycho` |
+| 19 | Victor 🧐 — Code Reviewer | [`lenses/specialist-06-19-lens.md`](lenses/specialist-06-19-lens.md) | `@dkj-subagents-alpha:victor` |
+| 23 | Sebastian 🛡️ — Security Engineer | [`lenses/specialist-06-23-lens.md`](lenses/specialist-06-23-lens.md) | `@dkj-subagents-alpha:sebastian` |
+| 24 | Ravi ♻️ — Refactoring Specialist | [`lenses/specialist-06-24-lens.md`](lenses/specialist-06-24-lens.md) | `@dkj-subagents-alpha:ravi` |
+| 25 | Nolan ⚡ — Performance Engineer | [`lenses/specialist-06-25-lens.md`](lenses/specialist-06-25-lens.md) | `@dkj-subagents-alpha:nolan` |
+| 29 | Marlowe 🕵️ — Investigative Journalist | [`lenses/specialist-06-29-lens.md`](lenses/specialist-06-29-lens.md) | `@dkj-subagents-alpha:marlowe` |
+| 30 | Auden 🖋️ — Academic & Long-form Writer | [`lenses/specialist-06-30-lens.md`](lenses/specialist-06-30-lens.md) *(scaffold)* | `@dkj-subagents-alpha:auden` |
 
 The six scaffolds mark specialists who rarely have work in this maintenance repo — Bianca's intake
 interviews, Paula's timelines, Vera's dashboards, Gwen's visuals, Cody's application code, Auden's
 long-form writing. On the day one of them first has work here,
-[Tessa #16](lenses/06-16-extension.md) fills the lens in before that specialist is deployed.
+[Tessa #16](lenses/specialist-06-16-lens.md) fills the lens in before that specialist is deployed.
 **The three add-on teams — `dkj-subagents-ecomm`, `dkj-subagents-lifehub` and `dkj-subagents-shopify` — are on here,
 and their eleven lenses are empty for a different reason: they will stay empty.** The six
 scaffolds above are waiting; those eleven are not. Those plugins are enabled so that the repo that
 ships a plugin is also a repo that loads it — validation, not a roster — and this repo is not a
 webshop, a Shopify store or a personal-life repo, so [Chris does not route to
-them](lenses/01-01-extension.md#the-roster--routing-table--which-assignment-goes-to-whom) at all. **Do
+them](lenses/specialist-01-01-lens.md#the-roster--routing-table--which-assignment-goes-to-whom) at all. **Do
 not treat those eleven as a backlog**: a filled-in lens for one of them would describe work this repo
 does not have. Same reasoning, in
 [`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo slot of
@@ -275,7 +275,7 @@ does not have. Same reasoning, in
 
 The team and its organization come about **in consultation with Dave** and may change — exactly as
 new specialists only come about by agreement (see
-[Chris #01](lenses/01-01-extension.md#new-specialists--only-by-agreement)). If the organization
+[Chris #01](lenses/specialist-01-01-lens.md#new-specialists--only-by-agreement)). If the organization
 changes, Tessa updates this document.
 
 ## Measured instances kept off the always-on path
@@ -294,7 +294,7 @@ moving.
 ### The three ways a briefing fails, measured here
 
 Behind *"Verify the stand against the repo, not against a handover text"* in
-[Chris's lens](lenses/01-01-extension.md#the-dave-rules). Three modes, three instances, none of which
+[Chris's lens](lenses/specialist-01-01-lens.md#the-dave-rules). Three modes, three instances, none of which
 the mode above it would have caught.
 
 **Truncated — July 29, 2026.** Dave's self-verifying start prompt arrived **three times, identically
@@ -348,7 +348,7 @@ which is why the entry survived until somebody asked whose decision it was.
 ### The branch check fires on the follow-up assignment
 
 Behind *"The check runs at the start of every assignment, not every session"* in
-[Chris's lens](lenses/01-01-extension.md#the-gatekeepers-as-implemented-here).
+[Chris's lens](lenses/specialist-01-01-lens.md#the-gatekeepers-as-implemented-here).
 
 Measured August 10, 2026. `ship-pr.ps1` switches to `main` in order to fold, so a successful chain ends
 with the session on the trunk and the tree clean. Dave caught it after **seven** files had been edited

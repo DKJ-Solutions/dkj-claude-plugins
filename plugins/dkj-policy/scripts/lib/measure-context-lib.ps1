@@ -162,7 +162,7 @@ function Resolve-ImportPath {
           anything else -> relative to the DIRECTORY OF THE IMPORTING FILE, not to the repo root.
 
         The last rule is why `@.claude/specialists/SPECIALISTS.md` in a root CLAUDE.md and
-        `@lenses/01-01-extension.md` in `.claude/specialists/SPECIALISTS.md` both resolve correctly under
+        `@lenses/specialist-01-01-lens.md` in `.claude/specialists/SPECIALISTS.md` both resolve correctly under
         ONE rule: CLAUDE.md's own directory IS the repo root, so the root-relative reading is a special
         case of the file-relative one rather than a second rule. Reading the second line as root-relative
         would silently resolve to a path that does not exist, and a missing import is reported as absent

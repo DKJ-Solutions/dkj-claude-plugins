@@ -905,7 +905,7 @@ opt-in, because it is this exception being used.
 cleared by this run, so leaving it out would produce a commit that clears half the pair — the entry gone from
 `main` while the step list still shows the merged branch's ticked boxes. That argument now only reaches a branch
 cut before the two files merged, since one document is cleared in one move. See
-[Rendall #06](../.claude/specialists/lenses/05-06-extension.md#changelog).
+[Rendall #06](../.claude/specialists/lenses/specialist-05-06-lens.md#changelog).
 
 **The same run refreshes the pending tally** — the one line under `## [Unreleased]`, which reads
 `**4 / 9 minor entries**`: how many of the pending entries reach this repo's audience tier, out of how many
@@ -982,7 +982,7 @@ document about work they cannot see. Full model:
 [`cut-release.ps1`](../scripts/release/cut-release.ps1) bumps all plugin versions in lockstep, generates the
 release notes, **empties `CHANGELOG.md` down to its intro**, commits that on `main`, and tags the version.
 Deliberately no branch or PR — just like the fold. See
-[Rendall #06](../.claude/specialists/lenses/05-06-extension.md#versioning--releases).
+[Rendall #06](../.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
 
 **Where those documents live**, since the step names and the tree do not line up by themselves: the changelog
 notes are `dkj-policy/releases/changelog/<major>.x/<version>.md` and the GitHub notes
@@ -1013,7 +1013,7 @@ time on purpose — a script that repointed it would remove the tripwire that ca
 every nine days or so.
 
 **Why this exception exists in this shape, and every alternative that was weighed and declined, is in
-[Rendall #06](../.claude/specialists/lenses/05-06-extension.md#the-release-craft-received-from-claudemd-august-15-2026)**
+[Rendall #06](../.claude/specialists/lenses/specialist-05-06-lens.md#the-release-craft-received-from-claudemd-august-15-2026)**
 — the entry format, the tier model and its audience knob, the significance rubric, the release documents and
 their writing norm, the bump rules, and the measurements behind each. It was moved off the always-on path on
 August 15, 2026, where it was 41,168 B and 32% of everything loaded before a word of work. **Read it before

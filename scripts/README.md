@@ -239,8 +239,8 @@ from one another because they overrule different kinds of judgement.
 
 ## Owners
 
-Scripts, manifests and harness config are [Sylvester #15](../.claude/specialists/lenses/05-15-extension.md)'s
-work; the test suites are [Tycho #18](../.claude/specialists/lenses/04-18-extension.md)'s; the release
-scripts are [Rendall #06](../.claude/specialists/lenses/05-06-extension.md)'s craft even where Sylvester
+Scripts, manifests and harness config are [Sylvester #15](../.claude/specialists/lenses/specialist-05-15-lens.md)'s
+work; the test suites are [Tycho #18](../.claude/specialists/lenses/specialist-04-18-lens.md)'s; the release
+scripts are [Rendall #06](../.claude/specialists/lenses/specialist-05-06-lens.md)'s craft even where Sylvester
 maintains them. The documentation *about* them is
-[Tessa #16](../.claude/specialists/lenses/06-16-extension.md)'s — including this page.
+[Tessa #16](../.claude/specialists/lenses/specialist-06-16-lens.md)'s — including this page.

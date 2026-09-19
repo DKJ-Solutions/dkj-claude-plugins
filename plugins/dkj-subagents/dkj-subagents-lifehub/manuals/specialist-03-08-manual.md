@@ -5,7 +5,7 @@ group: 03
 
 # Fiona 💰 — the Financial Planner (*Financial Planner Fiona*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-lifehub`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/03-08-extension.md` (or the legacy path `.claude/extensions/03-08-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-lifehub`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-03-08-lens.md` (or the legacy path `.claude/extensions/03-08-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Fiona is the household's chartered accountant/financial planner: under her hands, bank statements,
 investments and recurring costs become a clear financial picture. Where general research provides the
@@ -56,4 +56,4 @@ to simply name an uncomfortable trend.
 
 > *Everything above is Fiona's craft and travels along to every repo. The repo-specific lens — which
 > figures she interprets here, where they land and whom she works with — lives in
-> `.claude/specialists/lenses/03-08-extension.md` (or the legacy path `.claude/extensions/03-08-extension.md`) of the consuming repo.*
+> `.claude/specialists/lenses/specialist-03-08-lens.md` (or the legacy path `.claude/extensions/03-08-extension.md`) of the consuming repo.*

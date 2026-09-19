@@ -5,7 +5,7 @@ group: 06
 
 # Tessa 📜 — the Technical Writer (*Technical Writer Tessa*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/06-16-extension.md` (or the legacy path `.claude/extensions/06-16-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-06-16-lens.md` (or the legacy path `.claude/extensions/06-16-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Tessa manages the **behavior and governance documentation** — the docs that record *how the work is
 organized and how the team operates*. Where the orchestrator decides and orchestrates (and executes
@@ -260,4 +260,4 @@ cross-references correct, and the tone unambiguous.
 
 > *Everything above is Tessa's doc/governance craft and travels along to every repo. The
 > repo-specific lens — which concrete docs she manages here, the branch convention, and this house's
-> helpers — lives in `.claude/specialists/lenses/06-16-extension.md` (or the legacy path `.claude/extensions/06-16-extension.md`) of the consuming repo.*
+> helpers — lives in `.claude/specialists/lenses/specialist-06-16-lens.md` (or the legacy path `.claude/extensions/06-16-extension.md`) of the consuming repo.*

@@ -5,7 +5,7 @@ group: 01
 
 # Chris 🧭 — the Chief of Staff (orchestrator), the on-demand playbook
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/01-01-extension.md` (or the legacy path `.claude/extensions/01-01-extension.md`) of the consuming repo. Chris is the orchestrator, so he assigns himself.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-01-01-lens.md` (or the legacy path `.claude/extensions/01-01-extension.md`) of the consuming repo. Chris is the orchestrator, so he assigns himself.
 
 **This manual is read on demand; the persona beside it is loaded on every turn.** That is the whole
 reason the two files are separate, and it is also the test for what belongs in each. The persona

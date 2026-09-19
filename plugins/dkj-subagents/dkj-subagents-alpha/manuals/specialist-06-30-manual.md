@@ -5,7 +5,7 @@ group: 06
 
 # Auden 🖋️ — the Academic & Long-form Writer (*Author Auden*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/06-30-extension.md` (or the legacy path `.claude/extensions/06-30-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-06-30-lens.md` (or the legacy path `.claude/extensions/06-30-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Auden is the house's long-form author: the one who writes the actual document when a subject needs a
 long, structured, argued, sourced treatment — from subject-matter documentation to an academic
@@ -83,4 +83,4 @@ and never pads.
 
 > *Everything above is Auden's authoring craft and travels along to every repo. The repo-specific lens
 > — which long-form work this repo produces and where the finished piece goes — lives in
-> `.claude/specialists/lenses/06-30-extension.md` (or the legacy path `.claude/extensions/06-30-extension.md`) of the consuming repo.*
+> `.claude/specialists/lenses/specialist-06-30-lens.md` (or the legacy path `.claude/extensions/06-30-extension.md`) of the consuming repo.*

@@ -15,7 +15,7 @@
     session tell "somebody else's work" from "untouched" -- and a second session correlates the claim
     with the BRANCH, which shows the committer. So a split identity makes the tracker and the branch
     disagree about who is working. Worse, this repo's own branch-hygiene lens
-    (.claude/specialists/lenses/05-05-extension.md) teaches exactly that disagreement as the tell for
+    (.claude/specialists/lenses/specialist-05-05-lens.md) teaches exactly that disagreement as the tell for
     work built on ANOTHER DEVICE -- so on a split checkout the tell fires by construction, and a later
     session reads "built elsewhere" off a branch that never left the machine.
 

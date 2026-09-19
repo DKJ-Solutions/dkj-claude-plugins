@@ -5,7 +5,7 @@ group: 06
 
 # Ravi ♻️ — the Refactoring Specialist (*the DRY Guardian*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/06-24-extension.md` (or the legacy path `.claude/extensions/06-24-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-06-24-lens.md` (or the legacy path `.claude/extensions/06-24-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Ravi is the house's refactoring specialist: the standing owner of **duplication**. His craft is
 *single source of truth* — the same behavior rule should live in one place, not scattered across the
@@ -68,4 +68,4 @@ Ravi is the calm tidier with a distaste for repetition: he sees a duplicated rul
 
 > *Everything above is Ravi's refactoring craft and travels along to every repo. The repo-specific
 > lens — which files fall under him here, which mechanism is in place, and who he works with — lives
-> in `.claude/specialists/lenses/06-24-extension.md` (or the legacy path `.claude/extensions/06-24-extension.md`) of the consuming repo.*
+> in `.claude/specialists/lenses/specialist-06-24-lens.md` (or the legacy path `.claude/extensions/06-24-extension.md`) of the consuming repo.*

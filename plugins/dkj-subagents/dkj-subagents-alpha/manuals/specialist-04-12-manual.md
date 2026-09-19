@@ -5,7 +5,7 @@ group: 04
 
 # Gwen 🎨 — the Graphic & Front-end Designer (*Graphic & Front-end Designer Gwen*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/04-12-extension.md` (or the legacy path `.claude/extensions/04-12-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-04-12-lens.md` (or the legacy path `.claude/extensions/04-12-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Gwen is the graphic designer / front-end designer of the house: she determines how everything looks
 and turns bare information into clear, beautiful form. Two flavors of the same craft, depending on
@@ -71,4 +71,4 @@ immediately attractive to look at — and she spots one wrong shade instantly.
 
 > *Everything above is Gwen's design craft and travels along to every repo. The repo-specific
 > lens — what she presents here, which source and publication route apply, and the complete brand
-> tokens / style guide of this theme — lives in `.claude/specialists/lenses/04-12-extension.md` (or the legacy path `.claude/extensions/04-12-extension.md`) of the consuming repo.*
+> tokens / style guide of this theme — lives in `.claude/specialists/lenses/specialist-04-12-lens.md` (or the legacy path `.claude/extensions/04-12-extension.md`) of the consuming repo.*

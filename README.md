@@ -1439,8 +1439,8 @@ The shape above, made concrete. **One file, one line** — a fresh consumer's wh
 └── .claude/specialists/
     ├── SPECIALISTS.md                 # the inclusion: body import, lens import, roster slot
     └── lenses/
-        ├── 01-01-extension.md
-        ├── 05-05-extension.md
+        ├── specialist-01-01-lens.md
+        ├── specialist-05-05-lens.md
         └── <group>-<id>-extension.md  # one per specialist, flat: ids are unique family-wide
 ```
 

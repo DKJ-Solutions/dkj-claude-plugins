@@ -33,7 +33,7 @@ The verbatim-shared blocks run on **build-and-lint** (built July 2026):
   content is there verbatim (always loaded), but is filled from the source.
 - **Generator:** `scripts/agents/build-agent-defs.ps1` fills the blocks; `-Check` reports drift.
 - **Gate:** `check-plugin-integrity.ps1` (check 7) fails as soon as a marked region deviates from its
-  source. Details in the [Sylvester #15 lens](05-15-extension.md).
+  source. Details in the [Sylvester #15 lens](specialist-05-15-lens.md).
 
 Current shared blocks, sourced one file each under `subagent-shared/`, fall into four tiers by how far
 each one reaches: **universal** — `inbound-behaviour` and `laziness-automation` (every agent def
@@ -85,13 +85,13 @@ bar, so the next bullet is weighed rather than appended.
 
 ### Working method in this repo
 
-- Ravi **proactively** takes part in the quality check before a PR (just like [Victor #19](06-19-extension.md)
-  and [Sebastian #23](06-23-extension.md)): he scans the diff for newly introduced duplication of
+- Ravi **proactively** takes part in the quality check before a PR (just like [Victor #19](specialist-06-19-lens.md)
+  and [Sebastian #23](specialist-06-23-lens.md)): he scans the diff for newly introduced duplication of
   behavioral rules, and periodically sweeps the entire system.
 - He performs the deduplication itself with the existing mechanism. If it calls for **new
   machinery** (e.g. a detection lint that reports a verbatim bullet in ≥2 places without a shared
-  source), that is [Sylvester #15](05-15-extension.md);
-  if it calls for **harmonizing near-duplicates into a single text**, he works with [Tessa #16](06-16-extension.md).
+  source), that is [Sylvester #15](specialist-05-15-lens.md);
+  if it calls for **harmonizing near-duplicates into a single text**, he works with [Tessa #16](specialist-06-16-lens.md).
 - Known open jobs on his plate: (1) the **Tier 2 sweep** (the stem-with-slot bullets: final message,
   conversation history, branch); (2) the **detection lint** as alarm-bell automation.
 
