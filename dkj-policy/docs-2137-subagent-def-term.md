@@ -39,23 +39,79 @@
 
 ### PLAN
 
-def as the term for new writing, and repair the prose that contradicts the filename on its own line
+Dave's decision on #2137, September 19, 2026, taken from a three-option menu: **correct-on-edit**, not
+a sweep. `subagent def` is the term for new writing; the 272 existing occurrences across 86 markdown
+files are corrected when a file is edited for other reasons. That is the answer `CLAUDE.md` already
+gives for the ~830 stale repo-name citations left by the September 10 rename, applied one noun over.
+
+#### What this branch deliberately does NOT do
+
+- **No sweep** -- not of the 272 markdown occurrences, and not of the 191 `.ps1` lines. A diff no gate
+  reads, landing mid-way through a six-PR round whose reviewability is its stated design property
+  (#2128), is the thing the chosen option rejects.
+- **No path edits.** `feat/2131-subagent-def-filenames` is open under another account and owns every
+  `*-agent.md` path -- including three lines in `README.md` and one in `plugins/dkj-subagents/README.md`
+  that this branch also touches. This branch takes the **noun** on those lines and nothing else, so
+  whichever of the two merges second resolves one word per line.
+- **No `## Shared agent-def blocks` rename.** That heading carries five inbound anchors, one of them on
+  the always-on path (`.claude/specialists/SPECIALISTS.md`). Correct-on-edit is exactly what that case
+  is for.
+
+#### The boundary, stated once so a later reader does not re-open it
+
+The word `agent` stays wherever it is **read** rather than **spoken**: the `"agents"` key in all four
+`plugin.json` manifests is Claude Code's own schema, and `scripts/agents/build-agent-defs.ps1` is a
+path the tooling resolves.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Record the rule in the portable layer -- the technical writer's manual, beside the language convention
+- [ ] State the term and its boundary in `README.md`, where a reader meets the word
+- [ ] Repair the noun in the places where the contradiction stands on the line itself
 
 ### TEST
 
+- [ ] Lint gate green (`check-plugin-integrity.ps1`), its dead-link scan included
+- [ ] All suites green
+
 ### DEPLOY: docs/2137-subagent-def-term
 
-**Score:**
+Three renames moved the thing and left the noun: `agents/` became `subagents/` (#1698), the plugins
+became `dkj-subagents-*`, and the defs themselves are becoming `specialist-NN-NN-subagent.md`
+(#2131) -- while 272 occurrences across 86 markdown files still said *agent def*, and `README.md`
+called the same file *"the agent definition"* two directories away from
+`plugins/dkj-subagents/README.md` calling it *"the subagent definition"*.
+
+**`subagent def` is now the term, and the 272 stale ones are corrected on edit rather than swept**
+(Dave, September 19, 2026). That is the answer `CLAUDE.md` already gives for the ~830 repo-name
+citations left by the September 10 rename, applied one noun over: both spellings read correctly, so
+nothing is broken, and a sweep would buy consistency at the price of a diff no gate reads and nobody
+can review -- landing mid-way through a six-PR round whose reviewability is its stated design
+property.
+
+The rule is portable and lives in the technical writer's manual, so it travels to every consuming
+repo and applies to the next rename rather than only to this one. `README.md` now states the term and
+its boundary where a reader meets the word, and the places where the contradiction stood **on the
+line itself** are repaired: the section heading that defines the term, the bullet naming the file, and
+the sentence that says which of the two is leading.
+
+**The boundary is stated rather than left to a reader's judgement:** the word `agent` stays wherever
+something *resolves* it instead of reading it -- the `"agents"` key in all four `plugin.json`
+manifests is Claude Code's own schema, and `scripts/agents/build-agent-defs.ps1` is a path the
+tooling reads. #1764 is what a wrong shape in those manifests costs: four of six plugins
+uninstallable for a whole release.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's technical writer gets the rule for every rename, not this one: new writing takes the new
+noun, existing occurrences are corrected on edit, anything a machine resolves is out of scope, and
+prose that contradicts itself on its own line is repaired at once rather than left to drift. Read on
+demand from the manual, so it costs no always-on context.
+
+**Score:** 2
 
 #### Pull Request
 
-Record subagent
-
+Record 'subagent def' as the term for new writing, and repair the prose that contradicts the filename on its own line
