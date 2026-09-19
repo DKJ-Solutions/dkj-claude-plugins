@@ -43,7 +43,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 26 minor entries** <!-- pending-tally -->
+**14 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2155-normalise-capture-output · 20260919-163935
+
+A failure captured through `Invoke-NativeCapture` now reads as the command's own words. Before this,
+every caller rendering `$res.Output | Out-String` on a failure path got a PowerShell exception dump
+naming this lib's own source line instead of the reason -- and an empty stderr line came out as the
+literal text `System.Management.Automation.RemoteException`. That is ~60 render sites across the
+workflow's scripts, including refusals `prune-merged`, `ship-pr`, `open-pr` and `park-cycle` print. It
+closes #2154's CLASS at the source; #2154 itself landed separately mid-branch and closed its own site
+at the reader, so the two layers now sit on top of each other deliberately.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is a behaviour change to a lib mirrored into `dkj-policy` and `dkj-subagents-shopify`, so it reaches
+every consumer's scripts. Nothing that works today starts failing: no caller in this tree reads an
+`ErrorRecord` property off a capture's `Output`, and the container is deliberately unchanged. What
+changes is that text which was already wrong becomes right -- a consumer matching on
+`NativeCommandError` was matching the wrapper's noise, which is the defect rather than the contract.
+
+**Score:** 3
+
+#### Pull Request
+
+Invoke-NativeCapture returns plain text on both arms, so a failure reads as the command's own words
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2160](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2160)
+
+---
 
 ### DEPLOY: fix/2150-marker-column-gate · 20260919-161919
 
