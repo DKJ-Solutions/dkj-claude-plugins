@@ -543,6 +543,32 @@ try {
     $r = Invoke-Ps $Script ($base + @('-Manifest', $selfManifest))
     Assert-Equal 0 $r.Code 'self-manifest (workshop consumes itself): exit code 0'
 
+    # --- 6b. Real manifests of one siblingGroup: the same layouts, candidate for candidate (#2141) ---
+    # Members of a group share a machine layout, so there is no state in which one needs a candidate
+    # the other does not. Three closed issues (#1524, #1807, #1831) each repaired ONE manifest and the
+    # pair went out of step; #2141 is the fourth, and its cost was a false '[SKIP] not present on this
+    # machine' for a checkout that WAS present. A candidate is compared with the repo folder taken off
+    # its end -- '../../bwj-development/<repo>' names a layout, and the repo differs per member by design.
+    # A test rather than a runtime check on purpose: at run time a member lacking a layout is correct
+    # on a machine that has none of it, and only the SOURCE tree can say the two lists were meant to match.
+    $groupLayouts = @{}
+    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'connectors') -Filter '*.json') {
+        $m = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json
+        if (-not $m.PSObject.Properties['siblingGroup']) { continue }
+        $folder = ([string]$m.repo).Split('/')[-1]
+        $layouts = @($m.localCheckout | ForEach-Object { ([string]$_) -replace ('/' + [regex]::Escape($folder) + '$'), '' })
+        if (-not $groupLayouts.ContainsKey([string]$m.siblingGroup)) { $groupLayouts[[string]$m.siblingGroup] = @{} }
+        $groupLayouts[[string]$m.siblingGroup][$f.Name] = $layouts
+    }
+    Assert-Equal $true (@($groupLayouts.Keys | Where-Object { $groupLayouts[$_].Count -ge 2 }).Count -ge 1) 'sibling groups: the register still holds a group of two or more, so the check below has a subject'
+    foreach ($g in $groupLayouts.Keys) {
+        $union = @($groupLayouts[$g].Values | ForEach-Object { $_ } | Select-Object -Unique)
+        foreach ($member in $groupLayouts[$g].Keys) {
+            $missing = @($union | Where-Object { $groupLayouts[$g][$member] -notcontains $_ })
+            Assert-Equal '' ($missing -join ', ') "sibling group '$g': $member declares every layout its siblings do"
+        }
+    }
+
     # --- 7. Guardrails (Sean's advice): manifest fields are not blindly trusted -----------------
     # 7a. Absolute localCheckout path -> rejected, exit 1.
     New-FixtureConsumer -ExtensionIds @('06-16')
