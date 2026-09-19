@@ -455,6 +455,15 @@ try {
                     -Output @($vout | ForEach-Object { [string]$_ }) -ExitCode $storeCode | Out-Null
             }
         }
+        # ANCHORED BY HAND HERE, AND NOT THROUGH Select-CheckMarkerLine -- the one place in this family
+        # that does not call the shared selector. hook-check-lib.ps1 is dot-sourced further down, inside
+        # the branch that HAS a source checkout, and the comment there says why it must stay there: this
+        # engine branch is the "no source checkout on this machine" path, and a load-time dependency up
+        # here took out three of connector-sessioncheck.tests' engine-branch cases when it was measured.
+        # So the rule (issue #2142) is met by writing it out rather than by calling it: a marker counts
+        # only where the engine WROTE it, never inside a value it is reporting. Same reasoning as the
+        # standalone copy in asana-mirror.ps1 -- a file that cannot reach the lib carries the rule, and
+        # the lib stays the place the rule is argued.
         $vsignals = @($vout | Where-Object { $_ -cmatch '^\s*\[ERROR\]' })
         $vnotices = @($vout | Where-Object { $_ -cmatch '^\s*\[INFO\]' })
         # -Last, NOT -First. The engine emits its tally as the final line, so the last match is the
@@ -531,15 +540,16 @@ try {
     $out  = @($result.Output)
     $code = $result.ExitCode
 
-    # -cmatch + square brackets (Victor finding): the raw summary lines of the drift check
-    # contain the word 'drifted' in lowercase and are not a signal.
+    # Select-CheckMarkerLine (case-exact, and anchored to where the check WROTE the marker -- issue
+    # #2142): the raw summary lines of the drift check contain the word 'drifted' in lowercase and
+    # are not a signal, and a workflow filename off a consumer's directory listing cannot forge one.
     # Bilingual (back-compat): the plugin cache (this hook) and the workshop checkout
     # (check-connectors) can be on different versions, so we recognize both the new
     # [ERROR] and the legacy [FOUT] as blocking signals.
     # [INFO] intentionally does NOT count here (Dave request): registry administration -- the sync status or
     # registration of consumers, sometimes updated here, often another machine/user --
     # should not be reported at every session start; an explicit run shows everything.
-    $signals = @($out | Where-Object { $_ -cmatch '\[FOUT\]|\[ERROR\]|\[DRIFTED\]' })
+    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[FOUT]', '[ERROR]', '[DRIFTED]')
 
     # [UNREGISTERED] rides along, outside the signal list. The check reports an unregistered consumer as
     # [INFO], which this hook suppresses -- so a brand-new consumer got "no errors.", a positive
@@ -548,14 +558,14 @@ try {
     # days. Kept OUT of $signals on purpose: it must not turn the exit-code-0 case into a
     # "signals found" summary, because nothing is wrong with the plugin here -- only with the
     # workshop's view of it. Same reasoning as [ORPHANS] in roster-sessioncheck.
-    $unregistered = @($out | Where-Object { $_ -cmatch '\[UNREGISTERED\]' })
+    $unregistered = @(Select-CheckMarkerLine -Output $out -Marker '[UNREGISTERED]')
 
     # [INVENTORY] rides along on the same terms, for the same reason one step further in: the register
     # HAS an entry for this repo, but its lens inventory is behind what the repo actually holds. Also an
     # [INFO] in the check and therefore also invisible here -- which on 2026-07-29 let six missing ids
     # sit in this workshop's own entry unnoticed until someone ran the check by hand. The check only
     # emits the line for the repo the session is in, so no other-machine noise can reach this list.
-    $inventory = @($out | Where-Object { $_ -cmatch '\[INVENTORY\]' })
+    $inventory = @(Select-CheckMarkerLine -Output $out -Marker '[INVENTORY]')
 
     # [NOT-INSTALLED-HERE] rides along on the same terms, and it is the one of the three that is NOT about
     # the register's view (#533). Here the register is right and the machine is wrong: the plugin is
@@ -569,7 +579,7 @@ try {
     # leaving both enabled plugins without an install record. Nothing reported it -- the [INFO] was
     # suppressed here, and roster-sync's marker of the same name is unreachable at session start by design
     # (see its docstring: a session start writes the record itself before any hook can look). Found by hand.
-    $notInstalled = @($out | Where-Object { $_ -cmatch '\[NOT-INSTALLED-HERE\]' })
+    $notInstalled = @(Select-CheckMarkerLine -Output $out -Marker '[NOT-INSTALLED-HERE]')
 
     # [UNLISTED] rides along on the same terms, one level further OUT than [INVENTORY]: not a lens the
     # register's own entry forgot to list, but a WHOLE PLUGIN BLOCK it forgot -- an id enabled here that
@@ -582,7 +592,7 @@ try {
     # Why it was needed: measured 2026-09-10 against this repo's own register, where five of six enabled
     # plugins sat outside that loop and produced no line whatsoever -- four of them with nothing else
     # saying so anywhere in the run.
-    $unlisted = @($out | Where-Object { $_ -cmatch '\[UNLISTED\]' })
+    $unlisted = @(Select-CheckMarkerLine -Output $out -Marker '[UNLISTED]')
 
     # All four markers are non-counting: they must never turn an exit-0 run into a "signals found"
     # summary, because in none of the four is anything wrong with the SOURCE -- only with the register's

@@ -458,6 +458,10 @@ function Write-RunnerPathFinding {
         which the hooks COUNT as verdict markers. A workflow file named 'x[ERROR] evil.yml' is a legal
         filename on NTFS and would otherwise change a hook's verdict from a consumer's own directory
         listing -- and over the network it is a name anybody with push access to that repo chooses.
+        Since #2142 connector-sessioncheck counts a marker only where this script wrote it, so that
+        second half is now guarded at both ends; the strip stays for the control characters, which the
+        anchor says nothing about, and because a sanitizer written to depend on a reader's regex is the
+        pair that drifts.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$WorkflowName,
