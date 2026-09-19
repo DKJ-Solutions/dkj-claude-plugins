@@ -1202,8 +1202,15 @@ foreach ($mf in $manifestFiles) {
         $missing = @()
         foreach ($id in $p.extensions) {
             $hit = $false
+            # Both spellings (#2130). The register names an ID, never a filename, so a consumer that has
+            # renamed its lenses must not be reported as having lost them -- a register the reader is
+            # then told to "update" would be corrected away from the truth.
+            $lensNames = @(Get-SpecialistFileNameCandidates -Kind Lens -Id $id)
             foreach ($dir in $extDirs) {
-                if (Test-Path -LiteralPath (Join-Path $dir "$id-extension.md")) { $hit = $true; break }
+                foreach ($n in $lensNames) {
+                    if (Test-Path -LiteralPath (Join-Path $dir $n)) { $hit = $true; break }
+                }
+                if ($hit) { break }
             }
             if (-not $hit) { $missing += $id }
         }
@@ -1213,8 +1220,12 @@ foreach ($mf in $manifestFiles) {
         $ownedIds = Get-PluginIds $pluginDir
         $present = @()
         foreach ($dir in $extDirs) {
-            $present += Get-ChildItem -LiteralPath $dir -Filter '*-extension.md' -File |
-                ForEach-Object { $_.BaseName -replace '-extension$', '' }
+            # The id is READ OUT of the name rather than sliced off it (#2130): the old '-extension$'
+            # strip is a second, quieter spelling of the convention, and under the #2128 names it would
+            # return the whole base name as an id and report every lens as an unregistered stranger.
+            $present += @(Get-SpecialistFiles -Path $dir -Kind Lens |
+                ForEach-Object { Get-SpecialistFileId -Kind Lens -Name $_.Name } |
+                Where-Object { $_ })
         }
         $unregistered = @($present | Sort-Object -Unique | Where-Object { ($ownedIds -contains $_) -and ($p.extensions -notcontains $_) })
         foreach ($id in $unregistered) {
