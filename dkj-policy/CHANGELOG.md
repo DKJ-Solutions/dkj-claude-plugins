@@ -43,7 +43,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 13 minor entries** <!-- pending-tally -->
+**6 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2127-inbound-prio-carve-out · 20260919-093551
+
+The priority-label rule now says whose rule it is. *"Every issue filed here carries a priority
+label"* read as a property of the tracker, which bound a consumer's session filing inbound to a
+label set it has no reason to know -- and the portable layer had already decided the opposite,
+prescribing only the reach label to a consumer. The rule now binds the **filer**, an `inbound` issue
+is outside it by design, and the rung is set here at triage. The `triage-inbound` skill carries that
+step beside its six verification checks; Derek's lens carries the measurement, including why a
+default rung in the issue template was declined rather than left undone. The always-on statement was
+rewritten byte-neutral, so the correction costs no session a single byte.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this is a governance clarification in this repo's own lenses and one of its skills. Nothing a
+consumer installs changes: the portable layer already said what this now says, which is the whole
+argument for the carve-out.
+
+**Score:** N/A
+
+#### Pull Request
+
+The priority-label rule states its scope: it binds sessions working in this repo, not a consumer filing inbound
+
+[PR #2129](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2129)
+
+---
 
 ### DEPLOY: feat/2120-resolves-exempt-matchers · 20260918-180452
 
