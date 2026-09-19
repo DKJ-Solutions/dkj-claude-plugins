@@ -43,7 +43,60 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 19 minor entries** <!-- pending-tally -->
+**9 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2141-xoxowildhearts-checkout-candidate · 20260919-135420
+
+`check-connectors` reported `[SKIP] checkout ... not present on this machine` for the xoxowildhearts consumer while its checkout sat at `bwj-development/xoxowildhearts`, so nothing about that consumer was checked here. Its manifest lacked the `bwj-development/` candidate that its sibling `smartwatchbanden.json` gained in #1831 -- the fourth time a candidate fix reached one manifest of a pair and not the other (#1524, #1807, #1831). The candidate is appended, and `connectors.tests.ps1` now holds every manifest of one `siblingGroup` to the same set of layouts, so the next drift fails the gate rather than reading as an absent checkout.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Maintainer-only: the register is read by this repo's own maintenance, and no subscriber of the service sees it. N/A.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors/xoxowildhearts.json resolves the bwj-development/ layout, so check-connectors stops reporting a false SKIP
+
+[PR #2149](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2149)
+
+---
+
+### DEPLOY: docs/2145-reader-site-count · 20260919-134205
+
+The `feat/2130` entry claimed thirteen reader sites, that **all of it** now goes through the four-row
+table, and that **no reader is edited again**. All three were wrong by one site, which step B (#2131)
+found the moment it moved files and whose entry already carries the reason the sweep could not have
+named it. The count now says what was converted instead of asserting a total, the two completeness
+clauses are gone, and a paragraph under them records the miss and states that a later step still sweeps
+before it moves anything.
+
+It is corrected now rather than after the cut for one reason: the entry is still under
+`## [Unreleased]`, so it is a live document, and four steps of the series (#2132, #2133, #2134, #2135)
+are parked against it. A session picking one up reads *"no reader is edited again"* as a licence to skip
+the sweep -- which is exactly the reasoning that let the fourteenth site through once already. After the
+next cut the sentence is archived history and the carve-out for `dkj-policy/releases/**` applies.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the correction sits in the entry's tier-0 body, so it reaches this repo's own changelog release
+document and nothing a subscriber installs or reads. No script, no plugin payload and no behaviour
+changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The #2130 entry's reader-site count and its completeness claims are corrected
+
+[PR #2148](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2148)
+
+---
 
 ### DEPLOY: feat/2131-subagent-def-filenames · 20260919-131555
 
@@ -65,7 +118,7 @@ convention in a `-replace` on the following line -- so neither the anchored glob
 `^(\d{2})-(\d{2})-...$` regexes step A was hunting named it, seven lines above a converted walk whose
 comment describes this exact defect as fixed. It now goes through `Get-SpecialistFiles` +
 `Get-SpecialistFileId`, with the directory leaf through `Get-SubagentDirPath`. A tree-wide sweep found
-no second site; the entry's own claim of thirteen is filed as #2145.
+no second site; the entry's own claim of thirteen is corrected under #2145.
 
 The second stale thing the merge exposed was the flip itself: the `Subagent` row in
 `Get-SpecialistFileShapes` still named the old spelling as the written one, because this branch was
@@ -192,12 +245,19 @@ Plugins: dkj-policy
 
 The specialist filename readers now accept both conventions, so the #2128 rename can proceed one kind
 at a time without a flag day. Four filename shapes -- manual, persona, subagent def, lens -- were
-recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes across
-thirteen reader sites in nine scripts, four of them held byte-identical to plugin mirrors. All of it now
-goes through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing doctrine:
-both are read, one is written. Each later step of the series swaps one row and moves that kind's files;
-no reader is edited again. **Nothing is renamed by this change** and the tree is byte-unchanged apart
-from the readers.
+recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes. Thirteen
+such sites in nine scripts are converted here, four of them held byte-identical to plugin mirrors, and
+they now go through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing
+doctrine: both are read, one is written. Each later step of the series swaps one row and moves that
+kind's files. **Nothing is renamed by this change** and the tree is byte-unchanged apart from the
+readers.
+
+**Thirteen was not all of them, and this paragraph said it was** (#2145). It claimed that *all of it*
+now goes through the table and that *no reader is edited again*; step B (#2131) moved files and found a
+fourteenth, `Get-PluginIds` in `check-connectors.ps1`, which it converted -- that entry carries why the
+sweep could not have named it. Both claims are struck here rather than left to travel into a release
+note, because four steps of the series remain and a completeness claim reads as a licence to skip the
+sweep on each of them. **A later step still sweeps for readers before it moves anything.**
 
 Wiring them surfaced three defects that were already there. `build-agent-defs.ps1` had been walking
 **zero of the 26 agent defs** since the `agents/` -> `subagents/` rename, invisibly, because the lint
