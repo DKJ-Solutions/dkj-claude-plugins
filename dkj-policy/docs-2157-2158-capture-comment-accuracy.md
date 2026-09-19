@@ -143,5 +143,3 @@ a contradiction inside one function and a decision recorded in only one of the t
 #### Pull Request
 
 Correct two stale comments about capture Output shape
-
-Plugins: dkj-policy, dkj-subagents-shopify
