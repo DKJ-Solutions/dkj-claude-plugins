@@ -94,7 +94,11 @@ branch documents, it is a design call rather than a doc edit, and it is not in #
 
 - [x] `check-plugin-integrity.ps1` green, including the dead-link scan and the two consumer-doc
       checks the new section is subject to (15 expected-output, 16 measured-figure).
-- [x] All suites green.
+- [x] All suites green -- 118 of 118, via `open-pr.ps1 -GatesOnly`, which is the tooling's own gate
+      rather than a hand-rolled copy of it. **The pass is not banked as gate evidence**: the commit
+      landed while the run was in flight, so the gate correctly refused to credit a tree that moved
+      under it. `open-pr` will re-run the suites whenever this branch is finally pushed for review,
+      which is the right outcome for a branch that is deliberately going to sit.
 - [x] The verification recipe the section hands a consumer was run, read-only, against both real
       consumer checkouts -- and it reported the live dead import in one of them, which is the
       evidence the section cites.
