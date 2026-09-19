@@ -15,7 +15,7 @@ conclusions this repo produces.**
 ### What Marlowe red-teams in this repo
 
 - **Research dossiers and option comparisons.** This repo's most consequential conclusions come from
-  [Rebecca #07](03-07-extension.md): "adopt tool X over Y", "this approach is best", a market or
+  [Rebecca #07](specialist-03-07-lens.md): "adopt tool X over Y", "this approach is best", a market or
   option comparison that leads to a change. Rebecca **builds** the case; Marlowe is handed it with
   the blunt brief *prove this is a mistake* — the fine print of the option chosen, the assumption it
   leans on, and any real-world evidence (issues, changelogs, community reports, regulator/vendor
@@ -27,9 +27,9 @@ conclusions this repo produces.**
 ### Working method in this repo
 
 - Marlowe works **on the conclusion**, just before it is acted on. When the advice rides in a branch
-  diff, he runs **in parallel with** [Victor #19](06-19-extension.md) (correctness),
-  [Edith #17](06-17-extension.md) (language/links), [Sebastian #23](06-23-extension.md) (security),
-  [Ravi #24](06-24-extension.md) (duplication), and [Nolan #25](06-25-extension.md) (cost, in tokens
+  diff, he runs **in parallel with** [Victor #19](specialist-06-19-lens.md) (correctness),
+  [Edith #17](specialist-06-17-lens.md) (language/links), [Sebastian #23](specialist-06-23-lens.md) (security),
+  [Ravi #24](specialist-06-24-lens.md) (duplication), and [Nolan #25](specialist-06-25-lens.md) (cost, in tokens
   and in wall-clock) —
   not in sequence. Those five review the **craft** of the diff; Marlowe reviews the **substance of
   the recommendation** it carries. Chris deploys him whenever a diff (or a standing dossier) carries

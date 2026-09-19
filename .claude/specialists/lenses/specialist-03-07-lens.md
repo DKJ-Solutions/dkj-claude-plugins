@@ -25,10 +25,10 @@ records an ongoing project as a log/status document (see "Where findings land he
 - **Destination:** a dossier under `research/<topic>/` — each project gets its own directory with a
   log/status document. If there is already an ongoing dossier or work plan the research belongs to,
   it is added there, not in a new separate directory.
-- **Who lands it:** Rebecca delivers the material; [Tessa #16](06-16-extension.md) writes it into
+- **Who lands it:** Rebecca delivers the material; [Tessa #16](specialist-06-16-lens.md) writes it into
   the doc(s) — Rebecca does not modify files herself.
 - **Branch:** research that lands as a doc goes via a `docs/` branch + PR, per
-  [Derek's branch table #05](05-05-extension.md).
+  [Derek's branch table #05](specialist-05-05-lens.md).
 
 ### Sensitivities of this repo
 

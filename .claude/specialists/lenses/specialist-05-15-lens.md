@@ -139,7 +139,7 @@ infrastructure.
   spot it exists to close. An entry point declaring *no* skill is reported in the coverage line rather than
   as an error — `ship-pr`, `fix-mojibake`, `verify-resolved-issues` and `check-script-contract` are in that
   state today, and the first three are real gaps rather than deliberate ones. This is the safety guard that
-  [Derek #05](05-05-extension.md)'s `open-pr.ps1` runs before every push — and that `cut-release.ps1`
+  [Derek #05](specialist-05-05-lens.md)'s `open-pr.ps1` runs before every push — and that `cut-release.ps1`
   runs before a release. **Check 23, `[plugin-kind]`, added August 9, 2026, and its reason was replaced on
   August 26, 2026 rather than left standing:** every published plugin must be `team-*` under
   `plugins/dkj-subagents/` or a way of working by name, and a name carrying neither shape is an
@@ -1041,7 +1041,7 @@ infrastructure.
   through the GitHub API, so it writes whichever account `gh` holds, and nothing compared that against
   `git config user.name`. Measured on DAVE-KOK-BWJ, where `gh` is `DaveKJohn` and `git` is `davekokbwj`:
   the documented idiom put the wrong account on #1314, and the cross-device tell in
-  [Derek's lens](05-05-extension.md#branch--repo-hygiene) — a branch whose commits name a different
+  [Derek's lens](specialist-05-05-lens.md#branch--repo-hygiene) — a branch whose commits name a different
   account than the checkout — fires there **by construction**, so it reads "built elsewhere" off a branch
   that never moved.
 
@@ -1203,10 +1203,10 @@ infrastructure.
   directly on `main`.
 - **`scripts/lib/pr-issues-lib.ps1`** — the pure decision table of the **resolves gate**: which issues
   a text mentions, which a body actually *closes*, and whether a PR may open without declaring either.
-  Deliberately pure (no `git`, no `gh`, no filesystem) so [Tycho #18](04-18-extension.md) can assert
+  Deliberately pure (no `git`, no `gh`, no filesystem) so [Tycho #18](specialist-04-18-lens.md) can assert
   every branch of it offline; the one impure part — asking GitHub which issues are open — stays in
   `open-pr.ps1`. Shared/mirrored, since `open-pr.ps1` dot-sources it. The rule it enforces and the
-  incident behind it are [Derek #05](05-05-extension.md#opening-a-pull-request)'s.
+  incident behind it are [Derek #05](specialist-05-05-lens.md#opening-a-pull-request)'s.
   **Two traps that cost real debugging while building this lib**, both measured and both now pinned by
   asserts:
   - **`powershell -File` cannot bind an `[int[]]`.** `-Resolves 332,340` arrives as the string
@@ -1256,26 +1256,26 @@ infrastructure.
 - **`scripts/lib/release-lib.ps1`** — the pure release helpers (version bump, emptying `CHANGELOG.md` down
   to its intro, and the assembly of the changelog notes under `dkj-policy/releases/changelog/`)
   that [`cut-release.ps1`](../../../scripts/release/cut-release.ps1) dot-sources; deliberately
-  pure so [Tycho #18](04-18-extension.md) can test them in isolation. The release *process* is
-  [Rendall #06](05-06-extension.md)'s domain; Sylvester guards the script mechanics underneath.
+  pure so [Tycho #18](specialist-04-18-lens.md) can test them in isolation. The release *process* is
+  [Rendall #06](specialist-05-06-lens.md)'s domain; Sylvester guards the script mechanics underneath.
 - **`scripts/agents/build-agent-defs.ps1` + `scripts/lib/subagent-shared-lib.ps1`** — the generator
   that fills the verbatim-shared bullets from
   `plugins/dkj-subagents/subagent-shared/<name>.md` into all agent defs (between
   `<!-- BEGIN/END shared:… -->` sentinels). Change a shared block →
   run `build-agent-defs.ps1` → all agent defs updated; `-Check` (and the lint gate, check 7) fails
-  on drift. The pure expansion logic lives in the lib, so [Tycho #18](04-18-extension.md) can test
+  on drift. The pure expansion logic lives in the lib, so [Tycho #18](specialist-04-18-lens.md) can test
   it in isolation — mirroring the `release-lib` setup. **Never edit between the sentinels by hand.**
 - **`.claude/settings.json`** — this repo's harness config: the `extraKnownMarketplaces` (the
   `github` source `DKJ-Solutions/claude-code-specialists`) and `enabledPlugins` with which the repo enables
   its own `dkj-subagents-alpha` plugin (the core team).
 - **The manifests** `.claude-plugin/marketplace.json` and every `<plugin>/.claude-plugin/plugin.json`
   (structure + `version`) — their *structure/config*; the descriptive *texts* he coordinates with
-  [Tessa #16](06-16-extension.md).
+  [Tessa #16](specialist-06-16-lens.md).
 
 #### And therefore: here Sylvester is the author who runs `simplify`
 
 The **`simplify`** skill applies quality fixes — reuse, simplification, efficiency — and applying is the
-**author's** act, never the reviewer's: [Victor #19](06-19-extension.md) may report those same findings
+**author's** act, never the reviewer's: [Victor #19](specialist-06-19-lens.md) may report those same findings
 and is forbidden from applying them, which is why the portable layer gives the skill to
 [Cody #13](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/04-13-manual.md) rather than to a reviewer. Here
 the code is `scripts/**` and **those are Sylvester's**, so here he is that author: he runs the tidy pass
@@ -1383,7 +1383,7 @@ this repo's:
   Measured twice in one session, August 15, 2026, both times on a lens. `Get-Content -Raw` reads with the
   **ANSI codepage** in Windows PowerShell 5.1, so every em dash, `·` and emoji in a repo whose documents
   are full of them comes back as mojibake; writing that back produced **127 corrupted sequences** in
-  `06-25-extension.md` in a single command. The second failure is quieter and has no lint behind it: a
+  `specialist-06-25-lens.md` in a single command. The second failure is quieter and has no lint behind it: a
   **double-quoted** PowerShell string eats backticks as escapes, so a line containing `` `v1.0.0` ``
   silently became a **vertical tab** plus `1.0.0` — valid UTF-8, invisible in a diff, and past every
   check here.
@@ -1435,7 +1435,7 @@ this repo's:
   repo — those pull them in. An agent-def config change is Sylvester's side; the agent-def *text* is
   Tessa's side.
 - **The lint gate may never become quieter than the risks.** As the repo grows (more plugins, more
-  complex manifests), Sylvester extends the checks — with [Tycho #18](04-18-extension.md) building
+  complex manifests), Sylvester extends the checks — with [Tycho #18](specialist-04-18-lens.md) building
   tests alongside.
 - **The test gate is bound by its SLOWEST SINGLE SUITE, not by their sum — so the next second saved is
   bought inside one file.** Measured August 7, 2026 on the same machine within one session, all 27 suites
@@ -1468,7 +1468,7 @@ this repo's:
   again and was worse than it read: the gate's total EQUALLED this suite to a tenth of a second, four runs
   out of four, with 15 of 16 lanes idle for its last 70-86 seconds. **The generalisation worth keeping:
   when a gate's cost is one file, ask whether the work has to be one file before asking whether it has to
-  be done.** The convention for the four is in [Tycho #18](04-18-extension.md#the-lint-gate-suite-is-four-files-august-16-2026).
+  be done.** The convention for the four is in [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-four-files-august-16-2026).
 - **Do not hand-roll a second parallel runner — and re-run a red suite alone before believing its assert.**
   Measured August 12, 2026: a `Start-Job` fan-out over all **31** suites reported **6** failures —
   `subagent-shared`, `bootstrap-drift`, `config-blueprint`, `fix-mojibake`, `roster-sync`,
@@ -1493,7 +1493,7 @@ this repo's:
   [#1033](https://github.com/DaveKJohn/claude-code-specialists/issues/1033) both came out of
   `Invoke-TestSuiteGate` itself. Neither reproduces: five full runs on that tree were all green, and the
   release's 443s "green" figure turns out to be a **2x-load** reading rather than the gate's cost — the
-  numbers are in [Nolan #25](06-25-extension.md#a-gate-verdict-that-moves-is-a-load-reading--n5-and-the-caller-is-not-a-variable-august-28-2026).
+  numbers are in [Nolan #25](specialist-06-25-lens.md#a-gate-verdict-that-moves-is-a-load-reading--n5-and-the-caller-is-not-a-variable-august-28-2026).
   Six of those eleven scan the live tree and five do not, so the collision above explains part of it and
   nothing explains the rest. Do not read a lone red from the pool as a finding about the tree until it has
   been run alone.
@@ -1859,7 +1859,7 @@ this repo's:
 *Moved here verbatim from [`CLAUDE.md`](../../../CLAUDE.md)'s lint-gate bullet, where it was 9,440 B
 over 102 lines — 26% of the always-on document, paid by every session before a word of work. The
 operative rule stayed there; this is the evidence for it, and the second half of the same split that
-moved the release craft to [Rendall #06](05-06-extension.md) the day before. Nothing was reworded:
+moved the release craft to [Rendall #06](specialist-05-06-lens.md) the day before. Nothing was reworded:
 the passages below still speak in the constitution's voice, and the dates and issue numbers are the
 point of keeping them.*
 
@@ -1994,7 +1994,7 @@ issue argued that check 16's binding would wrongly *pass* a stale line count. Me
 what happens: the tree's bound figures are bound correctly — `README.md:1254`'s "101, across 492 lines"
 sits under *"measured against the `life-hub` consumer on July 29, 2026"* — so a re-measurement check
 flags **history that already did what it was asked**, while the one real defect
-(`06-25-extension.md:264`, "`CLAUDE.md` is 875 lines in 9 sections", against 526 in 3) is unbound and
+(`specialist-06-25-lens.md:264`, "`CLAUDE.md` is 875 lines in 9 sections", against 526 in 3) is unbound and
 present-tense. Adopting the check therefore means writing `<!-- unbound-figure: … -->` onto fifteen
 correct sites to catch one, which is the exemption list this repo has already been bitten by.
 
@@ -2952,7 +2952,7 @@ carried two opposite facts and printed the wrong one. The report's own second ha
 the tool was believed: `Agents (0)` was read as *ships none*, and a share computed over a skills-only
 total was reading as *the skills are effectively all of this plugin's cost* while ~2,260 tokens of agent
 descriptions sat outside it. Both are now stated in the output;
-[Nolan's lens](06-25-extension.md#how-to-measure-it--claude-plugin-details-july-28-2026) carries the
+[Nolan's lens](specialist-06-25-lens.md#how-to-measure-it--claude-plugin-details-july-28-2026) carries the
 measurement half.
 
 **The transferable lesson is the one this repo's constitution already states** — *a reported finding's

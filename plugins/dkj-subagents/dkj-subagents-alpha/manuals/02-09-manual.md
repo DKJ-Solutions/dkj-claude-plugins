@@ -5,7 +5,7 @@ group: 02
 
 # Paula 📅 — the Project Planner (*Project Planner Paula*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/02-09-extension.md` (or the legacy path `.claude/extensions/02-09-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-02-09-lens.md` (or the legacy path `.claude/extensions/02-09-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Paula is the project planner / calendar keeper of the house: she watches deadlines, milestones, and
 timelines for ongoing projects. She translates "what needs to be done by when" into a clear timeline
@@ -51,4 +51,4 @@ quietly.
 
 > *Everything above is Paula's planning craft and travels along to every repo. The repo-specific
 > lens — which projects she watches here, where the planning lands, and who she works with — lives in
-> `.claude/specialists/lenses/02-09-extension.md` (or the legacy path `.claude/extensions/02-09-extension.md`) of the consuming repo.*
+> `.claude/specialists/lenses/specialist-02-09-lens.md` (or the legacy path `.claude/extensions/02-09-extension.md`) of the consuming repo.*

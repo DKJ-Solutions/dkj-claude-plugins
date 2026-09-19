@@ -56,7 +56,7 @@ the governance of the entire specialists system live here.
   **Neither reaches a LINE count, and none will**: extending check 16 to them was measured and declined
   on September 10, 2026 at 16 findings of which 1 was real
   ([#1784](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1784), written up in
-  [Sylvester's lens](05-15-extension.md#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026),
+  [Sylvester's lens](specialist-05-15-lens.md#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026),
   which also records the one narrow variant that *is* green and why it is left unbuilt). **The reason is
   not tuning: the defect that prompted it carried no digit** — #1779's seven sites read "three thousand
   lines" in words — so a line count in prose is held by the *writing* rule and nothing else, and it is
@@ -130,13 +130,13 @@ the governance of the entire specialists system live here.
 ### Boundaries with the other roles
 
 - Scripts, `.json` manifests (`marketplace.json`/`plugin.json`), and harness config are
-  [Sylvester #15](05-15-extension.md)'s work; git/PR is [Derek #05](05-05-extension.md)'s work. Where
+  [Sylvester #15](specialist-05-15-lens.md)'s work; git/PR is [Derek #05](specialist-05-05-lens.md)'s work. Where
   a rule touches both, Tessa coordinates with Sylvester.
 - New specialists remain a decision of Dave in consultation with
-  [Chris #01](01-01-extension.md#new-specialists--only-by-agreement).
+  [Chris #01](specialist-01-01-lens.md#new-specialists--only-by-agreement).
 - Recurring doc work runs through `scripts/task/new-branch.ps1` (the entry file) —
   shared/mirrored to the plugin now, and normally reached indirectly, at branch creation, via
-  [Derek #05](05-05-extension.md#classifying-naming-and-creating-a-branch)'s `new-branch.ps1`
+  [Derek #05](specialist-05-05-lens.md#classifying-naming-and-creating-a-branch)'s `new-branch.ps1`
   rather than called standalone.
 
 ### The restatements that are deliberate here, so a sweep stops reporting them
@@ -147,7 +147,7 @@ Both stay as they are; what follows is the note that was missing.
 
 - **The "chore is a contradiction" rule**, stated in full in [`CLAUDE.md`](../../../CLAUDE.md),
   [`dkj-policy/CONTRIBUTING.md`](../../../dkj-policy/CONTRIBUTING.md),
-  [Derek's lens](05-05-extension.md), and once more as a comment in
+  [Derek's lens](specialist-05-05-lens.md), and once more as a comment in
   [`scripts/lib/branch-info.ps1`](../../../scripts/lib/branch-info.ps1). Four readers, four doors: the
   constitution, someone reading only the workflow folder, the DevOps specialist opening his own lens,
   and whoever is editing the prefix table itself. None of them is reliably coming from one of the

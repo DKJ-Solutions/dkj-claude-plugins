@@ -15,7 +15,7 @@ and how her work relates to the automated lint gate.**
 ### The machine layer already catches a lot — Edith covers the human layer
 
 The lint gate [`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1)
-([Sylvester #15](05-15-extension.md)) already catches the mechanical: an invalid `marketplace.json`/
+([Sylvester #15](specialist-05-15-lens.md)) already catches the mechanical: an invalid `marketplace.json`/
 `plugin.json`, agent-def/manual frontmatter that does not match the filename, and dead relative
 links in the README/manuals. Edith does not need to redo that — she does what a machine cannot:
 
@@ -30,9 +30,9 @@ links in the README/manuals. Edith does not need to redo that — she does what 
 
 ### Working method in this repo
 
-- Edith works **on the branch diff**, just before the PR, **in parallel with** [Victor #19](06-19-extension.md)
+- Edith works **on the branch diff**, just before the PR, **in parallel with** [Victor #19](specialist-06-19-lens.md)
   (he on the script/agent-def code, she on language/docs/links) and — for a diff that touches agent
-  defs, manuals, personas, skills, hooks, scripts, or manifests — [Sebastian #23](06-23-extension.md)
+  defs, manuals, personas, skills, hooks, scripts, or manifests — [Sebastian #23](specialist-06-23-lens.md)
   (security) — not in sequence.
 - Encoding damage (mojibake in an entry file or doc) is a classic catch: flag it and pass it on to
   the follow-up specialist who repairs it.

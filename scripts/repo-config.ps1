@@ -1129,35 +1129,35 @@ $script:ExpectedRepoSettings = @(
         Field    = 'ruleset.rules'
         Expected = @('deletion', 'non_fast_forward', 'required_status_checks')
         Recorded = '2026-09-09'
-        Where    = '.claude/specialists/lenses/05-15-extension.md (the ruleset bullet)'
+        Where    = '.claude/specialists/lenses/specialist-05-15-lens.md (the ruleset bullet)'
         Why      = 'every record in that lens names required_status_checks as THE rule the three direct-on-main exceptions are bypassed for, and a rejected push reports one line per rule -- a fourth rule makes an extra line read as an unexplained second cause (#1499, #1720)'
     },
     @{
         Field    = 'ruleset.required_checks'
         Expected = @('lint-en-tests')
         Recorded = '2026-09-09'
-        Where    = 'scripts/repo-config.ps1 (Get-CiTestCheckName) and .claude/specialists/lenses/05-15-extension.md'
+        Where    = 'scripts/repo-config.ps1 (Get-CiTestCheckName) and .claude/specialists/lenses/specialist-05-15-lens.md'
         Why      = 'ship-pr dates a PR certificate from the run behind a REQUIRED check and skips its staleness guard entirely when none is named; open-pr skips the local test gate on this same context going green (#1715)'
     },
     @{
         Field    = 'ruleset.strict_required_status_checks_policy'
         Expected = $false
         Recorded = '2026-09-09'
-        Where    = '.claude/specialists/lenses/05-15-extension.md (the #1325 block)'
+        Where    = '.claude/specialists/lenses/specialist-05-15-lens.md (the #1325 block)'
         Why      = 'strict was on for ~45 minutes on #1325 and reverted: GitHub performs no server-side base-sync outside a merge queue, so strict converts the ~44% behind-at-merge rate into a hard block with no automatic resolution and no valve -- PR #1316 had to be landed with --admin'
     },
     @{
         Field    = 'repo.allow_auto_merge'
         Expected = $false
         Recorded = '2026-09-09'
-        Where    = '.claude/specialists/lenses/05-15-extension.md, .github/workflows/ci.yml, scripts/tests/merge-queue-prereq.tests.ps1'
+        Where    = '.claude/specialists/lenses/specialist-05-15-lens.md, .github/workflows/ci.yml, scripts/tests/merge-queue-prereq.tests.ps1'
         Why      = 'with strict off, "up to date" is not a merge requirement, so auto-merge lands a stale-but-green certificate unattended -- #1292 exactly, and ship-pr step 3b cannot see it because an auto-merge happens without a shipping session (#1730)'
     },
     @{
         Field    = 'repo.allow_update_branch'
         Expected = $false
         Recorded = '2026-09-09'
-        Where    = '.claude/specialists/lenses/05-15-extension.md (the #1325 block)'
+        Where    = '.claude/specialists/lenses/specialist-05-15-lens.md (the #1325 block)'
         Why      = 'reverted with strict on #1325; it only shows a UI button to a human with write access and acts on nothing, so it buys no convergence and its being on misreports that it does'
     },
     @{
@@ -1171,7 +1171,7 @@ $script:ExpectedRepoSettings = @(
         Field    = 'ruleset.bypass_actor_types'
         Expected = @('OrganizationAdmin', 'RepositoryRole')
         Recorded = '2026-09-09'
-        Where    = '.claude/specialists/lenses/05-15-extension.md (the #1284 and #1244 blocks)'
+        Where    = '.claude/specialists/lenses/specialist-05-15-lens.md (the #1284 and #1244 blocks)'
         Why      = 'the bypass list is the only thing between a green main-ci-gate and three exceptions that cannot satisfy it -- a required status check can never be satisfied by a direct push. The transfer emptied it for a day and nothing reported that (#1244). Read only by a token that can administer the repo, so a CI run reports this one as unreadable rather than green'
     }
 )
@@ -1186,7 +1186,7 @@ function Get-ExpectedRepoSettings {
 
 # --- The triage-priority labels every dkj-policy consumer is invited to share (issue #1895) ---------
 #
-# THE GAP. `.claude/specialists/lenses/01-01-extension.md` already prescribes a priority label on
+# THE GAP. `.claude/specialists/lenses/specialist-01-01-lens.md` already prescribes a priority label on
 # every issue filed HERE -- 'prio-1' (lowest) through 'prio-4' (highest) -- but until now that scale
 # was prose in one family's page and `dkj-policy` itself knew none of it. #1895 (split from #1843)
 # asked three questions, and Dave answered all three on September 12, 2026:

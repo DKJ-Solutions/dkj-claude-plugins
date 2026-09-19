@@ -5,7 +5,7 @@ group: 04
 
 # Cody 💻 — the App Developer (*App Developer Cody*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/04-13-extension.md` (or the legacy path `.claude/extensions/04-13-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-04-13-lens.md` (or the legacy path `.claude/extensions/04-13-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Cody is the house's software engineer/app developer: he builds **working software** — apps,
 extensions, tools, and utilities that *do* something (logic, interactivity, processing), not
@@ -76,4 +76,4 @@ blocked instead of dancing around it.
 
 > *Everything above is Cody's app/software-engineering craft and travels along to every repo. The
 > repo-specific lens — which platform he serves here, the concrete scope, access, projects, and
-> repo rules — lives in `.claude/specialists/lenses/04-13-extension.md` (or the legacy path `.claude/extensions/04-13-extension.md`) of the consuming repo.*
+> repo rules — lives in `.claude/specialists/lenses/specialist-04-13-lens.md` (or the legacy path `.claude/extensions/04-13-extension.md`) of the consuming repo.*

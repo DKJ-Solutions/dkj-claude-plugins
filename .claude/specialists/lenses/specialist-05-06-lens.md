@@ -17,7 +17,7 @@ A release manager does the same thing everywhere — maintain a changelog, bump 
 record releases. **What is repo-specific in claude-code-specialists is not that Rendall releases, but the
 concrete mechanics and conventions this house chose.** Below is the implementation — this is what you
 rewrite when copying. Managing branches, PRs, and merges up to and including the merge is
-[Derek #05](05-05-extension.md)'s domain.
+[Derek #05](specialist-05-05-lens.md)'s domain.
 
 ### Changelog
 
@@ -144,19 +144,19 @@ itself.
 
 **Never merge without an entry**, not even for small changes. Since the branch-creation
 improvement, the entry comes into being **at the moment the branch is created** — no
-separate later scaffolding step: [Derek #05](05-05-extension.md#classifying-naming-and-creating-a-branch)'s
+separate later scaffolding step: [Derek #05](specialist-05-05-lens.md#classifying-naming-and-creating-a-branch)'s
 `new-branch.ps1` checks out the branch and, in the same move, calls the shared
 `scripts/task/new-branch.ps1 -Title "…"` (which writes `dkj-policy/<branch>.md`, filling in
 the title, the branch name and the type from the prefix automatically) as a child step. A branch is never
 entry-less. Whoever builds on the
-branch (often [Tessa #16](06-16-extension.md) or [Sylvester #15](05-15-extension.md)) fills in the
+branch (often [Tessa #16](specialist-06-16-lens.md) or [Sylvester #15](specialist-05-15-lens.md)) fills in the
 description while building; ownership of the entry mechanism stays Rendall's.
 
 #### Lifecycle
 
 1. **Branch** → `dkj-policy/<branch>.md` is written *at branch creation* (Derek's `new-branch.ps1`); you
    fill in the description and keep the step list current while building. Never touch `CHANGELOG.md`.
-2. **Merge to `main`** ([Derek #05](05-05-extension.md#merging-to-main)) → the entry travels
+2. **Merge to `main`** ([Derek #05](specialist-05-05-lens.md#merging-to-main)) → the entry travels
    along. Rendall runs `fold-changelog-entry.ps1 -Branch <name> -Push` on `main`: that folds, commits
    (`fold: <branch> changelog (#NN)`) and pushes, in one step. **The `-Commit`/`-Push`
    opt-in, the path-scoped commit, the "check you are really on `main`" guard against
@@ -167,7 +167,7 @@ description while building; ownership of the entry mechanism stays Rendall's.
    after four hand-typed fold commits in one session. Repo-specific half: this fold commit runs under
    **this** repo's direct-on-`main` exception, which is what the path-scoped commit exists to keep honest,
    and the branch part of the two-machine lesson sits with
-   [Derek #05](05-05-extension.md#branch--repo-hygiene).
+   [Derek #05](specialist-05-05-lens.md#branch--repo-hygiene).
    The fold also **resets `dkj-policy/<branch>.md`** to its empty state and names it in the
    same commit, so the trunk is ready for the next branch instead of showing the merged one's ticked-off
    steps. One write clears both halves, which is why the commit's scope is two paths rather than three.
@@ -395,7 +395,7 @@ and written in anyway. This lens, the one place Rendall would actually look, was
 end-to-end duration — from before the cut to the published Release — written into the release document's
 organisational section. It is his to capture because a baseline cannot be taken afterwards, and `v4.3.0` is
 the instance: a whole cycle aimed at the thirty-minute release, improved it, and left no post-change figure
-in minutes. See [Nolan #25](06-25-extension.md#wall-clock-here--the-gates-and-the-baseline-measured-at-v420-august-10-2026)
+in minutes. See [Nolan #25](specialist-06-25-lens.md#wall-clock-here--the-gates-and-the-baseline-measured-at-v420-august-10-2026)
 for the three numbers the next release owes.
 
 **And it takes him TWO passes, because the note is frozen before the Release is published** (measured at
@@ -538,7 +538,7 @@ answers `Bypassed rule violations for refs/heads/main` where the day before it a
 ownership rather than a repo permission. And that push proves it only for the account that made it —
 `Bypassed rule violations` from an owner says nothing about anyone else, which is the mis-reading that
 reopened #1244. The role table and the measurements are in
-[Sylvester's lens](05-15-extension.md); the reading that settles it for *your* account is
+[Sylvester's lens](specialist-05-15-lens.md); the reading that settles it for *your* account is
 `current_user_can_bypass` on the ruleset, taken from that account. The
 paragraph above described the route correctly throughout — it is the argument for why the cut is not a
 PR — and the blockage was never a reason to reopen the route question: the three objections at the top
@@ -777,7 +777,7 @@ choosing to. `Get-SeamValue` takes a **list** of names now, the current one firs
 documents safe. The **prose** in the archived changelog notes and in the already-folded
 `CHANGELOG.md` entries keeps the old word, because those describe what the document was called on the
 day they were written; that is the same published-record rule that left the seven wrong merge dates
-standing that [Chris's lens](01-01-extension.md#the-dave-rules) records.
+standing that [Chris's lens](specialist-01-01-lens.md#the-dave-rules) records.
 Their **links** were repointed, since a dead link
 in a record is worse than a relocated one and repointing one changes no claim the record makes.
 `Get-ReleaseHighlightsStakeholderTypes` and `Get-ReleaseHighlightsWording` keep their names too — they
@@ -1019,7 +1019,7 @@ release management. Rendall's craft in such a repo is whatever *that* repo's rel
   than on its existing — it exists on `main` by design. Shared/mirrored to the plugin
   ([issue #81](https://github.com/DaveKJohn/claude-code-specialists/issues/81)); normally reached
   indirectly, at branch creation, via
-  [Derek #05](05-05-extension.md#classifying-naming-and-creating-a-branch)'s `new-branch.ps1` — you
+  [Derek #05](specialist-05-05-lens.md#classifying-naming-and-creating-a-branch)'s `new-branch.ps1` — you
   rarely call it standalone anymore.
 - `scripts/release/fold-changelog-entry.ps1 [-Branch <name>] [-RepoRoot <path>] [-Commit] [-Push]` — fold
   entry(ies) into `CHANGELOG.md` on `main` after a merge, each at the **position its own impact table ranks

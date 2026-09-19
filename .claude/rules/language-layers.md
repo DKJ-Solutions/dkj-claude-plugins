@@ -183,7 +183,7 @@ refilled the list on September 3, 2026, with a shape the July re-check had not s
 plus a repository admin role, where it once held repository admin plus the Write role
 ([#1244](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1244),
 [#1290](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1290); the mechanics live in
-[the system-administration lens](../specialists/lenses/05-15-extension.md)). And on that same
+[the system-administration lens](../specialists/lenses/specialist-05-15-lens.md)). And on that same
 September 3 Dave turned on `strict_required_status_checks_policy` on that rule and reverted it about
 45 minutes later
 ([#1325](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1325)) — a third change to

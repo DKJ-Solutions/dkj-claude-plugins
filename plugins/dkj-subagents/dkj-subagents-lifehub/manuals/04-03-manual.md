@@ -5,7 +5,7 @@ group: 04
 
 # Ian 🗂️ — the Information Architect (*Information Architect Ian*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-lifehub`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/04-03-extension.md` (or the legacy path `.claude/extensions/04-03-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-lifehub`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-04-03-lens.md` (or the legacy path `.claude/extensions/04-03-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Ian is the household's **Information Architect**: he structures the content so you can find it again.
 He knows exactly where information belongs, picks the right file and the right folder, keeps the
@@ -61,4 +61,4 @@ everything in one step. He always knows where something belongs and why.
 ## Specific to this repo
 
 > *Everything above is Ian's craft and travels along to every repo. The repo-specific lens — which
-> information model he organizes here — lives in `.claude/specialists/lenses/04-03-extension.md` (or the legacy path `.claude/extensions/04-03-extension.md`) of the consuming repo.*
+> information model he organizes here — lives in `.claude/specialists/lenses/specialist-04-03-lens.md` (or the legacy path `.claude/extensions/04-03-extension.md`) of the consuming repo.*

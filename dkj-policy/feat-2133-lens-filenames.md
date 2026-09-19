@@ -41,11 +41,31 @@
 
 Step D of the rename plan in #2128: .claude/specialists/lenses/NN-NN-extension.md becomes specialist-NN-NN-lens.md, with every reference to them following.
 
+#### Ordering: the PR waits for A, B and C
+
+Dave, September 19, 2026: work starts now, but **no PR is opened until steps A (#2130), B (#2131) and C (#2132) are done.** D depends on A in particular -- the roster check and `check-connectors.ps1` are still anchored to the old filename until the dual-name readers land, so this branch cannot be green on its own before then.
+
+#### Scope decisions taken while doing it
+
+- Swept: every reference that names one of THIS repo's own lenses by its real path. Not swept: reader scripts and their mirrors (step A), test fixtures (they prove the old name still reads), the `.claude/extensions/` and `.claude/plugins/<family>/` legacy layouts, and the generic convention text (`<group>-<id>-extension.md`) in agent defs and manuals -- that states the consumer-facing convention and belongs with the migration docs (step E).
+- `dkj-policy/releases/**`: prose untouched, but 43 link TARGETS repaired, because check 4 scans that folder and the issue's "Done when" needs the lint gate green. Precedent: `17149edb` did the same for the `dkj-policy` rename.
+- The always-on baseline is regenerated through the gate, never hand-edited: the path grows 348 B from longer filenames alone.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `git mv` the 30 lenses to `specialist-NN-NN-lens.md`
+- [x] Sweep the references that name a lens of this repo (84 files, 316 replacements) and the one bare mention in the specialists handbook
+- [x] Repair the 43 dead link targets in `dkj-policy/releases/**`
+- [ ] Wait for #2130, #2131 and #2132 to land on `main`, then merge `main` into this branch
+- [ ] Re-check `check-roster-sync.ps1` reports all 30 specialists rostered with a lens (34 errors today, all from the A readers), and that `connectors.tests.ps1` is green again
+- [ ] Raise the always-on baseline through `check-always-on-budget.ps1 -Raise -Reason ...`, on the merged state
+- [ ] Run the #1757 check on the added lines against `origin/main`
 
 ### TEST
+
+- [x] Lint gate: `check-plugin-integrity.ps1` -- 0 errors (43 before the release-link repair)
+- [x] Test gate on the branch as it stands: 117 of 118 suites green; the one red is `connectors.tests.ps1` ("self-manifest ... exit code 0"), caused by `check-connectors.ps1` still reading `NN-NN-extension.md` -- step A's reader
+- [ ] Both gates fully green after A, B and C are merged in
 
 ### DEPLOY: feat/2133-lens-filenames
 

@@ -5,7 +5,7 @@
     for each one -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
-    THE GAP THIS CLOSES. `.claude/specialists/lenses/01-01-extension.md` (this workflow's own source
+    THE GAP THIS CLOSES. `.claude/specialists/lenses/specialist-01-01-lens.md` (this workflow's own source
     repo) prescribes a priority label on every issue it files -- 'prio-1' (lowest) through 'prio-4'
     (highest) -- but until now that scale was PROSE in one family's page and nothing in `dkj-policy`
     itself knew the four names, so a consumer adopting the convention had to read that page, retype

@@ -5,7 +5,7 @@ group: 05
 
 # The Configuration Manager 🗂️
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-shopify`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/05-22-extension.md` (or the legacy path `.claude/extensions/05-22-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-shopify`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-05-22-lens.md` (or the legacy path `.claude/extensions/05-22-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 The Configuration Manager manages the theme landscape and the platform reference knowledge. The active admin tasks (staging previews, live-editor settings, live push) belong to the webshop manager who actually operates the admin; the Configuration Manager keeps an overview of which themes exist and whose they are, the cleanup policy, backups, and the reference for CLI commands and auth. This keeps the active manager's task list manageable.
 
@@ -107,4 +107,4 @@ The Configuration Manager is the orderly archivist: he loves catalogs, ownership
 
 ## Specific to this repo
 
-> *Everything above is the Configuration Manager's estate/reference craft and travels along to every repo. The repo-specific lens — the concrete theme landscape, the ownership map, the store convention, the CLI commands and the connector of this household — lives in `.claude/specialists/lenses/05-22-extension.md` (or the legacy path `.claude/extensions/05-22-extension.md`) of the consuming repo.*
+> *Everything above is the Configuration Manager's estate/reference craft and travels along to every repo. The repo-specific lens — the concrete theme landscape, the ownership map, the store convention, the CLI commands and the connector of this household — lives in `.claude/specialists/lenses/specialist-05-22-lens.md` (or the legacy path `.claude/extensions/05-22-extension.md`) of the consuming repo.*

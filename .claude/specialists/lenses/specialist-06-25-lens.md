@@ -35,13 +35,13 @@ the craft is the same, only the bill differs.
   (`plugins/*/subagents/*-agent.md`, `*/manuals/*-manual.md`,
   `specialists/personas/*-persona.md`): a manual/agent-def that has grown well past what its craft
   needs is a cost on every load, not a one-time read.
-- **The `subagent-shared/` mechanism** (see [Sylvester #15](05-15-extension.md) and
-  [Ravi #24](06-24-extension.md)) as a *frugality lever*, not just a DRY tool: a rule that lives once
+- **The `subagent-shared/` mechanism** (see [Sylvester #15](specialist-05-15-lens.md) and
+  [Ravi #24](specialist-06-24-lens.md)) as a *frugality lever*, not just a DRY tool: a rule that lives once
   in `subagent-shared/<name>.md` and is filled into N agent-defs by the generator costs one edit instead
   of N, and Nolan can point to it as evidence when a savings proposal is "promote this to a shared
   block" rather than "trim this in each of the N places separately".
 - **Repeated context across a chain**: whether a multi-specialist chain (see
-  [Chris #01](01-01-extension.md#chains-multiple-specialists-in-sequence)) re-reads the same doc
+  [Chris #01](specialist-01-01-lens.md#chains-multiple-specialists-in-sequence)) re-reads the same doc
   more than once where a single, targeted read would do.
 
 ### How to measure it — `claude plugin details` (July 28, 2026)
@@ -129,7 +129,7 @@ documents load in full on every session:
 |---|---|---|
 | `CLAUDE.md` | 24.388 | ~6.600 |
 | Chris's portable body (`personas/01-01-persona.md`) | 6.628 | ~1.800 |
-| Chris's repo lens (`01-01-extension.md`) | 12.274 | ~3.300 |
+| Chris's repo lens (`specialist-01-01-lens.md`) | 12.274 | ~3.300 |
 | **documents total** | **43.290** | **~11.700** |
 | plus the plugin listing (`claude plugin details`) | | ~3.505 |
 
@@ -218,7 +218,7 @@ Re-measured on `73579e8`, with the seam document that did not exist then:
 | always-on | July 28 | August 14 | |
 |---|---|---|---|
 | `CLAUDE.md` | 24,388 chars | **73,298** | 277 → **875 lines** |
-| Chris's repo lens (`01-01-extension.md`) | 12,274 | 19,405 | |
+| Chris's repo lens (`specialist-01-01-lens.md`) | 12,274 | 19,405 | |
 | Chris's portable body (`personas/01-01-persona.md`) | 6,628 | 11,075 | |
 | `.claude/specialists/SPECIALISTS.md` (the seam) | *did not exist* | 7,982 | a fourth document on the path |
 | **total** | **43,290 · ~11,700 tokens** | **111,760 · ~30,205 tokens** | **+158%** |
@@ -274,7 +274,7 @@ earlier tables, which is the second half of the under-count):
 | always-on | bytes | ~tokens | basis |
 |---|---|---|---|
 | `CLAUDE.md` | 73,298 | ~23,500 | 3.12 |
-| Chris's repo lens (`01-01-extension.md`) | 21,462 | ~6,900 | 3.12 |
+| Chris's repo lens (`specialist-01-01-lens.md`) | 21,462 | ~6,900 | 3.12 |
 | Chris's portable body (`01-01-persona.md`) | 11,051 | ~3,500 | 3.12 |
 | `.claude/specialists/SPECIALISTS.md` (the seam) | 7,982 | ~2,600 | 3.12 |
 | **documents** | **113,793** | **~36,500** | |
@@ -328,12 +328,12 @@ August 14 note said so and was right.
 was *"the justification for a trim does not belong on the always-on path"*, and it generalises:
 **the decision belongs on the always-on path; the evidence for it does not.** Almost all of the 41,168 B
 is evidence, and its destination already exists and is already named — `CLAUDE.md` itself records
-(August 4, 2026) that [Rendall #06's lens](05-06-extension.md) *"holds the release craft itself"*. That
+(August 4, 2026) that [Rendall #06's lens](specialist-05-06-lens.md) *"holds the release craft itself"*. That
 lens is 39,253 B, read on demand, and costs nothing per session. Probed for overlap, it is already a
 mix rather than a clean move: the 62/38 note split, `Get-ReleaseMajorMinMinors` and "10 minors" appear
 in **both**, while the significance rubric (13 references), the `highlights/` rename (8) and
 `Get-ReleaseAudienceTier` appear only in `CLAUDE.md`. So part is duplication —
-[Ravi #24](06-24-extension.md)'s — and part is relocation — [Tessa #16](06-16-extension.md)'s.
+[Ravi #24](specialist-06-24-lens.md)'s — and part is relocation — [Tessa #16](specialist-06-16-lens.md)'s.
 
 **Priced, so the choice can be made on a number rather than on a feeling:**
 
@@ -390,7 +390,7 @@ same 30 suites run **three times** per release-with-documents — once in the cu
 CI — so a change that halves the suite saves three times what a single run suggests, and a change that
 skips one run saves a third while proving less. That triple is **deliberate**: the release commit does not
 travel via a PR and therefore meets no CI, which is why the cut runs the suites itself
-([the release lens](05-06-extension.md#why-the-release-commit-takes-no-pull-request) records that the cut
+([the release lens](specialist-05-06-lens.md#why-the-release-commit-takes-no-pull-request) records that the cut
 used to run the lint alone and was the least-gated commit in the workflow). Do not propose removing it
 without reading that decision.
 
@@ -419,7 +419,7 @@ non-blocking without touching a gate. Note which rule that satisfies: it is not 
 exactly as much. The alternative on the table was a one-line change to `ship-pr.ps1`; it was measured as
 saving two commands per lane and **nothing in wall-clock**, and declined on that trade rather than
 overlooked. The mechanics are in
-[Derek's branch hygiene](05-05-extension.md#branch--repo-hygiene).
+[Derek's branch hygiene](specialist-05-05-lens.md#branch--repo-hygiene).
 
 **The median also drifted up between the two measurements** — 7m 23s (n=63, August 11) to 8m 01s (n=65,
 August 23), **+38s, +8.6% in twelve days** — and the table row now carries both. Nothing was proposed about
@@ -704,7 +704,7 @@ checkable.
 **And the honest footnote, because it is the kind of thing that gets left out.** The first post-split
 pooled run had **two red suites** — `bootstrap-drift` and `fix-mojibake`, both on their *live-repo* lint
 assert, both green alone, and both already named in
-[Sylvester #15](05-15-extension.md) as suites that fail under a parallel fan-out. The next three runs
+[Sylvester #15](specialist-05-15-lens.md) as suites that fail under a parallel fan-out. The next three runs
 were clean, and eight lint runs launched alongside the four new suites could not reproduce it. So: not
 diagnosed, not attributed to the split, and not hidden. What did change is that all three of those
 asserts now print what the gate actually reported, because *"expected 0, got 1"* was everything either
@@ -722,7 +722,7 @@ suite in the repo, and it is **proposed, not built** — the decision is Dave's.
 234 asserts"*; **234 is exactly what `check-plugin-integrity.tests.ps1` prints for itself**. Summed over
 all 40 suites' own summary lines the real figure is **4,206**. The row above carried "210 asserts" for
 the same reason and no longer states one — at 30 suites the total was never in the low hundreds either.
-This is [Chris's fifth intake pattern](01-01-extension.md#the-dave-rules) — the finding is real and its
+This is [Chris's fifth intake pattern](specialist-01-01-lens.md#the-dave-rules) — the finding is real and its
 **size** is wrong — in its fourth instance, and again on a report this team wrote itself.
 
 ### The gate record's saving, measured on the case it was built for (August 16, 2026)
@@ -988,7 +988,7 @@ code rather than remembered:
   lookup. Everything a plugin *ships* — a skill, a hook, an agent def — loads from the extracted payload
   under `~/.claude/plugins/cache/` instead, and that copy moves only on a release. Two artefacts, two
   load paths; the measurement is in
-  [the system-administration lens](05-15-extension.md).
+  [the system-administration lens](specialist-05-15-lens.md).
 - **The sections must sum to the file, or no table is printed.** A plausible wrong share is worse than a
   refusal, which is `measure-skill`'s own parse-check reasoning applied to arithmetic.
 
@@ -1053,7 +1053,7 @@ time, and this time the figure that went stale was one written into a **publishe
 
 **And the phenomenon is not new, which is the finding worth keeping.** Red under the gate, green alone,
 on these same suites, has now been recorded three times: the `Start-Job` fan-out of August 12, 2026 (6 of
-31, all green alone) in [Sylvester #15](05-15-extension.md), the two post-split reds of August 16
+31, all green alone) in [Sylvester #15](specialist-05-15-lens.md), the two post-split reds of August 16
 (`bootstrap-drift`, `fix-mojibake`) in the honest footnote above, and these eleven. Six of the eleven run
 the lint gate over the live tree and five do not, so the live-repo collision covers part of it and no
 reproduction has ever been obtained for the rest. What cost that release **22m 01s** was therefore not
@@ -1204,7 +1204,7 @@ reconstruction is only as good as its `t0` assumption, and a conversion is only 
 holds.
 
 **So the plateau is four files, not five, and `entry-scaffold` should not be split.** This is
-[Chris's fifth intake pattern](01-01-extension.md#the-dave-rules) again -- the finding is real and its
+[Chris's fifth intake pattern](specialist-01-01-lens.md#the-dave-rules) again -- the finding is real and its
 **size** is wrong -- on a report this team wrote itself, which is where it keeps happening. The lesson is
 narrower than "check the numbers": a reconstruction is only as good as its `t0` assumption, and the report
 stated that assumption correctly for the four files it verified and then silently extended the method to two
@@ -1383,17 +1383,17 @@ file the #1713 paragraph above says does not convert to this machine at all.
 ### Boundaries with the other roles
 
 - A duplication finding is still a duplication first: Nolan may flag the token cost, but the dedup
-  act itself stays with [Ravi #24](06-24-extension.md).
+  act itself stays with [Ravi #24](specialist-06-24-lens.md).
 - The loading mechanism itself — harness config, the generator/lint scripts, `settings.json` —
-  stays with [Sylvester #15](05-15-extension.md); Nolan says *what* should get cheaper, Sylvester
+  stays with [Sylvester #15](specialist-05-15-lens.md); Nolan says *what* should get cheaper, Sylvester
   builds it if it is config/script work.
 - Rewriting the actual doc/manual/agent-def text for leanness stays with
-  [Tessa #16](06-16-extension.md); Nolan advises on where and how much, Tessa does the rewrite.
+  [Tessa #16](specialist-06-16-lens.md); Nolan advises on where and how much, Tessa does the rewrite.
 - A **test suite's** duration is a cost finding and a testing decision at once: Nolan reports the
-  seconds and how often they are spent, [Tycho #18](04-18-extension.md) decides what an assert
+  seconds and how often they are spent, [Tycho #18](specialist-04-18-lens.md) decides what an assert
   protects and whether narrowing it gives something up. The suites here are `scripts/tests/*.tests.ps1`
   and the gate that runs them is `open-pr.ps1`, so the *script* half of any repair is
-  [Sylvester #15](05-15-extension.md)'s and the *coverage* half is Tycho's.
+  [Sylvester #15](specialist-05-15-lens.md)'s and the *coverage* half is Tycho's.
 - **The safety rules are not Nolan's to trade.** The three gates exist because
   [`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation) says so, and several
   of them were built after a measured failure. Nolan may quantify what one costs and put a

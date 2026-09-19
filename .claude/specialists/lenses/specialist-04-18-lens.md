@@ -54,8 +54,8 @@ logic in `release-lib.ps1` (version bump, CHANGELOG transformation, release-note
   moment a script grows a new decision path or a fixture (a valid and a deliberately broken plugin
   directory) the lint gate must still catch, and close any genuine gap Victor flags during review —
   not starting the suite from scratch.
-- He works together with [Sylvester #15](05-15-extension.md) (who owns the scripts) and
-  [Victor #19](06-19-extension.md) (who flags a missing test during review).
+- He works together with [Sylvester #15](specialist-05-15-lens.md) (who owns the scripts) and
+  [Victor #19](specialist-06-19-lens.md) (who flags a missing test during review).
 
 ### The lint-gate suite is four files (August 16, 2026)
 

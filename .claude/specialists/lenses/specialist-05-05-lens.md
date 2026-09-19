@@ -17,7 +17,7 @@ A DevOps engineer does the same thing everywhere — manage branches, PRs, and m
 main branch, and guard a clean history. **What is repo-specific in claude-code-specialists is not that
 Derek runs the git flow, but the specific conventions, scripts, and account of this house.** Below is
 the concrete implementation — this is what you rewrite when copying. The **changelog and versioning**
-are [Rendall #06](05-06-extension.md)'s domain; Derek handles everything up to and including the
+are [Rendall #06](specialist-05-06-lens.md)'s domain; Derek handles everything up to and including the
 merge.
 
 ### Classifying, naming, and creating a branch
@@ -82,7 +82,7 @@ It uses the name **exactly as given** — it does not complete a `-v<N>` suffix 
 wrapping it for a branch whose name it does not own gets that name. **One script since August 7, 2026** —
 the file writing used to live in a sibling called `new-changelog-entry.ps1`, invoked as a child process,
 and that name described one of four outputs by the end. Mechanism ownership of the entry FORMAT stays with
-[Rendall #06](05-06-extension.md#changelog); Derek's `new-branch` is what writes it at the moment the
+[Rendall #06](specialist-05-06-lens.md#changelog); Derek's `new-branch` is what writes it at the moment the
 branch is born. The assigned specialist then fills in
 the description and keeps the step list current while building. As soon as that work is finished and committed, the PR follows in
 the same motion: Chris reports each step but asks nothing first, unless the work falls under one of the
@@ -262,7 +262,7 @@ lens carries the local evidence and the two names that are only true here.
   suggestion is exactly the bypass to refuse.
 
 Folding the changelog entry on `main` (`fold-changelog-entry.ps1`) is then
-[Rendall #06](05-06-extension.md#changelog)'s work. `main` thus keeps a growing record of everything that
+[Rendall #06](specialist-05-06-lens.md#changelog)'s work. `main` thus keeps a growing record of everything that
 has been merged — since August 5, 2026 as **one flat list, ranked** by each entry's own impact table rather
 than grouped by its branch prefix. Derek's part of that is only this: the tier and the significance are set
 while the branch is still open, so they belong in the entry before the PR — the fold is the only moment the
@@ -365,7 +365,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   command that surfaces it, and a park note knows nothing about what happened after it was written.
   Local instance (August 4, 2026): `docs/split-quickstart-and-adoption`, parked August 3 at 16:49, was
   overtaken by `d151b6e` at 18:32 the same day. Repo-specific half: `git ls-remote` is now named in
-  Chris's stand-verification list in [`01-01-extension.md`](01-01-extension.md#the-dave-rules), and the
+  Chris's stand-verification list in [`specialist-01-01-lens.md`](specialist-01-01-lens.md#the-dave-rules), and the
   remote delete stays Dave's manual act per the bullet above.
 - **And a parked branch's ticks are not evidence that the work exists** — read its park commit before
   rebuilding a line of it. The mechanism is portable and lives in
@@ -400,13 +400,13 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   crossed each other): merging different branches in parallel is safe — the lint gate and CI protect
   `main` independently of which machine merges. Two rules keep it that way: **never the same branch
   on two machines** (push/pull races), and **a fresh `git pull` before every new branch and before
-  every fold**. The fold collision point itself is [Rendall #06](05-06-extension.md#lifecycle)'s
+  every fold**. The fold collision point itself is [Rendall #06](specialist-05-06-lens.md#lifecycle)'s
   part of this lesson.
 - **On ONE machine the same parallelism needs a worktree, and the direction is the opposite of the
   obvious one** (August 23, 2026). The bullet above says merging different branches in parallel is
   safe; what stops a single session from doing it is not policy but the working tree. `ship-pr.ps1`
   blocks on `gh pr checks --watch` — **median 8m 01s over 65 blocking runs, 9h 45m per week at 73 PRs**
-  ([Nolan #25](06-25-extension.md#wall-clock-here--the-gates-and-the-baseline-measured-at-v420-august-10-2026)) —
+  ([Nolan #25](specialist-06-25-lens.md#wall-clock-here--the-gates-and-the-baseline-measured-at-v420-august-10-2026)) —
   and then, at step 5, runs `git checkout main` to fold. Background the ship and start the next branch
   in the same checkout, and that checkout yanks HEAD out from under the work in progress.
   **Shipping from a worktree instead fails harder**, and this was probed rather than reasoned about:
@@ -461,7 +461,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   catches it** — `check-plugin-integrity.ps1` reads links, manifests and frontmatter, not prose; the
   suites only echo the fixture back into a refusal message; and a parked branch has no PR, so not even
   the advisory CI runs against it. This is not the dead-name sweep two sections up in
-  [Tessa #16](06-16-extension.md#a-dated-measurement-keeps-the-name-it-was-written-with-and-a-rename-sweep-is-where-that-is-lost):
+  [Tessa #16](specialist-06-16-lens.md#a-dated-measurement-keeps-the-name-it-was-written-with-and-a-rename-sweep-is-where-that-is-lost):
   that one over-corrects an existing dated citation; this one under-corrects, carrying a
   correct-on-the-day name onto a trunk that no longer has it. So when you take `main` into a branch
   whose base predates a rename, read the lines the branch **adds**, not the whole file:
@@ -674,7 +674,7 @@ urgency in prose instead, and the rung is set here when the item is picked up �
 to ask GitHub on every run, which puts the tracker on the critical path of a local check for a field
 only a person can fill in. So this is prose, exactly like the `inbound` route in
 [`CLAUDE.md`](../../../CLAUDE.md#never-without-daves-explicit-permission), and the always-on half of it
-lives in [Chris's lens](01-01-extension.md#the-dave-rules) so a session filing a finding reads it
+lives in [Chris's lens](specialist-01-01-lens.md#the-dave-rules) so a session filing a finding reads it
 without loading this page. **What that costs is measured elsewhere in this very file**: the `chore/`
 prefix rule also held only in someone's head and was broken twelve times before anybody counted.
 
@@ -815,10 +815,10 @@ Derek prefers not to touch the git commands by hand. His toolbox:
   branch conventions: the prefix table (prefix → GitHub label + changelog type) and the branch name →
   entry-filename conversion (`/` → `-`). Changing the mapping? Here, nowhere else.
 
-`new-branch.ps1` is mechanism-owned by [Rendall #06](05-06-extension.md); it is now shared
+`new-branch.ps1` is mechanism-owned by [Rendall #06](specialist-05-06-lens.md); it is now shared
 (mirrored to the plugin, [issue #81](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/81))
 and normally reached indirectly, via Derek's `new-branch.ps1` above. `fold-changelog-entry.ps1`
-remains [Rendall #06](05-06-extension.md)'s tool, run on `main` after the merge. A new recurring
+remains [Rendall #06](specialist-05-06-lens.md)'s tool, run on `main` after the merge. A new recurring
 GitHub chore? Derek builds a script for it.
 
 In short: the **how** (branching, PRs, merging, cleanup, automation) is portable; the **what** (this

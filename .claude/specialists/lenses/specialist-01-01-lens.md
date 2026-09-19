@@ -47,7 +47,7 @@ product: agent defs, manuals, docs, and tooling.
   transient before the fold commit lands),
   **`git ls-remote --heads origin` for parked branches** — a parked branch has no PR by design, so every
   other item in this list is blind to it; the mechanism and what to do when you find one are in
-  [Derek #05](05-05-extension.md#branch--repo-hygiene) — and the four gates
+  [Derek #05](specialist-05-05-lens.md#branch--repo-hygiene) — and the four gates
   (`check-roster-sync.ps1` + `check-plugin-integrity.ps1` + `check-script-contract.ps1` + `check-unfolded-entry.ps1`). Where the
   briefing and the repo disagree the repo wins, and Chris says so out loud instead of quietly working
   around it. **Do not classify that `ls-remote` output by hand — run
@@ -90,12 +90,12 @@ product: agent defs, manuals, docs, and tooling.
   postpones the triage to whoever reads the tracker next (a hard rule from Dave, September 9, 2026,
   [#1685](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1685)). The rungs, the relabel
   command, the inbound carve-out, and why this is a **separate axis** from a *pull request*'s labels
-  are in [Derek #05](05-05-extension.md#issue-labels--every-issue-carries-a-priority).
+  are in [Derek #05](specialist-05-05-lens.md#issue-labels--every-issue-carries-a-priority).
 - **And it carries `minor` when its landing will be written at tier 1 or 2** — the reach label, which is
   the tier model read on an issue instead of on a changelog entry, prescribed for every repo running this
   workflow ([#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870), Dave,
   September 11, 2026), and a **second axis** independent of priority. Detail in
-  [Derek #05](05-05-extension.md#the-reach-label--minor-and-it-is-a-second-axis-not-a-fifth-rung).
+  [Derek #05](specialist-05-05-lens.md#the-reach-label--minor-and-it-is-a-second-axis-not-a-fifth-rung).
 
 ### The gatekeepers, as implemented here
 
@@ -103,8 +103,8 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
 - [The safety rules](../../../CLAUDE.md#safety-rules) — never directly on `main` (except the
   fold exception), a release/version bump only on explicit request, this repo is **public**
   (no secrets/personal information).
-- Branch check ([Derek #05](05-05-extension.md)) — **first** `git status` + `git branch`; never
-  directly on `main`. See [Derek #05](05-05-extension.md#classifying-naming-and-creating-a-branch).
+- Branch check ([Derek #05](specialist-05-05-lens.md)) — **first** `git status` + `git branch`; never
+  directly on `main`. See [Derek #05](specialist-05-05-lens.md#classifying-naming-and-creating-a-branch).
   - **The check runs at the start of every *assignment*, not every session — and a bare "go ahead" is
     an assignment.** `ship-pr.ps1` switches to `main` in order to fold, so the end of every successful
     chain leaves you on the trunk with a clean tree, which reads as "ready" rather than as one command
@@ -117,12 +117,12 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
     CI is done. That widens the trap above rather than narrowing it — a clean trunk now also means
     "a ship is in flight" — so the branch check matters more, not less, and it is the same check.
 - **Branch PRs to `main` — in one motion, without asking.** Once the work is finished and
-  committed, Chris sets the whole chain in motion himself: [Derek #05](05-05-extension.md) opens the
+  committed, Chris sets the whole chain in motion himself: [Derek #05](specialist-05-05-lens.md) opens the
   PR, **waits for the required CI check `lint-en-tests` to go green** (the `main` ruleset blocks the
   merge until it passes — a merge attempt before then returns `BLOCKED`), then merges;
-  [Rendall #06](05-06-extension.md) folds. Guarded first locally by the lint + test gate
+  [Rendall #06](specialist-05-06-lens.md) folds. Guarded first locally by the lint + test gate
   (`open-pr.ps1` → `check-plugin-integrity.ps1` + all suites, blocks on any error; see
-  [Sylvester #15](05-15-extension.md)) and then by that same gate as CI on GitHub. Chris reports
+  [Sylvester #15](specialist-05-15-lens.md)) and then by that same gate as CI on GitHub. Chris reports
   every step explicitly.
 - **Where Chris does stop and wait for Dave's word.** Two exceptions, per
   [the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr): work
@@ -140,19 +140,19 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
 
 | Signal in the assignment | Specialist | Repo lens |
 |---|---|---|
-| Opening/merging a branch, PR, label, `gh` | **Derek** #05 | [`05-05-extension.md`](05-05-extension.md) |
-| Research: deep dive, option comparison, "find out how X works", groundwork before a change/dossier | **Rebecca** #07 | [`03-07-extension.md`](03-07-extension.md) |
-| Changelog (`CHANGELOG.md`, entry file, folding), versioning, `plugin.json` version | **Rendall** #06 | [`05-06-extension.md`](05-06-extension.md) |
-| Scripts (`scripts/**`), harness config (`.claude/settings.json`), `marketplace.json`/`plugin.json`, the lint gate | **Sylvester** #15 | [`05-15-extension.md`](05-15-extension.md) |
-| Sharpening doc content: `CLAUDE.md`, `README.md`, the manuals, agent-def texts, the workflow rules | **Tessa** #16 | [`06-16-extension.md`](06-16-extension.md) |
-| Copy editing, pre-PR check, language/spelling, consistency, dead links | **Edith** #17 | [`06-17-extension.md`](06-17-extension.md) |
-| Writing/maintaining tests for the scripts (lint/release), guarding against regressions | **Tycho** #18 | [`04-18-extension.md`](04-18-extension.md) |
-| Code review before a merge: correctness, simplicity, reuse, efficiency of scripts/agent defs | **Victor** #19 | [`06-19-extension.md`](06-19-extension.md) |
-| Tidying code that was just written — the `simplify` skill, i.e. *applying* reuse/simplification/efficiency fixes rather than reporting them. **The author's moment, so never Victor**: here the code is `scripts/**` and the author is Sylvester | **Sylvester** #15 | [`05-15-extension.md`](05-15-extension.md#and-therefore-here-sylvester-is-the-author-who-runs-simplify) |
-| Security review before a merge: secrets/PII in the diff, injection surface of plugin content, audits of guardrails/permissions/hooks | **Sebastian** #23 | [`06-23-extension.md`](06-23-extension.md) |
-| Duplication of behavioral rules (boundaries/working methods) across agent defs/personas; promoting a rule that lives in ≥2 places to a single shared source | **Ravi** #24 | [`06-24-extension.md`](06-24-extension.md) |
-| Cost: token/context budget and loading strategy, the size of agent defs/manuals/personas — **and wall-clock**, i.e. how long the gates, the suites, CI or a release actually take | **Nolan** #25 | [`06-25-extension.md`](06-25-extension.md) |
-| A recommendation/conclusion about to be acted on: red-teaming advice, hunting the fine print/the catch, testing assumptions, marketing-vs-reality on an option or research dossier | **Marlowe** #29 | [`06-29-extension.md`](06-29-extension.md) |
+| Opening/merging a branch, PR, label, `gh` | **Derek** #05 | [`specialist-05-05-lens.md`](specialist-05-05-lens.md) |
+| Research: deep dive, option comparison, "find out how X works", groundwork before a change/dossier | **Rebecca** #07 | [`specialist-03-07-lens.md`](specialist-03-07-lens.md) |
+| Changelog (`CHANGELOG.md`, entry file, folding), versioning, `plugin.json` version | **Rendall** #06 | [`specialist-05-06-lens.md`](specialist-05-06-lens.md) |
+| Scripts (`scripts/**`), harness config (`.claude/settings.json`), `marketplace.json`/`plugin.json`, the lint gate | **Sylvester** #15 | [`specialist-05-15-lens.md`](specialist-05-15-lens.md) |
+| Sharpening doc content: `CLAUDE.md`, `README.md`, the manuals, agent-def texts, the workflow rules | **Tessa** #16 | [`specialist-06-16-lens.md`](specialist-06-16-lens.md) |
+| Copy editing, pre-PR check, language/spelling, consistency, dead links | **Edith** #17 | [`specialist-06-17-lens.md`](specialist-06-17-lens.md) |
+| Writing/maintaining tests for the scripts (lint/release), guarding against regressions | **Tycho** #18 | [`specialist-04-18-lens.md`](specialist-04-18-lens.md) |
+| Code review before a merge: correctness, simplicity, reuse, efficiency of scripts/agent defs | **Victor** #19 | [`specialist-06-19-lens.md`](specialist-06-19-lens.md) |
+| Tidying code that was just written — the `simplify` skill, i.e. *applying* reuse/simplification/efficiency fixes rather than reporting them. **The author's moment, so never Victor**: here the code is `scripts/**` and the author is Sylvester | **Sylvester** #15 | [`specialist-05-15-lens.md`](specialist-05-15-lens.md#and-therefore-here-sylvester-is-the-author-who-runs-simplify) |
+| Security review before a merge: secrets/PII in the diff, injection surface of plugin content, audits of guardrails/permissions/hooks | **Sebastian** #23 | [`specialist-06-23-lens.md`](specialist-06-23-lens.md) |
+| Duplication of behavioral rules (boundaries/working methods) across agent defs/personas; promoting a rule that lives in ≥2 places to a single shared source | **Ravi** #24 | [`specialist-06-24-lens.md`](specialist-06-24-lens.md) |
+| Cost: token/context budget and loading strategy, the size of agent defs/manuals/personas — **and wall-clock**, i.e. how long the gates, the suites, CI or a release actually take | **Nolan** #25 | [`specialist-06-25-lens.md`](specialist-06-25-lens.md) |
+| A recommendation/conclusion about to be acted on: red-teaming advice, hunting the fine print/the catch, testing assumptions, marketing-vs-reality on an option or research dossier | **Marlowe** #29 | [`specialist-06-29-lens.md`](specialist-06-29-lens.md) |
 
 The table above is the routing, not the roster. **Every plugin in the marketplace is enabled here**, so
 far more specialists are invocable than Chris routes to — and the gap is deliberate rather than a set of
@@ -160,7 +160,7 @@ gaps to close:
 
 - **The rest of the core team.** Paula #09, Vera #11, Gwen #12, Cody #13 and Auden #30 are invocable as
   `@dkj-subagents-alpha:<name>`, but rarely have work in this maintenance repo, so their lens is an empty
-  `VUL-IN` scaffold. If such work does come up, [Tessa #16](06-16-extension.md) fills that lens in first,
+  `VUL-IN` scaffold. If such work does come up, [Tessa #16](specialist-06-16-lens.md) fills that lens in first,
   before the specialist is deployed.
 - **The three add-on teams** — `dkj-subagents-ecomm`, `dkj-subagents-lifehub` and `dkj-subagents-shopify`, eleven
   specialists between them. They are enabled to prove the plugins load in the repo that ships them, and
@@ -171,7 +171,7 @@ gaps to close:
 
 Torn between two addresses? Choose based on *what actually changes*, not which files happen to move
 along — exactly like the `docs/` vs `chore/` rule in
-[Derek's branch table #05](05-05-extension.md#classifying-naming-and-creating-a-branch). Concretely
+[Derek's branch table #05](specialist-05-05-lens.md#classifying-naming-and-creating-a-branch). Concretely
 for **Tessa vs. Sylvester**: if it concerns the *content* of a doc/manual/agent-def text, that is
 Tessa; if it concerns a *script*, a `.json` manifest, or harness config, that is Sylvester — even
 when the docs describing that behavior move along (the docs follow the behavior).
@@ -206,7 +206,7 @@ Typical chains:
   text) → Victor (code review) → Derek (PR + merge) → Rendall (folding the changelog).
 - **Recording a lesson learned (step 6, as implemented here):** if Chris (or a specialist) learned
   an important lesson or something that must be remembered for next time, he routes it to
-  [Tessa #16](06-16-extension.md) to record it in the relevant manual(s)/`CLAUDE.md`/`README.md`
+  [Tessa #16](specialist-06-16-lens.md) to record it in the relevant manual(s)/`CLAUDE.md`/`README.md`
   — a memory note alone is too noncommittal. That writing is Tessa's, under her name, never Chris's own.
 
 Chris names the whole chain up front, so Dave knows which steps are coming. The PR step runs on its

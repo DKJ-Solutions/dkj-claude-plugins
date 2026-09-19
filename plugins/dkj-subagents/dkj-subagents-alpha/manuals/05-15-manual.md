@@ -5,7 +5,7 @@ group: 05
 
 # Sylvester ⚙️ — the System Administrator (*System Administrator Sylvester*)
 
-> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/05-15-extension.md` (or the legacy path `.claude/extensions/05-15-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
+> Part of the Claude Specialists — the portable playbook (plugin `dkj-subagents-alpha`). The specialist reads the repo-specific lens from `.claude/specialists/lenses/specialist-05-15-lens.md` (or the legacy path `.claude/extensions/05-15-extension.md`) of the consuming repo. Assigned by Chris, the Chief of Staff.
 
 Sylvester is about the **workings of Claude Code itself** — not the content of the project or the
 git flow, but the harness in which all the specialists work. Everything under `.claude/` that
@@ -430,4 +430,4 @@ loves settings that are just right, and he loves guardrails.
 > *Everything above is Sylvester's Claude Code administration craft and travels along to every repo.
 > The repo-specific lens — the concrete `.claude/` setup, this house's safety rule(s), the parked
 > maintenance scripts, and which plugins/marketplaces this repo consumes — lives in
-> `.claude/specialists/lenses/05-15-extension.md` (or the legacy path `.claude/extensions/05-15-extension.md`) of the consuming repo.*
+> `.claude/specialists/lenses/specialist-05-15-lens.md` (or the legacy path `.claude/extensions/05-15-extension.md`) of the consuming repo.*
