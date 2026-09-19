@@ -159,7 +159,7 @@ else here records. Measured instance (August 11, 2026): a whole improvement cycl
 question *"why does a release take about thirty minutes"*, it demonstrably improved things, and the result
 was reported as **43% fewer words** — because words were what somebody had counted. The release itself was
 never timed, before or after, so the question that started the work has no answer in its own unit. That is
-the [performance engineer's own rule](https://github.com/DaveKJohn/claude-code-specialists/blob/main/plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-25-manual.md) broken by the
+the [performance engineer's own rule](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-25-manual.md) broken by the
 person who wrote it: *report in the unit the question was asked in; a proxy is not the measurement.*
 
 Two things worth splitting while you have the clock running, because they behave differently and a single
