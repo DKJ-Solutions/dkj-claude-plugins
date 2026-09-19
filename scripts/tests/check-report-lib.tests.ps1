@@ -797,7 +797,7 @@ try {
     # The ordinary case, and the one that must stay silent: every shape this tree actually holds.
     foreach ($ok in @(
         'scripts/lib/check-report-lib.ps1',
-        'plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md',
+        'plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md',
         'dkj-policy/releases/audience/4.x/4.31.0.md',
         'a file with spaces.md',
         '.github/workflows/ci.yml'

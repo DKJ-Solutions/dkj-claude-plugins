@@ -86,7 +86,9 @@ comment on #2134.
 
 - [x] `check-plugin-integrity.ps1`: **0 errors**, and `[persona] checked 4` -- the renamed files are
       found and validated rather than skipped, which is the failure a loose glob would have hidden.
-- [x] All suites under `scripts/tests/`.
+- [x] The full test gate: **all 118 suites passed in 1,089s**, `Invoke-TestSuiteGate` at 5 lanes --
+      lanes set by free memory rather than cores on this machine (#2121), which is why it took that
+      long. Zero failures, zero crashes, zero timeouts.
 - [x] `teardown.ps1:132` verified against the tree rather than against the report. The recogniser is
       `($line -match '^\s*@') -and ($line -match '(-persona\.md|-extension\.md)\s*$')` -- **suffix**
       anchored, so `specialist-01-01-persona.md` still ends in `-persona.md` and still matches. The
@@ -96,7 +98,9 @@ comment on #2134.
 - [x] The always-on budget gate, which is the measurement this branch could not have predicted:
       **+22 B**. The longer filename sits on the always-on path twice -- once in `SPECIALISTS.md`'s
       import and once in Chris's lens blockquote -- at 11 characters each. The path is already over the
-      100,000 B ceiling, so the ratchet refuses growth and the raise is recorded with its reason.
+      100,000 B ceiling, so the ratchet refuses growth outright. Raised on the record rather than
+      absorbed by trimming unrelated prose, which is the gate's own stated route and the one that
+      leaves a reviewer a sentence to argue with: 109,380 B -> 109,402 B.
 - [x] The baseline key was **moved, not regenerated**, and the recorded byte figure is untouched.
       Regenerating is impossible on a branch: that key is an absolute
       `~/.claude/plugins/marketplaces/...` path resolving against the marketplace clone, which tracks

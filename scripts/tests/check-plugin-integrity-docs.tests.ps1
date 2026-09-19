@@ -1098,7 +1098,7 @@ Write-Host 'fixture'
     New-Item -ItemType Directory -Path $spManuals  -Force | Out-Null
     New-Item -ItemType Directory -Path $spPersonas -Force | Out-Null
     $spManualPath  = Join-Path $spManuals  '99-99-manual.md'
-    $spPersonaPath = Join-Path $spPersonas '99-99-persona.md'
+    $spPersonaPath = Join-Path $spPersonas 'specialist-99-99-persona.md'
     $spAgentPath   = Join-Path $spAgents   '99-99-agent.md'
     [System.IO.File]::WriteAllText($spManualPath, "---`nid: 99`ngroup: 99`n---`n`n# Fixture manual`n", $Utf8NoBom)
 
@@ -1106,7 +1106,7 @@ Write-Host 'fixture'
     $b1 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True ($b1.Out -match 'orphan manual') `
         'check 6b: a manual with neither an agent def nor a persona is still an orphan'
-    Assert-True ($b1.Out -match 'personas/99-99-persona\.md') `
+    Assert-True ($b1.Out -match 'personas/specialist-99-99-persona\.md') `
         'check 6b: and the finding names the persona path too, so the reader learns the second way out'
 
     # 2. A persona that does NOT name the manual: accepted as a backer, refused for being silent. This is

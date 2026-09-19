@@ -17,7 +17,7 @@
     marketplaces/... path). This way, every behavior rule lives in one place (the plugin), not duplicated.
 
     It performs only SAFE, additive actions -- it never overwrites existing content:
-      1. Places a LENS-ONLY extension per persona (<plugin>/personas/<g>-<id>-persona.md) in
+      1. Places a LENS-ONLY extension per persona (<plugin>/personas/specialist-<g>-<id>-persona.md) in
          <ConsumerRoot>/.claude/plugins/<family>/<plugin>/<g>-<id>-extension.md -- only if it does
          not exist yet. The body comes from the plugin install; the extension only carries the repo lens slot.
       1b. Places an empty lens scaffold on the plugin path for each subagent of the ENABLED
@@ -40,7 +40,7 @@
          invariant is guarded by a test that runs this bootstrap and then the real contract check --
          do not add a required contract entry without extending the scaffold below.
       2. Ensures that <ConsumerRoot>/CLAUDE.md carries the TWO orchestrator @-imports at the bottom:
-         the body from the plugin install (~/.claude/plugins/marketplaces/.../01-01-persona.md) and
+         the body from the plugin install (~/.claude/plugins/marketplaces/.../specialist-01-01-persona.md) and
          the repo lens (.claude/plugins/<family>/<plugin>/01-01-extension.md). If CLAUDE.md is missing,
          it writes a minimal scaffold; if the imports already exist, it does nothing.
       3. Writes TWO settings proposals, and DOES NOT touch settings.json in either case -- the
@@ -142,11 +142,11 @@ function Get-DurablePersonaDir([string]$PersonaDir, [string]$Plugin) {
     $clone = Join-Path (($parts[0..($cacheIdx - 1)] -join '\')) (Join-Path 'marketplaces' $marketplace)
     if (-not (Test-Path -LiteralPath $clone -PathType Container)) { return $PersonaDir }
     # Search clone for personas directory under a directory named exactly as the plugin and carrying
-    # the orchestrator body (01-01-persona.md is the import target -- it must actually exist).
+    # the orchestrator body (specialist-01-01-persona.md is the import target -- it must actually exist).
     $hit = Get-ChildItem -LiteralPath $clone -Recurse -Directory -Filter 'personas' -ErrorAction SilentlyContinue |
         Where-Object {
             (Split-Path $_.Parent.FullName -Leaf) -eq $Plugin -and
-            (Test-Path -LiteralPath (Join-Path $_.FullName '01-01-persona.md'))
+            (Test-Path -LiteralPath (Join-Path $_.FullName 'specialist-01-01-persona.md'))
         } | Select-Object -First 1
     if ($hit) { return $hit.FullName }
     return $PersonaDir
@@ -226,7 +226,7 @@ if (-not (Test-Path -LiteralPath $personaDest)) { New-Item -ItemType Directory -
 
 $copied = 0; $kept = 0
 Get-ChildItem -Path $personaDir -Filter '*-persona.md' -File | Sort-Object Name | ForEach-Object {
-    if ($_.BaseName -notmatch '^(\d{2})-(\d{2})-persona$') { return }
+    if ($_.BaseName -notmatch '^specialist-(\d{2})-(\d{2})-persona$') { return }
     $g = $Matches[1]; $id = $Matches[2]
     $dest = Get-LensDest -Plugin $personaPlugin -Id "$g-$id"
     Add-RegisterId -Inventory $registerInventory -Plugin $personaPlugin -Id "$g-$id"
@@ -808,7 +808,7 @@ foreach ($s in $scriptScaffolds) {
 # import other files, with a maximum depth of four hops" -- the seam spends two (CLAUDE.md ->
 # SPECIALISTS.md -> body/lens), and a relative import resolves against the file that CONTAINS it, which
 # is why SPECIALISTS.md can say '@lenses/...'.
-$bodyImport = "@$personaTilde/01-01-persona.md"
+$bodyImport = "@$personaTilde/specialist-01-01-persona.md"
 $claudeMd = Join-Path $ConsumerRoot 'CLAUDE.md'
 
 # The explanatory line is kept as its own variable so BOTH the idempotence guard below and

@@ -6,7 +6,7 @@ description: The measured evidence behind this repo's inbound-item verification 
 # Triaging an inbound item — the evidence
 
 > The **rule** lives where it is always loaded: the portable half in Chris's persona body
-> (`plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md`) and this repo's one-sentence form in
+> (`plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md`) and this repo's one-sentence form in
 > [his lens](../../specialists/lenses/01-01-extension.md#the-dave-rules). This skill carries the
 > **measurements** behind it — which is what the repo's own convention asks of a skill: *"personas
 > and manuals carry no repo-specific detail at all while skills carry the evidence behind a

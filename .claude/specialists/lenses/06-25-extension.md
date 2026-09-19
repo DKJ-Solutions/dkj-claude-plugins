@@ -483,7 +483,7 @@ only while it says when each one was opened.
    | suite | what real markdown it reads |
    |---|---|
    | `subagent-shared.tests.ps1` | recursively enumerates every real `*-agent.md` and `*-persona.md` and asserts the shared-block marker is present in each |
-   | `bootstrap-drift.tests.ps1` | reads the real `01-01-persona.md` for a retired heading, and asserts the real `specialists-init/SKILL.md` names every persona id on disk |
+   | `bootstrap-drift.tests.ps1` | reads the real `specialist-01-01-persona.md` for a retired heading, and asserts the real `specialists-init/SKILL.md` names every persona id on disk |
    | `cut-release-guardrail.tests.ps1` | `git ls-files -- '*.md'` — the real tracked-markdown list — held against `cut-release.ps1`'s reserved-root allowlist, so a new root `.md` file can fail it |
    | `pr-body.tests.ps1` | the real `.github/pull_request_template.md` and the shipped reference template held byte for byte |
    | `repo-config.tests.ps1` | the real `CHANGELOG.md` via `Get-ChangelogPath` for retired section headings, and `Get-MojibakePaths` against the real repo root |

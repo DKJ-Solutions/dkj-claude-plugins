@@ -19,7 +19,7 @@
           the versioned dir is resolved in the local plugin cache (semantically highest version,
           [version]-sort -- the same approach bootstrap.ps1 uses so 1.10.0 beats 1.9.0). Agent ids
           ('<group>-<id>', e.g. 06-24) come from <plugin-dir>/agents/<g>-<id>-agent.md, persona ids
-          from <plugin-dir>/personas/<g>-<id>-persona.md (inbound #204 -- see the persona note below).
+          from <plugin-dir>/personas/specialist-<g>-<id>-persona.md (inbound #204 -- see the persona note below).
       (b) The consumer's roster. Its path comes from Get-RosterPath in scripts/repo-config.ps1
           (repo-root-relative; the bootstrap scaffolds it to the seam inclusion
           .claude/specialists/SPECIALISTS.md, which is where specialists-init writes the roster slot --
@@ -94,7 +94,7 @@
         Get-RecordShape in check-report-lib.ps1.
 
     Personas: main-loop specialists (Chris 01-01, Derek 05-05, Rendall 05-06, ...) ship as
-    <plugin>/personas/<g>-<id>-persona.md, NOT as agents, yet legitimately have a roster row and a
+    <plugin>/personas/specialist-<g>-<id>-persona.md, NOT as agents, yet legitimately have a roster row and a
     lens. They count as "backing" so they are never flagged as orphans -- and, since inbound #204,
     they are ALSO checked for a missing roster row / missing lens, exactly like agents. Those used to
     be one decision; they are two, and only the first followed from the reasoning. "A persona is not an
@@ -200,7 +200,7 @@ function Get-PersonaIds {
     $dir = Join-Path $PluginDir 'personas'
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
     return @(Get-ChildItem -LiteralPath $dir -Filter '*-persona.md' -File |
-        ForEach-Object { if ($_.BaseName -match '^(\d{2})-(\d{2})-persona$') { "$($Matches[1])-$($Matches[2])" } } |
+        ForEach-Object { if ($_.BaseName -match '^specialist-(\d{2})-(\d{2})-persona$') { "$($Matches[1])-$($Matches[2])" } } |
         Sort-Object -Unique)
 }
 

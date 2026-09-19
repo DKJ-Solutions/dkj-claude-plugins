@@ -15,7 +15,7 @@
          file name <group>-<id>-manual.md matches that frontmatter (the portable manual that the
          corresponding agent def reads in via ${CLAUDE_PLUGIN_ROOT}/manuals/).
       3c. every <plugin>/personas/*-persona.md: frontmatter contains 'id:' and 'group:', and the
-         file name <group>-<id>-persona.md matches that frontmatter. Personas (orchestrator +
+         file name specialist-<group>-<id>-persona.md matches that frontmatter. Personas (orchestrator +
          main-loop specialists) DELIBERATELY have no agent def -- they run in the main loop, not
          as a subagent -- so check 6 never demands one of them. It does read them in one direction:
          a persona MAY back a manual of the same id (6b), and then has to name it.
@@ -848,7 +848,7 @@ $manuals | ForEach-Object {
 Write-Coverage -Category 'manual' -Checked $manuals.Count `
     -Note $(if ($manuals.Count -eq 0) { 'no */manuals/*-manual.md found -- every specialist playbook is either missing or somewhere this check does not look' } else { '' })
 
-# --- 3c. persona frontmatter: id/group + file name <group>-<id>-persona.md ----------------------------
+# --- 3c. persona frontmatter: id/group + file name specialist-<group>-<id>-persona.md ----------------------------
 # Personas (Chris/Derek/Rendall etc.) run in the MAIN LOOP, not as a subagent, so they deliberately
 # have no agent def. They live in <plugin>/personas/ as a portable template that the bootstrap
 # skill copies to a consumer's repo layer (.claude/extensions/<g>-<id>-extension.md). Check 6
@@ -864,7 +864,7 @@ $personas | ForEach-Object {
                 Add-Error "[persona] $rel is missing '$key`:' in the frontmatter."
             }
         }
-        if ($_.BaseName -match '^(\d{2})-(\d{2})-persona$') {
+        if ($_.BaseName -match '^specialist-(\d{2})-(\d{2})-persona$') {
             $fnG = $Matches[1]; $fnI = $Matches[2]
             $mI = [regex]::Match($text, '(?m)^id:\s*(\S+)\s*$')
             $mG = [regex]::Match($text, '(?m)^group:\s*(\S+)\s*$')
@@ -875,7 +875,7 @@ $personas | ForEach-Object {
                 Add-Error "[persona] $rel`: file-name group '$fnG' != frontmatter 'group: $($mG.Groups[1].Value.Trim())'."
             }
         } else {
-            Add-Error "[persona] $rel`: file name does not follow the <group>-<id>-persona pattern."
+            Add-Error "[persona] $rel`: file name does not follow the specialist-<group>-<id>-persona pattern."
         }
     }
 Write-Coverage -Category 'persona' -Checked $personas.Count `
@@ -1526,7 +1526,7 @@ if (Test-CheckEnabled 'parse') {
 #       (Claude Code call name), a corresponding manuals/<g>-<id>-manual.md in the same plugin, and
 #       names that manual in its text.
 #   6b. no orphan manual: every manuals/<g>-<id>-manual.md is backed by a subagents/<g>-<id>-agent.md
-#       OR a personas/<g>-<id>-persona.md. A PERSONA MAY BACK A MANUAL (#1017). Being a persona says
+#       OR a personas/specialist-<g>-<id>-persona.md. A PERSONA MAY BACK A MANUAL (#1017). Being a persona says
 #       where a specialist RUNS -- in the main loop rather than as a subagent -- and says nothing
 #       about whether their craft has a playbook worth reading on demand. Until this changed it said
 #       both, and the orchestrator paid for it: always loaded, and the one specialist whose every rule
@@ -1571,12 +1571,12 @@ $manuals | ForEach-Object {
             $g = $Matches[1]; $id = $Matches[2]
             $pluginRoot = Split-Path (Split-Path $_.FullName -Parent) -Parent
             $agentPath   = Join-Path $pluginRoot ("subagents\$g-$id-agent.md")
-            $personaPath = Join-Path $pluginRoot ("personas\$g-$id-persona.md")
+            $personaPath = Join-Path $pluginRoot ("personas\specialist-$g-$id-persona.md")
             $hasAgent   = Test-Path -LiteralPath $agentPath   -PathType Leaf
             $hasPersona = Test-Path -LiteralPath $personaPath -PathType Leaf
             if (-not $hasAgent -and -not $hasPersona) {
                 $rel = $_.FullName.Replace($RepoRoot, '.')
-                Add-Error "[specialist] ${rel}: orphan manual -- no corresponding subagents/$g-$id-agent.md or personas/$g-$id-persona.md in the same plugin."
+                Add-Error "[specialist] ${rel}: orphan manual -- no corresponding subagents/$g-$id-agent.md or personas/specialist-$g-$id-persona.md in the same plugin."
             } elseif (-not $hasAgent) {
                 # Persona-backed. The naming half of 6a applies here for the same reason it does there:
                 # the manual is only ever read because the body that IS loaded points at it.

@@ -1,13 +1,13 @@
 {
     "schema":  1,
-    "bytes":  109380,
-    "recorded":  "2026-09-17",
-    "reason":  "",
+    "bytes":  109402,
+    "recorded":  "2026-09-19",
+    "reason":  "the #2128 rename lengthens the orchestrator persona filename by 11 characters, and that filename sits on the always-on path twice -- the @-import in .claude/specialists/SPECIALISTS.md and the pointer in Chris\u0027s lens blockquote. The 22 B is the arithmetic of the rename, not new prose: no document gained a sentence, and the persona body itself is byte-identical. Absorbing it by trimming unrelated text elsewhere would be working around the gate rather than answering it (#2135).",
     "note":  "LF bytes of the always-on document path. Written by the always-on budget gate -- see always-on-budget-lib.ps1. Do not hand-edit this to make room: the gate lowers it on its own and raises it only behind -Raise, with a reason.",
     "documents":  {
-                      ".claude/specialists/SPECIALISTS.md":  10357,
-                      "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md":  30267,
+                      ".claude/specialists/SPECIALISTS.md":  10368,
+                      "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md":  30267,
                       "CLAUDE.md":  48872,
-                      "lenses/01-01-extension.md":  19884
+                      "lenses/01-01-extension.md":  19895
                   }
 }

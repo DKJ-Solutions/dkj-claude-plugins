@@ -27,7 +27,7 @@
 
     Besides the agent-def copies, this script also compares the PERSONAS (the orchestrator +
     main-loop specialists such as Chris/Derek/Rendall). Those deliberately have no agent def; their
-    portable source lives in <plugin>/personas/<g>-<id>-persona.md and is copied, when a consumer
+    portable source lives in <plugin>/personas/specialist-<g>-<id>-persona.md and is copied, when a consumer
     bootstraps, to the consumer's repo layer: .claude/plugins/claude-specialists/<plugin>/
     <g>-<id>-extension.md (since life-hub parity) or the legacy path
     .claude/extensions/<g>-<id>-extension.md. For every
@@ -224,7 +224,7 @@ $personaDirs = @(Get-PluginSubdirs -PluginRoots $PublishedPlugins -Leaf 'persona
 $personaResults = New-Object System.Collections.Generic.List[object]
 if ($personaDirs.Count -gt 0) {
     Get-ChildItem -Path $personaDirs -Filter '*-persona.md' -File | Sort-Object Name | ForEach-Object {
-        if ($_.BaseName -notmatch '^(\d{2})-(\d{2})-persona$') { return }
+        if ($_.BaseName -notmatch '^specialist-(\d{2})-(\d{2})-persona$') { return }
         $g = $Matches[1]; $id = $Matches[2]
         $srcBody = Get-PortableBody $_.FullName
         # The consumer copy can live on the canonical plugin path (.claude/plugins/<family>/<plugin>/,

@@ -44,7 +44,7 @@ just like inline text.
   - **Persona lens (lens-only)** — for the persona-only specialists (Chris, Bianca, Derek, Rendall), who run
     in the main conversation instead of as subagents. The main loop loads no plugin subagents, so the
     **portable body** comes straight from the plugin install via an `@` import: Chris always
-    (`@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md`,
+    (`@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md`,
     stated in [`SPECIALISTS.md`](SPECIALISTS.md) rather than in `CLAUDE.md` itself — the seam spends
     two of the four allowed import hops), Derek and Rendall on demand from that same path. **Bianca
     is the fourth persona and currently has no trigger**: her body would load the same way, but
@@ -215,7 +215,7 @@ you type a name:
 
 - **Invocable today as subagents** — Paula 📅 #09, Vera 📊 #11, Gwen 🎨 #12, Cody 💻 #13 and
   Auden 🖋️ #30. Each ships an agent def, so `@dkj-subagents-alpha:<name>` reaches them.
-- **Not invocable** — Bianca 🎙️ #02, who ships as a **persona** (`personas/03-02-persona.md`, no
+- **Not invocable** — Bianca 🎙️ #02, who ships as a **persona** (`personas/specialist-03-02-persona.md`, no
   agent def). Personas run in the main conversation, and the only one loaded here is Chris; Derek and
   Rendall are read on demand when work reaches them. Nothing reaches Bianca — see the persona-lens
   note above.

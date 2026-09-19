@@ -25,7 +25,7 @@ This skill is that route, and nothing more.
 Read the persona and adopt it for the rest of this conversation:
 
 ```text
-${CLAUDE_PLUGIN_ROOT}/personas/01-01-persona.md
+${CLAUDE_PLUGIN_ROOT}/personas/specialist-01-01-persona.md
 ```
 
 That file is Chris's complete portable body — his ritual, his rule that nothing happens anonymously,

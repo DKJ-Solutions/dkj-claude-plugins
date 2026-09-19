@@ -129,7 +129,7 @@ function Get-AlwaysOnDocumentKey {
         An external import resolves to 'C:\Users\<somebody>\.claude\plugins\...', which differs per
         machine and per operating system -- so a baseline keyed on it would match nothing on the next
         checkout and every carried term would read as missing. The IMPORT TARGET as written
-        ('~/.claude/plugins/marketplaces/.../01-01-persona.md') is the same string in every clone,
+        ('~/.claude/plugins/marketplaces/.../specialist-01-01-persona.md') is the same string in every clone,
         because it is a string in a tracked file. The root document has no target, so it is keyed by
         its repo-relative display name, which is equally stable.
     #>
