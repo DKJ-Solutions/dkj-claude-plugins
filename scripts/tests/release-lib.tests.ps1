@@ -1325,7 +1325,7 @@ $flatRoots = @(Get-PluginRoots -RepoRoot $fakeRoot -MarketplaceJson (@'
 '@))
 $touchedFiles = @(
     'plugins/dkj-subagents-alpha/agents/01-01-chris.md',
-    'plugins/dkj-subagents-alpha/manuals/01-01-manual.md',
+    'plugins/dkj-subagents-alpha/manuals/specialist-01-01-manual.md',
     'plugins/dkj-subagents-lifehub/agents/foo.md',
     'plugins/subagent-shared/inbound-behaviour.md',
     'connectors/some-repo.json',
