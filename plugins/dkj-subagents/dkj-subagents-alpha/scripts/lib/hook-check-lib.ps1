@@ -262,6 +262,12 @@ function Select-CheckMarkerLine {
         the callers Trim() before printing; the leading whitespace is the check's own layout rather
         than part of the marker.
 
+        AND THAT ANCHOR RESTS ON A CONVENTION NOTHING ENFORCES. It is safe only while every check
+        writes its marker as the first token of the line -- measured true across all 17 markers in this
+        family at the time this landed, with zero exceptions, which is why the anchor introduced no
+        blind spot. A future Write-Host "note: [ERROR] ..." would have its finding SILENTLY DROPPED
+        here. No gate holds that convention today; #2150 is the proposal and its measurement.
+
     .PARAMETER Output
         The check's captured lines -- Invoke-CheckScript's Output field.
 

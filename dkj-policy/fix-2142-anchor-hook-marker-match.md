@@ -96,6 +96,15 @@ marker selections and are untouched.
       the hook run over it proving it no longer reports an over-the-limit path on an `[OK]` verdict.
 - [x] All eight hooks run by hand against this repo: output identical to this session's own start.
 - [x] Lint gate green (0 errors); full test gate green.
+- [x] Code review and security review, in parallel on the diff. Both clean. The security review traced
+      the claim this branch makes rather than taking it: `Invoke-CheckScript` splits its capture on
+      CR/LF, so a value carrying an embedded newline arrives as its OWN array element and matches
+      `^\s*` at position 0 like any genuine line -- which is the proof that the anchor alone would not
+      have closed that half, and that the two ends are non-overlapping rather than two names for one
+      fix. Two advisories acted on: the reachability wording above was too narrow (an unmerged branch
+      already tripped it), and the anchor rests on a convention no gate holds -- named in the lib and
+      filed as
+      [#2150](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2150).
 
 ### DEPLOY: fix/2142-anchor-hook-marker-match
 
