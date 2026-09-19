@@ -47,14 +47,16 @@ getting that wrong -- a bad shape there made four of six plugins uninstallable f
 The suffix change finishes #1698: that rename moved `agents/` to `subagents/` and left the files
 inside called `NN-NN-agent.md`.
 
-#### This branch is RED on its own, by design, and #2130 is what makes it green
+#### This branch WAS red on its own, by design, and #2130 is what made it green
 
-PR-A (#2130, the dual-name readers) is the step that teaches the thirteen reader sites both
-conventions, and the #2128 plan puts it before any file moves. It is claimed and parked with its
-plan only, so this branch was built against a trunk that does not yet carry it. Dave's instruction:
-build step B now, hold the PR until #2130 has merged.
+PR-A (#2130, the dual-name readers) is the step that teaches the reader sites both conventions, and
+the #2128 plan puts it before any file moves. This branch was built against a trunk that did not yet
+carry it, on Dave's instruction: build step B now, hold the PR until #2130 has merged. **#2130 merged
+on September 19, 2026 and `main` is in here now**, so the list below is the state BEFORE that merge.
+It is kept because it is what the two remaining steps were written against, not because it still
+holds -- every figure in it has since been re-measured, and the CREATE step says what changed.
 
-Measured on this branch, so the next session can tell an expected failure from a new one:
+Measured on this branch before the merge, so the next session can tell an expected failure from a new one:
 
 - **the lint gate: 26 error(s), all check 6b** -- one orphan manual per renamed def
   (`no corresponding subagents/<g>-<id>-agent.md`). Nothing else fails: no dead link, no manifest
@@ -71,10 +73,12 @@ Measured on this branch, so the next session can tell an expected failure from a
 
 #### What this branch deliberately does NOT touch
 
-- **The thirteen reader sites and their mirrors** (`check-plugin-integrity.ps1`,
+- **The reader sites #2130 converted, and their mirrors** (`check-plugin-integrity.ps1`,
   `check-roster-sync.ps1` x2, `build-agent-defs.ps1`, `check-consumer-drift.ps1`, `bootstrap.ps1`,
   `sync-roster.ps1` and the docstrings attached to their globs). That is #2130's whole subject, and
-  editing it here would be two branches writing the same lines.
+  editing it here would be two branches writing the same lines. **The one #2130 did NOT convert is
+  the exception, and it had to be done here**: `Get-PluginIds` is a site the rename breaks and no
+  other branch is going to reach, so leaving it would have shipped step B red -- see CREATE.
 - **Each def's prose naming its sibling manual and lens.** #2131 lists it, and the #2128 plan
   sequences the manuals in PR-C and the lenses in PR-D -- so repointing those lines now would name
   files that do not exist yet and turn a green dead-link scan red. Measured while checking: the defs
@@ -95,8 +99,22 @@ Measured on this branch, so the next session can tell an expected failure from a
 - [x] Move the convention where `worktree-lib.ps1` and its `dkj-policy` mirror name it, byte-identically, so the drift lint stays green
 - [x] Point `subagent-shared.tests.ps1`'s walk of the REAL tree at the new name -- it is the one suite that enumerates the shipped defs rather than a fixture
 - [x] Correct the stale `agents/` directory in the three prose paths that were being rewritten anyway -- #1698 moved that folder and these sentences never followed
-- [ ] Merge `main` once #2130 has landed, and resolve whatever it renders stale
-- [ ] The #1757 check: no retired name inside the lines this branch ADDS
+- [x] Merge `main` once #2130 has landed, and resolve whatever it renders stale -- it rendered TWO
+      things stale, neither of them anticipated above:
+  - **`Get-PluginIds` (`check-connectors.ps1:377`) was a FOURTEENTH reader site #2130 missed.** It
+    sliced the id off with `-replace '-(agent|persona)$'`, which matches nothing in
+    `specialist-06-23-subagent`, so `$ownedIds` stopped holding ids at all and the eight
+    `[INFO]`/`[INVENTORY]` assertions that filter on it went red -- `connectors.tests.ps1` is 381/0
+    on `main` and was 373/8 here. Now routed through `Get-SpecialistFiles` + `Get-SpecialistFileId`,
+    and the directory leaf through `Get-SubagentDirPath`. A tree-wide sweep found no second site.
+    The entry's own claim of thirteen is filed as #2145.
+  - **The `Subagent` row in `Get-SpecialistFileShapes` had not been swapped**, which is the flip that
+    table's own docstring names as step B's job. This branch predates the table, so it could not have
+    done it at the time. Swapped in all four byte-identical copies, with the paragraph that said
+    "nothing has been renamed yet" rewritten to match.
+- [x] The #1757 check: no retired name inside the lines this branch ADDS -- 4 hits, all four inside
+      this document and all four DESCRIBING the retired name (the fixtures that must keep it, check
+      6b's error text, what #1698 left behind). No shipped file carries one.
 
 ### TEST
 
