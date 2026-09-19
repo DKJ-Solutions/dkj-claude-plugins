@@ -133,7 +133,7 @@ try {
     # reporting "in sync" and the gate keeps reporting green, while nothing has compared that file with
     # its source since the day it was placed.
     Write-Host "the personas are in scope, not just the agent defs" -ForegroundColor Cyan
-    $realAgents = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-agent.md' -File |
+    $realAgents = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-subagent.md' -File |
         Where-Object { $_.FullName -match '\\subagents\\' })
     $realPersonas = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-persona.md' -File |
         Where-Object { $_.FullName -match '\\personas\\' })

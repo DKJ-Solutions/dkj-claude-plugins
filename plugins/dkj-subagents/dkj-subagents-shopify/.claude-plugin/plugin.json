@@ -3,9 +3,9 @@
   "displayName": "Claude Specialists — team Shopify (subagent scaffold)",
   "description": "Add-on team for Shopify store repos (e.g. smartwatchbanden): the subagents Liam, Sandra, and Steven, the domain skill start-task (the branch that opens a task), push-preview (the branch's own unpublished preview theme, created on the first push rather than at branch creation), and an operational floor -- a PreToolUse guard that refuses a theme publish, a theme delete, or an unauthorised push to the live theme, whatever shell wraps the command, plus adopt-shopify-floor to place that floor in a repo (the guard's seams, a starter theme-check config, and the CI workflow over it) and sync-main, the pre-task sync that mirrors the live theme into the trunk without letting live overwrite what the trunk has done since. Deliberately NOT repo-neutral — only a Shopify repo enables this team. Teams stack: this one adds to 'dkj-subagents-alpha', and a commercial Shopify repo typically enables 'dkj-subagents-ecomm' alongside it. The governance layer (CLAUDE.md + the repo lenses) stays separate.",
   "agents": [
-    "./subagents/04-20-agent.md",
-    "./subagents/05-21-agent.md",
-    "./subagents/05-22-agent.md"
+    "./subagents/specialist-04-20-subagent.md",
+    "./subagents/specialist-05-21-subagent.md",
+    "./subagents/specialist-05-22-subagent.md"
   ],
   "version": "5.5.0",
   "author": { "name": "DaveKJohn" },

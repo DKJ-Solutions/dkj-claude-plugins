@@ -13,7 +13,7 @@ deduplicates, but which artifacts fall under him here and with which mechanism h
 
 ### What Ravi guards here
 
-- **The agent defs** in all plugins (`plugins/*/subagents/*-agent.md`)
+- **The agent defs** in all plugins (`plugins/*/subagents/*-subagent.md`)
   and the **persona templates** (`.../specialists/personas/*-persona.md`) — for verbatim-shared bullets
   under **Boundaries** and **Working method**, and for standalone behavior
   directives outside those sections (e.g. the closing language-choice line). This repo is the **source** of
@@ -51,7 +51,7 @@ reaching only the circle of agent defs whose craft the rule actually touches (e.
 Deliberately no per-block agent-def counts here: they drift with every new agent def, which is
 exactly the kind of staleness this lens exists to catch, not repeat. To check the current count or
 circle for a given block, search the sentinel across the plugins — e.g.
-`Get-ChildItem -Recurse -Filter '*-agent.md' plugins | Select-String
+`Get-ChildItem -Recurse -Filter '*-subagent.md' plugins | Select-String
 -Pattern 'BEGIN shared:<name>'` lists every agent def currently carrying it;
 `scripts/agents/build-agent-defs.ps1 -Check` complements that by flagging any of those that has
 drifted from its source in `subagent-shared/`.

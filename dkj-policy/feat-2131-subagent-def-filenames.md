@@ -39,13 +39,68 @@
 
 ### PLAN
 
-Step B of the #2128 rename plan. The rename is built now; the PR waits until #2130 (the dual-name readers) has merged, on Dave's instruction.
+Step B of the #2128 rename plan, and the highest-consequence step in the round: the 26 subagent
+definitions move to `specialist-NN-NN-subagent.md` and the four `plugin.json` `agents` arrays that
+name every one of them literally move with them, in the same commit. #1764 is the precedent for
+getting that wrong -- a bad shape there made four of six plugins uninstallable for a whole release.
+
+The suffix change finishes #1698: that rename moved `agents/` to `subagents/` and left the files
+inside called `NN-NN-agent.md`.
+
+#### This branch is RED on its own, by design, and #2130 is what makes it green
+
+PR-A (#2130, the dual-name readers) is the step that teaches the thirteen reader sites both
+conventions, and the #2128 plan puts it before any file moves. It is claimed and parked with its
+plan only, so this branch was built against a trunk that does not yet carry it. Dave's instruction:
+build step B now, hold the PR until #2130 has merged.
+
+Measured on this branch, so the next session can tell an expected failure from a new one:
+
+- **the lint gate: 26 error(s), all check 6b** -- one orphan manual per renamed def
+  (`no corresponding subagents/<g>-<id>-agent.md`). Nothing else fails: no dead link, no manifest
+  finding, no drift.
+- **`subagent-shared.tests.ps1`: 4 fails** -- all downstream of the same glob. Its own
+  `the gate walked every obliged agent def, not zero of them` assert is what turns the silent
+  version of this into a loud one, and it did.
+- **check 38 (`[agents-key]`) is GREEN**: 6 plugins read, 26 `agents` entries held to an existing
+  `.md` file inside the plugin root, 0 findings. The edit this step exists to get right verifies
+  clean on its own.
+- **`check-roster-sync.ps1` is unaffected here**, because it reads the installed plugin cache rather
+  than this working tree -- which is the channel #2130's dual-name layer exists for, one release
+  further on.
+
+#### What this branch deliberately does NOT touch
+
+- **The thirteen reader sites and their mirrors** (`check-plugin-integrity.ps1`,
+  `check-roster-sync.ps1` x2, `build-agent-defs.ps1`, `check-consumer-drift.ps1`, `bootstrap.ps1`,
+  `sync-roster.ps1` and the docstrings attached to their globs). That is #2130's whole subject, and
+  editing it here would be two branches writing the same lines.
+- **Each def's prose naming its sibling manual and lens.** #2131 lists it, and the #2128 plan
+  sequences the manuals in PR-C and the lenses in PR-D -- so repointing those lines now would name
+  files that do not exist yet and turn a green dead-link scan red. Measured while checking: the defs
+  carry no reference to their own filename at all, so nothing inside them is stale after the move.
+- **The synthetic fixtures** under `scripts/tests/` (`99-99-agent.md`, `01-01-agent.md`,
+  `09-91-agent.md` and the rest). They are fixture names, not this repo's files, and they exercise
+  readers that must go on recognising the retired convention.
+- **`measure-skill.tests.ps1`'s captured CLI output**, which lists `02-09-agent` ... `06-30-agent`.
+  It is a recorded run, parsed rather than compared against the tree, and rewriting the names inside
+  it would falsify the capture.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Claim #2131 and cut the branch from a current trunk
+- [x] `git mv` all 26 subagent defs to `specialist-NN-NN-subagent.md` -- 15 alpha, 3 ecomm, 5 lifehub, 3 shopify
+- [x] Move the four `plugin.json` `agents` arrays in the same commit, and verify all 26 entries resolve to a file on disk
+- [x] Follow every reference to a renamed def outside `dkj-policy/releases/**`: `README.md`, `.claude/specialists/README.md`, the 05-15, 06-24 and 06-25 lenses, `plugins/dkj-subagents/README.md`, `subagent-shared/README.md`
+- [x] Move the convention where `worktree-lib.ps1` and its `dkj-policy` mirror name it, byte-identically, so the drift lint stays green
+- [x] Point `subagent-shared.tests.ps1`'s walk of the REAL tree at the new name -- it is the one suite that enumerates the shipped defs rather than a fixture
+- [x] Correct the stale `agents/` directory in the three prose paths that were being rewritten anyway -- #1698 moved that folder and these sentences never followed
+- [ ] Merge `main` once #2130 has landed, and resolve whatever it renders stale
+- [ ] The #1757 check: no retired name inside the lines this branch ADDS
 
 ### TEST
+
+- [ ] Lint gate + all suites green, after #2130 is in
 
 ### DEPLOY: feat/2131-subagent-def-filenames
 
@@ -58,4 +113,3 @@ Step B of the #2128 rename plan. The rename is built now; the PR waits until #21
 #### Pull Request
 
 The subagent definitions become specialist-NN-NN-subagent.md, with the four plugin.json agents arrays
-
