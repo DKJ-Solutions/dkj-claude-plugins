@@ -56,26 +56,49 @@ Dave, September 19, 2026: work starts now, but **no PR is opened until steps A (
 - [x] `git mv` the 30 lenses to `specialist-NN-NN-lens.md`
 - [x] Sweep the references that name a lens of this repo (84 files, 316 replacements) and the one bare mention in the specialists handbook
 - [x] Repair the 43 dead link targets in `dkj-policy/releases/**`
-- [ ] Wait for #2130, #2131 and #2132 to land on `main`, then merge `main` into this branch
-- [ ] Re-check `check-roster-sync.ps1` reports all 30 specialists rostered with a lens (34 errors today, all from the A readers), and that `connectors.tests.ps1` is green again
-- [ ] Raise the always-on baseline through `check-always-on-budget.ps1 -Raise -Reason ...`, on the merged state
-- [ ] Run the #1757 check on the added lines against `origin/main`
+- [x] Waited for #2130, #2131 and #2132 to land on `main`, then merged `main` in -- 26 conflicts, all of one shape: this branch renamed the lens path and step C renamed the manual path on the same line. Resolved by taking `main`'s file and re-applying the lens rename, so both renames stand
+- [x] `check-roster-sync.ps1`: 0 errors, all 30 specialists rostered with a lens -- the four main-loop personas included; `connectors.tests.ps1` green again
+- [x] Always-on baseline raised through the gate: 109,391 B -> 109,739 B, the 348 B predicted above, all of it filename
+- [x] #1757 check run against `origin/main`: every remaining `-extension.md` on an added line is either this document's own prose about the rename or the `.claude/extensions/` legacy layout, both out of scope by the plan above
 
 ### TEST
 
 - [x] Lint gate: `check-plugin-integrity.ps1` -- 0 errors (43 before the release-link repair)
 - [x] Test gate on the branch as it stands: 117 of 118 suites green; the one red is `connectors.tests.ps1` ("self-manifest ... exit code 0"), caused by `check-connectors.ps1` still reading `NN-NN-extension.md` -- step A's reader
-- [ ] Both gates fully green after A, B and C are merged in
+- [x] Both gates fully green after A, B and C were merged in -- lint 0 errors, all 118 suites passed (851s, 16 lanes)
 
 ### DEPLOY: feat/2133-lens-filenames
 
-**Score:**
+This repo's 30 repo lenses are now named `specialist-<group>-<id>-lens.md`, and every reference naming one
+of them by its real path followed -- 84 files, 316 replacements, plus 43 link targets under
+`dkj-policy/releases/**` whose prose is left exactly as written. **No reader moved with it**: step A
+(#2130) had already put every one of them behind `Get-SpecialistFileShapes`, so what makes this the
+written name is a row in that table and a `git mv`, not a sweep through the scripts.
+`check-roster-sync.ps1` reports all 30 specialists rostered with a lens, the four main-loop personas
+included -- they carry their id only inside that filename, which is what #2130's lookbehind fix exists
+for. Step D of the rename plan in #2128.
+
+The always-on baseline rose 348 B and every byte of it is filename: the path names lens files and each
+one is nine bytes longer. Raised through the gate with that reason on the record rather than hand-edited.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+**A consumer's subagent defs now name a lens file their own tree does not have yet.** The defs that ship
+to every consuming repo tell a specialist to read
+`.claude/specialists/lenses/specialist-<group>-<id>-lens.md`, and a consumer who has not renamed still
+holds `<group>-<id>-extension.md`. Their lenses are authored content, so nothing here renames them --
+`bootstrap.ps1` is additive-only. The parenthetical those defs already carry names the **pre-seam**
+`.claude/plugins/<family>/` and `.claude/extensions/` layouts, which is a different thing from the
+current seam under its old filename, so it does not cover this.
+
+What closes it is #2134, the migration section in `INSTALL.md`, which lands next and carries the `git mv`
+for a consumer's own tree. Until they run it the named lens is simply not found, and the specialist
+carries on without one -- no error and no report, the same silence any dead path has here.
+
+**Score:** 4
 
 #### Pull Request
 
 Rename step D: this repo's 30 lenses to specialist-NN-NN-lens.md
-
