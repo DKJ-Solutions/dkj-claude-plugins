@@ -43,7 +43,51 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 15 minor entries** <!-- pending-tally -->
+**7 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2130-dual-name-specialist-readers · 20260919-113832
+
+The specialist filename readers now accept both conventions, so the #2128 rename can proceed one kind
+at a time without a flag day. Four filename shapes -- manual, persona, subagent def, lens -- were
+recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes across
+thirteen reader sites in nine scripts, four of them held byte-identical to plugin mirrors. All of it now
+goes through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing doctrine:
+both are read, one is written. Each later step of the series swaps one row and moves that kind's files;
+no reader is edited again. **Nothing is renamed by this change** and the tree is byte-unchanged apart
+from the readers.
+
+Wiring them surfaced three defects that were already there. `build-agent-defs.ps1` had been walking
+**zero of the 26 agent defs** since the `agents/` -> `subagents/` rename, invisibly, because the lint
+check that would have reported the resulting drift builds its own set correctly. The roster check's
+bootstrap-detection scan carried a hand-copied id pattern that had drifted tighter than its source, so a
+roster whose ids sit only inside lens filenames read as no roster at all. And the shared lookbehind
+would have quietly unrostered the four main-loop personas at step D, in a file no anchored-filename
+sweep reaches.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The three repaired readers travel to a consumer in the plugin payload -- `bootstrap.ps1`,
+`teardown.ps1`, `sync-roster.ps1` and `check-roster-sync.ps1` -- so a consumer gets them at the next
+release. Today they change one behaviour and prevent three. Changed: a consumer whose roster ids appear
+only inside lens filenames is no longer told it was never bootstrapped, which is the `[BOOTSTRAP]` line
+that suppresses every other finding under it. Prevented, once a kind is renamed: a bootstrap writing a
+second empty lens over one the owner had filled in, a teardown leaving the other spelling behind, and a
+roster check reporting a plugin as shipping no subagents at all. Nothing a consumer has to do, and no
+migration -- which is the point of doing this before anything moves.
+
+**Score:** 1
+
+#### Pull Request
+
+The specialist filename readers learn both conventions
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2140](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2140)
+
+---
 
 ### DEPLOY: feat/2128-specialist-file-prefix · 20260919-105601
 
