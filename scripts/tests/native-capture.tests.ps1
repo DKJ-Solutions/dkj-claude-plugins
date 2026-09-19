@@ -211,6 +211,77 @@ try {
     }
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'The & arm returns PLAIN TEXT, and keeps its container (issue #2155)' -ForegroundColor Cyan
+
+    # THE CHILD WRITES THREE STDERR LINES AND THE MIDDLE ONE IS EMPTY, which is the whole measurement.
+    # With 2>&1 each arrives as an ErrorRecord, and an ErrorRecord's ToString() falls back to the TYPE
+    # NAME when its exception message is empty -- so before #2155 a caller doing 'Output | Out-String'
+    # captured a literal 'System.Management.Automation.RemoteException' in the middle of the command's
+    # own words. A file rather than an inline -Command, so the bytes written to stderr are known exactly.
+    $stderrProbe = Join-Path $sandbox 'stderr3.ps1'
+    [System.IO.File]::WriteAllText($stderrProbe,
+        "[Console]::Error.WriteLine('error: something went wrong')`r`n" +
+        "[Console]::Error.WriteLine('')`r`n" +
+        "[Console]::Error.WriteLine('hint: try again')`r`n" +
+        "exit 1`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+
+    $merged3 = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-File', $stderrProbe)
+    Assert-Equal 1 $merged3.ExitCode 'the exit code still comes back through the normalising pipeline'
+    Assert-Equal 3 (@($merged3.Output).Count) 'three stderr lines arrive as three entries'
+    foreach ($el in @($merged3.Output)) {
+        Assert-True ($el -is [string]) 'every element of Output is a string, never an ErrorRecord'
+    }
+    Assert-Equal '' (@($merged3.Output)[1]) 'an EMPTY stderr line stays empty -- TargetObject is read, not ToString()'
+
+    # THE RENDER IS WHAT #2154 REPORTED AND WHAT 60-ODD CALL SITES DO, so it is asserted as text rather
+    # than only per element: the four tells of a stringified ErrorRecord are this file's own name and
+    # line, the tilde run under the offending statement, CategoryInfo, and FullyQualifiedErrorId.
+    $rendered = ($merged3.Output | Out-String)
+    Assert-True ($rendered.Contains('error: something went wrong')) "the caller's render carries the command's own first line"
+    Assert-True ($rendered.Contains('hint: try again'))             '...and its last one'
+    foreach ($tell in @('RemoteException', 'native-capture-lib.ps1', 'CategoryInfo', 'FullyQualifiedErrorId', '~~~')) {
+        Assert-True (-not $rendered.Contains($tell)) "...and none of PowerShell's own wrapper noise: '$tell'"
+    }
+
+    # THE CONTAINER IS DELIBERATELY NOT TOUCHED. Wrapping the pipeline in @() would have been the
+    # obvious spelling and would have turned every single-line capture into a 1-element array -- a
+    # second behaviour change, riding along on a decision that was only about the element type. These
+    # three asserts are what refuse that spelling.
+    $noneOut = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'exit', '3')
+    $oneOut  = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo hello')
+    $manyOut = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo a& echo b')
+    Assert-True ($null -eq $noneOut.Output)      'a command that writes nothing still leaves Output $null, not an empty array'
+    Assert-True ($oneOut.Output -is [string])    'a ONE-line capture is still a bare string, not a 1-element array'
+    Assert-Equal 2 (@($manyOut.Output).Count)    'a many-line capture is still an array, one entry per line'
+
+    # -DiscardStderr GOES THROUGH THE SAME NORMALISER even though it can never see a record, so a caller
+    # reads one shape whichever flag it passed. The assert that matters is that it still DROPS stderr:
+    # piping the redirect is where that would break silently.
+    $dropped = Invoke-NativeCapture -DiscardStderr -FilePath 'powershell' -Arguments @('-NoProfile', '-File', $stderrProbe)
+    Assert-True ($null -eq $dropped.Output) '-DiscardStderr still drops stderr entirely through the pipeline'
+    Assert-Equal 1 $dropped.ExitCode        '...and still reports the exit code'
+
+    # ---------------------------------------------------------------------------------------------
+    Write-Host 'Get-NativeLineText -- the normaliser itself (issue #2155)' -ForegroundColor Cyan
+
+    Assert-Equal ''      (Get-NativeLineText $null)   'a null line is the empty string, not a null reference'
+    Assert-Equal 'plain' (Get-NativeLineText 'plain') 'a string passes through unchanged'
+
+    # TargetObject FIRST, AND THIS IS THE ASSERT THAT PINS THE ORDER. A RemoteException with an empty
+    # message is exactly the shape a blank stderr line produces; its ToString() is the type name, so a
+    # normaliser reaching for the record itself would return that.
+    $blankRec = New-Object System.Management.Automation.ErrorRecord `
+        (New-Object System.Management.Automation.RemoteException ''), 'x', 'NotSpecified', ''
+    Assert-Equal '' (Get-NativeLineText $blankRec) 'a record wrapping an empty message comes back empty, not as its type name'
+
+    # AND THE FALLBACK IS REACHABLE: a record whose TargetObject is not a string at all -- which is
+    # every record that is not a native stderr line -- is read through the exception instead.
+    $objRec = New-Object System.Management.Automation.ErrorRecord `
+        (New-Object System.Exception 'from the exception'), 'x', 'NotSpecified', 42
+    Assert-Equal 'from the exception' (Get-NativeLineText $objRec) 'a non-string TargetObject falls back to the exception message'
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- exit codes and stderr' -ForegroundColor Cyan
 
     $ok  = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'exit', '0')

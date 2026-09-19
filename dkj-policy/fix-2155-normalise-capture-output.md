@@ -39,21 +39,104 @@
 
 ### PLAN
 
+#### The decision this branch carries out
+
+#2155 was filed as a decision rather than a repair: should `Invoke-NativeCapture`'s `&` arm normalise
+`Output` to strings? Dave decided **yes**, September 19, 2026, on three things the issue did not have.
+
+**One: the premise of #2155 is not in the tree.** The issue says #2154's repair already added
+`Get-NativeOutputText` and moved seven renders in `prune-merged.ps1` onto it. It did not:
+`Get-NativeOutputText` exists nowhere, and `origin/fix/2154-flatten-refusal-reason` is a single `park:`
+commit carrying only its branch document. So #2154's site was never closed, and this branch closes it
+at the source instead -- without touching `prune-merged.ps1` at all.
+
+**Two: the current shape is measurably wrong, not merely inconsistent.** Measured here against a
+`powershell.exe` child writing three stderr lines, the middle one empty:
+
+- `Output` holds an `ErrorRecord` per line, and `$res.Output | Out-String` -- the idiom at ~60 sites --
+  renders the first one as a full PowerShell exception dump naming `native-capture-lib.ps1:1177`, the
+  tilde run, `CategoryInfo` and `FullyQualifiedErrorId`.
+- The EMPTY line stringifies as the literal `System.Management.Automation.RemoteException`, because an
+  `ErrorRecord`'s `ToString()` falls back to the type name when its exception message is empty.
+- The `-Utf8` arm returns the same three lines as plain strings, the middle one empty.
+
+**Three: this tree had already taken the same decision, for a lib mirrored the same way.**
+`scripts/lib/shopify-cli-lib.ps1` states it outright -- *"OUTPUT IS STRINGS, NEVER ErrorRecords, and
+that is a repair rather than a preference"* -- with the same measured cause and the normaliser already
+written as `Get-ShopifyLineText`. That moves the consumer objection #2155 weighed: the exposure is not
+*"calls that work today start failing"* but *"a consumer parsing the wrapper's noise is parsing a
+defect"*, which is the #1966 test coming back the same way it did there.
+
+#### What was verified of the issue's own measurements
+
+- **Holds:** no caller reads `.TargetObject`, `.Exception` or `-is [ErrorRecord]` off a **capture's**
+  `Output`. `scripts/lib/repo-root-lib.ps1:115` does test the element type, but on a direct `& git`
+  outside this lib -- it is not a caller of this function and is not affected.
+- **Holds:** the `-Utf8` arm returns strings.
+- **Corrected:** the `$res.Output | Out-String` count is 60 in `scripts/**`, not 63.
+- **Answered rather than performed:** the issue named an audit of "which of the remaining ~56 sites can
+  actually render a failure" as the cheap next step. Normalising at the source makes that audit moot --
+  every site renders correctly now, whether or not it can fail -- so it is deliberately not done. 223
+  of the 256 `Invoke-NativeCapture` call sites outside the lib and the suites use the `&` arm.
+
+#### The one thing deliberately NOT changed
+
+The **container**. Wrapping the pipeline in `@()` would have been the obvious spelling and would have
+turned every single-line capture into a 1-element array -- a second behaviour change riding along on a
+decision that was only about the element type. Assigning a pipeline follows exactly the same unrolling
+rule the bare `&` operator followed here: `$null` / scalar / array. Three asserts in the suite refuse
+the other spelling.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-NativeLineText` added to `scripts/lib/native-capture-lib.ps1` -- `TargetObject` first
+      (the raw stderr line, string-typed, empty string and all), `Exception.Message` as the fallback.
+      Named one word over from its sibling `Get-ShopifyLineText`, so the kinship is visible.
+- [x] Both `&` arms normalise through it in the pipeline, so the container is untouched.
+- [x] `Get-NativeOutputText` deliberately NOT added: with `Output` normalised, `$res.Output | Out-String`
+      is already correct, and a helper nobody needs is the accumulation this repo keeps removing.
+- [x] Four passages in the lib that argued FROM the element-type difference updated rather than left
+      to go quietly stale -- the `Output` docstring, the `-Utf8` mechanism note, the `-TimeoutSeconds`
+      consequence note, and #1963's "a silent reroute is not the cheap alternative" block, whose
+      strongest half this change removes. That last one says so explicitly instead of dropping it.
+- [x] The two mirrors rebuilt via `scripts/sync/build-shared-scripts.ps1` (`dkj-policy`,
+      `dkj-subagents-shopify`).
 
 ### TEST
 
+- [x] `scripts/tests/native-capture.tests.ps1` -- two new blocks: the element type on every entry, the
+      empty line surviving as empty, the caller's rendered text carrying the command's words and none
+      of the five tells of wrapper noise, the container held at `$null` / scalar / array,
+      `-DiscardStderr` still dropping stderr through the pipeline, and `Get-NativeLineText` itself
+      including the `TargetObject`-first order and its fallback. **255 pass, 0 fail.**
+- [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors.
+- [x] #2154's own site reproduced against the repaired lib in a throwaway repo: a refused
+      `git branch -d` now renders git's three lines (`error: the branch ... is not fully merged`
+      plus two hints) where it rendered the exception dump before.
+- [x] Exit code still measured through the normalising pipeline: 100/100 runs of `cmd /c exit 7`.
+- [x] The #1966 argument refusal still fires on the three undeliverable shapes.
+
 ### DEPLOY: fix/2155-normalise-capture-output
 
-**Score:**
+A failure captured through `Invoke-NativeCapture` now reads as the command's own words. Before this,
+every caller rendering `$res.Output | Out-String` on a failure path got a PowerShell exception dump
+naming this lib's own source line instead of the reason -- and an empty stderr line came out as the
+literal text `System.Management.Automation.RemoteException`. That is ~60 render sites across the
+workflow's scripts, including refusals `prune-merged`, `ship-pr`, `open-pr` and `park-cycle` print. It
+closes #2154 at the source rather than at the one site it was reported from.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+It is a behaviour change to a lib mirrored into `dkj-policy` and `dkj-subagents-shopify`, so it reaches
+every consumer's scripts. Nothing that works today starts failing: no caller in this tree reads an
+`ErrorRecord` property off a capture's `Output`, and the container is deliberately unchanged. What
+changes is that text which was already wrong becomes right -- a consumer matching on
+`NativeCommandError` was matching the wrapper's noise, which is the defect rather than the contract.
+
+**Score:** 3
 
 #### Pull Request
 
 Invoke-NativeCapture returns plain text on both arms, so a failure reads as the command's own words
-
