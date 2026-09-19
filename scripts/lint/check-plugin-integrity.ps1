@@ -825,7 +825,7 @@ if (Test-CheckEnabled 'agent-def') {
     Write-Skip 'agent-def -- not run (-SkipCheck). Nothing is asserted about agent-def frontmatter in this run.'
 }
 
-# --- 3b. manual frontmatter: id/group + file name <group>-<id>-manual.md -----------------------------
+# --- 3b. manual frontmatter: id/group + file name specialist-<group>-<id>-manual.md -----------------------------
 $manuals = @(Get-SpecialistFiles -Path $RepoRoot -Kind Manual -Recurse |
     Where-Object { $_.FullName -match '\\manuals\\' })
 $manuals | ForEach-Object {
