@@ -317,7 +317,7 @@ records.
 | `.claude/specialists/lenses/NN-NN-extension.md` | `.claude/specialists/lenses/specialist-NN-NN-lens.md` |
 | `…/personas/01-01-persona.md` | `…/personas/specialist-01-01-persona.md` |
 | `…/manuals/NN-NN-manual.md` (plugin payload) | `…/manuals/specialist-NN-NN-manual.md` |
-| `…/subagents/NN-NN-subagent.md` (plugin payload) | `…/subagents/specialist-NN-NN-subagent.md` |
+| `…/subagents/NN-NN-agent.md` (plugin payload) | `…/subagents/specialist-NN-NN-subagent.md` |
 
 **Why the names moved.** Every specialist file now carries a `specialist-` prefix and one suffix per
 kind, so a file says what it is without its directory having to say it. `-extension` became `-lens`

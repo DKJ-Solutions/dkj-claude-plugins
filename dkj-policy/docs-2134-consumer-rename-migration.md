@@ -89,6 +89,10 @@ branch documents, it is a design call rather than a doc edit, and it is not in #
 - [x] Give the two fenced blocks the `unbound-sample` opt-out with a named reason -- they are file
       content to paste rather than captured output, which is the one thing check 15 cannot tell by
       itself.
+- [x] Held the what-it-was column against git history once step D had landed, and corrected the
+      subagents row: those files were `NN-NN-agent.md`, not `NN-NN-subagent.md`. The suffix arrived
+      WITH the prefix in #2131, so the old name carried neither -- the one row where reading the
+      new name backwards gives the wrong answer.
 
 ### TEST
 
