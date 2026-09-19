@@ -43,7 +43,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 29 minor entries** <!-- pending-tally -->
+**15 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2163-statusline-refresh-interval-seconds · 20260919-185355
+
+The progress bar's timer was set in the wrong unit and so never fired: `refreshInterval` is in seconds,
+this repo set `2000`, and Claude Code read that as 33 minutes -- so during a backgrounded gate the bar
+stayed on whatever count it last drew and jumped to the true one only when the operator sent a message,
+which is the moment they had stopped believing it. It is now `2`, in this repo's own settings and in what
+`adopt-statusline.ps1` places, with the unit stated where the number is set and a test that refuses a
+millisecond-sized value coming back. The statusline adoption is not in a released version yet, so no
+consumer carries the wrong figure.
+
+The failure it prevents, named: a released reader turning the progress bar on and finding it frozen for
+the whole of every run they backgrounded, updating only when they speak. That has not happened outside
+this repo, because the feature has not shipped.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- nothing here needs a consumer to act. No released copy of `adopt-statusline.ps1` carries the wrong
+value, so there is no already-adopted settings file left holding it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The statusline refreshInterval is in seconds, not milliseconds
+
+Plugins: dkj-policy
+
+[PR #2164](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2164)
+
+---
 
 ### DEPLOY: docs/2157-2158-capture-comment-accuracy · 20260919-181738
 
