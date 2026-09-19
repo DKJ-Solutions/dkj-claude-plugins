@@ -85,11 +85,11 @@ product: agent defs, manuals, docs, and tooling.
   of the connector manifest (visible on a deliberate run of
   `check-connectors.ps1`). The same philosophy as the quieter session start from PR #99: only report
   what is solvable here and now.
-- **Every issue filed here carries a priority label, `prio-1` (lowest) to `prio-4` (highest)** — set
-  in the same `gh issue create` that files the finding, because an issue filed without one postpones
-  the triage to whoever reads the tracker next (a hard rule from Dave, September 9, 2026,
-  [#1685](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1685)). The four rungs, the
-  relabel command, and why this is a **separate axis** from the labels that classify a *pull request*
+- **Every issue YOU file here carries a priority label, `prio-1` (lowest) to `prio-4` (highest)** —
+  set in the same `gh issue create` that files the finding, because an issue filed without one
+  postpones the triage to whoever reads the tracker next (a hard rule from Dave, September 9, 2026,
+  [#1685](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1685)). The rungs, the relabel
+  command, the inbound carve-out, and why this is a **separate axis** from a *pull request*'s labels
   are in [Derek #05](05-05-extension.md#issue-labels--every-issue-carries-a-priority).
 - **And it carries `minor` when its landing will be written at tier 1 or 2** — the reach label, which is
   the tier model read on an issue instead of on a changelog entry, prescribed for every repo running this

@@ -499,6 +499,34 @@ gh issue edit <n> --add-label prio-4 --remove-label prio-2   # a re-rank, both h
 gh issue edit <n> --add-label prio-2                         # only for one that arrived without a rung
 ```
 
+**The rule binds the FILER, not the tracker — so an `inbound` issue is outside it** (Dave,
+September 19, 2026, [#2127](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2127)).
+*"Every issue filed here"* reads as a property of this tracker, and under that reading it binds a
+consumer's session filing inbound — which has no mechanism to obey it, and no reason to. The portable
+layer says so in its own words:
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) states that
+priority is an **offered** convention — *"nothing here reads it either"* — and that **exactly one**
+label is prescribed to a consumer, the reach label. A session filing inbound is running that layer's
+rules, not this one's. So an inbound issue arrives without a rung by design, and **gets one at triage
+here**, with the second `gh issue edit` line above. Chris's lens states the scope in one word (*"every
+issue YOU file here"*) and points back to this block.
+
+**The net damage was nil, and that is measured rather than assumed.** On the day of the decision
+`gh issue list --state open` returned **0** issues without a `prio-` label, while **10 of the 12** most
+recent `inbound` issues carried none (#2120, #2117, #2056, #2055, #2054, #2052, #2049, #2043, #2033,
+#2032; #2048 and #2031 carried `prio-3`). Every one of the ten was closed, most within hours. The gap
+was between a stated rule and a mechanism, never a backlog of untriaged work — which is why #2127 was
+filed at `prio-1` and why the answer is a sentence rather than a gate.
+
+**`.github/ISSUE_TEMPLATE/inbound-improvement.md` keeps `labels: inbound` and nothing else, and that
+is the decision rather than the unrepaired half.** The obvious repair — a default rung in the
+template's front matter — was measured and declined: of those same 12 inbound issues, **2** were filed
+through the template at all (#2117 and #2048, recognisable by its `## Which repo does this come from?`
+heading), and #2048 already carried `prio-3`. A default would therefore have reached **one** of the
+eleven missing rungs, at the price of a rung nobody chose on every future template filing — the
+guess the triage pass already corrects today. The template covers the web form; the route the inbound
+rule actually names is a free-form `gh issue create --label inbound`, which no front matter can reach.
+
 That is the same rule `dkj-policy-bwj` states for its own four buckets, where the Asana sweep removes
 the other three as it sets one — **and since September 11, 2026 it is the same four NAMES as well**
 (Dave, [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842)), on the same four

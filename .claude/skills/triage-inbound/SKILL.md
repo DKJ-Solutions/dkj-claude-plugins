@@ -226,3 +226,25 @@ because it deliberately names no specialist, and the note is printed only above 
 Following the proposal would have deleted a correct sentence and left the next reader with the same
 confusion, minus the explanation. That is the shape worth carrying: a repair built on an unverified
 reason is worse than the defect it replaces, because it now carries a citation.
+
+## The rung is set here, because the filer could not set it
+
+An inbound item arrives **without** a `prio-` label, and that is by design rather than an oversight to
+report: the priority rule binds whoever files, and a session filing inbound is running the portable
+layer's rules, where priority is an offered convention and only the reach label is prescribed. The
+carve-out, and the measurement that declined a default rung in the issue template, are in
+[Derek #05](../../specialists/lenses/05-05-extension.md#issue-labels--every-issue-carries-a-priority);
+Dave decided it on September 19, 2026
+([#2127](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2127)).
+
+**So ranking it is part of the pickup, alongside the six checks above** — one call, before the item is
+routed, because an inbound issue left unranked postpones the triage a second time to whoever reads the
+tracker next:
+
+```sh
+gh issue edit <n> --add-label prio-2   # the rung this pickup judges it at
+```
+
+**And a verification that ends in a closure still sets it.** The six patterns above close an item
+without repairing anything, which feels like a reason to skip the label — it is not: a closed issue
+carrying a rung is what makes the tracker's own history readable, and it costs the same one call.
