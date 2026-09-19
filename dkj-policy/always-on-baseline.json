@@ -1,13 +1,13 @@
 {
     "schema":  1,
-    "bytes":  109391,
+    "bytes":  109739,
     "recorded":  "2026-09-19",
-    "reason":  "Step C of #2128: CLAUDE.md\u0027s one link to the technical writer\u0027s manual now carries the 11-byte \u0027specialist-\u0027 prefix. No prose was added -- the same sentence costs 11 B more because the file it names is 11 B longer, and a link that does not resolve records nothing.",
+    "reason":  "Rename step D (#2133): the 30 lens filenames become specialist-NN-NN-lens.md, so every lens path named on the always-on path is 9 bytes longer. 348 B of filename, no new prose.",
     "note":  "LF bytes of the always-on document path. Written by the always-on budget gate -- see always-on-budget-lib.ps1. Do not hand-edit this to make room: the gate lowers it on its own and raises it only behind -Raise, with a reason.",
     "documents":  {
-                      ".claude/specialists/SPECIALISTS.md":  10357,
+                      ".claude/specialists/SPECIALISTS.md":  10429,
                       "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md":  30267,
-                      "CLAUDE.md":  48883,
-                      "lenses/01-01-extension.md":  19884
+                      "CLAUDE.md":  48937,
+                      "lenses/specialist-01-01-lens.md":  20106
                   }
 }
