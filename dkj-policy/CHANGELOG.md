@@ -43,18 +43,329 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 16 minor entries** <!-- pending-tally -->
+**10 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2144-swept-citation-class · 20260919-142241
+
+The class #2139 opened is closed, and the reading that closed it is not the one the report proposed.
+Three swept quotations are restored to what their releases actually shipped and **marked at the line**:
+the `specialists-init` transcript in shipped payload (swept four times, marketplace name included --
+`specialists@davekjohns-workshop`, not the "half-swept" pairing #2144 described), the
+`measure-skill.tests.ps1` capture its own comment calls *"real output"* together with the `Source:` line
+below it, and `INSTALL.md`'s layout table, whose single `v3.10.0`-onward row carried a path spelling no
+release before `v4.33.0` ever held -- now three measured rows, which is the only thing a reader on an
+old version can recognise themselves in.
+
+**The decision #2144 asked for: an illustration is kept TRUE, never frozen.** A comment or a sample
+showing the *shape* of a line quotes nothing, so freezing it only preserves an anachronism the reader
+has to resolve. Five sites (two of them shared-script mirrors) now pair a current name with a version
+that name actually had. A third form is named and deliberately left alone -- an **attribution**
+(*"`dkj-policy` 4.21.0 shipped it"*) keeps today's name on purpose, because the name is how a reader
+identifies the thing now while the version identifies the release. Without that third bullet the
+convention reads as a mandate to sweep fourteen correct sentences.
+
+**And #2144's proposed check was run rather than filed as an idea, and the answer is not to build it.**
+*A name paired with a version older than the version that name first shipped in is always a swept
+quotation* -- the detection half holds, the "always" does not. Over `*.md`, `*.ps1`, `*.json` and
+`*.yml` outside the archived release history: **54 pairings, 3 of them swept quotations**, 5
+illustrations, and 46 correct as written -- 32 synthetic test fixtures, where an invented version is the
+point, and 14 attributions or dated notes, two of which pair a plugin name with the *Claude Code CLI's*
+own version.
+
+**The 54 is not the figure the decline rests on, and the first draft of this entry wrongly let it be.**
+Excluding `scripts/tests/**` is one line and removes 32 by construction -- 3/22 strict, **8/22 actionable**
+-- which beats the 12.5% a comparable candidate was declined at a few hundred lines up the same lens. What
+carries the decline is the **floor**: 14 of those 22 are attributions, the form this branch decides to keep
+writing, so after the repairs the tree holds zero true findings against fourteen standing false ones and
+every future attribution adds another. Born red against correct prose, growing, and not improvable by
+narrowing -- the stale-path decline's shape exactly. Declined at all three modes, with the `[INFO]` audit
+declined on its own terms rather than as a hedge, and with one variant named as **untested** (restricting
+to fenced blocks) so *"settled"* does not quietly cover it. The lens also records the proportionate
+alternative, per its own rule that a decline naming no better route invites the same proposal again: check
+the **marking** rather than the anachronism.
+
+Marlowe red-teamed that verdict and returned **WOBBLES** -- the conclusion held, the argument did not, and
+both this entry and the lens were rewritten on it. Worth recording, because the failure he caught is the
+one this repo keeps naming: a real measurement, quoted accurately, chosen because it flattered the answer.
+
+The portable half is in the technical writer's manual, which already carried a rename-sweep rule with
+three exceptions. What it lacked is the part #2139 and #2144 measured: **the rule protects nothing on
+its own**, because a find-and-replace is run by somebody who has not read it, and **shape is not
+protection either** -- a quoted path survived three sweeps in one file while the same shape was swept
+twice in another. The marking at the line is the whole guard.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Three of the repaired documents are plugin payload a consumer receives at the next release --
+`specialists-init/SKILL.md`, `plugin-versions/SKILL.md` and the technical writer's manual -- plus
+`INSTALL.md`, which is the adoption page they read before any of it. **Nothing is asked of them and
+there is no migration.** What changes is that the transcript in the adoption skill now quotes what that
+CLI actually printed, so a consumer comparing their own output against it is comparing against
+something real, and the layout table names the spelling their own stale `@`-import is likely to carry
+instead of only today's. A consumer who has adopted the workflow also picks up the rename-sweep
+convention, which matters the first time they rename anything of their own.
+
+**Score:** 1
+
+#### Pull Request
+
+The swept-verbatim-citation class, closed
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2152](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2152)
+
+---
+
+### DEPLOY: fix/2142-anchor-hook-marker-match · 20260919-141223
+
+Every session hook now counts a verdict marker only where its check wrote it, through one shared
+`Select-CheckMarkerLine`, and `check-always-on-budget.ps1` sanitizes the tree-derived values it
+prints the way the rest of this tree already does. Before this, a document able to put `[WARN]` or
+`[ERROR]` on the always-on path had its own line forwarded into every session start -- and `[ERROR]`
+made the hook print its over-the-limit headline and the whole report on a run that was in fact `[OK]`.
+Reaching it needed content in the tracked import chain of the checkout being measured -- which is a
+branch under review, not only the trunk: the check runs from `open-pr`, from CI and from a session
+start against whatever is checked out, so a pull request touching an `@`-import line already tripped
+it. So this is robustness rather than a closed hole, and the hole was one hop nearer than "already
+merged" suggests. What it removes is the shape that goes wrong later, when somebody adds a field to a
+report and does not know a sanitizer was load-bearing for it. The sweep is the bigger half: eight
+hooks across two plugins were selecting this way, each with its own hand-written escape.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- no subscriber of a service notices this. It changes which lines a session-start hook forwards
+in a repo running this workflow, and the visible behaviour of every healthy repo is unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+Session hooks count a verdict marker only where the check wrote it
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2151](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2151)
+
+---
+
+### DEPLOY: fix/2141-xoxowildhearts-checkout-candidate · 20260919-135420
+
+`check-connectors` reported `[SKIP] checkout ... not present on this machine` for the xoxowildhearts consumer while its checkout sat at `bwj-development/xoxowildhearts`, so nothing about that consumer was checked here. Its manifest lacked the `bwj-development/` candidate that its sibling `smartwatchbanden.json` gained in #1831 -- the fourth time a candidate fix reached one manifest of a pair and not the other (#1524, #1807, #1831). The candidate is appended, and `connectors.tests.ps1` now holds every manifest of one `siblingGroup` to the same set of layouts, so the next drift fails the gate rather than reading as an absent checkout.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Maintainer-only: the register is read by this repo's own maintenance, and no subscriber of the service sees it. N/A.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors/xoxowildhearts.json resolves the bwj-development/ layout, so check-connectors stops reporting a false SKIP
+
+[PR #2149](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2149)
+
+---
+
+### DEPLOY: docs/2145-reader-site-count · 20260919-134205
+
+The `feat/2130` entry claimed thirteen reader sites, that **all of it** now goes through the four-row
+table, and that **no reader is edited again**. All three were wrong by one site, which step B (#2131)
+found the moment it moved files and whose entry already carries the reason the sweep could not have
+named it. The count now says what was converted instead of asserting a total, the two completeness
+clauses are gone, and a paragraph under them records the miss and states that a later step still sweeps
+before it moves anything.
+
+It is corrected now rather than after the cut for one reason: the entry is still under
+`## [Unreleased]`, so it is a live document, and four steps of the series (#2132, #2133, #2134, #2135)
+are parked against it. A session picking one up reads *"no reader is edited again"* as a licence to skip
+the sweep -- which is exactly the reasoning that let the fourteenth site through once already. After the
+next cut the sentence is archived history and the carve-out for `dkj-policy/releases/**` applies.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the correction sits in the entry's tier-0 body, so it reaches this repo's own changelog release
+document and nothing a subscriber installs or reads. No script, no plugin payload and no behaviour
+changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The #2130 entry's reader-site count and its completeness claims are corrected
+
+[PR #2148](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2148)
+
+---
+
+### DEPLOY: feat/2131-subagent-def-filenames · 20260919-131555
+
+Step B of the #2128 rename series, and the one with the most ways to go wrong: the 26 subagent
+definitions become `specialist-<g>-<id>-subagent.md`, and the four `plugin.json` `agents` arrays that
+name every one of them literally move in the same commit. #1764 is why that pairing is not optional --
+a bad shape in those arrays made four of six plugins uninstallable for a whole release. Lint check 38
+holds all 26 entries against a file on disk and reports 0 findings. The suffix change finishes #1698,
+which moved `agents/` to `subagents/` and left the files inside called `<g>-<id>-agent.md`.
+
+**The rename was the easy half.** #2130 had converted thirteen reader sites to one four-row table so
+that a step like this one moves files and touches no reader -- and moving the files found a
+fourteenth it had missed. `Get-PluginIds` (`check-connectors.ps1:377`) sliced the specialist id off
+with `-replace '-(agent|persona)$'`, which matches nothing in `specialist-06-23-subagent`: the strip
+left the whole base name standing and returned it as an id, so `$ownedIds` silently stopped holding
+ids and the eight `[INFO]`/`[INVENTORY]` assertions filtering on it went red. Nothing threw. It
+survived step A because it reads a *directory* rather than a filename pattern, and keeps its
+convention in a `-replace` on the following line -- so neither the anchored globs nor the
+`^(\d{2})-(\d{2})-...$` regexes step A was hunting named it, seven lines above a converted walk whose
+comment describes this exact defect as fixed. It now goes through `Get-SpecialistFiles` +
+`Get-SpecialistFileId`, with the directory leaf through `Get-SubagentDirPath`. A tree-wide sweep found
+no second site; the entry's own claim of thirteen is corrected under #2145.
+
+The second stale thing the merge exposed was the flip itself: the `Subagent` row in
+`Get-SpecialistFileShapes` still named the old spelling as the written one, because this branch was
+built before that table existed and could not have swapped a row that was not there. Swapped now, in
+all four byte-identical copies, with the paragraph that read *"nothing has been renamed yet"* rewritten
+-- from step B on, two of the four rows point in opposite directions, and that is the table's normal
+state for the rest of the series rather than a defect in it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The renamed files are plugin payload, so a consumer receives them at the next release: after
+`claude plugin update` their cache holds `specialist-<g>-<id>-subagent.md` and the old names are gone.
+**Nothing is asked of them and there is no migration** -- every reader this workflow ships accepts both
+spellings, which is what #2130 was built the release before for. The one case that is not covered is a
+consumer's *own* script globbing `*-agent.md` inside the plugin cache; that is not a reader this repo
+can see, and it is the whole of the exposure.
+
+**Score:** 1
+
+#### Pull Request
+
+The subagent definitions become specialist-NN-NN-subagent.md, with the four plugin.json agents arrays
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2147](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2147)
+
+---
+
+### DEPLOY: docs/2139-frozen-citation-restore · 20260919-125659
+
+Three verbatim citations that had been silently rewritten by the `dkj-`/`dkj-subagents-` renames are
+restored to what the releases actually shipped, and marked so the next sweep leaves them alone. The
+argument they belong to -- #1066's plugin-root boundary -- is evidence a reader is meant to check
+against a tag, and a quotation that has been rewritten twice no longer carries that.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the citations sit in this repo's own lens and lint script. Nothing a subscriber of this
+service installs or reads changes; the one instance that does sit in shipped plugin payload was
+deliberately left to #2144.
+
+**Score:** N/A
+
+#### Pull Request
+
+Restore the swept v4.22.0 citations and mark them as quotations
+
+[PR #2146](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2146)
+
+---
+
+### DEPLOY: fix/2138-dead-import-is-not-unmeasurable · 20260919-124159
+
+An unresolved `@`-import is now one of two things rather than one, and `check-always-on-budget.ps1`
+says which. **Dead** -- the run can PROVE the file is absent, because the target is in the repo or
+under a plugin marketplace root that exists on this machine -- is named as a dead import, and the
+report says the whole document is silently missing from every session here. **Unprovable** -- which is
+every CI runner, where there is no marketplace clone to prove anything with -- keeps the old wording
+and the old silence exactly.
+
+Those two words are the ones the code returns, and they are the only ones used for them here, in the
+tests and in the PR title -- the copy edit found the first draft reaching for "unmeasurable" and
+"unresolvable" as well. The branch NAME still carries "unmeasurable" and is left alone, because a
+branch name is quoted in commits that have already landed. And **unmeasured** is a different thing
+again: the pre-existing bucket for a document with no recorded figure, which a dead import may or may
+not also be in.
+
+The old report called every unresolved import "not measured and not recorded" and told the reader to
+run it again on a machine where the import resolves. On the machine #2138 was measured on, that was
+the machine they were already on.
+
+It warns and does not refuse: the exit code still belongs to the budget, and a dead import is partly a
+fact about the machine, so refusing would block a push over a plugin somebody has not installed. The
+in-tree half is already a hard error in check 28 of `check-plugin-integrity.ps1`, which is the gate
+that owns it.
+
+One containment test answers both halves of that question -- `Test-PathIsUnder` -- and check 28 of
+`check-plugin-integrity.ps1` now calls it too. Both had a bare `StartsWith` against a directory name
+with no separator appended, so a sibling whose name merely starts with the root's read as being inside
+it; in check 28 that meant reporting a dead link for a file the repo does not own. The branch's own code
+review found the first one, on a green suite, because the draft guarded one comparison and pinned only
+the guarded half.
+
+Two smaller things came with it. A dead import is now reported even when the baseline happens to hold a
+figure for it -- the question is asked ahead of the carried branch, so this lib's own memory cannot
+hide the one failure it exists to surface, and the recorded bytes are still carried so the next branch
+does not read as growth. And both lines of the block carry the `[WARN]` marker, because the
+session-start hook forwards only the marked lines; the existing unmeasured block keeps its remedy on a
+continuation line, which is why no session start has ever seen it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+All four files ship in the `dkj-policy` payload -- the two libs, the check script and the
+`always-on-sessioncheck` hook -- so every repo running this workflow gets this at the next release,
+with nothing to do and no migration. For most of them it changes nothing: their imports resolve, and a
+consumer with no marketplace root reads exactly as before.
+
+For the ones it does reach, it is the difference between a session that quietly has no orchestrator
+and a session that says so in its first four lines. The measured instance is a registered consumer
+that ran that way for over a week with a gate on the machine that had already seen it, because the
+gate's own sentence pointed the reader away from the repair. Nothing about the budget changes, and no
+gate starts refusing anything.
+
+**Score:** 3
+
+#### Pull Request
+
+a dead '@'-import is told apart from an unprovable one, and named as dead
+
+Plugins: dkj-policy
+
+[PR #2143](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2143)
+
+---
 
 ### DEPLOY: feat/2130-dual-name-specialist-readers · 20260919-113832
 
 The specialist filename readers now accept both conventions, so the #2128 rename can proceed one kind
 at a time without a flag day. Four filename shapes -- manual, persona, subagent def, lens -- were
-recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes across
-thirteen reader sites in nine scripts, four of them held byte-identical to plugin mirrors. All of it now
-goes through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing doctrine:
-both are read, one is written. Each later step of the series swaps one row and moves that kind's files;
-no reader is edited again. **Nothing is renamed by this change** and the tree is byte-unchanged apart
-from the readers.
+recognised by a scatter of independently anchored globs and `^(\d{2})-(\d{2})-...$` regexes. Thirteen
+such sites in nine scripts are converted here, four of them held byte-identical to plugin mirrors, and
+they now go through one four-row table in `check-report-lib.ps1`, on `Get-SubagentDirName`'s standing
+doctrine: both are read, one is written. Each later step of the series swaps one row and moves that
+kind's files. **Nothing is renamed by this change** and the tree is byte-unchanged apart from the
+readers.
+
+**Thirteen was not all of them, and this paragraph said it was** (#2145). It claimed that *all of it*
+now goes through the table and that *no reader is edited again*; step B (#2131) moved files and found a
+fourteenth, `Get-PluginIds` in `check-connectors.ps1`, which it converted -- that entry carries why the
+sweep could not have named it. Both claims are struck here rather than left to travel into a release
+note, because four steps of the series remain and a completeness claim reads as a licence to skip the
+sweep on each of them. **A later step still sweeps for readers before it moves anything.**
 
 Wiring them surfaced three defects that were already there. `build-agent-defs.ps1` had been walking
 **zero of the 26 agent defs** since the `agents/` -> `subagents/` rename, invisibly, because the lint

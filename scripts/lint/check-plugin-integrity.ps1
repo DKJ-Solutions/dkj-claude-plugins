@@ -3593,7 +3593,11 @@ foreach ($lf in $importScanFiles) {
         $importPath = $null
         try { $importPath = Resolve-ImportPath -Target $importTarget -ImportingFile $lf } catch { $importPath = $null }
         if (-not $importPath) { $importNotAPath++; continue }
-        if (-not $importPath.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        # Through measure-context-lib's Test-PathIsUnder rather than a bare StartsWith, which read a
+        # SIBLING directory whose name merely starts with the repo root's as being inside the repo --
+        # and then reported a dead link for a file the repo does not own. Same latent defect as the one
+        # code review found in Get-ImportAbsenceKind (#2138); one definition now answers both.
+        if (-not (Test-PathIsUnder -Path $importPath -Parent $RepoRoot)) {
             $importExternal++
             continue
         }
@@ -3776,14 +3780,19 @@ Write-Coverage -Category 'skill-list-plugin' -Checked $pluginSkillSpanCount `
 # under plugins/ here and resolves to '<cache>/<marketplace>/teams/team-alpha/...' in a consumer,
 # where the family level does not exist. Verified against the installed v4.22.0 copy on disk, not
 # inferred. The manual it names does travel -- it simply never travels to that path.
+# QUOTED AS v4.22.0 SHIPPED IT -- DO NOT SWEEP. 'team-alpha' is what that directory was called then;
+# 'dkj-subagents-alpha' is a name from two renames later, so rewriting it here rewrites the evidence
+# rather than the convention. The test is whether a path is a pointer somebody follows or a quotation
+# somebody checks: this one is checked, against a tag, and the tag does not change.
 #
 # THE SIZE, RECOUNTED. #1066 reported zero findings and argued from that ("today's expected answer is
 # zero, which is itself the reason not to build it yet"), and added that the defect "never shipped".
 # The real count on the day the check landed was 17 escapes across 5 files, every one passing check 4 --
-# and resolving all 17 inside the INSTALLED copies (dkj-subagents-alpha 4.21.0, dkj-policy 4.22.0)
-# rather than in this tree, all 17 are dead. Not one of them, all of them. That inverts the report's own
-# conclusion instead of qualifying it: the failure mode has bitten, in released payload, so the repo's
-# name-it-and-leave-it rule no longer holds it back.
+# and resolving all 17 inside the INSTALLED copies (team-alpha 4.21.0, contributing-davekjohn 4.22.0 --
+# their names at those versions, quoted and not swept) rather than in this tree, all 17 are dead. Not
+# one of them, all of them. That inverts the report's own conclusion instead of qualifying it: the
+# failure mode has bitten, in released payload, so the repo's name-it-and-leave-it rule no longer
+# holds it back.
 #
 # THE CONVENTION THIS ENFORCES IS ALREADY WRITTEN, in DEVELOPMENT-portable.md: "links into the source's
 # script tree are absolute on purpose". It was stated on one portable page, for that page, and enforced

@@ -135,8 +135,10 @@ function Read-PluginDetailsOutput {
     foreach ($line in @($Lines)) {
         if ($null -eq $line) { continue }
 
-        # The header line ends in the version: '... (dkj-subagents-alpha) 4.17.0'. First match only, so a
-        # version-looking string further down cannot overwrite it.
+        # The header line ends in the version: '... (dkj-subagents-alpha) 5.5.0'. First match only, so a
+        # version-looking string further down cannot overwrite it. That pair is an ILLUSTRATION of the
+        # shape, not a capture of a released header, so it is kept true as names change rather than
+        # frozen and marked the way a quotation is (#2144).
         if ($null -eq $version -and $line -match '\s(\d+\.\d+\.\d+)\s*$') { $version = $Matches[1] }
 
         # Every inventory line, by name and count -- 'Skills (4)', 'Agents (0)', 'MCP servers (0)'. The

@@ -294,28 +294,31 @@ great majority of its hits, and each carried this one along.
   needs the sentence's meaning, and a matcher flagging every dated paragraph that contains a plugin
   name would fire on every correct one too. This was found by reading, and the count of one is a floor.
 
-### "Subagent def" is the term; the 272 stale ones are corrected on edit, not swept
+### "Subagent def" is the term; the 270 stale ones are corrected on edit, not swept
 
 The portable rule is in [Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md)
 under **"Guarding the naming convention"**; this is the instance it was decided on, and the boundary
 that applies here.
 
-**The measurement**, taken September 19, 2026 on `main`, outside the `dkj-policy/releases/**`
-historical carve-out: **272 occurrences of `agent def` / `agent-def` / `agent defs` across 86
-markdown files**, against **7** of `subagent def(inition)`, plus **191 lines** of the same in `.ps1`
+**The measurement**, taken September 19, 2026 with `git grep` against `origin/main` -- the ref is
+named because the first pass was run on a local trunk 11 commits behind and reported different
+figures -- outside the `dkj-policy/releases/**`
+historical carve-out: **270 occurrences of `agent def` / `agent-def` / `agent defs` across 87
+markdown files**, against **11** of `subagent def(inition)`, plus **195 lines** of the same in `.ps1`
 comments, docstrings and console output across 50 scripts.
 
 **Three renames moved the thing and left the noun.**
 [#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698) moved `agents/` to
-`subagents/` and renamed the plugins to `dkj-subagents-*`;
-[#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131) is renaming the files
-themselves to `specialist-NN-NN-subagent.md`; and the roster, the plugin ids and the marketplace
-already say *subagent*. So a file that is `06-16-agent.md` today, and `specialist-06-16-subagent.md`
-once #2131 lands, is called an "agent def" by 86 documents either way.
+`subagents/` and renamed the plugins to `dkj-subagents-*`; the roster, the plugin ids and the
+marketplace already said *subagent*; and
+[#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131) renamed the files themselves
+to `specialist-NN-NN-subagent.md`, landing as
+[#2147](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2147) while this branch was open. So
+the file is `specialist-06-16-subagent.md` on disk today, and 87 documents call it an "agent def".
 
 **The decision, Dave, September 19, 2026** ([#2137](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2137)),
 chosen from a menu of three: **correct-on-edit**. Not a sweep, and not *"the term stays"* either.
-`subagent def` is what new writing uses; the existing 272 are corrected when a file is edited for
+`subagent def` is what new writing uses; the existing 270 are corrected when a file is edited for
 other reasons.
 
 **It is the repo-name answer one noun over, and that is the whole argument.** `CLAUDE.md` already
@@ -337,9 +340,10 @@ those manifests costs: four of six plugins uninstallable for a whole release.
 itself: `README.md`'s `### Agent def vs. manual` heading and the bullet under it calling the file
 *"the agent definition"*, while `plugins/dkj-subagents/README.md` calls the same file *"the subagent
 definition"* — and, two bullets further down that page, *"the agent def"* again. Those read as two
-facts rather than as a lagging citation. Once #2131 lands, the `README.md` bullet will name a
-`subagents/specialist-…-subagent.md` path in the same breath, which is the shape #2137 was filed
-about.
+facts rather than as a lagging citation. And the merge of #2147 sharpened it into exactly the shape
+#2137 was filed about: the `README.md` bullet now names `subagents/specialist-<group>-<id>-subagent.md`
+and called it *"the agent definition"* in the same breath, until this branch resolved that conflict
+their-path-my-noun.
 
 **And what was deliberately left**, so nobody reopens it as an oversight: the `## Shared agent-def
 blocks` heading in `README.md`. It carries five inbound anchors, one of them in

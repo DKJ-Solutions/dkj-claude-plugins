@@ -226,9 +226,16 @@ function Format-SafePathToken {
            lines are forwarded into session context by the SessionStart hooks, and a value carrying a
            newline could forge a line of its own.
          - SQUARE BRACKETS. The hooks decide what to surface, and how loudly, by matching markers like
-           '[ERROR]' over a check's whole output -- so a path containing one would not merely look odd,
-           it would be COUNTED. A bracket in a real path is vanishingly rare; a bracket that changes a
+           '[ERROR]' over a check's output -- so a path containing one would not merely look odd, it
+           could be COUNTED. A bracket in a real path is vanishingly rare; a bracket that changes a
            hook's verdict is not something to leave to chance.
+           SINCE #2142 THE READING END IS GUARDED TOO, and this strip is not made redundant by it.
+           Select-CheckMarkerLine (hook-check-lib.ps1) anchors every hook's match to where the check
+           WROTE the marker, so a bracket arriving mid-line no longer counts anywhere. That closes the
+           verdict; it does not close the DISPLAY -- a marker-shaped path still reads as one to whoever
+           is scanning the terminal -- and it says nothing about the control characters stripped above.
+           Two ends, deliberately: this one acts where the value enters the line, that one where the
+           line is read, and neither is written assuming the other is present.
        Everything else is kept, because everything else is what makes a path a path. Both classes come
        from the shared patterns above, so the prose sibling below argues about the same two things. #>
     param([AllowEmptyString()][string]$Value = '', [int]$MaxLength = 200)
@@ -270,6 +277,8 @@ function Format-SafeProseToken {
        through and could still LOOK like a marker to somebody scanning the terminal. That is a display
        resemblance with no mechanical effect, and widening the pattern to chase homoglyphs would start
        deleting ordinary punctuation out of prose to prevent nothing measurable.
+       The reading end is anchored too since #2142 (Select-CheckMarkerLine in hook-check-lib.ps1),
+       which closes the counting independently -- see Format-SafePathToken above for why both ends stay.
        In an id or a path a bracket is vanishingly rare, so deleting it
        costs nothing; in prose it is ordinary and load-bearing, and deleting it turns '[the guide](x.md)'
        into something the reader has to reconstruct. So the substitution is uniform and carries NO note:
@@ -1475,11 +1484,13 @@ function Get-SpecialistFileShapes {
        plugin update rather than by choosing to, so both spellings have to resolve for as long as any
        cache can still be carrying the old one.
 
-       AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. Today it holds the
-       FUTURE name and Current holds the past one, because nothing has been renamed yet; after the step
-       that renames a kind the two swap and AlsoRead holds the past one. A field called 'Legacy' would be
-       a lie for exactly the window this layer exists to cover, and 'Legacy' is what a later reader would
-       reach for when deciding whether a candidate may be dropped.
+       AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. For a kind the series
+       has not reached yet it holds the FUTURE name while Current holds the past one; after the step that
+       renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES ARE LIVE IN THIS
+       TABLE from step B on -- Subagent has swapped (#2131), the other three have not -- so the field's
+       direction is not a property of the table at all, only of each row's place in the series. A field
+       called 'Legacy' would be a lie for exactly the window this layer exists to cover, and 'Legacy' is
+       what a later reader would reach for when deciding whether a candidate may be dropped.
 
        SO THIS TABLE IS THE FLIP POINT for the rest of the series. Step B..F each move one kind's files
        and swap that kind's row here; no reader is touched again, because no reader names a shape. A row
@@ -1498,8 +1509,8 @@ function Get-SpecialistFileShapes {
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'manual' }) }
         Persona  = @{ Current = @{ Prefix = ''; Stem = 'persona' }
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'persona' }) }
-        Subagent = @{ Current = @{ Prefix = ''; Stem = 'agent' }
-                      AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'subagent' }) }
+        Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
         Lens     = @{ Current = @{ Prefix = ''; Stem = 'extension' }
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'lens' }) }
     }

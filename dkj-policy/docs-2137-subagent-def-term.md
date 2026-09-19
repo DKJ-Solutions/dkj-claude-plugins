@@ -40,13 +40,13 @@
 ### PLAN
 
 Dave's decision on #2137, September 19, 2026, taken from a three-option menu: **correct-on-edit**, not
-a sweep. `subagent def` is the term for new writing; the 272 existing occurrences across 86 markdown
+a sweep. `subagent def` is the term for new writing; the 270 existing occurrences across 87 markdown
 files are corrected when a file is edited for other reasons. That is the answer `CLAUDE.md` already
 gives for the ~830 stale repo-name citations left by the September 10 rename, applied one noun over.
 
 #### What this branch deliberately does NOT do
 
-- **No sweep** -- not of the 272 markdown occurrences, and not of the 191 `.ps1` lines. A diff no gate
+- **No sweep** -- not of the 270 markdown occurrences, and not of the 195 `.ps1` lines. A diff no gate
   reads, landing mid-way through a six-PR round whose reviewability is its stated design property
   (#2128), is the thing the chosen option rejects.
 - **No path edits.** `feat/2131-subagent-def-filenames` is open under another account and owns every
@@ -77,12 +77,12 @@ path the tooling resolves.
 ### DEPLOY: docs/2137-subagent-def-term
 
 Three renames moved the thing and left the noun: `agents/` became `subagents/` (#1698), the plugins
-became `dkj-subagents-*`, and the defs themselves are becoming `specialist-NN-NN-subagent.md`
-(#2131) -- while 272 occurrences across 86 markdown files still said *agent def*, and `README.md`
-called the same file *"the agent definition"* two directories away from
-`plugins/dkj-subagents/README.md` calling it *"the subagent definition"*.
+became `dkj-subagents-*`, and the defs themselves became `specialist-NN-NN-subagent.md` while this
+branch was open (#2131, landed as #2147) -- while 270 occurrences across 87 markdown files still
+said *agent def*, and `README.md` called the same file *"the agent definition"* two directories away
+from `plugins/dkj-subagents/README.md` calling it *"the subagent definition"*.
 
-**`subagent def` is now the term, and the 272 stale ones are corrected on edit rather than swept**
+**`subagent def` is now the term, and the 270 stale ones are corrected on edit rather than swept**
 (Dave, September 19, 2026). That is the answer `CLAUDE.md` already gives for the ~830 repo-name
 citations left by the September 10 rename, applied one noun over: both spellings read correctly, so
 nothing is broken, and a sweep would buy consistency at the price of a diff no gate reads and nobody

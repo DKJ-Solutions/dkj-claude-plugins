@@ -57,7 +57,7 @@ just like inline text.
     part, no copy of the body — just like the subagent lens. That way every portable behavioral rule
     lives in one place (the plugin), not duplicated.
 - **Subagent definitions — from this marketplace's own team plugins, not local.** The compact,
-  executable form of a specialist (`<group>-<id>-agent.md`) is **not** kept by this repo in a local
+  executable form of a specialist (`specialist-<group>-<id>-subagent.md`) is **not** kept by this repo in a local
   `.claude/agents/` directory: they come from the team plugins of this very marketplace, enabled via
   [`settings.json`](../settings.json) and invocable as `@<plugin>:<name>` —
   `@dkj-subagents-alpha:<name>` for the core team, and the same shape for each add-on team.
@@ -154,7 +154,7 @@ repo — and the two are indistinguishable while you are typing.
 Every specialist has a fixed, numeric **`id`** (permanent identity, never changes) and belongs to a
 **group** (organizational unit: **01 = Leadership, 02 = Staff, 03+ = teams**). The repo layer is
 named `<group>-<id>-extension.md`; the portable playbook `<group>-<id>-manual.md` and the
-agent def `<group>-<id>-agent.md` live in the plugin. **Name, emoji, and title are labels** — they
+subagent def `specialist-<group>-<id>-subagent.md` live in the plugin. **Name, emoji, and title are labels** — they
 may change freely; the filename and link paths hang off `id`/`group`, not the name. **The lint gate
 guards this** ([Sylvester #15](lenses/05-15-extension.md)): every filename matches the
 frontmatter (`id:` and `group:`).

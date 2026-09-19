@@ -2175,14 +2175,88 @@ plugin is read.
 proposed the rule as *"must resolve to a target also under `plugins/`, because that is the subtree the
 plugin cache contains."* The cache contains no such subtree, and the weaker rule passes the one link that
 had **already shipped dead** — `cut-release/SKILL.md:123` pointing at
-`../../../../teams/dkj-subagents-alpha/manuals/06-25-manual.md`, verified against the installed v4.22.0 copy. So
-the boundary is the **plugin root**, not `plugins/`, and scenario 37 of
+`../../../../teams/team-alpha/manuals/06-25-manual.md`, verified against the installed v4.22.0 copy.
+**Quoted as v4.22.0 shipped it — do not sweep.** `team-alpha` is what that directory was called then;
+`dkj-subagents-alpha` is a name from two renames later, so rewriting it here rewrites the evidence rather
+than the convention. So the boundary is the **plugin root**, not `plugins/`, and scenario 37 of
 `check-plugin-integrity-links.tests.ps1` exists to pin exactly that difference. The report also argued
 from an expected count of **zero** (*"which is itself the reason not to build it yet"*) and stated that
 nothing had shipped; the real count was **17 escapes in 5 files**, every one passing check 4, and
-resolved inside the installed copies (`dkj-team-alpha` 4.21.0, `dkj-policy` 4.22.0) **all 17 are
-dead**. That inverted its conclusion rather than qualifying it: the repo's name-a-risk-and-leave-it rule
-holds until something bites, and this had bitten seventeen times in released payload.
+resolved inside the installed copies (`team-alpha` 4.21.0, `contributing-davekjohn` 4.22.0 — their names
+at those versions, quoted and not swept) **all 17 are dead**. That inverted its conclusion rather than
+qualifying it: the repo's name-a-risk-and-leave-it rule holds until something bites, and this had bitten
+seventeen times in released payload.
+
+**Both citations above were silently rewritten by the renames, and what saved the script's copy was luck
+rather than its file type** (#2139, September 19, 2026). The `.ps1` was in every sweep's file set — its
+own `team-alpha 4.21.0` line was swept three times, by #1437, by the `plugins/teams` rename and by #1698
+— while the *path-shaped* citation higher up the same comment block was never touched. So the copy that
+survived, survived because of the **shape of the token**, not because a comment is safe: a bare plugin
+name matched the sweep, a name embedded in a quoted path did not. The lens is markdown and its
+path-shaped citation was swept anyway, which rules out shape alone as protection too. **The marking is
+therefore the only guard there is**, and it is a convention rather than a check, because recognising a
+quotation is exactly the hard part.
+
+**What a check COULD see — proposed here, then measured, and the answer is DO NOT BUILD IT** (#2144,
+September 19, 2026). The proposal was that a name paired with a version older than the version that name
+first shipped in *is always a swept quotation*. The detection half holds: `plugins/dkj-subagents/` first
+appears at `v4.33.0` and `plugins/dkj-policy/` at `v4.31.0`, so `dkj-subagents-alpha 4.21.0` is findable
+without understanding a single sentence around it. **The "always" does not.** Run over `*.md`, `*.ps1`,
+`*.json` and `*.yml` outside `dkj-policy/releases/**`, it returned **54 pairings, of which 3 were swept
+quotations** and 5 were illustrations worth correcting for a different reason. The other 46 are correct
+as written: 32 are synthetic test fixtures, where an invented version is the point, and 14 are
+attributions or dated notes — two of which pair a plugin name with the *Claude Code CLI's* own version
+and have nothing to do with this class at all.
+
+**The 54 is the wrong figure to decline on, and saying so is the difference between a measurement and a
+number that flatters the conclusion.** Excluding `scripts/tests/**` is one line and removes 32 of the 54
+by construction, which lifts the strict rate from 3/54 to **3/22** and the actionable rate — counting the
+illustrations, which the check correctly surfaced — to **8/22, 36%**. That is *better* than the 12.5% the
+consumer-prose candidate was declined at a few hundred lines above, so the unnarrowed figure cannot carry
+the decline on its own.
+
+**What carries it is the floor, and the floor is by design rather than by accident.** Of the 22
+non-fixture pairings, **14 are attributions** — *"`dkj-policy` 4.21.0 shipped it"* — which the convention
+below deliberately keeps writing that way. They are syntactically indistinguishable from a swept
+quotation and they are correct. So once this branch's repairs land, the tree holds **zero** true findings
+against roughly fourteen standing false ones, and every future attribution adds another: a check born red
+against correct prose, growing, with no convention it could ever be made to read. That is the stale-path
+decline's shape exactly, and it does not improve with narrowing, because the noise is prose this repo
+chooses to write.
+
+**At all three modes, then, and the middle one is not a hedge.** Not a gate (it would refuse pull
+requests over correct sentences), not a SessionStart hook (same set, every session), and not a
+deliberately-run `[INFO]` audit either — at fourteen standing falses a reader learns to skim it, which is
+the failure the audit mode exists to avoid rather than a milder version of it. **One variant is genuinely
+untested**: restricting the match to fenced blocks and quoted transcripts, which is where a quotation
+mostly lives. It was not run, and *"settled"* does not cover it — whoever picks that up should measure it
+rather than inherit this verdict.
+
+**And it missed one**, on the line below a hit it found: `measure-skill.tests.ps1`'s captured
+`Source: team-alpha@claude-code-specialists` carries no version, so nothing paired. That blind spot is
+structural rather than incidental — any citation whose name and version sit on different lines is
+invisible to this strategy at any width. **As the one-off sweep #2144 was, it earned its run without
+being the hero of it**: of the four swept lines repaired it surfaced three, one of which the report had
+not named (`INSTALL.md`'s layout table) — the fourth, and the upgrade of one hit from "illustration" to
+"quotation", both came from reading the files it pointed at.
+
+**The proportionate alternative, recorded because a decline that names no better route invites the same
+proposal again.** Invert the subject: check the **marking**, not the anachronism. A citation that has
+been marked *do not sweep* is a line whose content is asserted to be frozen, so a check can hold it
+against its own history and report when a later commit changed it — precision near 100%, born green,
+self-anchoring in the way check 40 is, and growing only as markings are added rather than as correct
+prose is written. It needs the marking to be machine-readable first, which is the same bootstrap order
+`Get-LiveStage` and the script contract's reachability half already set. Not built here; named so the
+next reader starts from it instead of from the anachronism again.
+
+**The class is closed, and the convention that replaces the check is in
+[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md):**
+a quotation is frozen **and marked at the line**, an illustration is kept **true** rather than frozen, and
+an attribution — *"`dkj-policy` 4.21.0 shipped it"* — keeps today's name on purpose. Repaired under #2144:
+the `specialists-init` transcript in shipped payload (swept **four** times, marketplace name included, so
+the issue's own "half-swept" reading was wrong), the `measure-skill` capture and its unversioned
+neighbour, and `INSTALL.md`'s layout table, whose `v3.10.0`-onward row carried a spelling no release
+before `v4.33.0` ever held.
 
 **The two counts are different measurements and both are worth keeping**, because conflating them is how
 the report went wrong in the first place. *17 escapes* is a property of the source tree, found by asking
@@ -2764,7 +2838,7 @@ well-formed wrong output.
 
 **The tree walks in this gate are FILESYSTEM walks, not git walks**, so a worktree registered inside the
 repo is a second complete copy of the tree the gate is standing in. Measured here with one probe at
-`.claude/worktrees/probe-1678`: every recursive count from the root doubles exactly — `*-agent.md` 26 to
+`.claude/worktrees/probe-1678`: every recursive count from the root doubles exactly — `*-subagent.md` 26 to
 52, `plugin.json` 6 to 12, `*.ps1` 233 to 466 — and the gate then fails with **26 errors, one per
 specialist id, each naming the REAL file as the offender** and the worktree's copy as the legitimate
 claimant, because that path sorts first. The coverage lines report the doubled sets as normal
@@ -2784,7 +2858,7 @@ grounds, each measured rather than argued:
    Excluding the path from them buys nothing a caller can reach — and what is past the refusal is
    `-SkipLint`, the switch that already means *this run did not measure*.
 2. **The price was quoted one suite too high.** #1678 names three root-walking suites; measured, there are
-   two. `subagent-shared.tests.ps1` (the `*-agent.md` and `*-persona.md` walks) and `shared-scripts.tests.ps1`
+   two. `subagent-shared.tests.ps1` (the `*-subagent.md` and `*-persona.md` walks) and `shared-scripts.tests.ps1`
    (the `*.ps1` scan) do walk `$RepoRoot` and do double. `template-selfcontained.tests.ps1` walks
    `Join-Path $RepoRoot 'plugins'`, and a worktree under `.claude/` is not inside that subtree: its
    templates count stayed at 1 with the probe standing. This does not change the verdict, but a declined
@@ -2919,7 +2993,7 @@ all 26 subagents in its own agent list, from these four plugins, out of `subagen
 Nothing in the report's evidence contradicted that, because none of it looked there.
 
 **The evidence that needs no rig at all, and it was in the room.** The specialist who red-teamed this
-conclusion is `06-29-agent.md`, and in the resolved plugin cache that def is reachable **only** through
+conclusion is `specialist-06-29-subagent.md`, and in the resolved plugin cache that def is reachable **only** through
 `dkj-subagents-alpha`'s `agents` key: the cache holds `subagents/` and **no** `agents/` directory, so no
 convention scan could have found him. A subagent arguing about whether subagents load is a primary
 measurement, and it costs nothing to take.
