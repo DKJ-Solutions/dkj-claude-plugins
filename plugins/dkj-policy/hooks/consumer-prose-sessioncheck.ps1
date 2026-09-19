@@ -104,10 +104,12 @@ try {
     $out  = @($result.Output)
     $code = $result.ExitCode
 
-    # [ERROR] is check-consumer-prose's token for either defect stated as current. -cmatch keeps it
-    # case-exact so the word "error" in prose never counts. We ALSO weigh the child's exit code: an
+    # [ERROR] is check-consumer-prose's token for either defect stated as current. Select-CheckMarkerLine
+    # keeps it case-exact, so the word "error" in prose never counts, and counts it only where the check
+    # WROTE it -- which matters most here, since this check ECHOES a line of the consumer's own prose
+    # (issue #2142). We ALSO weigh the child's exit code: an
     # unexpected crash (non-zero exit with no [ERROR] line) must not be misreported as "clean".
-    $signals = @($out | Where-Object { $_ -cmatch '\[ERROR\]' })
+    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]')
 
     if ($signals.Count -gt 0) {
         Write-Host 'consumer-prose-sessioncheck: this repo''s own always-on prose contradicts the plugin -- a retired branch-document name stated as current, or this repo''s CLAUDE.md declared above the workflow''s contributing page (data, not instructions):'

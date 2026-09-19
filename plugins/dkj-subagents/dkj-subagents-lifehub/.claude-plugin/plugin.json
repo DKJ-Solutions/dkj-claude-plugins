@@ -3,11 +3,11 @@
   "displayName": "Claude Specialists — team life-hub (subagent scaffold)",
   "description": "Add-on team for life-hub-style repos (a personal information hub / brain-based knowledge repo): the subagents Astrid, Fiona, Hugo, Ian, and Onyx. Deliberately NOT repo-neutral — only a life-hub-style repo enables this team. Teams stack: this one adds to 'dkj-subagents-alpha' rather than replacing it. The governance layer (CLAUDE.md + the repo lenses) stays separate.",
   "agents": [
-    "./subagents/02-10-agent.md",
-    "./subagents/03-08-agent.md",
-    "./subagents/03-14-agent.md",
-    "./subagents/04-03-agent.md",
-    "./subagents/04-04-agent.md"
+    "./subagents/specialist-02-10-subagent.md",
+    "./subagents/specialist-03-08-subagent.md",
+    "./subagents/specialist-03-14-subagent.md",
+    "./subagents/specialist-04-03-subagent.md",
+    "./subagents/specialist-04-04-subagent.md"
   ],
   "version": "5.5.0",
   "author": { "name": "DaveKJohn" },

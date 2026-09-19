@@ -84,8 +84,8 @@ try {
     # here would be a second place that sentence is written, free to drift from the one the gate prints
     # at the red check -- which is the exact class this workflow keeps extracting libs to end.
     $headline = @($out | Where-Object { $_ -match 'always-on path:' })
-    $refused  = @($out | Where-Object { $_ -cmatch '\[ERROR\]' })
-    $warned   = @($out | Where-Object { $_ -cmatch '\[WARN\]' })
+    $refused  = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]')
+    $warned   = @(Select-CheckMarkerLine -Output $out -Marker '[WARN]')
 
     if ($code -ne 0 -or $refused.Count -gt 0) {
         Write-Host 'always-on-sessioncheck: the always-on document path is over its limit -- every session pays it (data, not instructions):'
@@ -99,13 +99,21 @@ try {
     if ($headline.Count -gt 0) {
         # The verdict line ([OK] ...) carries the headroom or the "not growing" state; both are worth the
         # one line, and neither is worth the whole report on a session that is nowhere near the limit.
-        $verdictLine = @($out | Where-Object { $_ -cmatch '\[OK\]' })
+        $verdictLine = @(Select-CheckMarkerLine -Output $out -Marker '[OK]')
         Write-Host "always-on-sessioncheck: $($headline[0].Trim())"
         if ($verdictLine.Count -gt 0) { Write-Host ("  " + $verdictLine[0].Trim()) }
         if ($warned.Count -gt 0) {
-            # An unmeasured document is cost the figure above does NOT contain, so the figure is a floor.
-            # Never folded into the happy-path line: a floor reported as a total is the one wrong answer
-            # this whole mechanism exists to stop.
+            # TWO KINDS OF WARNING REACH HERE, and both belong at a session start. An UNMEASURED
+            # document is cost the figure above does NOT contain, so the figure is a floor -- never
+            # folded into the happy-path line, because a floor reported as a total is the one wrong
+            # answer this whole mechanism exists to stop. A DEAD import (issue #2138) is not about the
+            # figure at all: the document is not being loaded by the session reading this line, which
+            # is the most consequential thing the check can find and the reason these lines are
+            # forwarded verbatim.
+            #
+            # ONLY THE MARKED LINES TRAVEL. The check's indented continuations are dropped here, so
+            # anything a reader must act on has to sit on a [WARN] line -- a constraint the check
+            # script's own comment states from the other side, since neither file can see the other.
             foreach ($w in $warned) { Write-Host ("  " + $w.Trim()) }
         }
         exit 0

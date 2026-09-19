@@ -159,10 +159,16 @@ function Get-AgentInfo {
     param([string]$PluginDir, [string]$Id)
     # Both leaf names, new first: agents/ became subagents/ on September 9, 2026 (#1698), and $PluginDir
     # is a CACHE directory, so it holds whichever shape that machine's installed version shipped.
+    # Two axes now, for the same reason (#2130): the FILE name is renamed by #2128 exactly as the leaf
+    # was by #1698, and this reads a cache directory either way.
+    $agentNames = @(Get-SpecialistFileNameCandidates -Kind Subagent -Id $Id)
     $agentPath = ''
     foreach ($leaf in @('subagents', 'agents')) {
-        $cand = Join-Path (Join-Path $PluginDir $leaf) "$Id-agent.md"
-        if (Test-Path -LiteralPath $cand -PathType Leaf) { $agentPath = $cand; break }
+        foreach ($n in $agentNames) {
+            $cand = Join-Path (Join-Path $PluginDir $leaf) $n
+            if (Test-Path -LiteralPath $cand -PathType Leaf) { $agentPath = $cand; break }
+        }
+        if ($agentPath) { break }
     }
     if (-not $agentPath) { return $null }
     $lines = [System.IO.File]::ReadAllText($agentPath, [System.Text.Encoding]::UTF8) -split "`r?`n"
@@ -319,10 +325,18 @@ foreach ($e in $missingLens) {
     $pi = Split-PluginId -PluginId $e.PluginId
     if ($null -eq $pi) { Write-Failure "skipping lens for '$id' -- invalid plugin id '$($e.PluginId)'."; continue }
 
-    $lensRel = Get-LensRelPath -LensName "$id-extension.md" -PluginName $pi.Name
+    # WRITE one name, LOOK FOR both (#2130). The scaffold this script is about to create carries the
+    # written spelling; the never-overwrite guard below it has to recognise a lens the owner has already
+    # filled in under either, or "additive only" produces a second, empty copy of it.
+    $lensWriteName = Get-SpecialistFileName -Kind Lens -Id $id
+    $lensRel = Get-LensRelPath -LensName $lensWriteName -PluginName $pi.Name
     $dest = Join-Path $repoRoot $lensRel
-    if (Test-Path -LiteralPath $dest -PathType Leaf) {
-        Write-Info "lens $id-extension.md already exists -- left untouched (additive only)."
+    $destDirExisting = Split-Path $dest -Parent
+    $alreadyThere = @(Get-SpecialistFileNameCandidates -Kind Lens -Id $id |
+        ForEach-Object { Join-Path $destDirExisting $_ } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+    if ($alreadyThere.Count -gt 0) {
+        Write-Info "lens $(Split-Path $alreadyThere[0] -Leaf) already exists -- left untouched (additive only)."
         $script:kept++
         continue
     }
@@ -330,11 +344,12 @@ foreach ($e in $missingLens) {
     # only when no candidate location holds it, but a stale check output (or a hand-run) could still
     # reach here for a lens that sits on a non-canonical family segment. Writing the scaffold then
     # would leave the repo with two lenses for one specialist -- exactly the outcome #179 warns about.
+    $lensReadNames = @(Get-SpecialistFileNameCandidates -Kind Lens -Id $id)
     $existingElsewhere = @(Get-LensDirCandidates -RepoRoot $repoRoot -PluginName $pi.Name |
-        ForEach-Object { Join-Path $_ "$id-extension.md" } |
+        ForEach-Object { $d = $_; $lensReadNames | ForEach-Object { Join-Path $d $_ } } |
         Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
     if ($existingElsewhere.Count -gt 0) {
-        Write-Info "lens $id-extension.md already exists at '$($existingElsewhere[0])' (non-canonical path) -- no second copy written; move it to $lensRel yourself."
+        Write-Info "lens $(Split-Path $existingElsewhere[0] -Leaf) already exists at '$($existingElsewhere[0])' (non-canonical path) -- no second copy written; move it to $lensRel yourself."
         $script:kept++
         continue
     }
@@ -391,7 +406,8 @@ foreach ($e in $missingRoster) {
     if ($dotIdx -gt 0) { $short = $short.Substring(0, $dotIdx + 1) }
     if ($short.Length -gt 160) { $short = $short.Substring(0, 157).TrimEnd() + '...' }
 
-    $lensName = "$id-extension.md"
+    # The roster row is a PROPOSAL somebody pastes, so it names the written spelling (#2130).
+    $lensName = Get-SpecialistFileName -Kind Lens -Id $id
     $lensPath = Get-LensRelPath -LensName $lensName -PluginName $pi.Name
     if ($rosterStyle -eq 'list') {
         $row = "- **$displayName** #$idNum -- $short ([``$lensName``]($lensPath))"
@@ -422,7 +438,16 @@ foreach ($h in $staleHeaders) {
     # which is why it is passed on whenever it parsed (and never invented -- the family/plugin mix-up
     # behind issue #179).
     $pname = if ($pi) { $pi.Name } else { '' }
-    $lensPath = Get-LensRelPath -LensName "$($h.Id)-extension.md" -PluginName $pname
+    # THIS LENS EXISTS -- the drift is in its header -- so the line names the file ON DISK rather than
+    # the spelling this version would write (#2130). Pointing a reader at a path they do not have is
+    # worse here than anywhere else in this script: every other message announces something about to be
+    # created, and this one asks them to go and edit it.
+    $lensPath = ''
+    foreach ($n in (Get-SpecialistFileNameCandidates -Kind Lens -Id $h.Id)) {
+        $rel = Get-LensRelPath -LensName $n -PluginName $pname
+        if (Test-Path -LiteralPath (Join-Path $repoRoot $rel) -PathType Leaf) { $lensPath = $rel; break }
+    }
+    if (-not $lensPath) { $lensPath = Get-LensRelPath -LensName (Get-SpecialistFileName -Kind Lens -Id $h.Id) -PluginName $pname }
     Write-Host "  $lensPath -- header names '$($h.Stale)', but agent '$($h.Id)' is now '$($h.Current)':" -ForegroundColor Yellow
     Write-Host "    # $($h.Id) $midDot repo-lens" -ForegroundColor Green
     Write-Host "    (also update any remaining '$($h.Stale)' mention in the intro line just below the header.)" -ForegroundColor Gray

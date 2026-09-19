@@ -122,9 +122,9 @@ try {
     # how a gate gets ignored); what surfaces is the check's non-counting roll-up naming the count.
     # Deliberately not a general "N info signals" line: a repo permanently carries ignore-list [INFO]s,
     # so that would fire at every single session start -- the noise PR #99 removed.
-    $signals = @($out | Where-Object { $_ -cmatch '\[ERROR\]|\[SCOPE\]' })
-    $errorCount = @($signals | Where-Object { $_ -cmatch '\[ERROR\]' }).Count
-    $orphanLines = @($out | Where-Object { $_ -cmatch '\[ORPHANS\]' })
+    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]', '[SCOPE]')
+    $errorCount = @(Select-CheckMarkerLine -Output $signals -Marker '[ERROR]').Count
+    $orphanLines = @(Select-CheckMarkerLine -Output $out -Marker '[ORPHANS]')
 
     # [BOOTSTRAP] rides along outside the signal list (issue #225). The check emits it INSTEAD of the
     # per-specialist drift when the repo has never been set up, so it arrives on an exit-0 run with no
@@ -132,7 +132,7 @@ try {
     # bald-faced lie for a repo that has no roster. Kept out of $signals on purpose: nothing is wrong
     # with the plugin install, so this must not read as a failure. Same shape as [ORPHANS] here and
     # [UNREGISTERED]/[INVENTORY] in connector-sessioncheck.
-    $bootstrapLines = @($out | Where-Object { $_ -cmatch '\[BOOTSTRAP\]' })
+    $bootstrapLines = @(Select-CheckMarkerLine -Output $out -Marker '[BOOTSTRAP]')
 
     # [ROSTER-PENDING] rides along the same way (inbound #333), and it exists because the DOCUMENTED HAPPY
     # PATH ended in nineteen [ERROR] lines: measured on a virgin profile, in the session right after a
@@ -141,7 +141,7 @@ try {
     # is the heaviest level these checks have. The cost is habituation: whoever learns to ignore nineteen
     # false errors ignores the twentieth too. Deliberately NOT folded under [BOOTSTRAP], whose advice is
     # "run specialists-init" -- advice this reader has just followed successfully.
-    $rosterPendingLines = @($out | Where-Object { $_ -cmatch '\[ROSTER-PENDING\]' })
+    $rosterPendingLines = @(Select-CheckMarkerLine -Output $out -Marker '[ROSTER-PENDING]')
 
     # [NOTHING-ENABLED] rides along the same way (inbound #294). THE DEFECT: this hook reported "roster
     # in sync with the enabled plugins" for a repo with 0 lenses and 0 roster rows, in the very session
@@ -157,7 +157,7 @@ try {
     # at zero enabled plugins (a typo in a plugin id, an enable that moved to a layer nobody reads yet)
     # silently reproduces the same false green. Same reasoning as [BOOTSTRAP]: not an error, because a
     # repo that deliberately enables nothing is not broken -- but never "in sync" either.
-    $nothingEnabledLines = @($out | Where-Object { $_ -cmatch '\[NOTHING-ENABLED\]' })
+    $nothingEnabledLines = @(Select-CheckMarkerLine -Output $out -Marker '[NOTHING-ENABLED]')
 
     # [NOT-INSTALLED-HERE] rides along the same way (inbound #302). The mirror image of the state above:
     # the plugin IS enabled, so the check walks its whole specialist list, but there is no install record
@@ -178,7 +178,7 @@ try {
     # narrower window than "the partial case is covered". The state that actually survives a session start
     # is a record of the wrong SHAPE, which is what [RECORD-SHAPE] below reports; the total case is still
     # covered from the workshop by check-connectors, which can speak about a consumer that has gone silent.
-    $notInstalledLines = @($out | Where-Object { $_ -cmatch '\[NOT-INSTALLED-HERE\]' })
+    $notInstalledLines = @(Select-CheckMarkerLine -Output $out -Marker '[NOT-INSTALLED-HERE]')
 
     # [RECORD-SHAPE] rides along the same way (inbound #314/#315/#323), and it exists because of the
     # measurement in the comment just above: what a session start leaves behind is not "no record" but a
@@ -194,7 +194,7 @@ try {
     # it most, because the REMEDY lives only in those lines. They now carry the marker themselves, so no
     # change is needed here beyond knowing that a run can forward more than one line per plugin: at most
     # one roll-up plus one detail per enabled plugin. That is bounded and it is the actionable half.
-    $recordShapeLines = @($out | Where-Object { $_ -cmatch '\[RECORD-SHAPE\]' })
+    $recordShapeLines = @(Select-CheckMarkerLine -Output $out -Marker '[RECORD-SHAPE]')
 
     # Did the child run to completion? Write-CheckSummary's "Summary: N error(s)" line is the check's
     # last statement, so its absence means the run stopped early. The exit code cannot tell us on its

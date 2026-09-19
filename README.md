@@ -607,7 +607,7 @@ its plugin, and every consuming repo keeps only its repo lens in `.claude/specia
 
 Every specialist in these plugins consists of two files, each with its own job:
 
-- **`agents/<group>-<id>-agent.md` — the agent definition**, the executable form. The frontmatter
+- **`subagents/specialist-<group>-<id>-subagent.md` — the agent definition**, the executable form. The frontmatter
   (`name`, `description`, `tools`, `model`) is what Claude Code reads to register the subagent;
   the `description` is also the routing signal the main loop uses to pick a subagent. The body is
   deliberately just a compact operational core (working method, boundaries, deliverable format) and
@@ -1085,7 +1085,7 @@ measured fact — which changes its weight without removing it:
    whichever plugin happens to sit last, with nothing on screen to say so.
 2. **It changes every consumer's main loop on their next plugin update**, from a version bump they did
    not read. Outward-facing and effectively irreversible for anyone who pulls it before a revert.
-3. **Chris ships as a persona, not a subagent, so there is no `agents/01-01-agent.md` to point at.**
+3. **Chris ships as a persona, not a subagent, so there is no `subagents/specialist-01-01-subagent.md` to point at.**
    Creating one is not a formality: that file's `tools:` and `model` would become **the whole main
    thread's** tool policy and model.
 
@@ -1527,7 +1527,7 @@ reminder is what a derivation makes unnecessary.
 3. **The marketplace entry** — register the plugin in
    [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) with a repo-relative
    `source`.
-4. **The specialists** — `agents/<group>-<id>-agent.md` + `manuals/specialist-<group>-<id>-manual.md` per
+4. **The specialists** — `subagents/specialist-<group>-<id>-subagent.md` + `manuals/specialist-<group>-<id>-manual.md` per
    member, following the `<group>-<id>` convention (a globally unique `id`).
 5. **The docs that enumerate the plugins** — this README (the plugin count, the
    [teams-and-workflows table](#teams-and-workflows--whats-the-difference), the [invocation list](#invocation),

@@ -103,6 +103,14 @@ be thorough about machines nobody uses.
   reading 26 missing agent-defs. A wrong-but-loud value would have been repaired the day it drifted; a
   false skip taught nobody anything, so writing one machine's answer in and leaving the others silently
   skipped would only move the defect rather than close it.
+
+  **Manifests that share a `siblingGroup` carry the same candidate layouts**
+  ([#2141](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2141)). They sit on the same
+  machine layout, so a candidate one of them needs is a candidate all of them need -- and adding one to a
+  single manifest is what produced the fourth false `[SKIP]` in this class, after #1524, #1807 and #1831.
+  `connectors.tests.ps1` case 6b compares the lists with the repo folder taken off each candidate, so
+  the pair cannot drift apart unnoticed. A layout still goes into a group only once a machine has been
+  measured to place a checkout there, per the rule above; the invariant then carries it to the siblings.
 - `plugins` contains, per installed plugin, that plugin's `extensions` inventory.
 - **A plugin rename does not get written into `plugins[].id` on the day the rename lands here — only
   after the consumer itself has migrated.** The same "registry data should follow reality" discipline

@@ -105,7 +105,7 @@ try {
 
     function Get-Verdict {
         param([int64]$Total, [int64]$Budget = 100000, $Baseline = $null)
-        $m = [pscustomobject]@{ Total = $Total; Unmeasured = @(); Carried = @(); Sizes = @{} }
+        $m = [pscustomobject]@{ Total = $Total; Unmeasured = @(); Carried = @(); Dead = @(); Sizes = @{} }
         return (Get-AlwaysOnBudgetVerdict -Measurement $m -Budget $Budget -Baseline $Baseline)
     }
 
@@ -210,6 +210,98 @@ try {
     }
 
     Write-Host ''
+    Write-Host 'A DEAD import against an UNSEEN one -- one unresolved line, two different facts' -ForegroundColor Cyan
+
+    # THE SHAPE #2138 WAS MEASURED ON: a registered consumer importing the ORCHESTRATOR's body from a
+    # marketplace path retired eight days earlier. Every assert in this block is about the diagnosis
+    # rather than the arithmetic -- the old report called it "not measured and not recorded" and told
+    # the reader to re-run on a machine where the import resolves, which is where they already were.
+    $RepoDead = Join-Path $Fixture 'repo-dead'
+    New-Item -ItemType Directory -Path $RepoDead -Force | Out-Null
+    $homeLive = Join-Path $Fixture '_home_live'
+    $mktRoot  = Join-Path $homeLive '.claude\plugins\marketplaces'
+    New-Item -ItemType Directory -Path (Join-Path $mktRoot 'present-market') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $mktRoot 'present-market\persona.md'), (('y' * 999) + "`n"), $Utf8NoBom)
+    # A sibling whose name STARTS with the root's, which is what the separator in the prefix test is for.
+    New-Item -ItemType Directory -Path (Join-Path $homeLive '.claude\plugins\marketplaces-extra') -Force | Out-Null
+
+    $liveTarget = '~/.claude/plugins/marketplaces/present-market/persona.md'
+    $deadTarget = '~/.claude/plugins/marketplaces/retired-market/persona.md'
+
+    $env:MEASURE_CONTEXT_HOME = $homeLive
+    try {
+        # THE TWO PROOFS, and the two non-proofs beside them.
+        Assert-Equal 'dead' (Get-ImportAbsenceKind -Path (Join-Path $RepoDead 'gone.md') -RepoRoot $RepoDead) `
+            'a missing IN-TREE import is dead: the repo is present by definition -- this run is reading it'
+        Assert-Equal 'dead' (Get-ImportAbsenceKind -Path (Join-Path $mktRoot 'retired-market\persona.md') -RepoRoot $RepoDead) `
+            'a missing import under an EXISTING marketplace root is dead, not unprovable'
+        Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $Fixture 'elsewhere\x.md') -RepoRoot $RepoDead) `
+            'a missing import that is neither in the repo nor under the marketplace root proves nothing'
+        Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $homeLive '.claude\plugins\marketplaces-extra\x.md') -RepoRoot $RepoDead) `
+            'a SIBLING directory whose name merely starts with the MARKETPLACE root is not inside it'
+        # THE SAME ASSERT ON THE OTHER BRANCH, and its absence is why the first draft shipped with the
+        # guard on one test and not the other: 'repo-deadXYZ' is not in 'repo-dead', and the bare prefix
+        # comparison said it was. Both branches go through Test-PathIsUnder now, and both are pinned --
+        # a containment test written twice is one that can be right once (code review of #2138).
+        Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path ($RepoDead + 'XYZ\gone.md') -RepoRoot $RepoDead) `
+            'a SIBLING directory whose name merely starts with the REPO root is not inside it either'
+        Assert-True (Test-PathIsUnder -Path (Join-Path $RepoDead 'a\b.md') -Parent $RepoDead) `
+            'Test-PathIsUnder: a nested path is inside'
+        Assert-True (Test-PathIsUnder -Path $RepoDead -Parent $RepoDead) `
+            'Test-PathIsUnder: the parent itself counts as inside -- a target resolving to the directory is still this tree''s'
+        Assert-True (-not (Test-PathIsUnder -Path ($RepoDead + 'XYZ') -Parent $RepoDead)) `
+            'Test-PathIsUnder: a name-prefix sibling is not'
+
+        [System.IO.File]::WriteAllText((Join-Path $RepoDead 'CLAUDE.md'),
+            ("# Root`n@$liveTarget`n@$deadTarget`n" + ('x' * 2000) + "`n"), $Utf8NoBom)
+
+        $mDead = Get-AlwaysOnMeasurement -RepoRoot $RepoDead
+        Assert-Equal 1 @($mDead.Dead).Count 'the retired marketplace is reported DEAD'
+        Assert-Equal $deadTarget @($mDead.Dead)[0].Target 'and it is the retired target that is named, not the one that resolves'
+        Assert-Equal 0 @($mDead.Carried).Count 'with no baseline there is nothing to carry'
+        Assert-Equal 1 @($mDead.Unmeasured).Count 'it is unmeasured TOO -- the sets cut across each other rather than replacing one another'
+
+        # THE REGRESSION THIS BLOCK EXISTS FOR. A figure in the baseline says what a document USED to
+        # cost; it is no evidence that anything still loads it. Asked after the carried branch instead
+        # of before it, this lib's own memory would hide the one failure it is here to surface -- and
+        # the total would go on reporting bytes for a document no session has.
+        $bDead = New-Baseline -Bytes 9999 -Documents @{ $deadTarget = 1000 }
+        $mDeadc = Get-AlwaysOnMeasurement -RepoRoot $RepoDead -Baseline $bDead
+        Assert-Equal 1 @($mDeadc.Dead).Count 'a dead import with a RECORDED figure is still reported dead'
+        Assert-Equal 1 @($mDeadc.Carried).Count 'and its recorded bytes are still carried'
+        Assert-Equal ($mDead.Total + 1000) $mDeadc.Total 'the total is unchanged by the diagnosis -- dropping a carried term is what makes the next branch read as growth'
+        $vDead = Get-AlwaysOnBudgetVerdict -Measurement $mDeadc -Budget 100000 -Baseline $bDead
+        Assert-Equal 1 @($vDead.Dead).Count 'the verdict passes the dead set through to the reporting layer'
+
+        # AND THE CI SHAPE, which is the reason the exclusion existed at all (issue #874): a runner has
+        # no marketplace clone, so nothing about that import can be concluded there and erroring would
+        # fail every PR for a correct file.
+        $outDead = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoDead 2>&1
+        $textDead = ($outDead | Out-String)
+        Assert-Equal 0 $LASTEXITCODE 'a dead import WARNS and does not refuse -- the exit code belongs to the budget'
+        Assert-True ($textDead -match "DEAD '@'-import") 'the check names it as dead'
+        Assert-True ($textDead -match 'Repair the import line') 'and gives the remedy that can actually help'
+        Assert-True ($textDead -notmatch 'not measured and not recorded') 'and does NOT also print the re-run-elsewhere instruction for the same line'
+        # always-on-sessioncheck.ps1 forwards the [WARN]-MARKED lines to every session start and drops
+        # the indented continuations, so a remedy on a continuation line never leaves this gate.
+        Assert-True (@($outDead | Where-Object { "$_" -cmatch '\[WARN\]' -and "$_" -match 'Repair the import line' }).Count -gt 0) `
+            'the remedy sits on a [WARN] line, which is the only part the session-start hook forwards'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    $env:MEASURE_CONTEXT_HOME = (Join-Path $Fixture '_home_absent')
+    try {
+        Assert-Equal 'unprovable' (Get-ImportAbsenceKind -Path (Join-Path $mktRoot 'retired-market\persona.md') -RepoRoot $RepoDead) `
+            'with no marketplace root on the machine at all, the same target is UNPROVABLE -- a CI runner concludes nothing'
+        $mCiDead = Get-AlwaysOnMeasurement -RepoRoot $RepoDead
+        Assert-Equal 0 @($mCiDead.Dead).Count 'so CI reports no dead import'
+        Assert-Equal 2 @($mCiDead.Unmeasured).Count 'and both external documents fall back to unmeasured, exactly as before'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    Write-Host ''
     Write-Host 'The check script -- exit codes and the refusals' -ForegroundColor Cyan
 
     # A second fixture tree, all in-tree, so the script can be driven without a home override.
@@ -261,6 +353,56 @@ try {
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $Repo3 2>&1
     Assert-Equal 0 $LASTEXITCODE 'a repo with no CLAUDE.md is skipped'
     Assert-True ((($out | Out-String)) -match '\[SKIP\]') 'and says SKIP rather than reporting a zero-byte path'
+
+    # --- #2142: A FORGED MARKER IN A REPORTED VALUE CANNOT SELECT ITSELF INTO A SESSION START -------
+    # Two fields of this report come from the tree rather than from the check -- the raw '@'-import
+    # target and the path of the file importing it -- and always-on-sessioncheck decides what to
+    # forward by matching '[WARN]'/'[ERROR]' over this output. Both ends are pinned here, because
+    # either alone would leave the other free to drift: the value is stripped where it enters the
+    # line, and the hook counts a marker only where this check wrote one.
+    Write-Host ''
+    Write-Host 'A marker inside a reported import target (#2142)' -ForegroundColor Cyan
+
+    $RepoForge = Join-Path $Fixture 'repo-forge'
+    New-Item -ItemType Directory -Path $RepoForge -Force | Out-Null
+    # An import line naming a document that does not exist, whose TARGET carries the characters the
+    # hook counts -- twice over, so the strip has to remove both. In-repo and provably absent, so it
+    # reaches the '[WARN]  DEAD' branch, which is the loudest thing this check forwards.
+    # Written directly rather than through New-Fixture: that helper writes relative to $Fixture, not to
+    # a per-repo root, and this block needs a repo of its own.
+    [System.IO.File]::WriteAllText((Join-Path $RepoForge 'CLAUDE.md'),
+        "@docs/forged[ERROR]-and-[WARN].md`nsome always-on prose.`n", $Utf8NoBom)
+
+    $outForge  = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoForge 2>&1
+    $linesForge = @($outForge | ForEach-Object { "$_" })
+    $textForge  = ($linesForge -join "`n")
+    Assert-Equal 0 $LASTEXITCODE 'an unmeasurable import warns and does not refuse, forged marker or not'
+    Assert-True ($textForge -match "DEAD '@'-import") 'the check still reports the import as dead'
+    # The strip: the target is printed without the brackets, so no second marker exists on the line at
+    # all. Its readable remainder stays, because a finding that names a path nobody can look up is
+    # worth less than one showing a sanitized name (Format-SafePathToken's own doctrine).
+    $forgeLine = @($linesForge | Where-Object { $_ -match "DEAD '@'-import" })[0]
+    Assert-True ($forgeLine -notmatch '\[ERROR\]') 'the reported target carries no [ERROR] -- the value is stripped where it enters the line'
+    Assert-Equal 1 ([regex]::Matches($forgeLine, '\[WARN\]').Count) 'and exactly ONE [WARN] survives on it: the one the check itself wrote'
+    Assert-True ($forgeLine -match 'forged') 'while the readable part of the target is still there to look up'
+
+    # The anchor, measured through the hook rather than argued about: a run whose verdict is [OK] must
+    # not produce the over-the-limit headline, and must not dump the whole report.
+    $HookScript = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\always-on-sessioncheck.ps1'
+    $outHook = & powershell -NoProfile -ExecutionPolicy Bypass -File $HookScript `
+                   -CheckScriptOverride $Script -ConsumerPathOverride $RepoForge 2>&1
+    $textHook = (@($outHook | ForEach-Object { "$_" }) -join "`n")
+    Assert-True ($textHook -notmatch 'over its limit') 'the hook does not report an over-the-limit path on a run whose verdict is [OK]'
+    Assert-True ($textHook -match 'always-on path:') 'it still prints the one-line headline it exists for'
+    Assert-True ($textHook -match "DEAD '@'-import") 'and still forwards the genuine [WARN] line'
+
+    # THE SELECTOR ITSELF, on the shape no fixture can conveniently produce: a marker sitting mid-line
+    # in a value. hook-check-lib.tests.ps1 owns the function's full contract; this asserts the property
+    # THIS check depends on, so a change there that loosened the anchor would go red here too.
+    . (Join-Path $RepoRoot 'scripts\lib\hook-check-lib.ps1')
+    $forged = @('  [WARN]  not measured: ''a[ERROR]b.md''', '[OK]    inside the budget.')
+    Assert-Equal 0 @(Select-CheckMarkerLine -Output $forged -Marker '[ERROR]').Count 'a marker inside a reported value is not counted'
+    Assert-Equal 1 @(Select-CheckMarkerLine -Output $forged -Marker '[WARN]').Count 'while the marker the check wrote still is'
 } finally {
     Remove-Item -Recurse -Force $Fixture -ErrorAction SilentlyContinue
 }
