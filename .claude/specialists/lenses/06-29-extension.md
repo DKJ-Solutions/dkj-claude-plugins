@@ -5,7 +5,7 @@ group: 06
 
 # Marlowe 🕵️ · claude-code-specialists addendum
 
-> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-29-manual.md`). This file does not describe the craft, but which conclusions Marlowe red-teams in this repo.
+> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-29-manual.md`). This file does not describe the craft, but which conclusions Marlowe red-teams in this repo.
 
 An investigative journalist does the same thing everywhere — try to prove a recommendation wrong
 before anyone acts on it: the fine print, the load-bearing assumption, the marketing-versus-reality

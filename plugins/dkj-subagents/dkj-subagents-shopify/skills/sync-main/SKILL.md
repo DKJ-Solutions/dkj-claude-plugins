@@ -61,7 +61,7 @@ exists to end. Read the name as what it is -- a label for the step -- and this s
 
 **Where the trigger is stated, and where it is not.** Here, and nowhere else. Everything else in this
 plugin that has to mention when the sync fires -- [Sandra's
-manual](../../manuals/05-21-manual.md#the-pre-task-sync--and-why-the-obvious-version-of-it-destroys-work),
+manual](../../manuals/specialist-05-21-manual.md#the-pre-task-sync--and-why-the-obvious-version-of-it-destroys-work),
 [`start-task`](../start-task/SKILL.md) -- links to this section instead of restating it, and a consumer's
 own `CLAUDE.md` should do the same. Three paraphrases inside this plugin had drifted into three different
 triggers before anybody compared them, and two consumers of one owner then read the step as
@@ -104,7 +104,7 @@ would do to it.
    for speed: an in-process object-id comparison first, then the same comparison with CR bytes ignored --
    which is how the CLI's line-ending rewrites (measured at **37 of 712 files** on one real store) drop
    out before any rule sees them. Both halves are in
-   [Steven's manual](../../manuals/05-22-manual.md#the-cli-rewrites-line-endings-and-that-is-a-property-of-the-tool)
+   [Steven's manual](../../manuals/specialist-05-22-manual.md#the-cli-rewrites-line-endings-and-that-is-a-property-of-the-tool)
    with the measurements (inbound
    [#788](https://github.com/DaveKJohn/claude-code-specialists/issues/788)).
 6. **Decides a verdict per differing path** -- `keep-trunk`, `take-live` or `conflict` -- and prints all

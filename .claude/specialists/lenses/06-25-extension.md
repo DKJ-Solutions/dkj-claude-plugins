@@ -5,7 +5,7 @@ group: 06
 
 # Nolan ⚡ · claude-code-specialists addendum
 
-> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-25-manual.md`). This file does not describe the craft, but what Nolan measures in this repo and with whom he works.
+> Repo-lens (claude-code-specialists) accompanying the portable playbook in the `dkj-subagents-alpha` plugin (`plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-25-manual.md`). This file does not describe the craft, but what Nolan measures in this repo and with whom he works.
 
 A performance engineer does the same thing everywhere — measure resource cost and trim it without
 losing function. **What is repo-specific in claude-code-specialists is not that Nolan measures, but
@@ -469,7 +469,7 @@ only while it says when each one was opened.
    were what somebody had counted. The gate time *was* re-measured and was unchanged (~13 of the ~30
    minutes); the end-to-end figure was captured neither before nor after, and a baseline cannot be taken
    retroactively. The portable half of that lesson is in
-   [Nolan's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-25-manual.md) under *report in the unit the
+   [Nolan's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-25-manual.md) under *report in the unit the
    question was asked in*.
 2. **ANSWERED August 11, 2026: 9 of the 30 suites can change behaviour on a markdown-only diff — so
    "markdown-only, therefore skip the second local run" does not hold in this repo.** Measured over all 30
@@ -566,7 +566,7 @@ only while it says when each one was opened.
    anything about the event type**, and it removes the tempting explanation that a docs-only diff runs faster.
    The median is what the model uses; the range is kept beside it because a cost with a 4m 10s spread should
    never again be quoted as a point. The portable half of this lesson is in
-   [Nolan's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-25-manual.md) under *a cost that varies per
+   [Nolan's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-25-manual.md) under *a cost that varies per
    run is counted over its population*, alongside the unit rule it is the sibling of — so it applies to every
    per-run cost he is asked about, not only to a CI gate.
 

@@ -215,7 +215,7 @@ for one operator. The two were compared point by point rather than assumed disti
   worktree) buys nothing here: this repo is deliberately secret-free -- see `.gitignore`'s own comment
   on `.env` -- so there is nothing for it to carry.
 - **`isolation: "worktree"` for a dispatched subagent** is used elsewhere in this system (Chris's
-  manual, `01-01-manual.md`) for several subagents writing to the same files at once, and rejected for
+  manual, `specialist-01-01-manual.md`) for several subagents writing to the same files at once, and rejected for
   review dispatch -- both on measured grounds unrelated to lanes (a fresh worktree starts from HEAD, so
   it is blind to uncommitted work, and it dirties the primary tree while it stands). Neither case is
   what `worktree-lane` is for: a lane is opened and driven by the *same* session across its whole

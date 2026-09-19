@@ -789,7 +789,7 @@ Derek prefers not to touch the git commands by hand. His toolbox:
   absent without anything being wrong** — and why the skip line says so rather than staying silent.
   `-BudgetSeconds` is the explicit form, for a suite; a run typed by hand passes neither and behaves
   exactly as it always did. The portable half of the rule is in
-  [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md).
+  [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md).
 - `scripts/task/park-branch.ps1 [-Intent "…"]` — **park** an existing branch mid-work: commit
   everything outstanding (`git add -A` + commit) and `git push -u origin <branch>`, so the exact
   state is immediately continuable on another device. Refuses on `main`, opens **no PR**, and does

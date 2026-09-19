@@ -371,7 +371,7 @@ They sit on different axes — one is "which platform," the other is "which mark
 ## What lives here and what doesn't
 
 **Does live here:** the plugin folders under [`plugins/`](plugins/) with **subagent definitions**
-(`agents/`) and the **portable playbook** per specialist (`manuals/<group>-<id>-manual.md`) that the
+(`agents/`) and the **portable playbook** per specialist (`manuals/specialist-<group>-<id>-manual.md`) that the
 agent def reads in via `${CLAUDE_PLUGIN_ROOT}/manuals/`. The core team (`dkj-subagents-alpha`) additionally
 carries two things that cover the **main-loop layer** (see
 [Adoption: the bootstrap path](#adoption-the-bootstrap-path)): the **persona templates**
@@ -591,7 +591,7 @@ a **persona template**.
 A specialist handbook splits into a **portable** part (repo-neutral, identical in every repo: the
 craft, the hard rules, the tone) and a **repo lens** (the `## Specific to this repo` part: which
 content/context of that repo the specialist serves). The portable part lives in
-`plugins/<plugin>/manuals/<group>-<id>-manual.md` in this marketplace; the consuming repo keeps only
+`plugins/<plugin>/manuals/specialist-<group>-<id>-manual.md` in this marketplace; the consuming repo keeps only
 the lens in `.claude/specialists/lenses/<group>-<id>-extension.md`. The agent def points to both.
 
 **All four teams have now been migrated** — every handbook lives here in the `manuals/` folder of
@@ -612,7 +612,7 @@ Every specialist in these plugins consists of two files, each with its own job:
   the `description` is also the routing signal the main loop uses to pick a subagent. The body is
   deliberately just a compact operational core (working method, boundaries, deliverable format) and
   refers to the playbook for the actual craft.
-- **`manuals/<group>-<id>-manual.md` — the playbook**, the full description of the craft: the
+- **`manuals/specialist-<group>-<id>-manual.md` — the playbook**, the full description of the craft: the
   hard rules, the trade-offs behind them, and the personality & tone. It is read on demand — by the
   subagent itself when in doubt, and by the main loop (the orchestrator that assigns the work and
   the personas that are not subagents).
@@ -1527,7 +1527,7 @@ reminder is what a derivation makes unnecessary.
 3. **The marketplace entry** — register the plugin in
    [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) with a repo-relative
    `source`.
-4. **The specialists** — `agents/<group>-<id>-agent.md` + `manuals/<group>-<id>-manual.md` per
+4. **The specialists** — `agents/<group>-<id>-agent.md` + `manuals/specialist-<group>-<id>-manual.md` per
    member, following the `<group>-<id>` convention (a globally unique `id`).
 5. **The docs that enumerate the plugins** — this README (the plugin count, the
    [teams-and-workflows table](#teams-and-workflows--whats-the-difference), the [invocation list](#invocation),

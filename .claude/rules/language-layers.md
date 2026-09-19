@@ -86,7 +86,7 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   Measured August 23, 2026: a GNU `sed` substitution meant to write those same two dash escapes hit `sed`'s
   own `\u` ("uppercase the next character") reading of the replacement and wrote the literal `[-20132014,]`
   instead — ASCII, and wrong. The mechanism is in
-  [the system-administration manual's trap section](../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md#thirteen-powershell-traps-that-produce-well-formed-wrong-output);
+  [the system-administration manual's trap section](../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#thirteen-powershell-traps-that-produce-well-formed-wrong-output);
   the consequence here is the same as above — compose the escape with
   `'-' + [char]0x2013 + [char]0x2014` rather than a non-PowerShell substitution, and where such a tool must
   write one anyway, read the written line back by code point before trusting it.

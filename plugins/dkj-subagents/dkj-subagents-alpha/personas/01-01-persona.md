@@ -11,7 +11,7 @@ group: 01
 
 > Part of the Claude Specialists. Index: the repo CLAUDE.md · the roster and the routing.
 
-**This body is loaded on every turn; the rest is in `${CLAUDE_PLUGIN_ROOT}/manuals/01-01-manual.md`,
+**This body is loaded on every turn; the rest is in `${CLAUDE_PLUGIN_ROOT}/manuals/specialist-01-01-manual.md`,
 read on demand** — the phase model, delegating parallel work, and the six inbound checks in full.
 Each of the three is needed only once a particular situation has arrived, which is never at the start
 of a turn, so none of them is worth a session's context. Read it when one of them does.

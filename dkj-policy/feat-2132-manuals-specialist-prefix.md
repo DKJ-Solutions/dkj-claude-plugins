@@ -39,23 +39,80 @@
 
 ### PLAN
 
-Step C of the #2128 rename plan. The 27 manual files move; the readers that construct or glob that name move with them. The PR waits on steps A (#2130) and B (#2131) landing first -- Dave's instruction at pickup.
+Step C of the rename plan in [#2128](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2128):
+the 27 portable manuals become `specialist-<group>-<id>-manual.md`, and every reader that constructs or
+judges that name moves with them.
+
+#### The PR waits on steps A and B -- Dave's instruction at pickup
+
+The work is built now; the pull request is not opened until [#2130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2130)
+(step A, the dual-name readers) and [#2131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2131)
+(step B, the subagent defs) have landed. This branch is cut from the trunk rather than stacked on either,
+so it rebases onto them; where step A's dual-name layer replaces a literal this branch rewrote, A's
+resolver wins and the literal goes.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The 27 files renamed with `git mv` -- `-alpha` (16), `-ecomm` (3), `-lifehub` (5), `-shopify` (3).
+- [x] Lint check 3b: the id extraction is now `^specialist-(\d{2})-(\d{2})-manual$`, and the refusal names
+      the new pattern. **The `*-manual.md` glob is deliberately left loose** -- it still matches both
+      spellings, which is what keeps a file left behind on the old name visible to 3b's refusal instead of
+      silently unscanned.
+- [x] Lint check 6a: the constructed `$manualBase` carries the prefix, so an agent def is held to naming
+      `manuals/specialist-<g>-<id>-manual.md`.
+- [x] Lint check 6b: the orphan walk's own `^(\d{2})-(\d{2})-manual$` moved too -- left behind it would
+      have matched nothing and skipped the whole check in silence -- and so did the persona-names-its-manual
+      string.
+- [x] The 26 agent defs and Chris's persona body now name their manual at the new path.
+- [x] The prose that names a manual: `README.md`, `CLAUDE.md`, `.claude/rules/language-layers.md`, the
+      specialists handbook, 11 repo lenses, three plugin READMEs, three SKILL pages, and the three manuals
+      that cross-link each other.
+- [x] The check 6b fixture in `scripts/tests/check-plugin-integrity-docs.tests.ps1`.
+- [x] The 23 manual links in the archived release documents under `dkj-policy/releases/**` -- see the
+      note under TEST; the issue had placed this out of scope.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1` green -- `[manual] checked 27`, `[specialist] checked 53`, 0 errors.
+- [ ] Every suite under `scripts/tests/` green.
+- [ ] The #1757 check: `git diff origin/main...HEAD | grep '^+' | grep -v '^+++' | grep -- '-manual\.md'`
+      names only the new spelling, the two protected citations excepted.
+
+#### The historical carve-out covers wording, not link targets
+
+The issue put `dkj-policy/releases/**` out of scope on the historical carve-out. That reading does not
+survive the gate: check 4 scans `releases/**/*.md`, so the rename left 8 dead links there, and the three
+previous renames of this kind all rewrote the same links -- `e262121d` (#1698) is the nearest, moving
+`plugins/dkj-teams/dkj-team-shopify/manuals/05-21-manual.md` to its `dkj-subagents` spelling inside
+`1.15.0.md`. So the carve-out is about what those documents SAY, which is left exactly as written; a link
+target is a pointer, and a pointer that no longer resolves records nothing. Steps D and F inherit this.
+
+#### Two citations are deliberately left on the old name
+
+`.claude/specialists/lenses/05-15-extension.md` and `check-plugin-integrity.ps1`'s check-30 comment both
+quote `../../../../teams/team-alpha/manuals/06-25-manual.md` as it stood in the installed v4.22.0 copy,
+verified on disk. Renaming those would rewrite the evidence rather than the convention. A third,
+`scripts/tests/release-lib.tests.ps1:1328`, is a synthetic path against a fake root whose own comment says
+the shape is deliberately not this repo's.
+
 ### DEPLOY: feat/2132-manuals-specialist-prefix
 
-**Score:**
+Every portable manual is now named `specialist-<group>-<id>-manual.md`, and the readers that judge or
+construct that name were moved in the same commit -- check 3b's id extraction, check 6a's constructed
+path, check 6b's orphan walk and its persona-names-its-manual assert. The `*-manual.md` glob stayed loose
+on purpose: it is what keeps a file left on the old name inside 3b's refusal instead of outside its scan.
+Step C of the rename plan in #2128.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nothing here needs a consumer to act. A manual is read through
+`${CLAUDE_PLUGIN_ROOT}/manuals/...`, which resolves into the version-pinned plugin cache, so the agent def
+and the manual it names travel together in one release and never disagree between two of them.
+
+**Score:** N/A
 
 #### Pull Request
 
 The manuals are renamed to specialist-NN-NN-manual.md
-
