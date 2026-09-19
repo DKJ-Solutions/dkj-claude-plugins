@@ -1008,7 +1008,8 @@ function Get-NativeLineText {
         so a caller gets a literal 'System.Management.Automation.RemoteException' where the command's
         own blank line belonged. The two libs stay separate copies rather than one shared helper
         because shopify-cli-lib deliberately does not dot-source this file -- see its header for why
-        its wrapper is purpose-built.
+        its wrapper is purpose-built, and Get-ShopifyLineText's own docstring for the trade written out
+        (issue #2158 weighed unifying them and closed on that reason). Change one body, change both.
     #>
     param([Parameter(Mandatory = $true)][AllowNull()]$Line)
 
