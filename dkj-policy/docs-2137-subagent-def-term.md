@@ -65,9 +65,9 @@ path the tooling resolves.
 
 ### CREATE
 
-- [ ] Record the rule in the portable layer -- the technical writer's manual, beside the language convention
-- [ ] State the term and its boundary in `README.md`, where a reader meets the word
-- [ ] Repair the noun in the places where the contradiction stands on the line itself
+- [x] Record the rule in the portable layer -- the technical writer's manual, beside the language convention
+- [x] State the term and its boundary in `README.md`, where a reader meets the word
+- [x] Repair the noun in the places where the contradiction stands on the line itself
 
 ### TEST
 
