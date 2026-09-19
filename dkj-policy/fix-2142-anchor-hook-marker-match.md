@@ -104,9 +104,12 @@ Every session hook now counts a verdict marker only where its check wrote it, th
 prints the way the rest of this tree already does. Before this, a document able to put `[WARN]` or
 `[ERROR]` on the always-on path had its own line forwarded into every session start -- and `[ERROR]`
 made the hook print its over-the-limit headline and the whole report on a run that was in fact `[OK]`.
-Reaching it needed content already merged into the tracked import chain, so this is robustness rather
-than a closed hole; what it removes is the shape that goes wrong later, when somebody adds a field to
-a report and does not know a sanitizer was load-bearing for it. The sweep is the bigger half: eight
+Reaching it needed content in the tracked import chain of the checkout being measured -- which is a
+branch under review, not only the trunk: the check runs from `open-pr`, from CI and from a session
+start against whatever is checked out, so a pull request touching an `@`-import line already tripped
+it. So this is robustness rather than a closed hole, and the hole was one hop nearer than "already
+merged" suggests. What it removes is the shape that goes wrong later, when somebody adds a field to a
+report and does not know a sanitizer was load-bearing for it. The sweep is the bigger half: eight
 hooks across two plugins were selecting this way, each with its own hand-written escape.
 
 **Score:** 2
