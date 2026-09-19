@@ -43,7 +43,89 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 28 minor entries** <!-- pending-tally -->
+**15 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2163-statusline-refresh-interval-seconds · 20260919-185355
+
+The progress bar's timer was set in the wrong unit and so never fired: `refreshInterval` is in seconds,
+this repo set `2000`, and Claude Code read that as 33 minutes -- so during a backgrounded gate the bar
+stayed on whatever count it last drew and jumped to the true one only when the operator sent a message,
+which is the moment they had stopped believing it. It is now `2`, in this repo's own settings and in what
+`adopt-statusline.ps1` places, with the unit stated where the number is set and a test that refuses a
+millisecond-sized value coming back. The statusline adoption is not in a released version yet, so no
+consumer carries the wrong figure.
+
+The failure it prevents, named: a released reader turning the progress bar on and finding it frozen for
+the whole of every run they backgrounded, updating only when they speak. That has not happened outside
+this repo, because the feature has not shipped.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- nothing here needs a consumer to act. No released copy of `adopt-statusline.ps1` carries the wrong
+value, so there is no already-adopted settings file left holding it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The statusline refreshInterval is in seconds, not milliseconds
+
+Plugins: dkj-policy
+
+[PR #2164](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2164)
+
+---
+
+### DEPLOY: docs/2157-2158-capture-comment-accuracy · 20260919-181738
+
+Two comments in the capture family now say something true. `Invoke-GitPark` told a reader that its
+captured push output "can hold ErrorRecords as well as strings" and that `-match` against that array
+would return elements rather than a boolean -- while the comment thirty lines above, in the same
+function, correctly said the bound routes into the Start-Process arm and `Output` comes back as an
+array of strings. Neither claim survived being checked: the arm produces strings here, and the `-match`
+is inside `Get-GitPushFailureMessage`, whose `$Output` is `[string]`-typed, so an array never reaches
+it as an array. The replacement says what the `Out-String` flatten is still for -- rendering the lines
+*as lines*, where `$OFS` coercion would fuse them with spaces -- and why it deliberately is not
+`Get-NativeOutputText`, the helper [#2154](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2154)
+added for exactly this shape: the flattened text here is matched and never printed, so there is no
+reader for an exception dump to reach.
+
+**Both issues proposed a repair that was itself wrong, and neither was built as filed.**
+[#2157](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2157) rested on
+[#2155](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2155) having closed the `ErrorRecord`
+class library-wide, which was not true when it was filed and became true while this branch was open --
+so the comment rests on the half that held throughout, that a bounded capture answers from the
+Start-Process arm. Its suggested rewording kept the `-match` clause that does not apply at that line.
+[#2158](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2158) recorded the deliberate
+`Get-NativeLineText` / `Get-ShopifyLineText` duplication as *inferred*, with "nothing in either file
+says so"; `Get-NativeLineText` already said it, so what landed is the reciprocal note in the docstring
+that was missing it, with the trade written out -- two libs that depend on nothing, two separate mirror
+sets a shared eight-line source would have to land in, and the cost that nothing enforces the pair
+staying in step.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing here changes what any consumer's scripts do -- the diff has no executable line in it. The three
+files ship in `dkj-policy` and `dkj-subagents-shopify`, so the corrected text does reach every consuming
+repo at the next release, and the reader it is worth something to is the one who opens either lib to
+decide whether a flatten or a duplicated helper is still load-bearing. That reader was previously handed
+a contradiction inside one function and a decision recorded in only one of the two files it governs.
+
+**Score:** 1
+
+#### Pull Request
+
+Correct two stale comments about capture Output shape
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2162](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2162)
+
+---
 
 ### DEPLOY: feat/2132-manuals-specialist-prefix · 20260919-164945
 
