@@ -39,11 +39,168 @@
 
 ### PLAN
 
-Issue #2128 asks for a strict step plan FIRST, before any file is renamed. Research is out with two research agents: (a) the exhaustive inventory of machinery that resolves these four filename conventions, (b) the consumer/propagation reach. The plan goes in this PLAN section once both land.
+#### What this branch delivers
+
+Issue #2128 asks for a strict step plan **before** any file is renamed, because the rename is large.
+This branch delivers **that plan and nothing else** -- no file is renamed here. The rename itself runs
+in the follow-up branches this plan names, each with its own issue.
+
+#### The true mapping, corrected against the tree
+
+The issue names four conventions. Three of its paths and one of its examples do not match the tree, so
+the mapping is restated here in the form the work will actually use:
+
+| # | From | To | Count |
+|---|---|---|---|
+| 1 | `plugins/dkj-subagents/<plugin>/manuals/NN-NN-manual.md` | `specialist-NN-NN-manual.md` | 27 |
+| 2 | `plugins/dkj-subagents/dkj-subagents-alpha/personas/NN-NN-persona.md` | `specialist-NN-NN-persona.md` | 4 |
+| 3 | `plugins/dkj-subagents/<plugin>/subagents/NN-NN-agent.md` | `specialist-NN-NN-subagent.md` | 26 |
+| 4 | `.claude/specialists/lenses/NN-NN-extension.md` | `specialist-NN-NN-lens.md` | 30 |
+
+**87 files, and four corrections to the issue text:**
+
+1. The issue writes `plugins/dkj-subagents/manuals`. That folder does not exist -- manuals, personas and
+   subagents sit one level deeper, per plugin, and **four** plugins carry manuals and subagents
+   (`-alpha`, `-ecomm`, `-lifehub`, `-shopify`), not one. The plan takes all four, because a convention
+   applied to one plugin and not its siblings is the half-rename #1698 already paid for once.
+2. Conventions 3 and 4 change the **suffix as well as the prefix** (`-agent` to `-subagent`,
+   `-extension` to `-lens`). The issue's own examples say so; it is worth stating because a
+   prefix-only sweep would silently leave both halves inconsistent.
+3. The issue writes `02-09-subagent wordt specialist-01-01-subagent`. Read as `specialist-02-09-subagent`.
+4. Only `01-01` carries both a manual and a persona; `03-02`, `05-05` and `05-06` are persona-only. The
+   id matrix is otherwise 1:1 and **no renamed name collides with another**, verified across all 30 ids.
+
+The suffix change in convention 3 finishes what #1698 started: that rename moved `agents/` to
+`subagents/` but left the files inside called `NN-NN-agent.md`. Convention 4 aligns the filename with
+the word the whole tree already uses in prose ("repo lens").
+
+#### The measured reach
+
+- **476 occurrences across 120 files** must move with the 87 renames.
+- **150 occurrences across 70 files** sit in `dkj-policy/releases/**` and are **not swept** -- the
+  existing historical carve-out in `.claude/rules/language-layers.md`. `CHANGELOG.md` holds none.
+- **237** of the 476 are markdown links, which the lint gate's dead-link scan (check 4) catches.
+  The remaining ~239 are backticked or bare mentions that **no gate reads**.
+
+#### The four hazards, in descending order of danger
+
+**1. The persona `@`-import breaks outside every version gate, and it fails completely silently.**
+
+Every consumer's `SPECIALISTS.md` carries a hardcoded absolute line written by `bootstrap.ps1:811`,
+naming `personas/01-01-persona.md` under `~/.claude/plugins/marketplaces/`. That path resolves against
+the marketplace **clone**, which tracks `main` and advances on `claude plugin marketplace update` -- no
+release, no version bump, no `plugin update`. `bootstrap.ps1` never rewrites this line once written
+(`:838-839`, it is authored content), so renaming the file breaks the orchestrator import in every
+already-adopted consumer the moment their clone advances past the rename commit.
+
+**Measured in an isolated checkout, September 19, 2026** (this branch), because the behaviour is
+undocumented and the plan turns on it. A `CLAUDE.md` holding a live import to a missing file:
+
+- the rest of the file **loads normally** -- a broken import is not fatal;
+- the raw `@missing-persona.md` line **stays in context** as inert text;
+- **nothing is reported.** Not on stdout, not on stderr, not under `--debug`. Zero diagnostics.
+
+So a consumer silently loses Chris's entire persona body -- 30,267 bytes per
+`always-on-baseline.json` -- and the session continues as though nothing happened. This is the worst of
+the three possible failure modes, and it is the hazard the plan is built around.
+
+**2. Four specialists fall out of the roster check, through a negative lookbehind.**
+
+`Get-RosterIdTokenPattern` (`scripts/lib/check-report-lib.ps1:1677-1678`) builds a pattern requiring
+that the id is **not** preceded by a digit or a hyphen. In `.claude/specialists/SPECIALISTS.md` the four
+main-loop personas carry their id **only** inside the lens filename in the roster table. Rename that to
+`specialist-01-01-lens.md` and the id is now preceded by a hyphen, the lookbehind fails, and Chris,
+Bianca, Derek and Rendall stop being recognised as rostered.
+
+The subagent rows are unaffected -- they write bare ids. This is a **silent** break that survives fixing
+every anchored `^(\d{2})-(\d{2})-...$` regex in the tree, because it is a different mechanism in a
+different file.
+
+**3. The lens convention is a CONSUMER-owned filename in six registered repos.**
+
+`.claude/specialists/lenses/` lives in the consumer's own tree and holds their authored content.
+Nothing in this repo renames it for them: `bootstrap.ps1` is additive-only and never overwrites, and
+`teardown.ps1` removes only unfilled scaffolds. So a reader updated to the new name finds nothing and
+`check-roster-sync.ps1:910` raises one `[ERROR]` **per specialist** at every session start -- for lenses
+that are sitting right there, filled in, under the old name. That check ships in the **core** plugin's
+`roster-sessioncheck` hook, so it fires in every consumer with the core team enabled.
+
+Six registered connectors: `dkj-claude-plugins` (this repo), `life-hub`, `smartwatchbanden`,
+`xoxowildhearts`, `djcylow-react`, `thumbnail-generator`.
+
+**4. Thirteen reader sites, four mirror families, and 26 literal manifest paths.**
+
+The four `plugin.json` manifests list all 26 subagent paths literally. Check 38 holds the manifest
+against disk, and #1764 is the precedent for getting this wrong: a bad shape there made four of six
+plugins uninstallable for a whole release. The readers themselves (`check-plugin-integrity.ps1`,
+`check-roster-sync.ps1`, `check-report-lib.ps1`, `bootstrap.ps1`, `teardown.ps1`, `sync-roster.ps1`,
+`build-agent-defs.ps1`, `find-specialist-mentions.ps1`, `check-connectors.ps1`,
+`check-consumer-drift.ps1`) are anchored to the current convention by glob and by `^`-anchored regex;
+several are held byte-identical across mirrors by the drift lint (check 8) and must change in the same
+PR:
+
+- `check-report-lib.ps1` -- **four** copies (root, `-alpha`, `-shopify`, `dkj-policy`)
+- `check-roster-sync.ps1` -- two copies (root, `-alpha`)
+
+#### The governing decision: this repo has never done an unguarded cutover, and should not start here
+
+Three prior renames, three different techniques, all recorded:
+
+| What moved | Technique | Where |
+|---|---|---|
+| The branch document (4x) | a **resolver over content** -- try every historical name, decide by what the file says it is | `Resolve-BranchFilePath` |
+| Repo owner + repo name | a **retired-name list** matched alongside the current one | `Get-RetiredRepoNames` |
+| `agent-shared/` (2x) | **no name-dependence at all** -- read the manifest instead | `plugin-tree-lib.ps1` |
+
+**No equivalent resolver exists for these four filenames.** What exists is a scatter of independently
+anchored globs and regexes across thirteen sites -- exactly the shape `Resolve-BranchFilePath`'s own
+docstring warns about, where one convention was recognised by two different rules until they disagreed.
+
+And #1698 adds the round rule: if any other rename is ever going to happen, do it in the same round --
+two rounds pay the consumer migration twice.
+
+#### The plan: one release round, five sequenced PRs
+
+Each PR leaves the lint gate green on its own, which is what makes the sequence reviewable. All five
+land before a single release cut, so consumers migrate once.
+
+- **PR-A -- the readers learn both names.** Add the dual-name layer (a `Resolve-SpecialistFilePath`
+  resolver, or a retired-pattern list, per the prior art) to all thirteen reader sites and their
+  mirrors. **Renames nothing**, so it is a no-op against today's tree and provably safe. This must
+  exist before any file moves, and it is what lets a consumer's old-named lenses keep working. Fix the
+  lookbehind (hazard 2) here.
+- **PR-B -- manuals and personas** (31 files) + their references + the **persona compatibility shim**
+  (hazard 1) + regenerate `always-on-baseline.json`, whose keys are literal paths.
+- **PR-C -- subagent defs** (26 files) + the four `plugin.json` `agents` arrays + references.
+- **PR-D -- this repo's own 30 lenses** + the roster table in `SPECIALISTS.md`.
+- **PR-E -- the migration documentation**: an `INSTALL.md` section (the third of its kind), and the
+  consumer-side steps for the lens rename and the `SPECIALISTS.md` import line.
+
+**Two ordering constraints outside the sequence:**
+
+- **PR #2129 lands first.** It is open now and edits `01-01-extension.md` and `05-05-extension.md` --
+  two files PR-D renames. Merging it afterwards means resolving the rename by hand.
+- **#1757's check runs before each of B through E merges.** Git's rename detection moves files cleanly
+  and says nothing about retired names inside the lines a branch *adds*, so the added-lines grep from
+  that issue is run against each branch before it merges.
+
+#### Two questions for Dave, because both change what gets built
+
+1. **The lens convention (hazard 3)** -- rename it and migrate six consumers, keep the readers
+   dual-name permanently, or leave the lens filenames alone and rename only the plugin-side files.
+2. **The persona compatibility shim (hazard 1)** -- leave `01-01-persona.md` in place as a one-line
+   file importing the renamed body, so no adopted consumer breaks. The import depth allows it
+   (`CLAUDE.md` to `SPECIALISTS.md` to shim to body is 3 of the 4 permitted hops). It costs one
+   deliberate compat file per persona, retired once the register shows every consumer migrated.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Research the machinery that resolves the four conventions, and the consumer propagation reach
+- [x] Measure what Claude Code does with a dead `@`-import, since the behaviour is undocumented
+- [x] Verify the sharpest claims against the tree rather than taking the reports at face value
+- [x] Write the step plan into this document
+- [ ] Put the two open decisions to Dave, and record his answers here
+- [ ] File the follow-up issues for PR-A through PR-E once the decisions are in
 
 ### TEST
 
@@ -58,4 +215,3 @@ Issue #2128 asks for a strict step plan FIRST, before any file is renamed. Resea
 #### Pull Request
 
 A specialist- prefix on every specialist file, and one suffix per kind
-
