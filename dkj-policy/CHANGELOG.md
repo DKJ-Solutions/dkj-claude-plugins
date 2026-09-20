@@ -44,7 +44,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 38 minor entries** <!-- pending-tally -->
+**20 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2179-folder-docs-into-lenses · 20260920-104941
+
+`dkj-policy/` carries no prose pages any more. This repo's own `CONTRIBUTING.md` (1,132 lines) and
+`README.md` (167) are gone, and the ~1,300 lines of measured answers they held now sit in the lens of
+the specialist who owns each: the branch-document mechanics, the pull-request gates and the
+seam-answer table with Sylvester; the issue layer, the claim measurements and the merge step with
+Derek; the fold, the cut and the live-stage no-op with Rendall; keeping a checkout's plugins current in
+the specialists handbook; and the pages' own history, plus the forwarding address to all four, with
+Tessa. This is phase B of #2171 -- phase A is the plugin no longer scaffolding either page into a
+consumer -- and it exists because *"there is only one CONTRIBUTING"* was false in the very repo that
+ships the sentence.
+
+Nothing was summarised away: the measurements keep their issue numbers and their dates, and what was
+left behind is the half that only restated `CONTRIBUTING-portable.md`, which is the duplication #2171
+retired. What the move costs is the one page that read as a route end to end; that route is still
+readable, in the portable page that always described it.
+
+The dead-link gate is what proves the retarget, and it found nine links the issue's count of fourteen
+had missed: seven in the archived release notes, where the published-record rule permits a link target to
+be repointed and forbids the prose around it to be rewritten, and two in the living `releases/` pages,
+where the visible label was corrected along with the target. The always-on path **shrank by 79 B**, so
+~1,300 lines moved at no session cost at all.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer following the worked example in `plugins/dkj-policy/README.md` was about to meet a 404: it
+offered this repo's own `dkj-policy/CONTRIBUTING.md` as the model for writing down your own answers,
+and that file stops existing here. It now points at the specialist lenses, and says in the same breath
+why the page it used to name is gone -- so the example a consumer copies is the arrangement this
+workflow actually recommends rather than the one it just retired.
+
+**Score:** 2
+
+#### Pull Request
+
+The workflow folder's own README and CONTRIBUTING move into the specialist lenses
+
+Plugins: dkj-policy
+
+[PR #2181](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2181)
+
+---
 
 ### DEPLOY: feat/2171-plugin-stops-scaffolding-folder-docs · 20260920-101131
 
