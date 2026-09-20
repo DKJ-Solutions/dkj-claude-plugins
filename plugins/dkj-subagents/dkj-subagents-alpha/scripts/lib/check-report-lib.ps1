@@ -1486,18 +1486,19 @@ function Get-SpecialistFileShapes {
 
        AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. For a kind the series
        has not reached yet it holds the FUTURE name while Current holds the past one; after the step that
-       renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES ARE LIVE IN THIS
-       TABLE from step B on -- Subagent (#2131), Manual (#2132) and Lens (#2133) have swapped, Persona
-       has not -- so the field's direction is not a property of the table at all, only of each row's
-       place in the series. A field called 'Legacy' would be a lie for exactly the window this layer
-       exists to cover, and 'Legacy' is what a later reader would reach for when deciding whether a
-       candidate may be dropped.
+       renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES WERE LIVE IN THIS
+       TABLE from step B to step F, which is why the field cannot be named after either of them -- the
+       #2128 round closed with Persona (#2169) and every row holds a past name today, but that is a fact
+       about where the series ended rather than about the field. A field called 'Legacy' would have been
+       a lie for exactly the window this layer exists to cover, and it is the word a later reader reaches
+       for when deciding whether a candidate may be dropped -- which is the decision this name exists to
+       slow down, in the next round as much as in this one.
 
-       SO THIS TABLE IS THE FLIP POINT for the rest of the series. Step B..F each move one kind's files
-       and swap that kind's row here; no reader is touched again, because no reader names a shape. A row
-       whose AlsoRead is empty is a kind with one spelling, which is where every kind ends up once the
-       last cache carrying the old one is gone -- and that pruning is a decision with a date on it, not
-       a tidy-up to fold into the rename.
+       SO THIS TABLE IS THE FLIP POINT for a rename series. Steps B..F each moved one kind's files and
+       swapped that kind's row here; no reader was touched by any of them, because no reader names a
+       shape. A row whose AlsoRead is empty is a kind with one spelling, which is where every kind ends
+       up once the last cache carrying the old one is gone -- and that pruning is a decision with a date
+       on it, not a tidy-up to fold into the rename.
 
        THE TWO HALVES OF A STEP ARE SEPARATE ACTS, AND CHECK 3d IS WHAT PAIRS THEM -- the hazard this
        arrangement creates, and the one to read before the next step. AlsoRead keeps every READER

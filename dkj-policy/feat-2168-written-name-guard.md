@@ -50,8 +50,13 @@ paired them, and nothing could see when one half was missing.
 the row leaves the tree completely green -- the lint gate, all suites and CI all passed on PR #2165 --
 while every WRITER goes on composing the retired name into a fresh consumer. Two of the four steps
 shipped that way: the Subagent row (#2131, found at the merge) and the Lens row (#2133, found eight
-days later and repaired in #2167). **Step F (#2135, the personas) is still open**, so this is not
-retrospective.
+days later and repaired in #2167).
+
+**Step F closed while this branch was open**, which changes what the guard is for rather than whether
+it is wanted. #2135 merged at 10:41 today and did it correctly -- the four persona files renamed and
+their `Current` row flipped in one commit -- so the #2128 round is complete and every kind now agrees
+with its row. That is what makes the check born green here, and it is also the last state in which the
+pairing is carried by a paragraph and by whoever reads it. The next rename series gets a gate instead.
 
 #### The shape chosen
 
@@ -107,7 +112,9 @@ and that kind's `Current` row, two halves nothing paired. `AlsoRead` keeps every
 both, so a step that moved the files and left the row behind passed the lint gate, every suite and CI
 (measured on #2165) while every writer went on composing the retired name into a fresh consumer. Two
 of the four steps shipped exactly that way -- the Subagent row (#2131, found at the merge) and the
-Lens row (#2133, found eight days later and repaired in #2167) -- and step F (#2135) is still open.
+Lens row (#2133, found eight days later and repaired in #2167). Step F (#2135) closed while this branch
+was open, correctly pairing both halves in one commit, so the round is done and the guard is for the
+next one.
 
 Check **3d** in `check-plugin-integrity.ps1` holds each kind's `Current` row against the names
 actually on disk: 87 files today, being 26 subagent defs, 27 manuals, 4 personas and 30 lenses, and
