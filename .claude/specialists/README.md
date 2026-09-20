@@ -280,10 +280,9 @@ changes, Tessa updates this document.
 
 ## Updating the plugins — in every other checkout of this repo
 
-This procedure was `dkj-policy/README.md`'s until September 20, 2026, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page and the
-`CONTRIBUTING.md` beside it, so the plugin's own portable page is the only contributing page anybody
-reads. It lands here because it is a procedure about the specialists system **as this repo consumes it
+This procedure was `dkj-policy/README.md`'s until #2179 retired that page and the `CONTRIBUTING.md`
+beside it ([why, and where the rest of it went](lenses/specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
+It lands here because it is a procedure about the specialists system **as this repo consumes it
 itself**, which is what this handbook is for.
 
 **This repo consumes itself**, so the system a session here runs is the *installed* copy, not the tree

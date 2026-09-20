@@ -3184,11 +3184,10 @@ gate's fixture.
 
 ### The development document, as this repo writes it
 
-**This was `dkj-policy/CONTRIBUTING.md`'s DEVELOPMENT step until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page and the folder
-README beside it so that the plugin's own
-[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only CONTRIBUTING
-anybody reads. What survived the retirement is what that page held and the portable one does not: **this
+**This was `dkj-policy/CONTRIBUTING.md`'s DEVELOPMENT step until #2179 retired that page and the folder
+README beside it**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
+What survived the retirement is what that page held and the portable one does not: **this
 repo's own answers, and the measurements behind them**. The cycle itself — the four phases, the three step
 marks, what a DEPLOY section is for — travels with the plugin and is not restated here.
 
@@ -3284,7 +3283,8 @@ correctly on the branch and is dead once it lands, and `open-pr`'s link gate ref
 [#1041](https://github.com/DaveKJohn/claude-code-specialists/issues/1041), which moved the gate's base to the
 changelog's own directory when `CHANGELOG.md` moved off the repo root.)
 
-**The audience tier is `2` here, so the entry asks two questions rather than four.** Tier 0 needs no heading —
+**This repo's audience tier — the seam table below answers it, and the answer is what shapes the entry:
+two questions rather than four.** Tier 0 needs no heading —
 the `### DEPLOY: <branch>` line is its section and its answer goes directly underneath — and the one
 audience tier gets `#### What makes this deploy extra special`. Both sit at the entry's own section level,
 beside `#### Pull Request`. A repo that has stated *no* audience tier gets the older shape instead, a
@@ -3292,13 +3292,14 @@ beside `#### Pull Request`. A repo that has stated *no* audience tier gets the o
 what you will see here.
 
 **In each tier, the reason goes ABOVE the `**Score:**` line** — anything below it is discarded.
-
+### The gates on the branch document, and the ones that fire beside them
 ### The gates on the branch document, and the two that fire beside them
 
-**This was `dkj-policy/CONTRIBUTING.md`'s PULL REQUEST step until September 20, 2026**, retired by
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) together with the folder README, on
-the same reasoning as the section above: the portable page states the cycle, and what stays here is this
-repo's own answers plus the measurement behind each gate.
+**This was `dkj-policy/CONTRIBUTING.md`'s PULL REQUEST step until #2179 retired that page**, on the same
+reasoning as the section above
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)):
+the portable page states the cycle, and what stays here is this repo's own answers plus the measurement
+behind each gate.
 
 `open-pr.ps1` is the one entry point: it runs the lint and test gates first, then pushes, then opens the PR.
 On an error or a failing suite **nothing is pushed and no PR is opened** — `-SkipLint` / `-SkipTests` are the
@@ -3340,7 +3341,7 @@ commits rather than refusing, and why neither the dirty-tree warning nor the bac
 the
 [`open-pr` skill page](../../../plugins/dkj-policy/skills/open-pr/SKILL.md#the-document-commit-what-the-pr-says-is-what-the-branch-carries).
 
-#### Gate 1 — the entry gate, on whether there is an entry at all
+#### the entry gate, on whether there is an entry at all
 
 **September 8, 2026 ([#1632](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1632)).** Before
 any of the gates below reads the entry, `open-pr.ps1` asks whether there *is* one:
@@ -3374,7 +3375,7 @@ which is idempotent and restores the section.
 [`check-branch-entry.ps1`](../../../scripts/lint/check-branch-entry.ps1) — one definition in
 [`entry-scaffold-lib.ps1`](../../../scripts/lib/entry-scaffold-lib.ps1) rather than two free to disagree.
 
-#### Gate 2 — the scaffold gate, on the changelog entry itself
+#### the scaffold gate, on the changelog entry itself
 
 **August 3, 2026.** `open-pr.ps1` refuses to push a branch whose entry still carries the wording
 `new-branch.ps1` scaffolded it with — the placeholder title, the "to do / where I left off" heading, or the
@@ -3398,7 +3399,7 @@ with those strings right now, and consumers receive the new scripts through a pl
 choosing to. A gate that forgot them would wave exactly those entries through. **Recognise both, write one** —
 the same rule the tier line gets, and the same rule the `dkj-policy/` folder rename got.
 
-#### Gate 3 — the step-list gate, on the branch's own plan
+#### the step-list gate, on the branch's own plan
 
 **Dave, August 6, 2026.** A branch reaches a PR when its own plan is finished, so `open-pr.ps1` refuses to
 push and `ship-pr.ps1` refuses to merge while the step half of `<branch>.md` has an unresolved step.
@@ -3434,7 +3435,7 @@ silent direction — a name the branch does not carry reads as *no document at a
 knowing: **a step ticked in the editor and not committed no longer satisfies the merge gate**, which is what
 its own message has always asked for.
 
-#### Gate 4 — the backing gate, on whether anything is behind the plan
+#### the backing gate, on whether anything is behind the plan
 
 **Dave, issue [#1026](https://github.com/DaveKJohn/claude-code-specialists/issues/1026),
 August 28, 2026.** The step-list gate above asks whether the plan is *finished*. It cannot ask whether
@@ -3472,7 +3473,7 @@ and reported zero errors. `Get-GateFingerprint` cannot answer this: it hashes th
 *same tree as last time* and never *is this tree HEAD*. A dirty tree mid-flight is ordinary, so it is never
 refused here; what was missing was only the line that stops a green result from being read as proof.
 
-#### Gate 5 — the DEPLOY lock, on the section the PR published
+#### the DEPLOY lock, on the section the PR published
 
 **Dave, issue [#884](https://github.com/DaveKJohn/claude-code-specialists/issues/884), August 25, 2026.** The
 DEPLOY section travels four times — this document, the PR body,
@@ -3502,7 +3503,7 @@ the network, not about the section, and a gate that refused on that would be ref
 more here than there: this section is what the fold puts verbatim into `CHANGELOG.md`, so a lock satisfied by
 a stray checkout's document would be approving the fold of a section it never read.
 
-#### Gate 6 — the shape gate, on the document around the entry
+#### the shape gate, on the document around the entry
 
 **September 8, 2026**
 ([#1650](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1650)). Two rules Dave enforced by
@@ -3545,7 +3546,7 @@ whatever language it was translated into.
 ruleset change and Dave's own act, and it would put a check that *reports* significance in front of every
 merge. And the CI half still reports rather than refuses, which is the design stated immediately below.
 
-#### Gate 7 — the CI gate, because the gates above are local
+#### the CI gate, because the gates above are local
 
 **August 20, 2026** (inbound
 [#789](https://github.com/DaveKJohn/claude-code-specialists/issues/789)). The gates above live in
@@ -3590,7 +3591,7 @@ The script answers the trunk case gracefully as well, but a gate should not need
 correctly. **It is not in the `main` ruleset** — making a check required is a repo-settings change and
 therefore Dave's, so today it reports on every PR and blocks nothing.
 
-#### Gate 8 — the always-on budget gate, on what every session pays before any of this
+#### the always-on budget gate, on what every session pays before any of this
 
 **Dave, issue [#2037](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2037), September 16, 2026:**
 *"find a durable way for ALL consumers to keep CLAUDE.md under 100.0k chars, because I notice it goes over
@@ -3641,9 +3642,8 @@ changed nothing.
 
 ### The `dkj-policy/` folder, and this repo's answers to the portable seams
 
-**This was `dkj-policy/README.md` until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired it together with the
-CONTRIBUTING page beside it, so that the plugin's portable pages are the only workflow pages anybody reads.
+**This was `dkj-policy/README.md` until #2179 retired it together with the CONTRIBUTING page beside it**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
 Everything portable about the `dkj-policy` workflow gathers in that folder, so the workflow occupies one
 folder in the repo root instead of scattering through it (Dave, August 14, 2026); the conventions themselves
 travel with the plugin, and what follows is **this repo's own set of answers** to them.
@@ -3672,9 +3672,12 @@ answering otherwise — which is the shape to watch for whenever the source repo
 
 In this repo the portable pages resolve as relative links because this is the plugin's **source**; in a
 consumer they live in the plugin install instead, which is why the consumer version of the folder's own README
-(the `adopt-dkj-policy` skill's Part 1 scaffolds it) names them in code rather than linking them. **That
-scaffold refuses a repo that publishes plugins**, which is why this folder's README was hand-written for as
-long as it existed and was the one thing a consumer's folder had that this one did not. The generated
+named them in code rather than linking them. **`adopt-dkj-policy`'s Part 1 scaffolded that page into a
+consumer until [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171) stopped it**, so
+a repo adopted since gets neither page and one adopted before keeps both, reported as legacy and left
+untouched. **The scaffold refuses a repo that publishes
+plugins**, so this folder's README was hand-written for as long as it existed: a **scaffolded** page was
+the one thing a consumer's folder had that this one never did. The generated
 `releases/changelog/` and `releases/github/` trees sat at this repo's root until August 26, 2026 and now sit
 in the folder too, so on that point the two match (#914).
 

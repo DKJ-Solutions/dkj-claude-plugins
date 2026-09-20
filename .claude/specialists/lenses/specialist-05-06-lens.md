@@ -191,14 +191,16 @@ description while building; ownership of the entry mechanism stays Rendall's.
    **this** repo's direct-on-`main` exception, which is what the path-scoped commit exists to keep honest,
    and the branch part of the two-machine lesson sits with
    [Derek #05](specialist-05-05-lens.md#branch--repo-hygiene).
-   The fold also **resets `dkj-policy/<branch>.md`** to its empty state and names it in the
-   same commit, so the trunk is ready for the next branch instead of showing the merged one's ticked-off
-   steps. One write clears both halves, which is why the commit's scope is two paths rather than three.
-   **That scope grew by one path on August 6, 2026 and the exception did not widen with it**: the step
-   list is cleared by the same run, so leaving it out would have produced a commit that clears half the
+   The fold also **REMOVES `dkj-policy/<branch>.md`** — `Remove-Item` in
+   [`fold-changelog-entry.ps1`](../../../scripts/release/fold-changelog-entry.ps1), not a rewrite to an
+   empty state — and names it in the same commit, so the trunk carries no copy of that document at all
+   rather than an emptied one. That is why the commit's scope is two paths rather than three, and why
+   nothing has to be re-read after a fold.
+   **The scope grew by one path on August 6, 2026 and the exception did not widen with it**: the step
+   list went with the entry, so leaving it out would have produced a commit that cleared half the
    pair — the entry gone from `main` while the step list still showed the merged branch's ticked boxes.
    Since the two files became one document that argument reaches only a branch cut before the merge,
-   because one document is now cleared in one move. And the bound has been **enforced rather than merely
+   because one document is removed in one move. And the bound has been **enforced rather than merely
    intended since August 2, 2026**: the commit names its paths, so nothing else in the tree can ride
    along. Committing stays opt-in, because it is this exception being used.
 3. **More branches merged** → each brings its entry; each gets inserted at the position its own impact
@@ -213,10 +215,9 @@ reference to them in `CHANGELOG.md`. Publishing a GitHub Release is a manual clo
 through afterward, per the `cut-release` skill's checklist — not automated by the script.
 
 **Several paragraphs in this section, and the live-stage section further down, were
-`dkj-policy/CONTRIBUTING.md`'s until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
-plugin's portable page is the only CONTRIBUTING anybody reads. What came across is this repo's own
-answers and its measured instances; the portable half stays in
+`dkj-policy/CONTRIBUTING.md`'s until #2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
+What came across is this repo's own answers and its measured instances; the portable half stays in
 [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md).
 
 **Repo-wide and in lockstep works because this repository holds *one* product** whose plugins are one
@@ -1114,10 +1115,9 @@ nothing but which category heading the entry is grouped under.
 
 ### The live stage, and why SHIP MAIN is a no-op here
 
-**This material was `dkj-policy/CONTRIBUTING.md`'s until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the plugin's
-portable page is the only CONTRIBUTING anybody reads — it was that page's last cut step and the shipping
-step after it.
+**This material was `dkj-policy/CONTRIBUTING.md`'s last cut step and the shipping step after it, until
+#2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
 
 **The cut's last step is optional because it depends on one seam answer, and here that answer is no**
 (Dave, [#894](https://github.com/DaveKJohn/claude-code-specialists/issues/894), August 26, 2026). Where

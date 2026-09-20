@@ -192,10 +192,9 @@ while the branch deliberately built one step of four.
 
 ### One merge at a time — the queue before the merge
 
-**This was `dkj-policy/CONTRIBUTING.md`'s step 3.3 until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
-plugin's [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only
-CONTRIBUTING anybody reads; the portable rules stayed there and this repo's own answers came here.
+**This was `dkj-policy/CONTRIBUTING.md`'s step 3.3 until #2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone));
+the portable rules stayed with the plugin and this repo's own answers came here.
 
 **One merge at a time, and a PR that arrives second waits its turn** (Dave,
 [#912](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/912), August 26, 2026). Before the
@@ -338,12 +337,11 @@ order can be decided, and after that a correction is a re-insert on `main`.
 
 ### The merge does not wait — and nobody sits through the CI check
 
-**This was `dkj-policy/CONTRIBUTING.md`'s step 3.4 until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
-plugin's [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only
-CONTRIBUTING anybody reads. The portable half deliberately leaves this question to each repo, because
-whether a merge waits is a governance decision rather than a configuration value; what follows is this
-repo's answer and the measurements behind it.
+**This was `dkj-policy/CONTRIBUTING.md`'s step 3.4 until #2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
+The portable half deliberately leaves this question to each repo, because whether a merge waits is a
+governance decision rather than a configuration value; what follows is this repo's answer and the
+measurements behind it.
 
 **A finished branch opens, merges and folds in one motion without waiting for Dave.** The lint gate, the
 test gate and CI prove this class of change is sound, and anything that does turn out wrong is one
@@ -661,7 +659,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   collision. The two halves only work together: backgrounding without a lane is what yanks HEAD, and a
   lane with a foreground ship saves nothing. The script now prints both at the moment it begins to wait,
   and the rule with its measurements is in
-  [The merge does not wait](#the-merge-does-not-wait--and-nobody-sits-through-the-ci-check) below
+  [The merge does not wait](#the-merge-does-not-wait--and-nobody-sits-through-the-ci-check) above
   and the [`ship-pr` skill](../../../plugins/dkj-policy/skills/ship-pr/SKILL.md#the-wait-runs-in-the-background-and-that-is-the-default).
   Two bigger shapes were named and declined there rather than overlooked; #985 stays open as their home.
 - **`main` moves under a long branch, and the green gate you ran proves nothing about the merged
@@ -709,11 +707,9 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
 
 ### Filing an issue — the layer before a branch exists
 
-**This was `dkj-policy/CONTRIBUTING.md`'s step 1 until September 20, 2026**, when
-[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
-plugin's [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only
-CONTRIBUTING anybody reads; the portable rules stayed there and this repo's own answers and measured
-instances came here.
+**This was `dkj-policy/CONTRIBUTING.md`'s step 1 until #2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone));
+the portable rules stayed with the plugin and this repo's own answers and measured instances came here.
 
 **This is the layer before a branch exists.**
 [Creating a branch](#classifying-naming-and-creating-a-branch) opens one and writes the document that

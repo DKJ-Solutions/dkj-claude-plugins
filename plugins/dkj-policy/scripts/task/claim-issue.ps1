@@ -5,7 +5,8 @@
 
 .DESCRIPTION
     THE RULE THIS IMPLEMENTS ALREADY EXISTED; NOTHING PERFORMED IT. Chris's persona body ("Picking up
-    an issue -- claim it before you work it") and dkj-policy/CONTRIBUTING.md both prescribe
+    an issue -- claim it before you work it"), and a repo's own dkj-policy/CONTRIBUTING.md where it
+    still carries one (#2171 stopped scaffolding that page, September 20, 2026), both prescribe
     `gh issue edit <n> --add-assignee @me`, and both leave it to a session to remember, to type, and
     to read the result of. This script is that step, so that "fix issue 1234" cannot begin before the
     tracker says who is on it.

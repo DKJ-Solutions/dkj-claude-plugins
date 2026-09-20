@@ -378,7 +378,10 @@ reasoning per file sits at its own seam in
 The constitution above, concretely implemented here:
 
 - **The main branch is `main`.** All changes via a `<prefix>/<short-name>` branch + PR to
-  `main`. Valid prefixes ([`scripts/lib/branch-info.ps1`](scripts/lib/branch-info.ps1)):
+  `main`, **one change per branch**, described in the PR, and the branch deleted after the merge.
+  That third rule is the one the `main` ruleset cannot enforce — it enforces the branch and the
+  required check on the server, and this one is kept by whoever opens the branch.
+  Valid prefixes ([`scripts/lib/branch-info.ps1`](scripts/lib/branch-info.ps1)):
   `feat/` → enhancement · `fix/` → bug · `docs/` → documentation. **Three, and `chore/` is refused**
   (Dave, August 7, 2026): chore is the name for work that lands *directly on the trunk* under one of the
   named exceptions, so a chore branch is a contradiction. `Chore` remains a recognised changelog **type**

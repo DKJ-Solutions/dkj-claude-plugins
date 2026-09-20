@@ -58,7 +58,7 @@ this repo both read, and duplicating it here is what #2171 retired.
 
 #### Where each passage lands
 
-- `CONTRIBUTING.md:199-931` -- the branch-document mechanics and the eight PR gates -> Sylvester's lens,
+- `CONTRIBUTING.md:199-931` -- the branch-document mechanics and the PR gates -> Sylvester's lens,
   which already owns the gate checks and the `LAW-THIRD-RANK-ORDER` block the opening overlaps with.
 - `CONTRIBUTING.md:116-192` -- ticket work as a no-op here, the #1456 claim measurement, the #1315 split
   identity, the label table, and `:697-892` the queue, the merge step and the merge-queue retirement ->
@@ -73,7 +73,7 @@ this repo both read, and duplicating it here is what #2171 retired.
 
 ### CREATE
 
-- [x] Sylvester's lens: receive the branch-document mechanics, the eight PR gates and the seam-answer table
+- [x] Sylvester's lens: receive the branch-document mechanics, the PR gates and the seam-answer table
 - [x] Derek's lens: receive step 1's Claude half, the claim measurements and the merge/queue material
 - [x] Rendall's lens: receive CUT RELEASE, the live-stage no-op and the fold, deduplicated against what it already said
 - [x] `.claude/specialists/README.md`: receive the self-consumption and plugin-update material
@@ -86,8 +86,8 @@ this repo both read, and duplicating it here is what #2171 retired.
 ### TEST
 
 - [x] `check-plugin-integrity.ps1` green -- it is the dead-link gate, so it is what proves the retarget.
-      First run: **9 dead links**, all in the release archive and none in the 14 the issue counted. Repointed
-      and re-run: 0 errors.
+      First run: **9 dead links**, none of them among the 14 the issue counted -- 7 in the archived release
+      notes and 2 in the living `releases/` pages. Repointed and re-run: 0 errors.
 - [x] The always-on budget: the path **shrank by 190 B** (110,154 -> 109,964). The lenses are not on that
       path, so ~1,300 lines moved at no session cost and `CLAUDE.md`'s own pointers got shorter.
 - [x] Review pass on the diff before the PR
@@ -96,7 +96,7 @@ this repo both read, and duplicating it here is what #2171 retired.
 
 `dkj-policy/` carries no prose pages any more. This repo's own `CONTRIBUTING.md` (1,132 lines) and
 `README.md` (167) are gone, and the ~1,300 lines of measured answers they held now sit in the lens of
-the specialist who owns each: the branch-document mechanics, the eight pull-request gates and the
+the specialist who owns each: the branch-document mechanics, the pull-request gates and the
 seam-answer table with Sylvester; the issue layer, the claim measurements and the merge step with
 Derek; the fold, the cut and the live-stage no-op with Rendall; keeping a checkout's plugins current in
 the specialists handbook; and the pages' own history, plus the forwarding address to all four, with
@@ -110,8 +110,9 @@ retired. What the move costs is the one page that read as a route end to end; th
 readable, in the portable page that always described it.
 
 The dead-link gate is what proves the retarget, and it found nine links the issue's count of fourteen
-had missed -- all of them in the archived release notes, where the published-record rule permits a link
-target to be repointed and forbids the prose around it to be rewritten. The always-on path **shrank by
+had missed: seven in the archived release notes, where the published-record rule permits a link target to
+be repointed and forbids the prose around it to be rewritten, and two in the living `releases/` pages,
+where the visible label was corrected along with the target. The always-on path **shrank by
 190 B**, so ~1,300 lines moved at no session cost at all.
 
 **Score:** 3

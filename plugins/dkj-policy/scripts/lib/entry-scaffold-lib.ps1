@@ -5999,6 +5999,11 @@ function Get-BranchFilePaths {
         # that day still carries both, and they meet this change through a plugin update rather than by
         # choosing to; an allowlist entry for a file that is not there is inert, while taking one off
         # hands the fold somebody's CONTRIBUTING.md as their branch document and then deletes it.
+        # AND THE FOLD IS NOT THE ONLY READER, which is the half worth naming because it fails the other
+        # way up: Test-IsFoldOnlyCommit (pr-issues-lib.ps1, called from ship-pr.ps1) uses this same list to
+        # decide a commit is NOT a fold. Drop a name and a commit that writes the changelog and deletes
+        # that page reads as a fold commit -- which is ship-pr's staleness guard exempting a commit nobody
+        # measured. One list, two consumers, opposite failures; pr-issues.tests.ps1 pins the second.
         ReservedNames    = @('README.md', 'CONTRIBUTING.md', 'CHANGELOG.md')
         # THE PRE-#1255 SHARED NAME, read and never written. Every branch open on September 3, 2026 carries
         # it, here and in every consumer, and they meet this change through a plugin update rather than by

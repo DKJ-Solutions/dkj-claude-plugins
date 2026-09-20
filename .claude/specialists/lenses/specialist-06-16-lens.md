@@ -33,15 +33,17 @@ the governance of the entire specialists system live here.
 out for this repo's own copies by
 [#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179)): *"deze twee bestanden in een
 consumer's repo maakt het alleen maar meer ingewikkeld en zorgt voor meer inconsistenties. Er is nu maar
-1 CONTRIBUTING waar de consumer naar kan kijken, en dat is wat in de plugin staat."* The plugin stopped
-scaffolding them into a consumer in the same movement; **the source repo's own copies went with them,
-because otherwise the sentence "there is only one CONTRIBUTING" is false in the very repo that ships
-it.** What a repo answers for itself now goes into the lens of the specialist who owns that answer —
+1 CONTRIBUTING waar de consumer naar kan kijken, en dat is wat in de plugin staat."* **It was two pull
+requests that landed hours apart**: PR #2178 stopped `adopt-dkj-policy` scaffolding either page into a
+consumer, and PR #2179 removed this repo's own copies — *because otherwise the sentence "there is only
+one CONTRIBUTING" is false in the very repo that ships it.* A consumer adopted before that day still
+carries both pages and nothing deletes them; `adopt-workflow-folder.ps1` reports them as legacy and
+leaves them untouched on every re-run. What a repo answers for itself now goes into the lens of the specialist who owns that answer —
 which is this file's own rule, [*"where a new rule goes"*](../README.md#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception),
 applied to a whole page.
 
 **Where the ~1,300 lines went**, because a reader looking for one of them needs the address rather than
-the history: the branch-document mechanics, the eight pull-request gates and the seam-answer table are
+the history: the branch-document mechanics, the pull-request gates and the seam-answer table are
 [Sylvester's](specialist-05-15-lens.md); the issue layer, the claim measurements and the merge step are
 [Derek's](specialist-05-05-lens.md); the fold, the cut and the live-stage no-op are
 [Rendall's](specialist-05-06-lens.md); the self-consumption and plugin-update procedure is the
@@ -56,11 +58,18 @@ mechanics — until they merged on August 26, 2026
 absorbed the **root** `CONTRIBUTING.md` as well, and the cost of that move was stated at the time rather
 than discovered later: GitHub reads a contributing page from the repo root, `docs/` or `.github/` and
 from nowhere else, so the *Contributing guidelines* link above a new issue and a new pull request went
-with it. **That link was a signpost and never a guard** — the three rules it pointed at (never commit
-directly to `main`, the required `lint-en-tests` check, one change per branch) are enforced by the
+with it. **That link was a signpost and never a guard** — and of the three rules it pointed at, the
+first two (never commit directly to `main`, the required `lint-en-tests` check) are enforced by the
 `main` ruleset on the server, whoever is or is not running this workflow, which is a better guarantee
-than a location. Those three now sit in [`CLAUDE.md`](../../../CLAUDE.md), which is where this repo
-keeps its floor.
+than a location. **The third is not, and that is the one the retirement nearly dropped**: *one change
+per branch, described in the PR, and the branch deleted after the merge* is kept by whoever opens the
+branch and by nothing else, and a check over the tree while this was being written found it stated in
+exactly one place — the page about to be deleted. It is in [`CLAUDE.md`](../../../CLAUDE.md) now,
+beside the other two, which is where this repo keeps its floor. **That is the portable page's own
+retirement instruction working as written** — *for each section, find where that rule is actually
+decided, and move anything that lives nowhere else before the file goes* — and it is worth recording
+that a migration which kept 1,300 lines of measurement intact still almost lost the one unenforced
+sentence, because an unenforced rule is exactly the one nothing else in the tree will miss.
 
 **And the arrangement that replaced it is the thing that did not survive.** The page was ordered as the
 five numbered steps work actually moves through
@@ -206,6 +215,17 @@ Both stay as they are; what follows is the note that was missing.
   **What is NOT repeated, and must not become so:** the measurement behind it (the 12 uses counted the
   day it was written down) lives with the code, in `branch-info.ps1`, which is also the one place that
   admits the count can no longer be reproduced.
+- **The seam-answer table's rows that restate another lens**, recorded here on September 20, 2026 when
+  #2179 moved that table into [Sylvester's lens](specialist-05-15-lens.md) from the page it used to sit
+  on. Two rows say what Derek's lens also says — the branch prefixes with *no `chore/`*, and the merge
+  method being a merge commit rather than a squash — and one of them is the `chore/` rule above, now
+  wearing a third copy. **It stays, because a seam INDEX is only useful complete**: the table's promise
+  is that every question the portable half leaves open has its answer in one place, and a row reading
+  *"see Derek"* breaks exactly the property it exists for. What keeps it honest is the third column,
+  which names `Get-PrMergeMethod` and `branch-info.ps1` — the row is a pointer at the thing that
+  decides, not a second decision. **What must NOT happen is a row acquiring reasoning of its own**: the
+  moment a cell explains *why* rather than *what*, it is a second copy free to drift, and the
+  measurement belongs in the owning lens.
 - **The "81 of 89" tier measurement**, in both
   [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md) and
   [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md).
