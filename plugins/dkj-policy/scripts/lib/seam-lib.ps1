@@ -165,7 +165,7 @@ function Test-IsWorkflowSourceRepo {
 function Get-WorkflowFolderName {
     <#
         The name of the workflow's own root folder in $RepoRoot: 'dkj-policy' normally, and whichever
-        earlier name is present where a repo has not migrated yet -- 'dkj-policy', then
+        earlier name is present where a repo has not migrated yet -- 'contributing-davekjohn', then
         'workflow-davekjohn'.
 
         WHY THIS EXISTS (#886, August 26, 2026). The folder renamed, and the five seam DEFAULTS below all
@@ -174,7 +174,7 @@ function Get-WorkflowFolderName {
         one holding their history rather than failing loudly. Hardcoding the old name would send every NEW
         consumer to a folder the scaffolder no longer writes. Neither is a default worth shipping.
 
-        AND IT HAS NOW RENAMED TWICE (#1437, September 5, 2026): 'dkj-policy' became
+        AND IT HAS NOW RENAMED TWICE (#1437, September 5, 2026): 'contributing-davekjohn' became
         'dkj-policy' when the plugin did, because the folder is named after the plugin that legislates it.
         That is the argument above holding rather than a new one -- which is why the list grew by an entry
         instead of the function being rewritten. THE ORDER IS NEWEST FIRST and the walk stops at the first
