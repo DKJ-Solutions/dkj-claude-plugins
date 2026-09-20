@@ -39,19 +39,103 @@
 
 ### PLAN
 
+Issue [#2184](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2184): since #2179 moved
+this repo's seam answers into `.claude/specialists/lenses/`, `check-policy-drift.ps1` reads none of
+them. RANK 2 is built from documents under `dkj-policy/` and RANK 3 from the always-on closure, and a
+lens is in neither -- so the largest restatement surface in the tree is examined by nothing, while the
+report still prints as if it were complete.
+
+#### The repair, and why candidate 1
+
+The issue offers two candidates. **RANK 2 learns the new home** is the one taken: it matches what
+#2179 actually did, keeps the three-rank model intact, and needs no fourth rank for a reader to learn.
+A lens is exactly what RANK 2 says it is -- this repo's own answer to a seam -- and what separates it
+from RANK 3 is that it is read on demand rather than always-on, which is the line RANK 3 already draws.
+
+#### The lens location is ALREADY a seam, so no new one is written
+
+`Get-LensDirCandidates` / `Get-SeamPaths` (check-report-lib, #221) own the four layouts a consumer's
+lenses can sit in -- the seam directory, the pre-seam per-plugin tree, the pre-#179 family spelling and
+the legacy `.claude/extensions/`. A new `repo-config.ps1` function would be a second answer to a
+question that already has one, and would drag the script contract, the adopt blueprint and the
+consumer scaffold along for nothing.
+
+#### What a CONSUMER sees, which is the decision the issue asks for
+
+Strictly additive. A consumer with no lenses gets exactly today's report, because the discovery returns
+nothing. A consumer still carrying a populated `dkj-policy/` keeps those pages, listed first. The only
+repo whose output changes is one that actually has lenses -- and there the change is the finding.
+
+#### What is deliberately NOT touched: `Get-ConsumerProseDocuments`
+
+That function is the #1380 corpus, and it is shared with the two GATED detectors behind
+`consumer-prose-sessioncheck`. Widening it would change what a SessionStart hook reads in every
+consumer, on a branch whose subject is an on-demand report. The blindness it has for the same reason
+is a separate finding and is filed as one.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/task/check-policy-drift.ps1`: discover this repo's lens documents through the existing
+      lens seam and fold them into RANK 2, minus any lens the always-on closure already lists at RANK 3
+- [x] the rank title, the note under it and the hand-over wording follow the new membership
+- [x] mirror the script into `plugins/dkj-policy/scripts/task/`
+- [x] `plugins/dkj-policy/skills/check-policy-drift/SKILL.md`: what RANK 2 now holds, and why
 
 ### TEST
 
+- [x] `scripts/tests/policy-drift-report.tests.ps1`: a lens lands in RANK 2, a lens that is
+      `@`-imported stays in RANK 3 and is not listed twice, and a tree with no lenses is unchanged
+- [x] the full gate: `check-plugin-integrity.ps1` + every suite
+
 ### DEPLOY: fix/2184-policy-drift-rank2-lenses
 
-**Score:**
+`check-policy-drift.ps1`'s RANK 2 reads the repo lenses. Since #2179 moved this repo's seam answers
+out of `dkj-policy/` and into the lenses, RANK 2 was built from the workflow-folder prefix and RANK 3
+from the always-on closure -- and a lens was in **neither**, so ~1,300 migrated lines were examined by
+nothing. Measured here: 29 lens documents and 8,864 lines, against the two `(absent)` folder pages that
+were the whole of RANK 2 before.
+
+**The report still printed as though it were complete**, which is the part that cost. Two `(absent)`
+lines read as *"this repo has no rank 2"* rather than as *"rank 2 moved and nobody told the tool"*, so
+the blindness was invisible from the output -- the shape this repo keeps naming as the expensive one.
+Each rank now closes with a tally of what is present and how many lines it holds, so a reader can see
+the volume they are being handed and not only the names.
+
+A lens joins rank 2 rather than getting a fourth rank because it does the same job the folder pages do:
+it states *this* repo's answer to a seam. What keeps it out of rank 3 is that it is read on demand
+rather than always-on -- and a lens the root document `@`-imports stays in rank 3, listed once, because
+a document sitting in two ranks would be a *"which one wins"* question in the one report whose job is
+to settle those.
+
+**No new seam was written.** `Get-LensDirCandidates` / `Get-SeamPaths` (#221) already own the four
+layouts a consumer's lenses may sit in -- the seam directory, the pre-seam per-plugin tree, the
+pre-#179 family spelling and legacy `.claude/extensions/` -- and `Get-SpecialistFiles` owns both
+filename spellings (#2130). A `repo-config.ps1` function beside them would have been a second answer to
+a question that has one, and would have dragged the script contract, the adopt blueprint and the
+consumer scaffold along for nothing.
+
+`Get-ConsumerProseDocuments` is deliberately **not** widened to match. It is the same corpus the two
+GATED prose detectors read behind `consumer-prose-sessioncheck`, so a change there moves what fires at
+every session start in every adopted consumer -- a different decision from what an on-demand report
+lays out. That blindness is real and is filed as
+[#2188](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2188) rather than carried here.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every consumer of this workflow gets the same repair, and in the only way an additive one can be given:
+a repo with no lenses gets exactly the report it had before, because the probe returns nothing and no
+note is printed. Nothing is relocated and nothing is asked of the reader. The consumers this reaches
+hardest are the ones running longest -- a repo bootstrapped before #221 keeps its lenses in
+`.claude/plugins/<family>/<plugin>/` and is never moved, so a rank that had learned only the seam
+directory would have stayed blind in exactly those trees. The suite pins that path by its own route.
+
+**Score:** 2
 
 #### Pull Request
+
+check-policy-drift's RANK 2 learns the lens directory, so the migrated seam answers are read again
+
+Plugins: dkj-policy
 

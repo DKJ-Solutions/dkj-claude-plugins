@@ -42,6 +42,9 @@ $Skill    = Join-Path $RepoRoot 'plugins\dkj-policy\skills\check-policy-drift\SK
 $Mirror   = Join-Path $RepoRoot 'plugins\dkj-policy\scripts\task\check-policy-drift.ps1'
 . (Join-Path $RepoRoot 'scripts\lib\shared-scripts-lib.ps1')
 . (Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1')
+# For Get-LensFamily: the pre-seam lens path is composed from the constant rather than typed, so a
+# suite cannot pin a family name the family has moved past (the #179 lesson, one layer out).
+. (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1')
 
 $script:pass  = 0
 $script:fail  = 0
@@ -219,6 +222,55 @@ try {
         'the workflow folder page is listed under RANK 2, not with the floor'
     Assert-True ($atImport -gt $rank3) `
         "an '@'-imported document is part of the always-on closure and lands in RANK 3"
+
+    # --- Rank 2 also holds the repo lenses (issue #2184) ------------------------------------------
+    # THE DEFECT THIS PINS was invisible from the output, which is why it is worth a block of its own:
+    # RANK 2 was built from the workflow-folder prefix and RANK 3 from the always-on closure, so a lens
+    # was in NEITHER -- and a repo that had moved its seam answers into its lenses got a report that
+    # examined none of them while printing as though it were complete.
+    Write-Host ''
+    Write-Host 'Rank 2 -- the repo lenses'
+
+    $lensTree = New-Tree -Label 'lenses'
+    $seamLens = '.claude/specialists/lenses/specialist-05-15-lens.md'
+    $importedLens = '.claude/specialists/lenses/specialist-01-01-lens.md'
+    Set-Text -Dir $lensTree -Rel 'CLAUDE.md' -Text "# Consumer`n`n@$importedLens"
+    Set-Text -Dir $lensTree -Rel $importedLens -Text '# The orchestrator lens'
+    Set-Text -Dir $lensTree -Rel $seamLens -Text "# Our system-administration lens`n`nThis repo's answer to a seam."
+    $r = Invoke-Report -Dir $lensTree
+    $rank2 = $r.Out.IndexOf('RANK 2', [System.StringComparison]::Ordinal)
+    $rank3 = $r.Out.IndexOf('RANK 3', [System.StringComparison]::Ordinal)
+    $atSeamLens = $r.Out.IndexOf($seamLens, [System.StringComparison]::Ordinal)
+    $atImported = $r.Out.IndexOf($importedLens, [System.StringComparison]::Ordinal)
+    Assert-True ($r.Code -eq 0) 'a tree carrying lenses -- still exit 0, because the verdict is not the script''s'
+    Assert-True ($atSeamLens -gt $rank2 -and $atSeamLens -lt $rank3) `
+        'a lens that no document imports is listed under RANK 2, where it used to be listed nowhere'
+    Assert-True ($atImported -gt $rank3) `
+        "a lens the root document '@'-imports is part of the always-on closure and stays in RANK 3"
+    # ONE RANK PER DOCUMENT. Listing the imported lens in both would be a "which rank wins" question in
+    # the one report whose whole job is to settle those.
+    $importedHits = @([regex]::Matches($r.Out, [regex]::Escape($importedLens))).Count
+    Assert-True ($importedHits -eq 1) 'and it is listed exactly once, not under both ranks at the same time'
+
+    # THE PRE-SEAM LAYOUT IS FOUND TOO, and it needs its own assert because it is reached by a different
+    # route: the seam directory is plugin-independent, while '.claude/plugins/<family>/<plugin>/' is a
+    # candidate Get-LensDirCandidates can only compose once it has been given a plugin NAME. A consumer
+    # bootstrapped before #221 keeps its lenses there and is never relocated, so a rank that read only
+    # the seam would be blind in exactly the repos that have been running this longest.
+    $legacyLens = ".claude/plugins/$(Get-LensFamily)/dkj-policy/05-15-extension.md"
+    Set-Text -Dir $source -Rel $legacyLens -Text '# A pre-seam lens'
+    $r = Invoke-Report -Dir $source
+    $rank2 = $r.Out.IndexOf('RANK 2', [System.StringComparison]::Ordinal)
+    $rank3 = $r.Out.IndexOf('RANK 3', [System.StringComparison]::Ordinal)
+    $atLegacy = $r.Out.IndexOf($legacyLens, [System.StringComparison]::Ordinal)
+    Assert-True ($atLegacy -gt $rank2 -and $atLegacy -lt $rank3) `
+        'a lens in the pre-seam per-plugin tree is listed under RANK 2 as well, under either spelling'
+
+    # A TREE WITH NO LENSES IS UNCHANGED, which is the promise made to every consumer that has none:
+    # the probe returns nothing and the rank reads exactly as it did before.
+    $r = Invoke-Report -Dir $split
+    Assert-True ($r.Out -notmatch 'repo lens states') `
+        'a tree with no lenses gets no lens note -- the addition is silent where there is nothing to add'
 
     # --- The skill page's command matches the script ----------------------------------------------
     # The lint gate holds a skill's PARAMETERS against the script; nothing held the file NAME, and a

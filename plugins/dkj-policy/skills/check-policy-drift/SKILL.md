@@ -93,14 +93,33 @@ Four blocks, in this order:
    **discovered, not listed** -- a plugin shipping no portable page is not a legislator and drops out
    silently; one that could not be located at all gets a `[not located]` line, because whatever it
    legislates was not read.
-2. **RANK 2** -- this repo's own `dkj-policy/` pages.
+2. **RANK 2** -- this repo's own answers to the seams, which live in **two** places: the `dkj-policy/`
+   pages, and the **repo lenses** under `.claude/specialists/lenses/` (or whichever of the four lens
+   layouts this repo uses). Each entry carries its line count, and the rank closes with a tally.
 3. **RANK 3** -- the always-on closure: `CLAUDE.md` and everything it `@`-imports.
 4. The two echoed slices, then the hand-over.
 
-Ranks 2 and 3 are the **#1380 corpus**, and it is not re-derived here: `Get-CheckProseCorpus` supplies
-the closure and `Get-ConsumerProseDocuments` decides which of those documents a prose check may read.
-Every exclusion in there is load-bearing -- the changelog and `releases/` (a folded entry correctly
-names the rule of its own day), plugin-shipped payload, and the per-branch document.
+**The lenses joined rank 2 in [#2184](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2184),
+and the gap they closed is the one worth knowing about.** A repo that moves its seam answers out of the
+workflow folder and into its lenses -- which is what
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) did in the repo that publishes
+this workflow, ~1,300 lines of it -- used to have that material read by **no rank at all**, while the
+report still printed as though it were complete. A lens belongs at rank 2 rather than at a fourth rank
+because it does the same job the folder pages do: it states *this* repo's answer to a seam. What keeps
+it out of rank 3 is that it is read **on demand** rather than always-on -- so a lens the root document
+does `@`-import is listed under rank 3 instead, once, because a document sitting in two ranks is itself
+a contradiction.
+
+**Nothing changes for a repo with no lenses**, and nothing is relocated: the probe returns nothing, and
+the report is the one you had before.
+
+Ranks 2 and 3 are the **#1380 corpus** plus those lenses, and the corpus is not re-derived here:
+`Get-CheckProseCorpus` supplies the closure and `Get-ConsumerProseDocuments` decides which of those
+documents a prose check may read. Every exclusion in there is load-bearing -- the changelog and
+`releases/` (a folded entry correctly names the rule of its own day), plugin-shipped payload, and the
+per-branch document. That corpus is deliberately **not** widened to include the lenses: it is shared
+with the two gated detectors above, so a change there would move what a SessionStart hook reads in
+every consumer, which is a different decision from what an on-demand report lays out.
 
 **Everything printed out of your files is sanitized**
 ([#1419](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1419)): this output is read back
