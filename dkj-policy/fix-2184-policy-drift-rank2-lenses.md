@@ -91,6 +91,9 @@ is a separate finding and is filed as one.
 - [x] and the root-spelling regression the review found, pinned with an 8.3 short name -- measured
       against the old derivation first, so the test is known to fail without the repair
 - [x] the parallel review round: Victor (code), Edith (copy), Sebastian (security)
+- [~] the short-name test's first route -- `Scripting.FileSystemObject` -- was dropped after it hung
+      the whole test gate; it asks `cmd` for the `%~sI` expansion instead, and the lesson is recorded
+      in [Tycho's lens](../.claude/specialists/lenses/specialist-04-18-lens.md)
 - [x] the full gate: `check-plugin-integrity.ps1` + every suite
 
 ### DEPLOY: fix/2184-policy-drift-rank2-lenses
@@ -131,6 +134,18 @@ short form it was handed (`...\Temp\PROBE-~2`) while `Get-ChildItem` returns the
 suite pins it with a short name -- skipping out loud where the volume has 8.3 generation off, because a
 silent skip there would read as coverage this suite does not have. The class was already documented in
 `scripts/lib/worktree-lib.ps1`; what it had was no test.
+
+**That test's own first route then cost more than the bug did**, and it is recorded in
+[Tycho's lens](../.claude/specialists/lenses/specialist-04-18-lens.md) rather than left in this
+branch. Asking `Scripting.FileSystemObject` for the short name passes in 6 seconds standalone and
+**hangs inside the parallel test gate**: the suite sat at that one line for the full 1,800s lane
+bound, and the gate came back *48 of 118 suites FAILED in 5,422s* -- every one a timeout, 47 of them
+innocent, most never reaching their own first line. A suite reaches the operating system through a
+child process, never through COM; `cmd /c ... %~sI` answers in 42 ms and produces the same divergence.
+
+**And a red gate that size is a question about the runner before it is one about the diff** -- three of
+the named suites were re-run standalone first and passed in seconds, which is what pointed at a stalled
+lane instead of at forty-eight regressions.
 
 `Get-ConsumerProseDocuments` is deliberately **not** widened to match. It is the same corpus the two
 GATED prose detectors read behind `consumer-prose-sessioncheck`, so a change there moves what fires at

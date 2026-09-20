@@ -283,10 +283,16 @@ try {
     #
     # IT SKIPS OUT LOUD where 8.3 generation is off for the volume, because there is then no second
     # spelling to test with -- a silent skip here would read as coverage this suite does not have.
+    #
+    # AND IT ASKS cmd RATHER THAN Scripting.FileSystemObject, which is not a style preference: the COM
+    # route was written first and HUNG this suite inside the parallel test gate -- 1,800s, the lane
+    # bound, at exactly this line, with 47 other suites behind it never starting. Measured
+    # September 20, 2026, on this branch's own first gate run. The '%~sI' expansion is an ordinary child
+    # process like every other invocation in these suites, and it answered in 42 ms.
     $shortRoot = ''
     try {
-        $fso = New-Object -ComObject Scripting.FileSystemObject
-        $shortRoot = [string]$fso.GetFolder($lensTree).ShortPath
+        $shortRoot = [string](@(& cmd /c "for %I in (`"$lensTree`") do @echo %~sI") | Select-Object -First 1)
+        if ($shortRoot) { $shortRoot = $shortRoot.Trim() }
     } catch { $shortRoot = '' }
     if ($shortRoot -and $shortRoot -ne $lensTree) {
         $r = Invoke-Report -Dir $shortRoot

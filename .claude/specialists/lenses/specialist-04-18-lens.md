@@ -261,6 +261,32 @@ ranking: **a mangled phrase makes a `-notmatch` pass**. That assert existed to p
 quiet on the ordinary path, and under the collapse variant it would have reported exactly that for a
 warning which was printed and merely wrapped.
 
+### No COM in a suite -- one `New-Object -ComObject` stalled the whole gate (September 20, 2026)
+
+A suite on `fix/2184-policy-drift-rank2-lenses` needed an 8.3 short name in order to prove a path
+derivation does not canonicalize its root. It asked `Scripting.FileSystemObject`, which is the obvious
+route and passed in **6 seconds standalone**. Inside the parallel test gate it **hung**: the suite sat
+at that one line for the full 1,800s lane bound, and the run came back
+**48 of 118 suites FAILED in 5,422s** -- every one of them a timeout rather than an assert, with most
+of them logged as `started +3,620.3s`, i.e. never reaching their own first line for an hour.
+
+**The failure reads as everything except its cause**, which is why it is written down here. The report
+names 48 suites, 47 of which are innocent and pass standalone in seconds; the one that is guilty is in
+the middle of an alphabetical list, and its own captured output ends on a `[PASS]`. Nothing in
+5,422 seconds of output says *COM*. The route to it was the kept output directory the gate names on
+failure -- read the guilty suite's own file and see which assert it stopped **after**.
+
+**The rule: a suite reaches the operating system through a child process, never through COM.** Every
+suite here already drives scripts that way, so the shape was available; the COM call was reached for
+because it was the tidier one-liner. The replacement is `cmd /c "for %I in ("<path>") do @echo %~sI"`,
+which answers in **42 ms** and produces exactly the same divergence -- so this costs nothing but a
+longer line.
+
+**And a red gate this size is a question about the RUNNER before it is one about the diff.** Forty-eight
+suites failing at once, none of them on an assert, is not forty-eight regressions: the shared thing is
+the harness. Re-run two or three of the named suites standalone first. Where they pass in seconds, the
+failure is contention or a stall, and the next place to look is which suite held its lane.
+
 In short: the **how** (automated tests, regression guarding) is portable; the **what** (the
 PowerShell scripts as the test surface, and building out a suite once the lint gate warrants it)
 belongs to this repo.
