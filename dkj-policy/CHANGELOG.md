@@ -44,7 +44,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 48 minor entries** <!-- pending-tally -->
+**26 / 49 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2188-gated-detectors-read-lenses · 20260920-134909
+
+The two prose detectors behind `consumer-prose-sessioncheck` now read a repo's specialist lenses, not
+just its always-on closure and workflow folder -- so a consumer restating a retired branch-document name,
+or declaring its own `CLAUDE.md` the winner over the workflow's page, is reported wherever that sentence
+actually sits. The corpus held one half of rank 2 and not the other; #2184 had just taught the on-demand
+drift report to read the lens surface, and this is the always-on hook catching up.
+
+It ships with the three repairs that make it affordable, because the widening alone measured **+5.7 s at
+every session start** -- twelve times the saving the hook merge was built for. A literal prefilter rejects
+the documents that cannot match, and two per-line allocation defects that predate this work were removed
+from the hot path. Measured best-of-3, old code against new:
+
+| tree | before | after |
+|---|---|---|
+| a repo with no lenses (3 documents) | 261 ms | **104 ms** |
+| this repo (5 -> 34 documents, 767 KB) | 482 ms | **838 ms** |
+
+So a consumer with no lenses gets a check 2.5x faster than before, and the worst-case tree in the family
+pays +356 ms for 6.8x the corpus.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- nobody outside this repo's own maintainers reads this. The detectors ship in `dkj-policy` and run
+at session start in every adopted consumer, so the reach is real, but what changes for them is a gate
+that sees more and runs faster: no action, no migration, nothing to read.
+
+**Score:** N/A
+
+#### Pull Request
+
+The gated prose detectors read the repo lenses, behind a literal prefilter
+
+Plugins: dkj-policy
+
+[PR #2202](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2202)
+
+---
 
 ### DEPLOY: fix/2192-teardown-reports-kept-directory · 20260920-133253
 
