@@ -19,11 +19,13 @@ nothing is pushed, and no consumer document is edited -- see *"What it deliberat
 ## What it is for
 
 `CONTRIBUTING-portable.md`'s **"A third rank sits above both"** states the order and the corollary that
-keeps it:
+keeps it. The middle rank is real only for a repo that still carries the page it names -- `adopt-dkj-policy`
+stopped scaffolding it on issue #2171, September 20, 2026, so a fresh adoption has two ranks and not three:
 
 ```
 the plugin's portable pages + skills        (the shared law)
-        >  dkj-policy/CONTRIBUTING.md   (this repo's answers to its seams)
+        >  dkj-policy/CONTRIBUTING.md   (this repo's answers to its seams -- ONLY where you
+                                         still carry one)
         >  the floor                        (root CONTRIBUTING.md, or CLAUDE.md where the repo keeps its floor there)
 ```
 

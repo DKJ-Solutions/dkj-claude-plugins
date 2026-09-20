@@ -71,11 +71,9 @@
     REFUSED IN A REPO THAT PUBLISHES PLUGINS (.claude-plugin/marketplace.json present). The source repo
     of this workflow arranges that folder by hand -- it is the product's home, not a consumer -- so
     scaffolding it there would write a layout over one its owner composed deliberately.
-    AND ITS ANSWER DIFFERS FROM WHAT THIS COMMAND WRITES, in one way worth knowing before copying it:
-    the source has NO root CONTRIBUTING.md, keeping that floor in its CLAUDE.md instead (Dave,
-    August 27, 2026), while the page scaffolded below assumes a consumer has one. That is the source's
-    own housekeeping rather than the model -- see CONTRIBUTING-portable.md, which recommends the root
-    page and says why.
+    AND ITS LAYOUT IS ITS OWN HOUSEKEEPING RATHER THAN THE MODEL, in one way worth knowing before
+    copying it: the source has NO root CONTRIBUTING.md, keeping that floor in its CLAUDE.md instead
+    (Dave, August 27, 2026), where CONTRIBUTING-portable.md recommends the root page and says why.
 
 .PARAMETER Apply
     Write the files. Without it the command is a DRY RUN that prints exactly what it would create and
@@ -133,9 +131,9 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # refused.
 if (Test-IsWorkflowSourceRepo -RepoRoot $repoRoot) {
     Write-Host 'REFUSED: this repo publishes this workflow, so it is its source rather than a consumer.' -ForegroundColor Red
-    Write-Host 'The source arranges dkj-policy/ by hand, and its answer differs from what this'
-    Write-Host 'command writes: it keeps NO root CONTRIBUTING.md at all (Dave, August 27, 2026), while the'
-    Write-Host 'page scaffolded here assumes you have one. Nothing was written.'
+    Write-Host 'The source arranges dkj-policy/ by hand, and its layout is its own housekeeping rather'
+    Write-Host 'than the model: it keeps NO root CONTRIBUTING.md at all (Dave, August 27, 2026). Nothing'
+    Write-Host 'was written.'
     exit 1
 }
 
