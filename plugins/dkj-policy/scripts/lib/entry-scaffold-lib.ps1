@@ -8083,11 +8083,19 @@ function Get-ConsumerLensPaths {
         up by a second loop. check-policy-drift.ps1 passes nothing and gets a fresh, private set: it
         wants only SELF-consistency here (see the paragraph below), because its exclusion of
         $consumerRels is a different question, answered afterwards, at its own call site.
-        MEASURED: the two-pass shape (this function filling its own set and List and returning a fresh
-        array, then the caller re-adding every element into its OWN outer $seen) cost +6 to +7 ms per
-        call on the always-on path, +11-12%, isolated in-process over a 30-lens fixture (main
-        54.7-57.2 ms/call; the two-pass version 61.6-63.1 ms/call). One set, one pass removes the
-        re-adding loop entirely.
+        THE REGRESSION IS MEASURED; THE RECOVERY BELOW IS NOT, AND THE TWO ARE NOT ONE CLAIM. The
+        two-pass shape (this function filling its own set and List and returning a fresh array, then the
+        caller re-adding every element into its OWN outer $seen) cost +6 to +7 ms per call on the
+        always-on path, +11-12%, isolated in-process over a 30-lens fixture (main 54.7-57.2 ms/call; the
+        two-pass version 61.6-63.1 ms/call) -- MEASURED, on that machine, that day. One set, one pass
+        removes the re-adding loop BY INSPECTION: the second pass is provably gone from the diff, which
+        is a fact about the code rather than a timing. NO NUMBER BACKS THE RECOVERY. A re-measurement
+        attempt on a different machine (#2199 second review round, Nolan #25) could not produce one and
+        was right not to: its OWN unchanged 'main' baseline, on the same fixture and harness that gave
+        the figures above, came back 68.6 / 70.9 / 168.6 / 205.8 / 202.1 ms/call, tripling mid-run, and an
+        allocation-free control loop unrelated to this diff went from 23.1-24.6 s to 65.7-68.6 s per
+        batch on the same machine -- evidence the BOX was ~3x contended, not evidence about this code.
+        The re-measurement, on a machine that can actually do it, is issue #2203.
 
         SELF-DE-DUPLICATED EVEN WITH NO -Seen -- BUT THE EXAMPLE THIS PARAGRAPH GAVE AT FIRST WAS WRONG
         (review pass, #2199, Edith #17; confirmed by running rather than reading, not merely asserted).
@@ -8171,17 +8179,26 @@ function Get-ConsumerLensPaths {
     }
     if ($dirs.Count -eq 0) { return @() }
 
-    # NEITHER 'if ($Seen) {...}' NOR '$x = if (cond) { $Seen } else {...}', both tried and both wrong
-    # (self-caught in this same review pass, before it shipped). Truthiness on a collection asks its
-    # COUNT, not whether it is $null -- an empty-but-real -Seen would have been treated as "none given"
-    # and silently detached from the caller's set. Worse, and what actually broke every #2188 lens test:
-    # an if/else used AS AN EXPRESSION streams whichever branch executes onto the pipeline, and a bare
-    # IEnumerable branch value -- a HashSet is one -- gets ENUMERATED there rather than passed through
-    # whole, so '$seenSet = if (...) { $Seen } else {...}' silently replaced the HashSet with an
-    # Object[] of its CONTENTS (empty -Seen -> $null; a 2-entry -Seen -> a fixed-size 2-element array),
-    # and '.Add()' on that threw. Direct assignment INSIDE each branch, with no expression capturing the
-    # block's output, does not enumerate: verified on a 2-entry HashSet, mutations made through $seenSet
-    # afterwards are visible on the caller's original object either way.
+    # NOT '$seenSet = if (cond) { $Seen } else {...}', tried first and wrong (self-caught in this same
+    # review pass, before it shipped -- confirmed by running rather than reading, which is exactly what
+    # caught it). An if/else used AS AN EXPRESSION streams whichever branch executes onto the pipeline,
+    # and a bare IEnumerable branch value -- a HashSet is one -- gets ENUMERATED there rather than passed
+    # through whole. So that form silently replaced the HashSet with an Object[] of its CONTENTS: an
+    # empty -Seen enumerated to nothing and left $seenSet as $null ('.Add()' on a null-valued
+    # expression); a 2-entry -Seen enumerated its two strings onto the pipe and PowerShell collected them
+    # into a fixed-size 2-element array ('.Add()' -- "the collection has a fixed size"). BOTH OBSERVED
+    # FAILURES ARE FULLY EXPLAINED BY THIS ONE MECHANISM, and an earlier version of this comment claimed a
+    # second one that does not hold and has been removed: it argued a collection's boolean coercion asks
+    # its Count, so an empty-but-real -Seen would read as "none given" and get silently detached from the
+    # caller's set. That is real for an array (`@()` is falsy) and was wrongly generalised here to a type
+    # it does not cover -- `HashSet<T>` implements only the GENERIC `ICollection<T>`, not the
+    # non-generic `System.Collections.ICollection`/`IList` PowerShell's boolean coercion actually
+    # inspects for a Count-based verdict, so an empty `HashSet[string]` is TRUTHY like any other
+    # non-null object (verified via `.GetInterfaces()`, zero matches, and reproduced with
+    # `Set-StrictMode -Version Latest` on -- #2199 second review round, Victor #19). Direct assignment
+    # INSIDE each branch, with no expression capturing the block's output, does not enumerate: verified
+    # on a 2-entry HashSet, mutations made through $seenSet afterwards are visible on the caller's
+    # original object either way.
     $seenSet = $null
     if ($null -ne $Seen) {
         $seenSet = $Seen
@@ -8358,10 +8375,14 @@ function Get-ConsumerProseDocuments {
     # and it is handed to Get-ConsumerLensPaths itself via -Seen (#2199 review, Nolan #25) so the walk's
     # own dedup check IS the exclusion check -- one set, one pass, rather than filling a private set
     # there and re-adding every result into this one here. The orchestrator's '@'-imported lens stays the
-    # single row it is today either way; what changed is that a caller no longer pays a second loop to
-    # keep that true. Measured before this repair: +6 to +7 ms per call on this exact path (+11-12%,
-    # isolated in-process, 30-lens fixture) against the one-pass walk this replaced when #2199 first
-    # promoted it.
+    # single row it is today either way. WHAT CHANGED IS BY INSPECTION, NOT BY MEASUREMENT: a caller no
+    # longer pays a second loop to keep that true, provably, since the second loop is gone from the diff
+    # -- but that removal has no clean number behind it. The REGRESSION this repairs was measured, +6 to
+    # +7 ms per call on this exact path (+11-12%, isolated in-process, 30-lens fixture) against the
+    # one-pass walk this replaced when #2199 first promoted it; the RECOVERY was not, and a re-measurement
+    # attempt on a different, contended machine could not produce one either (#2199 second review round,
+    # Nolan #25) -- see Get-ConsumerLensPaths' own docstring for those figures. The re-measurement, on a
+    # machine that can do it, is issue #2203.
     #
     # THE WHOLE CALL IS WRAPPED (#2199 review, Sebastian #23), matching the Get-EnabledPlugins wrap right
     # above. Most of what Get-ConsumerLensPaths does cannot throw: Get-SpecialistFiles is documented not
@@ -8373,6 +8394,19 @@ function Get-ConsumerProseDocuments {
     # -- a permission-denied directory, a broken reparse point -- into a throw. A malformed filesystem
     # entry under a corpus half that is additive by construction must not take a SessionStart hook down
     # any more than a malformed settings layer may.
+    #
+    # THE WRAP IS DELIBERATELY WIDER THAN THAT ONE NAMED RISK, AND THAT WIDTH IS TRACKED RATHER THAN
+    # SILENT (#2199 third review round, Victor #19; issue #2204). Inside the loop below,
+    # Get-PathRelativeToDirectory calls [System.IO.Path]::GetFullPath() per file, AFTER earlier
+    # iterations may already have called the caller's own -Seen.Add() -- so a throw there (GetFullPath is
+    # documented to throw on pathological input; Victor could not trigger it on a real enumerated file and
+    # calls it low-probability, not impossible) would leave the caller's ALIASED $seen holding paths that
+    # never reach $rels, discarded here with no trace. The precise fix -- narrowing
+    # Get-LensDirCandidates' own Get-ChildItem with -ErrorAction SilentlyContinue, matching
+    # Get-SpecialistFiles' own pattern -- is NOT made here: that function lives in check-report-lib.ps1,
+    # which mirrors into three plugins and is read by every discovery-seam consumer in the family, so
+    # narrowing it changes behaviour for callers this branch does not own. #2204 carries that repair;
+    # this wrap stands in for it until it lands.
     if ($RepoRoot) {
         $pluginNames = New-Object System.Collections.Generic.List[string]
         if (Test-FunctionDefined 'Get-EnabledPlugins') {
