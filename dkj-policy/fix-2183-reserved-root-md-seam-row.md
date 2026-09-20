@@ -51,18 +51,19 @@
 ### DEPLOY: fix/2183-reserved-root-md-seam-row
 
 The seam-answer table in the system-administration lens now states the permanent-root-docs list the way
-the code holds it. It had carried, since the deleted `dkj-policy/README.md`, a list of six names and a
-note that `CHANGELOG` and `CONTRIBUTING` "came off" it on August 27, 2026. The code says the opposite:
-`Get-ReservedRootMd` still lists all eight names, because the portable `cut-release` reads that list to
-decide which root `.md` files are permanent documents rather than unfolded entries, and taking the two
-names off the same day made it refuse a release over a changelog nobody had failed to fold. The row now
+the code holds it. It carried, since #2179 moved it into the lens from the now-deleted
+`dkj-policy/README.md`, a list of six names and a note that `CHANGELOG` and `CONTRIBUTING` "came off" it
+on August 27, 2026. The code says the opposite: `Get-ReservedRootMd` still lists all eight names,
+because the portable `cut-release` reads that list to decide which root `.md` files are permanent
+documents rather than unfolded entries, and taking the two names off the same day made it refuse a
+release in any repo that keeps its changelog at the root, over a changelog nobody had failed to fold. The row now
 lists every name, says the two left the root and stayed on the list because the list names a permanent
 document rather than one this repo holds today, and points at the code comment that carries the
 reasoning and at `ReservedNames` in `Get-BranchFilePaths`, which records the same rule for the
-folder's own pages. Nothing else in the table, and no script, changed.
+workflow folder's own pages. Nothing else in the table, and no script, changed.
 
 This prevents a failure that has not happened yet: with `dkj-policy/README.md` deleted, that row is the
-only prose left for this seam, so someone reconciling the code to it would take the two names off the
+only prose description of this seam outside the code, so someone reconciling the code to it would take the two names off the
 list and reproduce the cut refusal of August 27.
 
 **Score:** 1
