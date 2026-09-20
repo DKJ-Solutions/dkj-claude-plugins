@@ -155,5 +155,4 @@ directory would have stayed blind in exactly those trees. The suite pins that pa
 
 check-policy-drift's RANK 2 learns the lens directory, so the migrated seam answers are read again
 
-Plugins: dkj-policy
 
