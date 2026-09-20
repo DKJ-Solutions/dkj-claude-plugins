@@ -39,23 +39,82 @@
 
 ### PLAN
 
-Measurement is taken (two BWJ consumer checkouts, landed code). Next: replace the 'NO CONSUMER LENS WAS MEASURED' paragraph in Get-ConsumerProseDocuments with the result, in both mirrored copies.
+Closes #2205, the residual of #2197 rather than #2197 itself. #2197's own question -- the
+false-positive rate of the two gated prose detectors over a CONSUMER's lenses -- was measured and
+answered in its own thread, and it is closed on its merits. What it left behind is a sentence on the
+trunk that outlived both events by minutes.
+
+#### The ordering that produced it
+
+Three events inside 140 seconds, none of them wrong on its own:
+
+| time (UTC) | event |
+|---|---|
+| 13:49:09 | PR #2202 merges `fix/2188-gated-detectors-read-lenses` -- the widened corpus, and its "open half" sentence, reach `main` |
+| 13:51:24 | #2197's measurement lands as a comment, closing with *"which is parked with no pull request"* and *"Nothing on `main` is wrong today, because the widened corpus is not on `main`."* |
+| 13:51:25 | #2197 is closed `COMPLETED` |
+
+Both of those closing statements were true when that measurement began and false when it was
+written. `verify-resolved-issues.ps1` could not catch it: #2202 declared `Closes #2188` only, which
+was correct at the moment it opened.
+
+#### The measurement this branch writes down
+
+Taken against the landed code on a machine holding four of the six registered `localCheckout`
+paths -- 4 consumer checkouts, 93 lens files, 3,299 lines, every finding opened at its file and
+line and classified by hand.
+
+| detector | raw | real |
+|---|---|---|
+| `Get-SupremacyDeclaration` | 1 | 1 |
+| `Get-RetiredDocNameMention` | 26 | 6 |
+
+Independently corroborated on this checkout for the two BWJ consumers that resolve here
+(`smartwatchbanden` 3/3 retired, `xoxowildhearts` 1/1 supremacy), with the pre-#2188 corpus run as
+the baseline on both: **0 findings**, so every one of them is attributable to the lens widening.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the `NO CONSUMER LENS WAS MEASURED` passage in `Get-ConsumerProseDocuments` with the
+      result, in `scripts/lib/entry-scaffold-lib.ps1`.
+- [x] Apply the identical replacement to the mirrored `plugins/dkj-policy/scripts/lib/entry-scaffold-lib.ps1`,
+      so the shared-scripts drift lint stays green.
+- [~] No per-detector narrowing and no call-site change. Dropped because the measurement says so:
+      the `-RepoRoot` seam #2197 pre-built stays available and unused.
 
 ### TEST
 
+- [x] Both mirrored copies byte-identical after the edit (`diff`, clean).
+- [x] The retired sentence occurs nowhere in `scripts/` or `plugins/` any more.
+- [x] Lint gate + all suites, via `open-pr.ps1`.
+
 ### DEPLOY: fix/2197-consumer-lens-fp-measured
 
-**Score:**
+`Get-ConsumerProseDocuments` now states the consumer-lens false-positive measurement instead of
+naming it as the open half somebody still has to take. The passage it replaces asserted two things
+that stopped being true within minutes of it reaching the trunk -- that no consumer lens had been
+measured, and that #2197 carried the question -- and a docstring that names an open question is
+read as an invitation to go and answer it, which is the work this would have cost the next reader.
+
+The decision it records is that **both detectors keep the lenses**: `Get-SupremacyDeclaration` at
+1 raw / 1 real and `Get-RetiredDocNameMention` at 26 raw / 6 real over 4 consumer checkouts, 93
+lens files and 3,299 lines. The flat ratio is deliberately not what the entry turns on -- read per
+consumer it is four for four, because every repo whose verdict the widening actually changes
+receives only real findings, and the 23/3 sits entirely in one consumer that was already red on 36
+non-lens findings. The `-RepoRoot` seam stays available and unused; no code changed.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running this workflow receives this file through a plugin update, and a developer there who
+reads the old passage is told the question is open and the seam is waiting to be narrowed. The
+nameable failure is that they measure it again, or narrow a detector on an argument the numbers
+have already settled against -- the 6 real restatements and 1 real inversion it would have
+suppressed are exactly the findings nothing else in this workflow could have surfaced.
+
+**Score:** 1
 
 #### Pull Request
 
-The consumer-lens false-positive rate is measured: 4 raw, 4 real, and the retired-name half keeps the lenses
-
+Get-ConsumerProseDocuments states the consumer-lens measurement instead of naming it as an open half
