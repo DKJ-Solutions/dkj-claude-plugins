@@ -90,19 +90,19 @@ verified with `measure-skill` before it lands.
 
 ### CREATE
 
-- [ ] A1 -- `scripts/task/adopt-workflow-folder.ps1`: stop composing and placing the two pages (both content
+- [x] A1 -- `scripts/task/adopt-workflow-folder.ps1`: stop composing and placing the two pages (both content
       blocks and their two entries in the placement list), leaving every other target it writes exactly as
       it is -- the PR template, the two CI workflows, `releases/README.md`, the changelog intro and the one
       seam it is permitted to answer
-- [ ] A2 -- drop the refreshable fenced-block machinery for the folder README (the block builder and its
+- [x] A2 -- drop the refreshable fenced-block machinery for the folder README (the block builder and its
       four top-up states) and put a LEGACY REPORT in its place: a consumer holding either page is told the
       plugin no longer writes or refreshes it, with no delete command printed
-- [ ] A3 -- regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1`, so the registered
+- [x] A3 -- regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1`, so the registered
       pair stays LF-identical
 - [ ] A4 -- rewrite `scripts/tests/adopt-workflow-folder.tests.ps1`: the scaffold-target assert and the
       per-page asserts flip from *is written* to *is NOT written, and an existing copy is left untouched and
       reported*
-- [ ] A5 -- prove the reading gates are unaffected: a legacy folder CONTRIBUTING is still read by
+- [x] A5 -- prove the reading gates are unaffected: a legacy folder CONTRIBUTING is still read by
       `check-consumer-prose.ps1`, and the reserved names still shield both pages from the fold
 - [ ] A6 -- the rank-order model drops from three ranks to two for a NEW consumer, while rank 2 stays real
       wherever a legacy copy exists: `plugins/dkj-policy/CONTRIBUTING-portable.md`, `check-policy-drift.ps1`
