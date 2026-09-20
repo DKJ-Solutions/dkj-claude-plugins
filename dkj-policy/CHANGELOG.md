@@ -44,7 +44,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**33 / 60 minor entries** <!-- pending-tally -->
+**34 / 61 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2225-branch-name-resolves-gate · 20260920-214108
+
+A branch named after an issue now closes it. The resolves gate read the development document's prose and
+an explicit `-Resolves`, and both are optional -- the prose is whatever the author typed, the flag is
+memory. The branch NAME is where `new-branch.ps1` puts the number when a branch is cut for an issue, and
+it was the one place nothing read, so a branch cut for an issue could merge closing nothing with no
+backstop afterwards: `verify-resolved-issues.ps1` checks the outcome of a closing keyword, and there was
+no keyword to check. `fix/2183-reserved-root-md-seam-row` did exactly that through PR #2211; the repair
+landed, and #2183 stayed open until somebody asked by hand.
+
+`Get-BranchNameIssue` reads `<prefix>/<n>-<slug>` and the gate folds that number in beside the
+document's own mentions. The decision table is untouched, so the gate still refuses only when the issue
+is OPEN and the PR declares neither `-Resolves` nor `-NoResolves` -- a branch that deliberately does not
+close its issue still has `-NoResolves`, and the same escape valve now covers the branch named after an
+issue it only partly addresses. The refusal names the branch name as the source, because an author sent
+to grep a document that never mentioned the number is worse off than before.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every repo running this workflow gets the same gate, and on their branches too the question becomes
+explicit: a branch named `fix/<n>-...` for an issue still open must now say `-Resolves` or `-NoResolves`
+where it previously said nothing. That is one flag on the branches that were closing nothing by
+accident, and it is the cost the repair was designed around rather than an unintended edge -- the
+alternative is the silent open issue this gate exists to prevent. Nothing already declared changes, and
+no PR gains a closing keyword nobody asked for: the branch's number joins the set the gate ASKS about,
+never the set it answers with.
+
+**Score:** 3
+
+#### Pull Request
+
+The resolves gate reads the branch name's issue number, not only the document's prose
+
+Plugins: dkj-policy
+
+[PR #2227](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2227)
+
+---
 
 ### DEPLOY: fix/2215-outnull-hot-path · 20260920-195609
 
