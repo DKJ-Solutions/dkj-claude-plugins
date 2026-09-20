@@ -366,6 +366,48 @@ try {
     Assert-True ($e7.Out -match '\[entry-shape\] checked [1-9]') `
         'entry-shape: and the intro was actually examined rather than skipped into silence'
 
+    # --- check 20c: the BRANCH's own document is exempt by pattern, its folder's pages are not -------
+    # ISSUE #2180. The exclusion was a list built from a branch-less Get-BranchFilePaths, which answers the
+    # pre-#1255 SHARED name -- so from the day the documents went per branch it named a file that no longer
+    # exists, while $linkFiles went on sweeping the folder recursively. Here the failure direction is NOISE:
+    # a branch document that quotes a section count while EXPLAINING the entry format is reported as stale
+    # prose and fails the gate. It stayed quiet on the tree only because the scaffolded guidance says
+    # 'HEADINGS' where this pattern wants 'section' -- a wording nothing holds, which is why the assert
+    # below writes the triggering sentence by hand rather than trusting the scaffold to keep missing it.
+    #
+    # BOTH FILES IN ONE RUN, and that is what keeps the negative from being vacuous: a branch document alone
+    # going silent reads the same whether it was excluded or never swept. The folder's own README is a
+    # ReservedName, so the predicate answers false for it and it is still checked -- one run therefore
+    # proves the sweep reaches this folder AND that the exemption is per file rather than per folder.
+    Write-Host "check 20c: the branch document is exempt, the folder's own pages are not" -ForegroundColor Cyan
+    $shapeStale   = "An entry is one $docEntryH heading with three named $docSectH sections under it."
+    $shapeBranch  = Join-Path $Fixture 'dkj-policy\fix-2180-demo.md'
+    $shapeFolderR = Join-Path $Fixture 'dkj-policy\README.md'
+
+    # 51. The per-branch document stays silent; the sibling page carrying the identical sentence does not.
+    [System.IO.File]::WriteAllText($shapeBranch, "## fix/2180-demo`n`n$shapeStale`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText($shapeFolderR, "# dkj-policy`n`n$shapeStale`n", $Utf8NoBom)
+    $e8 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]fix-2180-demo\.md')) `
+        'entry-shape: the branch OWN document is exempt by pattern, not by the retired shared name (#2180)'
+    Assert-True ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]README\.md:3: says an entry has 3') `
+        'entry-shape: and the same sentence in the folder own page IS reported, so the sweep does reach here'
+
+    # 52. A LEGACY name stays exempt -- the fixed list was KEPT alongside the predicate rather than replaced
+    #     by it. The name has to come from the branch/ pair for this to mean anything: the pre-#1255 SHARED
+    #     name sits in the folder itself and so matches the pattern too, which would make the assert pass
+    #     against a repair that dropped the list entirely. These two are one directory down, where the
+    #     predicate's own anchor cannot reach them -- measured, Test-IsPerBranchDocumentPath answers false.
+    #     A branch opened before that rename still carries one, here and in every consumer, and it meets
+    #     this change through a plugin update rather than by choosing to.
+    Remove-Item -LiteralPath $shapeBranch, $shapeFolderR -Force
+    $shapeLegacy = Join-Path $Fixture ((Get-BranchFilePaths).LegacyCycle -replace '/', '\')
+    [System.IO.File]::WriteAllText($shapeLegacy, "## feat/old-branch`n`n$shapeStale`n", $Utf8NoBom)
+    $e9 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($e9.Out -match 'says an entry has')) `
+        'entry-shape: a legacy branch-file name is still exempt -- the fixed list was kept, not swapped out'
+    Remove-Item -LiteralPath $shapeLegacy -Force
+
     # --- check 22: a skill's runnable command must resolve on the reader's machine -------------------------
     # THE MEASURED DEFECT, August 8-9, 2026: adopt-config's page shipped in v3.8.0 with both commands
     # written as 'C:/Users/<the author>/.claude/plugins/cache/.../3.8.0/scripts/...'. It was the newest of
