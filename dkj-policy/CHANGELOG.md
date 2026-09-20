@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**27 / 51 minor entries** <!-- pending-tally -->
+**28 / 52 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2204-lensdircandidates-enumeration-guard · 20260920-155808
+
+`Get-LensDirCandidates` -- the shared primitive that answers where a consumer's repo lenses may live, and
+the one every discovery-seam reader walks -- enumerated `.claude/plugins/` with a bare `Get-ChildItem`. That
+raises a non-terminating error on a directory it cannot read, and any caller running under
+`$ErrorActionPreference = 'Stop'` has it escalated to a throw; a permission-denied entry or a broken reparse
+point is enough. The walk now passes `-ErrorAction SilentlyContinue`, on the pattern `Get-SpecialistFiles`
+already used one screen down, so a family directory that cannot be read contributes no candidate -- exactly
+what the walk already did for a family that is simply absent. Guarded at the root rather than at each call
+site, because one guard answers the risk for every caller of a shared primitive, while a call-site-wide
+`try/catch` answers it for one and masks that caller's own future regressions along with it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The lib mirrors into three plugins -- `dkj-subagents-alpha`, `dkj-policy` and `dkj-subagents-shopify` -- so
+every consumer that installs one of them gets the guarded walk at the next release. What it buys them is a
+failure that has not happened yet, which is the whole of its weight: a repo whose `.claude/plugins/` holds
+an entry this account cannot enumerate would, from a caller under `Stop`, have seen the roster check, the
+drift lint, the policy-drift report or the teardown throw rather than degrade. Nobody has reported that, and
+nothing a consumer can see changes on a healthy tree -- the walk returns the same candidates it always did.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard Get-LensDirCandidates' plugin-family enumeration
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2209](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2209)
+
+---
 
 ### DEPLOY: fix/2197-consumer-lens-fp-measured · 20260920-154630
 
