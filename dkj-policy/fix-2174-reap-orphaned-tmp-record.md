@@ -39,21 +39,52 @@
 
 ### PLAN
 
+#### The repair, and the one it deliberately is not
+
+`Write-RunProgress` writes `<id>.json.<pid>.tmp` and moves it into place -- the atomic write that
+makes a torn read impossible. `Get-LiveRunProgress` globs `*.json`, which that name is not, so a
+publisher killed between the write and the move leaves a file both reaping paths sit inside a loop
+away from. Issue #2174 measured one: 232 B, a day old, from a test-gate run whose pid was long gone.
+
+Widening the glob was the cheaper repair and it is refused, on the lib's own stated ground -- a
+record it cannot parse is *skipped, not deleted*, because a reader that deletes what it cannot read
+destroys evidence. So the sweep is keyed on the exact name **this lib writes** and on nothing else.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Remove-OrphanedRunProgressTemp` in `scripts/lib/run-progress-lib.ps1`: sweep `*.tmp` whose
+      name matches `.json.<pid>.tmp`, reaping past the hard age cap or once that pid is gone
+- [x] `Get-LiveRunProgress` calls it on the same pass -- the same party that has just proved each
+      record dead, which is the reason reaping lives there rather than in a sweeper
+- [x] the mirrors rebuilt (`build-shared-scripts.ps1`), since this lib ships in two plugins
 
 ### TEST
 
+- [x] four cases added to `scripts/tests/run-progress.tests.ps1`: the orphan goes, a live writer's
+      own tmp stays, the age cap still fires over a live pid, and a `.tmp` this lib did not write is
+      left alone
+- [x] the suite is green (63 asserts), and the lint + test gate runs at the push
+
 ### DEPLOY: fix/2174-reap-orphaned-tmp-record
 
-**Score:**
+The progress root no longer grows one small file per killed publisher. `Get-LiveRunProgress` reaped
+only `*.json`, so the `.tmp` a publisher abandons when it is killed between the write and the move
+was never looked at again -- and a killed publisher is ordinary here, since a backgrounded ship dies
+with its harness. It is swept now on the same pass, keyed on the name this lib itself writes and on
+the pid embedded in it, so a `.tmp` somebody else put there is still evidence rather than litter.
+
+Cosmetic and slow rather than visible: the statusline never parsed these, so no bar was ever wrong.
+The failure it prevents is unbounded accumulation in `%LOCALAPPDATA%\dkj-run-progress\`.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a subscriber of the service: this is a per-developer cache directory on the machine
+running the workflow, and nothing it holds is published, rendered or shipped.
+
+**Score:** N/A
 
 #### Pull Request
 
 An orphaned .tmp progress record is reaped instead of accumulating forever
-

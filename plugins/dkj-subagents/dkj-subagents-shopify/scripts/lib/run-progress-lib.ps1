@@ -265,6 +265,78 @@ function Test-RunProgressWriterAlive {
     return ($liveTicks -eq $recordedTicks)
 }
 
+function Remove-OrphanedRunProgressTemp {
+    <#
+        Delete the '.json.<pid>.tmp' files no writer is coming back for -- issue #2174.
+
+        WHY THE MAIN LOOP CANNOT DO THIS. Write-RunProgress writes aside and then moves into place,
+        so a publisher killed between those two statements leaves '<id>.json.<pid>.tmp' behind. The
+        reader below globs '*.json', which that name is not, so both of its reaping paths -- the age
+        cap and the liveness test -- sit inside a loop the file never enters. Nothing ever looked at
+        it again, and a killed publisher is ordinary here: a backgrounded ship dies with its harness.
+
+        THE PID COMES OUT OF THE NAME, NOT OUT OF THE FILE. The content may be the torn half-write
+        this whole scheme exists to hide from the reader, so it is never parsed. The name is written
+        by this lib one function up and carries the id of the process that was doing the writing --
+        which is $PID there, deliberately, and NOT the record's writerPid: -WriterPid names the
+        process whose life is the RUN, while what abandoned this file is the process whose life was
+        the WRITE.
+
+        A NAME THIS LIB DID NOT WRITE IS LEFT ALONE, which is the same rule the reader states over
+        its unparseable records: something else having put a file here is not this function's
+        business to clean up. So the match is the exact shape above and not a '*' glob -- a widened
+        sweep would have been the cheaper repair and it is the one that starts destroying evidence.
+
+        THE TWO REAP RULES ARE THE READER'S OWN, IN THE READER'S ORDER. Past the hard age cap it
+        goes whatever the pid says, because after a reboot that number belongs to somebody else;
+        otherwise it goes when its writer is gone. The age is the file's mtime rather than a
+        startedUtc, for the reason the pid is read off the name.
+
+        It never throws: this runs inside a reader that must cost a producer nothing at all.
+    #>
+    param(
+        [string]$Root = '',
+        [AllowNull()][object]$NowUtc = $null
+    )
+
+    $now = if ($NowUtc -is [datetime]) { ([datetime]$NowUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
+    $dir = Get-RunProgressRoot -Override $Root
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return 0 }
+
+    $temps = @()
+    # '*.tmp' AND THEN A REGEX, rather than the whole pattern in -Filter: Windows matches a -Filter
+    # against the 8.3 short name as well as the long one, so a multi-dot glob there answers a
+    # question about a name nobody chose. The filter narrows, the regex decides.
+    try { $temps = @(Get-ChildItem -LiteralPath $dir -Filter '*.tmp' -File -ErrorAction Stop) } catch { return 0 }
+
+    $removed = 0
+    foreach ($file in $temps) {
+        if ($file.Name -notmatch '\.json\.(?<pid>[0-9]+)\.tmp$') { continue }
+        $writerPid = 0
+        if (-not [int]::TryParse($Matches['pid'], [ref]$writerPid) -or $writerPid -le 0) { continue }
+
+        $doomed = $false
+        if (($now - $file.LastWriteTimeUtc).TotalHours -gt $script:RunProgressMaxAgeHours) {
+            $doomed = $true
+        } elseif (-not (Test-RunProgressWriterAlive -Record ([pscustomobject]@{ writerPid = $writerPid; writerStartTicks = 0 }))) {
+            # START TICKS 0 IS THE DOCUMENTED DEGRADED MODE, and it is the only one available: the
+            # name carries a pid and nothing else. So a recycled pid keeps a stray tmp alive until
+            # the age cap above catches it, which is the safe direction to err in -- 232 bytes for
+            # at most twelve hours, against deleting the file of a writer that is still running.
+            $doomed = $true
+        }
+
+        if ($doomed) {
+            try {
+                Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
+                $removed++
+            } catch { }
+        }
+    }
+
+    return $removed
+}
+
 function Get-LiveRunProgress {
     <#
         Every run currently publishing, newest first -- and the dead ones deleted on the way past.
@@ -272,6 +344,11 @@ function Get-LiveRunProgress {
         REAPING HERE RATHER THAN IN A SWEEPER is deliberate: this function runs every couple of
         seconds for as long as a session is open, so the directory is tidied continuously by the one
         party that has just proved each record dead. Nothing else has to remember.
+
+        AND THE ABANDONED '.tmp' FILES GO ON THE SAME PASS (#2174), for the same reason and by
+        the same party -- see Remove-OrphanedRunProgressTemp. They are swept separately because
+        the loop below reads records, and the whole point of a leftover tmp is that there is no
+        record in it to read.
 
         NEWEST FIRST because the statusline shows one line and the run a reader is asking about is
         the one that just started -- the gate opening inside a ship, not the ship it opened inside of.
@@ -284,6 +361,8 @@ function Get-LiveRunProgress {
     $now = if ($NowUtc -is [datetime]) { ([datetime]$NowUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
     $dir = Get-RunProgressRoot -Override $Root
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
+
+    [void](Remove-OrphanedRunProgressTemp -Root $Root -NowUtc $now)
 
     $live = @()
     $files = @()

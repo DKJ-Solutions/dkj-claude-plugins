@@ -156,6 +156,47 @@ Assert-True (@(Get-LiveRunProgress -Root $root).Count -eq 0) 'Get-LiveRunProgres
 Assert-True (Test-Path -LiteralPath (Join-Path $root 'junk.json')) `
     'Get-LiveRunProgress: and it is left alone -- a reader that deletes what it cannot read destroys evidence'
 
+# --- 7b. the ORPHANED '.tmp' of a killed publisher is reaped (issue #2174) ---------------------
+# Write-RunProgress writes '<id>.json.<pid>.tmp' and moves it into place. A publisher killed between
+# those two statements leaves the tmp behind, and the reader's '*.json' glob never sees it -- so both
+# reaping paths above sit inside a loop the file cannot enter. Measured: one such file, a day old,
+# from a test-gate run whose writer was long gone.
+$root = New-Root 'orphantmp'
+$deadPid = Get-DeadProcessId
+$orphan  = Join-Path $root "test-gate-$deadPid.json.$deadPid.tmp"
+[System.IO.File]::WriteAllText($orphan, '{"id":"test-gate"}', (New-Object System.Text.UTF8Encoding($false)))
+
+Assert-True (@(Get-LiveRunProgress -Root $root).Count -eq 0) `
+    'Get-LiveRunProgress: an orphaned .tmp contributes no line -- it never did'
+Assert-True (-not (Test-Path -LiteralPath $orphan)) `
+    'Get-LiveRunProgress: and it is now reaped, so the progress root stops growing one file per killed publisher'
+
+# The live writer's own tmp is NOT swept. It exists for microseconds inside Write-RunProgress, and a
+# reader deleting it there would turn the torn-read guard into the torn read.
+$root = New-Root 'livetmp'
+$mine = Join-Path $root "test-gate-$PID.json.$PID.tmp"
+[System.IO.File]::WriteAllText($mine, '{"id":"test-gate"}', (New-Object System.Text.UTF8Encoding($false)))
+[void](Get-LiveRunProgress -Root $root)
+Assert-True (Test-Path -LiteralPath $mine) `
+    'Remove-OrphanedRunProgressTemp: a tmp whose writer is still alive is left exactly where it is'
+
+# Past the hard age cap it goes even though that pid is alive -- after a reboot the number is
+# somebody else's, which is the same last resort the record loop applies.
+$aged = Join-Path $root "old-gate-$PID.json.$PID.tmp"
+[System.IO.File]::WriteAllText($aged, '{"id":"old-gate"}', (New-Object System.Text.UTF8Encoding($false)))
+[void](Get-LiveRunProgress -Root $root -NowUtc ((Get-Date).AddHours(13).ToUniversalTime()))
+Assert-True (-not (Test-Path -LiteralPath $aged)) `
+    'Remove-OrphanedRunProgressTemp: past the 12-hour cap a tmp is dropped even though its pid is alive'
+
+# A '.tmp' this lib did not write is left alone -- the same rule the reader states over a record it
+# cannot parse. A widened '*' glob was the cheaper repair and this is what it would have cost.
+$root = New-Root 'foreigntmp'
+$foreign = Join-Path $root 'somebody-elses.tmp'
+[System.IO.File]::WriteAllText($foreign, 'not ours', (New-Object System.Text.UTF8Encoding($false)))
+[void](Get-LiveRunProgress -Root $root)
+Assert-True (Test-Path -LiteralPath $foreign) `
+    'Remove-OrphanedRunProgressTemp: a .tmp this lib did not write is evidence, not litter'
+
 # --- 8. the bar itself: clamping and width -----------------------------------------------------
 Assert-Equal '[------------]' (Format-ProgressBar -Fraction 0) 'Format-ProgressBar: zero is empty'
 Assert-Equal '[############]' (Format-ProgressBar -Fraction 1) 'Format-ProgressBar: one is full'
