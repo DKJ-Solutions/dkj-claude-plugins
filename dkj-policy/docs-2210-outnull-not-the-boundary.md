@@ -39,23 +39,65 @@
 
 ### PLAN
 
-Measured: the +11% is 35 extra '| Out-Null' pipelines the promotion added at the call site, not the boundary crossing. Correct Nolan #25's lens; the code repair belongs on maikel-bwj's live fix/2199 branch.
+#### What this branch is, and what it deliberately is not
+
+#2210 asks the owner of `fix/2199-one-lens-assembler` to choose between accepting +11% on the always-on
+path, inlining the call site, or "something else -- the boundary cost itself may be reducible; nothing
+here has tested that". This branch tested it. The third option wins, and the repair is two lines.
+
+**No code on that branch is touched here.** It is live under `maikel-bwj` (last commit ~1 h before this
+session), #2199 is open and assigned to them, and the repair belongs in their hands. What lands here is
+the measurement, in Nolan #25's lens, plus the two issues it produced. The finding is on #2210 as a
+comment for the branch owner.
+
+#### The finding
+
+The +11-12% is **not** the call boundary -- that measures 0.038 ms. It is **35 `| Out-Null` pipelines
+per invocation** that the promotion added at the call site (29 in the re-append loop, 6 in the
+`$pluginNames` loop), at ~95 us each. `[void]` instead of `| Out-Null` recovers 88% and lands within
+0.36 ms of the fully-inlined control, so inlining buys nothing over it.
+
+- [x] Reproduce #2203's four rows on this machine -- rows 1 and 4 both reproduce, so the harness agrees
+      with theirs where they overlap
+- [x] Isolate the mechanism directly (pipeline construction vs. the boundary), rather than inferring it
+      from a whole-block bisect
+- [x] Measure the candidate repair end to end, five variants, rotated, contention-bracketed
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Correct the wrong attribution in Nolan #25's lens and record the re-measurement under its own
+      heading
+- [x] File the repo-wide reach of the idiom separately (#2215) rather than sweeping 107 sites here
+- [x] Put the repair and the numbers on #2210 for the branch owner
+- [~] Apply the two-line repair -- dropped: it belongs on another account's live branch, and an
+      ordering between two people's branches is the owner's call
 
 ### TEST
 
+- [x] All 70 measurement batches in band; corpus hash identical across every variant, so the variants
+      compare the same work
+- [~] A test suite -- dropped: nothing in this branch is code. The measurement's own repeatability is
+      what stands in for it, and the harness is described in the lens well enough to re-run
+
 ### DEPLOY: docs/2210-outnull-not-the-boundary
 
-**Score:**
+A measured attribution in Nolan #25's lens said the #2199 promotion's +11% was the function-call
+boundary. It is not: the boundary is 0.038 ms, and the cost is 35 `| Out-Null` pipelines the promotion
+added at the call site. The lens now carries the corrected cause, the five-variant bisect behind it, and
+the two-line repair that recovers 88% of the regression while keeping the shared function -- which
+settles the design question #2210 left open for the branch owner. The general rule is recorded with it:
+an attribution is a measurement too, and a bisect that swaps a whole block tells you which block, never
+which line in it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- no subscriber of anything this repo ships notices. The lens is internal reference, and the
+always-on path it measures is unchanged by this branch.
+
+**Score:** N/A
 
 #### Pull Request
 
 The #2199 regression is the Out-Null idiom in the re-append loop, not the call boundary
-
