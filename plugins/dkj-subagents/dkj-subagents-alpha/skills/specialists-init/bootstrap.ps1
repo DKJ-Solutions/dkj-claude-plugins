@@ -95,14 +95,14 @@ function Get-LensNameCandidates {
        one spelling this version writes, which is what makes the guarded load above safe. #>
     param([Parameter(Mandatory = $true)][string]$Id)
     if ($script:specialistLib) { return @(Get-SpecialistFileNameCandidates -Kind Lens -Id $Id) }
-    return @("$Id-extension.md")
+    return @("specialist-$Id-lens.md")
 }
 
 function Get-LensWriteName {
     <# The single name this script WRITES for $Id. #>
     param([Parameter(Mandatory = $true)][string]$Id)
     if ($script:specialistLib) { return (Get-SpecialistFileName -Kind Lens -Id $Id) }
-    return "$Id-extension.md"
+    return "specialist-$Id-lens.md"
 }
 
 # The persona source is two levels above this script: <plugin>/skills/specialists-init/ -> <plugin>/personas/

@@ -88,15 +88,15 @@ try {
     Reset-Fixture
     $r1 = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $Fixture)
     Assert-Equal 0 $r1.Code 'bootstrap exit 0 on a fresh repo'
-    foreach ($f in '01-01-extension.md', '05-05-extension.md', '05-06-extension.md') {
+    foreach ($f in 'specialist-01-01-lens.md', 'specialist-05-05-lens.md', 'specialist-05-06-lens.md') {
         Assert-True (Test-Path -LiteralPath (Join-Path $Fixture "$Pp\$f")) "persona lens $f in the seam"
     }
-    foreach ($f in '06-16-extension.md', '06-23-extension.md') {
+    foreach ($f in 'specialist-06-16-lens.md', 'specialist-06-23-lens.md') {
         Assert-True (Test-Path -LiteralPath (Join-Path $Fixture "$Pp\$f")) "lens scaffold $f in the seam"
     }
     # Nothing lands on the pre-seam path for a fresh consumer -- one surface, not two.
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Fixture $PpLegacy))) 'fresh repo: nothing written to the pre-seam plugin path'
-    $lensText = [System.IO.File]::ReadAllText((Join-Path $Fixture "$Pp\06-16-extension.md"), [System.Text.Encoding]::UTF8)
+    $lensText = [System.IO.File]::ReadAllText((Join-Path $Fixture "$Pp\specialist-06-16-lens.md"), [System.Text.Encoding]::UTF8)
     Assert-True ($lensText -match 'VUL-IN') 'lens scaffold carries the VUL-IN marker'
     # Still asserted, and now the load-bearing half: after the title lost its marker (inbound #451) the
     # SLOT is the only thing left carrying one, so this line is what proves an unfilled scaffold is still
@@ -126,7 +126,7 @@ try {
     $inclText = [System.IO.File]::ReadAllText($inclusion, [System.Text.Encoding]::UTF8)
     Assert-True ($inclText -match '(?m)^@[^\r\n]*personas/specialist-01-01-persona\.md') 'SPECIALISTS.md carries the body @-import (from the plugin install)'
     # Relative, because "relative paths resolve relative to the file containing the import".
-    Assert-True ($inclText -match '(?m)^@lenses/01-01-extension\.md') 'SPECIALISTS.md imports the lens relative to itself'
+    Assert-True ($inclText -match '(?m)^@lenses/specialist-01-01-lens\.md') 'SPECIALISTS.md imports the lens relative to itself'
     # The roster slot carries the marker; the TITLE deliberately does not. Filling in the roster removes
     # the marker, so a teardown reads the file as authored instead of deleting somebody's roster.
     Assert-True ($inclText -match '(?m)^##\s.*\(VUL-IN\)\s*$') 'SPECIALISTS.md has a VUL-IN roster slot'
@@ -653,7 +653,7 @@ try {
     Write-Host "persona lens -- lens-only (no body copy)" -ForegroundColor Cyan
     $srcPersona = [System.IO.File]::ReadAllText($PersonaSrc, [System.Text.Encoding]::UTF8)
     Assert-True (-not ($srcPersona -match '(?m)^## (Eigen aan deze repo|Specific to this repo)')) 'persona template no longer carries a slot marker (neither language)'
-    $lens = [System.IO.File]::ReadAllText((Join-Path $Fixture "$Pp\01-01-extension.md"), [System.Text.Encoding]::UTF8)
+    $lens = [System.IO.File]::ReadAllText((Join-Path $Fixture "$Pp\specialist-01-01-lens.md"), [System.Text.Encoding]::UTF8)
     Assert-True ($lens -match 'Repo-lens \(lens-only persona\)') 'persona lens opens with the lens-only blockquote'
     Assert-True ($lens -match '(?m)^## Specific to this repo \(VUL-IN\)') 'persona lens carries a fresh VUL-IN slot (English heading)'
     Assert-True (-not ($lens -match 'fixed ritual')) 'persona lens contains NO body copy'
@@ -718,8 +718,8 @@ try {
     # A second plugin's lenses land in the SAME flat seam directory -- no per-plugin segment, since
     # <group>-<id> is unique family-wide. That is what makes "remove one directory" true for a consumer
     # with several plugins enabled, not just for a single-plugin one.
-    Assert-True (Test-Path -LiteralPath (Join-Path $cacheConsumer "$Pp\04-99-extension.md")) 'version cache: scaffold from the highest version (1.10.0)'
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $cacheConsumer "$Pp\04-88-extension.md"))) 'version cache: older version (1.9.0) not used'
+    Assert-True (Test-Path -LiteralPath (Join-Path $cacheConsumer "$Pp\specialist-04-99-lens.md")) 'version cache: scaffold from the highest version (1.10.0)'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $cacheConsumer "$Pp\specialist-04-88-lens.md"))) 'version cache: older version (1.9.0) not used'
     # Regression #179: nothing may land under the MARKETPLACE name. The seam makes the family segment
     # moot for a fresh consumer, but the assertion is kept: it guards the fallback path that still
     # derives one, and a lens under 'dkj-claude-plugins' is invisible to every reader.
@@ -802,7 +802,7 @@ try {
     # The drift check still supports a consumer with a full body copy (not lens-only).
     # We place one ourselves (template body + repo-lens marker) to test that comparison.
     Write-Host "check-consumer-drift.ps1 -- legacy body copy: IDENTICAL, then DRIFTED" -ForegroundColor Cyan
-    $ext = Join-Path $Fixture "$Pp\01-01-extension.md"
+    $ext = Join-Path $Fixture "$Pp\specialist-01-01-lens.md"
     # Legacy Dutch slot marker: proves that an old Dutch consumer still splits correctly on the
     # marker (back-compat) -> the portable body is IDENTICAL to the source.
     $fullBody = $srcPersona.TrimEnd() + "`n`n## Eigen aan deze repo (test-fixture)`n`nrepo-eigen.`n"
