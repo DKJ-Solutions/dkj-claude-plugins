@@ -1060,17 +1060,24 @@ document is generated at all are yours too (`Get-ReleaseNotesGrouping`, `Get-Rel
 
 ## The two contributing layers, and which one wins
 
-A repo running this workflow carries **two layers**, deliberately (Dave, August 14, 2026):
+A repo running this workflow always carries a **floor**, and may still carry a second, narrower layer
+above it (Dave, August 14, 2026; narrowed by issue #2171, September 20, 2026):
 
-- a **floor** — what holds before any plugin is consulted, and what stays meaningful the day the plugin
-  is absent: a fresh checkout, a teardown, a contributor who installed nothing. Normally that is your
-  root `CONTRIBUTING.md`;
-- `dkj-policy/CONTRIBUTING.md` (the `adopt-dkj-policy` skill's Part 1 scaffolds it) is the
-  **workflow's layer**: everything this plugin owns, plus your repo's answers to its seams. **Where the
-  two disagree, the workflow's page wins.**
+- the **floor** — what holds before any plugin is consulted, and what stays meaningful the day the
+  plugin is absent: a fresh checkout, a teardown, a contributor who installed nothing. Normally that is
+  your root `CONTRIBUTING.md`;
+- `dkj-policy/CONTRIBUTING.md` is a **workflow layer some repos still carry, and none gets any more.**
+  `adopt-dkj-policy`'s Part 1 scaffolded it until #2171: two pages in a consumer's own tree only made
+  that repo more complicated and produced more inconsistency than they removed. **There is one
+  `CONTRIBUTING` for a consumer to read now, and it is this page** — what your repo answers for itself
+  goes into your specialist lens instead. A repo that adopted before that day and kept the page it was
+  given still has this layer, for as long as it keeps the file: nothing deletes it, `adopt-workflow-folder.ps1`
+  reports it as legacy and leaves it untouched on every re-run, and **where the two disagree, the
+  workflow's page still wins.**
 
-So adopting this workflow never rewrites your root page — the folder file arrives beside it and takes
-precedence only where they conflict.
+So adopting this workflow never rewrites your root page. A repo still carrying the folder file has it
+sit beside the root page and take precedence only where they conflict; a fresh adoption places nothing
+there, so the root page is the whole of your floor and this page sits directly above it.
 
 **Which file carries the floor is yours, and the source repo answers it differently from the
 recommendation.** On August 27, 2026 it deleted its root `CONTRIBUTING.md` and kept the floor in its
@@ -1105,25 +1112,32 @@ to be worth retiring is exactly the page whose contents you can no longer predic
 ### A third rank sits above both, and nothing named it until inbound #1379
 
 **Both layers above are consumer documents, and a consumer document only ever comes second.** Everything
-this section has ranked so far is one repo's own floor against that same repo's workflow folder — it never
-said where the law that ships **with this plugin** — this page, the sibling portable pages, and the
-skills that carry their mechanics — sits relative to either. That is a real vacuum rather than an implied
-answer, and a consumer filled it in good faith the other way up: it declared its `CLAUDE.md` the
-constitution, supreme over its own contributing page on any disagreement. Both rules read as reasonable in
-isolation, and together they invert: this page says the workflow's page wins, the consumer says its floor
-wins and is the only place a rule is ever changed. The measured instance is
+this section has ranked so far is one repo's own floor against that same repo's own workflow layer, where
+it still has one — it never said where the law that ships **with this plugin** — this page, the sibling
+portable pages, and the skills that carry their mechanics — sits relative to either. That is a real vacuum
+rather than an implied answer, and a consumer filled it in good faith the other way up: it declared its
+`CLAUDE.md` the constitution, supreme over its own contributing page on any disagreement. Both rules read as
+reasonable in isolation, and together they invert: this page says the workflow's page wins, the consumer
+says its floor wins and is the only place a rule is ever changed. The measured instance is
 [#1378](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1378) — `cut-release`'s own
 mechanics fix a cut-then-push order, the consumer's `CLAUDE.md` documented push-then-cut, and the
 disagreement did not read as drift. It read as the constitution exercising a supremacy it had declared in
 writing, and no gate could flag it, because no gate reads a contributing page or a `CLAUDE.md`.
 
-**So the complete order, on the matters this plugin actually legislates, is three ranks and not two:**
+**So the complete order, on the matters this plugin actually legislates, sits above your floor either way
+— and the middle rank is real only for as long as your repo still carries the page it names:**
 
 ```
 the plugin's portable pages + skills   (the shared law)
-        >  dkj-policy/CONTRIBUTING.md  (this repo's answers to its seams)
+        >  dkj-policy/CONTRIBUTING.md  (this repo's answers to its seams -- ONLY where you still
+                                        carry one; #2171 stopped scaffolding it, so a fresh
+                                        adoption has no middle rank at all)
         >  the floor                   (root CONTRIBUTING.md, or CLAUDE.md where the repo keeps its floor there)
 ```
+
+A repo adopted since September 20, 2026 reads this as **two** ranks, with nothing between them. A repo
+carrying the page from before that day reads it as three, exactly as before, for as long as the page
+stays on disk.
 
 **The names say the order, since September 5, 2026 (#1437).** This plugin was called
 `contributing-davekjohn` until that day, which named one of the things it does rather than what it is. It
@@ -1171,7 +1185,8 @@ a sentence is not. The numbers are in that repo's own system-administration lens
 **One narrow slice of it IS enforced, and you will meet it at a session start rather than in a review.**
 The decline above is about reading what a *sentence* means; a **filename** needs no reading, so the
 `consumer-prose-sessioncheck` SessionStart hook greps your own always-on documents — your `CLAUDE.md`
-and everything it `@`-imports — plus your `dkj-policy/README.md` and `CONTRIBUTING.md`, for
+and everything it `@`-imports — plus your `dkj-policy/README.md` and `CONTRIBUTING.md` where your repo
+still carries either (#2171 stopped scaffolding both; a page that is not there is simply not read), for
 every name this workflow's branch document has been *renamed away from*. Your changelog and your
 `releases/` are never read: a folded entry correctly names the file of its own day. When it fires it
 names the document, the line and the retired name, and the repair is always the same — replace the
@@ -1199,7 +1214,8 @@ flags a section that cites nothing, so a section that names this page and then o
 later sits among the findings such a test *suppresses* — invisible by construction, and invisible from
 both ends in practice, since you read your own page and follow it while the source repo never reads your
 page at all. Measured when the check was built: one live consumer carried two standing inversions, in
-its `CLAUDE.md` preamble and in its own `dkj-policy/CONTRIBUTING.md`.
+its `CLAUDE.md` preamble and in its own `dkj-policy/CONTRIBUTING.md` (a page that consumer had from
+before #2171 and, per the rank above, still counts today).
 
 **Both slices are one hook and one pass over your pages, and that is a cost decision rather than a
 tidiness one** ([#1421](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1421)). They
