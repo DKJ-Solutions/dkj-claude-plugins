@@ -43,17 +43,40 @@ The overlap line #2135 put in SPECIALISTS.md says to delete it once the line abo
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Removed the pre-rename orchestrator import line, and the comment that said to remove it, from `.claude/specialists/SPECIALISTS.md`; the line above it (`specialist-01-01-persona.md`) stays and resolves in this machine's marketplace clone
+- [x] Raised the always-on baseline to 110,314 B with a recorded reason, in the same commit, because the gate judges the persona from the tree now (#2187) and reads 239 B over the figure recorded from the older clone copy
 
 ### TEST
 
+- [x] Ran `check-always-on-budget.ps1` on `main` before the edit: 140,974 B, the dead import warned about, the pre-rename persona counted a second time as 30,267 B carried from the baseline
+- [x] Ran it after the edit: 110,314 B, no dead-import warning; the 239 B left over the recorded baseline is the persona's source size (30,899 B against the 30,267 B clone copy the baseline held), so the baseline was raised rather than the path shrunk
+
 ### DEPLOY: fix/drop-pre-rename-persona-import
 
-**Score:**
+This repo's always-on document path no longer names the orchestrator persona under both its old and its
+new filename. #2135 put both import lines in `SPECIALISTS.md` on purpose, so that a checkout whose
+marketplace clone still held the old name kept its orchestrator while the clone refreshed, and left
+a comment saying to delete the old line once the new one resolved. It resolves now, so the old
+line pointed at nothing, and the always-on budget gate warned about the dead import and counted the
+same persona a second time, as 30,267 B carried from the baseline. That put the measured path at
+140,974 B against a recorded 110,075 B and made every branch in this repo, whatever it changed, read
+as growing an over-budget path by 30,899 B, so `open-pr` refused it. The line and its comment are gone,
+and the baseline is raised by 239 B, recorded with its reason: the persona was already 30,899 B in
+the source, and the gate only started judging it from the tree in #2187.
+
+A maintainer on a machine whose marketplace clone has refreshed meets this at the first `open-pr`:
+`fix/2183-reserved-root-md-seam-row` changed nothing on the always-on path and was refused all the same.
+It reaches no subscriber of the service and nothing else in the tree changes with it, which is why it
+is not higher.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this repo's own session-start weight and its own gate; no subscriber of the service reads or does
+anything differently because of it.
+
+**Score:** N/A
 
 #### Pull Request
 

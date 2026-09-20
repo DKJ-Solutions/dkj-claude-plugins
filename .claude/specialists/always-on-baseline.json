@@ -1,12 +1,12 @@
 {
     "schema":  1,
-    "bytes":  110075,
+    "bytes":  110314,
     "recorded":  "2026-09-20",
-    "reason":  "",
+    "reason":  "The orchestrator persona was already 30,899 B in the source (+632 B over the clone copy the baseline had recorded, 30,267 B) -- weight the gate could not see until #2187 made it judge from the tree. This branch removes the dead pre-rename import line from SPECIALISTS.md (-393 B) and so nets 239 B over the recorded figure, not a growth of the path.",
     "note":  "LF bytes of the always-on document path. Written by the always-on budget gate -- see always-on-budget-lib.ps1. Do not hand-edit this to make room: the gate lowers it on its own and raises it only behind -Raise, with a reason.",
     "documents":  {
-                      ".claude/specialists/SPECIALISTS.md":  10833,
-                      "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md":  30267,
+                      ".claude/specialists/SPECIALISTS.md":  10440,
+                      "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md":  30899,
                       "CLAUDE.md":  48858,
                       "lenses/specialist-01-01-lens.md":  20117
                   }
