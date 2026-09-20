@@ -56,6 +56,15 @@ Two facts make the reading trustworthy:
   compares. Whether the clone itself trails `origin` is a further gap this skill does not close -- it
   reads the clone as it stands.
 
+  **And the sha is the finer truth only while the clone is DEEP**
+  ([#2218](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2218)). `claude plugin
+  marketplace update` does not fast-forward the clone -- it prints *"Replacing the existing
+  marketplace clone..."* and re-clones at **depth 1**. A clone holding one commit can answer *"is this
+  sha in your history"* with `yes` for its own HEAD and `no` for every other sha in existence, so
+  after a refresh the finer truth is not available at all until the next `plugin install`/`update`
+  rewrites the recorded sha to that HEAD. The rows below say so where it applies, rather than reading
+  the `no` as a fact about the two sides.
+
 ## The output
 
 A one-line summary, then one block per enabled plugin (every plugin is listed even under lockstep, so a
@@ -98,7 +107,8 @@ your OS username -- replace each with a placeholder like the `<path>` above.
 | install `gitCommitSha` is an **ancestor** of clone HEAD, and the two `version` strings **differ** | **the clone is AHEAD of your install** -> `claude plugin update <id> --scope <scope>`, where the scope is **read off the install record** and not assumed (#1986 -- see below). |
 | install `gitCommitSha` is an **ancestor** of clone HEAD, and both sides carry the **same** `version` | **unreleased work in the clone**, and no command at all -- see the note under the output above. Counted in its own bucket, never as behind, and never an `[ERROR]` in `-Brief` (#1772). |
 | install `gitCommitSha` is an **ancestor** of clone HEAD, but one side has **no** `version` | the same *clone is AHEAD* verdict and update command, with the line saying which side is missing and that the release boundary cannot be read from here. |
-| install `gitCommitSha` exists but is **not** an ancestor of clone HEAD, or is unknown to the clone | **your install is ahead, or the clone is stale** -> `claude plugin marketplace update <marketplace>`. If the install `version` is also behind, it says so and names `claude plugin update` first. |
+| install `gitCommitSha` is unknown to the clone, and the clone is **shallow** | the ancestry is **unanswerable**, not negative -- the two `version` strings decide alone and the line says the clone is shallow. Equal versions read as **up to date**, with no command (#2218 -- see below). |
+| install `gitCommitSha` exists but is **not** an ancestor of clone HEAD, or is unknown to a **deep** clone | **your install is ahead, or the clone is stale** -> `claude plugin marketplace update <marketplace>`. If the install `version` is also behind, it says so and names `claude plugin update` first. |
 | **no `gitCommitSha`** on one side (an older record shape, or a non-git marketplace fetch) | the two `version` strings are compared instead, and the line says a sha was not available. |
 | a whole side is **missing** -- no marketplace clone, no install record for this checkout, conflicting records | **cannot determine**, and the line says which side and the command that would fix it. |
 
@@ -124,6 +134,24 @@ changes what 5.1 can represent. So the parse-failure verdict now names the manif
 where the message is that duplicated-key shape it rules the refresh **out** by name instead of leaving
 it as a thing to try.
 
+**And an absent commit is no longer read as evidence when the clone cannot hold one**
+([#2218](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2218)). The row above it used to
+be reached by both shapes, and on a depth-1 clone it stated two causes that were false at once: *the
+clone is stale* (it had been refreshed seconds earlier and was 324 commits **ahead**) and *your
+install predates a history rewrite* (there had been none). The prescription was
+`claude plugin marketplace update` -- which is the command that **produces** a depth-1 clone, so the
+advice looped and could never clear itself. Measured September 20, 2026 in the source repo: **6 of 7
+plugins reported behind**, every one of them at the same version on both sides.
+
+**What decides it now is the version strings alone, and that is not the weaker answer it looks like.**
+`claude plugin update` arbitrates on the version string too (measured, #1772), so where the two sides
+agree there is nothing for any command to close, and where they differ the direction is the same one
+the ancestry would have given. What the run deliberately does **not** claim on a shallow clone is the
+*unreleased work* verdict above: that one states the clone holds **newer** commits, which is an
+ancestry fact, and a clone with one commit in it cannot support it. The clone's own header line carries
+`shallow clone` so the reader can check the claim, and `git rev-parse --is-shallow-repository` is the
+one call that settles it -- with `.git/shallow` behind it for a git older than 2.15.
+
 ## What it handles without failing
 
 | state | what you see |
@@ -135,6 +163,7 @@ it as a thing to try.
 | several conflicting records for this checkout | all of them are shown, verdict *cannot determine*, with the repair install. |
 | the checkout was moved or renamed | the `projectPath` no longer matches, so it reads as *not installed here* -- which is the true state after a move. |
 | a non-git marketplace fetch (`.gcs-sha`, no `.git`) | the recorded sha is still read; ancestry is skipped and the verdict falls back to the `version` comparison. |
+| a **shallow** marketplace clone -- which is what every `claude plugin marketplace update` leaves | detected and said on the clone line; the ancestry is not treated as answered and the `version` comparison decides (#2218). |
 | no plugins enabled | one line saying so, exit 0. |
 
 Non-Windows path separators are handled: every path is composed with `Join-Path` and the install-record
