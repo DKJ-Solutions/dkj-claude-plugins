@@ -90,7 +90,15 @@ this repo both read, and duplicating it here is what #2171 retired.
       notes and 2 in the living `releases/` pages. Repointed and re-run: 0 errors.
 - [x] The always-on budget: the path **shrank by 190 B** (110,154 -> 109,964). The lenses are not on that
       path, so ~1,300 lines moved at no session cost and `CLAUDE.md`'s own pointers got shorter.
-- [x] Review pass on the diff before the PR
+- [x] Review pass on the diff before the PR -- Edith on the prose, Victor on the mechanics, in parallel.
+      Between them: a rule that lived only on the page being deleted, the fold's `removes` weakened to
+      `clears`, an inverted sentence, eight duplicated provenance preambles, two archive links repointed
+      at a page that does not carry what their prose cites, and a second consumer of `ReservedNames` the
+      new comment had not named. All applied. Victor also filed
+      [#2180](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2180) for a pre-existing check-20
+      defect four lines from a comment this branch edits, scoped out deliberately.
+- [x] Bring the branch forward: phase A (PR #2178) merged while this one was in review, so the
+      statements about the scaffolder are written in the simple past rather than hedged across two PRs.
 
 ### DEPLOY: docs/2179-folder-docs-into-lenses
 
