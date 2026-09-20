@@ -44,7 +44,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**29 / 54 minor entries** <!-- pending-tally -->
+**30 / 55 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2207-claim-issue-local-account-holder · 20260920-164609
+
+`claim-issue`'s "held by somebody else" refusal can now see that the holder is a second account
+authenticated in `gh` on this very machine, and says so -- the concurrent-session reading, which used
+to be indistinguishable from a colleague elsewhere. The refusal itself is unchanged: same five
+verdicts, same exit code, nothing newly blocked, and no extra `gh` call, because the account list is
+the read the identity resolution was already making and throwing away. Where the holder is genuinely
+somebody else's account, the output is byte for byte what it was.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every consumer of this workflow gets it, and it lands on the one step whose whole purpose is to stop
+the same work being built twice -- the case it now reports is precisely the one it was blindest to.
+The cost of the old silence is measured rather than hypothetical: two independent measurements of one
+issue, eight minutes apart, on one machine. Not a 4, because it only changes what is printed inside a
+refusal that already fired correctly, and only in a multi-account setup.
+
+**Score:** 3
+
+#### Pull Request
+
+claim-issue names a holder that is a second gh account on this machine
+
+Plugins: dkj-policy
+
+[PR #2213](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2213)
+
+---
 
 ### DEPLOY: docs/2203-seen-repair-remeasured · 20260920-163341
 
