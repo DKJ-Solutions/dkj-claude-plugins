@@ -39,23 +39,81 @@
 
 ### PLAN
 
-Promote the duplicated lens assembly out of Get-ConsumerLensPaths and Get-ConsumerProseDocuments' kind-3 walk into one shared function; the exclusion stays at the call site because the two mean different things by it.
+Promote the duplicated lens assembly out of `Get-ConsumerLensPaths` and `Get-ConsumerProseDocuments`'
+kind-3 walk into one shared function; the exclusion stays at the call site because the two mean
+different things by it.
+
+#### The home was the one open question, and #2199's own proposal was half right
+
+The issue proposed `check-report-lib.ps1`, "where the three primitives already live". Three of the four
+are there -- `Get-SeamPaths`, `Get-LensDirCandidates`, `Get-SpecialistFiles` -- and the fourth,
+`Get-PathRelativeToDirectory`, is in `entry-scaffold-lib.ps1`. Neither lib dot-sources the other, so
+every reach between them runs through the guarded `Test-FunctionDefined` pattern, and that pattern
+today runs in one direction only: from `entry-scaffold-lib.ps1` into `check-report-lib.ps1`. Landing
+the assembly in `check-report-lib.ps1` would have been the first probe pointing back, turning a
+one-way soft dependency into a cycle between two files that both call themselves libs. So it landed
+in `entry-scaffold-lib.ps1` instead, and the reasoning is written into the function's own docstring.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] One `Get-ConsumerLensPaths` in `scripts/lib/entry-scaffold-lib.ps1`, carrying the whole assembly:
+      the seam dir, the per-plugin candidates, the slug guard, the `Get-PathRelativeToDirectory`
+      conversion and the `../` escape rejection.
+- [x] The duplicate local copy deleted from `scripts/task/check-policy-drift.ps1`; its call site now
+      filters the shared function's return against `$consumerRels` itself.
+- [x] The kind-3 block inside `Get-ConsumerProseDocuments` replaced by a call to the shared function,
+      keeping its own `$seen` filter and its own wrapped `Get-EnabledPlugins` derivation.
+- [x] `-Exclude` dropped from the shared function: the two callers mean different things by "already
+      accounted for", so the exclusion stays at each call site.
+- [x] Mirrors regenerated with `scripts/sync/build-shared-scripts.ps1`; nothing under `plugins/` was
+      hand-edited, and no row in `scripts/lib/shared-scripts-lib.ps1` needed adding or changing.
 
 ### TEST
 
+- [x] `policy-drift-report.tests.ps1` -- 32 passed, 0 failed.
+- [x] `consumer-prose-gate.tests.ps1` -- all 91 asserts passed.
+- [x] `check-report-lib.tests.ps1` -- 377 pass, 0 fail.
+- [x] `entry-scaffold.tests.ps1` -- all 838 asserts passed.
+- [x] `check-plugin-integrity.ps1`, the full lint gate including the shared-scripts drift check -- no
+      findings, 0 errors.
+- [x] RANK 2 proved unchanged rather than assumed unchanged: the pre-edit code run from a temporary
+      worktree against this same repo, diffed against the post-edit run. Identical -- 29 lenses, 9,042
+      lines, same order -- and RANK 3 identical too. A silently empty rank is this area's own known
+      failure mode, which is why it was measured instead of eyeballed (#2184).
+- [ ] Review pass on the diff: correctness, prose, security surface, and the per-session cost of the
+      consumer-prose path.
+
 ### DEPLOY: fix/2199-one-lens-assembler
 
-**Score:**
+Two functions answered "where are this repo's lenses" independently, and now one does. The discovery
+was already shared -- `Get-SeamPaths`, `Get-LensDirCandidates`, `Get-SpecialistFiles` -- but the
+assembly around it was not: the seam directory plus the per-plugin candidates, the plugin-name slug
+guard, the path-relative conversion and the `../` escape rejection sat in both the drift report's
+`Get-ConsumerLensPaths` and the prose corpus's kind-3 walk. A fifth lens layout, or a third filename
+spelling, would have had to be taught to each of them.
+
+It is one shared `Get-ConsumerLensPaths` now, in `entry-scaffold-lib.ps1`. What deliberately did not
+collapse is the pair's two real differences: where each caller gets its plugin names, and what each
+means by "already accounted for" -- one excludes an explicit list another rank has printed, the other
+excludes the set it has built so far. Both stay at the call site, so the shared function takes no
+`-Exclude` at all and hands back the full de-duplicated list.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+`dkj-policy` ships both files, so this reaches every repo running the workflow -- and what it reaches
+them with is nothing they can see today. The behaviour is identical on both paths, proved rather than
+assumed: the drift report's RANK 2 and RANK 3 output is byte-identical before and after.
+
+What it prevents is a failure that has not happened yet, which is the only part a later reader can
+use. The two copies were close enough to look interchangeable and were not, and the next change to how
+lenses are found -- a new layout, a new filename spelling -- would have been taught to one of them. A
+consumer would then have a session-start prose check and an on-demand drift report disagreeing about
+which files in their own repo are lenses, with neither one wrong on its own terms.
+
+**Score:** 1
 
 #### Pull Request
 
 One lens-discovery assembler, shared by the drift report and the prose corpus
-
