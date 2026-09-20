@@ -9,6 +9,11 @@
 The orchestrator (Chris) is always loaded -- portable body from the plugin install and repo lens from
 `lenses/`; he routes on demand to the specialists below.
 
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md
+
+<!-- Overlap line (#2135): the pre-rename path, live until the marketplace clone is refreshed. Both
+     lines on purpose -- INSTALL.md, "Do it with BOTH lines". Delete this one once the line above
+     resolves; check-always-on-budget.ps1 names a dead import by path. -->
 @~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md
 
 @lenses/specialist-01-01-lens.md

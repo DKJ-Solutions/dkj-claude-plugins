@@ -170,7 +170,7 @@ function New-FixtureCache {
         New-Item -ItemType Directory -Path $pdir -Force | Out-Null
         foreach ($id in $VersionPersonas[$ver]) {
             $g = $id.Split('-')[0]; $i = $id.Split('-')[1]
-            [System.IO.File]::WriteAllText((Join-Path $pdir "$id-persona.md"), "---`nid: $i`ngroup: $g`n---`nfixture")
+            [System.IO.File]::WriteAllText((Join-Path $pdir "specialist-$id-persona.md"), "---`nid: $i`ngroup: $g`n---`nfixture")
         }
     }
     return $cache

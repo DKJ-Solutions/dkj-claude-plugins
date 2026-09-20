@@ -1518,8 +1518,8 @@ function Get-SpecialistFileShapes {
     $table = @{
         Manual   = @{ Current = @{ Prefix = 'specialist-'; Stem = 'manual' }
                       AlsoRead = @(@{ Prefix = ''; Stem = 'manual' }) }
-        Persona  = @{ Current = @{ Prefix = ''; Stem = 'persona' }
-                      AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'persona' }) }
+        Persona  = @{ Current = @{ Prefix = 'specialist-'; Stem = 'persona' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'persona' }) }
         Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
                       AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
         Lens     = @{ Current = @{ Prefix = 'specialist-'; Stem = 'lens' }
