@@ -138,19 +138,24 @@ function Invoke-Adopt {
 # Every file -Apply must place. Read from the same claim the script makes rather than restated per
 # assert, so a target added there fails ONE list here instead of passing unexamined.
 #
-# README.md AND CONTRIBUTING.md ARE DELIBERATELY ABSENT FROM THIS LIST (#2171, September 20, 2026).
-# This command no longer scaffolds either page -- see the legacy-report section further down, which
-# is where their coverage now lives.
+# README.md, CONTRIBUTING.md AND releases/README.md ARE DELIBERATELY ABSENT FROM THIS LIST (#2171 and
+# #2196, September 20, 2026). This command no longer scaffolds any of the three -- see the
+# legacy-report section further down, which is where their coverage now lives.
+#
+# SO THE LIST IS DOWN TO ONE ENTRY, AND IT IS KEPT AS A LIST ON PURPOSE. A single Test-Path inlined
+# where the loop is would read as "this file is placed" rather than as "these are ALL the files that
+# are placed", which is the claim the loop below actually makes and the only one worth having: the
+# folder's whole contents are now one file, and the next page added here has to be added here.
 $ExpectedFiles = @(
-    'dkj-policy\releases\README.md'
+    'dkj-policy\CHANGELOG.md'
 )
 # THE ABSENCE ITSELF IS ASSERTED, NOT JUST IMPLIED BY LEAVING THEM OFF THE LIST ABOVE. A list nobody
 # checks the negative of is a list the next refactor can add a line back to without any assert
-# noticing -- which is exactly how these two pages arrived silently in the first place. Both are the
-# whole reason this suite is being rewritten today.
+# noticing -- which is exactly how these pages arrived silently in the first place.
 $RetiredScaffoldFiles = @(
     'dkj-policy\README.md',
-    'dkj-policy\CONTRIBUTING.md'
+    'dkj-policy\CONTRIBUTING.md',
+    'dkj-policy\releases\README.md'
 )
 
 try {
@@ -163,14 +168,15 @@ try {
     $r1 = Invoke-Adopt -Dir $c1
     Assert-Equal 0 $r1.Code 'dry run: exit 0'
     Assert-Match 'DRY RUN' $r1.Out 'dry run: says so out loud'
-    Assert-Match '\[create\]\s+dkj-policy/releases/README\.md' $r1.Out 'dry run: lists the releases page as to-create'
+    Assert-Match '\[create\]\s+dkj-policy/CHANGELOG\.md' $r1.Out 'dry run: lists the changelog as to-create'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c1 'dkj-policy'))) 'dry run: the folder was not created'
-    # NEITHER RETIRED PAGE IS EVER LISTED AS TO-CREATE (#2171) -- this run scaffolds neither, so a dry
-    # run over a fresh consumer (who has neither file) reports no legacy line either: there is nothing
-    # to report on.
+    # NO RETIRED PAGE IS EVER LISTED AS TO-CREATE (#2171, #2196) -- this run scaffolds none of the
+    # three, so a dry run over a fresh consumer (who has none of them) reports no legacy line either:
+    # there is nothing to report on.
     Assert-True ($r1.Out -notmatch '\[create\]\s+dkj-policy/README\.md') 'dry run: the retired README is never listed as to-create'
     Assert-True ($r1.Out -notmatch '\[create\]\s+dkj-policy/CONTRIBUTING\.md') 'dry run: the retired CONTRIBUTING is never listed as to-create'
-    Assert-True ($r1.Out -notmatch '\[legacy\]') 'dry run: a fresh consumer with neither retired page triggers no legacy report'
+    Assert-True ($r1.Out -notmatch '\[create\]\s+dkj-policy/releases/README\.md') 'dry run: the retired releases page is never listed as to-create'
+    Assert-True ($r1.Out -notmatch '\[legacy\]') 'dry run: a fresh consumer with no retired page triggers no legacy report'
     # The PR template is in the plan and not on disk -- the whole promise of the default run (#1843).
     Assert-Match '\[create\]\s+\.github/pull_request_template\.md' $r1.Out 'dry run: lists the PR template as to-create'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c1 '.github\pull_request_template.md'))) 'dry run: and did not write it'
@@ -256,20 +262,19 @@ try {
     # contradicts: it creates the note's own parent before writing. So the file bought nothing, while what
     # it did buy was an empty committed directory asserting a destination the unanswered seam did not use.
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c2 'dkj-policy\releases\audience'))) '-Apply: the audience root is NOT placed -- the first cut creates it'
-    # THE FOLDER PAGE MUST NOT CARRY A HISTORY TABLE, and this assert is the regression guard on inbound
-    # #786. It did until August 20, 2026: the page was scaffolded with a '## Release history' heading, a
-    # table, and a VUL-IN promising that the cut would insert its rows there -- while this same command's
-    # closing advice told the reader to leave Get-ReleaseHistoryPath at the repo root. Two statements in
-    # one run that cannot both be true, and the consumer who followed the advice got a table that stays
-    # empty forever. The page now points at the seam's answer instead.
-    $relText = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\releases\README.md'), [System.Text.Encoding]::UTF8)
-    Assert-True ($relText -notmatch '\| Version \| Date \| Type \| Title \|') '-Apply: the folder page carries NO history table (the list is not here)'
-    # MATCHED ON THE LIST'S OWN PATH, not on 'releases/README.md'. That was the pattern until
-# August 27, 2026, and it was passing on the wrong sentence: the scaffolded page names the seam's answer
-# in one place and mentioned 'releases/README.md' in another, as a comparison with the source repo's
-# layout, so removing the comparison turned this assert red while the thing it checks was untouched. The
-# list's filename is what the assert is about.
-Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list actually lives instead'
+    # TWO ASSERTS ON THE SCAFFOLDED RELEASES PAGE WERE DROPPED HERE (#2196), NOT MOVED. They were the
+    # regression guard on inbound #786: until August 20, 2026 that page was scaffolded with a
+    # '## Release history' heading, a table, and a VUL-IN promising that the cut would insert its rows
+    # there -- while this same command's closing advice told the reader to leave Get-ReleaseHistoryPath
+    # at the repo root. Two statements in one run that cannot both be true, and the consumer who
+    # followed the advice got a table that stays empty forever. The repair was to have the page name
+    # the seam's answer instead, and these asserts held it to that.
+    #
+    # DROPPED RATHER THAN RETARGETED, for the reason #2171's fence asserts were: the page is not
+    # scaffolded any more, so there is no document for either claim to be ABOUT. Retargeting them at
+    # the changelog would test a page that never carried a history table and never promised one. The
+    # #786 defect cannot recur, because its precondition was a scaffolded page making a promise, and
+    # this command now makes none. Its coverage is the absence assert in $RetiredScaffoldFiles above.
     # THE CHANGELOG INTRO STATES THE LEVEL THE FOLD ACTUALLY WRITES (inbound #1098). It said '##' while the
     # fold has written '###' since the levels shifted, so the one piece of prose a consumer ever reads ABOUT
     # their own changelog contradicted the first entry three lines below it. Nothing breaks, which is why it
@@ -314,18 +319,20 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     Assert-Match 'Get-ReleaseHistoryPath' $r2.Out '-Apply: and Get-ReleaseHistoryPath'
 
     # --- 3. Additive: a re-run never overwrites what somebody wrote --------------------------------
-    # RETARGETED FROM dkj-policy\CONTRIBUTING.md TO dkj-policy\releases\README.md (#2171): the former
-    # is no longer scaffolder output at all, so it can no longer stand for "a file the scaffold placed
-    # and a re-run must leave alone" -- its own coverage now lives in the legacy-report section below.
-    # The releases page is still placed by -Apply, so it is what this general additive contract now
-    # pins.
+    # RETARGETED TWICE IN ONE DAY, WHICH IS THE POINT WORTH KEEPING. It pinned
+    # dkj-policy\CONTRIBUTING.md until #2171 and dkj-policy\releases\README.md until #2196, and each
+    # time for the same reason: the file it named stopped being scaffolder output, so it could no
+    # longer stand for "a file the scaffold placed and a re-run must leave alone". Their own coverage
+    # is in the legacy-report section below. dkj-policy\CHANGELOG.md is the last file this command
+    # places inside the folder, so it is what the general additive contract pins now -- and if that one
+    # is ever retired too, this assert has nowhere left to go and the contract it proves is empty.
     Write-Host "adopt-workflow-folder -- re-run keeps every existing file" -ForegroundColor Cyan
     $marker = '# HAND-EDITED -- the scaffold must never win over this line'
-    [System.IO.File]::WriteAllText((Join-Path $c2 'dkj-policy\releases\README.md'), $marker)
+    [System.IO.File]::WriteAllText((Join-Path $c2 'dkj-policy\CHANGELOG.md'), $marker)
     $r3 = Invoke-Adopt -Dir $c2 -ScriptArgs @('-Apply')
     Assert-Equal 0 $r3.Code 're-run: exit 0'
-    Assert-Match '\[exists\]\s+dkj-policy/releases/README\.md' $r3.Out 're-run: the edited file is reported as left alone'
-    $kept = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\releases\README.md'), [System.Text.Encoding]::UTF8)
+    Assert-Match '\[exists\]\s+dkj-policy/CHANGELOG\.md' $r3.Out 're-run: the edited file is reported as left alone'
+    $kept = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\CHANGELOG.md'), [System.Text.Encoding]::UTF8)
     Assert-Equal $marker $kept 're-run: the hand-edited content survives byte for byte'
 
     # AND THE SAME FOR THE PR TEMPLATE, asserted separately because it is the file most likely to be
@@ -360,7 +367,7 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     $rOther = Invoke-Adopt -Dir $cOther -ScriptArgs @('-Apply')
     Assert-Equal 0 $rOther.Code 'other plugins: exit 0 -- not refused'
     Assert-True ($rOther.Out -notmatch 'REFUSED') 'other plugins: no refusal in the output'
-    Assert-True (Test-Path -LiteralPath (Join-Path $cOther 'dkj-policy\releases\README.md')) 'other plugins: the folder really was scaffolded'
+    Assert-True (Test-Path -LiteralPath (Join-Path $cOther 'dkj-policy\CHANGELOG.md')) 'other plugins: the folder really was scaffolded'
 
     # --- 5. The two generated note roots #914 moved (issue #955) -------------------------------------
     # BOTH DIRECTIONS ARE ASSERTED, and the silent one is the half that matters. A warning that fires
@@ -460,7 +467,7 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     $r10 = Invoke-Adopt -Dir $c10 -ScriptArgs @('-Apply')
     Assert-Equal 0 $r10.Code 'seam no-config: exit 0'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c10 'scripts\repo-config.ps1'))) 'seam no-config: no lib was conjured up'
-    Assert-True (Test-Path -LiteralPath (Join-Path $c10 'dkj-policy\releases\README.md')) 'seam no-config: the folder was scaffolded anyway'
+    Assert-True (Test-Path -LiteralPath (Join-Path $c10 'dkj-policy\CHANGELOG.md')) 'seam no-config: the folder was scaffolded anyway'
     Assert-Match 'has no scripts/repo-config\.ps1' $r10.Flat 'seam no-config: and the run says why the seam is unanswered'
 
     # --- WHAT USED TO BE HERE: the UPDATE-section fence (#1766) and its CRLF coverage (#1829) --------
@@ -479,45 +486,58 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     # is gone from the surface, not that it was renamed. Nothing here should read this gap as an
     # oversight; it is the point of the branch this suite was rewritten for.
 
-    # --- 7. The legacy report: an existing README.md or CONTRIBUTING.md is reported, never touched ---
-    # WHAT REPLACED THE FENCE (#2171). Where the fence used to keep a scaffolded README's UPDATE section
-    # current across a re-run, the two pages themselves are retired: neither is placed on a fresh
-    # adoption any more, and an EXISTING copy -- left over from before this change, or from a consumer
-    # who wrote one by hand -- is reported with a one-line `[legacy]` verdict plus explanatory lines,
-    # and never created, deleted, or rewritten. Three states, because each is a different code path in
-    # the script: neither file present (nothing to report), both present (both reported, both survive),
-    # and one of each (only the one that exists is named).
-    Write-Host "adopt-workflow-folder -- the legacy report on an existing README/CONTRIBUTING" -ForegroundColor Cyan
+    # --- 7. The legacy report: an existing retired page is reported, never touched -----------------
+    # WHAT REPLACED THE FENCE (#2171, widened by #2196). Where the fence used to keep a scaffolded
+    # README's UPDATE section current across a re-run, the three pages themselves are retired: none is
+    # placed on a fresh adoption any more, and an EXISTING copy -- left over from before those changes,
+    # or from a consumer who wrote one by hand -- is reported with a one-line `[legacy]` verdict plus
+    # explanatory lines, and never created, deleted, or rewritten. Three states, because each is a
+    # different code path in the script: no file present (nothing to report), all present (all
+    # reported, all survive), and some present (only the ones that exist are named).
+    #
+    # releases/README.md IS ASSERTED IN THE SAME CASES AS THE OTHER TWO AND NOT IN A BLOCK OF ITS OWN.
+    # It is the same $legacyPages list and the same loop in the script, so a separate section would
+    # prove the same code path a second time -- and would let a widening that reaches only two of the
+    # three pass, which asserting all three in one run is what catches. Its extra property is the one
+    # the other two do not have: it sits one directory DOWN, so the script's path join is exercised
+    # rather than assumed.
+    Write-Host "adopt-workflow-folder -- the legacy report on an existing retired page" -ForegroundColor Cyan
 
-    # (a) NEITHER FILE PRESENT: a fresh consumer. Nothing about either legacy page is printed, and
-    # neither is created -- covered above in section 1 (dry run) and section 2 (-Apply), via
+    # (a) NO FILE PRESENT: a fresh consumer. Nothing about any legacy page is printed, and none is
+    # created -- covered above in section 1 (dry run) and section 2 (-Apply), via
     # $RetiredScaffoldFiles, so it is not repeated a third time here. What follows is the two states
     # that DO exist to report on.
 
-    # (b) BOTH FILES PRESENT, WITH ARBITRARY CONTENT: the important case, because it is the one where a
+    # (b) ALL THREE PRESENT, WITH ARBITRARY CONTENT: the important case, because it is the one where a
     # regression would silently start rewriting or deleting a consumer's own page again.
     $c17 = New-FixtureConsumer -Label 'legacy-both'
     New-Item -ItemType Directory -Path (Join-Path $c17 'dkj-policy') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $c17 'dkj-policy\releases') -Force | Out-Null
     $legacyReadme = "# Our own dkj-policy folder`r`n`r`nWritten long before #2171, in our own words.`r`n"
     $legacyContributing = "# Our own CONTRIBUTING`n`nArbitrary content, no BOM, no relation to anything this script writes.`n"
+    $legacyReleases = "# Our own releases page`r`n`r`nOur seam answers, written before #2196.`r`n"
     [System.IO.File]::WriteAllText((Join-Path $c17 'dkj-policy\README.md'), $legacyReadme, (New-Object System.Text.UTF8Encoding($false)))
     [System.IO.File]::WriteAllText((Join-Path $c17 'dkj-policy\CONTRIBUTING.md'), $legacyContributing, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText((Join-Path $c17 'dkj-policy\releases\README.md'), $legacyReleases, (New-Object System.Text.UTF8Encoding($false)))
     $r17 = Invoke-Adopt -Dir $c17 -ScriptArgs @('-Apply')
     Assert-Equal 0 $r17.Code 'legacy both: exit 0'
     Assert-Match '\[legacy\]\s+dkj-policy/README\.md' $r17.Flat 'legacy both: the README is reported as legacy'
     Assert-Match '\[legacy\]\s+dkj-policy/CONTRIBUTING\.md' $r17.Flat 'legacy both: and so is CONTRIBUTING'
+    Assert-Match '\[legacy\]\s+dkj-policy/releases/README\.md' $r17.Flat 'legacy both: and so is the releases page, one directory down'
     Assert-Match 'no longer writes or refreshes it' $r17.Flat 'legacy both: the report names what changed'
     # THE PART THAT MATTERS MOST: BYTE FOR BYTE, after -Apply. A CRLF file with no trailing BOM and an
     # LF file are read back exactly as written, so a rewrite -- even one that only touched line endings
     # or re-encoded the file -- would be caught here.
     $afterReadme17 = [System.IO.File]::ReadAllText((Join-Path $c17 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)
     $afterContributing17 = [System.IO.File]::ReadAllText((Join-Path $c17 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)
+    $afterReleases17 = [System.IO.File]::ReadAllText((Join-Path $c17 'dkj-policy\releases\README.md'), [System.Text.Encoding]::UTF8)
     Assert-Equal $legacyReadme $afterReadme17 'legacy both: README.md survives -Apply byte for byte'
     Assert-Equal $legacyContributing $afterContributing17 'legacy both: CONTRIBUTING.md survives -Apply byte for byte'
+    Assert-Equal $legacyReleases $afterReleases17 'legacy both: releases/README.md survives -Apply byte for byte'
     # AND NO DELETE COMMAND IS EVER PRINTED (the script's own header says why: several consumers hold
     # these pages today and nothing here can tell a stale scaffold from a repo's only written statement
     # of something it answered).
-    Assert-True ($r17.Flat -notmatch 'Remove-Item') 'legacy both: no delete command is printed for either page'
+    Assert-True ($r17.Flat -notmatch 'Remove-Item') 'legacy both: no delete command is printed for any of the three'
 
     # (c) ONE PRESENT, ONE ABSENT: only the one that exists is named, and the absent one is neither
     # reported nor created.

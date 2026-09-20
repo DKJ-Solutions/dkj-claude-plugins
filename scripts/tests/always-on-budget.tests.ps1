@@ -302,6 +302,219 @@ try {
     }
 
     Write-Host ''
+    Write-Host 'The SOURCE copy against the INSTALLED one -- what the ratchet judges (#2187)' -ForegroundColor Cyan
+
+    # THE SHAPE THIS REPO IS IN AND NO CONSUMER EVER IS: it consumes itself, so the marketplace clone
+    # under '~/.claude/plugins/marketplaces/<name>/' mirrors the very checkout a branch is editing. The
+    # clone advances at a RELEASE, so a gate summing it answers "did somebody run a plugin update
+    # lately" instead of "does this branch grow the path" -- and a persona body grew 621 B under a green
+    # '[OK] ... NOT growing'. Every assert here is about which of the two copies is judged.
+    $RepoSrc  = Join-Path $Fixture 'repo-src'
+    $homeSrc  = Join-Path $Fixture '_home_src'
+    $mktSrc   = Join-Path $homeSrc '.claude\plugins\marketplaces\self-market'
+    New-Item -ItemType Directory -Path (Join-Path $mktSrc 'plugins') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $RepoSrc 'plugins') -Force | Out-Null
+
+    $srcTarget  = '~/.claude/plugins/marketplaces/self-market/plugins/persona.md'
+    $goneTarget = '~/.claude/plugins/marketplaces/self-market/plugins/renamed.md'
+
+    # The INSTALLED copy: 1,000 B, the release everybody is running.
+    [System.IO.File]::WriteAllText((Join-Path $mktSrc 'plugins\persona.md'), (('y' * 999) + "`n"), $Utf8NoBom)
+    # The SOURCE copy of the same document, 200 B bigger -- this branch's edit, unreleased. Written CRLF
+    # on purpose: the ratchet compares LF either side (inbound #1162), so 6 lines of CRLF must NOT read
+    # as 6 bytes of growth. The file is 1,206 B on disk and 1,200 B stored LF.
+    [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'),
+        ((('y' * 199) + "`r`n") * 6), $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'CLAUDE.md'),
+        ("# Root`n@$srcTarget`n" + ('x' * 1000) + "`n"), $Utf8NoBom)
+
+    $env:MEASURE_CONTEXT_HOME = $homeSrc
+    try {
+        $rootBytes = 1000 + "# Root`n@$srcTarget`n".Length + 1
+        $mSrc = Get-AlwaysOnMeasurement -RepoRoot $RepoSrc
+
+        Assert-Equal 1 @($mSrc.Substituted).Count 'the document loaded from the clone of THIS repo is judged from the tree instead'
+        Assert-Equal 'plugins/persona.md' @($mSrc.Substituted)[0].SourceDisplay 'and the substitution names the REPO-RELATIVE path, which is the file an author can edit'
+        Assert-Equal 1200 @($mSrc.Substituted)[0].Bytes 'the judged figure is the source copy'
+        Assert-Equal 1000 @($mSrc.Substituted)[0].LoadedBytes 'the installed figure is kept beside it, not thrown away'
+        Assert-Equal 200 @($mSrc.Substituted)[0].Delta 'and the delta is the weight queued for the next release'
+        # THE DEFECT, PINNED AS ARITHMETIC. Before #2187 this total was $rootBytes + 1000 and a 200 B
+        # edit to the source moved it by nothing at all.
+        Assert-Equal ($rootBytes + 1200) $mSrc.Total 'the TOTAL the ratchet judges contains the source copy'
+        Assert-Equal ($rootBytes + 1000) $mSrc.LoadedTotal 'while LoadedTotal still answers what a session on this machine pays today'
+        Assert-Equal 1200 $mSrc.Sizes[$srcTarget] 'the baseline therefore RECORDS the judged figure, so the carrier that cannot re-derive it carries the right one'
+        # #1162, on the axis this change adds. The fixture is genuinely CRLF -- 1,206 B on disk -- and
+        # judging it in that form would read 6 bytes of growth out of a file nobody touched. Both
+        # halves are asserted, because pinning only the judged figure leaves the fixture free to stop
+        # being CRLF and take the regression guard with it (code review, #2187).
+        Assert-Equal 1206 ([System.IO.File]::ReadAllBytes((Join-Path $RepoSrc 'plugins\persona.md')).Length) 'the counterpart fixture really is CRLF -- 6 bytes above its stored form'
+        Assert-Equal 1200 @($mSrc.Substituted)[0].Bytes 'and the counterpart is judged in LF bytes, not in that on-disk form'
+
+        # THE BOUND, AND IT IS THE REASON THIS BRANCH DID NOT MEET ITS OWN GATE. During #2135's persona
+        # rename SPECIALISTS.md deliberately carried BOTH the pre- and post-rename import. The renamed
+        # body exists in this tree and not yet in the clone; substituting on an unresolved target would
+        # add its bytes ON TOP of the carried figure for the old one -- a 30k jump no branch caused.
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\renamed.md'), (('z' * 4999) + "`n"), $Utf8NoBom)
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'CLAUDE.md'),
+            ("# Root`n@$srcTarget`n@$goneTarget`n" + ('x' * 1000) + "`n"), $Utf8NoBom)
+        $rootBytes2 = 1000 + "# Root`n@$srcTarget`n@$goneTarget`n".Length + 1
+
+        $mGone = Get-AlwaysOnMeasurement -RepoRoot $RepoSrc
+        Assert-Equal 1 @($mGone.Substituted).Count 'an import that does not resolve is NOT substituted, however present its counterpart is'
+        Assert-Equal 1 @($mGone.Dead).Count 'it is reported dead instead -- the marketplace root is on this machine, so the absence is provable'
+        Assert-Equal ($rootBytes2 + 1200) $mGone.Total 'and contributes nothing, exactly as before: the 5,000 B counterpart stays out of the total'
+
+        # THE CHECK SCRIPT SAYS WHICH COPY IT USED, on a run that passes as well as on one that refuses.
+        $outSrc = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc 2>&1
+        $textSrc = ($outSrc | Out-String)
+        Assert-Equal 0 $LASTEXITCODE 'a substituted document does not by itself refuse anything'
+        Assert-True ($textSrc -match 'judged from this tree, not from the installed copy') 'the report names which of the two copies it judged'
+        Assert-True ($textSrc -match 'plugins/persona\.md') 'and names the file'
+        Assert-True ($textSrc -match 'arriving at the next release') 'and says when the installed copy catches up'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    # THE WHOLE DEFECT, END TO END, AND NOTHING BUT THE SOURCE FILE MOVES. Record a baseline, then grow
+    # the copy in the TREE while the installed copy stays exactly where it was. Before #2187 this run
+    # printed '[OK] ... NOT growing'; the weight was not cancelled but deferred onto whichever branch
+    # was open when the next release advanced the clone. A tiny stated budget puts the fixture over the
+    # ceiling without a 100 KB file, which is the same trick the block below uses.
+    New-Item -ItemType Directory -Path (Join-Path $RepoSrc 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'scripts\repo-config.ps1'),
+        "function Get-AlwaysOnBudget { return 1500 }`n", $Utf8NoBom)
+    $env:MEASURE_CONTEXT_HOME = $homeSrc
+    try {
+        $null = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc -Record 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'the first run over a stated budget records rather than refuses'
+        $bRec = Read-AlwaysOnBaseline -RepoRoot $RepoSrc
+        Assert-Equal 1200 $bRec.Documents[$srcTarget] 'and what it records for the plugin document is the SOURCE size'
+
+        # Only this line changes. The clone is untouched, no release happened, nobody ran a plugin update.
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'), (('y' * 1499) + "`n"), $Utf8NoBom)
+
+        $outRef = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc 2>&1
+        $textRef = ($outRef | Out-String)
+        Assert-Equal 1 $LASTEXITCODE 'growing ONLY the tree copy is now refused -- the defect #2187 was filed on'
+        Assert-True ($textRef -match 'GROWS an already-over-budget') 'and is named as growth, by the 300 B the source gained'
+        Assert-True ($textRef -match 'edit it here, not in the marketplace clone') 'the refusal sends the author to the tree'
+        Assert-True ($textRef -match 'plugins/persona\.md') 'and names the file they can actually edit'
+        Assert-True ($textRef -match 'Four places this weight goes') 'without displacing the destinations the refusal already named'
+
+        # AND IT NAMES THE ONE THAT GREW, NOT EVERY DOCUMENT READ FROM THE TREE. Three of the four
+        # documents on this repo's own path are plugin-carried, so a refusal listing all of them sends
+        # an author to open and diff several files, none of them necessarily the cause -- and a refusal
+        # that misdirects is the kind that gets skipped rather than obeyed (code review, #2187).
+        # A SECOND substituted document, installed and in-tree at the same size, so it is substituted
+        # and has not moved: it must appear in the informational block and NOT in the refusal.
+        [System.IO.File]::WriteAllText((Join-Path $mktSrc 'plugins\quiet.md'), (('q' * 799) + "`n"), $Utf8NoBom)
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\quiet.md'), (('q' * 799) + "`n"), $Utf8NoBom)
+        $quietTarget = '~/.claude/plugins/marketplaces/self-market/plugins/quiet.md'
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'CLAUDE.md'),
+            ("# Root`n@$srcTarget`n@$goneTarget`n@$quietTarget`n" + ('x' * 1000) + "`n"), $Utf8NoBom)
+        # Back to the size the baseline holds, then -Raise -- because -Record is honoured only on a run
+        # that PASSES, and adding a document to an over-budget path is growth by definition. -Raise is
+        # the move this state is for, and it is what gives BOTH documents a recorded figure. Without
+        # one, the quiet document has BaselineDelta $null and is deliberately kept IN the refusal:
+        # unknown is not innocent, which is a property of the filter rather than a gap in it.
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'), (('y' * 1199) + "`n"), $Utf8NoBom)
+        $null = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc -Raise -Reason 'the second plugin document is on this path by design' 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'both documents are now recorded at their current size, so neither is growth'
+        $bTwo = Read-AlwaysOnBaseline -RepoRoot $RepoSrc
+        Assert-Equal 800 $bTwo.Documents[$quietTarget] 'and the quiet document is recorded from the TREE copy, like the other one'
+
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'), (('y' * 1999) + "`n"), $Utf8NoBom)
+
+        $outTwo = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc 2>&1
+        $linesTwo = @($outTwo | ForEach-Object { "$_" })
+        $textTwo = ($linesTwo -join "`n")
+        Assert-Equal 1 $LASTEXITCODE 'two substitutions, one of them grown, still refuses'
+        Assert-True ($textTwo -match 'quiet\.md') 'the unchanged document is still NAMED above the verdict, where the report says which copy it judged'
+        # The refusal block is everything from its own heading down. The quiet document must not be in it.
+        $refuseAt = [array]::FindIndex($linesTwo, [Predicate[string]]{ param($l) $l -match 'edit it here, not in the marketplace clone' })
+        Assert-True ($refuseAt -ge 0) 'the refusal block is present'
+        $refuseBlock = ($linesTwo[$refuseAt..([math]::Min($refuseAt + 4, $linesTwo.Count - 1))] -join "`n")
+        Assert-True ($refuseBlock -match 'persona\.md') 'and the file it sends the author to is the one that grew'
+        Assert-True ($refuseBlock -notmatch 'quiet\.md') 'while the one that did not grow is kept OUT of it -- the whole point of filtering'
+        Assert-True ($textTwo -match 'nothing queued for the next release') 'a document whose two copies match reads as nothing queued, not as "0 B larger"'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    # AND THE CI RUNNER, which is the carrier that CANNOT re-derive any of this: no marketplace clone,
+    # so the term is carried from the baseline -- the figure the local gate recorded, which is the
+    # judged one. The two carriers must describe one subject, or the ratchet flaps on every push.
+    $env:MEASURE_CONTEXT_HOME = (Join-Path $Fixture '_home_src_absent')
+    try {
+        $bSrc = New-Baseline -Bytes 9999 -Documents @{ $srcTarget = 1200 }
+        $mSrcCi = Get-AlwaysOnMeasurement -RepoRoot $RepoSrc -Baseline $bSrc
+        Assert-Equal 0 @($mSrcCi.Substituted).Count 'CI substitutes nothing -- there is no resolved copy to substitute FOR'
+        Assert-Equal 1 @($mSrcCi.Carried).Count 'it carries the recorded figure instead'
+        Assert-Equal 1200 @($mSrcCi.Carried)[0].Bytes 'and that recorded figure is the SOURCE size the local gate wrote'
+        Assert-Equal $mSrcCi.Total $mSrcCi.LoadedTotal 'with nothing substituted the two totals coincide, so no "what a session loads" line is printed on a carrier that cannot know'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    # A MEASUREMENT FROM BEFORE #2187 -- the suite's own hand-built one, and a mirror of this lib shipped
+    # earlier. Under Set-StrictMode an absent property is a TERMINATING error, so a verdict reaching for
+    # a field added later would die with PropertyNotFound inside a gate whose job is to exit 0 or 1.
+    $vOld = Get-AlwaysOnBudgetVerdict -Measurement ([pscustomobject]@{ Total = 5000; Unmeasured = @(); Carried = @(); Dead = @(); Sizes = @{} }) -Budget 100000
+    Assert-Equal 0 @($vOld.Substituted).Count 'a measurement with no Substituted field yields an empty set rather than throwing'
+    Assert-Equal 5000 $vOld.LoadedTotal 'and LoadedTotal falls back to the total, which is what it was before the split'
+
+    Write-Host ''
+    Write-Host 'Where the baseline lives -- the seam, the legacy folder, and the migration (#2186)' -ForegroundColor Cyan
+
+    # THE SUBJECT IS A MIGRATION, NOT A PATH. The baseline moved from '<workflow folder>/' into
+    # '.claude/specialists/', and this lib is plugin payload -- so an existing consumer meets the move
+    # as a plugin update rather than as a commit they reviewed. The failure this pins is the SILENT one:
+    # a hard switch would read their old file as absent, which Get-AlwaysOnBudgetVerdict calls
+    # 'first-run', and a first run never refuses. Nothing would go red; the low-water mark would just
+    # be forgotten. So the asserts below are about what the walk PREFERS, in all four states it can
+    # meet, and the fourth -- both files present -- is the one a naive 'if not seam then legacy' gets
+    # right by accident and a reordering gets wrong in silence.
+    $PathFix = Join-Path $Fixture 'baseline-path'
+    New-Item -ItemType Directory -Path $PathFix -Force | Out-Null
+
+    $seamRel = '.claude\specialists\always-on-baseline.json'
+    $legacyRel = 'dkj-policy\always-on-baseline.json'
+
+    # 1. Neither present: the answer a WRITER creates from nothing, and it must be the seam -- this is
+    #    the only assert that decides where a fresh consumer's file is born.
+    Assert-Equal (Join-Path $PathFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'with neither file present the writer default is the seam'
+
+    # 2. Only the legacy file: an un-migrated consumer. The gate has to keep reading and writing THEIR
+    #    copy, or their history is dropped without a word.
+    New-Item -ItemType Directory -Path (Join-Path $PathFix 'dkj-policy') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $PathFix $legacyRel), "{}`n", $Utf8NoBom)
+    Assert-Equal (Join-Path $PathFix $legacyRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'an un-migrated consumer keeps their workflow-folder baseline'
+
+    # 3. Both present: newest first, stop at the first hit -- the same rule Get-WorkflowFolderName
+    #    states one layer up for the folder itself.
+    New-Item -ItemType Directory -Path (Join-Path $PathFix '.claude\specialists') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $PathFix $seamRel), "{}`n", $Utf8NoBom)
+    Assert-Equal (Join-Path $PathFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'with both present the seam wins'
+
+    # 4. Only the seam file: a migrated repo, which is what this repo itself now is.
+    Remove-Item -LiteralPath (Join-Path $PathFix $legacyRel) -Force
+    Assert-Equal (Join-Path $PathFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'a migrated repo reads the seam'
+
+    # 5. A DIRECTORY at either path is not a baseline. Test-Path -PathType Leaf is what makes that true,
+    #    and a tidy-up dropping the qualifier would hand Read-AlwaysOnBaseline a path it cannot read --
+    #    which returns $null, which is 'first-run', which never refuses. The silent arm again.
+    $DirFix = Join-Path $Fixture 'baseline-path-dir'
+    New-Item -ItemType Directory -Path (Join-Path $DirFix $legacyRel) -Force | Out-Null
+    Assert-Equal (Join-Path $DirFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $DirFix) 'a DIRECTORY at the legacy path is not a baseline'
+
+    # 6. THE DELIBERATE DUPLICATE, HELD HONEST. '.claude\specialists' is spelled out in
+    #    always-on-budget-lib.ps1 instead of asked of check-report-lib's Get-SeamPaths -- that lib is
+    #    141 KB and this one is dot-sourced by four others plus scripts\repo-config.ps1. A copy nothing
+    #    checks is the hand-mirrored literal Get-SeamPaths' own header was written to end, so this
+    #    assert is the thing that makes it a copy rather than a drift waiting to happen.
+    Assert-Equal (Get-SeamPaths -RepoRoot $PathFix).Dir (Split-Path -Parent (Get-AlwaysOnBaselinePath -RepoRoot $PathFix)) 'the seam directory agrees with Get-SeamPaths, its canonical definition'
+
+    Write-Host ''
     Write-Host 'The check script -- exit codes and the refusals' -ForegroundColor Cyan
 
     # A second fixture tree, all in-tree, so the script can be driven without a home override.
@@ -317,7 +530,7 @@ try {
 
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $Repo2 -Record 2>&1
     Assert-Equal 0 $LASTEXITCODE '-Record exits 0'
-    Assert-True (Test-Path -LiteralPath (Get-AlwaysOnBaselinePath -RepoRoot $Repo2)) '-Record writes the baseline into the workflow folder'
+    Assert-True (Test-Path -LiteralPath (Get-AlwaysOnBaselinePath -RepoRoot $Repo2)) '-Record writes the baseline into the seam'
 
     # Growth under the ceiling: allowed, because 5,000 B is nowhere near 100,000.
     Add-Content -LiteralPath (Join-Path $Repo2 'CLAUDE.md') -Value ('z' * 100)

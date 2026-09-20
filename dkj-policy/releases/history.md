@@ -48,9 +48,12 @@ is. Everything a release *produces* belongs to the workflow and is one layer up,
   third exists *because* the tier model exists, so a repo without that workflow writes no such note.
 - **How a release is cut**, and this repo's answers to it — the seam values, the local decisions —
   are in
-  [`contributing-davekjohn/releases/README.md`](README.md) over
+  [Rendall's repo lens](../../.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases)
+  over
   [`RELEASES-portable.md`](../../plugins/dkj-policy/RELEASES-portable.md), which states
-  what it covers rather than being summarised here twice.
+  what it covers rather than being summarised here twice. This line named
+  `contributing-davekjohn/releases/README.md` until #2196 retired that page; the link is repointed and
+  the answers it reached are unchanged.
 
 That is the layering this repo uses throughout: the root holds what is true regardless, and the
 `contributing-davekjohn` layer adds what the workflow brings. Where the two disagree, the workflow page

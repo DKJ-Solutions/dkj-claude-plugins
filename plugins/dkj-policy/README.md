@@ -91,7 +91,7 @@ this plugin: [`RELEASES-portable.md`](RELEASES-portable.md) for the release work
 | what | what it holds |
 |---|---|
 | [`CONTRIBUTING-portable.md`](CONTRIBUTING-portable.md) | the contribution cycle in prose, seam-named — the human-facing half, meant to be read alongside your own repo's answers |
-| [`RELEASES-portable.md`](RELEASES-portable.md) | the release workflow: the tier model, what a release must earn, the release documents, and how one is cut — your own `dkj-policy/releases/README.md` holds your answers and your release list |
+| [`RELEASES-portable.md`](RELEASES-portable.md) | the release workflow: the tier model, what a release must earn, the release documents, and how one is cut. Your own answers belong in your specialist lens rather than in a page of their own; your release list is `dkj-policy/releases/history.md` |
 | [`DEVELOPMENT-portable.md`](DEVELOPMENT-portable.md) | the document a branch works in: its two halves, the dossier form, the three step marks, the version suffix, its branch-long lifetime, and what the fold does at the merge |
 | [`skills/`](skills/) | the skills a specialist invokes — this is where most of the workflow lives |
 | [`scripts/`](scripts/) | the scripts and libs those skills run, mirrored from the source repo's own `scripts/`. **Never edit a file there** — see [its README](scripts/README.md) |

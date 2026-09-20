@@ -204,6 +204,13 @@ something is genuinely in flight, **name what it still holds** instead of hangin
 clearance: what is owed is a fact, which is what a receipt carries, and a condition is a question, which is
 what a receipt must not be.
 
+**And "in flight" includes your OWN subagents, which is the half you cannot see.** A backgrounded command
+announces itself; a delegated agent announces its *report* — and a report is not a finish. It can hand back
+while work it forked is still running, so the last message you received is evidence about what it said, not
+about whether it stopped. **Read the agent list before you say *cleared*, rather than inferring it from your
+inbox**: a completion notice is the signal, a hand-back is not. The cost of getting it wrong lands entirely
+on the requester, because the receipt is the one line they act on immediately.
+
 **And say what they MAY do, because withholding is the worse half.** A requester who backgrounded a wait
 wants the *next* thing, so a receipt that only names what is unsafe leaves them holding a session they no
 longer want and cannot safely release — that is the feature cancelled at the one place they read. The

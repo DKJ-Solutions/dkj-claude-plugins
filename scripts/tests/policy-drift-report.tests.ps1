@@ -23,6 +23,13 @@
          called them straight would print findings under a heading claiming the consumer-prose-sessioncheck
          hook covers it, two lines from where that hook prints [OK]. Both directions are pinned: skipped
          where the marketplace publishes this workflow, reported where it does not.
+      4. WHICH RANK A DOCUMENT LANDS IN, and that it lands in exactly ONE (#2184). RANK 2 reads the
+         workflow folder AND the lens seam, so three things are decisions rather than prose: a lens no
+         document imports belongs to rank 2, a lens the always-on root '@'-imports stays in rank 3 and is
+         not listed twice, and a lens in the pre-seam per-plugin tree is reached as well -- that last one
+         by a different route, since the seam directory is plugin-independent while the pre-seam candidate
+         can only be composed from a plugin NAME. Each of the three failed silently before: a rank can be
+         blind and still print, which is the whole shape of what #2184 measured.
 
     THE USER LAYER IS REDIRECTED FOR EVERY RUN. Get-EnabledPlugins reads the whole settings chain, so
     this machine's own ~/.claude/settings.json would otherwise add plugins to a fixture's rank 1 and the
@@ -42,6 +49,9 @@ $Skill    = Join-Path $RepoRoot 'plugins\dkj-policy\skills\check-policy-drift\SK
 $Mirror   = Join-Path $RepoRoot 'plugins\dkj-policy\scripts\task\check-policy-drift.ps1'
 . (Join-Path $RepoRoot 'scripts\lib\shared-scripts-lib.ps1')
 . (Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1')
+# For Get-LensFamily: the pre-seam lens path is composed from the constant rather than typed, so a
+# suite cannot pin a family name the family has moved past (the #179 lesson, one layer out).
+. (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1')
 
 $script:pass  = 0
 $script:fail  = 0
@@ -219,6 +229,84 @@ try {
         'the workflow folder page is listed under RANK 2, not with the floor'
     Assert-True ($atImport -gt $rank3) `
         "an '@'-imported document is part of the always-on closure and lands in RANK 3"
+
+    # --- Rank 2 also holds the repo lenses (issue #2184) ------------------------------------------
+    # THE DEFECT THIS PINS was invisible from the output, which is why it is worth a block of its own:
+    # RANK 2 was built from the workflow-folder prefix and RANK 3 from the always-on closure, so a lens
+    # was in NEITHER -- and a repo that had moved its seam answers into its lenses got a report that
+    # examined none of them while printing as though it were complete.
+    Write-Host ''
+    Write-Host 'Rank 2 -- the repo lenses'
+
+    $lensTree = New-Tree -Label 'lenses'
+    $seamLens = '.claude/specialists/lenses/specialist-05-15-lens.md'
+    $importedLens = '.claude/specialists/lenses/specialist-01-01-lens.md'
+    Set-Text -Dir $lensTree -Rel 'CLAUDE.md' -Text "# Consumer`n`n@$importedLens"
+    Set-Text -Dir $lensTree -Rel $importedLens -Text '# The orchestrator lens'
+    Set-Text -Dir $lensTree -Rel $seamLens -Text "# Our system-administration lens`n`nThis repo's answer to a seam."
+    $r = Invoke-Report -Dir $lensTree
+    $rank2 = $r.Out.IndexOf('RANK 2', [System.StringComparison]::Ordinal)
+    $rank3 = $r.Out.IndexOf('RANK 3', [System.StringComparison]::Ordinal)
+    $atSeamLens = $r.Out.IndexOf($seamLens, [System.StringComparison]::Ordinal)
+    $atImported = $r.Out.IndexOf($importedLens, [System.StringComparison]::Ordinal)
+    Assert-True ($r.Code -eq 0) 'a tree carrying lenses -- still exit 0, because the verdict is not the script''s'
+    Assert-True ($atSeamLens -gt $rank2 -and $atSeamLens -lt $rank3) `
+        'a lens that no document imports is listed under RANK 2, where it used to be listed nowhere'
+    Assert-True ($atImported -gt $rank3) `
+        "a lens the root document '@'-imports is part of the always-on closure and stays in RANK 3"
+    # ONE RANK PER DOCUMENT. Listing the imported lens in both would be a "which rank wins" question in
+    # the one report whose whole job is to settle those.
+    $importedHits = @([regex]::Matches($r.Out, [regex]::Escape($importedLens))).Count
+    Assert-True ($importedHits -eq 1) 'and it is listed exactly once, not under both ranks at the same time'
+
+    # THE PRE-SEAM LAYOUT IS FOUND TOO, and it needs its own assert because it is reached by a different
+    # route: the seam directory is plugin-independent, while '.claude/plugins/<family>/<plugin>/' is a
+    # candidate Get-LensDirCandidates can only compose once it has been given a plugin NAME. A consumer
+    # bootstrapped before #221 keeps its lenses there and is never relocated, so a rank that read only
+    # the seam would be blind in exactly the repos that have been running this longest.
+    $legacyLens = ".claude/plugins/$(Get-LensFamily)/dkj-policy/05-15-extension.md"
+    Set-Text -Dir $source -Rel $legacyLens -Text '# A pre-seam lens'
+    $r = Invoke-Report -Dir $source
+    $rank2 = $r.Out.IndexOf('RANK 2', [System.StringComparison]::Ordinal)
+    $rank3 = $r.Out.IndexOf('RANK 3', [System.StringComparison]::Ordinal)
+    $atLegacy = $r.Out.IndexOf($legacyLens, [System.StringComparison]::Ordinal)
+    Assert-True ($atLegacy -gt $rank2 -and $atLegacy -lt $rank3) `
+        'a lens in the pre-seam per-plugin tree is listed under RANK 2 as well, under either spelling'
+
+    # THE ROOT'S SPELLING MUST NOT DECIDE WHETHER THE RANK IS BLIND. Every lens directory is composed off
+    # the root as it ARRIVED, so a relative form derived from a CANONICALIZED root compares two different
+    # spellings of the same path, matches nothing, and returns an empty rank -- #2184's own silent
+    # blindness through a second door, and the class worktree-lib.ps1 already documents in this tree. The
+    # 8.3 short name is the cheapest way to produce that divergence on purpose, and the direction was
+    # MEASURED rather than assumed: Resolve-Path keeps the short form it was handed while Get-ChildItem
+    # returns the long FullName, so the old StartsWith matched nothing and the rank came back empty.
+    #
+    # IT SKIPS OUT LOUD where 8.3 generation is off for the volume, because there is then no second
+    # spelling to test with -- a silent skip here would read as coverage this suite does not have.
+    #
+    # AND IT ASKS cmd RATHER THAN Scripting.FileSystemObject, which is not a style preference: the COM
+    # route was written first and HUNG this suite inside the parallel test gate -- 1,800s, the lane
+    # bound, at exactly this line, with 47 other suites behind it never starting. Measured
+    # September 20, 2026, on this branch's own first gate run. The '%~sI' expansion is an ordinary child
+    # process like every other invocation in these suites, and it answered in 42 ms.
+    $shortRoot = ''
+    try {
+        $shortRoot = [string](@(& cmd /c "for %I in (`"$lensTree`") do @echo %~sI") | Select-Object -First 1)
+        if ($shortRoot) { $shortRoot = $shortRoot.Trim() }
+    } catch { $shortRoot = '' }
+    if ($shortRoot -and $shortRoot -ne $lensTree) {
+        $r = Invoke-Report -Dir $shortRoot
+        Assert-True ($r.Out.IndexOf($seamLens, [System.StringComparison]::Ordinal) -gt 0) `
+            'the same tree reached through its 8.3 short name still lists its lenses -- the relative form is derived without canonicalizing the root'
+    } else {
+        Write-Host '  [SKIP] no 8.3 short name for the fixture volume -- the root-spelling divergence cannot be produced here' -ForegroundColor DarkYellow
+    }
+
+    # A TREE WITH NO LENSES IS UNCHANGED, which is the promise made to every consumer that has none:
+    # the probe returns nothing and the rank reads exactly as it did before.
+    $r = Invoke-Report -Dir $split
+    Assert-True ($r.Out -notmatch 'repo lens states') `
+        'a tree with no lenses gets no lens note -- the addition is silent where there is nothing to add'
 
     # --- The skill page's command matches the script ----------------------------------------------
     # The lint gate holds a skill's PARAMETERS against the script; nothing held the file NAME, and a

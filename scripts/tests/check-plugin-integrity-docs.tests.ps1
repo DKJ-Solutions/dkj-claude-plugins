@@ -1,9 +1,11 @@
 <#
 .SYNOPSIS
     check-plugin-integrity.ps1, part 4 of 4: the checks over what this repo SHIPS -- shared-script
-    parameters against their skill (18), claimed section counts (20), the changelog intro (20b),
+    parameters against their skill (18), claimed section counts (20), the changelog intro (20b), the
+    branch document's exemption (20c),
     machine-specific commands in skill pages (22), the PR template contract (24), consumer tier
-    links (25), frontmatter byte-order marks (26), the manual/backer pairing (6b) -- and the
+    links (25), frontmatter byte-order marks (26), the manual/backer pairing (6b), each specialist
+    kind's written spelling against the names on disk (3d) -- and the
     -SkipCheck parameter itself.
 
 .DESCRIPTION
@@ -19,6 +21,14 @@
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'check-plugin-integrity-fixture.ps1')
+
+# CHECK-REPORT-LIB INTO THE RUNNER TOO, for check 3d's scenarios: they compose the lens file names from
+# Get-SpecialistFileName and Get-SpecialistFileNameCandidates rather than typing them. Same reason the
+# fixture dot-sources entry-scaffold-lib and pr-body-lib, and through the $...Src path it already
+# resolves for the copy -- a name typed here would be a second definition of the very shape the check
+# under test holds, and it would pass on the day the row and the files come apart, which IS the defect
+# (#2168).
+. $CheckReportLibSrc
 
 $Fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("check-plugin-integrity-docs-$PID-$([guid]::NewGuid().ToString('n'))")
 
@@ -365,6 +375,61 @@ try {
         'entry-shape: an intro stating the count the scaffolder writes clears the finding'
     Assert-True ($e7.Out -match '\[entry-shape\] checked [1-9]') `
         'entry-shape: and the intro was actually examined rather than skipped into silence'
+
+    # --- check 20c: the BRANCH's own document is exempt by pattern, its folder's pages are not -------
+    # ISSUE #2180. The exclusion was a list built from a branch-less Get-BranchFilePaths, which answers the
+    # pre-#1255 SHARED name -- so from the day the documents went per branch it named a file that no longer
+    # exists, while $linkFiles went on sweeping the folder recursively. Here the failure direction is NOISE:
+    # a branch document that quotes a section count while EXPLAINING the entry format is reported as stale
+    # prose and fails the gate. No branch document has triggered it yet, and the scaffold misses it on TWO
+    # independent counts rather than the one #2180 named: its sentence says 'HEADINGS' where the pattern
+    # wants 'section', AND it carries the PHASE level (three hashes, Get-EntryHeadingLevel) where the
+    # pattern wants the SECTION level (four, Get-EntrySectionLevel). Either alone is enough to miss, so a
+    # reword on its own would not start the noise -- which is why the fixture writes the triggering
+    # sentence by hand instead of leaning on the scaffold to keep missing it.
+    #
+    # THREE FILES, ONE GATE RUN, and both halves of that are deliberate.
+    #
+    # THREE, because a branch document going silent on its own reads the same whether it was excluded or
+    # never swept. The folder's own README is a ReservedName, so the predicate answers false for it and it
+    # is still checked -- carrying the identical sentence, it proves in the same output that the sweep
+    # reaches this folder and that the exemption is per file rather than per folder. The third is a LEGACY
+    # name, which pins that the fixed list was KEPT beside the predicate rather than replaced by it. It has
+    # to come from the branch/ pair to mean that: the pre-#1255 SHARED name sits in the folder itself and so
+    # matches the pattern too, which would let the assert pass against a repair that dropped the list
+    # entirely. The branch/ pair is one directory down, where the predicate's own anchor cannot reach --
+    # measured, Test-IsPerBranchDocumentPath answers false for it. A branch opened before that rename still
+    # carries one, here and in every consumer, and meets this change through a plugin update rather than by
+    # choosing to.
+    #
+    # ONE RUN, because each Invoke-Integrity spawns the whole gate against the fixture and this suite is the
+    # test gate's critical path -- 83 such calls before this block, so a scenario per fact would have cost
+    # the required check two spawns instead of one for no added proof. The check is evaluated per file, so
+    # one report answers for all three, and every assert here is ANCHORED ON ITS OWN PATH rather than on the
+    # output being silent -- which is what makes them independent inside a shared report, and is stricter
+    # than a blanket absence check besides.
+    Write-Host "check 20c: the branch document is exempt, the folder's own pages are not" -ForegroundColor Cyan
+    $shapeStale   = "An entry is one $docEntryH heading with three named $docSectH sections under it."
+    $shapeBranch  = Join-Path $Fixture 'dkj-policy\fix-2180-demo.md'
+    $shapeFolderR = Join-Path $Fixture 'dkj-policy\README.md'
+    $shapeLegacy  = Join-Path $Fixture ((Get-BranchFilePaths).LegacyCycle -replace '/', '\')
+
+    # 51. All three in one run: the branch document silent, the folder's own page reported, the legacy name
+    #     silent. The parent of the legacy name is created here rather than borrowed from check 20's block
+    #     above, which happens to leave it behind -- an ordering dependency would fail as a raw
+    #     DirectoryNotFoundException rather than as a readable assert the day those blocks move.
+    New-Item -ItemType Directory -Path (Split-Path -Parent $shapeLegacy) -Force | Out-Null
+    [System.IO.File]::WriteAllText($shapeBranch, "## fix/2180-demo`n`n$shapeStale`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText($shapeFolderR, "# dkj-policy`n`n$shapeStale`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText($shapeLegacy, "## feat/old-branch`n`n$shapeStale`n", $Utf8NoBom)
+    $e8 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]fix-2180-demo\.md')) `
+        'entry-shape: the branch''s OWN document is exempt by pattern, not by the retired shared name (#2180)'
+    Assert-True ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]README\.md:3: says an entry has 3') `
+        'entry-shape: and the same sentence in the folder''s own page IS reported, so the sweep does reach here'
+    Assert-True (-not ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]branch[\\/]branch-cycle\.md')) `
+        'entry-shape: a legacy branch-file name is still exempt -- the fixed list was kept, not swapped out'
+    Remove-Item -LiteralPath $shapeBranch, $shapeFolderR, $shapeLegacy -Force
 
     # --- check 22: a skill's runnable command must resolve on the reader's machine -------------------------
     # THE MEASURED DEFECT, August 8-9, 2026: adopt-config's page shipped in v3.8.0 with both commands
@@ -1401,6 +1466,91 @@ Write-Host 'fixture'
     Remove-Item -LiteralPath $mcQuietHook -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $mcCheckPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $mcQuietCheck -Force -ErrorAction SilentlyContinue
+
+    # --- check 3d: a kind's WRITTEN spelling, against the names actually on disk ----------------------
+    #     BORN GREEN ON THE REAL TREE (issue #2168), so the scenarios are what make it distinguishable
+    #     from a check that cannot fire. All four kinds agree with their Current row today -- the whole
+    #     point of the check is the window in which one of them does not, and that window has been open
+    #     twice without anything reporting it.
+    #
+    #     THE LENS IS THE SUBJECT, for one reason and it is not convenience: it is the only one of the
+    #     four kinds that lives OUTSIDE a plugin folder, so writing it needs no manifest, no frontmatter
+    #     and no agent def to satisfy checks 3b, 3c and 6 alongside. The assertion under test is about a
+    #     file NAME, which is the same assertion for every kind -- the code loops one table over all
+    #     four -- so pinning it on the cheapest kind is the whole coverage, not a sample of it.
+    #
+    #     BOTH HALVES AND BOTH WORDINGS. Files moved without the row and a row flipped without the files
+    #     reach this check identically; what differs is whether EVERY file of the kind is on the other
+    #     spelling or only some, and those have different repairs. The negative cases are the point as
+    #     much as the positives: a check that reported every file it walked would satisfy a
+    #     positive-only suite.
+    Write-Host "check 3d: a kind's written spelling vs. the names on disk" -ForegroundColor Cyan
+    $wnDir = Join-Path $Fixture '.claude\specialists\lenses'
+    New-Item -ItemType Directory -Path $wnDir -Force | Out-Null
+    # THE NAMES COME FROM THE LIB, NEVER FROM A LITERAL HERE. A test that typed 'specialist-01-01-lens.md'
+    # would pass the day the Lens row flips and the files do not -- which is the exact defect this check
+    # exists to refuse, reproduced inside its own guard. bootstrap-drift.tests.ps1 pins the literal on
+    # purpose and says why; this suite is the opposite side of that pair and must derive.
+    $wnWritten = Get-SpecialistFileName -Kind Lens -Id '01-01'
+    $wnRetired = @(Get-SpecialistFileNameCandidates -Kind Lens -Id '01-01' | Where-Object { $_ -ne $wnWritten })[0]
+    $wnWritten2 = Get-SpecialistFileName -Kind Lens -Id '02-09'
+    $wnRetired2 = @(Get-SpecialistFileNameCandidates -Kind Lens -Id '02-09' | Where-Object { $_ -ne $wnWritten2 })[0]
+    $wnBody = "# Fixture lens`n"
+
+    # THE ABSENCE ASSERTS MATCH THE FINDING, NOT THE TOKEN, and that distinction is not fussiness: the
+    # [COVERAGE] line carries the SAME '[written-name]' token, so '\[written-name\] ' is satisfied by a
+    # perfectly clean run and both clean cases below failed on it first time out. It is the trap check
+    # 13's own scenarios already note for '[entry-shape]' and README.md. 'carry a spelling' is wording
+    # only a finding has -- both the stray and the whole-kind lead use it -- so the pattern discriminates
+    # what these two asserts are actually about.
+    $wnFinding = '\[written-name\] .*carry a spelling'
+
+    # 1. THE WRITTEN SPELLING IS SILENT. Without this the three cases below would all pass against a
+    #    check that reported every lens it found.
+    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnWritten), $wnBody, $Utf8NoBom)
+    $wn1 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($wn1.Out -match $wnFinding)) `
+        'written-name: a lens on the spelling the table WRITES is clean'
+    Assert-True ($wn1.Out -match '\[written-name\] checked 1\b') `
+        'written-name: and it was actually examined -- the clean verdict carries its count'
+
+    # 2. A STRAY: one file on the retired spelling beside one on the written one. The half-finished move,
+    #    which is a different repair from a row that never flipped -- so the wording has to differ too.
+    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnRetired2), $wnBody, $Utf8NoBom)
+    $wn2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($wn2.Out -match '\[written-name\] 1 of 2 Lens file') `
+        'written-name: one file on the retired spelling is reported as a stray, with the count'
+    Assert-True ($wn2.Out -match [regex]::Escape($wnRetired2)) `
+        'written-name: and the finding names the offending file'
+    Assert-True ($wn2.Out -match [regex]::Escape($wnWritten2)) `
+        'written-name: and the name it should carry, so the repair needs no source reading'
+
+    # 3. THE WHOLE KIND: every lens on the retired spelling. This is the shape both shipped steps had --
+    #    the files moved, the Current row did not -- and it must read as a row that came apart rather
+    #    than as two strays.
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnWritten) -Force
+    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnRetired), $wnBody, $Utf8NoBom)
+    $wn3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($wn3.Out -match '\[written-name\] all 2 Lens file') `
+        'written-name: a whole kind on the other spelling reads as the row and the files coming apart'
+    Assert-True ($wn3.Out -match 'ONE commit') `
+        'written-name: and the finding says the two halves belong in one commit -- the rule, not just the diff'
+    Assert-True ($wn3.Code -ne 0) `
+        'written-name: it is an ERROR and fails the gate -- a mid-rename tree is what this refuses'
+
+    # 4. A NAME MATCHING NEITHER SPELLING IS NOT THIS CHECK'S FINDING. Its id does not resolve, so checks
+    #    3b/3c/6 own it and this one passes over it. Without this assert the check could grow into
+    #    reporting every *-lens.md in the tree, and one file would get two owners with two repairs.
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnRetired) -Force
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnRetired2) -Force
+    [System.IO.File]::WriteAllText((Join-Path $wnDir 'notes-lens.md'), $wnBody, $Utf8NoBom)
+    $wn4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($wn4.Out -match $wnFinding)) `
+        'written-name: a file whose id resolves under NEITHER spelling is left to 3b/3c/6, not reported twice'
+    Assert-True ($wn4.Out -match '\[written-name\] checked 0\b') `
+        'written-name: and the coverage says 0 rather than 1 -- it was passed over, not silently accepted'
+
+    Remove-Item -Recurse -Force -LiteralPath (Join-Path $Fixture '.claude') -ErrorAction SilentlyContinue
 
     # --- -SkipCheck: the guard rails around the one parameter that can make this gate check less ------
     #     The parameter exists for THIS suite and nothing else. Its failure mode is silence -- a gate

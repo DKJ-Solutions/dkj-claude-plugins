@@ -38,6 +38,14 @@
     plugin-shipped payload, the per-branch document -- and a second list here would be a second answer
     to a question that has one.
 
+    PLUS THE REPO LENSES, WHICH THAT CORPUS DOES NOT REACH (#2184). A lens is on-demand prose, so it is
+    not in the always-on closure, and since #2179 it is where this repo's seam answers live -- ~1,300
+    lines of them. RANK 2 therefore reads the workflow folder AND the lens seam; see
+    Get-ConsumerLensPaths for the layouts it walks and why a lens is rank 2 rather than a fourth rank.
+    Get-ConsumerProseDocuments is deliberately NOT widened to match: it is shared with the two gated
+    detectors below, so a change there moves what a SessionStart hook reads in every consumer, which is
+    a different decision from what an on-demand report lays out.
+
     THE PLUGIN SIDE IS DISCOVERED, NOT LISTED. Every plugin this repo has ENABLED (Get-EnabledPlugins,
     which reads the whole settings chain rather than settings.json alone) is probed for '*-portable.md'
     pages; a plugin that ships none is not a legislator and drops out on its own. That is why no
@@ -254,13 +262,96 @@ function Get-PortablePageDir {
     return ''
 }
 
+function Get-ConsumerLensPaths {
+    <#
+        THIS REPO'S SPECIALIST LENSES, repo-relative, for RANK 2 (issue #2184).
+
+        WHY THEY ARE RANK 2 AND NOT A FOURTH RANK. A lens is the same kind of document the workflow
+        folder holds -- this repo's own answer to a seam a shared page asks about -- and #2179 moved
+        ~1,300 lines of exactly that material out of dkj-policy/ and into the lenses. Before this, RANK 2
+        was built from the folder prefix alone and RANK 3 from the always-on closure, so a lens was in
+        NEITHER: the largest restatement surface in the tree was read by nothing while the report printed
+        two '(absent)' lines that read as "this repo has no rank 2" rather than as "rank 2 moved".
+
+        THE LOCATION IS ALREADY A SEAM, so none is written here. Get-LensDirCandidates owns the four
+        layouts a consumer's lenses may sit in -- the #221 seam directory, the pre-seam per-plugin tree,
+        the pre-#179 family spelling, and legacy .claude/extensions/ -- and Get-SpecialistFiles owns both
+        filename spellings (#2130). A repo-config function beside them would be a second answer to a
+        question that has one.
+
+        IT IS ADDITIVE IN A CONSUMER. A repo with no lenses gets exactly the report it got before,
+        because the probe returns nothing; one still carrying a populated dkj-policy/ keeps those pages,
+        listed first. The only repo whose output moves is one that actually has lenses.
+
+        A LENS THE ALWAYS-ON CLOSURE ALREADY CARRIES IS EXCLUDED, via -Exclude. The orchestrator's lens
+        is '@'-imported by the root document in every repo running this system, so without that it would
+        be listed under two ranks at once -- and a document sitting in two ranks is itself a
+        "which one wins" contradiction, in the one report whose job is to settle those.
+
+        GUARDED ON EVERY SEAM FUNCTION it calls: check-report-lib is dot-sourced unguarded above, but a
+        mirror built before one of these functions travelled must degrade to the old, folder-only rank
+        rather than throw -- the same degradation Get-CheckProseCorpus makes one layer down.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [string[]]$PluginNames = @(),
+        [string[]]$Exclude = @()
+    )
+
+    if (-not (Test-FunctionDefined 'Get-SpecialistFiles')) { return @() }
+
+    $dirs = New-Object System.Collections.Generic.List[string]
+    if (Test-FunctionDefined 'Get-SeamPaths') {
+        $dirs.Add([string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir) | Out-Null
+    }
+    if (Test-FunctionDefined 'Get-LensDirCandidates') {
+        foreach ($name in $PluginNames) {
+            # Slug-guarded before it becomes a path segment, exactly as the rank-1 walk guards its own.
+            if (-not $name) { continue }
+            if (-not (Test-PluginNameSlug -Name $name)) { continue }
+            foreach ($dir in (Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $name)) {
+                if ($dir) { $dirs.Add([string]$dir) | Out-Null }
+            }
+        }
+    }
+    if ($dirs.Count -eq 0) { return @() }
+
+    $skip = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($ex in $Exclude) { if ($ex) { $skip.Add([string]$ex) | Out-Null } }
+
+    $rels = New-Object System.Collections.Generic.List[string]
+    # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so the
+    # candidate list overlapping between plugins costs nothing.
+    foreach ($file in @(Get-SpecialistFiles -Path @($dirs) -Kind Lens)) {
+        # NOT Resolve-Path AND A SUBSTRING, which is what this was until the review caught it, and the
+        # mechanism is the MEASURED one rather than the assumed one. Handed a root in its 8.3 short form,
+        # Resolve-Path returns that same short form while Get-ChildItem hands back the LONG FullName -- so
+        # the two spellings diverge, every StartsWith fails, and the function returns nothing. Measured on
+        # a scratch tree, September 20, 2026: 'C:\...\Temp\PROBE-~2' against
+        # 'C:\...\Temp\probe-28e06bbc\...', StartsWith False. That is #2184's own silent blindness coming
+        # back through a second door, and it is the class worktree-lib.ps1 already documents here.
+        # Get-PathRelativeToDirectory is pure ([System.IO.Path]::GetFullPath, no filesystem query) and
+        # normalizes both sides the same way, so no spelling can split them. Pinned by the suite.
+        $rel = Get-PathRelativeToDirectory -FullPath ([string]$file.FullName) -Directory $RepoRoot
+        if (-not $rel) { continue }
+        # '' is another drive and a leading '../' is a path BESIDE the repo rather than under it. Neither
+        # is this repo's prose, and neither may be printed as though it were.
+        if ($rel.StartsWith('../')) { continue }
+        if (-not $skip.Add($rel)) { continue }
+        $rels.Add($rel) | Out-Null
+    }
+    return $rels.ToArray()
+}
+
 function Write-ConsumerRank {
-    # One rank of the consumer's own prose. Paths are repo-relative and sanitized; the line count is
-    # this script's own arithmetic and needs none.
+    # One rank of the consumer's own prose. Paths are repo-relative and sanitized; the line count and
+    # the tally are this script's own arithmetic and need none.
     param(
         [Parameter(Mandatory = $true)][string]$Title,
         [string[]]$Rels = @(),
-        [Parameter(Mandatory = $true)][string]$Root
+        [Parameter(Mandatory = $true)][string]$Root,
+        # Printed under the list, for a rank whose membership is not obvious from its title.
+        [string[]]$Note = @()
     )
     Write-Host ''
     Write-Host "  $Title" -ForegroundColor Cyan
@@ -268,15 +359,23 @@ function Write-ConsumerRank {
         Write-Host '    (none) -- this repo carries no document at this rank.' -ForegroundColor DarkGray
         return
     }
+    $present = 0
+    $lineTotal = 0
     foreach ($rel in $Rels) {
         $full = Join-Path $Root ($rel -replace '/', '\')
         if (Test-Path -LiteralPath $full -PathType Leaf) {
             $lines = @(Get-Content -LiteralPath $full).Count
+            $present++
+            $lineTotal += $lines
             Write-Host "      $(Format-SafePathToken -Value $rel)  ($lines lines)"
         } else {
             Write-Host "      $(Format-SafePathToken -Value $rel)  (absent)" -ForegroundColor DarkGray
         }
     }
+    # THE TALLY IS THE SIZE OF WHAT YOU ARE BEING HANDED, and it is the half #2184 measured as missing:
+    # a rank can be blind and still print, so the reader needs the volume as well as the names.
+    Write-Host "    $present present, $lineTotal lines in total." -ForegroundColor DarkGray
+    foreach ($line in $Note) { Write-Host "    $line" -ForegroundColor DarkGray }
 }
 
 Write-Host ''
@@ -383,10 +482,35 @@ $branchPaths = Get-BranchFilePaths
 $consumerRels = @(Get-ConsumerProseDocuments -Documents $documents)
 $folderPrefix = "$($branchPaths.Directory)/"
 
-$rank2 = @($consumerRels | Where-Object { $_.StartsWith($folderPrefix, [System.StringComparison]::OrdinalIgnoreCase) })
 $rank3 = @($consumerRels | Where-Object { -not $_.StartsWith($folderPrefix, [System.StringComparison]::OrdinalIgnoreCase) })
 
-Write-ConsumerRank -Title "RANK 2 -- this repo's answers to the seams: $($branchPaths.Directory)/" -Rels $rank2 -Root $repoRoot
+# RANK 2 IS TWO PLACES, NOT ONE (#2184). The workflow folder is where a consumer scaffolded before
+# #2171 still keeps its answers; the lenses are where #2179 moved this repo's. The folder comes first
+# because a repo that has both has been answering there for longer -- and because the lens block is the
+# long one, so a reader looking for the folder page would otherwise have to scroll past thirty lenses.
+#
+# THE EXCLUSION IS ALREADY-COMPUTED, not a second walk: $consumerRels is the folder rank plus the
+# always-on closure, i.e. everything this report already lists somewhere else. Rank 3 is the half that
+# does the work -- a lens the root document '@'-imports is listed there, once, as part of the floor --
+# and the folder half costs nothing and is passed rather than filtered out, because "everything already
+# listed" is a rule that stays true if a repo ever keeps a lens inside the workflow folder.
+$rank2Folder = @($consumerRels | Where-Object { $_.StartsWith($folderPrefix, [System.StringComparison]::OrdinalIgnoreCase) })
+$lensRels = @(Get-ConsumerLensPaths -RepoRoot $repoRoot `
+    -PluginNames @($ordered | ForEach-Object { ($_ -split '@', 2)[0] }) `
+    -Exclude $consumerRels)
+$rank2 = @($rank2Folder) + @($lensRels)
+
+$rank2Note = @()
+if ($lensRels.Count -gt 0) {
+    $rank2Note = @(
+        'The lenses are here because a repo lens states THIS repo''s answer to a seam -- the same job',
+        "the $($branchPaths.Directory)/ pages do. What keeps them out of RANK 3 is that they are read on",
+        'demand rather than always-on; a lens the root document ''@''-imports is listed under RANK 3',
+        'instead, once, because a document sitting in two ranks is itself a contradiction.'
+    )
+}
+
+Write-ConsumerRank -Title "RANK 2 -- this repo's answers to the seams: $($branchPaths.Directory)/ and its repo lenses" -Rels $rank2 -Root $repoRoot -Note $rank2Note
 Write-ConsumerRank -Title 'RANK 3 -- the floor: the always-on closure (CLAUDE.md and what it imports)' -Rels $rank3 -Root $repoRoot
 
 # ---------------------------------------------------------------------------------------------------
@@ -456,8 +580,9 @@ Write-Host '      RESTATEMENT  it says the law again in its own words.  A copy -
 Write-Host '                   not it currently agrees, because agreeing today is what a copy does.'
 Write-Host '    Where a restatement CONTRADICTS the page above it, say which side wins by the rank order'
 Write-Host '    and quote both lines. Rank 1 beats rank 2 beats rank 3 where rank 2 has anything in it --'
-Write-Host '    a repo scaffolded since #2171 carries no dkj-policy/CONTRIBUTING.md, so rank 1 sits'
-Write-Host '    directly above rank 3 there. Inside rank 1, dkj-policy beats a companion plugin such as'
+Write-Host '    a repo scaffolded since #2171 carries no dkj-policy/CONTRIBUTING.md, so there rank 2 is'
+Write-Host '    whatever its lenses hold, and only where rank 2 holds nothing at all does rank 1 sit'
+Write-Host '    directly above rank 3. Inside rank 1, dkj-policy beats a companion plugin such as'
 Write-Host '    dkj-policy-bwj.'
 Write-Host ''
 Write-Host '    A law a RANK 1 page explicitly DECLINES to answer is the fourth move and not a copy --'

@@ -3,9 +3,14 @@
 **How a release works.** A release is not a deploy but a **recorded moment**: a git tag that marks the
 state of the repo at that version. This page carries the **process** — the tier model, what a release must
 earn, the release documents, and how one is cut — for every repo that runs this release workflow, naming
-the *seam* wherever a repo owns the answer. **Your repo's own `releases/README.md` is its set of answers
-to it**: the seam values in force there, its local decisions, and the **full list of releases** it has
-actually cut — the one such list there is, on the page `Get-ReleaseHistoryPath` names.
+the *seam* wherever a repo owns the answer. **Where a repo's own answers to it go is that repo's business,
+and there is one place this page does not want them**: a prose page of its own, beside this one. The source
+repo kept such a page until September 20, 2026 and retired it — a per-repo RELEASES beside the portable one
+makes *"there is only one RELEASES"* false in the repo that ships the sentence, which is the same case that
+retired the workflow folder's `README.md` and `CONTRIBUTING.md` that day. Its answers went into the lens of
+the specialist who owns each one, where the rest of its repo-specific answers already lived. **The full
+list of releases is separate from all of that** — the one such list there is, on the page
+`Get-ReleaseHistoryPath` names, which is a file a script appends to rather than a page anybody writes.
 
 [`scripts/release/cut-release.ps1`](https://github.com/DaveKJohn/claude-code-specialists/blob/main/scripts/release/cut-release.ps1)
 itself publishes nothing to GitHub Releases — that is a separate, manual closing step. Releases are cut
@@ -20,7 +25,7 @@ lands in. *This repo* always names the **source repo** the page was written in
 ([claude-code-specialists](https://github.com/DKJ-Solutions/claude-code-specialists)) — its measurements travel
 as the evidence behind the rules, never as your repo's own record. And links into the source's script tree
 are **absolute** on purpose, so they resolve from wherever this page is read; files every adopting repo has
-of its own (`scripts/repo-config.ps1`, `CHANGELOG.md`, `releases/README.md`) are named in code rather than
+of its own (`scripts/repo-config.ps1`, `CHANGELOG.md`, `releases/history.md`) are named in code rather than
 linked, because the copy that matters is yours.
 
 ## The tier model
@@ -490,8 +495,8 @@ In one motion, on a clean `main`:
    otherwise there is nothing to bump and the version lives in the tag alone;
 2. generates the full release notes in `changelog/<dir>/<X.Y.Z>.md` (from the folded entries, grouped by
    tier and, within a tier, a flat list in the ranked order the fold left), adds a row to the release list
-   on the page `Get-ReleaseHistoryPath` names — your `releases/README.md` — and **empties `CHANGELOG.md`
-   down to its intro** — that intro passes through
+   on the page `Get-ReleaseHistoryPath` names — `dkj-policy/releases/history.md` unless you repointed it
+   — and **empties `CHANGELOG.md` down to its intro** — that intro passes through
    verbatim, so whatever the repo says about itself up there survives every cut. A cut writes no release
    block: the section that used to hold one had grown in the source repo to 434 of the changelog's 1,062
    lines across 72 blocks
@@ -501,7 +506,7 @@ In one motion, on a clean `main`:
    **per-plugin `CHANGELOG.md`** and regenerate that plugin's **`RELEASE.md`** card — a second copy of a
    history the consumer already receives, since a marketplace source arrives as a git clone of the whole
    repository. One repository, one product, one changelog; the measurement that retired it is with the
-   source repo's other measured instances, in its own `releases/README.md`. The `Plugins:` line survives:
+   source repo's other measured instances, in its release manager's repo lens. The `Plugins:` line survives:
    the release notes still read it;
 4. commits that directly on `main` (`release: vX.Y.Z`) and sets an annotated tag `vX.Y.Z`;
 5. pushes `main` + the tag (unless `-NoPush` for inspection first).

@@ -44,7 +44,485 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 39 minor entries** <!-- pending-tally -->
+**26 / 50 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/drop-pre-rename-persona-import · 20260920-153027
+
+This repo's always-on document path no longer names the orchestrator persona under both its old and its
+new filename. #2135 put both import lines in `SPECIALISTS.md` on purpose, so that a checkout whose
+marketplace clone still held the old name kept its orchestrator while the clone refreshed, and left
+a comment saying to delete the old line once the new one resolved. It resolves now, so the old
+line pointed at nothing, and the always-on budget gate warned about the dead import and counted the
+same persona a second time, as 30,267 B carried from the baseline. That put the measured path at
+140,974 B against a recorded 110,075 B and made every branch in this repo, whatever it changed, read
+as growing an over-budget path by 30,899 B, so `open-pr` refused it. The line and its comment are gone,
+and the baseline is raised by 239 B, recorded with its reason: the persona was already 30,899 B in
+the source, and the gate only started judging it from the tree in #2187.
+
+A maintainer on a machine whose marketplace clone has refreshed meets this at the first `open-pr`:
+`fix/2183-reserved-root-md-seam-row` changed nothing on the always-on path and was refused all the same.
+It reaches no subscriber of the service and nothing else in the tree changes with it, which is why it
+is not higher.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this repo's own session-start weight and its own gate; no subscriber of the service reads or does
+anything differently because of it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Drop the pre-rename orchestrator import line now that the clone resolves the new one
+
+[PR #2206](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2206)
+
+---
+
+### DEPLOY: fix/2188-gated-detectors-read-lenses · 20260920-134909
+
+The two prose detectors behind `consumer-prose-sessioncheck` now read a repo's specialist lenses, not
+just its always-on closure and workflow folder -- so a consumer restating a retired branch-document name,
+or declaring its own `CLAUDE.md` the winner over the workflow's page, is reported wherever that sentence
+actually sits. The corpus held one half of rank 2 and not the other; #2184 had just taught the on-demand
+drift report to read the lens surface, and this is the always-on hook catching up.
+
+It ships with the three repairs that make it affordable, because the widening alone measured **+5.7 s at
+every session start** -- twelve times the saving the hook merge was built for. A literal prefilter rejects
+the documents that cannot match, and two per-line allocation defects that predate this work were removed
+from the hot path. Measured best-of-3, old code against new:
+
+| tree | before | after |
+|---|---|---|
+| a repo with no lenses (3 documents) | 261 ms | **104 ms** |
+| this repo (5 -> 34 documents, 767 KB) | 482 ms | **838 ms** |
+
+So a consumer with no lenses gets a check 2.5x faster than before, and the worst-case tree in the family
+pays +356 ms for 6.8x the corpus.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- nobody outside this repo's own maintainers reads this. The detectors ship in `dkj-policy` and run
+at session start in every adopted consumer, so the reach is real, but what changes for them is a gate
+that sees more and runs faster: no action, no migration, nothing to read.
+
+**Score:** N/A
+
+#### Pull Request
+
+The gated prose detectors read the repo lenses, behind a literal prefilter
+
+Plugins: dkj-policy
+
+[PR #2202](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2202)
+
+---
+
+### DEPLOY: fix/2192-teardown-reports-kept-directory · 20260920-133253
+
+`specialists-teardown` now reports a directory it keeps instead of skipping it in silence. The pruner
+removes a directory only when everything left in it was on its own removal list; the other arm was a
+bare `continue`, so a directory that survived reached no `[remove]` line, no `[KEEP]` line and no
+count. Keeping it is correct -- files this run has no claim on are still in it -- but the run then
+told a reader the repo stood free of the plugin while the directory was still standing. It goes
+through `Add-Kept` like every other kept item, so the summary counts it, and it carries the number of
+files that kept it. A directory whose leftovers all sit inside a child directory that has its own
+`[KEEP]` line is not reported a second time, so those counts never overlap.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+This is the uninstall report, so the cost of the gap is paid by whoever is leaving. A consumer running
+`dkj-policy` and keeping an always-on baseline keeps it at `.claude/specialists/always-on-baseline.json`
+-- inside the seam directory -- so there the teardown takes the silent arm every time, and the report
+was wrong about the repo's final state in precisely the repos that run both plugins.
+
+**Score:** 2
+
+#### Pull Request
+
+specialists-teardown reports a directory it keeps instead of skipping it silently
+
+Plugins: dkj-subagents-alpha
+
+[PR #2201](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2201)
+
+---
+
+### DEPLOY: feat/2196-releases-readme-into-lenses · 20260920-132017
+
+The workflow folder's third and last prose page is retired, in the source repo and in every consumer
+that adopts from here. `dkj-policy/releases/README.md` held this repo's answers to
+`RELEASES-portable.md` — the seam values, the local decisions, the measured instances — and
+`adopt-workflow-folder` scaffolded a small version of it into a consumer on every adoption. Neither
+happens any more.
+
+**The case is #2171's, not the one the issue states.** #2196 asked for the removal on the ground that
+the release workflow should be explained in one place. That page stopped explaining it in August 2026,
+when the process half moved into `RELEASES-portable.md`; what it still carried was 15,146 B of
+*answers*. The real case is the one that retired the two pages beside it the same day: a per-repo prose
+page next to a portable one makes *"there is only one RELEASES"* false in the repo that ships the
+sentence, and it is a second place free to drift. So the work is a **relocation**, and nothing on that
+page was dropped.
+
+**Split by owner, as #2179 split the folder docs.** The seam values, the local decisions and the
+measured instances are in [Rendall's lens](../.claude/specialists/lenses/specialist-05-06-lens.md);
+the release-notes page, its Cloudflare worker, the path token and the `noindex` reasoning are hosting
+machinery rather than release decisions, so they are in
+[Sylvester's](../.claude/specialists/lenses/specialist-05-15-lens.md).
+
+**What a consumer sees.** A repo adopting from here gets one file in `dkj-policy/` — its `CHANGELOG.md`
+— where it used to get two. A repo that already holds any of the three retired pages keeps it: the run
+reports a `[legacy]` line and touches nothing, and no delete command is printed, because a copy may
+carry the only written statement of something that repo answered and nothing here can tell that from a
+stale scaffold. The gates that read those names are deliberately unchanged.
+
+`releases/history.md` keeps its name although the clash it was avoiding is gone with the page. It is
+the computed default every consumer has resolved to since #885, and moving a default renames a file
+under repos that never asked.
+
+Resolves #2196.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Four dead links in the archived release record were repointed with the prose left exactly as
+published — the rule that tree runs under, and the reason the dead-link gate is what proves this change
+is complete rather than a grep being.
+
+And two asserts were **dropped rather than retargeted**: the pair guarding inbound #786, which held the
+scaffolded releases page to carrying no history table. Retargeting them at the changelog would have
+tested a page that never carried one. #786's precondition was a scaffolded page making a promise, and
+this command now makes none.
+
+**Score:** 2
+
+#### Pull Request
+
+The releases answers page leaves the workflow folder, here and in consumers
+
+Plugins: dkj-policy
+
+[PR #2200](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2200)
+
+---
+
+### DEPLOY: fix/2184-policy-drift-rank2-lenses · 20260920-130535
+
+`check-policy-drift.ps1`'s RANK 2 reads the repo lenses. Since #2179 moved this repo's seam answers
+out of `dkj-policy/` and into the lenses, RANK 2 was built from the workflow-folder prefix and RANK 3
+from the always-on closure -- and a lens was in **neither**, so ~1,300 migrated lines were examined by
+nothing. Measured here: 29 lens documents and 8,864 lines, against the two `(absent)` folder pages that
+were the whole of RANK 2 before.
+
+**The report still printed as though it were complete**, which is the part that cost. Two `(absent)`
+lines read as *"this repo has no rank 2"* rather than as *"rank 2 moved and nobody told the tool"*, so
+the blindness was invisible from the output -- the shape this repo keeps naming as the expensive one.
+Each rank now closes with a tally of what is present and how many lines it holds, so a reader can see
+the volume they are being handed and not only the names.
+
+A lens joins rank 2 rather than getting a fourth rank because it does the same job the folder pages do:
+it states *this* repo's answer to a seam. What keeps it out of rank 3 is that it is read on demand
+rather than always-on -- and a lens the root document `@`-imports stays in rank 3, listed once, because
+a document sitting in two ranks would be a *"which one wins"* question in the one report whose job is
+to settle those.
+
+**No new seam was written.** `Get-LensDirCandidates` / `Get-SeamPaths` (#221) already own the four
+layouts a consumer's lenses may sit in -- the seam directory, the pre-seam per-plugin tree, the
+pre-#179 family spelling and legacy `.claude/extensions/` -- and `Get-SpecialistFiles` owns both
+filename spellings (#2130). A `repo-config.ps1` function beside them would have been a second answer to
+a question that has one, and would have dragged the script contract, the adopt blueprint and the
+consumer scaffold along for nothing.
+
+**The review round caught the same blindness trying to come back through a second door**, which is
+worth recording because it is the more interesting half. The first cut derived the repo-relative form
+with `Resolve-Path` plus a substring, while every lens directory is composed off the root *as it
+arrived* -- so on a checkout reached through an 8.3 short name the two spellings diverge and the rank
+comes back empty, silently. Measured on a scratch tree before repairing it: `Resolve-Path` keeps the
+short form it was handed (`...\Temp\PROBE-~2`) while `Get-ChildItem` returns the long `FullName`
+(`...\Temp\probe-28e06bbc\...`), so the prefix test matched nothing. It now uses the pure
+`Get-PathRelativeToDirectory`, which normalizes both sides without touching the filesystem, and the
+suite pins it with a short name -- skipping out loud where the volume has 8.3 generation off, because a
+silent skip there would read as coverage this suite does not have. The class was already documented in
+`scripts/lib/worktree-lib.ps1`; what it had was no test.
+
+**That test's own first route then cost more than the bug did**, and it is recorded in
+[Tycho's lens](../.claude/specialists/lenses/specialist-04-18-lens.md) rather than left in this
+branch. Asking `Scripting.FileSystemObject` for the short name passes in 6 seconds standalone and
+**hangs inside the parallel test gate**: the suite sat at that one line for the full 1,800s lane
+bound, and the gate came back *48 of 118 suites FAILED in 5,422s* -- every one a timeout, 47 of them
+innocent, most never reaching their own first line. A suite reaches the operating system through a
+child process, never through COM; `cmd /c ... %~sI` answers in 42 ms and produces the same divergence.
+
+**And a red gate that size is a question about the runner before it is one about the diff** -- three of
+the named suites were re-run standalone first and passed in seconds, which is what pointed at a stalled
+lane instead of at forty-eight regressions.
+
+`Get-ConsumerProseDocuments` is deliberately **not** widened to match. It is the same corpus the two
+GATED prose detectors read behind `consumer-prose-sessioncheck`, so a change there moves what fires at
+every session start in every adopted consumer -- a different decision from what an on-demand report
+lays out. That blindness is real and is filed as
+[#2188](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2188) rather than carried here.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every consumer of this workflow gets the same repair, and in the only way an additive one can be given:
+a repo with no lenses gets exactly the report it had before, because the probe returns nothing and no
+note is printed. Nothing is relocated and nothing is asked of the reader. The consumers this reaches
+hardest are the ones running longest -- a repo bootstrapped before #221 keeps its lenses in
+`.claude/plugins/<family>/<plugin>/` and is never moved, so a rank that had learned only the seam
+directory would have stayed blind in exactly those trees. The suite pins that path by its own route.
+
+**Score:** 2
+
+#### Pull Request
+
+check-policy-drift's RANK 2 learns the lens directory, so the migrated seam answers are read again
+
+Plugins: dkj-policy
+
+[PR #2198](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2198)
+
+---
+
+### DEPLOY: fix/2187-budget-gate-measures-source · 20260920-122927
+
+The always-on budget ratchet was measuring the wrong copy of the one document it most needed to watch.
+A persona body, a manual or a lens that this repo ships is loaded through an absolute
+`~/.claude/plugins/marketplaces/...` import, and the gate summed whatever sat at that path -- an
+extracted copy that only advances at a release. So a branch could add 621 B to a persona body in this
+tree and the gate answered `[OK] ... NOT growing`, because the figure it was summing had not moved.
+
+**The weight was never cancelled, only deferred**, and that is the failure rather than the wrong
+number: it lands on the always-on path at the next release, and the branch that then meets the refusal
+is some later one that added nothing. A ratchet that refuses the wrong author is a ratchet that gets
+`-Skip`'ped once and never obeyed again, which is the whole argument #2037 made for a ratchet over a
+cliff.
+
+The gate now judges this tree's copy wherever this tree has one, prints both figures where they
+differ, and -- on a refusal -- names the repo-relative file the author can actually edit, instead of a
+path under `~/.claude/plugins/` that the next plugin update overwrites.
+
+**The substitution is bounded to a document whose installed copy RESOLVED**, which is not a detail:
+during the persona rename the roster deliberately carries both the old and the new import, and
+substituting on an unresolved one would have added a 30k body on top of the figure already carried for
+its predecessor -- a jump no branch caused, met by whichever branch was open.
+
+Nothing moves in this repo today: the total is still 110,075 B, because the persona import that
+currently resolves is the pre-rename one, which has no counterpart left in the tree. The change is
+visible the moment that settles.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy` gets this, but only one of them can notice it: the substitution needs a
+marketplace clone that mirrors the checkout, which is true of a repo that consumes itself and of no
+ordinary consumer. `Get-TreeCounterpart` already returned `$null` everywhere else, so for a consumer
+this is a no-op by construction rather than by a flag.
+
+What it buys them is indirect and worth naming anyway: the gate that guards their always-on budget is
+maintained in a repo where that gate could not see its own always-on documents grow. Three of the four
+documents on this repo's path are shipped to them.
+
+**Score:** 1
+
+#### Pull Request
+
+The always-on budget gate judges the source copy of a plugin-carried document, not the marketplace clone
+
+Plugins: dkj-policy
+
+[PR #2194](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2194)
+
+---
+
+### DEPLOY: fix/2180-entry-shape-per-branch-exclusion · 20260920-121300
+
+Check 20 of the plugin-integrity gate now exempts a branch's own development document by the pattern
+that names it, instead of by the shared filename it carried before September 3, 2026. The exclusion had
+been built from a branch-less `Get-BranchFilePaths`, which answers the retired `dkj-policy/development.md`
+-- so the per-branch rename silently undid it, the third site of that rename to be found this way. The
+legacy names stay in the list beside the predicate, so a branch opened before the rename is still exempt.
+The failure this removes is noise rather than silence, which is the opposite of the two sibling checks:
+a branch document quoting a section count while explaining the entry format would have been reported as
+stale prose and failed the gate.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a lint-gate exclusion inside this repo's own tooling. A consumer meets check 20 only through the
+gate this repo runs on itself; nothing in their tree or their workflow changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+check 20 exempts the per-branch development document by pattern, not by its retired shared name
+
+[PR #2195](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2195)
+
+---
+
+### DEPLOY: feat/2186-baseline-into-specialists-seam · 20260920-120053
+
+`always-on-baseline.json` moves out of the workflow folder and into `.claude/specialists/`. The
+workflow folder is where prose a person writes and reviews lives; this is the one file in it nobody
+may hand-edit, and three of the four documents it measures are already in the seam.
+
+Nothing happens to an existing consumer's baseline on a plugin update, deliberately:
+`Get-AlwaysOnBaselinePath` now prefers whichever file is actually there, seam first and the workflow
+folder second, so an un-migrated repo keeps reading and writing the copy it has and no second
+baseline appears beside it. Migrating is one `git mv`, documented in `INSTALL.md` -- and it has to be
+`git mv`, because a regenerated baseline looks identical and quietly resets the low-water mark.
+
+A consumer notices nothing unless they go looking: the gate keeps reading their existing file, and
+the migration is optional and one command. What it buys is that the folder a person reviews stops
+holding a file no person may edit.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The interesting half is what was NOT done. A hard path switch would have passed every gate and broken
+nothing loudly, because a missing baseline is a first run and a first run never refuses -- so every
+consumer's ratchet would have reset to that day's figure, silently, with the old file orphaned beside
+it. For the one file whose entire value is a number carried forward, the silent arm is the expensive
+one, and the fallback read exists to close it.
+
+**Score:** 2
+
+#### Pull Request
+
+Move always-on-baseline.json into the specialists seam
+
+Plugins: dkj-policy
+
+[PR #2193](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2193)
+
+---
+
+### DEPLOY: feat/2168-written-name-guard · 20260920-114559
+
+A rename step that forgets its row flip is refused now instead of shipping green.
+`Get-SpecialistFileShapes` decides, per specialist kind, which filename spelling is **written** and
+which are merely **read**, and the #2128 rename series moves one kind per step -- the files on disk
+and that kind's `Current` row, two halves nothing paired. `AlsoRead` keeps every reader resolving
+both, so a step that moved the files and left the row behind passed the lint gate, every suite and CI
+(measured on #2165) while every writer went on composing the retired name into a fresh consumer. Two
+of the four steps shipped exactly that way -- the Subagent row (#2131, found at the merge) and the
+Lens row (#2133, found eight days later and repaired in #2167). Step F (#2135) closed while this branch
+was open, correctly pairing both halves in one commit, so the round is done and the guard is for the
+next one.
+
+Check **3d** in `check-plugin-integrity.ps1` holds each kind's `Current` row against the names
+actually on disk: 87 files today, being 26 subagent defs, 27 manuals, 4 personas and 30 lenses, and
+it is born green. It refuses **both** half-states, because files moved without the row and a row
+flipped without the files are one finding read from either side -- and it names which it found, since
+every file of a kind on the other spelling is a row that did not travel while some of them is a move
+that stopped half way, and the two have different repairs. A name matching NEITHER spelling is passed
+over, so checks 3b, 3c and 6 keep sole ownership of it and no file gets two owners.
+
+It reaches this tree only, and `Get-SpecialistFileShapes`' docstring says so where it used to say the
+guard did not exist yet: a consumer meets a rename through a plugin update rather than by choosing
+to, so their files sitting on the previous spelling is the dual-read layer doing its job. No row may
+be pruned because a gate now watches it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the check lives in `scripts/lint/check-plugin-integrity.ps1`, this repo's own gate: not in the
+shared-scripts registry, not carried by any plugin, and not one of the runners `adopt-dkj-policy`
+scaffolds into a consumer's CI. No subscriber of this service receives it, which is also why the
+`minor` label came off #2168.
+
+**Score:** N/A
+
+#### Pull Request
+
+a guard holds each specialist kind's written spelling against the names on disk
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2191](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2191)
+
+---
+
+### DEPLOY: docs/closeout-checks-live-subagents · 20260920-112936
+
+The orchestrator now checks whether its own subagents are still alive before it says the session can be
+cleared. A delegated agent announces its **report**, and a report is not a finish -- it can hand back
+while work it forked is still running -- so the persona body says to read the agent list rather than
+infer it from the last message received: a completion notice is the signal, a hand-back is not.
+
+**It is deliberately not a rule about waiting.** The whose-clock rule is untouched, and an orchestrator
+that starts sitting through its own subagents' background work has traded a wrong receipt for a wasted
+session. What changes is the sentence, not the schedule: name the agent that is still running and what
+its death would cost, and let the requester decide.
+
+The measured instance behind it -- six agents on one assignment, five of them done and reporting alike,
+the sixth reporting identically with 37 minutes still to run -- is in Chris's manual, which is read on
+demand. That split is this repo's own convention and the budget gate's own instruction: the decision
+belongs on the always-on path, the evidence for it does not.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-subagents-alpha` gets this on its next release, and it lands on the one line a
+requester acts on without re-checking. The failure it removes is cheap almost every time -- a
+backgrounded review dies with the harness and usually had nothing to say -- which is exactly why it
+survives: a receipt that is wrong for free is a receipt nobody corrects. Here it was caught by the
+requester rather than by the session.
+
+**Score:** 2
+
+#### Pull Request
+
+The close-out checks whether its own subagents are still alive before it says cleared
+
+Plugins: dkj-subagents-alpha
+
+[PR #2190](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2190)
+
+---
+
+### DEPLOY: docs/2182-2185-lens-heading-and-ci-job · 20260920-111515
+
+Two accuracy repairs in the lenses the #2179 migration touched, neither of which any gate can see.
+Sylvester's lens shipped a duplicated `###` heading with an empty section behind it; Derek's lens sent
+a session debugging a red check to a job that runs no PowerShell and never touches the repo. The second
+is the one that cost something: it is the passage a session reads to understand why a merge is blocked,
+and it named the summary job where it should have named the leg. Check 4 of the lint gate validates
+anchor existence, not heading structure, and nothing at all reads prose against `ci.yml`, so both were
+green on `main`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo lens is this repo's own file and travels in no plugin payload, so nothing here reaches a
+consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two accuracy repairs in the lenses the #2179 migration touched
+
+[PR #2189](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2189)
+
+---
 
 ### DEPLOY: docs/2179-folder-docs-into-lenses · 20260920-104941
 

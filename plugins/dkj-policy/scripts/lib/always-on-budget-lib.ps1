@@ -56,10 +56,23 @@
     verdict rather than counted as zero -- a smaller, healthier-looking path is the one wrong answer
     this whole lib exists to stop.
 
-    THE BASELINE FILE LIVES IN THE WORKFLOW'S OWN FOLDER, resolved through Get-WorkflowFolderName rather
-    than spelled out -- that folder has renamed once already. It is machine-written STATE, which is why
-    it is not in scripts\repo-config.ps1 beside the seam: repo-config is where a PERSON declares what
-    this repo is, and a file the gate rewrites on its own does not belong in it.
+    THE BASELINE FILE LIVES IN THE SPECIALISTS SEAM, '.claude/specialists/always-on-baseline.json'
+    (#2186, September 20, 2026). It used to sit in the workflow's own folder beside the changelog and
+    the release history, and it moved because that folder is where PROSE a person writes and reviews
+    lives, while this is the one file in it no person may edit -- the gate rewrites it. The seam is
+    where the documents it measures already are: three of the four keys in this repo's own baseline
+    name files under '.claude/specialists/'.
+
+    IT IS STILL NOT scripts\repo-config.ps1, and that half of the old reasoning is untouched:
+    repo-config is where a PERSON declares what this repo is, and a file the gate rewrites on its own
+    does not belong in it. What changed is which of the two machine-written homes it takes.
+
+    THE OLD PATH IS STILL READ, AND THAT IS THE MIGRATION -- see Get-AlwaysOnBaselinePath. This lib is
+    plugin payload: a hard switch would leave every existing consumer's baseline orphaned at the old
+    path, and because a first run never refuses (Get-AlwaysOnBudgetVerdict), that loss would be SILENT
+    -- their low-water mark quietly re-recorded at whatever the path measured that day. Preferring
+    whichever file is actually there is the same answer Get-WorkflowFolderName gives one layer up for
+    the folder itself, and for the same reason.
 
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script, which is
     the standing convention for every lib in this directory. Pure ASCII, per the [script-ascii] gate.
@@ -82,6 +95,14 @@ $script:AlwaysOnBudgetDefault = 100000
 # refused rather than guessed at: a baseline is the one number the ratchet trusts, so half-understanding
 # it is worse than not reading it.
 $script:AlwaysOnBaselineSchema = 1
+
+# WHERE THE BASELINE SITS, as two constants rather than one composed path, because the walk in
+# Get-AlwaysOnBaselinePath joins the file name onto TWO different directories and a single literal
+# would have to be split at the point of use. The seam directory is check-report-lib's Get-SeamPaths
+# answer, deliberately copied -- that function's header and the test that pins the two together say
+# why. Forward slashes nowhere: these are filesystem segments, joined with Join-Path.
+$script:AlwaysOnSeamDir = '.claude\specialists'
+$script:AlwaysOnBaselineFileName = 'always-on-baseline.json'
 
 function Get-AlwaysOnBudgetDefault {
     <# The built-in ceiling in bytes, for a repo that states no Get-AlwaysOnBudget seam. #>
@@ -115,11 +136,46 @@ function Resolve-AlwaysOnBudget {
 }
 
 function Get-AlwaysOnBaselinePath {
-    <# The baseline file: '<workflow folder>/always-on-baseline.json', the folder NAMED rather than
-       spelled out (it renamed once already -- see seam-lib's header). #>
+    <#
+        Where the baseline is, and it PREFERS WHAT EXISTS -- the seam first, then the workflow folder
+        it used to live in, and the seam again as the answer a writer creates from nothing.
+
+        WHY THE WALK (#2186, September 20, 2026). The file moved from '<workflow folder>/' into the
+        specialists seam, and this lib is plugin payload: the move reaches an existing consumer as a
+        plugin update, not as a commit they reviewed. A hard switch would point the gate at a path
+        their repo does not have, and the failure would be SILENT rather than loud -- Read-AlwaysOnBaseline
+        returns $null for a missing file, Get-AlwaysOnBudgetVerdict calls that 'first-run', and a first
+        run never refuses. So their ratchet would not break; it would quietly forget, re-recording a
+        low-water mark at whatever the path happened to measure that day, with the old file left behind
+        as an orphan nothing mentions again. For the one file whose entire value is a number carried
+        forward, forgetting is the worst of the three outcomes.
+
+        SO A CONSUMER MIGRATES BY MOVING THE FILE, NOT BY UPDATING THE PLUGIN. Until they do, the gate
+        goes on reading and writing the copy they have, which keeps their history intact and leaves no
+        second baseline beside it. Afterwards the seam copy wins and nothing else changes.
+
+        THE ORDER IS NEWEST FIRST AND THE WALK STOPS AT THE FIRST HIT, so a repo that briefly has both
+        gets the seam one -- which is the one a writer would have made. Same shape, same reasoning and
+        same stopping rule as Get-WorkflowFolderName one layer up, and as Resolve-BranchFilePath for
+        the documents inside that folder.
+
+        THE SEAM DIRECTORY IS SPELLED OUT HERE rather than asked of Get-SeamPaths, which is its
+        canonical definition in check-report-lib.ps1. That lib is 141 KB and this one is dot-sourced by
+        four others plus scripts\repo-config.ps1, so pulling it in for a two-segment path would charge
+        every one of them for a string. The duplicate is held honest by a test that asserts the two
+        agree (always-on-budget.tests.ps1) -- which is what makes it a deliberate copy rather than the
+        hand-mirrored literal Get-SeamPaths' own header was written to end.
+    #>
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
+
+    $seamPath = Join-Path $RepoRoot (Join-Path $script:AlwaysOnSeamDir $script:AlwaysOnBaselineFileName)
+    if (Test-Path -LiteralPath $seamPath -PathType Leaf) { return $seamPath }
+
     $folder = Get-WorkflowFolderName -RepoRoot $RepoRoot
-    return (Join-Path $RepoRoot (Join-Path $folder 'always-on-baseline.json'))
+    $legacyPath = Join-Path $RepoRoot (Join-Path $folder $script:AlwaysOnBaselineFileName)
+    if (Test-Path -LiteralPath $legacyPath -PathType Leaf) { return $legacyPath }
+
+    return $seamPath
 }
 
 function Get-AlwaysOnDocumentKey {
@@ -250,6 +306,37 @@ function Get-AlwaysOnMeasurement {
         counted as zero makes the path look healthier than it is, which is the one wrong answer this
         whole lib exists to stop.
 
+        AND A MEASURED DOCUMENT IS JUDGED ON THIS TREE'S COPY WHERE THIS TREE HAS ONE (issue #2187).
+        The source repo consumes itself, so a document loaded from '~/.claude/plugins/marketplaces/<this
+        marketplace>/...' has a counterpart in the checkout the branch is editing. The installed copy
+        only advances at a RELEASE, so summing it asked the wrong question: not "does this branch grow
+        the always-on path" but "did somebody run a plugin update lately". Measured on the branch that
+        filed #2187 -- a persona body grew 621 B in this tree and the gate reported "[OK] ... NOT
+        growing", because the figure it summed had not moved. The weight was not cancelled, only
+        deferred onto whichever later branch happened to be open when the release landed, which is the
+        one direction a ratchet must not err in: it refuses an author for weight absent from their own
+        diff.
+
+        SO THE SUBSTITUTION IS BOUNDED THREE WAYS, and each bound is load-bearing:
+          - the loaded copy must EXIST. An unresolved target keeps the carried/unmeasured branches
+            below untouched. Measured during #2135's persona rename, when SPECIALISTS.md deliberately
+            carried both the pre- and post-rename import: substituting on an unresolved target would
+            have added the renamed body's 30,899 B ON TOP of the 30,267 B carried for the old one -- a
+            30k jump no branch caused, refusing whichever branch was open.
+          - the counterpart must EXIST IN THIS TREE. Get-TreeCounterpart already returns $null
+            otherwise, so a consumer -- which mirrors nothing -- is untouched by every line of this.
+          - it is LF bytes either side, never TreeBytes. See TreeLfBytes in measure-context-lib.
+
+        WHAT A CI RUNNER DOES WITH IT, said here rather than left to be discovered: nothing. No '~/'
+        import resolves there, so the term is CARRIED and the recorded figure is what CI judges -- and
+        that figure was recorded by the local gate, which did substitute. The two carriers still
+        describe one subject; the local one is simply the one that can see the change, which is also
+        the one that runs before the push.
+
+        LoadedTotal is what the resolved copies actually come to -- the figure a session on THIS machine
+        pays today. It is reported beside Total where the two differ and is judged by nothing, exactly
+        as DiskBytes is reported beside the LF total.
+
         AND A FOURTH SET THAT CUTS ACROSS THE OTHER THREE: Dead -- an import this run can PROVE is not
         there (Get-ImportAbsenceKind). It is not a fourth bucket in the sum: a dead import may also be
         carried, and then its recorded bytes stay in the total exactly as before, because dropping a
@@ -279,18 +366,69 @@ function Get-AlwaysOnMeasurement {
     $carried = New-Object System.Collections.Generic.List[object]
     $unmeasured = New-Object System.Collections.Generic.List[object]
     $dead = New-Object System.Collections.Generic.List[object]
+    $substituted = New-Object System.Collections.Generic.List[object]
     $measuredBytes = [int64]0
     $carriedBytes = [int64]0
+    $loadedBytes = [int64]0
     $diskBytes = [int64]0
 
     foreach ($d in $docs) {
         $key = Get-AlwaysOnDocumentKey -Document $d
         if ($d.Exists) {
-            $sizes[$key] = [int64]$d.LfBytes
-            $measuredBytes += [int64]$d.LfBytes
-            $diskBytes += [int64]$d.Bytes
+            # THE JUDGED COPY, chosen here and nowhere else. Defaults to the one that loaded; becomes
+            # this tree's counterpart where the walk found one. TreeLfBytes is $null on a row from a
+            # mirror built before #2187 -- tested rather than assumed, so an older measure-context-lib
+            # degrades to the previous behaviour instead of summing $null as zero.
+            $judged     = [int64]$d.LfBytes
+            $judgedDisk = [int64]$d.Bytes
+            $loadedBytes += [int64]$d.LfBytes
+            $hasTreeLf = @($d.PSObject.Properties.Name) -contains 'TreeLfBytes'
+            if ($d.Source -eq 'external' -and $d.TreeCounterpart -and $hasTreeLf -and $null -ne $d.TreeLfBytes) {
+                $judged     = [int64]$d.TreeLfBytes
+                $judgedDisk = [int64]$d.TreeBytes
+                # THE REPO-RELATIVE NAME, through Test-PathIsUnder rather than a bare StartsWith. The
+                # whole point of this row is that an author can open the file, so falling back to an
+                # absolute path under somebody's user profile is a quiet failure of the feature rather
+                # than a cosmetic one. $RepoRoot arrives here unnormalised on one of its two branches --
+                # the CLAUDE_PROJECT_DIR fallback is whatever the harness set -- so a trailing separator
+                # or a forward slash would defeat a prefix comparison silently (code review, #2187).
+                $repoFull = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+                $sourceDisplay = $d.TreeCounterpart
+                if (Test-PathIsUnder -Path $sourceDisplay -Parent $repoFull) {
+                    $sourceDisplay = (([System.IO.Path]::GetFullPath($sourceDisplay).Substring($repoFull.Length)) -replace '\\', '/').TrimStart('/')
+                }
+                # BaselineDelta IS NOT Delta, AND THE TWO ANSWER DIFFERENT QUESTIONS. Delta is judged
+                # against INSTALLED -- the weight queued for the next release, which is what the
+                # informational block reports. BaselineDelta is judged against RECORDED -- whether THIS
+                # branch moved this document, which is the only thing that makes a refusal causal. A
+                # refusal naming every substituted document instead of the ones that grew sends an
+                # author to two or three files, none of them necessarily the one to edit (code review,
+                # #2187). $null where the baseline has no figure: unknown is not zero, and a document
+                # this run cannot judge is left in rather than silently cleared of suspicion.
+                $recordedBytes = $null
+                $baselineDelta = $null
+                if ($recorded.ContainsKey($key)) {
+                    $recordedBytes = [int64]$recorded[$key]
+                    $baselineDelta = $judged - $recordedBytes
+                }
+                $substituted.Add([pscustomobject]@{
+                    Key           = $key
+                    Display       = $d.Display
+                    Target        = $d.Target
+                    ImportedBy    = $d.ImportedBy
+                    SourceDisplay = $sourceDisplay
+                    Bytes         = $judged
+                    LoadedBytes   = [int64]$d.LfBytes
+                    Delta         = $judged - [int64]$d.LfBytes
+                    RecordedBytes = $recordedBytes
+                    BaselineDelta = $baselineDelta
+                }) | Out-Null
+            }
+            $sizes[$key] = $judged
+            $measuredBytes += $judged
+            $diskBytes += $judgedDisk
             $measured.Add([pscustomobject]@{
-                Key = $key; Display = $d.Display; Bytes = [int64]$d.LfBytes; DiskBytes = [int64]$d.Bytes; Source = $d.Source
+                Key = $key; Display = $d.Display; Bytes = $judged; DiskBytes = $judgedDisk; Source = $d.Source
             }) | Out-Null
             continue
         }
@@ -311,6 +449,11 @@ function Get-AlwaysOnMeasurement {
             $b = [int64]$recorded[$key]
             $sizes[$key] = $b
             $carriedBytes += $b
+            # A CARRIED TERM COUNTS TOWARDS THE LOADED FIGURE TOO. It is the best answer this run has
+            # for what that document costs, and leaving it out would make LoadedTotal differ from Total
+            # on every CI run -- printing a "what a session loads" line on the one carrier that cannot
+            # know.
+            $loadedBytes += $b
             $carried.Add([pscustomobject]@{ Key = $key; Display = $d.Display; Bytes = $b; Target = $d.Target }) | Out-Null
             continue
         }
@@ -320,6 +463,7 @@ function Get-AlwaysOnMeasurement {
     return [pscustomobject]@{
         RootDocument  = $RootDocument
         Total         = $measuredBytes + $carriedBytes
+        LoadedTotal   = $loadedBytes
         MeasuredBytes = $measuredBytes
         CarriedBytes  = $carriedBytes
         DiskBytes     = $diskBytes
@@ -334,8 +478,37 @@ function Get-AlwaysOnMeasurement {
         Carried       = $carried.ToArray()
         Unmeasured    = $unmeasured.ToArray()
         Dead          = $dead.ToArray()
+        Substituted   = $substituted.ToArray()
         Sizes         = $sizes
     }
+}
+
+function Get-MeasurementField {
+    <#
+        One field of a measurement object, or $Default in each of the three cases where it has no usable
+        answer: no measurement at all, the property ABSENT, and the property PRESENT AND $null. The
+        third is not a rounding of the second -- a row set built but never populated arrives as $null
+        rather than as an empty array, and a caller that went on to index it would fail further from
+        here than the field it asked for.
+
+        NOT DEFENSIVE PROGRAMMING FOR ITS OWN SAKE. Under Set-StrictMode -Version Latest -- which the
+        GATE that carries this lib sets, and which is what makes the failure expensive -- reading an
+        absent property is a TERMINATING error, so a verdict reaching for a field added later dies with
+        'PropertyNotFound' inside a script whose whole job is to exit 0 or 1 on a budget. Two callers
+        can hand over an older shape: the test suite, which builds a measurement by hand precisely so
+        the verdict is tested without the walk, and a mirror of this lib shipped before the field
+        existed.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]$Measurement,
+        [Parameter(Mandatory = $true)][string]$Name,
+        $Default = $null
+    )
+    if ($null -eq $Measurement) { return $Default }
+    if (-not (@($Measurement.PSObject.Properties.Name) -contains $Name)) { return $Default }
+    $value = $Measurement.$Name
+    if ($null -eq $value) { return $Default }
+    return $value
 }
 
 function Get-AlwaysOnLimit {
@@ -436,5 +609,12 @@ function Get-AlwaysOnBudgetVerdict {
         Unmeasured   = @($Measurement.Unmeasured)
         Carried      = @($Measurement.Carried)
         Dead         = @($Measurement.Dead)
+        # PROPERTY-TESTED, unlike the three above. Those have been on every measurement since this lib
+        # was written; these two arrived with #2187, and this function is called with a hand-built
+        # measurement in the suite and by any carrier shipped from a mirror built before that. An
+        # absent property under Set-StrictMode is a terminating error, not $null -- and the caller is a
+        # GATE, so it would exit 1 with a PropertyNotFound message about a reporting field.
+        Substituted  = @(Get-MeasurementField -Measurement $Measurement -Name 'Substituted' -Default @())
+        LoadedTotal  = [int64](Get-MeasurementField -Measurement $Measurement -Name 'LoadedTotal' -Default $total)
     }
 }

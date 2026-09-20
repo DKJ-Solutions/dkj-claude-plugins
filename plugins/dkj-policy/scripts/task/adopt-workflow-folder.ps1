@@ -11,14 +11,13 @@
     one move:
 
         dkj-policy/
-          releases/README.md     this repo's answers to RELEASES-portable.md (the release LIST is a
-                                 second file beside it, not this one; see the closing advice)
           CHANGELOG.md           this folder's own pending-changes list, isolated from any changelog
                                  the repo already keeps at its root
           (releases/audience/ is NOT placed -- the first cut creates it when it writes the note there)
           (<branch>.md is NOT placed -- one per branch, living only while that branch is open)
-          (README.md and CONTRIBUTING.md are NOT placed ANY MORE -- #2171, September 20, 2026; the
-           block further down that reports an existing copy carries the whole reasoning)
+          (README.md, CONTRIBUTING.md and releases/README.md are NOT placed ANY MORE -- #2171 and
+           #2196, September 20, 2026; the block further down that reports an existing copy carries the
+           whole reasoning. ONE file is left, and that list above is the whole of it)
 
     AND IT ANSWERS ONE SEAM, FOR A FRESH ADOPTION ONLY (issue #1150). Get-ReleaseNoteRoot's shared
     fallback is 'releases/notes' at the repo root, and it deliberately does not move -- a repo that
@@ -148,11 +147,13 @@ $nl = "`n"
 # this script already refused above for a repo that publishes plugins, so every caller reaching this line
 # is a consumer, and the computed default for a consumer is now inside this very folder.
 #
-# history.md, NOT README.md -- 'dkj-policy/releases/README.md' is ALREADY this folder's seam-ANSWERS
-# page (the $releasesReadme target below). The list and the answers are two different kinds of document in
-# this repo's own root (README.md holds the answers, root releases/README.md holds the list) purely because
-# they sit at different directory levels; folded into the SAME directory they need different names, or the
-# scaffold below would be asked to write two documents to one path.
+# history.md, NOT README.md -- and since #2196 this command writes no README.md in that folder at all,
+# so the name is free. It is kept anyway, because the clash was never the only reason for it: history.md
+# is the computed default every consumer adopted since #885 already resolves to, and moving a default
+# renames a file under repos that never asked. The clash itself is recorded rather than erased --
+# 'dkj-policy/releases/README.md' WAS this folder's seam-ANSWERS page, so a list a script appends to and a
+# page somebody writes needed different names to share one directory. The answers page is retired now
+# (see the legacy block below) and the list keeps the name it was given.
 $historyRelPath = Get-SeamValue -Name 'Get-ReleaseHistoryPath' -Default (Get-DefaultReleaseHistoryPath -RepoRoot $repoRoot)
 Assert-WorkflowIsolatedSeamPath -RepoRoot $repoRoot -RelativePath $historyRelPath -SeamName 'Get-ReleaseHistoryPath'
 # WHERE THIS REPO KEEPS ITS CHANGELOG (issue #885, group A). Same reasoning: the scaffold below has to
@@ -201,28 +202,6 @@ $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
 # portable halves in code rather than linking them, the same choice DEVELOPMENT-portable.md explains: the
 # portable pages live in the plugin install, and a relative link into a plugin cache is a path that is
 # wrong on every machine but this one.
-
-$releasesReadme = @(
-    '# Releases',
-    '',
-    'The release model -- the tiers, what a release must earn, which documents a cut writes -- is the',
-    'plugin''s `RELEASES-portable.md`. This page is this repo''s answers to it.',
-    '',
-    '<!-- VUL-IN: the seam answers in force here: Get-ReleaseNoteRoot, Get-ReleaseHistoryPath,',
-    '     Get-ReleaseAudienceTier, Get-ReleaseConsumerBumps, Get-ReleaseNotesGrouping -- state what this',
-    '     repo chose and why, so a reader does not have to open scripts/repo-config.ps1 to learn it. -->',
-    '',
-    ('**The release LIST is not on THIS page** -- it lives beside it, at `' + $historyRelPath + '`,'),
-    'which is where `Get-ReleaseHistoryPath` points. Two different documents even though both are now',
-    'inside this folder: this page is your hand-written ANSWERS to the seam (prose, decisions), rewritten',
-    'only by you; the list is machine-appended, one row per release, and never touched by hand except to',
-    'start it. The source repo carries exactly this pair in exactly this folder since August 27, 2026, when',
-    'its own release list moved in beside its answers page -- a document somebody edits and a document a',
-    'script owns should never share a path.',
-    '',
-    ('That file is **not** scaffolded, deliberately: see the closing advice of `adopt-workflow-folder` for'),
-    'what it has to contain before your first cut, and why a half-written one would be worse than none.'
-)
 
 # THE ONE FILE THIS COMMAND PLACES OUTSIDE THE FOLDER, and it is deliberate (inbound #789). The branch
 # entry is a convention the plugin ships every reader of, while nothing enforced it: open-pr refuses to
@@ -496,7 +475,6 @@ $targets = @(
     @{ Rel = '.github/workflows/branch-entry.yml';     Content = (($entryGateWorkflow -join $nl) + $nl) },
     @{ Rel = '.github/workflows/always-on-budget.yml'; Content = (($alwaysOnGateWorkflow -join $nl) + $nl) }
 ) + $prTemplateTargets + @(
-    @{ Rel = 'dkj-policy/releases/README.md';  Content = (($releasesReadme -join $nl) + $nl) },
     @{ Rel = $changelogRel;                            Content = (($changelogIntro -join $nl) + $nl) }
     # NO releases/audience/.gitkeep ANY MORE (issue #1150). It was placed on the stated ground that "the
     # audience root must exist before the first cut writes into it", and that premise is false: the cut
@@ -544,12 +522,15 @@ foreach ($t in $targets) {
     }
 }
 
-# --- Two pages this command NO LONGER WRITES (#2171, Dave, September 20, 2026) ---------------------
-# The folder's README.md and CONTRIBUTING.md were scaffolded by this command until this change, and both
-# are retired: two more pages in the consumer's own tree made that repo more complicated and produced more
-# inconsistency than they removed. THERE IS ONE CONTRIBUTING FOR A CONSUMER TO READ and it is the plugin's
-# CONTRIBUTING-portable.md. What a consumer's own repo answers goes into that repo's specialist lens,
-# where the rest of its repo-specific answers already live -- one destination instead of two.
+# --- Three pages this command NO LONGER WRITES (#2171 and #2196, Dave, September 20, 2026) ---------
+# The folder's README.md and CONTRIBUTING.md went first (#2171), and releases/README.md followed the same
+# day (#2196). All three are retired for one reason: a per-repo prose page beside a portable page made the
+# consumer's own tree more complicated and produced more inconsistency than it removed. THERE IS ONE
+# CONTRIBUTING FOR A CONSUMER TO READ and it is the plugin's CONTRIBUTING-portable.md; there is ONE
+# RELEASES and it is RELEASES-portable.md. What a consumer's own repo answers goes into that repo's
+# specialist lens, where the rest of its repo-specific answers already live -- one destination instead of
+# two. The source repo did the same to its own three, and its release answers now sit in the release
+# manager's and the system administrator's lenses, split by which of them owns the answer.
 #
 # WHAT WENT WITH THEM, so nobody restores half of it: the refreshable fenced block (#1766) and its four
 # top-up states. That block existed because a page scaffolded once is never corrected afterwards, which is
@@ -557,27 +538,32 @@ foreach ($t in $targets) {
 # same defect one level up rather than contradicting it, and the UPDATE chapter it carried belongs to
 # whichever page that repo keeps its own answers on.
 #
+# THE RELEASE LIST IS NOT ONE OF THE THREE and is still not scaffolded, for the opposite reason: it is a
+# document a script appends to, and the closing advice below is what tells a consumer to create it. A page
+# a person writes and a file a script owns are different things, which is the whole of why they never
+# shared a name.
+#
 # AN EXISTING COPY IS REPORTED AND NEVER TOUCHED, and no delete command is printed. Several consumers hold
 # these pages today; a copy may carry the only written statement of something that repo answered, and
 # nothing here can tell that from a stale scaffold. Printing a paste-ready delete would push a reader
 # towards losing it for the sake of tidiness this command does not have to buy.
 #
 # THE GATES THAT READ THEM ARE DELIBERATELY UNCHANGED -- check-consumer-prose still runs its detectors
-# over both names and check-policy-drift still lists them -- so a page that is still there keeps exactly
+# over those names and check-policy-drift still lists them -- so a page that is still there keeps exactly
 # the standing its repo gives it. What stopped is the AUTHORING, not the reading: a gate narrowed to match
 # this change would retire itself in the five repos whose pages are the reason it exists.
 $legacyPages = @(
-    @("$workflowFolder/README.md", "$workflowFolder/CONTRIBUTING.md") |
+    @("$workflowFolder/README.md", "$workflowFolder/CONTRIBUTING.md", "$workflowFolder/releases/README.md") |
         Where-Object { Test-Path -LiteralPath (Join-Path $repoRoot ($_ -replace '/', '\')) -PathType Leaf }
 )
 if ($legacyPages.Count -gt 0) {
     foreach ($legacyPage in $legacyPages) {
         Write-Host "  [legacy]  $legacyPage -- this command no longer writes or refreshes it" -ForegroundColor Yellow
     }
-    Write-Host '            One CONTRIBUTING is the plugin''s portable page; what THIS repo answers belongs' -ForegroundColor DarkGray
-    Write-Host '            in its specialist lens. Nothing here deletes either page and keeping them is a' -ForegroundColor DarkGray
-    Write-Host '            complete answer -- but the plugin''s fenced block in the README is frozen from' -ForegroundColor DarkGray
-    Write-Host '            now on, so read it as this repo''s own writing rather than as current.' -ForegroundColor DarkGray
+    Write-Host '            One CONTRIBUTING and one RELEASES are the plugin''s portable pages; what THIS' -ForegroundColor DarkGray
+    Write-Host '            repo answers belongs in its specialist lens. Nothing here deletes any of them and' -ForegroundColor DarkGray
+    Write-Host '            keeping them is a complete answer -- but the plugin''s fenced block in the README' -ForegroundColor DarkGray
+    Write-Host '            is frozen from now on, so read it as this repo''s own writing rather than as current.' -ForegroundColor DarkGray
 }
 
 # --- The one seam this run may answer (issue #1150) ------------------------------------------------
@@ -650,8 +636,10 @@ if ($Apply) {
 # working state but not the one this folder is for.
 
 # RE-ADOPTION MIGRATION NOTE (issue #885): the one transition this run cannot do for you, because it
-# is prose in somebody else's file. Same shape as this repo's own releases/README.md migration advice
-# ("if it carries a release list from before this split, move that list").
+# is prose in somebody else's file. Same shape as the migration advice the source repo's own
+# releases/README.md used to carry ("if it carries a release list from before this split, move that
+# list") -- that page is retired (#2196) and the advice it gave a re-adopting consumer lives on in the
+# closing block below, which is where the run can actually print it.
 if (Test-Path -LiteralPath (Join-Path $repoRoot 'CHANGELOG.md') -PathType Leaf) {
     Write-Host ''
     Write-Host 'YOUR ROOT CHANGELOG.md EXISTS, so read this before your next merge:' -ForegroundColor Yellow
