@@ -89,20 +89,60 @@ document a script appends to, and the issue names only the README.
 
 ### TEST
 
-- [ ] `adopt-workflow-folder.tests.ps1` proves the page is NOT written, and that a consumer holding a
+- [x] `adopt-workflow-folder.tests.ps1` proves the page is NOT written, and that a consumer holding a
       legacy copy keeps it
-- [ ] The lint gate's dead-link scan is green -- it is what proves no link into the deleted page survived
-- [ ] The full suite runs, as CI does
+- [x] The lint gate's dead-link scan is green -- it is what proves no link into the deleted page survived
+- [x] The full suite runs, as CI does
 
 ### DEPLOY: feat/2196-releases-readme-into-lenses
 
-**Score:**
+The workflow folder's third and last prose page is retired, in the source repo and in every consumer
+that adopts from here. `dkj-policy/releases/README.md` held this repo's answers to
+`RELEASES-portable.md` — the seam values, the local decisions, the measured instances — and
+`adopt-workflow-folder` scaffolded a small version of it into a consumer on every adoption. Neither
+happens any more.
+
+**The case is #2171's, not the one the issue states.** #2196 asked for the removal on the ground that
+the release workflow should be explained in one place. That page stopped explaining it in August 2026,
+when the process half moved into `RELEASES-portable.md`; what it still carried was 15,146 B of
+*answers*. The real case is the one that retired the two pages beside it the same day: a per-repo prose
+page next to a portable one makes *"there is only one RELEASES"* false in the repo that ships the
+sentence, and it is a second place free to drift. So the work is a **relocation**, and nothing on that
+page was dropped.
+
+**Split by owner, as #2179 split the folder docs.** The seam values, the local decisions and the
+measured instances are in [Rendall's lens](../.claude/specialists/lenses/specialist-05-06-lens.md);
+the release-notes page, its Cloudflare worker, the path token and the `noindex` reasoning are hosting
+machinery rather than release decisions, so they are in
+[Sylvester's](../.claude/specialists/lenses/specialist-05-15-lens.md).
+
+**What a consumer sees.** A repo adopting from here gets one file in `dkj-policy/` — its `CHANGELOG.md`
+— where it used to get two. A repo that already holds any of the three retired pages keeps it: the run
+reports a `[legacy]` line and touches nothing, and no delete command is printed, because a copy may
+carry the only written statement of something that repo answered and nothing here can tell that from a
+stale scaffold. The gates that read those names are deliberately unchanged.
+
+`releases/history.md` keeps its name although the clash it was avoiding is gone with the page. It is
+the computed default every consumer has resolved to since #885, and moving a default renames a file
+under repos that never asked.
+
+Resolves #2196.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Four dead links in the archived release record were repointed with the prose left exactly as
+published — the rule that tree runs under, and the reason the dead-link gate is what proves this change
+is complete rather than a grep being.
+
+And two asserts were **dropped rather than retargeted**: the pair guarding inbound #786, which held the
+scaffolded releases page to carrying no history table. Retargeting them at the changelog would have
+tested a page that never carried one. #786's precondition was a scaffolded page making a promise, and
+this command now makes none.
+
+**Score:** 2
 
 #### Pull Request
 
 The releases answers page leaves the workflow folder, here and in consumers
-
