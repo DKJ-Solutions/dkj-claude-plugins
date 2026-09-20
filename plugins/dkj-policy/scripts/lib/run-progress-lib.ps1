@@ -270,10 +270,10 @@ function Remove-OrphanedRunProgressTemp {
         Delete the '.json.<pid>.tmp' files no writer is coming back for -- issue #2174.
 
         WHY THE MAIN LOOP CANNOT DO THIS. Write-RunProgress writes aside and then moves into place,
-        so a publisher killed between those two statements leaves '<id>.json.<pid>.tmp' behind. The
+        so a producer killed between those two statements leaves '<id>.json.<pid>.tmp' behind. The
         reader below globs '*.json', which that name is not, so both of its reaping paths -- the age
         cap and the liveness test -- sit inside a loop the file never enters. Nothing ever looked at
-        it again, and a killed publisher is ordinary here: a backgrounded ship dies with its harness.
+        it again, and a killed producer is ordinary here: a backgrounded ship dies with its harness.
 
         THE PID COMES OUT OF THE NAME, NOT OUT OF THE FILE. The content may be the torn half-write
         this whole scheme exists to hide from the reader, so it is never parsed. The name is written
@@ -321,15 +321,19 @@ function Remove-OrphanedRunProgressTemp {
         } elseif (-not (Test-RunProgressWriterAlive -Record ([pscustomobject]@{ writerPid = $writerPid; writerStartTicks = 0 }))) {
             # START TICKS 0 IS THE DOCUMENTED DEGRADED MODE, and it is the only one available: the
             # name carries a pid and nothing else. So a recycled pid keeps a stray tmp alive until
-            # the age cap above catches it, which is the safe direction to err in -- 232 bytes for
-            # at most twelve hours, against deleting the file of a writer that is still running.
+            # the age cap above catches it, which is the safe direction to err in: one small file
+            # for at most twelve hours, against deleting the file of a writer that is still running.
             $doomed = $true
         }
 
         if ($doomed) {
             try {
                 Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
-                $removed++
+                # COUNTED ONLY ONCE IT IS ACTUALLY GONE. SilentlyContinue is what keeps this from
+                # costing a producer anything, and it is also what makes an unconditional count a
+                # claim nobody checked -- a file the writer's own Move-Item took first, or one a
+                # permission refused, would be reported as reaped without having been.
+                if (-not (Test-Path -LiteralPath $file.FullName)) { $removed++ }
             } catch { }
         }
     }

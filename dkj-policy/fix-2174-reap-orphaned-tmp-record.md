@@ -43,7 +43,7 @@
 
 `Write-RunProgress` writes `<id>.json.<pid>.tmp` and moves it into place -- the atomic write that
 makes a torn read impossible. `Get-LiveRunProgress` globs `*.json`, which that name is not, so a
-publisher killed between the write and the move leaves a file both reaping paths sit inside a loop
+producer killed between the write and the move leaves a file both reaping paths sit inside a loop
 away from. Issue #2174 measured one: 232 B, a day old, from a test-gate run whose pid was long gone.
 
 Widening the glob was the cheaper repair and it is refused, on the lib's own stated ground -- a
@@ -67,9 +67,9 @@ destroys evidence. So the sweep is keyed on the exact name **this lib writes** a
 
 ### DEPLOY: fix/2174-reap-orphaned-tmp-record
 
-The progress root no longer grows one small file per killed publisher. `Get-LiveRunProgress` reaped
-only `*.json`, so the `.tmp` a publisher abandons when it is killed between the write and the move
-was never looked at again -- and a killed publisher is ordinary here, since a backgrounded ship dies
+The progress root no longer grows one small file per killed producer. `Get-LiveRunProgress` reaped
+only `*.json`, so the `.tmp` a producer abandons when it is killed between the write and the move
+was never looked at again -- and a killed producer is ordinary here, since a backgrounded ship dies
 with its harness. It is swept now on the same pass, keyed on the name this lib itself writes and on
 the pid embedded in it, so a `.tmp` somebody else put there is still evidence rather than litter.
 

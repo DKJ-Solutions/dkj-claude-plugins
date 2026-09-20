@@ -156,8 +156,8 @@ Assert-True (@(Get-LiveRunProgress -Root $root).Count -eq 0) 'Get-LiveRunProgres
 Assert-True (Test-Path -LiteralPath (Join-Path $root 'junk.json')) `
     'Get-LiveRunProgress: and it is left alone -- a reader that deletes what it cannot read destroys evidence'
 
-# --- 7b. the ORPHANED '.tmp' of a killed publisher is reaped (issue #2174) ---------------------
-# Write-RunProgress writes '<id>.json.<pid>.tmp' and moves it into place. A publisher killed between
+# --- 7b. the ORPHANED '.tmp' of a killed producer is reaped (issue #2174) ---------------------
+# Write-RunProgress writes '<id>.json.<pid>.tmp' and moves it into place. A producer killed between
 # those two statements leaves the tmp behind, and the reader's '*.json' glob never sees it -- so both
 # reaping paths above sit inside a loop the file cannot enter. Measured: one such file, a day old,
 # from a test-gate run whose writer was long gone.
@@ -169,7 +169,7 @@ $orphan  = Join-Path $root "test-gate-$deadPid.json.$deadPid.tmp"
 Assert-True (@(Get-LiveRunProgress -Root $root).Count -eq 0) `
     'Get-LiveRunProgress: an orphaned .tmp contributes no line -- it never did'
 Assert-True (-not (Test-Path -LiteralPath $orphan)) `
-    'Get-LiveRunProgress: and it is now reaped, so the progress root stops growing one file per killed publisher'
+    'Get-LiveRunProgress: and it is now reaped, so the progress root stops growing one file per killed producer'
 
 # The live writer's own tmp is NOT swept. It exists for microseconds inside Write-RunProgress, and a
 # reader deleting it there would turn the torn-read guard into the torn read.
