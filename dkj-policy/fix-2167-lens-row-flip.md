@@ -39,21 +39,95 @@
 
 ### PLAN
 
+#### What #2167 reported, and what verifying it added
+
+The #2128 rename series moves each specialist file kind in its own step, and each step has two
+halves: rename that kind's files, and flip that kind's row in `Get-SpecialistFileShapes` so the new
+spelling becomes the one a WRITER writes. Step D (#2133, PR #2165) renamed all 30 lens files and
+never flipped the row, so on `main` the Lens row still declared `<id>-extension.md` as written and
+`specialist-<id>-lens.md` as merely tolerated -- the wrong way round.
+
+Verified against the tree before touching anything, because the report's reason is an inference and
+the repair follows from it. All five held:
+
+| kind | `Current` in the table | on disk | |
+|---|---|---|---|
+| Manual | `specialist-...-manual` | `specialist-01-01-manual.md` | agrees |
+| Subagent | `specialist-...-subagent` | `specialist-02-09-subagent.md` | agrees |
+| Persona | `...-persona` | `01-01-persona.md` | agrees -- step F has not run |
+| Lens | `...-extension` | `specialist-01-01-lens.md`, 30 of them, 0 on the old spelling | **inverted** |
+
+#### Why no gate could see it, and why that is the table's own design
+
+`AlsoRead` still carried `specialist-...-lens`, so every READER resolved both spellings and nothing
+went red -- that is the property the dual-name layer exists for. The row decides only which spelling
+is *preferred* and which is *written*, and the suite's assertions are deliberately property-based
+("one written spelling, several read ones") rather than pinned to today's answers, so they keep
+holding across a flip in either direction. Nothing in the tree compares a row's `Current` against
+the names actually on disk.
+
+#### Scope: the two degraded writer arms travel with the row, the teardown reader does not
+
+`bootstrap.ps1` carries a guarded load of the lib and a degraded arm per composer, documented as
+"the one spelling this version writes". Flipping the row without them would leave that docstring
+false, so both arms move with it. `teardown.ps1`'s degraded arm is a READER glob (`*-extension.md`)
+and is left exactly as it is: the issue's whole property is that no reader changes, the arm can only
+ever name one spelling, and which one serves a given consumer depends on whether they have migrated.
+It is also unreachable in practice -- the lib ships in the same payload as the script that loads it.
+
+#### A third site the issue did not name, and the guard filed for it
+
+`scripts/tests/bootstrap-drift.tests.ps1` pins the written lens name as a literal in eight places and
+was the only thing in the tree that went red on the flip. Deriving those from
+`Get-SpecialistFileName` was considered and DECLINED: the suite would then prove only that the
+bootstrap and the table agree, which is exactly the state #2167 describes. The pin is the point, and
+sweeping it each step is its cost -- so the literals move with the row and stay literals.
+
+That makes three sites a rename step has to touch beyond the files themselves, none of them paired to
+the others by anything. #2168 proposes the guard that would pair them -- a check holding each kind's
+`Current` against the names actually on disk -- and is filed rather than built here, because a new
+lint check is its own subject. This branch records the hazard in the docstring and cites #2168 there;
+prose enforces nothing, which is what #2168 is for.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Flip the Lens row in `Get-SpecialistFileShapes`: `Current` takes `Prefix = 'specialist-'; Stem = 'lens'`, `AlsoRead` keeps `Prefix = ''; Stem = 'extension'` for a consumer who has not migrated
+- [x] Correct the docstring sentence enumerating which rows have swapped -- it named two of four, and three have now
+- [x] Record the hazard in that same docstring: the rename and the row flip are separate acts, nothing pairs them, and a missed flip is invisible to every gate. Two of four steps shipped that way (#2131, #2167)
+- [x] Flip the two degraded writer arms in `bootstrap.ps1` (`Get-LensNameCandidates`, `Get-LensWriteName`) so they still state what this version writes
+- [x] Copy the canonical lib to its three plugin mirrors and confirm all four are byte-identical
+- [x] Move the eight pinned lens names in `scripts/tests/bootstrap-drift.tests.ps1` to the written spelling, keeping them literals -- deriving them would make the suite prove only that the bootstrap and the table agree
+- [x] File #2168 for the guard that would pair a rename with its row flip, and cite it from the docstring
+- [~] No reader touched -- dropped as work, kept as the property being preserved: the whole point of the table is that a flip reaches no reader
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors, measured on this branch
+- [x] All `scripts/tests/*.tests.ps1` suites green, measured on this branch
+- [x] `Get-SpecialistFileName -Kind Lens -Id '05-15'` returns `specialist-05-15-lens.md`, and `Get-SpecialistFileNameCandidates` returns it first
+- [x] The 30 lenses on disk are all found by `Get-SpecialistFiles -Kind Lens`, under the written spelling
+
 ### DEPLOY: fix/2167-lens-row-flip
 
-**Score:**
+`specialists-init` scaffolds a fresh consumer's lenses under the current name again. Step D of the
+#2128 rename series moved all 30 lens files to `specialist-<g>-<id>-lens.md` but never flipped the
+Lens row in `Get-SpecialistFileShapes`, so every WRITER went on composing the retired
+`<g>-<id>-extension.md` -- into a consumer whose own tree carries the new spelling, and which the
+migration note had just told to move away from it. `Current` now holds the new spelling and
+`AlsoRead` the old, so an unmigrated consumer still resolves. No reader changes, which is the
+property the table exists for. The two degraded writer arms in `bootstrap.ps1` move with it, and the
+docstring now records why no gate could see the omission, that two of four steps have shipped it,
+and where the guard that would pair the two halves is proposed (#2168).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this repo's audience is its own developers and the consumers of the plugin, not a subscriber
+to a service.
+
+**Score:** N/A
 
 #### Pull Request
 
 the Lens row flips to the new written spelling
-
