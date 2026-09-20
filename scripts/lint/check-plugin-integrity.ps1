@@ -19,6 +19,20 @@
          main-loop specialists) DELIBERATELY have no agent def -- they run in the main loop, not
          as a subagent -- so check 6 never demands one of them. It does read them in one direction:
          a persona MAY back a manual of the same id (6b), and then has to name it.
+      3d. each specialist kind's WRITTEN spelling, against the names actually on disk: for every
+         subagent def, manual, persona and repo lens whose id resolves under an ACCEPTED spelling, the
+         file name must be the one Get-SpecialistFileName would write for that id.
+         Get-SpecialistFileShapes decides, per kind, which spelling a writer writes (Current) and which
+         a reader also accepts (AlsoRead), and the #2128 rename series moves one kind per step -- the
+         files on disk and that kind's Current row, two halves nothing paired. AlsoRead keeps every
+         READER resolving both, so a step that renames the files and forgets the row leaves 3b, 3c, 6,
+         every suite and CI green (measured on PR #2165) while every WRITER goes on composing the
+         retired name into a fresh consumer. Two of the four steps shipped exactly that way (#2131,
+         caught at the merge; #2133, caught eight days later and repaired in #2167). Both halves are
+         refused, being one finding read from either side. A name matching NEITHER spelling is 3b/3c/6's
+         finding and is passed over here, so one file never gets two owners. The SOURCE REPO only: a
+         consumer meets a rename through a plugin update rather than by choosing to, so their files
+         sitting on the previous spelling is the dual-read layer working as designed.
       4. dead relative links AND broken anchors in every ROOT *.md (README.md, CHANGELOG.md, CLAUDE.md,
          CONTRIBUTING.md, SECURITY.md, INSTALL.md, UNINSTALL.md and any unfolded changelog entry file
          -- globbed, never named), every .claude/extensions/*.md, every <plugin>/skills/*/SKILL.md, every
@@ -903,6 +917,85 @@ $personas | ForEach-Object {
     }
 Write-Coverage -Category 'persona' -Checked $personas.Count `
     -Note $(if ($personas.Count -eq 0) { 'no */personas/*-persona.md found -- the main-loop specialists appear in no always-on listing, so nothing else would report their absence' } else { '' })
+
+# --- 3d. each kind's WRITTEN spelling vs. the names actually on disk (issue #2168) -------------------
+# THE ONE THING THE SHAPES TABLE DECIDES, AND THE ONE THING NOTHING READ. Get-SpecialistFileShapes says,
+# per kind, which spelling a WRITER writes (Current) and which a READER must also accept (AlsoRead). The
+# #2128 rename series moves one kind per step, and a step has two halves that have to travel together:
+# the files on disk, and that kind's Current row. Nothing paired them, and nothing could see when one
+# half was missing.
+#
+# THE UNPAIRED STATE IS GREEN EVERYWHERE ELSE, which is why this is a check rather than a sharper
+# docstring. AlsoRead keeps every reader resolving both spellings, so a step that renames the files and
+# forgets the row leaves checks 3b, 3c and 6 satisfied, all suites passing and CI green -- measured on
+# PR #2165 -- while every writer goes on composing the RETIRED name into a fresh consumer. Two of the
+# four steps shipped that way and were repaired by hand: the Subagent row (#2131, found at the merge)
+# and the Lens row (#2133, found eight days later and repaired in #2167).
+#
+# IT REFUSES BOTH HALVES, because they are one finding read from either side. Files moved without the
+# row, and a row flipped without the files, both leave a file whose id resolves under an ACCEPTED
+# spelling under a name Get-SpecialistFileName would not write for that id. A mid-rename tree is exactly
+# what this should stop: the two halves of a step belong in one commit, and this is what says so.
+#
+# A NAME MATCHING NEITHER SPELLING IS NOT THIS CHECK'S FINDING. Its id does not resolve, so checks 3b,
+# 3c and 6 report it under their own rules and this one passes over it -- two findings for one file
+# would have the reader repairing whichever spelling was named second.
+#
+# THE SOURCE REPO ONLY, deliberately, and that is why this sits in this gate rather than in a
+# plugin-carried script. A CONSUMER meets a rename through a plugin update rather than by choosing to,
+# so their lens files sitting on the previous spelling is the dual-read layer working as designed --
+# the state Get-SubagentDirName's docstring argues must keep resolving. Here it is a defect, because
+# here the table and the files sit in one tree and land in one commit.
+#
+# THE THREE PLUGIN KINDS RE-USE THE SETS CHECKS 3, 3b AND 3c ALREADY GATHERED, so this check judges
+# exactly the files those checks judge instead of a second, quietly different set. A lens has no plugin
+# folder to be filtered by, so its four candidate directories are walked in the order check 4 walks
+# them.
+$wnLensDirs = @(
+    (Join-Path $RepoRoot '.claude\specialists\lenses'),
+    (Join-Path $RepoRoot '.claude\specialists'),
+    (Join-Path $RepoRoot '.claude\plugins\claude-specialists\dkj-subagents-alpha'),
+    (Join-Path $RepoRoot '.claude\extensions'))
+$wnChecked = 0
+foreach ($wnSpec in @(
+    @{ Kind = 'Subagent'; Files = $agentDefs },
+    @{ Kind = 'Manual';   Files = $manuals },
+    @{ Kind = 'Persona';  Files = $personas },
+    @{ Kind = 'Lens';     Files = @(Get-SpecialistFiles -Path $wnLensDirs -Kind Lens) })) {
+    $wnKind  = $wnSpec.Kind
+    $wnNamed = 0
+    $wnStray = @()
+    foreach ($wnFile in @($wnSpec.Files)) {
+        $wnId = Get-SpecialistFileId -Kind $wnKind -Name $wnFile.Name
+        if (-not $wnId) { continue }
+        $wnNamed++
+        $wnWant = Get-SpecialistFileName -Kind $wnKind -Id $wnId
+        if ($wnFile.Name -eq $wnWant) { continue }
+        $wnStray += "$($wnFile.FullName.Replace($RepoRoot, '.')) -> $wnWant"
+    }
+    $wnChecked += $wnNamed
+    if ($wnStray.Count -eq 0) { continue }
+    # NAMED AS A WHOLE KIND OR AS STRAYS, because the two have different repairs and the count is the
+    # only thing that tells them apart. EVERY file of a kind on the other spelling is a row that did not
+    # travel with its files; SOME of them is a move that stopped half way. Stating which spares the
+    # reader the count, and the wrong repair.
+    $wnLead = if ($wnStray.Count -eq $wnNamed) {
+        "all $wnNamed $wnKind file(s) carry a spelling this repo does not WRITE -- the Current row and" +
+        " the files came apart: either the files were renamed and the row was not flipped, or the row" +
+        " was flipped and the files were not"
+    } else {
+        "$($wnStray.Count) of $wnNamed $wnKind file(s) carry a spelling this repo does not WRITE -- a" +
+        " rename that stopped half way, leaving files every reader still resolves and no writer would" +
+        " produce"
+    }
+    $wnShown = @($wnStray | Select-Object -First 4) -join '; '
+    $wnMore  = if ($wnStray.Count -gt 4) { " (and $($wnStray.Count - 4) more)" } else { '' }
+    Add-Error ("[written-name] $wnLead. Get-SpecialistFileShapes' Current row for $wnKind writes" +
+        " '$(Get-SpecialistFileName -Kind $wnKind -Id '<g>-<id>')'. Move the files and flip that row in" +
+        " ONE commit (#2168): $wnShown$wnMore")
+}
+Write-Coverage -Category 'written-name' -Checked $wnChecked `
+    -Note $(if ($wnChecked -eq 0) { 'no subagent def, manual, persona or repo lens carries a name either accepted spelling recognises -- the table that decides what every scaffolder WRITES is being held against nothing' } else { '' })
 
 # --- 4. dead relative links + broken anchors ---------------------------------------------------------
 # Scanned files: README.md, CHANGELOG.md, CLAUDE.md, CONTRIBUTING.md, the repo lenses (the seam
