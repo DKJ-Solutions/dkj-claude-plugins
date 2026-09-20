@@ -23,6 +23,13 @@
          called them straight would print findings under a heading claiming the consumer-prose-sessioncheck
          hook covers it, two lines from where that hook prints [OK]. Both directions are pinned: skipped
          where the marketplace publishes this workflow, reported where it does not.
+      4. WHICH RANK A DOCUMENT LANDS IN, and that it lands in exactly ONE (#2184). RANK 2 reads the
+         workflow folder AND the lens seam, so three things are decisions rather than prose: a lens no
+         document imports belongs to rank 2, a lens the always-on root '@'-imports stays in rank 3 and is
+         not listed twice, and a lens in the pre-seam per-plugin tree is reached as well -- that last one
+         by a different route, since the seam directory is plugin-independent while the pre-seam candidate
+         can only be composed from a plugin NAME. Each of the three failed silently before: a rank can be
+         blind and still print, which is the whole shape of what #2184 measured.
 
     THE USER LAYER IS REDIRECTED FOR EVERY RUN. Get-EnabledPlugins reads the whole settings chain, so
     this machine's own ~/.claude/settings.json would otherwise add plugins to a fixture's rank 1 and the
@@ -265,6 +272,29 @@ try {
     $atLegacy = $r.Out.IndexOf($legacyLens, [System.StringComparison]::Ordinal)
     Assert-True ($atLegacy -gt $rank2 -and $atLegacy -lt $rank3) `
         'a lens in the pre-seam per-plugin tree is listed under RANK 2 as well, under either spelling'
+
+    # THE ROOT'S SPELLING MUST NOT DECIDE WHETHER THE RANK IS BLIND. Every lens directory is composed off
+    # the root as it ARRIVED, so a relative form derived from a CANONICALIZED root compares two different
+    # spellings of the same path, matches nothing, and returns an empty rank -- #2184's own silent
+    # blindness through a second door, and the class worktree-lib.ps1 already documents in this tree. The
+    # 8.3 short name is the cheapest way to produce that divergence on purpose, and the direction was
+    # MEASURED rather than assumed: Resolve-Path keeps the short form it was handed while Get-ChildItem
+    # returns the long FullName, so the old StartsWith matched nothing and the rank came back empty.
+    #
+    # IT SKIPS OUT LOUD where 8.3 generation is off for the volume, because there is then no second
+    # spelling to test with -- a silent skip here would read as coverage this suite does not have.
+    $shortRoot = ''
+    try {
+        $fso = New-Object -ComObject Scripting.FileSystemObject
+        $shortRoot = [string]$fso.GetFolder($lensTree).ShortPath
+    } catch { $shortRoot = '' }
+    if ($shortRoot -and $shortRoot -ne $lensTree) {
+        $r = Invoke-Report -Dir $shortRoot
+        Assert-True ($r.Out.IndexOf($seamLens, [System.StringComparison]::Ordinal) -gt 0) `
+            'the same tree reached through its 8.3 short name still lists its lenses -- the relative form is derived without canonicalizing the root'
+    } else {
+        Write-Host '  [SKIP] no 8.3 short name for the fixture volume -- the root-spelling divergence cannot be produced here' -ForegroundColor DarkYellow
+    }
 
     # A TREE WITH NO LENSES IS UNCHANGED, which is the promise made to every consumer that has none:
     # the probe returns nothing and the rank reads exactly as it did before.

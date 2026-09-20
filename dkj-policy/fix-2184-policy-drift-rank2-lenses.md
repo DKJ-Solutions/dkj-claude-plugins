@@ -80,11 +80,17 @@ is a separate finding and is filed as one.
 - [x] the rank title, the note under it and the hand-over wording follow the new membership
 - [x] mirror the script into `plugins/dkj-policy/scripts/task/`
 - [x] `plugins/dkj-policy/skills/check-policy-drift/SKILL.md`: what RANK 2 now holds, and why
+- [x] the review round's repairs: the repo-relative form via `Get-PathRelativeToDirectory` instead of
+      `Resolve-Path` + a substring (Victor), and the two wording findings (Edith)
 
 ### TEST
 
 - [x] `scripts/tests/policy-drift-report.tests.ps1`: a lens lands in RANK 2, a lens that is
-      `@`-imported stays in RANK 3 and is not listed twice, and a tree with no lenses is unchanged
+      `@`-imported stays in RANK 3 and is not listed twice, the pre-seam per-plugin tree is reached by
+      its own route, and a tree with no lenses is unchanged
+- [x] and the root-spelling regression the review found, pinned with an 8.3 short name -- measured
+      against the old derivation first, so the test is known to fail without the repair
+- [x] the parallel review round: Victor (code), Edith (copy), Sebastian (security)
 - [x] the full gate: `check-plugin-integrity.ps1` + every suite
 
 ### DEPLOY: fix/2184-policy-drift-rank2-lenses
@@ -113,6 +119,18 @@ pre-#179 family spelling and legacy `.claude/extensions/` -- and `Get-Specialist
 filename spellings (#2130). A `repo-config.ps1` function beside them would have been a second answer to
 a question that has one, and would have dragged the script contract, the adopt blueprint and the
 consumer scaffold along for nothing.
+
+**The review round caught the same blindness trying to come back through a second door**, which is
+worth recording because it is the more interesting half. The first cut derived the repo-relative form
+with `Resolve-Path` plus a substring, while every lens directory is composed off the root *as it
+arrived* -- so on a checkout reached through an 8.3 short name the two spellings diverge and the rank
+comes back empty, silently. Measured on a scratch tree before repairing it: `Resolve-Path` keeps the
+short form it was handed (`...\Temp\PROBE-~2`) while `Get-ChildItem` returns the long `FullName`
+(`...\Temp\probe-28e06bbc\...`), so the prefix test matched nothing. It now uses the pure
+`Get-PathRelativeToDirectory`, which normalizes both sides without touching the filesystem, and the
+suite pins it with a short name -- skipping out loud where the volume has 8.3 generation off, because a
+silent skip there would read as coverage this suite does not have. The class was already documented in
+`scripts/lib/worktree-lib.ps1`; what it had was no test.
 
 `Get-ConsumerProseDocuments` is deliberately **not** widened to match. It is the same corpus the two
 GATED prose detectors read behind `consumer-prose-sessioncheck`, so a change there moves what fires at

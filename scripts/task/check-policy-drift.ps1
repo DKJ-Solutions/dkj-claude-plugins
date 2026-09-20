@@ -316,11 +316,6 @@ function Get-ConsumerLensPaths {
     }
     if ($dirs.Count -eq 0) { return @() }
 
-    # The root as the filesystem spells it, so the relative form below is a substring rather than a
-    # string subtraction against whatever the caller typed.
-    $rootFull = ''
-    try { $rootFull = (Resolve-Path -LiteralPath $RepoRoot).Path.TrimEnd('\', '/') } catch { return @() }
-
     $skip = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($ex in $Exclude) { if ($ex) { $skip.Add([string]$ex) | Out-Null } }
 
@@ -328,10 +323,20 @@ function Get-ConsumerLensPaths {
     # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so the
     # candidate list overlapping between plugins costs nothing.
     foreach ($file in @(Get-SpecialistFiles -Path @($dirs) -Kind Lens)) {
-        $full = [string]$file.FullName
-        if (-not $full.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-        $rel = $full.Substring($rootFull.Length).TrimStart('\', '/') -replace '\\', '/'
+        # NOT Resolve-Path AND A SUBSTRING, which is what this was until the review caught it, and the
+        # mechanism is the MEASURED one rather than the assumed one. Handed a root in its 8.3 short form,
+        # Resolve-Path returns that same short form while Get-ChildItem hands back the LONG FullName -- so
+        # the two spellings diverge, every StartsWith fails, and the function returns nothing. Measured on
+        # a scratch tree, September 20, 2026: 'C:\...\Temp\PROBE-~2' against
+        # 'C:\...\Temp\probe-28e06bbc\...', StartsWith False. That is #2184's own silent blindness coming
+        # back through a second door, and it is the class worktree-lib.ps1 already documents here.
+        # Get-PathRelativeToDirectory is pure ([System.IO.Path]::GetFullPath, no filesystem query) and
+        # normalizes both sides the same way, so no spelling can split them. Pinned by the suite.
+        $rel = Get-PathRelativeToDirectory -FullPath ([string]$file.FullName) -Directory $RepoRoot
         if (-not $rel) { continue }
+        # '' is another drive and a leading '../' is a path BESIDE the repo rather than under it. Neither
+        # is this repo's prose, and neither may be printed as though it were.
+        if ($rel.StartsWith('../')) { continue }
         if (-not $skip.Add($rel)) { continue }
         $rels.Add($rel) | Out-Null
     }
@@ -484,8 +489,11 @@ $rank3 = @($consumerRels | Where-Object { -not $_.StartsWith($folderPrefix, [Sys
 # because a repo that has both has been answering there for longer -- and because the lens block is the
 # long one, so a reader looking for the folder page would otherwise have to scroll past thirty lenses.
 #
-# THE EXCLUSION IS THE ALREADY-COMPUTED RANK 3, not a second walk: whatever the always-on closure
-# carries is listed there, once, as part of the floor.
+# THE EXCLUSION IS ALREADY-COMPUTED, not a second walk: $consumerRels is the folder rank plus the
+# always-on closure, i.e. everything this report already lists somewhere else. Rank 3 is the half that
+# does the work -- a lens the root document '@'-imports is listed there, once, as part of the floor --
+# and the folder half costs nothing and is passed rather than filtered out, because "everything already
+# listed" is a rule that stays true if a repo ever keeps a lens inside the workflow folder.
 $rank2Folder = @($consumerRels | Where-Object { $_.StartsWith($folderPrefix, [System.StringComparison]::OrdinalIgnoreCase) })
 $lensRels = @(Get-ConsumerLensPaths -RepoRoot $repoRoot `
     -PluginNames @($ordered | ForEach-Object { ($_ -split '@', 2)[0] }) `
@@ -573,8 +581,9 @@ Write-Host '                   not it currently agrees, because agreeing today i
 Write-Host '    Where a restatement CONTRADICTS the page above it, say which side wins by the rank order'
 Write-Host '    and quote both lines. Rank 1 beats rank 2 beats rank 3 where rank 2 has anything in it --'
 Write-Host '    a repo scaffolded since #2171 carries no dkj-policy/CONTRIBUTING.md, so there rank 2 is'
-Write-Host '    whatever its lenses hold, and rank 1 sits directly above rank 3 where it holds nothing'
-Write-Host '    at all. Inside rank 1, dkj-policy beats a companion plugin such as dkj-policy-bwj.'
+Write-Host '    whatever its lenses hold, and only where rank 2 holds nothing at all does rank 1 sit'
+Write-Host '    directly above rank 3. Inside rank 1, dkj-policy beats a companion plugin such as'
+Write-Host '    dkj-policy-bwj.'
 Write-Host ''
 Write-Host '    A law a RANK 1 page explicitly DECLINES to answer is the fourth move and not a copy --'
 Write-Host '    cut-release''s "No seam, deliberately" is the measured instance. Read that block before'
