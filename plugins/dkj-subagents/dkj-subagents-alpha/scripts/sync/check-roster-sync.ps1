@@ -70,6 +70,18 @@
         the first name into the lens header ("# Sean <midDot> repo-lens"); after a rename that name is
         stale, but the lens is present, so it is a cosmetic mismatch, not missing-lens drift. Soft on
         purpose (silent at session start); the sync-roster skill stages a paste-ready reconcile.
+      - a missing LENS whose id IS named by a markdown file in the lens directory that this check does
+        not recognise as a lens -> HELD, and rolled up into one non-counting [LENS-NAMING] line (issue
+        #2219). The readers here resolve two spellings and never three (Get-SpecialistFileShapes), which
+        covers a consumer meeting a rename through a plugin update and cannot look FORWARD -- and a
+        session loads the last RELEASED payload, so a rename in the source leaves every not-yet-updated
+        session with no vocabulary for the tree in front of it. Measured September 20, 2026: 30 such
+        lines out of a v5.5.0 payload against a tree on the #2135 lens naming, every one of them
+        prescribing that the reader create a file already sitting there under another name. Not an error,
+        because the repo is correct and no edit to it can help; never silent, because "every specialist
+        lost its lens" must not read as drift. The evidence is per id, so a specialist that is genuinely
+        lens-less keeps erroring. See Get-UnknownLensNameById -- including why the missing-ROSTER-ROW
+        half of that same wall is not held here (#2130 already repaired it).
       - plugin ENABLED but with no install record for this path -> one [NOT-INSTALLED-HERE] roll-up
         (non-counting, like [ORPHANS]) plus a non-counting detail line per plugin naming the enabling
         layer and the administration consulted (inbound #302). Enabling is only half
@@ -279,6 +291,59 @@ function Get-LensPath {
 function Test-LensExists {
     param([string]$RepoRoot, [string]$PluginName, [string]$Id)
     return [bool](Get-LensPath -RepoRoot $RepoRoot -PluginName $PluginName -Id $Id)
+}
+
+# Markdown files in this plugin's lens directories that this check does NOT recognise as a lens, mapped
+# to the specialist id their name carries -- the measurable trace of a lens naming generation NEWER than
+# the payload running this check.
+#
+# WHY IT EXISTS (issue #2219). Every reader here resolves two spellings and never three:
+# Get-SpecialistFileShapes holds the one a writer writes plus the one before it, deliberately, so a
+# consumer meeting a rename through a plugin update keeps resolving its own files. What that layer cannot
+# do is look FORWARD. A session loads an extracted payload frozen at the last RELEASE, so the moment the
+# source renames the lens files again, every session still on the previous release meets a tree it has no
+# vocabulary for -- and this check then reports every single specialist as lens-less, each line
+# prescribing that the reader create a file that is already sitting there under another name.
+#
+# Measured in this repo on September 20, 2026: 34 error lines out of a payload at v5.5.0 against a tree
+# that had moved to 'specialist-<g>-<id>-lens.md' (#2135). Thirty said "no repo-lens" about a specialist
+# whose lens was on disk, and those thirty are what this function holds: acting on them would have added
+# a second, obsolete generation beside the one already there -- thirty wrong repairs, each carrying a
+# citation. The other four said "no roster row" about a persona whose only roster token sits inside such
+# a filename, and they are NOT this function's subject, because #2130 had already repaired that half --
+# it replaced the token boundary '(?<![\d-])', which rejected every id preceded by a hyphen, with
+# '(?<!\d)(?<!\d-)'. Verified against the same tree on the same day: the cached payload reports 34 and
+# the current one reports 0, with the four going away alongside the thirty.
+#
+# THE EVIDENCE IS PER ID, not a global verdict, and that is what keeps a genuinely missing lens visible:
+# a specialist that arrived with a plugin update has nothing in the lens directory naming it, so nothing
+# is held for it and its finding prints exactly as before. That also covers the mixed state a migration
+# passes through, where some lenses carry the new spelling and some the old. The id is matched with the
+# shared Get-RosterIdTokenPattern rather than a substring test, so '106-240' cannot pass for '06-24'.
+#
+# It reads names only -- no content, no network, no version comparison. A version comparison was the
+# obvious alternative and is the wrong instrument: the check cannot learn what the SOURCE currently holds
+# without reaching for a clone it does not own, and the clone is a different channel from the payload
+# that is running (the one the report behind this conflated them).
+function Get-UnknownLensNameById {
+    param([string]$RepoRoot, [string]$PluginName, [string[]]$Ids)
+    $map = @{}
+    if (@($Ids).Count -eq 0) { return $map }
+    foreach ($d in (Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $PluginName)) {
+        if (-not (Test-Path -LiteralPath $d -PathType Container)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $d -Filter '*.md' -File -ErrorAction SilentlyContinue)) {
+            # A spelling this check DOES know is no evidence of anything: Get-LensPath has already
+            # answered for it, and a recognised file that backs no checked id is an orphan, which is a
+            # different finding with its own marker.
+            if (Get-SpecialistFileId -Kind Lens -Name $f.Name) { continue }
+            $base = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+            foreach ($id in $Ids) {
+                if ($map.ContainsKey($id)) { continue }
+                if ($base -match (Get-RosterIdTokenPattern -Id $id)) { $map[$id] = $f.Name }
+            }
+        }
+    }
+    return $map
 }
 
 # The directories a lens may live in WITHOUT being off-path -- what the writers actually produce today,
@@ -823,6 +888,12 @@ $suppressedForBootstrap = 0
 # Counted separately from the one above, because they stand for different states with different advice:
 # "run specialists-init" versus "fill in the roster when you get to it".
 $suppressedForRosterPending = 0
+# Counted separately again, and for the third distinct state (issue #2219): the missing-lens findings
+# held because this check's own file-naming vocabulary is older than the tree it is reading. One per
+# specialist, so the count IS the specialist count. The second tally collects the filenames, because the
+# marker names one of them and that is the only part of it a reader can verify by looking.
+$suppressedForLensNaming = 0
+$lensNamingFiles = @{}
 $allBackingIds = @{}
 $pluginNames = @()
 
@@ -903,6 +974,10 @@ foreach ($plugId in ($enabledIds | Sort-Object -Unique)) {
     # Non-canonical family dirs found while walking this plugin's specialists -- reported once per dir
     # after the loop instead of once per lens, so a whole pre-#179 tree yields one line, not sixteen.
     $offPathDirs = @{}
+    # One scan per plugin, not one per specialist: what it answers is a property of the directories
+    # rather than of the id being looked up (issue #2219).
+    $unknownLensNames = Get-UnknownLensNameById -RepoRoot $repoRoot -PluginName $name `
+        -Ids @($specialists | ForEach-Object { $_.Id })
 
     foreach ($spec in $specialists) {
         $id   = $spec.Id
@@ -920,6 +995,12 @@ foreach ($plugId in ($enabledIds | Sort-Object -Unique)) {
             # silently dropped, so the marker can state how much it stands in for.
             $suppressedForBootstrap++
         } else {
+            # The evidence the lens arm below consults (issue #2219): a markdown file in this repo's lens
+            # directories that NAMES this specialist in a spelling this check cannot read. Bound to
+            # '-not $hasLens': where the lens DID resolve, this check's vocabulary demonstrably worked for
+            # this id, and a stray unrecognised file beside it proves nothing.
+            $unknownLensName = ''
+            if ((-not $hasLens) -and $unknownLensNames.ContainsKey($id)) { $unknownLensName = $unknownLensNames[$id] }
             if (-not $inRoster) {
                 if ($rosterPending -and $hasLens) {
                     # Freshly bootstrapped and untouched: the row is missing because nobody has written the
@@ -928,14 +1009,31 @@ foreach ($plugId in ($enabledIds | Sort-Object -Unique)) {
                     # and that IS drift a reader must see even in this state.
                     $suppressedForRosterPending++
                 } else {
+                    # NOT ALSO HELD BY THE NAMING MARKER, and that is a decision rather than an omission
+                    # (issue #2219). The measured wall carried four of these -- personas whose only roster
+                    # token sits inside a lens filename of the newer generation -- so it is tempting to
+                    # hold them on the same evidence. Two things rule it out. The coupling is historical,
+                    # not structural: Test-InRoster reads Get-RosterIdTokenPattern, which owes nothing to
+                    # Get-SpecialistFileShapes; they merely moved in the same rename series. And that half
+                    # is ALREADY repaired -- #2130 replaced the boundary '(?<![\d-])', which rejected every
+                    # id preceded by a hyphen, with '(?<!\d)(?<!\d-)', so a roster that names the specialist
+                    # only through 'specialist-<g>-<id>-lens.md' now matches. Verified on this repo: the
+                    # four lines are gone from a current payload while the thirty lens lines remain. An arm
+                    # for them could therefore never fire, and unreachable suppression is the one shape a
+                    # suppressor must not have.
                     Write-Failure "$kind '$id' ($plugIdShown) has no roster row in $rosterRel -- add it to the roster."
                 }
             }
             if (-not $hasLens) {
-                # The finding names the spelling a reader should CREATE, not every spelling the check
-                # looked for (#2130): this line is advice, and offering two names invites the reader to
-                # pick the one that is on its way out.
-                Write-Failure "$kind '$id' ($plugIdShown) has no repo-lens (.claude/specialists/lenses/$(Get-SpecialistFileName -Kind Lens -Id $id), the pre-seam .claude/plugins/$(Get-LensFamily)/$name/ path, or the legacy .claude/extensions/ path)."
+                if ($unknownLensName) {
+                    $suppressedForLensNaming++
+                    $lensNamingFiles[$unknownLensName] = $true
+                } else {
+                    # The finding names the spelling a reader should CREATE, not every spelling the check
+                    # looked for (#2130): this line is advice, and offering two names invites the reader to
+                    # pick the one that is on its way out.
+                    Write-Failure "$kind '$id' ($plugIdShown) has no repo-lens (.claude/specialists/lenses/$(Get-SpecialistFileName -Kind Lens -Id $id), the pre-seam .claude/plugins/$(Get-LensFamily)/$name/ path, or the legacy .claude/extensions/ path)."
+                }
             }
         }
         if ($inRoster -and $hasLens) { Write-Ok "$kind '$id' present in roster + lens" }
@@ -1069,6 +1167,31 @@ if ($suppressedForRosterPending -gt 0) {
     # announcing "roster drift found" about the one state this marker exists to say is fine. Caught by the
     # fixture on the first run. Same trap for any future marker text.
     Write-Host "  [ROSTER-PENDING] this repo was bootstrapped but the roster is still empty: $suppressedForRosterPending specialist(s) have a lens scaffold and no roster row in $rosterRel. Nothing is broken and nothing has drifted -- every lens is still an unfilled VUL-IN scaffold, so there is no work to have drifted from. Fill in the roster and the lenses at your own pace; this turns into real drift, reported per specialist, as soon as some of it is filled in and some is not." -ForegroundColor Yellow
+}
+
+if ($suppressedForLensNaming -gt 0) {
+    # The seventh non-counting marker, and the first whose subject is THIS CHECK rather than the repo
+    # (issue #2219). Its own line rather than folding under [BOOTSTRAP] or [ROSTER-PENDING]: both of
+    # those say the repo has work left to do, and here the repo has none -- what is behind is the payload
+    # doing the reading, which is the one thing no amount of editing in the repo can repair.
+    #
+    # NON-COUNTING, on the family's own rule: nothing is broken, and an exit 1 would put a red line in
+    # every session of a repo that is entirely correct. The whole defect being repaired is a wall of
+    # errors prescribing wrong repairs, so replacing it with one error would keep the habituation cost
+    # this marker exists to remove.
+    #
+    # NO LITERAL '[ERROR]' IN THIS TEXT -- the same correctness rule [ROSTER-PENDING] carries above, for
+    # the same mechanism: the session hook counts its error signals by matching that token over the whole
+    # output, so a marker merely MENTIONING it would be counted as one and push the hook into the drift
+    # branch it exists to keep this state out of.
+    #
+    # It names ONE example file rather than the list. The reader's move is to look in the lens directory,
+    # where they see all of them at once; a marker that prints thirty filenames is the wall again in a
+    # different colour. Sanitized with Format-SafePathToken because the value comes off disk and this
+    # line is forwarded into session context by the hook -- the same treatment the import finding gets,
+    # and the path-shaped sanitizer rather than the id-shaped one for the reason stated there.
+    $lensNamingExample = Format-SafePathToken -Value (@($lensNamingFiles.Keys | Sort-Object)[0])
+    Write-Host "  [LENS-NAMING] $suppressedForLensNaming specialist(s) would each have been reported without a repo-lens, and were held instead: this check cannot read the lens file naming this repo uses. Files such as '$lensNamingExample' name a specialist in a spelling this check has no vocabulary for, so each held finding would have prescribed creating a file that is already there under another name. NOTHING IN THE REPO NEEDS CHANGING. This check ships in the plugin and a session loads the last RELEASED payload, so the tree has moved on ahead of it: refresh the marketplace and update the plugins this repo enables ('claude plugin marketplace update <marketplace>', then 'claude plugin update <id> --scope project'), and this line goes away on its own. A specialist that is genuinely missing a lens is NOT held -- nothing in the lens directory names it, so its finding is still reported above." -ForegroundColor Yellow
 }
 
 Write-CheckSummary

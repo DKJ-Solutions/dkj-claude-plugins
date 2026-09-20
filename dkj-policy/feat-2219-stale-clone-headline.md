@@ -39,23 +39,89 @@
 
 ### PLAN
 
-check-roster-sync must detect a clone behind the source and demote the downstream lens findings to context.
+#### What #2219 reported, and what the tree actually said
+
+The report attributes all 35 lines to ONE stale marketplace clone, and it is right that one cause
+explains the wall -- but not that cause. Measured on this checkout, September 20, 2026, with the clone
+already sitting at `main`'s tip (`2e13c8d8`):
+
+| run | errors |
+|---|---|
+| the payload a session actually loads (`~/.claude/plugins/cache/.../dkj-subagents-alpha/5.5.0`) | 34 |
+| this repo's own copy on `main` | 0 |
+
+So the clone is current, the `@`-import resolves, and 34 lines remain. The cause is the **plugin
+payload**, which a `claude plugin marketplace update` does not touch -- the second of the two channels
+`CLAUDE.md` names. The report's own repair -- gate on the import failing AND the clone's HEAD differing
+-- would therefore have fired on neither condition today, and shipped a guard that cannot fire.
+
+The 34 split in two, and only one half is still open:
+
+- **30 `no repo-lens` lines.** The payload predates #2135's lens rename, and the dual-read layer
+  (`Get-SpecialistFileShapes`) holds the written spelling plus the PREVIOUS one -- it cannot look
+  forward. This is the half this branch repairs, and it recurs at every future rename for every session
+  that lags one release.
+- **4 `no roster row` lines.** Already repaired: #2130 replaced the token boundary `(?<![\d-])` with
+  `(?<!\d)(?<!\d-)`, so a roster naming a persona only through `specialist-<g>-<id>-lens.md` matches
+  again. Verified above -- they are gone from the current copy's 0.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-UnknownLensNameById` in `scripts/sync/check-roster-sync.ps1`: markdown files in the lens
+      candidate directories that this check does not recognise as a lens, mapped to the specialist id
+      their name carries, matched with the shared `Get-RosterIdTokenPattern`.
+- [x] Per-id holding in the specialist loop: a missing-lens finding whose id IS named by such a file is
+      held instead of printed. Bound to `-not $hasLens`, so a resolved lens is never evidence.
+- [x] One non-counting `[LENS-NAMING]` roll-up naming the count, one example file, that nothing in the
+      repo needs changing, and the remedy (refresh the marketplace, then update the plugins).
+- [x] `roster-sessioncheck.ps1`: pick the marker up, ride it along in the drift branch, and give it its
+      own verdict between the setup states and the in-sync line.
+- [~] A roster-row arm on the same evidence -- dropped. The coupling is historical rather than
+      structural (`Test-InRoster` owes nothing to `Get-SpecialistFileShapes`), that half is already
+      repaired by #2130, and with the current pattern the arm could never fire. Unreachable suppression
+      is the one shape a suppressor must not have. Recorded in the code where a later reader will meet it.
+- [x] Mirror `plugins/dkj-subagents/dkj-subagents-alpha/scripts/sync/check-roster-sync.ps1`
+      byte-identical.
 
 ### TEST
 
+- [x] `scripts/tests/roster-sync.tests.ps1`: fixture parameter `-UnknownNamingLensIds` (a hypothetical
+      NEXT generation, since both current spellings are recognised by construction) plus scenarios
+      11r-11v -- the marker fires and is non-counting; a specialist with no file of any spelling still
+      errors; a mixed migration holds only the unreadable half; a `README.md` in the lens directory is
+      not evidence; an unbootstrapped repo still gets `[BOOTSTRAP]`.
+- [x] Hook scenarios H13/H13b/H13c: its own verdict, riding along with a real finding, and absent on a
+      readable repo.
+- [x] `check-plugin-integrity.ps1`: 0 errors. `roster-sync.tests.ps1`: 382 pass, 0 fail.
+      `sync-roster` and `shared-scripts` suites green.
+
 ### DEPLOY: feat/2219-stale-clone-headline
 
-**Score:**
+`check-roster-sync` no longer reports a whole repo's worth of specialists as lens-less when the
+difference is that its own payload cannot read the lens filenames. A missing-lens finding whose id is
+named by a markdown file in the lens directory that this check does not recognise is held, and the run
+prints one non-counting `[LENS-NAMING]` line instead: the count, one example file, that nothing in the
+repo needs changing, and the remedy, which is a plugin update. The evidence is per id, so a specialist
+that is genuinely lens-less keeps erroring exactly as before.
+
+Measured here the same day: 34 error lines out of a v5.5.0 payload against a tree on the #2135 lens
+naming, 30 of which prescribed creating a file that was already sitting there under another name -- 30
+wrong repairs, each one carrying a citation. The readers resolve two spellings and never three, by
+design, so they cannot look forward; and a session loads the last RELEASED payload. That combination
+reproduces at every rename, for every session that lags one release, which is what makes this a guard
+rather than a one-off.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer meets this the same way, and worse: they cannot read the source to work out what happened.
+It only bites while they lag a release AND the lens naming has moved, so it is rare -- but when it does,
+the current output tells them to create one file per specialist, and following it leaves a second,
+obsolete generation in their repo that nothing then cleans up.
+
+**Score:** 2
 
 #### Pull Request
 
-A stale marketplace clone is reported once as the cause, instead of 34 lens repairs that would be wrong
-
+A lens naming this check cannot read is reported once, instead of one wrong repair per specialist

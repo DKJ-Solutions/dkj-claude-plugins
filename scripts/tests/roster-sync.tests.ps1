@@ -194,6 +194,13 @@ function New-FixtureConsumer {
         # Per-id override on top of $SeamLensText, so one lens can be filled in while the rest stay
         # scaffolds -- the state in which the repo IS being maintained and drift must error again.
         [hashtable]$SeamLensContent = @{},
+        # Lens files in the SEAM under a spelling no reader here recognises -- 'specialist-<id>.md', a
+        # hypothetical NEXT naming generation (issue #2219). It has to be hypothetical: the two spellings
+        # Get-SpecialistFileShapes holds are both recognised by construction, so the only way to build a
+        # tree this check has no vocabulary for is to name one it has not been taught yet. That is exactly
+        # the state a consumer is in between a rename in the source and their own plugin update, which is
+        # what [LENS-NAMING] exists for.
+        [string[]]$UnknownNamingLensIds = @(),
         [string[]]$LegacyLensIds = @(),
         [string[]]$OffPathLensIds = @(),
         [string]$OffPathFamily = 'dkj-claude-plugins',
@@ -263,6 +270,13 @@ function New-FixtureConsumer {
         foreach ($id in $SeamLensIds) {
             $txt = if ($SeamLensContent.ContainsKey($id)) { $SeamLensContent[$id] } else { $SeamLensText }
             [System.IO.File]::WriteAllText((Join-Path $sdir "$id-extension.md"), $txt)
+        }
+    }
+    if ($UnknownNamingLensIds.Count -gt 0) {
+        $udir = Join-Path $root '.claude\specialists\lenses'
+        New-Item -ItemType Directory -Path $udir -Force | Out-Null
+        foreach ($id in $UnknownNamingLensIds) {
+            [System.IO.File]::WriteAllText((Join-Path $udir "specialist-$id.md"), 'a real, filled-in lens')
         }
     }
     if ($LegacyLensIds.Count -gt 0) {
@@ -1063,6 +1077,77 @@ try {
     Assert-Match '\[BOOTSTRAP\]' $r.Out 'never bootstrapped: still the bootstrap marker'
     Assert-NotMatch '\[ROSTER-PENDING\]' $r.Out 'never bootstrapped: and not the pending one -- it would advise filling in a roster for lenses that do not exist'
 
+    # --- 11r-11v. [LENS-NAMING]: the check's own naming vocabulary is older than the tree (issue #2219)
+    #     MEASURED IN THE SOURCE REPO'S OWN SESSION START, September 20, 2026: 34 error lines from a
+    #     payload at v5.5.0 against a tree that had moved to 'specialist-<g>-<id>-lens.md' (#2135). Thirty
+    #     of them said "no repo-lens" about a specialist whose lens was on disk, each prescribing that the
+    #     reader create a file that was already there under another name -- thirty wrong repairs, each one
+    #     carrying a citation. The readers here resolve two spellings and never three, deliberately, so
+    #     they cannot look forward; a session loads the last RELEASED payload, so this state arrives on
+    #     its own at every rename and is not an exotic one.
+    #
+    #     The boundary cases carry the weight, exactly as for [ROSTER-PENDING] above: a specialist that is
+    #     genuinely lens-less must keep erroring, or this has traded a wall of false errors for a blind
+    #     spot over the one finding the check exists for.
+
+    Write-Host "11r. a lens under a naming this check cannot read: held, not reported" -ForegroundColor Cyan
+    $cNaming = New-FixtureConsumer -RosterIds @('06-16', '06-24') -UnknownNamingLensIds @('06-16', '06-24')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cNaming, '-CacheRootOverride', $cacheTwo)
+    Assert-Match '\[LENS-NAMING\]' $r.Out 'lens naming: the marker fires'
+    Assert-Match '2 specialist\(s\) would each have been reported without a repo-lens' $r.Out 'lens naming: it states how much it stands in for'
+    Assert-Match "specialist-06-16\.md" $r.Out 'lens naming: it names one of the files, so the reader can go and look'
+    Assert-Match 'NOTHING IN THE REPO NEEDS CHANGING' $r.Out 'lens naming: it says plainly that no edit here helps'
+    Assert-Match 'claude plugin update' $r.Out 'lens naming: and it names the remedy, which is a plugin update'
+    Assert-NotMatch 'has no repo-lens' $r.Out 'lens naming: NOT one wrong prescription per specialist -- the wall is gone'
+    Assert-Equal 0 $r.Code 'lens naming: exit 0 -- a correct repo read by an old payload is not a failure'
+    Assert-Match 'Summary: 0 error\(s\)' $r.Out 'lens naming: non-counting, like its siblings'
+    # The same trap [ROSTER-PENDING] pinned above, held for this marker too: the hook counts its error
+    # signals by matching that literal over the whole output, so a marker text that merely NAMES it would
+    # be counted as an error and push the hook into the branch this marker exists to keep it out of.
+    $namingLine = @($r.Out -split "`n" | Where-Object { $_ -cmatch '\[LENS-NAMING\]' })[0]
+    Assert-NotMatch '\[ERROR\]' $namingLine 'lens naming: the marker text does not contain the error token the hook counts on'
+
+    Write-Host "11s. a specialist with NO file of any spelling: that one still errors" -ForegroundColor Cyan
+    #      The load-bearing boundary. The evidence is per id precisely so this survives: nothing in the
+    #      lens directory names 06-24, so nothing about it is held.
+    $cPartial = New-FixtureConsumer -RosterIds @('06-16', '06-24') -UnknownNamingLensIds @('06-16')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cPartial, '-CacheRootOverride', $cacheTwo)
+    Assert-Match '\[LENS-NAMING\]' $r.Out 'partial: the marker still fires for the one it can explain'
+    Assert-Match '1 specialist\(s\) would each have been reported' $r.Out 'partial: and the count covers only that one'
+    Assert-Match "agent '06-24' .* has no repo-lens" $r.Out 'partial: the genuinely lens-less specialist IS still reported'
+    Assert-NotMatch "agent '06-16' .* has no repo-lens" $r.Out 'partial: and the explained one is not'
+    Assert-Equal 1 $r.Code 'partial: exit 1 -- there is a real finding'
+
+    Write-Host "11t. a MIXED migration: one lens on a readable spelling, one not" -ForegroundColor Cyan
+    #      The state a rename passes through. Neither half may swallow the other: the readable one is
+    #      simply present, the unreadable one is held.
+    $cMigrating = New-FixtureConsumer -RosterIds @('06-16', '06-24') -SeamLensIds @('06-16') -UnknownNamingLensIds @('06-24')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cMigrating, '-CacheRootOverride', $cacheTwo)
+    Assert-Match "agent '06-16' present in roster \+ lens" $r.Out 'mixed migration: the readable lens is just present'
+    Assert-Match '1 specialist\(s\) would each have been reported' $r.Out 'mixed migration: and only the unreadable one is held'
+    Assert-Equal 0 $r.Code 'mixed migration: exit 0 -- nothing is wrong with this repo'
+
+    Write-Host "11u. an unreadable file that names NO specialist does not hold anything" -ForegroundColor Cyan
+    #      An ordinary README in the lens directory must not become evidence. The id is matched with the
+    #      shared Get-RosterIdTokenPattern, so only a name actually carrying the id counts.
+    $cNoise = New-FixtureConsumer -RosterIds @('06-16', '06-24')
+    $noiseDir = Join-Path $cNoise '.claude\specialists\lenses'
+    New-Item -ItemType Directory -Path $noiseDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $noiseDir 'README.md'), 'what lives in this directory')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cNoise, '-CacheRootOverride', $cacheTwo)
+    Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'noise file: the marker does NOT fire'
+    Assert-Match 'has no repo-lens' $r.Out 'noise file: both specialists are still reported as lens-less'
+    Assert-Equal 1 $r.Code 'noise file: exit 1'
+
+    Write-Host "11v. a repo that was NEVER bootstrapped still gets [BOOTSTRAP], not the naming marker" -ForegroundColor Cyan
+    #      The two give opposite advice -- "set this repo up" against "change nothing here" -- so they must
+    #      not swap places. An unbootstrapped repo has no lens directory at all, so there is nothing to
+    #      mistake for a newer generation.
+    $cNever2 = New-FixtureConsumer -RosterIds @() -SeamLensIds @()
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cNever2, '-CacheRootOverride', $cacheTwo)
+    Assert-Match '\[BOOTSTRAP\]' $r.Out 'never bootstrapped: still the bootstrap marker'
+    Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'never bootstrapped: and not the naming one'
+
     # Restore the single-agent cache for anything downstream that reuses $cache.
     $cache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('06-16') }
 
@@ -1408,6 +1493,43 @@ try {
     Assert-Match 'in sync' $r.Out 'hook roster-done: the plain in-sync line is unchanged'
     Assert-NotMatch 'still to be filled in' $r.Out 'hook roster-done: no pending wording'
     Assert-NotMatch 'ROSTER-PENDING' $r.Out 'hook roster-done: no pending marker at all'
+
+    # H13. issue #2219: [LENS-NAMING] gets its own verdict, below drift and the two setup states and above
+    #      "in sync". It is the first marker here whose subject is the CHECK rather than the repo, so every
+    #      neighbouring headline is wrong for it: the setup ones tell a correct repo to go and do something,
+    #      and "in sync" claims a roster this run did not manage to read at all.
+    $stub = New-StubCheck -Name 'stub-lens-naming' -ExitCode 0 -OutputLines @(
+        "  [LENS-NAMING] 30 specialist(s) would each have been reported without a repo-lens, and were held instead: this check cannot read the lens file naming this repo uses. Files such as 'specialist-06-24-lens.md' name a specialist in a spelling this check has no vocabulary for.",
+        'Summary: 0 error(s), 0 info signal(s).')
+    $r = Invoke-Hook @('-CheckScriptOverride', $stub)
+    Assert-Equal 0 $r.Code 'hook lens-naming: exit 0 (the hook never blocks)'
+    Assert-Match 'older naming than the repo uses' $r.Out 'hook lens-naming: its own verdict line'
+    Assert-Match '30 specialist\(s\)' $r.Out 'hook lens-naming: the marker reaches the session with its count'
+    Assert-NotMatch 'in sync' $r.Out 'hook lens-naming: NOT reported as in sync -- the lenses were never read'
+    Assert-NotMatch 'has not been set up yet' $r.Out 'hook lens-naming: NOT the bootstrap verdict -- this repo is correct'
+    Assert-NotMatch 'still to be filled in' $r.Out 'hook lens-naming: nor the pending one -- there is nothing to fill in'
+
+    # H13b. Mixed: a dead '@'-import rides alongside, which is the likeliest companion -- a payload old
+    #       enough to miss the lens naming is old enough to predate the persona file moving. The drift
+    #       headline leads, and without the naming line the reader would read the held findings as absent
+    #       work and reach for the roster instead of a plugin update.
+    $stub = New-StubCheck -Name 'stub-lens-naming-drift' -ExitCode 1 -OutputLines @(
+        "  [ERROR]  the '@'-import 'x/specialist-01-01-persona.md' does not exist.",
+        '  [LENS-NAMING] 30 specialist(s) would each have been reported without a repo-lens, and were held instead.',
+        'Summary: 1 error(s), 0 info signal(s).')
+    $r = Invoke-Hook @('-CheckScriptOverride', $stub)
+    Assert-Match 'blocking finding\(s\)' $r.Out 'hook lens-naming-drift: the drift branch leads'
+    Assert-Match "'@'-import" $r.Out 'hook lens-naming-drift: the real finding surfaces'
+    Assert-Match '\[LENS-NAMING\]' $r.Out 'hook lens-naming-drift: and the naming line rides along rather than being dropped'
+
+    # H13c. A repo the check CAN read gains no such line -- the same guard every marker here carries
+    #       against becoming the noise it exists to remove.
+    $stub = New-StubCheck -Name 'stub-lens-naming-none' -ExitCode 0 -OutputLines @(
+        '  [OK]    all present',
+        'Summary: 0 error(s), 0 info signal(s).')
+    $r = Invoke-Hook @('-CheckScriptOverride', $stub)
+    Assert-Match 'in sync' $r.Out 'hook lens-naming-none: the plain in-sync line is unchanged'
+    Assert-NotMatch 'LENS-NAMING' $r.Out 'hook lens-naming-none: no naming marker at all'
 
     # --- 11. Guardrail: a malformed plugin id in settings.json is rejected before filesystem access ---
     #     An uppercase/underscore plugin name fails the slug regex; the script must ERROR ("invalid
