@@ -44,7 +44,53 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**30 / 55 minor entries** <!-- pending-tally -->
+**31 / 56 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2199-one-lens-assembler · 20260920-170727
+
+Two functions answered "where are this repo's lenses" independently, and now one does. The discovery
+was already shared -- `Get-SeamPaths`, `Get-LensDirCandidates`, `Get-SpecialistFiles` -- but the
+assembly around it was not: the seam directory plus the per-plugin candidates, the plugin-name slug
+guard, the path-relative conversion and the `../` escape rejection sat in both the drift report's
+`Get-ConsumerLensPaths` and the prose corpus's kind-3 walk. A fifth lens layout, or a third filename
+spelling, would have had to be taught to each of them.
+
+It is one shared `Get-ConsumerLensPaths` now, in `entry-scaffold-lib.ps1`. What deliberately did not
+collapse is the pair's two real differences: where each caller gets its plugin names, and what each
+means by "already accounted for" -- one excludes an explicit list another rank has printed, the other
+excludes the set it has built so far. Both stay at the call site, so the shared function takes no
+`-Exclude` at all and hands back the full de-duplicated list.
+
+Collapsing them also made the pair's one asymmetry visible and settled it. The two originals guarded
+the plugin-name validator differently -- one called it outright, one probed for it first -- and the
+merged version inherited a condition that let an unvalidated name through on the validator's own
+absence. It is fail-closed now: a payload that cannot validate a plugin name does not use it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+`dkj-policy` ships both files, so this reaches every repo running the workflow -- and what it reaches
+them with is nothing they can see today. The behaviour is identical on both paths, proved rather than
+assumed: the drift report's RANK 2 and RANK 3 output is byte-identical before and after.
+
+What it prevents is a failure that has not happened yet, which is the only part a later reader can
+use. The two copies were close enough to look interchangeable and were not, and the next change to how
+lenses are found -- a new layout, a new filename spelling -- would have been taught to one of them. A
+consumer would then have a session-start prose check and an on-demand drift report disagreeing about
+which files in their own repo are lenses, with neither one wrong on its own terms.
+
+**Score:** 1
+
+#### Pull Request
+
+One lens-discovery assembler, shared by the drift report and the prose corpus
+
+Plugins: dkj-policy
+
+[PR #2214](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2214)
+
+---
 
 ### DEPLOY: feat/2207-claim-issue-local-account-holder · 20260920-164609
 
