@@ -9,19 +9,25 @@
 
         . (Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1')
 
-    WHY IT IS A LIB. The first three functions were written inside check-git-identity.ps1, which
-    REPORTS the split identity, and they are now needed by claim-issue.ps1, which has to ACT under the
-    right one. A script cannot dot-source check-git-identity.ps1 to reach them -- that file runs its
-    whole comparison and `exit`s on load -- so the alternative to extracting was a second copy of
-    Get-ActiveGhAccount's multi-account parse. That parse is the subtle one (see its own header), and
-    a repo whose branch-prefix table carries "do it here -- and nowhere else" does not get to keep two
-    of it. Test-GitCanCommit arrived as a lib for the same reason one step on: check-git-identity.ps1
-    reports that state and new-branch.ps1 REFUSES on it, which is two callers on day one.
+    WHY IT IS A LIB. The identity reads were written inside check-git-identity.ps1, which REPORTS the
+    split identity, and they are now needed by claim-issue.ps1, which has to ACT under the right one.
+    A script cannot dot-source check-git-identity.ps1 to reach them -- that file runs its whole
+    comparison and `exit`s on load -- so the alternative to extracting was a second copy of the
+    `gh auth status` multi-account walk. That walk is the subtle one (see ConvertFrom-GhAuthStatus's
+    own header), and a repo whose branch-prefix table carries "do it here -- and nowhere else" does
+    not get to keep two of it. Test-GitCanCommit arrived as a lib for the same reason one step on:
+    check-git-identity.ps1 reports that state and new-branch.ps1 REFUSES on it, which is two callers
+    on day one.
 
-    THE FOURTH FUNCTION ANSWERS A DIFFERENT KIND OF QUESTION, and the file is no longer named by the
-    pair alone. The three above are advisory reads feeding a comparison; Test-GitCanCommit is a
-    blocker -- there is no useful answer to "which account" on a checkout that cannot commit under any
-    of them.
+    TEST-GITCANCOMMIT ANSWERS A DIFFERENT KIND OF QUESTION, and the file is not named by the identity
+    reads alone. Everything else here is an advisory read feeding a comparison; that one is a blocker
+    -- there is no useful answer to "which account" on a checkout that cannot commit under any of
+    them.
+
+    NAMED, NOT COUNTED. This header said "the first three functions" and "the fourth function" until
+    #2207 added two more, at which point both ordinals were wrong and neither was wrong LOUDLY -- the
+    file went on reading as though it described itself. The functions are named instead, so a seventh
+    changes nothing here that is not about it.
 
     NO NETWORK, and that property is load-bearing for every caller: `gh auth status` reads the
     keyring, `git config` reads a file, and `git var` reads config plus the environment. The
@@ -68,6 +74,101 @@ function Test-GitHubLoginShape {
     return ($Value -match '^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$')
 }
 
+function ConvertFrom-GhAuthStatus {
+    <#
+        .SYNOPSIS
+            Every account `gh auth status` names, in the order it printed them, as records with
+            Account and IsActive. An EMPTY array for empty input, or for output naming no account.
+
+        .DESCRIPTION
+            THE WALK WAS ALREADY HERE AND THREW AWAY EVERYTHING BUT ONE NAME. Get-ActiveGhAccount
+            read these same lines, kept a candidate, and returned only the one whose 'Active account:
+            true' line followed -- so the fact that a SECOND account is authenticated ON THIS MACHINE
+            was read and then discarded at every call site, by the only function in this workflow that
+            ever looks.
+
+            ISSUE #2207 IS WHAT THAT COST. claim-issue.ps1 refused an issue held by 'DaveKJohn' with
+            the words "Pick another issue, or ask whoever holds it", on a machine where DaveKJohn was
+            authenticated in gh a few lines above the account doing the claiming. The refusal reads as
+            "this belongs to another person"; the operator read it as stale bookkeeping by his own
+            other account, overrode it, and the concurrent session it was in fact reporting finished
+            eight minutes later with a fuller measurement of the same issue. A second logged-in
+            account is how ONE PERSON RUNS TWO SESSIONS, which is precisely the duplicate-work hazard
+            the claim step exists to prevent -- and it was the one reading nothing on screen offered.
+
+            SO THE WALK IS EXTRACTED RATHER THAN DUPLICATED. A second copy is what this file's own
+            header forbids ("a repo whose branch-prefix table carries 'do it here -- and nowhere else'
+            does not get to keep two of it"), and every subtlety it warns about is in these eight
+            lines. Get-ActiveGhAccount is now one reduction over this output and answers exactly what
+            it answered before.
+
+            THE SHAPE, unchanged from what that function has always parsed -- gh has printed it since
+            v2, and it has no --json:
+
+                github.com
+                  * Logged in to github.com account <name> (keyring)
+                  - Active account: true
+                  * Logged in to github.com account <other> (keyring)
+                  - Active account: false
+
+            THE TWO TESTS ARE INDEPENDENT, NOT AN IF/ELSE, which is how the original read and is kept
+            deliberately: 'Active account: true' does not match the account pattern -- the ':' sits
+            where `\s+` is required -- so nothing is double-counted by leaving them apart, and a line
+            that somehow matched both opens a record and marks it, which is the answer the old
+            candidate-then-flag code gave.
+
+            NOT DEDUPLICATED HERE. gh prints one block per account, and collapsing repeats would move
+            which record is 'last' -- the fallback Get-ActiveGhAccount depends on where no active line
+            is printed at all. A caller needing a set says so at its own use site.
+
+            NO NETWORK: pure text in, records out.
+    #>
+    param([AllowNull()][string[]]$Lines)
+
+    # List[psobject], NOT List[object] -- the 5.1 trap this lib's sibling ConvertFrom-CommitScanLog
+    # already documents in full: @() over a List[object] throws ArgumentException and blames the
+    # return statement. Met here too, on the first run of this function.
+    $records = New-Object 'System.Collections.Generic.List[psobject]'
+    foreach ($line in @($Lines)) {
+        $text = [string]$line
+        $m = [regex]::Match($text, 'account\s+(\S+)')
+        if ($m.Success) {
+            [void]$records.Add([pscustomobject]@{ Account = $m.Groups[1].Value; IsActive = $false })
+        }
+        if ($text -match 'Active account:\s*true' -and $records.Count -gt 0) {
+            $records[$records.Count - 1].IsActive = $true
+        }
+    }
+    return @($records)
+}
+
+function Get-GhAuthAccounts {
+    <#
+        .SYNOPSIS
+            Every account authenticated in `gh` ON THIS MACHINE, as ConvertFrom-GhAuthStatus records.
+            An EMPTY array when gh is absent, logged out, or its output names no account.
+
+        .DESCRIPTION
+            ONE CAPTURE, TWO QUESTIONS. This is the read Get-ActiveGhAccount used to make privately,
+            and a caller wanting both answers passes the records back in (`Get-ActiveGhAccount
+            -Accounts`) rather than shelling out twice. That is #2207's own scope note answered in the
+            code instead of in prose: the concurrent-session signal costs no second `gh` call, here or
+            anywhere else.
+
+            NO NETWORK: `gh auth status` reads the keyring. The property is load-bearing for the
+            SessionStart hook behind check-git-identity.ps1, which is why this lib restates it at
+            every layer.
+    #>
+    $res = $null
+    try {
+        $res = Invoke-NativeCapture -FilePath 'gh' -Arguments @('auth', 'status') -Utf8
+    } catch {
+        return @()
+    }
+    if (-not $res) { return @() }
+    return @(ConvertFrom-GhAuthStatus -Lines @($res.Output))
+}
+
 function Get-ActiveGhAccount {
     <#
         The account `gh` currently acts as, read from `gh auth status` -- which reports it from the
@@ -76,36 +177,28 @@ function Get-ActiveGhAccount {
 
         WHY IT PARSES TEXT. `gh auth status` has no --json, and the alternative that does
         (`gh api user --jq .login`) is a network round-trip at every session start. The shape parsed
-        is the pair of lines gh has printed since v2:
+        is in ConvertFrom-GhAuthStatus above, which is where the walk lives since #2207.
 
-            github.com
-              * Logged in to github.com account <name> (keyring)
-              - Active account: true
+        MULTIPLE ACCOUNTS CAN BE LOGGED IN, and only one is active -- `@me` binds to that one. So this
+        is the reduction "the last record flagged active", and with no active line anywhere the answer
+        is the last name seen, which is what a pre-multi-account gh printed. Both readings are exactly
+        the ones the inline walk gave before it was extracted.
 
-        MULTIPLE ACCOUNTS CAN BE LOGGED IN, and only one is active -- `@me` binds to that one. So the
-        account name is remembered as a candidate and only committed to when its own 'Active account:
-        true' line follows. A single logged-in account prints that line too, so the common case needs
-        no special handling. With no active line anywhere the answer is the last name seen, which is
-        what a pre-multi-account gh printed.
+        -Accounts IS FOR THE CALLER THAT HAS ALREADY READ THEM. Passing the records makes this pure
+        and spends no process; omitting it reads them here, which is what check-git-identity.ps1 does
+        and has always done. The PRESENCE of the parameter is tested rather than its value, so a
+        caller passing an EMPTY array -- gh answered and named nobody -- is not sent back to gh to be
+        told the same thing a second time.
     #>
-    $res = $null
-    try {
-        $res = Invoke-NativeCapture -FilePath 'gh' -Arguments @('auth', 'status') -Utf8
-    } catch {
-        return ''
-    }
-    if (-not $res) { return '' }
+    param([AllowNull()][object[]]$Accounts = $null)
 
-    $candidate = ''
-    $active = ''
-    foreach ($line in @($res.Output)) {
-        $text = [string]$line
-        $m = [regex]::Match($text, 'account\s+(\S+)')
-        if ($m.Success) { $candidate = $m.Groups[1].Value }
-        if ($text -match 'Active account:\s*true' -and $candidate) { $active = $candidate }
-    }
-    if ($active) { return $active }
-    return $candidate
+    $records = if ($PSBoundParameters.ContainsKey('Accounts')) { @($Accounts) } else { @(Get-GhAuthAccounts) }
+    $records = @($records | Where-Object { $_ -and $_.Account })
+    if ($records.Count -eq 0) { return '' }
+
+    $active = @($records | Where-Object { $_.IsActive })
+    if ($active.Count -gt 0) { return [string]$active[-1].Account }
+    return [string]$records[-1].Account
 }
 
 function Get-GitUserName {
