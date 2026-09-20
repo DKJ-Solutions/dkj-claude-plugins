@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     check-plugin-integrity.ps1, part 4 of 4: the checks over what this repo SHIPS -- shared-script
-    parameters against their skill (18), claimed section counts (20), the changelog intro (20b),
+    parameters against their skill (18), claimed section counts (20), the changelog intro (20b), the
+    branch document's exemption (20c),
     machine-specific commands in skill pages (22), the PR template contract (24), consumer tier
     links (25), frontmatter byte-order marks (26), the manual/backer pairing (6b), each specialist
     kind's written spelling against the names on disk (3d) -- and the
@@ -374,6 +375,61 @@ try {
         'entry-shape: an intro stating the count the scaffolder writes clears the finding'
     Assert-True ($e7.Out -match '\[entry-shape\] checked [1-9]') `
         'entry-shape: and the intro was actually examined rather than skipped into silence'
+
+    # --- check 20c: the BRANCH's own document is exempt by pattern, its folder's pages are not -------
+    # ISSUE #2180. The exclusion was a list built from a branch-less Get-BranchFilePaths, which answers the
+    # pre-#1255 SHARED name -- so from the day the documents went per branch it named a file that no longer
+    # exists, while $linkFiles went on sweeping the folder recursively. Here the failure direction is NOISE:
+    # a branch document that quotes a section count while EXPLAINING the entry format is reported as stale
+    # prose and fails the gate. No branch document has triggered it yet, and the scaffold misses it on TWO
+    # independent counts rather than the one #2180 named: its sentence says 'HEADINGS' where the pattern
+    # wants 'section', AND it carries the PHASE level (three hashes, Get-EntryHeadingLevel) where the
+    # pattern wants the SECTION level (four, Get-EntrySectionLevel). Either alone is enough to miss, so a
+    # reword on its own would not start the noise -- which is why the fixture writes the triggering
+    # sentence by hand instead of leaning on the scaffold to keep missing it.
+    #
+    # THREE FILES, ONE GATE RUN, and both halves of that are deliberate.
+    #
+    # THREE, because a branch document going silent on its own reads the same whether it was excluded or
+    # never swept. The folder's own README is a ReservedName, so the predicate answers false for it and it
+    # is still checked -- carrying the identical sentence, it proves in the same output that the sweep
+    # reaches this folder and that the exemption is per file rather than per folder. The third is a LEGACY
+    # name, which pins that the fixed list was KEPT beside the predicate rather than replaced by it. It has
+    # to come from the branch/ pair to mean that: the pre-#1255 SHARED name sits in the folder itself and so
+    # matches the pattern too, which would let the assert pass against a repair that dropped the list
+    # entirely. The branch/ pair is one directory down, where the predicate's own anchor cannot reach --
+    # measured, Test-IsPerBranchDocumentPath answers false for it. A branch opened before that rename still
+    # carries one, here and in every consumer, and meets this change through a plugin update rather than by
+    # choosing to.
+    #
+    # ONE RUN, because each Invoke-Integrity spawns the whole gate against the fixture and this suite is the
+    # test gate's critical path -- 83 such calls before this block, so a scenario per fact would have cost
+    # the required check two spawns instead of one for no added proof. The check is evaluated per file, so
+    # one report answers for all three, and every assert here is ANCHORED ON ITS OWN PATH rather than on the
+    # output being silent -- which is what makes them independent inside a shared report, and is stricter
+    # than a blanket absence check besides.
+    Write-Host "check 20c: the branch document is exempt, the folder's own pages are not" -ForegroundColor Cyan
+    $shapeStale   = "An entry is one $docEntryH heading with three named $docSectH sections under it."
+    $shapeBranch  = Join-Path $Fixture 'dkj-policy\fix-2180-demo.md'
+    $shapeFolderR = Join-Path $Fixture 'dkj-policy\README.md'
+    $shapeLegacy  = Join-Path $Fixture ((Get-BranchFilePaths).LegacyCycle -replace '/', '\')
+
+    # 51. All three in one run: the branch document silent, the folder's own page reported, the legacy name
+    #     silent. The parent of the legacy name is created here rather than borrowed from check 20's block
+    #     above, which happens to leave it behind -- an ordering dependency would fail as a raw
+    #     DirectoryNotFoundException rather than as a readable assert the day those blocks move.
+    New-Item -ItemType Directory -Path (Split-Path -Parent $shapeLegacy) -Force | Out-Null
+    [System.IO.File]::WriteAllText($shapeBranch, "## fix/2180-demo`n`n$shapeStale`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText($shapeFolderR, "# dkj-policy`n`n$shapeStale`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText($shapeLegacy, "## feat/old-branch`n`n$shapeStale`n", $Utf8NoBom)
+    $e8 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]fix-2180-demo\.md')) `
+        'entry-shape: the branch''s OWN document is exempt by pattern, not by the retired shared name (#2180)'
+    Assert-True ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]README\.md:3: says an entry has 3') `
+        'entry-shape: and the same sentence in the folder''s own page IS reported, so the sweep does reach here'
+    Assert-True (-not ($e8.Out -match '\[entry-shape\] dkj-policy[\\/]branch[\\/]branch-cycle\.md')) `
+        'entry-shape: a legacy branch-file name is still exempt -- the fixed list was kept, not swapped out'
+    Remove-Item -LiteralPath $shapeBranch, $shapeFolderR, $shapeLegacy -Force
 
     # --- check 22: a skill's runnable command must resolve on the reader's machine -------------------------
     # THE MEASURED DEFECT, August 8-9, 2026: adopt-config's page shipped in v3.8.0 with both commands
