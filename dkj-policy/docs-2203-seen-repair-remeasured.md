@@ -46,7 +46,7 @@ which is where this repo's wall-clock measurements live.
 
 #### Nothing in `scripts/**` changes on this branch, deliberately
 
-The subject of the measurement -- #2199's `-Seen` repair -- sits on `fix/2199-one-lens-assembler`,
+The subject of the measurement — #2199's `-Seen` repair — sits on `fix/2199-one-lens-assembler`,
 which is parked with no pull request. What the measurement found is a design call on somebody else's
 unmerged branch, so it left this session as
 [#2210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2210) rather than as an edit here.
@@ -56,7 +56,7 @@ unmerged branch, so it left this session as
 - [x] The measurement recorded in `.claude/specialists/lenses/specialist-06-25-lens.md`: the method,
       the four-variant table, the `try`/`catch` figure, and the one caveat that would otherwise be
       rediscovered (component isolation does not sum to the whole on this path).
-- [x] The consequence filed as #2210 -- the +11% is the CALL, not the second pass, so the docstring on
+- [x] The consequence filed as #2210 — the +11% is the CALL, not the second pass, so the docstring on
       `fix/2199-one-lens-assembler` attributes its own measurement to the wrong cause.
 
 ### TEST
@@ -69,22 +69,23 @@ unmerged branch, so it left this session as
       faster for the wrong reason.
 - [x] The baseline is still the baseline: `main` gained 9 commits during this branch, one of them
       touching `entry-scaffold-lib.ps1` (`e9f6d796`), and the diff against `8fc89977` over that file is
-      docstring prose only -- 0 executable lines. So the `main` row is executable-identical to today's
+      docstring prose only — 0 executable lines. So the `main` row is executable-identical to today's
       trunk.
 - [x] `check-plugin-integrity.ps1` and the full suite run, via `open-pr.ps1`'s own gate.
 
 ### DEPLOY: docs/2203-seen-repair-remeasured
 
 #2199 promoted the lens assembly into one shared function and that made the always-on consumer-prose
-path 11-12% slower; the repair that shipped with it -- handing the caller's own dedup set in through
-`-Seen`, so one pass replaces two -- had never been shown to recover the cost. It does not. Measured on
+path 11-12% slower; the repair that shipped with it — handing the caller's own dedup set in through
+`-Seen`, so one pass replaces two — had never been shown to recover the cost. It does not. Measured on
 a quiet machine, n=5 per variant, it is +0.05 ms against the shape it replaced, inside the noise.
 
 What the bisect found instead is that the whole +11% is the *call*: restore only the call site to the
 inline walk, on the repair's own file, and the cost is back on `main`'s band. Everything else on that
-branch -- the new function, the fail-closed guard, both `try`/`catch` wraps, 185 lines of docstring --
-is free. And the `try`/`catch` question is now a number rather than an estimate: 0.09 us median per
-entry, which is 0.0005% of a call.
+branch — the new function, the fail-closed slug guard, both `try`/`catch` wraps, and the 185 lines
+the file grew by — is free; what is left is the boundary crossing itself. And the `try`/`catch`
+question is now a number rather than an estimate: 0.09 us median per entry, and the two entries this
+path carries come to ~0.0005% of a call between them.
 
 **Score:** 2
 
@@ -93,12 +94,12 @@ entry, which is 0.0005% of a call.
 The third attempt at this measurement is the one that worked, and what separates it from the two that
 did not is written down rather than left as luck. Two changes: the batch order rotates every round, so
 a drift cannot land on one variant; and the contention pre-flight brackets every *batch* instead of
-every round -- which is not a refinement but a measured correction, because a round that opened at
+every round — which is not a refinement but a measured correction, because a round that opened at
 2,279 ms still came back with a batch at 76 ms/call against its own 43 ms band.
 
 That matters beyond this issue. This repo has no working OS-level CPU instrument (`Get-Counter` for
 `% Processor Time` errors with `c0000bb9` on this box), so a self-timed band is the only thing standing
-between a wall-clock figure and folklore -- and the session that produced the figure is exactly the
+between a wall-clock figure and folklore — and the session that produced the figure is exactly the
 party who cannot tell the two apart without it.
 
 **Score:** 1
