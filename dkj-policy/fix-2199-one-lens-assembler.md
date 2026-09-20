@@ -84,8 +84,14 @@ in `entry-scaffold-lib.ps1` instead, and the reasoning is written into the funct
       failure mode, which is why it was measured instead of eyeballed (#2184).
 - [x] Review pass on the diff, four specialists in parallel. It changed the branch rather than
       endorsing it -- see below.
-- [ ] Test-coverage judgement on the two contracts the review created: the fail-closed guard and the
-      `-Seen` mutate-in-place aliasing.
+- [x] Test-coverage judgement on the two contracts the review created: both worth pinning, and pinned
+      -- `scripts/tests/consumer-lens-paths.tests.ps1`, 11 asserts, the first suite to call
+      `Get-ConsumerLensPaths` directly rather than through one of its two callers. Both were held to
+      the standard that matters: the fail-closed assert was run against the pre-review fail-open code
+      at `97434724` and does fail there, and the aliasing assert against a hand-simulated private-set
+      shape, where it fails too. A test that cannot fail is not a test. One gap declined openly -- the
+      other three seam guards stay unpinned, being the ordinary missing-dependency-degrades-to-empty
+      pattern this review did not find broken.
 
 #### What the review changed, and the one thing it could not settle
 
