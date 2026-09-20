@@ -1139,6 +1139,34 @@ try {
     Assert-Match 'has no repo-lens' $r.Out 'noise file: both specialists are still reported as lens-less'
     Assert-Equal 1 $r.Code 'noise file: exit 1'
 
+    Write-Host "11ua. a MISPLACED file of another known kind is not evidence either" -ForegroundColor Cyan
+    #      The load-bearing half of the predicate, and the case 11u does not reach: this file DOES carry a
+    #      real id token, so only guard (a) keeps it out. A manual dropped in the lens directory by hand is
+    #      a misplaced file of a KNOWN generation, and admitting it would downgrade a genuine finding to a
+    #      yellow line saying nothing needs changing -- the inversion this marker exists to prevent.
+    $cMisplaced = New-FixtureConsumer -RosterIds @('06-16', '06-24')
+    $misDir = Join-Path $cMisplaced '.claude\specialists\lenses'
+    New-Item -ItemType Directory -Path $misDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $misDir 'specialist-06-24-manual.md'), 'a manual in the wrong place')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cMisplaced, '-CacheRootOverride', $cacheTwo)
+    Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'misplaced manual: the marker does NOT fire'
+    Assert-Match "agent '06-24' .* has no repo-lens" $r.Out 'misplaced manual: the genuine finding is still reported'
+    Assert-Equal 1 $r.Code 'misplaced manual: exit 1'
+
+    Write-Host "11ub. a scratch note carrying an id token is not evidence" -ForegroundColor Cyan
+    #      Guard (b): the name must be the SHAPE a specialist filename has always had -- the id with
+    #      nothing but letters and hyphens around it. A space, a date or a numeric suffix says nothing
+    #      about a naming generation.
+    $cScratch = New-FixtureConsumer -RosterIds @('06-16', '06-24')
+    $scrDir = Join-Path $cScratch '.claude\specialists\lenses'
+    New-Item -ItemType Directory -Path $scrDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $scrDir '06-24 notes.md'), 'a scratch note')
+    [System.IO.File]::WriteAllText((Join-Path $scrDir '2026-06-16-meeting.md'), 'a dated note')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cScratch, '-CacheRootOverride', $cacheTwo)
+    Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'scratch note: the marker does NOT fire'
+    Assert-Match "agent '06-24' .* has no repo-lens" $r.Out 'scratch note: the genuine finding is still reported'
+    Assert-Equal 1 $r.Code 'scratch note: exit 1'
+
     Write-Host "11v. a repo that was NEVER bootstrapped still gets [BOOTSTRAP], not the naming marker" -ForegroundColor Cyan
     #      The two give opposite advice -- "set this repo up" against "change nothing here" -- so they must
     #      not swap places. An unbootstrapped repo has no lens directory at all, so there is nothing to

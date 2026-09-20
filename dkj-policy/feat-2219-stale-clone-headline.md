@@ -51,8 +51,8 @@ already sitting at `main`'s tip (`2e13c8d8`):
 | this repo's own copy on `main` | 0 |
 
 So the clone is current, the `@`-import resolves, and 34 lines remain. The cause is the **plugin
-payload**, which a `claude plugin marketplace update` does not touch -- the second of the two channels
-`CLAUDE.md` names. The report's own repair -- gate on the import failing AND the clone's HEAD differing
+payload**, which a `claude plugin marketplace update` does not touch -- the FIRST of the two channels
+`CLAUDE.md` names (the second being the CI runners pinned at `ref: main`). The report's own repair -- gate on the import failing AND the clone's HEAD differing
 -- would therefore have fired on neither condition today, and shipped a guard that cannot fire.
 
 The 34 split in two, and only one half is still open:
