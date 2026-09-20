@@ -46,8 +46,10 @@ counterpart where one exists, name both figures, and pin it.
 #### The reason, verified rather than taken from the report
 
 `Get-AlwaysOnMeasurement` sums `$d.LfBytes` -- the copy that RESOLVED -- and never reads the
-`TreeCounterpart` / `TreeBytes` fields the walk beside it already computes
-(`always-on-budget-lib.ps1:289`, against `measure-context-lib.ps1:497` and `:522`). So in the one repo
+`TreeCounterpart` / `TreeBytes` fields `Get-AlwaysOnDocuments` in `measure-context-lib.ps1` already
+computes beside it. Cited by NAME and not by line, deliberately: both citations were written as line
+numbers, and this branch's own edits moved each of them before it was pushed -- which is the staleness
+class this repo keeps finding in its own prose. So in the one repo
 where a marketplace clone mirrors this very tree, the ratchet judges the installed copy while the
 branch edits the source. Confirmed on this checkout:
 `plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md` is 30,899 B here
@@ -58,8 +60,9 @@ against 30,267 B in the clone.
 The report argues for a second measurement and for leaving the reported headroom on the clone figure,
 because "a session genuinely does not pay for an unreleased edit". That half is declined, with a
 reason. The headline figure is ALREADY not what a session literally pays: it is LF bytes, while the
-session loads the on-disk CRLF copy, and the check says so in its own report
-(`check-always-on-budget.ps1:171-177`). It is a repository-side, normalised figure. Preferring this
+session loads the on-disk CRLF copy, and the check says so in its own report -- the
+`measured in LF bytes, which is what the repository stores` line in
+`check-always-on-budget.ps1`. It is a repository-side, normalised figure. Preferring this
 tree's copy of a document this tree owns is that same normalisation on a second axis, and it keeps ONE
 number -- which the gate's own header requires, since the three carriers "cannot drift into describing
 the same path differently". Two totals is exactly that drift, with a baseline field each.

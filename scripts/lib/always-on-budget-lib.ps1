@@ -330,9 +330,30 @@ function Get-AlwaysOnMeasurement {
             if ($d.Source -eq 'external' -and $d.TreeCounterpart -and $hasTreeLf -and $null -ne $d.TreeLfBytes) {
                 $judged     = [int64]$d.TreeLfBytes
                 $judgedDisk = [int64]$d.TreeBytes
+                # THE REPO-RELATIVE NAME, through Test-PathIsUnder rather than a bare StartsWith. The
+                # whole point of this row is that an author can open the file, so falling back to an
+                # absolute path under somebody's user profile is a quiet failure of the feature rather
+                # than a cosmetic one. $RepoRoot arrives here unnormalised on one of its two branches --
+                # the CLAUDE_PROJECT_DIR fallback is whatever the harness set -- so a trailing separator
+                # or a forward slash would defeat a prefix comparison silently (code review, #2187).
+                $repoFull = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
                 $sourceDisplay = $d.TreeCounterpart
-                if ($sourceDisplay.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $sourceDisplay = ($sourceDisplay.Substring($RepoRoot.Length) -replace '\\', '/').TrimStart('/')
+                if (Test-PathIsUnder -Path $sourceDisplay -Parent $repoFull) {
+                    $sourceDisplay = (([System.IO.Path]::GetFullPath($sourceDisplay).Substring($repoFull.Length)) -replace '\\', '/').TrimStart('/')
+                }
+                # BaselineDelta IS NOT Delta, AND THE TWO ANSWER DIFFERENT QUESTIONS. Delta is judged
+                # against INSTALLED -- the weight queued for the next release, which is what the
+                # informational block reports. BaselineDelta is judged against RECORDED -- whether THIS
+                # branch moved this document, which is the only thing that makes a refusal causal. A
+                # refusal naming every substituted document instead of the ones that grew sends an
+                # author to two or three files, none of them necessarily the one to edit (code review,
+                # #2187). $null where the baseline has no figure: unknown is not zero, and a document
+                # this run cannot judge is left in rather than silently cleared of suspicion.
+                $recordedBytes = $null
+                $baselineDelta = $null
+                if ($recorded.ContainsKey($key)) {
+                    $recordedBytes = [int64]$recorded[$key]
+                    $baselineDelta = $judged - $recordedBytes
                 }
                 $substituted.Add([pscustomobject]@{
                     Key           = $key
@@ -343,6 +364,8 @@ function Get-AlwaysOnMeasurement {
                     Bytes         = $judged
                     LoadedBytes   = [int64]$d.LfBytes
                     Delta         = $judged - [int64]$d.LfBytes
+                    RecordedBytes = $recordedBytes
+                    BaselineDelta = $baselineDelta
                 }) | Out-Null
             }
             $sizes[$key] = $judged
@@ -406,14 +429,19 @@ function Get-AlwaysOnMeasurement {
 
 function Get-MeasurementField {
     <#
-        One field of a measurement object, or $Default where the object does not carry it.
+        One field of a measurement object, or $Default in each of the three cases where it has no usable
+        answer: no measurement at all, the property ABSENT, and the property PRESENT AND $null. The
+        third is not a rounding of the second -- a row set built but never populated arrives as $null
+        rather than as an empty array, and a caller that went on to index it would fail further from
+        here than the field it asked for.
 
-        NOT DEFENSIVE PROGRAMMING FOR ITS OWN SAKE. Under Set-StrictMode -Version Latest -- which every
-        carrier of this lib sets -- reading an absent property is a TERMINATING error, so a verdict
-        reaching for a field added later dies with 'PropertyNotFound' inside a gate whose whole job is
-        to exit 0 or 1 on a budget. Two callers can hand over an older shape: the test suite, which
-        builds a measurement by hand precisely so the verdict is tested without the walk, and a mirror
-        of this lib shipped before the field existed.
+        NOT DEFENSIVE PROGRAMMING FOR ITS OWN SAKE. Under Set-StrictMode -Version Latest -- which the
+        GATE that carries this lib sets, and which is what makes the failure expensive -- reading an
+        absent property is a TERMINATING error, so a verdict reaching for a field added later dies with
+        'PropertyNotFound' inside a script whose whole job is to exit 0 or 1 on a budget. Two callers
+        can hand over an older shape: the test suite, which builds a measurement by hand precisely so
+        the verdict is tested without the walk, and a mirror of this lib shipped before the field
+        existed.
     #>
     param(
         [Parameter(Mandatory = $true)]$Measurement,

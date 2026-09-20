@@ -343,9 +343,12 @@ try {
         Assert-Equal ($rootBytes + 1200) $mSrc.Total 'the TOTAL the ratchet judges contains the source copy'
         Assert-Equal ($rootBytes + 1000) $mSrc.LoadedTotal 'while LoadedTotal still answers what a session on this machine pays today'
         Assert-Equal 1200 $mSrc.Sizes[$srcTarget] 'the baseline therefore RECORDS the judged figure, so the carrier that cannot re-derive it carries the right one'
-        # #1162, on the axis this change adds. A CRLF counterpart judged in on-disk bytes would read
-        # 1,206 and refuse a branch for its line endings.
-        Assert-True (@($mSrc.Substituted)[0].Bytes -ne 1206) 'the counterpart is judged in LF bytes, not in the on-disk CRLF form'
+        # #1162, on the axis this change adds. The fixture is genuinely CRLF -- 1,206 B on disk -- and
+        # judging it in that form would read 6 bytes of growth out of a file nobody touched. Both
+        # halves are asserted, because pinning only the judged figure leaves the fixture free to stop
+        # being CRLF and take the regression guard with it (code review, #2187).
+        Assert-Equal 1206 ([System.IO.File]::ReadAllBytes((Join-Path $RepoSrc 'plugins\persona.md')).Length) 'the counterpart fixture really is CRLF -- 6 bytes above its stored form'
+        Assert-Equal 1200 @($mSrc.Substituted)[0].Bytes 'and the counterpart is judged in LF bytes, not in that on-disk form'
 
         # THE BOUND, AND IT IS THE REASON THIS BRANCH DID NOT MEET ITS OWN GATE. During #2135's persona
         # rename SPECIALISTS.md deliberately carried BOTH the pre- and post-rename import. The renamed
@@ -394,9 +397,46 @@ try {
         $textRef = ($outRef | Out-String)
         Assert-Equal 1 $LASTEXITCODE 'growing ONLY the tree copy is now refused -- the defect #2187 was filed on'
         Assert-True ($textRef -match 'GROWS an already-over-budget') 'and is named as growth, by the 300 B the source gained'
-        Assert-True ($textRef -match 'edit it here and not in the marketplace clone') 'the refusal sends the author to the tree'
+        Assert-True ($textRef -match 'edit it here, not in the marketplace clone') 'the refusal sends the author to the tree'
         Assert-True ($textRef -match 'plugins/persona\.md') 'and names the file they can actually edit'
         Assert-True ($textRef -match 'Four places this weight goes') 'without displacing the destinations the refusal already named'
+
+        # AND IT NAMES THE ONE THAT GREW, NOT EVERY DOCUMENT READ FROM THE TREE. Three of the four
+        # documents on this repo's own path are plugin-carried, so a refusal listing all of them sends
+        # an author to open and diff several files, none of them necessarily the cause -- and a refusal
+        # that misdirects is the kind that gets skipped rather than obeyed (code review, #2187).
+        # A SECOND substituted document, installed and in-tree at the same size, so it is substituted
+        # and has not moved: it must appear in the informational block and NOT in the refusal.
+        [System.IO.File]::WriteAllText((Join-Path $mktSrc 'plugins\quiet.md'), (('q' * 799) + "`n"), $Utf8NoBom)
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\quiet.md'), (('q' * 799) + "`n"), $Utf8NoBom)
+        $quietTarget = '~/.claude/plugins/marketplaces/self-market/plugins/quiet.md'
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'CLAUDE.md'),
+            ("# Root`n@$srcTarget`n@$goneTarget`n@$quietTarget`n" + ('x' * 1000) + "`n"), $Utf8NoBom)
+        # Back to the size the baseline holds, then -Raise -- because -Record is honoured only on a run
+        # that PASSES, and adding a document to an over-budget path is growth by definition. -Raise is
+        # the move this state is for, and it is what gives BOTH documents a recorded figure. Without
+        # one, the quiet document has BaselineDelta $null and is deliberately kept IN the refusal:
+        # unknown is not innocent, which is a property of the filter rather than a gap in it.
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'), (('y' * 1199) + "`n"), $Utf8NoBom)
+        $null = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc -Raise -Reason 'the second plugin document is on this path by design' 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'both documents are now recorded at their current size, so neither is growth'
+        $bTwo = Read-AlwaysOnBaseline -RepoRoot $RepoSrc
+        Assert-Equal 800 $bTwo.Documents[$quietTarget] 'and the quiet document is recorded from the TREE copy, like the other one'
+
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'), (('y' * 1999) + "`n"), $Utf8NoBom)
+
+        $outTwo = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc 2>&1
+        $linesTwo = @($outTwo | ForEach-Object { "$_" })
+        $textTwo = ($linesTwo -join "`n")
+        Assert-Equal 1 $LASTEXITCODE 'two substitutions, one of them grown, still refuses'
+        Assert-True ($textTwo -match 'quiet\.md') 'the unchanged document is still NAMED above the verdict, where the report says which copy it judged'
+        # The refusal block is everything from its own heading down. The quiet document must not be in it.
+        $refuseAt = [array]::FindIndex($linesTwo, [Predicate[string]]{ param($l) $l -match 'edit it here, not in the marketplace clone' })
+        Assert-True ($refuseAt -ge 0) 'the refusal block is present'
+        $refuseBlock = ($linesTwo[$refuseAt..([math]::Min($refuseAt + 4, $linesTwo.Count - 1))] -join "`n")
+        Assert-True ($refuseBlock -match 'persona\.md') 'and the file it sends the author to is the one that grew'
+        Assert-True ($refuseBlock -notmatch 'quiet\.md') 'while the one that did not grow is kept OUT of it -- the whole point of filtering'
+        Assert-True ($textTwo -match 'nothing queued for the next release') 'a document whose two copies match reads as nothing queued, not as "0 B larger"'
     } finally {
         Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
     }
