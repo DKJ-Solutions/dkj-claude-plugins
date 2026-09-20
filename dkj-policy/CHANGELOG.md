@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**22 / 43 minor entries** <!-- pending-tally -->
+**22 / 44 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2180-entry-shape-per-branch-exclusion · 20260920-121300
+
+Check 20 of the plugin-integrity gate now exempts a branch's own development document by the pattern
+that names it, instead of by the shared filename it carried before September 3, 2026. The exclusion had
+been built from a branch-less `Get-BranchFilePaths`, which answers the retired `dkj-policy/development.md`
+-- so the per-branch rename silently undid it, the third site of that rename to be found this way. The
+legacy names stay in the list beside the predicate, so a branch opened before the rename is still exempt.
+The failure this removes is noise rather than silence, which is the opposite of the two sibling checks:
+a branch document quoting a section count while explaining the entry format would have been reported as
+stale prose and failed the gate.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a lint-gate exclusion inside this repo's own tooling. A consumer meets check 20 only through the
+gate this repo runs on itself; nothing in their tree or their workflow changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+check 20 exempts the per-branch development document by pattern, not by its retired shared name
+
+[PR #2195](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2195)
+
+---
 
 ### DEPLOY: feat/2186-baseline-into-specialists-seam · 20260920-120053
 
