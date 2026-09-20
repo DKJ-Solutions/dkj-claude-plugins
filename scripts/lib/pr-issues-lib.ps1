@@ -193,6 +193,61 @@ function Get-IssueMentions {
     return @($numbers | Sort-Object -Unique)
 }
 
+function Get-BranchNameIssue {
+    <#
+    .SYNOPSIS
+        The issue number a BRANCH NAME declares -- '<prefix>/<n>-<slug>' -> <n> -- or 0 when it
+        declares none.
+
+    .DESCRIPTION
+        THE ONE PLACE THE NUMBER IS GUARANTEED TO BE, AND THE ONE PLACE NOTHING READ (issue #2225).
+        `new-branch.ps1` puts the issue number in the branch name when a branch is cut for an issue,
+        and the resolves gate in open-pr.ps1 read only the development document's prose plus an
+        explicit -Resolves. Both of those are optional: the prose is whatever the author happened to
+        type, and the flag is memory. So a branch cut FOR an issue could merge without closing it,
+        and nothing said so afterwards -- `verify-resolved-issues.ps1` checks the OUTCOME of a
+        closing keyword, and with no keyword written there is nothing for it to verify.
+
+        Measured: `fix/2183-reserved-root-md-seam-row` -> PR #2211, merged September 20, 2026. The
+        repair landed and was correct; the document named 2183 only inside the two headings that
+        carry the branch name, never as `#2183`, so Get-IssueMentions returned nothing for it. The
+        document's only real mention was #2179, already closed, so the gate had no open issue to
+        block on and the PR body carried no `Closes` line. #2183 stayed OPEN until a later session
+        was asked by hand whether anything had been done with it.
+
+        THE SHAPE IS DELIBERATELY NARROW: a slash, then digits, then either a hyphen or the end of
+        the name. That is what `new-branch` writes and what `Get-BranchSlugWords` in
+        claim-issue-lib.ps1 already strips back off, so the two readers of this convention agree.
+        A name with no slash is not read at all -- `Get-BranchPrefix` treats the text before the
+        first hyphen as the prefix there, so '2225-foo' would have to be read as both a prefix and
+        an issue number, and this workflow's own branches always carry the slash.
+
+        THE ERROR DIRECTION IS THE SAME AS Get-IssueMentions': a surplus number costs the author one
+        `-NoResolves`, while a missed one is the silent-open-issue bug the gate exists to prevent. A
+        branch named 'fix/5-minute-timeout' therefore reports 5, and where that is a live issue the
+        gate asks a question the author answers once. That cost is stated rather than engineered
+        away: narrowing the pattern to exclude it would need a rule about what a slug may start
+        with, which nothing else in this workflow has.
+
+        Pure, like everything else in this file: the caller decides what to do with the number, and
+        only the caller can ask GitHub whether it is an open issue.
+
+    .PARAMETER Branch
+        The branch name in its short form ('fix/2225-branch-name-resolves-gate').
+    #>
+    param([string]$Branch = '')
+
+    if (-not $Branch) { return 0 }
+
+    $m = [regex]::Match($Branch, '^[^/]+/(\d+)(?:-|$)')
+    if (-not $m.Success) { return 0 }
+
+    $n = 0
+    if (-not [int]::TryParse($m.Groups[1].Value, [ref]$n)) { return 0 }
+    if ($n -le 0) { return 0 }
+    return $n
+}
+
 function Test-HasClosingKeyword {
     <#
     .SYNOPSIS

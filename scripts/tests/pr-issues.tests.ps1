@@ -330,6 +330,53 @@ Assert-Set @()    (Get-IssueMentions -Text 'PR #341-#343 covered it')           
 Assert-Set @()    (Get-IssueMentions -Text 'the example `#332` is prose')           'a backticked reference is not a mention'
 Assert-Set @(340) (Get-IssueMentions -Text 'see `#332` but really #340')            'only the live reference counts'
 
+
+# --- Get-BranchNameIssue (issue #2225) -------------------------------------------------------------
+# The number in the BRANCH NAME, which is the one place a branch cut for an issue is guaranteed to
+# carry it -- and the one place the resolves gate never read, so a branch cut for an issue could
+# merge closing nothing. The document's prose is optional and -Resolves is memory; this is neither.
+Write-Host "Get-BranchNameIssue" -ForegroundColor Cyan
+Assert-Equal 0    (Get-BranchNameIssue -Branch '')      'empty name -> 0'
+Assert-Equal 0    (Get-BranchNameIssue -Branch $null)   'null name -> 0'
+Assert-Equal 2225 (Get-BranchNameIssue -Branch 'fix/2225-branch-name-resolves-gate') 'fix/<n>-<slug> -> <n>'
+Assert-Equal 2183 (Get-BranchNameIssue -Branch 'fix/2183-reserved-root-md-seam-row') 'the MEASURED branch (PR #2211) -> 2183'
+Assert-Equal 81   (Get-BranchNameIssue -Branch 'feat/81-shared-new-branch')          'feat/ reads the same'
+Assert-Equal 410  (Get-BranchNameIssue -Branch 'docs/410-entry-wording')             'docs/ reads the same'
+Assert-Equal 2225 (Get-BranchNameIssue -Branch 'fix/2225')                           'a bare number with no slug still counts'
+# A slug that merely BEGINS with a word, and the two shapes that carry no number at all.
+Assert-Equal 0    (Get-BranchNameIssue -Branch 'fix/reserved-root-md-seam-row')      'no leading number -> 0'
+Assert-Equal 0    (Get-BranchNameIssue -Branch 'feat/v2-release-notes')              'a v-prefixed token is not an issue number'
+Assert-Equal 0    (Get-BranchNameIssue -Branch 'main')                               'no slash -> 0, never a prefix read as a number'
+Assert-Equal 0    (Get-BranchNameIssue -Branch '2225-no-prefix')                     'no slash -> 0 even when the name opens with digits'
+# The digits must be the WHOLE first slug segment, so a version or a date embedded in a word is not
+# mistaken for an issue. The error direction is stated in the function: a surplus number costs one
+# -NoResolves, a missed one is the silent-open-issue bug the gate exists to prevent.
+Assert-Equal 0    (Get-BranchNameIssue -Branch 'fix/v4-2183-seam')                   'digits not at the start of the slug -> 0'
+Assert-Equal 2183 (Get-BranchNameIssue -Branch 'fix/2183-4-seam-rows')               'only the FIRST segment is the issue number'
+# The nested-prefix shape: everything up to the FIRST slash is the prefix, so a second slash is slug.
+Assert-Equal 0    (Get-BranchNameIssue -Branch 'fix/dave/2225-thing')                'a number after a SECOND slash is not the branch issue'
+# The stated cost, asserted rather than left implicit: a slug opening with a digit reports it.
+Assert-Equal 5    (Get-BranchNameIssue -Branch 'fix/5-minute-timeout')               'the stated false positive: a slug opening with a number reports it'
+# Zero and a leading-zero form: neither may become "issue 0", which ConvertTo-IssueNumberList also refuses.
+Assert-Equal 0    (Get-BranchNameIssue -Branch 'fix/0-nothing')                      'issue 0 is not an issue'
+
+# AGREEMENT WITH THE OTHER READER OF THIS CONVENTION. claim-issue-lib.ps1's Get-BranchSlugWords strips
+# '^[0-9]+-' off a branch slug for exactly the same reason -- the leading number is the issue, not a
+# word about the subject. The two are in different libs and neither loads the other, so what is pinned
+# here is that they cannot disagree about what a branch name's leading number is.
+$claimLib = Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1'
+if (Test-Path -LiteralPath $claimLib) {
+    . $claimLib
+    foreach ($b in @('fix/2225-branch-name-resolves-gate', 'fix/2183-reserved-root-md-seam-row', 'feat/81-shared-new-branch')) {
+        $slugWords = @(Get-BranchSlugWords -Branch $b)
+        $n = Get-BranchNameIssue -Branch $b
+        Assert-True ($n -gt 0) "agreement: '$b' declares an issue number"
+        Assert-True ($slugWords -notcontains "$n") "agreement: '$b' -- the number this reads is the one Get-BranchSlugWords strips"
+    }
+    # And the mirror: a branch with no leading number loses no word to that strip.
+    Assert-Equal 0 (Get-BranchNameIssue -Branch 'fix/reserved-root-md-seam-row') 'agreement: no number to read'
+    Assert-True (@(Get-BranchSlugWords -Branch 'fix/reserved-root-md-seam-row') -contains 'reserved') 'agreement: and no word was stripped from it'
+}
 Write-Host "Remove-MarkdownCodeSpans" -ForegroundColor Cyan
 Assert-Equal '' (Remove-MarkdownCodeSpans -Text '')   'empty text -> empty'
 Assert-True ((Remove-MarkdownCodeSpans -Text 'a `#332` b') -notmatch '#332') 'inline span blanked'
@@ -3304,6 +3351,32 @@ Assert-True ($exemptText -like '*if (@($exemptSeam.Matchers).Count -gt 0 -and $c
 # own refusal recommends, on exactly the resumed branch where the keyword is already live.
 Assert-True ($exemptText -like '*$closingAtMerge += @(Get-ClosedIssueNumbers -Text $existingPr.body)*') 'the open PR''s own closing keywords are folded into the judged set'
 Assert-True ($exemptText -like '*ALREADY CARRIES A CLOSING KEYWORD, and -NoResolves does not remove one*') 'and the refusal says so, because on that branch -NoResolves alone is not the repair'
+Write-Host ""
+Write-Host "open-pr.ps1 -- the branch name reaches the resolves gate (issue #2225)" -ForegroundColor Cyan
+# The asserts above prove Get-BranchNameIssue reads a branch name. This is the half that was actually
+# broken and the half nothing else can see: the function existing while the gate never calls it is
+# byte-identical, from the outside, to the defect #2225 measured -- a branch cut for an issue merging
+# without closing it, silently, with no backstop after the fact. Read from the source for the same
+# reason the #919 ordering asserts above are, and region-scoped for the reason #2091 gives.
+$idxBranchIssue = Get-OpenPrIdx -Needle 'Get-BranchNameIssue -Branch $branch' -In 'Resolves gate' -Code
+Assert-True ($idxBranchIssue -ge 0) 'the resolves gate asks the branch name what issue it declares'
+$idxMentions = Get-OpenPrIdx -Needle '$mentions = @(@($docMentions) + @($branchOnly) | Sort-Object -Unique)' -In 'Resolves gate' -Code
+Assert-True ($idxMentions -gt $idxBranchIssue) 'and folds that answer into $mentions, which is what the decision table and the already-done check both read'
+
+# THE FOLD IS INTO $mentions AND NOT INTO $resolveList, which is the whole of why this repair does not
+# change anybody's PR without asking. $mentions only ever makes the gate ASK; $resolveList is the
+# answer, and writing the branch's number there would close an issue nobody declared -- on every
+# consumer of this mirrored script at once. The escape valve stays exactly where it was.
+$idxDecision = Get-OpenPrIdx -Needle 'Get-ResolvesDecision -Resolves $resolveList' -In 'Resolves gate' -Code
+Assert-True ($idxDecision -gt $idxMentions) 'the decision is taken after the fold, on the unchanged table'
+Assert-True (($openPrText -notmatch '(?m)^\s*\$resolveList\s*\+?=.*Get-BranchNameIssue')) 'the branch''s number is never folded into -Resolves: it asks the question, it does not answer it'
+
+# AND THE REFUSAL SAYS WHERE THE NUMBER CAME FROM. A gate that reports a "mention" the author cannot
+# find in the document sends them hunting through a file that never named it -- which is the one way
+# this repair could make the gate harder to obey than it was before.
+Assert-True ($openPrText -like "*comes from this branch's NAME, not from its document*") 'the refusal names the branch name as the source'
+Assert-True ($openPrText -like '*$branchOnly = @(@($branchIssue) | Where-Object { $_ -gt 0 -and $docMentions -notcontains $_ })*') 'and it only says so for a number the document really does not carry'
+
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1
