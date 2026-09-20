@@ -64,6 +64,15 @@ current:
       a pin that the pre-#1255 shared name is still exempt.
 - [x] The new block fails against the unrepaired check and passes against the repaired one -- run both
       ways rather than only the second, since a test that never saw the bug is a test of nothing.
+      Measured: `OK: all 178 asserts passed` with the predicate, `[FAIL]` on the first 20c assert without it.
+- [x] Review pass -- Victor, Edith, Sebastian and Nolan in parallel on the diff.
+- [x] Nolan: collapse the block's two gate runs into one. This suite is the test gate's critical path and
+      each `Invoke-Integrity` spawns the whole gate, so a scenario per fact cost the required check a second
+      spawn for no added proof. Every assert is anchored on its own path, which is what lets three facts
+      share one report -- and is stricter than the blanket absence check it replaced.
+- [x] Victor: create the legacy name's parent directory in the block itself rather than borrowing the one
+      check 20 leaves behind, so a reordering fails as a readable assert and not as a raw
+      `DirectoryNotFoundException`.
 - [x] Lint gate + all suites green.
 
 ### DEPLOY: fix/2180-entry-shape-per-branch-exclusion
