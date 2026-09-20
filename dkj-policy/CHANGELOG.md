@@ -43,7 +43,59 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 33 minor entries** <!-- pending-tally -->
+**18 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2135-persona-filenames · 20260920-084123
+
+The four persona files -- Chris, Bianca, Derek and Rendall -- become `specialist-NN-NN-persona.md`,
+closing the #2128 rename round. **No reader moves with them.** What makes this the written name is a
+single row: `Get-SpecialistFileShapes`'s Persona entry, where `Current` takes the `specialist-` prefix
+and `AlsoRead` keeps the bare spelling a consumer's cache may still be carrying. Every site that judges
+or constructs the name -- lint check 3c, check 6b's persona-backed-manual construction,
+`check-consumer-drift.ps1`, `check-roster-sync.ps1` and its mirror, and the `specialists-init`
+bootstrap that both writes the orchestrator's `@`-import and probes the clone for it -- already reads
+through that table, so a file left on the old name is still enumerated and still refused, because the
+filter list derives from the same row.
+
+That is not how this branch was originally written. It was cut before step A (#2130) and edited each
+reader by hand; the merge that brought A through D in discarded those anchors in favour of main's
+shape-driven ones. The round therefore ends the way step C ended, which is the property the table was
+built for.
+
+Two sites the issue named turned out not to be this step's, both verified against the tree rather than
+taken from the report. `teardown.ps1`'s `@`-import recogniser matches on the **suffix** `-persona.md`,
+which the prefixed name still carries, so the stated reason for changing it could not have held.
+`bootstrap.ps1:856` and `:872` are lens literals belonging to #2133.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A consumer's `SPECIALISTS.md` carries the orchestrator's body as a hardcoded absolute `@`-import into
+the marketplace clone -- a clone that tracks `main` and advances on `claude plugin marketplace update`,
+with no release, no version bump and no `plugin update` behind it. So this merge opens a window in which
+any consumer that refreshes its clone before that line is edited loses Chris's entire persona body,
+30,267 B of it, **in complete silence**: the rest of `CLAUDE.md` loads, the raw `@`-line stays in
+context as inert text, and nothing is reported on stdout, on stderr or under `--debug`.
+
+**This repo closed that window on itself rather than only documenting it for others.** Its
+`SPECIALISTS.md` now carries both import lines, new one first -- the recipe #2134 published in
+`INSTALL.md`, applied to the first of the six registered consumers. It was not a precaution: with the
+single-line edit the budget gate reported the dead import and a 30,245 B shrink on this very checkout,
+which is the measurement rather than the theory. The remaining five consumers take the same recipe,
+and the old line comes out on both sides once the clone is refreshed.
+
+**Score:** 5
+
+#### Pull Request
+
+The four persona files take the specialist- prefix, and the Persona row is what carries it
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2169](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2169)
+
+---
 
 ### DEPLOY: fix/2167-lens-row-flip · 20260920-021714
 
