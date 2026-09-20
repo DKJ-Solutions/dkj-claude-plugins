@@ -39,23 +39,67 @@
 
 ### PLAN
 
-Repair the duplicated section heading in Sylvester's lens (#2182) and the claim in Derek's lens that both gates run under the job id lint-en-tests (#2185).
+Two accuracy defects found by the parallel review pass on `docs/2179-folder-docs-into-lenses`, both
+shipped on `main` by the #2179 migration, both invisible to every gate.
+
+- **#2182** -- `specialist-05-15-lens.md` carries two consecutive `###` headings. Commit `17461190`
+  inserted the reworded one where the blank line was instead of replacing the old one, so the first
+  section is empty and the paragraph above abuts a heading with no blank line between them.
+- **#2185** -- `specialist-05-05-lens.md` says both gates run *"under the job id `lint-en-tests`"*.
+  Since the three-way split they run under `lint` and `suites`; `lint-en-tests` is the summary job.
+
+#### The one place this branch departs from what the issues proposed
+
+**#2182 proposed deleting the new heading and keeping `the two that fire beside them`. This branch
+keeps the other one.** The diff of `17461190` marks `the ones that fire beside them` as the INSERTED
+line and `the two ...` as the line it meant to replace, and that commit's own subject is the retiring
+of stale counts (*"the eight `Gate N` headings lost their ordinals, and the hard-stated count went with
+them"*). `CLAUDE.md` states the principle outright: *"neither count is stated here any more,
+deliberately: both went stale as gates were added, and a wrong number reads as authority."*
+
+`two` is accurate today -- the label gate and the always-on budget gate are the two of the ten
+subsections that read nothing on the branch document -- and it is also the half that goes stale the
+next time a gate is added beside them. So the de-counted wording survives and the counted one goes.
+The report's symptom stands exactly as filed; only its choice of survivor changed.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `specialist-05-15-lens.md` -- delete the duplicated `### The gates on the branch document, and
+      the two that fire beside them`, restore the blank line above the surviving heading (#2182)
+- [x] `specialist-05-05-lens.md` -- rewrite the CI passage: the gates run under `lint` and `suites`,
+      `lint-en-tests` is the summary job over those five legs, and a red `lint-en-tests` is never where
+      the failure is (#2185)
+- [x] Check the tree for the same claim elsewhere -- `grep 'under the job id'` finds only this one; the
+      other two hits are `claude-review`, a different workflow, and both are correct
+- [x] Check the tree for links into either anchor -- `grep 'fire-beside-them'` finds none, so no deep
+      link resolved to the empty section and none breaks with its removal
 
 ### TEST
 
+- [x] Lint gate + all suites, via `open-pr.ps1` (its own step 1)
+- [x] Both repaired passages re-read against their subject: `ci.yml`'s job ids (`lint:` 119,
+      `suites:` 130 with a four-shard matrix, `lint-en-tests:` 254 with `needs: [lint, suites]`), and
+      the ten `####` subsections under the surviving `###` heading
+
 ### DEPLOY: docs/2182-2185-lens-heading-and-ci-job
 
-**Score:**
+Two accuracy repairs in the lenses the #2179 migration touched, neither of which any gate can see.
+Sylvester's lens shipped a duplicated `###` heading with an empty section behind it; Derek's lens sent
+a session debugging a red check to a job that runs no PowerShell and never touches the repo. The second
+is the one that cost something: it is the passage a session reads to understand why a merge is blocked,
+and it named the summary job where it should have named the leg. Check 4 of the lint gate validates
+anchor existence, not heading structure, and nothing at all reads prose against `ci.yml`, so both were
+green on `main`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo lens is this repo's own file and travels in no plugin payload, so nothing here reaches a
+consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
 Two accuracy repairs in the lenses the #2179 migration touched
-

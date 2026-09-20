@@ -351,12 +351,16 @@ bump, a tag, repo settings, or publishing beyond the normal PR flow) — are sta
 [Opening a pull request](#opening-a-pull-request) above and in
 [the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr).
 
-**The merge waits on one CI check and only one.** Both gates run as CI in
-[`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — on every PR and every push to `main` —
-under the job id **`lint-en-tests`**, which is the exact name the `main-ci-gate` ruleset requires as a
-passing status check. A merge attempted before it goes green returns `BLOCKED`. **That job id is
-deliberately not English**, and renaming it would silently break the ruleset binding: every future PR
-would sit unmergeable, waiting on a check that no longer exists. See
+**The merge waits on one CI check and only one — and it is not the job either gate runs in.** Both gates
+run as CI in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — on every PR and every push
+to `main` — the lint gate under the job id `lint`, the suites under `suites`, a four-shard matrix.
+**`lint-en-tests`** is a *summary* job over those five legs: `needs: [lint, suites]`, no PowerShell, it
+never touches the repo, and it refuses anything short of `success` from both. It carries the required
+name because `main-ci-gate` requires exactly one passing status check while the work happens in five, and
+a merge attempted before it goes green returns `BLOCKED`. **So a red `lint-en-tests` is never where the
+failure is** — read the leg that went red; `ci.yml`'s own banner names the ways that can happen. **That
+job id is deliberately not English**, and renaming it would silently break the ruleset binding: every
+future PR would sit unmergeable, waiting on a check that no longer exists. See
 [`.claude/rules/language-layers.md`](../../rules/language-layers.md).
 
 **And nobody sits through that check** (Dave,

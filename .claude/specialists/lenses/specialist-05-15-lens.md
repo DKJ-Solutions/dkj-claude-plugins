@@ -3292,8 +3292,8 @@ beside `#### Pull Request`. A repo that has stated *no* audience tier gets the o
 what you will see here.
 
 **In each tier, the reason goes ABOVE the `**Score:**` line** — anything below it is discarded.
+
 ### The gates on the branch document, and the ones that fire beside them
-### The gates on the branch document, and the two that fire beside them
 
 **This was `dkj-policy/CONTRIBUTING.md`'s PULL REQUEST step until #2179 retired that page**, on the same
 reasoning as the section above
