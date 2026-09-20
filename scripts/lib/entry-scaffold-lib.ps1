@@ -8013,6 +8013,113 @@ function Get-RetiredBranchDocNames {
     return @($names | Sort-Object -Property @{ Expression = { $_.Name.Length }; Descending = $true }, Name)
 }
 
+function Get-ConsumerLensPaths {
+    <#
+        THIS REPO'S SPECIALIST LENSES, repo-relative and self-deduplicated -- the ASSEMBLY two callers
+        built independently until issue #2199 promoted it to one function: check-policy-drift.ps1's
+        RANK 2 (#2184) and Get-ConsumerProseDocuments's kind 3 below (#2188). Both needed "every lens
+        path this repo's enabled plugins might carry" and, until now, each walked the seam dir plus the
+        per-plugin candidates, applied the same Test-PluginNameSlug guard, the same
+        Get-PathRelativeToDirectory conversion and the same '../' escape rejection, on its own.
+        DISCOVERY WAS ALREADY SHARED (Get-SeamPaths, Get-LensDirCandidates, Get-SpecialistFiles); this
+        is the assembly around them getting the same treatment.
+
+        WHY IT LIVES HERE AND NOT IN check-report-lib.ps1, WHICH #2199 PROPOSED ("where the three
+        primitives already live"). Three of the four primitives this assembly needs -- Get-SeamPaths,
+        Get-LensDirCandidates, Get-SpecialistFiles -- are indeed there; the FOURTH, Get-PathRelativeToDirectory,
+        is HERE, in entry-scaffold-lib.ps1. Neither lib dot-sources the other: check-report-lib.ps1's own
+        unconditional load is repo-root-lib.ps1 alone, and this file's four unconditional loads
+        (ref-print-lib, command-probe-lib, document-newline-lib, fetch-attempt-lib) are all dependency-free
+        leaves. So every reach from one file's functions into the other's runs through the guarded
+        Test-FunctionDefined pattern rather than a real dependency -- and THAT PATTERN ALREADY RUNS IN ONE
+        DIRECTION ONLY, from here into check-report-lib.ps1: the kind-3 walk this function replaces has
+        probed Get-SpecialistFiles, Get-SeamPaths, Get-LensDirCandidates, Get-EnabledPlugins and
+        Test-PluginNameSlug from inside THIS file since #2188, and nothing in check-report-lib.ps1 has ever
+        probed a symbol defined here. Landing the assembly in check-report-lib.ps1 would need it to reach
+        back for Get-PathRelativeToDirectory -- the first probe ever pointed the other way, turning one
+        one-directional soft dependency into a cycle between two files that both call themselves libs.
+        Landing it HERE keeps the existing direction and adds nothing new: this is one more
+        entry-scaffold-lib function softly depending on check-report-lib.ps1's discovery primitives,
+        exactly like its neighbour below has all along. Both call sites already dot-source both libs
+        (check-policy-drift.ps1 and check-consumer-prose.ps1), so either home would have worked AT THE
+        CALL SITES -- the question this docstring answers is which home avoids inverting a lib
+        dependency, not which one compiles.
+
+        PLUGIN NAMES AND EXCLUSION BOTH STAY AT THE CALL SITE, DELIBERATELY (#2199) -- they are the two
+        real differences between the two callers and flattening either would lose it. The two callers
+        derive -PluginNames differently: check-policy-drift.ps1 already has the enabled ids in RANK-1
+        order (dkj-policy first) and passes them straight through; Get-ConsumerProseDocuments derives its
+        own via Get-EnabledPlugins, wrapped in try/catch so a malformed settings layer cannot take a
+        SessionStart hook down. And they mean different things by "already accounted for": the report
+        excludes an explicit list a different rank already printed ($consumerRels); the corpus excludes
+        the running $seen set built from kinds 1 and 2 so far. A shared -Exclude parameter would flatten
+        two different questions into one parameter, so this function takes neither: it returns the full
+        de-duplicated lens list for the -PluginNames it is handed, and each caller filters that list its
+        own way, afterwards.
+
+        SELF-DE-DUPLICATED, NOT EXCLUDED. Get-SpecialistFiles already de-duplicates by FULL PATH across
+        every directory handed to it, so an overlap between the seam dir and a per-plugin candidate
+        directory costs nothing there; the HashSet below catches the one case that survives that: two
+        different plugin names whose candidate directories both resolve to the SAME repo-relative path
+        (the seam directory answer, reached again under a second plugin name). A duplicated path is a
+        duplicated FINDING for whichever caller does not filter it out again itself.
+
+        GUARDED ON EVERY SEAM FUNCTION IT CALLS, same as both callers guarded before this promotion: a
+        mirror built before one of Get-SeamPaths / Get-LensDirCandidates / Get-SpecialistFiles / Test-PluginNameSlug
+        travelled gets @() rather than an error, so check-policy-drift.ps1 degrades to the folder-only
+        RANK 2 and Get-ConsumerProseDocuments degrades to its two-kind corpus -- exactly the two
+        degradations both callers already documented on their own side.
+
+        NOT Resolve-Path AND A SUBSTRING, which is what both copies of this used to do until the review
+        that caught it. Handed a root in its 8.3 short form, Resolve-Path returns that same short form
+        while Get-ChildItem hands back the LONG FullName -- so the two spellings diverge, every
+        StartsWith fails, and the walk silently returns nothing. Measured on a scratch tree,
+        September 20, 2026: 'C:\...\Temp\PROBE-~2' against 'C:\...\Temp\probe-28e06bbc\...', StartsWith
+        False -- that is #2184's own silent blindness coming back through a second door, the class
+        worktree-lib.ps1 already documents. Get-PathRelativeToDirectory is pure
+        ([System.IO.Path]::GetFullPath, no filesystem query) and normalizes both sides the same way, so
+        no spelling can split them. Pinned by the suite.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [string[]]$PluginNames = @()
+    )
+
+    if (-not (Test-FunctionDefined 'Get-SpecialistFiles')) { return @() }
+
+    $dirs = New-Object System.Collections.Generic.List[string]
+    if (Test-FunctionDefined 'Get-SeamPaths') {
+        $dirs.Add([string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir) | Out-Null
+    }
+    if (Test-FunctionDefined 'Get-LensDirCandidates') {
+        foreach ($name in $PluginNames) {
+            # Slug-guarded before it becomes a path segment, exactly as every other walk in this tree
+            # guards its own: a plugin name is read out of a settings file, which is not this repo's text.
+            if (-not $name) { continue }
+            if ((Test-FunctionDefined 'Test-PluginNameSlug') -and -not (Test-PluginNameSlug -Name $name)) { continue }
+            foreach ($dir in @(Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $name)) {
+                if ($dir) { $dirs.Add([string]$dir) | Out-Null }
+            }
+        }
+    }
+    if ($dirs.Count -eq 0) { return @() }
+
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $rels = New-Object System.Collections.Generic.List[string]
+    # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so the
+    # candidate list overlapping between plugins costs nothing.
+    foreach ($file in @(Get-SpecialistFiles -Path @($dirs) -Kind Lens)) {
+        $rel = Get-PathRelativeToDirectory -FullPath ([string]$file.FullName) -Directory $RepoRoot
+        if (-not $rel) { continue }
+        # '' is another drive and a leading '../' is a path BESIDE the repo rather than under it. Neither
+        # is this repo's prose, and neither may be printed as though it were.
+        if ($rel.StartsWith('../')) { continue }
+        if (-not $seen.Add($rel)) { continue }
+        $rels.Add($rel) | Out-Null
+    }
+    return $rels.ToArray()
+}
+
 function Get-ConsumerProseDocuments {
     <#
         The repo-relative paths of a CONSUMER's own law-bearing prose -- the #1380 corpus, as an
@@ -8148,61 +8255,40 @@ function Get-ConsumerProseDocuments {
         if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
     }
 
-    # KIND 3: THE REPO LENSES (#2188). Only with a root to walk, and only where the discovery seams are
-    # loaded -- check-report-lib.ps1 is not a dependency of this lib, so a caller that has not loaded it
-    # gets the two-kind corpus rather than an error. Same guarded degradation as the rest of this file.
+    # KIND 3: THE REPO LENSES (#2188). Only with a root to walk; the ASSEMBLY itself -- the seam dir, the
+    # per-plugin candidates, the slug guard, the Get-PathRelativeToDirectory conversion, the '../' escape
+    # rejection -- is Get-ConsumerLensPaths now (#2199, promoted out of a second copy that used to sit
+    # here). It is guarded from inside itself (returns @() where check-report-lib.ps1's discovery seams
+    # have not travelled), so a caller too old to have them still gets the two-kind corpus rather than an
+    # error -- the same degradation this file uses everywhere.
     #
-    # THE LOCATION IS NOT DECIDED HERE, DELIBERATELY. Get-LensDirCandidates already owns the four layouts a
-    # consumer's lenses may sit in (the #221 seam dir, the pre-seam per-plugin tree, the pre-#179 family
-    # spelling, legacy .claude/extensions/) and Get-SpecialistFiles owns both filename spellings (#2130). A
-    # rule written here would be a second answer to a settled question -- the same reasoning that keeps the
-    # always-on walk in measure-context-lib.ps1 and reaches this function as -Documents.
+    # THE LOCATION IS NOT DECIDED HERE, DELIBERATELY -- see Get-ConsumerLensPaths for the four layouts a
+    # consumer's lenses may sit in and why they are not re-decided at either call site.
     #
-    # A LENS THE ALWAYS-ON CLOSURE ALREADY CARRIES IS NOT ADDED TWICE: $seen holds kinds 1 and 2 already, so
-    # the orchestrator's '@'-imported lens stays the single row it is today. That matters beyond tidiness --
-    # a duplicated path is a duplicated FINDING, reported twice for one line to repair.
-    if ($RepoRoot -and (Test-FunctionDefined 'Get-SpecialistFiles')) {
-        $lensDirs = New-Object System.Collections.Generic.List[string]
-
-        if (Test-FunctionDefined 'Get-SeamPaths') {
-            $seamDir = [string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir
-            if ($seamDir) { $lensDirs.Add($seamDir) | Out-Null }
-        }
-
-        if ((Test-FunctionDefined 'Get-LensDirCandidates') -and (Test-FunctionDefined 'Get-EnabledPlugins')) {
-            # Wrapped: Get-EnabledPlugins reads the whole settings chain, and a malformed layer must not
-            # take a SessionStart hook down over a corpus half that is additive by construction.
+    # PLUGIN NAMES ARE DERIVED HERE, NOT INSIDE THE SHARED FUNCTION (#2199): this caller's own list, via
+    # Get-EnabledPlugins, wrapped in try/catch so a malformed settings layer cannot take a SessionStart
+    # hook down over a corpus half that is additive by construction. check-policy-drift.ps1 derives its
+    # own list a different way (the ids it already has, in RANK-1 order) -- see Get-ConsumerLensPaths for
+    # why that difference stays at the call site rather than becoming a parameter of the shared function.
+    #
+    # A LENS THE ALWAYS-ON CLOSURE ALREADY CARRIES IS NOT ADDED TWICE: $seen holds kinds 1 and 2 already,
+    # so the orchestrator's '@'-imported lens stays the single row it is today. That matters beyond
+    # tidiness -- a duplicated path is a duplicated FINDING, reported twice for one line to repair. This
+    # is this caller's own filter, applied to what Get-ConsumerLensPaths hands back -- it takes no
+    # -Exclude of its own, for the same reason.
+    if ($RepoRoot) {
+        $pluginNames = New-Object System.Collections.Generic.List[string]
+        if (Test-FunctionDefined 'Get-EnabledPlugins') {
             $enabled = @()
             try { $enabled = @((Get-EnabledPlugins -RepoRoot $RepoRoot).Ids) } catch { $enabled = @() }
             foreach ($id in $enabled) {
                 if (-not $id) { continue }
                 $pluginName = ([string]$id -split '@', 2)[0]
-                if (-not $pluginName) { continue }
-                # Slug-guarded before it becomes a path segment, as every other walk in this tree guards its
-                # own: an id is read out of a settings file, which is not this repo's text.
-                if ((Test-FunctionDefined 'Test-PluginNameSlug') -and -not (Test-PluginNameSlug -Name $pluginName)) { continue }
-                foreach ($dir in @(Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $pluginName)) {
-                    if ($dir) { $lensDirs.Add([string]$dir) | Out-Null }
-                }
+                if ($pluginName) { $pluginNames.Add($pluginName) | Out-Null }
             }
         }
-
-        if ($lensDirs.Count -gt 0) {
-            # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so
-            # candidate lists overlapping between plugins cost nothing.
-            foreach ($file in @(Get-SpecialistFiles -Path @($lensDirs) -Kind Lens)) {
-                # NOT Resolve-Path AND A SUBSTRING. Handed a root in its 8.3 short form, Resolve-Path returns
-                # that short form while Get-ChildItem hands back the LONG FullName, so the two spellings
-                # diverge and every StartsWith fails -- silently returning nothing, which is #2184's own
-                # blindness coming back through a second door. Get-PathRelativeToDirectory is pure and
-                # normalizes both sides the same way.
-                $rel = Get-PathRelativeToDirectory -FullPath ([string]$file.FullName) -Directory $RepoRoot
-                if (-not $rel) { continue }
-                # A leading '../' is a path BESIDE the repo rather than under it, and '' is another drive.
-                # Neither is this repo's prose and neither may be judged as though it were.
-                if ($rel.StartsWith('../')) { continue }
-                if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
-            }
+        foreach ($rel in @(Get-ConsumerLensPaths -RepoRoot $RepoRoot -PluginNames @($pluginNames))) {
+            if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
         }
     }
 
