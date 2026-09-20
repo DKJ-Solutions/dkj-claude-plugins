@@ -458,8 +458,10 @@ function Get-AlwaysOnDocuments {
             it is loading and is not. Skipping it would report a smaller, healthier-looking path.
 
         Each row carries Hop, ImportedBy and Source ('tree' or 'external'), plus the tree counterpart and
-        its size where the loaded copy came from a marketplace clone -- the queued cost this repo's own
-        rule requires be named rather than smoothed away. It also carries CrlfLines and LfBytes: Bytes is
+        its size -- on disk as TreeBytes and stored-LF as TreeLfBytes -- where the loaded copy came from a
+        marketplace clone. That is the queued cost this repo's own rule requires be named rather than
+        smoothed away, and it is what the budget ratchet judges in place of the installed copy, which is
+        why it needs both forms. It also carries CrlfLines and LfBytes: Bytes is
         the working copy on disk (CRLF and all), LfBytes is what it would be stored LF, and the caller
         names the difference wherever it is non-zero -- inbound issue #1162.
     #>
@@ -493,9 +495,20 @@ function Get-AlwaysOnDocuments {
         $inTree = $item.Path.StartsWith($repo, [System.StringComparison]::OrdinalIgnoreCase)
         $counterpart = $null
         $counterpartBytes = $null
+        $counterpartLfBytes = $null
         if ($exists -and -not $inTree) {
             $counterpart = Get-TreeCounterpart -Path $item.Path -RepoRoot $repo
-            if ($counterpart) { $counterpartBytes = (Get-Item -LiteralPath $counterpart).Length }
+            if ($counterpart) {
+                $counterpartBytes = (Get-Item -LiteralPath $counterpart).Length
+                # THE COUNTERPART GETS THE LF TREATMENT TOO, and not for symmetry. TreeBytes answers
+                # measure-always-on's question -- "how much is queued for the next plugin update" -- where
+                # an on-disk figure either side is fine because both are read the same way. The BUDGET
+                # RATCHET compares this figure against a recorded one, and that comparison is the exact
+                # place a CRLF working copy differs from a CI checkout by one byte per line (inbound
+                # #1162). A counterpart handed over in on-disk bytes would reintroduce that drift in the
+                # one consumer that most needs it gone. See always-on-budget-lib.ps1's substitution.
+                $counterpartLfBytes = $counterpartBytes - [int64](Get-CrlfPairCount -Path $counterpart)
+            }
         }
 
         # Computed before the literal, not inside it: PowerShell 5.1 does not accept an `if` as an
@@ -521,6 +534,7 @@ function Get-AlwaysOnDocuments {
             Source          = $sourceKind
             TreeCounterpart = $counterpart
             TreeBytes       = $counterpartBytes
+            TreeLfBytes     = $counterpartLfBytes
         })
 
         if (-not $exists) { continue }
