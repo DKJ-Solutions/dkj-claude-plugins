@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 52 minor entries** <!-- pending-tally -->
+**28 / 53 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2183-reserved-root-md-seam-row · 20260920-161516
+
+The seam-answer table in the system-administration lens now states the permanent-root-docs list the way
+the code holds it. It carried, since #2179 moved it into the lens from the now-deleted
+`dkj-policy/README.md`, a list of six names and a note that `CHANGELOG` and `CONTRIBUTING` "came off" it
+on August 27, 2026. The code says the opposite: `Get-ReservedRootMd` still lists all eight names,
+because the portable `cut-release` reads that list to decide which root `.md` files are permanent
+documents rather than unfolded entries, and taking the two names off the same day made it refuse a
+release in any repo that keeps its changelog at the root, over a changelog nobody had failed to fold. The row now
+lists every name, says the two left the root and stayed on the list because the list names a permanent
+document rather than one this repo holds today, and points at the code comment that carries the
+reasoning and at `ReservedNames` in `Get-BranchFilePaths`, which records the same rule for the
+workflow folder's own pages. Nothing else in the table, and no script, changed.
+
+This prevents a failure that has not happened yet: with `dkj-policy/README.md` deleted, that row is the
+only prose description of this seam outside the code, so someone reconciling the code to it would take the two names off the
+list and reproduce the cut refusal of August 27.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- an internal lens row, which no subscriber of the service reads or has anything to do differently
+because of.
+
+**Score:** N/A
+
+#### Pull Request
+
+The seam table states Get-ReservedRootMd as the code holds it
+
+[PR #2211](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2211)
+
+---
 
 ### DEPLOY: fix/2204-lensdircandidates-enumeration-guard · 20260920-155808
 
