@@ -1487,8 +1487,8 @@ function Get-SpecialistFileShapes {
        AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. For a kind the series
        has not reached yet it holds the FUTURE name while Current holds the past one; after the step that
        renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES ARE LIVE IN THIS
-       TABLE from step B on -- Subagent has swapped (#2131) and Manual with it (#2132), the other two
-       have not -- so the field's direction is not a property of the table at all, only of each row's
+       TABLE from step B on -- Subagent (#2131), Manual (#2132) and Lens (#2133) have swapped, Persona
+       has not -- so the field's direction is not a property of the table at all, only of each row's
        place in the series. A field called 'Legacy' would be a lie for exactly the window this layer
        exists to cover, and 'Legacy' is what a later reader would reach for when deciding whether a
        candidate may be dropped.
@@ -1498,6 +1498,16 @@ function Get-SpecialistFileShapes {
        whose AlsoRead is empty is a kind with one spelling, which is where every kind ends up once the
        last cache carrying the old one is gone -- and that pruning is a decision with a date on it, not
        a tidy-up to fold into the rename.
+
+       THE TWO HALVES OF A STEP ARE SEPARATE ACTS AND NOTHING PAIRS THEM -- the hazard this arrangement
+       creates, and the one to read before the next step. AlsoRead keeps every READER resolving both
+       spellings, so a step that renames the files and forgets the row leaves the tree entirely green --
+       on #2165 the lint gate, all 118 suites and CI all passed -- while every WRITER goes on composing
+       the retired name into a fresh consumer, which is the one thing this table exists to decide. Two
+       of the four steps shipped that way and were repaired by hand afterwards: the Subagent row
+       (#2131), and the Lens row, whose files moved in #2133 and whose row flipped only in #2167. A
+       guard holding each row's Current against the names actually on disk is proposed in #2168; until
+       it exists, the pairing is carried by this paragraph and by whoever reads it.
 
        Stem is the tail after the id, WITHOUT the leading hyphen and WITHOUT the extension; Prefix is
        everything before the id. A name is therefore '<Prefix><g>-<id>-<Stem>.md' and nothing else -- the
@@ -1512,8 +1522,8 @@ function Get-SpecialistFileShapes {
                       AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'persona' }) }
         Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
                       AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
-        Lens     = @{ Current = @{ Prefix = ''; Stem = 'extension' }
-                      AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'lens' }) }
+        Lens     = @{ Current = @{ Prefix = 'specialist-'; Stem = 'lens' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'extension' }) }
     }
     $entry = $table[$Kind]
     $current = [pscustomobject]@{ Prefix = [string]$entry.Current.Prefix; Stem = [string]$entry.Current.Stem }
