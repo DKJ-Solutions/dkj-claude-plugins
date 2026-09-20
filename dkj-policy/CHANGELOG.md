@@ -43,7 +43,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 36 minor entries** <!-- pending-tally -->
+**18 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2173-lint-gate-progress-record · 20260920-095105
+
+The statusline no longer goes blank while a ship runs its lint gate. The lint gate is the step that runs
+first, and on the measured ship (PR #2169) it took 78 seconds while publishing nothing, so a backgrounded
+ship showed only its context line for exactly the stretch a reader is watching for -- and where the test
+suites were already proved for the tree, the one long publisher that did exist never fired either, leaving
+the whole pre-CI phase silent. `Invoke-WorkflowGates` now publishes a `lint gate (integrity check)` record
+around its child call and removes it when the child returns, pass or fail.
+
+It is an elapsed readout with no bar, and that is a decision rather than a shortfall: the integrity check
+has no total number of checks to publish, and a bar over its very uneven checks would sit still for most of
+the run. It publishes only at the top level of gate nesting, so the many suites that drive this function
+over a fixture lint stay silent instead of repainting the test gate's own bar. `cut-release.ps1`'s separate
+lint call is not covered.
+
+The failure it prevents, named: a maintainer backgrounding a ship, seeing a blank statusline for ~90
+seconds, and reasonably concluding the run had stalled.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- nothing here needs a consumer to act. The progress bar and its statusline adoption are not in a
+released version yet, so no consumer has the bar turned on to find this step missing from it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The lint gate publishes a progress record, so the statusline is no longer blank for the first part of a ship
+
+Plugins: dkj-policy
+
+[PR #2177](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2177)
+
+---
 
 ### DEPLOY: fix/2172-seam-lib-retired-name · 20260920-093447
 
