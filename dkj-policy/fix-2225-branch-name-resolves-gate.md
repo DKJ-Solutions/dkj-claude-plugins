@@ -39,19 +39,87 @@
 
 ### PLAN
 
+#### The reported reason, verified before anything was built
+
+The report's explanation is an inference by somebody measuring from outside, so it was checked against
+the tree before the repair was designed -- this repo's own rule, and the one that decides whether the
+proposed repair is the right one at all. All four halves hold:
+
+- `fix/2183-reserved-root-md-seam-row`'s document (`git show d0da0bb1:dkj-policy/fix-2183-...md`) names
+  2183 in exactly two places, `## fix/2183-...` and `### DEPLOY: fix/2183-...`, and never as `#2183`.
+- Its only real mention is `#2179`, which was closed at 10:49 that morning -- so the gate had no OPEN
+  mentioned issue to block on and was correctly silent.
+- PR #2211's body carries no closing keyword at all, so GitHub closed nothing at the merge and
+  `verify-resolved-issues.ps1` had no keyword whose outcome to verify.
+- #2183 stayed OPEN until 20:22 on September 20, when a session was asked by hand.
+
+The one claim that does NOT hold as written is the parenthetical about `open-pr.ps1:515` "already
+performing the same parse": `Get-BranchInfo` parses the branch's PREFIX, not its number. Nothing in this
+tree read a branch name's issue number except `Get-BranchSlugWords` in `claim-issue-lib.ps1`, which
+strips it to get at the slug's words. So the parse is new, and it is written to agree with that stripper
+rather than to reuse a parse that was never there.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-BranchNameIssue` in `scripts/lib/pr-issues-lib.ps1` -- pure, `'<prefix>/<n>-<slug>' -> <n>`,
+      0 when the name declares none. Placed in the MIRRORED lib rather than in `branch-info.ps1`, which
+      is repo-owned and does not travel to a consumer.
+- [x] `open-pr.ps1`'s resolves gate folds that number into `$mentions`, beside what the document says.
+      Into `$mentions` and never into `$resolveList`: the first makes the gate ASK, the second is the
+      answer, and writing the branch's number there would close an issue nobody declared.
+- [x] The refusal and the undeclared warning say WHERE the number came from, for a number the document
+      does not carry -- otherwise the gate reports a "mention" the author greps for and cannot find.
+- [~] Nothing added to `new-branch.ps1`'s already-done check. Dropped as out of scope: that check reads
+      what `-Resolves` names at creation, and #2225's subject is the gate at the PR.
+- [x] The branch name is deliberately NOT printed into the refusal. `open-pr.ps1` has never routed a ref
+      through `Get-DisplayRef` and says so at its own foot, so a new raw ref print here would be a fresh
+      site of #1623's class; the number is named on the line above and the author is standing on the branch.
+- [x] `scripts/sync/build-shared-scripts.ps1` run -- both mirrors updated.
 
 ### TEST
 
+- [x] 20 asserts for `Get-BranchNameIssue` in `scripts/tests/pr-issues.tests.ps1`, including the measured
+      branch, the shapes that carry no number, and the stated false positive (`fix/5-minute-timeout` -> 5).
+- [x] An AGREEMENT block against `Get-BranchSlugWords`: the two libs read this convention independently
+      and neither loads the other, so what is pinned is that they cannot disagree about what a branch
+      name's leading number is.
+- [x] Six region-scoped source asserts that `open-pr.ps1` actually CALLS it and folds it into `$mentions`
+      -- the half nothing else can see, since the function existing while the gate ignores it is
+      indistinguishable from the defect.
+- [x] Negative control run: replacing the call with `$branchIssue = 0` turns the suite red (2 failed),
+      so the wiring asserts are not decorative.
+- [x] Lint gate green (0 errors); all suites green.
+
 ### DEPLOY: fix/2225-branch-name-resolves-gate
 
-**Score:**
+A branch named after an issue now closes it. The resolves gate read the development document's prose and
+an explicit `-Resolves`, and both are optional -- the prose is whatever the author typed, the flag is
+memory. The branch NAME is where `new-branch.ps1` puts the number when a branch is cut for an issue, and
+it was the one place nothing read, so a branch cut for an issue could merge closing nothing with no
+backstop afterwards: `verify-resolved-issues.ps1` checks the outcome of a closing keyword, and there was
+no keyword to check. `fix/2183-reserved-root-md-seam-row` did exactly that through PR #2211; the repair
+landed, and #2183 stayed open until somebody asked by hand.
+
+`Get-BranchNameIssue` reads `<prefix>/<n>-<slug>` and the gate folds that number in beside the
+document's own mentions. The decision table is untouched, so the gate still refuses only when the issue
+is OPEN and the PR declares neither `-Resolves` nor `-NoResolves` -- a branch that deliberately does not
+close its issue still has `-NoResolves`, and the same escape valve now covers the branch named after an
+issue it only partly addresses. The refusal names the branch name as the source, because an author sent
+to grep a document that never mentioned the number is worse off than before.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running this workflow gets the same gate, and on their branches too the question becomes
+explicit: a branch named `fix/<n>-...` for an issue still open must now say `-Resolves` or `-NoResolves`
+where it previously said nothing. That is one flag on the branches that were closing nothing by
+accident, and it is the cost the repair was designed around rather than an unintended edge -- the
+alternative is the silent open issue this gate exists to prevent. Nothing already declared changes, and
+no PR gains a closing keyword nobody asked for: the branch's number joins the set the gate ASKS about,
+never the set it answers with.
+
+**Score:** 3
 
 #### Pull Request
 
