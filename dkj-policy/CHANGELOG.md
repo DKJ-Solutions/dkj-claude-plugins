@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 49 minor entries** <!-- pending-tally -->
+**26 / 50 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/drop-pre-rename-persona-import · 20260920-153027
+
+This repo's always-on document path no longer names the orchestrator persona under both its old and its
+new filename. #2135 put both import lines in `SPECIALISTS.md` on purpose, so that a checkout whose
+marketplace clone still held the old name kept its orchestrator while the clone refreshed, and left
+a comment saying to delete the old line once the new one resolved. It resolves now, so the old
+line pointed at nothing, and the always-on budget gate warned about the dead import and counted the
+same persona a second time, as 30,267 B carried from the baseline. That put the measured path at
+140,974 B against a recorded 110,075 B and made every branch in this repo, whatever it changed, read
+as growing an over-budget path by 30,899 B, so `open-pr` refused it. The line and its comment are gone,
+and the baseline is raised by 239 B, recorded with its reason: the persona was already 30,899 B in
+the source, and the gate only started judging it from the tree in #2187.
+
+A maintainer on a machine whose marketplace clone has refreshed meets this at the first `open-pr`:
+`fix/2183-reserved-root-md-seam-row` changed nothing on the always-on path and was refused all the same.
+It reaches no subscriber of the service and nothing else in the tree changes with it, which is why it
+is not higher.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this repo's own session-start weight and its own gate; no subscriber of the service reads or does
+anything differently because of it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Drop the pre-rename orchestrator import line now that the clone resolves the new one
+
+[PR #2206](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2206)
+
+---
 
 ### DEPLOY: fix/2188-gated-detectors-read-lenses · 20260920-134909
 
