@@ -250,6 +250,37 @@ function Get-AlwaysOnMeasurement {
         counted as zero makes the path look healthier than it is, which is the one wrong answer this
         whole lib exists to stop.
 
+        AND A MEASURED DOCUMENT IS JUDGED ON THIS TREE'S COPY WHERE THIS TREE HAS ONE (issue #2187).
+        The source repo consumes itself, so a document loaded from '~/.claude/plugins/marketplaces/<this
+        marketplace>/...' has a counterpart in the checkout the branch is editing. The installed copy
+        only advances at a RELEASE, so summing it asked the wrong question: not "does this branch grow
+        the always-on path" but "did somebody run a plugin update lately". Measured on the branch that
+        filed #2187 -- a persona body grew 621 B in this tree and the gate reported "[OK] ... NOT
+        growing", because the figure it summed had not moved. The weight was not cancelled, only
+        deferred onto whichever later branch happened to be open when the release landed, which is the
+        one direction a ratchet must not err in: it refuses an author for weight absent from their own
+        diff.
+
+        SO THE SUBSTITUTION IS BOUNDED THREE WAYS, and each bound is load-bearing:
+          - the loaded copy must EXIST. An unresolved target keeps the carried/unmeasured branches
+            below untouched. Measured during #2135's persona rename, when SPECIALISTS.md deliberately
+            carried both the pre- and post-rename import: substituting on an unresolved target would
+            have added the renamed body's 30,899 B ON TOP of the 30,267 B carried for the old one -- a
+            30k jump no branch caused, refusing whichever branch was open.
+          - the counterpart must EXIST IN THIS TREE. Get-TreeCounterpart already returns $null
+            otherwise, so a consumer -- which mirrors nothing -- is untouched by every line of this.
+          - it is LF bytes either side, never TreeBytes. See TreeLfBytes in measure-context-lib.
+
+        WHAT A CI RUNNER DOES WITH IT, said here rather than left to be discovered: nothing. No '~/'
+        import resolves there, so the term is CARRIED and the recorded figure is what CI judges -- and
+        that figure was recorded by the local gate, which did substitute. The two carriers still
+        describe one subject; the local one is simply the one that can see the change, which is also
+        the one that runs before the push.
+
+        LoadedTotal is what the resolved copies actually come to -- the figure a session on THIS machine
+        pays today. It is reported beside Total where the two differ and is judged by nothing, exactly
+        as DiskBytes is reported beside the LF total.
+
         AND A FOURTH SET THAT CUTS ACROSS THE OTHER THREE: Dead -- an import this run can PROVE is not
         there (Get-ImportAbsenceKind). It is not a fourth bucket in the sum: a dead import may also be
         carried, and then its recorded bytes stay in the total exactly as before, because dropping a
@@ -279,18 +310,46 @@ function Get-AlwaysOnMeasurement {
     $carried = New-Object System.Collections.Generic.List[object]
     $unmeasured = New-Object System.Collections.Generic.List[object]
     $dead = New-Object System.Collections.Generic.List[object]
+    $substituted = New-Object System.Collections.Generic.List[object]
     $measuredBytes = [int64]0
     $carriedBytes = [int64]0
+    $loadedBytes = [int64]0
     $diskBytes = [int64]0
 
     foreach ($d in $docs) {
         $key = Get-AlwaysOnDocumentKey -Document $d
         if ($d.Exists) {
-            $sizes[$key] = [int64]$d.LfBytes
-            $measuredBytes += [int64]$d.LfBytes
-            $diskBytes += [int64]$d.Bytes
+            # THE JUDGED COPY, chosen here and nowhere else. Defaults to the one that loaded; becomes
+            # this tree's counterpart where the walk found one. TreeLfBytes is $null on a row from a
+            # mirror built before #2187 -- tested rather than assumed, so an older measure-context-lib
+            # degrades to the previous behaviour instead of summing $null as zero.
+            $judged     = [int64]$d.LfBytes
+            $judgedDisk = [int64]$d.Bytes
+            $loadedBytes += [int64]$d.LfBytes
+            $hasTreeLf = @($d.PSObject.Properties.Name) -contains 'TreeLfBytes'
+            if ($d.Source -eq 'external' -and $d.TreeCounterpart -and $hasTreeLf -and $null -ne $d.TreeLfBytes) {
+                $judged     = [int64]$d.TreeLfBytes
+                $judgedDisk = [int64]$d.TreeBytes
+                $sourceDisplay = $d.TreeCounterpart
+                if ($sourceDisplay.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $sourceDisplay = ($sourceDisplay.Substring($RepoRoot.Length) -replace '\\', '/').TrimStart('/')
+                }
+                $substituted.Add([pscustomobject]@{
+                    Key           = $key
+                    Display       = $d.Display
+                    Target        = $d.Target
+                    ImportedBy    = $d.ImportedBy
+                    SourceDisplay = $sourceDisplay
+                    Bytes         = $judged
+                    LoadedBytes   = [int64]$d.LfBytes
+                    Delta         = $judged - [int64]$d.LfBytes
+                }) | Out-Null
+            }
+            $sizes[$key] = $judged
+            $measuredBytes += $judged
+            $diskBytes += $judgedDisk
             $measured.Add([pscustomobject]@{
-                Key = $key; Display = $d.Display; Bytes = [int64]$d.LfBytes; DiskBytes = [int64]$d.Bytes; Source = $d.Source
+                Key = $key; Display = $d.Display; Bytes = $judged; DiskBytes = $judgedDisk; Source = $d.Source
             }) | Out-Null
             continue
         }
@@ -311,6 +370,11 @@ function Get-AlwaysOnMeasurement {
             $b = [int64]$recorded[$key]
             $sizes[$key] = $b
             $carriedBytes += $b
+            # A CARRIED TERM COUNTS TOWARDS THE LOADED FIGURE TOO. It is the best answer this run has
+            # for what that document costs, and leaving it out would make LoadedTotal differ from Total
+            # on every CI run -- printing a "what a session loads" line on the one carrier that cannot
+            # know.
+            $loadedBytes += $b
             $carried.Add([pscustomobject]@{ Key = $key; Display = $d.Display; Bytes = $b; Target = $d.Target }) | Out-Null
             continue
         }
@@ -320,6 +384,7 @@ function Get-AlwaysOnMeasurement {
     return [pscustomobject]@{
         RootDocument  = $RootDocument
         Total         = $measuredBytes + $carriedBytes
+        LoadedTotal   = $loadedBytes
         MeasuredBytes = $measuredBytes
         CarriedBytes  = $carriedBytes
         DiskBytes     = $diskBytes
@@ -334,8 +399,32 @@ function Get-AlwaysOnMeasurement {
         Carried       = $carried.ToArray()
         Unmeasured    = $unmeasured.ToArray()
         Dead          = $dead.ToArray()
+        Substituted   = $substituted.ToArray()
         Sizes         = $sizes
     }
+}
+
+function Get-MeasurementField {
+    <#
+        One field of a measurement object, or $Default where the object does not carry it.
+
+        NOT DEFENSIVE PROGRAMMING FOR ITS OWN SAKE. Under Set-StrictMode -Version Latest -- which every
+        carrier of this lib sets -- reading an absent property is a TERMINATING error, so a verdict
+        reaching for a field added later dies with 'PropertyNotFound' inside a gate whose whole job is
+        to exit 0 or 1 on a budget. Two callers can hand over an older shape: the test suite, which
+        builds a measurement by hand precisely so the verdict is tested without the walk, and a mirror
+        of this lib shipped before the field existed.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]$Measurement,
+        [Parameter(Mandatory = $true)][string]$Name,
+        $Default = $null
+    )
+    if ($null -eq $Measurement) { return $Default }
+    if (-not (@($Measurement.PSObject.Properties.Name) -contains $Name)) { return $Default }
+    $value = $Measurement.$Name
+    if ($null -eq $value) { return $Default }
+    return $value
 }
 
 function Get-AlwaysOnLimit {
@@ -436,5 +525,12 @@ function Get-AlwaysOnBudgetVerdict {
         Unmeasured   = @($Measurement.Unmeasured)
         Carried      = @($Measurement.Carried)
         Dead         = @($Measurement.Dead)
+        # PROPERTY-TESTED, unlike the three above. Those have been on every measurement since this lib
+        # was written; these two arrived with #2187, and this function is called with a hand-built
+        # measurement in the suite and by any carrier shipped from a mirror built before that. An
+        # absent property under Set-StrictMode is a terminating error, not $null -- and the caller is a
+        # GATE, so it would exit 1 with a PropertyNotFound message about a reporting field.
+        Substituted  = @(Get-MeasurementField -Measurement $Measurement -Name 'Substituted' -Default @())
+        LoadedTotal  = [int64](Get-MeasurementField -Measurement $Measurement -Name 'LoadedTotal' -Default $total)
     }
 }

@@ -29,6 +29,13 @@
     one takes the recorded figure and SAYS SO. A term that is neither measurable nor recorded is
     reported as unmeasured and never counted as zero.
 
+    AND THE COPY IT JUDGES IS THIS TREE'S WHERE THIS TREE HAS ONE (issue #2187). That same absolute
+    import resolves, in the repo that ships the plugin, to a clone of the very checkout being edited --
+    and the clone only advances at a release. Summing it asked "did somebody run a plugin update
+    lately" in place of "does this branch grow the path", so a persona body could grow 621 B under a
+    green '[OK] ... NOT growing'. The ratchet now judges the counterpart, the report names both figures,
+    and the refusal names the file the author can actually edit.
+
     RUN IT whenever you want the answer early -- it writes nothing without -Record or -Raise:
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-always-on-budget.ps1
@@ -176,6 +183,27 @@ if ($measurement.DiskBytes -ne $measurement.MeasuredBytes) {
                 "$(Format-MeasuredBytes $measurement.DiskBytes) B (CRLF).") -ForegroundColor DarkGray
 }
 
+# WHICH COPY WAS JUDGED, said wherever the two differ (issue #2187). A document imported from the
+# marketplace clone of THIS repo has a counterpart in the checkout, and the ratchet judges that one --
+# otherwise a branch that grows a persona body reads as "NOT growing" until a release advances the
+# clone, and the refusal then lands on some later branch that added nothing.
+#
+# BOTH FIGURES, because each answers a real question and neither answers the other's: the judged one
+# says what this branch has done to the path, the loaded one what a session on this machine pays until
+# the next release. Reported the same way the CRLF figure above is -- named, not judged.
+$subs = @($verdict.Substituted)
+foreach ($s in $subs) {
+    Write-Host "    judged from this tree, not from the installed copy: $(Format-SafePathToken -Value $s.SourceDisplay)" -ForegroundColor DarkGray
+    $verb = 'larger'
+    if ($s.Delta -lt 0) { $verb = 'smaller' }
+    Write-Host ("      $(Format-MeasuredBytes $s.Bytes) B here against $(Format-MeasuredBytes $s.LoadedBytes) B installed -- " +
+                "$(Format-MeasuredBytes ([math]::Abs($s.Delta))) B $verb, arriving at the next release.") -ForegroundColor DarkGray
+}
+if ($subs.Count -gt 0 -and $verdict.LoadedTotal -ne $verdict.Total) {
+    Write-Host ("      (a session on this machine loads $(Format-MeasuredBytes $verdict.LoadedTotal) B today. The ratchet judges the" +
+                ' figure above, because that is the one this branch can move.)') -ForegroundColor DarkGray
+}
+
 # The importing file, said the way the rest of this report says a path: relative to the repo when it is
 # in the repo, absolute when it is not. Both blocks below print this field, and a report that renders
 # one field two ways teaches a reader they are two fields. The absolute form has to survive rather than
@@ -309,6 +337,17 @@ if (-not $verdict.Ok) {
     # THE REFUSAL NAMES THE DESTINATION, because a ceiling with no destination is a red check nobody can
     # clear -- and this repo has already proved each of these four moves on its own always-on path.
     Write-Host ''
+    # THE REFUSAL NAMES THE FILE THE AUTHOR CAN EDIT (#2187). Without this the four destinations below
+    # are addressed to a path under '~/.claude/plugins/marketplaces/...', which is an extracted copy:
+    # editing it changes nothing here and is overwritten by the next plugin update.
+    if ($subs.Count -gt 0) {
+        Write-Host '        Part of this path is judged from THIS TREE rather than from the installed copy, so' -ForegroundColor Yellow
+        Write-Host '        edit it here and not in the marketplace clone:' -ForegroundColor Yellow
+        foreach ($s in $subs) {
+            Write-Host "          $(Format-SafePathToken -Value $s.SourceDisplay)  ($(Format-MeasuredBytes $s.Bytes) B)" -ForegroundColor Yellow
+        }
+        Write-Host ''
+    }
     Write-Host '        Four places this weight goes, in the order they pay:' -ForegroundColor Yellow
     Write-Host '          1. Procedure a plugin already ships ON DEMAND -- delete it and leave a pointer.' -ForegroundColor Yellow
     Write-Host '          2. Layer-specific detail -> .claude/rules/*.md with paths:. Only for detail that is' -ForegroundColor Yellow

@@ -302,6 +302,128 @@ try {
     }
 
     Write-Host ''
+    Write-Host 'The SOURCE copy against the INSTALLED one -- what the ratchet judges (#2187)' -ForegroundColor Cyan
+
+    # THE SHAPE THIS REPO IS IN AND NO CONSUMER EVER IS: it consumes itself, so the marketplace clone
+    # under '~/.claude/plugins/marketplaces/<name>/' mirrors the very checkout a branch is editing. The
+    # clone advances at a RELEASE, so a gate summing it answers "did somebody run a plugin update
+    # lately" instead of "does this branch grow the path" -- and a persona body grew 621 B under a green
+    # '[OK] ... NOT growing'. Every assert here is about which of the two copies is judged.
+    $RepoSrc  = Join-Path $Fixture 'repo-src'
+    $homeSrc  = Join-Path $Fixture '_home_src'
+    $mktSrc   = Join-Path $homeSrc '.claude\plugins\marketplaces\self-market'
+    New-Item -ItemType Directory -Path (Join-Path $mktSrc 'plugins') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $RepoSrc 'plugins') -Force | Out-Null
+
+    $srcTarget  = '~/.claude/plugins/marketplaces/self-market/plugins/persona.md'
+    $goneTarget = '~/.claude/plugins/marketplaces/self-market/plugins/renamed.md'
+
+    # The INSTALLED copy: 1,000 B, the release everybody is running.
+    [System.IO.File]::WriteAllText((Join-Path $mktSrc 'plugins\persona.md'), (('y' * 999) + "`n"), $Utf8NoBom)
+    # The SOURCE copy of the same document, 200 B bigger -- this branch's edit, unreleased. Written CRLF
+    # on purpose: the ratchet compares LF either side (inbound #1162), so 6 lines of CRLF must NOT read
+    # as 6 bytes of growth. The file is 1,206 B on disk and 1,200 B stored LF.
+    [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'),
+        ((('y' * 199) + "`r`n") * 6), $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'CLAUDE.md'),
+        ("# Root`n@$srcTarget`n" + ('x' * 1000) + "`n"), $Utf8NoBom)
+
+    $env:MEASURE_CONTEXT_HOME = $homeSrc
+    try {
+        $rootBytes = 1000 + "# Root`n@$srcTarget`n".Length + 1
+        $mSrc = Get-AlwaysOnMeasurement -RepoRoot $RepoSrc
+
+        Assert-Equal 1 @($mSrc.Substituted).Count 'the document loaded from the clone of THIS repo is judged from the tree instead'
+        Assert-Equal 'plugins/persona.md' @($mSrc.Substituted)[0].SourceDisplay 'and the substitution names the REPO-RELATIVE path, which is the file an author can edit'
+        Assert-Equal 1200 @($mSrc.Substituted)[0].Bytes 'the judged figure is the source copy'
+        Assert-Equal 1000 @($mSrc.Substituted)[0].LoadedBytes 'the installed figure is kept beside it, not thrown away'
+        Assert-Equal 200 @($mSrc.Substituted)[0].Delta 'and the delta is the weight queued for the next release'
+        # THE DEFECT, PINNED AS ARITHMETIC. Before #2187 this total was $rootBytes + 1000 and a 200 B
+        # edit to the source moved it by nothing at all.
+        Assert-Equal ($rootBytes + 1200) $mSrc.Total 'the TOTAL the ratchet judges contains the source copy'
+        Assert-Equal ($rootBytes + 1000) $mSrc.LoadedTotal 'while LoadedTotal still answers what a session on this machine pays today'
+        Assert-Equal 1200 $mSrc.Sizes[$srcTarget] 'the baseline therefore RECORDS the judged figure, so the carrier that cannot re-derive it carries the right one'
+        # #1162, on the axis this change adds. A CRLF counterpart judged in on-disk bytes would read
+        # 1,206 and refuse a branch for its line endings.
+        Assert-True (@($mSrc.Substituted)[0].Bytes -ne 1206) 'the counterpart is judged in LF bytes, not in the on-disk CRLF form'
+
+        # THE BOUND, AND IT IS THE REASON THIS BRANCH DID NOT MEET ITS OWN GATE. During #2135's persona
+        # rename SPECIALISTS.md deliberately carried BOTH the pre- and post-rename import. The renamed
+        # body exists in this tree and not yet in the clone; substituting on an unresolved target would
+        # add its bytes ON TOP of the carried figure for the old one -- a 30k jump no branch caused.
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\renamed.md'), (('z' * 4999) + "`n"), $Utf8NoBom)
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'CLAUDE.md'),
+            ("# Root`n@$srcTarget`n@$goneTarget`n" + ('x' * 1000) + "`n"), $Utf8NoBom)
+        $rootBytes2 = 1000 + "# Root`n@$srcTarget`n@$goneTarget`n".Length + 1
+
+        $mGone = Get-AlwaysOnMeasurement -RepoRoot $RepoSrc
+        Assert-Equal 1 @($mGone.Substituted).Count 'an import that does not resolve is NOT substituted, however present its counterpart is'
+        Assert-Equal 1 @($mGone.Dead).Count 'it is reported dead instead -- the marketplace root is on this machine, so the absence is provable'
+        Assert-Equal ($rootBytes2 + 1200) $mGone.Total 'and contributes nothing, exactly as before: the 5,000 B counterpart stays out of the total'
+
+        # THE CHECK SCRIPT SAYS WHICH COPY IT USED, on a run that passes as well as on one that refuses.
+        $outSrc = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc 2>&1
+        $textSrc = ($outSrc | Out-String)
+        Assert-Equal 0 $LASTEXITCODE 'a substituted document does not by itself refuse anything'
+        Assert-True ($textSrc -match 'judged from this tree, not from the installed copy') 'the report names which of the two copies it judged'
+        Assert-True ($textSrc -match 'plugins/persona\.md') 'and names the file'
+        Assert-True ($textSrc -match 'arriving at the next release') 'and says when the installed copy catches up'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    # THE WHOLE DEFECT, END TO END, AND NOTHING BUT THE SOURCE FILE MOVES. Record a baseline, then grow
+    # the copy in the TREE while the installed copy stays exactly where it was. Before #2187 this run
+    # printed '[OK] ... NOT growing'; the weight was not cancelled but deferred onto whichever branch
+    # was open when the next release advanced the clone. A tiny stated budget puts the fixture over the
+    # ceiling without a 100 KB file, which is the same trick the block below uses.
+    New-Item -ItemType Directory -Path (Join-Path $RepoSrc 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'scripts\repo-config.ps1'),
+        "function Get-AlwaysOnBudget { return 1500 }`n", $Utf8NoBom)
+    $env:MEASURE_CONTEXT_HOME = $homeSrc
+    try {
+        $null = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc -Record 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'the first run over a stated budget records rather than refuses'
+        $bRec = Read-AlwaysOnBaseline -RepoRoot $RepoSrc
+        Assert-Equal 1200 $bRec.Documents[$srcTarget] 'and what it records for the plugin document is the SOURCE size'
+
+        # Only this line changes. The clone is untouched, no release happened, nobody ran a plugin update.
+        [System.IO.File]::WriteAllText((Join-Path $RepoSrc 'plugins\persona.md'), (('y' * 1499) + "`n"), $Utf8NoBom)
+
+        $outRef = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $RepoSrc 2>&1
+        $textRef = ($outRef | Out-String)
+        Assert-Equal 1 $LASTEXITCODE 'growing ONLY the tree copy is now refused -- the defect #2187 was filed on'
+        Assert-True ($textRef -match 'GROWS an already-over-budget') 'and is named as growth, by the 300 B the source gained'
+        Assert-True ($textRef -match 'edit it here and not in the marketplace clone') 'the refusal sends the author to the tree'
+        Assert-True ($textRef -match 'plugins/persona\.md') 'and names the file they can actually edit'
+        Assert-True ($textRef -match 'Four places this weight goes') 'without displacing the destinations the refusal already named'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    # AND THE CI RUNNER, which is the carrier that CANNOT re-derive any of this: no marketplace clone,
+    # so the term is carried from the baseline -- the figure the local gate recorded, which is the
+    # judged one. The two carriers must describe one subject, or the ratchet flaps on every push.
+    $env:MEASURE_CONTEXT_HOME = (Join-Path $Fixture '_home_src_absent')
+    try {
+        $bSrc = New-Baseline -Bytes 9999 -Documents @{ $srcTarget = 1200 }
+        $mSrcCi = Get-AlwaysOnMeasurement -RepoRoot $RepoSrc -Baseline $bSrc
+        Assert-Equal 0 @($mSrcCi.Substituted).Count 'CI substitutes nothing -- there is no resolved copy to substitute FOR'
+        Assert-Equal 1 @($mSrcCi.Carried).Count 'it carries the recorded figure instead'
+        Assert-Equal 1200 @($mSrcCi.Carried)[0].Bytes 'and that recorded figure is the SOURCE size the local gate wrote'
+        Assert-Equal $mSrcCi.Total $mSrcCi.LoadedTotal 'with nothing substituted the two totals coincide, so no "what a session loads" line is printed on a carrier that cannot know'
+    } finally {
+        Remove-Item Env:\MEASURE_CONTEXT_HOME -ErrorAction SilentlyContinue
+    }
+
+    # A MEASUREMENT FROM BEFORE #2187 -- the suite's own hand-built one, and a mirror of this lib shipped
+    # earlier. Under Set-StrictMode an absent property is a TERMINATING error, so a verdict reaching for
+    # a field added later would die with PropertyNotFound inside a gate whose job is to exit 0 or 1.
+    $vOld = Get-AlwaysOnBudgetVerdict -Measurement ([pscustomobject]@{ Total = 5000; Unmeasured = @(); Carried = @(); Dead = @(); Sizes = @{} }) -Budget 100000
+    Assert-Equal 0 @($vOld.Substituted).Count 'a measurement with no Substituted field yields an empty set rather than throwing'
+    Assert-Equal 5000 $vOld.LoadedTotal 'and LoadedTotal falls back to the total, which is what it was before the split'
+
+    Write-Host ''
     Write-Host 'The check script -- exit codes and the refusals' -ForegroundColor Cyan
 
     # A second fixture tree, all in-tree, so the script can be driven without a home override.
