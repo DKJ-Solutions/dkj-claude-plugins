@@ -39,11 +39,60 @@
 
 ### PLAN
 
+#### What this branch is
+
+The third and last prose page leaves `dkj-policy/`. #2171 stopped the scaffolder writing a consumer's
+folder `README.md` and `CONTRIBUTING.md`, and #2179 deleted the source repo's own two and moved every
+answer into the lens of the specialist who owns it. `releases/README.md` is the page that was left
+standing, and #2196 is the same movement one directory down.
+
+#### The issue's reason is one step behind the tree, and the work changes with it
+
+#2196 reads *"there should be only one place that explains how the release workflow works, and that's
+the plugin"*. That page stopped explaining the release workflow in August 2026, when the process half
+moved into `RELEASES-portable.md` -- the page says so in its own opening paragraph. What is left is
+15,146 B of this repo's **answers**: the seam values in force here, the local decisions, and the
+measured instances behind the portable rules.
+
+So the case for removal is #2171's rather than the one the issue states -- a per-repo page beside a
+portable page makes *"there is only one RELEASES"* false in the repo that ships the sentence -- and the
+work is a **relocation**, not a deletion. Nothing on that page may be lost.
+
+#### Where each passage lands (Dave, September 20, 2026)
+
+Split by owner, exactly as #2179 split the folder docs across four lenses:
+
+| Passage | Lands in |
+|---|---|
+| Seam values in force here, Local decisions, Measured instances | Rendall #06, `### Versioning & releases` |
+| The release-notes page: `Get-ReleasePageTitle`, the worker, the path token, the `noindex` reasoning | Sylvester #15 -- it is machinery and hosting, not a release decision |
+
+#### What is NOT in scope
+
+`dkj-policy/releases/history.md` stays exactly where it is. It is the release **list**, a separate
+document a script appends to, and the issue names only the README.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The scaffolder stops writing a consumer's `dkj-policy/releases/README.md` -- `$releasesReadme`
+      and its file-list entry go from `scripts/task/adopt-workflow-folder.ps1` and the plugin mirror,
+      and the header comment that lists what the folder contains follows
+- [ ] Sylvester's lens takes the release-notes page block -- the page title seam, the worker name, the
+      output location, what is committed, the path token and what the lock is actually for
+- [ ] Rendall's lens takes the rest -- the seam values in force here, the local decisions and the
+      measured instances behind the portable rules
+- [ ] `dkj-policy/releases/README.md` is deleted
+- [ ] The portable half stops telling a consumer the page exists -- `RELEASES-portable.md` (4 places),
+      `plugins/dkj-policy/README.md` and the `adopt-dkj-policy` skill page (2 places)
+- [ ] The source repo's own references are repointed -- root `README.md` (3), Rendall's lens (3),
+      Sylvester's lens table row, and `history.md`'s dated cross-reference
 
 ### TEST
+
+- [ ] `adopt-workflow-folder.tests.ps1` proves the page is NOT written, and that a consumer holding a
+      legacy copy keeps it
+- [ ] The lint gate's dead-link scan is green -- it is what proves no link into the deleted page survived
+- [ ] The full suite runs, as CI does
 
 ### DEPLOY: feat/2196-releases-readme-into-lenses
 
