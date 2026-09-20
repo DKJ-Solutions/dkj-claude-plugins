@@ -35,6 +35,15 @@
          holds puts you beside them and reports success. Reading the claim is a separate command that
          the rule names and nobody runs; here it is one step with the write.
 
+         AND WHEN IT IS TAKEN, WHO BY MATTERS (issue #2207). A holder that is a SECOND ACCOUNT
+         AUTHENTICATED IN GH ON THIS MACHINE is one person running two sessions -- the duplicate-work
+         hazard itself -- where the refusal's own words ("ask whoever holds it") describe a colleague
+         elsewhere. Measured September 20, 2026: the refusal fired correctly on #2197, was read as
+         stale bookkeeping by the operator's own other account, overridden, and the live session under
+         that account finished eight minutes later with a fuller measurement of the same issue. The
+         note is printed from the SAME `gh auth status` read the identity resolution above already
+         makes; see Get-LocalAccountHolders and Format-ConcurrentSessionNote.
+
     AND ONE THING IT READS THAT NOTHING ELSE DOES: THE BRANCHES (issue #1853). All three signals a
     session has at pickup -- the issue's state, its assignees, and any PR resolving it -- read exactly
     the same whether the work is untouched or already done and PUSHED ON A PARKED BRANCH. Measured
@@ -153,7 +162,13 @@ $repoArgs = if ($repoName) { @('--repo', $repoName) } else { @() }
 Write-Host "== claim-issue #$number$(if ($DryRun) {' -DryRun'}) -- $(if ($repoName) { $repoName } else { 'repo per gh (no Get-RepoName)' }) ==" -ForegroundColor Cyan
 
 # --- WHO THIS CHECKOUT IS -------------------------------------------------------------------------
-$identity = Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName -RepoRoot $repoRoot)
+# ONE `gh auth status` READ, TWO QUESTIONS (issue #2207). Get-ActiveGhAccount used to make this
+# capture privately and discard every account but the active one, which is the fact the 'taken'
+# refusal below turned out to need: a holder that is a SECOND ACCOUNT AUTHENTICATED HERE is a
+# concurrent session on this machine rather than a colleague elsewhere. The records are read once and
+# passed on, so the signal costs no second process -- which is that issue's own scope note settled.
+$ghAccounts = @(Get-GhAuthAccounts)
+$identity = Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount -Accounts $ghAccounts) -GitUserName (Get-GitUserName -RepoRoot $repoRoot)
 
 if ($identity.Reason -eq 'split') {
     # Not an error here, and deliberately not: check-git-identity.ps1 owns that report and the
@@ -643,6 +658,15 @@ switch ($verdict.Code) {
         if ($assignees -contains $identity.Account) {
             Write-Host "          '$($identity.Account)' is on it too, and that is not evidence about what the other is" -ForegroundColor Red
             Write-Host '          building: two people on one issue is the duplicate-work hazard, not a shared claim.' -ForegroundColor Red
+        }
+        # THE HOLDER MAY BE A SECOND ACCOUNT AUTHENTICATED ON THIS MACHINE (issue #2207). Printed
+        # ABOVE the "pick another issue, or ask whoever holds it" line on purpose: that line describes
+        # a colleague elsewhere, and where this note fires it is the sentence being corrected. The
+        # verdict, the exit code and the five verdicts are untouched -- this adds a reading, not a
+        # rule.
+        $localHolders = @(Get-LocalAccountHolders -Holders $verdict.Others -LocalAccounts $ghAccounts)
+        foreach ($line in @(Format-ConcurrentSessionNote -LocalHolders $localHolders -Account $identity.Account)) {
+            Write-Host "          $line" -ForegroundColor Yellow
         }
         Write-Host '          Pick another issue, or ask whoever holds it. There is deliberately no flag past this:' -ForegroundColor Red
         Write-Host '          the way through is a conversation, and a switch cannot have one.' -ForegroundColor Red

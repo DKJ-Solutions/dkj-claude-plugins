@@ -107,6 +107,59 @@ conversation. A **co-assignment stops it too**, including one this account is pa
 one issue is the duplicate-work hazard itself, and being one of the two is no evidence about what the
 other is building.
 
+### And that refusal now says WHO the holder is, where the holder is logged in here (#2207)
+
+**The refusal was right and one of its own sentences was not.** *"Pick another issue, or ask whoever
+holds it"* describes a colleague on another machine -- and against a same-person/two-accounts setup
+that framing is the whole of what makes an override feel like bookkeeping rather than a rule break.
+
+Measured September 20, 2026, picking up #2197. The refusal fired correctly on a holder of `DaveKJohn`;
+this checkout commits and authenticates as `davekokbwj`; the session reasoned that both accounts are
+the same *person* -- the one who had just typed *"fix issue 2197"* -- reassigned the issue and worked
+it. **It was not stale bookkeeping.** A concurrent session under `DaveKJohn` was live **on the same
+machine**, and finished eight minutes later with a fuller measurement (4 consumer checkouts against
+this session's 2) and closed the issue. Two independent measurements of one issue, overlapping numbers
+identical, discovered only when `new-branch`'s already-done check reported #2197 as CLOSED.
+
+**The signal was in hand and unprinted.** `gh auth status` names *every* logged-in account, and the
+script reads that output at its first line to resolve which account it claims under -- it simply kept
+the active one and discarded the rest. `check-git-identity.ps1` does not cover it either: it reported
+*"the gh account and the git identity agree"*, which is true of the **active** account and silent
+about the other one.
+
+So on this verdict only, a holder that is authenticated in `gh` on this machine is named as such:
+
+```
+[REFUSED] issue #2197 is already claimed by DaveKJohn -- nothing was claimed.
+          NOTE: the holder is authenticated in gh ON THIS MACHINE:
+                  'DaveKJohn' -- logged in here, not the active account
+                A second authenticated account is how ONE PERSON RUNS TWO SESSIONS, so this is far more
+                likely a CONCURRENT SESSION HERE than a colleague elsewhere. Do NOT reassign it to
+                yourself on the reasoning that both accounts are yours -- that IS the duplicate-work
+                case, not an exception to it. Go and find the other session before you touch this.
+          Pick another issue, or ask whoever holds it. There is deliberately no flag past this:
+          the way through is a conversation, and a switch cannot have one.
+```
+
+**Still a refusal, not a sixth verdict.** The five above are unchanged, nothing new is blocked, and the
+exit code is the one it always was. What is added is a reading, printed **above** the sentence it
+corrects -- under it, it would correct nothing.
+
+**It is not narrowed to a non-active account, which is one step past what the report proposed.** The
+decisive fact is that the holder is authenticated *here*; whether that account is the active one is
+secondary, and on a **split-identity** checkout -- #1315's own configuration, gh acting as one account
+while the commits name another -- the holder can be the **active** gh account. Narrowing would go
+blind on exactly the machines most likely to hit this, so the note carries which it found instead:
+*"the ACTIVE gh account here, while this checkout claims as 'davekokbwj'"*.
+
+**And it costs no second `gh` call.** That was the report's open implementation question. The account
+list is the read `Get-ActiveGhAccount` was already making privately at the top of the run, extracted so
+its other records survive (`ConvertFrom-GhAuthStatus` / `Get-GhAuthAccounts`, `git-identity-lib.ps1`)
+and passed to the refusal. One `gh auth status` per run, exactly as before.
+
+**Where nothing matches, nothing is printed.** A holder who is genuinely a colleague elsewhere gets the
+refusal byte for byte as it was -- which is what keeps this from becoming noise on the common case.
+
 ## The claim is read back, because the write is not the proof
 
 `--add-assignee` reports success for a login GitHub silently drops -- most often an account with no

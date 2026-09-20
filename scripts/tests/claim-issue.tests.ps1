@@ -11,9 +11,15 @@
     NOTHING HERE TOUCHES A TRACKER, and that is why the script was built with its decisions in a lib.
     Every gh call in claim-issue.ps1 needs a live tracker, an account with write access and an issue it
     is allowed to edit -- so a suite can either assert nothing or assert the wrong thing. What it CAN
-    hold is the whole judgement: which account a checkout claims under, and which of the four verdicts
-    an issue gets. That is where all four refusals live, so the untestable half is reduced to two gh
-    invocations and a read-back.
+    hold is the whole judgement: which account a checkout claims under, and which verdict an issue
+    gets. That is where every refusal lives, so the untestable half is reduced to two gh invocations
+    and a read-back.
+
+    THE COUNTS ARE OUT OF THIS PARAGRAPH RATHER THAN CORRECTED, on the rule this repo keeps relearning
+    one layer at a time. It read "which of the four verdicts" and "all four refusals" while the lib had
+    five verdicts and three refusals -- two numbers, both stale, neither stale loudly, in the header
+    that tells a reader what the suite is for. Get-ClaimVerdict's own docstring is where they are
+    enumerated, because that is the place a sixth one cannot be added without touching.
 
     THE NAMED TEST GAP, stated rather than papered over: the round trip itself -- gh accepting the
     edit, and the read-back catching an assignee GitHub silently dropped -- is exercised by hand
@@ -113,6 +119,103 @@ Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'no-account') 'no account -
 
 $v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @('DaveKJohn')
 Assert-True ($v.Others -is [array]) 'Others is always an array -- a single other assignee must not arrive as a bare string'
+
+Write-Host ''
+Write-Host 'ConvertFrom-GhAuthStatus -- every account gh names here, not just the active one (#2207)' -ForegroundColor Cyan
+
+# THE EXTRACTION MUST NOT MOVE Get-ActiveGhAccount'S ANSWER. That function had one behaviour with two
+# readings in it -- "the account flagged active", and "the last name seen" where nothing is flagged --
+# and both are now reductions over these records. A suite that only tested the new function would let
+# the old answer change silently under it, so the pair is asserted against the same inputs.
+$twoAccounts = @(
+    'github.com',
+    '  x Logged in to github.com account davekokbwj (keyring)',
+    '  - Active account: true',
+    '  - Git operations protocol: https',
+    '  x Logged in to github.com account DaveKJohn (keyring)',
+    '  - Active account: false'
+)
+$rec = @(ConvertFrom-GhAuthStatus -Lines $twoAccounts)
+Assert-True ($rec.Count -eq 2) 'both logged-in accounts are kept -- the fact #2207 was thrown away at every call site'
+Assert-True ($rec[0].Account -eq 'davekokbwj' -and $rec[0].IsActive) 'the active one is flagged'
+Assert-True ($rec[1].Account -eq 'DaveKJohn' -and -not $rec[1].IsActive) 'and the second one is carried, not discarded'
+Assert-True ((Get-ActiveGhAccount -Accounts $rec) -eq 'davekokbwj') 'Get-ActiveGhAccount still answers the active account, now as a reduction over them'
+
+# The 'Active account: true' line does not itself match the account pattern -- the colon sits where
+# \s+ is required -- so the two independent tests cannot double-count. Pinned, because collapsing them
+# into an if/else is the obvious tidy-up and this is the property that makes it unnecessary.
+Assert-True ((@(ConvertFrom-GhAuthStatus -Lines @('  - Active account: true')).Count) -eq 0) `
+    'an active-account line on its own opens no record -- the two tests are independent by construction'
+
+$single = @('github.com', '  x Logged in to github.com account maikel-bwj (keyring)', '  - Active account: true')
+Assert-True ((Get-ActiveGhAccount -Accounts (ConvertFrom-GhAuthStatus -Lines $single)) -eq 'maikel-bwj') 'the common single-account case is unchanged'
+
+$noActive = @('  x Logged in to github.com account first (keyring)', '  x Logged in to github.com account second (keyring)')
+Assert-True ((Get-ActiveGhAccount -Accounts (ConvertFrom-GhAuthStatus -Lines $noActive)) -eq 'second') `
+    'with no active line anywhere the answer is the LAST name seen -- a pre-multi-account gh, unchanged'
+
+Assert-True ((@(ConvertFrom-GhAuthStatus -Lines @()).Count) -eq 0) 'no input, no records'
+Assert-True ((@(ConvertFrom-GhAuthStatus -Lines $null).Count) -eq 0) 'a null capture is empty rather than a throw'
+Assert-True ((Get-ActiveGhAccount -Accounts @()) -eq '') 'an EMPTY array is an answer -- gh spoke and named nobody; it is not re-read'
+
+Write-Host ''
+Write-Host 'Get-LocalAccountHolders -- is the holder a second session HERE (#2207)' -ForegroundColor Cyan
+
+$local = @(ConvertFrom-GhAuthStatus -Lines $twoAccounts)
+
+$h = @(Get-LocalAccountHolders -Holders @('DaveKJohn') -LocalAccounts $local)
+Assert-True ($h.Count -eq 1 -and $h[0].Holder -eq 'DaveKJohn' -and -not $h[0].IsActive) `
+    'the measured case -- the holder is the OTHER account authenticated on this machine'
+
+Assert-True ((@(Get-LocalAccountHolders -Holders @('maikel-bwj') -LocalAccounts $local)).Count -eq 0) `
+    'a colleague elsewhere is not on this machine -- the ordinary refusal stays exactly as it was'
+
+$h = @(Get-LocalAccountHolders -Holders @('davekjohn') -LocalAccounts $local)
+Assert-True ($h.Count -eq 1 -and $h[0].Holder -eq 'davekjohn') `
+    'GitHub logins are case-insensitive -- matched either way, and reported in the TRACKER spelling the refusal already printed'
+
+# THE SPLIT-IDENTITY SHAPE, and the reason this does not filter on IsActive. On a #1315 checkout gh is
+# active as one account and the commits name another, so the holder can be the ACTIVE account while
+# this checkout claims under its git name. #2207 proposed "a non-active account"; that would go blind
+# on exactly the configuration this workflow already knows it has.
+$h = @(Get-LocalAccountHolders -Holders @('davekokbwj') -LocalAccounts $local)
+Assert-True ($h.Count -eq 1 -and $h[0].IsActive) 'the ACTIVE account can be the holder too, on a split-identity checkout -- found, and flagged as active'
+
+Assert-True ((@(Get-LocalAccountHolders -Holders @('DaveKJohn') -LocalAccounts @())).Count -eq 0) `
+    'no local accounts read (gh absent or logged out) -- nothing is claimed about the holder'
+Assert-True ((@(Get-LocalAccountHolders -Holders @() -LocalAccounts $local)).Count -eq 0) 'no holders, nothing to say'
+Assert-True ((@(Get-LocalAccountHolders -Holders $null -LocalAccounts $null)).Count -eq 0) 'both null -- empty, not a throw'
+Assert-True ((@(Get-LocalAccountHolders -Holders @('DaveKJohn', 'davekjohn') -LocalAccounts $local)).Count -eq 1) `
+    'one account spelled two ways is reported once'
+
+Write-Host ''
+Write-Host 'Format-ConcurrentSessionNote -- the wording is the repair (#2207)' -ForegroundColor Cyan
+
+# THE DETECTION IS THREE LINES AND THE WORDING IS THE POINT, which is the finding's own conclusion:
+# the existing refusal reads as "this belongs to another person", and that framing is what makes the
+# override feel like bookkeeping. So the assert is on the sentence that removes that reading, not only
+# on the name being printed.
+$note = @(Format-ConcurrentSessionNote -LocalHolders (Get-LocalAccountHolders -Holders @('DaveKJohn') -LocalAccounts $local) -Account 'davekokbwj')
+$noteText = ($note -join "`n")
+Assert-True ($note.Count -gt 0) 'a local holder produces a note'
+Assert-True ($noteText -match 'DaveKJohn') 'it names the holder'
+Assert-True ($noteText -match 'ON THIS MACHINE') 'and says where that account is authenticated -- the fact the refusal could not see'
+Assert-True ($noteText -match 'CONCURRENT SESSION HERE') 'it names the concurrent-session reading out loud'
+Assert-True ($noteText -match 'not an exception to it') `
+    'and closes the one interpretation under which overriding looks reasonable -- same person, two accounts, IS the hazard'
+Assert-True ($noteText -notmatch 'not the active account' -or $noteText -match "'DaveKJohn' -- logged in here, not the active account") `
+    'the non-active holder is described as such'
+
+$activeNote = ($([string[]](Format-ConcurrentSessionNote -LocalHolders (Get-LocalAccountHolders -Holders @('davekokbwj') -LocalAccounts $local) -Account 'gitname')) -join "`n")
+Assert-True ($activeNote -match 'ACTIVE gh account here, while this checkout claims as ''gitname''') `
+    'the split-identity shape reads as the sentence it is, rather than as the non-active wording'
+
+Assert-True ((@(Format-ConcurrentSessionNote -LocalHolders @() -Account 'x')).Count -eq 0) `
+    'NO local holder, NO note -- the ordinary refusal is byte-for-byte what it was'
+Assert-True ((@(Format-ConcurrentSessionNote -LocalHolders $null)).Count -eq 0) 'a null list is silence, not a throw'
+
+$two = @(Format-ConcurrentSessionNote -LocalHolders (Get-LocalAccountHolders -Holders @('DaveKJohn', 'davekokbwj') -LocalAccounts $local) -Account 'gitname')
+Assert-True (($two -join "`n") -match 'those holders are') 'two holders read as a plural rather than as a mis-agreeing singular'
 
 Write-Host ''
 Write-Host 'Get-AssigneeLogins -- reading gh JSON without trusting its shape' -ForegroundColor Cyan
@@ -308,6 +411,30 @@ for ($i = 0; $i -lt $calls.Count; $i++) {
 }
 Assert-True ($ghCalls -ge 3) "the three gh calls are still here (found $ghCalls)"
 Assert-True ($unbounded.Count -eq 0) "every gh call carries the shared bound -- $ghCalls call(s), $($unbounded.Count) unbounded"
+
+# --- THE CONCURRENT-SESSION NOTE, AND WHAT IT MAY NOT COST (#2207) --------------------------------
+# The note is printed inside a refusal that has already fired, on a value already read. Two properties
+# a suite can hold, and both are the ways this would go wrong under a later edit: it must stay INSIDE
+# the taken branch (anywhere else and it is a new verdict rather than a reading), and it must keep
+# spending no second `gh auth status` -- which is the scope question the finding left open and the
+# only reason the single read is passed around at all.
+Write-Host ''
+Write-Host 'The concurrent-session note (#2207)' -ForegroundColor Cyan
+
+$takenArm = if ($body -match "(?s)'taken'\s*\{(.*?)\n\s{4}\}") { $Matches[1] } else { '' }
+Assert-True ($takenArm -ne '') 'the taken arm is findable as a block'
+Assert-True ($takenArm -match 'Get-LocalAccountHolders') 'the note is computed INSIDE the taken refusal, not beside the verdict'
+Assert-True ($takenArm -match 'Format-ConcurrentSessionNote') 'and printed there'
+Assert-True ((Get-CodeOnly -Block $takenArm) -match '\bexit 1\b') 'the refusal still exits 1 -- a reading was added, not a verdict'
+Assert-True ($takenArm.IndexOf('Format-ConcurrentSessionNote') -lt $takenArm.IndexOf('Pick another issue')) `
+    'printed ABOVE "ask whoever holds it" -- that is the sentence it corrects, so under it, it corrects nothing'
+
+Assert-True ($body -match [regex]::Escape('$ghAccounts = @(Get-GhAuthAccounts)')) 'the machine''s accounts are read once, by name'
+Assert-True ($body -match [regex]::Escape('Get-ActiveGhAccount -Accounts $ghAccounts')) `
+    'and the active account is derived from that same read rather than shelling out again'
+Assert-True (([regex]::Matches($body, 'Get-GhAuthAccounts')).Count -eq 1) `
+    'exactly one read of gh auth status in the whole script -- the note costs no second process'
+Assert-True ($body -notmatch "'auth',\s*'status'") 'the script does not capture gh auth status itself -- that walk belongs to the identity lib'
 Assert-True ($body -match [regex]::Escape('$NativeCaptureNetworkTimeoutSeconds')) 'and it is the SHARED value, not a number typed in here'
 
 # THE READ AND THE READ-BACK REPORT A STALL AS A STALL. The pre-write read's failure branch offers a

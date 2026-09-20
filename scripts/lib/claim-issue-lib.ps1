@@ -346,6 +346,146 @@ function Get-ClaimVerdict {
     return [pscustomobject]@{ Action = 'claim'; Code = 'open-unassigned'; Others = $others }
 }
 
+# --- WHO THE HOLDER IS, WHEN THE HOLDER IS ALSO LOGGED IN HERE (issue #2207) ----------------------
+#
+# THE 'TAKEN' REFUSAL ABOVE IS CORRECT AND READS AS ONE SENTENCE IT DOES NOT MEAN. "Pick another
+# issue, or ask whoever holds it" describes a colleague on another machine, and against a
+# same-person/two-accounts setup that framing is the whole of what makes an override feel like
+# bookkeeping rather than a rule break. Measured September 20, 2026, picking up #2197: the refusal
+# fired correctly, the holder was reassigned away on the reasoning that both accounts belong to the
+# one person who had just typed "fix issue 2197", and a CONCURRENT SESSION under that other account
+# was live on the same machine -- finishing eight minutes later with a fuller measurement of the same
+# issue. Two independent measurements of one issue, overlapping numbers identical.
+#
+# AND THE SIGNAL WAS IN HAND. `gh auth status` on that machine named BOTH accounts; the script read
+# that output at its first line and kept one name. check-git-identity.ps1 does not cover it either --
+# it reported "the gh account and the git identity agree", which is true of the ACTIVE account and
+# silent about the other one.
+#
+# SO THIS ADDS A LINE TO A REFUSAL THAT ALREADY FIRES, on a value already read. The five verdicts are
+# unchanged, nothing new is blocked, and no `gh` call is added anywhere -- Get-GhAuthAccounts is the
+# read Get-ActiveGhAccount was making privately, with its other records kept.
+
+function Get-LocalAccountHolders {
+    <#
+        .SYNOPSIS
+            The holders of a taken issue that are ALSO authenticated in gh on this machine, as records
+            with Holder and IsActive. An EMPTY array when none is -- which is the ordinary case, a
+            colleague elsewhere.
+
+        .DESCRIPTION
+            CASE-INSENSITIVE, because GitHub logins are: 'DaveKJohn' and 'davekjohn' are one account,
+            and a comparison that missed that would report the commonest spelling of this hazard as a
+            stranger. The HOLDER's spelling is what is returned, because that is the name the refusal
+            one line above has already printed and a second spelling of one account reads as two.
+
+            IT DOES NOT NARROW TO NON-ACTIVE ACCOUNTS, and that is where this goes further than #2207
+            proposed. The report's wording was "a non-active account on this machine", which is the
+            shape it measured -- but the decisive fact is that the holder is authenticated HERE, and
+            on a SPLIT-IDENTITY checkout the holder can be the ACTIVE gh account while this checkout
+            claims under its git name. That is #1315's own configuration, which this workflow already
+            knows it has, so narrowing to non-active would go blind on exactly the machines most
+            likely to hit this. IsActive is carried instead of filtered on, and the wording says which
+            it found.
+
+            A HOLDER EQUAL TO THIS CHECKOUT'S OWN ACCOUNT CANNOT REACH HERE -- Get-ClaimVerdict's
+            Others already excludes it -- so nothing is filtered for that, and passing an unfiltered
+            assignee list would simply report the account back to itself, which is not a state the
+            caller can produce.
+
+        .PARAMETER Holders
+            The verdict's Others -- the assignees that are not this checkout's account.
+
+        .PARAMETER LocalAccounts
+            ConvertFrom-GhAuthStatus records for this machine (Get-GhAuthAccounts).
+
+        .OUTPUTS
+            Holder   -- the login, spelled as the tracker spells it.
+            IsActive -- $true where that account is the one gh currently acts as.
+    #>
+    param(
+        [AllowNull()][string[]]$Holders,
+        [AllowNull()][object[]]$LocalAccounts
+    )
+
+    $local = @(@($LocalAccounts) | Where-Object { $_ -and $_.Account })
+    if ($local.Count -eq 0) { return @() }
+
+    # List[psobject] for the reason ConvertFrom-CommitScanLog states below -- @() over a List[object]
+    # throws on Windows PowerShell 5.1.
+    $found = New-Object 'System.Collections.Generic.List[psobject]'
+    foreach ($holder in @(@($Holders) | Where-Object { $_ -and ([string]$_).Trim() })) {
+        $name  = ([string]$holder).Trim()
+        $match = @($local | Where-Object { ([string]$_.Account).Trim() -ieq $name })
+        if ($match.Count -eq 0) { continue }
+        if (@($found | Where-Object { $_.Holder -ieq $name }).Count -gt 0) { continue }
+        [void]$found.Add([pscustomobject]@{
+            Holder   = $name
+            IsActive = [bool](@($match | Where-Object { $_.IsActive }).Count -gt 0)
+        })
+    }
+    return @($found)
+}
+
+function Format-ConcurrentSessionNote {
+    <#
+        .SYNOPSIS
+            The lines the 'taken' refusal adds when a holder turns out to be authenticated in gh on
+            this machine. An EMPTY array when none is, which is what keeps the ordinary refusal
+            exactly as it was.
+
+        .DESCRIPTION
+            THE WORDING MATTERS MORE THAN THE DETECTION, and that is #2207's own finding rather than a
+            flourish. The detection is three lines; what the note has to do is remove the ONE reading
+            under which overriding the refusal looks reasonable -- "these are both my accounts, so
+            this claim is stale bookkeeping". So it names the concurrent-session reading out loud and
+            says, in words, that being the same person is the hazard rather than an exception to it.
+
+            STILL A REFUSAL, NOT A NEW VERDICT. These lines are printed inside a refusal that has
+            already fired and already exited 1. Nothing here decides anything, which is why it is a
+            formatter and not a rule.
+
+            THE NAMES ARE PROVABLY LOGIN-SHAPED, so they are not run through Format-ForConsole -- and
+            that is an argument rather than an omission, since this lib's own header lists every place
+            it prints foreign text. A value reaches here only by matching an assignee login the
+            tracker returned, and GitHub logins are [A-Za-z0-9-]; a stray token off the `gh auth
+            status` walk cannot reach print without first being equal to one of those. The refusal
+            line directly above prints the same names the same way.
+
+        .PARAMETER LocalHolders
+            Get-LocalAccountHolders's output.
+
+        .PARAMETER Account
+            The account this checkout claims under, named only so the split-identity case reads as the
+            sentence it is.
+    #>
+    param(
+        [AllowNull()][object[]]$LocalHolders,
+        [string]$Account = ''
+    )
+
+    $holders = @(@($LocalHolders) | Where-Object { $_ -and $_.Holder })
+    if ($holders.Count -eq 0) { return @() }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lead  = if ($holders.Count -eq 1) { 'the holder is' } else { 'those holders are' }
+    [void]$lines.Add("NOTE: $lead authenticated in gh ON THIS MACHINE:")
+    foreach ($h in $holders) {
+        $where = if ($h.IsActive) {
+            if ($Account) { "the ACTIVE gh account here, while this checkout claims as '$Account'" }
+            else          { 'the ACTIVE gh account here' }
+        } else {
+            'logged in here, not the active account'
+        }
+        [void]$lines.Add("        '$($h.Holder)' -- $where")
+    }
+    [void]$lines.Add('      A second authenticated account is how ONE PERSON RUNS TWO SESSIONS, so this is far more')
+    [void]$lines.Add('      likely a CONCURRENT SESSION HERE than a colleague elsewhere. Do NOT reassign it to')
+    [void]$lines.Add('      yourself on the reasoning that both accounts are yours -- that IS the duplicate-work')
+    [void]$lines.Add('      case, not an exception to it. Go and find the other session before you touch this.')
+    return @($lines)
+}
+
 # --- THE FOURTH PICKUP SIGNAL: A FIX ALREADY PUSHED ON A BRANCH WITH NO PR (issue #1853) ----------
 #
 # THE THREE SIGNALS ABOVE ALL READ 'UNTOUCHED' IN ONE SHAPE. Get-ClaimVerdict reads the issue's state
