@@ -71,7 +71,9 @@ in `entry-scaffold-lib.ps1` instead, and the reasoning is written into the funct
 ### TEST
 
 - [x] `policy-drift-report.tests.ps1` -- 32 passed, 0 failed.
-- [x] `consumer-prose-gate.tests.ps1` -- all 91 asserts passed.
+- [x] `consumer-prose-gate.tests.ps1` -- all 91 asserts passed. This suite earned its keep mid-branch:
+      the first two attempts at the `-Seen` parameter failed 4 of its 91 asserts, both in the #2188
+      lens block, and neither would have been caught by reading.
 - [x] `check-report-lib.tests.ps1` -- 377 pass, 0 fail.
 - [x] `entry-scaffold.tests.ps1` -- all 838 asserts passed.
 - [x] `check-plugin-integrity.ps1`, the full lint gate including the shared-scripts drift check -- no
@@ -80,8 +82,45 @@ in `entry-scaffold-lib.ps1` instead, and the reasoning is written into the funct
       worktree against this same repo, diffed against the post-edit run. Identical -- 29 lenses, 9,042
       lines, same order -- and RANK 3 identical too. A silently empty rank is this area's own known
       failure mode, which is why it was measured instead of eyeballed (#2184).
-- [ ] Review pass on the diff: correctness, prose, security surface, and the per-session cost of the
-      consumer-prose path.
+- [x] Review pass on the diff, four specialists in parallel. It changed the branch rather than
+      endorsing it -- see below.
+- [ ] Test-coverage judgement on the two contracts the review created: the fail-closed guard and the
+      `-Seen` mutate-in-place aliasing.
+
+#### What the review changed, and the one thing it could not settle
+
+Four findings landed, and every one of them was repaired rather than documented around:
+
+- **The slug guard was fail-open.** Written with `-and`, a missing `Test-PluginNameSlug` made the whole
+  condition false, so the `continue` never fired and an unvalidated plugin name reached
+  `Get-LensDirCandidates` as a path segment -- weaker than either original, and the opposite of the
+  "narrower rather than broken" convention this file argues for everywhere else. Two reviewers found it
+  independently. Now split into two conditions: a missing validator excludes the name.
+- **The promotion cost a measured +6 to +7 ms per call (+11-12%) on the always-on path**, by merging
+  through two HashSets in two passes where the code it replaced used one. That path runs from a
+  SessionStart hook in every adopted consumer, and #2188 had landed three repairs one week earlier to
+  protect it -- so the branch that re-spent part of that is the branch that repaired it. `-Seen` lets a
+  caller hand in the set it is already deduplicating against.
+- **The promotion had dropped reasoning that two pointers still promised.** "Why rank 2 and not a
+  fourth rank" and the four lens layouts went missing from the docstring while `check-policy-drift.ps1`
+  and the kind-3 comment both still sent readers there for exactly that. Both ported back.
+- **A documented trap did not reproduce.** The `-Seen` docstring named two PowerShell traps; only one
+  is real. The claim that `if ($Seen)` reads an empty-but-real HashSet as "none given" via Count-based
+  truthiness is false for this type -- `HashSet<T>` implements only the generic `ICollection<T>`, not
+  the non-generic interface PowerShell's coercion inspects -- and it was an over-generalisation from
+  the array rule, layered onto the diagnosis rather than verified. Dropped rather than patched.
+
+**And one thing this branch cannot close: the recovery has no number behind it.** The regression was
+measured cleanly. That the repair removes the second pass is established by inspection -- a fact about
+the diff, not a timing. Two attempts at the re-measurement hit a machine contended roughly 3x, proved
+by an unchanged `main` baseline tripling mid-run and by an unrelated allocation-free control loop
+moving the same way, which is evidence about the box rather than about this code. Both sessions
+declined to hand back a figure, correctly. It is issue #2203, with the three commits, the clean
+figures, the method, and the pre-flight check that caught the contention in under a minute.
+
+Issue #2204 carries the other thing deliberately not fixed here: `Get-LensDirCandidates`' unguarded
+`Get-ChildItem` is a throw surface for every caller in the family, not just this one, and the precise
+fix sits in a lib that mirrors into three plugins.
 
 ### DEPLOY: fix/2199-one-lens-assembler
 
@@ -97,6 +136,11 @@ collapse is the pair's two real differences: where each caller gets its plugin n
 means by "already accounted for" -- one excludes an explicit list another rank has printed, the other
 excludes the set it has built so far. Both stay at the call site, so the shared function takes no
 `-Exclude` at all and hands back the full de-duplicated list.
+
+Collapsing them also made the pair's one asymmetry visible and settled it. The two originals guarded
+the plugin-name validator differently -- one called it outright, one probed for it first -- and the
+merged version inherited a condition that let an unvalidated name through on the validator's own
+absence. It is fail-closed now: a payload that cannot validate a plugin name does not use it.
 
 **Score:** 3
 
