@@ -4,8 +4,8 @@
     run this session cannot see -- issue #2104.
 
 .DESCRIPTION
-    WHAT #2101 LEFT OPEN. The bar covers the two long runs this workflow OWNS -- the test gate's lane
-    events and ship-pr's CI wait -- because each publishes to run-progress-lib from inside its own
+    WHAT #2101 LEFT OPEN. The bar covers the long runs this workflow OWNS -- the lint gate (#2173), the
+    test gate's lane events and ship-pr's CI wait -- because each publishes to run-progress-lib from inside its own
     process. A backgrounded `npm test`, a `gh run watch`, a long clone: nobody publishes, so the
     statusline stays on its context line while the session is in fact busy. #2101 asked for a bar for
     ANYTHING running out of sight; this is the rest of that.
