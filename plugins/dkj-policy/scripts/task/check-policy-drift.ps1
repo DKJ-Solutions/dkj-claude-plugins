@@ -262,87 +262,6 @@ function Get-PortablePageDir {
     return ''
 }
 
-function Get-ConsumerLensPaths {
-    <#
-        THIS REPO'S SPECIALIST LENSES, repo-relative, for RANK 2 (issue #2184).
-
-        WHY THEY ARE RANK 2 AND NOT A FOURTH RANK. A lens is the same kind of document the workflow
-        folder holds -- this repo's own answer to a seam a shared page asks about -- and #2179 moved
-        ~1,300 lines of exactly that material out of dkj-policy/ and into the lenses. Before this, RANK 2
-        was built from the folder prefix alone and RANK 3 from the always-on closure, so a lens was in
-        NEITHER: the largest restatement surface in the tree was read by nothing while the report printed
-        two '(absent)' lines that read as "this repo has no rank 2" rather than as "rank 2 moved".
-
-        THE LOCATION IS ALREADY A SEAM, so none is written here. Get-LensDirCandidates owns the four
-        layouts a consumer's lenses may sit in -- the #221 seam directory, the pre-seam per-plugin tree,
-        the pre-#179 family spelling, and legacy .claude/extensions/ -- and Get-SpecialistFiles owns both
-        filename spellings (#2130). A repo-config function beside them would be a second answer to a
-        question that has one.
-
-        IT IS ADDITIVE IN A CONSUMER. A repo with no lenses gets exactly the report it got before,
-        because the probe returns nothing; one still carrying a populated dkj-policy/ keeps those pages,
-        listed first. The only repo whose output moves is one that actually has lenses.
-
-        A LENS THE ALWAYS-ON CLOSURE ALREADY CARRIES IS EXCLUDED, via -Exclude. The orchestrator's lens
-        is '@'-imported by the root document in every repo running this system, so without that it would
-        be listed under two ranks at once -- and a document sitting in two ranks is itself a
-        "which one wins" contradiction, in the one report whose job is to settle those.
-
-        GUARDED ON EVERY SEAM FUNCTION it calls: check-report-lib is dot-sourced unguarded above, but a
-        mirror built before one of these functions travelled must degrade to the old, folder-only rank
-        rather than throw -- the same degradation Get-CheckProseCorpus makes one layer down.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$RepoRoot,
-        [string[]]$PluginNames = @(),
-        [string[]]$Exclude = @()
-    )
-
-    if (-not (Test-FunctionDefined 'Get-SpecialistFiles')) { return @() }
-
-    $dirs = New-Object System.Collections.Generic.List[string]
-    if (Test-FunctionDefined 'Get-SeamPaths') {
-        $dirs.Add([string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir) | Out-Null
-    }
-    if (Test-FunctionDefined 'Get-LensDirCandidates') {
-        foreach ($name in $PluginNames) {
-            # Slug-guarded before it becomes a path segment, exactly as the rank-1 walk guards its own.
-            if (-not $name) { continue }
-            if (-not (Test-PluginNameSlug -Name $name)) { continue }
-            foreach ($dir in (Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $name)) {
-                if ($dir) { $dirs.Add([string]$dir) | Out-Null }
-            }
-        }
-    }
-    if ($dirs.Count -eq 0) { return @() }
-
-    $skip = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($ex in $Exclude) { if ($ex) { $skip.Add([string]$ex) | Out-Null } }
-
-    $rels = New-Object System.Collections.Generic.List[string]
-    # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so the
-    # candidate list overlapping between plugins costs nothing.
-    foreach ($file in @(Get-SpecialistFiles -Path @($dirs) -Kind Lens)) {
-        # NOT Resolve-Path AND A SUBSTRING, which is what this was until the review caught it, and the
-        # mechanism is the MEASURED one rather than the assumed one. Handed a root in its 8.3 short form,
-        # Resolve-Path returns that same short form while Get-ChildItem hands back the LONG FullName -- so
-        # the two spellings diverge, every StartsWith fails, and the function returns nothing. Measured on
-        # a scratch tree, September 20, 2026: 'C:\...\Temp\PROBE-~2' against
-        # 'C:\...\Temp\probe-28e06bbc\...', StartsWith False. That is #2184's own silent blindness coming
-        # back through a second door, and it is the class worktree-lib.ps1 already documents here.
-        # Get-PathRelativeToDirectory is pure ([System.IO.Path]::GetFullPath, no filesystem query) and
-        # normalizes both sides the same way, so no spelling can split them. Pinned by the suite.
-        $rel = Get-PathRelativeToDirectory -FullPath ([string]$file.FullName) -Directory $RepoRoot
-        if (-not $rel) { continue }
-        # '' is another drive and a leading '../' is a path BESIDE the repo rather than under it. Neither
-        # is this repo's prose, and neither may be printed as though it were.
-        if ($rel.StartsWith('../')) { continue }
-        if (-not $skip.Add($rel)) { continue }
-        $rels.Add($rel) | Out-Null
-    }
-    return $rels.ToArray()
-}
-
 function Write-ConsumerRank {
     # One rank of the consumer's own prose. Paths are repo-relative and sanitized; the line count and
     # the tally are this script's own arithmetic and need none.
@@ -494,10 +413,18 @@ $rank3 = @($consumerRels | Where-Object { -not $_.StartsWith($folderPrefix, [Sys
 # does the work -- a lens the root document '@'-imports is listed there, once, as part of the floor --
 # and the folder half costs nothing and is passed rather than filtered out, because "everything already
 # listed" is a rule that stays true if a repo ever keeps a lens inside the workflow folder.
+#
+# Get-ConsumerLensPaths -- the ASSEMBLY (seam dir + per-plugin candidates + the slug guard + the
+# Get-PathRelativeToDirectory conversion + the '../' escape rejection) -- is a SHARED function now
+# (entry-scaffold-lib.ps1, #2199): this report and Get-ConsumerProseDocuments's kind-3 walk both call
+# it rather than each assembling its own. It takes no -Exclude of its own -- see its docstring for why --
+# so THIS caller applies $consumerRels as its own filter, afterwards, exactly as it always meant to.
 $rank2Folder = @($consumerRels | Where-Object { $_.StartsWith($folderPrefix, [System.StringComparison]::OrdinalIgnoreCase) })
+$lensExcludeSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($ex in $consumerRels) { if ($ex) { $lensExcludeSet.Add([string]$ex) | Out-Null } }
 $lensRels = @(Get-ConsumerLensPaths -RepoRoot $repoRoot `
-    -PluginNames @($ordered | ForEach-Object { ($_ -split '@', 2)[0] }) `
-    -Exclude $consumerRels)
+    -PluginNames @($ordered | ForEach-Object { ($_ -split '@', 2)[0] }) |
+    Where-Object { -not $lensExcludeSet.Contains($_) })
 $rank2 = @($rank2Folder) + @($lensRels)
 
 $rank2Note = @()
