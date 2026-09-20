@@ -367,13 +367,11 @@ plugin's page wins.** It does not replace anything below; it adds the workflow's
 gates on the branch dossier, how those three exceptions actually run, the measurements behind them).
 
 **The `dkj-policy/` folder carries no prose pages any more** (Dave,
-[#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171), September 20, 2026): a
-per-repo `CONTRIBUTING.md` and `README.md` beside the portable page made *"there is only one
-CONTRIBUTING"* false in the repo that ships the sentence. **This repo's own answers moved into the lens
-of the specialist who owns each**, and [Tessa's](.claude/specialists/lenses/specialist-06-16-lens.md)
-records what the pages were, what the move off the repo root cost, and where every passage landed. The
-reasoning per file sits at its own seam in
-[`scripts/repo-config.ps1`](scripts/repo-config.ps1).
+[#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171)): a per-repo `CONTRIBUTING.md`
+and `README.md` beside the portable page made *"there is only one CONTRIBUTING"* false in the repo that
+ships the sentence. **Each answer moved to the lens of the specialist who owns it**;
+[Tessa's](.claude/specialists/lenses/specialist-06-16-lens.md) records what the pages were, what the
+move cost, and where every passage landed.
 
 The constitution above, concretely implemented here:
 

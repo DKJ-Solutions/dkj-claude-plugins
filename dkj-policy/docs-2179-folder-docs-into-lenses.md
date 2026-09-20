@@ -88,8 +88,9 @@ this repo both read, and duplicating it here is what #2171 retired.
 - [x] `check-plugin-integrity.ps1` green -- it is the dead-link gate, so it is what proves the retarget.
       First run: **9 dead links**, none of them among the 14 the issue counted -- 7 in the archived release
       notes and 2 in the living `releases/` pages. Repointed and re-run: 0 errors.
-- [x] The always-on budget: the path **shrank by 190 B** (110,154 -> 109,964). The lenses are not on that
-      path, so ~1,300 lines moved at no session cost and `CLAUDE.md`'s own pointers got shorter.
+- [x] The always-on budget: the path **shrank by 79 B** (110,154 -> 110,075). The lenses are not on that
+      path, so ~1,300 lines moved at no session cost; `CLAUDE.md`'s pointers got shorter, and the review
+      pass then spent most of that back on the rule it had to rescue.
 - [x] Review pass on the diff before the PR -- Edith on the prose, Victor on the mechanics, in parallel.
       Between them: a rule that lived only on the page being deleted, the fold's `removes` weakened to
       `clears`, an inverted sentence, eight duplicated provenance preambles, two archive links repointed
@@ -120,8 +121,8 @@ readable, in the portable page that always described it.
 The dead-link gate is what proves the retarget, and it found nine links the issue's count of fourteen
 had missed: seven in the archived release notes, where the published-record rule permits a link target to
 be repointed and forbids the prose around it to be rewritten, and two in the living `releases/` pages,
-where the visible label was corrected along with the target. The always-on path **shrank by
-190 B**, so ~1,300 lines moved at no session cost at all.
+where the visible label was corrected along with the target. The always-on path **shrank by 79 B**, so
+~1,300 lines moved at no session cost at all.
 
 **Score:** 3
 
