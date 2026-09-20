@@ -39,13 +39,52 @@
 
 ### PLAN
 
-Phase B of #2171: migrate dkj-policy/README.md and dkj-policy/CONTRIBUTING.md into the lenses, then delete both and retarget every link.
+Phase B of #2171: this repo's OWN `dkj-policy/README.md` (167 lines) and `dkj-policy/CONTRIBUTING.md`
+(1,132 lines) move into the specialist lenses, then both are deleted and every link retargeted. Phase A
+-- the plugin stops scaffolding those two pages into a consumer -- is PR #2178 and is independent of this
+branch: it touches the plugin-side scaffolder and this one touches only this repo's own copies.
+
+Dave's answer on #2171 (September 20, 2026, full reach, chosen from a menu): this repo's own copies go
+too, because otherwise *"there is only one CONTRIBUTING"* is false in the very repo that ships the
+sentence.
+
+#### The migration is a MOVE, not a summary
+
+Almost every paragraph in those two pages is a measured instance carrying an issue number and a date.
+What travels is the measurement, the decision and the date -- substantially verbatim, adapted only where
+a link or a framing sentence has to change. What does NOT travel is the half that merely restates
+`plugins/dkj-policy/CONTRIBUTING-portable.md`: the portable page is the one CONTRIBUTING a consumer and
+this repo both read, and duplicating it here is what #2171 retired.
+
+#### Where each passage lands
+
+- `CONTRIBUTING.md:199-931` -- the branch-document mechanics and the eight PR gates -> Sylvester's lens,
+  which already owns the gate checks and the `LAW-THIRD-RANK-ORDER` block the opening overlaps with.
+- `CONTRIBUTING.md:116-192` -- ticket work as a no-op here, the #1456 claim measurement, the #1315 split
+  identity, the label table, and `:697-892` the queue, the merge step and the merge-queue retirement ->
+  Derek's lens.
+- `CONTRIBUTING.md:1-70`, `:938-1101`, `:1104-1133` -- this page's own history, CUT RELEASE, and the
+  live-stage no-op -> Rendall's lens, which already points back at this page and therefore has to be
+  deduplicated rather than appended to.
+- `README.md:69-142` -- this repo consuming itself, the per-machine install record, #1812 and #1449 ->
+  `.claude/specialists/README.md`, the merge target Dave named in #2171.
+- `README.md:9-24`, `:39-67`, `:144-167` -- the seam-answer table, i.e. `scripts/repo-config.ps1` read as
+  prose -> Sylvester's lens.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Sylvester's lens: receive the branch-document mechanics, the eight PR gates and the seam-answer table
+- [ ] Derek's lens: receive step 1's Claude half, the claim measurements and the merge/queue material
+- [ ] Rendall's lens: receive CUT RELEASE, the live-stage no-op and the page's own history, deduplicated
+- [ ] `.claude/specialists/README.md`: receive the self-consumption and plugin-update material
+- [ ] Delete `dkj-policy/README.md` and `dkj-policy/CONTRIBUTING.md`
+- [ ] Retarget the 14 markdown links that point at either page, and read the bare-prose mentions by eye
 
 ### TEST
+
+- [ ] `check-plugin-integrity.ps1` green -- it is the dead-link gate, so it is what proves the retarget
+- [ ] `measure-always-on.ps1`: the always-on figure has not moved (the lenses are not on that path)
+- [ ] Review pass on the diff before the PR
 
 ### DEPLOY: docs/2179-folder-docs-into-lenses
 
