@@ -177,7 +177,7 @@ try {
     Assert-Equal 0 $r.Code 'integration: exit-code 0'
 
     # 06-24 lens scaffold created, with the VUL-IN slot.
-    $scaffold24 = Join-Path $c "$lensRel\06-24-extension.md"
+    $scaffold24 = Join-Path $c "$lensRel\specialist-06-24-lens.md"
     Assert-True (Test-Path -LiteralPath $scaffold24 -PathType Leaf) 'integration: 06-24 lens scaffold file created'
     if (Test-Path -LiteralPath $scaffold24) {
         $s24 = [System.IO.File]::ReadAllText($scaffold24, [System.Text.Encoding]::UTF8)
@@ -217,7 +217,7 @@ try {
     $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'persona staging: exit-code 0'
 
-    $scaffold0101 = Join-Path $c "$lensRel\01-01-extension.md"
+    $scaffold0101 = Join-Path $c "$lensRel\specialist-01-01-lens.md"
     Assert-True (Test-Path -LiteralPath $scaffold0101 -PathType Leaf) 'persona staging: a missing PERSONA lens gets a scaffold'
     if (Test-Path -LiteralPath $scaffold0101) {
         $s0101 = [System.IO.File]::ReadAllText($scaffold0101, [System.Text.Encoding]::UTF8)
@@ -329,20 +329,20 @@ try {
     $c7a = New-FixtureConsumer -RosterIds @('06-16', '06-24')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c7a, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'seam 7a: exit-code 0'
-    Assert-True (Test-Path -LiteralPath (Join-Path $c7a "$seamRel\06-24-extension.md") -PathType Leaf) `
+    Assert-True (Test-Path -LiteralPath (Join-Path $c7a "$seamRel\specialist-06-24-lens.md") -PathType Leaf) `
         'seam 7a: a fresh consumer gets the scaffold in the seam'
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c7a "$preSeamRel\06-24-extension.md") -PathType Leaf)) `
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c7a "$preSeamRel\specialist-06-24-lens.md") -PathType Leaf)) `
         'seam 7a: nothing written to the pre-seam plugin path -- the defect this test exists for'
-    Assert-Match '\.claude/specialists/lenses/06-24-extension\.md' $r.Out `
+    Assert-Match '\.claude/specialists/lenses/specialist-06-24-lens\.md' $r.Out `
         'seam 7a: the reported path is the seam, forward-slashed'
 
     # 7b. Migrated: a lens already sits in the seam, so the writer must stay there.
     $c7b = New-FixtureConsumer -RosterIds @('06-24') -SeamLensIds @('06-16')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c7b, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'seam 7b: exit-code 0'
-    Assert-True (Test-Path -LiteralPath (Join-Path $c7b "$seamRel\06-24-extension.md") -PathType Leaf) `
+    Assert-True (Test-Path -LiteralPath (Join-Path $c7b "$seamRel\specialist-06-24-lens.md") -PathType Leaf) `
         'seam 7b: a migrated consumer keeps its lenses together in the seam'
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c7b "$preSeamRel\06-24-extension.md") -PathType Leaf)) `
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c7b "$preSeamRel\specialist-06-24-lens.md") -PathType Leaf)) `
         'seam 7b: the lens surface is NOT split across two layouts'
 
     # 7c. Pre-seam: an un-migrated consumer is followed, never relocated. This is the case the old
@@ -350,9 +350,9 @@ try {
     $c7c = New-FixtureConsumer -RosterIds @('06-24') -LensIds @('06-16')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c7c, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'seam 7c: exit-code 0'
-    Assert-True (Test-Path -LiteralPath (Join-Path $c7c "$preSeamRel\06-24-extension.md") -PathType Leaf) `
+    Assert-True (Test-Path -LiteralPath (Join-Path $c7c "$preSeamRel\specialist-06-24-lens.md") -PathType Leaf) `
         'seam 7c: an un-migrated consumer keeps writing to its own tree'
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c7c "$seamRel\06-24-extension.md") -PathType Leaf)) `
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c7c "$seamRel\specialist-06-24-lens.md") -PathType Leaf)) `
         'seam 7c: no seam copy created next to it -- the writer follows, it does not migrate'
 
     # 7d. The PROPOSED ROSTER ROW's link is the second site the literal was hardcoded in. A row a human

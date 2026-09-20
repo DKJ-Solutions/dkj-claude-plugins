@@ -406,9 +406,23 @@ foreach ($e in $missingRoster) {
     if ($dotIdx -gt 0) { $short = $short.Substring(0, $dotIdx + 1) }
     if ($short.Length -gt 160) { $short = $short.Substring(0, 157).TrimEnd() + '...' }
 
-    # The roster row is a PROPOSAL somebody pastes, so it names the written spelling (#2130).
+    # THE ROW NAMES THE FILE ON DISK WHERE ONE EXISTS, and the written spelling otherwise (#2167).
+    # Both halves are load-bearing. For a specialist whose lens is about to be scaffolded there is no
+    # file yet, so the written spelling is the only honest answer -- that is #2130's reasoning and it
+    # stands. For one whose lens the owner ALREADY has, under a spelling this version no longer
+    # writes, naming the written one hands them a link to a path they do not have: the same defect
+    # the stale-header line below already guards against, and worse here, because a roster row is
+    # pasted rather than read. It was invisible until the Lens row flipped (#2167), since Current
+    # happened to equal what an un-migrated consumer had on disk. Candidates are written-spelling
+    # first, so a migrated consumer's answer is unchanged.
     $lensName = Get-SpecialistFileName -Kind Lens -Id $id
     $lensPath = Get-LensRelPath -LensName $lensName -PluginName $pi.Name
+    foreach ($cand in (Get-SpecialistFileNameCandidates -Kind Lens -Id $id)) {
+        $candRel = Get-LensRelPath -LensName $cand -PluginName $pi.Name
+        if (Test-Path -LiteralPath (Join-Path $repoRoot $candRel) -PathType Leaf) {
+            $lensName = $cand; $lensPath = $candRel; break
+        }
+    }
     if ($rosterStyle -eq 'list') {
         $row = "- **$displayName** #$idNum -- $short ([``$lensName``]($lensPath))"
     } else {

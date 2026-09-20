@@ -64,7 +64,7 @@ function New-BootstrappedConsumer {
 }
 
 function Get-LensCount {
-    return @(Get-ChildItem -LiteralPath (Join-Path $Fixture '.claude') -Recurse -Filter '*-extension.md' -File -ErrorAction SilentlyContinue).Count
+    return @(Get-ChildItem -LiteralPath (Join-Path $Fixture '.claude') -Recurse -Filter '*-lens.md' -File -ErrorAction SilentlyContinue).Count
 }
 function Get-ImportCount {
     $p = Join-Path $Fixture 'CLAUDE.md'
@@ -152,7 +152,7 @@ try {
     #     The assertion this whole script exists to earn. Deleting a filled-in lens to leave a tidy tree
     #     destroys repo knowledge somebody wrote -- a worse outcome than leaving clutter.
     New-BootstrappedConsumer | Out-Null
-    $authoredLens = Join-Path $Fixture '.claude\specialists\lenses\06-16-extension.md'
+    $authoredLens = Join-Path $Fixture '.claude\specialists\lenses\specialist-06-16-lens.md'
     [System.IO.File]::WriteAllText($authoredLens, "# 06-16 repo lens`n`n## Specific to this repo`n`nTessa guards our API docs under docs/api/.")
     $authoredRc = Join-Path $Fixture 'scripts\repo-config.ps1'
     [System.IO.File]::WriteAllText($authoredRc, "function Get-RepoName { return 'someone/my-repo' }`nfunction Get-LintScript { return 'scripts/lint.ps1' }")
@@ -195,7 +195,7 @@ function Get-RepoName { return `$script:RepoName }
 function Get-LintScript { return `$script:LintScript }
 "@)
     # Same shape on the lens side: an authored lens that happens to explain the scaffold convention.
-    $filledLens = Join-Path $Fixture '.claude\specialists\lenses\06-16-extension.md'
+    $filledLens = Join-Path $Fixture '.claude\specialists\lenses\specialist-06-16-lens.md'
     [System.IO.File]::WriteAllText($filledLens, "# 06-16 repo lens`n`n## Specific to this repo`n`nTessa guards the docs. A lens may stay a VUL-IN scaffold until that specialist has work here.")
     $r = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture, '-Apply')
     Assert-Equal 0 $r.Code 'mention vs use: exit-code 0'
@@ -219,7 +219,7 @@ function Get-LintScript { return `$script:LintScript }
     #     and edits it the way a consumer does -- slot heading replaced, everything above it untouched --
     #     which is the only version of this test that can catch the template regressing again.
     New-BootstrappedConsumer | Out-Null
-    $seamLens = Join-Path $Fixture '.claude\specialists\lenses\06-16-extension.md'
+    $seamLens = Join-Path $Fixture '.claude\specialists\lenses\specialist-06-16-lens.md'
     $asGenerated = [System.IO.File]::ReadAllText($seamLens, [System.Text.Encoding]::UTF8)
     Assert-True ($asGenerated -match '(?m)^##\sSpecific to this repo \(VUL-IN\)\s*$') 'seam: the freshly bootstrapped lens carries the marker on its SLOT'
     Assert-True (-not ($asGenerated -match '(?m)^#\s[^\r\n]*\(VUL-IN\)')) 'seam: the freshly bootstrapped lens carries NO marker on its TITLE'
@@ -244,7 +244,7 @@ function Get-LintScript { return `$script:LintScript }
 
     # --- 6. An unrelated @-import is NOT eaten ------------------------------------------------------
     #     The sharpest risk in the design. The matcher must key on the specialist shape
-    #     (-persona.md / -extension.md), not merely on a line starting with '@' -- a consumer's own
+    #     (-persona.md / -lens.md), not merely on a line starting with '@' -- a consumer's own
     #     '@docs/git-instructions.md' import is exactly the kind of line that a sloppy rule destroys,
     #     and the consumer would have no idea why their instructions stopped loading.
     New-BootstrappedConsumer -ExtraClaudeMdLines @('', '@docs/git-instructions.md', '@~/.claude/my-notes.md') | Out-Null
@@ -361,10 +361,10 @@ function Get-LintScript { return `$script:LintScript }
     #     claimed. The plugin must not GUESS at a convention it did not create, so the consumer
     #     declares it. Default (no pattern) keeps them, which is the safe direction.
     New-BootstrappedConsumer | Out-Null
-    $emptyByConvention = Join-Path $Fixture '.claude\specialists\lenses\06-16-extension.md'
+    $emptyByConvention = Join-Path $Fixture '.claude\specialists\lenses\specialist-06-16-lens.md'
     [System.IO.File]::WriteAllText($emptyByConvention, "---`nid: 16`ngroup: 06`n---`n`n# 06-16 repo-lens`n`n## Eigen aan deze repo`n`nSchone lei: hier staan alleen repo-eigen regels. Nog niets vastgelegd.")
     $r = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture)
-    Assert-True ($r.Out -match [regex]::Escape('06-16-extension.md') ) 'own convention: the lens appears in the report'
+    Assert-True ($r.Out -match [regex]::Escape('specialist-06-16-lens.md') ) 'own convention: the lens appears in the report'
     Assert-True (Test-Path -LiteralPath $emptyByConvention) 'own convention: WITHOUT a declared pattern it is kept (safe default)'
     Assert-True (-not ($r.Out -match 'filled in')) 'own convention: the report no longer claims the file was filled in'
     Assert-True ($r.Out -match 'does not judge it') 'own convention: it states what it actually knows'

@@ -75,6 +75,20 @@ and is left exactly as it is: the issue's whole property is that no reader chang
 ever name one spelling, and which one serves a given consumer depends on whether they have migrated.
 It is also unreachable in practice -- the lib ships in the same payload as the script that loads it.
 
+#### The flip exposed a live defect in sync-roster's proposed roster row
+
+`sync-roster.ps1` prints a roster row for a specialist the roster does not list, and that row always
+named the WRITTEN spelling. For a specialist whose lens is about to be scaffolded that is right, and
+it is #2130's stated reasoning. For one whose lens the owner ALREADY has, it hands them a link to a
+path they do not have -- and before the flip that never showed, because `Current` happened to equal
+what an un-migrated consumer had on disk. The flip inverts who it hurts, so the row now resolves the
+file on disk first and falls back to the written spelling. The same file's stale-header line already
+carried exactly this fix and its reasoning; this is that reasoning applied one site over.
+
+Its own test (seam 7d, "a row a human pastes with a path that does not exist is worse than no row")
+is what caught it, and it keeps the OLD spelling deliberately: its fixture is the un-migrated
+consumer, which is the party the fix protects.
+
 #### A third site the issue did not name, and the guard filed for it
 
 `scripts/tests/bootstrap-drift.tests.ps1` pins the written lens name as a literal in eight places and
@@ -97,6 +111,8 @@ prose enforces nothing, which is what #2168 is for.
 - [x] Flip the two degraded writer arms in `bootstrap.ps1` (`Get-LensNameCandidates`, `Get-LensWriteName`) so they still state what this version writes
 - [x] Copy the canonical lib to its three plugin mirrors and confirm all four are byte-identical
 - [x] Move the eight pinned lens names in `scripts/tests/bootstrap-drift.tests.ps1` to the written spelling, keeping them literals -- deriving them would make the suite prove only that the bootstrap and the table agree
+- [x] Move the created-scaffold assertions in `scripts/tests/sync-roster.tests.ps1` and the six pinned names in `scripts/tests/teardown.tests.ps1`, leaving every un-migrated-consumer fixture on the old spelling
+- [x] Repair `sync-roster.ps1`'s proposed roster row: name the lens on disk where one exists, the written spelling otherwise
 - [x] File #2168 for the guard that would pair a rename with its row flip, and cite it from the docstring
 - [~] No reader touched -- dropped as work, kept as the property being preserved: the whole point of the table is that a flip reaches no reader
 
@@ -118,6 +134,11 @@ migration note had just told to move away from it. `Current` now holds the new s
 property the table exists for. The two degraded writer arms in `bootstrap.ps1` move with it, and the
 docstring now records why no gate could see the omission, that two of four steps have shipped it,
 and where the guard that would pair the two halves is proposed (#2168).
+
+One live defect travelled with it: `sync-roster`'s proposed roster row named the written spelling
+even for a lens that already exists, so an un-migrated consumer would have been handed a link to a
+path they do not have. It now names the file on disk where there is one -- the fix the same script's
+stale-header line already carried.
 
 **Score:** 3
 
