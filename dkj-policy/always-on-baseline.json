@@ -1,13 +1,13 @@
 {
     "schema":  1,
-    "bytes":  110154,
+    "bytes":  110075,
     "recorded":  "2026-09-20",
-    "reason":  "Rename step F (#2135): the persona filename gains the specialist- prefix, and this repo carries BOTH import lines through the overlap -- INSTALL.md\u0027s \u0027Do it with BOTH lines\u0027. The import resolves against the marketplace clone, which tracks main, so the new path is dead until the clone is refreshed; two lines means one is always live. TEMPORARY: ~280 B of it is the old line plus its comment, and the path falls again when that line is deleted after the refresh.",
+    "reason":  "",
     "note":  "LF bytes of the always-on document path. Written by the always-on budget gate -- see always-on-budget-lib.ps1. Do not hand-edit this to make room: the gate lowers it on its own and raises it only behind -Raise, with a reason.",
     "documents":  {
                       ".claude/specialists/SPECIALISTS.md":  10833,
                       "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md":  30267,
-                      "CLAUDE.md":  48937,
+                      "CLAUDE.md":  48858,
                       "lenses/specialist-01-01-lens.md":  20117
                   }
 }
