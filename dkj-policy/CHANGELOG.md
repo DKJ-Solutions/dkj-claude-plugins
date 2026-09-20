@@ -43,7 +43,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 32 minor entries** <!-- pending-tally -->
+**17 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2167-lens-row-flip · 20260920-021714
+
+`specialists-init` scaffolds a fresh consumer's lenses under the current name again. Step D of the
+#2128 rename series moved all 30 lens files to `specialist-<g>-<id>-lens.md` but never flipped the
+Lens row in `Get-SpecialistFileShapes`, so every WRITER went on composing the retired
+`<g>-<id>-extension.md` -- into a consumer whose own tree carries the new spelling, and which the
+migration note had just told to move away from it. `Current` now holds the new spelling and
+`AlsoRead` the old, so an unmigrated consumer still resolves. No reader changes, which is the
+property the table exists for. The two degraded writer arms in `bootstrap.ps1` move with it, and the
+docstring now records why no gate could see the omission, that two of four steps have shipped it,
+and where the guard that would pair the two halves is proposed (#2168).
+
+One live defect travelled with it: `sync-roster`'s proposed roster row named the written spelling
+even for a lens that already exists, so an un-migrated consumer would have been handed a link to a
+path they do not have. It now names the file on disk where there is one -- the fix the same script's
+stale-header line already carried.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this repo's audience is its own developers and the consumers of the plugin, not a subscriber
+to a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+the Lens row flips to the new written spelling
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2170](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2170)
+
+---
 
 ### DEPLOY: docs/2134-consumer-rename-migration · 20260919-235850
 
