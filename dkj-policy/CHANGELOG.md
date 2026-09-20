@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 47 minor entries** <!-- pending-tally -->
+**26 / 48 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2192-teardown-reports-kept-directory · 20260920-133253
+
+`specialists-teardown` now reports a directory it keeps instead of skipping it in silence. The pruner
+removes a directory only when everything left in it was on its own removal list; the other arm was a
+bare `continue`, so a directory that survived reached no `[remove]` line, no `[KEEP]` line and no
+count. Keeping it is correct -- files this run has no claim on are still in it -- but the run then
+told a reader the repo stood free of the plugin while the directory was still standing. It goes
+through `Add-Kept` like every other kept item, so the summary counts it, and it carries the number of
+files that kept it. A directory whose leftovers all sit inside a child directory that has its own
+`[KEEP]` line is not reported a second time, so those counts never overlap.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+This is the uninstall report, so the cost of the gap is paid by whoever is leaving. A consumer running
+`dkj-policy` and keeping an always-on baseline keeps it at `.claude/specialists/always-on-baseline.json`
+-- inside the seam directory -- so there the teardown takes the silent arm every time, and the report
+was wrong about the repo's final state in precisely the repos that run both plugins.
+
+**Score:** 2
+
+#### Pull Request
+
+specialists-teardown reports a directory it keeps instead of skipping it silently
+
+Plugins: dkj-subagents-alpha
+
+[PR #2201](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2201)
+
+---
 
 ### DEPLOY: feat/2196-releases-readme-into-lenses · 20260920-132017
 
