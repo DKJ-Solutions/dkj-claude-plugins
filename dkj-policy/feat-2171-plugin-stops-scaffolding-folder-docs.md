@@ -99,7 +99,7 @@ verified with `measure-skill` before it lands.
       plugin no longer writes or refreshes it, with no delete command printed
 - [x] A3 -- regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1`, so the registered
       pair stays LF-identical
-- [ ] A4 -- rewrite `scripts/tests/adopt-workflow-folder.tests.ps1`: the scaffold-target assert and the
+- [x] A4 -- rewrite `scripts/tests/adopt-workflow-folder.tests.ps1`: the scaffold-target assert and the
       per-page asserts flip from *is written* to *is NOT written, and an existing copy is left untouched and
       reported*
 - [x] A5 -- prove the reading gates are unaffected: a legacy folder CONTRIBUTING is still read by
