@@ -82,6 +82,34 @@ comment on #2134.
       identically by steps B, C, D and F, which is what makes it a shared reader rather than this
       branch's to claim.
 
+- [x] **Rebased onto the table, after #2130/#2131/#2132/#2133 landed.** This branch was cut from
+      `a77465f8`, before step A, so it edited each reader by hand. On `main` every one of those sites
+      now reads through `Get-SpecialistFiles` / `Get-SpecialistFileId` /
+      `Get-SpecialistFileNamePattern`, which resolve from `Get-SpecialistFileShapes`. So the merge took
+      **main's** version of all six reader sites -- `check-plugin-integrity.ps1`,
+      `check-consumer-drift.ps1`, `check-roster-sync.ps1` and its mirror, `bootstrap.ps1`,
+      `check-plugin-integrity-docs.tests.ps1` -- and the hand-written anchors were discarded.
+- [x] **Flipped the Persona row instead**, in all four copies of `check-report-lib.ps1`: `Current`
+      takes `Prefix = 'specialist-'`, `AlsoRead` keeps the bare spelling a consumer's cache still
+      carries. That is the contract the table's own docstring states -- *"Step B..F each move one
+      kind's files and swap that kind's row here; no reader is touched again"* -- and it is what step C
+      did. **No reader moves with this branch**, which is the opposite of what the CREATE steps above
+      say and the whole point of the architecture that landed in between.
+- [x] **This repo takes its own overlap advice.** `SPECIALISTS.md` now carries BOTH import lines, new
+      one first, per `INSTALL.md`'s "Do it with BOTH lines" -- which #2134 published two PRs ago. This
+      repo is one of the six consumers, and the single-line edit this branch originally made opens
+      exactly the silent window that section exists to close. Measured here rather than argued: with
+      one line the budget gate reported the dead import and a 30,245 B "shrink", which is Chris's body
+      dropping out of every session in this checkout.
+- [x] Filed [#2167](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2167): step D renamed
+      the lenses and never flipped the **Lens** row, so `Get-SpecialistFileName -Kind Lens` still
+      returns `<id>-extension.md` and `specialists-init` scaffolds a fresh consumer's lenses under the
+- [x] Corrected the branch title, which `new-branch -Title` wrote at creation and which travels
+      verbatim into `CHANGELOG.md`. It read *"every reader of their path moves with them"* -- true of
+      the pre-#2130 implementation, and the exact opposite of what now lands. The write-once rule
+      exists so the PR, the changelog and the release notes cannot disagree about what a change is
+      called; it is not a reason to ship a sentence the diff contradicts.
+      retired name. Not repaired here -- different kind, different subject.
 ### TEST
 
 - [x] `check-plugin-integrity.ps1`: **0 errors**, and `[persona] checked 4` -- the renamed files are
@@ -95,33 +123,40 @@ comment on #2134.
       issue's reason ("teardown stops removing what bootstrap wrote") is the one thing that cannot
       happen here. The lens half of the same line is the one that does break, under #2133, because
       `specialist-01-01-lens.md` does not end in `-extension.md`.
-- [x] The always-on budget gate, which is the measurement this branch could not have predicted:
-      **+22 B**. The longer filename sits on the always-on path twice -- once in `SPECIALISTS.md`'s
-      import and once in Chris's lens blockquote -- at 11 characters each. The path is already over the
-      100,000 B ceiling, so the ratchet refuses growth outright. Raised on the record rather than
-      absorbed by trimming unrelated prose, which is the gate's own stated route and the one that
-      leaves a reviewer a sentence to argue with: 109,380 B -> 109,402 B.
-- [x] The baseline key was **moved, not regenerated**, and the recorded byte figure is untouched.
-      Regenerating is impossible on a branch: that key is an absolute
-      `~/.claude/plugins/marketplaces/...` path resolving against the marketplace clone, which tracks
-      `main`, so on a branch the import does not resolve and the gate reports the term as *unmeasured*
-      instead of re-measuring it. Left unmoved it read as a 30,245 B **shrink** -- the dead-import hole
-      reported as a saving, which is the same silence this whole step is written around.
-
+- [x] The always-on budget gate, re-measured on the merged state and **not** the +22 B this branch
+      first recorded: **+415 B**, 109,739 B -> 110,154 B. The longer filename is only part of it; the
+      rest is the deliberate overlap -- the second import line and its comment, about 280 B, which
+      comes back off the path when that line is deleted after the clone is refreshed. Raised on the
+      record with that impermanence named, so whoever removes the line knows the figure is expected to
+      fall rather than reading it as the new floor.
+- [x] The baseline key is **regenerated through the gate, on the merged state** -- the earlier
+      hand-move is moot. With both import lines present the old path resolves, so the persona body is
+      measured rather than reported as a hole, which is what made regenerating impossible before. The
+      dead-import `[WARN]` now names the NEW path and is correct: it is inert until the clone catches
+      up, which is precisely the state the two-line recipe makes safe.
+- [x] Lint gate 0 errors with `[persona] checked 4`, and all 118 suites green in 807s, on the reworked
+      tree -- so the row flip carries the rename with no reader edited.
 ### DEPLOY: feat/2135-persona-filenames
 
-The four persona files -- Chris, Bianca, Derek and Rendall -- move to `specialist-NN-NN-persona.md`,
-completing the #2128 rename round. Every reader that judges or constructs that name moves with them:
-lint check 3c's frontmatter-versus-filename assert, check 6b's persona-backed-manual construction,
+The four persona files -- Chris, Bianca, Derek and Rendall -- become `specialist-NN-NN-persona.md`,
+closing the #2128 rename round. **No reader moves with them.** What makes this the written name is a
+single row: `Get-SpecialistFileShapes`'s Persona entry, where `Current` takes the `specialist-` prefix
+and `AlsoRead` keeps the bare spelling a consumer's cache may still be carrying. Every site that judges
+or constructs the name -- lint check 3c, check 6b's persona-backed-manual construction,
 `check-consumer-drift.ps1`, `check-roster-sync.ps1` and its mirror, and the `specialists-init`
-bootstrap -- which both *writes* the orchestrator's `@`-import into a consumer and *probes* the
-marketplace clone for it. A loose `*-persona.md` glob is left loose throughout, so a file still on the
-old name lands inside a refusal rather than outside the scan.
+bootstrap that both writes the orchestrator's `@`-import and probes the clone for it -- already reads
+through that table, so a file left on the old name is still enumerated and still refused, because the
+filter list derives from the same row.
 
-Two sites named in the issue turned out not to be this step's, and both were verified against the tree
-rather than taken from the report. `teardown.ps1`'s `@`-import recogniser matches on the **suffix**
-`-persona.md`, which the prefixed name still carries, so it needs no change and the reason given for
-changing it could not have held. `bootstrap.ps1:856` and `:872` are lens literals belonging to #2133.
+That is not how this branch was originally written. It was cut before step A (#2130) and edited each
+reader by hand; the merge that brought A through D in discarded those anchors in favour of main's
+shape-driven ones. The round therefore ends the way step C ended, which is the property the table was
+built for.
+
+Two sites the issue named turned out not to be this step's, both verified against the tree rather than
+taken from the report. `teardown.ps1`'s `@`-import recogniser matches on the **suffix** `-persona.md`,
+which the prefixed name still carries, so the stated reason for changing it could not have held.
+`bootstrap.ps1:856` and `:872` are lens literals belonging to #2133.
 
 **Score:** 4
 
@@ -132,11 +167,17 @@ the marketplace clone -- a clone that tracks `main` and advances on `claude plug
 with no release, no version bump and no `plugin update` behind it. So this merge opens a window in which
 any consumer that refreshes its clone before that line is edited loses Chris's entire persona body,
 30,267 B of it, **in complete silence**: the rest of `CLAUDE.md` loads, the raw `@`-line stays in
-context as inert text, and nothing is reported on stdout, on stderr or under `--debug`. The six
-registered consumers are updated as part of this act, with the exact lines in #2134.
+context as inert text, and nothing is reported on stdout, on stderr or under `--debug`.
+
+**This repo closed that window on itself rather than only documenting it for others.** Its
+`SPECIALISTS.md` now carries both import lines, new one first -- the recipe #2134 published in
+`INSTALL.md`, applied to the first of the six registered consumers. It was not a precaution: with the
+single-line edit the budget gate reported the dead import and a 30,245 B shrink on this very checkout,
+which is the measurement rather than the theory. The remaining five consumers take the same recipe,
+and the old line comes out on both sides once the clone is refreshed.
 
 **Score:** 5
 
 #### Pull Request
 
-The four persona files take the specialist- prefix, and every reader of their path moves with them
+The four persona files take the specialist- prefix, and the Persona row is what carries it
