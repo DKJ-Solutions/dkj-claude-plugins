@@ -44,7 +44,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 53 minor entries** <!-- pending-tally -->
+**29 / 54 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2203-seen-repair-remeasured · 20260920-163341
+
+#2199 promoted the lens assembly into one shared function and that made the always-on consumer-prose
+path 11-12% slower; the repair that shipped with it — handing the caller's own dedup set in through
+`-Seen`, so one pass replaces two — had never been shown to recover the cost. It does not. Measured on
+a quiet machine, n=5 per variant, it is +0.05 ms against the shape it replaced, inside the noise.
+
+What the bisect found instead is that the whole +11% is the *call*: restore only the call site to the
+inline walk, on the repair's own file, and the cost is back on `main`'s band. Everything else on that
+branch — the new function, the fail-closed slug guard, both `try`/`catch` wraps, and the 185 lines
+the file grew by — is free; what is left is the boundary crossing itself. And the `try`/`catch`
+question is now a number rather than an estimate: 0.09 us median per entry, and the two entries this
+path carries come to ~0.0005% of a call between them.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The third attempt at this measurement is the one that worked, and what separates it from the two that
+did not is written down rather than left as luck. Two changes: the batch order rotates every round, so
+a drift cannot land on one variant; and the contention pre-flight brackets every *batch* instead of
+every round — which is not a refinement but a measured correction, because a round that opened at
+2,279 ms still came back with a batch at 76 ms/call against its own 43 ms band.
+
+That matters beyond this issue. This repo has no working OS-level CPU instrument (`Get-Counter` for
+`% Processor Time` errors with `c0000bb9` on this box), so a self-timed band is the only thing standing
+between a wall-clock figure and folklore — and the session that produced the figure is exactly the
+party who cannot tell the two apart without it.
+
+**Score:** 1
+
+#### Pull Request
+
+The -Seen repair re-measured: the +11% is the call, not the second pass
+
+[PR #2212](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2212)
+
+---
 
 ### DEPLOY: fix/2183-reserved-root-md-seam-row · 20260920-161516
 
