@@ -1,4 +1,4 @@
-## fix/2172-seam-lib-retired-name
+﻿## fix/2172-seam-lib-retired-name
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -39,19 +39,51 @@
 
 ### PLAN
 
+Issue #2172: `Get-WorkflowFolderName`'s docstring named the CURRENT folder name in the two places
+whose whole job is to preserve the RETIRED one, so the passage read as a tautology --
+*'dkj-policy' became 'dkj-policy'* -- and the migration story it tells was unreadable. The symptom
+was verified against the tree before the repair: both spots stood as reported, and the code directly
+below them (`@('dkj-policy', 'contributing-davekjohn', 'workflow-davekjohn')`) was correct, so this
+is prose only and no gate can see it.
+
+#### The rest of the tree was checked, and those two spots were the only casualties
+
+The reported cause -- a rename sweep overwriting the old name -- predicts the same class in every
+other rename sentence, so each was read: `consumer-runner-lib.ps1:25`,
+`entry-scaffold-lib.ps1:7949`, `pr-body-lib.ps1:769`, `script-contract-lib.ps1:299`,
+`seam-lib.ps1:388`, `check-plugin-integrity.ps1:3179`, `build-release-notes-page.ps1:737` and
+`fold-changelog-entry.ps1:332` all name `contributing-davekjohn` correctly. Nothing else was swept.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/seam-lib.ps1:168` -- the walk order names `'contributing-davekjohn', then 'workflow-davekjohn'` again
+- [x] `scripts/lib/seam-lib.ps1:177` -- the #1437 sentence reads `'contributing-davekjohn' became 'dkj-policy'` again
+- [x] Mirror regenerated with `build-shared-scripts.ps1` -- `plugins/dkj-policy/scripts/lib/seam-lib.ps1`, the registered `LibOnly` pair
 
 ### TEST
 
+- [x] Lint gate + all suites green, run by `open-pr.ps1`
+
 ### DEPLOY: fix/2172-seam-lib-retired-name
 
-**Score:**
+`Get-WorkflowFolderName`'s docstring names the retired folder name again. Two sentences in
+`scripts/lib/seam-lib.ps1` whose whole job is to preserve the name the folder used to carry had been
+overwritten with the name it carries now, so the walk order read `'dkj-policy', then
+'workflow-davekjohn'` and the #1437 sentence read *'dkj-policy' became 'dkj-policy'*. Both say
+`contributing-davekjohn` again. Prose only: the array below them was always correct, so no behaviour
+changes -- what changes is that the docstring can again be used to check the array, which is the one
+thing a mid-migration consumer depends on and the only place stating why the function walks three
+names newest-first. The other eight rename sentences in the tree were read and all name the retired
+folder correctly, so the sweep reached these two and nothing else.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- an in-repo docstring. Nothing a consumer of these plugins can observe: the function's
+behaviour, its argument list and the three names it walks are all unchanged.
+
+**Score:** N/A
 
 #### Pull Request
 
