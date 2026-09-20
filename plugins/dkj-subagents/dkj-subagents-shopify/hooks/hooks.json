@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-live-theme.ps1\"",
+            "command": "command -v powershell >/dev/null 2>&1 || exit 127; p=$(cat); printf '%s' \"$p\" | powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-live-theme.ps1\"; rc=$?; case $rc in 0|2) exit $rc;; esac; if printf '%s' \"$p\" | grep -Eiq shopify && printf '%s' \"$p\" | grep -Eiq theme; then echo \"BLOCKED (guard-live-theme): PowerShell could not run this guard (exit $rc) and the command names a Shopify theme. The guard is what holds the live theme, so a call it cannot judge is refused rather than waved through. Retry the command once; if PowerShell stays unhealthy on this machine, run the theme command yourself.\" >&2; exit 2; fi; exit $rc",
             "timeout": 30
           }
         ]

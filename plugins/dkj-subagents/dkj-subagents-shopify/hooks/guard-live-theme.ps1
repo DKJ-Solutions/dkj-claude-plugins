@@ -15,6 +15,17 @@
       3. a theme PUSH aimed at LIVE -- unless explicitly authorised. Aimed at live means the command
          carries '--allow-live' or this repo's own live theme id.
 
+    WHY hooks.json WRAPS THIS FILE IN A SHELL COMMAND (issue #2217). Everything above is what this script
+    decides once it RUNS. When PowerShell cannot start at all -- out of memory, a failed type
+    initializer -- no line of this file executes, and the harness reads every exit code other than 2 as a
+    NON-blocking error, so the command goes through: the guard fails OPEN in exactly the condition where
+    a machine is least healthy. No hooks.json field declares a hook fail-closed, and the exit code of a
+    start failure is arbitrary (127, 45, 66 and 1 were measured), so the only place it is visible is the
+    bash layer above the interpreter. The hooks.json command runs this file, passes 0 and 2 through, and
+    on any other exit code refuses ONLY a payload that names a Shopify theme; any other call passes the
+    failure through as before. hook-fail-closed.tests.ps1 holds both halves. It assumes the hook shell is
+    bash, which is the documented default wherever Git Bash is installed.
+
     WHY THIS SHIPS WITH THE TEAM RATHER THAN BEING BUILT PER REPO (inbound #769). Two Shopify
     consumers of this plugin independently built this same guard, and the second had to learn the
     false-positive lesson below from scratch while the first still carries it. The plugin stated the
