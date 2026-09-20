@@ -8062,12 +8062,38 @@ function Get-ConsumerProseDocuments {
         stale-path check declined at 124 / 0) it would be a decline. IT IS SHIPPED ANYWAY, AND THE REASON IS
         THE SKIP: all 10 sit in the repo that publishes the workflow, where check-consumer-prose.ps1 exits
         before either detector runs. A CONSUMER's lens has no comparable reason to narrate this plugin's
-        retired filenames -- if it does, that is the finding. NO CONSUMER LENS WAS MEASURED, because no
-        consumer checkout exists on the machine this was built on; that is the open half, and #2197 carries
-        it. If a consumer's legitimate measurement prose does trip this, it is one finding to file with real
-        data rather than a design to guess at now. The seam for narrowing it is already here and costs one
-        argument at one call site: -RepoRoot is what turns the lens walk on, so a detector that has to stop
-        reading lenses simply stops passing it.
+        retired filenames -- if it does, that is the finding.
+
+        AND THAT ARGUMENT IS NOW MEASURED RATHER THAN ARGUED (#2197, September 20, 2026). It shipped as the
+        weaker half of this widening -- a structural claim about consumers, made from a machine that held no
+        consumer -- and #2197 carried it until a machine with four of the six registered localCheckout paths
+        could run it: 4 consumer checkouts, 93 lens files, 3,299 lines, every finding opened at its file and
+        line and classified by hand.
+
+            detector                     raw   real
+            Get-SupremacyDeclaration       1      1
+            Get-RetiredDocNameMention     26      6
+
+        BOTH DETECTORS KEEP THE LENSES, AND 26/6 IS NOT THE NUMBER THE DECISION TURNS ON. Read flat it sits
+        between this repo's two poles and would be an uncomfortable call; read per consumer it is not close,
+        because what a consumer experiences is one verdict at one session start rather than a precision
+        ratio. Every consumer whose VERDICT THE WIDENING CHANGES receives only real findings -- smartwatchbanden
+        green to red on 3 findings, 3 real, xoxowildhearts green to red on 1, 1 real: FOUR FOR FOUR. The 23/3
+        sits entirely in life-hub, which was ALREADY red on 36 non-lens findings, so the widening lengthens a
+        report somebody had to work through anyway rather than changing what that repo is told. The remaining
+        consumer is silent on both. Against the stale-path check declined at 124 findings and ZERO real, this
+        is 6 real restatements plus 1 real inversion, in 4 repos, two of which nothing else in this workflow
+        could have found.
+
+        THE PREDICTION HELD, AND SO DID ITS EXCEPTION. The 20 raw findings that are not real are the same
+        historical-narration class measured in the source repo -- a retired folder name inside 'tot <date> ...
+        geheten' or 'daarvoor' narration -- and they appear in the one consumer the check was already
+        reporting on. So 'a consumer's lens has no comparable reason to narrate this plugin's retired
+        filenames' is right about every finding that changed a verdict, which is the only place it had to be.
+
+        THE SEAM BELOW STAYS AVAILABLE AND UNUSED. No per-detector narrowing and no call-site change: -RepoRoot
+        is still what turns the lens walk on, so a detector that has to stop reading lenses simply stops passing
+        it -- and nothing measured here asks it to.
 
         THE PER-SESSION COST IS #2188's THIRD QUESTION, AND IT IS WHY THIS LANDED WITH THREE OTHER
         REPAIRS. These detectors run from a SessionStart hook in every adopted consumer, so the widening

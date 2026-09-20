@@ -44,7 +44,188 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 49 minor entries** <!-- pending-tally -->
+**29 / 54 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2203-seen-repair-remeasured · 20260920-163341
+
+#2199 promoted the lens assembly into one shared function and that made the always-on consumer-prose
+path 11-12% slower; the repair that shipped with it — handing the caller's own dedup set in through
+`-Seen`, so one pass replaces two — had never been shown to recover the cost. It does not. Measured on
+a quiet machine, n=5 per variant, it is +0.05 ms against the shape it replaced, inside the noise.
+
+What the bisect found instead is that the whole +11% is the *call*: restore only the call site to the
+inline walk, on the repair's own file, and the cost is back on `main`'s band. Everything else on that
+branch — the new function, the fail-closed slug guard, both `try`/`catch` wraps, and the 185 lines
+the file grew by — is free; what is left is the boundary crossing itself. And the `try`/`catch`
+question is now a number rather than an estimate: 0.09 us median per entry, and the two entries this
+path carries come to ~0.0005% of a call between them.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The third attempt at this measurement is the one that worked, and what separates it from the two that
+did not is written down rather than left as luck. Two changes: the batch order rotates every round, so
+a drift cannot land on one variant; and the contention pre-flight brackets every *batch* instead of
+every round — which is not a refinement but a measured correction, because a round that opened at
+2,279 ms still came back with a batch at 76 ms/call against its own 43 ms band.
+
+That matters beyond this issue. This repo has no working OS-level CPU instrument (`Get-Counter` for
+`% Processor Time` errors with `c0000bb9` on this box), so a self-timed band is the only thing standing
+between a wall-clock figure and folklore — and the session that produced the figure is exactly the
+party who cannot tell the two apart without it.
+
+**Score:** 1
+
+#### Pull Request
+
+The -Seen repair re-measured: the +11% is the call, not the second pass
+
+[PR #2212](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2212)
+
+---
+
+### DEPLOY: fix/2183-reserved-root-md-seam-row · 20260920-161516
+
+The seam-answer table in the system-administration lens now states the permanent-root-docs list the way
+the code holds it. It carried, since #2179 moved it into the lens from the now-deleted
+`dkj-policy/README.md`, a list of six names and a note that `CHANGELOG` and `CONTRIBUTING` "came off" it
+on August 27, 2026. The code says the opposite: `Get-ReservedRootMd` still lists all eight names,
+because the portable `cut-release` reads that list to decide which root `.md` files are permanent
+documents rather than unfolded entries, and taking the two names off the same day made it refuse a
+release in any repo that keeps its changelog at the root, over a changelog nobody had failed to fold. The row now
+lists every name, says the two left the root and stayed on the list because the list names a permanent
+document rather than one this repo holds today, and points at the code comment that carries the
+reasoning and at `ReservedNames` in `Get-BranchFilePaths`, which records the same rule for the
+workflow folder's own pages. Nothing else in the table, and no script, changed.
+
+This prevents a failure that has not happened yet: with `dkj-policy/README.md` deleted, that row is the
+only prose description of this seam outside the code, so someone reconciling the code to it would take the two names off the
+list and reproduce the cut refusal of August 27.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- an internal lens row, which no subscriber of the service reads or has anything to do differently
+because of.
+
+**Score:** N/A
+
+#### Pull Request
+
+The seam table states Get-ReservedRootMd as the code holds it
+
+[PR #2211](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2211)
+
+---
+
+### DEPLOY: fix/2204-lensdircandidates-enumeration-guard · 20260920-155808
+
+`Get-LensDirCandidates` -- the shared primitive that answers where a consumer's repo lenses may live, and
+the one every discovery-seam reader walks -- enumerated `.claude/plugins/` with a bare `Get-ChildItem`. That
+raises a non-terminating error on a directory it cannot read, and any caller running under
+`$ErrorActionPreference = 'Stop'` has it escalated to a throw; a permission-denied entry or a broken reparse
+point is enough. The walk now passes `-ErrorAction SilentlyContinue`, on the pattern `Get-SpecialistFiles`
+already used one screen down, so a family directory that cannot be read contributes no candidate -- exactly
+what the walk already did for a family that is simply absent. Guarded at the root rather than at each call
+site, because one guard answers the risk for every caller of a shared primitive, while a call-site-wide
+`try/catch` answers it for one and masks that caller's own future regressions along with it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The lib mirrors into three plugins -- `dkj-subagents-alpha`, `dkj-policy` and `dkj-subagents-shopify` -- so
+every consumer that installs one of them gets the guarded walk at the next release. What it buys them is a
+failure that has not happened yet, which is the whole of its weight: a repo whose `.claude/plugins/` holds
+an entry this account cannot enumerate would, from a caller under `Stop`, have seen the roster check, the
+drift lint, the policy-drift report or the teardown throw rather than degrade. Nobody has reported that, and
+nothing a consumer can see changes on a healthy tree -- the walk returns the same candidates it always did.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard Get-LensDirCandidates' plugin-family enumeration
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2209](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2209)
+
+---
+
+### DEPLOY: fix/2197-consumer-lens-fp-measured · 20260920-154630
+
+`Get-ConsumerProseDocuments` now states the consumer-lens false-positive measurement instead of
+naming it as the open half somebody still has to take. The passage it replaces asserted two things
+that stopped being true within minutes of it reaching the trunk -- that no consumer lens had been
+measured, and that #2197 carried the question -- and a docstring that names an open question is
+read as an invitation to go and answer it, which is the work this would have cost the next reader.
+
+The decision it records is that **both detectors keep the lenses**: `Get-SupremacyDeclaration` at
+1 raw / 1 real and `Get-RetiredDocNameMention` at 26 raw / 6 real over 4 consumer checkouts, 93
+lens files and 3,299 lines. The flat ratio is deliberately not what the entry turns on -- read per
+consumer it is four for four, because every repo whose verdict the widening actually changes
+receives only real findings, and the 23/3 sits entirely in one consumer that was already red on 36
+non-lens findings. The `-RepoRoot` seam stays available and unused; no code changed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running this workflow receives this file through a plugin update, and a developer there who
+reads the old passage is told the question is open and the seam is waiting to be narrowed. The
+nameable failure is that they measure it again, or narrow a detector on an argument the numbers
+have already settled against -- the 6 real restatements and 1 real inversion it would have
+suppressed are exactly the findings nothing else in this workflow could have surfaced.
+
+**Score:** 1
+
+#### Pull Request
+
+Get-ConsumerProseDocuments states the consumer-lens measurement instead of naming it as an open half
+
+Plugins: dkj-policy
+
+[PR #2208](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2208)
+
+---
+
+### DEPLOY: fix/drop-pre-rename-persona-import · 20260920-153027
+
+This repo's always-on document path no longer names the orchestrator persona under both its old and its
+new filename. #2135 put both import lines in `SPECIALISTS.md` on purpose, so that a checkout whose
+marketplace clone still held the old name kept its orchestrator while the clone refreshed, and left
+a comment saying to delete the old line once the new one resolved. It resolves now, so the old
+line pointed at nothing, and the always-on budget gate warned about the dead import and counted the
+same persona a second time, as 30,267 B carried from the baseline. That put the measured path at
+140,974 B against a recorded 110,075 B and made every branch in this repo, whatever it changed, read
+as growing an over-budget path by 30,899 B, so `open-pr` refused it. The line and its comment are gone,
+and the baseline is raised by 239 B, recorded with its reason: the persona was already 30,899 B in
+the source, and the gate only started judging it from the tree in #2187.
+
+A maintainer on a machine whose marketplace clone has refreshed meets this at the first `open-pr`:
+`fix/2183-reserved-root-md-seam-row` changed nothing on the always-on path and was refused all the same.
+It reaches no subscriber of the service and nothing else in the tree changes with it, which is why it
+is not higher.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this repo's own session-start weight and its own gate; no subscriber of the service reads or does
+anything differently because of it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Drop the pre-rename orchestrator import line now that the clone resolves the new one
+
+[PR #2206](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2206)
+
+---
 
 ### DEPLOY: fix/2188-gated-detectors-read-lenses · 20260920-134909
 

@@ -1380,6 +1380,82 @@ solve it**: each line carries a `[depth N]`, so a fixture's own nested run is fi
 is a remaining-time estimate: it would have to come from `suite-durations.json`, and that is the CI-seconds
 file the #1713 paragraph above says does not convert to this machine at all.
 
+### The `-Seen` repair, re-measured — the +11% is the CALL, not the second pass (September 20, 2026)
+
+[#2203](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2203) was filed because #2199's
+branch shipped a repair whose *recovery* had only ever been established by inspection: the second
+dedup pass was provably gone from the diff, and nobody had shown the per-call cost came back. Two
+earlier sessions tried and neither would stand behind a figure — one measured `main` itself tripling
+mid-run under unchanged code. **This is the third attempt, and the machine stayed quiet through all
+of it.**
+
+**The method, and the one thing that made it work.** Isolated in-process, one fresh `powershell
+-NoProfile` per batch, the three libs dot-sourced from a scratchpad copy of that commit, one warm-up
+call, then 300 timed calls of `Get-ConsumerProseDocuments -Documents .. -RepoRoot ..` over a synthetic
+30-lens fixture whose `CLAUDE.md` `@`-imports one of those lenses — so kinds 1 and 3 overlap on
+exactly one path, which is the case `-Seen` exists for. Two things the earlier attempts did not do:
+
+- **The batch order ROTATES every round**, so a monotonic drift cannot land on one variant. The first
+  attempt's own note — 37 to 86 ms per call for identical code depending on run order — is what this
+  answers.
+- **The contention pre-flight brackets EVERY BATCH, before and after.** Per *round* was tried first and
+  is too coarse: a round that opened at 2,279 ms came back with one batch at 76 ms/call against its
+  own 43 ms band, because the contention arrived mid-round. A batch whose two brackets are not both
+  in band is discarded, not interpreted.
+
+The pre-flight is the issue's own recipe — a fixed CPU-bound loop, no filesystem, no object
+machinery, compared against its own earlier band in the same session. It earned its keep immediately:
+in the second run it went from 2,279 ms to 4,405 ms between rounds 4 and 5, and every per-call
+figure in that window roughly tripled. `Get-Counter` for `% Processor Time` still errors on this
+box (`c0000bb9`), so the self-timed band is the only instrument there is, and it is enough.
+
+**The figures.** n=5 per variant, rotated, every batch bracketed in band (2,187-2,256 ms, a 3% spread).
+All four return an identical 33-row corpus, so this compares the same work:
+
+| variant | commit | ms/call (median, range) | vs `main` |
+|---|---|---|---|
+| `main` before #2199 | `8fc89977` | 36.68 (36.49-36.76) | — |
+| the promotion, two passes | `97434724` | 40.85 (40.74-41.01) | **+4.17 ms, +11.4%** |
+| the `-Seen` repair, one pass | `4375cdee` | 40.90 (40.55-41.05) | **+4.22 ms, +11.5%** |
+| `4375cdee` with only the CALL SITE inlined | built for this | 36.62 (36.53-37.13) | **-0.06 ms, -0.2%** |
+
+**So the answer to the question as asked is: the repair does not move it.** `-Seen` is +0.05 ms
+against the two-pass shape it replaced — inside the noise of a measurement whose per-variant spread
+runs 0.27 to 0.60 ms. The regression is real and reproduces at the same percentage the first
+session measured (+11-12%), on a fixture whose absolute band is different because it is a
+different fixture.
+
+**And the fourth row is why that is not a dead end.** Take the `-Seen` commit's own file and change one
+thing — restore the caller's kind-3 block to `main`'s inline walk, leaving the shared function defined
+and merely unused — and the cost is back on `main`'s band exactly. **Everything else on that branch is
+free**: the new function's presence, the fail-closed slug guard, the two `try`/`catch` wraps, and the 185
+lines the file grew by, nearly all of them docstring. What is left is the boundary crossing itself --
+one parameter binding and one 29-element array marshalled back per invocation — with the `try`/`catch`
+measured out separately below and the caller-side re-append it forces being 29 `List.Add` calls.
+
+**Which makes the docstring's implicature wrong rather than its measurement.** `+6 to +7 ms, +11-12%`
+was correctly measured against the two-pass shape; what does not follow is that the *re-adding loop*
+was what cost it. It could not have been — that loop is 29 `HashSet.Add` calls, microseconds — and
+the bisect says so directly. Filed as
+[#2210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2210) for the branch owner, because
+which way to take it (keep the shared function and accept 11% on an always-on path, inline the call
+site, or something else) is a design call on a parked branch and not this measurement's to make.
+
+**The `try`/`catch` question, stated as a number so it stops being an order-of-magnitude claim.** A bare
+`try` with no exception thrown, measured as the delta between two otherwise identical 300,000-iteration
+loops run in both orders, 4 repeats: **0.09 us median per entry, 0.22 us worst, one reading negative**
+-- i.e. at or below the noise floor of a loop whose own iteration costs ~18.5 us. Two entries per call
+is ~0.2 us against a ~37 ms call: **0.0005%**. The issue's own estimate ("single-digit microseconds,
+three orders of magnitude under the noise floor") was conservative by about two further orders.
+
+**One caveat that is worth carrying, because it would otherwise be rediscovered.** Timing the lens
+walk's four seam primitives individually (`Get-EnabledPlugins` 1.9 ms, `Get-SeamPaths` 0.2 ms,
+`Get-SpecialistFiles` 2.0 ms, 30x `Get-PathRelativeToDirectory` 11.0 ms) sums to ~15 ms against a lens
+half that measures ~37 ms in place — identically in every variant. **Component isolation does not sum
+to the whole here**, so it cannot be used to attribute anything; the attribution above rests entirely on
+the A/D bisect, which compares two whole calls and does not depend on the decomposition. Kinds 1 and 2
+together are 0.65 ms, so this always-on path is the lens walk and nothing else.
+
 ### Boundaries with the other roles
 
 - A duplication finding is still a duplication first: Nolan may flag the token cost, but the dedup
