@@ -309,6 +309,14 @@ load-bearing files. **Check the report lines, not just the `Test-Path` results:*
 `[keep]` on the way in, and `[remove]` versus `[KEEP]` on the way out, are what actually tell you which
 of the two rows above you are in.
 
+**A `[KEEP]` line can name a directory, not only a file** (issue #2192). The run prunes a directory it
+emptied — the lens trees, `.claude/specialists/`, `scripts/lib/`, `scripts/` — and keeps any that still
+holds something the script did not place. Keeping it is right; being silent about it was not, and until
+that issue the leftover arm was a bare `continue`, so the directory appeared in no marker and no count.
+The common case is a repo running `dkj-policy`, whose always-on baseline lives at
+`.claude/specialists/always-on-baseline.json`: the seam directory survives every teardown there, and a
+reader who watched its files go was told nothing about the directory that outlived them.
+
 This is not a special case. The plugin scaffolds precisely the files that were *extracted from* repos
 like these, so on a fresh fixture the addresses are free and in any real consumer they are inhabited —
 which is why the round-trip suite now carries an explicit *occupied consumer* scenario.

@@ -41,21 +41,54 @@
 
 Repair: the leftover arm of $pruneEmptyDirs goes through Add-Kept with a third advice value, so the kept directory reaches the markers and the tally through the one door.
 
+#### What the report claimed, and what the tree said
+
+Verified before repairing, per the six-way check. The symptom stands at `teardown.ps1:322` -- a bare
+`continue`, no marker, no count. The reason stands too: `.claude/specialists/always-on-baseline.json`
+is on disk in this repo, so a `dkj-policy` consumer takes that arm on every teardown.
+
+The report's one open question -- whether `bootstrap.ps1`'s `[tidy]` guard has the same silent arm --
+is answered NO. That guard removes leftover orchestrator-note lines and reports the count it removed;
+it prunes no directories, so there is no leftover arm there to be silent about.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Add-Kept` takes a third `$Advice` value, `kept-directory`
+- [x] the leftover arm of `$pruneEmptyDirs` reports through `Add-Kept` instead of `continue`-ing
+- [x] the summary grows a third group, printing each label WITH its count
+- [x] `SKILL.md` says a `[KEEP]` line can name a directory, and names the common case
 
 ### TEST
 
+- [x] a regression case in `teardown.tests.ps1` on the fixture that made this the common case -- a
+      baseline file inside the seam directory -- asserting the marker, the count, that the directory
+      is not ALSO announced as going, that the nested lens directory still goes, and that preview and
+      apply say the same thing
+- [x] the kept figure is asserted against the markers (#356's invariant), which is what proves the
+      new marker went through the one door rather than growing a tally beside it
+- [x] `teardown.tests.ps1` 226 pass / 0 fail, `teardown-protocol.tests.ps1` 28 pass / 0 fail
+
 ### DEPLOY: fix/2192-teardown-reports-kept-directory
 
-**Score:**
+`specialists-teardown` now reports a directory it keeps instead of skipping it in silence. The pruner
+removes a directory only when everything left in it was on its own removal list; the other arm was a
+bare `continue`, so a directory that survived reached no `[remove]` line, no `[KEEP]` line and no
+count. Keeping it is correct -- it holds a file this script did not place -- but the run then told a
+reader the repo stood free of the plugin while the directory was still there. It goes through
+`Add-Kept` like every other kept item, so the summary counts it, and carries the number of files that
+kept it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `dkj-policy` hit this on every teardown, not occasionally: since the always-on
+baseline moved to `.claude/specialists/always-on-baseline.json`, the seam directory always holds a
+file the teardown did not place. The uninstall report was wrong about the repo's final state in
+exactly the repos that run both plugins.
+
+**Score:** 2
 
 #### Pull Request
 
 specialists-teardown reports a directory it keeps instead of skipping it silently
-

@@ -846,6 +846,53 @@ function Get-LintScript { return `$script:LintScript }
     Assert-True ($fp.Out -match '(?m)^\s*\[remove\].*scripts\\lib\\ \(empty directory\)') `
         'fresh: and the preview said it would go -- same rule as the lens directory (#275)'
 
+    # --- #2192: a directory that is KEPT is reported, not silently skipped ---------------------------
+    # The leftover arm of the pruner was a bare `continue`: the directory reached no [remove] line, no
+    # [KEEP] line and no count. Keeping it is right -- it holds a file this script did not place -- and
+    # silence about it is the #275 gap one category over, on the run where it matters most: the reader
+    # said yes to a preview, applied it, and is told the repo stands free of the plugin while the
+    # directory is still there.
+    #
+    # THE FIXTURE IS THE COMMON CASE RATHER THAN A CONTRIVED ONE. Since #2186 a repo running dkj-policy
+    # keeps its always-on baseline at .claude/specialists/always-on-baseline.json -- inside the seam
+    # directory, placed by a different plugin -- so this arm is taken on every teardown in such a repo.
+    # Before that it was close to unreachable, which is why the defect survived thirteen test rounds.
+    New-BootstrappedConsumer | Out-Null
+    $baseline = Join-Path $Fixture '.claude\specialists\always-on-baseline.json'
+    [System.IO.File]::WriteAllText($baseline, '{ "budget": 1 }')
+
+    $kp = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture)
+    Assert-Equal 0 $kp.Code 'kept-dir/preview: exit-code 0'
+    Assert-True ($kp.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\ --') `
+        'kept-dir/preview: the seam directory gets a [KEEP] marker of its own (#2192)'
+    Assert-True ($kp.Out -match 'it holds 1 file\(s\) this script did not place') `
+        'kept-dir/preview: and the marker says HOW MANY files kept it -- the part that differs per directory'
+    Assert-True (-not ($kp.Out -match '(?m)^\s*\[remove\].*specialists\\ \(empty directory\)')) `
+        'kept-dir/preview: it is NOT also announced as going -- the two markers are exclusive'
+    # The nested directory still goes. Proves the keep is targeted at the one directory that has a
+    # leftover, rather than a blanket bail that leaves the whole tree standing.
+    Assert-True ($kp.Out -match '(?m)^\s*\[remove\].*lenses\\ \(empty directory\)') `
+        'kept-dir/preview: the emptied lens directory inside it still goes'
+    # THE ONE DOOR, asserted as #356's invariant rather than against a literal: a marker that bypassed
+    # Add-Kept would print above a summary that cannot count it, which is the exact defect #356 fixed
+    # one category over and the reason this repair did not grow a tally of its own.
+    $km = @([regex]::Matches($kp.Out, '(?m)^\s*\[KEEP\]\s')).Count
+    $ks = [regex]::Match($kp.Out, 'Summary:\s+\d+ item\(s\) to remove,\s+(?<kept>\d+) kept\.')
+    Assert-True $ks.Success 'kept-dir/preview: the summary line is parseable'
+    Assert-Equal $km ([int]$ks.Groups['kept'].Value) `
+        "kept-dir/preview: the kept directory reaches the summary's figure through Add-Kept (#356's invariant)"
+    Assert-True ($kp.Out -match '(?m)^\s+Kept -- a directory this script prunes only when it is empty') `
+        'kept-dir/preview: listed under a remedy of its own, not under the -EmptyLensPattern advice'
+
+    $ka = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture, '-Apply')
+    Assert-Equal 0 $ka.Code 'kept-dir/apply: exit-code 0'
+    Assert-True (Test-Path -LiteralPath (Join-Path $Fixture '.claude\specialists')) `
+        'kept-dir/apply: the directory really does survive -- the report was true'
+    Assert-True (Test-Path -LiteralPath $baseline) `
+        "kept-dir/apply: and so does the other plugin's baseline inside it"
+    Assert-True ($ka.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\ --') `
+        'kept-dir/apply: the apply run says it too -- preview and apply report the same fate (#275)'
+
     # --- inbound #381: the untouched-install note is a READING, not an assertion ---------------------
     # Round v13 reached this note by the route UNINSTALL.md Step 4 now offers -- re-run the audit from
     # the cache AFTER the uninstall -- and was told the install was untouched one step after seeing

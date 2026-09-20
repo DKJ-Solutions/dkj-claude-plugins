@@ -235,7 +235,7 @@ function Add-Kept {
     param(
         [Parameter(Mandatory = $true)][string]$Label,
         [Parameter(Mandatory = $true)][string]$Detail,
-        [Parameter(Mandatory = $true)][ValidateSet('scaffold-shape', 'claude-md-prose')][string]$Advice
+        [Parameter(Mandatory = $true)][ValidateSet('scaffold-shape', 'claude-md-prose', 'kept-directory')][string]$Advice
     )
     $script:kept += [pscustomobject]@{ Label = $Label; Detail = $Detail; Advice = $Advice }
     Write-Host ("  [KEEP]   $Label -- $Detail") -ForegroundColor Yellow
@@ -329,7 +329,31 @@ $pruneEmptyDirs = {
             Get-ChildItem -LiteralPath $dir -Recurse -File -ErrorAction SilentlyContinue |
                 Where-Object { -not $planned.Contains($_.FullName.Substring($root.Length).TrimStart('\', '/')) }
         )
-        if ($leftovers.Count -gt 0) { continue }
+        if ($leftovers.Count -gt 0) {
+            # REPORTED, NOT SILENTLY SKIPPED (issue #2192). This was a bare `continue`: the directory was
+            # neither removed nor mentioned, so it reached no [remove] line, no [KEEP] line and no count.
+            # Keeping it is correct -- it holds something this script did not place -- but a reader who
+            # watched the files inside it go, and is then told the repo stands free of the plugin, had no
+            # way to learn the directory itself is still there. That is #275's gap one category over: the
+            # dry run is the inventory somebody says yes to, and a fate it does not state is a fate the
+            # reader discovers afterwards.
+            #
+            # Through Add-Kept rather than a Write-Host of its own, which is #356's lesson inside this same
+            # block: a marker that skips the one door is a marker the summary cannot count. That also
+            # settles the shape question the report left open. A scriptblock cannot append to its caller's
+            # $removed -- which is why this one RETURNS $handled -- but Add-Kept writes $script:kept
+            # directly, so the kept side needs neither a second return value nor an out-collection, and
+            # the two tallies still cannot drift the way #275's did.
+            #
+            # UNCONDITIONAL, 'scripts\' in a repo with scripts of its own included. That reads as noise
+            # until you remember what this tally is for: $kept is the half that makes the script safe to
+            # run, and "your scripts\ stays, because it holds 14 file(s) I did not place" is exactly the
+            # assurance it exists to give. The ceiling is one line per pruned directory, four in a whole run.
+            $keptDirLabel = $dir.Substring($root.Length).TrimStart('\', '/') + '\'
+            Add-Kept -Label $keptDirLabel -Advice 'kept-directory' `
+                -Detail ("pruned only when empty; it holds " + $leftovers.Count + " file(s) this script did not place")
+            continue
+        }
         # One label for the printed line and the tally, so the list a reader reads and the number they are
         # given cannot describe the same item differently.
         $dirLabel = $dir.Substring($root.Length).TrimStart('\', '/') + '\ (empty directory)'
@@ -960,6 +984,18 @@ if ($keptScaffold.Count -gt 0) {
     Write-Host "  convention this plugin does not know, in which case they are yours to delete (or re-run" -ForegroundColor Yellow
     Write-Host "  with -EmptyLensPattern '<your marker>' to have them recognised):" -ForegroundColor Yellow
     foreach ($k in $keptScaffold) { Write-Host "    $($k.Label)" }
+}
+# A group of its own, for the same reason $Advice groups the other two: the remedy differs. There is
+# nothing to review and nothing to delete here -- the directory stays because it holds content this run
+# had no claim on -- so the -EmptyLensPattern paragraph and the governance-file one are each false of it.
+# The DETAIL is printed beside every label, unlike the two groups around it: theirs is one sentence
+# repeated per item, which the group heading already says, while this one carries the count -- the only
+# part that differs per directory, and the only part that says how much is still standing there.
+$keptDirs = @($kept | Where-Object { $_.Advice -eq 'kept-directory' })
+if ($keptDirs.Count -gt 0) {
+    Write-Host "  Kept -- a directory this script prunes only when it is empty. It holds file(s) this" -ForegroundColor Yellow
+    Write-Host "  script did not place, so the directory stays, with everything in it:" -ForegroundColor Yellow
+    foreach ($k in $keptDirs) { Write-Host "    $($k.Label) -- $($k.Detail)" }
 }
 if ($keptProse.Count -gt 0) {
     Write-Host "  Kept -- generated prose in a governance file. Reported rather than removed; deleting" -ForegroundColor Yellow
