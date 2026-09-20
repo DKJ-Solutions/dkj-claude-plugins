@@ -1429,9 +1429,11 @@ different fixture.
 thing — restore the caller's kind-3 block to `main`'s inline walk, leaving the shared function defined
 and merely unused — and the cost is back on `main`'s band exactly. **Everything else on that branch is
 free**: the new function's presence, the fail-closed slug guard, the two `try`/`catch` wraps, and the 185
-lines the file grew by, nearly all of them docstring. What is left is the boundary crossing itself --
-one parameter binding and one 29-element array marshalled back per invocation — with the `try`/`catch`
-measured out separately below and the caller-side re-append it forces being 29 `List.Add` calls.
+lines the file grew by, nearly all of them docstring. What is left is **what the call site does
+differently**, which the section below names and measures — and which this paragraph got wrong at first
+in exactly the way it was catching the docstring out in: it read "the boundary crossing itself — one
+parameter binding and one 29-element array marshalled back", and dismissed the caller-side re-append as
+"29 `List.Add` calls".
 
 **Which makes the docstring's implicature wrong rather than its measurement.** `+6 to +7 ms, +11-12%`
 was correctly measured against the two-pass shape; what does not follow is that the *re-adding loop*
@@ -1440,6 +1442,70 @@ the bisect says so directly. Filed as
 [#2210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2210) for the branch owner, because
 which way to take it (keep the shared function and accept 11% on an always-on path, inline the call
 site, or something else) is a design call on a parked branch and not this measurement's to make.
+
+### It is `| Out-Null`, and the third option wins outright (September 20, 2026)
+
+**#2210 asked which of three ways to take it and named its own third option as untested. It is the one
+that wins, and the cost is two lines.** Same method as above — isolated in-process, one fresh
+`powershell -NoProfile` per batch, rotated order, every batch bracketed by the contention pre-flight,
+300 calls per batch, n=6 to 8. The fixture here is **this repo itself** rather than a synthetic 30-lens
+tree, which is why the absolute band sits ~2 ms under the table above; all five variants return an
+identical 34-row corpus, hash-compared per batch, so this compares the same work. Every one of the 70
+batches across both runs came back in band.
+
+| variant | median (range) | vs `main` |
+|---|---|---|
+| `main` before #2199 (`8fc89977`) | 34.29 (34.11-34.62) | — |
+| the branch tip (`4fc8dc87`) | 38.40 (38.01-38.77) | **+4.11 ms, +12.0%** |
+| the tip, `[void]` on the re-append only | 35.59 (35.37-36.06) | +1.29 ms, +3.8% |
+| the tip, `[void]` on **both** added adds | 34.80 (34.70-35.33) | **+0.51 ms, +1.5%** |
+| the tip with the call site inlined (the bisect control) | 34.44 (33.91-34.68) | +0.15 ms, +0.4% |
+
+**The mechanism is `$x.Add(...) | Out-Null`.** Every use of that idiom builds and tears down a
+**pipeline**, and a pipeline in PowerShell 5.1 costs ~95 us — five orders of magnitude more than the
+`List.Add` inside it. Measured directly, 300 iterations x 3, on a 29-element list:
+
+| | per call |
+|---|---|
+| 29x `$l.Add($s) \| Out-Null` | **2.74 ms** |
+| 29x `[void]$l.Add($s)` | 0.078 ms |
+| 1x `$l.AddRange(...)` | 0.078 ms |
+| the whole function call, 29-element array marshalled back | **0.038 ms** |
+
+**So the boundary the paragraph above blamed is 0.038 ms** — about 1% of the 4.11 ms it was made to
+account for, and 70x smaller than the idiom sitting next to it. What the promotion actually added at the
+call site is **35 pipelines per invocation**: 29 in the `foreach ($rel in @(...)) { $rels.Add($rel) |
+Out-Null }` re-append, and 6 more in the `$pluginNames.Add($pluginName) | Out-Null` loop that builds the
+list the shared function is handed. 35 x ~95 us ~ 3.3 ms, against 3.60 ms measured recovered. The
+re-append is the bigger half and the `$pluginNames` loop is the reason the first repair stalled at 3.8%
+instead of reaching `main`.
+
+**The repair is two characters-for-a-pipeline substitutions, and it keeps everything #2199 was for.**
+`[void]$rels.Add($rel)` and `[void]$pluginNames.Add($pluginName)`. That lands at +1.5%, within 0.36 ms of
+the fully-inlined control — i.e. **inlining the call site buys nothing measurable over it**, so option 2's
+trade (give back the duplication #2199 was filed to remove, at the one call site that is always-on) has
+no performance left to pay for it. `$rels.AddRange([string[]]@(...))` measures the same as the `[void]`
+loop and is the tidier shape where the whole return is being appended.
+
+**Why this is worth a section and not a footnote: it is the third time in one chain that a measured
+number was attached to the wrong cause.** The docstring attributed +11-12% to a re-adding loop that is 29
+`HashSet.Add` calls; #2203's re-measurement caught that and attributed the same +11% to the call
+boundary; this one says the boundary is 0.038 ms. Each step measured honestly and reasoned from a
+mechanism nobody had timed. **The rule that falls out is narrow enough to use: an attribution is a
+measurement too, and a bisect that changes a whole block tells you WHICH BLOCK, never which line in it.**
+The A/D bisect swapped a call site for an inline walk — two shapes differing in the call, the re-append
+and the `$pluginNames` list at once — and reading "the call" off that is picking one of three.
+
+**What it does not say.** The residual +0.51 ms is real and is not attributed here: it is the boundary
+(0.038 ms measured), plus the `ToArray()`/`@()`/`AddRange` allocations, plus whatever the decomposition
+caveat below covers. It is 1.5% of an always-on call and the shared function is worth it, so nothing was
+spent chasing it — but it is not zero and should not be written up as zero.
+
+**And `main` pays this idiom too, which is a separate and bigger finding.** The inline walk `main` runs
+today carries ~30 of these pipelines of its own, and the tree holds **107** `.Add(...) | Out-Null` sites
+against a single `[void]` one. Filed as
+[#2215](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2215); it is not #2199's to carry and
+the repair above is complete without it.
 
 **The `try`/`catch` question, stated as a number so it stops being an order-of-magnitude claim.** A bare
 `try` with no exception thrown, measured as the delta between two otherwise identical 300,000-iteration
