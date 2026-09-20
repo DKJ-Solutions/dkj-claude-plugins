@@ -109,7 +109,7 @@ verified with `measure-skill` before it lands.
       and its SKILL page (including the ASCII rank diagram in both)
 - [x] A7 -- `plugins/dkj-policy/skills/adopt-dkj-policy/SKILL.md`: Part 1 stops promising the two pages and
       states the legacy report instead
-- [ ] A8 -- open-pr gate pass: lint + full suites green before the push
+- [x] A8 -- open-pr gate pass: lint + full suites green before the push
 
 ### TEST
 
@@ -130,7 +130,10 @@ target; a comment in their place names #2171 so the gap does not read as an over
 this change: `consumer-prose-gate` 78 asserts, `pr-issues` 1,061, `policy-drift-report` 25, all green with no
 edit to any of them. A consumer that still holds either page still has it read.
 
-**Lint gate: 0 errors** over the full check set, including the dead-link scan and the shared-script mirror
+**Lint gate: 0 errors** over the full check set, and 118 suites green -- including the one this change
+retired a caller from: `document-newline` held `adopt-workflow-folder.ps1` to calling `Get-DocumentNewline`,
+which it did only inside the fenced block, so its row left the reach set rather than gaining an exemption.
+The check covers the dead-link scan and the shared-script mirror
 equality that this change had to keep true across two regenerations.
 
 ### DEPLOY: feat/2171-plugin-stops-scaffolding-folder-docs
