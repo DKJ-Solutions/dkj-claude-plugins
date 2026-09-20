@@ -8160,7 +8160,7 @@ function Get-ConsumerLensPaths {
 
     $dirs = New-Object System.Collections.Generic.List[string]
     if (Test-FunctionDefined 'Get-SeamPaths') {
-        $dirs.Add([string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir) | Out-Null
+        [void]$dirs.Add([string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir)
     }
     if (Test-FunctionDefined 'Get-LensDirCandidates') {
         foreach ($name in $PluginNames) {
@@ -8173,7 +8173,7 @@ function Get-ConsumerLensPaths {
             if (-not (Test-FunctionDefined 'Test-PluginNameSlug')) { continue }
             if (-not (Test-PluginNameSlug -Name $name)) { continue }
             foreach ($dir in @(Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $name)) {
-                if ($dir) { $dirs.Add([string]$dir) | Out-Null }
+                if ($dir) { [void]$dirs.Add([string]$dir) }
             }
         }
     }
@@ -8215,7 +8215,7 @@ function Get-ConsumerLensPaths {
         # is this repo's prose, and neither may be printed as though it were.
         if ($rel.StartsWith('../')) { continue }
         if (-not $seenSet.Add($rel)) { continue }
-        $rels.Add($rel) | Out-Null
+        [void]$rels.Add($rel)
     }
     return $rels.ToArray()
 }
@@ -8371,14 +8371,14 @@ function Get-ConsumerProseDocuments {
         if (-not $doc.Exists) { continue }
         if ($doc.Source -ne 'tree') { continue }
         $rel = [string]$doc.Display
-        if ($rel -and $seen.Add($rel)) { $rels.Add($rel) | Out-Null }
+        if ($rel -and $seen.Add($rel)) { [void]$rels.Add($rel) }
     }
 
     foreach ($reserved in @($paths.ReservedNames)) {
         if (-not $reserved) { continue }
         if ($reserved -ieq 'CHANGELOG.md') { continue }
         $rel = "$($paths.Directory)/$reserved"
-        if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
+        if ($seen.Add($rel)) { [void]$rels.Add($rel) }
     }
 
     # KIND 3: THE REPO LENSES (#2188). Only with a root to walk; the ASSEMBLY itself -- the seam dir, the
@@ -8441,12 +8441,12 @@ function Get-ConsumerProseDocuments {
             foreach ($id in $enabled) {
                 if (-not $id) { continue }
                 $pluginName = ([string]$id -split '@', 2)[0]
-                if ($pluginName) { $pluginNames.Add($pluginName) | Out-Null }
+                if ($pluginName) { [void]$pluginNames.Add($pluginName) }
             }
         }
         try {
             foreach ($rel in @(Get-ConsumerLensPaths -RepoRoot $RepoRoot -PluginNames @($pluginNames) -Seen $seen)) {
-                $rels.Add($rel) | Out-Null
+                [void]$rels.Add($rel)
             }
         } catch { }
     }
@@ -8600,15 +8600,15 @@ function Get-RetiredDocNameMention {
                     }
                     if (-not $overlaps) {
                         if ($null -eq $claimed) { $claimed = New-Object System.Collections.Generic.List[object] }
-                        $claimed.Add([pscustomobject]@{ Start = $at; End = $end }) | Out-Null
-                        $findings.Add([pscustomobject]@{
+                        [void]$claimed.Add([pscustomobject]@{ Start = $at; End = $end })
+                        [void]$findings.Add([pscustomobject]@{
                             Rel   = $rel
                             Line  = $i + 1
                             Name  = $name.Name
                             Kind  = $name.Kind
                             Since = $name.Since
                             Text  = $line.Trim()
-                        }) | Out-Null
+                        })
                     }
                     if ($end -ge $line.Length) { break }
                     $at = $line.IndexOf($name.Name, $end, [System.StringComparison]::OrdinalIgnoreCase)
@@ -8694,13 +8694,13 @@ function Get-ProseParagraphUnits {
 
     function Add-Unit {
         if ($buffer.Length -gt 0) {
-            $units.Add([pscustomobject]@{
+            [void]$units.Add([pscustomobject]@{
                 Text     = $buffer.ToString()
                 SegStart = $segStart.ToArray()
                 SegLine  = $segLine.ToArray()
-            }) | Out-Null
+            })
         }
-        $buffer.Clear() | Out-Null
+        [void]$buffer.Clear()
         $segStart.Clear()
         $segLine.Clear()
     }
@@ -8740,10 +8740,10 @@ function Get-ProseParagraphUnits {
             $stripped = $stripped -replace '^\s*(?:[\*\-\+]|\d+[\.\)])\s+', ''
         }
 
-        if ($buffer.Length -gt 0) { $buffer.Append(' ') | Out-Null }
+        if ($buffer.Length -gt 0) { [void]$buffer.Append(' ') }
         $segStart.Add($buffer.Length)
         $segLine.Add($i + 1)
-        $buffer.Append($stripped) | Out-Null
+        [void]$buffer.Append($stripped)
     }
 
     return $units.ToArray()
@@ -8898,7 +8898,7 @@ function Get-SupremacyDeclaration {
                     # reader needs to recognise. Text stays the physical line they will open.
                     Match = ($m.Value -replace '\s+', ' ').Trim()
                     Text  = ([string]$lines[$lineNo - 1]).Trim()
-                }) | Out-Null
+                })
             }
         }
     }
