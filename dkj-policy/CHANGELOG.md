@@ -44,7 +44,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 40 minor entries** <!-- pending-tally -->
+**21 / 41 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/closeout-checks-live-subagents · 20260920-112936
+
+The orchestrator now checks whether its own subagents are still alive before it says the session can be
+cleared. A delegated agent announces its **report**, and a report is not a finish -- it can hand back
+while work it forked is still running -- so the persona body says to read the agent list rather than
+infer it from the last message received: a completion notice is the signal, a hand-back is not.
+
+**It is deliberately not a rule about waiting.** The whose-clock rule is untouched, and an orchestrator
+that starts sitting through its own subagents' background work has traded a wrong receipt for a wasted
+session. What changes is the sentence, not the schedule: name the agent that is still running and what
+its death would cost, and let the requester decide.
+
+The measured instance behind it -- six agents on one assignment, five of them done and reporting alike,
+the sixth reporting identically with 37 minutes still to run -- is in Chris's manual, which is read on
+demand. That split is this repo's own convention and the budget gate's own instruction: the decision
+belongs on the always-on path, the evidence for it does not.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-subagents-alpha` gets this on its next release, and it lands on the one line a
+requester acts on without re-checking. The failure it removes is cheap almost every time -- a
+backgrounded review dies with the harness and usually had nothing to say -- which is exactly why it
+survives: a receipt that is wrong for free is a receipt nobody corrects. Here it was caught by the
+requester rather than by the session.
+
+**Score:** 2
+
+#### Pull Request
+
+The close-out checks whether its own subagents are still alive before it says cleared
+
+Plugins: dkj-subagents-alpha
+
+[PR #2190](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2190)
+
+---
 
 ### DEPLOY: docs/2182-2185-lens-heading-and-ci-job · 20260920-111515
 
