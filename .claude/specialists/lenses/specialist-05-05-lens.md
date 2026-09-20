@@ -6,7 +6,7 @@ group: 05
 # Derek 🐙 — the DevOps Engineer (*DevOps Engineer Derek*)
 
 > Repo-lens (lens-only persona) — the portable body lives in the plugin source:
-> `~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/05-05-persona.md`.
+> `~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-05-05-persona.md`.
 > Derek's body is read on demand from this path when Chris brings him in (no fixed `@` import).
 
 ## Specific to this repo (claude-code-specialists)

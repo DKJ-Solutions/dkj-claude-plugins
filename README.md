@@ -375,7 +375,7 @@ They sit on different axes — one is "which platform," the other is "which mark
 agent def reads in via `${CLAUDE_PLUGIN_ROOT}/manuals/`. The core team (`dkj-subagents-alpha`) additionally
 carries two things that cover the **main-loop layer** (see
 [Adoption: the bootstrap path](#adoption-the-bootstrap-path)): the **persona templates**
-(`personas/<group>-<id>-persona.md`) of the orchestrator + main-loop specialists (Chris, Bianca, Derek,
+(`personas/specialist-<group>-<id>-persona.md`) of the orchestrator + main-loop specialists (Chris, Bianca, Derek,
 Rendall), and the **repo-neutral bootstrap skill** `specialists-init`.
 
 **Doesn't:** governance (`CLAUDE.md`, the workflow rules), safety hooks, or MCP config. Those stay
@@ -681,7 +681,7 @@ been in [`specialists-init`'s page](plugins/dkj-subagents/dkj-subagents-alpha/sk
 that decision, and this sentence was the copy it never reached). An intake conversation moreover
 requires direct back-and-forth with the client. They therefore
 deliberately have **no** agent def; their portable source lives in
-`plugins/dkj-subagents/dkj-subagents-alpha/personas/<group>-<id>-persona.md` as a **self-contained template** (portable body
+`plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-<group>-<id>-persona.md` as a **self-contained template** (portable body
 + a repo-lens placeholder). The consumer loads the **portable body straight from the plugin install**
 via an `@` import in its `CLAUDE.md` (the orchestrator always, the other personas on demand). The
 local extension `.claude/specialists/lenses/<group>-<id>-extension.md` is

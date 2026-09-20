@@ -36,7 +36,7 @@ function Assert-Equal {
 }
 
 $skillPath   = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\skills\orchestrator\SKILL.md'
-$personaPath = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\personas\01-01-persona.md'
+$personaPath = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\personas\specialist-01-01-persona.md'
 
 Write-Host "orchestrator skill -- it exists and names itself" -ForegroundColor Cyan
 Assert-True (Test-Path -LiteralPath $skillPath) 'the skill page is where the plugin expects it'
@@ -51,11 +51,11 @@ foreach ($forbidden in @('powershell -NoProfile', 'pwsh ', '.ps1', 'bash -c', 'I
 }
 
 Write-Host "orchestrator skill -- the file it tells you to open actually exists" -ForegroundColor Cyan
-Assert-True ($text -match '\$\{CLAUDE_PLUGIN_ROOT\}/personas/01-01-persona\.md') 'it names the persona through the plugin-root variable, not a machine path'
+Assert-True ($text -match '\$\{CLAUDE_PLUGIN_ROOT\}/personas/specialist-01-01-persona\.md') 'it names the persona through the plugin-root variable, not a machine path'
 Assert-True (Test-Path -LiteralPath $personaPath) 'and that persona file is really there'
 # A skill that points at a moved file reads perfectly and does nothing. Held against the real tree
 # rather than against a second copy of the path.
-$personaRel = 'plugins\dkj-subagents\dkj-subagents-alpha\personas\01-01-persona.md'
+$personaRel = 'plugins\dkj-subagents\dkj-subagents-alpha\personas\specialist-01-01-persona.md'
 Assert-True (Test-Path -LiteralPath (Join-Path $RepoRoot $personaRel)) 'the asserted path is the one the plugin ships'
 
 Write-Host "orchestrator skill -- it points a repo consumer somewhere else" -ForegroundColor Cyan

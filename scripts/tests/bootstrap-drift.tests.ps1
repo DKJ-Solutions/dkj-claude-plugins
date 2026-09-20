@@ -36,7 +36,7 @@ $SeamImport = '@.claude/specialists/SPECIALISTS.md'
 # The pre-seam plugin path (family = claude-specialists). Still READ by every reader, and still WRITTEN
 # for a consumer that already has a lens tree there -- the bootstrap never relocates one.
 $PpLegacy   = '.claude\plugins\claude-specialists\dkj-subagents-alpha'
-$PersonaSrc = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\personas\01-01-persona.md'
+$PersonaSrc = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\personas\specialist-01-01-persona.md'
 
 $script:pass = 0
 $script:fail = 0
@@ -124,7 +124,7 @@ try {
     $inclusion = Join-Path $Fixture $SeamInclusion
     Assert-True (Test-Path -LiteralPath $inclusion) 'the seam inclusion SPECIALISTS.md is placed'
     $inclText = [System.IO.File]::ReadAllText($inclusion, [System.Text.Encoding]::UTF8)
-    Assert-True ($inclText -match '(?m)^@[^\r\n]*personas/01-01-persona\.md') 'SPECIALISTS.md carries the body @-import (from the plugin install)'
+    Assert-True ($inclText -match '(?m)^@[^\r\n]*personas/specialist-01-01-persona\.md') 'SPECIALISTS.md carries the body @-import (from the plugin install)'
     # Relative, because "relative paths resolve relative to the file containing the import".
     Assert-True ($inclText -match '(?m)^@lenses/specialist-01-01-lens\.md') 'SPECIALISTS.md imports the lens relative to itself'
     # The roster slot carries the marker; the TITLE deliberately does not. Filling in the roster removes
@@ -668,7 +668,7 @@ try {
     Write-Host "bootstrap.ps1 -- the skill doc lists every persona the payload ships (inbound #275)" -ForegroundColor Cyan
     $personaIds = @(
         Get-ChildItem -LiteralPath (Split-Path $PersonaSrc -Parent) -Filter '*-persona.md' -File |
-            ForEach-Object { if ($_.BaseName -match '^(\d{2}-\d{2})-persona$') { $Matches[1] } }
+            ForEach-Object { if ($_.BaseName -match '^specialist-(\d{2}-\d{2})-persona$') { $Matches[1] } }
     )
     Assert-True ($personaIds.Count -gt 0) "payload ships personas ($($personaIds.Count))"
     $initSkill = [System.IO.File]::ReadAllText(
@@ -754,7 +754,7 @@ try {
     # The body import now lives in SPECIALISTS.md, not in CLAUDE.md -- so that is where the durability
     # property has to be asserted. Reading the wrong file here would make this pass vacuously.
     $durIncl = [System.IO.File]::ReadAllText((Join-Path $durConsumer $SeamInclusion), [System.Text.Encoding]::UTF8)
-    Assert-True ($durIncl -match [regex]::Escape("marketplaces/$mp/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md")) 'durable body path: @-import points to the marketplaces clone'
+    Assert-True ($durIncl -match [regex]::Escape("marketplaces/$mp/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md")) 'durable body path: @-import points to the marketplaces clone'
     Assert-True (-not ($durIncl -match '/cache/')) 'durable body path: @-import does NOT point to the version-pinned cache'
     # And CLAUDE.md itself must be free of the cache path too -- the one line it carries is repo-relative.
     $durMd = [System.IO.File]::ReadAllText((Join-Path $durConsumer 'CLAUDE.md'), [System.Text.Encoding]::UTF8)
@@ -764,7 +764,7 @@ try {
     Write-Host "check-consumer-drift.ps1 -- fresh lens-only bootstrap = LENS-ONLY" -ForegroundColor Cyan
     $d1 = Invoke-Script -Path $DriftLint -ScriptArgs @('-ConsumerPath', $Fixture, '-Quiet')
     Assert-Equal 0 $d1.Code 'drift exit 0 (no agent-def drift)'
-    Assert-True ($d1.Out -match 'LENS-ONLY\] 01-01-persona') 'persona 01-01 reported as LENS-ONLY'
+    Assert-True ($d1.Out -match 'LENS-ONLY\] specialist-01-01-persona') 'persona 01-01 reported as LENS-ONLY'
     Assert-True (-not ($d1.Out -match 'DRIFTED\]')) 'no DRIFTED at all on a fresh bootstrap'
     # A verdict travels with its coverage (issue #221): on a bootstrapped consumer the personas were
     # genuinely examined, so the count must say so rather than leaving "0 drifted" to be interpreted.
@@ -808,17 +808,17 @@ try {
     $fullBody = $srcPersona.TrimEnd() + "`n`n## Eigen aan deze repo (test-fixture)`n`nrepo-eigen.`n"
     [System.IO.File]::WriteAllText($ext, $fullBody, $Utf8NoBom)
     $d2 = Invoke-Script -Path $DriftLint -ScriptArgs @('-ConsumerPath', $Fixture, '-Quiet')
-    Assert-True ($d2.Out -match 'IDENTICAL\] 01-01-persona') 'legacy NL slot marker: body copy is IDENTICAL to the source'
+    Assert-True ($d2.Out -match 'IDENTICAL\] specialist-01-01-persona') 'legacy NL slot marker: body copy is IDENTICAL to the source'
     # Parallel: the new English slot marker splits identically -> also IDENTICAL.
     $fullBodyEn = $srcPersona.TrimEnd() + "`n`n## Specific to this repo (test-fixture)`n`nrepo-specific.`n"
     [System.IO.File]::WriteAllText($ext, $fullBodyEn, $Utf8NoBom)
     $d2en = Invoke-Script -Path $DriftLint -ScriptArgs @('-ConsumerPath', $Fixture, '-Quiet')
-    Assert-True ($d2en.Out -match 'IDENTICAL\] 01-01-persona') 'new EN slot marker: splits identically (IDENTICAL)'
+    Assert-True ($d2en.Out -match 'IDENTICAL\] specialist-01-01-persona') 'new EN slot marker: splits identically (IDENTICAL)'
     $extText = [System.IO.File]::ReadAllText($ext, [System.Text.Encoding]::UTF8).Replace('Chief of Staff', 'CHIEF-OF-STAFF-TEST-CHANGE')
     [System.IO.File]::WriteAllText($ext, $extText, $Utf8NoBom)
     $d3 = Invoke-Script -Path $DriftLint -ScriptArgs @('-ConsumerPath', $Fixture, '-Quiet')
     Assert-Equal 0 $d3.Code 'drift exit stays 0 (persona drift is informational)'
-    Assert-True ($d3.Out -match 'DRIFTED\]   01-01-persona') 'persona 01-01 DRIFTED after a body change'
+    Assert-True ($d3.Out -match 'DRIFTED\]   specialist-01-01-persona') 'persona 01-01 DRIFTED after a body change'
 
     # --- 5. Lint smoke: the repo itself stays green ----------------------------------------------------
     Write-Host "check-plugin-integrity.ps1 -- smoke" -ForegroundColor Cyan
