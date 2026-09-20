@@ -43,7 +43,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 35 minor entries** <!-- pending-tally -->
+**18 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2172-seam-lib-retired-name · 20260920-093447
+
+`Get-WorkflowFolderName`'s docstring names the retired folder name again. Two sentences in
+`scripts/lib/seam-lib.ps1` whose whole job is to preserve the name the folder used to carry had been
+overwritten with the name it carries now, so the walk order read `'dkj-policy', then
+'workflow-davekjohn'` and the #1437 sentence read *'dkj-policy' became 'dkj-policy'*. Both say
+`contributing-davekjohn` again. Prose only: the array below them was always correct, so no behaviour
+changes -- what changes is that the docstring can again be used to check the array, which is the one
+thing a mid-migration consumer depends on and the only place stating why the function walks three
+names newest-first. The other eight rename sentences in the tree were read and all name the retired
+folder correctly, so the sweep reached these two and nothing else.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- an in-repo docstring. Nothing a consumer of these plugins can observe: the function's
+behaviour, its argument list and the three names it walks are all unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+Get-WorkflowFolderName's docstring names the retired folder name again
+
+Plugins: dkj-policy
+
+[PR #2176](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2176)
+
+---
 
 ### DEPLOY: fix/2174-reap-orphaned-tmp-record · 20260920-091329
 
