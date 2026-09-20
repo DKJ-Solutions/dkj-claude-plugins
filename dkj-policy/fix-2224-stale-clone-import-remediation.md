@@ -43,17 +43,63 @@ check-roster-sync's dead-import finding names three causes, all of which imply t
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Split the dead-import finding in `../scripts/sync/check-roster-sync.ps1` by import class. A
+      `~/`-relative import resolves into the machine-wide marketplace clone; an in-tree one does not,
+      and only the first can be repaired by a refresh.
+- [x] For the clone class: lead the cause list with the stale clone, and close with
+      `REFRESH FIRST -- claude plugin marketplace update <name> -- and edit the path only if that does
+      not resolve it`. The marketplace name is lifted out of the path and validated with
+      `Test-PluginMarketplaceSlug` before it is printed into a command the reader will paste.
+- [x] Leave the in-tree class exactly as it was. There is no clone under it, so `Repair the path` is
+      still the right instruction there.
+- [x] Mirror to `../plugins/dkj-subagents/dkj-subagents-alpha/scripts/sync/check-roster-sync.ps1` --
+      the shared-scripts drift lint holds the two byte-identical.
+
+#### Not in this branch, and why
+
+- [~] Dropped: the dual-line overlap that `INSTALL.md` prescribes for this migration. It cannot be
+      followed in any repo running `roster-sessioncheck` -- that check errors on *every* unresolvable
+      roster import, so carrying both lines is a permanent blocking session-start error by design.
+      That is a real contradiction between two things this repo ships, but it is a different subject
+      from this finding's wording, so it is filed separately rather than swept in here.
 
 ### TEST
 
+- [x] `scripts/tests/roster-sync.tests.ps1` -- 394 pass, 0 fail. Six new asserts pin both branches of
+      the split: the clone class leads with the refresh, names the pasteable command and makes the
+      edit conditional; the in-tree class still says `Repair the path` and is never offered a refresh
+      that cannot help.
+- [x] Verified against the live defect rather than only the fixture. Before: `roster-sessioncheck`
+      blocking, budget gate `3 document(s) measured` with the persona carried, not measured. After
+      `claude plugin marketplace update dkj-claude-plugins`: `0 error(s)`, the import resolves, and
+      the budget gate reads `4 document(s) measured` with the persona byte-identical to the installed
+      copy.
+
 ### DEPLOY: fix/2224-stale-clone-import-remediation
 
-**Score:**
+`check-roster-sync`'s dead-import finding used to close with `Repair the path`, and named only causes
+that imply the roster path is wrong. For a `~/`-relative import that is the wrong instruction: such a
+path resolves into the machine-wide marketplace clone, which tracks the trunk and advances on
+`claude plugin marketplace update` alone -- not on a release, a push or a `plugin update`. So the
+likeliest cause is a stale clone, and editing the path reverts one that is already correct. Measured
+here on September 20, 2026: the persona rename of #2128 had landed on the trunk while this machine's
+clone sat 510 commits back, the orchestrator's body was silently absent from every session, and the
+finding pointed at the one file that carries the rename. The finding now splits by import class --
+the clone class leads with the refresh and makes the edit conditional on it failing, the in-tree class
+is unchanged because a refresh cannot help it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The check ships to every consumer, and the rename it misdiagnoses is live right now: `INSTALL.md`
+walks consumers through exactly this import-line migration, so a consumer whose clone has not caught
+up meets this finding at session start and is told to undo the edit the guide just asked them to make.
+Following it costs them the orchestrator in both directions -- the old path is dead after the refresh,
+the new one before it -- with nothing reporting either state. The repair is wording only: no gate
+changes, no behaviour beyond which sentence the reader acts on.
+
+**Score:** 3
 
 #### Pull Request
 

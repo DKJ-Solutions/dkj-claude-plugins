@@ -595,7 +595,39 @@ if ($seamImports.Count -gt 0) {
             Write-Ok "import '$impShown' resolves"
         } else {
             $where = if ($target) { Format-SafePathToken -Value $target } else { 'a path that could not be resolved (no user home)' }
-            Write-Failure "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- and Claude Code fails an unresolvable import SILENTLY. Everything that file was supposed to bring in is simply absent from every session here, while the roster around it keeps rendering, so nothing looks wrong. For the persona-body import that means the orchestrator runs without his ritual and his delegation rules. Usual causes, in order of likelihood: the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. Repair the path in $rosterRel."
+            # THE CAUSE LIST IS SPLIT BY IMPORT CLASS, because the closing instruction was wrong for one
+            # of them (#2224, September 20, 2026). A '~/'-relative import resolves into the machine-wide
+            # marketplace CLONE, and that clone tracks the TRUNK: it advances on
+            # 'claude plugin marketplace update' alone -- not on a release, not on a push, not on a
+            # 'plugin update'. So for that class the likeliest cause is not a wrong path at all, it is a
+            # file renamed on the trunk that this machine's clone has not been refreshed to.
+            #
+            # Measured: the persona rename of #2128 had landed here while this machine's clone sat 510
+            # commits back, so the orchestrator's body was silently absent from every session -- and the
+            # finding said 'Repair the path', naming only causes that imply the path is wrong. Followed
+            # literally that reverts a path which is already correct, re-breaking the rename in the one
+            # file that carries it, and the next refresh then breaks it again the other way. The repair
+            # order is what had to change: refresh first, edit only if that does not resolve it.
+            #
+            # The in-tree class keeps the original wording. There is no clone under it, so a refresh
+            # cannot help and 'Repair the path' is the right instruction there.
+            $common = "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- and Claude Code fails an unresolvable import SILENTLY. Everything that file was supposed to bring in is simply absent from every session here, while the roster around it keeps rendering, so nothing looks wrong. For the persona-body import that means the orchestrator runs without his ritual and his delegation rules."
+            if ($imp -match '^\s*~[\\/]') {
+                # The marketplace name is the segment after 'marketplaces/', and it is what the refresh
+                # command takes. Validated as a slug before it is printed INTO a command line: an
+                # unvalidated segment out of repo markdown would be a command for the reader to paste.
+                # Where the path carries no usable one, the bare command is still correct -- it refreshes
+                # every registered marketplace.
+                $market = if ($imp -match 'marketplaces[\\/]([^\\/]+)') { Format-SafeToken -Value $Matches[1] } else { '' }
+                $refresh = if ($market -and (Test-PluginMarketplaceSlug -Marketplace $market)) {
+                    "claude plugin marketplace update $market"
+                } else {
+                    'claude plugin marketplace update'
+                }
+                Write-Failure ($common + " This import points into the machine-wide marketplace CLONE, which tracks the trunk and advances on a refresh alone -- not on a release, a push, or a 'plugin update'. Usual causes, in order of likelihood: this machine's clone is behind the trunk and the file was renamed there; the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. REFRESH FIRST -- $refresh -- and edit the path in $rosterRel only if that does not resolve it. Editing first reverts a path that may already be correct.")
+            } else {
+                Write-Failure ($common + " Usual causes, in order of likelihood: the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. Repair the path in $rosterRel.")
+            }
         }
     }
 }
