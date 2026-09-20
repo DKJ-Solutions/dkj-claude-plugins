@@ -302,6 +302,57 @@ try {
     }
 
     Write-Host ''
+    Write-Host 'Where the baseline lives -- the seam, the legacy folder, and the migration (#2186)' -ForegroundColor Cyan
+
+    # THE SUBJECT IS A MIGRATION, NOT A PATH. The baseline moved from '<workflow folder>/' into
+    # '.claude/specialists/', and this lib is plugin payload -- so an existing consumer meets the move
+    # as a plugin update rather than as a commit they reviewed. The failure this pins is the SILENT one:
+    # a hard switch would read their old file as absent, which Get-AlwaysOnBudgetVerdict calls
+    # 'first-run', and a first run never refuses. Nothing would go red; the low-water mark would just
+    # be forgotten. So the asserts below are about what the walk PREFERS, in all four states it can
+    # meet, and the fourth -- both files present -- is the one a naive 'if not seam then legacy' gets
+    # right by accident and a reordering gets wrong in silence.
+    $PathFix = Join-Path $Fixture 'baseline-path'
+    New-Item -ItemType Directory -Path $PathFix -Force | Out-Null
+
+    $seamRel = '.claude\specialists\always-on-baseline.json'
+    $legacyRel = 'dkj-policy\always-on-baseline.json'
+
+    # 1. Neither present: the answer a WRITER creates from nothing, and it must be the seam -- this is
+    #    the only assert that decides where a fresh consumer's file is born.
+    Assert-Equal (Join-Path $PathFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'with neither file present the writer default is the seam'
+
+    # 2. Only the legacy file: an un-migrated consumer. The gate has to keep reading and writing THEIR
+    #    copy, or their history is dropped without a word.
+    New-Item -ItemType Directory -Path (Join-Path $PathFix 'dkj-policy') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $PathFix $legacyRel), "{}`n", $Utf8NoBom)
+    Assert-Equal (Join-Path $PathFix $legacyRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'an un-migrated consumer keeps their workflow-folder baseline'
+
+    # 3. Both present: newest first, stop at the first hit -- the same rule Get-WorkflowFolderName
+    #    states one layer up for the folder itself.
+    New-Item -ItemType Directory -Path (Join-Path $PathFix '.claude\specialists') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $PathFix $seamRel), "{}`n", $Utf8NoBom)
+    Assert-Equal (Join-Path $PathFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'with both present the seam wins'
+
+    # 4. Only the seam file: a migrated repo, which is what this repo itself now is.
+    Remove-Item -LiteralPath (Join-Path $PathFix $legacyRel) -Force
+    Assert-Equal (Join-Path $PathFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $PathFix) 'a migrated repo reads the seam'
+
+    # 5. A DIRECTORY at either path is not a baseline. Test-Path -PathType Leaf is what makes that true,
+    #    and a tidy-up dropping the qualifier would hand Read-AlwaysOnBaseline a path it cannot read --
+    #    which returns $null, which is 'first-run', which never refuses. The silent arm again.
+    $DirFix = Join-Path $Fixture 'baseline-path-dir'
+    New-Item -ItemType Directory -Path (Join-Path $DirFix $legacyRel) -Force | Out-Null
+    Assert-Equal (Join-Path $DirFix $seamRel) (Get-AlwaysOnBaselinePath -RepoRoot $DirFix) 'a DIRECTORY at the legacy path is not a baseline'
+
+    # 6. THE DELIBERATE DUPLICATE, HELD HONEST. '.claude\specialists' is spelled out in
+    #    always-on-budget-lib.ps1 instead of asked of check-report-lib's Get-SeamPaths -- that lib is
+    #    141 KB and this one is dot-sourced by four others plus scripts\repo-config.ps1. A copy nothing
+    #    checks is the hand-mirrored literal Get-SeamPaths' own header was written to end, so this
+    #    assert is the thing that makes it a copy rather than a drift waiting to happen.
+    Assert-Equal (Get-SeamPaths -RepoRoot $PathFix).Dir (Split-Path -Parent (Get-AlwaysOnBaselinePath -RepoRoot $PathFix)) 'the seam directory agrees with Get-SeamPaths, its canonical definition'
+
+    Write-Host ''
     Write-Host 'The check script -- exit codes and the refusals' -ForegroundColor Cyan
 
     # A second fixture tree, all in-tree, so the script can be driven without a home override.
@@ -317,7 +368,7 @@ try {
 
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $Repo2 -Record 2>&1
     Assert-Equal 0 $LASTEXITCODE '-Record exits 0'
-    Assert-True (Test-Path -LiteralPath (Get-AlwaysOnBaselinePath -RepoRoot $Repo2)) '-Record writes the baseline into the workflow folder'
+    Assert-True (Test-Path -LiteralPath (Get-AlwaysOnBaselinePath -RepoRoot $Repo2)) '-Record writes the baseline into the seam'
 
     # Growth under the ceiling: allowed, because 5,000 B is nowhere near 100,000.
     Add-Content -LiteralPath (Join-Path $Repo2 'CLAUDE.md') -Value ('z' * 100)
