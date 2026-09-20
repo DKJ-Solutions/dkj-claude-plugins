@@ -44,7 +44,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 42 minor entries** <!-- pending-tally -->
+**22 / 43 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2186-baseline-into-specialists-seam · 20260920-120053
+
+`always-on-baseline.json` moves out of the workflow folder and into `.claude/specialists/`. The
+workflow folder is where prose a person writes and reviews lives; this is the one file in it nobody
+may hand-edit, and three of the four documents it measures are already in the seam.
+
+Nothing happens to an existing consumer's baseline on a plugin update, deliberately:
+`Get-AlwaysOnBaselinePath` now prefers whichever file is actually there, seam first and the workflow
+folder second, so an un-migrated repo keeps reading and writing the copy it has and no second
+baseline appears beside it. Migrating is one `git mv`, documented in `INSTALL.md` -- and it has to be
+`git mv`, because a regenerated baseline looks identical and quietly resets the low-water mark.
+
+A consumer notices nothing unless they go looking: the gate keeps reading their existing file, and
+the migration is optional and one command. What it buys is that the folder a person reviews stops
+holding a file no person may edit.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The interesting half is what was NOT done. A hard path switch would have passed every gate and broken
+nothing loudly, because a missing baseline is a first run and a first run never refuses -- so every
+consumer's ratchet would have reset to that day's figure, silently, with the old file orphaned beside
+it. For the one file whose entire value is a number carried forward, the silent arm is the expensive
+one, and the fallback read exists to close it.
+
+**Score:** 2
+
+#### Pull Request
+
+Move always-on-baseline.json into the specialists seam
+
+Plugins: dkj-policy
+
+[PR #2193](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2193)
+
+---
 
 ### DEPLOY: feat/2168-written-name-guard · 20260920-114559
 
