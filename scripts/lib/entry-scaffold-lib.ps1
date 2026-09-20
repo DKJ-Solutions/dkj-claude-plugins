@@ -8024,6 +8024,23 @@ function Get-ConsumerLensPaths {
         DISCOVERY WAS ALREADY SHARED (Get-SeamPaths, Get-LensDirCandidates, Get-SpecialistFiles); this
         is the assembly around them getting the same treatment.
 
+        WHY THEY ARE RANK 2 AND NOT A FOURTH RANK, for check-policy-drift.ps1's caller (#2184) -- ported
+        here from that copy's own docstring, since a pointer at the top of that script ("see
+        Get-ConsumerLensPaths for ... why a lens is rank 2 rather than a fourth rank") now resolves HERE
+        and must find the answer it promises. A lens is the same kind of document the workflow folder
+        holds -- this repo's own answer to a seam a shared page asks about -- and #2179 moved ~1,300
+        lines of exactly that material out of dkj-policy/ and into the lenses. Before #2184, RANK 2 was
+        built from the folder prefix alone and RANK 3 from the always-on closure, so a lens was in
+        NEITHER: the largest restatement surface in the tree was read by nothing while the report
+        printed two '(absent)' lines that read as "this repo has no rank 2" rather than as "rank 2
+        moved".
+
+        THE LOCATION IS ALREADY A SEAM, so it is not re-decided here either. Get-LensDirCandidates owns
+        the four layouts a consumer's lenses may sit in -- the #221 seam directory, the pre-seam
+        per-plugin tree, the pre-#179 family spelling, and legacy .claude/extensions/ -- and
+        Get-SpecialistFiles owns both filename spellings (#2130). A rule written here would be a second
+        answer to a question that already has one.
+
         WHY IT LIVES HERE AND NOT IN check-report-lib.ps1, WHICH #2199 PROPOSED ("where the three
         primitives already live"). Three of the four primitives this assembly needs -- Get-SeamPaths,
         Get-LensDirCandidates, Get-SpecialistFiles -- are indeed there; the FOURTH, Get-PathRelativeToDirectory,
@@ -8036,8 +8053,8 @@ function Get-ConsumerLensPaths {
         probed Get-SpecialistFiles, Get-SeamPaths, Get-LensDirCandidates, Get-EnabledPlugins and
         Test-PluginNameSlug from inside THIS file since #2188, and nothing in check-report-lib.ps1 has ever
         probed a symbol defined here. Landing the assembly in check-report-lib.ps1 would need it to reach
-        back for Get-PathRelativeToDirectory -- the first probe ever pointed the other way, turning one
-        one-directional soft dependency into a cycle between two files that both call themselves libs.
+        back for Get-PathRelativeToDirectory -- the first probe ever pointed the other way, turning that
+        one-way soft dependency into a cycle between two files that both call themselves libs.
         Landing it HERE keeps the existing direction and adds nothing new: this is one more
         entry-scaffold-lib function softly depending on check-report-lib.ps1's discovery primitives,
         exactly like its neighbour below has all along. Both call sites already dot-source both libs
@@ -8057,18 +8074,59 @@ function Get-ConsumerLensPaths {
         de-duplicated lens list for the -PluginNames it is handed, and each caller filters that list its
         own way, afterwards.
 
-        SELF-DE-DUPLICATED, NOT EXCLUDED. Get-SpecialistFiles already de-duplicates by FULL PATH across
-        every directory handed to it, so an overlap between the seam dir and a per-plugin candidate
-        directory costs nothing there; the HashSet below catches the one case that survives that: two
-        different plugin names whose candidate directories both resolve to the SAME repo-relative path
-        (the seam directory answer, reached again under a second plugin name). A duplicated path is a
-        duplicated FINDING for whichever caller does not filter it out again itself.
+        DEDUPLICATION IS SHARED THROUGH -Seen, NOT REPEATED (review pass, #2199, Nolan #25). A caller may
+        hand in the HashSet it is already deduplicating OTHER kinds against, so there is ONE set and ONE
+        pass rather than this function filling a private set and the caller re-adding everything into a
+        second one afterwards. Get-ConsumerProseDocuments passes its own $seen, already carrying kinds 1
+        and 2, so a lens the always-on closure already lists -- the orchestrator's '@'-imported lens is
+        the standing instance -- is recognised the FIRST time it is checked, not added and then cleaned
+        up by a second loop. check-policy-drift.ps1 passes nothing and gets a fresh, private set: it
+        wants only SELF-consistency here (see the paragraph below), because its exclusion of
+        $consumerRels is a different question, answered afterwards, at its own call site.
+        MEASURED: the two-pass shape (this function filling its own set and List and returning a fresh
+        array, then the caller re-adding every element into its OWN outer $seen) cost +6 to +7 ms per
+        call on the always-on path, +11-12%, isolated in-process over a 30-lens fixture (main
+        54.7-57.2 ms/call; the two-pass version 61.6-63.1 ms/call). One set, one pass removes the
+        re-adding loop entirely.
 
-        GUARDED ON EVERY SEAM FUNCTION IT CALLS, same as both callers guarded before this promotion: a
-        mirror built before one of Get-SeamPaths / Get-LensDirCandidates / Get-SpecialistFiles / Test-PluginNameSlug
-        travelled gets @() rather than an error, so check-policy-drift.ps1 degrades to the folder-only
-        RANK 2 and Get-ConsumerProseDocuments degrades to its two-kind corpus -- exactly the two
-        degradations both callers already documented on their own side.
+        SELF-DE-DUPLICATED EVEN WITH NO -Seen -- BUT THE EXAMPLE THIS PARAGRAPH GAVE AT FIRST WAS WRONG
+        (review pass, #2199, Edith #17; confirmed by running rather than reading, not merely asserted).
+        Get-LensDirCandidates returns the SAME seam directory first for every plugin name, and
+        Get-SpecialistFiles already de-duplicates by FULL PATH across every directory handed to it -- so
+        two plugin names whose candidates both include the seam dir never produce two file objects in
+        the first place: verified by handing Get-SpecialistFiles the seam directory three times over and
+        getting back exactly one row per file on disk, not three. That is NOT what this function's own
+        dedup guards against. What it actually guards is: a caller's -Seen already carrying a REL PATH
+        this walk would otherwise produce again (the always-on-closure case above, the reason -Seen
+        exists at all); and, with no -Seen supplied, a caller handing -PluginNames a duplicate entry --
+        possible in principle even though neither of today's two callers does it, since both build their
+        list from an already-unique set of enabled plugin ids. A duplicated path is a duplicated FINDING
+        for whichever caller is relying on this to have caught it.
+
+        GUARDED ON EVERY SEAM FUNCTION IT CALLS -- Get-SeamPaths, Get-LensDirCandidates,
+        Get-SpecialistFiles, and Test-PluginNameSlug: a mirror built before one of the first three
+        travelled gets @() rather than an error, and one built before Test-PluginNameSlug travelled
+        excludes the plugin name it cannot validate rather than skipping the validation. Either way
+        check-policy-drift.ps1 degrades to the folder-only RANK 2 and Get-ConsumerProseDocuments
+        degrades to its two-kind corpus.
+
+        THAT LAST HALF WAS WRONG AT FIRST, AND IT IS WORTH SAYING HOW (review pass, #2199, Victor #19 and
+        Sebastian #23, independently). This paragraph used to claim the guard was "the same as both
+        callers guarded before this promotion" -- and the two callers did NOT guard
+        Test-PluginNameSlug the same way. Get-ConsumerProseDocuments's kind-3 walk guarded it with
+        Test-FunctionDefined, exactly like the other three seam functions; check-policy-drift.ps1's own
+        (now-retired) copy called it UNGUARDED, a hard dependency that would have THROWN rather than let
+        an unvalidated name through, had it ever run somewhere the guard was missing (which its own
+        unconditional dot-source of check-report-lib.ps1 meant it never did, in practice). The first
+        version of this promotion took the corpus copy's shape but wrote the condition with '-and', which
+        short-circuits the wrong way: where Test-PluginNameSlug is undefined, the whole test is false,
+        the 'continue' never fires, and an unvalidated name reaches Get-LensDirCandidates AS A PATH
+        SEGMENT. That is weaker than either original -- weaker than the drift copy's throw, and weaker
+        than "narrower rather than broken", the degradation convention this very file argues for
+        everywhere else: a guard that lets through the one thing it exists to stop, on its OWN absence,
+        is not narrower, it is broken silently. Repaired by splitting the two conditions below so a
+        missing Test-PluginNameSlug EXCLUDES the name (fail-closed) instead of skipping the check it was
+        meant to run.
 
         NOT Resolve-Path AND A SUBSTRING, which is what both copies of this used to do until the review
         that caught it. Handed a root in its 8.3 short form, Resolve-Path returns that same short form
@@ -8082,7 +8140,12 @@ function Get-ConsumerLensPaths {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
-        [string[]]$PluginNames = @()
+        [string[]]$PluginNames = @(),
+        # OPTIONAL, and mutated in place when given (#2199 review, Nolan #25): a caller already
+        # deduplicating other kinds of document hands in that same HashSet so this walk's finds land in
+        # ONE set with ONE pass, rather than a private set here plus a second pass at the call site. A
+        # caller with nothing to share gets a private, fresh set instead -- see the docstring.
+        [System.Collections.Generic.HashSet[string]]$Seen = $null
     )
 
     if (-not (Test-FunctionDefined 'Get-SpecialistFiles')) { return @() }
@@ -8095,8 +8158,12 @@ function Get-ConsumerLensPaths {
         foreach ($name in $PluginNames) {
             # Slug-guarded before it becomes a path segment, exactly as every other walk in this tree
             # guards its own: a plugin name is read out of a settings file, which is not this repo's text.
+            # FAIL-CLOSED (#2199 review): a caller too old to carry Test-PluginNameSlug EXCLUDES the name
+            # rather than skipping validation -- see the docstring for why the first version of this got
+            # that backwards.
             if (-not $name) { continue }
-            if ((Test-FunctionDefined 'Test-PluginNameSlug') -and -not (Test-PluginNameSlug -Name $name)) { continue }
+            if (-not (Test-FunctionDefined 'Test-PluginNameSlug')) { continue }
+            if (-not (Test-PluginNameSlug -Name $name)) { continue }
             foreach ($dir in @(Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $name)) {
                 if ($dir) { $dirs.Add([string]$dir) | Out-Null }
             }
@@ -8104,7 +8171,23 @@ function Get-ConsumerLensPaths {
     }
     if ($dirs.Count -eq 0) { return @() }
 
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # NEITHER 'if ($Seen) {...}' NOR '$x = if (cond) { $Seen } else {...}', both tried and both wrong
+    # (self-caught in this same review pass, before it shipped). Truthiness on a collection asks its
+    # COUNT, not whether it is $null -- an empty-but-real -Seen would have been treated as "none given"
+    # and silently detached from the caller's set. Worse, and what actually broke every #2188 lens test:
+    # an if/else used AS AN EXPRESSION streams whichever branch executes onto the pipeline, and a bare
+    # IEnumerable branch value -- a HashSet is one -- gets ENUMERATED there rather than passed through
+    # whole, so '$seenSet = if (...) { $Seen } else {...}' silently replaced the HashSet with an
+    # Object[] of its CONTENTS (empty -Seen -> $null; a 2-entry -Seen -> a fixed-size 2-element array),
+    # and '.Add()' on that threw. Direct assignment INSIDE each branch, with no expression capturing the
+    # block's output, does not enumerate: verified on a 2-entry HashSet, mutations made through $seenSet
+    # afterwards are visible on the caller's original object either way.
+    $seenSet = $null
+    if ($null -ne $Seen) {
+        $seenSet = $Seen
+    } else {
+        $seenSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    }
     $rels = New-Object System.Collections.Generic.List[string]
     # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so the
     # candidate list overlapping between plugins costs nothing.
@@ -8114,7 +8197,7 @@ function Get-ConsumerLensPaths {
         # '' is another drive and a leading '../' is a path BESIDE the repo rather than under it. Neither
         # is this repo's prose, and neither may be printed as though it were.
         if ($rel.StartsWith('../')) { continue }
-        if (-not $seen.Add($rel)) { continue }
+        if (-not $seenSet.Add($rel)) { continue }
         $rels.Add($rel) | Out-Null
     }
     return $rels.ToArray()
@@ -8272,10 +8355,24 @@ function Get-ConsumerProseDocuments {
     # why that difference stays at the call site rather than becoming a parameter of the shared function.
     #
     # A LENS THE ALWAYS-ON CLOSURE ALREADY CARRIES IS NOT ADDED TWICE: $seen holds kinds 1 and 2 already,
-    # so the orchestrator's '@'-imported lens stays the single row it is today. That matters beyond
-    # tidiness -- a duplicated path is a duplicated FINDING, reported twice for one line to repair. This
-    # is this caller's own filter, applied to what Get-ConsumerLensPaths hands back -- it takes no
-    # -Exclude of its own, for the same reason.
+    # and it is handed to Get-ConsumerLensPaths itself via -Seen (#2199 review, Nolan #25) so the walk's
+    # own dedup check IS the exclusion check -- one set, one pass, rather than filling a private set
+    # there and re-adding every result into this one here. The orchestrator's '@'-imported lens stays the
+    # single row it is today either way; what changed is that a caller no longer pays a second loop to
+    # keep that true. Measured before this repair: +6 to +7 ms per call on this exact path (+11-12%,
+    # isolated in-process, 30-lens fixture) against the one-pass walk this replaced when #2199 first
+    # promoted it.
+    #
+    # THE WHOLE CALL IS WRAPPED (#2199 review, Sebastian #23), matching the Get-EnabledPlugins wrap right
+    # above. Most of what Get-ConsumerLensPaths does cannot throw: Get-SpecialistFiles is documented not
+    # to (it Test-Paths before it reads, and ErrorAction SilentlyContinue's its own Get-ChildItem), and
+    # Get-SeamPaths / Get-PathRelativeToDirectory are pure string builders with no filesystem query. But
+    # Get-LensDirCandidates' OWN enumeration of '.claude/plugins/' (check-report-lib.ps1, inside
+    # Get-LensDirCandidates) carries no such guard, and both of this function's callers run under
+    # $ErrorActionPreference = 'Stop', which escalates even a normally non-terminating enumeration error
+    # -- a permission-denied directory, a broken reparse point -- into a throw. A malformed filesystem
+    # entry under a corpus half that is additive by construction must not take a SessionStart hook down
+    # any more than a malformed settings layer may.
     if ($RepoRoot) {
         $pluginNames = New-Object System.Collections.Generic.List[string]
         if (Test-FunctionDefined 'Get-EnabledPlugins') {
@@ -8287,9 +8384,11 @@ function Get-ConsumerProseDocuments {
                 if ($pluginName) { $pluginNames.Add($pluginName) | Out-Null }
             }
         }
-        foreach ($rel in @(Get-ConsumerLensPaths -RepoRoot $RepoRoot -PluginNames @($pluginNames))) {
-            if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
-        }
+        try {
+            foreach ($rel in @(Get-ConsumerLensPaths -RepoRoot $RepoRoot -PluginNames @($pluginNames) -Seen $seen)) {
+                $rels.Add($rel) | Out-Null
+            }
+        } catch { }
     }
 
     return $rels.ToArray()
