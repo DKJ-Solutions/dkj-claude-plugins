@@ -313,6 +313,21 @@ This is not a special case. The plugin scaffolds precisely the files that were *
 like these, so on a fresh fixture the addresses are free and in any real consumer they are inhabited —
 which is why the round-trip suite now carries an explicit *occupied consumer* scenario.
 
+**And a `[KEEP]` line can name a directory, not only a file** (issue #2192). The run prunes a directory
+it emptied — the lens trees, `.claude/specialists/`, `scripts/lib/`, `scripts/` — and keeps any that
+still holds a file this run does not remove. Keeping it is right; being silent about it was not, and
+until that issue the leftover arm was a bare `continue`, so the directory appeared in no marker and no
+count. The occupied consumer above is exactly where that bites, and a repo running `dkj-policy` keeps
+its always-on baseline at `.claude/specialists/always-on-baseline.json`, inside the seam directory — so
+there the directory survives a teardown while the reader watches its files go.
+
+**Read the count as *what is left*, not as *what the plugin did not put there*.** A lens you filled in
+was placed by the bootstrap and survives because it is no longer a scaffold; it is already reported by
+name, on its own line, with that reason. The directory's line cannot restate a reason per file, so it
+states the one thing true of all of them. And a parent whose leftovers are all inside a child directory
+that already has its own `[KEEP]` line is not reported twice — the counts never overlap, and the child's
+path names the parent anyway.
+
 Two further checks the hooks will not do for you, both of which caught real defects:
 
 - **Count the bootstrap's note on its head line — and know what the report says instead.** The note is
