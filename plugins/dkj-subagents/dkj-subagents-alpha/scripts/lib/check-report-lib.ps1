@@ -1499,15 +1499,19 @@ function Get-SpecialistFileShapes {
        last cache carrying the old one is gone -- and that pruning is a decision with a date on it, not
        a tidy-up to fold into the rename.
 
-       THE TWO HALVES OF A STEP ARE SEPARATE ACTS AND NOTHING PAIRS THEM -- the hazard this arrangement
-       creates, and the one to read before the next step. AlsoRead keeps every READER resolving both
-       spellings, so a step that renames the files and forgets the row leaves the tree entirely green --
-       on #2165 the lint gate, all 118 suites and CI all passed -- while every WRITER goes on composing
-       the retired name into a fresh consumer, which is the one thing this table exists to decide. Two
-       of the four steps shipped that way and were repaired by hand afterwards: the Subagent row
-       (#2131), and the Lens row, whose files moved in #2133 and whose row flipped only in #2167. A
-       guard holding each row's Current against the names actually on disk is proposed in #2168; until
-       it exists, the pairing is carried by this paragraph and by whoever reads it.
+       THE TWO HALVES OF A STEP ARE SEPARATE ACTS, AND CHECK 3d IS WHAT PAIRS THEM -- the hazard this
+       arrangement creates, and the one to read before the next step. AlsoRead keeps every READER
+       resolving both spellings, so a step that renames the files and forgets the row leaves the tree
+       entirely green -- on #2165 the lint gate, all 118 suites and CI all passed -- while every WRITER
+       goes on composing the retired name into a fresh consumer, which is the one thing this table exists
+       to decide. Two of the four steps shipped that way and were repaired by hand afterwards: the
+       Subagent row (#2131), and the Lens row, whose files moved in #2133 and whose row flipped only in
+       #2167. Since #2168 the pairing is a gate rather than this paragraph: check-plugin-integrity's
+       check 3d holds every kind's Current row against the names actually on disk in the source repo,
+       and refuses BOTH half-states -- files moved without the row, and a row flipped without the files.
+       It reaches this tree only. A CONSUMER still meets a rename through a plugin update rather than by
+       choosing to, which is the dual-read layer doing its job, so AlsoRead is load-bearing exactly as
+       before and no row may be pruned because a gate now watches it.
 
        Stem is the tail after the id, WITHOUT the leading hyphen and WITHOUT the extension; Prefix is
        everything before the id. A name is therefore '<Prefix><g>-<id>-<Stem>.md' and nothing else -- the

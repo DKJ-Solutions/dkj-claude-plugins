@@ -3,7 +3,8 @@
     check-plugin-integrity.ps1, part 4 of 4: the checks over what this repo SHIPS -- shared-script
     parameters against their skill (18), claimed section counts (20), the changelog intro (20b),
     machine-specific commands in skill pages (22), the PR template contract (24), consumer tier
-    links (25), frontmatter byte-order marks (26), the manual/backer pairing (6b) -- and the
+    links (25), frontmatter byte-order marks (26), the manual/backer pairing (6b), each specialist
+    kind's written spelling against the names on disk (3d) -- and the
     -SkipCheck parameter itself.
 
 .DESCRIPTION
@@ -19,6 +20,14 @@
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'check-plugin-integrity-fixture.ps1')
+
+# CHECK-REPORT-LIB INTO THE RUNNER TOO, for check 3d's scenarios: they compose the lens file names from
+# Get-SpecialistFileName and Get-SpecialistFileNameCandidates rather than typing them. Same reason the
+# fixture dot-sources entry-scaffold-lib and pr-body-lib, and through the $...Src path it already
+# resolves for the copy -- a name typed here would be a second definition of the very shape the check
+# under test holds, and it would pass on the day the row and the files come apart, which IS the defect
+# (#2168).
+. $CheckReportLibSrc
 
 $Fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("check-plugin-integrity-docs-$PID-$([guid]::NewGuid().ToString('n'))")
 
@@ -1401,6 +1410,91 @@ Write-Host 'fixture'
     Remove-Item -LiteralPath $mcQuietHook -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $mcCheckPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $mcQuietCheck -Force -ErrorAction SilentlyContinue
+
+    # --- check 3d: a kind's WRITTEN spelling, against the names actually on disk ----------------------
+    #     BORN GREEN ON THE REAL TREE (issue #2168), so the scenarios are what make it distinguishable
+    #     from a check that cannot fire. All four kinds agree with their Current row today -- the whole
+    #     point of the check is the window in which one of them does not, and that window has been open
+    #     twice without anything reporting it.
+    #
+    #     THE LENS IS THE SUBJECT, for one reason and it is not convenience: it is the only one of the
+    #     four kinds that lives OUTSIDE a plugin folder, so writing it needs no manifest, no frontmatter
+    #     and no agent def to satisfy checks 3b, 3c and 6 alongside. The assertion under test is about a
+    #     file NAME, which is the same assertion for every kind -- the code loops one table over all
+    #     four -- so pinning it on the cheapest kind is the whole coverage, not a sample of it.
+    #
+    #     BOTH HALVES AND BOTH WORDINGS. Files moved without the row and a row flipped without the files
+    #     reach this check identically; what differs is whether EVERY file of the kind is on the other
+    #     spelling or only some, and those have different repairs. The negative cases are the point as
+    #     much as the positives: a check that reported every file it walked would satisfy a
+    #     positive-only suite.
+    Write-Host "check 3d: a kind's written spelling vs. the names on disk" -ForegroundColor Cyan
+    $wnDir = Join-Path $Fixture '.claude\specialists\lenses'
+    New-Item -ItemType Directory -Path $wnDir -Force | Out-Null
+    # THE NAMES COME FROM THE LIB, NEVER FROM A LITERAL HERE. A test that typed 'specialist-01-01-lens.md'
+    # would pass the day the Lens row flips and the files do not -- which is the exact defect this check
+    # exists to refuse, reproduced inside its own guard. bootstrap-drift.tests.ps1 pins the literal on
+    # purpose and says why; this suite is the opposite side of that pair and must derive.
+    $wnWritten = Get-SpecialistFileName -Kind Lens -Id '01-01'
+    $wnRetired = @(Get-SpecialistFileNameCandidates -Kind Lens -Id '01-01' | Where-Object { $_ -ne $wnWritten })[0]
+    $wnWritten2 = Get-SpecialistFileName -Kind Lens -Id '02-09'
+    $wnRetired2 = @(Get-SpecialistFileNameCandidates -Kind Lens -Id '02-09' | Where-Object { $_ -ne $wnWritten2 })[0]
+    $wnBody = "# Fixture lens`n"
+
+    # THE ABSENCE ASSERTS MATCH THE FINDING, NOT THE TOKEN, and that distinction is not fussiness: the
+    # [COVERAGE] line carries the SAME '[written-name]' token, so '\[written-name\] ' is satisfied by a
+    # perfectly clean run and both clean cases below failed on it first time out. It is the trap check
+    # 13's own scenarios already note for '[entry-shape]' and README.md. 'carry a spelling' is wording
+    # only a finding has -- both the stray and the whole-kind lead use it -- so the pattern discriminates
+    # what these two asserts are actually about.
+    $wnFinding = '\[written-name\] .*carry a spelling'
+
+    # 1. THE WRITTEN SPELLING IS SILENT. Without this the three cases below would all pass against a
+    #    check that reported every lens it found.
+    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnWritten), $wnBody, $Utf8NoBom)
+    $wn1 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($wn1.Out -match $wnFinding)) `
+        'written-name: a lens on the spelling the table WRITES is clean'
+    Assert-True ($wn1.Out -match '\[written-name\] checked 1\b') `
+        'written-name: and it was actually examined -- the clean verdict carries its count'
+
+    # 2. A STRAY: one file on the retired spelling beside one on the written one. The half-finished move,
+    #    which is a different repair from a row that never flipped -- so the wording has to differ too.
+    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnRetired2), $wnBody, $Utf8NoBom)
+    $wn2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($wn2.Out -match '\[written-name\] 1 of 2 Lens file') `
+        'written-name: one file on the retired spelling is reported as a stray, with the count'
+    Assert-True ($wn2.Out -match [regex]::Escape($wnRetired2)) `
+        'written-name: and the finding names the offending file'
+    Assert-True ($wn2.Out -match [regex]::Escape($wnWritten2)) `
+        'written-name: and the name it should carry, so the repair needs no source reading'
+
+    # 3. THE WHOLE KIND: every lens on the retired spelling. This is the shape both shipped steps had --
+    #    the files moved, the Current row did not -- and it must read as a row that came apart rather
+    #    than as two strays.
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnWritten) -Force
+    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnRetired), $wnBody, $Utf8NoBom)
+    $wn3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($wn3.Out -match '\[written-name\] all 2 Lens file') `
+        'written-name: a whole kind on the other spelling reads as the row and the files coming apart'
+    Assert-True ($wn3.Out -match 'ONE commit') `
+        'written-name: and the finding says the two halves belong in one commit -- the rule, not just the diff'
+    Assert-True ($wn3.Code -ne 0) `
+        'written-name: it is an ERROR and fails the gate -- a mid-rename tree is what this refuses'
+
+    # 4. A NAME MATCHING NEITHER SPELLING IS NOT THIS CHECK'S FINDING. Its id does not resolve, so checks
+    #    3b/3c/6 own it and this one passes over it. Without this assert the check could grow into
+    #    reporting every *-lens.md in the tree, and one file would get two owners with two repairs.
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnRetired) -Force
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnRetired2) -Force
+    [System.IO.File]::WriteAllText((Join-Path $wnDir 'notes-lens.md'), $wnBody, $Utf8NoBom)
+    $wn4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($wn4.Out -match $wnFinding)) `
+        'written-name: a file whose id resolves under NEITHER spelling is left to 3b/3c/6, not reported twice'
+    Assert-True ($wn4.Out -match '\[written-name\] checked 0\b') `
+        'written-name: and the coverage says 0 rather than 1 -- it was passed over, not silently accepted'
+
+    Remove-Item -Recurse -Force -LiteralPath (Join-Path $Fixture '.claude') -ErrorAction SilentlyContinue
 
     # --- -SkipCheck: the guard rails around the one parameter that can make this gate check less ------
     #     The parameter exists for THIS suite and nothing else. Its failure mode is silence -- a gate

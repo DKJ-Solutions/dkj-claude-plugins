@@ -451,7 +451,7 @@ try {
     # because a coverage line that always printed "0" would satisfy the first half while being useless.
     Write-Host "[COVERAGE] every category reports its count, and an empty category is visible" -ForegroundColor Cyan
     $rc = Invoke-Integrity -FixtureRoot $Fixture -Full
-    foreach ($cat in @('agent-def', 'manual', 'persona', 'specialist', 'shared')) {
+    foreach ($cat in @('agent-def', 'manual', 'persona', 'specialist', 'shared', 'written-name')) {
         Assert-True ($rc.Out -match "\[$([regex]::Escape($cat))\] checked 0\b") `
             "coverage: the genuinely empty category '$cat' reports 'checked 0' instead of staying silent"
     }
