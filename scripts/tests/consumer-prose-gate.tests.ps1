@@ -68,6 +68,11 @@ $Script   = Join-Path $RepoRoot 'scripts\lint\check-consumer-prose.ps1'
 $Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\consumer-prose-sessioncheck.ps1'
 . (Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1')
 . (Join-Path $RepoRoot 'scripts\lib\measure-context-lib.ps1')
+# check-report-lib carries the lens-discovery seams (Get-SeamPaths, Get-LensDirCandidates,
+# Get-SpecialistFiles) that Get-ConsumerProseDocuments probes for kind 3 (#2188). The check script loads
+# it for its sanitizers already; without it here the lens half would silently degrade to off and every
+# case below would pass for the wrong reason.
+. (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1')
 
 $script:pass  = 0
 $script:fail  = 0
@@ -195,6 +200,50 @@ try {
         'the changelog is NOT in the corpus -- a folded entry correctly states the rule of its day'
     Assert-True (@($bare | Where-Object { $_ -match '^releases/' -or $_ -match '/releases/' }).Count -eq 0) `
         'releases/ is not in the corpus either -- neither always-on nor a reserved page'
+
+    # --- KIND 3: THE REPO LENSES (#2188) -----------------------------------------------------------
+    # The corpus held one half of RANK 2 and not the other: a retired convention restated in
+    # dkj-policy/README.md was reported and the identical sentence in a lens was not. These pin the
+    # widening AND its seam -- -RepoRoot is what turns the walk on, which is the switch #2197 may need.
+    Write-Host ''
+    Write-Host 'Get-ConsumerProseDocuments -- the repo lenses (#2188)'
+
+    $lensTree = New-Tree -Label 'lenscorpus'
+    Set-Text -Dir $lensTree -Rel 'CLAUDE.md' -Text "# Consumer`n`nWe point at the shared pages."
+    Set-Text -Dir $lensTree -Rel '.claude/specialists/lenses/specialist-05-05-lens.md' -Text "# Derek`n`nThis repo's answer to the branch seam."
+    $lensRows = @(Get-AlwaysOnRows -Dir $lensTree)
+
+    $withRoot = @(Get-ConsumerProseDocuments -Documents $lensRows -RepoRoot $lensTree)
+    $noRoot   = @(Get-ConsumerProseDocuments -Documents $lensRows)
+    Assert-True (@($withRoot | Where-Object { $_ -eq '.claude/specialists/lenses/specialist-05-05-lens.md' }).Count -eq 1) `
+        'a repo lens is in the corpus when -RepoRoot is supplied -- the other half of RANK 2'
+    Assert-True (@($noRoot | Where-Object { $_ -match 'lenses/' }).Count -eq 0) `
+        'and it is NOT, with -RepoRoot omitted -- the seam that keeps an older caller at the two-kind corpus'
+
+    # A lens the always-on closure already carries must appear ONCE. A duplicated path is a duplicated
+    # FINDING -- the same line reported twice for one thing to repair.
+    $lensImported = New-Tree -Label 'lensimported'
+    Set-Text -Dir $lensImported -Rel 'CLAUDE.md' -Text "# Consumer`n`n@.claude/specialists/lenses/specialist-01-01-lens.md"
+    Set-Text -Dir $lensImported -Rel '.claude/specialists/lenses/specialist-01-01-lens.md' -Text "# Chris`n`nThe orchestrator's repo lens."
+    $importedCorpus = @(Get-ConsumerProseDocuments -Documents (Get-AlwaysOnRows -Dir $lensImported) -RepoRoot $lensImported)
+    Assert-True (@($importedCorpus | Where-Object { $_ -match 'specialist-01-01-lens\.md$' }).Count -eq 1) `
+        "a lens the root document '@'-imports is in the corpus exactly once, not once per kind"
+
+    # --- Test-ProseCarriesAnyLiteral, the prefilter (#2188) ----------------------------------------
+    # It may short-circuit a GATE, so it is asserted on its own. Lossless is the only licence it has.
+    Write-Host ''
+    Write-Host 'Test-ProseCarriesAnyLiteral'
+
+    Assert-True (Test-ProseCarriesAnyLiteral -Text 'the CLAUDE.md page' -Literals @('CLAUDE.md')) `
+        'a literal that is present is found'
+    Assert-True (-not (Test-ProseCarriesAnyLiteral -Text 'nothing to see' -Literals @('CLAUDE.md'))) `
+        'a literal that is absent is not found -- the rejection the saving rests on'
+    Assert-True (Test-ProseCarriesAnyLiteral -Text 'the claude.MD page' -Literals @('CLAUDE.md')) `
+        "case folding matches the detectors' own -- OrdinalIgnoreCase here, '(?i)' there"
+    Assert-True (Test-ProseCarriesAnyLiteral -Text 'it wint hier' -Literals @('wins', 'wint')) `
+        'any one of several literals is enough -- the OR the retired-name caller needs'
+    Assert-True (-not (Test-ProseCarriesAnyLiteral -Text '' -Literals @('x'))) 'empty text carries nothing'
+    Assert-True (-not (Test-ProseCarriesAnyLiteral -Text 'anything' -Literals @())) 'no literals -- nothing to carry'
 
     # --- The two shared fixtures -------------------------------------------------------------------
     $empty = New-Tree -Label 'empty'
@@ -406,6 +455,49 @@ try {
     Set-Text -Dir $boldStart -Rel 'dkj-policy/CONTRIBUTING.md' -Text "# C`n`n**On any real conflict ``CLAUDE.md`` wins outright.**"
     Assert-True (@(Get-Declarations -Dir $boldStart).Count -eq 1) `
         "a line opening with '**bold**' is not read as a list item"
+
+    # --- BOTH detectors over a repo LENS (#2188) ---------------------------------------------------
+    # The corpus asserts above prove the path is in the set; these prove a real defect sitting in a lens
+    # is actually reported, which is the whole of what #2188 asked for.
+    Write-Host ''
+    Write-Host 'Both detectors -- a defect in a repo lens (#2188)'
+
+    $lensRetired = New-Tree -Label 'lensretired'
+    Set-Text -Dir $lensRetired -Rel 'CLAUDE.md' -Text "# Consumer`n`nWe point at the shared pages."
+    Set-Text -Dir $lensRetired -Rel '.claude/specialists/lenses/specialist-05-05-lens.md' `
+        -Text "# Derek`n`nElke branch krijgt zijn eigen ``dkj-policy/$retired``."
+    $f = @(Get-Mentions -Dir $lensRetired)
+    Assert-True ($f.Count -eq 1 -and $f[0].Rel -eq '.claude/specialists/lenses/specialist-05-05-lens.md' -and $f[0].Line -eq 3) `
+        'a retired name in a repo LENS is reported -- the half the always-on closure never reached'
+
+    $lensSupremacy = New-Tree -Label 'lenssupremacy'
+    Set-Text -Dir $lensSupremacy -Rel 'CLAUDE.md' -Text "# Consumer`n`nWe point at the shared pages."
+    Set-Text -Dir $lensSupremacy -Rel '.claude/specialists/lenses/specialist-05-15-lens.md' `
+        -Text "# Sylvester`n`nOn any real conflict ``CLAUDE.md`` wins."
+    $d = @(Get-Declarations -Dir $lensSupremacy)
+    Assert-True ($d.Count -eq 1 -and $d[0].Rel -eq '.claude/specialists/lenses/specialist-05-15-lens.md') `
+        'an inverted supremacy declaration in a repo LENS is reported too'
+
+    # THE PREFILTER'S LOSSLESSNESS, PINNED BY THE CASE THAT WOULD BREAK IT. The filter is a whole-TEXT
+    # test precisely so a declaration hard-wrapped across two lines still survives it; a well-meaning
+    # "optimisation" to a per-LINE test would pass every other case in this file and empty the gate on
+    # exactly the shape #1415 built Get-ProseParagraphUnits for. This is the assert that fails first.
+    $lensWrapped = New-Tree -Label 'lenswrapped'
+    Set-Text -Dir $lensWrapped -Rel 'CLAUDE.md' -Text "# Consumer`n`nWe point at the shared pages."
+    Set-Text -Dir $lensWrapped -Rel '.claude/specialists/lenses/specialist-06-16-lens.md' `
+        -Text "# Tessa`n`nOn any real conflict between the two, ``CLAUDE.md```nwins, and the shared page is simply wrong."
+    $w = @(Get-Declarations -Dir $lensWrapped)
+    Assert-True ($w.Count -eq 1 -and $w[0].Line -eq 3) `
+        'a declaration WRAPPED across two lines of a lens still fires -- the prefilter reads the whole text, not a line'
+
+    # And the mirror image: a lens naming ONE half of the pattern is rejected by the prefilter and must
+    # stay rejected by the detector. This is what proves the filter is not merely inert.
+    $lensHalf = New-Tree -Label 'lenshalf'
+    Set-Text -Dir $lensHalf -Rel 'CLAUDE.md' -Text "# Consumer`n`nWe point at the shared pages."
+    Set-Text -Dir $lensHalf -Rel '.claude/specialists/lenses/specialist-06-17-lens.md' `
+        -Text "# Edith`n`nThe rank order is described in ``CLAUDE.md`` and we do not restate it."
+    Assert-True (@(Get-Declarations -Dir $lensHalf).Count -eq 0) `
+        "a lens naming 'CLAUDE.md' with no verb beside it -- no finding, prefiltered or not"
 
     # --- Get-ProseParagraphUnits, on its own ------------------------------------------------------
     Write-Host ''

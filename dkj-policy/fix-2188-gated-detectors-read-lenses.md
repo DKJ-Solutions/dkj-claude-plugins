@@ -39,23 +39,87 @@
 
 ### PLAN
 
-Measured: widening the shared corpus to the lenses costs +5.5s/session start unless a literal prefilter lands with it. Next: prefilter in both detectors, then widen.
+Measured before building, because #2188's three questions are all measurements and the third one
+turned out to be decisive.
+
+- **Does a lens belong in the shared corpus at all?** Yes, and the argument is that the corpus already
+  held one HALF of rank 2. #2179 put this repo's seam answers in the lenses and #2184 taught
+  `check-policy-drift.ps1` to read them as RANK 2 -- the same rank as the `dkj-policy/` pages the corpus
+  already carries. A retired convention restated in `dkj-policy/README.md` was reported at session start;
+  the identical sentence in a lens was not.
+- **The supremacy grep's false-positive cost over a lens.** #2188 predicted this would be the blocker
+  ("a lens is where this family writes *about* the rank order"). Measured over 29 non-imported lenses,
+  9,100 lines: **0 findings**. The prediction is disconfirmed rather than merely unobserved.
+- **The per-session cost.** The one that nearly sank it -- see CREATE.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Widen `Get-ConsumerProseDocuments` to kind 3, the repo lenses, behind a new optional `-RepoRoot`.
+      The walk reuses `Get-SeamPaths` / `Get-LensDirCandidates` / `Get-SpecialistFiles`, all already on
+      `main`, so no layout rule is written here. Omitting `-RepoRoot` is exactly today's two-kind corpus,
+      which is both the degradation for an older caller and the per-detector seam #2197 may need.
+- [x] Measure the naive widening first: **+5.7 s at every session start**, in every adopted consumer.
+      That is twelve times the ~457 ms saving #1421's whole hook merge was built for, so it was
+      disqualifying and the branch went profiling instead of shipping.
+- [x] `Test-ProseCarriesAnyLiteral` -- a whole-text literal prefilter in both detectors. Rejects 29 of
+      34 documents for ~3-6 ms total. Provably lossless: both detectors match literals that must already
+      appear contiguously in the raw text, and the paragraph join can only INSERT a space while its two
+      strips are anchored at line start, so no match can exist in a unit and not in the text.
+- [x] Profile what survived it, which is where the two real defects were. Both predate this branch by
+      months and were invisible at 78 KB:
+      - `Get-ProseParagraphUnits` built one `[pscustomobject]` per LINE for its offset map -- 677 ms of
+        a 1,100 ms walk on a 312 KB document, against 8 ms for all the regex work. Now two parallel int
+        arrays; `Resolve-ProseUnitLine` reads the same two numbers and returns the same line.
+      - `Get-RetiredDocNameMention` allocated a `List[object]` per LINE to track claimed spans -- 573 ms
+        against 41 ms for the eight `IndexOf` passes it supports, on lines that almost never claim
+        anything. Now allocated on the first claim.
+- [x] Regenerate the `dkj-policy` mirror (`build-shared-scripts.ps1`).
+- [x] File the half this machine cannot measure: #2197, the retired-name detector's false-positive rate
+      over a CONSUMER's lenses.
 
 ### TEST
 
+- [x] 12 new asserts in `consumer-prose-gate.tests.ps1`, 91 passing in all. They pin the corpus widening,
+      the `-RepoRoot` seam in both directions, the once-only rule for an `@`-imported lens, both detectors
+      firing on a defect in a lens, and `Test-ProseCarriesAnyLiteral` on its own.
+- [x] The prefilter's losslessness is pinned by the case that would break it -- a declaration hard-wrapped
+      across two lines of a lens. A well-meaning narrowing to a per-LINE test passes every other case in
+      the file and empties the gate on exactly the shape #1415 built the paragraph walk for.
+- [x] The suite now dot-sources `check-report-lib.ps1`; without it the lens half degrades silently to off
+      and every new case would have passed for the wrong reason.
+- [x] Lint gate: 0 errors. Full suite sweep: green.
+
 ### DEPLOY: fix/2188-gated-detectors-read-lenses
 
-**Score:**
+The two prose detectors behind `consumer-prose-sessioncheck` now read a repo's specialist lenses, not
+just its always-on closure and workflow folder -- so a consumer restating a retired branch-document name,
+or declaring its own `CLAUDE.md` the winner over the workflow's page, is reported wherever that sentence
+actually sits. The corpus held one half of rank 2 and not the other; #2184 had just taught the on-demand
+drift report to read the lens surface, and this is the always-on hook catching up.
+
+It ships with the three repairs that make it affordable, because the widening alone measured **+5.7 s at
+every session start** -- twelve times the saving the hook merge was built for. A literal prefilter rejects
+the documents that cannot match, and two per-line allocation defects that predate this work were removed
+from the hot path. Measured best-of-3, old code against new:
+
+| tree | before | after |
+|---|---|---|
+| a repo with no lenses (3 documents) | 261 ms | **104 ms** |
+| this repo (5 -> 34 documents, 767 KB) | 482 ms | **838 ms** |
+
+So a consumer with no lenses gets a check 2.5x faster than before, and the worst-case tree in the family
+pays +356 ms for 6.8x the corpus.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nobody outside this repo's own maintainers reads this. The detectors ship in `dkj-policy` and run
+at session start in every adopted consumer, so the reach is real, but what changes for them is a gate
+that sees more and runs faster: no action, no migration, nothing to read.
+
+**Score:** N/A
 
 #### Pull Request
 
 The gated prose detectors read the repo lenses, behind a literal prefilter
-

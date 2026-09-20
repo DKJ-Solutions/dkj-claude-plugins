@@ -8025,12 +8025,73 @@ function Get-ConsumerProseDocuments {
         for a measured reason. Two copies of this would drift on the day a third exclusion is found, and
         the copy that missed it would report a document the other correctly ignores.
 
-        Two kinds of page:
+        Three kinds of page:
 
           1. the always-on closure -- CLAUDE.md and everything it '@'-imports -- passed in as -Documents,
              because that walk belongs to measure-context-lib.ps1 and a second walk here would be a second
              definition of the always-on path;
-          2. the workflow folder's own permanent pages, MINUS its changelog.
+          2. the workflow folder's own permanent pages, MINUS its changelog;
+          3. this repo's SPECIALIST LENSES, walked here when -RepoRoot is supplied (issue #2188).
+
+        WHY THE LENSES BELONG HERE, which is #2188's first question. This corpus already held one half of
+        RANK 2 and not the other. #2179 established that a repo's seam answers legitimately live in its
+        lenses -- ~1,300 lines of them in the source repo -- and #2184 taught check-policy-drift.ps1 to
+        read that surface as RANK 2, the SAME rank as the workflow-folder pages kind 2 already carries. So
+        the corpus was drawing a line through the middle of one rank: a consumer restating a retired
+        convention in dkj-policy/README.md was reported at session start, and the identical sentence in a
+        lens was not. Widening makes the rank whole rather than adding a new axis.
+
+        AND A LENS IS ON-DEMAND PROSE, WHICH IS NOT A REASON TO EXCLUDE IT HERE. It is the reason #2184
+        keeps lenses out of RANK 3 (the always-on floor), and that distinction is about WHEN a document is
+        loaded. This corpus asks a different question -- is this the repo's own law-bearing prose -- and a
+        lens is read by a session that reaches it, which is all a restatement needs to mislead somebody.
+
+        THE FALSE-POSITIVE COST WAS MEASURED BEFORE IT SHIPPED (#2188's second question), because the issue
+        predicted the opposite result: "a lens is where this family writes ABOUT the rank order, so the very
+        sentence a lens is right to carry may be the one the detector matches." Over the source repo's 29
+        non-imported lenses, 9,100 lines, Get-SupremacyDeclaration reports ZERO. The adjacency test is
+        narrow enough that prose about the rank order does not trip it -- the prediction is disconfirmed
+        rather than merely unobserved.
+
+        WHAT THE SAME MEASUREMENT FOUND FOR THE OTHER DETECTOR, stated because it cuts the other way and a
+        reader must not have to rediscover it. Get-RetiredDocNameMention reports 10 findings over those
+        same lenses, and all 10 are historical narration -- '`contributing-davekjohn/releases/` until
+        #1437', 'the stale `development.md` restatement in', a plugin VERSION line that happens to carry a
+        retired folder name. None is a live restatement. That is the changelog exclusion's own class of
+        prose, and on the source repo's own bar (the dead-link check accepted at 17 findings / 17 real, the
+        stale-path check declined at 124 / 0) it would be a decline. IT IS SHIPPED ANYWAY, AND THE REASON IS
+        THE SKIP: all 10 sit in the repo that publishes the workflow, where check-consumer-prose.ps1 exits
+        before either detector runs. A CONSUMER's lens has no comparable reason to narrate this plugin's
+        retired filenames -- if it does, that is the finding. NO CONSUMER LENS WAS MEASURED, because no
+        consumer checkout exists on the machine this was built on; that is the open half, and #2197 carries
+        it. If a consumer's legitimate measurement prose does trip this, it is one finding to file with real
+        data rather than a design to guess at now. The seam for narrowing it is already here and costs one
+        argument at one call site: -RepoRoot is what turns the lens walk on, so a detector that has to stop
+        reading lenses simply stops passing it.
+
+        THE PER-SESSION COST IS #2188's THIRD QUESTION, AND IT IS WHY THIS LANDED WITH THREE OTHER
+        REPAIRS. These detectors run from a SessionStart hook in every adopted consumer, so the widening
+        is paid at every start, resume, clear and compact. Measured best-of-3, both detectors, old code
+        against new, on two trees:
+
+            tree                                      before     after
+            no lenses (3 documents)                    261 ms    104 ms     <- 2.5x FASTER
+            this repo (5 -> 34 documents, 767 KB)      482 ms    838 ms     <- +356 ms for 6.8x the corpus
+
+        The naive widening -- the corpus alone, none of the repairs -- measured ~6,200 ms on that second
+        tree, which is +5.7 s at every session start and twelve times the ~457 ms saving #1421's whole
+        hook merge was built for. It was disqualifying, and it is what sent this branch profiling instead
+        of shipping.
+
+        THREE REPAIRS CLOSED IT, each measured where it sits: the literal prefilter
+        (Test-ProseCarriesAnyLiteral), the segment map in Get-ProseParagraphUnits, and the lazy claim
+        list in Get-RetiredDocNameMention. The last two are pure allocation defects that predate this
+        branch by months -- they were invisible at 78 KB and 84-92% of the bill at 767 KB -- which is why
+        a repo with NO lenses comes out faster than before: it gets the repairs and none of the corpus.
+
+        THE SECOND ROW IS THE WORST CASE IN THE FAMILY, not a typical one. This repo is the source, so it
+        carries the largest lens corpus there is (312 KB in one file); a consumer's lenses are a fraction
+        of that, and a consumer with none pays row one.
 
         THE CHANGELOG EXCLUSION IS NOT OPTIONAL. A folded entry correctly names the file, and states the
         rule, that was current on the day it landed, so a check that read the changelog would be born red
@@ -8050,14 +8111,22 @@ function Get-ConsumerProseDocuments {
         prose, it is not always-on, and it is not a reserved page. A branch whose own plan discusses a
         rename or a supremacy rule would otherwise report itself.
 
-        IT RETURNS PATHS, NOT CONTENT, and it does not check that they exist. The caller joins them to its
-        own RepoRoot and skips what is missing -- which is what lets the same list describe a consumer that
-        carries the workflow folder and one that does not.
+        IT RETURNS PATHS, NOT CONTENT, and it does not check that they exist -- for kinds 1 and 2. The
+        caller joins them to its own RepoRoot and skips what is missing, which is what lets the same list
+        describe a consumer that carries the workflow folder and one that does not. KIND 3 IS THE STATED
+        EXCEPTION: a lens set cannot be named in advance the way a reserved page can, so it has to be
+        walked, and that is why the lens half is gated on -RepoRoot rather than being free.
     #>
     param(
         # The always-on rows from Get-AlwaysOnDocuments. Optional: a caller with no walk available still
         # gets the folder's own pages judged, which is where one of #1389's two measured instances sat.
-        [object[]]$Documents = @()
+        [object[]]$Documents = @(),
+
+        # The repo to walk for lenses (kind 3, #2188). OMITTED IS THE OLD BEHAVIOUR, EXACTLY: no walk, no
+        # lenses, the two-kind corpus this function returned before. That is the degradation this lib uses
+        # everywhere -- a caller too old to pass it is narrower rather than broken -- and it doubles as the
+        # per-detector seam #2197 may need.
+        [string]$RepoRoot = ''
     )
 
     $paths = Get-BranchFilePaths
@@ -8079,7 +8148,125 @@ function Get-ConsumerProseDocuments {
         if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
     }
 
+    # KIND 3: THE REPO LENSES (#2188). Only with a root to walk, and only where the discovery seams are
+    # loaded -- check-report-lib.ps1 is not a dependency of this lib, so a caller that has not loaded it
+    # gets the two-kind corpus rather than an error. Same guarded degradation as the rest of this file.
+    #
+    # THE LOCATION IS NOT DECIDED HERE, DELIBERATELY. Get-LensDirCandidates already owns the four layouts a
+    # consumer's lenses may sit in (the #221 seam dir, the pre-seam per-plugin tree, the pre-#179 family
+    # spelling, legacy .claude/extensions/) and Get-SpecialistFiles owns both filename spellings (#2130). A
+    # rule written here would be a second answer to a settled question -- the same reasoning that keeps the
+    # always-on walk in measure-context-lib.ps1 and reaches this function as -Documents.
+    #
+    # A LENS THE ALWAYS-ON CLOSURE ALREADY CARRIES IS NOT ADDED TWICE: $seen holds kinds 1 and 2 already, so
+    # the orchestrator's '@'-imported lens stays the single row it is today. That matters beyond tidiness --
+    # a duplicated path is a duplicated FINDING, reported twice for one line to repair.
+    if ($RepoRoot -and (Test-FunctionDefined 'Get-SpecialistFiles')) {
+        $lensDirs = New-Object System.Collections.Generic.List[string]
+
+        if (Test-FunctionDefined 'Get-SeamPaths') {
+            $seamDir = [string](Get-SeamPaths -RepoRoot $RepoRoot).LensDir
+            if ($seamDir) { $lensDirs.Add($seamDir) | Out-Null }
+        }
+
+        if ((Test-FunctionDefined 'Get-LensDirCandidates') -and (Test-FunctionDefined 'Get-EnabledPlugins')) {
+            # Wrapped: Get-EnabledPlugins reads the whole settings chain, and a malformed layer must not
+            # take a SessionStart hook down over a corpus half that is additive by construction.
+            $enabled = @()
+            try { $enabled = @((Get-EnabledPlugins -RepoRoot $RepoRoot).Ids) } catch { $enabled = @() }
+            foreach ($id in $enabled) {
+                if (-not $id) { continue }
+                $pluginName = ([string]$id -split '@', 2)[0]
+                if (-not $pluginName) { continue }
+                # Slug-guarded before it becomes a path segment, as every other walk in this tree guards its
+                # own: an id is read out of a settings file, which is not this repo's text.
+                if ((Test-FunctionDefined 'Test-PluginNameSlug') -and -not (Test-PluginNameSlug -Name $pluginName)) { continue }
+                foreach ($dir in @(Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $pluginName)) {
+                    if ($dir) { $lensDirs.Add([string]$dir) | Out-Null }
+                }
+            }
+        }
+
+        if ($lensDirs.Count -gt 0) {
+            # Get-SpecialistFiles de-duplicates by full path across every directory handed to it, so
+            # candidate lists overlapping between plugins cost nothing.
+            foreach ($file in @(Get-SpecialistFiles -Path @($lensDirs) -Kind Lens)) {
+                # NOT Resolve-Path AND A SUBSTRING. Handed a root in its 8.3 short form, Resolve-Path returns
+                # that short form while Get-ChildItem hands back the LONG FullName, so the two spellings
+                # diverge and every StartsWith fails -- silently returning nothing, which is #2184's own
+                # blindness coming back through a second door. Get-PathRelativeToDirectory is pure and
+                # normalizes both sides the same way.
+                $rel = Get-PathRelativeToDirectory -FullPath ([string]$file.FullName) -Directory $RepoRoot
+                if (-not $rel) { continue }
+                # A leading '../' is a path BESIDE the repo rather than under it, and '' is another drive.
+                # Neither is this repo's prose and neither may be judged as though it were.
+                if ($rel.StartsWith('../')) { continue }
+                if ($seen.Add($rel)) { $rels.Add($rel) | Out-Null }
+            }
+        }
+    }
+
     return $rels.ToArray()
+}
+
+function Test-ProseCarriesAnyLiteral {
+    <#
+        Does this document's RAW text carry at least one of these literals, case-insensitively? The
+        cheap rejection both consumer-prose detectors run before they parse anything. Issue #2188.
+
+        WHY IT EXISTS: THE CORPUS GREW AND THE PARSE DID NOT GET CHEAPER. #2188 widened
+        Get-ConsumerProseDocuments to the repo lenses, which took this repo's own corpus from 5
+        documents (~78 KB) to 34 (~767 KB). Measured before the prefilter, both detectors over the
+        widened corpus, three passes:
+
+            base (5 docs)      723 / 594 / 697 ms
+            widened (34 docs)  6323 / 5843 / 6410 ms      <- +5.2 to +5.7 s, EVERY session start
+
+        That is disqualifying on its own: #1421 merged the two hooks into one script to save ~457 ms
+        per session start, so widening without this would have spent twelve times that saving in the
+        opposite direction, in every adopted consumer, for ever. The whole cost sits in the per-unit
+        work -- the paragraph walk alone is ~4.0 s of it -- and not in reading the bytes.
+
+        WHAT IT BUYS, on the same corpus: 29 of the 34 documents carry none of either detector's
+        literals and are rejected outright, for ~3-6 ms TOTAL across all 34.
+
+        AND WHAT IT DOES NOT BUY, WHICH IS THE HALF WORTH WRITING DOWN. The 29 it rejects are the SMALL
+        ones; the ones it keeps include the two largest files in the tree (specialist-05-15-lens.md at
+        312 KB and specialist-05-06-lens.md at 95 KB). So the prefilter alone took the widening from
+        +5.5 s to about +2.2 s -- a real saving and nowhere near enough, and the projection that the
+        widened check would come out cheaper than the 5-document one was wrong. What closed the rest was
+        the segment-map repair in Get-ProseParagraphUnits and the lazy claim list in
+        Get-RetiredDocNameMention, both found by profiling what survived this filter. The end-state
+        figures for all three are in Get-ConsumerProseDocuments' own cost block.
+
+        IT IS PROVABLY LOSSLESS, AND THAT IS THE ONLY REASON IT MAY SHORT-CIRCUIT A GATE. A prefilter
+        that can drop a real finding is worse than the cost it saves. Both detectors match literals
+        that MUST already appear contiguously in the raw text:
+
+          - Get-RetiredDocNameMention matches each retired name with IndexOf against a PHYSICAL line,
+            and the raw text is those lines plus their terminators -- so a name found in a line is
+            found in the text. A strict superset.
+          - Get-SupremacyDeclaration matches over Get-ProseParagraphUnits' JOINED text, which is the
+            only case worth arguing. That join can only INSERT (a single space between lines) and its
+            two strips are both ANCHORED AT LINE START ('^\s*>+\s?' and the list marker), so neither
+            can fuse 'CLAUDE.' + 'md' into the literal, nor manufacture 'wins'/'wint'. A match in a
+            unit therefore requires the literal in the raw text.
+
+        Case folding matches the detectors' own: OrdinalIgnoreCase here, '(?i)' there. The supremacy
+        caller asks this TWICE rather than once with five literals, because its pattern needs
+        'CLAUDE.md' AND a verb -- an OR over all of them would keep every document naming either.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Literals
+    )
+
+    if (-not $Text) { return $false }
+    foreach ($literal in $Literals) {
+        if (-not $literal) { continue }
+        if ($Text.IndexOf($literal, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+    return $false
 }
 
 function Get-RetiredDocNameMention {
@@ -8129,13 +8316,18 @@ function Get-RetiredDocNameMention {
     $retired = @(Get-RetiredBranchDocNames)
     if ($retired.Count -eq 0) { return @() }
 
-    $rels = @(Get-ConsumerProseDocuments -Documents $Documents)
+    $rels = @(Get-ConsumerProseDocuments -Documents $Documents -RepoRoot $RepoRoot)
+    $literals = @($retired | ForEach-Object { [string]$_.Name })
 
     $findings = New-Object System.Collections.Generic.List[object]
     foreach ($rel in $rels) {
         $full = Join-Path $RepoRoot ($rel -replace '/', '\')
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
         $text = [System.IO.File]::ReadAllText($full, [System.Text.Encoding]::UTF8)
+        # THE PREFILTER (#2188). A document carrying none of the retired names on any line carries none in
+        # its raw text either, so the per-line scan below cannot find one. Lossless by the superset
+        # argument in Test-ProseCarriesAnyLiteral; it is what pays for the widened corpus.
+        if (-not (Test-ProseCarriesAnyLiteral -Text $text -Literals $literals)) { continue }
         $lines = $text -split "(?:\r\n|\n|\r)"
         for ($i = 0; $i -lt $lines.Count; $i++) {
             $line = [string]$lines[$i]
@@ -8145,14 +8337,24 @@ function Get-RetiredDocNameMention {
             # DERIVED and gains a row on every rename -- the day a new name contains an older one, a
             # single line of prose would be reported twice for one thing to repair, and the claim above
             # is what stops it. Cheap, and the alternative is discovering it from a doubled finding.
-            $claimed = New-Object System.Collections.Generic.List[object]
+            # ALLOCATED LAZILY, ON THE FIRST CLAIM, and that is a measurement rather than a style choice
+            # (#2188). This list existed per LINE, and almost no line carries a retired name -- profiled
+            # over this repo's largest lens (3,739 lines), the allocation was 573 ms against 41 ms for
+            # all eight IndexOf passes it exists to support: 92% of the detector's cost, spent on lines
+            # with nothing to claim. Deferring it to the first hit is the same 12x this branch found in
+            # Get-ProseParagraphUnits' segment map, one detector over, and the semantics are untouched --
+            # 'foreach' over $null iterates zero times, which is exactly what an empty list did.
+            $claimed = $null
             foreach ($name in $retired) {
                 $at = $line.IndexOf($name.Name, [System.StringComparison]::OrdinalIgnoreCase)
                 while ($at -ge 0) {
                     $end = $at + $name.Name.Length
                     $overlaps = $false
-                    foreach ($c in $claimed) { if ($at -lt $c.End -and $c.Start -lt $end) { $overlaps = $true; break } }
+                    if ($null -ne $claimed) {
+                        foreach ($c in $claimed) { if ($at -lt $c.End -and $c.Start -lt $end) { $overlaps = $true; break } }
+                    }
                     if (-not $overlaps) {
+                        if ($null -eq $claimed) { $claimed = New-Object System.Collections.Generic.List[object] }
                         $claimed.Add([pscustomobject]@{ Start = $at; End = $end }) | Out-Null
                         $findings.Add([pscustomobject]@{
                             Rel   = $rel
@@ -8209,6 +8411,24 @@ function Get-ProseParagraphUnits {
         line it came from) rather than per character: a caller resolves a match to its line by taking the
         last row at or before the match offset, which is what lets a finding still name a real line
         number in the file somebody has to go and edit.
+
+        THE MAP IS TWO PARALLEL INT ARRAYS, NOT ONE OBJECT PER SEGMENT, AND THAT IS A MEASUREMENT (#2188).
+        It was '[pscustomobject]@{ Start; Line }' per appended line, which is one PSObject construction per
+        line of every document scanned. Profiled on this repo's largest lens (specialist-05-15-lens.md,
+        312 KB, 3,739 lines), per component, over the same line set:
+
+            the two regex ops per line      8 ms
+            one [pscustomobject] per line 677 ms      <- 84% of the walk
+            one int[] pair per line        22 ms
+
+        The whole unit walk over that file was ~1,100 ms, so the map was the walk. Nothing about the
+        SHAPE of the answer changes -- Resolve-ProseUnitLine reads the same two numbers in the same order
+        and returns the same line -- which is why the suite that pins this function needed no new case to
+        stay honest: it asserts line resolution, and that is exactly what must not move.
+
+        IT MATTERED ONLY ONCE THE CORPUS GREW. At 5 documents of ~78 KB this was invisible; #2188 widened
+        the corpus to the repo lenses and the two biggest files in the tree landed in it, at which point
+        84% of a multi-second session-start cost was PSObject construction nobody needed.
     #>
     # AllowEmptyString/AllowEmptyCollection are load-bearing, not defensive: the blank lines that
     # SEPARATE the paragraphs are the input, and a Mandatory [string[]] validates every element -- so
@@ -8222,14 +8442,22 @@ function Get-ProseParagraphUnits {
 
     $units = New-Object System.Collections.Generic.List[object]
     $buffer = New-Object System.Text.StringBuilder
-    $segments = New-Object System.Collections.Generic.List[object]
+    # PARALLEL INT LISTS, not one object per segment -- see the docstring for the 677 ms this is worth on
+    # a 312 KB document. SegStart[i] is the offset in Text at which the line SegLine[i] begins.
+    $segStart = New-Object 'System.Collections.Generic.List[int]'
+    $segLine = New-Object 'System.Collections.Generic.List[int]'
 
     function Add-Unit {
         if ($buffer.Length -gt 0) {
-            $units.Add([pscustomobject]@{ Text = $buffer.ToString(); Segments = $segments.ToArray() }) | Out-Null
+            $units.Add([pscustomobject]@{
+                Text     = $buffer.ToString()
+                SegStart = $segStart.ToArray()
+                SegLine  = $segLine.ToArray()
+            }) | Out-Null
         }
         $buffer.Clear() | Out-Null
-        $segments.Clear()
+        $segStart.Clear()
+        $segLine.Clear()
     }
 
     for ($i = 0; $i -le $Lines.Count; $i++) {
@@ -8268,7 +8496,8 @@ function Get-ProseParagraphUnits {
         }
 
         if ($buffer.Length -gt 0) { $buffer.Append(' ') | Out-Null }
-        $segments.Add([pscustomobject]@{ Start = $buffer.Length; Line = $i + 1 }) | Out-Null
+        $segStart.Add($buffer.Length)
+        $segLine.Add($i + 1)
         $buffer.Append($stripped) | Out-Null
     }
 
@@ -8288,9 +8517,14 @@ function Resolve-ProseUnitLine {
         [Parameter(Mandatory)][int]$Offset
     )
 
+    # THE MAP IS TWO PARALLEL INT ARRAYS since #2188 (SegStart/SegLine, same index) -- see
+    # Get-ProseParagraphUnits for the measurement. The walk is unchanged: the last segment starting at or
+    # before the offset, which is the line the match BEGINS on.
     $line = 1
-    foreach ($seg in @($Unit.Segments)) {
-        if ($seg.Start -le $Offset) { $line = $seg.Line } else { break }
+    $starts = @($Unit.SegStart)
+    $lineNos = @($Unit.SegLine)
+    for ($i = 0; $i -lt $starts.Count; $i++) {
+        if ($starts[$i] -le $Offset) { $line = $lineNos[$i] } else { break }
     }
     return $line
 }
@@ -8371,7 +8605,7 @@ function Get-SupremacyDeclaration {
         [object[]]$Documents = @()
     )
 
-    $rels = @(Get-ConsumerProseDocuments -Documents $Documents)
+    $rels = @(Get-ConsumerProseDocuments -Documents $Documents -RepoRoot $RepoRoot)
 
     # ADJACENT, EITHER ORDER. The gap class holds whitespace and the markdown that decorates a term --
     # backticks, bold/italic markers, link brackets -- and nothing else. A comma or a word in between
@@ -8387,6 +8621,15 @@ function Get-SupremacyDeclaration {
         $full = Join-Path $RepoRoot ($rel -replace '/', '\')
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
         $text = [System.IO.File]::ReadAllText($full, [System.Text.Encoding]::UTF8)
+        # THE PREFILTER (#2188), AND IT IS TWO TESTS RATHER THAN ONE. The pattern needs 'CLAUDE.md' AND a
+        # verb beside it, so a single OR over all three literals would keep every document that merely
+        # names one of them -- which in this family is most of them. Asking the two halves separately is
+        # what rejects 29 of 34 documents here. Lossless: the joined text the pattern runs over can only
+        # gain a space and lose a line-start marker, so neither literal can exist there and not in the raw
+        # text -- argued in full in Test-ProseCarriesAnyLiteral. This is the ~4.0 s the widened corpus would
+        # otherwise have added to every session start.
+        if (-not (Test-ProseCarriesAnyLiteral -Text $text -Literals @('CLAUDE.md'))) { continue }
+        if (-not (Test-ProseCarriesAnyLiteral -Text $text -Literals @('wins', 'wint'))) { continue }
         $lines = $text -split "(?:\r\n|\n|\r)"
 
         # PARAGRAPHS, NOT PHYSICAL LINES -- see Get-ProseParagraphUnits for the two reproduced false
