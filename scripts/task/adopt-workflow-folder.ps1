@@ -11,14 +11,14 @@
     one move:
 
         dkj-policy/
-          README.md              what this folder is, where each page's portable half lives, and how
-                                 to update the plugins in another checkout of this repo
-          CONTRIBUTING.md        this repo's answers to CONTRIBUTING-portable.md, plus the session rules for
-                                 this folder -- one page since #886, not two
           releases/README.md     this repo's answers to RELEASES-portable.md (the release LIST is a
                                  second file beside it, not this one; see the closing advice)
+          CHANGELOG.md           this folder's own pending-changes list, isolated from any changelog
+                                 the repo already keeps at its root
           (releases/audience/ is NOT placed -- the first cut creates it when it writes the note there)
           (<branch>.md is NOT placed -- one per branch, living only while that branch is open)
+          (README.md and CONTRIBUTING.md are NOT placed ANY MORE -- #2171, September 20, 2026; the
+           block further down that reports an existing copy carries the whole reasoning)
 
     AND IT ANSWERS ONE SEAM, FOR A FRESH ADOPTION ONLY (issue #1150). Get-ReleaseNoteRoot's shared
     fallback is 'releases/notes' at the repo root, and it deliberately does not move -- a repo that
@@ -55,13 +55,12 @@
     whatever it contains -- the same rule specialists-init and adopt-config follow, and what makes a
     re-run find nothing to do. The scaffolded docs carry VUL-IN markers where only this repo can answer.
 
-    WITH ONE BOUNDED EXCEPTION, AND IT IS ADDITIVE TOO: the UPDATE section of the folder README. Create-
-    when-absent is right for a page the repo then writes in, and it is also why a section added to this
-    scaffold LATER reaches an already-adopted repo not at all -- "right owner, wrong reach", the shape
-    recorded for PR #734 and stated for CLAUDE.md below. That section carries a marker comment, so this
-    run can recognise it, APPEND it once when it is missing, and never touch anything else in the file.
-    It is bounded to one append at the end of one file, in the folder Get-WorkflowFolderName says this
-    repo actually has; nothing is read back beyond the marker test, and nothing is ever rewritten.
+    AND SINCE #2171 THERE IS NO EXCEPTION AT ALL. One remained until then: the UPDATE section of the
+    folder README, a fenced region this run replaced on every -Apply, because a page scaffolded once is
+    never corrected afterwards -- "right owner, wrong reach", the shape recorded for PR #734 and stated
+    for CLAUDE.md below. That answer went with the page it was written into: this command no longer
+    scaffolds the folder's README.md or CONTRIBUTING.md, so there is nothing here it owns a region of,
+    and "nothing that already exists is ever touched" is now true without qualification.
 
     NOTHING HERE IS EVER REWRITTEN, INCLUDING THE BRANCH DOCUMENT. Until August 23, 2026 this command also
     placed branch/templates/ and new-branch refreshed those on drift -- the one exception to "additive
@@ -72,11 +71,9 @@
     REFUSED IN A REPO THAT PUBLISHES PLUGINS (.claude-plugin/marketplace.json present). The source repo
     of this workflow arranges that folder by hand -- it is the product's home, not a consumer -- so
     scaffolding it there would write a layout over one its owner composed deliberately.
-    AND ITS ANSWER DIFFERS FROM WHAT THIS COMMAND WRITES, in one way worth knowing before copying it:
-    the source has NO root CONTRIBUTING.md, keeping that floor in its CLAUDE.md instead (Dave,
-    August 27, 2026), while the page scaffolded below assumes a consumer has one. That is the source's
-    own housekeeping rather than the model -- see CONTRIBUTING-portable.md, which recommends the root
-    page and says why.
+    AND ITS LAYOUT IS ITS OWN HOUSEKEEPING RATHER THAN THE MODEL, in one way worth knowing before
+    copying it: the source has NO root CONTRIBUTING.md, keeping that floor in its CLAUDE.md instead
+    (Dave, August 27, 2026), where CONTRIBUTING-portable.md recommends the root page and says why.
 
 .PARAMETER Apply
     Write the files. Without it the command is a DRY RUN that prints exactly what it would create and
@@ -134,9 +131,9 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # refused.
 if (Test-IsWorkflowSourceRepo -RepoRoot $repoRoot) {
     Write-Host 'REFUSED: this repo publishes this workflow, so it is its source rather than a consumer.' -ForegroundColor Red
-    Write-Host 'The source arranges dkj-policy/ by hand, and its answer differs from what this'
-    Write-Host 'command writes: it keeps NO root CONTRIBUTING.md at all (Dave, August 27, 2026), while the'
-    Write-Host 'page scaffolded here assumes you have one. Nothing was written.'
+    Write-Host 'The source arranges dkj-policy/ by hand, and its layout is its own housekeeping rather'
+    Write-Host 'than the model: it keeps NO root CONTRIBUTING.md at all (Dave, August 27, 2026). Nothing'
+    Write-Host 'was written.'
     exit 1
 }
 
@@ -199,238 +196,11 @@ $noteRootRelPath   = if ($noteRootAnswered) { [string](Get-ReleaseNoteRoot) }
                      else { $noteRootFallback }
 if ([string]::IsNullOrWhiteSpace($noteRootRelPath)) { $noteRootRelPath = $noteRootFallback }
 $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
-# How the folder README names it: folder-relative while it is inside the folder, and repo-root-relative
-# with the fact said out loud while it is not -- a reader of that page is standing in the folder.
-$noteRootDisplay = if ($noteRootRelPath -eq $workflowFolder -or $noteRootRelPath.StartsWith("$workflowFolder/")) {
-    '`' + $noteRootRelPath.Substring([Math]::Min($workflowFolder.Length + 1, $noteRootRelPath.Length)) + '/`'
-} else {
-    '`' + $noteRootRelPath + '/` at your repo root'
-}
-
 # --- What the folder contains ---------------------------------------------------------------------
 # One list, each entry a repo-relative path plus the content it gets WHEN ABSENT. The docs name their
 # portable halves in code rather than linking them, the same choice DEVELOPMENT-portable.md explains: the
 # portable pages live in the plugin install, and a relative link into a plugin cache is a path that is
 # wrong on every machine but this one.
-
-# --- The UPDATE section, and the plugin ids it names ----------------------------------------------
-# WHY IT IS SCAFFOLDED AT ALL: the two update commands are per-CHECKOUT, and nothing in a session reports
-# that this one is behind. A consumer holding the workflow on two machines has no page of their own that
-# says so -- the measurements live in the family's INSTALL.md, one repo away from the plugin they
-# installed -- so the folder index is where it belongs, beside the seam answers a session already reads
-# here.
-#
-# THE IDS ARE READ, NOT ASSUMED. check-report-lib is dot-sourced GUARDED, the idiom this script already
-# uses for the source-repo guard: without the lib the section still scaffolds, naming the SHAPE of the
-# command instead of this repo's own ids. A page printing a command a reader can paste is worth the read;
-# a page printing a WRONG id is worse than one printing a placeholder, which is why the fallback is the
-# placeholder rather than a guess at what this repo enabled.
-$updateIds = @()
-$updateMarketplace = ''
-$reportLib = Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1'
-if (Test-Path -LiteralPath $reportLib -PathType Leaf) {
-    try {
-        . $reportLib
-        if (Test-FunctionDefined 'Get-EnabledPlugins') {
-            # RepoEnabledIds, not Ids: an enable arriving from the machine layer is not this repo's to
-            # document, and a scaffolded page claiming it would be describing somebody's laptop.
-            $updateIds = @((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds | Where-Object { $_ -like '*@*' })
-        }
-    } catch {
-        Write-Warning "the enabled-plugin list could not be read ($($_.Exception.Message)) -- the UPDATE section is scaffolded with placeholders."
-    }
-}
-if ($updateIds.Count -gt 0) { $updateMarketplace = ($updateIds[0] -split '@', 2)[1] }
-$updateRefreshLine = 'claude plugin marketplace update ' +
-    $(if ($updateMarketplace) { $updateMarketplace } else { '<marketplace>' }) +
-    '   # 1. refresh the cached clone first'
-$updateCommandLines = if ($updateIds.Count -gt 0) {
-    @($updateIds | ForEach-Object { 'claude plugin update ' + $_ + ' --scope project' })
-} else {
-    @('claude plugin update <plugin>@<marketplace> --scope project   # 2. one line per plugin you enabled')
-}
-
-# THE MARKER IS WHAT MAKES THIS SECTION TOP-UP-ABLE, and that is the whole reason it has one. Every other
-# file here is placed once and never touched again, which is right for a page a repo then writes in -- and
-# it also means a section added to this scaffold later reaches an already-adopted repo NOT AT ALL: the
-# "right owner, wrong reach" shape recorded for PR #734, and stated for CLAUDE.md further down. A marker
-# plus a section-level append is the narrowest answer that closes it: nothing existing is read back,
-# rewritten or merged, which is exactly the rule the note-root seam answer below appends under.
-#
-# AND SINCE #1766 IT IS A FENCED REGION RATHER THAN A ONE-SHOT APPEND, which is the second bounded
-# exception to "never rewrites" and the only one. The append closed "a section added later never
-# arrives"; it did not close "a section that arrived is never CORRECTED", and the second half is what a
-# consumer actually reported. Their folder README still named the branch document `development.md` and
-# still carried two pre-rename plugin ids -- because everything in this block is generated from the
-# arrays below. It is the plugin's own writing, sitting in a file the plugin had promised never to touch
-# again, with no way to correct it and no way for the reader to tell whose sentence had gone stale.
-#
-# WHAT THE FENCE BUYS, AND WHAT IT DELIBERATELY DOES NOT. Content BETWEEN the two markers is the
-# plugin's and is replaced on every -Apply; everything outside them is the repo's and is never read. So
-# the surface #1766 asks for -- a block identical in every consumer, kept current -- costs one closing
-# marker rather than a vendored copy of the portable pages in every repo. It is NOT a licence to rewrite
-# a page this scaffold did not fence: an opening marker with NO closing one is a section from before
-# #1766, possibly edited since, and it is left exactly as it is and REPORTED. The write block further
-# down answers all four states.
-#
-# THE TWO SHAPES #1766 PROPOSED ARE BOTH DECLINED, with reasons rather than by preference. A vendored
-# `HELP/` subtree (its shape 1) duplicates ~203 KB of portable prose into every consumer and reverses
-# this file's governing rule outright -- and it repeats the defect #664 closed, publishing plumbing to an
-# audience that cannot act on it. A separate pointer page (its shape 2) duplicates what the intro above
-# already says, which creates a second drift surface inside one folder: the exact complaint. Neither
-# repairs the staleness that was measured, because both leave the stale README standing.
-$updateSectionMarker    = '<!-- dkj-policy:update-section -->'
-$updateSectionEndMarker = '<!-- /dkj-policy:update-section -->'
-$folderReadmeUpdate = @(
-    '',
-    $updateSectionMarker,
-    '## The `dkj-policy` workflow',
-    '',
-    '**Everything between the two markers around this block is the plugin''s writing, and a re-run of the',
-    '`adopt-dkj-policy` skill (Part 1) replaces it.** Write outside it -- above the block or below it --',
-    'and your words are never read or touched. To own these paragraphs yourself instead, delete the two',
-    'marker comments: the block becomes ordinary text in your file and no run will write it again.',
-    '',
-    'The conventions this workflow runs on do not live in this repo. They travel with the plugin as three',
-    'portable pages -- `CONTRIBUTING-portable.md`, `DEVELOPMENT-portable.md` and `RELEASES-portable.md` --',
-    'and every page in this folder beside them is *your* answers to one of them. They are named here in',
-    'code rather than linked because the path to your plugin install differs per machine; ask your Claude',
-    'for the `adopt-dkj-policy` skill, or read them in the source repo.',
-    '',
-    '### Which version am I running?',
-    '',
-    'Run `/dkj-policy:plugin-versions`. **The answer is a command rather than a number written here,',
-    'because a plugin version is a property of the (plugin, checkout) pair** -- recorded per machine and',
-    'keyed on this checkout''s folder path, so one repo can sit on two different versions on two machines',
-    'at once. A number committed into this file would be correct for at most one clone and stale',
-    'everywhere else, while reading as authoritative.',
-    '',
-    '## Updating the plugins',
-    '',
-    'A release ANNOUNCES a new version; nothing delivers it. From this repo''s root:',
-    '',
-    '```powershell',
-    $updateRefreshLine
-) + $updateCommandLines + @(
-    '```',
-    '',
-    'Then **restart the session** -- a skill or a hook that arrived with the update is not in a session',
-    'that started before it.',
-    '',
-    '**`plugin-versions` tells you, per machine, whether that pair is even due.** This plugin ships it as',
-    'a skill: one read-only run in this checkout prints, per enabled plugin, the version and commit this',
-    'checkout installed against the marketplace clone''s version and HEAD, with a verdict -- up to date,',
-    'update this plugin, or refresh the clone -- and the command for each. It reads the clone this',
-    'checkout already holds, so it cannot tell you whether that clone itself trails `origin`.',
-    '',
-    '**Both things those commands touch are per-checkout state, and nothing in a session reports it.** The',
-    'marketplace is a cached git clone, and the install record is keyed on this checkout''s **folder path**.',
-    'So a version picked up on one machine changes nothing in the next checkout -- another machine, a',
-    'colleague''s clone of this repo, a second checkout beside this one -- while the workflow there keeps',
-    'working at whatever version it last installed. Every checkout runs the pair itself, and renaming or',
-    'moving one unlinks its install record with no error.',
-    '',
-    '**Neither part of the pair is optional.** Without the refresh an `install` was measured serving the',
-    '*previous* version; without `--scope project` the command looks in user scope and does not act on a',
-    'project-scoped install at all. Both measurements, and why the version number is not the code you are',
-    'running, are in the family''s `INSTALL.md` under *Staying up to date* -- in your plugin install or in',
-    'the source repo.',
-    '',
-    '**And an update can leave this repo owing the newer scripts an answer.** They dot-source',
-    '`scripts/repo-config.ps1` and `scripts/lib/branch-info.ps1` from here, so a newer version can call a',
-    'function this repo has never had; `script-contract-sessioncheck` names it at the next session start,',
-    'and the `adopt-dkj-policy` skill''s Part 2 fills it in.',
-    '',
-    'Placed and kept current by that skill''s Part 1: it writes this block when the markers are missing',
-    'and replaces what sits between them when they are present, so a correction to any sentence above',
-    'reaches this repo on the next run. **The rest of the page is yours and is never read** -- and if you',
-    'want these paragraphs too, delete the two markers and they stop being the plugin''s.',
-    $updateSectionEndMarker
-)
-
-$folderReadme = @(
-    '# `dkj-policy/` -- the workflow''s own folder in this repo',
-    '',
-    'Everything portable about the `dkj-policy` workflow gathers here, so the workflow occupies',
-    'one folder in this repo''s root instead of scattering through it. The conventions themselves travel',
-    'with the plugin as portable pages, readable in your plugin install or in the source repo. There are',
-    'three -- `CONTRIBUTING-portable.md`, `DEVELOPMENT-portable.md` and `RELEASES-portable.md` -- and each',
-    'page in this folder is this repo''s own set of answers to one of them. Ticket work -- the layer before',
-    'a branch, in a repo whose work arrives from somebody else''s tracker -- is step 1 of the first of',
-    'those; skip that section if nothing reaches you that way.',
-    '',
-    '| here | what it holds |',
-    '|---|---|',
-    '| [`CONTRIBUTING.md`](CONTRIBUTING.md) | this repo''s answers to the contribution cycle |',
-    '| `<branch>.md` | the branch''s own document, one per branch and present only while that branch is open: its plan, and the DEPLOY section that folds into the changelog |',
-    '| [`CHANGELOG.md`](CHANGELOG.md) | this folder''s own pending-changes list, isolated from any changelog you already keep at your repo root |',
-    # The third item is conditional for the same reason the sentence further down is (issue #1150): the
-    # hand-written notes are only in this folder where the note-root seam points into it, and claiming
-    # them here regardless is how a scaffolded page ends up describing a tree the repo does not have.
-    ('| [`releases/`](releases/) | this repo''s release answers, the release LIST' + $(if ($noteRootRelPath.StartsWith("$workflowFolder/")) { ' and the published audience notes' } else { ' (the hand-written notes are at `' + $noteRootRelPath + '/`, outside this folder)' }) + ' |'),
-    '',
-    'Scaffolded by the `adopt-dkj-policy` skill (Part 1); strictly additive, so everything here past the',
-    'VUL-IN markers is this repo''s own writing.'
-) + $folderReadmeUpdate
-
-# ONE PAGE SINCE AUGUST 26, 2026 (#886), WHERE THERE WERE TWO. This array used to have a sibling,
-# $folderClaude, scaffolding a CLAUDE.md beside it: one page layered over the consumer's root
-# CONTRIBUTING.md and the other over their root CLAUDE.md, and each said so about itself. Dave merged the
-# source repo's pair for that reason -- "that should be the center of this folder" -- so the scaffold
-# follows, and the session rules that lived in the other page are folded in below.
-#
-# AN EXISTING ADOPTER KEEPS THEIR CLAUDE.md, and that is not a gap to repair here. This scaffold never
-# overwrites, so a consumer who already ran it has both files and this change reaches them not at all --
-# the "right owner, wrong reach" shape the technical writer's lens records for PR #734. Removing their
-# file is theirs to do; nothing here breaks while they have it.
-$folderContributing = @(
-    '# Contributing -- the workflow''s layer, and the centre of this folder',
-    '',
-    'This page sits ON TOP of your repo''s own root `CONTRIBUTING.md` AND its root `CLAUDE.md`. Those two',
-    'describe what holds in your repo whether or not this plugin is installed; this one carries the',
-    'workflow''s own mechanics, and where they disagree this page wins. Keeping them apart is what makes an',
-    'uninstall a folder you remove rather than an operating guide you untangle.',
-    '',
-    'The contribution cycle itself -- a branch, its development document, the PR gates, the significance model --',
-    'is the plugin''s `CONTRIBUTING-portable.md`, which travels with `dkj-policy` and is not',
-    'restated here. This page holds only what the portable half leaves to each repo.',
-    '',
-    '## The rules a session needs in this folder',
-    '',
-    '- `<branch>.md` belongs to the **branch it is named after**, and exists only while that branch is open. One per branch since #1255 and named after the branch alone since #1335: a shared name collided on every merge, and a conflicting pull request gets no check suite at all.',
-    '  `new-branch` creates it, the fold removes it at the merge, so the trunk carries no copy -- if you',
-    '  are looking at this folder and the file is not there, that is the trunk in its normal state.',
-    '- **Four `##` headings and never a fifth** -- PLAN, CREATE, TEST, DEPLOY are its whole top level, and',
-    '  a section needing its own heading goes in as a `###` under whichever of the four owns it. Nothing',
-    '  branch-specific belongs above `## PLAN` either: that region is the scaffolder''s generic guidance,',
-    '  identical in every branch document. No gate reads a heading, so both are on you.',
-    '- **PLAN / CREATE / TEST** carry the steps, and they gate the PR and the merge (`- [x]` done,',
-    '  `- [~]` dropped with the reason on the line). The fourth phase, the DEPLOY section, IS the changelog',
-    '  entry: it folds **verbatim** into `CHANGELOG.md` at the merge, so write its links relative to the',
-    '  repo ROOT rather than to this folder. A checkbox inside that section is prose, not a step, and no',
-    '  gate reads it as one.',
-    '- The HTML comments in it are the form, not somebody''s notes: they say what a good answer looks',
-    '  like, and the fold strips them on the way to `CHANGELOG.md`. Leaving one standing is not a defect.',
-    ('- **`CHANGELOG.md` here is this folder''s own** -- isolated from any `CHANGELOG.md` you already keep'),
-    '  at your repo root, which this workflow never reads and never writes. A change may end up recorded',
-    '  in both, in each one''s own shape; that duplication is accepted rather than resolved, so the',
-    '  plugin never has to guess at the shape of a file it does not own.',
-    ('- `releases/README.md` here states this repo''s release ANSWERS, and is NOT the release LIST.'),
-    ('  That list is the separate `' + $historyRelPath + '`, where the cut inserts one row per release --'),
-    '  a history that stays with the repo that cut it, and the one document here that nothing scaffolds:',
-    '  see this command''s closing advice for what it has to contain before your first cut. A row added by',
-    ('  hand to `releases/README.md` is a row the cut will never see. ' + $noteRootDisplay + ' is where'),
-    '  the cut drafts the hand-written note -- it appears at the first cut that writes one, since git',
-    '  tracks no empty directory; `releases/changelog/`, `releases/github/` and `releases/internal/`',
-    '  hold the generated documents.',
-    '',
-    '## Specific to this repo',
-    '',
-    '<!-- VUL-IN: this repo''s answers. The seam values in force (branch prefixes, trunk name, audience',
-    '     tier, merge method, note root), who approves what, and anything the portable cycle leaves',
-    '     open. scripts/repo-config.ps1 is where the machine-read answers live; this page is the prose',
-    '     for a person. -->'
-)
 
 $releasesReadme = @(
     '# Releases',
@@ -726,8 +496,6 @@ $targets = @(
     @{ Rel = '.github/workflows/branch-entry.yml';     Content = (($entryGateWorkflow -join $nl) + $nl) },
     @{ Rel = '.github/workflows/always-on-budget.yml'; Content = (($alwaysOnGateWorkflow -join $nl) + $nl) }
 ) + $prTemplateTargets + @(
-    @{ Rel = 'dkj-policy/README.md';           Content = (($folderReadme -join $nl) + $nl) },
-    @{ Rel = 'dkj-policy/CONTRIBUTING.md';     Content = (($folderContributing -join $nl) + $nl) },
     @{ Rel = 'dkj-policy/releases/README.md';  Content = (($releasesReadme -join $nl) + $nl) },
     @{ Rel = $changelogRel;                            Content = (($changelogIntro -join $nl) + $nl) }
     # NO releases/audience/.gitkeep ANY MORE (issue #1150). It was placed on the stated ground that "the
@@ -757,9 +525,6 @@ Write-Host "== adopt-workflow-folder -- $repoRoot ==" -ForegroundColor Cyan
 if (-not $Apply) { Write-Host '  DRY RUN -- nothing is written. Re-run with -Apply to place the files below.' -ForegroundColor Yellow }
 
 $created = 0
-# Counted separately from $created because it is a different ACT: the loop below creates files that were
-# absent, and the block after it appends a section to a file that was already there.
-$toppedUp = 0
 $kept = 0
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
@@ -779,119 +544,40 @@ foreach ($t in $targets) {
     }
 }
 
-# --- The one section this run tops up in a file it did NOT create ---------------------------------
-# THE ONLY PLACE THIS COMMAND WRITES INTO AN EXISTING PAGE, and it is bounded to one append at the end
-# of one file. Everything above is create-when-absent, which is right for a page the repo then writes in
-# -- and it is also why a section added to this scaffold later reaches an already-adopted repo not at all.
-# The marker makes the narrow answer possible: recognise the section, append it once when it is missing,
-# and never look at anything else in the file.
+# --- Two pages this command NO LONGER WRITES (#2171, Dave, September 20, 2026) ---------------------
+# The folder's README.md and CONTRIBUTING.md were scaffolded by this command until this change, and both
+# are retired: two more pages in the consumer's own tree made that repo more complicated and produced more
+# inconsistency than they removed. THERE IS ONE CONTRIBUTING FOR A CONSUMER TO READ and it is the plugin's
+# CONTRIBUTING-portable.md. What a consumer's own repo answers goes into that repo's specialist lens,
+# where the rest of its repo-specific answers already live -- one destination instead of two.
 #
-# THE FOLDER IS THE ONE THIS REPO ACTUALLY HAS, not the name $targets scaffolds. Get-WorkflowFolderName
-# prefers whichever folder is on disk, newest name first, and every seam default is composed from its
-# answer -- so a repo still holding a folder under one of this workflow's earlier names reads THAT page,
-# and topping up the name it does not use would put the section where nobody looks.
+# WHAT WENT WITH THEM, so nobody restores half of it: the refreshable fenced block (#1766) and its four
+# top-up states. That block existed because a page scaffolded once is never corrected afterwards, which is
+# the right repair for a page the plugin OWNS -- and this change removes the page instead. It answers the
+# same defect one level up rather than contradicting it, and the UPDATE chapter it carried belongs to
+# whichever page that repo keeps its own answers on.
 #
-# FOUR STATES SINCE #1766, WHERE THERE WERE THREE, and the new one is the pre-fence page. Read in the
-# order below, because two of them are told apart only by the CLOSING marker:
-#   1. no page              -- the loop above already reported it; this block says nothing
-#   2. BOTH markers         -- the block between them is the plugin's; -Apply replaces it
-#   3. opening marker only  -- a section from before #1766, possibly edited since. LEFT ALONE, reported
-#                              with the one thing the reader can do about it
-#   4. neither marker       -- appended, exactly as before
+# AN EXISTING COPY IS REPORTED AND NEVER TOUCHED, and no delete command is printed. Several consumers hold
+# these pages today; a copy may carry the only written statement of something that repo answered, and
+# nothing here can tell that from a stale scaffold. Printing a paste-ready delete would push a reader
+# towards losing it for the sake of tidiness this command does not have to buy.
 #
-# STATE 3 IS THE WHOLE REASON THE FENCE IS SAFE, so it is not a fallback. A page carrying the old
-# unfenced section has no machine-readable end: replacing "from the marker to the end of the file" would
-# take everything the repo wrote below it, and this command has never had permission to do that. There is
-# no heuristic worth guessing with here -- the honest answer is to say the page predates the fence and
-# name the two-character edit that opts in. That keeps "nothing is ever rewritten" true of every page
-# this scaffold did not itself fence.
-#
-# THE REPLACE IS STILL NOT A MERGE, and reads back only what it must. State 2 reads the file once, cuts
-# on the two markers, and writes head + fresh block + tail with the same UTF-8-no-BOM encoder the append
-# uses -- so a re-encode reaches only a file this command already owns a region of. States 3 and 4 keep
-# AppendAllText and the marker test, for the encoding reason the seam answer below states.
-#
-# EVERY BRANCH PRINTS. "Your page already has it" has to be distinguishable from "nobody looked" -- the
-# whole failure this block exists for was silent by construction. Since #1766 that has a third value:
-# "it is here and it was brought up to date" is a different fact again, and a run that quietly refreshed
-# a page would be the same silence wearing the opposite face.
-$folderReadmeRel = "$workflowFolder/README.md"
-$folderReadmeAbs = Join-Path $repoRoot ($folderReadmeRel -replace '/', '\')
-if (-not (Test-Path -LiteralPath $folderReadmeAbs -PathType Leaf)) {
-    # Either it was just created with the section in it, or this repo has no such page at all. Both are
-    # already reported by the loop above, so this block says nothing.
-} elseif ((Get-Content -LiteralPath $folderReadmeAbs -Raw) -match [regex]::Escape($updateSectionEndMarker)) {
-    # STATE 2 -- fenced. The end marker is what is tested, because a fenced page carries BOTH and a
-    # pre-fence page carries only the opening one: testing the opening marker cannot tell them apart.
-    $existingReadme = [System.IO.File]::ReadAllText($folderReadmeAbs)
-    $startIdx = $existingReadme.IndexOf($updateSectionMarker)
-    $endIdx   = $existingReadme.IndexOf($updateSectionEndMarker)
-    if ($startIdx -lt 0 -or $endIdx -lt $startIdx) {
-        # A closing marker with no opening one before it. Nothing here knows where the block begins, so
-        # nothing here may cut -- the same reasoning as state 3, reached from the other side.
-        Write-Host "  [section] $folderReadmeRel carries a closing marker with no opening one -- left as it is" -ForegroundColor Yellow
-        Write-Host "            repair the pair by hand, or delete both markers to own the block yourself." -ForegroundColor DarkGray
-    } else {
-        $head = $existingReadme.Substring(0, $startIdx)
-        $tail = $existingReadme.Substring($endIdx + $updateSectionEndMarker.Length)
-        # THE PAGE'S OWN LINE ENDINGS, not this script's $nl (inbound #1829). Everything else here is
-        # composed with $nl -- pure LF -- which is right for a file this run CREATES, and wrong for the
-        # one file it compares against: $existingReadme is read byte-exact, so on a page checked out CRLF
-        # every single line of the composed block differs from the identical committed line, the compare
-        # below always fails, and the verdict reads 'drifted' on every fresh checkout. That is the whole
-        # value of the verdict gone -- a genuinely stale block reads the same as a current one. #788 is
-        # the same failure in a different check ('the drift read cries wolf 37 times out of 37'): a
-        # verdict that fires every time carries no information, whichever reader it is written for.
-        #
-        # AND -Apply MADE IT WORSE RATHER THAN REPAIRING IT. The rewrite kept head and tail untouched
-        # (they are substrings) and wrote the fresh block LF, leaving a MIXED file: measured on a fixture
-        # page, 19 CRLF above and below an all-LF block. Under core.autocrlf=true git normalises that
-        # back to the committed content, so `git diff` came up empty and the second dry run then said
-        # 'already carries the current block' -- the defect repairing its own symptom while leaving the
-        # page in a state nobody wrote. Without autocrlf it is a whole-file whitespace diff instead.
-        #
-        # SO THE STYLE IS READ OFF THE PAGE, through the same helper release-lib.ps1 and pr-body-lib.ps1
-        # read it with on the documents they edit in place. Both halves follow from one reading: the
-        # compare stops seeing a difference that is not there, and the write stops introducing one. The
-        # reading was hand-typed here and at eight other sites until #1832 gave it one definition;
-        # document-newline-lib.ps1's banner carries the whole-file limit of it, which is accepted rather
-        # than overlooked and is the same in every caller.
-        $pageNl = Get-DocumentNewline -Content $existingReadme
-        # The block is composed with its own leading blank line, so the head is trimmed of trailing
-        # newlines to keep a re-run from growing the gap above it by one line every time.
-        $fresh = (($folderReadmeUpdate -join $pageNl).TrimStart("`r", "`n"))
-        $rebuilt = $head.TrimEnd("`r", "`n") + $pageNl + $pageNl + $fresh + $tail
-        if ($rebuilt -eq $existingReadme) {
-            Write-Host "  [section] $folderReadmeRel already carries the current block -- nothing to do" -ForegroundColor DarkGray
-        } elseif ($Apply) {
-            [System.IO.File]::WriteAllText($folderReadmeAbs, $rebuilt, $Utf8NoBom)
-            $toppedUp++
-            Write-Host "  [topped]  $folderReadmeRel -- the plugin's block was brought up to date" -ForegroundColor Green
-        } else {
-            $toppedUp++
-            Write-Host "  [top up]  $folderReadmeRel -- the plugin's block has drifted; it would be replaced" -ForegroundColor Green
-        }
+# THE GATES THAT READ THEM ARE DELIBERATELY UNCHANGED -- check-consumer-prose still runs its detectors
+# over both names and check-policy-drift still lists them -- so a page that is still there keeps exactly
+# the standing its repo gives it. What stopped is the AUTHORING, not the reading: a gate narrowed to match
+# this change would retire itself in the five repos whose pages are the reason it exists.
+$legacyPages = @(
+    @("$workflowFolder/README.md", "$workflowFolder/CONTRIBUTING.md") |
+        Where-Object { Test-Path -LiteralPath (Join-Path $repoRoot ($_ -replace '/', '\')) -PathType Leaf }
+)
+if ($legacyPages.Count -gt 0) {
+    foreach ($legacyPage in $legacyPages) {
+        Write-Host "  [legacy]  $legacyPage -- this command no longer writes or refreshes it" -ForegroundColor Yellow
     }
-} elseif ((Get-Content -LiteralPath $folderReadmeAbs -Raw) -match [regex]::Escape($updateSectionMarker)) {
-    # STATE 3 -- the pre-fence section. It has no end, so it is not ours to cut.
-    Write-Host "  [section] $folderReadmeRel carries the UPDATE section from before it was fenced -- left as it is" -ForegroundColor DarkGray
-    Write-Host "            to take the current block, delete the '$updateSectionMarker' line and its section, then re-run." -ForegroundColor DarkGray
-} elseif ($Apply) {
-    $existingReadme = [System.IO.File]::ReadAllText($folderReadmeAbs)
-    # STATE 4 TAKES THE SAME READING, for the write half of #1829 rather than the compare half. There is
-    # nothing to compare here -- an append has no verdict to get wrong -- but appending an LF block to a
-    # CRLF page leaves exactly the mixed file state 2 was leaving, in the one branch that puts the block
-    # into a page this command has never touched before. A consumer's FIRST adoption is the worst moment
-    # to do that, so it reads the style off the page for the same one-line cost.
-    $pageNl = Get-DocumentNewline -Content $existingReadme
-    $readmeAppendix = (($folderReadmeUpdate -join $pageNl) + $pageNl)
-    if ($existingReadme.Length -gt 0 -and -not $existingReadme.EndsWith("`n")) { $readmeAppendix = $pageNl + $readmeAppendix }
-    [System.IO.File]::AppendAllText($folderReadmeAbs, $readmeAppendix, $Utf8NoBom)
-    $toppedUp++
-    Write-Host "  [topped]  $folderReadmeRel -- the plugin's block was appended" -ForegroundColor Green
-} else {
-    $toppedUp++
-    Write-Host "  [top up]  $folderReadmeRel -- has no plugin block; it would be appended" -ForegroundColor Green
+    Write-Host '            One CONTRIBUTING is the plugin''s portable page; what THIS repo answers belongs' -ForegroundColor DarkGray
+    Write-Host '            in its specialist lens. Nothing here deletes either page and keeping them is a' -ForegroundColor DarkGray
+    Write-Host '            complete answer -- but the plugin''s fenced block in the README is frozen from' -ForegroundColor DarkGray
+    Write-Host '            now on, so read it as this repo''s own writing rather than as current.' -ForegroundColor DarkGray
 }
 
 # --- The one seam this run may answer (issue #1150) ------------------------------------------------
@@ -951,9 +637,9 @@ if ($writeNoteRootSeam) {
 
 Write-Host ''
 if ($Apply) {
-    Write-Host "Done: $created file(s) created, $kept left as they were$(if ($toppedUp) { ", $toppedUp section(s) topped up" })." -ForegroundColor Green
+    Write-Host "Done: $created file(s) created, $kept left as they were." -ForegroundColor Green
 } else {
-    Write-Host "Would create $created file(s)$(if ($toppedUp) { ", top up $toppedUp section(s)" }); $kept already exist. Re-run with -Apply." -ForegroundColor Yellow
+    Write-Host "Would create $created file(s); $kept already exist. Re-run with -Apply." -ForegroundColor Yellow
 }
 
 # --- What only this repo can answer, said out loud rather than left to be discovered ---------------

@@ -4,24 +4,29 @@
     root folder (dkj-policy/) in a consuming repo.
 
 .DESCRIPTION
-    What is covered, and why these four:
+    What is covered, and why these five:
       1. the DRY RUN default writes nothing -- the same contract adopt-config is trusted on;
       2. -Apply places every file the folder promises, with the branch files in the reset shape the
          shared formatters write -- and the releases page carrying NO history table, since the list
          belongs at the repo root (inbound #786);
       3. a re-run is additive: a file somebody edited is never overwritten, whatever it says;
       4. a repo that publishes plugins is refused -- the source keeps its docs at its root (Dave,
-         August 14, 2026), so the scaffold must not build the layout its owner declined.
+         August 14, 2026), so the scaffold must not build the layout its owner declined;
+      5. the LEGACY REPORT: a consumer who still carries dkj-policy/README.md or
+         dkj-policy/CONTRIBUTING.md from before #2171 is told this command no longer writes or
+         refreshes them, and nothing here is ever created, deleted, or rewritten because of it.
 
     The repo root is pinned per child run via CLAUDE_PROJECT_DIR, the same dual-context branch every
     mirrored script resolves first, so the fixtures need no git of their own.
 
-    EVERY FIXTURE BELOW WROTE LF UNTIL INBOUND #1829, and that is how a Windows-only defect lived in
-    the one block this suite pins hardest. The page the top-up compares against is read byte-exact,
-    so on a CRLF checkout -- core.autocrlf=true, which is the default a Windows consumer clones with
-    -- every line of the composed block differed from the identical committed line and the verdict
-    read 'drifted' forever. Section 13 is the fixture that has the ending the reporter's checkout
-    had; it is not a second reading of section 12.
+    #2171 (September 20, 2026) RETIRED THE SCAFFOLDING OF THE FOLDER'S README.md AND CONTRIBUTING.md,
+    and with it the whole refreshable-fence mechanism (#1766) that used to keep the README's "Updating
+    the plugins" section current across a re-run -- the marker constants, the four top-up states (fresh,
+    re-run, top-up-an-existing-page, replace-a-stale-fence), the pre-fence-legacy state, and the CRLF
+    byte-exactness coverage from inbound #1829. None of that machinery exists in the script any more, so
+    none of it is tested here any more either -- see the comment where that block used to sit, further
+    down this file, for exactly what left and why bending those asserts into something else was declined
+    in favour of dropping them outright.
 #>
 $ErrorActionPreference = 'Stop'
 
@@ -132,10 +137,20 @@ function Invoke-Adopt {
 
 # Every file -Apply must place. Read from the same claim the script makes rather than restated per
 # assert, so a target added there fails ONE list here instead of passing unexamined.
+#
+# README.md AND CONTRIBUTING.md ARE DELIBERATELY ABSENT FROM THIS LIST (#2171, September 20, 2026).
+# This command no longer scaffolds either page -- see the legacy-report section further down, which
+# is where their coverage now lives.
 $ExpectedFiles = @(
-    'dkj-policy\README.md',
-    'dkj-policy\CONTRIBUTING.md',
     'dkj-policy\releases\README.md'
+)
+# THE ABSENCE ITSELF IS ASSERTED, NOT JUST IMPLIED BY LEAVING THEM OFF THE LIST ABOVE. A list nobody
+# checks the negative of is a list the next refactor can add a line back to without any assert
+# noticing -- which is exactly how these two pages arrived silently in the first place. Both are the
+# whole reason this suite is being rewritten today.
+$RetiredScaffoldFiles = @(
+    'dkj-policy\README.md',
+    'dkj-policy\CONTRIBUTING.md'
 )
 
 try {
@@ -148,8 +163,14 @@ try {
     $r1 = Invoke-Adopt -Dir $c1
     Assert-Equal 0 $r1.Code 'dry run: exit 0'
     Assert-Match 'DRY RUN' $r1.Out 'dry run: says so out loud'
-    Assert-Match '\[create\]\s+dkj-policy/README\.md' $r1.Out 'dry run: lists the folder README as to-create'
+    Assert-Match '\[create\]\s+dkj-policy/releases/README\.md' $r1.Out 'dry run: lists the releases page as to-create'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c1 'dkj-policy'))) 'dry run: the folder was not created'
+    # NEITHER RETIRED PAGE IS EVER LISTED AS TO-CREATE (#2171) -- this run scaffolds neither, so a dry
+    # run over a fresh consumer (who has neither file) reports no legacy line either: there is nothing
+    # to report on.
+    Assert-True ($r1.Out -notmatch '\[create\]\s+dkj-policy/README\.md') 'dry run: the retired README is never listed as to-create'
+    Assert-True ($r1.Out -notmatch '\[create\]\s+dkj-policy/CONTRIBUTING\.md') 'dry run: the retired CONTRIBUTING is never listed as to-create'
+    Assert-True ($r1.Out -notmatch '\[legacy\]') 'dry run: a fresh consumer with neither retired page triggers no legacy report'
     # The PR template is in the plan and not on disk -- the whole promise of the default run (#1843).
     Assert-Match '\[create\]\s+\.github/pull_request_template\.md' $r1.Out 'dry run: lists the PR template as to-create'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c1 '.github\pull_request_template.md'))) 'dry run: and did not write it'
@@ -161,6 +182,12 @@ try {
     Assert-Equal 0 $r2.Code '-Apply: exit 0'
     foreach ($rel in $ExpectedFiles) {
         Assert-True (Test-Path -LiteralPath (Join-Path $c2 $rel) -PathType Leaf) "-Apply: $rel exists"
+    }
+    # AND THE TWO RETIRED PAGES ARE POSITIVELY ASSERTED ABSENT (#2171) -- an absence nobody asserts is
+    # an absence the next refactor restores by accident, exactly as it did once already for the fenced
+    # UPDATE section this same change also removed.
+    foreach ($rel in $RetiredScaffoldFiles) {
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $c2 $rel))) "-Apply: $rel is NOT created any more"
     }
 
     # --- THE ENTRY GATE, AND THE PATH IT REACHES INTO THIS TREE FOR (#1805) -----------------------
@@ -287,13 +314,18 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     Assert-Match 'Get-ReleaseHistoryPath' $r2.Out '-Apply: and Get-ReleaseHistoryPath'
 
     # --- 3. Additive: a re-run never overwrites what somebody wrote --------------------------------
+    # RETARGETED FROM dkj-policy\CONTRIBUTING.md TO dkj-policy\releases\README.md (#2171): the former
+    # is no longer scaffolder output at all, so it can no longer stand for "a file the scaffold placed
+    # and a re-run must leave alone" -- its own coverage now lives in the legacy-report section below.
+    # The releases page is still placed by -Apply, so it is what this general additive contract now
+    # pins.
     Write-Host "adopt-workflow-folder -- re-run keeps every existing file" -ForegroundColor Cyan
     $marker = '# HAND-EDITED -- the scaffold must never win over this line'
-    [System.IO.File]::WriteAllText((Join-Path $c2 'dkj-policy\CONTRIBUTING.md'), $marker)
+    [System.IO.File]::WriteAllText((Join-Path $c2 'dkj-policy\releases\README.md'), $marker)
     $r3 = Invoke-Adopt -Dir $c2 -ScriptArgs @('-Apply')
     Assert-Equal 0 $r3.Code 're-run: exit 0'
-    Assert-Match '\[exists\]\s+dkj-policy/CONTRIBUTING\.md' $r3.Out 're-run: the edited file is reported as left alone'
-    $kept = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)
+    Assert-Match '\[exists\]\s+dkj-policy/releases/README\.md' $r3.Out 're-run: the edited file is reported as left alone'
+    $kept = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\releases\README.md'), [System.Text.Encoding]::UTF8)
     Assert-Equal $marker $kept 're-run: the hand-edited content survives byte for byte'
 
     # AND THE SAME FOR THE PR TEMPLATE, asserted separately because it is the file most likely to be
@@ -328,7 +360,7 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     $rOther = Invoke-Adopt -Dir $cOther -ScriptArgs @('-Apply')
     Assert-Equal 0 $rOther.Code 'other plugins: exit 0 -- not refused'
     Assert-True ($rOther.Out -notmatch 'REFUSED') 'other plugins: no refusal in the output'
-    Assert-True (Test-Path -LiteralPath (Join-Path $cOther 'dkj-policy\README.md')) 'other plugins: the folder really was scaffolded'
+    Assert-True (Test-Path -LiteralPath (Join-Path $cOther 'dkj-policy\releases\README.md')) 'other plugins: the folder really was scaffolded'
 
     # --- 5. The two generated note roots #914 moved (issue #955) -------------------------------------
     # BOTH DIRECTIONS ARE ASSERTED, and the silent one is the half that matters. A warning that fires
@@ -373,9 +405,15 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     #
     # ALL FOUR BRANCHES ARE ASSERTED, and the three that DECLINE are the half that matters -- the write is
     # only safe because it is narrow, so a test that covered the write alone would pass while the guard
-    # rotted. Each case also asserts what the SCAFFOLDED PAGE says, because that page naming a destination
-    # the seam does not resolve to is the defect itself rather than a side effect of it.
-    $NoteSentence = 'the cut drafts the hand-written note'
+    # rotted.
+    #
+    # EACH CASE USED TO ALSO ASSERT WHAT THE SCAFFOLDED CONTRIBUTING.md SAID about that same destination,
+    # because a page naming a destination the seam does not resolve to was the defect itself rather than a
+    # side effect of it. That half is DROPPED here, not rewritten (#2171, September 20, 2026): the page
+    # those asserts read no longer exists -- this command scaffolds no CONTRIBUTING.md at all any more --
+    # and there is no other page for the same sentence to be reworded onto, so the only honest options were
+    # dropping the assert or inventing a page to hang it on. What the three cases below still pin is the
+    # part of #1150 that is unaffected by #2171: whether Get-ReleaseNoteRoot itself gets answered.
 
     Write-Host "adopt-workflow-folder -- fresh adoption: the note-root seam is answered" -ForegroundColor Cyan
     $c7 = New-FixtureConsumer -Label 'seam-fresh' -WithRepoConfig
@@ -397,8 +435,6 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     # keeps 5.1 from decoding the file as the system ANSI code page.
     $head7 = [System.IO.File]::ReadAllBytes((Join-Path $c7 'scripts\repo-config.ps1'))[0..2]
     Assert-Equal '239-187-191' ($head7 -join '-') 'seam fresh: their file''s byte-order mark survived the append'
-    $con7 = [System.IO.File]::ReadAllText((Join-Path $c7 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)
-    Assert-Match ('`releases/audience/` is where\s+' + $NoteSentence) $con7 'seam fresh: and the scaffolded page names that same destination'
 
     Write-Host "adopt-workflow-folder -- notes already at the fallback: the seam is left alone" -ForegroundColor Cyan
     $c8 = New-FixtureConsumer -Label 'seam-hasnotes' -WithRepoConfig -WithFallbackNotes
@@ -408,8 +444,6 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     Assert-True ($cfg8 -notmatch 'Get-ReleaseNoteRoot') 'seam has-notes: NOTHING was written into their lib'
     Assert-True (Test-Path -LiteralPath (Join-Path $c8 'releases\notes\0.x\0.1.0.md')) 'seam has-notes: and their existing note was not touched'
     Assert-Match 'left UNANSWERED' $r8.Flat 'seam has-notes: the run says out loud that it declined'
-    $con8 = [System.IO.File]::ReadAllText((Join-Path $c8 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)
-    Assert-Match ('`releases/notes/` at your repo root is where\s+' + $NoteSentence) $con8 'seam has-notes: and the page names where their notes ACTUALLY go'
 
     Write-Host "adopt-workflow-folder -- an answer already given always wins" -ForegroundColor Cyan
     $c9 = New-FixtureConsumer -Label 'seam-answered' -NoteRootAnswer 'my/own/notes'
@@ -418,8 +452,6 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     $cfg9 = [System.IO.File]::ReadAllText((Join-Path $c9 'scripts\repo-config.ps1'), [System.Text.Encoding]::UTF8)
     Assert-Equal 1 ([regex]::Matches($cfg9, 'function Get-ReleaseNoteRoot').Count) 'seam answered: their function was not duplicated or overwritten'
     Assert-Match 'already answered here' $r9.Flat 'seam answered: the run reports it as left alone'
-    $con9 = [System.IO.File]::ReadAllText((Join-Path $c9 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)
-    Assert-Match ('`my/own/notes/` at your repo root is where\s+' + $NoteSentence) $con9 'seam answered: and the page names THEIR answer, not the source''s'
 
     # NO LIB TO WRITE INTO. specialists-init owns that file's existence, exactly as adopt-config says when
     # it stops -- so this run scaffolds the folder and reports the seam instead of half-creating a lib.
@@ -428,216 +460,92 @@ Assert-Match 'releases/history\.md' $relText '-Apply: it names where the list ac
     $r10 = Invoke-Adopt -Dir $c10 -ScriptArgs @('-Apply')
     Assert-Equal 0 $r10.Code 'seam no-config: exit 0'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c10 'scripts\repo-config.ps1'))) 'seam no-config: no lib was conjured up'
-    Assert-True (Test-Path -LiteralPath (Join-Path $c10 'dkj-policy\README.md')) 'seam no-config: the folder was scaffolded anyway'
+    Assert-True (Test-Path -LiteralPath (Join-Path $c10 'dkj-policy\releases\README.md')) 'seam no-config: the folder was scaffolded anyway'
     Assert-Match 'has no scripts/repo-config\.ps1' $r10.Flat 'seam no-config: and the run says why the seam is unanswered'
 
-    # --- 11. The UPDATE section: placed fresh, topped up when missing, left alone when present ------
-    # THE ONE WRITE THIS COMMAND MAKES INTO A FILE IT DID NOT CREATE, so every branch is pinned: a fresh
-    # scaffold carries it, an existing page without it gets it appended, an existing page WITH it is
-    # untouched, and a dry run over a page without it writes nothing while still saying so. The
-    # untouched case is the assert that matters most -- a top-up that ran twice would grow the page on
-    # every re-run, and a re-run finding nothing to do is the promise this whole command makes.
-    Write-Host "adopt-workflow-folder -- the UPDATE section is placed, and never placed twice" -ForegroundColor Cyan
-    $Marker = '<!-- dkj-policy:update-section -->'
+    # --- WHAT USED TO BE HERE: the UPDATE-section fence (#1766) and its CRLF coverage (#1829) --------
+    # Sections 11 through 13 lived in this exact spot until #2171 (September 20, 2026): the fresh/
+    # re-run/top-up/replace/pre-fence-legacy states of the README's refreshable "Updating the plugins"
+    # block, and the CRLF byte-exactness pass over all of it. Every one of those asserts read or wrote
+    # dkj-policy\README.md AS SCAFFOLDER OUTPUT, and proved a mechanism -- the fenced block this run
+    # rewrote on every -Apply -- that no longer exists in the script at all: adopt-workflow-folder.ps1
+    # scaffolds no README.md any more, so there is no page for a fence to sit in and nothing left for
+    # any of these asserts to be ABOUT.
+    #
+    # DROPPED RATHER THAN BENT INTO SOMETHING ELSE, on purpose. Every candidate rewrite -- pointing the
+    # fence asserts at releases/README.md instead, or inventing a new fenced region there to keep the
+    # mechanism exercised -- would have tested a feature the script does not have, on a file the script
+    # was never asked to refresh. That is not what dropping these represents: it says a real capability
+    # is gone from the surface, not that it was renamed. Nothing here should read this gap as an
+    # oversight; it is the point of the branch this suite was rewritten for.
 
-    $c11 = New-FixtureConsumer -Label 'update-fresh'
-    $r11 = Invoke-Adopt -Dir $c11 -ScriptArgs @('-Apply')
-    Assert-Equal 0 $r11.Code 'update fresh: exit 0'
-    $readme11 = [System.IO.File]::ReadAllText((Join-Path $c11 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)
-    Assert-Match ([regex]::Escape($Marker)) $readme11 'update fresh: the scaffolded README carries the marker'
-    Assert-Match '## Updating the plugins' $readme11 'update fresh: and the section heading'
-    Assert-Match 'claude plugin marketplace update' $readme11 'update fresh: the refresh command is in it'
-    Assert-Match '--scope project' $readme11 'update fresh: and the scope flag, which is the half a reader drops'
-    # THE REFRESH BEFORE THE UPDATE, not merely both present: a printed update without the refresh beside
-    # it is the doc defect the source repo's lint gate refuses, and this page is generated rather than
-    # written, so nothing else would ever read it.
-    Assert-True ($readme11.IndexOf('claude plugin marketplace update') -lt $readme11.IndexOf('claude plugin update ')) `
-        'update fresh: the refresh is printed BEFORE the per-plugin update'
+    # --- 7. The legacy report: an existing README.md or CONTRIBUTING.md is reported, never touched ---
+    # WHAT REPLACED THE FENCE (#2171). Where the fence used to keep a scaffolded README's UPDATE section
+    # current across a re-run, the two pages themselves are retired: neither is placed on a fresh
+    # adoption any more, and an EXISTING copy -- left over from before this change, or from a consumer
+    # who wrote one by hand -- is reported with a one-line `[legacy]` verdict plus explanatory lines,
+    # and never created, deleted, or rewritten. Three states, because each is a different code path in
+    # the script: neither file present (nothing to report), both present (both reported, both survive),
+    # and one of each (only the one that exists is named).
+    Write-Host "adopt-workflow-folder -- the legacy report on an existing README/CONTRIBUTING" -ForegroundColor Cyan
 
-    # A RE-RUN OVER THE PAGE IT JUST WROTE. Two runs, one section.
-    $r11b = Invoke-Adopt -Dir $c11 -ScriptArgs @('-Apply')
-    Assert-Equal 0 $r11b.Code 'update re-run: exit 0'
-    $readme11b = [System.IO.File]::ReadAllText((Join-Path $c11 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)
-    Assert-Equal 1 ([regex]::Matches($readme11b, [regex]::Escape($Marker)).Count) 'update re-run: still exactly one section'
-    Assert-Equal $readme11 $readme11b 'update re-run: the page was not touched at all'
-    Assert-Match 'already carries the current block' $r11b.Flat 'update re-run: and it says so rather than staying silent'
-    # AND PURE LF, which is what keeps #1829's repair from being a one-platform fix: the style is read
-    # off the page, so a page with no CR in it is still written without one. Asserted here rather than
-    # in section 13 because this run has already applied the repaired script to an LF page -- the fact
-    # was there to be read, not to be measured again in a fresh process (Nolan, on this branch).
-    Assert-Equal 0 ([regex]::Matches($readme11b, "`r").Count) 'update re-run: and the page is still pure LF -- no CR was introduced'
+    # (a) NEITHER FILE PRESENT: a fresh consumer. Nothing about either legacy page is printed, and
+    # neither is created -- covered above in section 1 (dry run) and section 2 (-Apply), via
+    # $RetiredScaffoldFiles, so it is not repeated a third time here. What follows is the two states
+    # that DO exist to report on.
 
-    # THE CASE THIS BLOCK EXISTS FOR: a repo that adopted BEFORE the section existed. Its README is its
-    # own writing with no marker anywhere -- the state every already-adopted consumer is in.
-    Write-Host "adopt-workflow-folder -- an already-adopted README is topped up, not rewritten" -ForegroundColor Cyan
-    $c12 = New-FixtureConsumer -Label 'update-topup'
-    New-Item -ItemType Directory -Path (Join-Path $c12 'dkj-policy') -Force | Out-Null
-    $ownReadme = "# ``dkj-policy/`` -- our folder`n`nWe wrote this ourselves, before the section existed.`n"
-    [System.IO.File]::WriteAllText((Join-Path $c12 'dkj-policy\README.md'), $ownReadme, (New-Object System.Text.UTF8Encoding($false)))
+    # (b) BOTH FILES PRESENT, WITH ARBITRARY CONTENT: the important case, because it is the one where a
+    # regression would silently start rewriting or deleting a consumer's own page again.
+    $c17 = New-FixtureConsumer -Label 'legacy-both'
+    New-Item -ItemType Directory -Path (Join-Path $c17 'dkj-policy') -Force | Out-Null
+    $legacyReadme = "# Our own dkj-policy folder`r`n`r`nWritten long before #2171, in our own words.`r`n"
+    $legacyContributing = "# Our own CONTRIBUTING`n`nArbitrary content, no BOM, no relation to anything this script writes.`n"
+    [System.IO.File]::WriteAllText((Join-Path $c17 'dkj-policy\README.md'), $legacyReadme, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText((Join-Path $c17 'dkj-policy\CONTRIBUTING.md'), $legacyContributing, (New-Object System.Text.UTF8Encoding($false)))
+    $r17 = Invoke-Adopt -Dir $c17 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $r17.Code 'legacy both: exit 0'
+    Assert-Match '\[legacy\]\s+dkj-policy/README\.md' $r17.Flat 'legacy both: the README is reported as legacy'
+    Assert-Match '\[legacy\]\s+dkj-policy/CONTRIBUTING\.md' $r17.Flat 'legacy both: and so is CONTRIBUTING'
+    Assert-Match 'no longer writes or refreshes it' $r17.Flat 'legacy both: the report names what changed'
+    # THE PART THAT MATTERS MOST: BYTE FOR BYTE, after -Apply. A CRLF file with no trailing BOM and an
+    # LF file are read back exactly as written, so a rewrite -- even one that only touched line endings
+    # or re-encoded the file -- would be caught here.
+    $afterReadme17 = [System.IO.File]::ReadAllText((Join-Path $c17 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)
+    $afterContributing17 = [System.IO.File]::ReadAllText((Join-Path $c17 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)
+    Assert-Equal $legacyReadme $afterReadme17 'legacy both: README.md survives -Apply byte for byte'
+    Assert-Equal $legacyContributing $afterContributing17 'legacy both: CONTRIBUTING.md survives -Apply byte for byte'
+    # AND NO DELETE COMMAND IS EVER PRINTED (the script's own header says why: several consumers hold
+    # these pages today and nothing here can tell a stale scaffold from a repo's only written statement
+    # of something it answered).
+    Assert-True ($r17.Flat -notmatch 'Remove-Item') 'legacy both: no delete command is printed for either page'
 
-    # Dry run first: it reports the top-up and changes nothing.
-    $r12dry = Invoke-Adopt -Dir $c12
-    Assert-Equal 0 $r12dry.Code 'update topup dry: exit 0'
-    Assert-Match 'has no plugin block' $r12dry.Flat 'update topup dry: the run names what it would append'
-    Assert-Equal $ownReadme ([System.IO.File]::ReadAllText((Join-Path $c12 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)) `
-        'update topup dry: and wrote nothing'
+    # (c) ONE PRESENT, ONE ABSENT: only the one that exists is named, and the absent one is neither
+    # reported nor created.
+    $c18 = New-FixtureConsumer -Label 'legacy-onlyreadme'
+    New-Item -ItemType Directory -Path (Join-Path $c18 'dkj-policy') -Force | Out-Null
+    $onlyReadme = "# Just our README, no CONTRIBUTING here.`n"
+    [System.IO.File]::WriteAllText((Join-Path $c18 'dkj-policy\README.md'), $onlyReadme, (New-Object System.Text.UTF8Encoding($false)))
+    $r18 = Invoke-Adopt -Dir $c18 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $r18.Code 'legacy one-of-two: exit 0'
+    Assert-Match '\[legacy\]\s+dkj-policy/README\.md' $r18.Flat 'legacy one-of-two: the present README is reported'
+    Assert-True ($r18.Flat -notmatch '\[legacy\]\s+dkj-policy/CONTRIBUTING\.md') 'legacy one-of-two: the absent CONTRIBUTING is not reported'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c18 'dkj-policy\CONTRIBUTING.md'))) 'legacy one-of-two: and it was not created either'
+    Assert-Equal $onlyReadme ([System.IO.File]::ReadAllText((Join-Path $c18 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)) `
+        'legacy one-of-two: the present README survives -Apply byte for byte'
 
-    $r12 = Invoke-Adopt -Dir $c12 -ScriptArgs @('-Apply')
-    Assert-Equal 0 $r12.Code 'update topup: exit 0'
-    Assert-Match "the plugin's block was appended" $r12.Flat 'update topup: the run reports the append'
-    $readme12 = [System.IO.File]::ReadAllText((Join-Path $c12 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)
-    Assert-Match ([regex]::Escape($Marker)) $readme12 'update topup: the section is there now'
-    # THEIR OWN WRITING SURVIVES BYTE FOR BYTE, and it still leads: this is an append, not a merge.
-    Assert-True $readme12.StartsWith($ownReadme) 'update topup: their page is untouched and still first'
-    Assert-Equal 1 ([regex]::Matches($readme12, [regex]::Escape($Marker)).Count) 'update topup: exactly one section was added'
-    # BOTH HALVES OF THE EXCEPTION AT ONCE: the loop still leaves the FILE alone while this block appends
-    # to it, which is what keeps the append bounded rather than a rewrite in disguise.
-    Assert-Match '\[exists\]\s+dkj-policy/README\.md' $r12.Out 'update topup: the file itself was still left as it is'
+    # And the mirror image, so the "only the present one is named" claim is proven both ways.
+    $c19 = New-FixtureConsumer -Label 'legacy-onlycontributing'
+    New-Item -ItemType Directory -Path (Join-Path $c19 'dkj-policy') -Force | Out-Null
+    $onlyContributing = "# Just our CONTRIBUTING, no README here.`n"
+    [System.IO.File]::WriteAllText((Join-Path $c19 'dkj-policy\CONTRIBUTING.md'), $onlyContributing, (New-Object System.Text.UTF8Encoding($false)))
+    $r19 = Invoke-Adopt -Dir $c19 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $r19.Code 'legacy other-of-two: exit 0'
+    Assert-Match '\[legacy\]\s+dkj-policy/CONTRIBUTING\.md' $r19.Flat 'legacy other-of-two: the present CONTRIBUTING is reported'
+    Assert-True ($r19.Flat -notmatch '\[legacy\]\s+dkj-policy/README\.md') 'legacy other-of-two: the absent README is not reported'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c19 'dkj-policy\README.md'))) 'legacy other-of-two: and it was not created either'
+    Assert-Equal $onlyContributing ([System.IO.File]::ReadAllText((Join-Path $c19 'dkj-policy\CONTRIBUTING.md'), [System.Text.Encoding]::UTF8)) `
+        'legacy other-of-two: the present CONTRIBUTING survives -Apply byte for byte'
 
-    # --- 12. The fence: the plugin's block is REPLACED, and only between its own markers (#1766) -----
-    # THE SECOND BOUNDED EXCEPTION TO "NEVER REWRITES", so every edge of it is pinned. The append closed
-    # "a section added later never arrives"; it never closed "a section that arrived is never
-    # CORRECTED", which is the half a consumer reported -- their page still named the branch document
-    # `development.md` and still carried two pre-rename plugin ids, all of it this scaffold's own
-    # generated writing sitting in a file it had promised not to touch again.
-    Write-Host "adopt-workflow-folder -- the plugin's block is refreshed between its markers" -ForegroundColor Cyan
-    $EndMarker = '<!-- /dkj-policy:update-section -->'
-
-    Assert-Match ([regex]::Escape($EndMarker)) $readme11 'fence: the scaffolded README carries the closing marker too'
-    Assert-Match 'plugin-versions' $readme11 'fence: and answers the version question with a command, not a number'
-    Assert-True ($readme11.IndexOf($Marker) -lt $readme11.IndexOf($EndMarker)) 'fence: opening marker comes first'
-
-    # THE REPLACE ITSELF. The repo's own writing is put BELOW the block and the block is then corrupted
-    # by hand; a re-run must restore the block and leave both sides byte for byte.
-    $c13 = New-FixtureConsumer -Label 'fence-replace'
-    $r13 = Invoke-Adopt -Dir $c13 -ScriptArgs @('-Apply')
-    Assert-Equal 0 $r13.Code 'fence replace: scaffold exit 0'
-    $p13 = Join-Path $c13 'dkj-policy\README.md'
-    $fresh13 = [System.IO.File]::ReadAllText($p13, [System.Text.Encoding]::UTF8)
-
-    $s13 = $fresh13.IndexOf($Marker)
-    $e13 = $fresh13.IndexOf($EndMarker) + $EndMarker.Length
-    $head13 = $fresh13.Substring(0, $s13)
-    $ourTail = "`n`n## Our own notes`n`nWritten by this repo, below the block.`n"
-    $stale = $head13 + $Marker + "`n## Updating the plugins`n`nstale: development.md, dkj-team-alpha`n" + $EndMarker + $ourTail
-    [System.IO.File]::WriteAllText($p13, $stale, (New-Object System.Text.UTF8Encoding($false)))
-
-    # Dry run reports the drift and writes nothing -- the contract every other branch here has.
-    $r13dry = Invoke-Adopt -Dir $c13
-    Assert-Match 'would be replaced' $r13dry.Flat 'fence replace dry: the run names what it would do'
-    Assert-Equal $stale ([System.IO.File]::ReadAllText($p13, [System.Text.Encoding]::UTF8)) 'fence replace dry: and wrote nothing'
-
-    $r13b = Invoke-Adopt -Dir $c13 -ScriptArgs @('-Apply')
-    Assert-Equal 0 $r13b.Code 'fence replace: exit 0'
-    Assert-Match 'brought up to date' $r13b.Flat 'fence replace: the run says the block was refreshed'
-    $after13 = [System.IO.File]::ReadAllText($p13, [System.Text.Encoding]::UTF8)
-    Assert-True ($after13 -notmatch 'dkj-team-alpha') 'fence replace: the stale content is gone'
-    Assert-True $after13.EndsWith($ourTail) 'fence replace: the repo''s own writing below the block survives byte for byte'
-    Assert-True $after13.StartsWith($head13.TrimEnd("`r", "`n")) 'fence replace: and everything above it survives too'
-    Assert-Equal 1 ([regex]::Matches($after13, [regex]::Escape($Marker)).Count) 'fence replace: still exactly one block'
-
-    # IDEMPOTENT: a second run over a block already current writes nothing and says so. A refresh that
-    # rewrote on every run would re-encode a file it has no other reason to touch, on every adoption.
-    $r13c = Invoke-Adopt -Dir $c13 -ScriptArgs @('-Apply')
-    Assert-Match 'already carries the current block' $r13c.Flat 'fence idempotent: a current block is left alone'
-    Assert-Equal $after13 ([System.IO.File]::ReadAllText($p13, [System.Text.Encoding]::UTF8)) 'fence idempotent: and the file is untouched'
-
-    # STATE 3 -- THE PRE-FENCE PAGE, which is what makes the fence safe rather than a licence. An opening
-    # marker with no closing one has no machine-readable end, so cutting "to the end of the file" would
-    # take the repo's own writing with it. Left alone and reported.
-    Write-Host "adopt-workflow-folder -- a pre-fence section is left alone, not guessed at" -ForegroundColor Cyan
-    $c14 = New-FixtureConsumer -Label 'fence-legacy'
-    New-Item -ItemType Directory -Path (Join-Path $c14 'dkj-policy') -Force | Out-Null
-    $legacy = "# dkj-policy`n`nOurs.`n`n$Marker`n## Updating the plugins`n`nthe old one-shot section`n`n## Our own section`n`nwritten after it, and it must survive`n"
-    [System.IO.File]::WriteAllText((Join-Path $c14 'dkj-policy\README.md'), $legacy, (New-Object System.Text.UTF8Encoding($false)))
-    $r14 = Invoke-Adopt -Dir $c14 -ScriptArgs @('-Apply')
-    Assert-Equal 0 $r14.Code 'fence legacy: exit 0'
-    Assert-Match 'from before it was fenced' $r14.Flat 'fence legacy: the run names the state'
-    Assert-Match 'delete the' $r14.Flat 'fence legacy: and the one thing the reader can do about it'
-    Assert-Equal $legacy ([System.IO.File]::ReadAllText((Join-Path $c14 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)) `
-        'fence legacy: the page is untouched, including the section written after the marker'
-
-    # --- 13. A CRLF PAGE: the verdict is about the block, not about the line endings (inbound #1829) --
-    # THE STATE EVERY WINDOWS CONSUMER IS IN. core.autocrlf=true is what a Windows clone defaults to,
-    # so the committed LF page arrives on disk CRLF -- and the compare that decides this block's whole
-    # verdict reads the file byte-exact. Measured in a consumer: 'drifted' on every fresh checkout,
-    # -Apply reporting a top-up, and `git diff` empty afterwards. Both halves are pinned here, because
-    # each fails on its own: the VERDICT must read 'current', and a page that genuinely IS stale must
-    # still be replaced -- a compare repaired by normalising both sides would pass the first assert
-    # and then write LF into the page anyway, which is the mixed file the defect already produced.
-    # THE FIXTURE IS SEEDED FROM $readme11, NOT SCAFFOLDED AGAIN (Nolan, on this branch). Every
-    # Invoke-Adopt here is a real child process at ~440ms, so a spawn that only produces bytes this
-    # suite is already holding is 440ms of gate and CI time on every PR. $readme11 IS the page the
-    # scaffold writes -- section 11 read it off disk -- so converting a copy of it is the same fixture
-    # one process cheaper, and it stays in step if that page's content ever changes.
-    Write-Host "adopt-workflow-folder -- a CRLF page is judged on its block, and rewritten in its own endings" -ForegroundColor Cyan
-    $c15 = New-FixtureConsumer -Label 'crlf-page'
-    New-Item -ItemType Directory -Path (Join-Path $c15 'dkj-policy') -Force | Out-Null
-    $p15 = Join-Path $c15 'dkj-policy\README.md'
-
-    # The page exactly as autocrlf=true checks it out. Nothing about it changes but the line endings --
-    # these are the bytes section 11 asserted 'nothing to do' on, one conversion over.
-    $crlf15 = (($readme11 -replace "`r`n", "`n") -replace "`n", "`r`n")
-    [System.IO.File]::WriteAllText($p15, $crlf15, (New-Object System.Text.UTF8Encoding($false)))
-    Assert-True ($crlf15 -ne $readme11) 'crlf: the fixture really is a different byte sequence than the LF page'
-
-    # ONE RUN PROVES BOTH FACTS, so there is no dry run beside it: the script's 'already carries the
-    # current block' branch is decided by `$rebuilt -eq $existingReadme` and never consults $Apply, so a
-    # dry run over a current page reaches the identical line and writes nothing either. An -Apply run
-    # therefore pins the verdict AND that the page is left byte for byte, which is the stronger pair.
-    $r15c = Invoke-Adopt -Dir $c15 -ScriptArgs @('-Apply')
-    Assert-Match 'already carries the current block' $r15c.Flat 'crlf: the current block reads as current, not as drift'
-    Assert-True ($r15c.Flat -notmatch 'drifted') 'crlf: and no drift is reported'
-    Assert-Equal $crlf15 ([System.IO.File]::ReadAllText($p15, [System.Text.Encoding]::UTF8)) `
-        'crlf: -Apply over a current CRLF page leaves it byte for byte'
-
-    # THE OTHER HALF: a CRLF page whose block IS stale is still replaced, and the page it gets back is
-    # CRLF throughout. A bare LF anywhere in it is the mixed state the defect produced -- git normalises
-    # it away under autocrlf and reports nothing, so this assert is the only reader that would see it.
-    $s15 = $crlf15.IndexOf($Marker)
-    $e15 = $crlf15.IndexOf($EndMarker) + $EndMarker.Length
-    $stale15 = $crlf15.Substring(0, $s15) + $Marker + "`r`n## Updating the plugins`r`n`r`nstale: development.md`r`n" +
-               $EndMarker + "`r`n`r`n## Ours`r`n`r`nbelow the block, in CRLF.`r`n"
-    [System.IO.File]::WriteAllText($p15, $stale15, (New-Object System.Text.UTF8Encoding($false)))
-    $r15d = Invoke-Adopt -Dir $c15
-    Assert-Match 'would be replaced' $r15d.Flat 'crlf stale: a genuinely stale CRLF block is still reported'
-    # THE DRY-RUN CONTRACT ON A CRLF PAGE, asserted here because this is the one dry run this section
-    # still spawns -- the 'current page' case above no longer needs one, and dropping the assert with
-    # the spawn would have quietly taken this half of the coverage with it.
-    Assert-Equal $stale15 ([System.IO.File]::ReadAllText($p15, [System.Text.Encoding]::UTF8)) `
-        'crlf stale dry: and wrote nothing'
-    $r15e = Invoke-Adopt -Dir $c15 -ScriptArgs @('-Apply')
-    Assert-Match 'brought up to date' $r15e.Flat 'crlf stale: and replaced'
-    $after15 = [System.IO.File]::ReadAllText($p15, [System.Text.Encoding]::UTF8)
-    Assert-True ($after15 -notmatch 'development\.md') 'crlf stale: the stale content is gone'
-    Assert-Equal 0 ([regex]::Matches($after15, "(?<!`r)`n").Count) 'crlf stale: the rewritten page carries no bare LF -- no mixed endings'
-    Assert-True $after15.EndsWith("## Ours`r`n`r`nbelow the block, in CRLF.`r`n") 'crlf stale: and the repo''s own writing below the block survives'
-
-    # STATE 4 ON A CRLF PAGE -- the append, which is where a consumer's FIRST adoption goes. It has no
-    # verdict to get wrong, so nothing above reaches it: the state-2 asserts all need a page that
-    # already carries both markers, and section 11's append fixture is pure LF. Without this, reverting
-    # the append's $pageNl alone would pass every other assert in this suite (Victor, on this branch).
-    $c16 = New-FixtureConsumer -Label 'crlf-append'
-    New-Item -ItemType Directory -Path (Join-Path $c16 'dkj-policy') -Force | Out-Null
-    $ownCrlf = "# ``dkj-policy/`` -- our folder`r`n`r`nWe wrote this ourselves, on Windows.`r`n"
-    [System.IO.File]::WriteAllText((Join-Path $c16 'dkj-policy\README.md'), $ownCrlf, (New-Object System.Text.UTF8Encoding($false)))
-    $r16 = Invoke-Adopt -Dir $c16 -ScriptArgs @('-Apply')
-    Assert-Match "the plugin's block was appended" $r16.Flat 'crlf append: the block is appended to a CRLF page'
-    $after16 = [System.IO.File]::ReadAllText((Join-Path $c16 'dkj-policy\README.md'), [System.Text.Encoding]::UTF8)
-    Assert-True $after16.StartsWith($ownCrlf) 'crlf append: their own writing survives byte for byte and still leads'
-    Assert-Match ([regex]::Escape($Marker)) $after16 'crlf append: the block is there'
-    Assert-Equal 0 ([regex]::Matches($after16, "(?<!`r)`n").Count) 'crlf append: and the appended block carries no bare LF'
-    # AND THE VERDICT IT LEAVES BEHIND IS 'CURRENT' -- the append and the compare have to agree about the
-    # style, or a first adoption reports drift on its second run.
-    $r16b = Invoke-Adopt -Dir $c16
-    Assert-Match 'already carries the current block' $r16b.Flat 'crlf append: the page it just wrote reads as current'
-
-    # THE OTHER HALF OF "not a one-platform fix" -- that an LF page is still judged current and still
-    # written pure LF -- IS PINNED IN SECTION 11 AND NOT RE-SPAWNED HERE. Its re-run already applies the
-    # repaired script to an LF page, reads the result off disk and compares it byte for byte; the only
-    # thing missing was the CR count, which is an assert on bytes this suite already holds rather than a
-    # reason to start a sixth process (Nolan, on this branch). A copy here would have been the same
-    # fixture, in the same state, one process later.
     # --- The plugin mirror, run from its OWN depth (issue #1857) -----------------------------------
     # THE RESOLUTION THIS ISSUE WAS FILED ABOUT. The PR-template reference is read from
     # '..\..\templates\pull_request_template.md', with a second candidate one level deeper for the

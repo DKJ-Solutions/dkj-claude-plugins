@@ -6,11 +6,11 @@
     decides nothing and edits nothing.
 
 .DESCRIPTION
-    WHAT IT IS FOR. CONTRIBUTING-portable.md's "A third rank sits above both" states the order (the
-    plugin's portable pages and skills > dkj-policy/CONTRIBUTING.md > the floor) and the
-    corollary that keeps it: a consumer document may POINT at a shared law, or state this repo's answer
-    to a seam that law names, or say nothing -- it may not RESTATE the law in its own words. A
-    restatement is a copy, and a copy does not fail on the day it is written, only on the day the
+    WHAT IT IS FOR. CONTRIBUTING-portable.md's "A third rank sits above both" states the order -- the
+    plugin's portable pages and skills, above dkj-policy/CONTRIBUTING.md where a repo still carries
+    one, above the floor -- and the corollary that keeps it: a consumer document may POINT at a shared
+    law, or state this repo's answer to a seam that law names, or say nothing -- it may not RESTATE the
+    law in its own words. A restatement is a copy, and a copy does not fail on the day it is written, only on the day the
     plugin's answer moves under it. Nothing delivered that corollary as a whole, and #1380 measured why
     no script can: a section restating a law almost always also names the mechanism it is talking about,
     so a pointer test cannot tell correct deference from restatement-with-citation-and-override.
@@ -455,8 +455,10 @@ Write-Host '      SEAM ANSWER  it states THIS repo''s answer to a seam a RANK 1 
 Write-Host '      RESTATEMENT  it says the law again in its own words.  A copy -- report it, whether or'
 Write-Host '                   not it currently agrees, because agreeing today is what a copy does.'
 Write-Host '    Where a restatement CONTRADICTS the page above it, say which side wins by the rank order'
-Write-Host '    and quote both lines. Rank 1 beats rank 2 beats rank 3; inside rank 1,'
-Write-Host '    dkj-policy beats a companion plugin such as dkj-policy-bwj.'
+Write-Host '    and quote both lines. Rank 1 beats rank 2 beats rank 3 where rank 2 has anything in it --'
+Write-Host '    a repo scaffolded since #2171 carries no dkj-policy/CONTRIBUTING.md, so rank 1 sits'
+Write-Host '    directly above rank 3 there. Inside rank 1, dkj-policy beats a companion plugin such as'
+Write-Host '    dkj-policy-bwj.'
 Write-Host ''
 Write-Host '    A law a RANK 1 page explicitly DECLINES to answer is the fourth move and not a copy --'
 Write-Host '    cut-release''s "No seam, deliberately" is the measured instance. Read that block before'

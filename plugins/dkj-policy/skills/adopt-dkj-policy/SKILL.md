@@ -1,6 +1,6 @@
 ---
 name: adopt-dkj-policy
-description: Adopt the dkj-policy workflow in a consuming repo, in five independent parts that can run in any order or alone. Part 1 scaffolds the workflow's own root folder -- dkj-policy/ -- the folder docs (README and CONTRIBUTING), the releases root with this repo's release answers, the branch-entry CI gate, the always-on budget CI gate that holds every PR to not growing what every session pays before a single assignment is given, and the PR template open-pr fills in; use this right after installing the plugin, or when the script-contract session check reports the folder missing, since an install alone writes nothing into the repo. Part 2 adopts the source repo's workflow configuration from the shipped blueprint -- placing the values that state the shared way of working into this repo's own seam libs, and proposing the rest for a person to answer; use this after specialists-init has laid down scripts/repo-config.ps1 and scripts/lib/branch-info.ps1, or whenever the script-contract check reports functions this repo has never configured. Part 3 builds the CI floor -- it places the runners that keep the fold and the resolves verification alive across a merge the shipping session never observes (a merge queue, or the GitHub UI merge button), places a scheduled runner that checks whether a GitHub-side repo setting still matches what this repo declares, and reports whether a required status check exists at all, which is the certificate ship-pr dates its staleness guard from; use it after installing the plugin, when ship-pr says the staleness guard is off because no required check is known, when a merge landed and nothing folded, or when a repo setting may have drifted. A merge queue is optional and is not this workflow policy: most repos cannot have one, so a missing queue is reported as the ordinary state rather than as a gap. Part 4 puts the one issue label this workflow prescribes on the tracker -- the reach label, minor by default, which is the tier model read on an issue instead of on a changelog entry; use it after installing the plugin, or when a filing fails because the label does not exist. Part 5 wires up the statusLine that draws the progress bar for the long runs this workflow backgrounds -- the gates and ship-pr's CI wait, which stream no stdout anywhere visible; use it after installing the plugin, or when a backgrounded run leaves the session looking idle. statusLine is a settings key, so no plugin component can place it. Parts 1 to 3 and part 5 are strictly additive and dry-run by default; none overwrites anything, and part 4 is a person's gh call rather than a script.
+description: Adopt the dkj-policy workflow in a consuming repo, in five independent parts that can run in any order or alone. Part 1 scaffolds the workflow's own root folder -- dkj-policy/ -- the releases root with this repo's release answers, the branch-entry CI gate, the always-on budget CI gate that holds every PR to not growing what every session pays before a single assignment is given, and the PR template open-pr fills in; use this right after installing the plugin, or when the script-contract session check reports the folder missing, since an install alone writes nothing into the repo. Part 2 adopts the source repo's workflow configuration from the shipped blueprint -- placing the values that state the shared way of working into this repo's own seam libs, and proposing the rest for a person to answer; use this after specialists-init has laid down scripts/repo-config.ps1 and scripts/lib/branch-info.ps1, or whenever the script-contract check reports functions this repo has never configured. Part 3 builds the CI floor -- it places the runners that keep the fold and the resolves verification alive across a merge the shipping session never observes (a merge queue, or the GitHub UI merge button), places a scheduled runner that checks whether a GitHub-side repo setting still matches what this repo declares, and reports whether a required status check exists at all, which is the certificate ship-pr dates its staleness guard from; use it after installing the plugin, when ship-pr says the staleness guard is off because no required check is known, when a merge landed and nothing folded, or when a repo setting may have drifted. A merge queue is optional and is not this workflow policy: most repos cannot have one, so a missing queue is reported as the ordinary state rather than as a gap. Part 4 puts the one issue label this workflow prescribes on the tracker -- the reach label, minor by default, which is the tier model read on an issue instead of on a changelog entry; use it after installing the plugin, or when a filing fails because the label does not exist. Part 5 wires up the statusLine that draws the progress bar for the long runs this workflow backgrounds -- the gates and ship-pr's CI wait, which stream no stdout anywhere visible; use it after installing the plugin, or when a backgrounded run leaves the session looking idle. statusLine is a settings key, so no plugin component can place it. Parts 1 to 3 and part 5 are strictly additive and dry-run by default; none overwrites anything, and part 4 is a person's gh call rather than a script.
 ---
 
 # adopt-dkj-policy -- scaffold the folder, place the config seams, build the CI floor
@@ -19,10 +19,9 @@ each other -- run them in any order, or run only the one you need:
   backgrounds, which otherwise print to nobody.
 
 No part depends on another having run. Parts 1 to 3 and Part 5 are dry-run by default and never
-overwrite a file that already exists. Two of them make a bounded write **into** an existing file and
-neither replaces anything: Part 1 appends the folder README's marked UPDATE section when that page
-does not carry it, and Part 5 adds one key to `.claude/settings.json` -- refusing where that key is
-already there, since there is only one of it. See their rules below.
+overwrite a file that already exists. One of them makes a bounded write **into** an existing file
+without replacing anything: Part 5 adds one key to `.claude/settings.json` -- refusing where that key
+is already there, since there is only one of it. See its rules below.
 
 ## Part 1 -- scaffold the workflow folder
 
@@ -35,11 +34,13 @@ check reports at session start while it is missing.
 
 ```text
 dkj-policy/
-  README.md              what this folder is, and where each page's portable half lives
-  CONTRIBUTING.md        this repo's answers to CONTRIBUTING-portable.md
   releases/README.md     this repo's answers to RELEASES-portable.md (the release LIST is not here)
+  CHANGELOG.md           this folder's own pending-changes list, isolated from any changelog you
+                         already keep at your repo root
   (releases/audience/ is NOT placed -- your first cut creates it when it writes the note there)
   (<branch>.md is NOT placed -- one per branch, living only while that branch is open)
+  (README.md and CONTRIBUTING.md are NOT placed any more -- #2171, September 20, 2026. An
+   existing copy is reported as legacy further down and never touched; see the rules below.)
 ```
 
 **And three files outside it**, since August 20, 2026 (inbound
@@ -90,41 +91,45 @@ own plugin cache instead, so the easy route is to ask for the skill rather than 
 
 ### The rules it works under
 
-- **Strictly additive, never overwrites.** Every file that already exists is left exactly as it is,
-  whatever it contains -- so a re-run finds nothing to do, and everything you wrote past the `VUL-IN`
-  markers is yours. **No FILE is ever rewritten**, which is new since August 23, 2026: `new-branch` used
-  to refresh the generated `branch/templates/` on drift, and the merged development document carries its own
-  guidance, so there is no reference beside it left to keep current. (Since #1766 one *region* of one
-  file is -- the fenced block below. The file is still never rewritten as a whole, and nothing outside
-  those two markers is so much as read.)
-- **With one bounded exception: the fenced block in your folder README, which IS rewritten** (issue
-  #1766). One region of one file -- everything between `<!-- dkj-policy:update-section -->` and
-  `<!-- /dkj-policy:update-section -->` -- is the *plugin's* writing rather than yours, and `-Apply`
-  replaces it with the current version. It holds what this workflow is, where the three portable pages
-  live, how to update the plugins, and how to ask which version you are on. Nothing outside those two
-  markers is read, compared or written, in that file or any other.
+- **Strictly additive, never overwrites, and now without qualification.** Every file that already
+  exists is left exactly as it is, whatever it contains -- so a re-run finds nothing to do, and
+  everything you wrote past the `VUL-IN` markers is yours. **No FILE is ever rewritten**, which is new
+  since August 23, 2026: `new-branch` used to refresh the generated `branch/templates/` on drift, and
+  the merged development document carries its own guidance, so there is no reference beside it left to
+  keep current.
+- **One exception stood between then and #2171 (Dave, September 20, 2026), and it is gone with the
+  page it was written into.** Issue #1766 gave the folder README a fenced region --
+  `<!-- dkj-policy:update-section -->` to `<!-- /dkj-policy:update-section -->` -- that `-Apply`
+  rewrote on every run, because a page the plugin owns has to be a page the plugin can correct: it
+  named what this workflow is, where the portable pages live, how to update the plugins, and how to ask
+  which version you are on, and a block appended once and never corrected had already gone stale in the
+  field, naming a retired branch-document filename and two pre-rename plugin ids. **This command no
+  longer scaffolds the folder's `README.md` or `CONTRIBUTING.md` at all**, so there is nothing left for
+  it to own a region of, and "nothing that already exists is ever touched" is true without
+  qualification now.
 
-  **Why it is rewritten where nothing else is.** The block used to be appended once and then left
-  forever, which closed *"a section added later never arrives"* and left *"a section that arrived is
-  never corrected"* wide open. Everything in it is generated -- so a consumer's page went on naming the
-  branch document `development.md`, and went on listing two pre-rename plugin ids, a year after both
-  changed, with nothing to tell the reader whose sentence had gone stale. A block the plugin writes is
-  a block the plugin has to be able to correct.
+  **There is one `CONTRIBUTING` for a consumer to read, and it is the plugin's own
+  `CONTRIBUTING-portable.md`.** Two pages in your own tree only made a repo more complicated and
+  produced more inconsistency than they removed; what your repo answers for itself goes into your
+  specialist lens instead, beside the rest of what that lens already carries.
 
-  **Three ways out, and they are all yours.** Write above or below the block and your words are never
-  touched. **Delete both markers** and the paragraphs become ordinary text in your file that no run
-  writes again. Or edit inside it -- and know that the next `-Apply` replaces what you wrote there,
-  which is the one place in this whole command where that is true.
+  **An existing copy is reported as legacy and never touched -- no delete command is printed.** A copy
+  already on your disk may carry the only written statement of something your repo answered, and
+  nothing here can tell that from a stale scaffold; pushing you toward deleting it for the sake of
+  tidiness is not this command's business. The report names the file and says this run no longer writes
+  or refreshes it -- read it from here on as your own writing, not as something the plugin keeps
+  current.
 
-  **A page from before the fence is left exactly as it is.** An opening marker with no closing one has
-  no machine-readable end, so cutting to the end of the file would take your own writing with it. The
-  run says the section predates the fence and names the edit that opts in; it never guesses.
+  **The gates that read either page are deliberately unchanged.** `check-consumer-prose.ps1` still
+  greps both names and `check-policy-drift.ps1` still lists a surviving copy at its own rank 2, so a
+  page that is still there keeps exactly the standing its repo gives it. What stopped is the
+  *authoring*, not the *reading* -- narrowing either gate to match this change would retire it in every
+  repo whose page is the reason it exists.
 - **The branch document comes from the shared formatter** -- the same one `new-branch` and the fold
   call -- so the scaffold cannot write a shape of its own.
 - **Refused in a repo that publishes plugins** (`.claude-plugin/marketplace.json` present). The source
-  repo of this workflow arranges that folder by hand, and its answer differs from what this command
-  writes: it keeps no root `CONTRIBUTING.md` at all, holding that floor in its `CLAUDE.md` instead
-  (Dave, August 27, 2026), while the page scaffolded here assumes you have one.
+  repo of this workflow arranges that folder by hand -- it is the product's home, not a consumer -- so
+  this command refuses there rather than writing a layout over one its owner composed deliberately.
 - **A leftover root `branch/` from before the move is yours to remove by hand** -- the scripts read
   only the new location, deliberately without a dual-read fallback.
 - **The folder itself is permanent** (issue #885). No command in this plugin removes

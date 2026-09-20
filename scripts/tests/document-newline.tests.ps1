@@ -107,12 +107,17 @@ foreach ($lib in @('entry-scaffold-lib', 'pr-body-lib', 'release-lib')) {
     }
     Assert-True $defined "$lib.ps1 defines Get-DocumentNewline once loaded"
 }
-# The reach for the three scripts is entry-scaffold-lib, asserted above. What can go wrong here is that
+# The reach for the two scripts is entry-scaffold-lib, asserted above. What can go wrong here is that
 # a script stops loading it while still calling the helper, so the dot-source is what is read.
+#
+# ADOPT-WORKFLOW-FOLDER.PS1 LEFT THIS SET AT #2171 (September 20, 2026), and its row is deliberately not
+# replaced by an exemption. Its one call sat in the fenced UPDATE block it wrote into a consumer's folder
+# README -- the page that command no longer scaffolds -- so it has nothing left to read a newline style
+# off. A caller that stops calling is not a caller, and listing it with a note would make this set a
+# history of who once did rather than an assert about who must.
 $scriptReach = @{
     'scripts\release\cut-release.ps1'           = 'entry-scaffold-lib.ps1'
     'scripts\release\fold-changelog-entry.ps1'  = 'entry-scaffold-lib.ps1'
-    'scripts\task\adopt-workflow-folder.ps1'    = 'entry-scaffold-lib.ps1'
 }
 foreach ($rel in $scriptReach.Keys | Sort-Object) {
     $text = [System.IO.File]::ReadAllText((Join-Path $RepoRoot $rel))
