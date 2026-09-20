@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**31 / 56 minor entries** <!-- pending-tally -->
+**31 / 57 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2210-outnull-not-the-boundary · 20260920-172751
+
+A measured attribution in Nolan #25's lens said the #2199 promotion's +11% was the function-call
+boundary. It is not: the boundary is 0.038 ms, and the cost is 35 `| Out-Null` pipelines the promotion
+added at the call site. The lens now carries the corrected cause, the five-variant bisect behind it, and
+the two-line repair that recovers 88% of the regression while keeping the shared function -- which
+settles the design question #2210 left open for the branch owner. The general rule is recorded with it:
+an attribution is a measurement too, and a bisect that swaps a whole block tells you which block, never
+which line in it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- no subscriber of anything this repo ships notices. The lens is internal reference, and the
+always-on path it measures is unchanged by this branch.
+
+**Score:** N/A
+
+#### Pull Request
+
+The #2199 regression is the Out-Null idiom in the re-append loop, not the call boundary
+
+[PR #2216](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2216)
+
+---
 
 ### DEPLOY: fix/2199-one-lens-assembler · 20260920-170727
 
