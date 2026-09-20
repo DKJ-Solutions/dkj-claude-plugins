@@ -44,7 +44,59 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**22 / 44 minor entries** <!-- pending-tally -->
+**23 / 45 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2187-budget-gate-measures-source · 20260920-122927
+
+The always-on budget ratchet was measuring the wrong copy of the one document it most needed to watch.
+A persona body, a manual or a lens that this repo ships is loaded through an absolute
+`~/.claude/plugins/marketplaces/...` import, and the gate summed whatever sat at that path -- an
+extracted copy that only advances at a release. So a branch could add 621 B to a persona body in this
+tree and the gate answered `[OK] ... NOT growing`, because the figure it was summing had not moved.
+
+**The weight was never cancelled, only deferred**, and that is the failure rather than the wrong
+number: it lands on the always-on path at the next release, and the branch that then meets the refusal
+is some later one that added nothing. A ratchet that refuses the wrong author is a ratchet that gets
+`-Skip`'ped once and never obeyed again, which is the whole argument #2037 made for a ratchet over a
+cliff.
+
+The gate now judges this tree's copy wherever this tree has one, prints both figures where they
+differ, and -- on a refusal -- names the repo-relative file the author can actually edit, instead of a
+path under `~/.claude/plugins/` that the next plugin update overwrites.
+
+**The substitution is bounded to a document whose installed copy RESOLVED**, which is not a detail:
+during the persona rename the roster deliberately carries both the old and the new import, and
+substituting on an unresolved one would have added a 30k body on top of the figure already carried for
+its predecessor -- a jump no branch caused, met by whichever branch was open.
+
+Nothing moves in this repo today: the total is still 110,075 B, because the persona import that
+currently resolves is the pre-rename one, which has no counterpart left in the tree. The change is
+visible the moment that settles.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy` gets this, but only one of them can notice it: the substitution needs a
+marketplace clone that mirrors the checkout, which is true of a repo that consumes itself and of no
+ordinary consumer. `Get-TreeCounterpart` already returned `$null` everywhere else, so for a consumer
+this is a no-op by construction rather than by a flag.
+
+What it buys them is indirect and worth naming anyway: the gate that guards their always-on budget is
+maintained in a repo where that gate could not see its own always-on documents grow. Three of the four
+documents on this repo's path are shipped to them.
+
+**Score:** 1
+
+#### Pull Request
+
+The always-on budget gate judges the source copy of a plugin-carried document, not the marketplace clone
+
+Plugins: dkj-policy
+
+[PR #2194](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2194)
+
+---
 
 ### DEPLOY: fix/2180-entry-shape-per-branch-exclusion · 20260920-121300
 
