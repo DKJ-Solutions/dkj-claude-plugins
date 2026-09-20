@@ -44,7 +44,77 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**27 / 51 minor entries** <!-- pending-tally -->
+**28 / 53 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2183-reserved-root-md-seam-row · 20260920-161516
+
+The seam-answer table in the system-administration lens now states the permanent-root-docs list the way
+the code holds it. It carried, since #2179 moved it into the lens from the now-deleted
+`dkj-policy/README.md`, a list of six names and a note that `CHANGELOG` and `CONTRIBUTING` "came off" it
+on August 27, 2026. The code says the opposite: `Get-ReservedRootMd` still lists all eight names,
+because the portable `cut-release` reads that list to decide which root `.md` files are permanent
+documents rather than unfolded entries, and taking the two names off the same day made it refuse a
+release in any repo that keeps its changelog at the root, over a changelog nobody had failed to fold. The row now
+lists every name, says the two left the root and stayed on the list because the list names a permanent
+document rather than one this repo holds today, and points at the code comment that carries the
+reasoning and at `ReservedNames` in `Get-BranchFilePaths`, which records the same rule for the
+workflow folder's own pages. Nothing else in the table, and no script, changed.
+
+This prevents a failure that has not happened yet: with `dkj-policy/README.md` deleted, that row is the
+only prose description of this seam outside the code, so someone reconciling the code to it would take the two names off the
+list and reproduce the cut refusal of August 27.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- an internal lens row, which no subscriber of the service reads or has anything to do differently
+because of.
+
+**Score:** N/A
+
+#### Pull Request
+
+The seam table states Get-ReservedRootMd as the code holds it
+
+[PR #2211](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2211)
+
+---
+
+### DEPLOY: fix/2204-lensdircandidates-enumeration-guard · 20260920-155808
+
+`Get-LensDirCandidates` -- the shared primitive that answers where a consumer's repo lenses may live, and
+the one every discovery-seam reader walks -- enumerated `.claude/plugins/` with a bare `Get-ChildItem`. That
+raises a non-terminating error on a directory it cannot read, and any caller running under
+`$ErrorActionPreference = 'Stop'` has it escalated to a throw; a permission-denied entry or a broken reparse
+point is enough. The walk now passes `-ErrorAction SilentlyContinue`, on the pattern `Get-SpecialistFiles`
+already used one screen down, so a family directory that cannot be read contributes no candidate -- exactly
+what the walk already did for a family that is simply absent. Guarded at the root rather than at each call
+site, because one guard answers the risk for every caller of a shared primitive, while a call-site-wide
+`try/catch` answers it for one and masks that caller's own future regressions along with it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The lib mirrors into three plugins -- `dkj-subagents-alpha`, `dkj-policy` and `dkj-subagents-shopify` -- so
+every consumer that installs one of them gets the guarded walk at the next release. What it buys them is a
+failure that has not happened yet, which is the whole of its weight: a repo whose `.claude/plugins/` holds
+an entry this account cannot enumerate would, from a caller under `Stop`, have seen the roster check, the
+drift lint, the policy-drift report or the teardown throw rather than degrade. Nobody has reported that, and
+nothing a consumer can see changes on a healthy tree -- the walk returns the same candidates it always did.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard Get-LensDirCandidates' plugin-family enumeration
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2209](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2209)
+
+---
 
 ### DEPLOY: fix/2197-consumer-lens-fp-measured · 20260920-154630
 

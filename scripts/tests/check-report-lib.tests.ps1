@@ -1282,6 +1282,53 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
         Assert-True ("| **Chris** | [``$n``](lenses/$n) |" -match (Get-RosterIdTokenPattern -Id '01-01')) `
             "a roster row whose only id sits inside '$n' is still recognised as rostered"
     }
+
+    # --- 11. Get-LensDirCandidates: the family enumeration is GUARDED (#2204) -----------------------
+    #     THE CALLER CONDITION IS THIS FILE'S OWN. Line 18 sets $ErrorActionPreference = 'Stop', which is
+    #     exactly the state that turns the walk's non-terminating enumeration error into a throw -- so the
+    #     suite is a faithful caller rather than a contrived one.
+    #
+    #     WHY A SHADOWED Get-ChildItem RATHER THAN A REAL UNREADABLE DIRECTORY. Producing one takes an ACL
+    #     edit (icacls) that needs privileges the gate does not have and that behaves differently on every
+    #     runner, so the test would be measuring the harness. A shadowing advanced function in this script
+    #     scope reproduces the ONE property that matters -- a non-terminating error raised by the
+    #     enumeration -- and it reproduces it identically everywhere. Without the guard the caller's 'Stop'
+    #     is inherited and that Write-Error terminates; with it, -ErrorAction SilentlyContinue binds inside
+    #     the shadow and it does not. The assert on $script:enumErrorAction pins the flag itself, so
+    #     removing it fails here by name instead of only as a downstream throw.
+    Write-Host "Get-LensDirCandidates -- an unreadable family directory degrades, it does not throw" -ForegroundColor Cyan
+    $guardRoot = Join-Path $Fixture 'enum-guard'
+    New-Item -ItemType Directory -Path (Join-Path $guardRoot '.claude\plugins') -Force | Out-Null
+    $guardSeam = (Get-SeamPaths -RepoRoot $guardRoot).LensDir
+
+    $script:enumErrorAction = '<never called>'
+    function Get-ChildItem {
+        [CmdletBinding()]
+        param(
+            [string]$LiteralPath,
+            [switch]$Directory,
+            [switch]$File,
+            [switch]$Recurse,
+            [string]$Filter
+        )
+        $script:enumErrorAction = [string]$PSBoundParameters['ErrorAction']
+        Write-Error "simulated enumeration failure for '$LiteralPath'"
+    }
+
+    $guardThrew = ''
+    $guardCands = @()
+    try { $guardCands = @(Get-LensDirCandidates -RepoRoot $guardRoot -PluginName 'dkj-subagents-alpha') }
+    catch { $guardThrew = [string]$_.Exception.Message }
+    finally { Remove-Item -LiteralPath 'function:Get-ChildItem' -Force -ErrorAction SilentlyContinue }
+
+    Assert-Equal '' $guardThrew 'a family directory that cannot be enumerated does not throw, even under $ErrorActionPreference = Stop'
+    Assert-Equal 'SilentlyContinue' $script:enumErrorAction 'and the guard is the reason: the walk passes -ErrorAction SilentlyContinue'
+    # DEGRADES, does not collapse. The two fixed candidates are composed rather than enumerated, so a
+    # failed enumeration costs only the families it would have discovered -- which is what this walk
+    # already does for a family that is simply absent.
+    Assert-Equal $guardSeam $guardCands[0] 'the seam is still candidate 0 after a failed enumeration'
+    Assert-Equal (Join-Path $guardRoot '.claude\extensions') $guardCands[-1] 'and the legacy location is still read, and still last'
+    Assert-True ($guardCands -contains (Join-Path $guardRoot '.claude\plugins\claude-specialists\dkj-subagents-alpha')) 'the composed pre-seam candidate survives too -- it needs no enumeration'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

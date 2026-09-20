@@ -3696,7 +3696,7 @@ portable half leaves open, this repo's answer, and the `Get-*` function that dec
 | your entry's section headings | the English defaults — nothing is overridden | *(no override defined)* |
 | the wording inside the development document | the English defaults | `Get-BranchFileWordingOverrides` *(none)* |
 | your significance rubric | the shared default, 1–5 | *(no override defined)* |
-| your permanent root docs | `CLAUDE` · `README` · `LICENSE` · `SECURITY` · `INSTALL` · `UNINSTALL` — `CHANGELOG` and `CONTRIBUTING` came off on August 27, 2026, having left the root | `Get-ReservedRootMd` |
+| your permanent root docs | `CHANGELOG` · `CLAUDE` · `README` · `LICENSE` · `CONTRIBUTING` · `SECURITY` · `INSTALL` · `UNINSTALL` — **`CHANGELOG` and `CONTRIBUTING` left this repo's root on August 27, 2026 and stayed on the list**: it names a permanent document, not one this repo holds at its root today, and the portable `cut-release` reads it, so taking them off the same day broke the cut (the comment above `$script:ReservedRootMd` in [`repo-config.ps1`](../../../scripts/repo-config.ps1) has the reasoning; `ReservedNames` in [`Get-BranchFilePaths`](../../../scripts/lib/entry-scaffold-lib.ps1) records the same rule for the workflow folder's (`dkj-policy/`) own pages) | `Get-ReservedRootMd` |
 | where your changelog lives | `dkj-policy/CHANGELOG.md` — the consumer default, which this repo adopted on August 27, 2026 (the folder renamed on September 5, #1437) | `Get-ChangelogPath` |
 | where the release list lives | `dkj-policy/releases/history.md` | `Get-ReleaseHistoryPath` |
 | where the generated internal note goes | `dkj-policy/releases/internal` | `Get-ReleaseInternalNotesRoot` |

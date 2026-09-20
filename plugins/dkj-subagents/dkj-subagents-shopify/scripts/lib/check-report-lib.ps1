@@ -2038,7 +2038,18 @@ function Get-LensDirCandidates {
          3. .claude/extensions/                          -- the legacy pre-plugin-path location.
        Readers should walk this list; writers should ask Get-LensWriteDir, which picks between the seam
        and an existing tree. $PluginName is assumed slug-validated by the caller (Test-PluginNameSlug)
-       before it becomes a path segment. #>
+       before it becomes a path segment.
+
+       THE ENUMERATION IS GUARDED (-ErrorAction SilentlyContinue), on the pattern Get-SpecialistFiles
+       already uses one screen down, and it is guarded HERE rather than at each call site (#2204). A bare
+       Get-ChildItem raises a non-terminating error on a directory it cannot read -- a permission-denied
+       entry or a broken reparse point under .claude/plugins/ is enough -- and any caller running under
+       an ErrorActionPreference of 'Stop' has that escalated to a throw. This is a shared primitive that
+       three plugin mirrors carry and every discovery-seam consumer reads, so one guard at the root
+       answers the risk for all of them; a call-site-wide try/catch would answer it for one caller and
+       mask that caller's own future regressions along with it. A family directory this repo cannot
+       enumerate contributes no candidate -- which is exactly what this walk already does for a family
+       that is simply absent. #>
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
         [Parameter(Mandatory = $true)][string]$PluginName
@@ -2048,7 +2059,7 @@ function Get-LensDirCandidates {
     $dirs = @((Get-SeamPaths -RepoRoot $RepoRoot).LensDir)
     $dirs += (Join-Path (Join-Path $pluginsRoot $family) $PluginName)
     if (Test-Path -LiteralPath $pluginsRoot -PathType Container) {
-        foreach ($fam in (Get-ChildItem -LiteralPath $pluginsRoot -Directory | Sort-Object Name)) {
+        foreach ($fam in (Get-ChildItem -LiteralPath $pluginsRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
             if ($fam.Name -eq $family) { continue }
             $d = Join-Path $fam.FullName $PluginName
             if (Test-Path -LiteralPath $d -PathType Container) { $dirs += $d }
