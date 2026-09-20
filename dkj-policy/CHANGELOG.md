@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**32 / 58 minor entries** <!-- pending-tally -->
+**33 / 59 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2218-shallow-clone-ancestry · 20260920-193846
+
+`plugin-versions` no longer reports every plugin behind after a marketplace refresh. That refresh
+re-clones the marketplace at depth 1 instead of fast-forwarding it, so the recorded install sha is
+absent from the clone by construction -- and the run read that absence as evidence, naming a stale
+clone and a history rewrite that had not happened, and prescribing the command that produced the
+state. It now detects a shallow clone, says so on the clone line, and lets the version strings
+arbitrate alone: equal versions read as up to date with nothing to run. A deep clone is unchanged,
+where an absent commit really is evidence.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every consumer of this workflow sees these lines at every session start, forwarded by
+`connector-sessioncheck`. In the measured state -- the one every checkout is in after a marketplace
+refresh -- the report claimed 6 of 7 plugins were behind, at identical versions on both sides, and
+handed over a command that recreates the state it complains about. A subscriber acting on that
+either runs a refresh loop that never clears, or learns to skim the marker that does matter.
+
+**Score:** 4
+
+#### Pull Request
+
+plugin-versions no longer reports a shallow marketplace clone as a stale one
+
+Plugins: dkj-policy
+
+[PR #2222](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2222)
+
+---
 
 ### DEPLOY: feat/2219-stale-clone-headline · 20260920-191400
 

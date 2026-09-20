@@ -333,6 +333,38 @@ function New-DivergedClone {
     return $diverged
 }
 
+function New-ShallowClone {
+    # A marketplace clone in the state `claude plugin marketplace update` actually leaves behind
+    # (#2218): a real git repo, a real HEAD, and exactly ONE commit in it -- so every sha but HEAD is
+    # absent from its history BY CONSTRUCTION rather than because the two sides disagree.
+    #
+    # BUILT BY CLONING A SOURCE REPO, because that is the only way to get a genuinely shallow repo:
+    # 'git init' + commit is never shallow, and hand-writing .git/shallow would fake the file this
+    # script falls back to while leaving 'rev-parse --is-shallow-repository' -- the call it actually
+    # makes -- answering 'false'. '--no-local' is required: with a plain local path git prints
+    # "--depth is ignored in local clones" and hands back a full one, which would make every assert
+    # below pass against the DEEP code path and prove nothing.
+    #
+    # Returns the sha of the source's FIRST commit -- the one the clone cannot see, which is what an
+    # install record is pointed at to reach the shallow branch.
+    param(
+        [Parameter(Mandatory = $true)][string]$Dir,
+        [string]$Version = '4.32.0',
+        [string]$HeadVersion = '',
+        [string[]]$PluginNames = @('dkj-subagents-alpha')
+    )
+    $src = "$Dir-source"
+    $first = New-Clone -Dir $src -Version $Version -PluginNames $PluginNames
+    # A second commit, so the clone's single commit is NOT the one the install records. -HeadVersion
+    # rewrites the plugin.json in it, which is how the clone ends up on a different version from the
+    # install while the install's sha stays unreachable.
+    Add-CloneCommit -Dir $src -Version $HeadVersion -PluginNames $PluginNames | Out-Null
+    $parent = Split-Path -Parent $Dir
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    Git-X $parent @('clone', '--no-local', '--depth', '1', '--quiet', $src, $Dir) | Out-Null
+    return $first
+}
+
 function New-Rec {
     param(
         [Parameter(Mandatory = $true)][string]$ProjectPath,
@@ -1166,6 +1198,97 @@ try {
     Assert-Has   $r 'the clone is AHEAD of your install (4.32.0 -> 4.33.0)' '35: fixture sanity -- the row really is a "behind" verdict'
     Assert-Has   $r $UPD '35: the prescription falls back to project, which is the honest answer'
     Assert-Has   $r 'names a scope this CLI does not accept' '35: and the installed-here line says the printed scope is a fallback'
+
+    # --- 36. #2218: a SHALLOW clone at the SAME version -> up to date, never "behind" ----------------
+    # -- THE MEASURED CASE, AND THE REGRESSION GUARD FOR IT. 'claude plugin marketplace update' does
+    # -- not fast-forward the clone: it re-clones at depth 1. So after every refresh the recorded
+    # -- install sha is absent from the clone until the next install/update rewrites it -- and the old
+    # -- code read that absence as "the clone is stale, or your install predates a history rewrite"
+    # -- and prescribed the very command that had produced the state. Measured on 6 of 7 plugins in
+    # -- the source repo, all at 5.5.0 on both sides, seconds after a refresh.
+    Write-Host "36. #2218: shallow clone, versions equal -> up to date, no refresh loop" -ForegroundColor Cyan
+    $c = New-Case 'shallow-ver-equal'
+    $gone = New-ShallowClone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $gone) ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '36: exit 0'
+    Assert-Has   $r 'shallow clone' '36: the clone header says the clone is shallow, so the verdict below is checkable'
+    Assert-Has   $r 'versions match (4.32.0)' '36: the versions arbitrate, and they are equal'
+    Assert-Has   $r 'the clone is SHALLOW' '36: and the verdict says why it cannot say more'
+    Assert-Lacks $r "is not in the clone's history -- the clone is stale" '36: the absent commit is NOT reported as evidence of a stale clone'
+    Assert-Lacks $r 'history rewrite' '36: nor as evidence of a rewrite that did not happen'
+    Assert-Lacks $r $MKT '36: and the command that PRODUCED this state is not prescribed -- the #2218 loop'
+    Assert-Lacks $r $UPD '36: nor a plugin update, which arbitrates on a version string that is equal'
+    Assert-Has   $r 'All 1 plugin(s) up to date on 4.32.0' '36: the summary counts it as up to date, not as behind'
+
+    # --- 36b. #2218 at a session start: the same row is silent in -Brief, never a marker ------------
+    # -- THE HALF THAT REACHES A CONSUMER'S CONTEXT. connector-sessioncheck forwards these lines at
+    # -- every start and every compaction; before the fix every plugin in the marketplace emitted an
+    # -- [INFO] naming a stale clone that had been refreshed seconds earlier, in the state every
+    # -- checkout is in after a marketplace refresh.
+    Write-Host "36b. #2218: -Brief -- the shallow/equal row says nothing at all" -ForegroundColor Cyan
+    $c = New-Case 'shallow-brief'
+    $gone = New-ShallowClone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $gone) ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Brief
+    Assert-Equal 0 $r.Code '36b: exit 0'
+    Assert-Equal '[SUMMARY] 1 plugin(s) enabled here: 0 behind, 1 up to date.' $r.Text.Trim() '36b: the whole run is the summary -- no marker line of any severity'
+
+    # --- 36c. #2218: shallow clone, clone version NEWER -> behind, without the false evidence -------
+    # -- The direction is right here even before the fix, but the SENTENCE was not: it cited the
+    # -- absent commit as if it were a second, independent fact about the install. On a depth-1 clone
+    # -- that clause is true of every sha in existence, so it carried no information while reading as
+    # -- though it did.
+    Write-Host "36c. #2218: shallow clone, clone newer -> behind, and the ancestry is not cited" -ForegroundColor Cyan
+    $c = New-Case 'shallow-clone-newer'
+    $gone = New-ShallowClone -Dir $c.Clone -Version '4.32.0' -HeadVersion '4.33.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $gone) ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '36c: exit 0'
+    Assert-Has   $r 'the clone is AHEAD of your install (4.32.0 -> 4.33.0)' '36c: the version strings give the direction'
+    Assert-Has   $r 'the clone is SHALLOW, so its history says nothing' '36c: and the row says the ancestry was not consulted'
+    Assert-Has   $r $UPD '36c: the update command is the right prescription here'
+    Assert-Lacks $r "and its commit is not in the clone's history" '36c: the vacuous clause is gone'
+    Assert-Has   $r '1 of 1 plugin(s) behind' '36c: still counted as behind -- the fix does not silence a real gap'
+
+    # --- 36d. #2218: shallow clone, INSTALL version newer -> the clone really is stale --------------
+    # -- The one shallow shape where a marketplace refresh IS the answer, and it has to survive the
+    # -- fix: the version strings say the clone is behind, which is a fact the depth never touched.
+    Write-Host "36d. #2218: shallow clone, install newer -> stale clone, refresh prescribed" -ForegroundColor Cyan
+    $c = New-Case 'shallow-install-newer'
+    $gone = New-ShallowClone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.33.0' -Sha $gone) ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '36d: exit 0'
+    Assert-Has   $r 'your install (4.33.0) is AHEAD of the clone (4.32.0)' '36d: the direction comes off the versions'
+    Assert-Has   $r $MKT '36d: a refresh IS prescribed here -- this is the state it repairs'
+    # THE BUCKET IS READ OFF -Brief, WHERE IT IS PRINTED. The default view above folds 'clone-behind'
+    # into its 'behind' count deliberately (both are "not in step"), so only the brief summary
+    # separates the two -- and separating them is the whole point of this row: the reader must not be
+    # told to update a plugin whose install is the NEWER side.
+    $rb = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Brief
+    Assert-Has   $rb '1 ahead of a stale clone' '36d: bucketed as a stale clone, not as behind'
+    Assert-Lacks $rb '[ERROR]' '36d: and a stale clone stays [INFO] at a session start -- the #1591 rule'
+
+    # --- 36e. #2218: a DEEP clone is untouched -- the absent commit is still evidence there ---------
+    # -- The boundary of the whole change. Scenario 4 pins the deep-clone wording; this pins that the
+    # -- two paths are told apart by the CLONE and not by the verdict, on the same input shape as 36.
+    Write-Host "36e. #2218: a deep clone still reads an absent commit as evidence" -ForegroundColor Cyan
+    $c = New-Case 'deep-not-shallow'
+    New-Clone -Dir $c.Clone -Version '4.32.0' | Out-Null
+    Add-CloneCommit -Dir $c.Clone | Out-Null
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @(
+        (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha '1234567890abcdef1234567890abcdef12345678') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '36e: exit 0'
+    Assert-Has   $r "is not in the clone's history -- the clone is stale" '36e: the deep-clone sentence is unchanged'
+    Assert-Lacks $r 'SHALLOW' '36e: and the shallow branch is not reachable from a full clone'
+    Assert-Lacks $r 'shallow clone' '36e: nor does the clone header claim a depth it does not have'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
