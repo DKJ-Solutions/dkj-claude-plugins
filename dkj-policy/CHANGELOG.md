@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**31 / 57 minor entries** <!-- pending-tally -->
+**32 / 58 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2219-stale-clone-headline · 20260920-191400
+
+`check-roster-sync` no longer reports a whole repo's worth of specialists as lens-less when the
+difference is that its own payload cannot read the lens filenames. A missing-lens finding whose id is
+named by a markdown file in the lens directory that this check does not recognise is held, and the run
+prints one non-counting `[LENS-NAMING]` line instead: the count, one example file, that nothing in the
+repo needs changing, and the remedy, which is a plugin update. The evidence is per id, so a specialist
+that is genuinely lens-less keeps erroring exactly as before.
+
+Measured here the same day: 34 error lines out of a v5.5.0 payload against a tree on the #2135 lens
+naming, 30 of which prescribed creating a file that was already sitting there under another name -- 30
+wrong repairs, each one carrying a citation. The readers resolve two spellings and never three, by
+design, so they cannot look forward; and a session loads the last RELEASED payload. That combination
+reproduces at every rename, for every session that lags one release, which is what makes this a guard
+rather than a one-off.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer meets this the same way, and worse: they cannot read the source to work out what happened.
+It only bites while they lag a release AND the lens naming has moved, so it is rare -- but when it does,
+the current output tells them to create one file per specialist, and following it leaves a second,
+obsolete generation in their repo that nothing then cleans up.
+
+**Score:** 2
+
+#### Pull Request
+
+A lens naming this check cannot read is reported once, instead of one wrong repair per specialist
+
+Plugins: dkj-subagents-alpha
+
+[PR #2221](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2221)
+
+---
 
 ### DEPLOY: docs/2210-outnull-not-the-boundary · 20260920-172751
 
