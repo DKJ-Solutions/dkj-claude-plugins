@@ -865,7 +865,7 @@ function Get-LintScript { return `$script:LintScript }
     Assert-Equal 0 $kp.Code 'kept-dir/preview: exit-code 0'
     Assert-True ($kp.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\ --') `
         'kept-dir/preview: the seam directory gets a [KEEP] marker of its own (#2192)'
-    Assert-True ($kp.Out -match 'it holds 1 file\(s\) this script did not place') `
+    Assert-True ($kp.Out -match 'it still holds 1 file\(s\) this run does not remove') `
         'kept-dir/preview: and the marker says HOW MANY files kept it -- the part that differs per directory'
     Assert-True (-not ($kp.Out -match '(?m)^\s*\[remove\].*specialists\\ \(empty directory\)')) `
         'kept-dir/preview: it is NOT also announced as going -- the two markers are exclusive'
@@ -892,6 +892,41 @@ function Get-LintScript { return `$script:LintScript }
         "kept-dir/apply: and so does the other plugin's baseline inside it"
     Assert-True ($ka.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\ --') `
         'kept-dir/apply: the apply run says it too -- preview and apply report the same fate (#275)'
+
+    # --- #2192b: a NESTED kept pair is counted once, and the second call site is pinned ---------------
+    # Found reviewing the first repair rather than by the report. Both calls of the pruner pass a PARENT
+    # AND ITS OWN CHILD -- (lenses, seam) and (scripts\lib, scripts) -- and a dry run deletes nothing, so
+    # the parent's recursive scan re-found every leftover the child had just been reported for. Measured
+    # in this repo: 13 for the lens tree, then 16 for the seam directory holding it, two lines over one
+    # surviving subtree, both feeding the kept figure the #356 invariant checks.
+    #
+    # The numbers are what this case pins, so it uses one leftover per directory: 1 and 1 is the answer
+    # that fails loudly if the subtraction ever goes, where a larger fixture would need arithmetic to
+    # read. The scripts\ leftover covers the SECOND call site at the same time -- the one the code's own
+    # comment argues for and the first case never reached.
+    New-BootstrappedConsumer | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude\specialists\always-on-baseline.json'), '{ "budget": 1 }')
+    [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude\specialists\lenses\my-own-notes.md'), 'mine')
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'scripts\my-own.ps1'), '# mine')
+
+    $np = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture)
+    Assert-Equal 0 $np.Code 'nested/preview: exit-code 0'
+    Assert-True ($np.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\lenses\\ -- .*still holds 1 file\(s\)') `
+        'nested/preview: the child directory reports its own leftover'
+    Assert-True ($np.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\ -- .*still holds 1 file\(s\)') `
+        'nested/preview: and the parent reports ONE -- its own leftover, not the child''s as well (#2192)'
+    Assert-True (-not ($np.Out -match '(?m)^\s*\[KEEP\]\s+\.claude\\specialists\\ -- .*still holds 2 file\(s\)')) `
+        'nested/preview: the double-count is gone rather than merely reworded'
+    # The second call site, with a leftover directly in it. scripts\lib\ empties as usual, so this also
+    # shows the subtraction does not suppress a directory that has something of its own.
+    Assert-True ($np.Out -match '(?m)^\s*\[KEEP\]\s+scripts\\ -- .*still holds 1 file\(s\)') `
+        'nested/preview: the second call site reports its kept directory too'
+    Assert-True ($np.Out -match '(?m)^\s*\[remove\].*scripts\\lib\\ \(empty directory\)') `
+        'nested/preview: and scripts\lib\ still goes -- the keep is per directory, not per tree'
+    $nm = @([regex]::Matches($np.Out, '(?m)^\s*\[KEEP\]\s')).Count
+    $ns = [regex]::Match($np.Out, 'Summary:\s+\d+ item\(s\) to remove,\s+(?<kept>\d+) kept\.')
+    Assert-Equal $nm ([int]$ns.Groups['kept'].Value) `
+        'nested/preview: the summary still equals its markers with three kept directories in play'
 
     # --- inbound #381: the untouched-install note is a READING, not an assertion ---------------------
     # Round v13 reached this note by the route UNINSTALL.md Step 4 now offers -- re-run the audit from

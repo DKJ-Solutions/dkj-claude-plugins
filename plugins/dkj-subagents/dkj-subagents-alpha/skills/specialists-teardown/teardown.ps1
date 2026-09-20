@@ -323,6 +323,12 @@ $pruneEmptyDirs = {
     param([string[]]$Dirs, [string[]]$PlannedSoFar)
     $planned = [System.Collections.Generic.HashSet[string]]::new([string[]]$PlannedSoFar, [System.StringComparer]::OrdinalIgnoreCase)
     $handled = @()
+    # The directories this invocation has already reported as kept. BOTH calls pass a PARENT AND ITS OWN
+    # CHILD -- (lenses, seam) and (scripts\lib, scripts) -- so without this the parent re-counts every
+    # leftover the child was just reported for: measured in this repo at 13 for the lens tree and 16 for
+    # the seam directory holding it, two lines describing one surviving subtree, both feeding the kept
+    # figure. Deepest first is what makes subtracting them sound: the child is always reported first.
+    $keptDirs = @()
     foreach ($dir in $Dirs) {
         if (-not (Test-Path -LiteralPath $dir)) { continue }
         $leftovers = @(
@@ -347,11 +353,34 @@ $pruneEmptyDirs = {
             #
             # UNCONDITIONAL, 'scripts\' in a repo with scripts of its own included. That reads as noise
             # until you remember what this tally is for: $kept is the half that makes the script safe to
-            # run, and "your scripts\ stays, because it holds 14 file(s) I did not place" is exactly the
-            # assurance it exists to give. The ceiling is one line per pruned directory, four in a whole run.
-            $keptDirLabel = $dir.Substring($root.Length).TrimStart('\', '/') + '\'
-            Add-Kept -Label $keptDirLabel -Advice 'kept-directory' `
-                -Detail ("pruned only when empty; it holds " + $leftovers.Count + " file(s) this script did not place")
+            # run, and telling somebody their scripts\ survives because 14 files in it are not this run's
+            # to take is exactly the assurance it exists to give. The ceiling is one line per pruned
+            # directory -- six in a whole run, four here and two after section 3.
+            #
+            # "this run does not remove", NOT "this script did not place", which was the first wording and
+            # was false of the commonest leftover there is. A lens the owner filled in WAS placed by the
+            # bootstrap; it survives because it is no longer a scaffold, and it is already reported for
+            # that reason, by name, a few lines above. The directory's own line cannot restate the reason
+            # per file, so it states the only thing true of all of them: this run is not taking them.
+            $novel = @($leftovers | Where-Object {
+                $path    = $_.FullName
+                $covered = $false
+                foreach ($k in $keptDirs) {
+                    if ($path.StartsWith($k, [System.StringComparison]::OrdinalIgnoreCase)) { $covered = $true; break }
+                }
+                -not $covered
+            })
+            # Recorded whether or not it is reported, so a grandparent subtracts the whole subtree.
+            $keptDirs += ($dir.TrimEnd('\', '/') + '\')
+            # Nothing of its own left to report: every file keeping this directory alive is inside a
+            # child directory whose own [KEEP] line the reader has just read, and that line names a path
+            # this one is a prefix of -- so the parent surviving is on the screen already. A second line
+            # would add a number that double-counts and no fact.
+            if ($novel.Count -gt 0) {
+                $keptDirLabel = $dir.Substring($root.Length).TrimStart('\', '/') + '\'
+                Add-Kept -Label $keptDirLabel -Advice 'kept-directory' `
+                    -Detail ("pruned only when empty; it still holds " + $novel.Count + " file(s) this run does not remove")
+            }
             continue
         }
         # One label for the printed line and the tally, so the list a reader reads and the number they are
@@ -993,8 +1022,8 @@ if ($keptScaffold.Count -gt 0) {
 # part that differs per directory, and the only part that says how much is still standing there.
 $keptDirs = @($kept | Where-Object { $_.Advice -eq 'kept-directory' })
 if ($keptDirs.Count -gt 0) {
-    Write-Host "  Kept -- a directory this script prunes only when it is empty. It holds file(s) this" -ForegroundColor Yellow
-    Write-Host "  script did not place, so the directory stays, with everything in it:" -ForegroundColor Yellow
+    Write-Host "  Kept -- a directory this script prunes only when it is empty. Files this run does not" -ForegroundColor Yellow
+    Write-Host "  remove are still in it, so the directory stays, with everything in it:" -ForegroundColor Yellow
     foreach ($k in $keptDirs) { Write-Host "    $($k.Label) -- $($k.Detail)" }
 }
 if ($keptProse.Count -gt 0) {
