@@ -122,8 +122,31 @@ entries rather than off which section they sit in.
   `plugins/<plugin>/`; the `connectors/` directory does not count) — which the release notes read to
   say which plugins a change touched. It served the per-plugin CHANGELOGs too until those were retired
   on August 8, 2026; the line outlived them because the notes were always a second reader. This
-  commit goes directly onto `main` (the only permitted exception — see
+  commit goes directly onto `main` — the **first of the three** permitted exceptions, the release commit
+  and the release-notes commit being the other two (see
   [the safety rules](../../../CLAUDE.md#safety-rules)).
+- **The same run refreshes the pending tally** — the one line under `## [Unreleased]`, which reads
+  `**4 / 9 minor entries**`: how many of the pending entries reach this repo's audience tier, out of how
+  many are waiting, and which bump that work has earned. It is **derived, never accumulated**:
+  `Set-ChangelogPendingSummary` recounts the entries in the document it is about to write, so no counter
+  exists to drift and a hand-edited list is corrected by the next fold. **The cut rewrites it too**, on the
+  emptied document — the line sits in the changelog's head, which is exactly the part a cut keeps, so
+  without that second call a freshly released changelog would carry an intact count over an empty list.
+  Requested by Dave in
+  [#1515](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1515), and it **adds no path to
+  the exception above**: the tally is written into `CHANGELOG.md`, which is one of the two paths the fold
+  commit was already bounded to.
+- **It was a per-tier breakdown until September 7, 2026** — `**9 entries pending** -- 5 at tier 0, 4 at
+  tier 2. Tier 2 is this repo's audience: 4 of 9 reach it.` — and Dave's instruction on
+  [#1545](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1545) was to keep it short and
+  simple. What survived is the reach fraction and the bump; the buckets went, because they are one `grep`
+  away in the entries the line sits directly above. **The two numbers answer different questions and may
+  differ**: the fraction counts tier 2 and above while the bump follows tier 1 and above, so
+  `**0 / 8 minor entries**` says nothing reaches a subscriber while the version still owes a minor for what
+  reaches management. Naming the bump reversed a stated decision — the rule used to live only in
+  `Test-ReleaseBumpEarned`, in `release-lib`, which the fold does not load — and the way it was reversed is
+  `Get-EntryEarnedBump` in `entry-scaffold-lib`, the layer both callers already share, so there is **one**
+  copy of the rule rather than the second one that decision was written to prevent.
 
 #### Entry format
 
@@ -168,9 +191,18 @@ description while building; ownership of the entry mechanism stays Rendall's.
    **this** repo's direct-on-`main` exception, which is what the path-scoped commit exists to keep honest,
    and the branch part of the two-machine lesson sits with
    [Derek #05](specialist-05-05-lens.md#branch--repo-hygiene).
-   The fold also **resets `dkj-policy/<branch>.md`** to its empty state and names it in the
-   same commit, so the trunk is ready for the next branch instead of showing the merged one's ticked-off
-   steps. One write clears both halves, which is why the commit's scope is two paths rather than three.
+   The fold also **REMOVES `dkj-policy/<branch>.md`** — `Remove-Item` in
+   [`fold-changelog-entry.ps1`](../../../scripts/release/fold-changelog-entry.ps1), not a rewrite to an
+   empty state — and names it in the same commit, so the trunk carries no copy of that document at all
+   rather than an emptied one. That is why the commit's scope is two paths rather than three, and why
+   nothing has to be re-read after a fold.
+   **The scope grew by one path on August 6, 2026 and the exception did not widen with it**: the step
+   list went with the entry, so leaving it out would have produced a commit that cleared half the
+   pair — the entry gone from `main` while the step list still showed the merged branch's ticked boxes.
+   Since the two files became one document that argument reaches only a branch cut before the merge,
+   because one document is removed in one move. And the bound has been **enforced rather than merely
+   intended since August 2, 2026**: the commit names its paths, so nothing else in the tree can ride
+   along. Committing stays opt-in, because it is this exception being used.
 3. **More branches merged** → each brings its entry; each gets inserted at the position its own impact
    table ranks it at, so the list stays ordered furthest-reach-first as it grows.
 
@@ -181,6 +213,16 @@ A release here is a **recorded moment**: all plugins get the same version number
 nothing to GitHub Releases — only a git tag, the full notes in `dkj-policy/releases/changelog/`, and a
 reference to them in `CHANGELOG.md`. Publishing a GitHub Release is a manual closing step Rendall walks
 through afterward, per the `cut-release` skill's checklist — not automated by the script.
+
+**Several paragraphs in this section, and the live-stage section further down, were
+`dkj-policy/CONTRIBUTING.md`'s until #2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
+What came across is this repo's own answers and its measured instances; the portable half stays in
+[`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md).
+
+**Repo-wide and in lockstep works because this repository holds *one* product** whose plugins are one
+system — see [One product, one repository](../../../README.md#one-product-one-repository). A second,
+unrelated product would get its own repository and marketplace rather than joining this release train.
 
 **Here that happens at *every* release, patch included, and the body is GENERATED** (Dave, August 4,
 2026, revised August 10, 2026). The two halves of that decision have separate reasons, so keep them apart:
@@ -235,6 +277,27 @@ Measured here across `v3.0.2`, `v3.0.4` and `v3.0.5` (July 30–31, 2026) — th
 independent releases, and the `update` half being the measurement that broke the tidier generalisation
 this lens used to state as one rule. Rendall's local obligation is unchanged: **name the refresh command
 in the closing report of every release.**
+
+**Where the generated documents live, since the step names and the tree do not line up by themselves**:
+the changelog notes are `dkj-policy/releases/changelog/<major>.x/<version>.md` and the GitHub notes
+`dkj-policy/releases/github/<major>.x/<version>.md` — **the same answer here as in a consumer**, which is
+the part that changed on August 26, 2026
+([#914](https://github.com/DaveKJohn/claude-code-specialists/issues/914)). Both trees sat at this repo's
+root until then, on the reasoning that `Test-IsWorkflowSourceRepo` keeps a source's root files at the
+root. That reasoning covers the files a repo would have anyway — its changelog, its release list — and
+these are not those: **nothing writes them but a cut**, so they belong to the workflow wherever it runs.
+`Get-ReleaseChangelogNotesRoot` and `Get-ReleaseGithubNotesRoot` still answer this per repo; they simply
+no longer answer it differently for the source. The first of those was `Get-ReleaseDevelopmentNotesRoot`
+until [#947](https://github.com/DaveKJohn/claude-code-specialists/issues/947) the same day — #914 had left
+it, on the reasoning that renaming a seam is a contract change a consumer has to act on: **right about the
+cost, wrong about who pays it**, since `Get-SeamValue` takes an array of names, so both read sites read the
+old name too and a consumer who had defined it acts on nothing.
+
+**That layout question had an owner before it had an answer.**
+[#894](https://github.com/DaveKJohn/claude-code-specialists/issues/894) used to ask for a step creating
+*three* kinds of release note under one root inside the workflow folder; its August 26, 2026 edit dropped
+that step because #914 carried the subject out the same day. The three note roots are siblings now, so the
+layout question has an answer rather than an owner.
 
 The note roots, all three under the workflow folder's `releases/` since #914 (August 26, 2026) -- `dkj-policy/releases/` today, `contributing-davekjohn/releases/` until #1437 (September 5, 2026); `releases/`
 at the repo root now holds nothing but the release list:
@@ -359,6 +422,12 @@ higher → minor**, and a **major** additionally needs 10 minors in the current 
 repo-internal work used to be refused outright — the answer is that announcing nothing is precisely what a
 patch is for. And a minor used to demand a tier-2 entry, so tier-1 work earned only a patch.
 
+**This repo runs that shared floor unchanged, and says so out loud because the portable page asks every
+repo to.** Where a repo's own rule is stricter than the gate's, a contributor otherwise picks their bump
+type from the wrong rule — **here there is no stricter rule**. In code it is one line: the `EarnedBump`
+that `Get-PendingRelease` computes in
+[`release-lib.ps1`](../../../scripts/lib/release-lib.ps1).
+
 **What keeps the looser rule honest is that the documents follow the TIER, not the bump.** A tier-1-only
 minor writes the internal note and no consumer document, because the consumer-document condition asks for a tier-2 entry
 rather than for a bump type. So a consumer is never handed a document about work they cannot see, even
@@ -383,7 +452,35 @@ a release is one procedure, and running it across two routes left the trunk hold
 own notes were still in review. The old route's worked instance stands as a record and is why nobody should
 reopen this as a *failure* of the PR route: `v3.2.0`'s internal note shipped that way
 ([PR #432](https://github.com/DaveKJohn/claude-code-specialists/pull/432)) with gates green, entry folded,
-and nothing about being post-tag causing friction.
+and nothing about being post-tag causing friction. The route was never *failing* — it was working and
+**split in two**, which is a different complaint and the one that decided it.
+
+**What does not change with the route.** The tag still holds the *draft* — the cut commits and tags in one
+motion, so the written version lands in the following commit either way — and the gates still run: being
+off a branch skips the PR, not the lint and the suites. `open-pr.ps1 -GatesOnly` is how you run them from
+the trunk:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/open-pr.ps1 -GatesOnly
+```
+
+**[`releases/history.md`](../../../dkj-policy/releases/history.md) is the living index** — the cut inserts
+its own row, so **never add one by hand** for a release a script will write. Beside it,
+[`releases/README.md`](../../../dkj-policy/releases/README.md) is a different document: this repo's answers
+to the portable release page. They shared the name `README.md` until August 27, 2026, when the list moved
+into the workflow folder and had to stop.
+
+**Everything under `dkj-policy/releases/audience/` is a published record**: links may be repointed when a
+target moves, prose is never rewritten. **What that protects is a line that was TRUE when it was
+published** — going stale afterwards is the record working. A line that was **false when it was written**
+is not protected by it, and correcting one restores the record rather than breaking it; the rule, and how
+to mark the correction, are in
+[`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md#once-it-has-landed-it-is-a-published-record--and-that-protects-only-what-was-true).
+**The worked example is one sentence carried across two adjacent notes**: the publication item in
+`4.10.0.md` was true at its merge and overtaken an hour later — stale, deliberately untouched — while
+`4.11.0.md` inherited it, updated the count without re-reading the target, and was therefore false on
+arrival and is corrected. That is the failure to watch for here: **a stale line copied forward becomes a
+false line.**
 
 **Worth knowing why any of this is written down at all:** until August 4, 2026 the route was an
 *assumption* presented as a rule in `CLAUDE.md`,
@@ -416,7 +513,8 @@ does everything in one motion:
 `cut-release.ps1 (-Version <X.Y.Z> | -Bump <major|minor|patch>) [-Title "…"] [-SummaryFile <path>]` on
 a clean `main`:
 1. bumps all plugin versions in lockstep to `X.Y.Z`;
-2. generates `dkj-policy/releases/changelog/<X>.x/<X.Y.Z>.md`, adds a row to `releases/README.md`, and **empties
+2. generates `dkj-policy/releases/changelog/<X>.x/<X.Y.Z>.md`, adds a row to the release list
+   `Get-ReleaseHistoryPath` names (`dkj-policy/releases/history.md` here), and **empties
    `CHANGELOG.md` down to its intro** — the intro passes through verbatim, so whatever the repo says about
    itself up there survives every cut, in whatever language it wrote it;
 3. **(retired, August 8, 2026 -- Dave)** steps 3 and 4 used to write a per-plugin `CHANGELOG.md` and
@@ -438,6 +536,12 @@ a clean `main`:
 5. commits that directly on `main` (`release: vX.Y.Z`) and sets an annotated tag `vX.Y.Z`;
 6. pushes `main` + the tag (unless `-NoPush` for prior inspection).
 
+**Once a cut has been asked for, the closing steps of that same checklist are covered by the request** —
+including publishing the GitHub Release. The version bump and the tag are the irreversible act, and
+stopping again at the last step of the same checklist is a rubber stamp. **The one part never covered by
+it is a live push**, which this repo does not have — see
+[the live stage](#the-live-stage-and-why-ship-main-is-a-no-op-here).
+
 **Before a MAJOR cut, two edits come first — the section and the pin.** A `X.0.0` cut stops before
 writing anything, because the row would be filed under the previous major's table and nothing would
 error — a silent misfile, which is why the guardrail speaks up. Both edits are made **by hand, directly
@@ -457,6 +561,13 @@ leaves to a person, and the assert is one fact deliberately written twice, so th
 it is the day it stops catching a half-done edit. It caught exactly that at `v4.0.0`: the assertion went
 red the moment the section was opened, which is what forced the second commit instead of letting the
 pair land half-done.
+
+**Both commits are on the record, which is what makes the bound checkable after the fact**: cutting
+`v4.0.0` took `b2cea9c` (the `#### 4.x` heading plus its empty table header) and `1d2d3ff` (the pin, with
+the reason written above it) before the cut would run at all. Both were made by hand, on `main`, while the
+exception on paper still covered only the release commit itself — which is exactly what the August 9
+decision then wrote down. **And a major is not rare**: `v1.0.0` through `v4.0.0` fell on July 14, July 23,
+July 30 and August 9, 2026, one every nine days or so.
 
 Guardrails: on a clean `main`, no unfolded entry — neither a pre-split file in the root nor a filled
 `dkj-policy/<branch>.md`, which is its own check because a filled one looks like the reset
@@ -1002,6 +1113,49 @@ therefore landed below the marker. The tier asks the entry's author instead, so 
 seam knobs are retired; a `docs/` branch carrying a tier-2 change now says so, and the prefix decides
 nothing but which category heading the entry is grouped under.
 
+### The live stage, and why SHIP MAIN is a no-op here
+
+**This material was `dkj-policy/CONTRIBUTING.md`'s last cut step and the shipping step after it, until
+#2179 retired that page**
+([why, and where the rest of it went](specialist-06-16-lens.md#the-two-pages-the-workflow-folder-used-to-carry-and-why-they-are-gone)).
+
+**The cut's last step is optional because it depends on one seam answer, and here that answer is no**
+(Dave, [#894](https://github.com/DaveKJohn/claude-code-specialists/issues/894), August 26, 2026). Where
+`Get-LiveStage` names a stage — a Shopify repo, where `main` still has to be pushed to a live theme before
+a customer sees anything — the cut **stops there** and waits for a `SHIP MAIN` or `PUSH LIVE` command.
+Where it is empty, as it is in this repo, merging to `main` already is publication and there is nothing to
+wait for.
+
+**The wait sits at the end of the cut rather than at the start of the shipping step, and the distinction
+is the point.** The waiting is the last thing the *cut* does; what follows the command is the shipping
+step's single act. Putting the condition inside that step read as though the cut had already finished,
+which is what the August 26 move corrected.
+
+**So the shipping step is a no-op here, and that is an answer rather than an omission.** `Get-LiveStage`
+returns empty: there is no separate live stage between `main` and the audience, because the marketplace is
+read from this repository — the next `claude plugin marketplace update` a consumer runs sees whatever the
+trunk holds.
+
+**It is not a no-op in every repo that runs this workflow, which is why the step exists at all.** A
+consumer with a live stage answers `Get-LiveStage` with that stage, and then the order is load-bearing:
+the audience notes describe what the audience can see, so publishing them before the push describes
+something that is not there yet.
+
+**And where a repo does have a live stage, that push is its own class of action.** A Release document
+describes a version; a live push changes what customers see. So it is **never** covered by the request
+that authorised the cut — it needs Dave's word of its own, separately, however far the release checklist
+has already run. Decision by Dave, August 5, 2026.
+
+**Where that push can FAIL OR BE PARTIAL, the cut moves to the end instead** (inbound
+[#1378](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1378), September 4, 2026). A live
+stage with no locking on the target, third parties writing to it, and a per-file rather than wholesale
+push runs the push *first* and makes the cut its documented closing act — cutting first strands a tag, a
+Release and an audience document on a state no customer ever saw. Such a repo's checklist stops **before**
+the bump rather than at the wait, and nothing else about the cut's own steps changes. The condition, and
+why it is prose rather than a seam, are in
+[`cut-release/SKILL.md`](../../../plugins/dkj-policy/skills/cut-release/SKILL.md). **Here the question
+does not arise**, because `Get-LiveStage` is empty.
+
 ### Rendall's toolkit
 
 **Where these live for a consumer, since August 8, 2026.** The paths below are this repo's own
@@ -1029,7 +1183,8 @@ release management. Rendall's craft in such a repo is whatever *that* repo's rel
   omitted, it resolves the repo root as before.
 - `scripts/release/cut-release.ps1 (-Version <X.Y.Z> | -Bump <major|minor|patch>) [-Title "…"] [-NoPush] [-SkipLint] [-SkipTierGate]`
   — cut a repo-wide release, directly on `main`: the **bump gate** (does the pending work earn this bump?)
-  + lockstep bump + release notes in `dkj-policy/releases/changelog/` + `releases/README.md` row +
+  + lockstep bump + release notes in `dkj-policy/releases/changelog/` + a row in the release list
+  `Get-ReleaseHistoryPath` names (`dkj-policy/releases/history.md` here) +
   `CHANGELOG.md` emptied down to its intro + commit + tag `vX.Y.Z` + push. It wrote per-plugin
   `CHANGELOG.md`s and `RELEASE.md` cards until August 8, 2026 — see step 3 above for why it no longer does.
   The pure logic (version bump, CHANGELOG transformation, notes assembly) lives in

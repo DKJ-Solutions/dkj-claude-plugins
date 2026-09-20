@@ -25,7 +25,7 @@ keeping its own copies, and enables or disables **per plugin** which teams and w
 | know **how a specialist is built** | [Manuals — the split model](#manuals--the-split-model) |
 | know **how a repo consumes this** | [Consumption](#consumption) · [Versioning](#versioning) |
 | know **where this runs** (Chat / Cowork / Claude Code) | [Where this runs](#where-this-runs-chat-cowork-and-claude-code) |
-| **contribute a change** | [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md) — one page: the standard branch + PR workflow, which holds with no plugin installed, and the entry, the fold and the cut layered on top of it |
+| **contribute a change** | [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md) — the one contributing page, shipped with the workflow: the standard branch + PR cycle, and the entry, the fold and the cut layered on top of it. The three rules that hold with no plugin installed are in [`CLAUDE.md`](CLAUDE.md) |
 | see **the version history** | [`releases/history.md`](dkj-policy/releases/history.md) |
 
 Everything below this table is the underlying explanation, and the page is long on purpose: it is the
@@ -90,9 +90,9 @@ two kinds of plugin stand in opposite relations to a consumer's own rules:
   and a craft that overrode its host would be worth less, not more — which is what the test question
   below is for.
 - **`dkj-policy` is adopted BY the consumer, and it wins — on the cycle, not on everything.** The
-  workflow's own page says so: *"it sits on top of the repo's `CLAUDE.md` and wins over it on
-  conflict"* (Dave, August 14, 2026, in
-  [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md)). [`CLAUDE.md`](CLAUDE.md) restates it
+  workflow's own page says so: *"where the two disagree, the workflow's page wins"* (Dave,
+  August 14, 2026, in
+  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). [`CLAUDE.md`](CLAUDE.md) restates it
   from the other side **with its scope attached**, and the scope is the half worth quoting: *"where the
   two disagree, the plugin's page wins. It does not replace anything below; it adds the workflow's own
   mechanics."* So what yields is the way work moves — the branch, the gates, the fold — and not a
@@ -476,10 +476,13 @@ The full picture, top-level folder by folder:
   [README](plugins/dkj-policy/scripts/README.md).
 - **`dkj-policy/`** — the workflow's own root folder (named `contributing-davekjohn/` from August 27
   until September 5, 2026, #1437), and since August 27, 2026 the home of
-  every document the contribution cycle produces or governs. Its
-  [`CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md) is the centre of it: the standard branch +
-  PR workflow, which holds with no plugin installed, and this repo's answers to the workflow's seams on
-  top of it. Beside it sit [`CHANGELOG.md`](dkj-policy/CHANGELOG.md), the open branch's
+  every document the contribution cycle produces or governs. **It carries no prose pages of its own**
+  — a `CONTRIBUTING.md` and a `README.md` sat here until
+  [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171), September 20, 2026, when a
+  per-repo restatement beside
+  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md) was retired and this repo's
+  own answers moved into the specialist lenses. What is here is
+  [`CHANGELOG.md`](dkj-policy/CHANGELOG.md), the open branch's
   `<branch>.md` while one is open, and `releases/` — what a cut *generated*
   (`changelog/<X>.x/<X.Y.Z>.md`, the complete note per version, and `github/<X>.x/<X.Y.Z>.md`, that
   version's GitHub Release body), the hand-written note per version under `audience/`, the dated list of
@@ -502,7 +505,8 @@ The full picture, top-level folder by folder:
   **`.github/`** (`pull_request_template.md`, the issue templates + three workflows: `workflows/ci.yml`,
   the CI gate that runs the lint + test suites on every PR and push to `main`, plus
   `workflows/claude.yml` and `workflows/claude-code-review.yml`, which answer an `@claude` mention and
-  review each PR. Only `ci.yml`'s job blocks a merge; see [`CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md)).
+  review each PR. Only `ci.yml`'s job blocks a merge; see
+  [Derek's lens](.claude/specialists/lenses/specialist-05-05-lens.md)).
 
 ## Consumption
 
@@ -1554,13 +1558,21 @@ its own marketplace. See [One product, one repository](#one-product-one-reposito
 ## Contributing
 
 Changes to this repo go through a branch + Pull Request to `main`, and that much holds whether or not
-any plugin is installed — it is the **standard workflow**, three rules long, and since August 27, 2026 it
-opens [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md) rather than a page
-of its own at the root. **The branch dossier, the changelog entry that folds at the merge, the significance
-model and the release cut are the `dkj-policy` layer on top**, and they are described further
-down that same page — this repo's answers — over
-[`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md), the half
-that travels with the plugin. Where the two disagree, the plugin's page wins.
+any plugin is installed — it is the **standard workflow**, three rules long, and it is stated in
+[`CLAUDE.md`](CLAUDE.md), which is where this repo has kept its floor since it retired its root
+`CONTRIBUTING.md` on August 27, 2026. **The branch dossier, the changelog entry that folds at the
+merge, the significance model and the release cut are the `dkj-policy` layer on top**, and they are
+described in [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md), the page that
+travels with the plugin. Where the two disagree, the plugin's page wins.
+
+**There is one contributing page and no per-repo restatement of it**
+([#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171), September 20, 2026). A
+`dkj-policy/CONTRIBUTING.md` and a `dkj-policy/README.md` carried this repo's own answers until that
+day; both are retired, and each answer now sits in the lens of the specialist who owns it —
+[Sylvester's](.claude/specialists/lenses/specialist-05-15-lens.md) for the pull-request gates and the
+seam table, [Derek's](.claude/specialists/lenses/specialist-05-05-lens.md) for the issue and merge
+layers, [Rendall's](.claude/specialists/lenses/specialist-05-06-lens.md) for the fold and the cut, and
+the [specialists handbook](.claude/specialists/README.md) for keeping a checkout's plugins current.
 
 The governance is in [`CLAUDE.md`](CLAUDE.md): the safety rules, the three direct-on-`main` exceptions
 and their bounds, and this repo's own gates. **The roster and the routing are not there** — they sit

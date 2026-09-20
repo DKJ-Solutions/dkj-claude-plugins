@@ -3,8 +3,9 @@
     Gate: does this checkout commit as the same account it acts as on the tracker? (issue #1315)
 
 .DESCRIPTION
-    THE HOLE THIS CLOSES. The claim rule -- Chris's persona body and
-    dkj-policy/CONTRIBUTING.md both prescribe `gh issue edit <n> --add-assignee @me` --
+    THE HOLE THIS CLOSES. The claim rule -- Chris's persona body, and a repo's own
+    dkj-policy/CONTRIBUTING.md where it still carries one (#2171 stopped scaffolding that page,
+    September 20, 2026), both prescribe `gh issue edit <n> --add-assignee @me` --
     resolves `@me` through the GitHub API, so it writes whichever account `gh` holds. Nothing anywhere
     compared that against the identity `git` commits as. Measured on DAVE-KOK-BWJ (September 3, 2026):
     `gh` was authenticated as `DaveKJohn` while `git config user.name` read `davekokbwj`, so claiming

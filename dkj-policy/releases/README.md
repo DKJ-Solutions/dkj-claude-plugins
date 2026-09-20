@@ -31,7 +31,7 @@ answered rather than overruled. A per-reader **note** is the opposite: it exists
 tier model does, so it is the workflow's and stays. Both moved here together on August 14; only the list
 moved back.
 
-The split is the same one [`CONTRIBUTING.md`](../CONTRIBUTING.md) already uses: the portable half travels
+The split is the same one [`CONTRIBUTING-portable.md`](../../plugins/dkj-policy/CONTRIBUTING-portable.md) already uses: the portable half travels
 with the plugin, the local half stays in the repo. Until August 13, 2026 both halves lived on this page
 behind a horizontal rule, and two consumers hand-maintained a 4,154-word verbatim mirror of the top half
 because that was the only way to keep it from drifting — inbound

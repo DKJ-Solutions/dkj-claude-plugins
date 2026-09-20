@@ -9,7 +9,7 @@ specific to this repo comes last**, under
 where they are installed, and nothing below assumes either one is:
 
 - **`dkj-policy`** — the branch, entry and release mechanics, on its own page
-  [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md).
+  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md).
 - **`dkj-subagents-alpha`** — the specialists, reached through the single `@`-import at the foot of this file.
 
 Uninstall both and this guide still describes how the repo is run: the rules below are the repo's own,
@@ -360,24 +360,26 @@ whether or not a plugin is installed — the branch, the PR, the required CI che
 gates, and the three direct-on-`main` exceptions with their bounds. **The layer on top** is the
 `dkj-policy` plugin, which carries its own page:
 
-📄 **[`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md)**
+📄 **[`plugins/dkj-policy/CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)**
 
 **When the plugin is installed, that page applies on top of this one — and where the two disagree, the
-plugin's page wins.** It does not replace anything below; it adds the workflow's own mechanics (the four
+plugin's page wins.** It does not replace anything below; it adds the workflow's own mechanics (the
 gates on the branch dossier, how those three exceptions actually run, the measurements behind them).
 
-**That folder carries one page, and no root `CONTRIBUTING.md` layers under it any more** (Dave,
-August 26 and 27, 2026, in the same instruction that moved `CHANGELOG.md` and the release history
-there). Both moves, and what the second one cost — GitHub shows its *Contributing guidelines* link
-only for a page in the root, `docs/` or `.github/` — are written out on the page itself, and the
-reasoning per file sits at its own seam in
-[`scripts/repo-config.ps1`](scripts/repo-config.ps1). The reason the layer exists at all is
-unchanged: this file loads on **every** session, that page only when a session touches that folder.
+**The `dkj-policy/` folder carries no prose pages any more** (Dave,
+[#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171)): a per-repo `CONTRIBUTING.md`
+and `README.md` beside the portable page made *"there is only one CONTRIBUTING"* false in the repo that
+ships the sentence. **Each answer moved to the lens of the specialist who owns it**;
+[Tessa's](.claude/specialists/lenses/specialist-06-16-lens.md) records what the pages were, what the
+move cost, and where every passage landed.
 
 The constitution above, concretely implemented here:
 
 - **The main branch is `main`.** All changes via a `<prefix>/<short-name>` branch + PR to
-  `main`. Valid prefixes ([`scripts/lib/branch-info.ps1`](scripts/lib/branch-info.ps1)):
+  `main`, **one change per branch**, described in the PR, and the branch deleted after the merge.
+  That third rule is the one the `main` ruleset cannot enforce — it enforces the branch and the
+  required check on the server, and this one is kept by whoever opens the branch.
+  Valid prefixes ([`scripts/lib/branch-info.ps1`](scripts/lib/branch-info.ps1)):
   `feat/` → enhancement · `fix/` → bug · `docs/` → documentation. **Three, and `chore/` is refused**
   (Dave, August 7, 2026): chore is the name for work that lands *directly on the trunk* under one of the
   named exceptions, so a chore branch is a contradiction. `Chore` remains a recognised changelog **type**
@@ -422,8 +424,7 @@ The constitution above, concretely implemented here:
   stated here any more, deliberately**: both went stale as gates were added, and a wrong number reads as
   authority. Their mechanics, escape valves and
   the measurements behind them are in
-  [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md), under its PULL REQUEST step -- each gate
-  sits at the point where it fires rather than in a list of its own.
+  [Sylvester's lens](.claude/specialists/lenses/specialist-05-15-lens.md).
 - **The staleness race is answered by detect-and-rebase, and a merge queue is no longer the policy**
   (Dave, September 7, 2026, [#1546](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1546)).
   `ship-pr.ps1` dates the run behind the required check `lint-en-tests`, counts what `main` gained after
@@ -527,9 +528,7 @@ The constitution above, concretely implemented here:
   **An exception is only safe while it stays the size it was granted at**, which is why every bound
   above is stated here rather than left to the layer below. How the three actually run, the
   measurements behind each, and both halves of that August 4 reversal are in
-  [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md) -- the fold under its PULL
-  REQUEST step, the release commit and the notes commit under CUT RELEASE --
-  and in [the release lens](.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
+  [the release lens](.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
 - **This repo is `public`.** A deliberate choice, so the remote `github` marketplace source can be
   read without gh auth. Consequence: **nothing confidential** belongs here — no personal
   information, credentials, or secrets. The core team's (`dkj-subagents-alpha`) agent defs are therefore

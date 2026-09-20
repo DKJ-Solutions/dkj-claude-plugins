@@ -425,6 +425,11 @@ else {
     # AND IT MUST NOT BE ONE OF THIS FOLDER'S OWN RESERVED PAGES (#1497, and #1493's own PR before it --
     # the first real fold-all run against this tree since CHANGELOG.md, CONTRIBUTING.md and README.md
     # started sharing this directory with every branch's dossier, #1437).
+    # TWO OF THOSE THREE PAGES NO LONGER EXIST IN THIS REPO (#2171/#2179, September 20, 2026), AND THE
+    # EXCLUSION IS UNCHANGED. The reasoning is at ReservedNames in entry-scaffold-lib.ps1, which owns the
+    # list: it names a page this folder MAY hold, not one the repo in front of you currently holds, and
+    # every consumer adopted before that day still carries both. The measurements below are dated and keep
+    # the tree they were taken against -- they are evidence about a real run, not a claim about today.
     #
     # THREE REAL, MEASURED FALSE POSITIVES, NOT A HYPOTHETICAL ONE -- and between them they rule out
     # reaching for a content-based fix instead of a name-based one. CHANGELOG.md's own newest

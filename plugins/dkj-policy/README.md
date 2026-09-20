@@ -57,14 +57,18 @@ seam wherever your repo owns the answer instead of asserting one repo's answer a
 `## Specific to this repo` section on whichever page carries your floor -- normally your root
 `CONTRIBUTING.md`, and see that page's closing section for when it is not -- holding your values; the source
 repo's
-[own answers](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/dkj-policy/CONTRIBUTING.md)
+[own answers](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/.claude/specialists/lenses)
 are a worked example of that half.
 
-**That link moved on August 27, 2026, and the old one is why this sentence is worth reading twice.** It
-pointed at the source's ROOT `CONTRIBUTING.md`, which #980 deleted -- so the worked example this page
-offered a consumer was a 404, while the sentence around it still told them to put their values in a root
-page unconditionally. The source keeps its floor in `dkj-policy/CONTRIBUTING.md` now, and which
-file carries yours is your answer to make.
+**That link has moved twice, and both moves are why this sentence is worth reading twice.** It pointed at
+the source's ROOT `CONTRIBUTING.md` until August 27, 2026, which #980 deleted -- so the worked example
+this page offered a consumer was a 404, while the sentence around it still told them to put their values
+in a root page unconditionally. It then pointed at that repo's `dkj-policy/CONTRIBUTING.md`, which
+[#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171) retired on
+September 20, 2026: **a per-repo restatement beside the portable page above was what made two pages out
+of one contributing page, which is the duplication that issue removed.** The source repo keeps its floor
+in `CLAUDE.md` and puts each of its own answers in the lens of the specialist who owns it; which file
+carries yours is still your answer to make.
 
 **And if your work arrives from somebody else's tracker, that layer is step 1 of the cycle rather than a
 page of its own.** [The ticket-work section](CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch)
