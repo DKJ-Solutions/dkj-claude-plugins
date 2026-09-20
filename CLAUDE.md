@@ -190,7 +190,7 @@ that machine unlinks the plugin without any error. A machine that has never run 
 such record and has nothing to unlink — the record is per-machine state, not a fixed property of the
 repo (inbound [#1449](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1449)). Both measured
 instances, and why detection is deliberately left alone, are in
-[the system-administration lens](.claude/specialists/lenses/05-15-extension.md#repo-specific-rules).
+[the system-administration lens](.claude/specialists/lenses/specialist-05-15-lens.md#repo-specific-rules).
 
 **That paragraph describes ONE channel, and there are two — the second reaches a consumer's CI with no
 version behind it at all** ([#1851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1851),
@@ -256,7 +256,7 @@ is silent, without it the `[ERROR]` returns.
 output, and script-generated document content. **The session-reply language is separate and follows
 the user.** That second half applies to every turn regardless of which files it touches, which is why
 it lives here rather than in a path-scoped rule. The system-wide norm (and its three exceptions) is in
-[the technical writer's portable manual](plugins/dkj-subagents/dkj-subagents-alpha/manuals/06-16-manual.md#what-tessa-covers)
+[the technical writer's portable manual](plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md#what-tessa-covers)
 under **"Guarding the language convention,"** so it travels to every consuming repo.
 
 **The per-layer detail — which layers are in scope, and the deliberate exceptions (`VUL-IN`,
@@ -384,7 +384,7 @@ The constitution above, concretely implemented here:
   — every entry already written under it still has to validate — it just has no prefix any more. The rule
   had always held and was never enforced; measured on the day it was written down, `chore/` had been used
   12 times. See
-  [the branch-taxonomy lens](.claude/specialists/lenses/05-05-extension.md#classifying-naming-and-creating-a-branch).
+  [the branch-taxonomy lens](.claude/specialists/lenses/specialist-05-05-lens.md#classifying-naming-and-creating-a-branch).
 - **The lint and test gates are the safety guard before every PR.**
   [`scripts/lint/check-plugin-integrity.ps1`](scripts/lint/check-plugin-integrity.ps1) validates the
   manifests (`marketplace.json` + every `plugin.json`) and the agent-def and manual frontmatter,
@@ -393,10 +393,10 @@ The constitution above, concretely implemented here:
   defect three adoption rounds in a row kept producing; after that all test suites run
   (`scripts/tests/*.tests.ps1`), exactly as CI
   does. `open-pr.ps1` runs both gates first; on an error or a failing suite nothing is pushed and
-  no PR is opened (`-SkipLint`/`-SkipTests` are the escape valves). See [the system-administration lens](.claude/specialists/lenses/05-15-extension.md).
+  no PR is opened (`-SkipLint`/`-SkipTests` are the escape valves). See [the system-administration lens](.claude/specialists/lenses/specialist-05-15-lens.md).
 
   **Why these checks have the shape they do — and every rule that was measured and DECLINED — is in
-  [the system-administration lens](.claude/specialists/lenses/05-15-extension.md#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)**:
+  [the system-administration lens](.claude/specialists/lenses/specialist-05-15-lens.md#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)**:
   the entry-format count and the four candidate rules behind it, the stale-path check declined at 124
   findings all false, the PR template measured over 60 PRs, and the two repairs it took to reach
   `CHANGELOG.md`'s intro. **Read it before changing any check above** — most of what looks arbitrary
@@ -442,8 +442,8 @@ The constitution above, concretely implemented here:
   it, because every runner named there was kept for the GitHub UI merge button, which no repo can retire.
   What stood here was a conditional waiting on a ruleset change nothing reports back on, so it went on
   handing every session the wrong answer from the day it was satisfied; the measurement is in
-  [Sylvester's lens](.claude/specialists/lenses/05-15-extension.md) and the writing lesson in
-  [Tessa's](.claude/specialists/lenses/06-16-extension.md).
+  [Sylvester's lens](.claude/specialists/lenses/specialist-05-15-lens.md) and the writing lesson in
+  [Tessa's](.claude/specialists/lenses/specialist-06-16-lens.md).
 - **And one guard fires *after* the merge, on the trunk.** The fold runs from `ship-pr.ps1`, as the
   shipping session's own step once its own merge call returns — so a merge that session never observes
   never folds: a PR merged from the GitHub UI, or, while the merge queue is live on `main-ci-gate`
@@ -483,7 +483,7 @@ The constitution above, concretely implemented here:
   `FOLD_PUSH_TOKEN`. All three are Sylvester's; the reasoning, that decision, and
   how to tell the three ways `fold-on-merge.yml` goes red apart (the checkout failing on the token, the
   fold refusing, the fold succeeding and its push rejected — inbound #1539), are in
-  [his lens](.claude/specialists/lenses/05-15-extension.md#what-sylvester-owns-here).
+  [his lens](.claude/specialists/lenses/specialist-05-15-lens.md#what-sylvester-owns-here).
 - **Three deliberate exceptions to "never directly on `main`", each one bounded.** Together they are
   one procedure read end to end — **fold the changelog, bump the version, write the release notes** —
   and that is why they are the three (Dave, August 23, 2026):
@@ -529,7 +529,7 @@ The constitution above, concretely implemented here:
   measurements behind each, and both halves of that August 4 reversal are in
   [`dkj-policy/CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md) -- the fold under its PULL
   REQUEST step, the release commit and the notes commit under CUT RELEASE --
-  and in [the release lens](.claude/specialists/lenses/05-06-extension.md#versioning--releases).
+  and in [the release lens](.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
 - **This repo is `public`.** A deliberate choice, so the remote `github` marketplace source can be
   read without gh auth. Consequence: **nothing confidential** belongs here — no personal
   information, credentials, or secrets. The core team's (`dkj-subagents-alpha`) agent defs are therefore
@@ -584,7 +584,7 @@ system writes its own owner into the top half rather than inheriting Dave.
 the portable half of a rule — and is correct there; do not sweep it.** Those files genuinely travel to
 a consumer through a release, while this repo's constitution travels nowhere on its own. Why the word
 had to be corrected in the three places above, and the miscount the repair itself introduced, are in
-[Tessa's lens](.claude/specialists/lenses/06-16-extension.md#the-portable-word-and-the-count-that-came-with-it).
+[Tessa's lens](.claude/specialists/lenses/specialist-06-16-lens.md#the-portable-word-and-the-count-that-came-with-it).
 
 The one line below is the whole specialist surface of this file. Everything about the team — who they
 are, what each covers, how they are routed to — sits behind it, so removing the plugin is removing one

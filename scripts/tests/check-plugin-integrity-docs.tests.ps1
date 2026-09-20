@@ -1097,8 +1097,8 @@ Write-Host 'fixture'
     $spPersonas = Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-alpha\personas'
     New-Item -ItemType Directory -Path $spManuals  -Force | Out-Null
     New-Item -ItemType Directory -Path $spPersonas -Force | Out-Null
-    $spManualPath  = Join-Path $spManuals  '99-99-manual.md'
-    $spPersonaPath = Join-Path $spPersonas 'specialist-99-99-persona.md'
+    $spManualPath  = Join-Path $spManuals  'specialist-99-99-manual.md'
+    $spPersonaPath = Join-Path $spPersonas '99-99-persona.md'
     $spAgentPath   = Join-Path $spAgents   '99-99-agent.md'
     [System.IO.File]::WriteAllText($spManualPath, "---`nid: 99`ngroup: 99`n---`n`n# Fixture manual`n", $Utf8NoBom)
 
@@ -1106,7 +1106,7 @@ Write-Host 'fixture'
     $b1 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True ($b1.Out -match 'orphan manual') `
         'check 6b: a manual with neither an agent def nor a persona is still an orphan'
-    Assert-True ($b1.Out -match 'personas/specialist-99-99-persona\.md') `
+    Assert-True ($b1.Out -match 'personas/99-99-persona\.md') `
         'check 6b: and the finding names the persona path too, so the reader learns the second way out'
 
     # 2. A persona that does NOT name the manual: accepted as a backer, refused for being silent. This is
@@ -1121,7 +1121,7 @@ Write-Host 'fixture'
 
     # 3. A persona that names it: clean.
     [System.IO.File]::WriteAllText($spPersonaPath,
-        "---`nid: 99`ngroup: 99`n---`n`n# Fixture persona`n`nPlaybook: manuals/99-99-manual.md`n", $Utf8NoBom)
+        "---`nid: 99`ngroup: 99`n---`n`n# Fixture persona`n`nPlaybook: manuals/specialist-99-99-manual.md`n", $Utf8NoBom)
     $b3 = Invoke-Integrity -FixtureRoot $Fixture
     # ASSERTED ON THE FINDING TEXT, not on '[specialist]'. That bracket also opens the coverage line
     # ('[specialist] checked 1'), which this check prints on every run including a clean one -- so the
@@ -1299,6 +1299,108 @@ Write-Host 'fixture'
     [System.IO.File]::WriteAllText($akManifest, $akManifestOrig, $Utf8NoBom)
     Remove-Item -LiteralPath $akConvention -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $akSubagents -Recurse -Force -ErrorAction SilentlyContinue
+
+    # --- check 45: a verdict marker sits at the START of the line a hook-read check writes ------------
+    #     THE RULE IS BORN GREEN ON THE REAL TREE (issue #2150), which is exactly why it needs scenarios:
+    #     a guard that has never been seen to fire is indistinguishable from one that cannot. So the
+    #     fixture builds the whole derivation -- a hook that SELECTS a marker, and the check script that
+    #     hook names -- and then asserts both directions over it.
+    #
+    #     THE NEGATIVE CASES ARE THE POINT HERE, more than the positive one. Three separate narrowings
+    #     make this check born green, and each of them is a way for it to be silently inert: the writer
+    #     narrowing, the per-subject marker set, and the derivation that only admits a script some hook
+    #     actually reads. A positive-only suite would pass against a check that reported everything.
+    Write-Host "check 45: a verdict marker must open the line a hook-read check writes" -ForegroundColor Cyan
+    $mcHookDir   = Join-Path $Fixture 'plugins\dkj-policy\hooks'
+    $mcCheckDir  = Join-Path $Fixture 'plugins\dkj-policy\scripts\lint'
+    New-Item -ItemType Directory -Path $mcHookDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $mcCheckDir -Force | Out-Null
+    $mcHookPath   = Join-Path $mcHookDir 'mc-sessioncheck.ps1'
+    $mcCheckPath  = Join-Path $mcCheckDir 'check-mc-fixture.ps1'
+    $mcQuietHook  = Join-Path $mcHookDir 'mc-quiet-hook.ps1'
+    $mcQuietCheck = Join-Path $mcCheckDir 'check-mc-unread.ps1'
+
+    # The hook: it names its check by a relative path and selects ONE marker from it. Both facts are read
+    # off this file by the check under test -- nothing here is a list the test planted for it to find.
+    [System.IO.File]::WriteAllText($mcHookPath, (@(
+                '$checkScript = Join-Path $env:CLAUDE_PLUGIN_ROOT ''scripts\lint\check-mc-fixture.ps1''',
+                '$signals = @(Select-CheckMarkerLine -Output $out -Marker ''[ERROR]'')'
+            ) -join "`n") + "`n", $Utf8NoBom)
+
+    # A second hook that reads a check and selects NOTHING -- the Stop hooks and the verbatim relays are
+    # this shape. Its check carries a mid-line marker, and must stay unreported: a script no anchored
+    # selector reads cannot have a finding dropped by one.
+    [System.IO.File]::WriteAllText($mcQuietHook,
+        '$checkScript = Join-Path $env:CLAUDE_PLUGIN_ROOT ''scripts\lint\check-mc-unread.ps1''' + "`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText($mcQuietCheck,
+        'Write-Host "note: [ERROR] nothing anchored reads this script"' + "`n", $Utf8NoBom)
+
+    # 45a. THE CLEAN SHAPE. Column 0, an indented continuation (which the '^\s*' anchor allows), and a
+    #      marker no hook selects from this script -- none of the three may be reported.
+    [System.IO.File]::WriteAllText($mcCheckPath, (@(
+                'Write-Host "[ERROR] the check wrote this at column 0"',
+                'Write-Host "  [ERROR] and this behind its own indentation"',
+                'Write-Host "reported value: [SKIP] which no hook selects from here"'
+            ) -join "`n") + "`n", $Utf8NoBom)
+    $mc1 = Invoke-Integrity -FixtureRoot $Fixture
+    # MATCHED ON THE FINDING'S OWN SENTENCE, not on the category tag. Every run prints a
+    # '[marker-column] checked N' coverage line, so an absence assert written against the tag alone can
+    # never pass -- which is exactly how this scenario failed first time round, reporting the check as
+    # broken when the test was.
+    Assert-True (-not ($mc1.Out -match 'writes the verdict marker')) `
+        'marker-column: a marker at column 0, an indented one, and one no hook selects are all clean'
+    Assert-True ($mc1.Out -match '\[marker-column\] checked [1-9]') `
+        'marker-column: and the emissions were actually counted, so the clean verdict is not an empty scan'
+    Assert-True (-not ($mc1.Out -match 'check-mc-unread')) `
+        'marker-column: a check no anchored selector reads is not a subject, mid-line marker and all'
+
+    # 45b. THE DEFECT ITSELF -- the line #2150 was filed about. It must name the file, the marker, the
+    #      column and the hook that would drop it, because a finding that says only "wrong" leaves the
+    #      author to rediscover which of the eight hooks is affected.
+    [System.IO.File]::WriteAllText($mcCheckPath,
+        'Write-Host "note: [ERROR] a finding the hook will silently drop"' + "`n", $Utf8NoBom)
+    $mc2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($mc2.Out -match '\[marker-column\].*check-mc-fixture\.ps1') `
+        'marker-column: a marker written mid-line is reported, naming the script'
+    Assert-True ($mc2.Out -match "\[marker-column\].*'\[ERROR\]'") `
+        'marker-column: and the marker it found'
+    Assert-True ($mc2.Out -match '\[marker-column\].*mc-sessioncheck') `
+        'marker-column: and the hook that selects it, so the author is not left to find which one'
+    Assert-True ($mc2.Code -eq 1) 'marker-column: and the finding fails the gate rather than only printing'
+
+    # 45c. THE RECONSTRUCTION, which is the whole reason the unit is the emitted line rather than the
+    #      string literal. Here the marker DOES open its own literal and does NOT open the printed line.
+    #      A per-literal rule -- the shape #2150 proposed -- passes this, so this scenario is what
+    #      separates the two.
+    [System.IO.File]::WriteAllText($mcCheckPath,
+        'Write-Host ("note: " + "[ERROR] opens its literal but not its line")' + "`n", $Utf8NoBom)
+    $mc3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($mc3.Out -match '\[marker-column\].*check-mc-fixture\.ps1') `
+        'marker-column: a marker opening the SECOND half of a concatenation is judged on what the line prints'
+
+    # 45d. And the same over '-f', where the format string is kept and its arguments dropped: a '{0}'
+    #      standing in front of the marker is itself non-whitespace, so the line is still off the anchor.
+    [System.IO.File]::WriteAllText($mcCheckPath,
+        'Write-Host ("{0}: [ERROR] behind a format placeholder" -f $thing)' + "`n", $Utf8NoBom)
+    $mc4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($mc4.Out -match '\[marker-column\].*check-mc-fixture\.ps1') `
+        'marker-column: a marker behind a -f placeholder is reported too'
+
+    # 45e. THE WRITER NARROWING, asserted rather than trusted. A marker mid-string in a DATA field is
+    #      what check-script-contract.ps1 really carries, and it reaches no hook -- so it must stay clean
+    #      or the check is born needing an exemption for the tree it was measured against.
+    [System.IO.File]::WriteAllText($mcCheckPath, (@(
+                '$record = @{ Default = ''an absent declaration is a [ERROR] here, stated as a choice'' }',
+                'Write-Host "[ERROR] the only line this script actually writes"'
+            ) -join "`n") + "`n", $Utf8NoBom)
+    $mc5 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($mc5.Out -match 'writes the verdict marker')) `
+        'marker-column: a marker in a data field, outside any writer, is not an emitted line and is clean'
+
+    Remove-Item -LiteralPath $mcHookPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $mcQuietHook -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $mcCheckPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $mcQuietCheck -Force -ErrorAction SilentlyContinue
 
     # --- -SkipCheck: the guard rails around the one parameter that can make this gate check less ------
     #     The parameter exists for THIS suite and nothing else. Its failure mode is silence -- a gate

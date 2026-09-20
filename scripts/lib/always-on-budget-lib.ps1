@@ -249,6 +249,18 @@ function Get-AlwaysOnMeasurement {
         Total is Measured + Carried. Unmeasured contributes NOTHING and is reported, because a document
         counted as zero makes the path look healthier than it is, which is the one wrong answer this
         whole lib exists to stop.
+
+        AND A FOURTH SET THAT CUTS ACROSS THE OTHER THREE: Dead -- an import this run can PROVE is not
+        there (Get-ImportAbsenceKind). It is not a fourth bucket in the sum: a dead import may also be
+        carried, and then its recorded bytes stay in the total exactly as before, because dropping a
+        term the run merely could not read is what would make the next branch read as growth. What
+        changes is only what is SAID about it. The two facts are independent and both are true:
+        the figure is carried, and the document is not being loaded.
+
+        That the question is asked BEFORE the carried branch is the point rather than an ordering
+        detail. A figure in the baseline says what a document USED to cost; it is no evidence at all
+        that anything still loads it. Asking afterwards would let this lib's own memory hide the one
+        failure it exists to surface.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
@@ -266,6 +278,7 @@ function Get-AlwaysOnMeasurement {
     $measured = New-Object System.Collections.Generic.List[object]
     $carried = New-Object System.Collections.Generic.List[object]
     $unmeasured = New-Object System.Collections.Generic.List[object]
+    $dead = New-Object System.Collections.Generic.List[object]
     $measuredBytes = [int64]0
     $carriedBytes = [int64]0
     $diskBytes = [int64]0
@@ -280,6 +293,15 @@ function Get-AlwaysOnMeasurement {
                 Key = $key; Display = $d.Display; Bytes = [int64]$d.LfBytes; DiskBytes = [int64]$d.Bytes; Source = $d.Source
             }) | Out-Null
             continue
+        }
+        # DEAD OR MERELY UNSEEN -- asked here, ahead of both branches below, for the reason in this
+        # function's header. ImportedBy is required: a root document that is not there is a missing
+        # ROOT, which the caller has already refused by the time it gets here, and calling it a dead
+        # import would name something nothing imported.
+        if ($d.ImportedBy -and (Get-ImportAbsenceKind -Path $d.Path -RepoRoot $RepoRoot) -eq 'dead') {
+            $dead.Add([pscustomobject]@{
+                Key = $key; Display = $d.Display; Target = $d.Target; ImportedBy = $d.ImportedBy
+            }) | Out-Null
         }
         if ($recorded.ContainsKey($key)) {
             # CARRIED FORWARD UNCHANGED, so the next baseline write does not quietly drop a term this run
@@ -311,6 +333,7 @@ function Get-AlwaysOnMeasurement {
         Measured      = $measured.ToArray()
         Carried       = $carried.ToArray()
         Unmeasured    = $unmeasured.ToArray()
+        Dead          = $dead.ToArray()
         Sizes         = $sizes
     }
 }
@@ -412,5 +435,6 @@ function Get-AlwaysOnBudgetVerdict {
         ShouldRecord = $shouldRecord
         Unmeasured   = @($Measurement.Unmeasured)
         Carried      = @($Measurement.Carried)
+        Dead         = @($Measurement.Dead)
     }
 }

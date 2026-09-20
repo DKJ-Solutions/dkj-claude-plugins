@@ -308,7 +308,7 @@ function Get-FoldTreeDecision {
 # harness does not get that choice, so the tree-walking checks have to be told rather than left to find
 # out the hard way: every count check-plugin-integrity.ps1 and its test suites take by walking
 # $RepoRoot -Recurse doubles while a nested worktree stands, because it is a second, complete copy of
-# the tree it is standing inside -- measured (issue #1673): plugin.json 6->12, *-agent.md 26->52,
+# the tree it is standing inside -- measured (issue #1673): plugin.json 6->12, *-subagent.md 26->52,
 # SKILL.md 27->54, *.ps1 236->472, and the specialist-id check then reports 26 duplicate-id findings,
 # one per agent def, each accusing the REAL file and naming the worktree's copy as the claimant.
 #

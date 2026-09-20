@@ -1180,6 +1180,108 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
     $ovrOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $ovrChild 2>&1) | Out-String
     Assert-True ($ovrOut -match 'The repository root was given as') 'Resolve-RepoRootOrFail: a bad -Override with no seam named reads as a root, not as a blank flag'
     Assert-True ($ovrOut -notmatch '(?m)^\s+was given as') 'Resolve-RepoRootOrFail: the override line never opens with an empty flag name'
+
+    # --- 9. The dual-name layer for specialist filenames (issue #2130) ------------------------------
+    #     Step A of the #2128 rename series. Every assert below is about the PROPERTY that makes the
+    #     later steps safe -- one written spelling, several read ones -- rather than about today's
+    #     answers, so renaming a kind flips one row in Get-SpecialistFileShapes and this section keeps
+    #     holding. The two places a literal DOES appear are marked; both are pinning a hazard rather
+    #     than an answer.
+    Write-Host "the dual-name layer: one spelling written, both read" -ForegroundColor Cyan
+
+    foreach ($kind in 'Manual', 'Persona', 'Subagent', 'Lens') {
+        $shapes = Get-SpecialistFileShapes -Kind $kind
+        Assert-True ($shapes.AlsoRead.Count -ge 1) "$kind`: there is a second spelling to read at all -- otherwise this layer is doing nothing"
+        Assert-Equal $shapes.Current.Stem $shapes.All[0].Stem "$kind`: the WRITTEN shape leads All, so a reader resolving one id prefers it"
+
+        # A writer has exactly one answer, and it is the first thing a reader looks for. These two
+        # together are the whole safety property: nothing can write a name no reader tries.
+        $written = Get-SpecialistFileName -Kind $kind -Id '04-18'
+        $candidates = @(Get-SpecialistFileNameCandidates -Kind $kind -Id '04-18')
+        Assert-Equal $written $candidates[0] "$kind`: the written name is the first read candidate"
+        Assert-Equal $candidates.Count (@($candidates | Sort-Object -Unique).Count) "$kind`: the read candidates are distinct"
+
+        # Round trip: every spelling this layer admits is a spelling it can read an id back out of.
+        foreach ($c in $candidates) {
+            Assert-Equal '04-18' (Get-SpecialistFileId -Kind $kind -Name $c) "$kind`: '$c' round-trips to its id"
+        }
+
+        # And the filters reach every candidate. A filter list that misses one is the failure mode this
+        # is built to prevent -- the file is on disk, no reader enumerates it, and nothing errors.
+        $filters = @(Get-SpecialistFileFilters -Kind $kind)
+        foreach ($c in $candidates) {
+            Assert-True (@($filters | Where-Object { $c -like $_ }).Count -ge 1) "$kind`: some filter matches '$c'"
+        }
+        Assert-Equal $filters.Count (@($filters | Sort-Object -Unique).Count) "$kind`: the filters are de-duplicated"
+    }
+
+    # A name that mixes the two conventions is NOT accepted, in either direction. This is the assert
+    # that keeps the layer from degenerating into "anything with two numbers in it": a half-renamed
+    # file is a defect, and reading it as valid would hide exactly the state the series can produce.
+    Assert-Equal '' (Get-SpecialistFileId -Kind Subagent -Name 'specialist-02-09-agent.md') 'a half-renamed subagent def is recognised by neither shape'
+    Assert-Equal '' (Get-SpecialistFileId -Kind Lens -Name '06-16-lens.md') 'nor a lens carrying the new stem without the new prefix'
+    Assert-Equal '' (Get-SpecialistFileId -Kind Lens -Name 'README.md') 'and an ordinary document is not a lens'
+
+    # The parser takes what each call site actually holds: a bare name, a base name, or a full path.
+    Assert-Equal '06-16' (Get-SpecialistFileId -Kind Manual -Name '06-16-manual') 'a base name with no extension parses'
+    Assert-Equal '06-16' (Get-SpecialistFileId -Kind Manual -Name (Join-Path 'C:\x\manuals' '06-16-manual.md')) 'a full path parses'
+    Assert-Equal '' (Get-SpecialistFileId -Kind Manual -Name '') 'an empty name is not an id'
+
+    # The ONE named group pair, whichever branch matched. Composed naively the alternation yields two
+    # capture pairs and $Matches[1] then means different things depending on what is on disk, which is
+    # the bug this function exists to make unwriteable.
+    foreach ($n in (Get-SpecialistFileNameCandidates -Kind Lens -Id '05-15')) {
+        $base = [System.IO.Path]::GetFileNameWithoutExtension($n)
+        Assert-True ($base -match (Get-SpecialistFileNamePattern -Kind Lens)) "pattern matches '$base'"
+        Assert-Equal '05-15' "$($Matches['g'])-$($Matches['i'])" "and both branches fill the SAME named groups for '$base'"
+    }
+
+    # -Id pins the pattern to one specialist without changing the shapes it accepts.
+    $pinned = Get-SpecialistFileNamePattern -Kind Lens -Id '05-15'
+    Assert-True ('05-15-extension' -match $pinned) 'the pinned pattern matches its own id'
+    Assert-True ('06-16-extension' -notmatch $pinned) 'and rejects another id'
+
+    # The reference pattern: a body naming its manual, under either spelling, and NOT a bare mention.
+    $refPattern = Get-SpecialistFileRefPattern -Kind Manual -Id '01-01' -Dir 'manuals'
+    foreach ($n in (Get-SpecialistFileNameCandidates -Kind Manual -Id '01-01')) {
+        Assert-True ("read manuals/$n on demand" -match $refPattern) "the ref pattern matches 'manuals/$n'"
+    }
+    Assert-True ("read $(Get-SpecialistFileName -Kind Manual -Id '01-01') on demand" -notmatch $refPattern) 'and -Dir really binds: a bare filename is not a reference'
+
+    # Get-SpecialistFiles over a real directory: both spellings found, deduplicated, missing dir empty.
+    $sfDir = Join-Path $Fixture 'specialist-files'
+    New-Item -ItemType Directory -Path $sfDir -Force | Out-Null
+    foreach ($n in (Get-SpecialistFileNameCandidates -Kind Lens -Id '03-07')) {
+        Set-Content -LiteralPath (Join-Path $sfDir $n) -Encoding ascii -Value '# x'
+    }
+    Set-Content -LiteralPath (Join-Path $sfDir 'README.md') -Encoding ascii -Value '# not a lens'
+    $sfFound = @(Get-SpecialistFiles -Path $sfDir -Kind Lens)
+    Assert-Equal (Get-SpecialistFileNameCandidates -Kind Lens -Id '03-07').Count $sfFound.Count 'Get-SpecialistFiles finds every spelling present and nothing else'
+    Assert-Equal $sfFound.Count (@($sfFound.FullName | Sort-Object -Unique).Count) 'and returns each file once, whichever filters matched it'
+    Assert-Equal 0 (@(Get-SpecialistFiles -Path (Join-Path $Fixture 'no-such-dir') -Kind Lens)).Count 'a missing directory is an empty answer, not an error'
+    Assert-Equal 0 (@(Get-SpecialistFiles -Path @() -Kind Lens)).Count 'and so is an empty path list'
+
+    # --- 10. Get-RosterIdTokenPattern: the lookbehind #2130 split in two ----------------------------
+    #     THE LITERALS HERE ARE THE POINT. Both rows are hazards this boundary was tuned against: the
+    #     ISO date it must keep out (#182) and the renamed lens filename it must let in (#2130). The
+    #     second is the one the old '(?<![\d-])' form silently failed -- and it failed in a file no
+    #     anchored-filename sweep reaches, since the four main-loop personas carry their id ONLY inside
+    #     that filename in the roster table.
+    Write-Host "Get-RosterIdTokenPattern: the ISO date stays out, the renamed lens gets in" -ForegroundColor Cyan
+    $tok = Get-RosterIdTokenPattern
+    Assert-True ('2026-07-25' -notmatch $tok) 'an ISO date is not a roster token (#182)'
+    Assert-True ('2026-05-15' -notmatch $tok) 'nor is one that happens to contain a real id'
+    Assert-True ('released 2026-09-19 today' -notmatch $tok) 'nor an ISO date in running prose'
+    Assert-True ('106-240' -notmatch $tok) 'nor a digit run around a token'
+    Assert-True ('| **Chris** 01-01 |' -match $tok) 'a bare roster id matches'
+    Assert-True ('See 05-15-extension.md' -match $tok) "today's lens reference matches"
+
+    # Whatever the lens is called, the roster row naming it still reads as a roster row. Stated over
+    # the candidates rather than over a literal, so this holds on both sides of step D.
+    foreach ($n in (Get-SpecialistFileNameCandidates -Kind Lens -Id '01-01')) {
+        Assert-True ("| **Chris** | [``$n``](lenses/$n) |" -match (Get-RosterIdTokenPattern -Id '01-01')) `
+            "a roster row whose only id sits inside '$n' is still recognised as rostered"
+    }
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

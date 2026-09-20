@@ -301,6 +301,183 @@ records.
 
 ---
 
+## Migrating to the `specialist-` filenames (#2128, September 19, 2026)
+
+> **This section is for a repo that holds repo lenses written before September 19, 2026** — the ones
+> named `NN-NN-extension.md` — and for every repo whose `SPECIALISTS.md` imports the orchestrator's
+> body. Like the migration sections below it, this is a rename and nothing else: no specialist gained
+> or lost a manual, a lens, a skill or a hook on the day it happened.
+>
+> **The two halves of it are NOT equally urgent, and that is the one thing to take away.** Your
+> lenses can wait indefinitely; the orchestrator's import line cannot wait at all. Everything below
+> is organised around that split.
+
+| what it was | what it is |
+|---|---|
+| `.claude/specialists/lenses/NN-NN-extension.md` | `.claude/specialists/lenses/specialist-NN-NN-lens.md` |
+| `…/personas/01-01-persona.md` | `…/personas/specialist-01-01-persona.md` |
+| `…/manuals/NN-NN-manual.md` (plugin payload) | `…/manuals/specialist-NN-NN-manual.md` |
+| `…/subagents/NN-NN-agent.md` (plugin payload) | `…/subagents/specialist-NN-NN-subagent.md` |
+
+**Why the names moved.** Every specialist file now carries a `specialist-` prefix and one suffix per
+kind, so a file says what it is without its directory having to say it. `-extension` became `-lens`
+in the same pass: the whole tree already said "repo lens" in prose, and the filename was the last
+place still saying `extension`.
+
+**The bottom two rows are plugin payload and you do nothing about them** — nothing you write names a
+manual or a subagent file by path, and both arrive through an ordinary `plugin update`. They are in
+the table so that the prefix reads as one convention rather than as two unrelated renames.
+
+### The urgent half: the orchestrator's import line
+
+**One line, in `.claude/specialists/SPECIALISTS.md`, and it breaks silently.**
+
+<!-- unbound-sample: file content to write, not captured output -- there is nothing to compare it
+     against, and the only thing it is bound to is the marketplace name, which the line itself says. -->
+
+```text
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md
+```
+
+becomes
+
+```text
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md
+```
+
+**Nothing does this for you, by design.** `bootstrap.ps1` writes that line once and never rewrites
+it — from the moment your `SPECIALISTS.md` exists it is *authored content*, the same status as a lens
+you filled in, and a scaffolder that edited it could overwrite a roster somebody wrote. So re-running
+`specialists-init` does not repair this, and neither does any release.
+
+**And it is the one rename in this round that reaches you without a version behind it.** That path
+resolves against the marketplace **clone** — `~/.claude/plugins/marketplaces/dkj-claude-plugins/` —
+which tracks `main` and advances on `claude plugin marketplace update`. No release, no version bump,
+no `plugin update`. The clone is also **machine-wide**: one refresh moves it for every checkout on
+that machine, so a routine refresh in one repo can retire this path in all of them at once.
+
+**What a dead `@`-import costs, measured September 19, 2026** (#2135): the rest of `CLAUDE.md` loads
+normally, the raw `@`-line stays in context as inert text, and **nothing is reported** — not on
+stdout, not on stderr, not under `--debug`. The session simply carries on without the orchestrator's
+body, 30,267 B of it, as though nothing happened.
+
+**That is not hypothetical, and this page's own family is the proof.** Read while this section was
+being written, one of the six registered consumers still imported
+`marketplaces/claude-code-specialists/plugins/dkj-teams/dkj-team-alpha/personas/01-01-persona.md` —
+both halves retired by the two renames of September 9 and 10, 2026, and that marketplace directory
+had not existed on the machine since. The import had been dead for over a week and nothing had said
+so.
+
+#### Do it with BOTH lines, and the window closes entirely
+
+The obvious recipe is "edit the line, then refresh" — and it leaves a window in which your
+`SPECIALISTS.md` names a file your clone does not have yet. There is a better one, and it comes
+straight out of the measurement above: **a dead `@`-import is silent and harmless, so you may carry
+two.**
+
+<!-- unbound-sample: file content to write, not captured output -- as above. -->
+
+```text
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md
+
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/01-01-persona.md
+```
+
+1. **Add the new line above the old one and commit.** Before the rename reaches your clone the new
+   one is inert and the old one loads; after it reaches your clone the old one is inert and the new
+   one loads. At no point is neither of them live, which is what the single-line edit cannot promise
+   in either order.
+2. **Refresh when you like** — `claude plugin marketplace update dkj-claude-plugins` — or simply let
+   it happen. This is the step that stops being dangerous.
+3. **Delete the old line** once the new one is resolving (the verification below says when), and
+   commit that.
+
+The overlap costs one inert line of context, about 120 B, for as long as you leave it. Put the new
+line **first** so that a reader meets the live one.
+
+**If you would rather do the single-line edit, refresh FIRST and edit immediately after** — that
+order lets you confirm the new filename is actually in your clone before you point at it, and a
+refresh that fails leaves you exactly as you were. Editing first and refreshing second writes a path
+that does not exist yet and relies on a later command to make it true; if the rename has not reached
+`main` at that moment, the refresh does not repair it and you stay dead until it does.
+
+**This is not the compatibility shim that was declined.** Dave decided on September 19, 2026 against
+a bridge file inside the plugin, and chose the six consumers' import lines being updated by hand.
+Two lines in your own authored file *is* that hand update — it is only the spelling of it that avoids
+a broken state.
+
+#### Verifying it, without opening a session to find out
+
+The always-on budget gate resolves every document on the import path and names the ones it could not
+read, so it answers this question directly and writes nothing on a plain run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin cache>/dkj-policy/<version>/scripts/lint/check-always-on-budget.ps1"
+```
+
+| what you see | what it means |
+|---|---|
+| `N document(s) measured`, no warning | every import resolves — during the overlap this is **not** the state to expect |
+| `[WARN] not measured and not recorded: '<the target>'` | that import does **not** resolve, and the line beneath it names the file that carries it |
+| `carried from the baseline, not measurable here: … B  <the target>` | it does not resolve either, but a figure for it is on record — see the trap below |
+
+That second row is the one to read during the overlap: while both lines are present, **one of them is
+always warned about**, and which one tells you whether the rename has reached your clone yet. Once
+the warning names the *old* line, the new one is live and the old one can go.
+
+> **The trap in the third row.** A carried term prints a fixed explanation — *"plugin payload — no
+> marketplace clone on this machine"* — which is right for the case it was written for and wrong for
+> a stale import. The gate stays green either way, because a carried figure keeps the total
+> unchanged. So read the **key** it names, not the sentence under it.
+
+### The half that can wait: your own lenses
+
+**Nothing forces this and nothing breaks if you never do it.** Your lens filenames are read by two
+different things and both are already handled:
+
+- The `@lenses/…` line in your `SPECIALISTS.md` is resolved by Claude Code against whatever you
+  actually named the file — so an unrenamed lens and an unrenamed import line agree, and load.
+- Every script in this family that looks for a lens reads **both** conventions, new name first
+  (#2130). A roster sync, a lint run or a drift check will not report your old names as missing.
+
+The old convention is retired only once the connector register shows every consumer is over, so this
+is a migration you run when it suits you.
+
+**When you do run it, four things move together** — measured against the two real consumer checkouts
+on the machine this was written on, which hold 25 lenses each:
+
+1. **The files.** `git mv .claude/specialists/lenses/01-01-extension.md
+   .claude/specialists/lenses/specialist-01-01-lens.md`, and the same for every lens you hold.
+   Nothing in this repo renames them for you: `bootstrap.ps1` is additive-only and `teardown.ps1`
+   removes only unfilled scaffolds, so an authored lens is never touched by either.
+2. **The lens import in `SPECIALISTS.md`.** `@lenses/01-01-extension.md` becomes
+   `@lenses/specialist-01-01-lens.md` — and this one is a genuine pair with step 1, because it is
+   *your* file pointing at *your* file. Rename the file without it and the orchestrator's lens stops
+   loading; the budget gate reports it as a `carried` row, with the misleading sentence above.
+3. **Every markdown link that names a lens.** These are in your own prose and no gate writes them:
+   the cross-references inside the lens bodies themselves (16 occurrences across one of the two
+   checkouts read), the roster and routing tables in `SPECIALISTS.md`, and any link from your
+   `CLAUDE.md` (4 occurrences in the other). Sweep for `-extension.md` across the repo, skipping
+   your archived release history — that folder is deliberately historical, the same carve-out every
+   other rename here has made.
+4. **`dkj-policy/always-on-baseline.json`, if you keep one.** It is a dictionary keyed on literal
+   import targets, so it holds `lenses/01-01-extension.md` verbatim. **Regenerate it, do not
+   hand-edit it** — the file says so itself, and the gate lowers it on its own. Run the budget gate
+   with `-Record` once the renames are in.
+
+### What does not change
+
+- **The seam**, `.claude/specialists/`, and the `lenses/` directory inside it. Only the leaf names
+  move.
+- **Your lenses' content.** Nothing you wrote in them changes except links that name another lens.
+- **The ids.** `01-01` is still Chris, `05-05` is still Derek; the prefix goes in front of the id,
+  and the id is what every roster check reads.
+- **Skill names, plugin ids and the marketplace name.** Untouched by this rename.
+- **`specialists-init`.** Re-running it is safe and repairs nothing here — it will not rewrite an
+  authored `SPECIALISTS.md`, which is the whole reason the import line is a hand edit.
+
+---
+
 ## Migrating off the `dkj-team-*` ids (#1698, September 9, 2026)
 
 > **This section is for a repo that has this family's teams installed under the ids they used up to
@@ -690,23 +867,31 @@ The second half of that test moved on September 5, 2026
 `plugins/dkj-policy/`. It costs a reader nothing in practice — a workflow ships no personas and no
 manuals, so nothing imports out of one — and the shape test names it only so the rule stays complete.
 
-Every layout this family has shipped, measured against this repo's own tags — the first two are what you
-might find, the third is what you are moving to:
+Every layout this family has shipped, measured against this repo's own tags — the first four are what
+you might find, the last is what you are moving to:
 
 | the layout your import names | shipped by | what a team's folder looked like |
 |---|---|---|
 | the two-level product folder | `v1.1.0` – `v3.1.2` | `claude-code-plugins/claude-specialists/specialists/` |
 | the flat plugin folder | `v3.2.0` – `v3.9.0` | `plugins/specialists/` |
-| **current** — teams and workflows split | `v3.10.0` onward | `plugins/dkj-subagents/dkj-subagents-alpha/` |
+| the teams/workflows split | `v3.10.0` – `v4.30.0` | `plugins/teams/team-alpha/` |
+| the `dkj-` prefix | `v4.31.0` – `v4.32.0` | `plugins/dkj-teams/dkj-team-alpha/` |
+| **current** — the team side renamed to subagents | `v4.33.0` onward | `plugins/dkj-subagents/dkj-subagents-alpha/` |
 
-Read the same three rows for an add-on team (`specialists-shopify` → `plugins/dkj-subagents/dkj-subagents-shopify/`) and
+**Every path in that table is quoted as its own tag holds it — do not sweep it.** The whole point of the
+column is that a reader on an old version can recognise their own spelling, so rewriting the historical
+rows into today's names empties the table of the only thing it is for. It happened once already: the last
+three rows were a single `v3.10.0`-onward row carrying the `dkj-subagents` spelling, which no release
+before `v4.33.0` ever held (#2144).
+
+Read the same five rows for an add-on team (`specialists-shopify` → `plugins/dkj-subagents/dkj-subagents-shopify/`) and
 for the workflow — with one exception worth knowing before you go looking for it: the workflow plugin
-**first shipped in `v3.8.0`**, so it only ever existed under the flat layout
-(`plugins/specialists-workflow-davekjohn/`). There is no two-level form of that path to find.
+**first shipped in `v3.8.0`**, so it never existed under the two-level layout; its flat form was
+`plugins/specialists-workflow-davekjohn/`. There is no two-level form of that path to find.
 
 So the line in your `.claude/specialists/SPECIALISTS.md` changes as follows — **bound to this repo's
-layout as of `v4.5.0`, which the table above is read off, and to the marketplace name
-`dkj-claude-plugins`; substitute yours if you registered it under another name**:
+layout at `v5.5.0`, which is the last row above, and to the marketplace name `dkj-claude-plugins`;
+substitute yours if you registered it under another name**:
 
 ```text
 # before -- EITHER of these, depending on how long ago you last updated

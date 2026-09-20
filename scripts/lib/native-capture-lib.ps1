@@ -990,13 +990,102 @@ function Get-NativeCaptureBudgetBound {
     return $script:NativeCaptureNetworkTimeoutSeconds
 }
 
+
+function Get-NativeLineText {
+    <#
+        One object from a capture's Output, as the text a reader should see. Internal to this lib, and
+        used at BOTH levels since #2155: Invoke-NativeCapture's & arm runs every line through it, so
+        Output holds plain text on both arms, and Get-NativeOutputText below runs it again over an
+        Output a caller hands back (which may come from an older copy of this lib, or from the days
+        before that decision -- see its own docstring).
+
+        A '2>&1' redirect turns every stderr line into an ErrorRecord wrapping a RemoteException, and
+        under PowerShell 5.1 that record carries its own positional info: a CategoryInfo line, a
+        FullyQualifiedErrorId line, and a source-line caret pointing at whichever line of THIS lib ran
+        the command. Rendering such a record with Out-String prints all of it.
+
+        TargetObject IS READ FIRST -- it is the raw stderr line, string-typed, empty string and all --
+        with the exception's message as the fallback for a record that is not a native stderr line.
+        That order is Get-ShopifyLineText's, in shopify-cli-lib.ps1, and for the reason measured there
+        and re-measured here against a powershell.exe child writing three stderr lines with an empty
+        one in the middle: on that middle record TargetObject came back String-typed and empty,
+        Exception.Message empty, and [string]$Line the TYPE NAME -- so a caller got a literal
+        'System.Management.Automation.RemoteException' where the command's own blank line belonged.
+        The two libs stay separate copies rather than one shared helper because shopify-cli-lib
+        deliberately does not dot-source this file -- see its header for why its wrapper is
+        purpose-built, and Get-ShopifyLineText's own docstring for the trade written out. That reason
+        is the answer to #2158, which asked the question from the other side.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Line)
+
+    if ($null -eq $Line) { return '' }
+    if ($Line -is [System.Management.Automation.ErrorRecord]) {
+        if ($Line.TargetObject -is [string]) { return [string]$Line.TargetObject }
+        return [string]$Line.Exception.Message
+    }
+    return [string]$Line
+}
+
+function Get-NativeOutputText {
+    <#
+        A capture's Output as PLAIN, TRIMMED TEXT -- what '($res.Output | Out-String).Trim()' was
+        always meant to produce. Pass it $res.Output; it returns a string.
+
+        WHY THIS EXISTS RATHER THAN Out-String (issue #2154). On the '&' arm, Output carried
+        ErrorRecords for every stderr line, and Out-String renders a record's full exception display.
+        So a caller interpolating a failure reason into an operator-facing message printed git's one
+        line followed by a CategoryInfo/FullyQualifiedErrorId block and a caret pointing into
+        native-capture-lib.ps1 -- naming a file the operator did not run and cannot act on. Measured on
+        prune-merged's refused-delete verdict, where 'error: the branch ... is not fully merged' -- the
+        whole of what the reader needed -- arrived buried in nine lines of exception text.
+
+        #2155 THEN DECIDED THE WIDER QUESTION THIS FUNCTION DELIBERATELY LEFT OPEN, AND DECIDED IT THE
+        OTHER WAY (Dave, September 19, 2026). This docstring used to argue that normalising at the
+        capture would give every caller in every consumer a different result shape, and that the loud,
+        additive form here was the one available without taking that decision. The decision was taken:
+        the & arm normalises, on the measurement that the old shape was not merely a different shape
+        but a WRONG RENDER, and on shopify-cli-lib having already made the same call for a lib mirrored
+        the same way. So the paragraph is corrected rather than left standing -- an argument for a road
+        not taken reads as current policy once the fork is behind you.
+
+        THE FUNCTION IS NOT REDUNDANT AFTER THAT, and this is the half worth reading before proposing
+        its removal. Out-String is still not the same thing: this one TRIMS and normalises line endings
+        to "`n", which is what its ~seven callers actually want and what Out-String's console-width
+        padding and trailing newline do not give them. And it is still the only correct reader for an
+        Output that did NOT come from this copy of the lib -- a capture handed across from a consumer
+        on an older plugin release, where the & arm still returns records. Get-NativeLineText is a
+        no-op on a string, so running it over an already-normalised Output costs one call per line and
+        cannot be wrong.
+
+        SAFE ON ANYTHING Output CAN HOLD: $null, a single object, or an array. Line endings are
+        normalised to "`n" so a caller splitting the result does not have to care which arm answered.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Output)
+
+    if ($null -eq $Output) { return '' }
+    $lines = @(@($Output) | ForEach-Object { Get-NativeLineText $_ })
+    return ($lines -join "`n").Replace("`r`n", "`n").Trim()
+}
+
 function Invoke-NativeCapture {
     <#
         Run $FilePath with $Arguments under $ErrorActionPreference = 'Continue' and return a
         pscustomobject with:
-          - Output   : the command's output. By default stderr is merged in (2>&1) so a caller can
-                       echo full progress; with -DiscardStderr stderr is dropped (2>$null) so it
-                       cannot pollute a machine-readable stdout (e.g. gh --json).
+          - Output   : the command's output, AS PLAIN TEXT ON BOTH ARMS (issue #2155). By default
+                       stderr is merged in (2>&1) so a caller can echo full progress; with
+                       -DiscardStderr stderr is dropped (2>$null) so it cannot pollute a
+                       machine-readable stdout (e.g. gh --json).
+                       THE ELEMENT TYPE IS THE PROMISE, NOT THE CONTAINER. Both arms hand back strings;
+                       what still differs is the container, and deliberately so -- the -Utf8 arm always
+                       returns an array of lines, while this arm keeps PowerShell's own unrolling
+                       ($null / scalar / array). A caller that wants one shape asks for it the way it
+                       always did: @($res.Output), or $res.Output | Out-String.
+                       WHY IT IS A PROMISE AT ALL: with 2>&1 the & operator hands back an ErrorRecord
+                       per stderr line, and rendering one costs a caller the command's own words twice
+                       over -- the first record stringifies as a full PowerShell exception dump naming
+                       THIS file and line, and an EMPTY stderr line stringifies as the literal
+                       'System.Management.Automation.RemoteException'. See Get-NativeLineText above for
+                       the measurement and for which field is read instead.
           - ExitCode : $LASTEXITCODE recorded immediately after the command ran.
           - TimedOut : $true only when -TimeoutSeconds was given AND expired. Present on every return
                        from both arms, so a caller never has to know which arm answered it.
@@ -1092,10 +1181,13 @@ function Invoke-NativeCapture {
         measured identical on cp65001, cp850 and cp437.
 
         THE -Utf8 PATH IS A DIFFERENT MECHANISM, not a flag on the same one, so two things differ and
-        both are deliberate. Output comes back as an ARRAY OF LINES (strings) rather than whatever
-        objects the & operator produced -- ErrorRecords included, which is what a caller merging
-        stderr was really getting. And the child is started by Start-Process, so $Arguments are quoted
-        here rather than by PowerShell; see ConvertTo-NativeArgumentToken above.
+        both are deliberate. Output comes back as an ARRAY OF LINES, always -- where the & arm returns
+        strings too since #2155 but keeps PowerShell's unrolling, so a one-line capture is a scalar on
+        the & arm and a 1-element array on this one. (The arms are named rather than pointed at: the
+        two passages that describe this pair sit either side of the dispatch below, so 'here' and
+        'there' swap referents between them -- which is why the #1963 block further down says 'this
+        arm' throughout.) And the child is started by Start-Process, so $Arguments are
+        quoted here rather than by PowerShell; see ConvertTo-NativeArgumentToken above.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -1112,7 +1204,10 @@ function Invoke-NativeCapture {
     # THE CONSEQUENCE IS REAL AND WORTH KNOWING: a bounded call therefore also gets that arm's UTF-8
     # decode and its line-array Output. For the push and fetch progress the bound is applied to, that is
     # cosmetic-to-better; for a caller that PARSES the output it is a change of shape, which is why
-    # -TimeoutSeconds is opt-in per call site rather than a default.
+    # -TimeoutSeconds is opt-in per call site rather than a default. SINCE #2155 THAT CHANGE IS SMALLER
+    # THAN IT WAS -- the element type no longer moves, only the container ($null/scalar/array on the &
+    # arm, always an array on the -Utf8 one) and the decode -- but it is not nothing, so the flag stays
+    # opt-in.
     if ($Utf8 -or $TimeoutSeconds -gt 0) {
         return Invoke-NativeCaptureUtf8 -FilePath $FilePath -Arguments $Arguments `
                                         -DiscardStderr:$DiscardStderr -TimeoutSeconds $TimeoutSeconds
@@ -1153,12 +1248,15 @@ function Invoke-NativeCapture {
     # fixture's repair is -Utf8, which makes it test what it claims; it was not an exception the guard
     # needed. A false green is what this refusal turns red.
     #
-    # A SILENT REROUTE TO THE -Utf8 ARM IS STILL NOT THE CHEAP ALTERNATIVE IT LOOKS LIKE, and that half of
-    # #1963's reasoning stands unchanged: that arm returns Output as an array of strings where this one
-    # returns pipeline objects (ErrorRecords included), so switching on the CONTENT of an argument would
-    # change a caller's result shape on exactly the days a title happened to contain a quote -- the
-    # data-dependent surprise -Utf8 was itself introduced to end. Refusing is loud; rerouting is another
-    # silent difference.
+    # A SILENT REROUTE TO THE -Utf8 ARM IS STILL NOT THE CHEAP ALTERNATIVE IT LOOKS LIKE, though #2155
+    # HAS TAKEN THE STRONGEST HALF OF THAT ARGUMENT AWAY AND THAT IS SAID RATHER THAN QUIETLY DROPPED.
+    # #1963 argued it on the element type: that arm returned strings where this one returned pipeline
+    # objects, ErrorRecords included. Both arms return strings now, so that difference is gone. What is
+    # left is real and smaller -- the container (this arm unrolls to $null/scalar/array, that one is
+    # always an array) and the UTF-8 decode -- and it is still enough: switching on the CONTENT of an
+    # argument would change a caller's result shape on exactly the days a title happened to contain a
+    # quote, which is the data-dependent surprise -Utf8 was itself introduced to end. Refusing is loud;
+    # rerouting is another silent difference.
     #
     # #1963's CANDIDATE REPAIR #2 IS MEASURABLY WRONG AND IS RECORDED SO IT IS NOT RE-PROPOSED: giving
     # this arm the same tokeniser is correct on every hand-picked example and still wrong on 7/300,
@@ -1171,11 +1269,26 @@ function Invoke-NativeCapture {
     try {
         $ErrorActionPreference = 'Continue'
         $prevEnv = Push-NativeNonInteractiveEnv
+        # NORMALISED IN THE PIPELINE, AND THE SHAPE IS DELIBERATELY LEFT ALONE (issue #2155). Assigning
+        # a pipeline follows exactly the same unrolling rule the bare & operator followed here before:
+        # nothing -> $null, one line -> a scalar, many -> an array. Only the ELEMENT TYPE changes, which
+        # is the whole of the decision; wrapping this in @() would additionally turn every single-line
+        # capture into a 1-element array, and a caller reading $res.Output as a string would break on a
+        # change nobody asked for.
+        #
+        # THE -DiscardStderr BRANCH IS NORMALISED TOO EVEN THOUGH IT CANNOT PRODUCE A RECORD (a branch
+        # of this arm, not a third arm -- 'arm' is this file's word for the & / -Utf8 split), because a
+        # caller reads one field whichever arm answered it -- the same reasoning ShortRead and
+        # ExitCodeUnknown are reported on this arm under. [string] on a string is a no-op; branching on
+        # it would only add a second shape to reason about.
         if ($DiscardStderr) {
-            $output = & $FilePath @Arguments 2>$null
+            $output = & $FilePath @Arguments 2>$null | ForEach-Object { Get-NativeLineText $_ }
         } else {
-            $output = & $FilePath @Arguments 2>&1
+            $output = & $FilePath @Arguments 2>&1   | ForEach-Object { Get-NativeLineText $_ }
         }
+        # $LASTEXITCODE IS STILL THE NATIVE COMMAND'S, read after the pipeline drains: only a native
+        # command writes it, and ForEach-Object is not one. Get-ShopifyLineText's caller one lib over
+        # reads it in exactly this position for exactly this reason.
         $code = $LASTEXITCODE
     } finally {
         Pop-NativeNonInteractiveEnv -Previous $prevEnv

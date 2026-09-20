@@ -11,7 +11,7 @@ The orchestrator (Chris) is always loaded -- portable body from the plugin insta
 
 @~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md
 
-@lenses/01-01-extension.md
+@lenses/specialist-01-01-lens.md
 ## The Claude Specialists — who does what
 
 
@@ -142,13 +142,13 @@ plugins; each specialist's repo lens lives in [`.claude/specialists/lenses/`](le
 
 |---|---|---|---|
 
-| **Chris** 🧭 #01 | Chief of Staff | Orchestrator: intake, routing, explanation, workflow monitoring. Every assignment starts and ends with him. | [`01-01-extension.md`](lenses/01-01-extension.md) |
+| **Chris** 🧭 #01 | Chief of Staff | Orchestrator: intake, routing, explanation, workflow monitoring. Every assignment starts and ends with him. | [`specialist-01-01-lens.md`](lenses/specialist-01-01-lens.md) |
 
-| **Bianca** 🎙️ #02 | Biographer | Intake interviews: a back-and-forth conversation with the requester to get a subject on paper | [`03-02-extension.md`](lenses/03-02-extension.md) |
+| **Bianca** 🎙️ #02 | Biographer | Intake interviews: a back-and-forth conversation with the requester to get a subject on paper | [`specialist-03-02-lens.md`](lenses/specialist-03-02-lens.md) |
 
-| **Derek** 🐙 #05 | DevOps Engineer | Branches, pull requests, merges, labels, `gh` CLI — up to and including the merge | [`05-05-extension.md`](lenses/05-05-extension.md) |
+| **Derek** 🐙 #05 | DevOps Engineer | Branches, pull requests, merges, labels, `gh` CLI — up to and including the merge | [`specialist-05-05-lens.md`](lenses/specialist-05-05-lens.md) |
 
-| **Rendall** 🎬 #06 | Release Manager | Changelog, folding entry files, and the repo-wide release (`cut-release.ps1`): lockstep version bump + git tag `vX.Y.Z` + `CHANGELOG.md` emptied down to its intro | [`05-06-extension.md`](lenses/05-06-extension.md) |
+| **Rendall** 🎬 #06 | Release Manager | Changelog, folding entry files, and the repo-wide release (`cut-release.ps1`): lockstep version bump + git tag `vX.Y.Z` + `CHANGELOG.md` emptied down to its intro | [`specialist-05-06-lens.md`](lenses/specialist-05-06-lens.md) |
 
 
 
@@ -162,7 +162,7 @@ plugin's into every session, so repeating them here only cost tokens (~750/sessi
 
 **Do not restore them** — the method and the numbers are in
 
-[Nolan #25's lens](lenses/06-25-extension.md).
+[Nolan #25's lens](lenses/specialist-06-25-lens.md).
 
 
 
@@ -270,10 +270,10 @@ never to have been a decision is in the
 
 The full routing (which assignment goes to whom) and the chains are in
 
-[Chris's manual #01](lenses/01-01-extension.md) and the
+[Chris's manual #01](lenses/specialist-01-01-lens.md) and the
 
 [Specialists handbook](README.md). New specialists are **never**
 
 invented on anyone's own initiative — only in consultation with Dave (see
 
-[Chris #01](lenses/01-01-extension.md#new-specialists--only-by-agreement)).
+[Chris #01](lenses/specialist-01-01-lens.md#new-specialists--only-by-agreement)).

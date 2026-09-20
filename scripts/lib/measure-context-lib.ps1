@@ -162,7 +162,7 @@ function Resolve-ImportPath {
           anything else -> relative to the DIRECTORY OF THE IMPORTING FILE, not to the repo root.
 
         The last rule is why `@.claude/specialists/SPECIALISTS.md` in a root CLAUDE.md and
-        `@lenses/01-01-extension.md` in `.claude/specialists/SPECIALISTS.md` both resolve correctly under
+        `@lenses/specialist-01-01-lens.md` in `.claude/specialists/SPECIALISTS.md` both resolve correctly under
         ONE rule: CLAUDE.md's own directory IS the repo root, so the root-relative reading is a special
         case of the file-relative one rather than a second rule. Reading the second line as root-relative
         would silently resolve to a path that does not exist, and a missing import is reported as absent
@@ -203,6 +203,90 @@ function Get-UserHomeDirectory {
     if ($env:USERPROFILE) { return $env:USERPROFILE }
     if ($env:HOME) { return $env:HOME }
     return [System.Environment]::GetFolderPath('UserProfile')
+}
+
+function Get-PluginMarketplaceRoot {
+    <# Where a plugin marketplace clone lives on this machine: '<home>/.claude/plugins/marketplaces'.
+       Named once, here, because two different questions are asked of it -- Resolve-ImportPath turns a
+       '~/' target into a path under it without caring whether it exists, and Get-ImportAbsenceKind
+       asks whether it exists at all. It goes through Get-UserHomeDirectory, so a test overriding the
+       home overrides this too. #>
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $rel = '.claude/plugins/marketplaces' -replace '/', $sep
+    return [System.IO.Path]::GetFullPath((Join-Path (Get-UserHomeDirectory) $rel))
+}
+
+function Test-PathIsUnder {
+    <#
+        Is $Path inside $Parent -- the containment test, with the separator appended before the prefix
+        comparison so a SIBLING whose name merely starts with the parent's is not read as being inside
+        it ('C:\x\repo-dead' vs 'C:\x\repo-deadXYZ').
+
+        ONE DEFINITION BECAUSE THE TRAP IS ASYMMETRIC, not because two lines were repeated. The first
+        draft of Get-ImportAbsenceKind guarded its marketplace-root branch and left the repo-root branch
+        three lines above it bare -- with a test pinning the guarded half and nothing pinning the other,
+        so the asymmetry was invisible in a green suite. A comparison written twice is a comparison that
+        can be right once (code review of #2138).
+
+        The parent itself counts as inside: a target that resolves to the directory rather than to a file
+        in it is still a target this tree owns, and answering 'no' there would send it down the branch
+        for somewhere else entirely.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Parent
+    )
+    $sep   = [System.IO.Path]::DirectorySeparatorChar
+    $child = [System.IO.Path]::GetFullPath($Path)
+    $root  = [System.IO.Path]::GetFullPath($Parent).TrimEnd($sep)
+    if ($child.TrimEnd($sep).Equals($root, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    return $child.StartsWith(($root + $sep), [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-ImportAbsenceKind {
+    <#
+        An import target that does not exist is one of TWO DIFFERENT FACTS, and telling them apart is
+        the whole difference between "repair this line" and "re-run this somewhere else".
+
+          'dead'       -- the absence is PROVABLE here. The directory that would hold the file is on
+                          this machine, so nothing is missing except the file itself: Claude Code drops
+                          an import it cannot resolve WITHOUT erroring, so every session in this repo
+                          silently loads one document fewer and nothing says so.
+          'unprovable' -- this run can conclude nothing. A CI runner has no marketplace clone at all,
+                          so an import into one legitimately does not resolve there; erroring on it
+                          would fail every PR for a correct file. That is issue #874's own reasoning
+                          for excluding an external import, and it is kept rather than narrowed --
+                          what is added is that the reasoning is CONDITIONAL, and this function is
+                          where the condition is tested instead of assumed.
+
+        TWO PROOFS, AND DELIBERATELY ONLY TWO:
+          - the target is IN THE REPO, which is present by definition -- this run is reading it;
+          - the target is under the plugin marketplace root AND THAT ROOT EXISTS. A machine holding a
+            plugin administration that does not contain the named marketplace is not a machine that
+            cannot see; it is a machine where the import is broken.
+
+        Everything else is 'unprovable'. The absence of a proof is not a proof of absence, and keeping
+        those two apart is this function's only job.
+
+        Measured, issue #2138: a registered consumer had imported the ORCHESTRATOR's body from a
+        marketplace path retired ten days earlier. The budget gate saw the unresolved import and
+        reported it as "not measured and not recorded -- run this once on a machine where the import
+        resolves", which is the one instruction that cannot help: it was already on such a machine.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$RepoRoot
+    )
+    # BOTH CONTAINMENT TESTS GO THROUGH ONE FUNCTION, which is the repair code review made to the first
+    # draft of this one: it guarded the second test against the sibling-prefix trap and left the first
+    # bare, and the suite pinned only the guarded half. See Test-PathIsUnder's own header.
+    if (Test-PathIsUnder -Path $Path -Parent $RepoRoot) { return 'dead' }
+
+    $root = Get-PluginMarketplaceRoot
+    if (Test-PathIsUnder -Path $Path -Parent $root) {
+        if (Test-Path -LiteralPath $root -PathType Container) { return 'dead' }
+    }
+    return 'unprovable'
 }
 
 function Split-FileIntoByteLines {

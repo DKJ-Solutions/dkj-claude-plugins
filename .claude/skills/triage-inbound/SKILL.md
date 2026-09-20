@@ -7,7 +7,7 @@ description: The measured evidence behind this repo's inbound-item verification 
 
 > The **rule** lives where it is always loaded: the portable half in Chris's persona body
 > (`plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md`) and this repo's one-sentence form in
-> [his lens](../../specialists/lenses/01-01-extension.md#the-dave-rules). This skill carries the
+> [his lens](../../specialists/lenses/specialist-01-01-lens.md#the-dave-rules). This skill carries the
 > **measurements** behind it — which is what the repo's own convention asks of a skill: *"personas
 > and manuals carry no repo-specific detail at all while skills carry the evidence behind a
 > procedure"* ([`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation)).
@@ -65,7 +65,7 @@ just advice.
   premise was narrower and real: a `continue` in check-connectors' retired-plugin branch skipped a whole
   block, including the one check inside it whose subject did not depend on the reason the other two were
   skipped. Full measurement in
-  [Sylvester's lens](../../specialists/lenses/05-15-extension.md#the-retired-id-continue-and-the-block-it-silently-skipped-september-10-2026-1802).
+  [Sylvester's lens](../../specialists/lenses/specialist-05-15-lens.md#the-retired-id-continue-and-the-block-it-silently-skipped-september-10-2026-1802).
   **The generalisation:** an "absence" claim behind a proposed mechanism is exactly as checkable as a
   "presence" claim behind a proposed close, and it fails the same way when a single file is read instead
   of a search across the tree.
@@ -144,7 +144,7 @@ just advice.
     said to have left, with the whole wall clock being **one suite** to a tenth of a second. Its second
     count was wrong in the same direction as the three above — "234 asserts" is what that one suite prints
     for itself, against **4,206** across all forty. The measurement and the corrected direction are in
-    [Nolan #25](../../specialists/lenses/06-25-extension.md#the-gates-wall-clock-is-one-suite--re-measured-n5-august-16-2026).
+    [Nolan #25](../../specialists/lenses/specialist-06-25-lens.md#the-gates-wall-clock-is-one-suite--re-measured-n5-august-16-2026).
   - **[#1456](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1456)**, picked up
     September 5, 2026, is the variant where the mis-measurement is not the finding's size but the
     **whole finding**. It reported *"0 of 67 currently-assigned issues carry `DaveKJohn` as assignee"*,
@@ -233,7 +233,7 @@ An inbound item arrives **without** a `prio-` label, and that is by design rathe
 report: the priority rule binds whoever files, and a session filing inbound is running the portable
 layer's rules, where priority is an offered convention and only the reach label is prescribed. The
 carve-out, and the measurement that declined a default rung in the issue template, are in
-[Derek #05](../../specialists/lenses/05-05-extension.md#issue-labels--every-issue-carries-a-priority);
+[Derek #05](../../specialists/lenses/specialist-05-05-lens.md#issue-labels--every-issue-carries-a-priority);
 Dave decided it on September 19, 2026
 ([#2127](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2127)).
 

@@ -19,7 +19,7 @@
           the versioned dir is resolved in the local plugin cache (semantically highest version,
           [version]-sort -- the same approach bootstrap.ps1 uses so 1.10.0 beats 1.9.0). Agent ids
           ('<group>-<id>', e.g. 06-24) come from <plugin-dir>/agents/<g>-<id>-agent.md, persona ids
-          from <plugin-dir>/personas/specialist-<g>-<id>-persona.md (inbound #204 -- see the persona note below).
+          from <plugin-dir>/personas/<g>-<id>-persona.md (inbound #204 -- see the persona note below).
       (b) The consumer's roster. Its path comes from Get-RosterPath in scripts/repo-config.ps1
           (repo-root-relative; the bootstrap scaffolds it to the seam inclusion
           .claude/specialists/SPECIALISTS.md, which is where specialists-init writes the roster slot --
@@ -94,7 +94,7 @@
         Get-RecordShape in check-report-lib.ps1.
 
     Personas: main-loop specialists (Chris 01-01, Derek 05-05, Rendall 05-06, ...) ship as
-    <plugin>/personas/specialist-<g>-<id>-persona.md, NOT as agents, yet legitimately have a roster row and a
+    <plugin>/personas/<g>-<id>-persona.md, NOT as agents, yet legitimately have a roster row and a
     lens. They count as "backing" so they are never flagged as orphans -- and, since inbound #204,
     they are ALSO checked for a missing roster row / missing lens, exactly like agents. Those used to
     be one decision; they are two, and only the first followed from the reasoning. "A persona is not an
@@ -189,8 +189,14 @@ function Get-AgentIds {
     param([string]$PluginDir)
     $dir = Get-SubagentDirPath -PluginDir $PluginDir
     if (-not $dir) { return @() }
-    return @(Get-ChildItem -LiteralPath $dir -Filter '*-agent.md' -File |
-        ForEach-Object { if ($_.BaseName -match '^(\d{2})-(\d{2})-agent$') { "$($Matches[1])-$($Matches[2])" } } |
+    # BOTH SPELLINGS (#2130), and this reader is the reason the dual-name layer is not optional: it runs
+    # against a CONSUMER'S plugin cache, which holds whatever version that machine last installed. A
+    # reader that knew only one spelling would report a plugin as shipping no subagents at all -- the one
+    # answer that is false in both directions, exactly as Get-SubagentDirName's docstring says of the
+    # directory leaf one level up.
+    return @(Get-SpecialistFiles -Path $dir -Kind Subagent |
+        ForEach-Object { Get-SpecialistFileId -Kind Subagent -Name $_.Name } |
+        Where-Object { $_ } |
         Sort-Object -Unique)
 }
 
@@ -198,9 +204,11 @@ function Get-AgentIds {
 function Get-PersonaIds {
     param([string]$PluginDir)
     $dir = Join-Path $PluginDir 'personas'
-    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
-    return @(Get-ChildItem -LiteralPath $dir -Filter '*-persona.md' -File |
-        ForEach-Object { if ($_.BaseName -match '^specialist-(\d{2})-(\d{2})-persona$') { "$($Matches[1])-$($Matches[2])" } } |
+    # No Test-Path guard needed any more: Get-SpecialistFiles treats a missing directory as an empty
+    # answer, which is what the guard said.
+    return @(Get-SpecialistFiles -Path $dir -Kind Persona |
+        ForEach-Object { Get-SpecialistFileId -Kind Persona -Name $_.Name } |
+        Where-Object { $_ } |
         Sort-Object -Unique)
 }
 
@@ -253,9 +261,16 @@ function Test-InRoster {
 # (bootstrap.ps1, sync-roster.ps1) derive their target path from, so reader and writer cannot drift.
 function Get-LensPath {
     param([string]$RepoRoot, [string]$PluginName, [string]$Id)
+    # Two candidate axes now, and the order is deliberate: every NAME is tried inside a directory before
+    # moving to the next directory (#2130). A consumer mid-migration can hold both spellings in different
+    # directories, and answering with the canonical directory's file -- whatever it is called -- is the
+    # same preference this list has always expressed, one axis wider.
+    $names = @(Get-SpecialistFileNameCandidates -Kind Lens -Id $Id)
     foreach ($d in (Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $PluginName)) {
-        $c = Join-Path $d "$Id-extension.md"
-        if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
+        foreach ($n in $names) {
+            $c = Join-Path $d $n
+            if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
+        }
     }
     return $null
 }
@@ -303,8 +318,12 @@ function Get-AgentName {
     param([string]$PluginDir, [string]$Id)
     $subDir = Get-SubagentDirPath -PluginDir $PluginDir
     if (-not $subDir) { return '' }
-    $p = Join-Path $subDir "$Id-agent.md"
-    if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { return '' }
+    $p = ''
+    foreach ($n in (Get-SpecialistFileNameCandidates -Kind Subagent -Id $Id)) {
+        $c = Join-Path $subDir $n
+        if (Test-Path -LiteralPath $c -PathType Leaf) { $p = $c; break }
+    }
+    if (-not $p) { return '' }
     foreach ($ln in (Get-Content -LiteralPath $p -TotalCount 15)) {
         if ($ln -match '^name:\s*(.+?)\s*$') { return $Matches[1].Trim() }
     }
@@ -339,12 +358,10 @@ function Get-LensIds {
     $dirs = @($dirs | Sort-Object -Unique)
     $result = @{}
     foreach ($d in $dirs) {
-        if (-not (Test-Path -LiteralPath $d -PathType Container)) { continue }
-        Get-ChildItem -LiteralPath $d -Filter '*-extension.md' -File | ForEach-Object {
-            if ($_.BaseName -match '^(\d{2})-(\d{2})-extension$') {
-                $id = "$($Matches[1])-$($Matches[2])"
-                if (-not $result.ContainsKey($id)) { $result[$id] = $_.FullName }
-            }
+        foreach ($f in (Get-SpecialistFiles -Path $d -Kind Lens)) {
+            $id = Get-SpecialistFileId -Kind Lens -Name $f.Name
+            if (-not $id) { continue }
+            if (-not $result.ContainsKey($id)) { $result[$id] = $f.FullName }
         }
     }
     return $result
@@ -743,8 +760,7 @@ if ($enabledIds.Count -gt 0) {
 $anyLensFile = $false
 $lensFiles = @()
 foreach ($dir in @((Get-SeamPaths -RepoRoot $repoRoot).Dir, (Join-Path $repoRoot '.claude\plugins'), (Join-Path $repoRoot '.claude\extensions'))) {
-    if (-not (Test-Path -LiteralPath $dir)) { continue }
-    $found = @(Get-ChildItem -LiteralPath $dir -Recurse -Filter '*-extension.md' -File -ErrorAction SilentlyContinue)
+    $found = @(Get-SpecialistFiles -Path $dir -Kind Lens -Recurse)
     if ($found.Count -gt 0) {
         $anyLensFile = $true
         $lensFiles += $found
@@ -752,7 +768,16 @@ foreach ($dir in @((Get-SeamPaths -RepoRoot $repoRoot).Dir, (Join-Path $repoRoot
 }
 # Any '<gg>-<ii>' token at all in the roster, using the same boundary rule as Test-InRoster so a
 # stray ISO date or a page range cannot pass for a roster row (issue #182).
-$anyRosterRow = $rosterText -match '(?<![\d-])\d{2}-\d{2}(?![\d-])'
+#
+# IT WAS A HAND-COPIED PATTERN UNTIL #2130, AND THE COPY HAD DRIFTED: it carried the trailing boundary
+# '(?![\d-])' where the shared source has '(?!\d)'. That is the tighter of the two, and it excludes
+# exactly the case the source's own docstring names as the legitimate one -- an id immediately followed
+# by a hyphen, which is every lens reference ever written. So a roster whose only ids sit inside lens
+# filenames read as NO roster row here, and the [BOOTSTRAP] line would then swallow every real finding
+# behind advice to run specialists-init on a repo that already has its whole lens tree. The comment
+# above claimed the two were the same rule while the literal below said otherwise, which is #182's own
+# shape one file over. Calling the function is the repair; there is no second spelling left to drift.
+$anyRosterRow = $rosterText -match (Get-RosterIdTokenPattern)
 
 $unbootstrapped = ($enabledIds.Count -gt 0) -and (-not $anyLensFile) -and (-not $anyRosterRow)
 
@@ -907,7 +932,10 @@ foreach ($plugId in ($enabledIds | Sort-Object -Unique)) {
                 }
             }
             if (-not $hasLens) {
-                Write-Failure "$kind '$id' ($plugIdShown) has no repo-lens (.claude/specialists/lenses/$id-extension.md, the pre-seam .claude/plugins/$(Get-LensFamily)/$name/ path, or the legacy .claude/extensions/ path)."
+                # The finding names the spelling a reader should CREATE, not every spelling the check
+                # looked for (#2130): this line is advice, and offering two names invites the reader to
+                # pick the one that is on its way out.
+                Write-Failure "$kind '$id' ($plugIdShown) has no repo-lens (.claude/specialists/lenses/$(Get-SpecialistFileName -Kind Lens -Id $id), the pre-seam .claude/plugins/$(Get-LensFamily)/$name/ path, or the legacy .claude/extensions/ path)."
             }
         }
         if ($inRoster -and $hasLens) { Write-Ok "$kind '$id' present in roster + lens" }

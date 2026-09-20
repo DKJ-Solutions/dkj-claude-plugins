@@ -27,7 +27,7 @@
 
     Besides the agent-def copies, this script also compares the PERSONAS (the orchestrator +
     main-loop specialists such as Chris/Derek/Rendall). Those deliberately have no agent def; their
-    portable source lives in <plugin>/personas/specialist-<g>-<id>-persona.md and is copied, when a consumer
+    portable source lives in <plugin>/personas/<g>-<id>-persona.md and is copied, when a consumer
     bootstraps, to the consumer's repo layer: .claude/plugins/claude-specialists/<plugin>/
     <g>-<id>-extension.md (since life-hub parity) or the legacy path
     .claude/extensions/<g>-<id>-extension.md. For every
@@ -141,7 +141,10 @@ function Get-PortableBody {
 
 # --- Read the source of truth: id, group and content per shared specialist --------------------------
 $sourceById = @{}
-Get-ChildItem -Path $SourceDirs -Filter '*-agent.md' -File | ForEach-Object {
+# Both spellings (#2130). This loop reads the id out of the FRONTMATTER rather than the filename, so it
+# would have gone on working after the rename -- over an empty set. The enumeration is the half that
+# breaks, and an empty source map here reports every consumer copy as an orphan rather than as drift.
+Get-SpecialistFiles -Path $SourceDirs -Kind Subagent | ForEach-Object {
     $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
     $idMatch = [regex]::Match($text, '(?m)^id:\s*(\d+)\s*$')
     $groupMatch = [regex]::Match($text, '(?m)^group:\s*(\d+)\s*$')
@@ -223,19 +226,26 @@ $personaDirs = @(Get-PluginSubdirs -PluginRoots $PublishedPlugins -Leaf 'persona
 
 $personaResults = New-Object System.Collections.Generic.List[object]
 if ($personaDirs.Count -gt 0) {
-    Get-ChildItem -Path $personaDirs -Filter '*-persona.md' -File | Sort-Object Name | ForEach-Object {
-        if ($_.BaseName -notmatch '^specialist-(\d{2})-(\d{2})-persona$') { return }
-        $g = $Matches[1]; $id = $Matches[2]
+    Get-SpecialistFiles -Path $personaDirs -Kind Persona | Sort-Object Name | ForEach-Object {
+        $personaId = Get-SpecialistFileId -Kind Persona -Name $_.Name
+        if (-not $personaId) { return }
         $srcBody = Get-PortableBody $_.FullName
         # The consumer copy can live on the canonical plugin path (.claude/plugins/<family>/<plugin>/,
         # since life-hub parity), on a non-canonical family segment left by a pre-#179 bootstrap, or on
         # the legacy path (.claude/extensions/) -- Get-LensDirCandidates enumerates all three in that
         # order, shared with check-roster-sync and the writers.
+        # Both spellings, directory by directory (#2130) -- the consumer's copy may already have been
+        # renamed while this source tree's persona has not, or the other way round, because the two live
+        # in different repositories on different release clocks.
         $pluginName = Split-Path (Split-Path $_.DirectoryName -Parent) -Leaf
         $consumerExt = $null
+        $lensNames = @(Get-SpecialistFileNameCandidates -Kind Lens -Id $personaId)
         foreach ($dir in (Get-LensDirCandidates -RepoRoot $ConsumerRoot -PluginName $pluginName)) {
-            $candidate = Join-Path $dir "$g-$id-extension.md"
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) { $consumerExt = $candidate; break }
+            foreach ($n in $lensNames) {
+                $candidate = Join-Path $dir $n
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) { $consumerExt = $candidate; break }
+            }
+            if ($consumerExt) { break }
         }
         if ($null -eq $consumerExt) {
             $personaResults.Add([pscustomobject]@{ Name = $_.Name; Status = 'MISSING'; Path = $null })

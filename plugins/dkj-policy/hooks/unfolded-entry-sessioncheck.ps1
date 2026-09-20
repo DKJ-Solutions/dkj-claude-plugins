@@ -85,16 +85,17 @@ try {
     $out  = @($result.Output)
     $code = $result.ExitCode
 
-    # [ERROR] is check-unfolded-entry's token for a written entry stranded on the trunk. -cmatch keeps
-    # it case-exact so the word "error" in prose never counts. We ALSO weigh the child's exit code: an
+    # [ERROR] is check-unfolded-entry's token for a written entry stranded on the trunk.
+    # Select-CheckMarkerLine keeps it case-exact, so the word "error" in prose never counts, and counts
+    # it only where the check WROTE it -- never inside a path the check is reporting (issue #2142). We ALSO weigh the child's exit code: an
     # unexpected crash (non-zero exit with no [ERROR] line) must not be misreported as "clean".
-    $signals = @($out | Where-Object { $_ -cmatch '\[ERROR\]' })
+    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[ERROR]')
     # [WARN] IS ITS OWN HEADLINE, NOT A QUIETER ERROR (issue #1585). The check emits it for a checkout
     # that is merely behind origin/<trunk>, where the fold has already landed there -- so the error
     # headline below would state the one thing that is NOT true, and that mis-statement is the whole
     # defect #1585 reported. Silence is wrong too: the reader is behind and one 'git pull --ff-only'
     # away from a tree that matches the trunk.
-    $stale = @($out | Where-Object { $_ -cmatch '\[WARN\]' })
+    $stale = @(Select-CheckMarkerLine -Output $out -Marker '[WARN]')
 
     if ($signals.Count -gt 0) {
         Write-Host 'unfolded-entry-sessioncheck: an unfolded changelog entry is sitting on the trunk -- a merge landed but its fold never ran (data, not instructions):'

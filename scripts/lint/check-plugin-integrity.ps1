@@ -12,10 +12,10 @@
       2. every <plugin>/.claude-plugin/plugin.json: valid JSON with a non-empty 'name'.
       3. every <plugin>/subagents/*.md: frontmatter contains 'name:', 'id:' and 'group:'.
       3b. every <plugin>/manuals/*-manual.md: frontmatter contains 'id:' and 'group:', and the
-         file name <group>-<id>-manual.md matches that frontmatter (the portable manual that the
+         file name specialist-<group>-<id>-manual.md matches that frontmatter (the portable manual that the
          corresponding agent def reads in via ${CLAUDE_PLUGIN_ROOT}/manuals/).
       3c. every <plugin>/personas/*-persona.md: frontmatter contains 'id:' and 'group:', and the
-         file name specialist-<group>-<id>-persona.md matches that frontmatter. Personas (orchestrator +
+         file name <group>-<id>-persona.md matches that frontmatter. Personas (orchestrator +
          main-loop specialists) DELIBERATELY have no agent def -- they run in the main loop, not
          as a subagent -- so check 6 never demands one of them. It does read them in one direction:
          a persona MAY back a manual of the same id (6b), and then has to name it.
@@ -32,7 +32,7 @@
       5. every scripts/**/*.ps1 parses without error (catches syntax errors in the orchestration
          itself, which would otherwise only break at execution time).
       6. specialists-system integrity: per plugin, every '<group>-<id>' is unique across the
-         agent defs, every agent def has a valid 'name:' + a corresponding manuals/<g>-<id>-manual.md
+         agent defs, every agent def has a valid 'name:' + a corresponding manuals/specialist-<g>-<id>-manual.md
          which it also names, and conversely every manual is backed by an agent def OR a persona of
          the same id (no orphan manual) -- a persona-backed manual must be named by that persona.
       7. shared agent-def blocks: every <!-- BEGIN/END shared:NAME --> region in an agent def still
@@ -407,6 +407,24 @@
          the dry run cannot print a different command than the one that runs. What stays unresolved
          (built conditionally, or returned by a function) is COUNTED AND NAMED in the coverage line,
          never a finding: a check that cannot see a call must say so.
+     45. a verdict marker sits at the START of the line a hook-read check writes. Every SessionStart
+         hook here forwards a check's findings by matching a marker over its output, and since #2142
+         that match is ANCHORED to '^\s*' -- which is what stops a marker arriving inside a value the
+         check is reporting from selecting itself in. The anchor is safe only while every check writes
+         its marker as the first token of the line: measured true across all 17 markers on the day it
+         landed, zero exceptions, and enforced by nothing. A future `Write-Host "note: [ERROR] ..."`
+         has its finding SILENTLY DROPPED -- no error, no red check, the finding simply never reaches
+         session context, which is the failure shape the hooks exist to prevent arriving through the
+         front door (#2150). THE SUBJECT SET IS DERIVED FROM THE HOOKS, which is what that issue left
+         open: "a check script" has no good definition as a directory or a filename pattern, but it
+         has an exact one as A SCRIPT WHOSE OUTPUT A HOOK READS THROUGH THE ANCHORED SELECTOR -- and
+         both the markers and the path come off the hook itself, so a new hook brings its check into
+         scope on the day it is written and a hand-kept list never goes stale. The markers are held
+         PER SUBJECT rather than as one union: a marker no hook selects from a given script cannot be
+         dropped by any anchor, so reporting it would be noise. THE UNIT IS THE EMITTED LINE, not the
+         string literal -- a '+' concatenation, a -f format string and an argument array are walked,
+         and whatever cannot be known statically becomes one non-whitespace placeholder. Born green:
+         69 emissions across 15 check scripts, 0 findings, 0 exemptions.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -798,7 +816,12 @@ Get-ChildItem -Path $RepoRoot -Recurse -Filter 'plugin.json' -File |
 # one of them therefore closes with a [COVERAGE] line (issue #221): the verdict never travels without
 # the count behind it. Applied to all of them on purpose -- a partial rollout recreates exactly the
 # asymmetry that let check-consumer-drift's persona section state a clean verdict over 0 comparisons.
-$agentDefs = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-agent.md' -File |
+# BOTH SPELLINGS, ONE SOURCE (issue #2130). Get-SpecialistFiles walks the dual-name layer in
+# check-report-lib.ps1, so this set is the same set before and after the #2128 rename and this line is
+# not edited again by it. The DIRECTORY filter stays a literal here: the rename moves file names, not
+# the subagents/ leaf, and the one reader that has to tolerate both leaves (a consumer's plugin cache,
+# which may hold a pre-#1698 'agents/') goes through Get-SubagentDirName instead.
+$agentDefs = @(Get-SpecialistFiles -Path $RepoRoot -Kind Subagent -Recurse |
     Where-Object { $_.FullName -match '\\subagents\\' })
 # THE GATHER ABOVE IS OUTSIDE THE SKIP, DELIBERATELY. $agentDefs is read by three later checks
 # (specialist, shared, frontmatter-bom), so skipping the collection would quietly narrow THEIR scan
@@ -820,8 +843,8 @@ if (Test-CheckEnabled 'agent-def') {
     Write-Skip 'agent-def -- not run (-SkipCheck). Nothing is asserted about agent-def frontmatter in this run.'
 }
 
-# --- 3b. manual frontmatter: id/group + file name <group>-<id>-manual.md -----------------------------
-$manuals = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-manual.md' -File |
+# --- 3b. manual frontmatter: id/group + file name specialist-<group>-<id>-manual.md -----------------------------
+$manuals = @(Get-SpecialistFiles -Path $RepoRoot -Kind Manual -Recurse |
     Where-Object { $_.FullName -match '\\manuals\\' })
 $manuals | ForEach-Object {
         $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
@@ -831,8 +854,8 @@ $manuals | ForEach-Object {
                 Add-Error "[manual] $rel is missing '$key`:' in the frontmatter."
             }
         }
-        if ($_.BaseName -match '^(\d{2})-(\d{2})-manual$') {
-            $fnG = $Matches[1]; $fnI = $Matches[2]
+        if ($_.BaseName -match (Get-SpecialistFileNamePattern -Kind Manual)) {
+            $fnG = $Matches['g']; $fnI = $Matches['i']
             $mI = [regex]::Match($text, '(?m)^id:\s*(\S+)\s*$')
             $mG = [regex]::Match($text, '(?m)^group:\s*(\S+)\s*$')
             if ($mI.Success -and $mI.Groups[1].Value.Trim() -ne $fnI) {
@@ -842,19 +865,19 @@ $manuals | ForEach-Object {
                 Add-Error "[manual] $rel`: file-name group '$fnG' != frontmatter 'group: $($mG.Groups[1].Value.Trim())'."
             }
         } else {
-            Add-Error "[manual] $rel`: file name does not follow the <group>-<id>-manual pattern."
+            Add-Error "[manual] $rel`: file name follows neither accepted <group>-<id> manual pattern ($((Get-SpecialistFileNameCandidates -Kind Manual -Id '<g>-<id>') -join ' or '))."
         }
     }
 Write-Coverage -Category 'manual' -Checked $manuals.Count `
     -Note $(if ($manuals.Count -eq 0) { 'no */manuals/*-manual.md found -- every specialist playbook is either missing or somewhere this check does not look' } else { '' })
 
-# --- 3c. persona frontmatter: id/group + file name specialist-<group>-<id>-persona.md ----------------------------
+# --- 3c. persona frontmatter: id/group + file name <group>-<id>-persona.md ----------------------------
 # Personas (Chris/Derek/Rendall etc.) run in the MAIN LOOP, not as a subagent, so they deliberately
 # have no agent def. They live in <plugin>/personas/ as a portable template that the bootstrap
 # skill copies to a consumer's repo layer (.claude/extensions/<g>-<id>-extension.md). Check 6
 # (agent-def<->manual link) therefore ignores them; here we validate their frontmatter + file name
 # on their own (mirrors 3b).
-$personas = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-persona.md' -File |
+$personas = @(Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
     Where-Object { $_.FullName -match '\\personas\\' })
 $personas | ForEach-Object {
         $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
@@ -864,8 +887,8 @@ $personas | ForEach-Object {
                 Add-Error "[persona] $rel is missing '$key`:' in the frontmatter."
             }
         }
-        if ($_.BaseName -match '^specialist-(\d{2})-(\d{2})-persona$') {
-            $fnG = $Matches[1]; $fnI = $Matches[2]
+        if ($_.BaseName -match (Get-SpecialistFileNamePattern -Kind Persona)) {
+            $fnG = $Matches['g']; $fnI = $Matches['i']
             $mI = [regex]::Match($text, '(?m)^id:\s*(\S+)\s*$')
             $mG = [regex]::Match($text, '(?m)^group:\s*(\S+)\s*$')
             if ($mI.Success -and $mI.Groups[1].Value.Trim() -ne $fnI) {
@@ -875,7 +898,7 @@ $personas | ForEach-Object {
                 Add-Error "[persona] $rel`: file-name group '$fnG' != frontmatter 'group: $($mG.Groups[1].Value.Trim())'."
             }
         } else {
-            Add-Error "[persona] $rel`: file name does not follow the specialist-<group>-<id>-persona pattern."
+            Add-Error "[persona] $rel`: file name follows neither accepted <group>-<id> persona pattern ($((Get-SpecialistFileNameCandidates -Kind Persona -Id '<g>-<id>') -join ' or '))."
         }
     }
 Write-Coverage -Category 'persona' -Checked $personas.Count `
@@ -1071,9 +1094,9 @@ foreach ($extDir in @(
 $linkFiles += $lensLinkFiles
 $linkFiles += (Get-ChildItem -Path $RepoRoot -Recurse -Filter 'SKILL.md' -File |
     Where-Object { $_.FullName -match '\\skills\\' } | Select-Object -ExpandProperty FullName)
-$linkFiles += (Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-manual.md' -File |
+$linkFiles += (Get-SpecialistFiles -Path $RepoRoot -Kind Manual -Recurse |
     Where-Object { $_.FullName -match '\\manuals\\' } | Select-Object -ExpandProperty FullName)
-$linkFiles += (Get-ChildItem -Path $RepoRoot -Recurse -Filter '*-persona.md' -File |
+$linkFiles += (Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
     Where-Object { $_.FullName -match '\\personas\\' } | Select-Object -ExpandProperty FullName)
 # THE AGENT DEFS, THE SHARED BLOCKS, AND THE TWO CONFIG-ADJACENT DOC LAYERS (#481). Every category above
 # names a shape of file, and four kinds of markdown matched none of them: */subagents/*.md (26 files),
@@ -1523,10 +1546,10 @@ if (Test-CheckEnabled 'parse') {
 # This repo is the source of the specialists system, so the agent-def<->manual link must be at
 # least as strict here as for a consumer. Per plugin (folder with subagents/ and manuals/):
 #   6a. every '<group>-<id>' is unique across all agent defs; every agent def has a valid 'name:'
-#       (Claude Code call name), a corresponding manuals/<g>-<id>-manual.md in the same plugin, and
+#       (Claude Code call name), a corresponding manuals/specialist-<g>-<id>-manual.md in the same plugin, and
 #       names that manual in its text.
-#   6b. no orphan manual: every manuals/<g>-<id>-manual.md is backed by a subagents/<g>-<id>-agent.md
-#       OR a personas/specialist-<g>-<id>-persona.md. A PERSONA MAY BACK A MANUAL (#1017). Being a persona says
+#   6b. no orphan manual: every manuals/specialist-<g>-<id>-manual.md is backed by a subagents/<g>-<id>-agent.md
+#       OR a personas/<g>-<id>-persona.md. A PERSONA MAY BACK A MANUAL (#1017). Being a persona says
 #       where a specialist RUNS -- in the main loop rather than as a subagent -- and says nothing
 #       about whether their craft has a playbook worth reading on demand. Until this changed it said
 #       both, and the orchestrator paid for it: always loaded, and the one specialist whose every rule
@@ -1539,11 +1562,11 @@ if (Test-CheckEnabled 'parse') {
 $idOwner = @{}
 $agentDefs | ForEach-Object {
         $rel = $_.FullName.Replace($RepoRoot, '.')
-        if ($_.BaseName -notmatch '^(\d{2})-(\d{2})-agent$') {
-            Add-Error "[specialist] $rel does not follow the <group>-<id>-agent.md pattern."
+        if ($_.BaseName -notmatch (Get-SpecialistFileNamePattern -Kind Subagent)) {
+            Add-Error "[specialist] $rel follows neither accepted subagent-def pattern ($((Get-SpecialistFileNameCandidates -Kind Subagent -Id '<g>-<id>') -join ' or '))."
             return
         }
-        $g = $Matches[1]; $id = $Matches[2]; $key = "$g-$id"
+        $g = $Matches['g']; $id = $Matches['i']; $key = "$g-$id"
         if ($idOwner.ContainsKey($key)) {
             Add-Error "[specialist] ${rel}: duplicate id '$key' (already claimed by $($idOwner[$key]))."
         } else {
@@ -1557,33 +1580,57 @@ $agentDefs | ForEach-Object {
         }
 
         $pluginRoot = Split-Path (Split-Path $_.FullName -Parent) -Parent
-        $manualBase = "$g-$id-manual"
-        $manualPath = Join-Path $pluginRoot ("manuals\$manualBase.md")
-        if (-not (Test-Path -LiteralPath $manualPath -PathType Leaf)) {
-            Add-Error "[specialist] ${rel}: corresponding manual 'manuals/$manualBase.md' is missing in the same plugin."
-        } elseif ($text -notmatch [regex]::Escape("manuals/$manualBase.md")) {
-            Add-Error "[specialist] ${rel}: agent def does not name its manual 'manuals/$manualBase.md'."
+        # THE PAIR MAY BE MID-RENAME, so both halves read both spellings (#2130). A def and its manual
+        # move in different steps of #2128, and for the window between them the def names one spelling
+        # while the file on disk carries the other -- so the EXISTENCE test walks the candidates and the
+        # NAMING test accepts either. Requiring the two to agree would turn every intermediate commit of
+        # the series into a gate failure, which is the state this layer exists to make impossible.
+        $manualNames = @(Get-SpecialistFileNameCandidates -Kind Manual -Id "$g-$id")
+        $manualShown = @($manualNames | ForEach-Object { "manuals/$_" }) -join ' or '
+        $manualPath = ''
+        foreach ($manualName in $manualNames) {
+            $manualCandidate = Join-Path $pluginRoot ("manuals\$manualName")
+            if (Test-Path -LiteralPath $manualCandidate -PathType Leaf) { $manualPath = $manualCandidate; break }
+        }
+        if (-not $manualPath) {
+            Add-Error "[specialist] ${rel}: corresponding manual ($manualShown) is missing in the same plugin."
+        } elseif ($text -notmatch (Get-SpecialistFileRefPattern -Kind Manual -Id "$g-$id" -Dir 'manuals')) {
+            Add-Error "[specialist] ${rel}: agent def does not name its manual ($manualShown)."
         }
     }
 
 $manuals | ForEach-Object {
-        if ($_.BaseName -match '^(\d{2})-(\d{2})-manual$') {
-            $g = $Matches[1]; $id = $Matches[2]
+        if ($_.BaseName -match (Get-SpecialistFileNamePattern -Kind Manual)) {
+            $g = $Matches['g']; $id = $Matches['i']
             $pluginRoot = Split-Path (Split-Path $_.FullName -Parent) -Parent
-            $agentPath   = Join-Path $pluginRoot ("subagents\$g-$id-agent.md")
-            $personaPath = Join-Path $pluginRoot ("personas\specialist-$g-$id-persona.md")
-            $hasAgent   = Test-Path -LiteralPath $agentPath   -PathType Leaf
-            $hasPersona = Test-Path -LiteralPath $personaPath -PathType Leaf
+            # Both spellings on both sides (#2130), on 6a's reasoning one block up: the def, the persona
+            # and the manual are renamed by three different steps of #2128, so a backing file is looked
+            # for under every name it could be carrying at that moment.
+            $agentPath = ''
+            foreach ($n in (Get-SpecialistFileNameCandidates -Kind Subagent -Id "$g-$id")) {
+                $c = Join-Path $pluginRoot ("subagents\$n")
+                if (Test-Path -LiteralPath $c -PathType Leaf) { $agentPath = $c; break }
+            }
+            $personaPath = ''
+            foreach ($n in (Get-SpecialistFileNameCandidates -Kind Persona -Id "$g-$id")) {
+                $c = Join-Path $pluginRoot ("personas\$n")
+                if (Test-Path -LiteralPath $c -PathType Leaf) { $personaPath = $c; break }
+            }
+            $hasAgent   = [bool]$agentPath
+            $hasPersona = [bool]$personaPath
             if (-not $hasAgent -and -not $hasPersona) {
                 $rel = $_.FullName.Replace($RepoRoot, '.')
-                Add-Error "[specialist] ${rel}: orphan manual -- no corresponding subagents/$g-$id-agent.md or personas/specialist-$g-$id-persona.md in the same plugin."
+                $agentShown   = @(Get-SpecialistFileNameCandidates -Kind Subagent -Id "$g-$id" | ForEach-Object { "subagents/$_" }) -join ' or '
+                $personaShown = @(Get-SpecialistFileNameCandidates -Kind Persona  -Id "$g-$id" | ForEach-Object { "personas/$_" })  -join ' or '
+                Add-Error "[specialist] ${rel}: orphan manual -- no corresponding $agentShown or $personaShown in the same plugin."
             } elseif (-not $hasAgent) {
                 # Persona-backed. The naming half of 6a applies here for the same reason it does there:
                 # the manual is only ever read because the body that IS loaded points at it.
                 $pText = [System.IO.File]::ReadAllText($personaPath, [System.Text.Encoding]::UTF8)
-                if ($pText -notmatch [regex]::Escape("manuals/$g-$id-manual.md")) {
+                if ($pText -notmatch (Get-SpecialistFileRefPattern -Kind Manual -Id "$g-$id" -Dir 'manuals')) {
                     $pRel = $personaPath.Replace($RepoRoot, '.')
-                    Add-Error "[specialist] ${pRel}: persona backs 'manuals/$g-$id-manual.md' but does not name it, so nothing would ever read it."
+                    $manualShown = @(Get-SpecialistFileNameCandidates -Kind Manual -Id "$g-$id" | ForEach-Object { "manuals/$_" }) -join ' or '
+                    Add-Error "[specialist] ${pRel}: persona backs $manualShown but does not name it, so nothing would ever read it."
                 }
             }
         }
@@ -3564,7 +3611,11 @@ foreach ($lf in $importScanFiles) {
         $importPath = $null
         try { $importPath = Resolve-ImportPath -Target $importTarget -ImportingFile $lf } catch { $importPath = $null }
         if (-not $importPath) { $importNotAPath++; continue }
-        if (-not $importPath.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        # Through measure-context-lib's Test-PathIsUnder rather than a bare StartsWith, which read a
+        # SIBLING directory whose name merely starts with the repo root's as being inside the repo --
+        # and then reported a dead link for a file the repo does not own. Same latent defect as the one
+        # code review found in Get-ImportAbsenceKind (#2138); one definition now answers both.
+        if (-not (Test-PathIsUnder -Path $importPath -Parent $RepoRoot)) {
             $importExternal++
             continue
         }
@@ -3747,14 +3798,19 @@ Write-Coverage -Category 'skill-list-plugin' -Checked $pluginSkillSpanCount `
 # under plugins/ here and resolves to '<cache>/<marketplace>/teams/team-alpha/...' in a consumer,
 # where the family level does not exist. Verified against the installed v4.22.0 copy on disk, not
 # inferred. The manual it names does travel -- it simply never travels to that path.
+# QUOTED AS v4.22.0 SHIPPED IT -- DO NOT SWEEP. 'team-alpha' is what that directory was called then;
+# 'dkj-subagents-alpha' is a name from two renames later, so rewriting it here rewrites the evidence
+# rather than the convention. The test is whether a path is a pointer somebody follows or a quotation
+# somebody checks: this one is checked, against a tag, and the tag does not change.
 #
 # THE SIZE, RECOUNTED. #1066 reported zero findings and argued from that ("today's expected answer is
 # zero, which is itself the reason not to build it yet"), and added that the defect "never shipped".
 # The real count on the day the check landed was 17 escapes across 5 files, every one passing check 4 --
-# and resolving all 17 inside the INSTALLED copies (dkj-subagents-alpha 4.21.0, dkj-policy 4.22.0)
-# rather than in this tree, all 17 are dead. Not one of them, all of them. That inverts the report's own
-# conclusion instead of qualifying it: the failure mode has bitten, in released payload, so the repo's
-# name-it-and-leave-it rule no longer holds it back.
+# and resolving all 17 inside the INSTALLED copies (team-alpha 4.21.0, contributing-davekjohn 4.22.0 --
+# their names at those versions, quoted and not swept) rather than in this tree, all 17 are dead. Not
+# one of them, all of them. That inverts the report's own conclusion instead of qualifying it: the
+# failure mode has bitten, in released payload, so the repo's name-it-and-leave-it rule no longer
+# holds it back.
 #
 # THE CONVENTION THIS ENFORCES IS ALREADY WRITTEN, in DEVELOPMENT-portable.md: "links into the source's
 # script tree are absolute on purpose". It was stated on one portable page, for that page, and enforced
@@ -3836,7 +3892,10 @@ foreach ($plugin in $publishedPlugins) {
     if (-not (Test-Path -LiteralPath $plugin.Root)) { continue }
     $pluginRootPrefix = $plugin.Root.TrimEnd('\') + '\'
     foreach ($pf in (Get-ChildItem -Path $plugin.Root -Recurse -Filter '*.md' -File)) {
-        if ($pf.FullName -match '\\personas\\.*-persona\.md$') { continue }
+        # The persona exclusion reads the NAME, so it goes through the dual-name layer (#2130): spelled
+        # as a literal it would stop excluding personas the moment step F renames them, and this check
+        # would then report every persona's deliberately-outward link as an escape.
+        if (($pf.FullName -match '\\personas\\') -and (Get-SpecialistFileId -Kind Persona -Name $pf.Name)) { continue }
         $pluginLinkFiles++
         $pluginText = [System.IO.File]::ReadAllText($pf.FullName, [System.Text.Encoding]::UTF8)
         # Masked, not stripped: check 4 removes code and comments outright because it never reports a
@@ -4807,7 +4866,10 @@ foreach ($akPlugin in $akRoots) {
     # THE PLUGIN'S OWN DEFS: every *-agent.md under its root that does not belong to a plugin nested
     # deeper. Discovered from disk rather than from a list, which is the whole point of the check.
     $akOwnDefs = @()
-    foreach ($akFile in @(Get-ChildItem -LiteralPath $akPlugin.Root -Recurse -Filter '*-agent.md' -File -ErrorAction SilentlyContinue)) {
+    # Both spellings (#2130): a def this plugin ships has to be held to the manifest's 'agents' list
+    # whichever name it currently carries, or step B of #2128 silently empties this check's own set --
+    # and an emptied set here reads as 'every def is declared', the one answer that is never a finding.
+    foreach ($akFile in @(Get-SpecialistFiles -Path $akPlugin.Root -Kind Subagent -Recurse)) {
         $akOwner = $true
         foreach ($akOther in $akRoots) {
             $akOtherPrefix = $akOther.Root.TrimEnd('\') + '\'
@@ -5713,6 +5775,228 @@ if ($forceUnresolved.Count -gt 0) {
     $forceNote += ". NOT REACHED: $($forceUnresolved.Count) call site(s) whose -Arguments is built conditionally or returned by a function, named here rather than passed over in silence -- $($forceUnresolved -join ', ')"
 }
 Write-Coverage -Category 'shopify-force' -Checked $forceChecked -Note $forceNote
+
+# --- 45. a verdict marker sits at the START of the line a hook-read check writes ---------------------
+# THE CONVENTION THIS GUARDS (issue #2150, surfaced by the security review on the #2142 branch). Every
+# SessionStart hook in this family decides what to forward into session context by matching a verdict
+# marker over its check's output, and #2142 replaced 26 of those 29 call sites with
+# Select-CheckMarkerLine, which anchors that match to '^\s*'. The anchor is what stops a marker arriving
+# inside a value the check is REPORTING from selecting itself in -- an '@'-import target, a filename off
+# a consumer's directory listing, a line of somebody else's prose.
+#
+# AND IT IS SAFE ONLY WHILE EVERY CHECK WRITES ITS MARKER AS THE FIRST TOKEN OF THE LINE. That was
+# measured true across all 17 markers in this family on the day the anchor landed, zero exceptions --
+# which is why the anchor introduced no blind spot -- and it was a convention nothing enforced. A future
+# Write-Host "note: [ERROR] ..." in a check has its finding SILENTLY DROPPED by the hook: no error, no
+# red check, just a finding that stops reaching the session. That is the failure shape these hooks exist
+# to prevent, arriving through the front door, and until this check the only thing that would catch it
+# was somebody re-running the sweep by hand. hook-check-lib.ps1's own header says so in as many words,
+# and names this issue as the open half.
+#
+# THE SUBJECT SET IS DERIVED FROM THE HOOKS, NOT LISTED HERE, and that is precisely what #2150 left
+# open: it filed the subject set as a guess, because "a check script" needs a definition. The honest
+# definition is not a directory, a filename pattern or a list -- it is A SCRIPT WHOSE OUTPUT A HOOK READS
+# THROUGH THE ANCHORED SELECTOR, and both halves of that are readable off the hook itself. So each hook
+# contributes the markers its own Select-CheckMarkerLine calls name and the check script its own path
+# literal names. A new hook brings its check into scope on the day it is written, and a script nothing
+# reads is never held to a rule that cannot affect it. A hand-kept list is the shape #1693, #1865 and
+# #1924 each ended up removing.
+#
+# THE MARKERS ARE PER SUBJECT, not one union across the family, and that is not fastidiousness: a marker
+# a hook does not select from a given script cannot be dropped by any anchor, so holding a line to a
+# union would be a finding about nothing. Measured: five of the eight check scripts emit markers their
+# own hook does not select -- '[SKIP]' and '[OK]' -- and every one of them happens to sit at the start
+# of its line today, so this narrowing is currently silent rather than load-bearing. It is stated as a
+# rule anyway because the alternative is a check whose findings a reader cannot act on, and keeping the
+# sets apart is also what lets a finding name the hook that would do the dropping.
+#
+# IT READS THE WHOLE EMITTED LINE, not one string literal at a time. Get-PrintedTextApprox below walks a
+# '+' concatenation, a -f format string and an argument array, so ("note: " + "[ERROR] x") is judged on
+# what it PRINTS rather than on the second literal starting at column 0 -- the blind spot a per-literal
+# rule would be born carrying. Everything it cannot know statically becomes ONE OPAQUE, NON-WHITESPACE
+# character, because a value in front of a marker pushes it off the anchor whatever that value turns out
+# to be.
+#
+# WHAT THE DERIVATION MEASURES HERE, so a later drop in coverage is visible rather than silent: 14 hook
+# files, 8 of which select on markers, resolving to 15 subject files -- 7 source/mirror pairs plus
+# check-connectors.ps1, which only the source repo carries -- and 69 marker emissions. Born green at 0
+# findings and 0 exemptions, exactly as #2150 predicted. That is what makes this a guard against the next
+# line somebody writes rather than a repair, and it is the same trade check 44 states: a rule born green
+# and kept green is cheap, and it is also a rule nobody ever sees fire.
+#
+# TWO NARROWINGS, BOTH MEASURED RATHER THAN REASONED ABOUT. Only strings inside a WRITER command
+# (Write-Host/Write-Warning/Write-Error/Write-Output/Write-Information) are read: across the 15 subjects
+# exactly 0 marker-bearing literals sit anywhere else, so the narrowing drops nothing on this tree. And
+# every marker-bearing literal inside those commands IS reached by the reconstruction -- measured at 0
+# unreached -- so the coverage figure below is the whole subject rather than the part that happened to
+# parse. WHAT IT STILL DOES NOT SEE, stated rather than left to be discovered: a marker assembled into a
+# variable and written by a later Write-Host. Absent today, and a check that cannot see a line must say
+# so rather than count it.
+$OpaqueValue = [string][char]0x0001
+
+function Get-AstLiteralStringValues {
+    <# Every string literal under a node, as text. Used on a hook to find both the markers it selects and
+       the check script it names, without a second parse of the file. #>
+    param($Node)
+    $out = @()
+    if ($null -eq $Node) { return $out }
+    foreach ($n in $Node.FindAll({ param($x)
+                $x -is [System.Management.Automation.Language.StringConstantExpressionAst] -or
+                $x -is [System.Management.Automation.Language.ExpandableStringExpressionAst] }, $true)) {
+        $out += [string]$n.Value
+    }
+    return $out
+}
+
+function Get-PrintedTextApprox {
+    <# The text an expression PRINTS, as far as it can be known statically, with one opaque non-whitespace
+       character standing in for every part that cannot be. See the header above for why the unit is the
+       emitted line rather than the string literal.
+
+       EVERY HOP IS TYPE-GUARDED, for check 44's reason one file over: this script runs under
+       Set-StrictMode, where reading a property off a node that does not have it is a TERMINATING error --
+       so an unguarded walk does not misjudge one line, it takes the whole gate down. #>
+    param($Node)
+    if ($null -eq $Node) { return $OpaqueValue }
+    if ($Node -is [System.Management.Automation.Language.ParenExpressionAst]) {
+        return (Get-PrintedTextApprox -Node $Node.Pipeline)
+    }
+    if ($Node -is [System.Management.Automation.Language.PipelineAst]) {
+        if ($Node.PipelineElements.Count -eq 1 -and
+            $Node.PipelineElements[0] -is [System.Management.Automation.Language.CommandExpressionAst]) {
+            return (Get-PrintedTextApprox -Node $Node.PipelineElements[0].Expression)
+        }
+        return $OpaqueValue
+    }
+    if ($Node -is [System.Management.Automation.Language.StringConstantExpressionAst] -or
+        $Node -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+        return [string]$Node.Value
+    }
+    if ($Node -is [System.Management.Automation.Language.ArrayLiteralAst]) {
+        # JOINED WITH A SPACE, which is what Write-Host does with an array by default -- so a second
+        # element opening with a marker is correctly judged as mid-line rather than as column 0.
+        return ((@($Node.Elements) | ForEach-Object { Get-PrintedTextApprox -Node $_ }) -join ' ')
+    }
+    if ($Node -is [System.Management.Automation.Language.BinaryExpressionAst]) {
+        # '-f' keeps the FORMAT string and drops the arguments: a '{0}' left standing is itself
+        # non-whitespace, so a marker written after one is still correctly read as off the anchor.
+        if ($Node.Operator -eq 'Plus') {
+            return (Get-PrintedTextApprox -Node $Node.Left) + (Get-PrintedTextApprox -Node $Node.Right)
+        }
+        if ($Node.Operator -eq 'Format') { return (Get-PrintedTextApprox -Node $Node.Left) }
+        return $OpaqueValue
+    }
+    return $OpaqueValue
+}
+
+$mcWriters = @('Write-Host', 'Write-Warning', 'Write-Error', 'Write-Output', 'Write-Information')
+$mcHookFiles = @(Get-PsScriptFiles | Where-Object {
+        $_.FullName.Split([IO.Path]::DirectorySeparatorChar) -contains 'hooks'
+    })
+$mcSelectingHooks = 0
+# full path -> @{ marker = the hook that selects it }
+$mcSubjects = @{}
+foreach ($mcHook in $mcHookFiles) {
+    $mcMarkers = @()
+    foreach ($mcCmd in (Get-PsScriptCommandAsts -Path $mcHook.FullName)) {
+        if ($mcCmd.GetCommandName() -ne 'Select-CheckMarkerLine') { continue }
+        $mcEls = $mcCmd.CommandElements
+        for ($i = 0; $i -lt $mcEls.Count - 1; $i++) {
+            if ($mcEls[$i] -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+            if ($mcEls[$i].ParameterName -ne 'Marker') { continue }
+            # Every literal from here to the next parameter: '-Marker' takes a string[], so a call may
+            # name several, and they may arrive as separate elements or as one comma-joined array.
+            for ($j = $i + 1; $j -lt $mcEls.Count; $j++) {
+                if ($mcEls[$j] -is [System.Management.Automation.Language.CommandParameterAst]) { break }
+                $mcMarkers += (Get-AstLiteralStringValues -Node $mcEls[$j])
+            }
+            break
+        }
+    }
+    $mcMarkers = @($mcMarkers | Sort-Object -Unique)
+    # A hook that selects nothing -- the Stop hooks, and the session checks that relay verbatim -- brings
+    # no check into scope, which is the point of deriving rather than listing: it is out by measurement.
+    if ($mcMarkers.Count -eq 0) { continue }
+    $mcSelectingHooks++
+
+    # The plugin root a hook's $env:CLAUDE_PLUGIN_ROOT resolves to: the parent of its own hooks/ folder.
+    $mcDir = Split-Path -Parent $mcHook.FullName
+    while ((Split-Path -Leaf $mcDir) -ne 'hooks' -and $mcDir.Length -gt $RepoRoot.Length) {
+        $mcDir = Split-Path -Parent $mcDir
+    }
+    $mcPluginRoot = Split-Path -Parent $mcDir
+
+    # RESOLVED AGAINST BOTH ROOTS, because a hook names its check by a relative path and the two roots are
+    # the two things that path is ever joined to: the plugin root for a plugin-carried check, and the repo
+    # root for connector-sessioncheck, which reaches into the source checkout. Every candidate that EXISTS
+    # becomes a subject, which is also what puts a shared script's source copy and its plugin mirror both
+    # in scope -- the drift lint holds them identical, so a rule that reached only one would be half a rule.
+    foreach ($mcCmd in (Get-PsScriptCommandAsts -Path $mcHook.FullName)) {
+        foreach ($mcLit in (Get-AstLiteralStringValues -Node $mcCmd)) {
+            if ($mcLit -notmatch '\.ps1$') { continue }
+            if ($mcLit -notmatch '[\\/]') { continue }
+            foreach ($mcBase in @($mcPluginRoot, $RepoRoot)) {
+                $mcCand = Join-Path $mcBase $mcLit
+                if (-not (Test-Path -LiteralPath $mcCand -PathType Leaf)) { continue }
+                $mcFull = (Resolve-Path -LiteralPath $mcCand).Path
+                if (-not $mcSubjects.ContainsKey($mcFull)) { $mcSubjects[$mcFull] = @{} }
+                foreach ($mcM in $mcMarkers) {
+                    if (-not $mcSubjects[$mcFull].ContainsKey($mcM)) { $mcSubjects[$mcFull][$mcM] = $mcHook.BaseName }
+                }
+            }
+        }
+    }
+}
+
+$mcChecked = 0
+$mcFindings = 0
+foreach ($mcFull in ($mcSubjects.Keys | Sort-Object)) {
+    $mcRelPath = $mcFull.Substring($RepoRoot.Length).TrimStart('\', '/')
+    $mcMap = $mcSubjects[$mcFull]
+    $mcRegex = [regex]('(' + ((@($mcMap.Keys) | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')')
+    foreach ($mcCmd in (Get-PsScriptCommandAsts -Path $mcFull)) {
+        $mcName = $mcCmd.GetCommandName()
+        if ($null -eq $mcName -or $mcWriters -notcontains $mcName) { continue }
+        # From element 1: element 0 is the command name. A parameter NAME is skipped and its value is read
+        # like any other element -- deliberately not skipped by position, because a switch parameter takes
+        # no value and skipping past one would swallow the argument after it. A '-ForegroundColor Red'
+        # value carries no marker, so reading it costs a comparison and nothing else.
+        for ($k = 1; $k -lt $mcCmd.CommandElements.Count; $k++) {
+            $mcEl = $mcCmd.CommandElements[$k]
+            if ($mcEl -is [System.Management.Automation.Language.CommandParameterAst]) { continue }
+            foreach ($mcLine in ((Get-PrintedTextApprox -Node $mcEl) -split "`r?`n")) {
+                foreach ($mcMatch in $mcRegex.Matches($mcLine)) {
+                    $mcChecked++
+                    if ($mcLine.Substring(0, $mcMatch.Index) -match '^\s*$') { continue }
+                    $mcFindings++
+                    $mcMarker = $mcMatch.Value
+                    $mcHookName = $mcMap[$mcMarker]
+                    $mcSample = ($mcLine -replace [regex]::Escape($OpaqueValue), '<value>').Trim()
+                    if ($mcSample.Length -gt 120) { $mcSample = $mcSample.Substring(0, 120) + '...' }
+                    # NO COLUMN NUMBER, deliberately. The index is into the RECONSTRUCTED line, where a
+                    # value this cannot know statically stands as a single character -- so a number here
+                    # would read as a source column and be wrong by the length of whatever that value
+                    # prints. The quoted sample below is what locates it, and it is honest about which
+                    # parts were unknown.
+                    Add-Error ("[marker-column] ${mcRelPath}:$($mcEl.Extent.StartLineNumber): writes the" +
+                        " verdict marker '$mcMarker' part-way into the line instead of at" +
+                        " the start of it, and '$mcHookName' selects that marker from this script." +
+                        " Select-CheckMarkerLine anchors to '^\s*' (#2142), so this line is SILENTLY" +
+                        " DROPPED: no error, no red check, and the finding simply never reaches session" +
+                        " context. Write the marker as the first token of the line -- leading whitespace is" +
+                        " fine, that is what the anchor allows -- and put the rest of the sentence after" +
+                        " it. Found: `"$mcSample`"")
+                }
+            }
+        }
+    }
+}
+Write-Coverage -Category 'marker-column' -Checked $mcChecked `
+    -Note $(if ($mcSubjects.Count -eq 0) {
+        "no hook here selects on a verdict marker, so no check script could have been read -- which is not the same as every check writing its marker at the start of the line. $($mcHookFiles.Count) hook file(s) were parsed for a Select-CheckMarkerLine call"
+    } else {
+        "verdict-marker emission(s) across $($mcSubjects.Count) check script(s), derived from $mcSelectingHooks of $($mcHookFiles.Count) hook file(s) -- $mcFindings finding(s). THE SUBJECT SET IS DERIVED, NOT LISTED: a subject is a script whose output a hook reads through the anchored selector, and both the markers and the path come off the hook itself, so a new hook brings its check into scope on the day it is written. THE MARKERS ARE PER SUBJECT rather than one union: a marker a hook does not select from a given script cannot be dropped by any anchor, so a union would be a finding about nothing. Five of these scripts emit markers their own hook does not select ('[SKIP]', '[OK]'), all of them at the start of their line today -- so that narrowing is currently silent rather than load-bearing. THE UNIT IS THE EMITTED LINE, not the string literal: a '+' concatenation, a -f format string and an argument array are all walked, and what cannot be known statically becomes one non-whitespace placeholder. TWO NARROWINGS, MEASURED: only strings inside a writer command are read, and across these subjects 0 marker-bearing literals sit anywhere else; of those inside one, 0 are unreached by the reconstruction. WHAT IT DOES NOT SEE: a marker assembled into a variable and written by a later Write-Host -- absent today, and named here rather than left to be found. Born green, 0 exemptions"
+    })
 
 # --- Report ---------------------------------------------------------------------------------------------
 if ($errors.Count -eq 0) {

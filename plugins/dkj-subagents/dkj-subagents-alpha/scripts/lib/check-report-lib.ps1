@@ -226,9 +226,16 @@ function Format-SafePathToken {
            lines are forwarded into session context by the SessionStart hooks, and a value carrying a
            newline could forge a line of its own.
          - SQUARE BRACKETS. The hooks decide what to surface, and how loudly, by matching markers like
-           '[ERROR]' over a check's whole output -- so a path containing one would not merely look odd,
-           it would be COUNTED. A bracket in a real path is vanishingly rare; a bracket that changes a
+           '[ERROR]' over a check's output -- so a path containing one would not merely look odd, it
+           could be COUNTED. A bracket in a real path is vanishingly rare; a bracket that changes a
            hook's verdict is not something to leave to chance.
+           SINCE #2142 THE READING END IS GUARDED TOO, and this strip is not made redundant by it.
+           Select-CheckMarkerLine (hook-check-lib.ps1) anchors every hook's match to where the check
+           WROTE the marker, so a bracket arriving mid-line no longer counts anywhere. That closes the
+           verdict; it does not close the DISPLAY -- a marker-shaped path still reads as one to whoever
+           is scanning the terminal -- and it says nothing about the control characters stripped above.
+           Two ends, deliberately: this one acts where the value enters the line, that one where the
+           line is read, and neither is written assuming the other is present.
        Everything else is kept, because everything else is what makes a path a path. Both classes come
        from the shared patterns above, so the prose sibling below argues about the same two things. #>
     param([AllowEmptyString()][string]$Value = '', [int]$MaxLength = 200)
@@ -270,6 +277,8 @@ function Format-SafeProseToken {
        through and could still LOOK like a marker to somebody scanning the terminal. That is a display
        resemblance with no mechanical effect, and widening the pattern to chase homoglyphs would start
        deleting ordinary punctuation out of prose to prevent nothing measurable.
+       The reading end is anchored too since #2142 (Select-CheckMarkerLine in hook-check-lib.ps1),
+       which closes the counting independently -- see Format-SafePathToken above for why both ends stay.
        In an id or a path a bracket is vanishingly rare, so deleting it
        costs nothing; in prose it is ordinary and load-bearing, and deleting it turns '[the guide](x.md)'
        into something the reader has to reconstruct. So the substitution is uniform and carries NO note:
@@ -1455,6 +1464,201 @@ function Get-PluginUpdateScope {
     return (& $answer 'project' 'default' '')
 }
 
+function Get-SpecialistFileShapes {
+    <# The naming shapes a specialist file of $Kind may carry: the ONE a writer writes, and every one a
+       READER must also accept. Four kinds, one table, and it is the only place any of them is spelled.
+
+       WHY THIS EXISTS AT ALL (issue #2130, step A of the #2128 rename series). All four conventions are
+       about to move -- '<g>-<id>-manual.md' to 'specialist-<g>-<id>-manual.md', and the same for the
+       persona, the subagent def and the lens, which additionally change stem ('-agent' to '-subagent',
+       '-extension' to '-lens'). Before this function the shapes were a scatter of independently anchored
+       globs and '^(\d{2})-(\d{2})-...$' regexes across thirteen reader sites in nine scripts, four of
+       which are held byte-identical to plugin mirrors. Renaming into that is the shape
+       Resolve-BranchFilePath's own docstring warns about: one convention recognised by two different
+       rules until they disagreed.
+
+       THE DOCTRINE IS Get-SubagentDirName's, one layer down -- BOTH ARE READ AND ONE IS WRITTEN. That
+       function already runs it for the DIRECTORY leaf ('subagents' today, 'agents' before #1698), and
+       for its reason rather than a tidier one: a reader here runs against a CONSUMER'S plugin cache,
+       which holds whatever version that machine last installed. A consumer meets a rename through a
+       plugin update rather than by choosing to, so both spellings have to resolve for as long as any
+       cache can still be carrying the old one.
+
+       AlsoRead IS NAMED FOR ITS JOB, NOT ITS DIRECTION, and that is deliberate. For a kind the series
+       has not reached yet it holds the FUTURE name while Current holds the past one; after the step that
+       renames that kind the two swap, and AlsoRead holds the past one. BOTH STATES ARE LIVE IN THIS
+       TABLE from step B on -- Subagent has swapped (#2131) and Manual with it (#2132), the other two
+       have not -- so the field's direction is not a property of the table at all, only of each row's
+       place in the series. A field called 'Legacy' would be a lie for exactly the window this layer
+       exists to cover, and 'Legacy' is what a later reader would reach for when deciding whether a
+       candidate may be dropped.
+
+       SO THIS TABLE IS THE FLIP POINT for the rest of the series. Step B..F each move one kind's files
+       and swap that kind's row here; no reader is touched again, because no reader names a shape. A row
+       whose AlsoRead is empty is a kind with one spelling, which is where every kind ends up once the
+       last cache carrying the old one is gone -- and that pruning is a decision with a date on it, not
+       a tidy-up to fold into the rename.
+
+       Stem is the tail after the id, WITHOUT the leading hyphen and WITHOUT the extension; Prefix is
+       everything before the id. A name is therefore '<Prefix><g>-<id>-<Stem>.md' and nothing else -- the
+       one composition rule, so a caller never concatenates a filename itself. #>
+    param([Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind)
+    # Plain hashtables in, pscustomobjects out: the table is data this function owns, and handing a
+    # caller the hashtable would let one mutate the shape every other caller reads in the same session.
+    $table = @{
+        Manual   = @{ Current = @{ Prefix = 'specialist-'; Stem = 'manual' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'manual' }) }
+        Persona  = @{ Current = @{ Prefix = 'specialist-'; Stem = 'persona' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'persona' }) }
+        Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
+                      AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
+        Lens     = @{ Current = @{ Prefix = ''; Stem = 'extension' }
+                      AlsoRead = @(@{ Prefix = 'specialist-'; Stem = 'lens' }) }
+    }
+    $entry = $table[$Kind]
+    $current = [pscustomobject]@{ Prefix = [string]$entry.Current.Prefix; Stem = [string]$entry.Current.Stem }
+    $also = @(@($entry.AlsoRead) | ForEach-Object {
+        [pscustomobject]@{ Prefix = [string]$_.Prefix; Stem = [string]$_.Stem }
+    })
+    return [pscustomobject]@{
+        Kind     = $Kind
+        Current  = $current
+        AlsoRead = $also
+        # Current first, so every derived list below is read-preference order: a caller resolving one id
+        # to one file lands on the written spelling before the tolerated one.
+        All      = @(@($current) + $also)
+    }
+}
+
+function Get-SpecialistFileName {
+    <# The name a WRITER writes for $Id: exactly one, always the Current shape. Every scaffolder goes
+       through this rather than composing '<id>-extension.md' inline, which is what makes a rename step a
+       change to the table above instead of a sweep. #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
+        [Parameter(Mandatory = $true)][string]$Id
+    )
+    $s = (Get-SpecialistFileShapes -Kind $Kind).Current
+    return "$($s.Prefix)$Id-$($s.Stem).md"
+}
+
+function Get-SpecialistFileNameCandidates {
+    <# Every name $Id's file could be sitting under, written spelling first -- what a reader looking for
+       ONE specialist's file walks. The mirror of Get-SpecialistFileName: that one answers "where do I
+       put it", this one "where could it already be". #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
+        [Parameter(Mandatory = $true)][string]$Id
+    )
+    return @((Get-SpecialistFileShapes -Kind $Kind).All | ForEach-Object { "$($_.Prefix)$Id-$($_.Stem).md" })
+}
+
+function Get-SpecialistFileFilters {
+    <# The wildcard filters that together enumerate every file of $Kind, whatever its spelling -- for a
+       caller that must pass -Filter rather than match a name it already has.
+
+       A LIST, BECAUSE ONE PATTERN CANNOT DO IT. Where only the PREFIX moves (manual, persona) the single
+       filter '*-manual.md' already covers both spellings and the list collapses to one entry. Where the
+       STEM moves too (subagent, lens) it cannot, so the list is two. De-duplicated here rather than at
+       the call sites, so a caller looping over it never has to know which kind it was handed.
+
+       THE TWO NEVER DOUBLE-COUNT A FILE, which is worth stating because it looks as though they might:
+       '*-agent.md' does not match 'specialist-02-09-subagent.md' -- the character before 'agent.md'
+       there is 'b', not the hyphen the pattern requires. Get-SpecialistFiles de-duplicates by full path
+       anyway, so a caller is safe either way; this note is for whoever adds the next stem. #>
+    param([Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind)
+    return @((Get-SpecialistFileShapes -Kind $Kind).All |
+        ForEach-Object { "*-$($_.Stem).md" } |
+        Select-Object -Unique)
+}
+
+function Get-SpecialistFiles {
+    <# Every file of $Kind in $Path, under either spelling, de-duplicated by full path and ordered by it.
+
+       A MISSING DIRECTORY IS AN EMPTY ANSWER, not an error, on Resolve-BranchFilePath's reasoning: every
+       caller here is a reader, and a consumer that has not bootstrapped yet simply has no such directory.
+       A caller that needs to tell "no directory" from "no files" asks Test-Path itself -- the lint's
+       coverage lines do exactly that, and they are why this must not throw.
+
+       ORDERED BY FULL PATH rather than by name: a caller passing several directories would otherwise get
+       an order that depends on which directory a file happened to be in. Callers that want Name order
+       re-sort, and two of them do. #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][AllowNull()][string[]]$Path,
+        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
+        [switch]$Recurse
+    )
+    $seen = @{}
+    $out = @()
+    foreach ($dir in @($Path)) {
+        if (-not $dir) { continue }
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+        foreach ($filter in (Get-SpecialistFileFilters -Kind $Kind)) {
+            foreach ($f in @(Get-ChildItem -LiteralPath $dir -Filter $filter -File -Recurse:$Recurse -ErrorAction SilentlyContinue)) {
+                if ($seen.ContainsKey($f.FullName)) { continue }
+                $seen[$f.FullName] = $true
+                $out += $f
+            }
+        }
+    }
+    return @($out | Sort-Object FullName)
+}
+
+function Get-SpecialistFileNamePattern {
+    <# An ANCHORED regex over a file's base name (no extension) matching every spelling of $Kind, with
+       named groups 'g' and 'i' for the group and the id. Pass -Id to pin it to one specialist.
+
+       DUPLICATE GROUP NAMES ACROSS THE ALTERNATION ARE DELIBERATE AND LEGAL IN .NET: whichever branch
+       matches supplies 'g' and 'i', so a caller reads one pair of groups rather than counting branches.
+       That is the whole reason this is composed here instead of at thirteen call sites -- the naive
+       composition gives '(\d{2})-(\d{2})' twice and $Matches[1] then means different things depending on
+       which spelling was on disk. #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
+        [string]$Id = ''
+    )
+    $body = if ($Id) { [regex]::Escape($Id) } else { '(?<g>\d{2})-(?<i>\d{2})' }
+    $alts = @((Get-SpecialistFileShapes -Kind $Kind).All | ForEach-Object {
+        [regex]::Escape($_.Prefix) + $body + '-' + [regex]::Escape($_.Stem)
+    })
+    return '^(?:' + ($alts -join '|') + ')$'
+}
+
+function Get-SpecialistFileId {
+    <# The '<group>-<id>' a specialist file's name carries, under either spelling, or '' when the name
+       follows neither. Takes a bare name, a base name or a full path -- every call site had one of the
+       three and converting at the boundary is cheaper than three near-identical helpers. #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Name
+    )
+    if (-not $Name) { return '' }
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($Name)
+    $m = [regex]::Match($base, (Get-SpecialistFileNamePattern -Kind $Kind))
+    if (-not $m.Success) { return '' }
+    return "$($m.Groups['g'].Value)-$($m.Groups['i'].Value)"
+}
+
+function Get-SpecialistFileRefPattern {
+    <# A regex matching a REFERENCE to $Id's file in prose -- both spellings, optionally under a leading
+       directory ('manuals/01-01-manual.md' | 'manuals/specialist-01-01-manual.md').
+
+       NOT ANCHORED, and never made so: the callers ask whether a body NAMES its manual anywhere in its
+       text, which is a different question from whether a filename IS one. Unanchored is also why -Dir
+       earns its place -- without the directory the bare name matches inside the longer path too, and a
+       check meant to prove a link exists would pass on a mention of the file in passing. #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
+        [Parameter(Mandatory = $true)][string]$Id,
+        [string]$Dir = ''
+    )
+    $lead = if ($Dir) { [regex]::Escape(($Dir -replace '[\\/]+$', '')) + '/' } else { '' }
+    $alts = @((Get-SpecialistFileNameCandidates -Kind $Kind -Id $Id) | ForEach-Object {
+        $lead + [regex]::Escape($_)
+    })
+    return '(?:' + ($alts -join '|') + ')'
+}
+
 function Get-SubagentDirName {
     <# The leaf name of the directory a plugin keeps its subagent definitions in -- 'subagents' where the
        plugin ships one, 'agents' where it ships the pre-rename shape, and '' where it ships neither.
@@ -1637,12 +1841,21 @@ function Get-RosterIdTokenPattern {
        drift out of sync, which is exactly how this bug arose: the same lookaround duplicated in two
        places and tightened in neither.
 
-       Leading boundary '(?<![\d-])': excludes a preceding digit OR hyphen. The old pattern
-       ('(?<!\d)') only excluded a digit, so an ISO date matched -- in '2026-07-25' the '07' is
-       preceded by '-', which passed, so '07-25' was read as a specialist token. Excluding a
-       preceding hyphen too kills that case; verified '2026-07-25' and '2026-05-15' now yield no
-       match, while '06-24' and '05-15' inside a real reference like 'See 05-15-extension.md' still
-       match (nothing precedes them there but the start-of-string/whitespace).
+       Leading boundary '(?<!\d)(?<!\d-)': excludes a preceding digit, and a preceding hyphen that is
+       itself preceded by a digit. The oldest pattern ('(?<!\d)') only excluded the digit, so an ISO
+       date matched -- in '2026-07-25' the '07' is preceded by '-', which passed, so '07-25' was read
+       as a specialist token. Verified '2026-07-25' and '2026-05-15' yield no match, while '06-24' and
+       '05-15' inside a real reference like 'See 05-15-extension.md' still match.
+
+       IT WAS '(?<![\d-])' UNTIL ISSUE #2130, AND THAT FORM HAD A SILENT BREAK IN IT. Excluding EVERY
+       preceding hyphen is a wider rule than the ISO date needs, and the #2128 rename series walks
+       straight into the gap: once a lens is 'specialist-01-01-lens.md' the id is preceded by the hyphen
+       of an ordinary WORD, so the token stops matching. In '.claude/specialists/SPECIALISTS.md' the four
+       main-loop personas carry their id ONLY inside that filename -- the subagent rows write bare ids and
+       are unaffected -- so Chris, Bianca, Derek and Rendall would quietly stop counting as rostered, in a
+       file no '^(\d{2})-(\d{2})-...$' anchor sweep reaches. Splitting the one lookbehind into two keeps
+       exactly the ISO-date case out ('6-' before '07' is digit-then-hyphen) and lets the word case in
+       ('t-' before '01' is not), which is the case the old form could not tell apart.
 
        Trailing boundary '(?!\d)' (unchanged, deliberately NOT tightened to '(?![\d-])'): a real
        lens reference is immediately followed by '-extension.md', i.e. a hyphen -- tightening the
@@ -1675,7 +1888,7 @@ function Get-RosterIdTokenPattern {
         [string]$Id = ''
     )
     $body = if ($Id) { [regex]::Escape($Id) } else { '\d{2}-\d{2}' }
-    return "(?<![\d-])$body(?!\d)"
+    return "(?<!\d)(?<!\d-)$body(?!\d)"
 }
 
 function Get-SeamPaths {
@@ -1848,8 +2061,11 @@ function Get-LensWriteDir {
         [Parameter(Mandatory = $true)][string]$PluginName
     )
     foreach ($dir in (Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $PluginName)) {
-        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
-        $found = @(Get-ChildItem -LiteralPath $dir -Filter '*-extension.md' -File -ErrorAction SilentlyContinue)
+        # Either spelling counts as "this repo already keeps its lenses here" (#2130). A consumer whose
+        # lenses have been renamed but not relocated must not be read as lens-less, which would send the
+        # writer back to the seam and split the surface in two -- the exact outcome this function's own
+        # docstring calls worse than either layout alone.
+        $found = @(Get-SpecialistFiles -Path $dir -Kind Lens)
         if ($found.Count -gt 0) { return $dir }
     }
     return (Get-SeamPaths -RepoRoot $RepoRoot).LensDir

@@ -257,8 +257,14 @@ record had **moved**, not never existed — worth knowing, because the two call 
 list nevertheless reported:
 
 ```
-❯ dkj-subagents-alpha@claude-code-specialists   Version: 3.0.1   Scope: project   Status: ✔ enabled
+❯ specialists@davekjohns-workshop   Version: 3.0.1   Scope: project   Status: ✔ enabled
 ```
+
+**Quoted as the CLI printed it that day — do not sweep.** `specialists` and `davekjohns-workshop` are
+what the plugin and the marketplace were called at v3.0.1; both names have been renamed since, and
+**four** later sweeps had each rewritten this line, leaving it quoting a string the CLI never emitted.
+The test is whether a name is a pointer somebody follows or a quotation somebody checks: this one is
+checked, against a tag, and the tag does not change (#2144).
 
 The command enumerates install records beyond the current repo, so a green line is no evidence that
 *this* repo is installed. Exactly why it reports the way it does was not established and is

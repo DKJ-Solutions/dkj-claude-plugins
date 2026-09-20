@@ -3,9 +3,9 @@
   "displayName": "Claude Specialists — team e-commerce (subagent scaffold)",
   "description": "Add-on team for commercial webshop repos (any platform): the SEO specialist Sergio, the CRO specialist Craig, and the performance/SEA specialist Sean, with room to grow into the wider e-commerce craft (lifecycle/email, analytics). Deliberately NOT repo-neutral — only a commercial webshop repo enables this team. Teams stack: platform-agnostic, so it sits alongside a platform team like 'dkj-subagents-shopify' rather than replacing it. The governance layer (CLAUDE.md + the repo lenses) and the core team ('dkj-subagents-alpha') stay separate.",
   "agents": [
-    "./subagents/06-26-agent.md",
-    "./subagents/06-27-agent.md",
-    "./subagents/06-28-agent.md"
+    "./subagents/specialist-06-26-subagent.md",
+    "./subagents/specialist-06-27-subagent.md",
+    "./subagents/specialist-06-28-subagent.md"
   ],
   "version": "5.5.0",
   "author": { "name": "DaveKJohn" },

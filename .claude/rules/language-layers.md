@@ -86,7 +86,7 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   Measured August 23, 2026: a GNU `sed` substitution meant to write those same two dash escapes hit `sed`'s
   own `\u` ("uppercase the next character") reading of the replacement and wrote the literal `[-20132014,]`
   instead — ASCII, and wrong. The mechanism is in
-  [the system-administration manual's trap section](../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/05-15-manual.md#thirteen-powershell-traps-that-produce-well-formed-wrong-output);
+  [the system-administration manual's trap section](../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#thirteen-powershell-traps-that-produce-well-formed-wrong-output);
   the consequence here is the same as above — compose the escape with
   `'-' + [char]0x2013 + [char]0x2014` rather than a non-PowerShell substitution, and where such a tool must
   write one anyway, read the written line back by code point before trusting it.
@@ -183,7 +183,7 @@ refilled the list on September 3, 2026, with a shape the July re-check had not s
 plus a repository admin role, where it once held repository admin plus the Write role
 ([#1244](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1244),
 [#1290](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1290); the mechanics live in
-[the system-administration lens](../specialists/lenses/05-15-extension.md)). And on that same
+[the system-administration lens](../specialists/lenses/specialist-05-15-lens.md)). And on that same
 September 3 Dave turned on `strict_required_status_checks_policy` on that rule and reverted it about
 45 minutes later
 ([#1325](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1325)) — a third change to

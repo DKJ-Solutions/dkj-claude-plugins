@@ -247,11 +247,17 @@ if (Test-Path -LiteralPath $settingsAbs -PathType Leaf) {
     }
 }
 
+# refreshInterval IS IN SECONDS, NOT MILLISECONDS (#2163). This carried 2000 until September 19, 2026,
+# which Claude Code reads as 33 minutes: the timer never fired inside any real run, and the bar redrew
+# only on the event-driven triggers -- a message sent, a turn ending -- so a backgrounded run showed a
+# frozen count until the operator spoke. The statusline documentation states the unit and a minimum of 1.
+$refreshIntervalSeconds = 2
+
 $blockForPrinting = @"
   "statusLine": {
     "type": "command",
     "command": "$statusLineCommand",
-    "refreshInterval": 2000
+    "refreshInterval": $refreshIntervalSeconds
   }
 "@
 
@@ -281,7 +287,7 @@ if ($hasStatusLine) {
     $settings | Add-Member -MemberType NoteProperty -Name 'statusLine' -Value ([pscustomobject]@{
         type            = 'command'
         command         = $statusLineCommand
-        refreshInterval = 2000
+        refreshInterval = $refreshIntervalSeconds
     })
     $settingsDir = Split-Path -Parent $settingsAbs
     if (-not (Test-Path -LiteralPath $settingsDir -PathType Container)) {
