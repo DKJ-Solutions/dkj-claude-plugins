@@ -38,6 +38,13 @@
         an orphan's [INFO] line restates the headline, while these lines carry the REMEDY, and the three
         shapes have three different ones. A roll-up that names a problem and withholds the only actionable
         half is where the previous version stopped;
+      - and for [LENS-NAMING] (issue #2219), the first marker here whose subject is the CHECK and not the
+        repo: a session loads the last RELEASED plugin payload, so after a rename of the lens filenames in
+        the source, every not-yet-updated session reads a tree it has no vocabulary for -- and the check
+        then reports every specialist as lens-less, each line prescribing a file that is already there
+        under another name. It gets its own verdict and rides along with the drift branch. The remedy is a
+        plugin update, never an edit in the repo, which is why its headline names the lag rather than the
+        roster;
       - the check's [SCOPE] line travels along with those signals, so a surfaced finding always names
         the repo the check resolved -- and whether that root came from CLAUDE_PROJECT_DIR or from the
         working-directory git-root fallback (inbound #203);
@@ -143,6 +150,16 @@ try {
     # "run specialists-init" -- advice this reader has just followed successfully.
     $rosterPendingLines = @(Select-CheckMarkerLine -Output $out -Marker '[ROSTER-PENDING]')
 
+    # [LENS-NAMING] rides along the same way (issue #2219), and it is the first marker here whose subject
+    # is the CHECK rather than the repo. A session loads the last RELEASED plugin payload, so after a
+    # rename of the lens files in the source every not-yet-updated session reads a tree it has no
+    # vocabulary for -- and this check then reports every specialist as lens-less, each line telling the
+    # reader to create a file that is already sitting there under another name. Measured on September 20,
+    # 2026 in the source repo's own session start: 34 such lines, of which none was actionable.
+    # Deliberately NOT folded under [ROSTER-PENDING], whose advice is "fill it in when you get to it":
+    # here there is nothing to fill in and nothing in the repo to change at all.
+    $lensNamingLines = @(Select-CheckMarkerLine -Output $out -Marker '[LENS-NAMING]')
+
     # [NOTHING-ENABLED] rides along the same way (inbound #294). THE DEFECT: this hook reported "roster
     # in sync with the enabled plugins" for a repo with 0 lenses and 0 roster rows, in the very session
     # that had loaded four of its skills and all three of its hooks -- because the check read
@@ -227,6 +244,13 @@ try {
         # line the reader would be told a specialist is missing from the roster with no hint that the other
         # eighteen are deliberately absent.
         foreach ($line in $rosterPendingLines) { Write-Host "  $($line.Trim())" }
+        # And the naming marker, for the mixed state it reaches: findings held because this check cannot
+        # read the repo's lens filenames, alongside a real one it CAN speak to -- an '@'-import that does
+        # not resolve is the likeliest companion, since a payload old enough to miss the lens naming is
+        # old enough to have been installed before the persona file moved. Without this line the reader is
+        # told a specialist is missing from the roster with no hint that the rest were held, and no hint
+        # that the remedy is a plugin update rather than an edit.
+        foreach ($line in $lensNamingLines) { Write-Host "  $($line.Trim())" }
         # Same reasoning, one state over: without this line the headline says a specialist is missing from
         # the roster, about a plugin no session in this repo loads. The finding is real and the roster
         # genuinely lags -- but the reader's first move should be the install, not the roster.
@@ -277,6 +301,19 @@ try {
         foreach ($line in $rosterPendingLines) { Write-Host "  $($line.Trim())" }
         # The same order-of-operations lines as the branches above: a reader about to fill in a roster should
         # know first if the plugin is not installed for this path or its record is shaped wrong.
+        foreach ($line in $notInstalledLines) { Write-Host "  $($line.Trim())" }
+        foreach ($line in $recordShapeLines) { Write-Host "  $($line.Trim())" }
+    } elseif ($lensNamingLines.Count -gt 0) {
+        # Its own verdict, and it sits here on purpose: below drift and the two setup states, above the
+        # in-sync line. "Roster in sync" would be the wrong headline -- the check did not manage to read
+        # the lens files at all -- and every verdict above it says the repo has something to do, which
+        # this reader does not. The headline therefore names where the lag is, because that is the only
+        # thing anybody can act on.
+        Write-Host 'roster-sessioncheck: the roster looks correct; this check is reading it with an older naming than the repo uses:'
+        foreach ($line in $lensNamingLines) { Write-Host "  $($line.Trim())" }
+        # The same order-of-operations lines as the branches above. They matter more here than anywhere
+        # else: the remedy for this state IS a plugin update, so a record that is not shaped the way an
+        # update expects is the next thing the reader will walk into.
         foreach ($line in $notInstalledLines) { Write-Host "  $($line.Trim())" }
         foreach ($line in $recordShapeLines) { Write-Host "  $($line.Trim())" }
     } elseif ($nothingEnabledLines.Count -gt 0) {
