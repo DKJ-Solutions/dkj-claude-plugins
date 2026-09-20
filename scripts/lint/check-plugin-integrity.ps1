@@ -2936,10 +2936,13 @@ Write-Coverage -Category 'skill-param' -Checked $skillParamChecked `
 #
 # History is excluded exactly as checks 11 and 12 exclude it: CHANGELOG.md's ENTRIES and the per-plugin
 # copies, the release notes, RELEASE.md, and the branch's own document, which is history in the making.
-# dkj-policy/CONTRIBUTING.md is deliberately NOT excluded -- it is a document ABOUT the shape,
-# which is precisely this check's subject. Two pages used to carry that role and both are gone into it:
-# branch/README.md at the merge on August 23, 2026, and this folder's own CLAUDE.md on August 26 (#886).
-# One page now, and the check reaches it the same way.
+# NO PAGE IN dkj-policy/ CARRIES THAT ROLE ANY MORE, AND NOTHING HERE IS EXCLUDED ON ITS ACCOUNT.
+# dkj-policy/CONTRIBUTING.md was deliberately NOT excluded while it existed -- it was a document ABOUT
+# the shape, which is precisely this check's subject. Three pages carried that role in turn and each
+# folded into the next: branch/README.md at the merge on August 23, 2026, this folder's own CLAUDE.md on
+# August 26 (#886), and CONTRIBUTING.md itself until #2171/#2179 retired it on September 20, 2026. The
+# claims it made about the shape now sit in the specialist lenses under .claude/, which this check walks
+# like any other markdown -- so the subject did not move out of reach, only out of that folder.
 #
 # AND NEITHER IS CHANGELOG.md'S INTRO (August 8, 2026). It went out with the rest of that file on the history
 # grounds above, and this repo had already written down why that reasoning does not reach the intro:

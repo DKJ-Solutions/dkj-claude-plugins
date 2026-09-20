@@ -73,28 +73,59 @@ this repo both read, and duplicating it here is what #2171 retired.
 
 ### CREATE
 
-- [ ] Sylvester's lens: receive the branch-document mechanics, the eight PR gates and the seam-answer table
-- [ ] Derek's lens: receive step 1's Claude half, the claim measurements and the merge/queue material
-- [ ] Rendall's lens: receive CUT RELEASE, the live-stage no-op and the page's own history, deduplicated
-- [ ] `.claude/specialists/README.md`: receive the self-consumption and plugin-update material
-- [ ] Delete `dkj-policy/README.md` and `dkj-policy/CONTRIBUTING.md`
-- [ ] Retarget the 14 markdown links that point at either page, and read the bare-prose mentions by eye
+- [x] Sylvester's lens: receive the branch-document mechanics, the eight PR gates and the seam-answer table
+- [x] Derek's lens: receive step 1's Claude half, the claim measurements and the merge/queue material
+- [x] Rendall's lens: receive CUT RELEASE, the live-stage no-op and the fold, deduplicated against what it already said
+- [x] `.claude/specialists/README.md`: receive the self-consumption and plugin-update material
+- [x] Tessa's lens: receive the pages' own history -- **added to the plan**, because the issue's table had no
+      home for `CONTRIBUTING.md:1-70` that fitted. A page's life and death is doc governance, which is Tessa's,
+      not the release manager's; her lens also carries the forwarding address for all four destinations.
+- [x] Delete `dkj-policy/README.md` and `dkj-policy/CONTRIBUTING.md`
+- [x] Retarget every link that pointed at either page, and read the bare-prose mentions by eye
 
 ### TEST
 
-- [ ] `check-plugin-integrity.ps1` green -- it is the dead-link gate, so it is what proves the retarget
-- [ ] `measure-always-on.ps1`: the always-on figure has not moved (the lenses are not on that path)
-- [ ] Review pass on the diff before the PR
+- [x] `check-plugin-integrity.ps1` green -- it is the dead-link gate, so it is what proves the retarget.
+      First run: **9 dead links**, all in the release archive and none in the 14 the issue counted. Repointed
+      and re-run: 0 errors.
+- [x] The always-on budget: the path **shrank by 190 B** (110,154 -> 109,964). The lenses are not on that
+      path, so ~1,300 lines moved at no session cost and `CLAUDE.md`'s own pointers got shorter.
+- [x] Review pass on the diff before the PR
 
 ### DEPLOY: docs/2179-folder-docs-into-lenses
 
-**Score:**
+`dkj-policy/` carries no prose pages any more. This repo's own `CONTRIBUTING.md` (1,132 lines) and
+`README.md` (167) are gone, and the ~1,300 lines of measured answers they held now sit in the lens of
+the specialist who owns each: the branch-document mechanics, the eight pull-request gates and the
+seam-answer table with Sylvester; the issue layer, the claim measurements and the merge step with
+Derek; the fold, the cut and the live-stage no-op with Rendall; keeping a checkout's plugins current in
+the specialists handbook; and the pages' own history, plus the forwarding address to all four, with
+Tessa. This is phase B of #2171 -- phase A is the plugin no longer scaffolding either page into a
+consumer -- and it exists because *"there is only one CONTRIBUTING"* was false in the very repo that
+ships the sentence.
+
+Nothing was summarised away: the measurements keep their issue numbers and their dates, and what was
+left behind is the half that only restated `CONTRIBUTING-portable.md`, which is the duplication #2171
+retired. What the move costs is the one page that read as a route end to end; that route is still
+readable, in the portable page that always described it.
+
+The dead-link gate is what proves the retarget, and it found nine links the issue's count of fourteen
+had missed -- all of them in the archived release notes, where the published-record rule permits a link
+target to be repointed and forbids the prose around it to be rewritten. The always-on path **shrank by
+190 B**, so ~1,300 lines moved at no session cost at all.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer following the worked example in `plugins/dkj-policy/README.md` was about to meet a 404: it
+offered this repo's own `dkj-policy/CONTRIBUTING.md` as the model for writing down your own answers,
+and that file stops existing here. It now points at the specialist lenses, and says in the same breath
+why the page it used to name is gone -- so the example a consumer copies is the arrangement this
+workflow actually recommends rather than the one it just retired.
+
+**Score:** 2
 
 #### Pull Request
 
 The workflow folder's own README and CONTRIBUTING move into the specialist lenses
-

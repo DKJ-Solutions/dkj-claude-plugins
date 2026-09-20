@@ -5991,6 +5991,14 @@ function Get-BranchFilePaths {
         # repo that would have to fork Get-BranchFilePaths anyway, since these names are the interface four
         # scripts read. Matched case-insensitively, because Windows will hand back 'Readme.md' for a file
         # committed as 'README.md'.
+        # TWO OF THE THREE NO LONGER EXIST IN THE SOURCE REPO, AND ALL THREE STAY ON THE LIST (#2171 and
+        # #2179, September 20, 2026, which retired that repo's own README.md and CONTRIBUTING.md here and
+        # stopped adopt-dkj-policy scaffolding either into a consumer). This list is about the NAME of a
+        # page this folder may hold, not about whether the repo in front of you currently holds one --
+        # exactly the distinction Get-ReservedRootMd records one file over. Every consumer adopted before
+        # that day still carries both, and they meet this change through a plugin update rather than by
+        # choosing to; an allowlist entry for a file that is not there is inert, while taking one off
+        # hands the fold somebody's CONTRIBUTING.md as their branch document and then deletes it.
         ReservedNames    = @('README.md', 'CONTRIBUTING.md', 'CHANGELOG.md')
         # THE PRE-#1255 SHARED NAME, read and never written. Every branch open on September 3, 2026 carries
         # it, here and in every consumer, and they meet this change through a plugin update rather than by

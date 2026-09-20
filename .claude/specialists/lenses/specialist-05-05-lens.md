@@ -190,6 +190,74 @@ to let the merge close the issue and **reopen it**, with a comment saying why it
 September 11, 2026, on `feat/1843-portable-pr-template`: the commit said `Resolves #1843 (in part)`
 while the branch deliberately built one step of four.
 
+### One merge at a time — the queue before the merge
+
+**This was `dkj-policy/CONTRIBUTING.md`'s step 3.3 until September 20, 2026**, when
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
+plugin's [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only
+CONTRIBUTING anybody reads; the portable rules stayed there and this repo's own answers came here.
+
+**One merge at a time, and a PR that arrives second waits its turn** (Dave,
+[#912](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/912), August 26, 2026). Before the
+merge, look at what else is open and green: `gh pr list --base main --state open`. If nothing else is on
+its way in, this costs one command and you move on — the queue exists for the moment two pieces of work
+finish together, not as a step every branch performs.
+
+**No gate enforces this, so it is on you.** Nothing in `open-pr.ps1` or `ship-pr.ps1` looks at the other
+open PRs, and GitHub is happy to merge two at once — the same shape as the `chore/` prefix rule further
+up this page, and stated for the same reason: a convention nobody writes down is a convention nobody
+keeps.
+
+**One guard catches part of it from the other side, and it is not this rule being enforced.** Since
+[#1292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1292) and Dave's September 7, 2026
+answer on [#1546](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1546), `ship-pr.ps1` dates
+the run behind the required check `lint-en-tests`, counts what `main` gained *after* it, and **refuses
+the merge** when that is not zero — so a PR whose neighbour landed while its own check was running is
+stopped and told to rebase. **That is a measurement of the trunk, not of the queue**: it can only fire
+once the other merge has happened, it says nothing about a PR sitting green and unmerged beside yours,
+and it is blind to the window this rule is actually about — two runs reaching `gh pr merge` within the
+same minute, where neither has gained a commit yet. Read them as one pair: the command above is how you
+avoid the collision, and the staleness refusal is what stops the half of it that got through from
+folding onto a trunk it was never tested against.
+
+**Two PRs cannot merge at the same time, and `CHANGELOG.md` is why.** Every branch's fold writes into the
+same file at the same place — the top of `## [Unreleased]` in
+[`dkj-policy/CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), newest to oldest — and it writes there
+*after* the merge, on `main`. Two folds racing each other break in the gap between the merge and the
+fold, which is the state nothing reports: the PR is already merged, the entry has not landed, and every
+gate stays green until a release trips over it.
+
+**Two ways it breaks, and the second is worse than the first.** The later run's fold push is rejected as
+non-fast-forward, so the entry sits unpushed on a local `main`; or `ship-pr.ps1` step 5 aborts on
+`git merge --ff-only origin/main` before the fold runs at all, leaving the merge done and the entry still
+in the branch document. Both are recoverable and neither announces itself. Waiting is cheaper than
+either.
+
+**Waiting is the whole mechanism — there is no queue file and no lock.** The PR stays open and green; the
+merge is simply not performed yet. A branch that waits costs nothing, because the DEPLOY lock (see
+[Sylvester #15](specialist-05-15-lens.md)) has already fixed what this PR publishes: time passing does
+not change it.
+
+**This sharpens [Working in parallel from multiple machines](#branch--repo-hygiene) rather than
+contradicting it.** That bullet says merging different branches in parallel is safe, and it is — the
+*merge* is protected by the lint gate and CI whichever machine performs it. What serialises is the
+**fold** that follows it, which is exactly the collision point that bullet hands to
+[Rendall #06](specialist-05-06-lens.md#lifecycle).
+
+**When the queue ahead has drained, sync with `main` before merging — and that buys hygiene, not
+ordering.** The PRs ahead have each folded an entry onto the trunk, so `main` carries `CHANGELOG.md`
+content this branch has never seen: fetch and merge `origin/main` into the branch and let CI run once
+more against the result (the same fetch-and-merge the stale-base bullet in
+[Branch & repo hygiene](#branch--repo-hygiene) asks for before the push, one step later). The fold always
+inserts at the top of `## [Unreleased]` on whatever `main` it is standing on, so the order entries end up
+in follows the order the PRs *merged*, not how fresh either branch was. Syncing a stale branch does not
+move its entry up. **The queue is the thing that keeps the order**; this keeps the branch from merging a
+tree it was never tested against.
+
+**And `ship-pr.ps1` step 5 is not this step.** It checks out `main`, fetches, and ff-merges `origin/main`
+before folding — so the fold itself is never performed against a stale trunk. What it does not do is
+bring the *branch* forward, which is what this step is.
+
 ### Merging to main
 
 No separate merge approval is needed — the default covers it, as does Dave's "open the PR" when the
@@ -267,6 +335,168 @@ has been merged — since August 5, 2026 as **one flat list, ranked** by each en
 than grouped by its branch prefix. Derek's part of that is only this: the tier and the significance are set
 while the branch is still open, so they belong in the entry before the PR — the fold is the only moment the
 order can be decided, and after that a correction is a re-insert on `main`.
+
+### The merge does not wait — and nobody sits through the CI check
+
+**This was `dkj-policy/CONTRIBUTING.md`'s step 3.4 until September 20, 2026**, when
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
+plugin's [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only
+CONTRIBUTING anybody reads. The portable half deliberately leaves this question to each repo, because
+whether a merge waits is a governance decision rather than a configuration value; what follows is this
+repo's answer and the measurements behind it.
+
+**A finished branch opens, merges and folds in one motion without waiting for Dave.** The lint gate, the
+test gate and CI prove this class of change is sound, and anything that does turn out wrong is one
+revert PR away. The two kinds of change that stop and wait for his word — work with a **visible result**
+that has to be judged by eye, and work that is **irreversible or outward-facing** (a release, a version
+bump, a tag, repo settings, or publishing beyond the normal PR flow) — are stated in
+[Opening a pull request](#opening-a-pull-request) above and in
+[the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr).
+
+**The merge waits on one CI check and only one.** Both gates run as CI in
+[`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — on every PR and every push to `main` —
+under the job id **`lint-en-tests`**, which is the exact name the `main-ci-gate` ruleset requires as a
+passing status check. A merge attempted before it goes green returns `BLOCKED`. **That job id is
+deliberately not English**, and renaming it would silently break the ruleset binding: every future PR
+would sit unmergeable, waiting on a check that no longer exists. See
+[`.claude/rules/language-layers.md`](../../rules/language-layers.md).
+
+**And nobody sits through that check** (Dave,
+[#985](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/985), August 27, 2026). `ship-pr.ps1`
+is started as a **background** command and the session carries on: the merge cannot move before
+`lint-en-tests` is green whichever way the script is run, so the only thing a foreground wait buys is a
+second look at a result `open-pr`'s own gates gave minutes earlier. Measured on
+[PR #980](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/980) that same day — `lint-en-tests`
+**11m48s**, the same suites locally **292s** — and over 65 blocking runs a median CI leg of **8m 01s**,
+which at 73 merged PRs in a week is **9h 45m** of session time (the same figure the worktree bullet in
+[Branch & repo hygiene](#branch--repo-hygiene) cites to [Nolan #25](specialist-06-25-lens.md)).
+
+**The condition is not optional, because step 5 checks out `main` in this tree.** So the next move after
+backgrounding a ship is either a **lane** — `worktree-lane.ps1 -Name`, the worktree is where you build
+and the primary checkout is where you ship, see
+[the `worktree-lane` skill](../../../plugins/dkj-policy/skills/worktree-lane/SKILL.md) — or nothing at
+all. A close-out that reads *"PR #N opened, shipping in the background"* is a finished assignment, not an
+open point. Anything else started in the primary gets `HEAD` pulled out from under it mid-branch, which
+is the hazard the step-list gate and the DEPLOY lock (both
+[Sylvester #15](specialist-05-15-lens.md)) were hardened against and that step 5 was not.
+
+**And "anything else" includes a tidy-up, which is the half that does not read as starting something**
+([#1145](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1145), August 30, 2026). Step 1 of
+the ship — `open-pr`'s lint and test gates — is the one step that reads the **working tree**, for a
+minute or more, and a second command in the same checkout during that minute moves it under them:
+`new-branch.ps1` cutting a branch, `worktree-lane.ps1` moving the tree. Measured on
+[PR #1144](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1144): one suite of 55 red inside the
+gate, green standalone on the same commit seconds later, because `dkj-policy/<branch>.md` exists on the
+branch and not on the trunk and the suite walks every `*.md` under that folder. **No gate refuses this** —
+`open-pr` reports it instead: a red whose tree moved says it is not trustworthy, and a green whose tree
+moved is not recorded as gate evidence. Re-run the gate; do not go hunting the failure.
+
+**The script that produced that measurement was repaired at the source**
+([#1147](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1147), August 30, 2026). It was a
+`prune-merged.ps1 -IncludeRemote` run borrowing the trunk to fast-forward it — and
+[Chris's lens](specialist-01-01-lens.md#the-dave-rules) sends a session to that exact command rather than
+let it classify `git ls-remote` output by hand, so the two instructions collided and neither page said
+so. `prune-merged` now advances the trunk with `git fetch <remote> <trunk>:<trunk>`, which writes a ref
+that `HEAD` is not on and moves no tree at all; the one move it has left runs only when it reaps the
+branch you are standing on, and a branch under a gate is unmerged by definition. **The detection above
+stays**, because it is the right repair for the class and every other tree-mover in the clone is still
+there.
+
+**And "nothing at all" is the default rather than a judgement call** (Dave,
+[#1060](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1060), August 29, 2026). A lane is for
+a session that has *already been given* the next piece of work; where there is none, the session closes
+out and stops, and Dave merges the moment he sees the check go green. **Hovering is the failure this
+closes**: backgrounding the ship and then polling its log, or re-reading `gh pr view` until the check
+flips, is the same wait wearing a different hat and costs the same 8m 01s. The portable statement of the
+rule — *ask whose clock it is; a gate you must run yourself is run however long it takes, and somebody
+else's clock is not waited on at any duration* — is in Chris's persona body, so every consumer of this
+workflow receives it.
+
+**Nothing is lost by stopping, and that is the point.** `cycle-autopark`
+([#900](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/900)) has already pushed the branch's
+document to `origin`, the PR carries the reasoning, and a backgrounded `ship-pr` merges and folds without
+anybody watching. Where no ship was started at all, the branch simply stays parked: the PR is left green
+for Dave, and the fold is a
+[`fold-changelog-entry.ps1`](../../../scripts/release/fold-changelog-entry.ps1) run on `main` in the next
+session.
+
+**And the last act is `git checkout main`** (Dave, August 29, 2026, on being told a session could be
+cleared while the tree still stood on the branch). Everything above protects the *work*; none of it
+tidies the *checkout*. A session that reports itself finished from a feature branch tells the requester
+two different things at once — the terminal says the context can be cleared, `git status` says the work
+is mid-flight — and the requester is right to believe the second one. So parking ends on the trunk, and
+only then is the close-out honest.
+
+**This is the one place where landing on a clean trunk is the goal rather than the trap.**
+[Chris's lens](specialist-01-01-lens.md#the-gatekeepers-as-implemented-here) records the inverse:
+`ship-pr` step 5 leaves you on `main`, which reads as *ready* rather than as one command away from
+committing to the wrong place. Both hold, and they are not in tension — the trunk is where a session
+**ends**, and the branch check at the start of the next assignment is what stops it from being where the
+next one silently begins.
+
+**Why the gate beats a hand-run, since the obvious explanation is wrong.**
+[`Invoke-TestSuiteGate`](../../../scripts/lib/native-capture-lib.ps1) is *not* an in-process pass — it
+launches every suite as its own `powershell` child, exactly as a hand-run does. Two other mechanisms
+account for the gap, and both are absent from a hand-run: the pool is **parallel** since
+[#512](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/512), so the gate costs its slowest
+single *file* instead of the sum (the 27-suite, 510s-against-128–263s measurement in
+[Merging to main](#merging-to-main) above), and `open-pr` **records the pass** — `Test-GateEvidence` /
+`Save-GateEvidence` in [`gate-lib.ps1`](../../../scripts/lib/gate-lib.ps1), keyed on a fingerprint of the
+tree — so a second run over an unchanged tree is skipped entirely. A hand-run pays the sum and earns no
+credit towards the gate that follows it.
+
+**Two larger shapes were declined when this was written down**, and #985 stays open as their home. A
+*green-and-unmerged reporter* at session start would have re-added half of the `session-status` reporter
+that [#957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/957) removed on purpose five
+minutes before #985 was filed. A *detached watcher* that merges when the check passes would put the merge
+and the fold — a commit landing directly on `main` under a named exception — behind a process nobody is
+reading.
+
+**Backgrounding says nothing while it runs, and that is normal.** The output is buffered, so an empty log
+and an idle `gh` child are not a stall. Judge progress from `git log` and `gh pr view`, never from the log
+file.
+
+**A second check appears on every PR and does not block.**
+[`.github/workflows/claude-code-review.yml`](../../../.github/workflows/claude-code-review.yml) runs an
+automated review over the diff and posts inline comments, under the job id `claude-review`. It is
+advisory: the ruleset names `lint-en-tests` and nothing else, so a red `claude-review` is a finding to
+read rather than a merge blocker. On a pull request from a fork it fails by construction — GitHub
+withholds secrets from fork-triggered workflows, which is the safe outcome and not a defect to work
+around.
+
+**And a red one names its own reason, in the run that produced it — read that before filing anything.**
+`ship-pr` prints it for you: on the path where the merge proceeds it fetches the failing check's
+annotations and relays the sentence that workflow wrote about itself, so the reason lands in the same
+transcript as the warning. Where that sentence reads `out of quota`, the review did not run at all —
+`CLAUDE_CODE_OAUTH_TOKEN` is a subscription credential, its allowance is the one interactive work draws
+on, and re-running adds none of it back. Nothing in the diff repairs it.
+
+**Read the reason for WHICH of three limits it is — a session cap (hours), a weekly one (days), or an
+individual spend limit an account admin has to raise — but do not plan around any reset TIME it names.**
+The spend-limit case has no clock at all: it was measured on August 31, 2026, three runs reading "You've
+hit your individual spend limit — ask your admin to raise it"
+([#1164](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1164)), and neither "wait hours" nor
+"wait days" is the move there. Where a reset time *is* named, that half is upstream's, relayed rather
+than vouched for, and it has been measured wrong: on August 29, 2026 a run failed at 18:02 UTC saying the
+weekly limit reset on August 31, and two later runs reviewed successfully at 18:43 and 18:55 the same
+evening ([#1112](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1112)). Why it came back
+early was not measured and should not be guessed at. The practical reading: a stated reset is a ceiling,
+not a schedule, so a later PR may well be reviewed long before it.
+
+**This is worth a paragraph because reading it wrong is the expensive part.** Nine threads have been
+filed here about `claude-review` red on every PR, and they did not all have the same cause: the early
+ones were credential ([#891](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/891),
+[#942](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/942)), and every one from
+[#966](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/966) onward has been this quota state —
+most recently [#1164](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1164). #966 is the one
+that cost something: it was filed against a log already reading `api_error_status: 429`, inferred an
+expired token instead, and concluded that a secret needed rotating — and #1164 made the same read again,
+"looks expired, recurrence of #966/#942", against three runs whose annotation already named an individual
+spend limit. So read the reason the run gives before deciding which kind of failure it is; where it is
+the quota, there is nothing to file.
+
+Merge method: **`merge`** — a merge commit, not a squash (`Get-PrMergeMethod`), which is the same
+`--merge` the by-hand fallback in [Merging to main](#merging-to-main) above spells out.
 
 ### The quoting lesson: where it was measured
 
@@ -431,7 +661,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   collision. The two halves only work together: backgrounding without a lane is what yanks HEAD, and a
   lane with a foreground ship saves nothing. The script now prints both at the moment it begins to wait,
   and the rule with its measurements is in
-  [`dkj-policy/CONTRIBUTING.md`](../../../dkj-policy/CONTRIBUTING.md#34-merge-the-pr)
+  [The merge does not wait](#the-merge-does-not-wait--and-nobody-sits-through-the-ci-check) below
   and the [`ship-pr` skill](../../../plugins/dkj-policy/skills/ship-pr/SKILL.md#the-wait-runs-in-the-background-and-that-is-the-default).
   Two bigger shapes were named and declined there rather than overlooked; #985 stays open as their home.
 - **`main` moves under a long branch, and the green gate you ran proves nothing about the merged
@@ -476,6 +706,123 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   `feat/plugin-version-overview-review-b` carries `@('dkj-team-alpha')` as a parameter default —
   whether that fails loudly or silently on resume was not verified, so verify it before repairing it
   when that branch finally takes `main` in.
+
+### Filing an issue — the layer before a branch exists
+
+**This was `dkj-policy/CONTRIBUTING.md`'s step 1 until September 20, 2026**, when
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page so the
+plugin's [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only
+CONTRIBUTING anybody reads; the portable rules stayed there and this repo's own answers and measured
+instances came here.
+
+**This is the layer before a branch exists.**
+[Creating a branch](#classifying-naming-and-creating-a-branch) opens one and writes the document that
+carries it; this is where the thing that branch is *for* comes from, and whether it is written down
+anywhere the next person can find it. A request that only ever existed in a conversation is a request
+that gets built twice, or half. Work reaches a repo running this workflow two ways, and they fail
+differently — a **person** files a request from a tracker outside the repo, or **Claude** finds something
+while doing other work. Neither precedes the other, and both end in the same place: a GitHub issue here,
+which is what a branch is then cut from.
+
+#### The human half is a no-op in this repo, and that is an answer rather than an omission
+
+**Nothing is filed into this repository from a tracker upstream of it.** Dave assigns directly, and what
+he assigns becomes a branch or an issue under the half below. So there is no local `TICKETWORK.md` here
+and no Asana link in any issue head. Where the ticket-work layer *does* run, colleagues file in Asana and
+the repo answers with one issue per ticket carrying that link — not a copy of the ticket but the layer
+between the request and the code, gated on *do we know enough?* before a branch is opened, and **a ticket
+with open questions is not built**. `smartwatchbanden` is the worked example; the rules are portable and
+travel with the plugin, in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch).
+**It is described anyway** because the workflow ships this layer and the consumers running it do have
+that tracker — a route documented only as far as this repo happens to use it would leave them reading a
+route with a hole in it.
+
+#### What Claude files here
+
+**A finding becomes an issue, not a question at the end of the turn.** Something real that is outside the
+assignment — a bug, a doc that has gone stale, a measurement that contradicts what a page claims, a
+decision that is not yours to make — is filed and the assignment is finished. Dave has to be able to
+close a session and clear its context without first answering everything that was found along the way,
+and the close-out names the numbers so he can see what was parked rather than lost.
+
+**Filing needs no permission, and asking for it is the same failure as not filing.** *"Shall I open an
+issue for this?"* leaves the finding in the reply for Dave to answer, which is precisely what filing
+prevents.
+
+**The question to answer first is not *may I* but *does it still stand*.** Read the code, the script or
+the output that would have to be true for the finding to hold — the same treatment an inbound report
+gets, applied to your own. Where it collapses, say so plainly instead of filing a weakened version of it.
+Where it holds, the rest of the bar is short: search the tracker so you add to the existing thread rather
+than open its duplicate, one subject per issue, and say what you **measured** and what you only
+**inferred**. Do not file work you were asked to do, or a finding you can simply fix inside the
+assignment.
+
+**An inconsistency is always filed**, whatever its size and whoever caused it — two statements in the
+tree that cannot both be true. Where your own branch created it, file it anyway and say so in the issue,
+because that is the reader's first question. Scoping a contradiction out of the work is a reason not to
+edit the file; it is never a reason not to file it.
+
+**The labels are the branch prefixes, which is what makes an issue readable as work.** `enhancement`,
+`bug` and `documentation` map onto `feat/`, `fix/` and `docs/` and onto the changelog types they produce
+— the table is in [Classifying, naming, and creating a branch](#classifying-naming-and-creating-a-branch)
+above — so an issue already names the prefix its branch will get. The rung it also carries is a separate
+axis: see [Issue labels](#issue-labels--every-issue-carries-a-priority) below.
+
+**`inbound` is the fourth label and it means something different.** It marks a core improvement
+discovered in a *consuming* repo: the shared agent defs, manuals, personas and skills have one source, so
+a consumer files here with
+[the inbound template](../../../.github/ISSUE_TEMPLATE/inbound-improvement.md) instead of patching its
+own copy, and the improvement comes back to every consumer through a release. **On this side that is
+simply the ordinary chain**, because this is the source — but not before the item is verified. A filed
+report is a snapshot of the moment somebody wrote it, and **six things fail independently**: the symptom,
+the reason, the proposed repair, the size, the subject and the repo. Getting one wrong produces a repair
+that satisfies the report and is wrong, which is worse than the original defect because it now carries a
+citation. The measurement behind each is in the
+[`triage-inbound` skill](../../skills/triage-inbound/SKILL.md).
+
+**Claim an issue before working it** — and read the claim as well as write it: an issue that already
+carries an assignee is somebody's. The tracker is the only thing two sessions share, so an unassigned
+issue is indistinguishable from an untouched one, which is how the same repair gets built twice and
+discovered at the merge. A claim with no branch and no recent activity is a question for Dave rather than
+a locked door.
+
+**The step that performs it is
+[`claim-issue`](../../../plugins/dkj-policy/skills/claim-issue/SKILL.md)**, and it exists because this
+rule was written down for as long as the workflow has and enforced by nothing — `gh issue edit <n>
+--add-assignee @me`, left to a session to remember, to type, and to read the result of. Measured here on
+September 5, 2026 ([#1456](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1456)): **0 of 67**
+assigned issues carried `DaveKJohn`, an identity holding 132 merged PRs and 83 authored issues in the
+same repo. That report's own corrective action was *behavioural*; the skill is what makes it mechanical,
+and it does the three things the one-liner cannot — it never sends `@me` (see below), it **refuses on a
+closed issue**, which `--add-assignee` claims silently, and it **refuses one somebody else holds**, which
+`--add-assignee` joins. It writes one assignee and nothing else: the branch stays
+[`new-branch`](../../../plugins/dkj-policy/skills/new-branch/SKILL.md)'s, one step later.
+
+**`@me` writes whichever account `gh` holds, which is not always the one your commits will name.** It
+resolves through the GitHub API, while the branch a second session correlates the claim with carries the
+`git config user.name` identity — so a checkout with both claims under one name and commits under the
+other, and nothing reports it. Measured September 3, 2026
+([#1315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1315)): `gh` was authenticated as
+`DaveKJohn` while `git` committed as `davekokbwj`, so the idiom above put the wrong account on #1314 and
+it had to be corrected by hand. Since then
+[`check-git-identity.ps1`](../../../scripts/lint/check-git-identity.ps1) reports the split from a
+SessionStart hook in every repo that has this plugin, so a session is told before it claims anything.
+Where it fires, **claim by name** until the two agree — which is what `claim-issue` does for you: it
+reads both identities and writes the **git** one, because the commits are the half nothing can rewrite
+afterwards. That same split is what disarms the built-elsewhere tell in
+[Branch & repo hygiene](#branch--repo-hygiene) above; one measurement, two consequences.
+
+**These rules are Chris's, stated here rather than owned here.** The filing bar, the six inbound checks
+and the claim live in the orchestrator's persona body, which ships with `dkj-subagents-alpha` — so where
+this section and that body disagree, the body is the source and this is the bug. They are written out
+anyway because a contributor reading a lens has no guarantee of having the plugin, and a route with a
+step that is only legible to an agent is not a route.
+
+Then the branch is opened over it, and the issue number goes in the DEPLOY body so the fold carries it
+into [`dkj-policy/CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md) with the change that closed it — named
+with a closing keyword on the PR via `-Resolves`, per
+[Opening a pull request](#opening-a-pull-request) above.
 
 ### Issue labels — every issue carries a priority
 

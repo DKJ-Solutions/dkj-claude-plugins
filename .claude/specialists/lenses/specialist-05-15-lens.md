@@ -3182,6 +3182,554 @@ subject, which is worse than one that covers none. Climbing to the statement tha
 block fixes it, and both forms are pinned in `shared-scripts.tests.ps1` rather than only through the
 gate's fixture.
 
+### The development document, as this repo writes it
+
+**This was `dkj-policy/CONTRIBUTING.md`'s DEVELOPMENT step until September 20, 2026**, when
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page and the folder
+README beside it so that the plugin's own
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) is the only CONTRIBUTING
+anybody reads. What survived the retirement is what that page held and the portable one does not: **this
+repo's own answers, and the measurements behind them**. The cycle itself — the four phases, the three step
+marks, what a DEPLOY section is for — travels with the plugin and is not restated here.
+
+#### The document and its name
+
+`new-branch` creates the branch **and** its document in one move: a branch is never entry-less, so there is
+no moment at which the branch exists and its document does not. The document belongs to the **current
+branch** and exists only while one is open — the fold removes it at the merge, so on the trunk it is simply
+not there. That absence is the trunk's normal state, not a file somebody deleted.
+
+**The name IS the branch** — `fix/thing-v1` gets `dkj-policy/fix-thing-v1.md`, slashes flattened and nothing
+else. **One per branch since September 3, 2026**
+([#1255](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1255)), where it was a single shared
+`development.md`, and **without the `development-` prefix since later that same day**
+([#1335](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1335)). The prefix bought a reader
+nothing the folder does not already say; what it quietly bought the tooling was a glob that could not reach
+this folder's own pages, and that narrowing is now stated as an exclusion instead — see `ReservedNames` in
+`Get-BranchFilePaths`. That shared path did not collide on checkout, which is what the old reasoning said,
+but it collided on *merge*, and the measurement is the one already recorded above under `main-ci-gate`: every
+merge to `main` left every other open PR conflicting on it, and a conflicting PR gets **no check suite at
+all**, so `lint-en-tests` could never go green and the PR could never merge. The full write-up — including
+why the fold is not the fix and why a `.gitattributes` merge strategy would not have worked either — is in
+[`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md#why-the-name-carries-the-branch).
+**Nothing identifies a document by its filename**, then or now: the fold and every gate that needs to know
+which branch a document belongs to read it out of the document's own heading, which is what keeps a `-v2`
+suffix free.
+
+**Four `###` headings and never a fifth**, and nothing branch-specific above `### PLAN` (Dave,
+August 26, 2026). PLAN, CREATE, TEST and DEPLOY are the whole top level; a section needing its own heading
+goes in as a `####` under whichever of the four owns it, and everything between the title and `### PLAN` is
+the scaffolder's generic guidance. **Both were conventions a writer kept, and now a gate refuses both here** —
+measured the day they were stated, when `check-branch-entry.ps1` gave byte-identical output at four headings
+and at five. That day closed the measurement; the **shape gate** in the next section is what closed the gap
+it left, and it carries which half holds in a consumer and which is this repo's own. Recorded — both rules,
+and the reasoning behind each, though not the measurement itself — in
+[`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md).
+
+**Pick the prefix by what actually changes**, not by which files move along: `docs/` is purely text, `feat/`
+is a capability that is new or larger than it was, even when documentation comes with it. The three prefixes,
+the GitHub label and changelog type each maps to, and why `Test-BranchName` refuses `chore/` outright are
+[Derek's](specialist-05-05-lens.md#classifying-naming-and-creating-a-branch) and are not copied here.
+
+**A `-v<N>` suffix is optional and typed by hand — `new-branch` no longer completes it** (it did, from
+August 23 to September 3, 2026; dropped because in 209 branches carrying it none was ever bumped to `-v2`,
+and it broke a consumer wrapping the script for a branch whose name it does not own — inbound #1224). A
+second cycle on the same subject is `docs/thing-v2`, typed deliberately; a rerun of `new-branch` on the same
+name resumes that branch rather than opening the next one. The refusal on `final` in
+[`branch-info.ps1`](../../../scripts/lib/branch-info.ps1) is the same rule from the other end: a name claiming
+to be the last word is a prediction, and a hand-typed number is the honest form.
+
+**Re-read the file after `new-branch` has written it.** It is the only file here written out of band, and an
+editor tracking what it last read refuses the next write until it has read again — one read fixes it and
+nothing is lost. The fold no longer joins that list: it removes the document rather than rewriting it, so
+there is nothing left to re-read. The portable statement, with the measurement, is in
+[`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md#the-file-is-written-under-you-once-per-cycle).
+
+**The HTML comments are the form, not somebody's notes.** They say what a good answer looks like, and the
+fold strips them on the way to [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), so leaving one standing is
+not a defect. There is no template beside the file and no empty copy on the trunk — the portable page is
+where the whole form can be read without a branch open. **There is no `branch/templates/` any more either**
+(Dave, August 23, 2026): two generated reference copies sat there because the working files were deliberately
+bare, and the merged document carries its own guidance, so the reference and the file you write in are the
+same page.
+
+#### What does NOT go into the phases as a step
+
+**The repo's standing gates are NOT written as steps** (issue
+[#1060](https://github.com/DaveKJohn/claude-code-specialists/issues/1060), August 29, 2026). TEST carries
+what proves *this branch*; the lint gate, the test gate and the link gate fire on their own at the push and
+refuse on their own, so a step reading *"all suites green"* duplicates a gate rather than adding one. And the
+duplicate is not free: `open-pr` **refuses to push while any step above DEPLOY is open**, so such a step can
+only be ticked by running the suites by hand *before* the run that was going to run them anyway. Measured in
+the session that filed #1060 — the hand-run exceeded the 120s foreground timeout and had to be backgrounded
+twice, while `open-pr`'s own gate ran the same 54 suites in **59s** and **60s** immediately afterwards. The
+gate is the faster of the two because it schedules the suites across lanes, not because it skips anything —
+the mechanism, and why the spread is inherent rather than noise, is in the slowest-single-suite paragraph
+above.
+
+**Nothing in the checkbox pass is on your memory.** `open-pr` and `ship-pr` both refuse while a step above
+DEPLOY is still open, and there is no `-Force`; reading the list before the push is the moment to catch a
+missed step rather than the moment to discover one, and the step-list gate below is the same question asked
+by a machine.
+
+#### DEPLOY: folder-relative links, and audience tier 2
+
+**Its links are written folder-relative to `dkj-policy/`, the whole document**, because the DEPLOY section
+folds into [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), which sits there — and so did the page this
+material came from, so a link that resolved there resolved in the changelog too. `../scripts/x.ps1`, never
+`scripts/x.ps1` — the second resolves to `dkj-policy/scripts/x.ps1`, which does not exist, so it reads
+correctly on the branch and is dead once it lands, and `open-pr`'s link gate refuses it. This is what
+`<branch>.md`'s own header boilerplate means by *"Relative links in that text resolve FROM THIS DIRECTORY."*
+(It was root-relative until issue
+[#1041](https://github.com/DaveKJohn/claude-code-specialists/issues/1041), which moved the gate's base to the
+changelog's own directory when `CHANGELOG.md` moved off the repo root.)
+
+**The audience tier is `2` here, so the entry asks two questions rather than four.** Tier 0 needs no heading —
+the `### DEPLOY: <branch>` line is its section and its answer goes directly underneath — and the one
+audience tier gets `#### What makes this deploy extra special`. Both sit at the entry's own section level,
+beside `#### Pull Request`. A repo that has stated *no* audience tier gets the older shape instead, a
+`##### Tier N` sub-section per tier, nested one level deeper; that is the portable half's fallback and not
+what you will see here.
+
+**In each tier, the reason goes ABOVE the `**Score:**` line** — anything below it is discarded.
+
+### The gates on the branch document, and the two that fire beside them
+
+**This was `dkj-policy/CONTRIBUTING.md`'s PULL REQUEST step until September 20, 2026**, retired by
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) together with the folder README, on
+the same reasoning as the section above: the portable page states the cycle, and what stays here is this
+repo's own answers plus the measurement behind each gate.
+
+`open-pr.ps1` is the one entry point: it runs the lint and test gates first, then pushes, then opens the PR.
+On an error or a failing suite **nothing is pushed and no PR is opened** — `-SkipLint` / `-SkipTests` are the
+escape valves, and using one is a decision rather than a convenience. **A gate that will not *finish* is a
+third case, and `-SkipTests` is the wrong answer to it**; `-MaxParallel` is, and the numbers behind that —
+716s against 888s, and why the default was deliberately left alone — are in the `#1443` paragraph above
+rather than repeated here.
+
+`open-pr.ps1` composes the PR body from the document, and **the gates below read it on the way**. All but
+the last run locally, before the push and before the merge; that one runs in CI, and it exists because the
+local gates are escapable by not using the scripts. The repo's own lint and test gates are separate and
+stated in the [root `CLAUDE.md`](../../../CLAUDE.md): `open-pr.ps1` runs
+[`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1) and then every
+`scripts/tests/*.tests.ps1`, refusing to push on any error or failing suite.
+
+#### The label gate, which reads nothing on the branch at all
+
+**One gate fires at the push and looks only outward: the PR's label has to exist.** The label comes from the
+branch prefix via the repo-owned seam table, and it used to go straight to `gh pr create --label` — so a
+label that had been renamed or retired killed the create *after* every gate had run and the branch was on
+`origin`, leaving a pushed branch with no PR. One `gh label list` now answers it ahead of the lint and test
+gates. It refuses rather than falling back to a default label, because a repo whose own workflow gates on the
+label would otherwise go green on a label that says nothing; the refusal names the label, the prefix, the
+seam file and the labels that do exist. Measured in a consumer on September 1, 2026 (inbound
+[#1221](https://github.com/DaveKJohn/claude-code-specialists/issues/1221)), where two labels were deleted
+org-wide because the issue **type** now carries that classification — the seam table was correct the day
+before. Full mechanics on the
+[`open-pr` skill page](../../../plugins/dkj-policy/skills/open-pr/SKILL.md#the-label-gate-does-the-label-your-seam-names-still-exist).
+
+#### Before any gate, one thing that is not a gate: the document commit
+
+**`open-pr.ps1` COMMITS the development document if it differs from `HEAD`**
+([#1269](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1269), September 3, 2026).
+Every gate below reads the working tree; the push ships `HEAD`; and the fold, the DEPLOY lock and the CI
+check all read the committed copy. Measured on PR #1267: the run passed every gate against a filled-in
+working copy, pushed the empty scaffold, published the filled-in body, and CI failed on arrival. It commits
+that one file and nothing else — never `git add -A`, and anything else you had staged stays staged. Why it
+commits rather than refusing, and why neither the dirty-tree warning nor the backing gate covered it, are on
+the
+[`open-pr` skill page](../../../plugins/dkj-policy/skills/open-pr/SKILL.md#the-document-commit-what-the-pr-says-is-what-the-branch-carries).
+
+#### Gate 1 — the entry gate, on whether there is an entry at all
+
+**September 8, 2026 ([#1632](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1632)).** Before
+any of the gates below reads the entry, `open-pr.ps1` asks whether there *is* one:
+`Test-DevelopmentEntryMissing` refuses a `dkj-policy/<branch>.md` whose DEPLOY section is gone.
+
+**It is a separate gate rather than a widened scaffold gate, and that is the part only the code explains.**
+The scaffold gate below refuses an entry still carrying the scaffolder's wording — so it works by *matching*
+strings. Delete the section that carried them and there is nothing left to match: `Get-DevelopmentEntryText`
+falls back to the whole document, hands the scaffold gate the guidance **preamble**, and that preamble
+carries no scaffold marker because nobody scaffolded it. **So the scaffold gate passes by ABSENCE**, and the
+branch ships with no entry text whatsoever — with the PR title and description composed out of the guidance.
+The fallback cannot simply be narrowed, either: a legacy entry-only file *is* an entry from its first line,
+which is why this is a second predicate beside it and not a stricter version of it.
+
+**How a document reaches that state is not a deliberate deletion.** It is an edit that anchors on the first
+phase heading as a plain string and truncates the file there. In a document scaffolded before
+[#1654](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1654) that string occurs **twice** —
+once as the real heading, and once inside the guidance blockquote describing it, which comes first — so the
+cut lands on the wrong one and the body glues onto a sentence cut in half. Two documents shipped that way
+(#1632 and #1644) before the gate existed. The guidance names that heading by position now, so a document
+scaffolded since carries it once; every branch open across that change still carries both, which is why the
+gate's own refusal keeps naming the literal as a diagnosis.
+
+**`-Force` is honoured**, matching the scaffold gate below rather than being absolute. There is no document
+this house wants pushed in this state, but the predicate reads a *shape*, and a consumer holding one nobody
+here has seen must have a way past a gate that is wrong about them. The refusal names the file, says the fold
+would otherwise paste the guidance into the changelog as the change description, and points at `new-branch`,
+which is idempotent and restores the section.
+
+**The same predicate runs in CI**, ahead of the same scaffold check in
+[`check-branch-entry.ps1`](../../../scripts/lint/check-branch-entry.ps1) — one definition in
+[`entry-scaffold-lib.ps1`](../../../scripts/lib/entry-scaffold-lib.ps1) rather than two free to disagree.
+
+#### Gate 2 — the scaffold gate, on the changelog entry itself
+
+**August 3, 2026.** `open-pr.ps1` refuses to push a branch whose entry still carries the wording
+`new-branch.ps1` scaffolded it with — the placeholder title, the "to do / where I left off" heading, or the
+fallback body. **Measured, after it had already shipped:** three of v3.2.0's twenty-one entries kept that
+heading with a status appended behind it, and it reached the release notes *and* the per-plugin `CHANGELOG.md`
+files that travel to consumers in the plugin cache. The window closes at the merge and closes **invisibly** —
+the fold moves the entry into [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), the next release moves it on
+into `releases/`, so by then the place a reviewer would look is the one place it no longer is. Fenced code is
+excluded, so an entry documenting this mechanism is not accused of it; the escape valve is deliberately
+separate from the lint and test skips, because it overrules a judgement about content rather than skipping a
+tool. The wording lives in **one** shared source
+([`entry-scaffold-lib.ps1`](../../../scripts/lib/entry-scaffold-lib.ps1)) read by both the script that writes
+it and the gate that refuses it — a copy in each would make the gate silently miss whatever the writer
+changed.
+
+**Two of those three strings are now recognised without being written** (August 6, 2026). The `branch/` split
+moved the step list out of the entry, so the entry is no longer scaffolded with a to-do heading over a to-do
+placeholder — its placeholder asks what the change *does*. The gate keeps refusing the retired wording, and
+that is not politeness towards history: every branch in flight, here and in every consumer, carries an entry
+with those strings right now, and consumers receive the new scripts through a plugin update rather than by
+choosing to. A gate that forgot them would wave exactly those entries through. **Recognise both, write one** —
+the same rule the tier line gets, and the same rule the `dkj-policy/` folder rename got.
+
+#### Gate 3 — the step-list gate, on the branch's own plan
+
+**Dave, August 6, 2026.** A branch reaches a PR when its own plan is finished, so `open-pr.ps1` refuses to
+push and `ship-pr.ps1` refuses to merge while the step half of `<branch>.md` has an unresolved step.
+**Both**, deliberately: the requirement Dave gave is about the *merge*, and `open-pr` has an escape valve — a
+PR opened through it, or by hand on github.com, would otherwise land with an unfinished plan.
+
+**Three marks, not two.** `- [x]` is done, `- [~]` is dropped with the reason kept on the line, and a step
+still carrying the scaffold's placeholder is refused whether or not it is ticked. The third mark is what makes
+the gate safe to leave with no override at all: without it the only way past a step that turned out not to be
+needed is to tick it, which teaches people to report work they did not do — and a gate that then says success
+is worse than no gate. **A branch with no step list at all is not refused**: that is the one-commit typo fix,
+and refusing it would make the mechanism ceremony.
+
+**At the merge, this gate and the DEPLOY lock below read the branch's own commit — `refs/heads/<branch>` — and
+not the checkout** (issue [#970](https://github.com/DaveKJohn/claude-code-specialists/issues/970),
+August 27, 2026). `ship-pr` waits on CI, 10m57s on the run that measured this, and a session that backgrounds
+the ship and starts the next piece of work has moved `HEAD` by the time the gates look. Measured then: the gate
+refused PR #969 over `- [ ] TODO: the first step of this branch`, the scaffold TODO of a branch created *during*
+the wait, while the PR's own document had no open step at all. **That instance failed safe and the inverse is
+why it was repaired**: reverse the two documents — the shipping PR carries an unresolved step, the checkout has
+since moved to a branch whose steps are all ticked — and the gate passes on somebody else's document and merges.
+A gate with no `-Force`, satisfied by a file the PR does not contain, reports the requirement as met while
+nothing checked it.
+
+**The remedy is a different read, not a new refusal.** The other shape on the table was to refuse once `HEAD`
+has moved since the run started, and it was declined: a backgrounded ship beside the next piece of work is the
+ordinary shape of that window, so that guard would break the ordinary case in order to protect it. The commit
+is also *provably* what merges — step 1 pushes the branch on every path through the script, a fresh PR and a
+resumed one alike — and it needs no network, which matters in a gate that must not refuse because a token
+expired. **The path is resolved against that same commit**, not merely read out of it: `Resolve-BranchFilePath`
+chooses between the candidate names by reading each one, and resolving against the checkout would fail in the
+silent direction — a name the branch does not carry reads as *no document at all*. One consequence worth
+knowing: **a step ticked in the editor and not committed no longer satisfies the merge gate**, which is what
+its own message has always asked for.
+
+#### Gate 4 — the backing gate, on whether anything is behind the plan
+
+**Dave, issue [#1026](https://github.com/DaveKJohn/claude-code-specialists/issues/1026),
+August 28, 2026.** The step-list gate above asks whether the plan is *finished*. It cannot ask whether
+anything was actually built, and nor can the three gates beside it: **all four read this document, and none
+reads the diff**. So `open-pr.ps1` asks the second question — a plan reading as finished with **nothing
+committed on the branch besides this document** does not become a PR.
+
+**What it was measured on.** PR #1025 merged an entry describing two new rules in a manual whose edit was
+never committed. The branch's whole diff was `<branch>.md`; the fold then *removes* that file, so the merge
+delivered a changelog entry and no content at all. Every gate was green.
+
+**The measurement is not new — its delivery is.** `park-cycle`'s backing note
+([#960](https://github.com/DaveKJohn/claude-code-specialists/issues/960), repaired by #976) had already named
+the count, named the state and given the instruction that would have prevented the merge. It wrote it into a
+**commit body**, which is exactly right for the reader that note exists for — a session on a second device
+picking the branch up from origin — and invisible to the session that is holding the uncommitted file and
+about to open the PR. Both readers now ask one function, `Get-BranchBackingFinding`, so a park that alarms and
+a gate that stays silent cannot disagree over one tree.
+
+**Two shapes, two answers, and the split is by whose fault it is.** Work sitting uncommitted **in this working
+copy** is this session's own omission and one `git commit` from repaired — that one is **refused**. **Nothing
+uncommitted here either** means the work is not on this machine at all, which from here cannot be told apart
+from a branch legitimately shipping its entry alone — that one is **said out loud and allowed**, because
+refusing it would wedge the cross-device flow #960 exists to serve.
+
+**It is `-Force`-able, unlike the step-list gate above.** The valve exists because a branch whose whole
+deliverable really is the changelog entry is rare rather than impossible, and `-Force` still prints the warning
+— a gate whose escape valve falls silent is a gate that quietly stopped existing.
+
+**And the gates now say when they ran against a dirty tree.** This is the other half of the same measurement,
+and it is a sentence rather than a refusal. The lint gate and the suites judge the **working tree**; the push
+ships **HEAD**. On a clean tree those are the same thing and a green result is evidence about the PR; on a
+dirty one they are not, and nothing said so — #1025's lint run walked the manual *with* both new rules in it
+and reported zero errors. `Get-GateFingerprint` cannot answer this: it hashes the dirty list away, so it knows
+*same tree as last time* and never *is this tree HEAD*. A dirty tree mid-flight is ordinary, so it is never
+refused here; what was missing was only the line that stops a green result from being read as proof.
+
+#### Gate 5 — the DEPLOY lock, on the section the PR published
+
+**Dave, issue [#884](https://github.com/DaveKJohn/claude-code-specialists/issues/884), August 25, 2026.** The
+DEPLOY section travels four times — this document, the PR body,
+[`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), the developer release notes — and it has to be the same
+thing at every stop. So it is **fixed at the moment the PR opens**: `ship-pr.ps1` refuses the merge when the
+document has since diverged from what the PR carries. No override, like the step-list gate beside it.
+
+**What it closes is a window that shuts invisibly.** An edit made after the review lands in `CHANGELOG.md` and
+from there in the release notes having been seen by nobody — and the fold *removes* this document at the
+merge, so the place a reviewer would compare the two is the one place it no longer is. The same shape as the
+scaffold gate's own measurement, one document further along.
+
+**The PR is the recorded copy, so the lock stores nothing.** Three mechanisms were weighed and Dave chose this
+one: compare against the open PR. A fingerprint stamped into the document would add an artefact to the file
+the fold consumes and have to be stripped again on the way out; a silent re-sync at merge time refuses nothing
+and is therefore not a lock. `open-pr` already publishes the section, and reading it back *is* the comparison.
+
+**It is checkable at all only because the section now travels verbatim.** Until the same issue,
+`Get-PrDescription` dropped the `### DEPLOY:` heading and promoted every remaining one — so body and document
+were two *renderings* of one section, and a comparison would have had to reproduce that transform to make
+sense. The heading travels now, which reverses the August 9, 2026 promotion **on today's shape only**; the
+legacy path keeps promoting, because there the H2 genuinely stays behind. The reasoning sits at both branches
+in `pr-body-lib.ps1`. **An unreadable body is not a finding** — `gh` failing says something about the token or
+the network, not about the section, and a gate that refused on that would be refusing on no evidence.
+
+**Which copy of the document it compares is the last paragraph of the step-list gate above**, and it matters
+more here than there: this section is what the fold puts verbatim into `CHANGELOG.md`, so a lock satisfied by
+a stray checkout's document would be approving the fold of a section it never read.
+
+#### Gate 6 — the shape gate, on the document around the entry
+
+**September 8, 2026**
+([#1650](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1650)). Two rules Dave enforced by
+reading on August 26, 2026 — **four `###` headings and never a fifth**, and **nothing branch-specific above
+`### PLAN`**, both stated in the section above — were checked in exactly one place: the CI gate below, which
+*reports* rather than refuses. So none of the gates above ever saw them, and nothing refused a malformed
+document before the push.
+
+**What that cost, measured on this repo's own PR #1644.** Its document lost its `### PLAN` heading and most
+of its guidance block to a splice that anchored on the string `### PLAN` — which occurs inside the guidance
+blockquote as well, in the very line forbidding branch-specific content above it. Push, PR, the required
+check, the merge and the fold all completed. Each gate above was right on its own terms: every step above
+DEPLOY was resolved, DEPLOY matched what the PR published, and there was committed work behind the plan.
+
+**And an advisory red is the wrong instrument here, for a reason peculiar to this document.** The fold
+**removes** `dkj-policy/<branch>.md` on success, so after the ship the red check points at a path that no
+longer exists and a reader following it finds nothing to open. The evidence is destroyed by the thing whose
+success it was warning about — a far weaker signal than an ordinary advisory failure, where the file is still
+there to inspect.
+
+**The repair was the seam, not a new rule.** Both rules are one function now,
+`Get-DevelopmentShapeFindings` in `entry-scaffold-lib.ps1`, so `open-pr` refuses on them while the file is
+still on disk and the author is still holding it, and the CI gate below reports exactly what it reported
+before, on the same text, from the same code. **It fires between the scaffold gate and the step-list gate** —
+the numbering here is reading order, and the run order asks three questions about one document: is there an
+entry, has it been written, does the document around it still hold its form.
+
+**`-Force`-able, like the scaffold gate above** and for its reason: the predicate reads a shape rather than
+words, and a consumer holding a document nobody here has seen must have a way through a gate that is wrong
+about them.
+
+**The scoping is asymmetric, and that is the design rather than an inconsistency.** The heading count is the
+source repo's own rule — [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md)
+states heading-blindness as a *feature*, because a consumer may keep headings of their own in a document they
+adopted — so it runs behind `Test-IsWorkflowSourceRepo`, and the caller passes that answer in. The preamble
+rule holds **everywhere**, because it reads the shape and not the text: the guidance block is blockquoted in
+whatever language it was translated into.
+
+**Two things this deliberately did not do.** `branch-entry` was **not** made a required check — that is a
+ruleset change and Dave's own act, and it would put a check that *reports* significance in front of every
+merge. And the CI half still reports rather than refuses, which is the design stated immediately below.
+
+#### Gate 7 — the CI gate, because the gates above are local
+
+**August 20, 2026** (inbound
+[#789](https://github.com/DaveKJohn/claude-code-specialists/issues/789)). The gates above live in
+`open-pr` and `ship-pr`, so every one of them is escapable by not using them: a branch pushed by hand, or a PR
+opened in the GitHub UI, meets none of them. The convention was therefore enforced by whoever remembered the
+scripts — and a convention that enforces nothing rots quietly, which matters here because `CHANGELOG.md` is
+the only readable answer to "what is merged but not yet released".
+
+**It re-checks every one of them but the backing gate, and that exclusion is deliberate** (August 28, 2026).
+That gate's whole subject is what sits **uncommitted in a working copy**, and a CI runner has no working copy
+— it checks out the commit, so its tree is clean by construction and the measurement there would always read
+zero. A check that cannot fail is not a check, and adding one would state a guarantee CI is in no position to
+make. The half of it that *is* visible from a commit — a branch whose diff is its development document alone
+— stays local on purpose too: it is a judgement about whether a change was finished, which belongs where the
+author can still act on it.
+
+[`check-branch-entry.ps1`](../../../scripts/lint/check-branch-entry.ps1) closes that, and
+[`.github/workflows/branch-entry.yml`](../../../.github/workflows/branch-entry.yml) is the handful of lines
+that call it on every PR. **It adds no rule of its own** — it calls the same `Test-BranchChangelogIsFilled`,
+`Get-EntryScaffoldFindings` and `Get-DevelopmentShapeFindings` that `open-pr` calls, and, given the PR
+number, the same `Test-DeployLock` that `ship-pr` calls. So there is one definition of "written" in the
+system, one of "in shape" and one of "diverged", rather than a second set in CI. **That claim only became
+exact on September 8, 2026**: the shape rules were this script's own until #1650 moved them out, which is
+the whole of that issue — a sentence promising no rule of its own, standing over the one rule that lived
+nowhere else. **Reading a PR body is why the workflow carries read access to pull requests** — the entry
+checks themselves need no token, no network and no PR, so the lock is opt-in by parameter and the gate stays
+runnable on a branch that has none.
+
+**Two consumers had already written this gate by hand, and both had drifted from the convention** — that is
+the measurement behind shipping it rather than documenting it. Each refuses a merge over a missing significance
+score, justified in one of them by *"tier 0 can never legitimately stay empty"*, while
+`entry-scaffold-lib.ps1` reads **TIER 0 OWES NOTHING** and Dave placed that refusal at the release cut on
+August 5, 2026, precisely so an author who has not settled a score is not blocked from merging over it. So the
+shipped gate **reports** the significance and names the cut as where the refusal lives. It is simpler than the
+hand-written version, not more complex: `Get-EntryScaffoldFindings` already catches the case those gates
+reached for the score to catch — a freshly scaffolded entry, which carries an H2 and a title and so passes any
+heading test.
+
+**Its own workflow file, not a job in `ci.yml`**, and the trigger is the reason: `ci.yml` also runs on a push
+to `main`, where there is no branch document at all. A job there would be red on the trunk after every merge.
+The script answers the trunk case gracefully as well, but a gate should not need that grace to be pointed
+correctly. **It is not in the `main` ruleset** — making a check required is a repo-settings change and
+therefore Dave's, so today it reports on every PR and blocks nothing.
+
+#### Gate 8 — the always-on budget gate, on what every session pays before any of this
+
+**Dave, issue [#2037](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2037), September 16, 2026:**
+*"find a durable way for ALL consumers to keep CLAUDE.md under 100.0k chars, because I notice it goes over
+150k everywhere."* Every gate above judges the branch — its code, its entry, its plan. This one judges the
+**always-on document path**: `CLAUDE.md` plus everything it `@`-imports, which every future session in this
+repo reads before a single assignment is given.
+
+**The finding is that measurement alone had already failed.** `measure-always-on.ps1` has reported this
+figure since August 2026 and reaches no verdict by design
+([#861](https://github.com/DaveKJohn/claude-code-specialists/issues/861)) — and all four measurable repos
+went over 100,000 B anyway: 199,253 B, 150,202 B, 117,014 B, and this repo at **109,385 B**, the smallest of
+them. A report that is portable, correct and ignored is the whole argument for a bound.
+
+**The unit is the path and not the root file**, because `wc -c CLAUDE.md` misses the 30,267 B of orchestrator
+persona that `SPECIALISTS.md` imports from the marketplace clone — 27.7% of this repo's total, and invisible
+to the obvious check.
+
+**A ratchet, not a cliff, and that is the choice it lives or dies on.** Every measurable repo was over on day
+one, so a hard refusal is a gate that is `-Force`d once and never obeyed again. Instead the limit is
+`max(budget, baseline)`: over the ceiling the recorded baseline holds and **growth** is refused, at or under
+it the ceiling holds and **crossing** is refused. The baseline falls on its own whenever a branch measures
+less — `open-pr` writes it and commits it with the branch's own document — and rises only under
+`-Raise -Reason "<why>"`, which puts the reason in a tracked file where a reviewer can argue with it.
+
+**The refusal names where the weight goes**, in the order the four classes pay: procedure a plugin already
+ships on demand; layer-specific detail into `.claude/rules/*.md` with `paths:`; evidence, measurement and
+declined-option history into the owning specialist's lens or a skill page; repo-specific craft detail into
+that lens. A ceiling with no destination is a red check nobody can clear.
+
+**Three carriers, one verdict, and only one of them writes.** `open-pr` before the push (with `-Record`),
+`.github/workflows/always-on-budget.yml` on every PR, and the `always-on-sessioncheck` SessionStart hook,
+which prints the headroom so the number is in front of whoever is about to add to it rather than discovered
+at a red check. Every decision sits in `always-on-budget-lib.ps1`; the check script is the printing and the
+exit code. CI and the hook never pass `-Record`: a read-only carrier that rewrote the ratchet's own memory
+would be the one thing able to raise it with nothing in any diff to say so.
+
+**And one premise the issue never weighed, which would have made the whole thing flap.** A CI runner has no
+marketplace clone, so that 30,267 B persona import does not resolve there — the same commit would measure
+109,385 B locally and 79,118 B in CI. The baseline therefore records every document's size **keyed by its
+import target**, and a run that cannot resolve one carries the recorded figure and says so. A document that
+is neither resolvable nor recorded is reported as **unmeasured** and never counted as zero: a path that looks
+healthier than it is would be this mechanism failing in the direction nobody notices. For the same reason the
+arithmetic is in **LF bytes** rather than on-disk bytes — a CRLF checkout is one byte per line above what the
+repository stores, which is ~1.4% on a 1,346-line file: plausible, wrong, and enough to refuse a branch that
+changed nothing.
+
+**Like `branch-entry`, it is not in the `main` ruleset** — a required check is Dave's act, not a script's.
+
+### The `dkj-policy/` folder, and this repo's answers to the portable seams
+
+**This was `dkj-policy/README.md` until September 20, 2026**, when
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired it together with the
+CONTRIBUTING page beside it, so that the plugin's portable pages are the only workflow pages anybody reads.
+Everything portable about the `dkj-policy` workflow gathers in that folder, so the workflow occupies one
+folder in the repo root instead of scattering through it (Dave, August 14, 2026); the conventions themselves
+travel with the plugin, and what follows is **this repo's own set of answers** to them.
+
+#### What the folder holds
+
+| here | what it holds | portable half |
+|---|---|---|
+| [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md) | what is pending for the next release: one `##` entry per merged branch, folded in at the merge and emptied by a cut. Here since August 27, 2026, stated in `Get-ChangelogPath` | *(the format travels in [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md))* |
+| `<branch>.md` | the branch's own document, one per branch and present only while that branch is open: its plan, and the DEPLOY section that folds into the changelog | [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md) |
+| [`releases/`](../../../dkj-policy/releases/) | the dated list of every release ever cut ([`history.md`](../../../dkj-policy/releases/history.md), here since August 27, 2026), the published audience notes, the generated changelog and GitHub-Release trees, and this repo's seam answers in its own [`README.md`](../../../dkj-policy/releases/README.md) | [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md) |
+
+**A fourth row sat at the top of that table until #2179** — the folder's own `CONTRIBUTING.md`, which held the
+standard branch + PR workflow and the working rules a session needs here on one page. Two of those three
+merged on August 26, 2026 (#886) and the standard workflow arrived from the repo root on August 27; all of it
+is now either in [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) or in the
+two sections above.
+
+**The last three documents moved in on August 27, 2026** (Dave), and the seam answers below are what say so
+rather than the computed defaults doing it silently: `CHANGELOG.md`, the contributing page's own
+standard-workflow half, and the release list — which became `releases/history.md` rather than a second
+`README.md`. From that day the folder stopped being *the workflow's belongings beside the repo's own* and
+became every document the contribution cycle produces or governs. **Nothing about a consumer changed with
+it**: the computed defaults have pointed at this folder since #885, and this repo was the one holdout
+answering otherwise — which is the shape to watch for whenever the source repo sets a seam by hand.
+
+In this repo the portable pages resolve as relative links because this is the plugin's **source**; in a
+consumer they live in the plugin install instead, which is why the consumer version of the folder's own README
+(the `adopt-dkj-policy` skill's Part 1 scaffolds it) names them in code rather than linking them. **That
+scaffold refuses a repo that publishes plugins**, which is why this folder's README was hand-written for as
+long as it existed and was the one thing a consumer's folder had that this one did not. The generated
+`releases/changelog/` and `releases/github/` trees sat at this repo's root until August 26, 2026 and now sit
+in the folder too, so on that point the two match (#914).
+
+#### The seam, answered — the whole table in one place
+
+This is [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) read as prose: every question the
+portable half leaves open, this repo's answer, and the `Get-*` function that declares it.
+
+| the portable half says | this repo's answer | declared in |
+|---|---|---|
+| your lint gate | [`scripts/lint/check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1) | `Get-LintScript` |
+| your branch prefixes | `feat/` · `fix/` · `docs/` — and **no `chore/`** | [`scripts/lib/branch-info.ps1`](../../../scripts/lib/branch-info.ps1) |
+| the type an unknown prefix falls back to | `Chore` | `Get-EntryFallbackType` |
+| your audience tier | **2** — a service, not a product | `Get-ReleaseAudienceTier` |
+| your entry's section headings | the English defaults — nothing is overridden | *(no override defined)* |
+| the wording inside the development document | the English defaults | `Get-BranchFileWordingOverrides` *(none)* |
+| your significance rubric | the shared default, 1–5 | *(no override defined)* |
+| your permanent root docs | `CLAUDE` · `README` · `LICENSE` · `SECURITY` · `INSTALL` · `UNINSTALL` — `CHANGELOG` and `CONTRIBUTING` came off on August 27, 2026, having left the root | `Get-ReservedRootMd` |
+| where your changelog lives | `dkj-policy/CHANGELOG.md` — the consumer default, which this repo adopted on August 27, 2026 (the folder renamed on September 5, #1437) | `Get-ChangelogPath` |
+| where the release list lives | `dkj-policy/releases/history.md` | `Get-ReleaseHistoryPath` |
+| where the generated internal note goes | `dkj-policy/releases/internal` | `Get-ReleaseInternalNotesRoot` |
+| your merge method | `merge` — a merge commit, not a squash | `Get-PrMergeMethod` |
+| whether you have a plugin tier | yes — the `Plugins:` line is derived | `Get-ReleasePluginTier` |
+| whether you have a separate live stage | **no** — which is what makes the cycle's live step a no-op here | `Get-LiveStage` |
+| how release notes are foldered | per **major** (`3.x`) | `Get-ReleaseNotesGrouping` |
+| where the hand-written notes live | `dkj-policy/releases/audience` | `Get-ReleaseNoteRoot` |
+
+All of them live in [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) except the prefix table,
+which is its own repo-owned lib. Where the table says *no override defined*, this repo deliberately runs on
+the shared default — that is an answer, not an omission.
+
+#### Where the rest lives
+
+- The document a branch works in, its four phases and the three step marks:
+  [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md).
+  **This repo keeps no local half of it** (Dave, August 23, 2026), which is the one place the portable/local
+  split is not followed, and deliberately: that page was `branch/README.md`, and once the two branch files
+  merged its prose would have had to be reproduced byte-for-byte by a *portable* formatter inside every
+  branch's own document — repo-specific prose generated by a portable formatter cannot be right. Its answers
+  moved to the pages that already own them: the file rules to the development section above, the seam answers
+  to the table above.
+- **The lint gate holds the document's shape here, which a consumer's repo typically cannot.** Three checks in
+  [`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1) do it: **no document
+  declaring the trunk survives a fold** anywhere in the tree, which is what replaced holding an empty copy
+  byte-for-byte to the formatter once that copy stopped existing; the **entry-shape** claims in prose are held
+  against the section count the scaffolder writes; and the **heading-level** rules are enforced against the
+  DEPLOY section, read out of the document with its line offset so a finding names the line you can find. In a
+  consumer none of that runs — the plugin ships no `scripts/lint/` — so there, the document is the only
+  statement of its own shape. That is also why the guidance lives inside it.
+- The cycle as a portable page, with the seams named:
+  [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) — and the reason the
+  split exists at all is
+  [inbound #566](https://github.com/DaveKJohn/claude-code-specialists/issues/566), from a consumer who tried
+  to adopt this repo's own page and measured why it could not be done.
+
 In short: the **how** (managing the harness, scripts, config, safety guards) is portable; the **what**
 (the plugin lint + drift lint, `branch-info.ps1`, `.claude/settings.json` with the github source, and
 the marketplace/plugin manifests) belongs to this repo.

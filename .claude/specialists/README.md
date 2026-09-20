@@ -62,7 +62,7 @@ just like inline text.
   [`settings.json`](../settings.json) and invocable as `@<plugin>:<name>` —
   `@dkj-subagents-alpha:<name>` for the core team, and the same shape for each add-on team.
 - **`settings.json`** — the harness config: `extraKnownMarketplaces` (the `github` source
-  `DKJ-Solutions/claude-code-specialists` — the repo points to itself) + `enabledPlugins`, which holds
+  `DKJ-Solutions/dkj-claude-plugins` — the repo points to itself) + `enabledPlugins`, which holds
   **all six** of the marketplace's plugins rather than the core team alone — read the file for the
   list, since a spelling of it here is one plugin away from going stale.
   [Sylvester #15](lenses/specialist-05-15-lens.md)'s domain.
@@ -277,6 +277,89 @@ The team and its organization come about **in consultation with Dave** and may c
 new specialists only come about by agreement (see
 [Chris #01](lenses/specialist-01-01-lens.md#new-specialists--only-by-agreement)). If the organization
 changes, Tessa updates this document.
+
+## Updating the plugins — in every other checkout of this repo
+
+This procedure was `dkj-policy/README.md`'s until September 20, 2026, when
+[#2179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2179) retired that page and the
+`CONTRIBUTING.md` beside it, so the plugin's own portable page is the only contributing page anybody
+reads. It lands here because it is a procedure about the specialists system **as this repo consumes it
+itself**, which is what this handbook is for.
+
+**This repo consumes itself**, so the system a session here runs is the *installed* copy, not the tree
+you are standing in. [`settings.json`](../settings.json) enables **every plugin in the marketplace** —
+six of them since
+[#1573](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1573) — from a `github` marketplace
+source pointing at this repo itself, as [Layout of this directory](#layout-of-this-directory) records.
+That is what makes the update a step of its own rather than something a merge does for you, and the
+whole reason the procedure is written down instead of left to the plugin's own
+[README](../../plugins/dkj-policy/README.md).
+
+**First, whether an update is even due in this checkout.** The
+[`plugin-versions`](../../plugins/dkj-policy/skills/plugin-versions/SKILL.md) skill — run
+`scripts/task/plugin-versions.ps1` from a checkout of this repo, or invoke the skill by name — prints,
+per enabled plugin, the version and commit *this* checkout installed against the version and HEAD of
+the local marketplace clone, with a per-plugin verdict — up to date, update this plugin, or refresh
+the marketplace clone — and the exact command for each. It compares the installed and clone
+**commits**, so it surfaces a lag the `version` string cannot show between two releases. It does
+**not** lift the limit stated below: it reads the marketplace clone this checkout already has and
+cannot tell you whether that clone itself trails `origin`. Read-only, no arguments, runs on any
+machine.
+
+Two commands, from the root of the checkout you want to move — the refresh once, the update once per
+enabled plugin:
+
+```powershell
+claude plugin marketplace update dkj-claude-plugins                            # 1. refresh the clone
+claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project         # 2. then update, per plugin
+claude plugin update dkj-subagents-ecomm@dkj-claude-plugins --scope project
+claude plugin update dkj-subagents-lifehub@dkj-claude-plugins --scope project
+claude plugin update dkj-subagents-shopify@dkj-claude-plugins --scope project
+claude plugin update dkj-policy@dkj-claude-plugins --scope project
+claude plugin update dkj-policy-bwj@dkj-claude-plugins --scope project
+```
+
+**The set step 2 walks is [`settings.json`](../settings.json)'s own, and a plugin left off it simply
+stays on its old commit — no error, no verdict, nothing that reads as behind.** That is why the block
+names all six rather than only the two with real work here: read the enabled set from that file when
+the two disagree, and let `plugin-versions` above say which of them actually need the command.
+
+Then **restart the session** — a skill or a hook that arrived with the update is not in a session that
+started before it.
+
+**A push does not do it, and neither does a merge.** A session reads the plugins from the **local
+marketplace clone**, which advances on that first command and on nothing else. So an agent def, a skill
+or a script you merged here takes effect after merge, push *and* that refresh — and **between two
+releases no version check can tell you the clone is behind**, because `version` only moves at a cut.
+[The repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists) states
+both halves; this is the procedure they imply.
+
+**Everything the second command touches is per-checkout state, which is why every machine runs it
+itself.** The install record is keyed on the checkout's **folder path**, so renaming or moving a
+checkout unlinks the plugin there with no error, and a machine that never ran `claude plugin install …
+--scope project` carries no record at all — nothing to unlink and nothing to update
+([#1449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1449)).
+
+**What tells you a machine is behind is its own install record, not the connector register.** No
+manifest in [`connectors/`](../../connectors/README.md) stores a version — that bookkeeping was removed
+deliberately (July 20, 2026, see
+[`connectors/README.md`](../../connectors/README.md#the-manifest-format)): the check reads the version
+actually installed from that machine's own `installed_plugins.json` and compares it to the source
+checkout's `plugin.json`, and the register's only part in that is `localCheckout`, i.e. which machine
+record to read. `connector-sessioncheck` still reports every consumer that lags the source at session
+start, and `scripts/sync/check-connectors.ps1` is still the deliberate full run — that comparison is
+the only place the answer exists, because the lagging checkout itself reports a plausible version and
+works. And it exists only where a verified source checkout sits beside the consumer on that machine:
+with none found the check is skipped outright
+([#1587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1587)), so silence there is not
+"up to date" — it is no verdict at all.
+
+**And two things can need catching up after the update.** `script-contract-sessioncheck` reports a
+repo-owned seam function the newer shared scripts call and this checkout has never had; a specialist
+that arrived with the update needs a roster row and a lens, which `sync-roster` stages — and which the
+repo owner types, because that skill is reserved for explicit invocation. The measurements behind the
+two commands, and why the version number is not the code you are running, are in
+[`INSTALL.md`](../../INSTALL.md#staying-up-to-date) rather than repeated here.
 
 ## Measured instances kept off the always-on path
 

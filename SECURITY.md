@@ -49,4 +49,4 @@ description and, where possible, a reproducible example goes a long way toward a
 Best-effort, single-maintainer response — there's no formal SLA and no dedicated security team.
 Reports are triaged as soon as they're seen, and a confirmed issue is fixed through the repo's
 normal branch + PR (+ release, if warranted) workflow described in
-[`CONTRIBUTING.md`](dkj-policy/CONTRIBUTING.md).
+[`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md).
