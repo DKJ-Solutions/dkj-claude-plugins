@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**33 / 59 minor entries** <!-- pending-tally -->
+**33 / 60 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2215-outnull-hot-path · 20260920-195609
+
+The consumer-prose session check got roughly three times faster. It runs from a SessionStart hook in
+every adopted consumer -- at every start, resume, clear and compact -- and on this repo's own tree the
+two detectors behind it now take **393 ms where they took ~1,320 ms**, for byte-identical findings.
+
+The repair is one idiom, at the 14 places it sits on that always-on path: `$x.Add(...) | Out-Null`
+builds and tears down a whole pipeline per call, and `[void]$x.Add(...)` does not. Most of the win is
+not in the appends issue #2215 counted but in `$buffer.Append(...)` inside the paragraph parser, which
+runs once per line of every document in the corpus -- ~21,000 lines here. That parse alone went from
+~1,690 ms to 248 ms.
+
+The other 106 sites in the tree are left alone on purpose, and no lint rule was added to chase them:
+they are overwhelmingly cold, and a check that reported all of them would be 106 true findings nobody
+should act on.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this repo's subscribers are the consuming repos, and what they receive is the same session
+check producing the same findings, faster. Nothing they run, configure or read changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The always-on corpus walk stops paying a pipeline per list append
+
+Plugins: dkj-policy
+
+[PR #2220](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2220)
+
+---
 
 ### DEPLOY: fix/2218-shallow-clone-ancestry · 20260920-193846
 
