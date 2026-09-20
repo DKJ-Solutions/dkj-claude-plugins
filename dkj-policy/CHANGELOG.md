@@ -43,7 +43,60 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 37 minor entries** <!-- pending-tally -->
+**19 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2171-plugin-stops-scaffolding-folder-docs · 20260920-101131
+
+`adopt-dkj-policy`'s Part 1 no longer writes `dkj-policy/README.md` or `dkj-policy/CONTRIBUTING.md` into a
+consuming repo (Dave, #2171): two pages in the consumer's own tree only made that repo more complicated and
+produced more inconsistency than they removed. **There is one `CONTRIBUTING` for a consumer to read and it
+is the plugin's portable page**; what a repo answers for itself goes into its specialist lens, where the
+rest of its repo-specific answers already live.
+
+The refreshable fenced block (#1766) went with the page it lived in, along with its four top-up states and
+the enabled-plugin read that composed its UPDATE chapter. That block existed because a page scaffolded once
+is never corrected afterwards -- the right repair for a page the plugin OWNS -- and removing the page
+answers the same defect one level up rather than contradicting it. With no fenced region left, *nothing that
+already exists is ever touched* is true of this command without qualification for the first time.
+
+**An existing copy is reported and never touched, and no delete command is printed.** A copy may carry the
+only written statement of something that repo answered, and nothing here can tell that from a stale
+scaffold. **The gates that READ those names are deliberately unchanged** -- `check-consumer-prose` runs its
+detectors over both and `check-policy-drift` still lists them -- so a page still on disk keeps the standing
+its repo gives it. Narrowing a gate to match would have retired it in the very repos whose pages are the
+reason it exists.
+
+The rank-order model now says the truth for both kinds of repo: the plugin's portable pages and skills sit
+above the floor either way, and the middle rank is real only where a repo still carries the page it names.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+**This is a page a consumer was told to read, and the sentence that pointed at it shipped in the portable
+half.** So the removal cannot be done in the scaffolder alone: a repo adopting today would have been handed
+a rank model naming a file it never receives, and a repo that adopted earlier would have read that its
+second layer no longer exists while the file sits in its tree and its gates go on reading it. Both readings
+are wrong, and they are wrong in opposite directions -- which is why the portable page, the two skill pages
+and the drift report all state the condition explicitly rather than picking one of the two repos to be
+correct for.
+
+**Nothing is removed from any consumer, on purpose.** The five repos holding these pages keep them, keep
+their prose gate, and keep their rank 2. What they get on their next `adopt-dkj-policy` run is one `[legacy]`
+line per page saying the plugin no longer authors it. That is the whole migration, and it is deliberately
+not a command they can paste.
+
+**Score:** 3
+
+#### Pull Request
+
+The plugin stops scaffolding a consumer's folder README and CONTRIBUTING
+
+Plugins: dkj-policy
+
+[PR #2178](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2178)
+
+---
 
 ### DEPLOY: fix/2173-lint-gate-progress-record · 20260920-095105
 
