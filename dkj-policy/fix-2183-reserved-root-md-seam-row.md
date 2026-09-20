@@ -41,17 +41,38 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rewrote the "your permanent root docs" row of the seam-answer table in the system-administration lens so it lists every name `$script:ReservedRootMd` holds, and says `CHANGELOG` and `CONTRIBUTING` left the root and stayed on the list
+- [x] Searched the repo's `.md` files (archived `dkj-policy/releases/**` excluded) for other prose saying those two names came off the list: none found, so that row was the only one to repair
 
 ### TEST
 
+- [x] Read the new row against `$script:ReservedRootMd` in `scripts/repo-config.ps1` and against `ReservedNames` in `Get-BranchFilePaths`, name by name and claim by claim (a read-through, not a gate run)
+
 ### DEPLOY: fix/2183-reserved-root-md-seam-row
 
-**Score:**
+The seam-answer table in the system-administration lens now states the permanent-root-docs list the way
+the code holds it. It had carried, since the deleted `dkj-policy/README.md`, a list of six names and a
+note that `CHANGELOG` and `CONTRIBUTING` "came off" it on August 27, 2026. The code says the opposite:
+`Get-ReservedRootMd` still lists all eight names, because the portable `cut-release` reads that list to
+decide which root `.md` files are permanent documents rather than unfolded entries, and taking the two
+names off the same day made it refuse a release over a changelog nobody had failed to fold. The row now
+lists every name, says the two left the root and stayed on the list because the list names a permanent
+document rather than one this repo holds today, and points at the code comment that carries the
+reasoning and at `ReservedNames` in `Get-BranchFilePaths`, which records the same rule for the
+folder's own pages. Nothing else in the table, and no script, changed.
+
+This prevents a failure that has not happened yet: with `dkj-policy/README.md` deleted, that row is the
+only prose left for this seam, so someone reconciling the code to it would take the two names off the
+list and reproduce the cut refusal of August 27.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- an internal lens row, which no subscriber of the service reads or has anything to do differently
+because of.
+
+**Score:** N/A
 
 #### Pull Request
 
