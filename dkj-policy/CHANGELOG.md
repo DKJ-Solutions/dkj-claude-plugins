@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 50 minor entries** <!-- pending-tally -->
+**27 / 51 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2197-consumer-lens-fp-measured · 20260920-154630
+
+`Get-ConsumerProseDocuments` now states the consumer-lens false-positive measurement instead of
+naming it as the open half somebody still has to take. The passage it replaces asserted two things
+that stopped being true within minutes of it reaching the trunk -- that no consumer lens had been
+measured, and that #2197 carried the question -- and a docstring that names an open question is
+read as an invitation to go and answer it, which is the work this would have cost the next reader.
+
+The decision it records is that **both detectors keep the lenses**: `Get-SupremacyDeclaration` at
+1 raw / 1 real and `Get-RetiredDocNameMention` at 26 raw / 6 real over 4 consumer checkouts, 93
+lens files and 3,299 lines. The flat ratio is deliberately not what the entry turns on -- read per
+consumer it is four for four, because every repo whose verdict the widening actually changes
+receives only real findings, and the 23/3 sits entirely in one consumer that was already red on 36
+non-lens findings. The `-RepoRoot` seam stays available and unused; no code changed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running this workflow receives this file through a plugin update, and a developer there who
+reads the old passage is told the question is open and the seam is waiting to be narrowed. The
+nameable failure is that they measure it again, or narrow a detector on an argument the numbers
+have already settled against -- the 6 real restatements and 1 real inversion it would have
+suppressed are exactly the findings nothing else in this workflow could have surfaced.
+
+**Score:** 1
+
+#### Pull Request
+
+Get-ConsumerProseDocuments states the consumer-lens measurement instead of naming it as an open half
+
+Plugins: dkj-policy
+
+[PR #2208](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2208)
+
+---
 
 ### DEPLOY: fix/drop-pre-rename-persona-import · 20260920-153027
 
