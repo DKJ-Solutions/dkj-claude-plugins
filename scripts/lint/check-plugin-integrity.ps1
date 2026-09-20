@@ -3037,12 +3037,14 @@ $scFiles = @($linkFiles | Where-Object {
     # THE LIST IS THE LEGACY NAMES; THE PATTERN IS THE LIVE ONE (#2180). A branch-less Get-BranchFilePaths
     # answers the pre-#1255 SHARED name, dkj-policy/development.md -- so from the day the documents went per
     # branch this list stopped naming the file it was written for, while $linkFiles went on sweeping the
-    # folder recursively. Here the failure direction is NOISE, the opposite of the two sibling checks': a
+    # folder recursively. Here the failure direction is NOISE, the opposite of the two sibling checks: a
     # branch document that QUOTES a section count while explaining the entry format is reported as stale
-    # prose and fails the gate. It stayed quiet only because the scaffolded guidance says 'HEADINGS' where
-    # this pattern wants 'section', and nothing holds that wording. Same answer as checks 4 and 11, which
-    # each pair their own fixed list with this predicate: keep the names, add the pattern -- a list cannot
-    # answer a pattern.
+    # prose and fails the gate. No branch document has triggered it yet, and the scaffold misses it on TWO
+    # independent counts rather than the one #2180 named: its sentence says 'HEADINGS' where this pattern
+    # wants 'section', AND it carries the PHASE level where the pattern wants the SECTION level. Nothing
+    # holds either, and either alone is enough to miss -- so the quiet is two accidents deep, not one.
+    # Same answer as checks 4 and 11, which each pair their own fixed list with this predicate: keep the
+    # names, add the pattern -- a list cannot answer a pattern.
     $scPaths = Get-BranchFilePaths
     $scBranchFiles = @($scPaths.File, $scPaths.LegacyCycle, $scPaths.LegacyDeployment,
         $scPaths.OlderCycle, $scPaths.OlderDeployment) |
