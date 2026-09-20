@@ -44,7 +44,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 41 minor entries** <!-- pending-tally -->
+**21 / 42 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2168-written-name-guard · 20260920-114559
+
+A rename step that forgets its row flip is refused now instead of shipping green.
+`Get-SpecialistFileShapes` decides, per specialist kind, which filename spelling is **written** and
+which are merely **read**, and the #2128 rename series moves one kind per step -- the files on disk
+and that kind's `Current` row, two halves nothing paired. `AlsoRead` keeps every reader resolving
+both, so a step that moved the files and left the row behind passed the lint gate, every suite and CI
+(measured on #2165) while every writer went on composing the retired name into a fresh consumer. Two
+of the four steps shipped exactly that way -- the Subagent row (#2131, found at the merge) and the
+Lens row (#2133, found eight days later and repaired in #2167). Step F (#2135) closed while this branch
+was open, correctly pairing both halves in one commit, so the round is done and the guard is for the
+next one.
+
+Check **3d** in `check-plugin-integrity.ps1` holds each kind's `Current` row against the names
+actually on disk: 87 files today, being 26 subagent defs, 27 manuals, 4 personas and 30 lenses, and
+it is born green. It refuses **both** half-states, because files moved without the row and a row
+flipped without the files are one finding read from either side -- and it names which it found, since
+every file of a kind on the other spelling is a row that did not travel while some of them is a move
+that stopped half way, and the two have different repairs. A name matching NEITHER spelling is passed
+over, so checks 3b, 3c and 6 keep sole ownership of it and no file gets two owners.
+
+It reaches this tree only, and `Get-SpecialistFileShapes`' docstring says so where it used to say the
+guard did not exist yet: a consumer meets a rename through a plugin update rather than by choosing
+to, so their files sitting on the previous spelling is the dual-read layer doing its job. No row may
+be pruned because a gate now watches it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the check lives in `scripts/lint/check-plugin-integrity.ps1`, this repo's own gate: not in the
+shared-scripts registry, not carried by any plugin, and not one of the runners `adopt-dkj-policy`
+scaffolds into a consumer's CI. No subscriber of this service receives it, which is also why the
+`minor` label came off #2168.
+
+**Score:** N/A
+
+#### Pull Request
+
+a guard holds each specialist kind's written spelling against the names on disk
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2191](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2191)
+
+---
 
 ### DEPLOY: docs/closeout-checks-live-subagents · 20260920-112936
 
