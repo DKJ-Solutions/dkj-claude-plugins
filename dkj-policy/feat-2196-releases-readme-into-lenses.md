@@ -77,14 +77,14 @@ document a script appends to, and the issue names only the README.
 - [x] The scaffolder stops writing a consumer's `dkj-policy/releases/README.md` -- `$releasesReadme`
       and its file-list entry go from `scripts/task/adopt-workflow-folder.ps1` and the plugin mirror,
       and the header comment that lists what the folder contains follows
-- [ ] Sylvester's lens takes the release-notes page block -- the page title seam, the worker name, the
+- [x] Sylvester's lens takes the release-notes page block -- the page title seam, the worker name, the
       output location, what is committed, the path token and what the lock is actually for
-- [ ] Rendall's lens takes the rest -- the seam values in force here, the local decisions and the
+- [x] Rendall's lens takes the rest -- the seam values in force here, the local decisions and the
       measured instances behind the portable rules
-- [ ] `dkj-policy/releases/README.md` is deleted
-- [ ] The portable half stops telling a consumer the page exists -- `RELEASES-portable.md` (4 places),
+- [x] `dkj-policy/releases/README.md` is deleted
+- [x] The portable half stops telling a consumer the page exists -- `RELEASES-portable.md` (4 places),
       `plugins/dkj-policy/README.md` and the `adopt-dkj-policy` skill page (2 places)
-- [ ] The source repo's own references are repointed -- root `README.md` (3), Rendall's lens (3),
+- [x] The source repo's own references are repointed -- root `README.md` (3), Rendall's lens (3),
       Sylvester's lens table row, and `history.md`'s dated cross-reference
 
 ### TEST
