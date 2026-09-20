@@ -819,6 +819,55 @@ function Get-NoteTreeOnlyVerdict {
     return $verdict
 }
 
+# THE LINT GATE'S OWN PROGRESS RECORD, FOR THE STATUSLINE -- issue #2173. The bar (#2101) had two
+# publishers, the test gate's lane events and ship-pr's CI wait, and the lint gate is neither. It is the
+# step that runs FIRST in a ship and it took 78s on the measured run (PR #2169, 2026-09-20) while
+# publishing nothing, so the statusline showed only its context line for the stretch a reader is watching
+# for. Where the suites were already proved for the tree, the one long publisher that does exist never
+# fires either, and the whole pre-CI phase of the ship was silent.
+#
+# PUBLISHED HERE, AROUND THE CHILD, AND NOT FROM INSIDE check-plugin-integrity.ps1 -- which is what the
+# issue proposed, on the reading that the check "knows its own check count as it walks". Read against the
+# script, that is not so: Write-Coverage prints a per-class 'checked <n>', each with its own denominator,
+# and no total number of checks exists at runtime. A bar needs one, so it would have to be a literal or a
+# self-parse of the script's own headers, threaded through ~48 call sites -- and the checks are wildly
+# uneven (one link walk dominates), so a fraction of CHECKS would sit still for most of the run. That is
+# a fraction nobody measured, which run-progress-lib.ps1 says in so many words is an invention.
+#
+# WHAT THIS PUBLISHES IS THE SHAPE ship-pr's CI wait already uses, for the same reason: this function is
+# blocked inside ONE child call, so it has a label and a start and nothing else honest to say. No counts,
+# therefore no bar -- the reader gets 'lint gate' and the run's own clock, and the statusline derives the
+# elapsed itself, so the readout keeps moving while this function writes nothing.
+#
+# GUARDED ON THE FUNCTION, NOT ON A DOT-SOURCE. run-progress-lib.ps1 arrives through native-capture-lib's
+# guarded load, which every caller of this file has one way or another (git-porcelain-lib.ps1 above loads
+# it, and open-pr.ps1 loads it first). A tree where that chain is broken -- a consumer whose mirror
+# predates the bar -- simply gets no record, and the gate is byte-for-byte what it was. Best-effort by
+# construction: neither helper throws, and a diagnostic must not cost the run it describes.
+#
+# ONLY AT THE TOP LEVEL, AND THAT IS WHAT KEEPS THE TEST GATE'S OWN BAR ON THE STATUSLINE. The statusline
+# draws the NEWEST live record, and many suites drive this very function over a fixture lint script that
+# exits in about a second -- each one would otherwise repaint the line with 'lint gate' in the middle of
+# the test gate's bar, for a run nobody is waiting on. Invoke-TestSuiteGate exports DKJ_TEST_GATE_DEPTH to
+# every suite it spawns and Get-GateNestingDepth reads it back, so a lint run inside a suite reads as
+# depth 2 and stays silent, while a ship -- which is nobody's child -- reads 1 and publishes. The same
+# variable already keeps a fixture gate from being mistaken for the real one on the console (#1717).
+function Publish-LintGateProgress {
+    param([Parameter(Mandatory = $true)][datetime]$StartedUtc)
+    if (-not (Test-FunctionDefined 'Write-RunProgress')) { return }
+    if ((Test-FunctionDefined 'Get-GateNestingDepth') -and (Get-GateNestingDepth) -gt 1) { return }
+    try {
+        [void](Write-RunProgress -Id (Get-RunProgressId -Name 'lint-gate') -Label 'lint gate' `
+            -Note 'integrity check' -StartedUtc $StartedUtc)
+    } catch { }
+}
+
+function Clear-LintGateProgress {
+    <# The lint gate's record removed once its child has returned, pass or fail -- issue #2173. #>
+    if (-not (Test-FunctionDefined 'Complete-RunProgress')) { return }
+    try { [void](Complete-RunProgress -Id (Get-RunProgressId -Name 'lint-gate')) } catch { }
+}
+
 function Invoke-WorkflowGates {
     <#
         Runs the repo's two gates -- the lint script, then every test suite -- against the working tree,
@@ -992,10 +1041,14 @@ function Invoke-WorkflowGates {
                     # fast path above prints "skipped" and no seconds, the way Invoke-TestSuiteGate's own
                     # cache branch does.
                     $lintStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    # PUBLISHED FOR THE STATUSLINE, and removed the moment the child returns on either
+                    # verdict (issue #2173) -- see Publish-LintGateProgress for what it says and why not more.
+                    Publish-LintGateProgress -StartedUtc ([datetime]::UtcNow)
                     $lintRun = Start-Process -FilePath 'powershell' `
                         -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $lintPath + '"')) `
                         -NoNewWindow -Wait -PassThru -WorkingDirectory (Get-Location).Path
                     $lintStopwatch.Stop()
+                    Clear-LintGateProgress
                     # Invariant-culture format, for the reason Format-GateSeconds (native-capture-lib.ps1)
                     # states at length (issue #1159): '-f' renders in the current culture, so above 1000s a
                     # Dutch machine prints the seconds a thousandfold off and still plausible. gate-lib does

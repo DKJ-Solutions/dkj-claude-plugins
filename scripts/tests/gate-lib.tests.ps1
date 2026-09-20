@@ -524,6 +524,84 @@ try {
     $clockFail = & { Invoke-WorkflowGates -RepoRoot $r15clockFail -SkipTests -Context 'test' -FailureConsequence 'x' } 6>&1 2>$null | Out-String
     Assert-True ($clockFail -match 'lint gate: integrity check FAILED in \d+s\.') 'a failing lint run also prints its elapsed seconds'
 
+    # 15d-progress. THE LINT GATE PUBLISHES A PROGRESS RECORD FOR THE STATUSLINE (issue #2173). The bar had
+    # two publishers, and the lint gate -- the step that runs FIRST in a ship and took 78s on the measured
+    # run -- was neither, so the statusline was blank for exactly the stretch a reader watches. The lint
+    # child is asked what it can SEE while it runs, because a record that exists only before or after the
+    # child says nothing about the wait the record is for.
+    #
+    # TWO PIECES OF THE PROCESS ENVIRONMENT ARE SET FOR EACH RUN AND PUT BACK. LOCALAPPDATA is redirected so
+    # the record lands in a fixture root rather than in the runner's real per-user directory --
+    # Get-RunProgressRoot reads it at call time and the child inherits it. DKJ_TEST_GATE_DEPTH is CLEARED
+    # for the publishing cases, because this suite normally runs as a child of the test gate, where it reads
+    # 1 and would make every lint run below look nested and stay silent; the nested case sets it on purpose.
+    # run-progress-lib is already loaded here (gate-lib reaches it through git-porcelain-lib and
+    # native-capture-lib) -- which is itself the fact the nested case exists for: EVERY suite that drives
+    # this function has the publisher, so nothing but the depth stops each of them repainting the statusline.
+    $progRoot  = Join-Path $FixtureRoot 'progress-localappdata'
+    $progDir   = Join-Path $progRoot 'dkj-run-progress'
+    $progProbe = Join-Path $FixtureRoot 'progress-probe.txt'
+    New-Item -ItemType Directory -Path $progRoot -Force | Out-Null
+    $probeTemplate = @'
+$d = Join-Path $env:LOCALAPPDATA 'dkj-run-progress'
+$f = @(Get-ChildItem -LiteralPath $d -Filter 'lint-gate-*.json' -ErrorAction SilentlyContinue)
+$t = ''
+if ($f.Count -gt 0) { $t = [System.IO.File]::ReadAllText($f[0].FullName) }
+[System.IO.File]::WriteAllText('__PROBE__', ($f.Count.ToString() + '|' + $t))
+exit __EXIT__
+'@
+    function Invoke-ProbedLintGate {
+        param([string]$Dir, [int]$LintExit, [AllowNull()][string]$GateDepth = $null, [switch]$KeepScript)
+        if (-not $KeepScript) {
+            Set-FixtureFile -Dir $Dir -Name $script:FixtureLintScript -Content ($probeTemplate.Replace('__PROBE__', $progProbe).Replace('__EXIT__', "$LintExit") + "`n")
+        }
+        Remove-Item -LiteralPath $progProbe -Force -ErrorAction SilentlyContinue
+        $savedAppData = $env:LOCALAPPDATA
+        $savedDepth = [Environment]::GetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', 'Process')
+        $env:LOCALAPPDATA = $progRoot
+        [Environment]::SetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', $GateDepth, 'Process')
+        try {
+            [void](Invoke-WorkflowGates -RepoRoot $Dir -SkipTests -Context 'test' -FailureConsequence 'x' 6>$null 2>$null)
+        } finally {
+            $env:LOCALAPPDATA = $savedAppData
+            [Environment]::SetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', $savedDepth, 'Process')
+        }
+    }
+    function Get-LeftoverLintRecordCount {
+        return @(Get-ChildItem -LiteralPath $progDir -Filter 'lint-gate-*.json' -ErrorAction SilentlyContinue).Count
+    }
+
+    $r15progPass = New-GitFixture
+    Invoke-ProbedLintGate -Dir $r15progPass -LintExit 0
+    $progSeen = if (Test-Path -LiteralPath $progProbe) { [System.IO.File]::ReadAllText($progProbe) } else { '' }
+    Assert-True ($progSeen -match '^1\|') 'exactly one lint-gate record is live WHILE the lint child runs'
+    Assert-True ($progSeen -match '"label":"lint gate"') 'and it is labelled as the lint gate, which is what the statusline draws'
+    Assert-True ($progSeen -match '"current":null' -and $progSeen -match '"total":null') 'with NO counts, so no bar -- the check has no total to publish, and a fraction nobody measured is an invention'
+    Assert-True ((Get-LeftoverLintRecordCount) -eq 0) 'and the record is gone once the child has returned on a pass'
+
+    $r15progFail = New-GitFixture
+    Invoke-ProbedLintGate -Dir $r15progFail -LintExit 1
+    $progSeenFail = if (Test-Path -LiteralPath $progProbe) { [System.IO.File]::ReadAllText($progProbe) } else { '' }
+    Assert-True ($progSeenFail -match '^1\|') 'a run that will FAIL publishes the same record while it runs'
+    Assert-True ((Get-LeftoverLintRecordCount) -eq 0) 'and removes it on a failing verdict too, so a red lint does not leave a bar behind'
+
+    # Served from the evidence cache the child never runs, so there is nothing to describe and nothing is
+    # published -- the probe is never even written. Same distinction the elapsed-seconds case above draws.
+    # The script is NOT rewritten for this run: touching the tree would change its fingerprint and turn the
+    # cache hit into a real run, which is the very thing being asserted about.
+    Invoke-ProbedLintGate -Dir $r15progPass -LintExit 0 -KeepScript
+    Assert-True (-not (Test-Path -LiteralPath $progProbe)) 'a cache hit runs no lint child, so nothing is published for it'
+
+    # A lint run INSIDE a suite -- DKJ_TEST_GATE_DEPTH set by the test gate -- publishes nothing. Many suites
+    # drive this function over a fixture lint that exits in about a second, and the statusline draws the
+    # newest record, so without this each of them would repaint the line with 'lint gate' in the middle of
+    # the test gate's bar. The probe IS written (the child ran) and reports zero records, which is what
+    # separates "ran and published nothing" from "never ran".
+    $r15progNested = New-GitFixture
+    Invoke-ProbedLintGate -Dir $r15progNested -LintExit 0 -GateDepth '1'
+    $progSeenNested = if (Test-Path -LiteralPath $progProbe) { [System.IO.File]::ReadAllText($progProbe) } else { 'NOT-WRITTEN' }
+    Assert-True ($progSeenNested -match '^0\|') "a lint run nested inside the test gate ran and published NO record -- it must not repaint the test gate's bar"
+
     # 15e. THE SHAPE OF THE RETURN VALUE ITSELF -- a CRITICAL regression found in code review and
     # fixed the same day (August 30, 2026). A lint gate invoked as `& powershell -File $lintPath`
     # was safe as a top-level statement in open-pr.ps1: the child's stdout went straight to the

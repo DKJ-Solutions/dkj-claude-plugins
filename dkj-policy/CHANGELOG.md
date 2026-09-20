@@ -43,7 +43,105 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 34 minor entries** <!-- pending-tally -->
+**18 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2173-lint-gate-progress-record · 20260920-095105
+
+The statusline no longer goes blank while a ship runs its lint gate. The lint gate is the step that runs
+first, and on the measured ship (PR #2169) it took 78 seconds while publishing nothing, so a backgrounded
+ship showed only its context line for exactly the stretch a reader is watching for -- and where the test
+suites were already proved for the tree, the one long publisher that did exist never fired either, leaving
+the whole pre-CI phase silent. `Invoke-WorkflowGates` now publishes a `lint gate (integrity check)` record
+around its child call and removes it when the child returns, pass or fail.
+
+It is an elapsed readout with no bar, and that is a decision rather than a shortfall: the integrity check
+has no total number of checks to publish, and a bar over its very uneven checks would sit still for most of
+the run. It publishes only at the top level of gate nesting, so the many suites that drive this function
+over a fixture lint stay silent instead of repainting the test gate's own bar. `cut-release.ps1`'s separate
+lint call is not covered.
+
+The failure it prevents, named: a maintainer backgrounding a ship, seeing a blank statusline for ~90
+seconds, and reasonably concluding the run had stalled.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- nothing here needs a consumer to act. The progress bar and its statusline adoption are not in a
+released version yet, so no consumer has the bar turned on to find this step missing from it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The lint gate publishes a progress record, so the statusline is no longer blank for the first part of a ship
+
+Plugins: dkj-policy
+
+[PR #2177](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2177)
+
+---
+
+### DEPLOY: fix/2172-seam-lib-retired-name · 20260920-093447
+
+`Get-WorkflowFolderName`'s docstring names the retired folder name again. Two sentences in
+`scripts/lib/seam-lib.ps1` whose whole job is to preserve the name the folder used to carry had been
+overwritten with the name it carries now, so the walk order read `'dkj-policy', then
+'workflow-davekjohn'` and the #1437 sentence read *'dkj-policy' became 'dkj-policy'*. Both say
+`contributing-davekjohn` again. Prose only: the array below them was always correct, so no behaviour
+changes -- what changes is that the docstring can again be used to check the array, which is the one
+thing a mid-migration consumer depends on and the only place stating why the function walks three
+names newest-first. The other eight rename sentences in the tree were read and all name the retired
+folder correctly, so the sweep reached these two and nothing else.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- an in-repo docstring. Nothing a consumer of these plugins can observe: the function's
+behaviour, its argument list and the three names it walks are all unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+Get-WorkflowFolderName's docstring names the retired folder name again
+
+Plugins: dkj-policy
+
+[PR #2176](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2176)
+
+---
+
+### DEPLOY: fix/2174-reap-orphaned-tmp-record · 20260920-091329
+
+The progress root no longer grows one small file per killed producer. `Get-LiveRunProgress` reaped
+only `*.json`, so the `.tmp` a producer abandons when it is killed between the write and the move
+was never looked at again -- and a killed producer is ordinary here, since a backgrounded ship dies
+with its harness. It is swept now on the same pass, keyed on the name this lib itself writes and on
+the pid embedded in it, so a `.tmp` somebody else put there is still evidence rather than litter.
+
+Cosmetic and slow rather than visible: the statusline never parsed these, so no bar was ever wrong.
+The failure it prevents is unbounded accumulation in `%LOCALAPPDATA%\dkj-run-progress\`.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber of the service: this is a per-developer cache directory on the machine
+running the workflow, and nothing it holds is published, rendered or shipped.
+
+**Score:** N/A
+
+#### Pull Request
+
+An orphaned .tmp progress record is reaped instead of accumulating forever
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2175](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2175)
+
+---
 
 ### DEPLOY: feat/2135-persona-filenames · 20260920-084123
 

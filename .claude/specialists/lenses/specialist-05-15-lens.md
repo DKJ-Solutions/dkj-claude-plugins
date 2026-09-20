@@ -43,11 +43,17 @@ infrastructure.
   calls and looks complete while answering the wrong question.
 - **The `statusLine` in [`.claude/settings.json`](../../settings.json), and the progress mechanism behind
   it** — `scripts/task/show-progress.ps1` renders, `scripts/lib/run-progress-lib.ps1` is what a
-  long-running script publishes to, and the two producers wired up so far are the test gate (both lane
-  events in `Invoke-TestSuiteGate`) and `ship-pr`'s CI wait
-  ([#2101](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2101), September 18, 2026).
+  long-running script publishes to, and the three producers wired up so far are the test gate (both lane
+  events in `Invoke-TestSuiteGate`), `ship-pr`'s CI wait
+  ([#2101](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2101), September 18, 2026) and the
+  lint gate ([#2173](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2173), September 20,
+  2026), which publishes from `Invoke-WorkflowGates` around its child call — **a label and a start, no
+  counts and so no bar**, because `check-plugin-integrity.ps1` has no total number of checks to publish
+  and a fraction of its uneven checks would sit still for most of the 78 seconds. It publishes only at
+  gate depth 1: the same `DKJ_TEST_GATE_DEPTH` that marks a nested gate keeps every suite's fixture lint
+  from repainting the test gate's bar.
   **A run this repo does not own still publishes nothing** — a backgrounded `npm test`, a `gh run watch`,
-  a dispatched subagent — so the bar covers the two long waits of this workflow rather than everything a
+  a dispatched subagent — so the bar covers the long waits of this workflow rather than everything a
   session backgrounds; the gap, and the `PreToolUse` shape that would close it, are parked as
   [#2104](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2104).
 
