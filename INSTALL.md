@@ -460,10 +460,11 @@ on the machine this was written on, which hold 25 lenses each:
    `CLAUDE.md` (4 occurrences in the other). Sweep for `-extension.md` across the repo, skipping
    your archived release history — that folder is deliberately historical, the same carve-out every
    other rename here has made.
-4. **`dkj-policy/always-on-baseline.json`, if you keep one.** It is a dictionary keyed on literal
-   import targets, so it holds `lenses/01-01-extension.md` verbatim. **Regenerate it, do not
-   hand-edit it** — the file says so itself, and the gate lowers it on its own. Run the budget gate
-   with `-Record` once the renames are in.
+4. **Your always-on baseline, if you keep one** — `.claude/specialists/always-on-baseline.json`, or
+   `dkj-policy/always-on-baseline.json` if you have not moved yours yet (see below). It is a
+   dictionary keyed on literal import targets, so it holds `lenses/01-01-extension.md` verbatim.
+   **Regenerate it, do not hand-edit it** — the file says so itself, and the gate lowers it on its
+   own. Run the budget gate with `-Record` once the renames are in.
 
 ### What does not change
 
@@ -677,6 +678,29 @@ git mv contributing-davekjohn dkj-policy
 the four release-note roots in its own `scripts/repo-config.ps1` wrote the folder name into that answer;
 a repo that left them at the computed default did not, and is carried across for free. `check-script-contract`
 names every seam you have stated, which is the fastest way to see which of the two you are.
+
+### Your always-on baseline, and why it does not move by itself
+
+`always-on-baseline.json` — the low-water mark the always-on budget gate ratchets against — now lives in
+**`.claude/specialists/`** rather than in the workflow folder (#2186). The workflow folder is where prose a
+person writes and reviews lives; this is the one file in it nobody may hand-edit, and the documents it
+measures are mostly in the seam already.
+
+**Nothing happens to yours on a plugin update, deliberately.** `Get-AlwaysOnBaselinePath` prefers whichever
+file is actually there — the seam first, then the workflow folder — exactly as `Get-WorkflowFolderName`
+prefers whichever folder is actually there. So an un-migrated repo goes on reading and writing the copy it
+has, with no second baseline appearing beside it.
+
+**Move it when you like, in one commit, and keep the history:**
+
+```powershell
+git mv dkj-policy/always-on-baseline.json .claude/specialists/always-on-baseline.json
+```
+
+**Use `git mv`, not delete-and-regenerate.** A missing baseline is not an error — the gate calls it a first
+run, records a fresh one and never refuses — so regenerating looks identical and quietly resets your
+low-water mark to whatever the path measures that day. For the one file whose entire value is a number
+carried forward, that is the outcome to avoid.
 
 ### `bwj-codex/SYNC-LOG.md`, for the two store repos
 
