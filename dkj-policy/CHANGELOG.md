@@ -43,7 +43,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 34 minor entries** <!-- pending-tally -->
+**18 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2174-reap-orphaned-tmp-record · 20260920-091329
+
+The progress root no longer grows one small file per killed producer. `Get-LiveRunProgress` reaped
+only `*.json`, so the `.tmp` a producer abandons when it is killed between the write and the move
+was never looked at again -- and a killed producer is ordinary here, since a backgrounded ship dies
+with its harness. It is swept now on the same pass, keyed on the name this lib itself writes and on
+the pid embedded in it, so a `.tmp` somebody else put there is still evidence rather than litter.
+
+Cosmetic and slow rather than visible: the statusline never parsed these, so no bar was ever wrong.
+The failure it prevents is unbounded accumulation in `%LOCALAPPDATA%\dkj-run-progress\`.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber of the service: this is a per-developer cache directory on the machine
+running the workflow, and nothing it holds is published, rendered or shipped.
+
+**Score:** N/A
+
+#### Pull Request
+
+An orphaned .tmp progress record is reaped instead of accumulating forever
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2175](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2175)
+
+---
 
 ### DEPLOY: feat/2135-persona-filenames · 20260920-084123
 
