@@ -254,6 +254,35 @@ one that does not depend on a specialist reading its boundary.
 worktree starts from HEAD rather than from the working copy, so whatever it produces has to be
 reconciled back by hand, and it dirties the primary for as long as it stands.
 
+### A hand-back is not a finish, and the close-out is where that gets discovered
+
+**Measured September 20, 2026, in this system's own source repo.** Six agents were dispatched across one
+assignment — four to migrate a retired page into the specialist lenses, then a copy editor and a code
+reviewer in parallel on the diff. Five of the six behaved the way the shape suggests: a report, and a
+`task-notification` saying *completed*. The sixth reported and **kept running**. Its own report said so, in
+a closing method note: it had launched the `code-review` skill, that skill had forked to the background,
+and — correctly, by the whose-clock rule on the persona page — it did not sit on that clock before handing
+back.
+
+**Nothing about the report looked partial, and that is the whole defect.** It was the longest and most
+complete of the six, it answered every question it had been set, and it arrived in the same shape as the
+five that were genuinely done. So the orchestrator read it as the end of that agent's work, wrote the
+close-out, and said *the session can be cleared* — while `ListAgents` said `running`, and the completion
+notice was still **37 minutes** out from dispatch. The requester caught it; the session did not.
+
+**What it would have cost is small, which is why it would not have been noticed.** The repository work had
+already merged and folded, so nothing in the tree was at risk; what would have died with the harness was a
+read-only review whose findings had nowhere to go but an issue somebody still had to file. Here it
+produced nothing new. **A failure that is usually free is a failure that gets repeated**, and the one
+place it is never free is the receipt, because that is the line the requester acts on without re-checking.
+
+**The rule this produced is one line on the persona page** — read the agent list before the word
+*cleared*, rather than inferring it from the last message you received. It is deliberately not a rule
+about *waiting*: the whose-clock rule is untouched, and an orchestrator that starts sitting through its
+own subagents' background work has traded a wrong receipt for a wasted session. **What changes is the
+sentence, not the schedule** — name the agent that is still running and what its death would cost, and the
+requester decides.
+
 ## Picking up an inbound report — the six checks, in full
 
 The persona carries the route (an improvement to the shared core becomes an `inbound` issue on the
