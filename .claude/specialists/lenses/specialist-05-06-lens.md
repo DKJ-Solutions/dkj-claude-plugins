@@ -249,7 +249,7 @@ unrelated product would get its own repository and marketplace rather than joini
 **Pass `-Title "Release version X.Y.Z"` on every cut here** (Dave, September 10, 2026, at the `v4.33.0`
 cut). A release rolls up everything merged since the last one, and one sentence cannot describe a large
 multi-theme one — so this repo does not try. That string lands in `history.md`'s title column and in the
-generated Release body verbatim; `releases/README.md`'s *Local decisions* section carries the reasoning.
+generated Release body verbatim; [Local decisions](#local-decisions-on-how-a-release-is-cut-here) below carries the reasoning.
 It is the repo's choice, not the skill's rule: `-Title` still accepts a descriptive sentence, and a
 `-SummaryFile` milestone is unaffected.
 
@@ -316,8 +316,9 @@ And beside them, in the same folder since August 27, 2026:
   root at #914, deliberately, on the reasoning that a repo which has cut releases has a history whichever
   tooling cut it. Dave moved it here on August 27, 2026 together with `CHANGELOG.md` and the contributing
   page: that reasoning was about **durability**, and #885 had already answered it a different way by making
-  this folder permanent. It took a new name because `releases/README.md` in the same folder is the
-  seam-answers page.
+  this folder permanent. It took a new name because `releases/README.md` in the same folder was then the
+  seam-answers page; that page is retired (#2196) and the name stayed, because it is the computed default
+  every consumer has resolved to since #885.
 - In `CHANGELOG.md` the cut writes **nothing at all** — it empties the document down to its intro. The
   internal note's only inbound link is therefore the **Version cell of the `releases/history.md` row**,
   written by `new-internal-note.ps1`. That the cut cannot write it is unchanged and is the reason the step is
@@ -465,10 +466,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/open-pr.ps1 
 ```
 
 **[`releases/history.md`](../../../dkj-policy/releases/history.md) is the living index** — the cut inserts
-its own row, so **never add one by hand** for a release a script will write. Beside it,
-[`releases/README.md`](../../../dkj-policy/releases/README.md) is a different document: this repo's answers
-to the portable release page. They shared the name `README.md` until August 27, 2026, when the list moved
-into the workflow folder and had to stop.
+its own row, so **never add one by hand** for a release a script will write. It is now the only document in
+that folder anybody edits by hand: `releases/README.md` sat beside it carrying this repo's answers to the
+portable page, and #2196 retired it — those answers are
+[further down this section](#this-repos-answers-to-the-portable-release-page--the-seam-values-in-force-here). The
+two shared the name `README.md` until August 27, 2026, when the list moved into the workflow folder and had
+to stop; the list keeps the name it took then.
 
 **Everything under `dkj-policy/releases/audience/` is a published record**: links may be repointed when a
 target moves, prose is never rewritten. **What that protects is a line that was TRUE when it was
@@ -584,6 +587,113 @@ The local instance behind that last rule: **the seam, the largest change in 2.x,
 backward compatible by construction, every reader accepts the old layouts — so a `major` bump here can be
 one a consumer needs to do nothing about, and the summary has to say so or they sit on an old version
 waiting for a migration that does not exist.
+
+#### This repo's answers to the portable release page — the seam values in force here
+
+**This block and the two below were `dkj-policy/releases/README.md` until
+[#2196](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2196) retired that page**, the last of
+the three prose pages to leave the workflow folder after #2171 and #2179 took the other two. The case is
+theirs unchanged: a per-repo prose page beside a portable page makes *"there is only one RELEASES"* false
+in the repo that ships the sentence, and what a repo answers for itself belongs in the lens of whoever owns
+the answer. **One passage went elsewhere** — the release-notes page, its worker, the path token and the
+`noindex` reasoning are hosting machinery rather than a release decision, so they are in
+[Sylvester's lens](specialist-05-15-lens.md#the-release-notes-page-and-the-worker-that-serves-it). The
+process half is where it has been since August 2026:
+[`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md).
+
+**`Get-ReleasePluginTier` is true** — this repo is the marketplace source, so every cut bumps all
+`plugin.json` versions in lockstep and the current version is read from a `plugin.json`. **A repo that
+publishes no plugins answers false**, skips step 1 of the cut entirely, and reads its current version from
+the newest `vX.Y.Z` tag; the release is then the tag and the documents, nothing else.
+
+**`Get-ReleaseAudienceTier` is `2`** — this repo is a service its consumers subscribe to, so the
+hand-written note's *For consumers* section is written for them. A repo that delivers to management or a
+commissioner answers `1` and never writes that section.
+
+Every release document groups **per major** (`3.x`) — the consumer this model came from folders per minor.
+`Get-ReleaseHistoryPath` answers [`releases/history.md`](../../../dkj-policy/releases/history.md) — since
+August 27, 2026, which is also the answer its computed default has been giving every **consumer** since
+issue #885, so the source stopped being the one repo answering it differently. It pointed at the workflow
+folder once before, between August 14 and August 19, 2026, when the hand-kept release pages moved there and
+the list came along; then the list moved back to the root and the audience notes did not. This is that
+first move made again on a premise that now holds. Since the hand-written note merged into one document
+(August 10, 2026), `cut-release.ps1` drafts that note itself before it writes the history row's **Version
+cell**, so the cell points straight at it — the hand-written note where the bump wrote one, the development
+notes on a patch — with nothing repointing it afterwards.
+
+**Six changelog seams retired on August 5, 2026 and are therefore not stated here either.**
+`Get-ChangelogTierHeadings` and the legacy `Get-ChangelogHeading` (#178) named changelog section headings,
+and the document has none; `Get-ReleaseCategoryTitles` labelled the release-notes categories, and the
+grouping is gone with the branch-prefix guess behind it; `Get-ReleaseLiveMarker`, `Get-ReleaseHistoryMode`
+and `Get-ChangelogReleaseWording` (#462) all described the release **block** a cut used to append, and a cut
+writes none. A consumer that still defines one is unaffected — nothing calls them.
+
+**`Get-ReleaseMajorMinMinors` is `10`.** Held against this repo's own history that is roughly right rather
+than arbitrary: the `1.x` line ran to `1.18` and the `2.x` line to `2.16` before each was recapped into a
+major.
+
+**`Get-LintScript` is [`scripts/lint/check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1),
+which is what the release route runs here.** It used to carry a check written *for* this route — check 9,
+guarding that every plugin's `RELEASE.md` card existed and that its version matched `plugin.json`. Both the
+card and the check were retired on August 8, 2026: with no second statement of a plugin's version, there is
+nothing left to compare `plugin.json` against. The gate is still named here because it is what the cut runs;
+the rest of its checks are unaffected.
+
+**What a non-English consumer loses with `Get-ChangelogReleaseWording`, stated rather than glossed over.**
+That seam existed because those four strings were the most visible generated output in `CHANGELOG.md`, and
+inbound #462 asked for them to be repo-owned. The capability is not being taken away — the **output** is
+gone. What replaced it is the changelog intro's own pointer: hand-written prose in a file the repo owns
+outright, so it needs no seam to be in their language. It simply is.
+
+#### Local decisions on how a release is cut here
+
+**A GitHub Release is published at every release, patch included** (Dave, August 4, 2026). Two consequences
+of that "every release" half: patches now get one — so `v2.6.1` and `v2.7.1`, cited for years as examples of
+releases deliberately without one, describe the **old** rule and are left standing as history rather than as
+guidance. And a patch gets no hand-written note at all by construction, so on a patch the attachment list is
+the development notes alone.
+
+> **Markdown only.** For one release (v3.2.0) the tier also generated a print-ready `.html` beside the
+> `.md`. That is gone and is not coming back — Dave's decision, August 3, 2026. A PDF, if ever needed, comes
+> from rendering the markdown with a tool built for it rather than from a partial HTML renderer maintained
+> here. `v3.2.0`'s `.html` was removed from `main`; the `v3.2.0` **tag** still contains it, because a tag is
+> a record of a moment and is not rewritten.
+
+**Every release is titled `Release version X.Y.Z`, and nothing more** (Dave, September 10, 2026, at the
+`v4.33.0` cut). A `cut-release.ps1` release rolls up every entry merged since the last one, and a large one
+rolls up dozens with nothing in common — so a forced one-sentence `-Title` describes none of them and reads
+as filler in `history.md`'s title column. This repo therefore passes `-Title "Release version X.Y.Z"` on
+every cut, and `history.md` and the generated GitHub Release body carry that same string. The `-Title`
+mechanism is unchanged and a descriptive sentence is still valid — a repo whose releases each carry a
+single theme should use one — and `-SummaryFile` still turns a genuine milestone into its own authored
+block regardless of the title.
+
+#### Measured instances behind the portable release rules
+
+- **The branch prefix does not predict impact here**, and this is the measurement the whole tier model rests
+  on. Held against v3.2.0's 19 entries, the most consequential change for a consumer — renaming the
+  marketplace, which breaks every existing install — arrived on a `chore/` branch. While the consumer
+  document was assembled from `Feat`/`Fix` that change landed *below* the remove-before-publishing marker, so
+  the guidance here used to be "expect to promote `Docs`/`Chore` items". Since August 5, 2026 there is nothing
+  to promote: the entry's author declares the tier, and the branch prefix decides nothing but the category
+  heading an entry is grouped under. Kept as history because it is the evidence for that change, not a rule
+  still in force.
+- **Both of this repo's majors were already recaps**, which is what the 10-minor rule now requires up front:
+  `v2.0.0` consolidated v1.0–v1.18 and `v3.0.0` consolidated v2.2.0–v2.16.0, both written that way after the
+  fact. The rule states the practice rather than inventing one.
+- **The per-plugin `CHANGELOG.md` and `RELEASE.md` cards were retired against a measurement** (August 8,
+  2026), which is the source half of the retired step 3 in the portable page: a consumer receives this
+  marketplace source as a git clone of the whole repository, so `CHANGELOG.md` and the entire `releases/`
+  tree already sit at `~/.claude/plugins/marketplaces/<marketplace>/` — the cards were ten files and
+  11,684 lines, a second copy free to disagree with the original, which is exactly what lint checks 9
+  and 17 existed to police.
+- **The attachment-filename collision was measured at `v3.3.0`**, where the second upload returned
+  `HTTP 404` on `…&name=3.3.0.md`.
+- **The written-notes route has a worked instance**:
+  [PR #432](https://github.com/DaveKJohn/claude-code-specialists/pull/432) shipped `v3.2.0`'s internal note
+  post-tag, gates green and entry folded, with nothing about being post-tag causing friction.
+- **The closing step used to sit directly after the tag** and was moved to last on August 4, 2026. It had
+  worked only because the body was then the consumer document file the script itself had already generated.
 
 ### The release craft, received from `CLAUDE.md` (August 15, 2026)
 

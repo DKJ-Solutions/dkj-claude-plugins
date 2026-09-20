@@ -34,13 +34,13 @@ check reports at session start while it is missing.
 
 ```text
 dkj-policy/
-  releases/README.md     this repo's answers to RELEASES-portable.md (the release LIST is not here)
   CHANGELOG.md           this folder's own pending-changes list, isolated from any changelog you
                          already keep at your repo root
   (releases/audience/ is NOT placed -- your first cut creates it when it writes the note there)
   (<branch>.md is NOT placed -- one per branch, living only while that branch is open)
-  (README.md and CONTRIBUTING.md are NOT placed any more -- #2171, September 20, 2026. An
-   existing copy is reported as legacy further down and never touched; see the rules below.)
+  (README.md, CONTRIBUTING.md and releases/README.md are NOT placed any more -- #2171 and #2196,
+   September 20, 2026. An existing copy is reported as legacy further down and never touched;
+   see the rules below. ONE file is placed, and it is the one above.)
 ```
 
 **And three files outside it**, since August 20, 2026 (inbound
@@ -238,13 +238,16 @@ relying on its literal fallback, which the three roots and the history path neve
 still stays where it is, and the isolation happens by this run writing the answer into your lib -- an
 explicit line in a file you own, rather than a default moving under an existing consumer's feet.
 
-**So the page this part scaffolds at `dkj-policy/releases/README.md` carries no history
-table**, and until August 20, 2026 it did -- a `## Release history` heading, a table, and a `VUL-IN`
-promising that the cut would insert its rows there, in the same run whose closing advice told you to
-leave the seam pointing at the repo root. Two statements that cannot both be true, and a consumer who
-followed the advice was left with a table that stays empty forever (inbound
-[#786](https://github.com/DaveKJohn/claude-code-specialists/issues/786)). The page now points at
-whatever `Get-ReleaseHistoryPath` answers instead.
+**This part scaffolded a `dkj-policy/releases/README.md` until #2196 and no longer does**, so there is no
+page here for a history table to be wrongly promised on. What that page went through is worth keeping,
+because the failure is one any repo-local copy of a portable page can repeat: until August 20, 2026 it
+carried a `## Release history` heading, a table, and a `VUL-IN` promising that the cut would insert its
+rows there -- in the same run whose closing advice told you to leave the seam pointing at your repo root.
+Two statements that cannot both be true, and a consumer who followed the advice was left with a table that
+stays empty forever (inbound
+[#786](https://github.com/DaveKJohn/claude-code-specialists/issues/786)). That was repaired by having the
+page point at whatever `Get-ReleaseHistoryPath` answers; #2196 removed the page instead, which is the same
+repair one level up.
 
 **The file that seam names is yours to create, before your first cut**, and this part deliberately
 does not scaffold it:

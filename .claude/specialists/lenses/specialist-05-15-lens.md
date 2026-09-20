@@ -3654,7 +3654,7 @@ travel with the plugin, and what follows is **this repo's own set of answers** t
 |---|---|---|
 | [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md) | what is pending for the next release: one `##` entry per merged branch, folded in at the merge and emptied by a cut. Here since August 27, 2026, stated in `Get-ChangelogPath` | *(the format travels in [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md))* |
 | `<branch>.md` | the branch's own document, one per branch and present only while that branch is open: its plan, and the DEPLOY section that folds into the changelog | [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md) |
-| [`releases/`](../../../dkj-policy/releases/) | the dated list of every release ever cut ([`history.md`](../../../dkj-policy/releases/history.md), here since August 27, 2026), the published audience notes, the generated changelog and GitHub-Release trees, and this repo's seam answers in its own [`README.md`](../../../dkj-policy/releases/README.md) | [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md) |
+| [`releases/`](../../../dkj-policy/releases/) | the dated list of every release ever cut ([`history.md`](../../../dkj-policy/releases/history.md), here since August 27, 2026), the published audience notes, and the generated changelog and GitHub-Release trees. **The seam answers that sat here in a `README.md` of its own are gone** — #2196 retired that page with the two above it, and they are split between [Rendall's lens](specialist-05-06-lens.md#versioning--releases) and the two sections below | [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md) |
 
 **A fourth row sat at the top of that table until #2179** — the folder's own `CONTRIBUTING.md`, which held the
 standard branch + PR workflow and the working rules a session needs here on one page. Two of those three
@@ -3672,11 +3672,12 @@ answering otherwise — which is the shape to watch for whenever the source repo
 
 In this repo the portable pages resolve as relative links because this is the plugin's **source**; in a
 consumer they live in the plugin install instead, which is why the consumer version of the folder's own README
-named them in code rather than linking them. **`adopt-dkj-policy`'s Part 1 scaffolded that page into a
-consumer until [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171) stopped it**, so
-a repo adopted since gets neither page and one adopted before keeps both, reported as legacy and left
+named them in code rather than linking them. **`adopt-dkj-policy`'s Part 1 scaffolded those pages into a
+consumer until [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171) and
+[#2196](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2196) stopped it**, so a repo adopted
+since gets none of the three and one adopted before keeps whatever it has, reported as legacy and left
 untouched. **The scaffold refuses a repo that publishes
-plugins**, so this folder's README was hand-written for as long as it existed: a **scaffolded** page was
+plugins**, so this folder's pages were hand-written for as long as they existed: a **scaffolded** page was
 the one thing a consumer's folder had that this one never did. The generated
 `releases/changelog/` and `releases/github/` trees sat at this repo's root until August 26, 2026 and now sit
 in the folder too, so on that point the two match (#914).
@@ -3708,6 +3709,43 @@ portable half leaves open, this repo's answer, and the `Get-*` function that dec
 All of them live in [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) except the prefix table,
 which is its own repo-owned lib. Where the table says *no override defined*, this repo deliberately runs on
 the shared default — that is an answer, not an omission.
+
+#### The release-notes page, and the worker that serves it
+
+**This block was `dkj-policy/releases/README.md`'s until #2196 retired that page** together with the two
+beside it ([why, and where the rest of it went](specialist-05-06-lens.md#versioning--releases) — the
+release *answers* are Rendall's; the hosting is machinery and is therefore here).
+
+The hand-written notes are also readable as one hosted page (Dave, August 15, 2026).
+[`build-release-notes-page.ps1`](../../../plugins/dkj-policy/scripts/release/build-release-notes-page.ps1)
+builds every document under `audience/` into one page with a picker per release; the portable half — what
+the page is, why it is generated rather than edited, and what hosting it decides — is in
+[`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md#giving-that-note-a-reader-shaped-home--the-release-notes-page).
+This repo's answers:
+
+| | |
+|---|---|
+| `Get-ReleasePageTitle` | `Claude Specialists` — the **product's** name, not the repository's and not what the page is. It is the masthead eyebrow and half the window title; the heading is the template's own *Release notes*. Without it the fallback would head the page `claude-code-specialists`, which is a true answer and not one to send anybody. It carried `-- release notes` until 2026-08-21, which printed those words twice |
+| `Get-ReleasePageWorkerName` | `ccs-release-notes` |
+| where the output lands | `dkj-policy/releases/page/`, derived from `Get-ReleaseNoteRoot` rather than configured — the note root already says where this repo keeps its release documents |
+| what is committed | **nothing from that directory.** The page and the worker are derivatives of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
+
+**The path token is deliberately not in this repository, and that costs something worth stating.** The
+worker serves the page at `/notes/<32 hex>` with no login, so the path is the only lock — and this repo is
+**public**, which would put the key beside the door. It lives in
+`dkj-policy/releases/page/worker-path-token.txt`, which `.gitignore` keeps out, so **nothing in git
+remembers the URL**: the file on the machine that made it is the only copy, and whoever creates it records
+the finished URL outside the repo. A consumer whose repository is private has the opposite answer available
+and should take it — a tracked token is what survives a lost machine.
+
+**What the lock is actually for here, since the notes are public anyway.** It guards the *route*, not the
+content: every document on that page is already readable in this repository. What it buys is that the page
+is not a second, crawlable, permanent surface for the same text — which is why the `noindex` in the header
+and the meta tag matters more than the token does.
+
+**Rebuilding is not part of the cut, and no gate watches it.** The page is a snapshot: after a release it is
+stale until somebody runs the script and deploys again. Same category-A silence as any external link — if
+the worker is ever removed, whoever removes it takes this section with it.
 
 #### Where the rest lives
 

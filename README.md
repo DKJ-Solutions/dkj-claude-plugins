@@ -487,8 +487,12 @@ The full picture, top-level folder by folder:
   (`changelog/<X>.x/<X.Y.Z>.md`, the complete note per version, and `github/<X>.x/<X.Y.Z>.md`, that
   version's GitHub Release body), the hand-written note per version under `audience/`, the dated list of
   every release ever cut in
-  [`releases/history.md`](dkj-policy/releases/history.md), and this repo's seam answers in
-  [`dkj-policy/releases/README.md`](dkj-policy/releases/README.md). The cutting process itself travels
+  [`releases/history.md`](dkj-policy/releases/history.md). **The folder carries no prose page of its
+  own** — this repo's seam answers sat in a `releases/README.md` until #2196 retired it, and they are in
+  the lenses of the specialists who own them:
+  [Rendall](.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases) for the release
+  decisions, [Sylvester](.claude/specialists/lenses/specialist-05-15-lens.md#the-release-notes-page-and-the-worker-that-serves-it)
+  for the hosted notes page. The cutting process itself travels
   with the plugin as
   [`RELEASES-portable.md`](plugins/dkj-policy/RELEASES-portable.md).
 - **`.claude/`** — the repo layer, on the seam described under
@@ -581,7 +585,7 @@ release, the three release documents, the lint guardrails — are in
 [`RELEASES-portable.md`](plugins/dkj-policy/RELEASES-portable.md#cutting-a-release),
 with this repo's release list in [`releases/history.md`](dkj-policy/releases/history.md) and its own answers to the
 workflow in
-[`dkj-policy/releases/README.md`](dkj-policy/releases/README.md).
+[Rendall's repo lens](.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
 
 ## Manuals — the split model
 
@@ -1593,4 +1597,4 @@ which is what [The seam, specified](#the-seam-specified) is for.
   cutting-a-release mechanics travel with the workflow plugin as
   [`RELEASES-portable.md`](plugins/dkj-policy/RELEASES-portable.md), with this repo's
   answers to it in
-  [`dkj-policy/releases/README.md`](dkj-policy/releases/README.md).
+  [Rendall's repo lens](.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
