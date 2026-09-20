@@ -39,11 +39,77 @@
 
 ### PLAN
 
-One CONTRIBUTING for a consumer to read: the plugin's portable page. Part 1 stops writing dkj-policy/README.md and dkj-policy/CONTRIBUTING.md, drops the refreshable fenced block, and reports an existing copy as legacy instead of topping it up.
+**#2171, Dave, September 20, 2026:** the two pages a consumer gets in its own `dkj-policy/` folder only make
+that repo more complicated and produce more inconsistency. **There is one CONTRIBUTING for a consumer to
+read, and it is the plugin's.** Everything a consumer's own repo answers goes into the specialist's lens
+instead; the folder README's content may be merged into `.claude/specialists/README.md`.
+
+#### Two different files wear this name, and only ONE of them is this branch
+
+1. **The scaffold output** -- what `adopt-workflow-folder.ps1` writes into a fresh consumer. There is no
+   template: both pages are composed inline as string arrays and written at the `Rel =` lines near the end
+   of the placement list. On top of that sits the refreshable fenced block from #1766, replaced on every
+   `-Apply`. **This branch is that, and only that.**
+2. **This repo's own two pages** -- 1,132 lines of `CONTRIBUTING.md` and 167 of `README.md`, hand-composed,
+   which the scaffolder has never touched (`Test-IsWorkflowSourceRepo` refuses here). Almost every paragraph
+   is a measured instance with an issue number and a date, so removing them is a MIGRATION, not a delete.
+   **That is the second branch, after this one lands** -- see the phase note below.
+
+#### The two answers that set the scope (Dave, September 20, 2026)
+
+- **Full reach: this repo's own copies go too**, in the follow-up branch. Otherwise "there is only one
+  CONTRIBUTING" is false in the very repo that ships the sentence.
+- **The five already-adopted consumers are REPORTED, never touched.** Part 1 says the two pages are legacy
+  -- the plugin no longer writes or refreshes them, keeping them is fine, deleting them is theirs to decide.
+  Nothing in another repo is removed from here, and no delete command is printed: a consumer's copy may hold
+  the only statement of something they answered.
+
+#### What must NOT change with it
+
+- **The reading gates keep reading a legacy copy.** `check-consumer-prose.ps1` runs the supremacy and
+  retired-name detectors over `Get-ConsumerProseDocuments`, whose reserved-name sweep is where the folder
+  README and CONTRIBUTING become machine-known. Five consumers still hold those files and the gate's own
+  measured instance IS one of them, so narrowing that corpus would silently retire a gate. The same holds
+  for the reserved names in `Get-BranchFilePaths`, which is what stops the fold mistaking either page for a
+  branch document.
+- **The folder stays.** The changelog, `releases/` and the per-branch document are untouched, and
+  `check-script-contract.ps1` tests the FOLDER's existence rather than these two files -- so nothing there
+  moves.
+- **`releases/README.md` is out of scope.** It is a third scaffolded page and the issue names two.
+- **The archived release history is never swept** -- `releases/**` and the folded changelog keep the paths
+  they were written with, the carve-out this repo already runs.
+
+#### Phase note -- why this branch stops where it does
+
+A (this branch) is the mechanism: the plugin stops writing. B (`docs/2171-...`, opened after this merges) is
+this repo's own migration -- the measured passages into Derek's, Rendall's and Sylvester's lenses, the
+README's update chapter into `.claude/specialists/README.md`, then the deletion and the retargeting of the
+14 markdown links that point at either page. A first, because B's prose then describes a settled state
+rather than one still moving. The lenses are NOT on the always-on path, so B costs no session budget --
+verified with `measure-skill` before it lands.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] A1 -- `scripts/task/adopt-workflow-folder.ps1`: stop composing and placing the two pages (both content
+      blocks and their two entries in the placement list), leaving every other target it writes exactly as
+      it is -- the PR template, the two CI workflows, `releases/README.md`, the changelog intro and the one
+      seam it is permitted to answer
+- [ ] A2 -- drop the refreshable fenced-block machinery for the folder README (the block builder and its
+      four top-up states) and put a LEGACY REPORT in its place: a consumer holding either page is told the
+      plugin no longer writes or refreshes it, with no delete command printed
+- [ ] A3 -- regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1`, so the registered
+      pair stays LF-identical
+- [ ] A4 -- rewrite `scripts/tests/adopt-workflow-folder.tests.ps1`: the scaffold-target assert and the
+      per-page asserts flip from *is written* to *is NOT written, and an existing copy is left untouched and
+      reported*
+- [ ] A5 -- prove the reading gates are unaffected: a legacy folder CONTRIBUTING is still read by
+      `check-consumer-prose.ps1`, and the reserved names still shield both pages from the fold
+- [ ] A6 -- the rank-order model drops from three ranks to two for a NEW consumer, while rank 2 stays real
+      wherever a legacy copy exists: `plugins/dkj-policy/CONTRIBUTING-portable.md`, `check-policy-drift.ps1`
+      and its SKILL page (including the ASCII rank diagram in both)
+- [ ] A7 -- `plugins/dkj-policy/skills/adopt-dkj-policy/SKILL.md`: Part 1 stops promising the two pages and
+      states the legacy report instead
+- [ ] A8 -- open-pr gate pass: lint + full suites green before the push
 
 ### TEST
 
