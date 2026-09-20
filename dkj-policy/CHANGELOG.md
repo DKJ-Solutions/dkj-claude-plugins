@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 39 minor entries** <!-- pending-tally -->
+**20 / 40 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2182-2185-lens-heading-and-ci-job · 20260920-111515
+
+Two accuracy repairs in the lenses the #2179 migration touched, neither of which any gate can see.
+Sylvester's lens shipped a duplicated `###` heading with an empty section behind it; Derek's lens sent
+a session debugging a red check to a job that runs no PowerShell and never touches the repo. The second
+is the one that cost something: it is the passage a session reads to understand why a merge is blocked,
+and it named the summary job where it should have named the leg. Check 4 of the lint gate validates
+anchor existence, not heading structure, and nothing at all reads prose against `ci.yml`, so both were
+green on `main`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo lens is this repo's own file and travels in no plugin payload, so nothing here reaches a
+consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two accuracy repairs in the lenses the #2179 migration touched
+
+[PR #2189](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2189)
+
+---
 
 ### DEPLOY: docs/2179-folder-docs-into-lenses · 20260920-104941
 
