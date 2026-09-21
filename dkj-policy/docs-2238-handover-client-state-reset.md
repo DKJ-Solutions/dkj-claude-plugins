@@ -39,23 +39,66 @@
 
 ### PLAN
 
-Add a subsection under 'The shape of the handover' in PREVIEW-portable.md: pinning the control settles the theme, not the feature's state; a change whose visible effect depends on persisted client state owes a reset step.
+Inbound [#2238](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2238): `PREVIEW-portable.md`
+says one thing about browser state -- *pin the control to the live id* -- and it is scoped to which
+theme renders. A change whose visible effect depends on what the browser REMEMBERS is not covered by
+it, because preview and live share an origin and therefore one `localStorage`. Verified on pickup: the
+page has exactly one mention of browser state, at the bullet the report names, and no mention of
+`localStorage`, `sessionStorage`, IndexedDB or a private window anywhere in the plugin.
+
+#### What the repair is, and what it is not
+
+The load-bearing half is the rule -- a handover owes a reset step when the visible effect depends on
+persisted client state. The rest is placement: a `###` subsection under *The shape of the handover*, and
+the scoping clause on the control-URL bullet that is what a reader actually meets first.
+
+#### Where the report was not followed verbatim
+
+It calls the reset question a third *"beside the two the page already poses"*. Counted against the page,
+there is **one** question the author answers -- *is the change visible in the frontend / storefront?*,
+the last step under `### CREATE`. The subsection says SECOND rather than transcribing the report's two.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Scope the first consequence bullet under *What the control URL is* -- it settles the theme, not
+      the feature's state -- with a link to the new subsection.
+- [x] Add `### Pinning the control settles the THEME, not the feature's STATE` under *The shape of the
+      handover*: the origin argument, the both-tabs-agree table, the reset step, the private window,
+      the question, and the measurement behind it.
+- [x] Name the reset in the *how to see the change* row of the handover table, beside the device and
+      the viewport, so the rule is carried where a handover is actually assembled.
+- [~] No script or seam change. `Get-MarketHandoverPairs` builds URLs; a reset step is prose in the
+      handover's own block and nothing mechanical can assemble it.
+- [~] No test. The repo's suites do not assert prose in a portable page, and the drift lint already
+      holds the file's presence and shape.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1` + all suites green (the lint gate `open-pr` runs).
+- [x] Anchor of the new subsection verified against the link that points at it.
+- [x] File re-checked as ASCII, LF, no BOM after editing (a PowerShell write had introduced both).
+
 ### DEPLOY: docs/2238-handover-client-state-reset
 
-**Score:**
+`PREVIEW-portable.md` now states the second question a preview handover owes its reader: pinning the
+control settles which THEME renders and settles nothing about what the browser REMEMBERS. Preview and
+live share an origin, so they share `localStorage`, `sessionStorage`, IndexedDB and a feature's own
+cookie -- and a reviewer carrying a stored value sees the change in both tabs, which reads as the change
+being absent. Where the visible effect depends on persisted client state the handover now owes a reset
+step, in the *how to see the change* block, and the reset is a private window. The first consequence
+bullet under *What the control URL is* is scoped to say what it does and does not settle, because
+following it as written is what produced the undiscriminating handover this came from.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a portable page this plugin ships to BWJ's stores. The reader is whoever builds a preview
+handover there, which is this repo's own kind of reader one hop out, and no subscriber of a service
+notices a rule about how a review link is assembled.
+
+**Score:** N/A
 
 #### Pull Request
 
 A handover owes a client-state reset when the visible effect depends on persisted browser state
-
