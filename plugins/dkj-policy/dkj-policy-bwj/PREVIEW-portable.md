@@ -128,9 +128,10 @@ reading `Shopify.theme` out of the rendered markup:
 
 Three consequences, in descending order of how easily they are missed:
 
-- **Pin the control to the live id.** It is the only form measured to be correct regardless of what the
-  browser did before it, and it needs no clean browser profile, no incognito window and no instruction
-  to the reader.
+- **Pin the control to the live id.** It is the only form measured to be correct regardless of which
+  theme the browser last rendered, and for that it needs no clean browser profile, no incognito window
+  and no instruction to the reader. **It settles the theme and not the feature's own state** -- see
+  [the reset step](#pinning-the-control-settles-the-theme-not-the-features-state) below.
 - **`preview_theme_id=0` is not a reset.** It renders the error above, which reads like a broken
   preview theme and sends the reader hunting for a fault that does not exist. It is worth naming
   because it is the first thing anyone tries, and because that same message is what a reader reports
@@ -190,7 +191,7 @@ Three blocks on the page, and each is there because the other two cannot supply 
 
 | block | what it holds |
 |---|---|
-| **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open. No URL can say this, and a change that is invisible without it reads as *not shipped* |
+| **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open, and a clean-browser start where the route depends on one. No URL can say this, and a change that is invisible without it reads as *not shipped* |
 | **one card per market** | the market code and its domain, a **QR code to the preview**, the preview and control links as text beneath it, and the expected copy in that market's language where the change has copy in it |
 | **what is proven, and what is asked** | which gates ran and what they verified mechanically, then the one question the reviewer is being asked. This is the half that makes the link a self-contained handover rather than a bookmark needing the transcript beside it |
 
@@ -199,6 +200,56 @@ Two things the cards inherit from the consumer's own preview rule rather than re
 - **Per market**, because these stores serve several and a change can land differently in each.
 - **Of the concretely changed page** -- a set of homepages is already refused there, and a control that
   is not the changed page controls nothing.
+
+### Pinning the control settles the THEME, not the feature's STATE
+
+**The control URL's section above answers which theme renders, and that is all it answers.** It is also
+the only thing this page says about the browser at all, it sits under a heading about the control, and so
+it reads as having settled browser state for the handover as a whole. It has not, and the gap is the same
+failure this page already exists to prevent -- *both tabs agree, so the reviewer concludes the change is
+not visible* -- reached through a second door that pinning does not close.
+
+**Preview and live share an ORIGIN.** `preview_theme_id` changes which theme Shopify renders and changes
+nothing about the address, while `localStorage`, `sessionStorage`, IndexedDB and a feature's own cookie
+are all keyed on the origin. So the two tabs share one store. A reviewer who has used the feature before
+-- which is everyone asked to review a change *to* it -- carries a value in that store, and then:
+
+| tab | what it renders |
+|---|---|
+| preview, pinned to the branch theme | the change, populated from the stored value |
+| control, pinned to the live id | the same thing, populated from **the same** stored value |
+
+**So a handover owes a RESET STEP whenever what the reviewer must see depends on persisted client
+state.** It belongs in the *how to see the change* block, with the device and the viewport -- it is the
+same kind of thing: a step without which the change is not visible, and a change that is invisible
+without it reads as not shipped.
+
+**The reset is a private window**, because it needs no console and no per-key knowledge, and because it
+is one instruction a reviewer on a phone can follow. A devtools one-liner clearing the feature's own key
+is the fallback for a reader who has one, and it is a weaker reset rather than an equivalent shortcut:
+it clears the key it names and leaves the cookies and the IndexedDB of the same origin standing, so a
+feature persisting in more than one place still reads the same in both tabs.
+
+**It is a SECOND question the author answers**, after the one the step list already poses -- *is the
+change visible in the frontend / storefront?* -- and it is: *does what the reviewer must see depend on
+anything the browser remembers?* Where it does, the route starts clean and the handover says so.
+Answering **no** is a complete answer, and it is the common one.
+
+Measured in `smartwatchbanden` on September 21, 2026, on a feature that remembers the visitor's last
+viewed collection in `localStorage` under a single key. From a private window, a product page visited
+and no collection clicked:
+
+| theme | the homepage afterwards |
+|---|---|
+| live | no block |
+| branch preview | the block, naming the product's collection |
+
+**Without the reset step the same handover discriminated nothing**, and it was built exactly as this page
+prescribes: the control pinned to the live id, a card and a QR code per market. Nothing was wrong with
+the branch, the preview theme or the control URL; the reviewer opened both tabs and reported back that
+they saw no difference. That is why this sits here as its own subsection rather than as a clause on the
+control-URL bullet -- following that bullet is what produced the undiscriminating handover, because
+pinning was read as having settled the question.
 
 ### Why a QR code, and one per market
 

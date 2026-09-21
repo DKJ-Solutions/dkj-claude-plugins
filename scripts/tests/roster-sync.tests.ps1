@@ -1714,6 +1714,10 @@ try {
     Assert-Match '\[ERROR\].*does not exist' $r.Out 'dead import: says the target is not there'
     Assert-Match '\[ERROR\].*SILENTLY' $r.Out 'dead import: says why nothing else would have told you'
     Assert-Match "\[OK\]\s+'agent '?06-16'? present in roster \+ lens|\[OK\]\s+agent '06-16' present" $r.Out 'dead import: the rest of the roster still reports healthy -- which is exactly what made this invisible'
+    # An IN-TREE import has no marketplace clone under it, so a refresh cannot help and editing the path
+    # is the right instruction. This pins the half of #2224's split that did NOT change.
+    Assert-Match 'Repair the path in' $r.Out 'dead in-tree import: still says to repair the path -- there is no clone under it to refresh'
+    Assert-NotMatch 'marketplace update' $r.Out 'dead in-tree import: does NOT offer a refresh that cannot help'
 
     # 18c. The displayed path stays a PATH. Format-SafeToken (the id-shaped sanitizer) strips '~', '\'
     #      and ':', so it would print a home-relative import without its '~' and a Windows target as
@@ -1725,6 +1729,16 @@ try {
     Assert-Equal 1 $r.Code 'home-relative dead import: exit-code 1'
     Assert-Match '\[ERROR\].*~/\.claude/plugins/marketplaces/nope' $r.Out 'home-relative dead import: the tilde survives the display sanitizer'
     Assert-Match '\[ERROR\].*[A-Za-z]:\\' $r.Out 'home-relative dead import: the RESOLVED target is printed as a real Windows path, drive letter and separators intact'
+    # #2224: this class resolves into the machine-wide marketplace CLONE, which tracks the trunk and
+    # advances on a refresh alone -- so the likeliest cause is a stale clone, not a wrong path, and the
+    # instruction has to put the refresh FIRST. The old wording said 'Repair the path' unconditionally;
+    # followed literally on a correct post-rename path that reverts the rename, and the next refresh then
+    # breaks it again the other way. The marketplace name is lifted out of the path so the command is
+    # pasteable rather than something the reader has to assemble.
+    Assert-Match 'REFRESH FIRST' $r.Out 'home-relative dead import: the refresh leads, because a stale clone is the likeliest cause'
+    Assert-Match 'claude plugin marketplace update nope' $r.Out 'home-relative dead import: the command names the marketplace out of the path, ready to paste'
+    Assert-Match 'only if that does not resolve it' $r.Out 'home-relative dead import: editing the path is the fallback, conditional on the refresh failing'
+    Assert-NotMatch 'Repair the path in' $r.Out 'home-relative dead import: NOT the unconditional edit instruction -- that is what reverted a correct path in #2224'
 
     # 18d. Not every '@' is an import. The roster's own prose says a specialist can be invoked as
     #      '@dkj-subagents-alpha:<name>', and a fenced block may quote an example import -- neither is a line
