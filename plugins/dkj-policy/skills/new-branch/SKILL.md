@@ -308,11 +308,14 @@ file, and the rule flips with the destination rather than with the text.
 
 **It is NOT the only console this workflow writes somebody else's words to** -- that claim stood here
 and was false from the day `ship-pr` began relaying the sentence a failing workflow wrote about itself
-(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are seven**, and the count
-is worth stating precisely because the wrong one is what kept the second site unguarded:
+(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are thirteen**, and the
+count is worth stating precisely because the wrong one is what kept the second site unguarded:
 
-1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch` and `open-pr`
-   (`Get-RemoteAheadNote`, `scripts/lib/remote-ahead-lib.ps1`, #1439 and #1446). Capped at 120.
+1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch`, `open-pr` and a third
+   caller this sweep found, `park-cycle.ps1` (`Get-RemoteAheadNote`, `scripts/lib/remote-ahead-lib.ps1`,
+   #1439 and #1446). The third relays it through its own `Write-CycleCollisionReport` (L250, L261-269)
+   rather than printing it inline, but the value at the far end of that relay is the same tip this entry
+   already names. Capped at 120.
 2. **`ship-pr`'s relay** of a failing workflow's own `::error title=...::` annotation
    (`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). Capped at 500, and stripping
    the same class since
@@ -323,10 +326,26 @@ is worth stating precisely because the wrong one is what kept the second site un
 4. **Every sentence this workflow prints a REF NAME into** (`Get-DisplayRef`,
    `scripts/lib/ref-print-lib.ps1`,
    [#1623](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1623)) -- thirty-two of them
-   across `ship-pr.ps1`, `sync-main.ps1`, `remote-ahead-lib.ps1` and `worktree-lib.ps1`. `git
-   check-ref-format` enforces `\p{Cc}` and **accepts** `\p{Cf}`, so a branch created by hand, cloned or
-   fetched carries U+202E or a zero-width run straight into those lines; `sync-main`'s come off `git
-   ls-remote` and its seam answers, which git never validated at all. Not capped.
+   across `ship-pr.ps1`, `sync-main.ps1`, `remote-ahead-lib.ps1` and `worktree-lib.ps1`, **and two more
+   callers this sweep found for the same class**: `park-cycle.ps1` (L206, L242, L538, L575) and
+   `tidy-machine.ps1`'s branch and stash-subject lines (L488, L529, L550, L555, L586).
+   `entry-scaffold-lib.ps1`, `gate-lib.ps1` and `fanout-lib.ps1` load the same function for the same
+   leaf-dependency reason, but each mixes it with a value this class does not cover, so each is its own
+   entry below (10, 11, 12) rather than a fourth and fifth name added here. `git check-ref-format`
+   enforces `\p{Cc}` and **accepts** `\p{Cf}`, so a branch created by hand, cloned or fetched carries
+   U+202E or a zero-width run straight into those lines; `sync-main`'s come off `git ls-remote` and its
+   seam answers, which git never validated at all. Not capped.
+
+   **And this entry had a value it never named.** `sync-main.ps1`'s `$rel` -- the consuming repo's own
+   `Get-ShopifySyncLogPath` seam answer -- prints RAW, with no guard of any kind, at L549, L570 and
+   L573, sharing L570 with a branch name this entry already guards. A seam-answered path was never a ref
+   name, so it was never this entry's to cover -- which is exactly how a raw print survived inside a
+   site the list already carried. Filed under #2248, not repaired on this branch. **This is an unguarded
+   VALUE inside a site the list already had, not an unguarded SITE** -- entries 8 and 13 below are the
+   two of those the sweep found, and the two kinds of miss are not the same size: a value hiding inside
+   a site already on the page is exactly this page's own "an entry goes stale the way the list does, one
+   level in" lesson, while a whole site the list never carried at all is a bigger gap the same lesson
+   does not by itself explain.
 5. **`claim-issue`'s own report** (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`, #1858) --
    **four** classes of value, not one, because that report grew a pickup signal at a time and each one
    arrived carrying its own: the issue TITLE off the tracker; the AUTHOR, the SUBJECT and the BRANCH
@@ -355,15 +374,90 @@ is worth stating precisely because the wrong one is what kept the second site un
    spelling and the printed one are kept apart here**: the `gh run list --workflow=<name>` line is
    printed only where the stripped name still equals the real one, because a stripped name is no longer
    the file gh has to be given -- #1594's distinction, one file type over.
+8. **`adopt-ci-floor.ps1`'s floor report -- the site #2247 reported, and worse than it reported**
+   (`scripts/task/adopt-ci-floor.ps1`, #2247, #2248). **The first of two SITES this sweep found that the
+   list had never carried at all** -- as against entry 4's raw VALUE above, which hid inside a site
+   already on the list. Three values at this site are GUARDED via
+   `Get-DisplayRef`: the lone candidate job id when it is refused as unsafe to paste (L980), the repo
+   slug when it is refused as unsafe to paste (L988, off `Get-RepoName`), and every candidate check
+   printed as `<job id> -- from <workflow>` (L1032; job ids and `name:` values come off the consumer's
+   own `.github/workflows/*.yml` via `Get-WorkflowFacts`). Not capped. **Two more values at the SAME
+   site print RAW, with no guard and no cap**: the consumer's own workflow FILENAME
+   (`$w.Rel = ".github/workflows/$($f.Name)"`, read off their disk at L883, L1032, L1053, L1056 and
+   L1061 -- sharing L1032 with the guarded job id) and the required-check CONTEXT NAME (`$ctx`, off the
+   repo's own ruleset JSON via `Get-DirectPushBlockingRules`, at L1046, L1053, L1056 and L1061). **#2247
+   asserted nothing here was exploitable today; that assertion was false.** The repair is filed as
+   #2248, deliberately not on this branch -- this entry exists to make the list true, not to make the
+   script safe.
+9. **The `check-report-lib.ps1` family -- a FOURTH hand-typed strip mechanism, and the largest single
+   find this sweep made** (`Format-SafeToken`, `Format-SuspectToken`, `Format-SafeProseToken`,
+   `Format-SafePathToken`, `scripts/lib/check-report-lib.ps1`, inbound #309, inbound #414, #1419).
+   **It is a different class from the three libs below, not a fourth copy of them**: those three carry
+   `ConvertTo-ConsoleStrippedText`, which since #2025 reads each code point's category off the
+   runtime's own table, while this file works off its own `$script:CheckReportControlPattern = '\p{C}'`
+   plus a marker pattern for square brackets. `pr-issues.tests.ps1`'s assert pinning "three libs in
+   scripts/lib type this function and no more" stays TRUE exactly as written -- it matches on
+   `function ConvertTo-ConsoleStrippedText`, and this file defines no function by that name -- so this
+   is not a test failure. It is a gap the pin was never asked about, said here because a reader who
+   knows that assert exists would otherwise read this entry as contradicting it.
+
+   Thirteen caller files outside `scripts/tests/` print through it, and naming the value classes
+   matters more than naming all thirteen: plugin ids and marketplace slugs off `.claude/settings.json`'s
+   `enabledPlugins` keys and off a machine's `installed_plugins.json` (`check-roster-sync.ps1`,
+   `check-claude-home.ps1`, `tidy-machine.ps1`, `update-plugins.ps1`, `check-policy-drift.ps1`); a
+   consumer's own workflow filenames and paths, their git `origin` remote slug, and their
+   connector-manifest `repo` field (`check-connectors.ps1`); a GitHub API error message
+   (`check-connectors.ps1`, ~L677); version strings read out of a third-party marketplace clone's
+   `plugin.json` (`plugin-versions.ps1`, whose own comment ~L805-830 names this as the exact class
+   `Format-SafeToken` was built for); matched PROSE fragments quoted straight out of a consumer's own
+   doc (`check-consumer-prose.ps1` ~L214-235, `check-policy-drift.ps1` ~L484, via
+   `Format-SafeProseToken`); and `Set-CheckScope`'s label, derived from a connector manifest's `repo`
+   field and a plugin `id` -- its own docstring notes that this label travels INTO the session context,
+   unlike the header the session hooks filter away. `consumer-check-lib.ps1`, `consumer-runner-lib.ps1`,
+   `hook-check-lib.ps1`, `check-always-on-budget.ps1` and `check-plugin-integrity.ps1` reach the same
+   classes through the same functions rather than a new one.
+
+   `Format-SafeToken` and `Format-SuspectToken` cap at 120; `Format-SafePathToken` and
+   `Format-SafeProseToken` cap at 200.
+10. **A branch document's own PROSE, quoted back at it** (`Get-DevelopmentShapeFindings`,
+    `scripts/lib/entry-scaffold-lib.ps1`, #1650) -- stray phase headings and "preamble stray" lines out
+    of `dkj-policy/<branch>.md`, typed by whoever wrote that branch's plan. Guarded via `Get-DisplayRef`
+    and capped at 72. Printed by `open-pr.ps1`'s shape gate, which refuses the push, and by
+    `check-branch-entry.ps1`, its CI advisory twin. The file's own comment already calls itself "the
+    third caller" of `ref-print-lib.ps1` -- so this site was known, and simply never carried into this
+    list. **A different value class from entry 4**: entry 4 is REF NAMES, this is document PROSE.
+11. **`gate-lib.ps1`'s certified-check names** (`Test-CiSuiteCertified`, `scripts/lib/gate-lib.ps1`,
+    ~L567-645, #2247) -- the GitHub required-status-check NAME, off `gh pr checks --json name,bucket`,
+    guarded via `Get-DisplayRef`, deduplicated, not capped. Its own comment states the hazard outright: a
+    third-party integration can build a check name out of branch- or PR-derived text. It names itself
+    alongside `remote-ahead-lib.ps1` and `entry-scaffold-lib.ps1` as a third lib that loads
+    `ref-print-lib.ps1` for the same leaf-dependency reason those two do -- and until now was never one
+    of the sites this list carried. The same file also prints note-tree changed paths via
+    `Get-DisplayPath` (~L1113, L1148). **Unlike entries 8 and 13, this site carried no defect at all**:
+    both prints were correctly guarded from the day they were written, and #2247 is cited here only as
+    the sweep that found the site belonged on this list, never having been added to it.
+12. **`check-fanout`'s shrinkage report** (`scripts/lib/fanout-lib.ps1`, ~L378-517, #2247) -- branch
+    labels via `Get-DisplayRef` (`$Before.Branch`, `$After.Branch`) and working-copy file paths via
+    `Get-DisplayPath`, including a path a subagent RENAMED FROM inside the comparison window. Both
+    functions' own caps apply; nothing further here. **Also no defect**: both were guarded already, and
+    #2247 names the sweep that found the site, not a fix.
+13. **`check-consumer-siblings.ps1`'s ONLY-IN/PARTIAL/DRIFTED lines -- printed RAW, the second of the two
+    SITES this sweep found that the list never carried at all** (L445, L450, L454, L463, #2247, #2248)
+    -- a sibling consumer repo's own file paths (`$f.Path`), read out of that repo's checkout and
+    written straight to `Write-Info` with no strip at all. The script already dot-sources
+    `check-report-lib.ps1` (L105) for that same `Write-Info`, so `Format-SafePathToken` sits one
+    argument away at every one of these four lines and is called at none of them.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
-September 11, five until September 15, six until September 17, and each new one arrived as a
-counter-example to a sentence that had stopped being checked. **The list is the thing that has to be kept true, not the number in
-front of it** -- entry 5 sat outside it for as long as the list existed, guarded by an ASCII-only
-strip nobody had re-read, and entry 6 sat outside it while carrying no strip of any kind. **Entry 6
-is also the first one this list did not find**: it was measured by a security review of an unrelated
-diff, which is the reading this page cannot do for itself -- so the list going quiet is not evidence
-that it is complete.
+September 11, five until September 15, six until September 17, seven until September 21 -- and on that
+same September 21 a single deliberate sweep raised it straight to **thirteen** (entries 8 through 13),
+in one pass rather than one at a time. Each of the first six arrived as a counter-example to a sentence
+that had stopped being checked, found incidentally by work that was about something else entirely.
+**The list is the thing that has to be kept true, not the number in front of it** -- entry 5 sat outside
+it for as long as the list existed, guarded by an ASCII-only strip nobody had re-read, and entry 6 sat
+outside it while carrying no strip of any kind. **Entry 6 is also the first one this list did not
+find**: it was measured by a security review of an unrelated diff, which is the reading this page cannot
+do for itself -- so the list going quiet is not evidence that it is complete.
 
 **And entry 6 is worth reading twice, because its own repair missed a site on the first pass.** The
 task name was the reported symptom; the board's column names and the phrase saying why a card moved
@@ -382,6 +476,18 @@ by a security review of an unrelated repair, not by this page). **So a new signa
 caller inside a site the list already carries is an edit to that entry**, and what decides whether one
 is owed is the rule above -- a site prints a set of VALUES, and the entry has to name all of them.
 
+**Entries 8 through 13 are the sharper instance of that same lesson, not a new one.** #2247 reported one
+site (entry 8's) and asserted it was clean; a sweep it commissioned found five more, including an entire
+fourth strip mechanism (entry 9) with thirteen callers that had been invisible for as long as this list
+existed. **The difference from every earlier entry is that this was the first time anyone went looking
+on purpose**, rather than tripping over a site while reviewing something unrelated -- and pointed
+directly at the question, one pass found six where the reporting issue had found one. **And #2247's own
+claim that its one reported site was already guarded turned out false**: reading that site instead of
+the report about it found two raw, uncapped values sitting beside the guarded ones -- one of them on the
+very same line as a value #2247 had checked and called safe. That is this page's own "verify the reason,
+not just the symptom" discipline paying for itself: a site's entry is written by reading the site, never
+by reading the report about it.
+
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and
 recorded why; #1623 retired a copy rather than adding one -- `remote-ahead-lib.ps1` acquired a reason to
@@ -393,8 +499,12 @@ be re-spaced; `Get-DisplayPath` answers the all-stripped case with `(no printabl
 for a title -- so reuse would have meant a fourth function there rather than one regex fewer. The three
 share nothing else -- different bounds, different source processes, and none of them loaded by another's
 callers -- so what is guarded is that they cannot DISAGREE, by an assert in `pr-issues.tests.ps1` that
-compares the patterns themselves and pins **which** libs carry the class. A reader who needs every place
-this workflow prints foreign text now has the list, which is what the retired sentence was for.
+compares the patterns themselves and pins **which** libs carry the class. **The retired sentence this
+list replaced claimed completeness, and this list must not make the same claim twice.** It grew from
+three sites to seven one incidental find at a time, then from seven to thirteen in a single afternoon
+the moment somebody looked on purpose (#2247) -- which argues that the technique works, not that it has
+run out of sites. A reader who needs every place this workflow prints foreign text has, at most, every
+place found so far.
 
 **A FOURTH copy sits outside the libs, and #2019 is why it is a copy rather than a call.**
 `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` ships standalone: `adopt-dkj-policy-bwj`
@@ -403,7 +513,12 @@ dot-source there names a path that is not there, and the argument that keeps the
 not even have to be made. It is the reason entry 6 went unguarded for as long as it did: every other
 site got the strip when its own lib acquired one, and this file has no lib. Its own suite
 (`dkj-policy-bwj.tests.ps1`) compares the class character for character against all three, so the
-fourth copy cannot drift away from them either.
+fourth copy cannot drift away from them either. **Entry 9's `check-report-lib.ps1` is not a fifth
+appearance of this same class, and the two "fourth"s in this section name different things**:
+`asana-mirror.ps1` replicates `ConvertTo-ConsoleStrippedText` character for character, as above, while
+`check-report-lib.ps1` strips `\p{C}` under its own pattern, was built for an unrelated set of callers,
+and carries its own three-issue lineage. The two mechanisms have never been asked to agree with each
+other, and nothing here asks them to.
 
 **It costs no network call.** The base measurement above already fetches *every* ref (that is what
 `-FetchAllRefs` is for, and #1139 is why), so the remote-tracking ref is on disk and as fresh as this run
