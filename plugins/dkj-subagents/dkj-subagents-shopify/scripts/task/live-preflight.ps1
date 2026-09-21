@@ -273,7 +273,7 @@ Write-Host '[1/9] trunk -- clean, on the trunk, and level with origin' -Foregrou
 
 $branch = ''
 $headCap = Invoke-Git -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
-if ($headCap.ExitCode -eq 0) { $branch = (Get-GitLines $headCap | Select-Object -First 1) }
+if ((Test-NativeExitMeasured -Capture $headCap) -and $headCap.ExitCode -eq 0) { $branch = (Get-GitLines $headCap | Select-Object -First 1) }
 
 if ($branch -ne $trunk) {
     Add-Step -Name 'trunk' -State 'refuse' -Detail "on '$branch', not on the trunk '$trunk'. A live push ships what is MERGED, so this runs from the trunk."
@@ -286,8 +286,8 @@ if ($branch -ne $trunk) {
         # about the last time somebody fetched, which on a release day is exactly when a colleague's
         # merge is the thing you have not seen.
         $fetch = Invoke-Git -Arguments @('fetch', 'origin', $trunk) -TimeoutSeconds 120
-        if ($fetch.ExitCode -ne 0) {
-            Add-Step -Name 'trunk' -State 'warn' -Detail "could not fetch origin/$trunk, so 'level with origin' is judged against whatever this checkout last saw."
+        if (-not (Test-NativeExitMeasured -Capture $fetch) -or $fetch.ExitCode -ne 0) {
+            Add-Step -Name 'trunk' -State 'warn' -Detail "could not fetch origin/$trunk ($(Get-NativeExitLabel -Capture $fetch)), so 'level with origin' is judged against whatever this checkout last saw."
         }
         $countCap = Invoke-Git -Arguments @('rev-list', '--left-right', '--count', "origin/$trunk...HEAD")
         $counts = (Get-GitLines $countCap | Select-Object -First 1)
@@ -297,7 +297,7 @@ if ($branch -ne $trunk) {
         # that lets a push go out from a checkout nobody else can see.
         $behind = -1
         $ahead  = -1
-        if ($countCap.ExitCode -eq 0 -and $counts -match '^(\d+)\s+(\d+)$') {
+        if ((Test-NativeExitMeasured -Capture $countCap) -and $countCap.ExitCode -eq 0 -and $counts -match '^(\d+)\s+(\d+)$') {
             $behind = [int]$Matches[1]
             $ahead  = [int]$Matches[2]
         }
@@ -328,6 +328,13 @@ if ($SkipGates) {
         # that never asked it to.
         Add-Step -Name 'gates' -State 'skip' -Detail 'neither Get-LintScript nor Get-TestCommands is answered, so no gate ran here. CI on the merge is what proved this trunk.'
     } else {
+        # EVERY EXIT-CODE TEST BELOW ASKS Test-NativeExitMeasured FIRST (issue #2081). These captures are
+        # BOUNDED, and a bounded capture's ExitCode is PowerShell's own $null about once in 300 fresh
+        # Start-Process children -- against which '$r.ExitCode -ne 0' reads as a real failure and
+        # '-eq 0' reads as one too. Both spellings fail towards "something went wrong", so the number
+        # cannot be asked the question at all; it has to be asked BEFORE the number is looked at. Here
+        # an unmeasurable gate is a gate failure, which is the safe direction on a live push -- what
+        # changes is that the run SAYS so instead of printing 'exited ' with the number missing.
         $gateFailed = @()
         if ($lintScript) {
             $lintPath = Join-Path $repoRoot $lintScript
@@ -336,13 +343,17 @@ if ($SkipGates) {
             } else {
                 Write-Host "  running the lint gate ($lintScript)..."
                 $lint = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $lintPath) -TimeoutSeconds 1800
-                if ($lint.ExitCode -ne 0) { $gateFailed += "the lint gate exited $($lint.ExitCode)" }
+                if (-not (Test-NativeExitMeasured -Capture $lint) -or $lint.ExitCode -ne 0) {
+                    $gateFailed += "the lint gate: $(Get-NativeExitLabel -Capture $lint)"
+                }
             }
         }
         foreach ($cmd in $testCommands) {
             Write-Host "  running: $cmd"
             $run = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd) -TimeoutSeconds 3600
-            if ($run.ExitCode -ne 0) { $gateFailed += "'$cmd' exited $($run.ExitCode)" }
+            if (-not (Test-NativeExitMeasured -Capture $run) -or $run.ExitCode -ne 0) {
+                $gateFailed += "'$cmd': $(Get-NativeExitLabel -Capture $run)"
+            }
         }
         if ($gateFailed.Count -gt 0) {
             Add-Step -Name 'gates' -State 'refuse' -Detail ($gateFailed -join '; ')
@@ -368,8 +379,8 @@ if (-not $sinceTag) {
     Add-Step -Name 'push list' -State 'refuse' -Detail 'no vX.Y.Z tag in this repo, so there is no previous release to diff against. Pass -SinceTag to name the baseline explicitly.'
 } else {
     $rangeCap = Invoke-Git -Arguments @('diff', '--name-only', "$sinceTag..HEAD")
-    if ($rangeCap.ExitCode -ne 0) {
-        Add-Step -Name 'push list' -State 'refuse' -Detail "could not diff $sinceTag..HEAD -- is '$sinceTag' a tag this checkout has? Try 'git fetch --tags'."
+    if (-not (Test-NativeExitMeasured -Capture $rangeCap) -or $rangeCap.ExitCode -ne 0) {
+        Add-Step -Name 'push list' -State 'refuse' -Detail "could not diff $sinceTag..HEAD ($(Get-NativeExitLabel -Capture $rangeCap)) -- is '$sinceTag' a tag this checkout has? Try 'git fetch --tags'."
     } else {
         $changed = @(Get-GitPaths $rangeCap)
 
@@ -613,10 +624,10 @@ if ($alreadyRefused.Count -gt 0 -and -not $SkipBackup) {
     Write-Host '  minutes in the store this was specified from). Nothing after it is expensive.'
     $backup = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $backupScript, '-Store', $store) -TimeoutSeconds 2700
     Write-Host ($backup.Output | Out-String)
-    if ($backup.ExitCode -eq 0) {
+    if ((Test-NativeExitMeasured -Capture $backup) -and $backup.ExitCode -eq 0) {
         Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing, and the previous one was rotated out only after it was proven complete.'
     } else {
-        Add-Step -Name 'backup' -State 'refuse' -Detail "backup-live-theme exited $($backup.ExitCode). It fails loudly and rotates nothing, so the PREVIOUS backup is still standing -- but this push would have no rollback point taken from this stand."
+        Add-Step -Name 'backup' -State 'refuse' -Detail "backup-live-theme: $(Get-NativeExitLabel -Capture $backup). It fails loudly and rotates nothing, so the PREVIOUS backup is still standing -- but this push would have no rollback point taken from this stand."
     }
 }
 
@@ -643,10 +654,10 @@ if (-not (Test-Path -LiteralPath $sweepScript -PathType Leaf)) {
     # SHOW what the aftercare would take, and a preflight that quietly deleted themes would be acting.
     $sweep = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $sweepScript, '-Store', $store) -TimeoutSeconds 600
     Write-Host ($sweep.Output | Out-String)
-    if ($sweep.ExitCode -eq 0) {
+    if ((Test-NativeExitMeasured -Capture $sweep) -and $sweep.ExitCode -eq 0) {
         Add-Step -Name 'aftercare' -State 'pass' -Detail 'previewed above -- nothing was removed, because the sweep only removes with -Execute.'
     } else {
-        Add-Step -Name 'aftercare' -State 'warn' -Detail "the sweep preview exited $($sweep.ExitCode). It changes nothing either way; the aftercare is simply unlisted."
+        Add-Step -Name 'aftercare' -State 'warn' -Detail "the sweep preview: $(Get-NativeExitLabel -Capture $sweep). It changes nothing either way; the aftercare is simply unlisted."
     }
 }
 

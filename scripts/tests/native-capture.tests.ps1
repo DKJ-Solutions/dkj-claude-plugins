@@ -1524,7 +1524,24 @@ foreach ($af in $auditFiles) {
 # It asks Test-NativeExitMeasured about that capture BEFORE testing the code against 0 (#1931), which is
 # why the companion assert below stayed green through the change -- the new site is judged, not merely
 # counted, and that remains the half that matters.
-Assert-Equal 58 $boundedTotal 'the parser still counts 58 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+#
+# MOVED 58 -> 63 ON THE #2228 BRANCH, DELIBERATELY AND AUDITED. All five new sites are
+# scripts\task\live-preflight.ps1's, the live-push preflight, and they are five rather than one because
+# that script drives four different children plus a git wrapper:
+#   * Invoke-Git, the wrapper every git read in the script goes through -- bounded at 120s by default,
+#     which is the one call in it that can reach a network (the `fetch` in step 1),
+#   * the repo's own lint gate ($lint, 1,800s) and each of its Get-TestCommands lines ($run, 3,600s),
+#     both spawned as `powershell -File`/`-Command` and both somebody else's process by definition,
+#   * backup-live-theme.ps1 ($backup, 2,700s) -- the step that polls until a theme duplicate is provably
+#     complete, measured at roughly eight minutes in the consumer that specified it, and
+#   * sweep-preview-themes.ps1 ($sweep, 600s), the aftercare preview.
+# EVERY ONE OF THE FIVE ASKS Test-NativeExitMeasured ABOUT ITS OWN CAPTURE BEFORE TESTING THE CODE
+# against 0, and the four that compose a sentence around the number use Get-NativeExitLabel (#1931,
+# #2081) -- which is why the companion assert below stayed green through the change. That remains the
+# half that matters: the new sites are judged, not merely counted. The direction each one fails in is
+# deliberate too -- an unmeasurable gate, diff or backup is treated as a refusal, because the thing this
+# script stands in front of is a push to a live storefront.
+Assert-Equal 63 $boundedTotal 'the parser still counts 63 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
