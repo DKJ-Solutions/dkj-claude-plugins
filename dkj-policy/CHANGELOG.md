@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2236-adoption-gap-reported · 20260921-221327
+
+Every `adopt-*` command is safe to re-run and correctly finds nothing to do, and that is exactly why
+nothing told an already-adopted repo when one of them GAINED a file. The script-contract session check now
+reads which files each adoption part places and forwards what is missing as a non-counting `[UNADOPTED]`
+line, wording a part that has *some* of its files ("has been run here and has since GAINED a file", naming
+when that file joined) apart from one that has none. Two guards keep it from being a nag -- silent in a repo
+with no workflow folder, and in the repo that publishes this workflow -- and a repo that decided against a
+part names it in `Get-DeclinedAdoptions` to answer the line for good.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer learns at their next session start that part of their CI floor is missing, which until now they
+could learn only by running the command they did not know existed. Measured in one: `xoxowildhearts` had
+Part 1's entry gate and none of Part 3's three runners, so neither its fold nor its resolves verification
+could survive a merge its shipping session never observed, with every check green throughout. The register's
+own detector could not see it, being any-or-none rather than per-command.
+
+**Score:** 4
+
+#### Pull Request
+
+A consumer's session reports which adopt-* steps its tree is missing
+
+Plugins: dkj-policy
+
+[PR #2254](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2254)
+
+---
 
 ### DEPLOY: fix/2233-gate-lane-stdin · 20260921-203304
 
