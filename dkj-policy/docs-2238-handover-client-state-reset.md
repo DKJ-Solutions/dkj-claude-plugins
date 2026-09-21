@@ -80,7 +80,15 @@ report's two.
 
 ### TEST
 
-- [x] `check-plugin-integrity.ps1` + all suites green (the lint gate `open-pr` runs).
+- [x] `check-plugin-integrity.ps1` green -- 0 errors, every check reporting its own coverage.
+- [~] The full local test gate was NOT run to completion. It wedged on
+      [#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233) -- the three suites that
+      never finish under `Invoke-TestSuiteGate` on Windows PowerShell 5.1 -- 29 minutes at zero
+      progress, and it was killed rather than waited out to its 1,800s-per-suite timeout. This run is a
+      fifth reproduction and the first on a second machine; measured on that thread.
+- [x] Those three plus the suite this diff touches, run STANDALONE and green:
+      `adopt-statusline` 47 asserts / 4s, `connectors` 384 pass 0 fail / 49s,
+      `connector-sessioncheck` 51 pass 0 fail / 13s, `dkj-policy-bwj` 362 asserts / 1s.
 - [x] Anchor of the new subsection verified against the link that points at it.
 - [x] File re-checked as ASCII, LF, no BOM after editing (a PowerShell write had introduced both).
 - [x] Copy edit (Edith) and security review (Sebastian) on the diff; both passes applied.
