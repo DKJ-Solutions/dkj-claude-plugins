@@ -43,7 +43,28 @@ Correct the foreign-text print registry in new-branch's SKILL.md: adopt-ci-floor
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+#### What the sweep found, and why this is not a one-entry edit
+
+#2247 reported ONE missing site and suggested a sweep might be the right repair. The sweep was run and
+it was: the registry was missing several sites, including an entire FOURTH hand-typed strip mechanism
+(`check-report-lib.ps1`'s `Format-SafeToken` family, `\p{C}`, 13 caller files) that had been invisible
+for as long as the list existed.
+
+#2247 also asserted that the site it reported was fully guarded and that "nothing is exploitable
+today". Reading the site showed two values printed RAW, one of them on the same line as a guarded one.
+That is the code half, and it is deliberately NOT in this branch -- filed as #2248.
+
+- [x] Claim #2247 and open the branch
+- [x] Verify the reported symptom against the tree -- the registry does say "seven" and does not carry
+      `adopt-ci-floor.ps1`
+- [x] Sweep `scripts/**` and `plugins/**` for print sites outside the seven, guarded and unguarded alike
+- [x] Verify the two decisive sweep claims by hand: `$w.Rel`'s origin and its raw prints, and
+      `check-report-lib.ps1` as a genuinely separate mechanism from the three libs
+- [x] File the code half separately -- #2248, the unguarded prints in `adopt-ci-floor.ps1`,
+      `sync-main.ps1` and `check-consumer-siblings.ps1`
+- [ ] Rewrite the registry in `plugins/dkj-policy/skills/new-branch/SKILL.md`: new entries, corrected
+      count, corrected caller lists on entries 1 and 4, and the lesson this sweep carries
+- [ ] Review pass on the diff -- copy edit, and a check that no entry claims a guard the site does not have
 
 ### TEST
 
