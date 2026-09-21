@@ -44,7 +44,51 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2228-shopify-live-preflight · 20260921-135351
+
+`dkj-subagents-shopify` had nothing standing between a merged trunk and a live theme push. Everything
+it shipped sat before the merge (`push-preview`, `sync-main`) or after the push (`backup-live-theme`,
+`archive-theme`, `sweep-preview-themes`), so the one moment in the cycle where a mistake is visible to
+paying customers was assembled by hand, per release, from prose. `live-preflight.ps1` is that step: it
+verifies the trunk, runs the repo's own gates, derives the push list from the range instead of from the
+changelog, reports what the pending entries owe, checks the live theme by id *and* by role, hands the
+list to the drift check **as an array**, takes one verified backup as the rollback point, prints the
+push command, and previews the aftercare. It verifies and reports -- it never runs `shopify theme push`
+and never writes the authorisation marker, both by construction rather than by discipline. The eight
+theme directories stopped being a literal in `sync-main.ps1` and became one definition both scripts
+read. `backup-live-theme.ps1` gained no behaviour and lost a sentence: its header stated one caller's
+choice as a property of the script, and now states what it guarantees.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify store repo gets the step its release day was missing, and notices it the next time it ships.
+Two hand-assembly failures that had already cost that store something are now closed in code rather
+than in prose: deriving the push list, where 61 changed files held 11 that exist on a theme and the
+other 50 do not -- their own `CLAUDE.md` warns about it in words, which is what a rule looks like when
+nothing enforces it -- and passing that list on, where a `powershell -File` call flattened it into one
+string, snapshotted zero files, printed a green "safe to push", and left a release with no rollback
+artefact and nothing saying so. The backup they already had now runs *before* the push where they want
+it there, which turns it from a baseline of what shipped into a rollback point -- worth having because
+a Shopify push is per file, has no locking, and can arrive partially, so a backup taken afterwards has
+captured the broken state. Nothing about the backup's own mechanism moved. It arrives on the next
+plugin update; a repo that answers no new seam still gets every step except the drift check, which
+says out loud that it could not run rather than passing.
+
+**Score:** 4
+
+#### Pull Request
+
+A live-push preflight for dkj-subagents-shopify
+
+Plugins: dkj-subagents-shopify
+
+[PR #2235](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2235)
+
+---
 
 ### DEPLOY: fix/2217-pretooluse-guards-fail-open · 20260921-092704
 
