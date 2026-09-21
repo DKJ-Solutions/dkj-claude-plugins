@@ -969,8 +969,8 @@ if ($scoped -eq 'never') {
     Assert-Equal 0 @([regex]::Matches($r.Out, '\[UNADOPTED\]')).Count 'adoption complete: silent -- nothing to say'
     Assert-Match '\[OK\]\s+adoption: adopt-ci-floor .* every one of the 3 files it places is here' $r.Out `
         'adoption complete: reported as OK on a deliberate run, so silence is never ambiguous'
-    Assert-Match '\[OK\]\s+adoption: adopt-statusline .* every one of the 1 file it places is here' $r.Out `
-        'adoption complete: a one-file command reads grammatically -- "1 file", not "1 file(s)"'
+    Assert-Match '\[OK\]\s+adoption: adopt-statusline .* the only file it places is here' $r.Out `
+        'adoption complete: a one-file command gets its own sentence, never "every one of the 1 file"'
 
     # --- 12c. PARTIAL is the shape #2236 was filed about, and says so in those words ----------------
     #
@@ -996,12 +996,25 @@ if ($scoped -eq 'never') {
     Assert-NotMatch '(?m)^\s+joined this command under #1843' $r.Out `
         'adoption partial: the Gained note is INSIDE the marked line, never a continuation the hook would drop'
 
+    # And PARTIAL WITHOUT A DATED NOTE says less, on purpose. Only adopt-workflow-folder can reach this
+    # branch: branch-entry.yml has been there since that command existed, so the record states no note
+    # for it -- and claiming the tree GAINED a file on a date nothing records would be a wrong sentence
+    # carrying a citation, which this repo treats as worse than the vague true one.
+    $c = New-FixtureConsumer -PlaceAdoptionFiles @('.github/workflows/always-on-budget.yml', '.github/pull_request_template.md')
+    $r = Invoke-Ps @('-ConsumerPathOverride', $c)
+    Assert-Match '\[UNADOPTED\] adopt-workflow-folder .*has been run here and is now short of a file it places: 2 of 3 present' $r.Out `
+        'partial without a note: reported as short of a file rather than as having gained one'
+    Assert-NotMatch '\[UNADOPTED\] adopt-workflow-folder .*GAINED' $r.Out `
+        'partial without a note: it does NOT claim a gain nothing in the table dates'
+    Assert-Match '\[UNADOPTED\] adopt-workflow-folder .*Why it matters' $r.Out `
+        'partial without a note: the per-command reason is the fallback, since there is no per-file one'
+
     # --- 12d. The consumer's own opt-out silences it, and is matched case-insensitively -------------
     $declined = $script:RealRepoConfig + "`nfunction Get-DeclinedAdoptions { return @('adopt-statusline', 'Adopt-CI-Floor') }`n"
     $c = New-FixtureConsumer -RepoConfigContentOverride $declined
     $r = Invoke-Ps @('-ConsumerPathOverride', $c)
     Assert-Equal 0 $r.Code 'adoption declined: exit-code 0'
-    Assert-Match '\[OK\]\s+adoption: adopt-statusline .*declined in Get-DeclinedAdoptions' $r.Out `
+    Assert-Match '\[OK\]\s+adoption: adopt-statusline .*declined in Get-DeclinedAdoptions, so no missing-file advisory follows' $r.Out `
         'adoption declined: an answered seam reports OK rather than going silent -- the reader can tell a decision from a gap'
     Assert-Match '\[OK\]\s+adoption: adopt-ci-floor .*declined in Get-DeclinedAdoptions' $r.Out `
         'adoption declined: matched case-insensitively -- a repo answering Adopt-CI-Floor is not ignored over its capitals'
@@ -1050,8 +1063,9 @@ if ($scoped -eq 'never') {
     # bookkeeping risk -- the two literals are held to each other here, the same arrangement
     # pr-issues.tests.ps1 uses for the foreign-text strip that is hand-typed in four places.
     #
-    # It reads the adopter's own Rel literals out of its SOURCE, so a path that moves in the script and
-    # not in the table fails here instead of in a consumer's tree.
+    # FORWARD FIRST -- every path the record claims is still spelled in the adopter's source, so a path
+    # that MOVES or is REMOVED in the script fails here instead of in a consumer's tree. The reverse
+    # half, which is the one that catches growth, follows after this loop.
     foreach ($rec in Get-AdoptionInventory) {
         $adopter = Join-Path $RepoRoot "scripts\task\$($rec.Command).ps1"
         Assert-True (Test-Path -LiteralPath $adopter -PathType Leaf) "inventory: '$($rec.Command)' names a script that exists"
@@ -1069,18 +1083,35 @@ if ($scoped -eq 'never') {
             }
         }
     }
-    # And the reverse direction for the one command whose whole target list is a single table: a runner
-    # added to adopt-ci-floor's $targets and not to the inventory is exactly the September 2026
-    # repo-settings.yml case repeating itself.
-    $floorSrc = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\adopt-ci-floor.ps1'))
-    $floorRels = @([regex]::Matches($floorSrc, "Rel\s*=\s*'(\.github/workflows/[^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-    $floorPlaces = @((Get-AdoptionInventory | Where-Object { $_.Command -eq 'adopt-ci-floor' }).Places | Sort-Object -Unique)
-    # ci.yml is deliberately out of the inventory -- offered only to a repo with NO pull_request check at
-    # all, so its absence is the ordinary state rather than a gap -- and it is named here so the
-    # exclusion is a stated one rather than a hole in this assert.
-    $floorRels = @($floorRels | Where-Object { $_ -ne '.github/workflows/ci.yml' })
-    Assert-Equal ($floorRels -join ',') ($floorPlaces -join ',') `
-        'inventory: adopt-ci-floor''s own workflow targets and the table are the same set, ci.yml excluded by name'
+    # AND THE REVERSE DIRECTION, FOR EVERY COMMAND RATHER THAN ONE. The forward loop above catches a
+    # path REMOVED from an adopter; this catches one ADDED, which is the September 2026
+    # repo-settings.yml case -- i.e. #2236 itself -- and is therefore the half that matters most.
+    #
+    # IT WAS BUILT FOR adopt-ci-floor ALONE while the comment above claimed the pair was held, and the
+    # code review on this branch held that against the code: adopt-workflow-folder carries the identical
+    # $targets shape and has ALREADY grown once this way (always-on-budget.yml under #2037), so the
+    # guard was green over two of the three commands it claims to cover.
+    #
+    # ONE PATTERN SERVES ALL THREE, and the reason is worth stating because it looks like luck: it
+    # matches a Rel-suffixed NAME rather than a $targets table, so adopt-statusline's own $shimRel and
+    # $settingsRel are subjects without a table to sit in.
+    #
+    # THE EXCLUSIONS COME OFF THE RECORD, never a list typed here. A target an adopter places
+    # CONDITIONALLY still appears in its source, so it needs a stated home: 'NotPlaced' is that home,
+    # with the reason on it. What this buys is that a NEW conditional target cannot pass -- it is in
+    # neither set, so this assert fails until somebody classifies it, which is the conversation the
+    # exact record count above exists to force, one table over.
+    foreach ($rec in Get-AdoptionInventory) {
+        $adopterSrc = [System.IO.File]::ReadAllText((Join-Path $RepoRoot "scripts\task\$($rec.Command).ps1"))
+        $rels = @([regex]::Matches($adopterSrc, "Rel\s*=\s*'([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+        $declared = @(@($rec.Places) + @(if ($rec.ContainsKey('NotPlaced')) { $rec.NotPlaced.Keys } else { @() }) | Sort-Object -Unique)
+        Assert-Equal ($rels -join ',') ($declared -join ',') `
+            "inventory: $($rec.Command)'s own path literals and the record are the same set -- Places plus the NotPlaced it states a reason for"
+        # A record with no Places would read as 'complete' for free, since the missing-count is then
+        # trivially zero. Inert today and guarded here rather than left for a future record to trip
+        # silently -- the one shape where this whole section would report a floor it never looked at.
+        Assert-True ($rec.Places.Count -gt 0) "inventory: $($rec.Command) declares at least one placed file"
+    }
 
     # --- 12g. The hook forwards [UNADOPTED] on its own branch, independent of the chain -------------
     $c = New-FixtureConsumer -PlaceAdoptionFiles @('.github/workflows/fold-on-merge.yml', '.github/workflows/verify-resolved.yml')
@@ -1100,6 +1131,41 @@ if ($scoped -eq 'never') {
     Assert-Equal 0 $h.Code 'hook + adoption: exit 0 even with contract drift beside it'
     Assert-Match 'script-contract drift found' $h.Out 'hook + adoption: the drift report is unchanged'
     Assert-Match '\[UNADOPTED\] adopt-ci-floor ' $h.Out 'hook + adoption: and the floor advisory is printed BESIDE it, not swallowed by it'
+
+    # --- 12h. A CONSUMER'S SEAM THAT THROWS MUST NOT TAKE THE CHECK DOWN WITH IT -------------------
+    #
+    # THE DEFECT THIS PINS, MEASURED ON THIS BRANCH BEFORE THE REPAIR (found by the code review, not by
+    # a scenario above -- which is why it is here). Get-DeclinedAdoptions is the first consumer-defined
+    # function this check CALLS rather than probes for, the check runs IN-PROCESS inside the SessionStart
+    # hook, and $ErrorActionPreference = 'Stop' is inherited into the child scope. With only the
+    # dot-source inside the try, a consumer whose seam threw lost the WHOLE session check -- the
+    # function-contract drift report included, which is the one thing this check exists to give -- and
+    # saw 'script-contract-sessioncheck skipped due to an error' instead. An advisory nobody has to act
+    # on was able to cost them the report they do have to act on.
+    $throws = $script:RealRepoConfig + "`nfunction Get-DeclinedAdoptions { throw 'a consumer bug in this seam' }`n"
+    $c = New-FixtureConsumer -RepoConfigContentOverride $throws
+    $r = Invoke-Ps @('-ConsumerPathOverride', $c)
+    Assert-Equal 0 $r.Code 'throwing seam: exit-code 0 -- the check completes'
+    Assert-Match 'Summary: 0 error\(s\)' $r.Out 'throwing seam: the check runs to its own summary, so nothing was cut short'
+    Assert-Match '\[SKIP\]\s+adoption: Get-DeclinedAdoptions raised an error' $r.Out `
+        'throwing seam: it SAYS nothing was declined -- silence there would read as a clean answer'
+    Assert-Equal 3 @([regex]::Matches($r.Out, '\[UNADOPTED\]')).Count `
+        'throwing seam: it degrades to "nothing declined", so every command is still reported'
+    # The message is NOT repeated: it is text this repo did not write, and echoing it would make this a
+    # foreign-text print site for a string the reader can get by calling the function themselves.
+    Assert-NotMatch 'a consumer bug in this seam' $r.Out `
+        'throwing seam: the consumer''s own exception text is never printed'
+
+    # And the half that was actually lost: the drift report beside it, through the hook, in-process.
+    $throwsAndDrifts = (Remove-PsFunction -Content $script:RealBranchInfo -FunctionName 'Test-BranchName')
+    $c = New-FixtureConsumer -BranchInfoContentOverride $throwsAndDrifts -RepoConfigContentOverride $throws
+    $h = Invoke-Hook @('-ConsumerPathOverride', $c, '-CheckScriptOverride', $Script)
+    Assert-Equal 0 $h.Code 'throwing seam + drift: the hook exits 0'
+    Assert-NotMatch 'skipped due to an error' $h.Out `
+        'throwing seam + drift: the hook no longer reports the whole check as skipped -- the pre-repair behaviour'
+    Assert-Match 'script-contract drift found' $h.Out `
+        'throwing seam + drift: and the drift report survives, which is what the defect was costing'
+    Assert-Match "'Test-BranchName' missing" $h.Out 'throwing seam + drift: naming the actual missing function'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }

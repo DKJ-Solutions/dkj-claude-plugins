@@ -74,19 +74,34 @@ have, both of which shaped what got built:
 - [x] `plugins/dkj-policy/hooks/script-contract-sessioncheck.ps1`: forwards that token on its own branch,
       independent of the drift chain.
 - [x] Regenerated the config blueprint the new record belongs in, and the plugin mirror of both shared files.
+- [x] The review round, which found one real defect and one real gap. `Get-DeclinedAdoptions` is the first
+      consumer-defined function this check CALLS rather than probes for, and only the dot-source sat inside the
+      try -- so a consumer whose seam threw lost the whole in-process session check, drift report included.
+      Reproduced, then repaired: the invocation is inside the try, a load failure and a seam throw are kept
+      apart, and the consumers own exception text is deliberately not echoed.
+- [x] The drift guards reverse direction covered one of the three adopters while its comment claimed the
+      pair was held. Generalised to all three, with the conditional targets moved out of the test and into a
+      declared `NotPlaced` field -- so a new one has to be classified or the suite fails.
 - [~] A line in `update-plugins.ps1`, which the issue offered as its cheapest option. Dropped: the session
       check already runs in every consumer at every start, so the update-time line would be a second place
       to say the same thing, one of them firing less often.
 
 ### TEST
 
-- [x] `scripts/tests/script-contract.tests.ps1`: seven new scenarios (12a-12g) pinning the four statuses
+- [x] `scripts/tests/script-contract.tests.ps1`: nine new scenarios (12a-12h, plus the partial-with-no-dated-note case) pinning the four statuses
       apart, both guards, the hook forwarding, and the drift guard that holds `Places` to each adopter's own
       `Rel` literals in both directions.
 - [x] Three existing count asserts bumped for the new record, each with the narration this suite asks for:
       the record total (43 -> 44), scenario 6e's `[INFO]` count (15 -> 16) and the `-SkipReachability`
       summary (9 -> 10).
-- [x] Full suite green: 369 pass, 0 fail.
+- [x] Full suite green: 386 pass, 0 fail -- 369 after the first pass, then 17 more asserts from the review round.
+- [x] Cost measured, `main` against this branch, in two pinned worktrees outside the repo: the suite gains
+      roughly 12 child spawns (+15.0s / +30% locally, n=3 against n=6, on a machine that was not idle) and
+      the session-start check gains about 13ms in a consumer, on a 55-70ms floor. Nothing on the always-on
+      path changed and the skill's frontmatter is untouched, so no session pays for this unless it opens
+      that page. The suite figure leaves `suite-durations.json` stale, and that refresh needs CI run ids
+      that do not exist until this merges -- filed as #2252, which is the conclusion #1833 reached for the
+      same class one suite over.
 - [x] `check-plugin-integrity.ps1` green, including `[marker-column]`, which derives its subject set from the
       hooks and therefore judged the new `[UNADOPTED]` emissions without being told about them.
 

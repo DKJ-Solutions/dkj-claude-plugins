@@ -589,7 +589,7 @@ $script:ContractRecords = @(
        Returns = "an array of records, each naming ONE GitHub-side fact to watch: Field (a dotted name the check knows how to read, e.g. 'ruleset.bypass_actor_types' or 'repo.allow_auto_merge'), Expected (the value this repo declares GitHub should still hold), Recorded (the date that value was last measured against GitHub), Where (the document in this tree stating the fact) and Why (the one-line reason it matters) -- Where and Why are both printed on a mismatch, so a red run names which document to repair rather than merely proving something moved" },
     # THE OPT-OUT FOR THE ADOPTION INVENTORY AT THE FOOT OF THIS FILE (issue #2236). A consumer that has
     # deliberately not built part of the floor names the command here and the advisory goes quiet, which
-    # is what keeps that advisory from being the nagging hook #2236 explicitly did not ask for. A DECLARED
+    # is what keeps that advisory from being the nag #2236 explicitly did not ask for. A DECLARED
     # opt-out in the consumer's own seam lib, never an exemption list maintained inside the check: the
     # second is the shape this repo has scar tissue from, and the whole difference is who writes it down.
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-DeclinedAdoptions'; Scripts = @('check-script-contract');
@@ -949,6 +949,15 @@ function Resolve-SharedScriptPath {
 # compares them against this table, so a file added to an adopter and not to this inventory fails the
 # suite instead of quietly reporting a complete floor.
 #
+# 'NotPlaced' IS THE OTHER HALF OF THE SAME BOOKKEEPING, and it is a field rather than only the prose
+# below because of what the prose could not do. The suite holds 'Places' to the adopter's own Rel
+# literals in BOTH directions, and the forward half alone catches a path REMOVED from an adopter while
+# the reverse half is what catches one ADDED -- which is the September 2026 repo-settings.yml case, i.e.
+# this issue. A target an adopter places CONDITIONALLY still appears in its source, so without a stated
+# home it would fail that reverse assert forever; with one, a new conditional target has to be
+# classified as either placed or not, and the reason goes on the record. Same reasoning as the exact
+# record count in the suite: a floor cannot force that conversation, an equality can.
+#
 # WHAT IS DELIBERATELY NOT IN 'Places', because a presence check can only be run on a FIXED path:
 #   * the workflow folder itself -- check-script-contract.ps1 already checks it, under all three of the
 #     names it has carried, and that check is an [ERROR] rather than one of these advisories.
@@ -987,11 +996,17 @@ $script:AdoptionRecords = @(
        );
        Gained = @{
            '.github/workflows/repo-settings.yml' = 'joined this command under #1843 in September 2026, and is not queue machinery at all -- it asks whether a GitHub-side repo setting still matches what scripts/repo-config.ps1 declares'
+       };
+       NotPlaced = @{
+           '.github/workflows/ci.yml' = 'offered only to a repo with NO pull_request check at all, so its absence is the ordinary state rather than a gap -- and a repo that has its own CI never wants this one'
        } },
     @{ Command = 'adopt-statusline'; Part = 'Part 5'; Skill = 'adopt-dkj-policy';
        What = "the shim behind the statusLine that draws the progress bar for this workflow's long runs";
        Why  = "the gates and ship-pr's CI wait stream no stdout anywhere visible, so without it a backgrounded run leaves the session looking idle";
-       Places = @('.claude/statusline/dkj-progress.ps1') }
+       Places = @('.claude/statusline/dkj-progress.ps1');
+       NotPlaced = @{
+           '.claude/settings.json' = 'a settings KEY rather than a file of this command''s own: the file exists in almost every repo for other reasons, and a repo may legitimately point statusLine at a script of its own, which is what the source repo does'
+       } }
 )
 
 function Get-AdoptionInventory {
