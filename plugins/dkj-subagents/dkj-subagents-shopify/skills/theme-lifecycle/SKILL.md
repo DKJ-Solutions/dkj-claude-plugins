@@ -1,6 +1,6 @@
 ---
 name: theme-lifecycle
-description: Keep the Shopify theme estate from filling up, in the two places it grows -- back the live theme up as a verified baseline and rotate the previous backup out, and sweep away the spent preview themes this repo created. Use the backup as the closing step of a release cut, and the sweep after a live push. Both are destructive against a real store, so both are keyed on a reserved name prefix this repo WROTE rather than on anything they merely recognise: a theme somebody else created is never in the delete set, whatever its role. The backup polls until the copy is provably complete, because the CLI returns long before it is -- a backup nobody verified is worse than no backup. The sweep is dry-run by default and the live theme is refused by id and by role.
+description: Keep the Shopify theme estate from filling up, in the two places it grows -- back the live theme up as exactly one verified copy and rotate the previous backup out, and sweep away the spent preview themes this repo created. Run the backup around the live push -- before it as a rollback point, or after it as the baseline of what shipped, whichever your repo has decided -- and the sweep after that push. Both are destructive against a real store, so both are keyed on a reserved name prefix this repo WROTE rather than on anything they merely recognise: a theme somebody else created is never in the delete set, whatever its role. The backup polls until the copy is provably complete, because the CLI returns long before it is -- a backup nobody verified is worse than no backup. The sweep is dry-run by default and the live theme is refused by id and by role.
 ---
 
 # theme-lifecycle -- the backup that is verified, and the sweep that only takes its own
@@ -42,7 +42,22 @@ alternative was guessing, which is the thing above.
 `push-preview` still **finds** such a theme by its old name, so a branch mid-flight keeps pushing to
 the preview it already has rather than silently growing a second one. It keeps that old name.
 
-## Back up the live theme (the closing step of a release cut)
+## Back up the live theme (around the live push -- which side is your repo's call)
+
+**The script guarantees one thing and asserts nothing about its caller** (#2228): after a successful
+run the store holds **exactly one** backup of live, that copy has been **proven complete**, and the
+previous one was dropped only after the proof. Where you call it decides what the copy is *for*:
+
+| moment | what the copy is |
+|---|---|
+| **after** the push, closing a cut | a **baseline of what shipped** -- the fixed point third-party drift is measured from |
+| **before** the push, from [`live-preflight`](../live-preflight/SKILL.md) | a **rollback point** -- the stand to return to if the push goes wrong |
+
+A Shopify push is per file, has no locking and **can arrive partially**, so a backup taken after one has
+captured the broken state and is by construction not a rollback. That is the argument for the earlier
+moment; what it gives up is small, because the only difference between the two copies is your own push
+list, and that is in git. **Neither reading changes the mechanism below.**
+
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/backup-live-theme.ps1" -DryRun
@@ -108,7 +123,7 @@ Never swept, each as its own refusal rather than one rule stretched over several
 | what | why |
 |---|---|
 | anything without the reserved prefix | this repo did not create it |
-| the backup | only the release cut rotates that, and only after its replacement is verified |
+| the backup | only the backup step rotates that, and only after its replacement is verified |
 | the live theme, **by configured id** | `Get-ShopifyLiveThemeId` |
 | the live theme, **by the role the store reports** | the two are the same theme today, and the day they differ one of them is the only guard left |
 | any role that is not `unpublished` | a `development` theme belongs to whoever is running `shopify theme dev` right now |

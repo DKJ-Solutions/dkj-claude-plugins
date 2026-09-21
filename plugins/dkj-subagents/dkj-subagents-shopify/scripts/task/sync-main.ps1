@@ -362,6 +362,17 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # quoting is not the alternative. Unguarded, for the reason the two dot-sources above give.
 . (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
 
+# THE EIGHT THEME DIRECTORIES (issue #2228). $ThemeDirs below used to be spelled out here, and the
+# live-push preflight needs exactly the same eight to derive its push list -- so the set is defined once,
+# in a lib both read, rather than twice in two scripts free to drift. The direction that drift would take
+# is the argument: a list that has lost a directory silently drops that directory's files, and a short
+# push list is invisible until a customer sees the half-updated page.
+#
+# UNGUARDED, for the reason the three dot-sources above give: a payload without the lib must fail at load
+# rather than mirror against a theme-directory set it could not read. It travels in dkj-subagents-shopify's
+# own payload, registered in scripts/lib/shared-scripts-lib.ps1.
+. (Join-Path $PSScriptRoot '..\lib\live-push-rules.ps1')
+
 # Dual-context repo root: a consumer running the plugin mirror gets it from CLAUDE_PROJECT_DIR, the
 # source root copy falls back to the git root. Same resolution as every other mirrored script, which is
 # what lets both copies stay byte-identical.
@@ -385,7 +396,11 @@ Set-Location -LiteralPath $repoRoot
 # mirror -- and everything of the repo's own (scripts/, CLAUDE.md, the workflow folder) -- out of the
 # comparison and therefore out of any commit. A repo whose theme does not sit at the root is out of
 # scope for this script rather than a knob nobody has asked for.
-$ThemeDirs = @('assets', 'blocks', 'config', 'layout', 'locales', 'sections', 'snippets', 'templates')
+#
+# READ FROM live-push-rules.ps1 SINCE #2228, where it used to be spelled out on this line. The preflight
+# that derives a live push list needs the same eight, and the one thing worse than this list being wrong
+# is two copies of it being wrong differently. Same set, same reasoning, one definition.
+$ThemeDirs = Get-ShopifyThemeDirectoryNames
 
 # --- The seam answers ------------------------------------------------------------------------------
 # Read in a child scope with StrictMode OFF and inside a try, exactly as dkj-subagents-shopify's live-theme guard

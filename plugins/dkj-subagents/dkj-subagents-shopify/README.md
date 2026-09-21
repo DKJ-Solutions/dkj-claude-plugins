@@ -179,6 +179,25 @@ only for a belt-and-braces refusal — and the guard hook blocks a live-aimed pu
 recognised the target. So an unanswered seam costs one of two independent refusals, and the script says so
 out loud instead of blocking a preview.
 
+**And one belongs to the live-push preflight** (`live-preflight`), which otherwise reuses the estate
+store, the live theme id, the trunk and the sync prefix from the tables above:
+
+| function | default | what it decides |
+|---|---|---|
+| `Get-ShopifyDriftCheckPath` | `scripts/theme/live-snapshot.ps1` | your own drift check — the script that pulls the files about to be overwritten and refuses on content a third party wrote. Unanswered **and** absent at the default path, the preflight says the push list is unchecked rather than pretending it verified one. |
+
+**It is a bridge rather than a permanent seam**, and that is worth knowing before you answer it.
+[#2228](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2228) argued that the preflight needed
+no new seam, which holds for every **fact** it reads — what it does not have is the **path** of a script
+that is still consumer-side. The same issue names that script as a candidate to move up here; the day it
+does, this seam stops having a job.
+
+**The preflight reads no marker at all**, and that absence is deliberate. It prints the push command
+**without** the authorisation marker, because green means *the checklist is complete and the push is
+allowed to be made* and never *the push is authorised*. A run that held your marker in a variable would
+be one edit away from printing the authorised command; not reading it is what makes that impossible
+rather than merely forbidden.
+
 Every one of them is read through `Get-Command`, so **this plugin depends on no workflow plugin at all**: a
 repo on `dkj-policy` and a repo on none get identical behaviour. That includes
 the branch-name flattening `push-preview` needs — Shopify rejects a theme name containing `/`, so the

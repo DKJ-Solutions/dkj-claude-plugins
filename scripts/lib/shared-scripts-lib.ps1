@@ -1944,6 +1944,35 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE LIVE PUSH'S RULES (inbound #2228, September 21, 2026): the eight theme directories,
+            # which of a release's changed files actually exist on a theme, which tag the range starts
+            # at, the push command's shape, and whether a run's steps add up to "allowed".
+            #
+            # IT TRAVELS IN dkj-subagents-shopify for the same reason theme-lifecycle-rules does, one
+            # entry up: a live theme push is Shopify craft rather than BWJ practice -- any repo serving a
+            # theme has to decide which of its changed files exist on one. What IS BWJ's is the policy
+            # binding this to their release day, and that stays a page in dkj-policy-bwj.
+            #
+            # TWO SCRIPTS READ IT, WHICH IS WHY THE EIGHT DIRECTORIES LIVE HERE. sync-main.ps1 spelled
+            # that set out itself until #2228 and the preflight needs exactly the same eight; two copies
+            # of one platform fact are free to drift, and the drift that costs most is the silent one --
+            # a list that has lost a directory drops that directory's files out of a push list, and a
+            # short push list is invisible until a customer sees the half-updated page.
+            #
+            # PURE, AND THAT IS THE SAFETY PROPERTY RATHER THAN A STYLE, exactly as it is for the lifecycle
+            # rules: what these functions decide reaches a LIVE storefront, and a suite must not be able to
+            # reach a store. So the rules are pure functions with exact answers, and git and the CLI are
+            # live-preflight.ps1's.
+            #
+            # DEPENDENCY-FREE, like both rule libs beside it: the live-theme guard reads repo-config.ps1 on
+            # every command, so a lib in this family that pulled anything in would be a way to disarm a
+            # guard. The seam answers are read by the script and passed in.
+            Name    = 'live-push-rules'
+            Source  = 'scripts\lib\live-push-rules.ps1'
+            Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
             # The live-theme BACKUP and its rotation (inbound #1965). Exactly one backup is retained and
             # the release cut is what rotates it.
             #
@@ -1985,6 +2014,31 @@ function Get-SharedScriptPairs {
             Source = 'scripts\task\sweep-preview-themes.ps1'
             Plugin = 'dkj-subagents-shopify'
             Skill  = 'theme-lifecycle'
+            SkillParamsExempt = @('RootOverride')
+        },
+        @{
+            # THE LIVE-PUSH PREFLIGHT (inbound #2228): the step that stood between a merged trunk and a
+            # live theme push, and did not exist. Everything else this plugin ships sits before the merge
+            # or after the push, so the one moment a mistake is visible to paying customers was assembled
+            # by hand, per release, from prose -- eight manual steps in the consumer that filed it.
+            #
+            # IT VERIFIES AND REPORTS, AND IT NEVER ACTS ON LIVE. Two boundaries hold that, and both are
+            # in the script's own docstring rather than only here: it never runs `shopify theme push` --
+            # the live guard is a PreToolUse hook reading a COMMAND STRING, so a push inside a script is
+            # invisible to it, exactly as the sweep's and archive-theme's deletes are -- and it never
+            # writes the authorisation marker, because green means the checklist is complete, never that
+            # the push is authorised.
+            #
+            # THE ORDER OF ITS NINE STEPS IS COST-ORDERED AND THAT WAS ASKED FOR. The backup it calls
+            # polls until the copy is provably complete, which took roughly eight minutes in that store,
+            # so it runs after every cheap gate has passed: failing a lint gate must not cost eight
+            # minutes first.
+            Name   = 'live-preflight'
+            Source = 'scripts\task\live-preflight.ps1'
+            Plugin = 'dkj-subagents-shopify'
+            Skill  = 'live-preflight'
+            # A fixture root, as for sync-main, push-preview, archive-theme and the two lifecycle
+            # scripts: a consumer never types it, and documenting it would invite someone to.
             SkillParamsExempt = @('RootOverride')
         }
     )
