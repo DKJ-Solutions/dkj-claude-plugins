@@ -44,7 +44,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2232-gate-wall-clock · 20260921-150342
+
+The gate's wall clock was re-measured at 121 suites, because #2232 reported ~90 minutes and asked whether
+that was #1703's degraded band returning or simply a pool 41% larger than the last table. It is neither.
+On an idle 24-core workstation the whole pool runs in **421.2s at 22 lanes**, and the makespan sits at
+**101.4% of `max(longest file, work÷lanes)`** — the scheduler is at its floor, exactly the regime the
+September 9 reading found at 16 lanes, and the pool simply *is*
+`check-plugin-integrity-docs.tests.ps1` (415.5s). The 41% more suites are absorbed by lanes that were
+idle behind that file anyway: work ÷ lanes is 268.4s, 147s below it. The ~90 minutes was
+[#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233) — three suites blocking forever
+on a redirected-but-never-closed stdin and released only by the 1,800s per-suite bound. The section also
+records why #2232's own utilisation threshold reads this pool backwards, and that a gate figure quoted
+without naming how the run was started is unreadable.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing here changes what a consumer runs — it is one section in a repo lens. What it buys the next
+reader is the two things this measurement cost to learn. First, that a **utilisation number has a ceiling
+set by the longest file**: this pool could not have exceeded 64.6% however perfect the scheduler, it
+scored 63.7%, and the threshold #2232 proposed in good faith would have sent the next session looking for
+growth instead of at the one file that sets the whole wall clock. Second, that **a wall clock measured on
+a workstation carries that session's stdin**, invisibly — the same tree, minutes apart, reports 421s or
+half an hour depending on a handle nobody names, and the gate's output does not mention it. Both are the
+kind of thing that is obvious once written down and expensive every time it is not.
+
+**Score:** N/A — this reaches nobody outside this repo. It is a lens section, not plugin payload, and no
+consumer reads it.
+
+#### Pull Request
+
+The gate at 121 suites, measured: 7 minutes and critical-path-bound on one file
+
+[PR #2241](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2241)
+
+---
 
 ### DEPLOY: feat/2228-shopify-live-preflight · 20260921-135351
 
