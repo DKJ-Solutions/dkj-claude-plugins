@@ -39,21 +39,59 @@
 
 ### PLAN
 
+#### What was verified before anything was repaired
+
+The issue's reason is "the child was refused or killed rather than having said anything". That was read
+against the code rather than taken: every failure path of `bootstrap.ps1` is loud (both `exit 1` branches
+write a line first), and a probe child that *throws* aborts the suite's own `Invoke-Script` with a
+`NativeCommandError` under its `Stop` preference -- so a real defect in the bootstrap cannot produce
+`exit 1` with an empty capture. That leaves a process that died without speaking, which the lib's own
+comment (`native-capture-lib.ps1`, "a killed child has an exit code of its own") says reads exit 1 on Windows.
+
+**Not reproduced.** This checkout's machine has ~1 GB free against the reporter's 22-lane machine, and the
+gate's own memory-aware count (#2121) would pick 2 lanes here, so forcing 22 would measure memory
+starvation, not the reported condition. The cause of the child's death is therefore inferred, not observed.
+
+#### The repair, and its scope
+
+Only `New-BootstrappedConsumer` in `teardown.tests.ps1`: on a non-zero exit with an empty capture it builds
+the fixture again from scratch, once, and says so. Not the teardown or re-init calls (a partly applied
+teardown is not safe to repeat blindly), and not the six other suites with the same `Invoke-Script` shape --
+one measured failure does not justify sweeping them.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-SilentChildFailure` and the one-shot rebuild in `New-BootstrappedConsumer`
+- [x] The final failure message names the exit code and says when the child printed nothing on both attempts
 
 ### TEST
 
+- [x] The predicate is asserted against real children: silent exit 1, spoke-then-exit 1, clean exit
+- [x] The retry is asserted both ways: silent-once recovers to a real fixture; speak-and-fail is called once
+- [x] `teardown.tests.ps1` standalone: 240 pass, 0 fail (223 before)
+
 ### DEPLOY: fix/2239-teardown-suite-pool-flake
 
-**Score:**
+`teardown.tests.ps1` no longer fails the gate when a child `powershell.exe` dies without a word while the
+suite is building a fixture. It builds the fixture again once, prints a `[NOTE]` line so the occurrence is
+counted rather than invisible, and lets anything the child actually said stand as the failure.
+
+The cause of the child dying is not established: the failure was seen once in two pool runs at 22 lanes
+and was not reproduced. If a `[NOTE]` line ever shows up in a gate log, that is the next data point, and
+with it the n=5 this repo asks for before a moving verdict is trusted.
+
+**Score:** 1 -- prevents a failure that has already happened once: a red gate on a tree nobody touched,
+found while measuring the gate for #2232.
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing here reaches a consumer; it is one test suite. What it adds for the next reader is the argument for
+why retrying is safe here and would not be for the general case: the retry keys on a state the code under
+test cannot produce (a silent non-zero exit), so it cannot hide a real defect.
+
+**Score:** N/A -- this reaches nobody outside this repo; the suite is not plugin payload.
 
 #### Pull Request
 
-teardown.tests.ps1 fails under the 22-lane gate with an empty child capture
+teardown.tests.ps1 builds its fixture again once when the bootstrap child dies silent
 
