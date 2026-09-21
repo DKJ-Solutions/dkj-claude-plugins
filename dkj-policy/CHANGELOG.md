@@ -44,7 +44,53 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**6 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2247-foreign-text-registry-sweep · 20260921-224745
+
+The registry of every console this workflow prints foreign text to -- in
+[`new-branch`'s skill page](../plugins/dkj-policy/skills/new-branch/SKILL.md) -- goes from **seven
+entries to thirteen**, after the first sweep anybody ran on purpose. #2247 reported one missing site and
+suggested a sweep might be the right repair; it was. Entry 8 is `adopt-ci-floor.ps1`, the reported one.
+Entry 9 is the find that mattered: `check-report-lib.ps1`'s `Format-SafeToken` family is a **fourth
+hand-typed strip mechanism**, a `\p{C}` pattern with its own three-issue lineage and thirteen caller
+files across `scripts/lint/`, `scripts/sync/`, `scripts/task/` and `scripts/maintenance/`, and it had
+been invisible for as long as the list existed. Entries 10 to 13 are a branch document's own prose
+quoted back at it, GitHub's required-check names, `check-fanout`'s shrinkage report, and
+`check-consumer-siblings.ps1`. Entries 1 and 4 are edited rather than duplicated, per the page's own
+rule that a new caller inside a listed site is an edit to that entry: `park-cycle.ps1` relays entry 1's
+value and prints entry 4's, `tidy-machine.ps1` prints entry 4's, and entry 4 had a value it never named
+at all -- `sync-main.ps1`'s raw `$rel`.
+
+**#2247's own premise was false, and the page now says so.** It asserted the site it reported was fully
+guarded and that "nothing is exploitable today"; reading that site instead of the report about it found
+two raw, uncapped values beside the guarded ones -- one of them sharing a line with a value #2247 had
+checked and called safe. The repair for those is **#2248**, deliberately not on this branch: this one
+makes the list true, not the scripts safe. The closing overclaim -- that a reader "now has the list" --
+is retired for the same reason the sentence before it was: a reader has, at most, every place found so
+far. Growing three to seven incidentally and seven to thirteen in one deliberate pass argues the
+technique works, not that it is exhausted.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a maintenance registry inside a skill page this workflow ships. Its reader is whoever audits
+where this workflow prints somebody else's characters, which is this repo's own kind of reader; a
+subscriber of a service notices nothing about it. The two unguarded sites it now names are real, but
+what a consumer would notice is their repair, and that is #2248 rather than this change.
+
+**Score:** N/A
+
+#### Pull Request
+
+The foreign-text print registry goes from seven sites to thirteen, after the first deliberate sweep
+
+Plugins: dkj-policy
+
+[PR #2256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2256)
+
+---
 
 ### DEPLOY: feat/2236-adoption-gap-reported · 20260921-221327
 
