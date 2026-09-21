@@ -129,7 +129,7 @@ reading `Shopify.theme` out of the rendered markup:
 Three consequences, in descending order of how easily they are missed:
 
 - **Pin the control to the live id.** It is the only form measured to be correct regardless of which
-  theme the browser was last shown, and for that it needs no clean browser profile, no incognito window
+  theme the browser last rendered, and for that it needs no clean browser profile, no incognito window
   and no instruction to the reader. **It settles the theme and not the feature's own state** -- see
   [the reset step](#pinning-the-control-settles-the-theme-not-the-features-state) below.
 - **`preview_theme_id=0` is not a reset.** It renders the error above, which reads like a broken
@@ -191,7 +191,7 @@ Three blocks on the page, and each is there because the other two cannot supply 
 
 | block | what it holds |
 |---|---|
-| **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open, and whether the route has to start from a clean browser. No URL can say this, and a change that is invisible without it reads as *not shipped* |
+| **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open, and a clean-browser start where the route depends on one. No URL can say this, and a change that is invisible without it reads as *not shipped* |
 | **one card per market** | the market code and its domain, a **QR code to the preview**, the preview and control links as text beneath it, and the expected copy in that market's language where the change has copy in it |
 | **what is proven, and what is asked** | which gates ran and what they verified mechanically, then the one question the reviewer is being asked. This is the half that makes the link a self-contained handover rather than a bookmark needing the transcript beside it |
 
@@ -224,10 +224,11 @@ state.** It belongs in the *how to see the change* block, with the device and th
 same kind of thing: a step without which the change is not visible, and a change that is invisible
 without it reads as not shipped.
 
-**The reset is a private window**, because it needs no console, no devtools and no per-key knowledge, and
-because it is one instruction a reviewer on a phone can follow. A devtools one-liner clearing the
-feature's own key is the fallback for a reader who has one, and is worth naming only where the feature
-must be reviewed in a session that already carries other state.
+**The reset is a private window**, because it needs no console and no per-key knowledge, and because it
+is one instruction a reviewer on a phone can follow. A devtools one-liner clearing the feature's own key
+is the fallback for a reader who has one, and it is a weaker reset rather than an equivalent shortcut:
+it clears the key it names and leaves the cookies and the IndexedDB of the same origin standing, so a
+feature persisting in more than one place still reads the same in both tabs.
 
 **It is a SECOND question the author answers**, after the one the step list already poses -- *is the
 change visible in the frontend / storefront?* -- and it is: *does what the reviewer must see depend on
@@ -235,8 +236,8 @@ anything the browser remembers?* Where it does, the route starts clean and the h
 Answering **no** is a complete answer, and it is the common one.
 
 Measured in `smartwatchbanden` on September 21, 2026, on a feature that remembers the visitor's last
-viewed collection in `localStorage` under a single key (that repo's issue #716, PR #745). From a
-private window, a product page visited and no collection clicked:
+viewed collection in `localStorage` under a single key. From a private window, a product page visited
+and no collection clicked:
 
 | theme | the homepage afterwards |
 |---|---|

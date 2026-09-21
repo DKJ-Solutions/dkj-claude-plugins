@@ -54,9 +54,10 @@ the scoping clause on the control-URL bullet that is what a reader actually meet
 
 #### Where the report was not followed verbatim
 
-It calls the reset question a third *"beside the two the page already poses"*. Counted against the page,
-there is **one** question the author answers -- *is the change visible in the frontend / storefront?*,
-the last step under `### CREATE`. The subsection says SECOND rather than transcribing the report's two.
+It calls the reset question a third, *"in the same spirit as the two the page already poses"*. Counted
+against the page there is **one** question the AUTHOR answers -- *is the change visible in the frontend /
+storefront?*, the last step under `### CREATE`. The subsection says SECOND rather than transcribing the
+report's two.
 
 ### CREATE
 
@@ -67,6 +68,11 @@ the last step under `### CREATE`. The subsection says SECOND rather than transcr
       the question, and the measurement behind it.
 - [x] Name the reset in the *how to see the change* row of the handover table, beside the device and
       the viewport, so the rule is carried where a handover is actually assembled.
+- [x] Carry the rule into `README.md`'s chapter-three paragraph and its index row -- a reader working
+      from the index alone would otherwise not learn the reset step exists (Edith).
+- [x] Keep the measurement's provenance to the repo name and the date. The consumer's tracker numbers
+      were dropped: a public reader cannot open a private issue, so they carry no verifiability and
+      the argument does not turn on them (Sebastian, against CLAUDE.md's excerpt bound).
 - [~] No script or seam change. `Get-MarketHandoverPairs` builds URLs; a reset step is prose in the
       handover's own block and nothing mechanical can assemble it.
 - [~] No test. The repo's suites do not assert prose in a portable page, and the drift lint already
@@ -77,6 +83,7 @@ the last step under `### CREATE`. The subsection says SECOND rather than transcr
 - [x] `check-plugin-integrity.ps1` + all suites green (the lint gate `open-pr` runs).
 - [x] Anchor of the new subsection verified against the link that points at it.
 - [x] File re-checked as ASCII, LF, no BOM after editing (a PowerShell write had introduced both).
+- [x] Copy edit (Edith) and security review (Sebastian) on the diff; both passes applied.
 
 ### DEPLOY: docs/2238-handover-client-state-reset
 
@@ -85,9 +92,12 @@ control settles which THEME renders and settles nothing about what the browser R
 live share an origin, so they share `localStorage`, `sessionStorage`, IndexedDB and a feature's own
 cookie -- and a reviewer carrying a stored value sees the change in both tabs, which reads as the change
 being absent. Where the visible effect depends on persisted client state the handover now owes a reset
-step, in the *how to see the change* block, and the reset is a private window. The first consequence
-bullet under *What the control URL is* is scoped to say what it does and does not settle, because
-following it as written is what produced the undiscriminating handover this came from.
+step, in the *how to see the change* block, and the reset is a private window -- with the devtools
+fallback named as the weaker reset it is, since clearing one key leaves the same origin's cookies and
+IndexedDB standing. The first consequence bullet under *What the control URL is* is scoped to say what
+it does and does not settle, because following it as written is what produced the undiscriminating
+handover this came from. `README.md`'s chapter-three paragraph carries the rule too, so a reader
+working from the index learns the reset step exists.
 
 **Score:** 3
 
