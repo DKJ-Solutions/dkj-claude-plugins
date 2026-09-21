@@ -37,6 +37,23 @@ function Invoke-Script {
     return [pscustomobject]@{ Code = $LASTEXITCODE; Out = ($out -join "`n") }
 }
 
+# A CHILD THAT EXITED NON-ZERO AND SAID NOTHING NEVER RAN THE SCRIPT (#2239). Every failure path of
+# bootstrap.ps1 is loud: its own `exit 1` branches write a line first, and an error it throws goes to
+# stderr, which under this suite's 'Stop' aborts Invoke-Script itself with a NativeCommandError (measured
+# here, on a probe child that threw). So a non-zero exit with an EMPTY capture is not the code under
+# test failing, it is the process being refused or killed (on Windows a killed child reads exit 1 with
+# nothing on either stream). Measured once under the 22-lane gate, on a suite that passed 223 asserts
+# standalone minutes later: `bootstrap failed (exit 1):` followed by nothing. Same signature as #2121's
+# pool-scale reading, where the suites that fail are the ones that spawn children.
+# So the fixture is built AGAIN, once, from scratch, on that state alone. A real defect in the bootstrap
+# is never silent, so it is never retried and the first failure stands; and the retry is announced, so a
+# pool run that needed one is countable instead of invisible -- the n=5 this repo asks of a verdict that
+# moves under load is only collectable if each occurrence leaves a line.
+function Test-SilentChildFailure {
+    param($Result)
+    return ($Result.Code -ne 0 -and [string]::IsNullOrWhiteSpace([string]$Result.Out))
+}
+
 # Builds a consumer with its OWN CLAUDE.md content, then bootstraps it. -ExtraClaudeMdLines lets a case
 # add lines the bootstrap did not write, which is how the unrelated-@-import case is built.
 # EVERY FIXTURE IN THIS SUITE ENABLES BOTH PLUGINS SINCE AUGUST 8, 2026. The suite is about a consumer
@@ -46,21 +63,31 @@ function Invoke-Script {
 # never enabled the workflow plugin -- branch-info.ps1 is that pack's file and is not placed without it --
 # so a single-plugin fixture would leave three assertions passing vacuously. The core-only shape is
 # covered in bootstrap-drift.tests.ps1 instead of being folded in here.
+# A silent child is built again once (Test-SilentChildFailure above); anything the child said stands.
 function New-BootstrappedConsumer {
     param([string[]]$ExtraClaudeMdLines = @())
-    if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture }
-    New-Item -ItemType Directory -Path (Join-Path $Fixture '.claude') -Force | Out-Null
-    [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude\settings.json'),
-        '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true, "dkj-policy@dkj-claude-plugins": true } }')
-    $md = @('# CLAUDE.md - my own project', '', '## Conventions', '', '- Feature work goes on a branch.') + $ExtraClaudeMdLines
-    [System.IO.File]::WriteAllLines((Join-Path $Fixture 'CLAUDE.md'), $md)
-    $prevPlugin = $env:CLAUDE_PLUGIN_ROOT
-    $env:CLAUDE_PLUGIN_ROOT = $Plugin
-    try {
-        $r = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $Fixture)
-        if ($r.Code -ne 0) { throw "bootstrap failed (exit $($r.Code)): $($r.Out)" }
-    } finally { $env:CLAUDE_PLUGIN_ROOT = $prevPlugin }
-    return $Fixture
+    $r = $null
+    foreach ($attempt in 1, 2) {
+        if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture }
+        New-Item -ItemType Directory -Path (Join-Path $Fixture '.claude') -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude\settings.json'),
+            '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true, "dkj-policy@dkj-claude-plugins": true } }')
+        $md = @('# CLAUDE.md - my own project', '', '## Conventions', '', '- Feature work goes on a branch.') + $ExtraClaudeMdLines
+        [System.IO.File]::WriteAllLines((Join-Path $Fixture 'CLAUDE.md'), $md)
+        $prevPlugin = $env:CLAUDE_PLUGIN_ROOT
+        $env:CLAUDE_PLUGIN_ROOT = $Plugin
+        try {
+            $r = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $Fixture)
+        } finally { $env:CLAUDE_PLUGIN_ROOT = $prevPlugin }
+        if ($r.Code -eq 0) { return $Fixture }
+        if ($attempt -eq 1 -and (Test-SilentChildFailure $r)) {
+            Write-Host "  [NOTE] bootstrap child exited $($r.Code) and printed nothing -- it never ran; building the fixture again, once (#2239)" -ForegroundColor Yellow
+            continue
+        }
+        break
+    }
+    $why = if (Test-SilentChildFailure $r) { ', and it printed nothing on both attempts' } else { '' }
+    throw "bootstrap failed (exit $($r.Code)$why): $($r.Out)"
 }
 
 function Get-LensCount {
@@ -74,6 +101,68 @@ function Get-ImportCount {
 
 try {
     Write-Host "== teardown.tests: specialists-teardown ==" -ForegroundColor Cyan
+
+    # --- 0. The silent-child predicate, against REAL children (#2239) ---------------------------------
+    #     The retry in New-BootstrappedConsumer is only as honest as the state that triggers it, and a
+    #     hand-built object would prove the predicate agrees with itself. So the three states are real
+    #     powershell.exe exits, read through the same Invoke-Script shape the suite uses: a child that
+    #     dies without a word (what a killed one looks like) is silent; one that fails WITH a message is
+    #     not, which is what keeps a genuine bootstrap defect from ever being retried; a clean exit is not.
+    #     (A child that THROWS is not probed: its stderr aborts Invoke-Script under this suite's 'Stop',
+    #     which is loud and never reaches the predicate -- the reason a real defect cannot look silent.)
+    $probeDir = Join-Path ([System.IO.Path]::GetTempPath()) "specialists-teardown-probe-$PID-$([guid]::NewGuid().ToString('n'))"
+    New-Item -ItemType Directory -Path $probeDir -Force | Out-Null
+    try {
+        $probes = @(
+            @{ Name = 'silent'; Body = 'exit 1';                            Silent = $true  },
+            @{ Name = 'spoke';  Body = 'Write-Host "it said why"; exit 1';  Silent = $false },
+            @{ Name = 'clean';  Body = 'exit 0';                            Silent = $false }
+        )
+        foreach ($probe in $probes) {
+            $probePath = Join-Path $probeDir "$($probe.Name).ps1"
+            [System.IO.File]::WriteAllText($probePath, $probe.Body)
+            $pr = Invoke-Script -Path $probePath
+            Assert-Equal $probe.Silent (Test-SilentChildFailure $pr) "silent-child predicate: a '$($probe.Name)' child reads as silent=$($probe.Silent) (exit $($pr.Code))"
+        }
+
+        # The retry itself, both sides of it, by pointing $Bootstrap at a wrapper for the duration. One that
+        # goes silent on its first call and delegates to the real bootstrap after that must yield a real
+        # fixture; one that SPEAKS and fails must throw with what it said, after exactly one call.
+        $realBootstrap = $Bootstrap
+        $calls = Join-Path $probeDir 'calls.txt'
+        try {
+            $flaky = Join-Path $probeDir 'flaky-bootstrap.ps1'
+            [System.IO.File]::WriteAllText($flaky, (@'
+param([string]$ConsumerRoot)
+Add-Content -LiteralPath '@CALLS@' -Value 'call'
+if (@(Get-Content -LiteralPath '@CALLS@').Count -lt 2) { exit 1 }
+& '@REAL@' -ConsumerRoot $ConsumerRoot
+exit $LASTEXITCODE
+'@).Replace('@CALLS@', $calls).Replace('@REAL@', $realBootstrap))
+            $Bootstrap = $flaky
+            New-BootstrappedConsumer | Out-Null
+            Assert-Equal 2 @(Get-Content -LiteralPath $calls).Count 'silent-child retry: a bootstrap that went silent once is called a second time'
+            Assert-True ((Get-LensCount) -gt 0) 'silent-child retry: and the second call leaves a real fixture (lenses placed)'
+
+            Remove-Item -LiteralPath $calls -Force
+            $loud = Join-Path $probeDir 'loud-bootstrap.ps1'
+            [System.IO.File]::WriteAllText($loud, (@'
+param([string]$ConsumerRoot)
+Add-Content -LiteralPath '@CALLS@' -Value 'call'
+Write-Host 'bootstrap says: no'
+exit 1
+'@).Replace('@CALLS@', $calls))
+            $Bootstrap = $loud
+            $threw = $null
+            try { New-BootstrappedConsumer | Out-Null } catch { $threw = $_.Exception.Message }
+            Assert-Equal 1 @(Get-Content -LiteralPath $calls).Count 'silent-child retry: a bootstrap that SPOKE and failed is called once and never retried'
+            Assert-True ($threw -match 'bootstrap failed \(exit 1\)' -and $threw -match 'bootstrap says: no') 'silent-child retry: and the failure carries what the child said'
+        } finally {
+            $Bootstrap = $realBootstrap
+        }
+    } finally {
+        Remove-Item -Recurse -Force -LiteralPath $probeDir -ErrorAction SilentlyContinue
+    }
 
     # --- 1. Dry run is genuinely dry -----------------------------------------------------------------
     #     The default. A destructive script that runs on somebody's repo must not act unasked, and the

@@ -186,6 +186,13 @@ sets a cookie, so after a preview has been opened the bare URL keeps serving the
 control tab silently agrees with the preview, and the reviewer concludes nothing changed. Measured, with
 the two neighbouring wrong answers, in [`PREVIEW-portable.md`](PREVIEW-portable.md).
 
+**And pinning that control settles the THEME, not the feature's own STATE.** Preview and live share an
+origin, so they share `localStorage`, `sessionStorage`, IndexedDB and a feature's own cookie -- and a
+reviewer who has used the feature before carries a stored value into both tabs, which agree again for a
+second reason the pinned control does not touch. So where what the reviewer must see depends on
+persisted client state, the handover owes a **reset step** -- a private window -- named in the same
+block as the device and the viewport. Measured too, in the same page.
+
 **And the pair is handed over as ONE LINK to a published page, never as a table of URLs** (inbound
 [#1873](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1873), the same day and the same
 handover as the rule above). Pairing the URLs doubles them, and five markets by two variants is ten
@@ -204,7 +211,7 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 |---|---|
 | [`WORKFLOW-portable.md`](WORKFLOW-portable.md) | chapter one in prose -- ticket handling, read alongside your repo's own Asana config |
 | [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md) | chapter two in prose -- what a `sync/` branch owes, where the record lands, and what it stays out of |
-| [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id, and why the whole pair travels as one link rather than a table |
+| [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id and what that still does not settle, when the handover owes a client-state reset, and why the whole pair travels as one link rather than a table |
 | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | chapter four in prose -- the push-then-cut order and what it makes the backup MEAN, the three standing approvals for deleting a theme and their bounds, and why the delete set is a prefix this repo wrote |
 | [`scripts/`](scripts/) | the mechanism both stores share, to **dot-source** from the plugin cache rather than copy -- see [What this plugin owns](#what-this-plugin-owns) |
 | [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |

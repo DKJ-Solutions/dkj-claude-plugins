@@ -44,7 +44,216 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**6 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2247-foreign-text-registry-sweep · 20260921-224745
+
+The registry of every console this workflow prints foreign text to -- in
+[`new-branch`'s skill page](../plugins/dkj-policy/skills/new-branch/SKILL.md) -- goes from **seven
+entries to thirteen**, after the first sweep anybody ran on purpose. #2247 reported one missing site and
+suggested a sweep might be the right repair; it was. Entry 8 is `adopt-ci-floor.ps1`, the reported one.
+Entry 9 is the find that mattered: `check-report-lib.ps1`'s `Format-SafeToken` family is a **fourth
+hand-typed strip mechanism**, a `\p{C}` pattern with its own three-issue lineage and thirteen caller
+files across `scripts/lint/`, `scripts/sync/`, `scripts/task/` and `scripts/maintenance/`, and it had
+been invisible for as long as the list existed. Entries 10 to 13 are a branch document's own prose
+quoted back at it, GitHub's required-check names, `check-fanout`'s shrinkage report, and
+`check-consumer-siblings.ps1`. Entries 1 and 4 are edited rather than duplicated, per the page's own
+rule that a new caller inside a listed site is an edit to that entry: `park-cycle.ps1` relays entry 1's
+value and prints entry 4's, `tidy-machine.ps1` prints entry 4's, and entry 4 had a value it never named
+at all -- `sync-main.ps1`'s raw `$rel`.
+
+**#2247's own premise was false, and the page now says so.** It asserted the site it reported was fully
+guarded and that "nothing is exploitable today"; reading that site instead of the report about it found
+two raw, uncapped values beside the guarded ones -- one of them sharing a line with a value #2247 had
+checked and called safe. The repair for those is **#2248**, deliberately not on this branch: this one
+makes the list true, not the scripts safe. The closing overclaim -- that a reader "now has the list" --
+is retired for the same reason the sentence before it was: a reader has, at most, every place found so
+far. Growing three to seven incidentally and seven to thirteen in one deliberate pass argues the
+technique works, not that it is exhausted.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a maintenance registry inside a skill page this workflow ships. Its reader is whoever audits
+where this workflow prints somebody else's characters, which is this repo's own kind of reader; a
+subscriber of a service notices nothing about it. The two unguarded sites it now names are real, but
+what a consumer would notice is their repair, and that is #2248 rather than this change.
+
+**Score:** N/A
+
+#### Pull Request
+
+The foreign-text print registry goes from seven sites to thirteen, after the first deliberate sweep
+
+Plugins: dkj-policy
+
+[PR #2256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2256)
+
+---
+
+### DEPLOY: feat/2236-adoption-gap-reported · 20260921-221327
+
+Every `adopt-*` command is safe to re-run and correctly finds nothing to do, and that is exactly why
+nothing told an already-adopted repo when one of them GAINED a file. The script-contract session check now
+reads which files each adoption part places and forwards what is missing as a non-counting `[UNADOPTED]`
+line, wording a part that has *some* of its files ("has been run here and has since GAINED a file", naming
+when that file joined) apart from one that has none. Two guards keep it from being a nag -- silent in a repo
+with no workflow folder, and in the repo that publishes this workflow -- and a repo that decided against a
+part names it in `Get-DeclinedAdoptions` to answer the line for good.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer learns at their next session start that part of their CI floor is missing, which until now they
+could learn only by running the command they did not know existed. Measured in one: `xoxowildhearts` had
+Part 1's entry gate and none of Part 3's three runners, so neither its fold nor its resolves verification
+could survive a merge its shipping session never observed, with every check green throughout. The register's
+own detector could not see it, being any-or-none rather than per-command.
+
+**Score:** 4
+
+#### Pull Request
+
+A consumer's session reports which adopt-* steps its tree is missing
+
+Plugins: dkj-policy
+
+[PR #2254](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2254)
+
+---
+
+### DEPLOY: fix/2233-gate-lane-stdin · 20260921-203304
+
+A test-gate lane is no longer handed the gate's own stdin. `Invoke-TestSuiteGate` redirected stdout and
+stderr and said nothing about stdin, so every suite inherited the gate's handle and passed it on to
+whatever it spawned. Where the gate itself runs under a pipe nobody closes, a child that reads stdin to
+end-of-stream blocked forever -- zero CPU, no output, no error -- and #1941's per-suite deadline then
+converted that into a 30-minute red naming a timeout rather than a defect. Each lane now gets an empty
+file instead, at both spawn sites, so the read returns at once. Measured on the three suites that
+wedged: all three now pass through the gate under exactly the condition that wedged them, the slowest
+in 70s against a 30-minute refusal.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Anyone running this workflow's own gate gets it: `open-pr` could not open a pull request at all on a
+machine in this state, and the half-hour it took to refuse is the shape that gets a gate bypassed by
+habit rather than by decision. The repair is at the pool, so it covers every suite at once rather than
+the three that happened to be caught.
+
+**Score:** 3
+
+#### Pull Request
+
+A test-gate lane no longer hands its suite the gate's own stdin
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2251](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2251)
+
+---
+
+### DEPLOY: fix/2239-teardown-suite-pool-flake · 20260921-200553
+
+`teardown.tests.ps1` no longer fails the gate when a child `powershell.exe` dies without a word while the
+suite is building a fixture. It builds the fixture again once, prints a `[NOTE]` line so the occurrence is
+counted rather than invisible, and lets anything the child actually said stand as the failure.
+
+The cause of the child dying is not established: the failure was seen once in two pool runs at 22 lanes
+and was not reproduced. If a `[NOTE]` line ever shows up in a gate log, that is the next data point, and
+with it the n=5 this repo asks for before a moving verdict is trusted.
+
+**Score:** 1 -- prevents a failure that has already happened once: a red gate on a tree nobody touched,
+found while measuring the gate for #2232.
+
+#### What makes this deploy extra special
+
+Nothing here reaches a consumer; it is one test suite. What it adds for the next reader is the argument for
+why retrying is safe here and would not be for the general case: the retry keys on a state the code under
+test cannot produce (a silent non-zero exit), so it cannot hide a real defect.
+
+**Score:** N/A -- this reaches nobody outside this repo; the suite is not plugin payload.
+
+#### Pull Request
+
+teardown.tests.ps1 builds its fixture again once when the bootstrap child dies silent
+
+[PR #2244](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2244)
+
+---
+
+### DEPLOY: docs/2238-handover-client-state-reset · 20260921-191234
+
+`PREVIEW-portable.md` now states the second question a preview handover owes its reader: pinning the
+control settles which THEME renders and settles nothing about what the browser REMEMBERS. Preview and
+live share an origin, so they share `localStorage`, `sessionStorage`, IndexedDB and a feature's own
+cookie -- and a reviewer carrying a stored value sees the change in both tabs, which reads as the change
+being absent. Where the visible effect depends on persisted client state the handover now owes a reset
+step, in the *how to see the change* block, and the reset is a private window -- with the devtools
+fallback named as the weaker reset it is, since clearing one key leaves the same origin's cookies and
+IndexedDB standing. The first consequence bullet under *What the control URL is* is scoped to say what
+it does and does not settle, because following it as written is what produced the undiscriminating
+handover this came from. `README.md`'s chapter-three paragraph carries the rule too, so a reader
+working from the index learns the reset step exists.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a portable page this plugin ships to BWJ's stores. The reader is whoever builds a preview
+handover there, which is this repo's own kind of reader one hop out, and no subscriber of a service
+notices a rule about how a review link is assembled.
+
+**Score:** N/A
+
+#### Pull Request
+
+A handover owes a client-state reset when the visible effect depends on persisted browser state
+
+Plugins: dkj-policy-bwj
+
+[PR #2246](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2246)
+
+---
+
+### DEPLOY: fix/2224-stale-clone-import-remediation · 20260921-182435
+
+`check-roster-sync`'s dead-import finding used to close with `Repair the path`, and named only causes
+that imply the roster path is wrong. For a `~/`-relative import that is the wrong instruction: such a
+path resolves into the machine-wide marketplace clone, which tracks the trunk and advances on
+`claude plugin marketplace update` alone -- not on a release, a push or a `plugin update`. So the
+likeliest cause is a stale clone, and editing the path reverts one that is already correct. Measured
+here on September 20, 2026: the persona rename of #2128 had landed on the trunk while this machine's
+clone sat 510 commits back, the orchestrator's body was silently absent from every session, and the
+finding pointed at the one file that carries the rename. The finding now splits by import class --
+the clone class leads with the refresh and makes the edit conditional on it failing, the in-tree class
+is unchanged because a refresh cannot help it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The check ships to every consumer, and the rename it misdiagnoses is live right now: `INSTALL.md`
+walks consumers through exactly this import-line migration, so a consumer whose clone has not caught
+up meets this finding at session start and is told to undo the edit the guide just asked them to make.
+Following it costs them the orchestrator in both directions -- the old path is dead after the refresh,
+the new one before it -- with nothing reporting either state. The repair is wording only: no gate
+changes, no behaviour beyond which sentence the reader acts on.
+
+**Score:** 3
+
+#### Pull Request
+
+A dead marketplace import no longer tells you to edit the path when the clone is simply stale
+
+Plugins: dkj-subagents-alpha
+
+[PR #2245](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2245)
+
+---
 
 ### DEPLOY: docs/2232-gate-wall-clock · 20260921-150342
 
