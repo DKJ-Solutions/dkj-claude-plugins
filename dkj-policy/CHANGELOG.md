@@ -44,7 +44,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2224-stale-clone-import-remediation · 20260921-182435
+
+`check-roster-sync`'s dead-import finding used to close with `Repair the path`, and named only causes
+that imply the roster path is wrong. For a `~/`-relative import that is the wrong instruction: such a
+path resolves into the machine-wide marketplace clone, which tracks the trunk and advances on
+`claude plugin marketplace update` alone -- not on a release, a push or a `plugin update`. So the
+likeliest cause is a stale clone, and editing the path reverts one that is already correct. Measured
+here on September 20, 2026: the persona rename of #2128 had landed on the trunk while this machine's
+clone sat 510 commits back, the orchestrator's body was silently absent from every session, and the
+finding pointed at the one file that carries the rename. The finding now splits by import class --
+the clone class leads with the refresh and makes the edit conditional on it failing, the in-tree class
+is unchanged because a refresh cannot help it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The check ships to every consumer, and the rename it misdiagnoses is live right now: `INSTALL.md`
+walks consumers through exactly this import-line migration, so a consumer whose clone has not caught
+up meets this finding at session start and is told to undo the edit the guide just asked them to make.
+Following it costs them the orchestrator in both directions -- the old path is dead after the refresh,
+the new one before it -- with nothing reporting either state. The repair is wording only: no gate
+changes, no behaviour beyond which sentence the reader acts on.
+
+**Score:** 3
+
+#### Pull Request
+
+A dead marketplace import no longer tells you to edit the path when the clone is simply stale
+
+Plugins: dkj-subagents-alpha
+
+[PR #2245](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2245)
+
+---
 
 ### DEPLOY: docs/2232-gate-wall-clock · 20260921-150342
 
