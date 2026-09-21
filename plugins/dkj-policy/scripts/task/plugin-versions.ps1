@@ -140,6 +140,11 @@ function Resolve-Clone {
         Dir           = $dir
         Exists        = [bool]($dir -and (Test-Path -LiteralPath $dir -PathType Container))
         IsGit         = $false
+        # SHALLOW IS A SEPARATE FACT FROM 'IS A GIT REPO' (#2218). A depth-1 clone is a real git repo
+        # with a real HEAD and a real ancestry test -- one that can only ever answer "no" about any
+        # commit but HEAD, because there IS no other commit in it. The verdict layer needs to know
+        # which of the two it holds, so it can tell an absent commit from an unanswerable question.
+        IsShallow     = $false
         Head          = ''
         HeadDate      = ''
         FetchTime     = ''
@@ -162,6 +167,25 @@ function Resolve-Clone {
         if ($h.ExitCode -eq 0) { $info.Head = (@($h.Output) -join "`n").Trim() }
         $d = Invoke-CloneGit -CloneDir $dir -GitArgs @('log', '-1', '--format=%cI', 'HEAD')
         if ($d.ExitCode -eq 0) { $info.HeadDate = (@($d.Output) -join "`n").Trim() }
+        # ONE CALL, WITH A FILE TEST BEHIND IT. 'rev-parse --is-shallow-repository' is the direct
+        # answer but only exists since git 2.15; '.git/shallow' is the file it reads and has marked a
+        # shallow clone for far longer. So an older git falls back to the file rather than answering
+        # 'not shallow' by default -- which is exactly the mis-reading this field exists to stop.
+        #
+        # AND THE FALLBACK COMPOSES ITS PATH SEGMENT BY SEGMENT, unlike the FETCH_HEAD read below,
+        # which spells its separator (Sebastian and Edith, independently, on this branch). The
+        # difference is what a wrong answer costs: a missed FETCH_HEAD drops one informational field
+        # off the clone line, while a missed '.git/shallow' makes a shallow clone read as DEEP --
+        # which is this branch's own bug, arriving through its own fallback. A fallback may fail
+        # closed; it may not fail open into the defect it sits behind. It is also the line this
+        # script's skill page points at when it promises that every path here is composed with
+        # Join-Path.
+        $sh = Invoke-CloneGit -CloneDir $dir -GitArgs @('rev-parse', '--is-shallow-repository')
+        if ($sh.ExitCode -eq 0) {
+            $info.IsShallow = ((@($sh.Output) -join "`n").Trim() -ieq 'true')
+        } else {
+            $info.IsShallow = (Test-Path -LiteralPath (Join-Path (Join-Path $dir '.git') 'shallow') -PathType Leaf)
+        }
     }
     if (-not $info.Head) {
         $gcs = Join-Path $dir '.gcs-sha'
@@ -513,7 +537,73 @@ foreach ($id in $ids) {
             }
         } else {
             $existsInClone = (Invoke-CloneGit -CloneDir $clone.Dir -GitArgs @('rev-parse', '-q', '--verify', "$instSha^{commit}")).ExitCode -eq 0
-            if (-not $existsInClone) {
+            if (-not $existsInClone -and $clone.IsShallow) {
+                # A SHALLOW CLONE CANNOT BE ASKED THIS QUESTION, AND ITS "NO" IS NOT EVIDENCE (#2218).
+                # 'claude plugin marketplace update' does not fast-forward the clone -- it prints
+                # "Replacing the existing marketplace clone..." and re-clones at DEPTH 1. A depth-1
+                # clone holds exactly one commit, so every install sha other than the current HEAD is
+                # absent from it BY CONSTRUCTION, whatever the install's real relation to the clone.
+                # The sibling branch below reads that absence as a fact about the two sides and
+                # concludes "the clone is stale, or your install predates a history rewrite" -- and
+                # both halves were measured false in the source repo on September 20, 2026, seconds
+                # after a refresh, on 6 of 7 plugins at the SAME version on both sides. Worse, the
+                # command it then prescribed is the one that produced the state, so the advice looped
+                # and could never clear itself.
+                #
+                # SO THE VERSION STRINGS ARBITRATE ALONE HERE, and the verdict says WHY it cannot say
+                # more. That is not a weaker answer than the ancestry: 'claude plugin update'
+                # arbitrates on the version string too (measured, #1772), so where the versions agree
+                # there is nothing for any command to close, and where they differ the direction they
+                # give is the same direction the ancestry would have given.
+                #
+                # WHAT IS DELIBERATELY NOT CLAIMED is the 'unreleased' verdict of the deep-clone
+                # branch below. That one states that the clone holds NEWER commits carrying the same
+                # version, which is an ancestry fact -- true here far more often than not, and
+                # unanswerable from a clone with one commit in it. Saying "versions match, ancestry
+                # unanswerable" is the whole of what this run knows.
+                $verCmp = Compare-Version -A $instVer -B $cloneVer
+                if ($null -ne $verCmp -and $verCmp -lt 0) {
+                    $code = 'behind'
+                    $verdict = "the clone is AHEAD of your install ($instVer -> $cloneVer); the clone is SHALLOW, so its history says nothing about your install's commit"
+                    $action = "claude plugin update $idTok --scope $updScope"
+                } elseif ($null -ne $verCmp -and $verCmp -gt 0) {
+                    $code = 'clone-behind'
+                    $verdict = "your install ($instVer) is AHEAD of the clone ($cloneVer) -- the clone is stale (it is also SHALLOW, so its history says nothing about your install's commit)"
+                    $action = "claude plugin marketplace update $mpTok"
+                } elseif ($null -ne $verCmp) {
+                    # SETTLED HERE, UNSETTLED IN THE NON-GIT SIBLING ABOVE, and the divergence is
+                    # deliberate (Victor, on this branch). The two states look identical from the
+                    # inside -- equal versions, differing shas, an ancestry nothing can read -- and
+                    # what tells them apart is what the next run would DO about it:
+                    #
+                    #   * a refresh of a non-git fetch can genuinely bring a newer tree, so
+                    #     'cannot determine' there leaves a real question open and points at a real
+                    #     command;
+                    #   * a refresh of a shallow clone re-clones it shallow, so the question cannot
+                    #     be reopened by anything the reader can run.
+                    #
+                    # AND THE SECOND IS UNIVERSAL AND PERMANENT: every consumer is in it after every
+                    # marketplace refresh, for every plugin. Reporting it as undetermined would put an
+                    # [INFO] on every plugin at every session start, in the most ordinary state there
+                    # is -- the noise the -Brief split exists to prevent, and the exact shape #1772
+                    # already had to unwind once.
+                    $code = 'ver-match'
+                    $verdict = "versions match ($instVer); the recorded shas differ, but the clone is SHALLOW -- it holds one commit, so its history says nothing about your install's commit"
+                    $action = "nothing to run -- the versions are equal, which is all 'claude plugin update' arbitrates on, and refreshing the clone re-clones it shallow again"
+                } else {
+                    # NO COMMAND HERE, and that is load-bearing rather than modest (Victor, on this
+                    # branch). The row keeps the 'indeterminate' default, and the -Brief split's own
+                    # rule is that an [ERROR] is "the only verdict a reader closes with a command here
+                    # and now" -- which the not-installed branch above cites as its whole ground for
+                    # having a code of its own. A command handed over from an indeterminate row would
+                    # make that sentence false elsewhere in this same file, for a state nothing can
+                    # repair from here anyway: the version this run could not read sits in a file it
+                    # only reads, and refreshing the clone re-clones it shallow again.
+                    $missingSide = if (-not $instVer) { 'no version recorded for your install' } else { "no version in the clone's plugin.json" }
+                    $verdict = "cannot determine -- the clone is SHALLOW, so its history says nothing about your install's commit, and $missingSide, so the version strings cannot arbitrate either"
+                    $action = "nothing to run -- refreshing the clone re-clones it shallow and changes nothing here; the missing version is what would have to become readable"
+                }
+            } elseif (-not $existsInClone) {
                 $verCmp = Compare-Version -A $instVer -B $cloneVer
                 if ($null -ne $verCmp -and $verCmp -lt 0) {
                     $code = 'behind'
@@ -806,6 +896,11 @@ foreach ($mp in $marketplaces) {
         if ($c.HeadDate) { $bits += "committed $($c.HeadDate)" }
         if ($c.FetchTime) { $bits += "last fetch $($c.FetchTime)" }
         if (-not $c.IsGit) { $bits += "non-git fetch" }
+        # THE ONE BIT THAT EXPLAINS A VERDICT RATHER THAN DESCRIBING THE CLONE (#2218). Every row
+        # below that says "the clone is SHALLOW" is saying it about this clone, and without this the
+        # reader has no way to check that claim short of running git themselves -- while a reader who
+        # has just been told the ancestry is unanswerable is exactly the one who will want to.
+        if ($c.IsShallow) { $bits += "shallow clone" }
         Write-Host "  clone '$mpLabel': $dirLabel  [$($bits -join ', ')]" -ForegroundColor DarkGray
     } else {
         Write-Host "  clone '$mpLabel': not present ($dirLabel)" -ForegroundColor DarkGray

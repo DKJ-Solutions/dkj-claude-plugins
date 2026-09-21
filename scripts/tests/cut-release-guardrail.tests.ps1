@@ -233,6 +233,21 @@ Assert-True ($plannedBlock.Success -and $plannedBlock.Value -match 'noteRelPath'
 # leaving it out of the pre-flight would let a re-cut clobber a published Release body without a word.
 Assert-True ($plannedBlock.Success -and $plannedBlock.Value -match 'bodyRelPath') `
     'the generated GitHub Release body is guarded too, at every release'
+# THE RELEASE NAME IS DERIVED FROM THE TAG, NEVER COMPOSED AT THE CUT (Dave, September 21, 2026). The
+# printed command carried a '<short title>' placeholder, so what a release was CALLED depended on the
+# sentence whoever ran the cut invented at that moment -- an authoring decision at the most expensive
+# step of the procedure, and the one artefact here that no gate could check.
+#
+# BOTH HALVES ARE ASSERTED, because they fail in opposite directions and each is silent on its own. A
+# line that stops naming the fixed form is the plain regression; a placeholder creeping back in beside
+# it is how the old habit returns while a name-only assert still passes. Static, like its neighbours:
+# the line is printed for a person to paste, so there is no run that could observe it.
+$createLine = [regex]::Match($cutReleaseText, '(?m)^\s*Write-Host\s+"\s+gh release create .*$')
+Assert-True $createLine.Success 'found the printed gh release create line in cut-release.ps1'
+Assert-True ($createLine.Value -match 'Release Version \$tagName') `
+    'the printed command names the release "Release Version <tag>", derived from the tag and nothing else'
+Assert-True ($createLine.Value -notmatch 'short title') `
+    'and carries no placeholder inviting a composed title'
 # THE TIER-0 NOTES' LINK PREFIX IS DERIVED, NOT DEFAULTED (issue #914, August 26, 2026). Build-ReleaseNotes
 # defaults $LinkPrefix to '../../../', the depth of a root sitting directly under releases/ -- and #914 moved
 # this repo's root one level deeper, into dkj-policy/. The call had been relying on that default

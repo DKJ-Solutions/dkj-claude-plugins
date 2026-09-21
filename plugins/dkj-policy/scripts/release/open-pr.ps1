@@ -838,7 +838,25 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
     # decision table treats as "do not block" (it only warns).
     $openMentions = $null
     $openAll = $null
-    $mentions = @(Get-IssueMentions -Text $mentionText)
+    # WHAT THE BRANCH NAME DECLARES, FOLDED IN BESIDE WHAT THE DOCUMENT SAYS (issue #2225). The prose
+    # above is optional and -Resolves is memory; the branch name is where new-branch.ps1 PUTS the number
+    # when a branch is cut for an issue, and it was the one place nothing read. So a branch cut for an
+    # issue could merge closing nothing, with no backstop after the fact -- verify-resolved-issues.ps1
+    # checks the outcome of a closing keyword, and there was no keyword to check. Measured on
+    # fix/2183-reserved-root-md-seam-row -> PR #2211: the number appeared only inside the two headings
+    # that carry the branch name, so this gate and the already-done check below were both blind to it.
+    #
+    # Folded into $mentions rather than handled separately, because the decision table is already right:
+    # it refuses only when the issue is still OPEN and the PR declares neither -Resolves nor -NoResolves,
+    # so a branch that deliberately does not close its issue still has -NoResolves as the escape valve.
+    # Kept as its own variable as well, so the refusal below can say WHERE the number came from -- a
+    # gate that reports a "mention" the author cannot find in the document sends them hunting.
+    $docMentions = @(Get-IssueMentions -Text $mentionText)
+    $branchIssue = Get-BranchNameIssue -Branch $branch
+    # Only the numbers the DOCUMENT never names, so the refusal below can name their source without
+    # claiming the branch name is the only place a number a document also mentions came from.
+    $branchOnly = @(@($branchIssue) | Where-Object { $_ -gt 0 -and $docMentions -notcontains $_ })
+    $mentions = @(@($docMentions) + @($branchOnly) | Sort-Object -Unique)
     if ($mentions.Count -gt 0 -or $resolveList.Count -gt 0) {
         $openAll = Get-OpenIssueNumbers -Repo $repo
         if ($null -ne $openAll) {
@@ -859,9 +877,21 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
     if (-not $decision.Allowed) {
         $list = ($decision.Blocked | ForEach-Object { "#$_" }) -join ', '
         $flag = '-Resolves ' + (($decision.Blocked | ForEach-Object { "$_" }) -join ',')
+        # WHERE THE NUMBER CAME FROM, WHERE IT CAME FROM THE NAME (issue #2225). A refusal naming an
+        # issue "this branch mentions" sends the author to a document that does not mention it, so the
+        # one line that would settle the question is the one the message was missing.
+        #
+        # THE BRANCH NAME ITSELF IS NOT PRINTED, and that is this file's own standing decision rather
+        # than caution: it has never routed a ref through Get-DisplayRef (see the note at the foot of
+        # this script), so a new raw ref print here would be a fresh site of #1623's class. It costs
+        # nothing -- the number is named on the line above, and the author is standing on the branch.
+        $fromName = ''
+        if (@($branchOnly | Where-Object { $decision.Blocked -contains $_ }).Count -gt 0) {
+            $fromName = "`n(#$branchIssue comes from this branch's NAME, not from its document -- that is where a branch cut for an issue always carries the number, and this gate now reads it too.)`n"
+        }
         Write-Error @"
 resolves gate: this branch mentions open issue(s) $list, but the PR declares neither -Resolves nor -NoResolves - nothing pushed, no PR opened.
-
+$fromName
 A plain mention does not close anything: GitHub only auto-closes on a closing keyword, so without this the issue stays open after the merge (exactly what happened to eight findings across PRs #341-#343).
 
 Pick one:
@@ -879,7 +909,14 @@ Both are honest answers; the gate only refuses to guess.
     # one of two mentioned issues is a legitimate choice, but leaving the second unmentioned in the
     # output is how the original slip happened.
     if (@($decision.Undeclared).Count -gt 0) {
-        Write-Warning ("resolves gate: open issue(s) " + ((@($decision.Undeclared) | ForEach-Object { "#$_" }) -join ', ') + " are mentioned on this branch but are NOT closed by this PR. If that is deliberate (cited as context), nothing to do -- they simply stay open.")
+        # The same source note as the refusal above, for the same reason (issue #2225): an author told
+        # an issue is "mentioned on this branch" greps the document and finds nothing, and "cited as
+        # context" is not what a number in the branch name is.
+        $undeclaredFromName = ''
+        if (@($branchOnly | Where-Object { $decision.Undeclared -contains $_ }).Count -gt 0) {
+            $undeclaredFromName = " #$branchIssue is there because this branch's NAME carries it, not its document."
+        }
+        Write-Warning ("resolves gate: open issue(s) " + ((@($decision.Undeclared) | ForEach-Object { "#$_" }) -join ', ') + " are mentioned on this branch but are NOT closed by this PR. If that is deliberate (cited as context), nothing to do -- they simply stay open." + $undeclaredFromName)
     }
 
     # A number passed to -Resolves that is not an open issue is worth a word but not a block: it may
