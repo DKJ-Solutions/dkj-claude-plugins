@@ -517,10 +517,23 @@ a release for a missing timestamp would be ceremony rather than a guard.
 
    ```powershell
    # the --notes-file is the generated body; cut-release.ps1 printed this exact line for you
-   gh release create vX.Y.Z --title "vX.Y.Z - <short title>" --notes-file releases/github/<dir>/vX.Y.Z.md
+   gh release create vX.Y.Z --title "Release Version vX.Y.Z" --notes-file releases/github/<dir>/vX.Y.Z.md
    # copy each attachment to a UNIQUE filename first -- see the collision note below
    gh release upload vX.Y.Z <vX.Y.Z-development-notes.md> [<vX.Y.Z-notes-for-users.md>]
    ```
+
+   **The name is `Release Version vX.Y.Z` and nothing else** (Dave, September 21, 2026). This printed a
+   `<short title>` placeholder, so the release was named after whatever sentence the person cutting it
+   composed at that moment — an authoring decision taken at the most expensive step of the procedure, by
+   whoever happened to be there, with nothing able to check the result. Deriving the name from the tag
+   removes the decision rather than standardising it.
+
+   **The short description is NOT removed, and this is the distinction to hold on to.** It keeps its own
+   row: the first line of the generated body, and the last column of the release overview — which is
+   where `-Title` goes and always went (its own help has read *"short description of the release as a
+   whole"* throughout). So none of the release documents change; the sentence simply stopped being
+   printed into `--title` as well. A release with a genuinely useful sentence still carries it, one line
+   below its name.
 
    **Two attachments cannot share a filename, and all three tiers name their file `<X.Y.Z>.md`** — so
    uploading two of them straight from `releases/` fails. Measured at this repo's `v3.3.0`: the first
@@ -719,10 +732,12 @@ Claude Enterprise syncs, so colleagues without GitHub access receive the plugins
 
 ## A milestone release — `-SummaryFile`
 
-An ordinary release's notes are the diff since the last one: `-Title` gives it one sentence and the
-entries carry the detail — and where a release rolls up too many unrelated changes for one sentence to
-fit, a stable `Release version X.Y.Z` is a legitimate title rather than forced filler, since the
-entries and the attached notes carry everything regardless. A **milestone** is a different claim — the
+An ordinary release's notes are the diff since the last one: `-Title` gives it one descriptive sentence
+and the entries carry the detail — and where a release rolls up too many unrelated changes for one
+sentence to fit, **omit `-Title` altogether** rather than writing filler. The description row then reads
+`<Type> release`, the entries and the attached notes carry everything regardless, and the release's
+**name** is unaffected either way, being `Release Version vX.Y.Z` in every case since September 21, 2026.
+A **milestone** is a different claim — the
 arc across many releases, which fits in neither. `-SummaryFile <path>` puts an authored markdown block
 between the title line and the generated entries, closed off with a horizontal rule so a reader can see
 where the authored part stops and the per-PR record begins. Three things to know:
