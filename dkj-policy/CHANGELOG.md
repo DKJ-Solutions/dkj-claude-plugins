@@ -44,7 +44,68 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 6 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2233-gate-lane-stdin · 20260921-203304
+
+A test-gate lane is no longer handed the gate's own stdin. `Invoke-TestSuiteGate` redirected stdout and
+stderr and said nothing about stdin, so every suite inherited the gate's handle and passed it on to
+whatever it spawned. Where the gate itself runs under a pipe nobody closes, a child that reads stdin to
+end-of-stream blocked forever -- zero CPU, no output, no error -- and #1941's per-suite deadline then
+converted that into a 30-minute red naming a timeout rather than a defect. Each lane now gets an empty
+file instead, at both spawn sites, so the read returns at once. Measured on the three suites that
+wedged: all three now pass through the gate under exactly the condition that wedged them, the slowest
+in 70s against a 30-minute refusal.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Anyone running this workflow's own gate gets it: `open-pr` could not open a pull request at all on a
+machine in this state, and the half-hour it took to refuse is the shape that gets a gate bypassed by
+habit rather than by decision. The repair is at the pool, so it covers every suite at once rather than
+the three that happened to be caught.
+
+**Score:** 3
+
+#### Pull Request
+
+A test-gate lane no longer hands its suite the gate's own stdin
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2251](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2251)
+
+---
+
+### DEPLOY: fix/2239-teardown-suite-pool-flake · 20260921-200553
+
+`teardown.tests.ps1` no longer fails the gate when a child `powershell.exe` dies without a word while the
+suite is building a fixture. It builds the fixture again once, prints a `[NOTE]` line so the occurrence is
+counted rather than invisible, and lets anything the child actually said stand as the failure.
+
+The cause of the child dying is not established: the failure was seen once in two pool runs at 22 lanes
+and was not reproduced. If a `[NOTE]` line ever shows up in a gate log, that is the next data point, and
+with it the n=5 this repo asks for before a moving verdict is trusted.
+
+**Score:** 1 -- prevents a failure that has already happened once: a red gate on a tree nobody touched,
+found while measuring the gate for #2232.
+
+#### What makes this deploy extra special
+
+Nothing here reaches a consumer; it is one test suite. What it adds for the next reader is the argument for
+why retrying is safe here and would not be for the general case: the retry keys on a state the code under
+test cannot produce (a silent non-zero exit), so it cannot hide a real defect.
+
+**Score:** N/A -- this reaches nobody outside this repo; the suite is not plugin payload.
+
+#### Pull Request
+
+teardown.tests.ps1 builds its fixture again once when the bootstrap child dies silent
+
+[PR #2244](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2244)
+
+---
 
 ### DEPLOY: docs/2238-handover-client-state-reset · 20260921-191234
 
