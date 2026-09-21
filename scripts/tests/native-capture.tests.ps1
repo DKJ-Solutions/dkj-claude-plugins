@@ -761,6 +761,66 @@ try {
     Assert-True (@([regex]::Matches($gateBody, 'Write-GateCaptureBlock')).Count -ge 2) 'both of its capture-printing sites -- the pool and the crash re-run -- go through the helper'
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'Invoke-TestSuiteGate -- a lane is never handed the gate''s own stdin (#2233)' -ForegroundColor Cyan
+
+    # WHAT WENT WRONG. The pool redirected stdout and stderr and said nothing about stdin, so a lane
+    # INHERITED the gate's handle and every grandchild a suite started inherited it in turn. Where the
+    # gate itself runs under a pipe nobody closes, a child that reads stdin to end-of-stream blocks
+    # forever -- zero CPU, no output, no error -- and #1941's deadline then converts it into a
+    # 30-minute red naming a timeout rather than the defect. Measured on DAVE-KOK-BWJ: three suites,
+    # four gate runs, four lane counts, every one of the three children hook-shaped and reading a
+    # payload from stdin by design; all three passed standalone in seconds.
+    #
+    # PINNED ON THE SOURCE FIRST, because the behavioural assert below can only reach the spawn sites
+    # that exist today. The gate has had two since #1723 added the crash re-run, and that re-run is the
+    # dangerous one -- it waits UNBOUNDED, so a wedge there has no deadline to convert it into anything
+    # at all. A third site added later fails here rather than being found by nobody.
+    $gateSpawns = @([regex]::Matches($gateBody, '(?s)Start-Process -FilePath ''powershell''.*?(?=\r?\n\s*\$null = \$)'))
+    Assert-True ($gateSpawns.Count -ge 2) 'the gate still has both of its spawn sites -- the pool and the crash re-run'
+    $withoutStdin = @($gateSpawns | Where-Object { $_.Value -notmatch '-RedirectStandardInput' })
+    Assert-Equal 0 $withoutStdin.Count 'every Start-Process in the gate redirects stdin, so no lane can inherit the gate''s own handle'
+
+    # AND THEN THE MECHANISM ITSELF, because the source assert only proves the flag is typed. This runs
+    # the real pool over a fixture suite whose GRANDCHILD reads stdin to end-of-stream -- the shape that
+    # was measured, and strictly stronger than a suite reading it directly, since it also proves the
+    # empty handle is inherited down the tree. The gate is started from a parent holding stdin OPEN and
+    # never closing it: that is the condition, and without it the fixture reaches EOF for the wrong
+    # reason and the test passes while proving nothing.
+    $stdinFx = New-ScratchPath -Label 'gate-stdin-2233' -Directory
+    Set-Content -LiteralPath (Join-Path $stdinFx 'grandchild.ps1') -Encoding UTF8 -Value @'
+if ([Console]::IsInputRedirected) { $null = [Console]::In.ReadToEnd() }
+exit 0
+'@
+    Set-Content -LiteralPath (Join-Path $stdinFx 'stdin.tests.ps1') -Encoding UTF8 -Value @'
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'grandchild.ps1')
+exit $LASTEXITCODE
+'@
+    $stdinRunner = Join-Path $stdinFx 'run-gate.ps1'
+    Set-Content -LiteralPath $stdinRunner -Encoding UTF8 -Value @"
+. '$((Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1'))'
+`$ok = Invoke-TestSuiteGate -TestsDir '$stdinFx' -Context 'the #2233 fixture' -MaxParallel 1 -SuiteTimeoutSeconds 25
+Write-Output "GATE-VERDICT=`$ok"
+"@
+
+    # A BOUND ON THE OUTER WAIT TOO. The fixture's own suite bound is 25s, so a regression shows up as a
+    # red gate at ~25s; this only has to outlast that. A kill on the way out, because a wedged tree left
+    # behind is the very thing this suite is about.
+    $stdinPsi = New-Object System.Diagnostics.ProcessStartInfo
+    $stdinPsi.FileName  = 'powershell'
+    $stdinPsi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$stdinRunner`""
+    $stdinPsi.UseShellExecute        = $false
+    $stdinPsi.RedirectStandardInput  = $true    # opened, written to by nobody, and never closed
+    $stdinPsi.RedirectStandardOutput = $true
+    $stdinPsi.RedirectStandardError  = $true
+    $stdinProc = [System.Diagnostics.Process]::Start($stdinPsi)
+    $stdinOut  = $stdinProc.StandardOutput.ReadToEndAsync()
+    $stdinExited = $stdinProc.WaitForExit(120000)
+    if (-not $stdinExited) { Stop-NativeProcessTree -ProcessId $stdinProc.Id | Out-Null }
+    Assert-True $stdinExited 'the gate returns at all when its own stdin is an open handle nobody closes'
+    Assert-True ($stdinExited -and ($stdinOut.Result -match 'GATE-VERDICT=True')) `
+                'and it goes GREEN -- the lane''s grandchild read an empty stdin and exited instead of blocking on the gate''s handle'
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -- ShortRead is present on BOTH arms (#1679)' -ForegroundColor Cyan
 
     # THE PROMISE IS THE ONE TimedOut ALREADY MAKES: a caller reads one field without knowing which
