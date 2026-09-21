@@ -1541,7 +1541,26 @@ foreach ($af in $auditFiles) {
 # half that matters: the new sites are judged, not merely counted. The direction each one fails in is
 # deliberate too -- an unmeasurable gate, diff or backup is treated as a refusal, because the thing this
 # script stands in front of is a push to a live storefront.
-Assert-Equal 63 $boundedTotal 'the parser still counts 63 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+#
+# MOVED 63 -> 69 ON THE #2243 BRANCH, DELIBERATELY AND AUDITED. All six new sites are
+# scripts\task\claim-issue.ps1's, the claim-by-TAG mode, and they are six because that mode drives one
+# more read and three more writes than the assignee claim does:
+#   * $hostCapture, `hostname` -- the machine half of the tag where $env:COMPUTERNAME is empty. Bounded
+#     at 10s rather than at the network bound: it reaches no network, and a machine that cannot name
+#     itself must refuse quickly rather than hold the claim step open,
+#   * $list, `gh issue list` for -Candidates -- one read for the whole board rather than one per issue,
+#   * $comment, `gh issue comment` -- THE CLAIM ITSELF, and the one write whose failure means the issue
+#     is not claimed at all,
+#   * $del, the GraphQL deleteIssueComment behind -Release, and $unassign beside it, and
+#   * $raceRead, the read-back that settles a two-machine race on the tracker's timestamps.
+# EVERY ONE OF THE SIX ASKS Test-NativeExitMeasured ABOUT ITS OWN CAPTURE before it tests the code
+# against 0, which is why the companion assert below stayed green through the change -- the new sites
+# are judged, not merely counted. The direction each fails in is the claim's own: an unmeasurable READ
+# refuses ($list, because an unread backlog reading as empty would hand out claims on work six machines
+# already hold; $raceRead, because a race nobody could settle is not a race won), and an unmeasurable
+# WRITE stops without asserting what it could not measure -- re-running is safe, since a marker that did
+# land comes back as 'already-yours'.
+Assert-Equal 69 $boundedTotal 'the parser still counts 69 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
