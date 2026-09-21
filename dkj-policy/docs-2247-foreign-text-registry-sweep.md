@@ -82,9 +82,24 @@ That is the code half, and it is deliberately NOT in this branch -- filed as #22
       `function ConvertTo-ConsoleStrippedText`, which `check-report-lib.ps1` does not define, so entry 9
       is a gap that pin was never asked about and not a test the diff breaks
 - [x] Copy-edit pass on the diff: no blocking findings; three clarity fixes applied and re-verified
-The lint gate and the full suites are not a step of this branch -- `open-pr.ps1` runs both before it
-pushes, and it is the gate's own run that counts. A copy set going ahead of it proves nothing that run
-would not have caught.
+- [x] `check-plugin-integrity.ps1` green -- the lint gate passed on both full runs of `open-pr.ps1`
+- [~] The full local test gate was NOT run to completion. Two runs, 2,625s and 1,890s, both red on a
+      per-suite 1,800s timeout and neither on an assert:
+      - run 1 wedged `adopt-statusline`, `connectors` and `connector-sessioncheck` --
+        [#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233), the
+        redirected-but-never-closed stdin. This branch was cut before that repair landed; merging
+        `main` in (`264a5fad`, PR #2251) fixed it, and all three passed in run 2.
+      - run 2 crossed the bound on `check-plugin-integrity-docs.tests.ps1`, which is the pool's
+        dominant file (#2232 measured it at 415.5s on 24 idle cores) and takes 851s standalone here.
+        Filed as [#2255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2255) -- the
+        bound's stated 6x headroom is really ~2.1x on this machine, so contention crosses it.
+- [x] Every suite either run named, run STANDALONE on this checkout and green:
+      `adopt-statusline` 47 asserts, `connectors` 384 pass 0 fail, `connector-sessioncheck`
+      51 pass 0 fail, `check-plugin-integrity-docs` 188 asserts -- 670 asserts, zero failures.
+- [x] The diff is docs-only: one skill page and this branch document. No suite reads either.
+- [~] Pushed with `-SkipTests`. CI's required `lint-en-tests` runs the same gate and remains the
+      authority on the merge; on a hosted runner stdin is at EOF and the dominant file runs at 415.5s,
+      so neither local cause applies there.
 
 ### DEPLOY: docs/2247-foreign-text-registry-sweep
 
