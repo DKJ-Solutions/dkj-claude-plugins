@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2217-pretooluse-guards-fail-open · 20260921-092704
+
+Two guards this workflow ships -- the live-theme guard and the working-copy guard -- used to fail open:
+when PowerShell could not start (out of memory, a failed type initializer), no line of the guard ran and
+Claude Code let the command through. Their `hooks.json` entries are now a small bash wrapper that turns
+that failure into a refusal, but only for a call the guard exists for: a command naming a Shopify theme,
+or a dispatched subagent running git. Every other call behaves exactly as before, so a machine with an
+unhealthy PowerShell is not locked out. The wrapper assumes the hook shell is bash, the documented
+default wherever Git Bash is installed; a machine without it runs the hook in PowerShell, where the
+wrapper does not parse, so the guard does not run there.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store or a repo running the Shopify or policy plugin is now protected in the condition where its
+machine is least healthy: a `shopify theme publish` or a live push no longer goes through just because
+PowerShell ran out of memory at that moment, and a subagent's `git checkout` no longer reaches a
+checkout holding uncommitted work. Nobody notices this until the failure it prevents would have
+happened -- measured on smartwatchbanden, four start failures on one guard in the transcripts. The one
+subscriber who does notice something is a machine without Git Bash, whose guard stops running; that is a
+cost of the fix, and it lands only when the plugins are next updated.
+
+**Score:** 1
+
+#### Pull Request
+
+Both PreToolUse guards now fail closed when PowerShell cannot start, for the calls they exist for
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2223](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2223)
+
+---
 
 ### DEPLOY: feat/clean-release-title · 20260921-065510
 
