@@ -44,7 +44,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2238-handover-client-state-reset · 20260921-191234
+
+`PREVIEW-portable.md` now states the second question a preview handover owes its reader: pinning the
+control settles which THEME renders and settles nothing about what the browser REMEMBERS. Preview and
+live share an origin, so they share `localStorage`, `sessionStorage`, IndexedDB and a feature's own
+cookie -- and a reviewer carrying a stored value sees the change in both tabs, which reads as the change
+being absent. Where the visible effect depends on persisted client state the handover now owes a reset
+step, in the *how to see the change* block, and the reset is a private window -- with the devtools
+fallback named as the weaker reset it is, since clearing one key leaves the same origin's cookies and
+IndexedDB standing. The first consequence bullet under *What the control URL is* is scoped to say what
+it does and does not settle, because following it as written is what produced the undiscriminating
+handover this came from. `README.md`'s chapter-three paragraph carries the rule too, so a reader
+working from the index learns the reset step exists.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a portable page this plugin ships to BWJ's stores. The reader is whoever builds a preview
+handover there, which is this repo's own kind of reader one hop out, and no subscriber of a service
+notices a rule about how a review link is assembled.
+
+**Score:** N/A
+
+#### Pull Request
+
+A handover owes a client-state reset when the visible effect depends on persisted browser state
+
+Plugins: dkj-policy-bwj
+
+[PR #2246](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2246)
+
+---
 
 ### DEPLOY: fix/2224-stale-clone-import-remediation · 20260921-182435
 
