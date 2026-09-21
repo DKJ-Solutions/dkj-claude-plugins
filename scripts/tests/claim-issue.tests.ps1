@@ -1181,6 +1181,48 @@ Assert-True ($overlapScan.IndexOf('-Exclude $excludeBranches') -lt $overlapScan.
 Assert-True ($overlapScan -notmatch '(?m)^\s*exit\s') 'nothing in the title-overlap block exits'
 Assert-True ($overlapScan -notmatch '\$foreignParked') 'and it never sets the fourth signal flag the closing verdict reads'
 
+# ---------------------------------------------------------------------------------------------
+Write-Host 'structural: a gh that is not installed is neither re-asked nor mis-diagnosed (#2234)' -ForegroundColor Cyan
+
+# STRUCTURAL FOR THE REASON THE HEADER ALREADY GIVES, plus one more of its own: fixturing an absent gh
+# means a PATH with no gh on it, which is machine state rather than a shim -- and this suite touches no
+# tracker at all. What IS checkable is that the two properties travel with the code.
+#
+# THE SCRIPT USED TO DIE BEFORE PRINTING ANY VERDICT ON THIS MACHINE STATE. Invoke-NativeCapture threw
+# on a missing executable, under this script's own EAP='Stop', so the documented 'no account' refusal
+# never reached a console on the one configuration it was written for.
+$claimSrc = [System.IO.File]::ReadAllText($Script)
+
+# (1) THE RE-ASK IS GATED. A not-started capture sets ExitCodeUnknown on purpose -- so that the 56 sites
+# audited under #2081 keep working untouched -- which means the retry fires on it unless this guard is
+# present, printing "asking once more" about a race that did not happen and relaunching a command that
+# is not installed.
+Assert-True ($claimSrc -match 'if \(\$view -and \(Test-NativeCommandStarted -Capture \$view\) -and -not \(Test-NativeExitMeasured') `
+    'the re-ask is gated on the command having started at all, not only on the exit code being unmeasurable'
+
+# (2) THE REFUSAL HAS ITS OWN ARM, AND IT SITS ABOVE THE UNMEASURABLE ONE. Order is the mechanism here:
+# below it, the not-started case would be absorbed and reported as "unmeasurable twice in a row", which
+# sends the reader after a race in Start-Process over a dependency that is simply absent.
+$notStartedArm  = $claimSrc.IndexOf('Test-NativeCommandStarted -Capture $view))')
+$unmeasuredArm  = $claimSrc.IndexOf("gh's exit code came back unmeasurable twice in a row")
+Assert-True ($notStartedArm -gt 0) 'the refusal names a gh that could not be started'
+Assert-True ($notStartedArm -lt $unmeasuredArm) '...and that arm sits ABOVE the unmeasurable one, or it would never be reached'
+
+# AND IT DOES NOT SEND THE READER TO `gh auth status`, which is the three-cause list's second entry and
+# a sentence nobody can act on when there is no gh to run it with.
+#
+# READ FROM THE PRINTED LINES ONLY, not from the source span. The first spelling of this assert took a
+# 700-character window and went red on the arm's own COMMENT, which quotes the cause it is explaining
+# why it does not use -- a comment cannot mislead an operator, because an operator never sees it. So
+# the subject here is exactly what reaches the console.
+$claimLines      = [System.IO.File]::ReadAllLines($Script)
+$armStart        = [array]::FindIndex($claimLines, [Predicate[string]]{ param($l) $l -match 'Test-NativeCommandStarted -Capture \$view\)\)' })
+$armEnd          = [array]::FindIndex($claimLines, $armStart + 1, [Predicate[string]]{ param($l) $l -match '^\s*\} elseif ' })
+Assert-True ($armStart -ge 0 -and $armEnd -gt $armStart) 'the not-started arm is bounded by its own elseif, so the asserts below read that arm and no other'
+$armPrinted = ($claimLines[$armStart..$armEnd] | Where-Object { $_ -match 'Write-Host' }) -join "`n"
+Assert-True ($armPrinted -notmatch 'gh auth status') 'the not-started arm does not tell the reader to run a gh command'
+Assert-True ($armPrinted -match 'cli\.github\.com')  '...it points at the install instead, which is the whole of the fix'
+
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)

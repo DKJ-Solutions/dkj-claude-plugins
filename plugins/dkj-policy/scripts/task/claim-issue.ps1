@@ -216,7 +216,14 @@ $view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $numb
 # ONCE, NOT IN A LOOP: the race is measured at roughly 1 in 300 fresh processes, so a single retry takes
 # the residue to about 1 in 90,000, and a loop would trade a rare wrong sentence for an unbounded wait.
 # A second unmeasurable read falls through to the branch below, which now names the state.
-if ($view -and -not (Test-NativeExitMeasured -Capture $view)) {
+#
+# AND IT DOES NOT RE-ASK A COMMAND THAT NEVER STARTED (issue #2234). An absent `gh` returns a capture
+# rather than throwing since that issue, and it sets ExitCodeUnknown on purpose -- so without this
+# second condition the guard above would fire on it, print "asking once more" about a race that did not
+# happen, and spend a second launch of a command that is not installed. Both halves of the argument for
+# the re-ask fail on it too: the retry is still idempotent, but it cannot answer, and the residue it
+# buys is 1 rather than 1 in 90,000. The branch below already names the state without a retry.
+if ($view -and (Test-NativeCommandStarted -Capture $view) -and -not (Test-NativeExitMeasured -Capture $view)) {
     Write-Host "  [re-asking] gh's exit code came back unmeasurable reading #$number (issue #1931) -- asking once more." -ForegroundColor DarkGray
     $view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $number) + $repoArgs + @('--json', 'number,title,state,url,assignees,body')) -Utf8 -DiscardStderr `
                                  -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
@@ -230,6 +237,20 @@ if (-not $view -or -not (Test-NativeExitMeasured -Capture $view) -or $view.ExitC
         Write-Host "        gh did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] line above." -ForegroundColor Red
         Write-Host '        That is a stall, not a verdict about the issue: nothing was read and nothing was claimed.' -ForegroundColor Red
         Write-Host '        Check that gh is healthy here (gh auth status) and run this again -- it costs one read.' -ForegroundColor Red
+    } elseif ($view -and -not (Test-NativeCommandStarted -Capture $view)) {
+        # gh IS NOT INSTALLED HERE (issue #2234), and this arm sits ahead of the unmeasurable one
+        # because a not-started capture sets ExitCodeUnknown too -- absorbed there, it would have read
+        # as "unmeasurable twice in a row" and sent the reader to a race in Start-Process over a
+        # dependency that is simply absent. It also sits ahead of the three below for the reason the
+        # stall does: cause 2 says "gh is not logged in here -- run: gh auth status", which is a
+        # sentence that cannot be acted on when there is no gh to run it with.
+        #
+        # THE WHOLE SCRIPT USED TO DIE BEFORE REACHING ANY OF THIS. The read above threw, under this
+        # script's own $ErrorActionPreference = 'Stop', so the documented 'no account' refusal never
+        # printed on the one machine state it was written for.
+        Write-Host '        gh is not installed on this machine, or is not on PATH -- see the [not-started] line above.' -ForegroundColor Red
+        Write-Host '        Nothing was read and nothing was claimed. This is a fact about the machine, not about the issue.' -ForegroundColor Red
+        Write-Host '        Install the GitHub CLI (https://cli.github.com) and run this again.' -ForegroundColor Red
     } elseif ($view -and -not (Test-NativeExitMeasured -Capture $view)) {
         # THE SECOND UNMEASURABLE READ IN A ROW, which the re-ask above has already spent its one retry
         # on. It belongs with the stall rather than with the three below for the same reason the stall
@@ -721,6 +742,27 @@ if ($edit -and $edit.TimedOut) {
     Write-Host '        reported back, so it may be on the tracker already. Treat the issue as UNCLAIMED until you' -ForegroundColor Red
     Write-Host '        have looked, and run this again -- a claim that did land comes back as "already yours".' -ForegroundColor Red
     Write-Host "          gh issue view $number --json assignees" -ForegroundColor Red
+    Write-Host "        $($facts.url)" -ForegroundColor Red
+    exit 1
+}
+if ($edit -and -not (Test-NativeCommandStarted -Capture $edit)) {
+    # A WRITE THAT NEVER STARTED IS THE ONE NON-ANSWER THAT *IS* KNOWN (issue #2234), which is why it
+    # sits ahead of the unmeasured arm below rather than inside it. Both other arms say "THIS RUN DOES
+    # NOT KNOW whether the claim landed -- it may be on the tracker already", and that is exactly right
+    # for a write that reached the network. It is exactly WRONG here: nothing was sent, because there was
+    # no process to send it. Absorbed below -- which the shared ExitCodeUnknown flag would do -- this
+    # script would tell a session to go and look on the tracker for a write that provably never left the
+    # machine, which is the same class of confident wrong verdict #1931 was filed about.
+    #
+    # NORMALLY UNREACHABLE, AND WRITTEN ANYWAY. The read at the top of this script now refuses on the
+    # same state, so an absent gh stops long before here; what this covers is gh disappearing between
+    # the two calls. The arm exists because the sentence's correctness must not depend on an upstream
+    # guard staying where it is -- that coupling is invisible from this block, which is where a later
+    # reader will be standing.
+    Write-Host '[ERROR] gh could not be started for the claim -- it is not on PATH here (issue #2234).' -ForegroundColor Red
+    Write-Host '        NOTHING WAS SENT, so unlike a stall this is not an unknown: the claim did not land, and' -ForegroundColor Red
+    Write-Host '        there is nothing to go and look for on the tracker. The issue is still unclaimed.' -ForegroundColor Red
+    Write-Host '        Install the GitHub CLI (https://cli.github.com) and run this again.' -ForegroundColor Red
     Write-Host "        $($facts.url)" -ForegroundColor Red
     exit 1
 }

@@ -43,17 +43,62 @@ Both arms of Invoke-NativeCapture throw when the executable is absent, so the tw
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `New-NativeNotStartedCapture` + `Test-NativeCommandStarted` in `../scripts/lib/native-capture-lib.ps1` -- the third state on ExitCodeUnknown's own axis
+- [x] Guard the launch on BOTH arms -- and on both SHAPES: `CommandNotFoundException` (not found) and `ApplicationFailedException` (found, loader refuses the image) on the `&` arm, `InvalidOperationException` for both on the Start-Process arm
+- [x] `Get-NativeExitLabel` gains the not-started sentence, asked AHEAD of the unmeasured one
+- [x] `Get-GitFileTextAtRef` -- its refusal stops telling the reader to re-run when git is simply absent
+- [x] `../scripts/task/new-branch.ps1` -- both gh calls degrade; one stops printing "(exit )", the other stops claiming "gh ran"
+- [x] `../scripts/release/open-pr.ps1` -- the twin of that second site, kept in step because new-branch's comment says it is
+- [x] `../scripts/release/fold-changelog-entry.ps1` -- the same two repairs on the PR enrichment
+- [x] `../scripts/task/park-cycle.ps1` and `../scripts/task/claim-issue.ps1` -- neither re-asks a command that never started, and each names the state; claim-issue's WRITE arm stops saying the claim "may be on the tracker already" when nothing was sent
+- [x] Mirrors rebuilt (`build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] `native-capture.tests.ps1` -- four entry shapes across both arms return a verdict; `$ErrorActionPreference` restored on the early return; an ordinary call and a ran-and-failed call are untouched
+- [x] `claim-issue.tests.ps1` (343 pass) and `park-cycle.tests.ps1` (138 pass) -- structural pins on both re-ask guards
+- [x] `fold-changelog.tests.ps1` -- 268 pass, unchanged
+- [x] Measured by hand against a PATH with no `gh`: every arm returns, nothing throws
+
+#### The named test gap
+
+An absent `gh` cannot be fixtured -- it is a PATH with no `gh` on it, which is machine state rather than
+a shim -- so the two re-ask guards are pinned structurally and the end-to-end run was measured by hand.
+The lib itself IS fixtured behaviourally, with a guid-suffixed name that cannot collide with something
+a developer happens to have installed.
+
 ### DEPLOY: fix/2234-native-capture-launch-failure
 
-**Score:**
+`Invoke-NativeCapture` threw when the executable was absent, so a caller got an exception where the
+whole point of the function is that it gets a verdict. Under `$ErrorActionPreference = 'Stop'` -- which
+every task script in this workflow sets on line 1 -- that ended the run rather than the one call. It now
+returns a capture carrying a new `NotStarted` field, and the two optional `gh` calls that used to die
+degrade the way their own docstrings already promised.
+
+The report measured the `Start-Process` arm. The `&` arm threw too, earlier and for a different reason:
+command discovery raises `CommandNotFoundException`, which is terminating regardless of
+`$ErrorActionPreference`, so the function's own preference dance never reached it. Both arms are
+repaired -- a fix on one would have left `gh` fatal on every unbounded call in the family, which is most
+of them.
+
+`ExitCodeUnknown` is set on the new state deliberately, so all 63 bounded call sites keep working
+untouched; `NotStarted` only says which of the two reasons it is. The four sites that needed more than
+that got it: two that composed a sentence around a number that is now `$null`, and two that would have
+spent a re-ask relaunching a command that is not installed.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Anyone adopting this workflow before installing the GitHub CLI -- the first hour of every adoption --
+met this as a dead `new-branch` run that created no branch and no development document. On such a
+machine `fold-changelog.tests.ps1` also ran red, 20+ asserts across four fixture scenarios, every one
+reporting a fold that never ran; that half is felt by whoever runs this repo's suites without `gh`,
+not by a consumer, who never runs them. And `claim-issue`'s documented *no account* refusal never
+printed on the one machine state it was written for, because the read above it threw first. All three
+are gone.
+
+**Score:** 3
 
 #### Pull Request
 

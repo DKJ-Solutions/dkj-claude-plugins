@@ -512,8 +512,17 @@ $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
 # with no room left skips the retry and arrives at the refusal in the SAME state a failed retry leaves.
 # Wording that arm "asked twice" would be this branch's own defect, one elseif over: a sentence
 # describing a run that did not happen. $reAsked is the only thing that can tell them apart afterwards.
+#
+# AND A COMMAND THAT NEVER STARTED IS NOT RE-ASKED (issue #2234). Since that issue, an absent `gh`
+# returns a capture instead of throwing, and it sets ExitCodeUnknown -- deliberately, so the 56 sites
+# audited under #2081 keep working untouched. This gate is one of the two places in the family where
+# that widening would be read WRONG if it were left alone: a second launch of a command that is not
+# installed cannot answer either, so the retry spends a network budget slot to learn nothing, and the
+# refusal below would then claim two asks of a child that never answered once. (Worded around that
+# phrase on purpose: the suite pins how many lines in this file carry it, and a comment quoting the
+# wording is indistinguishable from a second arm using it.)
 $reAsked = $false
-if ($prList.ExitCodeUnknown -and -not $prList.TimedOut -and (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+if ($prList.ExitCodeUnknown -and (Test-NativeCommandStarted -Capture $prList) -and -not $prList.TimedOut -and (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
     $reAsked = $true
     $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
                                    -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
@@ -531,7 +540,15 @@ if ($prList.ExitCode -ne 0) {
     # installation that was never the problem. It splits in two here because the re-ask above is
     # budget-gated, so an unreadable code that was asked once and one that was asked twice are different
     # facts about what this run did, and only $reAsked knows which.
+    # FIVE STATES SINCE #2234, AND THE NEW ONE IS ASKED AHEAD OF THE TWO ABOUT AN UNREADABLE CODE --
+    # it sets ExitCodeUnknown as well, so in the old order it would have been absorbed by the third arm
+    # and reported as "answered, but its exit code could not be read", about a `gh` that is not
+    # installed and answered nothing. Note what it is NOT: the `else` arm's "could not be asked" is
+    # this run declining to ask (no branch to ask about), which is a decision rather than a failure --
+    # the two read almost identically in English and are opposite facts, which is why this arm names
+    # the installation outright.
     $why = if ($prList.TimedOut) { "did not answer in time" }
+           elseif (-not (Test-NativeCommandStarted -Capture $prList)) { "could not be started at all -- it is not on PATH here (#2234)" }
            elseif ($prList.ExitCodeUnknown -and $reAsked) { "answered twice, and neither run's exit code could be read (#1931)" }
            elseif ($prList.ExitCodeUnknown) { "answered, but its exit code could not be read, and the network budget had no room to ask again (#1931)" }
            else { "could not be asked" }

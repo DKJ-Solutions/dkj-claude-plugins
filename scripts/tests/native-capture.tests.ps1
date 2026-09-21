@@ -798,6 +798,93 @@ try {
     Assert-True (-not $timeoutRun.ExitCodeUnknown) 'and it is false -- the substituted timeout code is a verdict this function chose, not an unmeasured read'
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'Invoke-NativeCapture -- a MISSING EXECUTABLE is a verdict, not an exception (#2234)' -ForegroundColor Cyan
+
+    # THE DEFECT, AND WHY IT IS ASSERTED ON BOTH ARMS RATHER THAN ON THE ONE #2234 MEASURED. The report
+    # measured Start-Process raising InvalidOperationException. The & arm threw too, earlier and for a
+    # different reason -- CommandNotFoundException out of command DISCOVERY, which is terminating
+    # regardless of $ErrorActionPreference, so this function's own EAP dance never reached it. A repair
+    # on one arm would have left the other fatal, so both are pinned.
+    #
+    # THE NAME IS UNRUNNABLE BY CONSTRUCTION, not merely unlikely: a guid suffix cannot collide with
+    # something a developer happens to have installed, which is the one way this block could go green
+    # for the wrong reason on somebody else's machine.
+    $missingExe = 'no-such-exe-2234-' + [guid]::NewGuid().ToString('n')
+
+    foreach ($shape in @(
+        @{ Name = 'the & arm';        Args = @{} }
+        @{ Name = 'the -Utf8 arm';    Args = @{ Utf8 = $true } }
+        @{ Name = 'a bounded call';   Args = @{ TimeoutSeconds = 5 } }
+        @{ Name = '-DiscardStderr';   Args = @{ DiscardStderr = $true } }
+    )) {
+        # SPLATTED THROUGH A NAMED VARIABLE, because @($shape.Args) is an array subexpression rather than
+        # a splat -- it passes the hashtable as a positional ARGUMENT, which this function rejects with a
+        # parameter-transformation error that looks exactly like the throw this block is testing for.
+        # Caught while probing the repair, which is the only reason it is not in the diff as a false green.
+        $shapeArgs = $shape.Args
+        $notStarted = $null
+        $threw = $false
+        try {
+            $notStarted = Invoke-NativeCapture -FilePath $missingExe -Arguments @('x') @shapeArgs
+        } catch { $threw = $true }
+
+        Assert-True (-not $threw) "$($shape.Name) returns instead of throwing on a missing executable -- the whole point of #2234, since a caller's EAP='Stop' turned this into a dead run"
+        Assert-True ($null -ne $notStarted.PSObject.Properties['NotStarted']) "$($shape.Name) returns a NotStarted field"
+        Assert-True $notStarted.NotStarted "...and it is true, which is the only field that says the child never ran"
+        Assert-True ($null -eq $notStarted.ExitCode) "...with a NULL ExitCode: there is no exit code, and a substituted number would be a verdict this lib invented"
+        Assert-True $notStarted.ExitCodeUnknown "...and ExitCodeUnknown SET, deliberately -- that is what keeps the 56 sites audited under #2081 correct without being touched"
+        Assert-True (-not $notStarted.TimedOut) "...and TimedOut false: nothing was waited on"
+        Assert-True (-not $notStarted.ShortRead) "...and ShortRead false: no capture file was read"
+        Assert-True ((@($notStarted.Output) -join "`n") -match '\[not-started\]') "...and the diagnosis is in Output, where every existing caller already looks"
+        Assert-True ((@($notStarted.Output) -join "`n") -match [regex]::Escape($missingExe)) "...naming the command, so console scrollback alone identifies which call it was"
+    }
+
+    # THE PREFERENCE IS RESTORED, which the early return out of the catch could easily have skipped --
+    # both arms return from INSIDE the try whose finally does the restoring, and a reader cannot tell
+    # from the diff that PowerShell runs it. This is the assert that says so.
+    $eapBefore = $ErrorActionPreference
+    $null = Invoke-NativeCapture -FilePath $missingExe -Arguments @('x')
+    Assert-Equal $eapBefore $ErrorActionPreference 'a not-started call restores $ErrorActionPreference -- the finally still runs on the early return'
+
+    # AND AN ORDINARY CALL IS UNTOUCHED ON BOTH ARMS. The guard catches ONE named exception type each;
+    # a bare catch would have handed back "not started" for a child's own terminating failures, which is
+    # a wrong answer arriving as a plausible value.
+    Assert-True ($null -ne $ampRun.PSObject.Properties['NotStarted']) 'the & arm reports NotStarted on an ordinary call too -- one field whichever arm answered'
+    Assert-True (-not $ampRun.NotStarted) '...and it is false there'
+    Assert-True ($null -ne $utf8Run.PSObject.Properties['NotStarted']) 'the -Utf8 arm reports NotStarted on an ordinary call too'
+    Assert-True (-not $utf8Run.NotStarted) '...and it is false there'
+    Assert-True (-not $timeoutRun.NotStarted) 'a TIMED-OUT call started fine -- a stall is the opposite of a launch failure, and must not be reported as one'
+
+    # A FILE THAT IS FOUND AND CANNOT BE LAUNCHED IS THE SECOND LAUNCH FAILURE, and it is pinned because
+    # the two arms reached it by different exceptions and only one of them was caught at first. The & arm
+    # raises ApplicationFailedException (command discovery SUCCEEDS, the Win32 loader then refuses the
+    # image); Start-Process raises InvalidOperationException for this exactly as it does for a missing
+    # file. So the -Utf8 arm returned a verdict here while the & arm still threw -- against a docstring
+    # promising both. Caught in review, then measured, then repaired.
+    #
+    # NOT A HYPOTHETICAL SHAPE: Resolve-NativeApplicationPath exists because npm drops an extensionless
+    # shim beside its '.cmd', and handing that to the loader fails in exactly this way.
+    $bogusExe = Join-Path $sandbox 'bogus-2234.exe'
+    Set-Content -LiteralPath $bogusExe -Encoding Ascii -Value 'this is not a PE image'
+    foreach ($shape in @(
+        @{ Name = 'the & arm';     Args = @{} }
+        @{ Name = 'the -Utf8 arm'; Args = @{ Utf8 = $true } }
+    )) {
+        $shapeArgs = $shape.Args
+        $unlaunchable = $null
+        $threw = $false
+        try { $unlaunchable = Invoke-NativeCapture -FilePath $bogusExe @shapeArgs } catch { $threw = $true }
+        Assert-True (-not $threw) "$($shape.Name) returns on a file that is FOUND but cannot be launched -- a different exception from a missing one, and the arms raise different types for it"
+        Assert-True $unlaunchable.NotStarted "...and reports it as NotStarted, because the child still never ran"
+    }
+
+    # A COMMAND THAT EXISTS AND FAILS IS NOT A LAUNCH FAILURE. The distinction this whole state rests on
+    # is "never ran" against "ran and failed", so the second one is pinned rather than assumed.
+    $ranAndFailed = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--verify', 'no-such-ref-2234') -DiscardStderr
+    Assert-True (-not $ranAndFailed.NotStarted) 'a command that RAN and returned non-zero is not NotStarted -- the field is about the launch, not about success'
+    Assert-True ($ranAndFailed.ExitCode -ne 0) '...and the fixture really did fail, so the assert above is about the field and not about a fluke'
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Get-NativeOutputText -- a refusal reads as the COMMAND said it (issue #2154)' -ForegroundColor Cyan
 
     # THE DEFECT. On the & arm every stderr line arrives as an ErrorRecord wrapping a RemoteException,
@@ -1410,6 +1497,39 @@ Assert-True (-not (Test-NativeExitMeasured -Capture $null))       'and no captur
 Assert-Equal 'exit 3' (Get-NativeExitLabel -Capture $fxMeasured)  'the label is the plain sentence where there is a number to print'
 Assert-True ((Get-NativeExitLabel -Capture $fxUnknown) -match '1931') '...and names the issue where there is not, because the reader will not find this race in their own script'
 Assert-True ((Get-NativeExitLabel -Capture $fxUnknown) -notmatch 'exit\s*$') '...and never trails off after the word "exit", which is the defect it replaces'
+
+
+# ---------------------------------------------------------------------------------------------
+Write-Host 'Test-NativeCommandStarted / the not-started label -- the third state (#2234)' -ForegroundColor Cyan
+
+# THE FIXTURE CARRIES ExitCodeUnknown TOO, because that is what the lib really returns and a fixture
+# that quietly disagreed with it would pin the wrong contract. The whole subtlety of this state is that
+# it is a SUBSET of "not measured": every existing consumer keeps working precisely because of that, and
+# the only thing NotStarted adds is which of the two reasons it is.
+$fxNotStarted   = [pscustomobject]@{ Output = @('[not-started] ...'); ExitCode = $null; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $true; NotStarted = $true }
+$fxStarted      = [pscustomobject]@{ Output = @(); ExitCode = 0; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = $false; NotStarted = $false }
+
+Assert-True (-not (Test-NativeCommandStarted -Capture $fxNotStarted)) 'a not-started capture answers $false'
+Assert-True (Test-NativeCommandStarted -Capture $fxStarted)           'an ordinary one answers $true'
+Assert-True (Test-NativeCommandStarted -Capture $fxNoField)           'a capture from an OLDER copy of this lib answers $true -- and that degrade is EXACT rather than merely safe: before this field, a launch failure threw, so a capture object existing at all really does mean the child started'
+Assert-True (-not (Test-NativeCommandStarted -Capture $null))         'and no capture at all is the strongest statement that nothing was started'
+
+# THE FIELD IS A SUBSET OF "NOT MEASURED", asserted rather than left to the reader -- this is the line
+# that says the 56 audited sites need no change.
+Assert-True (-not (Test-NativeExitMeasured -Capture $fxNotStarted)) 'a not-started capture is also not MEASURED, which is what keeps every site audited under #2081 correct without being touched'
+
+# THE WORDING IS THE ONE THING NotStarted BUYS THAT ExitCodeUnknown CANNOT, and both halves of the
+# general sentence are wrong about it: "the child ran" is exactly what did not happen, and "this
+# normally settles on a re-run" is false advice -- a command that is not installed does not settle.
+$notStartedLabel = Get-NativeExitLabel -Capture $fxNotStarted
+Assert-True ($notStartedLabel -match '2234')            'the not-started label names its own issue, not the race in #1931'
+Assert-True ($notStartedLabel -notmatch 'the child ran') '...and does not claim the child ran'
+Assert-True ($notStartedLabel -notmatch 're-run')        '...and does not advise a re-run, which would spend a retry to learn nothing'
+Assert-True ($notStartedLabel -notmatch 'exit\s*$')      '...and keeps the noun-phrase contract, so it still drops into "(exit ...)" at every existing call site'
+
+# THE ORDER INSIDE Get-NativeExitLabel IS THE WHOLE MECHANISM: reversed, the broader measured-test would
+# answer first and the not-started branch would be unreachable. This assert is what makes that visible.
+Assert-True ($notStartedLabel -ne (Get-NativeExitLabel -Capture $fxUnknown)) 'the two unmeasured states get DIFFERENT sentences -- if they ever match, the not-started branch has become unreachable'
 
 
 # ---------------------------------------------------------------------------------------------

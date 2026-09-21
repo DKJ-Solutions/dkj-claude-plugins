@@ -912,8 +912,25 @@ foreach ($file in $entryFiles) {
         $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branchForPr, '--state', 'all', '--json', 'number,url,files,mergedAt', '--limit', '1', '--repo', $repo) -DiscardStderr
         $ghCode = $prList.ExitCode
         $prJson = $prList.Output
-        if ($ghCode -ne 0) { Write-Host "  (gh pr list returned exit code $ghCode -- PR-number enrichment skipped; run gh manually for the reason.)" -ForegroundColor DarkYellow }
-        $prs = if ($ghCode -eq 0 -and $prJson) { @($prJson | ConvertFrom-Json) } else { @() }
+        # THE TWO NUMBERLESS STATES ARE READ AHEAD OF THE NUMBER (issues #2081 and #2234), because both
+        # of them leave ExitCode as $null and PowerShell interpolates that as the empty string -- so the
+        # raw form printed "returned exit code " and then told the reader to run gh manually for a
+        # reason it had not measured. The second state is the one that used to be fatal: a `gh` that is
+        # not installed THREW out of Invoke-NativeCapture, and since this line runs inside the fold it
+        # took the whole fold with it -- and its own suite red, 20+ asserts across four fixture
+        # scenarios, every one reporting a fold that never ran. The verdict here was always right; the
+        # enrichment is optional and skipping it is correct. Only the sentence needed repairing.
+        $ghMeasured = Test-NativeExitMeasured -Capture $prList
+        # AND THE TAIL IS CHOSEN, NOT FIXED. "Run gh manually for the reason" is the right next step for a
+        # gh that answered something this run could not interpret -- and a contradiction for one that is
+        # not installed, where the label has already given the whole reason and the reader has no gh to
+        # run. Caught in copy edit: the suffix was left carrying a state it was not written for.
+        if (-not $ghMeasured -or $ghCode -ne 0) {
+            $ghTail = if (-not (Test-NativeCommandStarted -Capture $prList)) { 'PR-number enrichment skipped' }
+                      else { 'PR-number enrichment skipped; run gh manually for the reason' }
+            Write-Host "  (gh pr list: $(Get-NativeExitLabel -Capture $prList) -- $ghTail.)" -ForegroundColor DarkYellow
+        }
+        $prs = if ($ghMeasured -and $ghCode -eq 0 -and $prJson) { @($prJson | ConvertFrom-Json) } else { @() }
     } else {
         $prs = @()
     }

@@ -956,8 +956,16 @@ Both are honest answers; the gate only refuses to guess.
         # ahead of the number for the reason this whole family shares: `$null -ne 0` is true, so it fell
         # into the arm below and the warning came out as "(exit )". Skipping the check is the right
         # direction here and is unchanged -- what it could not say before is which of the two it was in.
+        # AND A FOURTH READING AHEAD OF THAT ONE (issue #2234), for the reason its twin in new-branch.ps1
+        # states at the same search: a gh that is not installed sets ExitCodeUnknown too, so absorbed by
+        # the arm below it would report "gh ran" about a child that never started, and advise a re-run
+        # that cannot settle anything. THE TWO SITES ARE KEPT IN STEP DELIBERATELY -- new-branch's own
+        # comment says "same repair as open-pr.ps1 makes on the same search", and a repair applied to one
+        # of them is what makes that sentence false.
         $searchUnread = ''
-        if (-not (Test-NativeExitMeasured -Capture $prSearch)) {
+        if (-not (Test-NativeCommandStarted -Capture $prSearch)) {
+            $searchUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the search never ran'
+        } elseif (-not (Test-NativeExitMeasured -Capture $prSearch)) {
             $searchUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the search; a re-run normally settles it'
         } elseif ($prSearch.ExitCode -ne 0) {
             $searchUnread = "exit $($prSearch.ExitCode)"
