@@ -111,5 +111,5 @@ the cause is three layers from the symptom.
 
 #### Pull Request
 
-Get-WorkflowFacts reads a job name on CRLF too
+Get-WorkflowFacts reads a job `name:` on CRLF too
 
