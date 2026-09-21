@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2233-gate-lane-stdin · 20260921-203304
+
+A test-gate lane is no longer handed the gate's own stdin. `Invoke-TestSuiteGate` redirected stdout and
+stderr and said nothing about stdin, so every suite inherited the gate's handle and passed it on to
+whatever it spawned. Where the gate itself runs under a pipe nobody closes, a child that reads stdin to
+end-of-stream blocked forever -- zero CPU, no output, no error -- and #1941's per-suite deadline then
+converted that into a 30-minute red naming a timeout rather than a defect. Each lane now gets an empty
+file instead, at both spawn sites, so the read returns at once. Measured on the three suites that
+wedged: all three now pass through the gate under exactly the condition that wedged them, the slowest
+in 70s against a 30-minute refusal.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Anyone running this workflow's own gate gets it: `open-pr` could not open a pull request at all on a
+machine in this state, and the half-hour it took to refuse is the shape that gets a gate bypassed by
+habit rather than by decision. The repair is at the pool, so it covers every suite at once rather than
+the three that happened to be caught.
+
+**Score:** 3
+
+#### Pull Request
+
+A test-gate lane no longer hands its suite the gate's own stdin
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2251](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2251)
+
+---
 
 ### DEPLOY: fix/2239-teardown-suite-pool-flake · 20260921-200553
 
