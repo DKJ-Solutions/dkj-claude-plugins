@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-working-copy.ps1\"",
+            "command": "command -v powershell >/dev/null 2>&1 || exit 127; p=$(cat); printf '%s' \"$p\" | powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-working-copy.ps1\"; rc=$?; case $rc in 0|2) exit $rc;; esac; if printf '%s' \"$p\" | grep -Eq '\"agent_id\"[[:space:]]*:' && printf '%s' \"$p\" | grep -Eiq '(^|[^[:alnum:]])git([^[:alnum:]]|$)'; then echo \"BLOCKED (guard-working-copy): PowerShell could not run this guard (exit $rc) and this is a dispatched subagent running git. The guard is what keeps a subagent off the session's checkout, so a call it cannot judge is refused rather than waved through. Retry the command once; if PowerShell stays unhealthy on this machine, say so in your deliverable and stop.\" >&2; exit 2; fi; exit $rc",
             "timeout": 30
           }
         ]

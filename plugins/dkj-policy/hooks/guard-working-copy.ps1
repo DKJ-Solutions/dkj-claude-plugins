@@ -16,6 +16,17 @@
     false-positive rate, and that measurement has to run the same decision this hook makes rather than
     a second copy of it.
 
+    WHY hooks.json WRAPS THIS FILE IN A SHELL COMMAND (issue #2217). Everything above is what this script
+    decides once it RUNS. When PowerShell cannot start at all, no line of this file executes and the
+    harness reads every exit code other than 2 as a NON-blocking error, so the command goes through --
+    the guard fails OPEN when a machine is least healthy. No hooks.json field declares a hook
+    fail-closed and a start failure's exit code is arbitrary (127, 45, 66 and 1 were measured), so the
+    hooks.json command is a bash wrapper: it runs this file, passes 0 and 2 through, and on any other
+    exit code refuses ONLY a payload that carries agent_id and names git -- this file's own point 1 and
+    the subject of points 2 and 3, read coarsely. Any other call passes the failure through as before.
+    hook-fail-closed.tests.ps1 holds both halves. It assumes the hook shell is bash, the documented
+    default wherever Git Bash is installed.
+
     WHY THIS SHIPS AS A HOOK RATHER THAN STAYING PROSE (issue #1669). Issue #1665 measured a dispatched
     review specialist running `git stash` and then `git checkout HEAD -- <file>` in the orchestrator's
     checkout, discarding three files of uncommitted work belonging to the session that dispatched it.
