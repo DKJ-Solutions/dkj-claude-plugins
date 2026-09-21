@@ -47,7 +47,8 @@ Declared adoption inventory in script-contract-lib, reported by check-script-con
 Inbound #2236 stands on all six checks -- the symptom reproduces (`update-plugins.ps1` and
 `plugin-versions.ps1` contain no `adopt` reference at all, no session hook reports a missing floor file,
 no audit entry point exists), the reason holds (`git log --follow` confirms the #1903 rename and the
-#1843 / #1904 / #1972 scope growth), and every subject it names is in the tree. Two things it did not
+#1843 scope growth -- the one change that added a file this command places; #1904 SHA-pinned content that
+already existed and #1972 repaired a docstring, so neither is growth and neither is cited as such), and every subject it names is in the tree. Two things it did not
 have, both of which shaped what got built:
 
 - **Its table of plausible reporters omits `check-connectors.ps1`'s check 6c** (#1850), which was built
@@ -106,7 +107,7 @@ part names it in `Get-DeclinedAdoptions` to answer the line for good.
 A consumer learns at their next session start that part of their CI floor is missing, which until now they
 could learn only by running the command they did not know existed. Measured in one: `xoxowildhearts` had
 Part 1's entry gate and none of Part 3's three runners, so neither its fold nor its resolves verification
-could survive a merge its shipping session never observed -- green on every check, for weeks. The register's
+could survive a merge its shipping session never observed, with every check green throughout. The register's
 own detector could not see it, being any-or-none rather than per-command.
 
 **Score:** 4
