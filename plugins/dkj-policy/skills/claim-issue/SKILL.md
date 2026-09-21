@@ -52,7 +52,7 @@ The script:
    no git call at all where nothing was surfaced.
 7. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
-## Two parameters
+## The parameters
 
 - **`-Issue <n>`** (positional, required) -- the issue. A bare number (`1234`), a hash-prefixed one
   (`#1234`), or the issue's own URL: all three are what a person has in their hand at that moment,
@@ -60,6 +60,32 @@ The script:
   itself.
 - **`-DryRun`** -- read and judge, write nothing. Prints the verdict it would act on, so you can see
   **who holds an issue without taking it**.
+
+## And a second claim, for a backlog worked by several machines (`-Tag`)
+
+**Everything above claims by ASSIGNEE, and that claim cannot name a machine.** Two checkouts
+authenticated as the same account write the same assignee and neither can tell its own claim from the
+other's; and an assignee a colleague put on their own ticket months ago is not somebody mid-flight, so
+the `taken` refusal would skip work that is free. Both are measured in
+[#2243](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2243).
+
+So there is a second mode, and **the default one is untouched by it** -- without `-Tag` this script
+behaves exactly as the rest of this page says, refusals and all. The procedure that uses these
+parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do is:
+
+- **`-Tag`** -- claim by TAG instead: `machine/account`, written as a marker comment, with the assignee
+  beside it as the tracker's visible signal rather than as the claim. It reads the marker back and
+  settles a two-machine race on the tracker's own timestamps -- **earliest marker wins**, and the
+  losing session releases its own and stops.
+- **`-Verify`** (with `-Tag`) -- read only. Exit 0 when THIS tag still holds the issue, exit 1
+  otherwise. It is what a session runs before resuming a branch it parked hours ago.
+- **`-Release`** (with `-Tag`) -- drop this tag's claim: its own marker comments and its assignee, and
+  nothing else. Another session's marker is another session's record and is never touched.
+- **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
+  `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
+  somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
+- **`-Marker`** -- the marker name a claim is written under (`claim-tag`), plus any predecessors a repo
+  still has claim comments under, which are **read and never written**.
 
 ## Which account -- and why never `@me`
 

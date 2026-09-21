@@ -445,7 +445,10 @@ Assert-True ($body -match [regex]::Escape('if ($view -and $view.TimedOut)')) 'th
 # THE WRITE IS THE ONE TIMEOUT THAT IS NOT A FAILURE, and it gets its own branch above the failure one.
 # `gh issue edit` changes the tracker, so a write that reached the network and never answered may have
 # landed -- reporting "the claim failed" there would be a claim about the tracker this run cannot make.
-$editTimeout = if ($body -match '(?s)if\s*\(\$edit\s+-and\s+\$edit\.TimedOut\)\s*\{(.*?)\n\}') { $Matches[1] } else { '' }
+# The guard '-not $Tag' is allowed in front of it since #2243: in tag mode the assignee is not the
+# claim, so its stall is reported beside the marker that already landed rather than stopping the run.
+# What this still holds is that the ASSIGNEE-CLAIM path keeps its own timeout branch.
+$editTimeout = if ($body -match '(?s)if\s*\((?:-not\s+\$Tag\s+-and\s+)?\$edit\s+-and\s+\$edit\.TimedOut\)\s*\{(.*?)\n\}') { $Matches[1] } else { '' }
 Assert-True ($editTimeout -ne '') 'the write has a timeout branch of its own, ahead of the failure branch'
 Assert-True ($editTimeout -match 'DOES NOT KNOW') 'it says the run does not know whether the claim landed, rather than that it failed'
 Assert-True ((Get-CodeOnly -Block $editTimeout) -match '\bexit\b') 'and it DOES stop -- unlike the read-back, nothing about this write is known'
@@ -1104,7 +1107,12 @@ Write-Host 'claim-issue.ps1 -- the sixth signal, as wired (#2064)' -ForegroundCo
 
 # THE BODY IS THE ONE NEW FIELD, and nothing downstream can recover it: without it every issue reads
 # as citing no path, which is the report's blind ending -- silently, and on every claim.
-Assert-True ($body -match "--json', 'number,title,state,url,assignees,body") 'the issue read asks the tracker for the body'
+#
+# THE FIELD LIST MOVED INTO A VARIABLE WHEN TAG MODE ARRIVED (#2243) -- it asks for the comments too,
+# and only there. So this asserts the two halves separately: that the list carries the body, and that
+# the read is still made from that list rather than from a second spelling of it.
+Assert-True ($body -match "\`$viewFields = .*'number,title,state,url,assignees,body") 'the issue read asks the tracker for the body'
+Assert-True ($body -match "--json', \`$viewFields") 'and the read is made from that one list'
 Assert-True ($body -match 'Get-IssuePathCitations -Text \(\[string\]\$facts\.body\)') 'and the body is read for its citations rather than printed'
 
 Assert-True ($body -match '\$prerequisiteFound\s*=\s*\$false') 'the flag has a default, so a scan that never ran cannot leave it undefined'
@@ -1181,6 +1189,238 @@ Assert-True ($overlapScan.IndexOf('-Exclude $excludeBranches') -lt $overlapScan.
 Assert-True ($overlapScan -notmatch '(?m)^\s*exit\s') 'nothing in the title-overlap block exits'
 Assert-True ($overlapScan -notmatch '\$foreignParked') 'and it never sets the fourth signal flag the closing verdict reads'
 
+# --- THE CLAIM TAG, AND THE RACE IT SETTLES (issue #2243) -----------------------------------------
+#
+# THE RACE IS THE REASON THIS SECTION IS AS WIDE AS IT IS. Everything else here is a verdict one
+# session reaches about one issue; a race is a verdict TWO sessions reach about the same issue, and it
+# is only correct if their two answers are complementary -- exactly one keep, exactly one release. That
+# property cannot be seen from either side alone, so the tests below assert it from BOTH sides of the
+# same record set, which is the shape the prompt this replaced got wrong (it produced two releases).
+
+Write-Host ''
+Write-Host 'Get-ClaimTag -- what this session claims under' -ForegroundColor Cyan
+
+$t = Get-ClaimTag -MachineName 'DAVE-KOK-BWJ' -Account 'davekokbwj'
+Assert-True ($t.Tag -eq 'DAVE-KOK-BWJ/davekokbwj' -and $t.Complete -and $t.Missing -eq 'none') 'both halves -- machine/account'
+
+$t = Get-ClaimTag -MachineName 'DAVE' -Account ''
+Assert-True (-not $t.Complete -and $t.Missing -eq 'account' -and $t.Tag -eq '') 'no account -- incomplete, and NO tag is offered'
+
+$t = Get-ClaimTag -MachineName '' -Account 'davekokbwj'
+Assert-True (-not $t.Complete -and $t.Missing -eq 'machine') 'no machine name -- incomplete; two machines under one login would share it'
+
+$t = Get-ClaimTag -MachineName '' -Account ''
+Assert-True (-not $t.Complete -and $t.Missing -eq 'both') 'neither half -- said as one answer rather than as the first of two'
+
+$t = Get-ClaimTag -MachineName 'a/b' -Account 'davekokbwj'
+Assert-True (-not $t.Complete) 'a half carrying the separator is unusable -- it would parse back as something else'
+
+$t = Get-ClaimTag -MachineName '  DAVE  ' -Account '  davekokbwj  '
+Assert-True ($t.Tag -eq 'DAVE/davekokbwj') 'both halves are trimmed -- whitespace is not part of the name'
+
+Write-Host ''
+Write-Host 'The marker -- written once, read in several spellings' -ForegroundColor Cyan
+
+$written = Format-ClaimComment -Tag 'DAVE/davekokbwj'
+$pattern = Get-ClaimMarkerPattern
+Assert-True ($written -match $pattern) 'what a claim WRITES is what a claim READS -- the round trip, which is the whole mechanism'
+Assert-True ([regex]::Match($written, $pattern).Groups['tag'].Value -eq 'DAVE/davekokbwj') 'and the tag comes back out of it verbatim'
+Assert-True ($written -match 'Picked up by DAVE/davekokbwj') 'the comment says something a person can read -- a bare marker renders as an empty comment'
+
+$legacy = 'Opgepakt door lane DAVE/maikel-bwj. <!-- swb-lane: DAVE/maikel-bwj -->'
+Assert-True ($legacy -notmatch (Get-ClaimMarkerPattern)) 'a predecessor marker is NOT read by default'
+Assert-True ($legacy -match (Get-ClaimMarkerPattern -Marker @('claim-tag', 'swb-lane'))) 'and IS read when the repo names it -- a claim in flight under the old name still holds'
+Assert-True ((Format-ClaimComment -Tag 'A/b' -Marker 'claim-tag') -notmatch 'swb-lane') 'but it is never written: a predecessor that is still produced never dies'
+
+Assert-True ((Get-ClaimMarkerPattern -Marker @()) -eq '') 'no marker name at all -- no pattern, rather than one that matches everything'
+Assert-True ('<!-- a.b: X/y -->' -match (Get-ClaimMarkerPattern -Marker @('a.b'))) 'a name with a regex metacharacter is escaped rather than interpreted'
+Assert-True ('<!-- aXb: Q/r -->' -notmatch (Get-ClaimMarkerPattern -Marker @('a.b'))) 'and the dot does not match any character'
+
+Write-Host ''
+Write-Host 'Get-ClaimRecords -- the markers on an issue' -ForegroundColor Cyan
+
+$twoClaims = @'
+{"comments":[
+ {"id":"IC_2","createdAt":"2026-09-21T10:00:05Z","author":{"login":"maikel-bwj"},"body":"Picked up by DAVE/maikel-bwj <!-- claim-tag: DAVE/maikel-bwj -->"},
+ {"id":"IC_1","createdAt":"2026-09-21T10:00:01Z","author":{"login":"davekokbwj"},"body":"Picked up by HOST-A/davekokbwj <!-- claim-tag: HOST-A/davekokbwj -->"}
+]}
+'@
+$records = @(Get-ClaimRecords -Json $twoClaims)
+Assert-True ($records.Count -eq 2) 'both markers are read'
+Assert-True ($records[0].Tag -eq 'DAVE/maikel-bwj' -and $records[0].Author -eq 'maikel-bwj' -and $records[0].Id -eq 'IC_2') 'tag, author and id come off the record'
+Assert-True ($records[0].CreatedAt -eq '2026-09-21T10:00:05Z') 'and the timestamp, which is what settles a race'
+Assert-True (-not ($records[0].PSObject.Properties['Body'])) 'the comment BODY is never returned -- untrusted text of unbounded length'
+
+Assert-True ((@(Get-ClaimRecords -Json '')).Count -eq 0) 'empty input -- no records, no crash'
+Assert-True ((@(Get-ClaimRecords -Json 'not json at all')).Count -eq 0) 'unparseable input -- no records'
+Assert-True ((@(Get-ClaimRecords -Json '{"assignees":[]}')).Count -eq 0) 'a payload without a comments field -- no records'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"body":"just a comment"}]}')).Count -eq 0) 'a comment with no marker is not a claim'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"body":"<!-- claim-tag: -->"}]}')).Count -eq 0) 'an EMPTY marker is not a claim either -- it names nobody'
+
+$noFields = '{"comments":[{"body":"<!-- claim-tag: A/b -->"}]}'
+$r = @(Get-ClaimRecords -Json $noFields)
+Assert-True ($r.Count -eq 1 -and $r[0].Author -eq '' -and $r[0].CreatedAt -eq '') 'a record missing author and createdAt is read, not thrown on -- 5.1 throws on an absent property under StrictMode'
+
+Write-Host ''
+Write-Host 'Get-TagClaimVerdict -- may this tag claim it' -ForegroundColor Cyan
+
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'OPEN' -Records @()
+Assert-True ($v.Action -eq 'claim' -and $v.Code -eq 'free') 'no marker at all -- free'
+
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'OPEN' -Records @([pscustomobject]@{ Tag = 'A/b'; CreatedAt = 'x'; Id = '1' })
+Assert-True ($v.Action -eq 'resume' -and $v.Code -eq 'already-yours') 'this tag''s own marker -- a resume, and nothing to write'
+
+$v = Get-TagClaimVerdict -Tag 'a/B' -State 'OPEN' -Records @([pscustomobject]@{ Tag = 'A/b'; CreatedAt = 'x'; Id = '1' })
+Assert-True ($v.Code -eq 'already-yours') 'a case difference is the same tag -- a machine name is not case-sensitive and a GitHub login is not either'
+
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'OPEN' -Records @([pscustomobject]@{ Tag = 'C/d'; CreatedAt = 'x'; Id = '1' })
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'held' -and $v.Holders -contains 'C/d') 'somebody else''s marker -- refused, and the message can name them'
+
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'CLOSED' -Records @()
+Assert-True ($v.Code -eq 'closed') 'a closed issue is refused before anything else is asked'
+
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'closed' -Records @([pscustomobject]@{ Tag = 'A/b'; CreatedAt = 'x'; Id = '1' })
+Assert-True ($v.Code -eq 'closed') 'closed beats already-yours, and the state is read case-insensitively'
+
+$v = Get-TagClaimVerdict -Tag '' -State 'OPEN' -Records @()
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'no-tag') 'no tag -- there is nobody to be, so nothing is claimed'
+
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'OPEN' -Records $null
+Assert-True ($v.Action -eq 'claim') 'a null record list is an unclaimed issue, not a crash'
+
+Write-Host ''
+Write-Host 'Resolve-ClaimRace -- and it must name a WINNER, not a loser' -ForegroundColor Cyan
+
+$early = [pscustomobject]@{ Tag = 'HOST-A/dave'; CreatedAt = '2026-09-21T10:00:01Z'; Id = 'IC_1' }
+$late  = [pscustomobject]@{ Tag = 'HOST-B/dave'; CreatedAt = '2026-09-21T10:00:05Z'; Id = 'IC_2' }
+$both  = @($late, $early)
+
+$a = Resolve-ClaimRace -Tag 'HOST-A/dave' -Records $both
+$b = Resolve-ClaimRace -Tag 'HOST-B/dave' -Records $both
+Assert-True ($a.Action -eq 'keep' -and $a.Winner -eq 'HOST-A/dave') 'the earliest marker keeps the issue'
+Assert-True ($b.Action -eq 'release' -and $b.Winner -eq 'HOST-A/dave') 'the later one releases -- and names the same winner'
+Assert-True (($a.Action -eq 'keep') -and ($b.Action -eq 'release')) 'EXACTLY ONE of the two keeps it: the property the replaced prompt did not have, where both let go'
+
+$sole = Resolve-ClaimRace -Tag 'HOST-A/dave' -Records @($early)
+Assert-True ($sole.Action -eq 'keep' -and $sole.Reason -eq 'sole' -and @($sole.Rivals).Count -eq 0) 'no rival -- kept, and said so as its own reason'
+
+$tieA = [pscustomobject]@{ Tag = 'HOST-A/dave'; CreatedAt = '2026-09-21T10:00:01Z'; Id = 'IC_bbb' }
+$tieB = [pscustomobject]@{ Tag = 'HOST-B/dave'; CreatedAt = '2026-09-21T10:00:01Z'; Id = 'IC_aaa' }
+$tied = @($tieA, $tieB)
+$ta = Resolve-ClaimRace -Tag 'HOST-A/dave' -Records $tied
+$tb = Resolve-ClaimRace -Tag 'HOST-B/dave' -Records $tied
+Assert-True ($tb.Action -eq 'keep' -and $ta.Action -eq 'release') 'a tie to the second is broken on the comment id -- GitHub stamps createdAt to the second, so ties are real'
+Assert-True ($ta.Winner -eq $tb.Winner) 'and both sides name the SAME winner, which is all a tie-break has to be'
+
+$absent = Resolve-ClaimRace -Tag 'HOST-C/dave' -Records $both
+Assert-True ($absent.Action -eq 'absent' -and $absent.Reason -eq 'not-written') 'this tag is not on the issue at all -- the write did not land, which is not the same as losing'
+Assert-True ($absent.Winner -eq '') 'and no winner is named from a read this tag is not in'
+
+$twice = @(
+    [pscustomobject]@{ Tag = 'HOST-A/dave'; CreatedAt = '2026-09-21T10:00:09Z'; Id = 'IC_9' },
+    [pscustomobject]@{ Tag = 'HOST-A/dave'; CreatedAt = '2026-09-21T10:00:01Z'; Id = 'IC_1' },
+    $late
+)
+$tw = Resolve-ClaimRace -Tag 'HOST-A/dave' -Records $twice
+Assert-True ($tw.Action -eq 'keep' -and $tw.Mine.Id -eq 'IC_1') 'a tag that commented twice is judged on its EARLIEST marker -- a resume must not lose a race it won'
+
+Write-Host ''
+Write-Host 'Get-SweepCandidates -- which issues a sweep may pick up' -ForegroundColor Cyan
+
+$backlog = @'
+[{"number":9,"title":"free one","labels":[],"comments":[]},
+ {"number":3,"title":"parked with the requester","labels":[{"name":"needs-info"}],"comments":[]},
+ {"number":7,"title":"already being built","labels":[],"comments":[{"id":"IC_9","createdAt":"2026-09-20T09:00:00Z","author":{"login":"x"},"body":"<!-- claim-tag: OTHER/x -->"}]},
+ {"number":5,"title":"mine from an earlier pass","labels":[],"comments":[{"id":"IC_5","createdAt":"2026-09-20T08:00:00Z","author":{"login":"dave"},"body":"<!-- claim-tag: HOST-A/dave -->"}]},
+ {"number":1,"title":"held out by hand","labels":[],"comments":[]}]
+'@
+$c = @(Get-SweepCandidates -Json $backlog -Tag 'HOST-A/dave' -SkipLabel @('needs-info') -SkipIssue @(1))
+Assert-True ($c.Count -eq 5) 'every open issue is reported, including the ones it will not take'
+Assert-True (($c | ForEach-Object { $_.Number }) -join ',' -eq '1,3,5,7,9') 'ordered by number, ascending -- the only order six machines agree on without talking'
+Assert-True ((@($c | Where-Object { $_.Number -eq 9 })[0]).Verdict -eq 'free') 'an issue with no marker is free'
+Assert-True ((@($c | Where-Object { $_.Number -eq 7 })[0]).Verdict -eq 'held') 'another tag''s marker holds it'
+Assert-True ((@($c | Where-Object { $_.Number -eq 7 })[0]).Holder -eq 'OTHER/x') 'and the holder is named, so the reason is readable rather than a bare skip'
+Assert-True ((@($c | Where-Object { $_.Number -eq 5 })[0]).Verdict -eq 'mine') 'this tag''s own marker reads as mine, not as held -- a resume must be findable'
+Assert-True ((@($c | Where-Object { $_.Number -eq 3 })[0]).Verdict -eq 'skipped') 'a skip label parks it'
+Assert-True ((@($c | Where-Object { $_.Number -eq 3 })[0]).Reason -match 'needs-info') 'with the label named -- "nothing to do" while six issues are hidden tells the operator nothing'
+Assert-True ((@($c | Where-Object { $_.Number -eq 1 })[0]).Verdict -eq 'skipped') 'a number held out by hand is skipped'
+
+$cLegacy = @(Get-SweepCandidates -Json '[{"number":4,"title":"t","labels":[],"comments":[{"id":"IC_4","createdAt":"z","author":{"login":"m"},"body":"<!-- swb-lane: OLD/m -->"}]}]' -Tag 'HOST-A/dave' -Marker @('claim-tag','swb-lane'))
+Assert-True ($cLegacy[0].Verdict -eq 'held') 'a predecessor marker still holds an issue where the repo names it'
+
+Assert-True ((@(Get-SweepCandidates -Json '')).Count -eq 0) 'empty input -- nothing, and nothing claimed as free'
+Assert-True ((@(Get-SweepCandidates -Json 'nonsense')).Count -eq 0) 'unparseable input -- nothing'
+
+Write-Host ''
+Write-Host 'claim-issue.ps1 -- tag mode, as wired (#2243)' -ForegroundColor Cyan
+
+# THE ORDER OF THE TWO WRITES IS THE RACE RULE ITSELF. The winner is the earliest MARKER, so any step
+# taken before writing it is time added to this session's own timestamp.
+Assert-True ($body.IndexOf("'issue', 'comment', \$number") -lt $body.IndexOf("'--add-assignee'")) `
+    'the marker is written BEFORE the assignee -- writing the assignee first hands the issue to a machine that started later'
+
+# THE TWO CLAIMS DO NOT RUN TOGETHER. Running both means the stricter wins, and that is the assignee --
+# the behaviour -Tag exists to leave behind.
+Assert-True ($body -match '(?m)^if \(-not \$Tag\) \{\s*\n\s*\$verdict = Get-ClaimVerdict') `
+    'the assignee verdict is skipped in tag mode rather than reached as well'
+Assert-True ($body -match 'Get-TagClaimVerdict -Tag \$claimTag\.Tag') 'and the tag verdict is what tag mode judges on'
+
+# THE ASSIGNEE STOPS ARE THE ASSIGNEE PATH'S. In tag mode the marker is already on the tracker, so
+# stopping there would leave a claim standing with a session told it had none.
+Assert-True ($body -match [regex]::Escape('if (-not $Tag -and -not $assigneeLanded) {')) `
+    'the "claim failed" stop belongs to the assignee path alone'
+Assert-True ($body -match 'the claim marker landed on #\$number but the assignee') `
+    'and tag mode reports the same state as a warning that names what is missing'
+
+# -Verify WRITES NOTHING. It is a reading, and a reading that wrote would make the resume step itself
+# a claim.
+# ANCHORED AT COLUMN FOUR: an unanchored 'if \($Verify\) \{' also matches the 'elseif ($Verify) {' in the
+# banner three screens up, and then this whole section reads a block that is not the arm.
+$verifyArm = if ($body -match '(?sm)^    if \(\$Verify\) \{(.*?)\n    \}') { $Matches[1] } else { '' }
+Assert-True ($verifyArm -ne '') 'the -Verify arm is findable as a block'
+Assert-True ($verifyArm -notmatch "'issue', 'comment'" -and $verifyArm -notmatch '--add-assignee') '-Verify writes nothing at all'
+Assert-True ((Get-CodeOnly -Block $verifyArm) -match '\bexit 0\b' -and (Get-CodeOnly -Block $verifyArm) -match '\bexit 1\b') `
+    'and it answers in an exit code -- its caller is a script, not a reader'
+
+# -Release TOUCHES ONLY THIS TAG'S MARKERS. Deleting another session's comment would erase the claim
+# that just beat us, which is the one write in this script that cannot be undone by re-running it.
+$releaseArm = if ($body -match '(?sm)^    if \(\$Release\) \{(.*?)\n    \}') { $Matches[1] } else { '' }
+Assert-True ($releaseArm -ne '') 'the -Release arm is findable as a block'
+Assert-True ($releaseArm -match [regex]::Escape('$claimRecords | Where-Object { $_.Tag -ieq $claimTag.Tag }')) `
+    '-Release deletes only markers carrying THIS tag'
+Assert-True ($releaseArm -match 'MAY STILL READ AS HELD') 'a marker it could not delete is reported -- that is the direction that costs'
+
+# THE LOSER RELEASES ITSELF. A marker left behind parks the issue against every other machine, and the
+# session that knows it lost is the only one that can tell its own marker from the winner's.
+$raceArm = if ($body -match "(?s)if \(\`$race\.Action -eq 'release'\) \{(.*?)\n    \}") { $Matches[1] } else { '' }
+Assert-True ($raceArm -ne '') 'the lost-race arm is findable as a block'
+Assert-True ($raceArm -match "'-Release'") 'the loser releases its own claim rather than leaving it standing'
+Assert-True ((Get-CodeOnly -Block $raceArm) -match '\bexit 1\b') 'and it stops -- the work it was about to start belongs to the winner'
+
+# AN UNREADABLE BACKLOG IS NOT AN EMPTY ONE, in the one mode that reads the whole board.
+Assert-True ($body -match 'An unread backlog is not an empty one') `
+    '-Candidates refuses on a failed read rather than reporting every issue as unclaimed'
+$candidatesArm = if ($body -match '(?sm)^if \(\$Candidates\) \{(.*?)\n\}') { $Matches[1] } else { '' }
+Assert-True ($candidatesArm -ne '') 'the -Candidates arm is findable as a block'
+Assert-True ($candidatesArm -notmatch "'issue', 'comment'" -and $candidatesArm -notmatch 'add-assignee') `
+    '-Candidates writes nothing -- choosing and claiming are two steps, and the ownership question sits between them'
+
+# THE COMMENTS ARE PAID FOR ONLY WHERE THEY ARE READ.
+Assert-True ($body -match [regex]::Escape('if ($Tag) { ''number,title,state,url,assignees,body,comments'' }')) `
+    'the comments field is asked for in tag mode only -- unbounded text on a call every pickup makes'
+
+# A MARKER IS FOREIGN TEXT. It comes out of an issue comment, which anybody with access to the tracker
+# can write -- so every place a tag, a holder or a race winner reaches the terminal is stripped, the
+# same rule the fourth and fifth signals already keep for a branch name (#2069).
+Assert-True ($body -notmatch '\$\(\$record\.Tag\)') 'a marker tag is never printed raw'
+Assert-True ($body -match 'Format-ForConsole -Text \$record\.Tag') 'it is stripped where it is printed'
+Assert-True ($body -notmatch '\$\(@\(\$tagVerdict\.Holders\) -join') 'nor is a holder, in the refusal that names them'
+Assert-True ($body -match 'Format-ForConsole -Text \(@\(\$tagVerdict\.Holders\) -join') 'the holders are stripped there too'
+Assert-True ($body -match 'Format-ForConsole -Text \$race\.Winner') 'and the race winner, which is a tag another machine wrote'
+# AND THE TAG IS PROVEN COMPLETE BEFORE ANY OF IT, because every verdict below reasons about "mine"
+# against "somebody else's" and half a tag cannot tell them apart (#701).
+Assert-True ($body.IndexOf('there is no complete claim tag') -lt $body.IndexOf('# --- WHAT THE TRACKER SAYS')) `
+    'an incomplete tag is refused before the tracker is read at all'
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
