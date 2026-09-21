@@ -39,23 +39,92 @@
 
 ### PLAN
 
-Option 1, chosen by Dave on September 21, 2026: teach check-roster-sync the migration overlap INSTALL.md prescribes. A dead '@'-import whose sibling resolves to the SAME persona document under the other spelling becomes [INFO] -- which the SessionStart hook already keeps silent -- instead of [ERROR]. Note: origin/fix/2224-stale-clone-import-remediation (maikel-bwj, parked, no PR) rewrites the same Write-Failure block in both script copies; a textual conflict is expected for whichever lands second.
+#### The decision this branch implements
+
+Issue #2226 reported a contradiction between two things this repo ships and left the repair open
+("Not decided here"). Dave chose **option 1** on September 21, 2026: the check learns the overlap,
+rather than `INSTALL.md` retiring the recipe.
+
+What the contradiction is. `INSTALL.md`'s #2128 migration section *recommends* carrying **both**
+`@`-import lines in `.claude/specialists/SPECIALISTS.md` — the new spelling above the old — because
+that is the one order in which the orchestrator's body is never absent. During that overlap exactly
+one of the two lines is dead **by design**. And `check-roster-sync.ps1` errors on every unresolvable
+roster import, without exception, which `roster-sessioncheck` then forwards into context at every
+session start, resume, clear and compact. A consumer following the recommended recipe therefore had
+no way to be green until they finished the migration.
+
+#### Verified against the tree before any of this was written
+
+- `INSTALL.md:371` — the dual-line recipe, recommended; the single edit is the *"if you would rather"*
+  alternative.
+- `scripts/sync/check-roster-sync.ps1:598` — one unconditional `Write-Failure`, no import class exempt.
+- `scripts/tests/roster-sync.tests.ps1:1712` — case 18b pins it: `exit-code 1 -- loud, not soft`.
+- **One claim in the report is overstated and is not repaired as written.** #2226 calls it a *blocking*
+  `[ERROR]`. It blocks nothing: `roster-sessioncheck.ps1` ends on `exit 0` by design ("a session start
+  must never strand here"), and the check appears in no CI workflow and in no gate. *Blocking* is the
+  check's own vocabulary for a finding it surfaces, not a statement about the session. What is real is
+  permanent noise on every session start for the whole migration.
+
+#### Why [INFO] and not a new severity
+
+`check-report-lib.ps1` has four levels — `[OK]`, `[SKIP]`, `[INFO]`, `[ERROR]`. `Write-Info` does not
+increment `$script:errors`, so the check keeps exit 0; and `roster-sessioncheck.ps1`'s docstring states
+that `[INFO]` stays **silent at session start** while a deliberate run of the script shows everything.
+So the overlap goes quiet where it was noise and stays visible where somebody is looking. Nothing new
+had to be built.
+
+#### The collision, named rather than worked around
+
+`origin/fix/2224-stale-clone-import-remediation` (maikel-bwj, parked 13 hours, no PR) rewrites the same
+`Write-Failure` block — it splits that finding's cause list by import class. This branch is cut from
+`origin/main` and does not build on it, merge it, or reshape itself around it. Whoever lands second
+resolves one textual conflict in two files.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] `scripts/sync/check-roster-sync.ps1`: `Get-ImportOverlapKey` (normalises the `specialist-` prefix
+      off an import's **filename** only — the #2128 rename left directories untouched) plus the `[INFO]`
+      branch in the import loop, ahead of the existing `Write-Failure`, which stays byte-for-byte as it is.
+- [ ] Hold the exemption to its bounds: same directory required; **both** lines dead still errors, because
+      that is the genuine no-body state the check exists for; a live sibling that is a *different* document
+      still errors.
+- [ ] Regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1` and confirm root and mirror
+      are byte-identical (check 8 of the lint gate).
 
 ### TEST
 
+- [ ] `scripts/tests/roster-sync.tests.ps1`: the overlap pair reports `[INFO]` and exit 0; both-dead still
+      exits 1 with two `[ERROR]`s; a live sibling of a different document still errors. Case 18b stays
+      exactly as it is — it is the unpaired dead import and its verdict does not change.
+- [ ] Code review, copy edit and security review on the diff.
+- [ ] `check-plugin-integrity.ps1` plus every suite green.
+
 ### DEPLOY: fix/2226-roster-check-overlap-exemption
 
-**Score:**
+`check-roster-sync` no longer reports a dead `@`-import as an error when a sibling import in the same
+directory resolves to the same document under the other spelling — the `specialist-` migration overlap
+that `INSTALL.md` recommends. It reports `[INFO]` there instead, which the session-start hook already
+keeps silent and a deliberate run of the check still shows. Everything else is untouched: an unpaired
+dead import, two dead lines, or a live sibling that is a different document all still error, because
+those are the state this check was built for — the orchestrator running without his body while nothing
+says so.
+
+The two documents disagreed and each was internally consistent: the recipe is correct, and so was the
+check's refusal to exempt anything. What was missing is that during a prescribed overlap nothing is
+absent — a sibling is carrying it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer following `INSTALL.md`'s recommended migration recipe could not be green: the dead half of
+the overlap raised a blocking-shaped `[ERROR]` at every session start, resume, clear and compact, for as
+long as the migration lasted, with no way to silence it short of abandoning the recipe. That is gone
+without them doing anything — the noise stops on the plugin update that carries this, and the recipe
+they were told to follow is the one the check now agrees with.
+
+**Score:** 3
 
 #### Pull Request
 
 A dead roster import that a live sibling already covers no longer errors
-
