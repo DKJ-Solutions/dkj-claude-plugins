@@ -878,6 +878,75 @@ try {
     $controlSkeleton = [System.IO.File]::ReadAllText((Join-Path $controlDir '.github\workflows\ci.yml'))
     Assert-True ($controlSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
         'an unsafe declared check name (an embedded newline) is refused too, falling back to ''ci'''
+
+    # --- 10. A WINDOWS CONSUMER'S WORKFLOW FILE: CRLF (inbound #2237) ---------------------------------
+    # EVERY FIXTURE ABOVE IS JOINED WITH "`n", WHICH IS WHY NONE OF THEM COULD FAIL THIS. Get-WorkflowFacts
+    # collects a job's KEY and its `name:` with two regexes, both anchored on '$'. .NET's multiline '$'
+    # matches only immediately before a '\n', so on CRLF the name capture's '[^\r\n]*' stops at the '\r'
+    # and the anchor fails -- while the key capture's '\s*$' absorbs the '\r' and survives. One of a pair
+    # CRLF-tolerant by accident and the other not, on files a consumer with `core.autocrlf=true` checks
+    # out as CRLF by default. This repo's own .gitattributes pins `eol=lf` AND its ci.yml job declares no
+    # `name:`, so neither the tree nor the suite could see it: it was reported from a consumer.
+    #
+    # THE JOB CARRIES A `name:` IN BOTH FIXTURES BELOW, unlike New-FixtureConsumer's, because a job
+    # without one has nothing for the broken half of the pair to fail to capture. That is precisely the
+    # source repo's shape, and precisely why it was never hit here.
+    Write-Host '-- 10. a CRLF workflow file, as a Windows consumer checks one out (#2237) --' -ForegroundColor Cyan
+
+    function New-FixtureConsumerCrlf {
+        param([string]$Label, [switch]$Lf)
+        $root = New-FixtureConsumer -Label $Label
+        $lines = @(
+            'name: Theme',
+            'on:',
+            '  pull_request:',
+            '    branches: [main]',
+            'jobs:',
+            '  theme-check:',
+            '    name: Shopify theme check',
+            '    runs-on: ubuntu-latest',
+            '    steps:',
+            '      - run: echo hi'
+        )
+        $eol = if ($Lf) { "`n" } else { "`r`n" }
+        [System.IO.File]::WriteAllText((Join-Path $root '.github\workflows\ci.yml'), (($lines -join $eol) + $eol))
+        return $root
+    }
+
+    # 10a. THE REQUIRED CHECK IS MATCHED TO ITS JOB. GitHub reports an Actions check under the job's
+    #      `name:` where it has one, so that display name is what a real ruleset requires. Before the
+    #      repair this printed the '[note] ... matches no job in .github/workflows/' line about a job
+    #      sitting in the very file it had just read.
+    $crlfRequiresName = New-RulesFile -Label 'crlf-name' `
+        -Json '[{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"Shopify theme check"}]}}]'
+    $crlfDir = New-FixtureConsumerCrlf -Label 'crlf'
+    $rCrlf = Invoke-Adopt -Dir $crlfDir -ScriptArgs @('-RulesJsonOverride', $crlfRequiresName)
+    Assert-True ($rCrlf.Flat -notlike '*matches no job*') `
+        'a CRLF workflow: the required check is matched to the job whose name: declares it, not reported as coming from somewhere else'
+
+    # 10b. AND THE AUTO-FILL DECLINES, which is the half that reaches past a wrong note into a merge
+    #      outage. $prJobIds holds the key AND the name for one named job, so the count is 2 and the
+    #      composed ruleset call prints the candidate list for a person to pick from. On CRLF it held
+    #      the key alone, the count WAS 1, and the call auto-filled with a context GitHub never reports
+    #      -- a required check that never reports leaves every pull request pending forever.
+    $rCrlfNoChecks = Invoke-Adopt -Dir $crlfDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rCrlfNoChecks.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*') `
+        'a CRLF workflow with one named job: the ruleset context is left as an explicit placeholder, not auto-filled'
+    Assert-True ($rCrlfNoChecks.Flat -notlike "*the one candidate job, 'theme-check', is already filled in*") `
+        'and specifically never auto-fills the job KEY, which is the spelling GitHub does not report that check under'
+    Assert-True ($rCrlfNoChecks.Flat -like '*CANDIDATE CHECKS*') `
+        'the candidate list is printed instead, so picking one is a copy from a list'
+    Assert-True ($rCrlfNoChecks.Flat -like '*Shopify theme check -- from*') `
+        'and it carries the job NAME -- the capture that collected nothing at all on CRLF'
+
+    # 10c. THE SAME TREE ON LF, so the asserts above are pinned to the line endings rather than to
+    #      anything else this fixture happens to do differently from New-FixtureConsumer's.
+    $lfDir = New-FixtureConsumerCrlf -Label 'crlf-control' -Lf
+    $rLf = Invoke-Adopt -Dir $lfDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rLf.Flat -like '*Shopify theme check -- from*') `
+        'the identical tree written with LF reads the same job name -- the two line endings now agree'
+    Assert-True ($rLf.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*') `
+        'and declines the auto-fill identically, which is the behaviour CRLF was measured against'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
