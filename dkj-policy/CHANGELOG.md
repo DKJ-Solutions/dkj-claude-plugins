@@ -44,4 +44,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**1 / 1 minor entry** <!-- pending-tally -->
+
+### DEPLOY: feat/clean-release-title · 20260921-065510
+
+A release is named `Release Version vX.Y.Z`, derived from its tag, and nothing composes that name any
+more. `cut-release.ps1` printed a `--title "<tag> - <short title>"` placeholder, so what a release was
+CALLED came from whatever sentence the person cutting it invented at that moment -- an authoring
+decision taken at the most expensive step of the procedure, by whoever happened to be running it, and
+the one artefact in this workflow that no gate could check. Two cutters produced two conventions.
+
+**The short description is not removed, which is the distinction the whole change turns on.** It keeps
+its own row -- the first line of the generated Release body, and the last column of the release
+overview -- and `-Title` still feeds both. That parameter's own help has read *"short description of the
+release as a whole"* since it existed, so the parameter was never the thing that claimed to be a title;
+one printed line was. Nothing about the release documents changes.
+
+Two neighbouring repairs came with it rather than being swept in: the parameter help now says outright
+that it is not the name, and the milestone section offered `Release version X.Y.Z` as a *legitimate
+fallback title* for a release too broad to summarise -- true before this change and misleading after it,
+since that is now simply the name. It says to omit `-Title` instead, which is the same advice with the
+stale half removed.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer cutting their next release sees a different command printed, and their releases stop being
+named after a sentence somebody wrote on the spot. Nothing is asked of them and nothing is refused:
+the line is printed for a person to paste, so a repo that prefers its own convention types its own
+`--title` exactly as before -- this changes what the workflow RECOMMENDS, not what it permits.
+
+Their already-published releases are untouched, and renaming one is a `gh release edit` they may run or
+skip; the release documents, the overview table and the description row are all unchanged, so there is
+no migration and nothing to re-adopt.
+
+**Score:** 2
+
+#### Pull Request
+
+The release name is always Release Version vX.Y.Z
+
+Plugins: dkj-policy
+
+[PR #2229](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2229)
+
+---
+
