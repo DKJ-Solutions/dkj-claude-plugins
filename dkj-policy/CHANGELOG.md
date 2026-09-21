@@ -44,7 +44,77 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2238-handover-client-state-reset · 20260921-191234
+
+`PREVIEW-portable.md` now states the second question a preview handover owes its reader: pinning the
+control settles which THEME renders and settles nothing about what the browser REMEMBERS. Preview and
+live share an origin, so they share `localStorage`, `sessionStorage`, IndexedDB and a feature's own
+cookie -- and a reviewer carrying a stored value sees the change in both tabs, which reads as the change
+being absent. Where the visible effect depends on persisted client state the handover now owes a reset
+step, in the *how to see the change* block, and the reset is a private window -- with the devtools
+fallback named as the weaker reset it is, since clearing one key leaves the same origin's cookies and
+IndexedDB standing. The first consequence bullet under *What the control URL is* is scoped to say what
+it does and does not settle, because following it as written is what produced the undiscriminating
+handover this came from. `README.md`'s chapter-three paragraph carries the rule too, so a reader
+working from the index learns the reset step exists.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a portable page this plugin ships to BWJ's stores. The reader is whoever builds a preview
+handover there, which is this repo's own kind of reader one hop out, and no subscriber of a service
+notices a rule about how a review link is assembled.
+
+**Score:** N/A
+
+#### Pull Request
+
+A handover owes a client-state reset when the visible effect depends on persisted browser state
+
+Plugins: dkj-policy-bwj
+
+[PR #2246](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2246)
+
+---
+
+### DEPLOY: fix/2224-stale-clone-import-remediation · 20260921-182435
+
+`check-roster-sync`'s dead-import finding used to close with `Repair the path`, and named only causes
+that imply the roster path is wrong. For a `~/`-relative import that is the wrong instruction: such a
+path resolves into the machine-wide marketplace clone, which tracks the trunk and advances on
+`claude plugin marketplace update` alone -- not on a release, a push or a `plugin update`. So the
+likeliest cause is a stale clone, and editing the path reverts one that is already correct. Measured
+here on September 20, 2026: the persona rename of #2128 had landed on the trunk while this machine's
+clone sat 510 commits back, the orchestrator's body was silently absent from every session, and the
+finding pointed at the one file that carries the rename. The finding now splits by import class --
+the clone class leads with the refresh and makes the edit conditional on it failing, the in-tree class
+is unchanged because a refresh cannot help it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The check ships to every consumer, and the rename it misdiagnoses is live right now: `INSTALL.md`
+walks consumers through exactly this import-line migration, so a consumer whose clone has not caught
+up meets this finding at session start and is told to undo the edit the guide just asked them to make.
+Following it costs them the orchestrator in both directions -- the old path is dead after the refresh,
+the new one before it -- with nothing reporting either state. The repair is wording only: no gate
+changes, no behaviour beyond which sentence the reader acts on.
+
+**Score:** 3
+
+#### Pull Request
+
+A dead marketplace import no longer tells you to edit the path when the clone is simply stale
+
+Plugins: dkj-subagents-alpha
+
+[PR #2245](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2245)
+
+---
 
 ### DEPLOY: docs/2232-gate-wall-clock · 20260921-150342
 
