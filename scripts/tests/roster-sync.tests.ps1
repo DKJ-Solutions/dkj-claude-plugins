@@ -1757,6 +1757,72 @@ try {
     Assert-Match 'blocking finding\(s\)' $r.Out 'hook dead-import: the blocking branch fires'
     Assert-Match 'an @-import in the roster does not resolve' $r.Out 'hook dead-import: the headline names THIS cause, not only roster drift -- every specialist here is present and correct'
     Assert-Match '01-01-persona\.md' $r.Out 'hook dead-import: the offending import reaches the session, tilde and all'
+
+    # --- 18f-18i. The '#2128 overlap' exemption (#2226) --------------------------------------------
+    #     INSTALL.md's own migration recipe ("Migrating to the 'specialist-' filenames (#2128)")
+    #     prescribes carrying BOTH the old and the new '@'-import line side by side for the whole
+    #     overlap, on the stated ground that a dead import is silent and harmless -- which is exactly
+    #     what 18b above exists to disprove for the UNPAIRED case. During a prescribed overlap exactly
+    #     ONE of the two lines is dead by design, so without an exemption a consumer following that
+    #     recipe would get a permanent [ERROR] at every session start for the whole migration. These four
+    #     cases pin the narrow shape of that exemption: it fires in both directions, it does not soften
+    #     when both are genuinely dead, and it does not fire on an unrelated import that merely happens
+    #     to resolve.
+    Write-Host "`n== roster-sync.tests: the #2128 overlap exemption (#2226) ==" -ForegroundColor Cyan
+
+    # 18f. The overlap pair, new spelling live. 'specialist-01-01-persona.md' resolves; '01-01-persona.md'
+    #      does not, but shares 18f's overlap key with the live one (same directory, same leaf once the
+    #      'specialist-' prefix is stripped) -- so the dead one downgrades to [INFO] naming the live
+    #      sibling, and the whole point of the repair is that the run still exits 0.
+    $c = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16') -ExtraRosterLines @(
+        '', '@specialist-01-01-persona.md', '@01-01-persona.md')
+    [System.IO.File]::WriteAllText((Join-Path $c 'specialist-01-01-persona.md'), "# body")
+    $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
+    Assert-Equal 0 $r.Code 'overlap pair (new spelling live): exit-code 0 -- the whole point of the repair'
+    Assert-Match "\[OK\]\s+import 'specialist-01-01-persona\.md' resolves" $r.Out 'overlap pair (new spelling live): the live spelling reports OK'
+    Assert-Match "\[INFO\].*'01-01-persona\.md' in.*does not exist.*sibling import resolves to the same document at '.*specialist-01-01-persona\.md'.*under the other #2128 spelling" $r.Out 'overlap pair (new spelling live): the dead spelling downgrades to INFO naming the live sibling'
+    Assert-NotMatch '\[ERROR\]' $r.Out 'overlap pair (new spelling live): no error -- INSTALL.md prescribes carrying both lines during the migration'
+    Assert-Match 'Summary: 0 error\(s\), 1 info signal\(s\)' $r.Out 'overlap pair (new spelling live): exactly one non-counting INFO, no ERROR'
+
+    # 18g. The same pair, the OTHER way round -- the OLD spelling live on disk, the NEW spelling absent
+    #      (the state on a machine before the clone refresh reaches it). NOT a duplicate of 18f: the
+    #      recipe's own value is that the overlap is safe in BOTH directions, and an implementation keyed
+    #      on which spelling counts as 'new' would pass 18f and fail here.
+    $c = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16') -ExtraRosterLines @(
+        '', '@specialist-01-01-persona.md', '@01-01-persona.md')
+    [System.IO.File]::WriteAllText((Join-Path $c '01-01-persona.md'), "# body")
+    $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
+    Assert-Equal 0 $r.Code 'overlap pair (old spelling live): exit-code 0 -- safe in the other direction too'
+    Assert-Match "\[OK\]\s+import '01-01-persona\.md' resolves" $r.Out 'overlap pair (old spelling live): the live spelling reports OK'
+    Assert-Match "\[INFO\].*'specialist-01-01-persona\.md' in.*does not exist.*sibling import resolves to the same document at '.*01-01-persona\.md'.*under the other #2128 spelling" $r.Out 'overlap pair (old spelling live): the dead spelling downgrades to INFO naming the live sibling'
+    Assert-NotMatch '\[ERROR\]' $r.Out 'overlap pair (old spelling live): no error'
+    Assert-Match 'Summary: 0 error\(s\), 1 info signal\(s\)' $r.Out 'overlap pair (old spelling live): exactly one non-counting INFO, no ERROR'
+
+    # 18h. Both spellings dead -- the genuine 'the orchestrator has no body' state 18b exists for. A
+    #      sibling that is ALSO dead must not soften either finding to [INFO]: two [ERROR]s, exit 1,
+    #      wording unchanged from 18b.
+    $c = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16') -ExtraRosterLines @(
+        '', '@specialist-01-01-persona.md', '@01-01-persona.md')
+    $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
+    Assert-Equal 1 $r.Code 'overlap pair (both dead): exit-code 1 -- not softened'
+    Assert-Match "\[ERROR\].*'@'-import 'specialist-01-01-persona\.md'.*does not exist.*SILENTLY" $r.Out 'overlap pair (both dead): the new spelling still gets the full unresolvable-import ERROR'
+    Assert-Match "\[ERROR\].*'@'-import '01-01-persona\.md'.*does not exist.*SILENTLY" $r.Out 'overlap pair (both dead): the old spelling still gets the full unresolvable-import ERROR too'
+    Assert-NotMatch '\[INFO\].*sibling import resolves' $r.Out 'overlap pair (both dead): neither finding is downgraded to INFO'
+    Assert-Match 'Summary: 2 error\(s\), 0 info signal\(s\)' $r.Out 'overlap pair (both dead): exactly two counting ERRORs'
+
+    # 18i. A live sibling that is a DIFFERENT document does not count as an overlap pair. 'body.md'
+    #      resolves, but its overlap key ('body.md') does not match the dead import's key
+    #      ('personas/01-01-persona.md', different directory AND leaf) -- the exemption must not fire
+    #      just because SOME other import in the roster happens to resolve.
+    $c = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16') -ExtraRosterLines @(
+        '', '@personas/01-01-persona.md', '@body.md')
+    [System.IO.File]::WriteAllText((Join-Path $c 'body.md'), "# body")
+    $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
+    Assert-Equal 1 $r.Code 'unrelated live sibling: exit-code 1 -- the exemption does not fire on a coincidence'
+    Assert-Match "\[ERROR\].*'@'-import 'personas/01-01-persona\.md'.*does not exist.*SILENTLY" $r.Out 'unrelated live sibling: the dead import still gets the full ERROR'
+    Assert-Match "\[OK\]\s+import 'body\.md' resolves" $r.Out 'unrelated live sibling: the unrelated import still reports OK on its own merits'
+    Assert-NotMatch '\[INFO\].*sibling import resolves' $r.Out 'unrelated live sibling: not downgraded to INFO'
+    Assert-Match 'Summary: 1 error\(s\), 0 info signal\(s\)' $r.Out 'unrelated live sibling: exactly one counting ERROR, no INFO'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture }
 }

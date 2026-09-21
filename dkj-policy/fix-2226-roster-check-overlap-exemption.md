@@ -36,7 +36,6 @@
 >
 > The phase arc, the marks and the whole form: `DEVELOPMENT-portable.md`, which ships
 > with this workflow.
-
 ### PLAN
 
 #### The decision this branch implements
@@ -80,24 +79,64 @@ had to be built.
 `origin/main` and does not build on it, merge it, or reshape itself around it. Whoever lands second
 resolves one textual conflict in two files.
 
+#### Handover — this branch was parked mid-chain on September 21, 2026
+
+Parked because the session had to end, not because anything is blocked. Everything below is on `origin`.
+
+**What is finished and verified.** The implementation and its tests. `roster-sync.tests.ps1` runs 408
+assertions, 0 failures, including 20 new ones as cases 18f-18i: the overlap pair with the new spelling
+live, the same pair reversed (the recipe has to be safe in both directions), both lines dead (still two
+`[ERROR]`s, exit 1, not softened), and an unrelated live sibling (still `[ERROR]` — the exemption must
+not fire on a coincidence). `check-plugin-integrity.ps1` is clean. Root and mirror are byte-identical.
+
+**What is NOT done, and must be redone rather than assumed.** The review round — code, copy edit and
+security, in parallel on the diff — was in flight when the session ended and was cut off. Their partial
+output is **not** a verdict and is deliberately not recorded here as one. One thing worth knowing is
+that the code reviewer said it had read the whole diff, found no blocking bug, and had one
+informational finding it had not yet named; that finding is lost and is a reason to run the review
+again rather than to skip it. Re-run all three.
+
+**The local test gate is red on two suites that are not ours.** A full `open-pr.ps1 -GatesOnly` run
+failed on `connectors.tests.ps1` and `connector-sessioncheck.tests.ps1`, both killed by the 1,800s
+per-suite bound. Both pass standalone on this tree minutes later — 384/384 in 158.2s and 51/51 in
+90.5s. So `open-pr` will refuse to push until either the gate is re-run green or `-SkipTests` is
+passed. **That is an open decision for whoever resumes, and Dave has not chosen:** re-running cost
+~1.75h here and can flake again; `-SkipTests` keeps the lint gate, and CI's required `lint-en-tests`
+still blocks the merge until it is green — but it is a deliberate gate bypass, so it belongs in the
+pull request body and in the close-out.
+
+**Filed along the way:**
+[#2231](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2231) — `connector-sessioncheck.tests.ps1`
+wedged for 22 minutes at 0s CPU with no children, past its own 300s bound, against a recorded normal
+cost of 26.6s. Measured, with the machine-suspend explanation (#2095) ruled out for that suite: a
+2,490s suspend does not fit inside a 1,512s process lifetime. The cause of the wedge itself is stated
+as not established.
+
+**Two things to check before writing anything, on a machine that is not this one.**
+`#2226` is claimed for `davekokbwj`; if that machine commits under another identity, claim by name
+rather than resolving `@me`, and read the claim before touching the branch — resuming is picking up.
+And `origin/fix/2224-stale-clone-import-remediation` (maikel-bwj, parked, no PR) still rewrites the same
+`Write-Failure` block in both script copies; whoever lands second resolves one textual conflict in two
+files. Do not merge it into this branch to pre-empt that.
+
 ### CREATE
 
-- [ ] `scripts/sync/check-roster-sync.ps1`: `Get-ImportOverlapKey` (normalises the `specialist-` prefix
+- [x] `scripts/sync/check-roster-sync.ps1`: `Get-ImportOverlapKey` (normalises the `specialist-` prefix
       off an import's **filename** only — the #2128 rename left directories untouched) plus the `[INFO]`
       branch in the import loop, ahead of the existing `Write-Failure`, which stays byte-for-byte as it is.
-- [ ] Hold the exemption to its bounds: same directory required; **both** lines dead still errors, because
+- [x] Hold the exemption to its bounds: same directory required; **both** lines dead still errors, because
       that is the genuine no-body state the check exists for; a live sibling that is a *different* document
       still errors.
-- [ ] Regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1` and confirm root and mirror
+- [x] Regenerate the plugin mirror with `scripts/sync/build-shared-scripts.ps1` and confirm root and mirror
       are byte-identical (check 8 of the lint gate).
 
 ### TEST
 
-- [ ] `scripts/tests/roster-sync.tests.ps1`: the overlap pair reports `[INFO]` and exit 0; both-dead still
-      exits 1 with two `[ERROR]`s; a live sibling of a different document still errors. Case 18b stays
-      exactly as it is — it is the unpaired dead import and its verdict does not change.
-- [ ] Code review, copy edit and security review on the diff.
-- [ ] `check-plugin-integrity.ps1` plus every suite green.
+- [x] `scripts/tests/roster-sync.tests.ps1`: cases 18f-18i. 408 pass, 0 fail; case 18b left exactly as it was.
+- [ ] Code review, copy edit and security review on the diff — started, cut off by the session ending,
+      no verdict received. Re-run from scratch.
+- [ ] `check-plugin-integrity.ps1` plus every suite green. Lint is clean; the suite half is the red-on-two
+      state described under PLAN, and the way past it is the open decision recorded there.
 
 ### DEPLOY: fix/2226-roster-check-overlap-exemption
 
