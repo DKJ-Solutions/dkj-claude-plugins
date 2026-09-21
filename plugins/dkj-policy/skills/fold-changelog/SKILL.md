@@ -58,7 +58,7 @@ and in `CHANGELOG.md`, so what a contributor writes is exactly what lands. The f
 comments** on the way and writes the PR line into `#### Pull Request`:
 
 ```markdown
-### DEPLOY: feat/short-name · 20260806-114230
+### DEPLOY: feat/short-name · 20260806-114230Z
 
 …why it matters at this reach…
 

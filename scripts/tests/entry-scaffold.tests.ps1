@@ -538,21 +538,37 @@ Assert-Equal $footer (Format-EntryFoldFooter -Number 468 -Url 'https://gh.test/p
 # to allow an adjacent day ('2026080[45]', '2026080[56]') to tolerate .ToLocalTime() shifting the date
 # under a non-UTC runner -- exactly the timezone dependence #1542 removes. The exact value is now the
 # point: '2026-08-05T09:14:00Z' is '20260805-091400' in every timezone.
+#
+# AND IT SAYS IT IS UTC, since inbound #2240: the stamp carries the zone marker, so every assert below is
+# written against it rather than against a bare value. Read from the lib rather than typed, so a suite
+# cannot claim a marker the writer does not append.
+$zoneMark = Get-EntryMergeStampZoneMarker
+Assert-Equal 'Z' $zoneMark 'the zone marker is the ISO 8601 designator -- one character, stating what the value always was'
 $stampOnTime = Format-EntryMergeStamp -MergedAt '2026-08-05T09:14:00Z' -FallbackNow '20990101-000000'
-Assert-Equal '20260805-091400' $stampOnTime 'the stamp is the PR merge moment, rendered in UTC to the second'
+Assert-Equal "20260805-091400$zoneMark" $stampOnTime 'the stamp is the PR merge moment, rendered in UTC to the second -- and marked as UTC'
 Assert-True ($stampOnTime -notmatch '2099') 'the PR timestamp wins over the fallback -- the clock is not consulted when gh answered'
 # A non-Z offset is normalised to UTC, not kept: 11:14+02:00 is the same instant as 09:14Z.
-Assert-Equal '20260805-091400' (Format-EntryMergeStamp -MergedAt '2026-08-05T11:14:00+02:00' -FallbackNow '20990101-000000') 'an offset timestamp is converted to UTC, so the same instant renders the same stamp'
+Assert-Equal "20260805-091400$zoneMark" (Format-EntryMergeStamp -MergedAt '2026-08-05T11:14:00+02:00' -FallbackNow '20990101-000000') 'an offset timestamp is converted to UTC, so the same instant renders the same stamp'
 # THE CASE THE WHOLE MECHANISM IS ABOUT: a fold that runs the day after the merge must still date the
 # entry by the merge, not by the run. Measured in this repo -- unfolded entries were once found in the
 # root the morning after they landed.
 $stampLate = Format-EntryMergeStamp -MergedAt '2026-08-05T23:30:00Z' -FallbackNow '20260807-101500'
-Assert-Equal '20260805-233000' $stampLate 'a late fold still dates the entry by the merge (UTC), not by the day it was folded'
+Assert-Equal "20260805-233000$zoneMark" $stampLate 'a late fold still dates the entry by the merge (UTC), not by the day it was folded'
 # No timestamp: a PR found but not yet merged, which -Branch mode can reach. Then "now" really is the
 # best available answer, so the fallback is used rather than the stamp being dropped.
-Assert-Equal '20260805-120000' (Format-EntryMergeStamp -FallbackNow '20260805-120000') 'no merge timestamp: the caller-supplied moment is used'
+#
+# AND THE FALLBACK IS MARKED TOO (#2240), which is the whole reason the marker is appended in the lib rather
+# than by the caller. The fold composes this value straight off the clock as a bare stamp, so a marker
+# applied at the call site would be on the PR path and off this one -- two spellings in one changelog, from
+# the branch nobody thinks about. Asserted on both the no-timestamp and the unparseable path, because they
+# are the two ways a caller reaches it.
+Assert-Equal "20260805-120000$zoneMark" (Format-EntryMergeStamp -FallbackNow '20260805-120000') 'no merge timestamp: the caller-supplied moment is used -- and marked as UTC like every other path'
 # A malformed timestamp must not turn a completed fold into a failure over a cosmetic field.
-Assert-Equal '20260805-120000' (Format-EntryMergeStamp -MergedAt 'not-a-date' -FallbackNow '20260805-120000') 'an unparseable timestamp degrades to the fallback instead of throwing'
+Assert-Equal "20260805-120000$zoneMark" (Format-EntryMergeStamp -MergedAt 'not-a-date' -FallbackNow '20260805-120000') 'an unparseable timestamp degrades to the fallback instead of throwing'
+# IDEMPOTENT ON AN ALREADY-MARKED VALUE. A caller that reads a stamp back out of a heading and hands it in
+# as the fallback must not produce '...ZZ' -- which would be a value no reader accepts, written by the one
+# function whose output every reader is defined against.
+Assert-Equal "20260805-120000$zoneMark" (Format-EntryMergeStamp -FallbackNow "20260805-120000$zoneMark") 'a fallback that already carries the marker is not marked twice'
 
 $entry2 = "### A title $md Feat $md 2026-08-05`n`nTier: 2`n`n**Body heading**`n`nBody text.`n"
 $t2 = Resolve-EntryTier -EntryText $entry2
@@ -1120,6 +1136,24 @@ $stampSep = Get-EntryIdSeparator
 Assert-Equal '20260903-104728' (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x`` $stampSep 20260903-104728") 'stamp: a stamped heading reads back its stamp'
 Assert-Equal '20260819-171500' (Get-EntryHeadingStamp -HeadingLine ('# T' + (Format-EntrySectionHeadingSuffix -Stamp '20260819-171500'))) 'stamp: and the writer''s own output round-trips through it'
 Assert-Equal '' (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x``") 'stamp: an unstamped heading answers empty rather than guessing'
+# BOTH SPELLINGS READ, ONE KEY RETURNED (#2240). The marked form is what the fold writes from now on and the
+# bare form is what every entry already folded carries -- in this repo's CHANGELOG.md, in every consumer's,
+# and in every release record under releases/changelog/. A reader that required the marker would read all of
+# those as carrying NO stamp, which the walk below treats as "stop here": every historical entry would
+# silently be placed by the pre-#1280 answer.
+Assert-Equal '20260903-104728' (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x`` $stampSep 20260903-104728$zoneMark") 'stamp: a marked heading reads back the same key, with the marker stripped'
+Assert-Equal `
+    (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x`` $stampSep 20260903-104728") `
+    (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x`` $stampSep 20260903-104728$zoneMark") `
+    'stamp: the two spellings of one instant answer identically -- so nothing can order by notation'
+# AND THE WRITER'S CURRENT OUTPUT STILL ROUND-TRIPS, which is the assert that would have caught the reader
+# being left behind: Format-EntryMergeStamp gained the marker, and a reader anchored on '\d{8}-\d{6}\s*$'
+# answers '' for everything it writes. That is not a visible failure anywhere -- it reads as an unstamped
+# entry, which is a supported shape -- so only a round-trip finds it.
+Assert-Equal '20260805-091400' (Get-EntryHeadingStamp -HeadingLine ('# T' + (Format-EntrySectionHeadingSuffix -Stamp (Format-EntryMergeStamp -MergedAt '2026-08-05T09:14:00Z' -FallbackNow '20990101-000000')))) 'stamp: what the fold writes today reads back as the bare ordering key'
+# The marker is the ONLY tolerated suffix: it is a zone designator, not an invitation.
+Assert-Equal '' (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x`` $stampSep 20260903-104728+02:00") 'stamp: an offset notation is not the marker and is not a stamp'
+Assert-Equal '' (Get-EntryHeadingStamp -HeadingLine "$entryH DEPLOY: ``x`` $stampSep 20260903-104728$zoneMark$zoneMark") 'stamp: nor is a doubled marker, which no writer produces'
 # THE PLACEHOLDER IS THE CASE THAT MUST NOT SORT. Get-EntrySectionHeadingTail deliberately tolerates any
 # non-blank text after the separator, so a heading copied from the trunk's reset state arrives here saying
 # '<timestamp of the moment this branch was merged>'. Compared as if it were a moment, that is a silent
@@ -1190,6 +1224,22 @@ $fencedStamped = @(
 ) -join "`n"
 $fencedStampedOff = Get-EntryInsertOffset -SectionText $fencedStamped -Stamp '20260903-102422'
 Assert-Equal "$entryH DEPLOY: ``c`` $stampSep 20260903-101748" ((($fencedStamped.Substring($fencedStampedOff)) -split "`r?`n")[0]).Trim() 'insert/stamp: a stamp quoted inside a fence orders nothing -- the walk skips it as a boundary and as a moment'
+# THE ROLLOUT WINDOW, which is the case #2240's repair had to survive rather than a hypothetical: for as
+# long as CHANGELOG.md holds entries folded on both sides of the marker, this walk compares a marked
+# incoming stamp against a list of bare ones. $stampedList above is all bare, so folding a MARKED stamp
+# into it is exactly that state -- and it must land where it landed, by time.
+Assert-Equal "$entryH DEPLOY: ``c`` $stampSep 20260903-101748" (Get-StampedInsertLabel -Stamp "20260903-102422$zoneMark") 'insert/stamp: a marked stamp folded into a list of bare ones is still placed by its moment'
+# AND THIS IS THE ASSERT THAT PINS THE DESIGN. Returning the marker instead of stripping it would leave
+# CompareOrdinal weighing a 15-character key against a 16-character one, and the bare form ranks FIRST for
+# the same instant -- so two entries that landed in the same second would be ordered by which spelling they
+# happened to be written in. Stripped, it is a genuine tie and the existing tie rule applies: the entry
+# folded first stays on top, which is 'continue past b' and therefore c.
+Assert-Equal "$entryH DEPLOY: ``c`` $stampSep 20260903-101748" (Get-StampedInsertLabel -Stamp "20260903-103107$zoneMark") 'insert/stamp: a marked stamp equal to a bare one is a TIE, not a rank -- notation never orders'
+# THE MIRROR CASE, and it is a real caller rather than symmetry for its own sake: a consumer whose fold is
+# one plugin release behind writes bare stamps into a list this repo has already marked.
+$markedList = $stampedList -replace '(\d{8}-\d{6})', "`$1$zoneMark"
+$bareIntoMarkedOff = Get-EntryInsertOffset -SectionText $markedList -Stamp '20260903-102422'
+Assert-Equal "$entryH DEPLOY: ``c`` $stampSep 20260903-101748$zoneMark" ((($markedList.Substring($bareIntoMarkedOff)) -split "`r?`n")[0]).Trim() 'insert/stamp: and a bare stamp folded into a marked list is placed by its moment too'
 
 # --- The rubric -----------------------------------------------------------------------------------
 $rubric = @(Get-EntrySignificanceRubric)
