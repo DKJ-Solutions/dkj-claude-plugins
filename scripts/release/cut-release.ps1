@@ -139,6 +139,11 @@
     Short description of the release as a whole (1 sentence, optional) -- goes into the notes +
     the table row.
 
+    IT IS NOT THE RELEASE'S NAME, and since September 21, 2026 nothing reads it as one. A GitHub
+    Release is named 'Release Version vX.Y.Z', derived from the tag, and the command this script
+    prints says so literally. This parameter has always been documented as a description; what
+    changed is the one line that printed it into --title.
+
 .PARAMETER SummaryFile
     Path to a markdown file whose content is placed in the release notes between the -Title line and
     the generated per-PR entries, followed by a horizontal rule.
@@ -1243,9 +1248,18 @@ function Write-FollowUpSteps {
     # The body is generated, so it is reported whether or not anything is left to write by hand -- a
     # patch with no hand-written document still gets a Release page, which is the whole point of
     # generating it.
+    # THE RELEASE NAME IS FIXED, AND THE SENTENCE IS A DESCRIPTION RATHER THAN A TITLE (Dave,
+    # September 21, 2026). This printed a '<short title>' placeholder, so every release was named after
+    # whatever sentence the cutter composed on the spot -- a second authoring decision at the one step
+    # that is already the most expensive, and one nothing could check. The name is now derived from the
+    # tag and nothing else, so two releases cut by two people read the same way.
+    #
+    # WHAT IS NOT REMOVED: the short description. It keeps its own row -- the first line of the
+    # generated body, and the history overview's last column -- which is where -Title still lands. Only
+    # the NAME stopped carrying it, so nothing about the release documents changes with this.
     Write-Host ""
     Write-Host "The GitHub Release body is written for you:" -ForegroundColor Cyan
-    Write-Host "  gh release create $tagName --title `"$tagName - <short title>`" --notes-file $bodyRelPath"
+    Write-Host "  gh release create $tagName --title `"Release Version $tagName`" --notes-file $bodyRelPath"
 
     # ONE DOCUMENT, AND NO SECOND SCRIPT TO INVOKE (Dave, August 10, 2026). This block used to name two
     # follow-ups: the consumer draft, and an invocation of new-internal-note.ps1 gated on that script being

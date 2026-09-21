@@ -43,17 +43,66 @@ Dave, 2026-09-21: a release gets no descriptive title any more. The GitHub Relea
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1`: the printed `gh release create` line names `Release Version <tag>` instead of
+      a `<short title>` placeholder, with the decision recorded beside it
+- [x] its `.PARAMETER Title` help says outright that the parameter is a description and never the name
+- [x] the plugin mirror brought back in sync via `build-shared-scripts.ps1` (the root copy is canonical)
+- [x] `cut-release/SKILL.md`: the printed command, plus the reasoning and the description carve-out
+- [x] the same page's milestone passage repaired -- it offered `Release version X.Y.Z` as a *fallback
+      title*, which describes the world before this change
+- [x] `v5.6.0`, published an hour earlier under a composed title, retitled to `Release Version v5.6.0`
+
+#### Deliberately not done
+
+- [~] renaming `-Title` to `-Description` -- dropped. Its help has read *"short description of the
+      release as a whole"* for its whole life, so the parameter never made the claim; only the printed
+      command did. A rename is a consumer-visible break on a mirrored script, bought for nothing.
+- [~] changing the history overview's `Title` column header -- dropped. Dave's instruction explicitly
+      keeps a short description as its own row, and that column is that row. Renaming it would touch the
+      header matcher in `release-lib.ps1`, every existing history table and three suites, for cosmetics.
 
 ### TEST
 
+- [x] `cut-release-guardrail.tests.ps1`: three asserts on the printed line -- that it is found, that it
+      names the fixed form, and that no placeholder sits beside it
+- [x] proved the guard BITES rather than passing vacuously: reverting the line to the old form turns
+      exactly those two asserts red (2 failed, 109 passed), and restoring it returns all 111
+- [x] `build-shared-scripts.ps1 -Check`: no mirror drift
+
 ### DEPLOY: feat/clean-release-title
 
-**Score:**
+A release is named `Release Version vX.Y.Z`, derived from its tag, and nothing composes that name any
+more. `cut-release.ps1` printed a `--title "<tag> - <short title>"` placeholder, so what a release was
+CALLED came from whatever sentence the person cutting it invented at that moment -- an authoring
+decision taken at the most expensive step of the procedure, by whoever happened to be running it, and
+the one artefact in this workflow that no gate could check. Two cutters produced two conventions.
+
+**The short description is not removed, which is the distinction the whole change turns on.** It keeps
+its own row -- the first line of the generated Release body, and the last column of the release
+overview -- and `-Title` still feeds both. That parameter's own help has read *"short description of the
+release as a whole"* since it existed, so the parameter was never the thing that claimed to be a title;
+one printed line was. Nothing about the release documents changes.
+
+Two neighbouring repairs came with it rather than being swept in: the parameter help now says outright
+that it is not the name, and the milestone section offered `Release version X.Y.Z` as a *legitimate
+fallback title* for a release too broad to summarise -- true before this change and misleading after it,
+since that is now simply the name. It says to omit `-Title` instead, which is the same advice with the
+stale half removed.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer cutting their next release sees a different command printed, and their releases stop being
+named after a sentence somebody wrote on the spot. Nothing is asked of them and nothing is refused:
+the line is printed for a person to paste, so a repo that prefers its own convention types its own
+`--title` exactly as before -- this changes what the workflow RECOMMENDS, not what it permits.
+
+Their already-published releases are untouched, and renaming one is a `gh release edit` they may run or
+skip; the release documents, the overview table and the description row are all unchanged, so there is
+no migration and nothing to re-adopt.
+
+**Score:** 2
 
 #### Pull Request
 
