@@ -164,7 +164,7 @@ $seam = & {
     }
     $cfg = Join-Path $args[0] 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
-        try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $($_.Exception.Message)" }
+        try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $(Format-SafeProseToken -Value $_.Exception.Message)" }
     }
     $branchInfo = Join-Path $args[0] 'scripts\lib\branch-info.ps1'
     if (Test-Path -LiteralPath $branchInfo -PathType Leaf) { try { . $branchInfo } catch { } }
@@ -521,7 +521,7 @@ function Get-ThemeList {
     try {
         $list = Invoke-ShopifyCli -Arguments @('theme', 'list', '--store', $store, '--json') -Quiet -DiscardStderr
     } catch {
-        Write-Warning "the Shopify CLI could not be run: $($_.Exception.Message)"
+        Write-Warning "the Shopify CLI could not be run: $(Format-SafeProseToken -Value $_.Exception.Message)"
         return $null
     }
     if ($null -eq $list -or $list.ExitCode -ne 0) { return $null }
@@ -578,7 +578,7 @@ if ($pushFiles.Count -eq 0) {
         $driftExit = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
     } catch {
         $driftExit = -1
-        Write-Warning "the drift check threw: $($_.Exception.Message)"
+        Write-Warning "the drift check threw: $(Format-SafeProseToken -Value $_.Exception.Message)"
     }
     if ($driftExit -eq 0) {
         Add-Step -Name 'drift' -State 'pass' -Detail "the drift check passed on all $($pushFiles.Count) file(s)."

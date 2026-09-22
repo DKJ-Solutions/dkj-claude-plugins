@@ -234,7 +234,7 @@ if ($cfg -and (Test-Path -LiteralPath $cfg -PathType Leaf)) {
         # WILDCARD pattern, so a seam function whose name carried a bracket would be missed silently.
         if (Test-FunctionDefined 'Get-TrunkBranchName') { $trunk = Get-TrunkBranchName }
     } catch {
-        Write-Warning "scripts\repo-config.ps1 could not be loaded -- assuming the trunk is '$trunk'. ($($_.Exception.Message))"
+        Write-Warning "scripts\repo-config.ps1 could not be loaded -- assuming the trunk is '$trunk'. ($(Format-SafeProseToken -Value $_.Exception.Message))"
     }
 }
 
@@ -417,7 +417,7 @@ if ($runCheckout) {
                     $mergedTips = Get-MergedPrTips -Pairs @($parsed | ForEach-Object {
                         [pscustomobject]@{ Name = $_.headRefName; Tip = $_.headRefOid } })
                 } catch {
-                    Write-Warning "gh's merged-PR list could not be read as JSON -- squash-merged branches will not be recognised. ($($_.Exception.Message))"
+                    Write-Warning "gh's merged-PR list could not be read as JSON -- squash-merged branches will not be recognised. ($(Format-SafeProseToken -Value $_.Exception.Message))"
                 }
             } else {
                 Write-Warning "gh could not list merged PRs -- squash-merged branches will not be recognised. ($(($mergedRes.Output | Out-String).Trim()))"
@@ -446,7 +446,7 @@ if ($runCheckout) {
                         Where-Object { -not $_.mergedAt } |
                         ForEach-Object { [pscustomobject]@{ Name = $_.headRefName; Tip = $_.headRefOid } })
                 } catch {
-                    Write-Warning "gh's closed-PR list could not be read as JSON -- no branch will be classified abandoned. ($($_.Exception.Message))"
+                    Write-Warning "gh's closed-PR list could not be read as JSON -- no branch will be classified abandoned. ($(Format-SafeProseToken -Value $_.Exception.Message))"
                 }
             } else {
                 Write-Warning "gh could not list closed PRs -- no branch will be classified abandoned. ($(($closedRes.Output | Out-String).Trim()))"

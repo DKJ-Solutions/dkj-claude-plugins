@@ -114,6 +114,11 @@ function New-Fixture {
     # Get-GitTopLevelPath, which lives there. UNGUARDED in that lib, deliberately -- it is mirrored
     # beside it into every plugin that carries it, so a payload missing it is broken rather than old.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\repo-root-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\repo-root-lib.ps1') -Force
+    # check-report-lib.ps1 likewise (#2271): the script now dot-sources it unconditionally for
+    # Format-SafeProseToken, which strips the foreign text out of the exception message its
+    # repo-config catch PRINTS. It dot-sources repo-root-lib.ps1 and nothing else, and that one is
+    # already copied just above -- for this very lib, on #2115.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\check-report-lib.ps1') -Force
     # document-newline-lib.ps1 likewise (#1832): entry-scaffold-lib.ps1 and pr-body-lib.ps1 dot-source it
     # for Get-DocumentNewline, unconditionally and for the same reason -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\document-newline-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\document-newline-lib.ps1') -Force

@@ -183,7 +183,7 @@ if (-not (Test-Path -LiteralPath $Compare -PathType Leaf)) {
 try {
     $before = ConvertFrom-WorkingCopySnapshotJson -Json ((Get-Content -LiteralPath $Compare -Raw))
 } catch {
-    Write-Host "check-fanout: the baseline at '$Compare' could not be read -- $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "check-fanout: the baseline at '$Compare' could not be read -- $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Red
     exit 2
 }
 
