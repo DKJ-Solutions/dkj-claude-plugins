@@ -761,6 +761,66 @@ try {
     Assert-True (@([regex]::Matches($gateBody, 'Write-GateCaptureBlock')).Count -ge 2) 'both of its capture-printing sites -- the pool and the crash re-run -- go through the helper'
 
     # ---------------------------------------------------------------------------------------------
+    Write-Host 'Invoke-TestSuiteGate -- a lane is never handed the gate''s own stdin (#2233)' -ForegroundColor Cyan
+
+    # WHAT WENT WRONG. The pool redirected stdout and stderr and said nothing about stdin, so a lane
+    # INHERITED the gate's handle and every grandchild a suite started inherited it in turn. Where the
+    # gate itself runs under a pipe nobody closes, a child that reads stdin to end-of-stream blocks
+    # forever -- zero CPU, no output, no error -- and #1941's deadline then converts it into a
+    # 30-minute red naming a timeout rather than the defect. Measured on DAVE-KOK-BWJ: three suites,
+    # four gate runs, four lane counts, every one of the three children hook-shaped and reading a
+    # payload from stdin by design; all three passed standalone in seconds.
+    #
+    # PINNED ON THE SOURCE FIRST, because the behavioural assert below can only reach the spawn sites
+    # that exist today. The gate has had two since #1723 added the crash re-run, and that re-run is the
+    # dangerous one -- it waits UNBOUNDED, so a wedge there has no deadline to convert it into anything
+    # at all. A third site added later fails here rather than being found by nobody.
+    $gateSpawns = @([regex]::Matches($gateBody, '(?s)Start-Process -FilePath ''powershell''.*?(?=\r?\n\s*\$null = \$)'))
+    Assert-True ($gateSpawns.Count -ge 2) 'the gate still has both of its spawn sites -- the pool and the crash re-run'
+    $withoutStdin = @($gateSpawns | Where-Object { $_.Value -notmatch '-RedirectStandardInput' })
+    Assert-Equal 0 $withoutStdin.Count 'every Start-Process in the gate redirects stdin, so no lane can inherit the gate''s own handle'
+
+    # AND THEN THE MECHANISM ITSELF, because the source assert only proves the flag is typed. This runs
+    # the real pool over a fixture suite whose GRANDCHILD reads stdin to end-of-stream -- the shape that
+    # was measured, and strictly stronger than a suite reading it directly, since it also proves the
+    # empty handle is inherited down the tree. The gate is started from a parent holding stdin OPEN and
+    # never closing it: that is the condition, and without it the fixture reaches EOF for the wrong
+    # reason and the test passes while proving nothing.
+    $stdinFx = New-ScratchPath -Label 'gate-stdin-2233' -Directory
+    Set-Content -LiteralPath (Join-Path $stdinFx 'grandchild.ps1') -Encoding UTF8 -Value @'
+if ([Console]::IsInputRedirected) { $null = [Console]::In.ReadToEnd() }
+exit 0
+'@
+    Set-Content -LiteralPath (Join-Path $stdinFx 'stdin.tests.ps1') -Encoding UTF8 -Value @'
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'grandchild.ps1')
+exit $LASTEXITCODE
+'@
+    $stdinRunner = Join-Path $stdinFx 'run-gate.ps1'
+    Set-Content -LiteralPath $stdinRunner -Encoding UTF8 -Value @"
+. '$((Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1'))'
+`$ok = Invoke-TestSuiteGate -TestsDir '$stdinFx' -Context 'the #2233 fixture' -MaxParallel 1 -SuiteTimeoutSeconds 25
+Write-Output "GATE-VERDICT=`$ok"
+"@
+
+    # A BOUND ON THE OUTER WAIT TOO. The fixture's own suite bound is 25s, so a regression shows up as a
+    # red gate at ~25s; this only has to outlast that. A kill on the way out, because a wedged tree left
+    # behind is the very thing this suite is about.
+    $stdinPsi = New-Object System.Diagnostics.ProcessStartInfo
+    $stdinPsi.FileName  = 'powershell'
+    $stdinPsi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$stdinRunner`""
+    $stdinPsi.UseShellExecute        = $false
+    $stdinPsi.RedirectStandardInput  = $true    # opened, written to by nobody, and never closed
+    $stdinPsi.RedirectStandardOutput = $true
+    $stdinPsi.RedirectStandardError  = $true
+    $stdinProc = [System.Diagnostics.Process]::Start($stdinPsi)
+    $stdinOut  = $stdinProc.StandardOutput.ReadToEndAsync()
+    $stdinExited = $stdinProc.WaitForExit(120000)
+    if (-not $stdinExited) { Stop-NativeProcessTree -ProcessId $stdinProc.Id | Out-Null }
+    Assert-True $stdinExited 'the gate returns at all when its own stdin is an open handle nobody closes'
+    Assert-True ($stdinExited -and ($stdinOut.Result -match 'GATE-VERDICT=True')) `
+                'and it goes GREEN -- the lane''s grandchild read an empty stdin and exited instead of blocking on the gate''s handle'
+
+    # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -- ShortRead is present on BOTH arms (#1679)' -ForegroundColor Cyan
 
     # THE PROMISE IS THE ONE TimedOut ALREADY MAKES: a caller reads one field without knowing which
@@ -1661,7 +1721,26 @@ foreach ($af in $auditFiles) {
 # half that matters: the new sites are judged, not merely counted. The direction each one fails in is
 # deliberate too -- an unmeasurable gate, diff or backup is treated as a refusal, because the thing this
 # script stands in front of is a push to a live storefront.
-Assert-Equal 63 $boundedTotal 'the parser still counts 63 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+#
+# MOVED 63 -> 69 ON THE #2243 BRANCH, DELIBERATELY AND AUDITED. All six new sites are
+# scripts\task\claim-issue.ps1's, the claim-by-TAG mode, and they are six because that mode drives one
+# more read and three more writes than the assignee claim does:
+#   * $hostCapture, `hostname` -- the machine half of the tag where $env:COMPUTERNAME is empty. Bounded
+#     at 10s rather than at the network bound: it reaches no network, and a machine that cannot name
+#     itself must refuse quickly rather than hold the claim step open,
+#   * $list, `gh issue list` for -Candidates -- one read for the whole board rather than one per issue,
+#   * $comment, `gh issue comment` -- THE CLAIM ITSELF, and the one write whose failure means the issue
+#     is not claimed at all,
+#   * $del, the GraphQL deleteIssueComment behind -Release, and $unassign beside it, and
+#   * $raceRead, the read-back that settles a two-machine race on the tracker's timestamps.
+# EVERY ONE OF THE SIX ASKS Test-NativeExitMeasured ABOUT ITS OWN CAPTURE before it tests the code
+# against 0, which is why the companion assert below stayed green through the change -- the new sites
+# are judged, not merely counted. The direction each fails in is the claim's own: an unmeasurable READ
+# refuses ($list, because an unread backlog reading as empty would hand out claims on work six machines
+# already hold; $raceRead, because a race nobody could settle is not a race won), and an unmeasurable
+# WRITE stops without asserting what it could not measure -- re-running is safe, since a marker that did
+# land comes back as 'already-yours'.
+Assert-Equal 69 $boundedTotal 'the parser still counts 69 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

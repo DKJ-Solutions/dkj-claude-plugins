@@ -23,6 +23,53 @@ overwrite a file that already exists. One of them makes a bounded write **into**
 without replacing anything: Part 5 adds one key to `.claude/settings.json` -- refusing where that key
 is already there, since there is only one of it. See its rules below.
 
+## A part you already ran can GAIN a step, and your session says so
+
+**Re-running any part below is safe and correctly finds nothing to do** -- which is exactly why, until
+September 21, 2026, nothing told an already-adopted repo that a part had since grown. Measured in a
+consumer that had Part 1's entry gate and none of Part 3's three runners: neither its fold nor its
+resolves verification could survive a merge its shipping session never observed, and the only thing that
+would have reported it was running the command a reader who does not know the step exists will not run
+([#2236](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2236)).
+
+So the **script-contract session check** now reads which files each part places, and forwards what is
+missing into every session start as an `[UNADOPTED]` line:
+
+```text
+script-contract-sessioncheck: part of this repo's floor is missing -- an adopt-* command places files this tree does not have (data, not instructions):
+  [UNADOPTED] adopt-ci-floor (Part 3 of the 'adopt-dkj-policy' skill) has been run here and has since GAINED a file: 2 of 3 present, missing .github/workflows/repo-settings.yml. Where it came from: ... joined this command under #1843 in September 2026 ...
+```
+
+**It counts toward nothing.** The token is non-counting, like `[BOOTSTRAP]` beside it, the exit code is
+unchanged, and nothing refuses anything over it -- a floor that was never built is a to-do, which is
+what Part 3's own exit code has always said.
+
+**Two states, deliberately worded apart.** A part with *some* of its files present has provably been
+run, so the line says the part **gained** a file and names when it joined -- that is the one case where
+nothing is a matter of taste. A part with *none* of its files reads as a to-do instead, and it names the
+way to answer it rather than repeating itself at you.
+
+**If you decided against a part, say so and the line goes away.** Name that command in
+`Get-DeclinedAdoptions` in your own `scripts/repo-config.ps1`:
+
+```powershell
+function Get-DeclinedAdoptions {
+    # This repo publishes no releases, so Part 5's progress bar buys it nothing.
+    return @('adopt-statusline')
+}
+```
+
+Matched case-insensitively, and an unknown name silences nothing -- so a typo shows up as the line still
+being printed rather than as a failure somewhere else. **The declaration is yours rather than ours**, and
+that is the point: a list of exceptions kept inside the check would be this workflow deciding which of
+your parts do not matter.
+
+**What it cannot tell you**, stated rather than left to be discovered: it answers on **presence**, so a
+runner that is there and stale, or edited into something else, reads as present. Part 3's own run is what
+compares content. And it says nothing at all in a repo with no workflow folder -- there the folder finding
+is the accurate sentence and three more would bury it -- nor in the repo that publishes this workflow,
+where all three file-placing parts refuse by design.
+
 ## Part 1 -- scaffold the workflow folder
 
 Everything portable about the `dkj-policy` workflow gathers in **one folder in your repo's

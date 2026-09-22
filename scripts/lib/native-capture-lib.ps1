@@ -3158,6 +3158,28 @@ function Invoke-TestSuiteGate {
         [Environment]::SetEnvironmentVariable($script:GateDepthEnvName, "$gateDepth", 'Process')
 
         $captureDir = New-ScratchPath -Label 'test-suite-gate' -Directory
+
+        # THE STDIN EVERY LANE CHILD IS GIVEN -- an empty file, and never this process's own handle
+        # (issue #2233, September 21, 2026). The spawn below redirects stdout and stderr and said nothing
+        # about stdin, so a lane INHERITED the gate's own, and every grandchild a suite started inherited
+        # it in turn. Where the gate itself runs under a pipe nobody closes -- a harness, a shell that
+        # redirects, a capture one layer up -- a child that reads stdin to end-of-stream blocks forever:
+        # zero CPU, no output, no error, and #1941's deadline then converting it into a 30-minute red that
+        # names a timeout rather than the defect.
+        # MEASURED ON DAVE-KOK-BWJ: three suites wedged on four separate gate runs at four lane counts,
+        # each holding exactly one child, and all three children hook-shaped -- a statusline renderer and
+        # two session checks, every one of which reads a payload from stdin by design. The same three
+        # passed standalone in 4s, 13s and 48s. Reproduced in isolation against this exact spawn: the child
+        # wedges at zero CPU without this line and exits in 10 ms with it, reading an empty payload.
+        # AN EMPTY FILE RATHER THAN A CLOSED HANDLE, because Start-Process has no way to say "closed" --
+        # and it is the honest thing to hand over anyway. A hook asks [Console]::IsInputRedirected, which
+        # is $true under this pool either way, so what it needs is a redirected handle already at
+        # end-of-stream rather than one that will never reach it.
+        # IT REPAIRS THE GATE AND NOT THE CHILDREN, deliberately. A hook whose own stdin bound does not
+        # bind is that hook's defect and is filed as #2249; this is the pool declining to hand anybody a
+        # handle it never closes, which is the half that belongs here and fixes every suite at once.
+        $laneStdin = Join-Path $captureDir 'lane-stdin.empty'
+        Set-Content -LiteralPath $laneStdin -Value '' -NoNewline -Encoding Ascii
         # THE FAILING SUITES' CAPTURE FILES, so the 'finally' below can keep exactly those and delete the
         # rest -- issue #1636. Collected in the reap loop because that is the only place a suite's exit code
         # and its two file paths are held at once; after $running.Remove the paths are gone, the same reason
@@ -3226,7 +3248,8 @@ function Invoke-TestSuiteGate {
                     $proc = Start-Process -FilePath 'powershell' `
                         -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $suite.FullName + '"')) `
                         -WorkingDirectory $launchDir -NoNewWindow -PassThru `
-                        -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+                        -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
+                        -RedirectStandardInput $laneStdin
                     # READING .Handle IS NOT A NO-OP -- it is what makes .ExitCode readable later, and leaving
                     # it out is how this rewrite first shipped. Start-Process -PassThru hands back a Process
                     # object without retaining the OS handle, so once the child has exited .NET has nothing
@@ -3514,7 +3537,8 @@ function Invoke-TestSuiteGate {
                     $rp = Start-Process -FilePath 'powershell' `
                         -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $c.Path + '"')) `
                         -WorkingDirectory $launchDir -NoNewWindow -PassThru `
-                        -RedirectStandardOutput $retryOut -RedirectStandardError $retryErr
+                        -RedirectStandardOutput $retryOut -RedirectStandardError $retryErr `
+                        -RedirectStandardInput $laneStdin
                     $null = $rp.Handle      # same reason as the pool's launch: without it .ExitCode is empty
                     $retrySw = [System.Diagnostics.Stopwatch]::StartNew()
                     $rp.WaitForExit()

@@ -1516,3 +1516,521 @@ function Format-PrerequisiteReport {
     }
     return @($lines)
 }
+
+# --- THE CLAIM TAG -- A SECOND CLAIM PRIMITIVE, FOR A SWEEP (issue #2243) -------------------------
+#
+# EVERYTHING ABOVE CLAIMS BY WRITING AN ASSIGNEE, AND THAT IS THE RIGHT CLAIM FOR ONE SESSION PICKING
+# UP ONE ISSUE. It stops being the right one the moment SEVERAL MACHINES work one backlog at once,
+# which is what a sweep is, and it fails on both halves:
+#
+#   THE WRITE CANNOT NAME THE MACHINE. Two checkouts authenticated as the same account write the same
+#   assignee, and neither can tell its own claim from the other's afterwards. The orchestrator body
+#   names this case in so many words -- "where both sessions run under one account the assignee cannot
+#   name the machine" -- and a sweep is exactly where it stops being hypothetical: three accounts over
+#   six machines means two machines share a name by construction.
+#
+#   AND THE READ REFUSES WORK THAT IS FREE. Get-ClaimVerdict's 'taken' is correct for a pickup and
+#   wrong for a sweep: an assignee put on an issue months ago by the colleague who owns the ticket is
+#   not a worker mid-flight. Measured on the BWJ board, September 17, 2026: three of fourteen open
+#   issues carried such a name, and a claim test reading the assignee would have skipped those three
+#   for good while they were the ordinary work of that round.
+#
+# SO THE SWEEP CLAIMS WITH A TAG: 'hostname/account', written as a MARKER COMMENT on the issue. The
+# hostname names the machine, the account names who a second session reads as the comment's author, and
+# the pair is what neither half is alone -- measured September 17, 2026 (#701): two accounts shared the
+# hostname DAVE-KOK-BWJ, and two machines shared the hostname DAVE under different accounts, so three
+# sessions of that round produced an identical or ambiguous string from the hostname alone.
+#
+# THE ASSIGNEE IS STILL WRITTEN BESIDE IT. It is what the tracker's own views show, and a sweep that
+# left every issue unassigned would read as an untouched backlog to anybody not reading comments. It is
+# the SUPPLEMENT here rather than the claim, which is the whole inversion this section carries.
+#
+# AND THE WORD 'LANE' IS DELIBERATELY NOT USED. It already means a git worktree in this workflow
+# (worktree-lane), and a sweep's tag is not a worktree: one machine sweeping serially has one checkout
+# and many tags over time. The prompt this replaces called it a lane, which is the collision.
+
+function Get-ClaimTag {
+    <#
+        .SYNOPSIS
+            The tag this session claims under -- 'hostname/account' -- or an incomplete record saying
+            which half is missing.
+
+        .DESCRIPTION
+            BOTH HALVES OR NOTHING, and the refusal that follows from an incomplete tag is the point.
+            A tag missing its account is the ambiguous string #701 measured; a tag missing its hostname
+            cannot tell two machines apart under one login. Either way the safe answer is to refuse the
+            claim rather than to write a string that reads like a claim and settles nothing.
+
+            THE ACCOUNT HALF IS THE GH ACCOUNT, NOT THE GIT NAME, and this is the one place in this lib
+            where the two diverge on purpose. Resolve-ClaimAccount answers "who should own this issue"
+            and picks the git name, because the commits are the half nothing can rewrite. This answers
+            "what will another session read as the AUTHOR of my comment", and gh writes the comment as
+            the gh account -- so a tag carrying the git name on a split checkout would disagree with the
+            metadata beside it, which is the ambiguity the tag exists to remove.
+
+            THE COMPARISON IS CASE-INSENSITIVE AND THE STORED FORM IS AS READ. A hostname arrives from
+            the environment in whatever case that machine reports, and normalising it to one case would
+            make a tag written by an older session unrecognisable to a newer one.
+
+        .PARAMETER MachineName
+            The machine name -- $env:COMPUTERNAME on Windows, `hostname` elsewhere. '' when unknown.
+
+        .PARAMETER Account
+            The account gh acts as (Get-ActiveGhAccount). '' when gh is absent or logged out.
+
+        .OUTPUTS
+            Tag         -- 'machine/account', or '' when either half is missing.
+            MachineName -- as read, trimmed.
+            Account     -- as read, trimmed.
+            Complete    -- $true when both halves are present.
+            Missing     -- 'none' | 'machine' | 'account' | 'both'.
+    #>
+    param(
+        [string]$MachineName = '',
+        [string]$Account = ''
+    )
+
+    $machine = if ($MachineName) { $MachineName.Trim() } else { '' }
+    $acct    = if ($Account) { $Account.Trim() } else { '' }
+
+    # A half carrying the separator would split into a tag that parses back as something else, so it is
+    # treated as unusable rather than silently rewritten -- the same argument as the missing halves
+    # above, one character further in.
+    if ($machine -match '/') { $machine = '' }
+    if ($acct -match '/')    { $acct = '' }
+
+    $missing = if (-not $machine -and -not $acct) { 'both' }
+               elseif (-not $machine) { 'machine' }
+               elseif (-not $acct) { 'account' }
+               else { 'none' }
+
+    [pscustomobject]@{
+        Tag         = if ($missing -eq 'none') { "$machine/$acct" } else { '' }
+        MachineName = $machine
+        Account     = $acct
+        Complete    = ($missing -eq 'none')
+        Missing     = $missing
+    }
+}
+
+function Get-ClaimMarkerPattern {
+    <#
+        .SYNOPSIS
+            The regex that finds a claim marker in a comment body, for one or several marker names.
+
+        .DESCRIPTION
+            THE MARKER IS AN HTML COMMENT so that it is invisible in the rendered issue, and the name is
+            a PARAMETER so that a repo which already has claim comments under an older name can keep
+            reading them. That is not hypothetical: the BWJ prompt this replaces wrote 'swb-lane:', and
+            a sweep that could not see those would hand out a second claim on work already in flight.
+
+            SEVERAL NAMES READ, ONE NAME WRITTEN. Format-ClaimComment takes a single name, so the
+            predecessor is something a sweep RECOGNISES and never something it produces -- otherwise the
+            older name never dies.
+
+        .PARAMETER Marker
+            One or more marker names, without the angle brackets or the colon.
+
+        .OUTPUTS
+            The pattern string, with the tag in a named group 'tag'. '' when no usable name was given.
+    #>
+    param([AllowNull()][string[]]$Marker = @('claim-tag'))
+
+    $names = @(@($Marker) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { [regex]::Escape(([string]$_).Trim()) })
+    if ($names.Count -eq 0) { return '' }
+
+    # [^>]* rather than .*? because a marker is a single HTML comment on one line: bounding it at the
+    # first '>' means a malformed body cannot make one marker swallow the next one.
+    '<!--\s*(?:' + ($names -join '|') + ')\s*:\s*(?<tag>[^>]*?)\s*-->'
+}
+
+function Format-ClaimComment {
+    <#
+        .SYNOPSIS
+            The comment body a claim writes: one readable sentence, and the marker that machines read.
+
+        .DESCRIPTION
+            THE SENTENCE IS FOR THE COLLEAGUE WHOSE TICKET THIS IS. A bare marker is invisible in the
+            rendered issue, so an issue claimed by a sweep would show a comment that appears to say
+            nothing -- which reads as a glitch on somebody else's board rather than as work starting.
+
+            THE MARKER IS FOR EVERY OTHER SESSION, and it is the whole claim. It carries the tag
+            verbatim so that reading it back is a string comparison rather than a parse of prose.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Tag,
+        [string]$Marker = 'claim-tag'
+    )
+
+    $tag = $Tag.Trim()
+    $name = if ($Marker -and $Marker.Trim()) { $Marker.Trim() } else { 'claim-tag' }
+    "Picked up by $tag -- an automated sweep of the open issues. <!-- ${name}: $tag -->"
+}
+
+function Get-ClaimRecords {
+    <#
+        .SYNOPSIS
+            Every claim marker on an issue, from a `gh issue view --json comments` payload: the tag, who
+            wrote it, when, and the comment's id.
+
+        .DESCRIPTION
+            SAME PARSE DISCIPLINE AS Get-AssigneeLogins one screen up, and for the same two 5.1 traps: a
+            field gh was never asked for is ABSENT rather than empty, and a dot-read of an absent
+            property throws under Set-StrictMode -Version Latest. So every record is probed before it is
+            read and a malformed one is skipped rather than taking the run down.
+
+            EMPTY IS "NOBODY HAS CLAIMED IT" ONLY IF THE READ SUCCEEDED, which is the caller's check and
+            not this function's. Read the other way round -- an unreachable tracker presenting as a free
+            backlog -- a sweep would claim and rebuild work that six machines are already holding.
+
+            THE BODY IS NEVER RETURNED. An issue comment is untrusted text of unbounded length written
+            by anybody with access to the tracker; what leaves here is a tag matched against a bounded
+            pattern, an author login, a timestamp and an id.
+
+        .PARAMETER Json
+            The payload text of `gh issue view --json comments` (or one element of `gh issue list`'s).
+
+        .PARAMETER Marker
+            The marker names to recognise. Several: see Get-ClaimMarkerPattern.
+
+        .OUTPUTS
+            An array of records -- Tag, Author, CreatedAt, Id -- in the order the tracker returned them.
+            EMPTY for empty input, unparseable JSON, or a payload with no marker in it.
+    #>
+    param(
+        [string]$Json,
+        [AllowNull()][string[]]$Marker = @('claim-tag')
+    )
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $pattern = Get-ClaimMarkerPattern -Marker $Marker
+    if (-not $pattern) { return @() }
+
+    try { $parsed = $Json | ConvertFrom-Json } catch { return @() }
+    if ($null -eq $parsed) { return @() }
+    if (-not $parsed.PSObject.Properties['comments']) { return @() }
+
+    $records = New-Object System.Collections.Generic.List[object]
+    foreach ($comment in @(@($parsed.comments) | Where-Object { $_ })) {
+        if (-not $comment.PSObject.Properties['body']) { continue }
+        $body = [string]$comment.body
+        if (-not $body) { continue }
+        $match = [regex]::Match($body, $pattern)
+        if (-not $match.Success) { continue }
+
+        $tag = $match.Groups['tag'].Value.Trim()
+        if (-not $tag) { continue }
+
+        $author = ''
+        if ($comment.PSObject.Properties['author'] -and $comment.author -and $comment.author.PSObject.Properties['login']) {
+            $author = ([string]$comment.author.login).Trim()
+        }
+        $created = ''
+        if ($comment.PSObject.Properties['createdAt']) { $created = ([string]$comment.createdAt).Trim() }
+        $id = ''
+        if ($comment.PSObject.Properties['id']) { $id = ([string]$comment.id).Trim() }
+
+        $records.Add([pscustomobject]@{
+            Tag       = $tag
+            Author    = $author
+            CreatedAt = $created
+            Id        = $id
+        }) | Out-Null
+    }
+    # .ToArray() rather than @($records), and it is measured rather than stylistic: in 5.1 the wrap
+    # throws ArgumentException on a List[object] holding PSCustomObjects, while the same wrap on the
+    # List[string] Get-AssigneeLogins builds is fine. pr-issues-lib.ps1 carries the same note.
+    return @($records.ToArray())
+}
+
+function Get-TagClaimVerdict {
+    <#
+        .SYNOPSIS
+            Whether the issue in front of a sweep may be claimed by this tag -- read before anything is
+            written.
+
+        .DESCRIPTION
+            FOUR VERDICTS, AND THEY ARE THE ASSIGNEE VERDICTS ONE AXIS OVER. Get-ClaimVerdict asks who
+            is ASSIGNED; this asks who has CLAIMED, and the two disagree on purpose -- see the section
+            header above for the measurement that separated them.
+
+              1. NO TAG. There is no complete 'machine/account' to claim under, so there is nobody to
+                 be. Refused rather than worked around, for the same reason an anonymous assignee claim
+                 is: a claim that cannot say who made it settles nothing for the next session to read.
+
+              2. THE ISSUE IS CLOSED. Same refusal, same reason, as the assignee path: writing a claim
+                 on finished work gives a sweep every signal of having started something real.
+
+              3. SOMEBODY ELSE HOLDS IT. One or more markers, none of them this tag. Refused -- and
+                 unlike the assignee path this refusal has no override, because in a sweep it is not a
+                 judgement call: a machine is mid-flight on that issue and its branch is somewhere this
+                 session cannot see.
+
+              4. IT IS ALREADY THIS TAG'S. A resume -- a crashed session, a second pass, the approval
+                 coming back hours later. Nothing to write, and it is the verdict A SWEEP'S RESUME STEP
+                 TURNS ON: resuming asks to continue on the tag's OWN work, so a tag that cannot tell
+                 itself apart from another session's picks up somebody else's branch.
+
+            A TAG PRESENT ALONGSIDE OTHERS IS STILL A RESUME HERE. That collision is settled by
+            Resolve-ClaimRace after the write, on the timestamps, and not by a pre-write read that
+            cannot see who was first.
+
+        .PARAMETER Tag
+            This session's tag (Get-ClaimTag's Tag). '' when incomplete.
+
+        .PARAMETER State
+            The issue's state -- 'OPEN' or 'CLOSED'. Compared case-insensitively.
+
+        .PARAMETER Records
+            The markers already on the issue (Get-ClaimRecords).
+
+        .OUTPUTS
+            Action  -- 'claim' | 'resume' | 'refuse'.
+            Code    -- 'free' | 'already-yours' | 'no-tag' | 'closed' | 'held'.
+            Holders -- the tags that are not this one. Always an array.
+    #>
+    param(
+        [string]$Tag = '',
+        [string]$State = '',
+        [AllowNull()][object[]]$Records = @()
+    )
+
+    $all = @(@($Records) | Where-Object { $_ -and $_.PSObject.Properties['Tag'] -and ([string]$_.Tag).Trim() })
+    $others = @($all | Where-Object { ([string]$_.Tag).Trim() -ine $Tag } | ForEach-Object { ([string]$_.Tag).Trim() } | Select-Object -Unique)
+    $mine   = @($all | Where-Object { $Tag -and (([string]$_.Tag).Trim() -ieq $Tag) })
+
+    if (-not $Tag) {
+        return [pscustomobject]@{ Action = 'refuse'; Code = 'no-tag'; Holders = $others }
+    }
+    if ($State -ieq 'CLOSED') {
+        return [pscustomobject]@{ Action = 'refuse'; Code = 'closed'; Holders = $others }
+    }
+    if ($mine.Count -gt 0) {
+        return [pscustomobject]@{ Action = 'resume'; Code = 'already-yours'; Holders = $others }
+    }
+    if ($others.Count -gt 0) {
+        return [pscustomobject]@{ Action = 'refuse'; Code = 'held'; Holders = $others }
+    }
+    return [pscustomobject]@{ Action = 'claim'; Code = 'free'; Holders = $others }
+}
+
+function Resolve-ClaimRace {
+    <#
+        .SYNOPSIS
+            Who won, when two sessions claimed the same issue within the same breath: read the markers
+            back after the write and name the WINNER.
+
+        .DESCRIPTION
+            THE PROMPT THIS REPLACES NAMED THE LOSER AND THAT DOES NOT CLOSE. Its rule was "read the
+            comments back, and if there is a claim that is not yours, let go" -- under which two sessions
+            that claim inside the same second both see two markers, both recognise the other, and BOTH
+            let go. The issue is then released by everybody who wanted it, and the next pass repeats the
+            race with the same outcome. A rule that resolves a race has to name a winner, so that
+            exactly one session keeps it.
+
+            EARLIEST COMMENT WINS. It is the only ordering both sessions can read the same way: each one
+            sees both timestamps, written by the tracker rather than by either machine, so the verdict
+            does not depend on which session is asking.
+
+            AND THE TIE IS BROKEN ON THE COMMENT ID, which is arbitrary and DETERMINISTIC -- the two
+            properties a tie-break needs, in that order. GitHub stamps createdAt to the second, so two
+            claims can genuinely share one; the node id is opaque and says nothing about time, but every
+            session compares the same two strings and reaches the same answer. A tie-break that read as
+            meaningful (the "lower" machine, the "first" account) would invite somebody to rely on it.
+
+            A TAG THAT CLAIMED TWICE IS JUDGED ON ITS EARLIEST MARKER. A resumed session can leave a
+            second comment, and the claim it is resuming is the first one.
+
+            ABSENT IS ITS OWN ANSWER AND NOT A LOSS. Where the read-back carries no marker for this tag
+            at all, the write did not land -- which says nothing about who holds the issue, so the caller
+            reports it rather than releasing something it never had.
+
+        .PARAMETER Tag
+            This session's tag.
+
+        .PARAMETER Records
+            Every marker on the issue AFTER the write (Get-ClaimRecords).
+
+        .OUTPUTS
+            Action  -- 'keep' | 'release' | 'absent'.
+            Winner  -- the tag that holds the issue. '' when Action is 'absent'.
+            Mine    -- this tag's earliest record, or $null.
+            Rivals  -- the other tags present. Always an array.
+            Reason  -- 'sole' | 'earliest' | 'tie-id' | 'later' | 'not-written'.
+    #>
+    param(
+        [string]$Tag = '',
+        [AllowNull()][object[]]$Records = @()
+    )
+
+    $all = @(@($Records) | Where-Object { $_ -and $_.PSObject.Properties['Tag'] -and ([string]$_.Tag).Trim() })
+
+    # Earliest record per tag: a tag is in the race once, at the moment it first claimed.
+    $firstByTag = @{}
+    foreach ($record in $all) {
+        $recordTag = ([string]$record.Tag).Trim()
+        $key = $recordTag.ToLowerInvariant()
+        $created = if ($record.PSObject.Properties['CreatedAt']) { [string]$record.CreatedAt } else { '' }
+        $id = if ($record.PSObject.Properties['Id']) { [string]$record.Id } else { '' }
+        if (-not $firstByTag.ContainsKey($key)) {
+            $firstByTag[$key] = [pscustomobject]@{ Tag = $recordTag; CreatedAt = $created; Id = $id }
+            continue
+        }
+        $held = $firstByTag[$key]
+        if (($created -lt $held.CreatedAt) -or (($created -eq $held.CreatedAt) -and ($id -lt $held.Id))) {
+            $firstByTag[$key] = [pscustomobject]@{ Tag = $recordTag; CreatedAt = $created; Id = $id }
+        }
+    }
+
+    $mineKey = if ($Tag) { $Tag.Trim().ToLowerInvariant() } else { '' }
+    $rivals = @($firstByTag.Keys | Where-Object { $_ -ne $mineKey } | ForEach-Object { $firstByTag[$_].Tag })
+
+    if (-not $mineKey -or -not $firstByTag.ContainsKey($mineKey)) {
+        return [pscustomobject]@{ Action = 'absent'; Winner = ''; Mine = $null; Rivals = $rivals; Reason = 'not-written' }
+    }
+
+    $mine = $firstByTag[$mineKey]
+    if ($rivals.Count -eq 0) {
+        return [pscustomobject]@{ Action = 'keep'; Winner = $mine.Tag; Mine = $mine; Rivals = @(); Reason = 'sole' }
+    }
+
+    # An ISO 8601 timestamp in UTC ('2026-09-21T10:02:03Z') sorts correctly as a STRING -- fixed width,
+    # most significant field first, one timezone. Parsing it to a DateTime would introduce the local
+    # zone into a comparison two machines in different zones have to agree on.
+    $winner = $mine
+    $reason = 'earliest'
+    foreach ($key in $firstByTag.Keys) {
+        if ($key -eq $mineKey) { continue }
+        $rival = $firstByTag[$key]
+        $earlier = ($rival.CreatedAt -lt $winner.CreatedAt) -or
+                   (($rival.CreatedAt -eq $winner.CreatedAt) -and ($rival.Id -lt $winner.Id))
+        if ($earlier) {
+            $winner = $rival
+            $reason = if ($rival.CreatedAt -eq $mine.CreatedAt) { 'tie-id' } else { 'later' }
+        }
+    }
+
+    if ($winner.Tag -ieq $mine.Tag) {
+        return [pscustomobject]@{ Action = 'keep'; Winner = $mine.Tag; Mine = $mine; Rivals = $rivals; Reason = $reason }
+    }
+    [pscustomobject]@{ Action = 'release'; Winner = $winner.Tag; Mine = $mine; Rivals = $rivals; Reason = $reason }
+}
+
+function Get-SweepCandidates {
+    <#
+        .SYNOPSIS
+            Which open issues a sweep may pick up next, out of one `gh issue list` payload: free, this
+            tag's already, held by another tag, or skipped -- with the reason.
+
+        .DESCRIPTION
+            ONE READ FOR THE WHOLE BACKLOG. The alternative is a per-issue query, which on a board of a
+            hundred issues is a hundred round-trips before any work starts -- and a sweep that spends a
+            minute choosing is a sweep nobody runs. `gh issue list --json number,title,labels,comments`
+            answers all of it at once.
+
+            THE ORDER IS THE ISSUE NUMBER, ASCENDING, and that is a decision rather than a default:
+            oldest first is the only order six machines reading the same board agree on without
+            coordinating, so two sessions starting at the same moment collide on ONE issue and then
+            diverge, rather than racing down the list together.
+
+            A SKIP IS NOT A VERDICT ABOUT THE WORK. A label the caller named (needs-info, blocked) means
+            the issue is parked with somebody else, and an explicitly excluded number means a person
+            said so. Both are reported with their reason rather than silently dropped, because a sweep
+            that says "nothing to do" while it is hiding six issues has told the operator nothing.
+
+            IT JUDGES AND NEVER WRITES. The claim is a separate step and stays one: between this read
+            and that write a session may still find the issue is not its repo's work at all -- an
+            external ticket owned by somebody outside the team is the case the BWJ board measured
+            (#722) -- and a scan that claimed as it went would have taken those before anybody looked.
+
+        .PARAMETER Json
+            The payload text of `gh issue list --json number,title,labels,comments`.
+
+        .PARAMETER Tag
+            This session's tag, so its own claims read as 'mine' rather than 'held'.
+
+        .PARAMETER Marker
+            The marker names to recognise (see Get-ClaimMarkerPattern).
+
+        .PARAMETER SkipLabel
+            Label names that park an issue with somebody else. Compared case-insensitively.
+
+        .PARAMETER SkipIssue
+            Issue numbers held out of this round by hand.
+
+        .OUTPUTS
+            An array of records, ascending by number -- Number, Title, Verdict, Holder, Reason --
+            where Verdict is 'free' | 'mine' | 'held' | 'skipped'. EMPTY for empty or unparseable input.
+    #>
+    param(
+        [string]$Json,
+        [string]$Tag = '',
+        [AllowNull()][string[]]$Marker = @('claim-tag'),
+        [AllowNull()][string[]]$SkipLabel = @(),
+        [AllowNull()][int[]]$SkipIssue = @()
+    )
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    try { $parsed = $Json | ConvertFrom-Json } catch { return @() }
+    if ($null -eq $parsed) { return @() }
+
+    $skipLabels = @(@($SkipLabel) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { ([string]$_).Trim() })
+    $skipIssues = @(@($SkipIssue) | Where-Object { $_ })
+
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($issue in @(@($parsed) | Where-Object { $_ })) {
+        if (-not $issue.PSObject.Properties['number']) { continue }
+        $number = [int]$issue.number
+        $title = if ($issue.PSObject.Properties['title']) { [string]$issue.title } else { '' }
+
+        $labels = @()
+        if ($issue.PSObject.Properties['labels']) {
+            foreach ($label in @(@($issue.labels) | Where-Object { $_ })) {
+                if ($label.PSObject.Properties['name']) { $labels += ([string]$label.name).Trim() }
+            }
+        }
+
+        $verdict = 'free'
+        $holder = ''
+        $reason = ''
+
+        if ($skipIssues -contains $number) {
+            $verdict = 'skipped'
+            $reason = 'held out of this round by number'
+        } else {
+            $hit = @($labels | Where-Object { $lbl = $_; @($skipLabels | Where-Object { $_ -ieq $lbl }).Count -gt 0 })
+            if ($hit.Count -gt 0) {
+                $verdict = 'skipped'
+                $reason = "label '$($hit[0])'"
+            }
+        }
+
+        if ($verdict -eq 'free') {
+            # The records come from this one element, re-serialised: Get-ClaimRecords reads the shape
+            # `gh issue view` returns, and one element of a list payload carries the same 'comments'
+            # array under a different root. Re-serialising is cheaper than a second parser, and it keeps
+            # exactly one place where a comment body is read.
+            $records = @()
+            if ($issue.PSObject.Properties['comments']) {
+                $records = @(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @($issue.comments) }) | ConvertTo-Json -Depth 8) -Marker $Marker)
+            }
+            $verdictRecord = Get-TagClaimVerdict -Tag $Tag -State 'OPEN' -Records $records
+            switch ($verdictRecord.Code) {
+                'already-yours' { $verdict = 'mine';  $reason = 'this tag claimed it' }
+                'held'          { $verdict = 'held';  $holder = @($verdictRecord.Holders)[0]; $reason = "claimed by $holder" }
+                'no-tag'        { $verdict = 'free';  $reason = '' }
+                default         { $verdict = 'free';  $reason = '' }
+            }
+        }
+
+        $out.Add([pscustomobject]@{
+            Number  = $number
+            Title   = $title
+            Verdict = $verdict
+            Holder  = $holder
+            Reason  = $reason
+        }) | Out-Null
+    }
+
+    return @($out | Sort-Object -Property Number)
+}

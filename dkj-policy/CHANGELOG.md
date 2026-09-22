@@ -44,7 +44,191 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 6 minor entries** <!-- pending-tally -->
+**7 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2243-sweep-issues-skill · 20260922-001336
+
+A backlog worked by several machines at once had one procedure in this marketplace and it was a
+**prompt block** in `dkj-policy-bwj` -- pasted by hand into a fresh session per machine, with its claim
+written as prose for a session to type and its race resolution releasing the issue from both sides of a
+tie. `sweep-issues` is that procedure as a skill in `dkj-policy`, and `claim-issue.ps1` gains the claim
+it needs: **`-Tag`**, which claims with a marker comment carrying `machine/account` instead of with an
+assignee. Both halves of that tag are load-bearing and both were measured -- two accounts sharing a
+machine name and two machines sharing an account each produced an ambiguous claim
+([#701](https://github.com/BWJ-Development/smartwatchbanden/issues/701)) -- and the assignee is still
+written beside it as the tracker's visible signal rather than as the claim. `Resolve-ClaimRace` reads
+the markers back and names the **winner** (earliest comment, ties broken on the node id, which is
+arbitrary and identical for every reader) so exactly one session keeps the issue and the losers release
+their own marker. `-Verify` answers in an exit code whether THIS tag still holds an issue, which is what
+the resume step needs and the sharpest place a vague claim costs; `-Release` drops this tag's own
+markers and nothing else; `-Candidates` reads the whole board in one call and judges it without writing
+anything, because between choosing and claiming sits the question of whether the issue is this repo's
+work at all ([#722](https://github.com/BWJ-Development/smartwatchbanden/issues/722)). The default
+assignee mode is untouched throughout, and the tag verdict is mapped onto its vocabulary so the
+parked-fix, prerequisite and title-overlap scans all still run.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A consumer repo gets a way to put several machines on one backlog without the two failures that shape
+costs: building the same issue twice, and a session resuming somebody else's branch because the claim
+could not name a machine. Before this, the only shared claim was an assignee -- which two checkouts
+under one GitHub account write identically, and which refuses an issue carrying the name of the
+colleague who owns the ticket, measured at three of fourteen open issues on one board. The skill also
+carries the stop that a parallel round most wants to skip: where the result has to be judged by eye it
+parks the branch and takes the next issue rather than opening a pull request on work nobody has seen.
+
+**Score:** 3
+
+#### Pull Request
+
+Sweep an issue backlog with several machines, claiming by tag
+
+Plugins: dkj-policy
+
+[PR #2257](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2257)
+
+---
+
+### DEPLOY: docs/2247-foreign-text-registry-sweep · 20260921-224745
+
+The registry of every console this workflow prints foreign text to -- in
+[`new-branch`'s skill page](../plugins/dkj-policy/skills/new-branch/SKILL.md) -- goes from **seven
+entries to thirteen**, after the first sweep anybody ran on purpose. #2247 reported one missing site and
+suggested a sweep might be the right repair; it was. Entry 8 is `adopt-ci-floor.ps1`, the reported one.
+Entry 9 is the find that mattered: `check-report-lib.ps1`'s `Format-SafeToken` family is a **fourth
+hand-typed strip mechanism**, a `\p{C}` pattern with its own three-issue lineage and thirteen caller
+files across `scripts/lint/`, `scripts/sync/`, `scripts/task/` and `scripts/maintenance/`, and it had
+been invisible for as long as the list existed. Entries 10 to 13 are a branch document's own prose
+quoted back at it, GitHub's required-check names, `check-fanout`'s shrinkage report, and
+`check-consumer-siblings.ps1`. Entries 1 and 4 are edited rather than duplicated, per the page's own
+rule that a new caller inside a listed site is an edit to that entry: `park-cycle.ps1` relays entry 1's
+value and prints entry 4's, `tidy-machine.ps1` prints entry 4's, and entry 4 had a value it never named
+at all -- `sync-main.ps1`'s raw `$rel`.
+
+**#2247's own premise was false, and the page now says so.** It asserted the site it reported was fully
+guarded and that "nothing is exploitable today"; reading that site instead of the report about it found
+two raw, uncapped values beside the guarded ones -- one of them sharing a line with a value #2247 had
+checked and called safe. The repair for those is **#2248**, deliberately not on this branch: this one
+makes the list true, not the scripts safe. The closing overclaim -- that a reader "now has the list" --
+is retired for the same reason the sentence before it was: a reader has, at most, every place found so
+far. Growing three to seven incidentally and seven to thirteen in one deliberate pass argues the
+technique works, not that it is exhausted.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a maintenance registry inside a skill page this workflow ships. Its reader is whoever audits
+where this workflow prints somebody else's characters, which is this repo's own kind of reader; a
+subscriber of a service notices nothing about it. The two unguarded sites it now names are real, but
+what a consumer would notice is their repair, and that is #2248 rather than this change.
+
+**Score:** N/A
+
+#### Pull Request
+
+The foreign-text print registry goes from seven sites to thirteen, after the first deliberate sweep
+
+Plugins: dkj-policy
+
+[PR #2256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2256)
+
+---
+
+### DEPLOY: feat/2236-adoption-gap-reported · 20260921-221327
+
+Every `adopt-*` command is safe to re-run and correctly finds nothing to do, and that is exactly why
+nothing told an already-adopted repo when one of them GAINED a file. The script-contract session check now
+reads which files each adoption part places and forwards what is missing as a non-counting `[UNADOPTED]`
+line, wording a part that has *some* of its files ("has been run here and has since GAINED a file", naming
+when that file joined) apart from one that has none. Two guards keep it from being a nag -- silent in a repo
+with no workflow folder, and in the repo that publishes this workflow -- and a repo that decided against a
+part names it in `Get-DeclinedAdoptions` to answer the line for good.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer learns at their next session start that part of their CI floor is missing, which until now they
+could learn only by running the command they did not know existed. Measured in one: `xoxowildhearts` had
+Part 1's entry gate and none of Part 3's three runners, so neither its fold nor its resolves verification
+could survive a merge its shipping session never observed, with every check green throughout. The register's
+own detector could not see it, being any-or-none rather than per-command.
+
+**Score:** 4
+
+#### Pull Request
+
+A consumer's session reports which adopt-* steps its tree is missing
+
+Plugins: dkj-policy
+
+[PR #2254](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2254)
+
+---
+
+### DEPLOY: fix/2233-gate-lane-stdin · 20260921-203304
+
+A test-gate lane is no longer handed the gate's own stdin. `Invoke-TestSuiteGate` redirected stdout and
+stderr and said nothing about stdin, so every suite inherited the gate's handle and passed it on to
+whatever it spawned. Where the gate itself runs under a pipe nobody closes, a child that reads stdin to
+end-of-stream blocked forever -- zero CPU, no output, no error -- and #1941's per-suite deadline then
+converted that into a 30-minute red naming a timeout rather than a defect. Each lane now gets an empty
+file instead, at both spawn sites, so the read returns at once. Measured on the three suites that
+wedged: all three now pass through the gate under exactly the condition that wedged them, the slowest
+in 70s against a 30-minute refusal.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Anyone running this workflow's own gate gets it: `open-pr` could not open a pull request at all on a
+machine in this state, and the half-hour it took to refuse is the shape that gets a gate bypassed by
+habit rather than by decision. The repair is at the pool, so it covers every suite at once rather than
+the three that happened to be caught.
+
+**Score:** 3
+
+#### Pull Request
+
+A test-gate lane no longer hands its suite the gate's own stdin
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2251](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2251)
+
+---
+
+### DEPLOY: fix/2239-teardown-suite-pool-flake · 20260921-200553
+
+`teardown.tests.ps1` no longer fails the gate when a child `powershell.exe` dies without a word while the
+suite is building a fixture. It builds the fixture again once, prints a `[NOTE]` line so the occurrence is
+counted rather than invisible, and lets anything the child actually said stand as the failure.
+
+The cause of the child dying is not established: the failure was seen once in two pool runs at 22 lanes
+and was not reproduced. If a `[NOTE]` line ever shows up in a gate log, that is the next data point, and
+with it the n=5 this repo asks for before a moving verdict is trusted.
+
+**Score:** 1 -- prevents a failure that has already happened once: a red gate on a tree nobody touched,
+found while measuring the gate for #2232.
+
+#### What makes this deploy extra special
+
+Nothing here reaches a consumer; it is one test suite. What it adds for the next reader is the argument for
+why retrying is safe here and would not be for the general case: the retry keys on a state the code under
+test cannot produce (a silent non-zero exit), so it cannot hide a real defect.
+
+**Score:** N/A -- this reaches nobody outside this repo; the suite is not plugin payload.
+
+#### Pull Request
+
+teardown.tests.ps1 builds its fixture again once when the bootstrap child dies silent
+
+[PR #2244](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2244)
+
+---
 
 ### DEPLOY: docs/2238-handover-client-state-reset · 20260921-191234
 
