@@ -570,12 +570,16 @@ count is worth stating precisely because the wrong one is what kept the second s
     SENTENCE somebody else wrote, which is what this is; three of those files (`check-branch-entry.ps1`,
     `check-unfolded-entry.ps1`, `new-internal-note.ps1`) had to dot-source `check-report-lib.ps1` to
     reach it. `asana-mirror.ps1`'s seven sites take `Format-ForConsole`, this page's own fourth copy
-    above, for the reason that section already gives. **The eight SessionStart hook catch-alls take an
+    above, for the reason that section already gives. **The nine hook catch-alls take an
     INLINE `-replace` chain and deliberately not a call**: `hook-check-lib.ps1` is dot-sourced INSIDE
     their `try`, so "the lib did not load" is one of the failures that lands in the catch, and a guard
     call there would throw inside the catch and escape it -- breaking the session start on its own
     reporting line, which is the one thing that catch exists to prevent. The dependency is the hazard;
-    the duplication is the cheaper cost, and the suite pins all three passes in all eight.
+    the duplication is the cheaper cost, and the suite pins all three passes in all nine. **The ninth was
+    found by a merge rather than by the sweep**: `guard-working-copy.ps1` reached the trunk under #2264
+    while this branch was open, printing its lib-load failure raw, and the suite's hook scan read
+    `*-sessioncheck.ps1` only -- one filename away. It now reads every hook, because what makes these
+    sites what they are is the catch that may be holding "the lib did not load", not the file name.
 
     **The class already had one correctly guarded site and the reporting grep could not see it.**
     `check-claude-home.ps1` prints `Get-InstallRecord`'s parse error through `Format-SafeProseToken`,

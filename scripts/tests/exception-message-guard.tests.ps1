@@ -220,11 +220,19 @@ try {
     #     carries both an exception message and a console cmdlet. The scan still guards the REGRESSION
     #     -- reverting one to the raw one-liner puts both back on a single line and trips it -- but
     #     nothing would notice a hook quietly losing its strip while keeping the two-line shape. These
-    #     are the sites whose output a SessionStart hook forwards into session context, so they are
-    #     the ones worth naming rather than inferring.
+    #     are the sites whose output lands in a session rather than in a terminal somebody is watching,
+    #     so they are the ones worth naming rather than inferring.
+    #
+    #     THE FILTER IS EVERY HOOK, NOT EVERY `*-sessioncheck.ps1` (widened while this branch was open).
+    #     It was the narrower name for as long as the class looked like the session checks, and the
+    #     merge from the trunk answered that: `guard-working-copy.ps1` arrived under #2264 printing its
+    #     lib-load failure raw, one filename away from a scan that would have caught it. A hook is a
+    #     hook -- what makes these sites what they are is the catch that may be holding "the lib did not
+    #     load", not the word in the file name.
     Write-Host "the hook catch-alls strip before they print" -ForegroundColor Cyan
-    $hookFiles = @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'plugins') -Recurse -Filter '*-sessioncheck.ps1' -File -ErrorAction SilentlyContinue)
-    Assert-True ($hookFiles.Count -ge 8) "the session-start hooks were found to check ($($hookFiles.Count) found)"
+    $hookFiles = @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'plugins') -Recurse -Filter '*.ps1' -File -ErrorAction SilentlyContinue |
+        Where-Object { (Split-Path -Leaf $_.DirectoryName) -eq 'hooks' })
+    Assert-True ($hookFiles.Count -ge 9) "the hooks were found to check ($($hookFiles.Count) found)"
     $rawHooks = @()
     foreach ($h in $hookFiles) {
         $text = Get-Content -LiteralPath $h.FullName -Raw -ErrorAction SilentlyContinue
@@ -241,7 +249,7 @@ try {
         $hasBrackets   = $text.Contains("-replace '\[', '('")
         if (-not ($hasWhitespace -and $hasControl -and $hasBrackets)) { $rawHooks += $h.Name }
     }
-    Assert-Equal 0 $rawHooks.Count "every session-start hook that prints an exception message runs all three passes$(if ($rawHooks.Count) { " -- incomplete in: $($rawHooks -join ', ')" })"
+    Assert-Equal 0 $rawHooks.Count "every hook that prints an exception message runs all three passes$(if ($rawHooks.Count) { " -- incomplete in: $($rawHooks -join ', ')" })"
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

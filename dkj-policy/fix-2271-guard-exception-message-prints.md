@@ -64,7 +64,8 @@ shared scripts that run **in a consumer's checkout**. So the audit option 2 aske
   two files away. The issue's grep required the strip on the same line, so it reported 0 guarded.
 - **The eight SessionStart hook catch-alls are in the class and outside `scripts/**`.** They are the
   highest-severity members, because their output is what gets forwarded into session context. The
-  `dkj-policy-bwj` template adds seven more. 34 was a floor, not a total; the real count is 49.
+  `dkj-policy-bwj` template adds seven more. 34 was a floor, not a total; the count was 49 at filing
+  and is 50 as landed -- the trunk added a ninth hook to the class while this branch was open.
 
 ### CREATE
 
@@ -76,6 +77,11 @@ shared scripts that run **in a consumer's checkout**. So the audit option 2 aske
 - [x] Inline the three-pass strip in the eight hook catch-alls, deliberately NOT a call:
       `hook-check-lib.ps1` is dot-sourced inside their `try`, so "the lib did not load" is one of the
       failures landing in the catch and a call there would throw inside it and escape.
+- [x] And a ninth, found by the merge rather than by the sweep: `guard-working-copy.ps1` arrived on the
+      trunk under #2264 while this branch was open, printing its lib-load failure raw. Inlined for the
+      same reason as the other eight, and the suite's hook scan widened from `*-sessioncheck.ps1` to
+      every hook -- the narrower filter was one filename away from catching it, and what makes these
+      sites what they are is the catch that may be holding "the lib did not load", not the file name.
 - [x] Use `Format-ForConsole` -- the template's own hand-typed guard, stricter on control and format
       characters -- at the seven sites in `dkj-policy-bwj/templates/asana-mirror.ps1`.
 - [x] Carry all 26 mirrored scripts into the plugin payloads, byte-identical.
@@ -87,10 +93,14 @@ shared scripts that run **in a consumer's checkout**. So the audit option 2 aske
 - [x] New suite `scripts/tests/exception-message-guard.tests.ps1`, 18 assertions: the three
       measurements above asserted as properties of the runtime (so the argument for the sweep stays
       re-derivable), what the guard does and does not neutralise, a tree scan over `scripts/` **and**
-      `plugins/`, that every caller can reach its guard, and that all eight hooks run all three passes.
+      `plugins/`, that every caller can reach its guard, and that every hook runs all three passes.
 - [x] Verified the suite FAILS on a regression in both directions -- a reverted script site and a
       dropped whitespace pass in a hook -- and passes again when restored. A check that cannot fail
       is worth nothing.
+- [x] Proved the widened hook scan discriminates, without weakening a live guard: ran its three
+      `Contains` probes over the trunk's own text of `guard-working-copy.ps1` and over this branch's.
+      Trunk flagged, branch not. Reverting the file to make it red was refused, correctly -- the check
+      is the same either way, and the old text is one `git show` away.
 - [x] Corrected two defects the suite found in itself: the caller check counted a comment naming
       `Format-SafeProseToken` as a call (which reported all eight hooks as missing a load they must
       not have), and the hook patterns were over-escaped and matched nothing. Both now match literally.
@@ -142,9 +152,9 @@ source line -- newlines and square brackets intact -- straight into a `Write-War
 SessionStart hooks, which is the line-forging vector the foreign-text guards exist for. Every console
 print of an exception message now passes a strip: 34 sites under `scripts/**` via
 `Format-SafeProseToken`, seven in the `dkj-policy-bwj` template via its own `Format-ForConsole`, and
-the eight hook catch-alls via an inlined chain, because there the lib may be the very thing that
+the nine hook catch-alls via an inlined chain, because there the lib may be the very thing that
 failed to load. A new suite asserts the three measurements the sweep rests on and scans the tree so
-the 50th site cannot be written unguarded.
+the 51st site cannot be written unguarded.
 
 **Score:** 3
 
@@ -159,9 +169,10 @@ The sweep also went further than the issue measured, in two directions worth kno
 issue reported 34 sites from a `scripts/**` grep; the eight SessionStart hook catch-alls sit outside
 that path and are the highest-severity members of the class, since their output is precisely what
 reaches session context. And the class already had one correctly guarded site -- two files away from
-its own capture, so a same-line grep reported none. Both are recorded as registry entry 14, which
+its own capture, so a same-line grep reported none. Both are recorded as registry entry 15, which
 also states the bound the new tree scan still has: it proves no site prints one inline unguarded, not
-that the indirect route is clean.
+that the indirect route is clean. A ninth hook joined the class from the trunk while this branch was
+open, which is why that scan now reads every hook rather than every `*-sessioncheck.ps1`.
 
 **Score:** 2
 
