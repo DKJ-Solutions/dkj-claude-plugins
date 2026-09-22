@@ -125,13 +125,36 @@ finishes. Both figures are asserted. No lane-count model predicts the failure at
   reconstruction, and it is named as one rather than presented as what those runs would have computed
   about themselves.
 
-#### The ordering against PR #2262 (issue #2255)
+#### The ordering against PR #2262 (issue #2255) -- settled and done
 
-#2262 is open, green and finished, and rewrites the same comment block. It is a **prerequisite, not a
-competitor**: this branch settles the question #2262 explicitly parks ("whether 1800 is the right
-constant is a third question, deliberately not settled here"), and its own "why it is still a fixed
-constant" paragraph stops being true once this lands. So #2262 lands first and this branch reconciles
-against it before merging. That ordering is the owner's call and is stated here rather than assumed.
+#2262 rewrote the same comment block. It was a **prerequisite, not a competitor**: this branch settles
+the question it explicitly parks ("whether 1800 is the right constant is a third question, deliberately
+not settled here"), and its "why it is still a fixed constant" paragraph stops being true once this
+lands. Dave's call was to ship #2262 first and reconcile; it merged as `889c018e` and this branch then
+merged `main`.
+
+Two things about that ordering are worth keeping:
+
+- **#2262 needed `-SkipStaleCheck`**, recorded on the PR. `ship-pr` refused twice on #1292's staleness
+  guard having spent both #2087 forward laps -- the trunk took merges from two other sessions at 09:25Z
+  and 09:38Z while a certifying run takes ~15 minutes, so every lap was overtaken. The window was
+  proved disjoint before the valve was used, three-dot from the merge base: main gained two hook scripts
+  and `hook-stdin-guard.tests.ps1`, this branch touches the capture lib and its own suite, intersection
+  empty, and that new suite neither dot-sources the lib nor asserts on its content.
+- **The conflict resolution kept both accounts rather than choosing one.** #2262's retraction and its
+  printed discriminator stand unchanged. Its argument against a per-suite bound derived from CI rows
+  also stands -- and is now stated as what this change honours, since a within-run ratio converts
+  nothing. What was corrected is the half #2252 retired (91 of 121 rows) and the CI figure that moved
+  with it (290.2s -> 669.1s).
+
+#### One defect this branch caused and caught, recorded because it is the class the branch is about
+
+Resolving that conflict with a PowerShell here-string that had no trailing newline glued
+`$script:GateSuiteTimeoutSeconds = 1800` onto the end of a comment line. **The file still parsed**, so
+the syntax check said OK while the constant was never assigned and every bound resolved to 0. Caught by
+the suite, in seconds, because the asserts read the printed figures rather than trusting the parse --
+which is the same "well-formed wrong output" class `.claude/rules/language-layers.md` records for a
+`sed` substitution that wrote valid ASCII and the wrong characters.
 
 ### CREATE
 
@@ -152,6 +175,11 @@ against it before merging. That ordering is the owner's call and is stated here 
       and `native-capture.tests.ps1`'s #2233 fixture asks for 25s precisely to make a wedge reachable.
 - [x] Announce it: the opening line says the bound is a floor that rises, and one line per change names
       the figures it was made on.
+- [x] And say it on the VERDICT where the bound had already been raised. #2255's discriminator -- "a slow
+      suite CAN reach that bound, re-run it alone" -- is the right default and the wrong one once the
+      scaling has already paid out: a suite that overran a bound widened to fit a machine measured slow
+      has spent that allowance and blown it anyway, which moves the weight back towards a wedge. Without
+      this a reader meets that sentence and spends the very pool it exists to save.
 - [x] Correct the `1800 SECONDS` comment's stale basis (290.2s / ~6x -> 669.1s / ~2.7x after #2252).
 - [x] Mirror the lib to its two plugin copies (`scripts/sync/build-shared-scripts.ps1`).
 
@@ -164,7 +192,8 @@ against it before merging. That ordering is the owner's call and is stated here 
       generous. A `-PaceScale`/`-PaceScaleThen` seam on the driver (the idiom the memory and suspend
       seams already use) drives the mid-run re-read end to end: the line fires, the bound moves
       1,800s -> 3,600s, it does **not** follow a falling pace back down, and neither an explicit bound
-      nor a disabled one is reached by it. **267 pass, 0 fail.**
+      nor a disabled one is reached by it. After merging #2262 and adding the raised-bound note to the
+      timed-out verdict: **271 pass, 0 fail.**
 - [x] A defect the suite caught during the work: the ratio was first composed with PowerShell's `-f`,
       which formats in the **current** culture, and printed `2,72x` on the Dutch machine it was written
       on -- the exact defect `Format-GateSeconds` exists for (#1159). Now `[string]::Format` against the

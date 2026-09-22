@@ -240,19 +240,20 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # the longest CORRECT call in the workflow into a failure. There is no such call here: NO TEST SUITE IS
 # EVER LEGITIMATELY INFINITE, so the safe default is the bounded one and the escape valve is the flag.
 #
-# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. The slowest suite CI has ever recorded is
-# check-plugin-integrity-docs.tests.ps1 at 669.1s on a four-lane hosted runner
-# (scripts/tests/suite-durations.json), so on a machine running at CI's pace this sits at roughly 2.7x
-# the worst honest run. It is also a fraction of the 141 minutes the measured wedge sat for, and well
-# inside a hosted runner's own job timeout, so the gate reports WHICH suite wedged instead of the job
-# being killed with no per-suite attribution at all -- which is precisely the residual #1704 was left
-# with. Read it as an upper bound on PATIENCE, not as a model of any suite -- that was true while the
-# number was fixed, and it is the property the scaling below exists to preserve.
+# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. It is an upper bound on PATIENCE, not a model of any
+# suite, and readings from two machine classes bracket it. On a four-lane hosted runner the slowest row
+# in scripts/tests/suite-durations.json is check-plugin-integrity-docs.tests.ps1 at 669.1s (~2.7x). On a
+# workstation that same file is the dominant one and moves with the load: #2232's closing measurement
+# recorded 415.5s inside a 22-lane pool on 24 idle cores (~4.3x), and #2255 recorded 851s run STANDALONE
+# on the machine that then hit this bound (~2.1x). It is also a fraction of the 141 minutes the measured
+# wedge sat for, and well inside a hosted runner's own job timeout, so the gate reports WHICH suite
+# wedged instead of the job being killed with no per-suite attribution at all -- which is precisely the
+# residual #1704 was left with.
 #
-# THAT BASIS READ 290.2s AND ~6x UNTIL SEPTEMBER 22, 2026, off new-branch.tests.ps1 in a hints file that
-# then held 91 rows. #2252's refresh took it to 121 and moved the maximum to 669.1s, so the headroom this
-# paragraph claims fell from ~6x to ~2.7x without one line of this file changing. A basis that moves when
-# a DIFFERENT file is regenerated is one worth reading at run time rather than quoting by hand, which is
+# THAT CI FIGURE READ 290.2s AND ~6x UNTIL SEPTEMBER 22, 2026, off new-branch.tests.ps1 in a hints file
+# that then held 91 rows. #2252's refresh took it to 121 rows and moved the maximum to 669.1s, so the
+# headroom fell from ~6x to ~2.7x without one line of this file changing. A basis that moves when a
+# DIFFERENT file is regenerated is one worth reading at run time rather than quoting by hand, which is
 # the second reason the scaling below reads that file instead of a constant.
 #
 # AND THE ROW COUNT IS NOT A COVERAGE CLAIM, deliberately. The directory held 122 suites on the day those
@@ -261,31 +262,58 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # it to be true: a suite with no row simply contributes no pace sample, exactly as a repo with no hints
 # file at all contributes none.
 #
+# A SUITE *CAN* REACH THIS BOUND BY BEING SLOW, AND THIS COMMENT CLAIMED THE OPPOSITE UNTIL #2255. It
+# read "no suite can reach it by being slow", sized off the 290.2s CI row alone and off nothing else. A
+# 9-lane run of this repo's own 121 suites then timed out check-plugin-integrity-docs.tests.ps1 at 1,800s
+# after 1,890s of wall clock, and that suite passed all 188 of its asserts standalone on the same
+# checkout minutes later. So a timeout here does NOT by itself prove a wedge.
+#
+# THE FALSE SENTENCE WAS EXPENSIVE RATHER THAN UNTIDY, WHICH IS WHY THE CORRECTION IS PRINTED AND NOT
+# ONLY WRITTEN HERE. "A timeout means a wedge" is the reading that made #2233 diagnosable; believed
+# unconditionally, it costs a second full gate run before anything else is suspected, and it lands
+# hardest on the slowest machines -- the ones least able to afford a 31-minute run that ends red over a
+# green suite. So the verdict line names the ambiguity where a reader actually meets it, and names the
+# one measurement that resolves it: re-run the suite STANDALONE, which separates "never answered" from
+# "answered late" without any further reasoning about load.
+#
+# IT IS NOT DERIVED PER SUITE FROM THAT FILE, AND #2255'S ARGUMENT FOR THAT SURVIVES #2263 UNCHANGED.
+# Deriving a per-suite bound from suite-durations.json is refused on the file's own note: it is MEASURED
+# ON CI, a local reading does not convert into a CI one, and the sign is not even fixed -- one suite ran
+# 2.6x SLOWER solo on an 18-thread workstation than on a 4-lane runner. A per-suite bound derived from a
+# CI row would therefore be tightest exactly where the machine is slowest, i.e. on the population this
+# bound already fails hardest on. (#2255 gave a second reason -- 91 of 121 suites listed, the rest
+# charged the MAXIMUM -- and #2252's refresh retired that half; the first reason is the one that stands,
+# and it is sufficient on its own.)
+#
+# THE SCALING BELOW DOES NOT RE-OPEN THAT, because it converts nothing. Both halves of its ratio are
+# seconds from the SAME suites in the SAME run -- what they spent here, over what this file records for
+# them -- so whatever makes CI and a workstation incomparable divides out, and the file is used as a set
+# of relative weights within one run rather than as an absolute anybody's machine is held to.
+#
 # WHAT ACTUALLY MOVES A SUITE PAST THIS BOUND IS THE PACE OF THE WHOLE RUN, AND IT WAS MEASURED RATHER
-# THAN INFERRED -- issue #2263, September 22, 2026. #2255 recorded a 9-lane run that timed
-# check-plugin-integrity-docs.tests.ps1 out at 1,800s while that file passed all 188 of its asserts
-# standalone minutes later, and #2263 read the difference as lane CONTENTION -- fewer lanes, slower
-# suite -- proposing a bound scaled by the lane count. Instrumented with
+# THAN INFERRED -- issue #2263, September 22, 2026. #2263 read #2255's 9-lane timeout as lane CONTENTION
+# -- fewer lanes, slower suite -- and proposed a bound scaled by the lane count. Instrumented with
 # scripts/maintenance/reproduce-suite-contention.ps1 (one machine, one suite, connectors.tests.ps1),
 # contention runs the OTHER WAY: 53.4/53.2/53.6s under 3 busy siblings, 118.0s under 13 and
 # 198.9/188.1s under 23, against 53.4/50.5s standalone on a settled machine. Taken against the slower
 # standalone reading of 53.4s, that is 1.00x, 2.21x and 3.72x. MORE lanes make a suite slower -- so a
 # bound keyed on the lane count would be most generous exactly where suites run fastest, and #2263's own
-# reading of its evidence is the one shape that cannot be built.
+# reading of its evidence is the one shape that cannot be built. That 9-lane machine was slow because it
+# was memory-starved, which is also why #2121's formula opened only 9 lanes on it: the lane count
+# reports the cause rather than being it.
 #
-# THE QUANTITY THAT DOES TRACK IT IS THE RUN'S OWN PACE AGAINST THE RECORDED ONE: the seconds the
-# finished suites actually spent, over the seconds suite-durations.json records for those same suites.
-# That is what Get-TestSuitePaceScale computes, and it is immune to how well the pool happened to be
-# packed, because both halves are per-suite runtime rather than wall clock.
+# THE QUANTITY THAT DOES TRACK IT is the one named above -- seconds spent over seconds recorded, for the
+# suites this run has already finished. That is what Get-TestSuitePaceScale computes, and it is immune
+# to how well the pool happened to be packed, because both halves are per-suite runtime.
 #
 # THE THREE READINGS BELOW ARE A RECONSTRUCTION OF THAT RATIO, NOT THE RATIO ITSELF, and the difference
-# is stated because the whole reason this block was rewritten is a basis nobody re-checked. #2263's runs
-# left wall clock and a lane count, not per-suite tables, so what can be recovered is the pool's wall
-# clock against the 6,253.7 lane-seconds its 121 recorded rows sum to, divided by its lanes:
+# is stated because the whole reason this block exists is a basis nobody re-checked. #2263's runs left
+# wall clock and a lane count, not per-suite tables, so what can be recovered is the pool's wall clock
+# against the 6,253.7 lane-seconds its 121 recorded rows sum to, divided by its lanes:
 #     24 lanes,   300s wall  ->  261s ideal  ->  1.15x   a fast, idle workstation
 #     22 lanes,   421.2s     ->  284s ideal  ->  1.48x   the same box, critical-path bound on one file
 #      9 lanes,  1890s       ->  695s ideal  ->  2.72x   the memory-starved box that hit this bound
-# A pool's tail drains with lanes standing idle, so wall clock charges this run for capacity nobody was
+# A pool's tail drains with lanes standing idle, so wall clock charges a run for capacity nobody was
 # using and each figure is an UPPER estimate of what the summed-duration ratio would have read. The
 # conclusion survives that, which is the only reason the reconstruction is worth quoting: at 2.72x the
 # recorded 669.1s of check-plugin-integrity-docs.tests.ps1 predicts 1,820s -- within about one percent of
@@ -296,7 +324,9 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # the ratio off the suites THIS run has already finished, and Get-TestSuiteDeadlineSeconds clamps the
 # result into [this constant, the ceiling below]. A run at or faster than CI's pace is bounded at
 # exactly 1800s, as it was before #2263, so no currently-green run can be turned red by this -- the
-# change adds patience on a slow machine and takes none from a fast one.
+# change adds patience on a slow machine and takes none from a fast one. Whether 1800 is the right
+# FLOOR is no longer the open question #2255 left it as; what is still deliberately unsettled is whether
+# the 3600s ceiling is the right stopping point, and its own banner below states what sized it.
 $script:GateSuiteTimeoutSeconds = 1800
 
 # THE MOST PATIENCE THE SCALING ABOVE MAY BUY, however slowly a run turns out to be going (issue #2263).
@@ -4085,6 +4115,27 @@ function Invoke-TestSuiteGate {
     # answered, and the two send you to completely different places.
     if ($timedOutNames.Count -gt 0) {
         Write-Host ("           did not finish within the $(Format-GateSeconds $suiteDeadline)s bound: " + (@($timedOutNames | Sort-Object) -join ', ')) -ForegroundColor Red
+        # AND A TIMEOUT IS NOT BY ITSELF A WEDGE -- issue #2255. $script:GateSuiteTimeoutSeconds's own
+        # comment claimed "no suite can reach it by being slow" until a 9-lane run of this repo's 121
+        # suites timed out check-plugin-integrity-docs.tests.ps1, which then passed all 188 asserts
+        # standalone on the same checkout. The correction belongs HERE and not only in that comment: the
+        # console line is what a session reads at the moment it decides what to suspect, and the cost of
+        # the false reading was a second full gate run before anything else was considered. One sentence,
+        # naming the single measurement that settles it, so the next reader spends one suite instead of a
+        # whole pool.
+        Write-Host ("           a slow suite CAN reach that bound, so this is not by itself a wedge (#2255) --") -ForegroundColor Red
+        Write-Host ("           re-run the named suite alone to tell 'never answered' from 'answered late'.") -ForegroundColor Red
+        # AND WHERE THE BOUND HAD ALREADY BEEN RAISED FOR THIS MACHINE, SAY SO -- issue #2263. The line
+        # above is the right default, and it is the WRONG default once the pace scaling has already paid
+        # out: a suite that blew a bound widened to fit a machine measured slow has spent that machine's
+        # own allowance and overrun it anyway, which moves the weight back towards a wedge. Without this
+        # a reader meets #2255's sentence, re-runs the suite standalone and spends the very pool that
+        # sentence exists to save. Printed only when the bound actually moved, so an ordinary run sees
+        # nothing it did not see before.
+        if ($deadlineScales -and $suiteDeadline -gt $deadlineFloor) {
+            Write-Host ("           NOTE: that bound was already raised from $(Format-GateSeconds $deadlineFloor)s for this run's measured pace (#2263),") -ForegroundColor Red
+            Write-Host ("           so slowness has been allowed for once already -- a wedge is the likelier reading here.") -ForegroundColor Red
+        }
     }
     # THE KEPT OUTPUT IS NAMED ON THE VERDICT, for the reason #1318 put the lane count there: this is the
     # line a session copies into a branch document, a commit message or an issue, so it is the one place a
