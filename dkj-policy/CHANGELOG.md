@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**30 / 49 minor entries** <!-- pending-tally -->
+**30 / 50 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2327-cpu-idle-floor · 20260922-223306
+
+The test gate's idle-CPU floor is now measured rather than assumed. It decided between "nothing in that
+tree was running" and "the tree was still executing" at 1% of a 3s window -- 30ms -- on the written
+claim that nothing in this repo's measurements lands near it. A sleeping process is not a process
+consuming zero CPU: it takes timer interrupts and scheduler wakeups, and more of them on a loaded
+machine. So the floor sat inside the noise it existed to clear, and this repo's own fixture sleeper
+read 0.031s, inverted the verdict and failed the gate over a branch with nothing wrong with it.
+
+Both populations were measured, the working one across a range of machine load rather than at a single
+point: a sleeping tree reaches 0.0469s, and a working tree's reading falls with oversubscription --
+2.22s at x1, 1.03s at x4, and 0.19s at x8, where the two populations stop being separable at all. The
+floor moves to 8% of the window, 0.24s, which clears both measured extremes of this gate's own load
+band by the same 4x. Widening the window was measured and declined: over 10s a sleeping tree's share of
+the window rose to 2.19%.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the test gate is machinery this repo's own developers run; nothing a subscriber of a service
+touches changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The gate's idle-CPU floor is measured against a sleeping tree under load, not set at 1% of the window
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2330](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2330)
+
+---
 
 ### DEPLOY: fix/2322-resolve-trunk-ref-helper · 20260922-220835
 
