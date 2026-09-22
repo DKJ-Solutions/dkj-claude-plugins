@@ -144,6 +144,58 @@ function Assert-CleanExit {
     Assert-Equal 0 $Run.Code $Label
 }
 
+function Assert-Summary {
+    <#
+        Assert the SUMMARY LINE a run is specified to print -- the green wording normally, the red
+        wording when a capture in that run had no measurable exit code.
+
+        #2114 gave Assert-CleanExit a third state for that capture and stopped there, on a bound its
+        own docstring states: "which commands ran, with which ids, at which scopes, in which order --
+        is unaffected by this state". True, and it is why those asserts were left alone. The summary
+        line is NOT in that class (#2288). update-plugins.ps1 composes it from $marketplaceFailures
+        and $updateFailures, and it counts an unmeasurable capture as a failure -- deliberately, argued
+        at scripts/task/update-plugins.ps1:207. So the green line at its line 254 is never printed in
+        exactly the runs Assert-CleanExit waves through, and scenario 1's two Assert-Has calls on that
+        line were red by construction whenever the yellow line appeared above them. Measured twice in
+        two full-gate runs, September 22, 2026, at 5 lanes and at 7.
+
+        THE SUBSTITUTE IS AN ASSERT, NOT A WAIVER, and that is the difference from Assert-CleanExit.
+        There the field the race owns is a number with nothing left to check; here the script is
+        specified to print a DIFFERENT sentence, so the scenario can still prove it printed something
+        coherent -- the red summary, naming failures, which is what an unmeasured capture is counted as.
+        A run that printed neither summary still fails.
+
+        IT DOES NOT TOUCH $script:unmeasured. That counter counts SCENARIOS waved through on their exit
+        code, and a scenario reaching this helper was already counted there by Assert-CleanExit; adding
+        to it would report one run twice. The yellow line below says what happened at this assert.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object]$Run,
+        [Parameter(Mandatory = $true)][string]$Needle,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    if ("$($Run.Text)" -match 'no measurable exit code') {
+        Write-Host "  [UNMEASURED] $Label -- the capture was not measured, so the RED summary is asserted instead (#2288)" -ForegroundColor Yellow
+        Assert-Has $Run 'plugin update(s) failed -- see FAILED lines above' "$Label -- the red summary the unmeasured capture calls for"
+        return
+    }
+
+    Assert-Has $Run $Needle $Label
+}
+
+function New-DrivenRun {
+    # A run object in the shape Invoke-UP returns, built from console text alone -- for the driven
+    # blocks at the foot of this file, where the state under test is a race that cannot be waited for.
+    # Code is 1 because every input driven here is a run that ended badly or is specified to.
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
+    return [pscustomobject]@{
+        Code   = 1
+        Text   = $Text
+        Squish = ($Text -replace '\s', '')
+    }
+}
+
 # --- fixture builders --------------------------------------------------------------------------
 
 function New-Case {
@@ -271,8 +323,8 @@ try {
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '1: plugin 1 was updated, --scope project'
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '1: plugin 2 was updated, --scope project'
     Assert-Has $r "FIXTURE-RECEIPT root=$($c.Repo) home=$($c.Home)" '1: the receipt ran with the SAME -RootOverride/-UserHomeOverride'
-    Assert-Has $r '1 marketplace(s) refreshed' '1: summary counts one marketplace'
-    Assert-Has $r '2 plugin(s) updated, 0 failed' '1: summary counts both plugins, zero failed'
+    Assert-Summary $r '1 marketplace(s) refreshed' '1: summary counts one marketplace'
+    Assert-Summary $r '2 plugin(s) updated, 0 failed' '1: summary counts both plugins, zero failed'
 
     # --- 2. -DryRun: printed, never executed, no receipt ---------------------------------------
     Write-Host "2. -DryRun prints the commands and runs none of them" -ForegroundColor Cyan
@@ -454,6 +506,38 @@ $script:fail = $failBeforeReal
 $script:unmeasured = $unmeasuredBefore
 
 Assert-CleanExit -Run ([pscustomobject]@{ Code = 0; Text = 'all good' }) -Label 'driven: a clean exit 0 is asserted exactly as before'
+
+# --- the summary substitution, DRIVEN (issue #2288) ----------------------------------------------
+# Same reasoning as the block above: the state is a race, so the three inputs are fabricated and the
+# counters are asserted rather than the console.
+Write-Host ''
+Write-Host 'Assert-Summary: the three inputs' -ForegroundColor Cyan
+
+$unmeasuredMarker = '  FAILED (no measurable exit code -- the child ran, and what came back was not a measurement of how it ended (issue #1931); this normally settles on a re-run)'
+$redSummary = 'update-plugins: 1 marketplace refresh(es) failed, 0 plugin update(s) failed -- see FAILED lines above.'
+
+# 1. Measured run: the green summary is asserted exactly as before.
+$greenRun = New-DrivenRun "update-plugins: 1 marketplace(s) refreshed, 2 plugin(s) updated, 0 failed."
+$passBeforeGreen = $script:pass
+Assert-Summary -Run $greenRun -Needle '1 marketplace(s) refreshed' -Label 'driven: a measured run still asserts the GREEN summary'
+Assert-Equal ($passBeforeGreen + 1) $script:pass 'driven: ...and it passed as an ordinary assert, with nothing substituted'
+
+# 2. Unmeasured run that printed the red summary: the substitute passes, and nothing is tolerated.
+$redRun = New-DrivenRun "$unmeasuredMarker`n$redSummary"
+$passBeforeRed = $script:pass
+$unmeasuredBeforeRed = $script:unmeasured
+Assert-Summary -Run $redRun -Needle '1 marketplace(s) refreshed' -Label 'driven: an unmeasured run asserts the RED summary instead'
+Assert-Equal ($passBeforeRed + 1) $script:pass 'driven: ...and that substitute is a real assert -- it is recorded as a pass'
+Assert-Equal $unmeasuredBeforeRed $script:unmeasured 'driven: ...while the scenario counter is left alone, so one run is not counted twice'
+
+# 3. THE SUBSTITUTE IS NOT A BLANKET PASS. An unmeasured run that printed NEITHER summary still fails
+#    -- without this the helper would wave through a script that said nothing at all about its work.
+$silentRun = New-DrivenRun "$unmeasuredMarker"
+$failBeforeSilent = $script:fail
+Assert-Summary -Run $silentRun -Needle '1 marketplace(s) refreshed' -Label 'driven: an unmeasured run with NO summary -- THIS RED LINE IS THE ASSERT WORKING, and it is given back below'
+Assert-Equal ($failBeforeSilent + 1) $script:fail 'driven: ...so a run that printed neither summary is still a failure'
+# ...and that deliberate failure is given back, exactly as the block above gives its own back.
+$script:fail = $failBeforeSilent
 
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
