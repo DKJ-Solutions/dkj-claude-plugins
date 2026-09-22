@@ -284,7 +284,18 @@ jobs:
           # followed by a space, which YAML reads as a nested mapping indicator in an unquoted scalar --
           # exactly the shape `js-yaml` refused this line with before it was wrapped. `'fold:'` a few
           # lines below has no space after its colon and stays bare for that reason alone.
-          fetch-depth: "${{ (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'merge: ')) && 0 || 1 }}"
+          #
+          # '0' AND '1' ARE STRINGS, NOT THE NUMBERS -- issue #2312, measured on the merge commit for
+          # #2303 itself (run 35749674281): this line printed `fetch-depth: 1` even though the push
+          # subject matched, so the checkout stayed shallow and the certificate step below answered
+          # skip=false every time with "'git log HEAD^1' failed ... history too shallow". GitHub Actions
+          # expressions use JS-like truthiness, where the NUMBER 0 is falsy -- so `cond && 0 || 1`
+          # evaluates `cond && 0` to `0`, which is itself falsy, and the `||` falls through to `1`
+          # regardless of `cond`. The classic ternary-idiom trap, and it fires exactly when the "true"
+          # branch's value is itself falsy, which a fetch depth of zero always is. A non-empty STRING is
+          # never falsy here, including `'0'`, and `with:` values are passed to the action as strings in
+          # any case -- so quoting both arms is the fix, not a cosmetic change.
+          fetch-depth: "${{ (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'merge: ')) && '0' || '1' }}"
 
       # THE MERGE-COMMIT CERTIFICATE -- issue #2303. Re-derives, from GitHub's own records rather than
       # from the commit's own subject, whether this 'merge:' push's tree was already proved fresh: the
