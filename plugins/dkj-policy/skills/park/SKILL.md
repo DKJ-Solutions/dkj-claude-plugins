@@ -284,9 +284,20 @@ Four parameters, all for callers rather than for you:
   three. **You do not type this either**: it is for a caller that already knows when the turn's ceiling
   falls due. A duration is measured from the line inside the script that builds the budget, which is after
   its own start-up and five dot-sourced libs -- time a hook's ceiling has already spent -- so a caller
-  holding the real deadline says it instead of having it re-derived from a later moment. It also takes the
-  budget off the wall clock, which is what a suite needs to reach the arm where one call has room and the
-  next does not without the answer depending on how loaded the machine was (#2077).
+  holding the real deadline says it instead of having it re-derived from a later moment. It also takes
+  **the gap between two calls** off the wall clock, which is half of what a suite needs to reach the arm
+  where one call has room and the next does not (#2077) -- the other half is below, and reading this
+  bullet as both is what left that case still failing on a loaded runner.
+- **`-BudgetDeadlineFile <path>`** -- that same instant held in a **file** (Unix epoch seconds, UTC),
+  re-read on every budget question instead of being fixed at start-up. Wins over all three above, a
+  deadline that can be **restated during the run** being the most specific of the four. **You do not type
+  this**, and nothing in production does: it exists so a suite can move the deadline from inside a call
+  and reach "healthy at one call, spent at the next" without waiting out the difference. With the deadline
+  fixed, the only way from one state to the other is real time -- and that wait is also the case's whole
+  tolerance for process start-up, so the two are one number and raising it raises both. Measured red twice
+  on a loaded CI runner at ~7s and ~15s of tolerance before this existed (#2077, #2307). A path that
+  cannot be read is the **no-budget** shape, not a spent one, and a read that fails mid-run keeps the
+  instant the budget was born with.
 - **`-RepoRoot <path>`** -- act on that tree instead of the one resolved from `${CLAUDE_PROJECT_DIR}` or the
   git root. For the suite, and for a caller acting on a worktree lane.
 

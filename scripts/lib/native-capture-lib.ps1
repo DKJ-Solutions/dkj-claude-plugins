@@ -1175,21 +1175,80 @@ function New-NativeCaptureBudget {
         TotalSeconds is then what the budget had LEFT at creation, floored at 0, so the object stays
         self-consistent for anything that reads that field. A deadline already past yields an Expires
         that is set and spent, which is the honest answer and the one every reader below already handles.
+
+        -ExpiresFile IS THAT SAME INSTANT, LATE-BOUND: a path holding Unix epoch seconds, re-read on
+        every question instead of being captured once here. It WINS over both parameters above, one rung
+        further along the same ladder -- a deadline that can be restated during the run is more specific
+        than one fixed at birth. THE CLOCK IS NOT FAKED: what moves is the deadline, so real time still
+        runs and a budget still genuinely expires; the seam cannot make one immortal.
+
+        WHY IT EXISTS, SINCE NOTHING IN PRODUCTION RESTATES A DEADLINE (issue #2307). It is what lets a
+        SUITE drive a run through "healthy at one call, spent at the next" without spending it in real
+        time. Every earlier shape of that case had to WAIT: the budget starts before the process does, so
+        the case passes only while start-up plus local plumbing stays inside the margin, and the margin is
+        also what the case costs in wall clock -- the two are the same number and raising one raises the
+        other. Measured twice, on the same two asserts: #2077 (~7s of margin) and #2307 (~15s), each a red
+        required check and a full re-run. park-cycle.tests.ps1's case (u) carries the arithmetic.
+
+        A PATH THAT CANNOT BE READ AT BIRTH IS THE NO-BUDGET SHAPE, not a spent one: Expires stays $null
+        and every call keeps the standing per-call bound. That is this lib's standing direction -- a
+        malformed budget costs the bound, never the run -- and it is why a later read cannot revive it.
+        A read that fails MID-RUN falls back to the instant this object was born with, so a transient
+        failure cannot silently unbound a run that had a deadline.
     #>
     param(
         [int]$TotalSeconds = 0,
-        [datetime]$ExpiresUtc = ([datetime]::MinValue)
+        [datetime]$ExpiresUtc = ([datetime]::MinValue),
+        [string]$ExpiresFile = ''
     )
+
+    if ($ExpiresFile) {
+        $fromFile = Get-NativeCaptureBudgetFileDeadline -Path $ExpiresFile
+        $leftAtBirth = 0
+        if ($null -ne $fromFile) {
+            $leftAtBirth = [int][math]::Floor(($fromFile - (Get-Date).ToUniversalTime()).TotalSeconds)
+            if ($leftAtBirth -lt 0) { $leftAtBirth = 0 }
+        }
+        return [pscustomobject]@{ TotalSeconds = $leftAtBirth; Expires = $fromFile; ExpiresFile = $ExpiresFile }
+    }
 
     if ($ExpiresUtc -ne [datetime]::MinValue) {
         $leftAtBirth = [int][math]::Floor(($ExpiresUtc - (Get-Date).ToUniversalTime()).TotalSeconds)
         if ($leftAtBirth -lt 0) { $leftAtBirth = 0 }
-        return [pscustomobject]@{ TotalSeconds = $leftAtBirth; Expires = $ExpiresUtc }
+        return [pscustomobject]@{ TotalSeconds = $leftAtBirth; Expires = $ExpiresUtc; ExpiresFile = '' }
     }
 
     $expires = $null
     if ($TotalSeconds -gt 0) { $expires = (Get-Date).ToUniversalTime().AddSeconds($TotalSeconds) }
-    return [pscustomobject]@{ TotalSeconds = $TotalSeconds; Expires = $expires }
+    return [pscustomobject]@{ TotalSeconds = $TotalSeconds; Expires = $expires; ExpiresFile = '' }
+}
+
+function Get-NativeCaptureBudgetFileDeadline {
+    <#
+        THE INSTANT A LATE-BOUND DEADLINE FILE CURRENTLY NAMES, or $null for every way that can fail --
+        no path, no file, unreadable, not an integer, out of range. One return value for all of them
+        deliberately: every caller here does the same thing with a deadline it could not read, which is
+        to keep the one it already had. See New-NativeCaptureBudget's -ExpiresFile block for why this
+        seam exists at all.
+
+        Unix epoch seconds, UTC, as text -- the same unit park-cycle.ps1's -BudgetDeadlineEpochSeconds
+        takes, so the two spellings of "when this run's ceiling falls due" cannot disagree about units.
+        Anchored `^-?\d+$` before the cast, because [long]'ConvertFrom' on free text is an exception and
+        this lib is loaded by scripts whose whole contract is that they never fail.
+    #>
+    param([string]$Path)
+
+    if (-not $Path) { return $null }
+    try {
+        if (-not (Test-Path -LiteralPath $Path)) { return $null }
+        $raw = ([System.IO.File]::ReadAllText($Path))
+        if ($null -eq $raw) { return $null }
+        $raw = $raw.Trim()
+        if ($raw -notmatch '^-?\d+$') { return $null }
+        return [System.DateTimeOffset]::FromUnixTimeSeconds([long]$raw).UtcDateTime
+    } catch {
+        return $null
+    }
 }
 
 function Test-NativeCaptureBudgetSet {
@@ -1216,11 +1275,23 @@ function Get-NativeCaptureBudgetSecondsLeft {
         Seconds left on a budget, floored at 0 and never negative. Answers 0 for a budget that is not set
         as well as for one that is spent, which is why every caller asks Test-NativeCaptureBudgetSet
         first -- see its own note.
+
+        A LATE-BOUND DEADLINE IS RE-READ HERE, on every question, which is what makes it late-bound at
+        all (#2307). The file wins where it answers and the birth instant stands where it does not, so a
+        transient read failure costs nothing. Read through PSObject.Properties for the reason the
+        function above gives: an older copy of this lib in a fixture carries no such field, and under
+        Set-StrictMode -Version Latest asking for it directly THROWS.
     #>
     param($Budget)
 
     if (-not (Test-NativeCaptureBudgetSet -Budget $Budget)) { return 0 }
-    $left = ($Budget.PSObject.Properties['Expires'].Value - (Get-Date).ToUniversalTime()).TotalSeconds
+    $expires = $Budget.PSObject.Properties['Expires'].Value
+    $fileProp = $Budget.PSObject.Properties['ExpiresFile']
+    if ($fileProp -and $fileProp.Value) {
+        $fromFile = Get-NativeCaptureBudgetFileDeadline -Path $fileProp.Value
+        if ($null -ne $fromFile) { $expires = $fromFile }
+    }
+    $left = ($expires - (Get-Date).ToUniversalTime()).TotalSeconds
     if ($left -le 0) { return 0 }
     return [int][math]::Floor($left)
 }
@@ -2468,6 +2539,15 @@ function Get-TestSuiteShardOrder {
     # to be expensive costs its own runtime and never a tail behind sixteen others. A new suite that is
     # actually trivial costs nothing for starting early -- it finishes and frees its lane. The asymmetry is
     # real, so the default follows it rather than a median.
+    #
+    # AND IT RELOCATES SUITES IT DOES NOT NAME, which is the half nobody had weighed (#2307). The pack is a
+    # function of the whole pool, so one untimed suite priced at the maximum reshuffles the bins around it:
+    # measured September 22, 2026, adding a 0.7s suite charged 669.1s moved park-cycle.tests.ps1 from shard
+    # 2 to shard 1 without touching it, and it went red in the differently loaded shard. THE RULE IS RIGHT
+    # AND STAYS -- what is wrong is a suite that assumes anything about how loaded its shard is, because
+    # such a suite is red at the convenience of whichever branch next adds a file here. The repair went to
+    # the assumption, in park-cycle.tests.ps1's case (u), and this paragraph is here so the next author of
+    # a timing-sensitive case learns it before paying for it rather than after.
     $unknownCost = ($Costs.Values | Measure-Object -Maximum).Maximum
     $costOf = {
         param($suite)
