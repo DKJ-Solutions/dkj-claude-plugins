@@ -44,7 +44,54 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 38 minor entries** <!-- pending-tally -->
+**26 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2296-workflow-job-timeouts · 20260922-161759
+
+Every job in `.github/workflows/` now declares `timeout-minutes`, and so does every job this workflow
+scaffolds into a consuming repo. Until now none did, so a wedged job ran to GitHub's six-hour default --
+and the damage is not a red check but a check that never registers at all: `lint-en-tests` `needs:` the
+suite shards, so a wedged shard leaves the required check unreported, which reads as *still running* to
+`ship-pr`, to the ruleset and to anyone looking at the pull request. Measured on run 35728958033, where
+`suites (2)` sat in progress for 38 minutes against a normal ~13 and a local re-run of the identical
+shard that finished every suite in 344s; the branch could not merge until somebody cancelled the job by
+hand, which itself took about eight minutes to land.
+
+The caps are read off run history rather than chosen: 10 on `lint` (max 1.5m), 5 on the summary job
+(max 0.1m), 10 on each short runner (all under 1m), 60 on the two agent jobs, whose runtime is the
+model's work rather than a script of this repo's. The one on `suites` is picked against a second number
+instead -- `ship-pr`'s required-check registration wait is also 1800s, so a cap of 30 or more would time
+the job out at the same moment the shipping session gives up and teach it nothing. At 25, roughly twice
+the worst shard ever observed, the shard goes red and `ship-pr` reads a failed check with a job log
+behind it.
+
+This does not replace the in-process suite bound and is not another argument about its constant.
+`$script:GateSuiteTimeoutSeconds` reaps a wedged child *with an attribution*, and here it never fired --
+so whatever wedged sat below the level a bound inside the process can reach.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer's scaffolded runners get the same treatment, which is the half no gate in this repo could
+ever see: a wedge in an adopted `branch-entry`, `always-on-budget`, `fold-on-merge`, `verify-resolved`,
+`repo-settings`, skeleton `ci`, `theme-check` or `asana-mirror` job blocks that repo's own required check
+with nobody watching, and the write-capable ones would spend six hours holding a standing credential.
+Nothing already scaffolded changes on its own, and the pickup runs along three separate routes rather
+than one: the first six arrive on a consumer's next `adopt-dkj-policy` run, `theme-check` on
+`adopt-shopify-floor`, and `asana-mirror` on `adopt-dkj-policy-bwj`.
+
+**Score:** 2
+
+#### Pull Request
+
+Every CI job declares timeout-minutes, so a wedged job cannot hold the required check for six hours
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2300](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2300)
+
+---
 
 ### DEPLOY: feat/2304-split-critical-path-suites · 20260922-160144
 
