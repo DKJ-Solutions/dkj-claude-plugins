@@ -4117,6 +4117,34 @@ function Get-EntryBlocksForBranch {
         Where-Object { $null -ne (Get-FoldedEntryForBranch -ChangelogText $_ -Branch $Branch) })
 }
 
+function Get-EntryDeclaredBranch {
+    <#
+        Pure: the branch name a SINGLE entry's own heading declares, '' when the heading carries none.
+        The mirror image of Get-FoldedEntryForBranch, which searches a whole changelog for the heading
+        naming a GIVEN branch -- this reads the one heading an entry block already opens with and answers
+        which branch that is, so a caller holding entry blocks (not a changelog to search) does not have
+        to re-derive the two delimitings by hand.
+
+        BOTH SHAPES, SAME ORDER AS Get-FoldedEntryForBranch: backticked first (every entry folded before
+        September 3, 2026), then the bare token after the title word and before an optional merge stamp
+        (#1335). Only the FIRST heading line in the block is read -- an entry's own '### DEPLOY: ...' line
+        is always its first, so a later line inside the block (a quoted example, another entry pasted in
+        error) is not mistaken for a second declaration.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$EntryText)
+
+    $headingRx = [regex](Get-EntryHeadingPattern)
+    foreach ($line in @(($EntryText -replace "`r`n", "`n") -split "`n")) {
+        if (-not $headingRx.IsMatch($line)) { continue }
+        $bt = [regex]::Match($line, '`([^`]+)`')
+        if ($bt.Success) { return $bt.Groups[1].Value.Trim() }
+        $bare = [regex]::Match($line, ':\s+([^\s`]+)')
+        if ($bare.Success) { return $bare.Groups[1].Value.Trim() }
+        return ''
+    }
+    return ''
+}
+
 function Get-EntryBlockHeadingLevel {
     <#
         Pure: the level of the heading an entry block OPENS with -- 2 for a block written in the flat

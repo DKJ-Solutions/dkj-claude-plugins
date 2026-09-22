@@ -122,7 +122,12 @@ function New-FlatEntry {
         [string]$Plugins = '',
         [string]$TierLine = '',
         [int]$Pr = 0,
-        [string]$ExtraBody = ''
+        [string]$ExtraBody = '',
+        # OPTIONAL, RETRACTS-SHAPED (inbound #2230): the branches this entry undoes, comma-separated,
+        # exactly the line Get-EntryRetracts reads. Written right under the heading, matching the issue's
+        # own suggested shape -- though the reader matches the line anywhere, so this is about a realistic
+        # fixture, not about what the parser requires.
+        [string]$Retracts = ''
     )
     # THE PARENTHESES AROUND THE HEADING LINE ARE LOAD-BEARING, and this file has now paid for the same
     # precedence trap twice. '@(A + ' ' + $Heading, '')' does NOT build a two-element array: the comma binds
@@ -131,6 +136,7 @@ function New-FlatEntry {
     # a fixture that reads exactly as intended. Found by the trailing-whitespace assert added for inbound
     # #1100, which reported it against the generator; the generator was clean and the fixture was not.
     $lines = @((('#' * (Get-EntryHeadingLevel)) + ' ' + $Heading), '')
+    if ($Retracts) { $lines += @("Retracts: $Retracts", '') }
     $lines += @((Get-EntrySectionHeading -Key 'What'), '')
     if ($TierLine) { $lines += @($TierLine, '') }
     $lines += $Body
@@ -1170,6 +1176,89 @@ $draft1Both = Build-ReleaseNoteDraft -Entries @($dossier1) -Version '4.3.0' -Dat
     -AudienceTier 1 -Wording @{ SectionAudience = 'The current key'; SectionConsumers = 'The retired key' }
 Assert-Match   $draft1Both '(?m)^## The current key$' 'the current key wins where a repo sets both'
 Assert-NoMatch $draft1Both 'The retired key' 'and the retired one does not also appear'
+
+Write-Host "Get-EntryRetracts (inbound #2230)" -ForegroundColor Cyan
+$retractingText = New-FlatEntry -Heading 'DEPLOY: fix/722-revert-premature-cro-builds' `
+    -Retracts 'style/697-collection-card-price-emphasis, liquid/696-menu-new-badge'
+Assert-Equal 2 (@(Get-EntryRetracts -EntryText $retractingText)).Count 'two comma-separated targets read back'
+Assert-Equal 'style/697-collection-card-price-emphasis' (Get-EntryRetracts -EntryText $retractingText)[0] 'first target, in the order written'
+Assert-Equal 'liquid/696-menu-new-badge' (Get-EntryRetracts -EntryText $retractingText)[1] 'second target'
+Assert-Equal 0 (@(Get-EntryRetracts -EntryText $dossier)).Count 'an entry with no Retracts: line reads back empty'
+$backtickRetracts = New-FlatEntry -Heading 'DEPLOY: fix/x' -Retracts '`feat/697-a`, `feat/699-b`'
+Assert-Equal 'feat/697-a' (Get-EntryRetracts -EntryText $backtickRetracts)[0] 'a backticked target is unquoted'
+
+Write-Host "Resolve-ReleaseRetractions (inbound #2230 -- the resolution across the whole pending set)" -ForegroundColor Cyan
+# THE MEASURED INSTANCE ITSELF, condensed: a revert branch names two of the three entries it actually
+# undoes (the third is left out on purpose, to exercise the 'no Retracts line' branch), plus one entry
+# nothing touches -- so the resolution has something to leave alone as well as something to withhold.
+$retractedA = New-FlatEntry -Heading 'DEPLOY: style/697-collection-card-price-emphasis' -Rows @('| 2 | 4 | consumers notice |')
+$retractedB = New-FlatEntry -Heading 'DEPLOY: liquid/696-menu-new-badge' -Rows @('| 2 | 3 | consumers notice |')
+$retractedC = New-FlatEntry -Heading 'DEPLOY: liquid/699-cart-tier-framing' -Rows @('| 2 | 3 | consumers notice |')
+$retracting = New-FlatEntry -Heading 'DEPLOY: fix/722-revert-premature-cro-builds' -Rows @('| 0 | 2 | ours alone |') `
+    -Retracts 'style/697-collection-card-price-emphasis, liquid/696-menu-new-badge'
+$untouched = New-FlatEntry -Heading 'DEPLOY: docs/unrelated' -Rows @('| 1 | 3 | management too |')
+$pending = @($retractedA, $retractedB, $retractedC, $retracting, $untouched)
+
+$resolved = Resolve-ReleaseRetractions -Entries $pending
+Assert-Equal 2 (@($resolved.RetractedBranches)).Count 'exactly the two named targets are retracted'
+Assert-Equal $true (@($resolved.RetractedBranches) -contains 'style/697-collection-card-price-emphasis') 'the price-emphasis branch is retracted'
+Assert-Equal $true (@($resolved.RetractedBranches) -contains 'liquid/696-menu-new-badge') 'the menu-badge branch is retracted'
+Assert-Equal $false (@($resolved.RetractedBranches) -contains 'liquid/699-cart-tier-framing') 'the THIRD branch is untouched -- nothing named it'
+Assert-Equal 1 (@($resolved.RetractingBranches)).Count 'exactly one entry carries a Retracts: line'
+Assert-Equal 'fix/722-revert-premature-cro-builds' $resolved.RetractingBranches[0] 'and it is named'
+Assert-Equal 1 (@($resolved.Withheld)).Count 'one withheld record, for the one retracting entry'
+Assert-Equal 2 (@($resolved.Withheld[0].RetractedBranches)).Count 'naming both targets it actually resolved'
+Assert-Equal 0 (@($resolved.Errors)).Count 'every named target resolved -- no errors'
+
+# THE TYPO CASE (the issue's point 5): an unresolvable target is an ERROR, not silence.
+$typoRetracting = New-FlatEntry -Heading 'DEPLOY: fix/722-revert' -Retracts 'style/697-collction-card-price-emphasis'
+$typoResolved = Resolve-ReleaseRetractions -Entries @($retractedA, $typoRetracting)
+Assert-Equal 1 (@($typoResolved.Errors)).Count 'a typo''d target produces exactly one error'
+Assert-Match $typoResolved.Errors[0] 'fix/722-revert' 'the error names the RETRACTING branch'
+Assert-Match $typoResolved.Errors[0] 'collction' 'and the mistyped target, so the typo is findable'
+Assert-Equal 0 (@($typoResolved.RetractedBranches)).Count 'and nothing is reported as retracted from an unresolved target'
+
+# NO 'Retracts:' LINE ANYWHERE: an ordinary pending set resolves to nothing, cheaply.
+$ordinary = Resolve-ReleaseRetractions -Entries @($dossier, $untouched)
+Assert-Equal 0 (@($ordinary.RetractedBranches)).Count 'an ordinary release retracts nothing'
+Assert-Equal 0 (@($ordinary.Withheld)).Count 'and withholds nothing'
+Assert-Equal 0 (@($ordinary.Errors)).Count 'and errors on nothing'
+$emptySet = Resolve-ReleaseRetractions -Entries @()
+Assert-Equal 0 (@($emptySet.RetractedBranches)).Count 'an empty pending set resolves cleanly too'
+
+Write-Host "Format-RetractionWithheldNote (inbound #2230, point 4 -- see the decision, not a gap)" -ForegroundColor Cyan
+$note = Format-RetractionWithheldNote -Retractions $resolved -Removed @('style/697-collection-card-price-emphasis', 'liquid/696-menu-new-badge')
+Assert-Match $note '^<!--' 'the note is an HTML comment, like the other guidance in this document'
+Assert-Match $note 'style/697-collection-card-price-emphasis' 'names the first withheld branch'
+Assert-Match $note 'liquid/696-menu-new-badge' 'and the second'
+Assert-Match $note 'fix/722-revert-premature-cro-builds' 'and the branch that retracted them'
+# ONLY WHAT WAS ACTUALLY REMOVED FROM THIS DOCUMENT -- a retraction that never reached this document's
+# tier has nothing to explain here, and naming it would show the reader a branch they never expected.
+$noteNarrow = Format-RetractionWithheldNote -Retractions $resolved -Removed @('style/697-collection-card-price-emphasis')
+Assert-Match   $noteNarrow 'style/697-collection-card-price-emphasis' 'the one branch actually removed from THIS document is named'
+Assert-NoMatch $noteNarrow 'liquid/696-menu-new-badge' 'a branch withheld elsewhere, but not from THIS document, is not'
+Assert-Equal '' (Format-RetractionWithheldNote -Retractions $resolved -Removed @()) 'nothing removed from this document -> no comment at all'
+Assert-Equal '' (Format-RetractionWithheldNote -Retractions $ordinary -Removed @()) 'an ordinary release -> no comment'
+
+Write-Host "Build-ReleaseNoteDraft -WithheldNote (inbound #2230 -- the draft renders the caller's decision)" -ForegroundColor Cyan
+# THE REMAINING ENTRY IS $retractedC, the one branch nothing withheld -- so the section still has real
+# content alongside the note, which is the ordinary case (a partial retraction, not a wiped-out release).
+$draftWithheld = Build-ReleaseNoteDraft -Entries @($retractedC) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
+    -WithheldNote $note
+Assert-Match $draftWithheld '(?m)^## What changed$' 'the audience section still renders'
+Assert-Match $draftWithheld ([regex]::Escape($note)) 'and carries the withheld-note comment verbatim'
+Assert-Match $draftWithheld 'liquid/699-cart-tier-framing' 'alongside the entry that was NOT withheld'
+# AND THE SECTION SURVIVES BEING EMPTIED OUT COMPLETELY -- the exact shape a fully-retracted release
+# takes, and the one case the "no section where nothing reached this tier" rule was never asked about
+# before #2230: silence here would hide the withholding instead of explaining it.
+$draftAllWithheld = Build-ReleaseNoteDraft -Entries @() -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -WithheldNote $note
+Assert-Match $draftAllWithheld '(?m)^## What changed$' 'the heading still appears even with nothing left to rank'
+Assert-Match $draftAllWithheld ([regex]::Escape($note)) 'carrying the note that says why'
+Assert-NoMatch $draftAllWithheld '(?m)^<!-- DRAFT\. These are the tier' 'but not the rewrite-this-for-your-reader hint, which has nothing left to point at'
+# AND THE ORDINARY CASE IS BYTE-FOR-BYTE UNCHANGED: the default is '', which is exactly the caller that
+# never heard of this parameter.
+Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Title 'A release title sentence') `
+    'omitting -WithheldNote reproduces the very first draft in this file, unchanged'
 
 Write-Host "Build-GitHubReleaseBody (generated, every release, every tier)" -ForegroundColor Cyan
 # THE POINT OF GENERATING IT is that the Release page stops depending on which hand-written tier
