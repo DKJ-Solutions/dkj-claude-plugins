@@ -90,7 +90,9 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
       It drives the real script with `-Source disk` over crafted manifests and asserts on the
       rendered console lines, never on the source containing a guard's name: a spelling test would
       fail on any harmless refactor and teach people to update the assert rather than think.
-- [x] Three asserts added to `adopt-ci-floor.tests.ps1` for the required-check context name.
+- [x] Four asserts added to `adopt-ci-floor.tests.ps1` for the required-check context name
+      (counted off the diff, not off a report -- the branch got five separate counts wrong by
+      relaying one).
 - [x] The suite's own "deliberately not covered" section re-read against the tree in full. Two of
       its four bullets had gone stale -- one describing the now-repaired L425/L430 sites, one
       describing an unreadable member as uncovered when it now is. `sync-main.ps1`'s `$rel` guard is
