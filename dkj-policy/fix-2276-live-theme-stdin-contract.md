@@ -56,6 +56,15 @@ owns -- the `hooks.json` wrapper that does the piping -- and unreachable for the
 - [x] Tycho: group 3 in `hook-stdin-guard.tests.ps1` -- a wrapper that drains the payload with `$(cat)`
       must pipe it back into the interpreter, counted out of the tree rather than hand-listed
 
+- [x] Victor + Sebastian both landed on the matcher independently: anchored the pipe to the invocation
+      that runs the guard, excluded `||`, widened to `pwsh`, with a counter-case per narrowing
+- [x] Edith: the header's citation of the wrapper had dropped the quotes around `%s` -- corrected
+- [x] Sebastian: the "TWICE OVER" clause treated a bash-side hang as equivalent to the PowerShell-side
+      guard; the header now says what that second reason is actually worth
+- [~] Sebastian: group 3 prints tree paths and JSON keys unstripped -- filed as #2280 instead. The path
+      half predates this branch (group 1, #2264), the repair covers the whole suite, and the class is
+      pinned across libs by `pr-issues.tests.ps1`, so it is its own change
+
 ### TEST
 
 - [x] `hook-stdin-guard.tests.ps1` green, and its new group red when the pipe is removed from a fixture
@@ -70,8 +79,10 @@ any command a session can cause. It also states what breaks if that ever stops -
 degrade towards ALLOWING, the one direction its own fail-towards-CHECKING rule forbids, on a subject
 that cannot be un-published. `hook-stdin-guard.tests.ps1` gains a third group holding the half that is
 reachable: every hooks.json command that drains the payload must hand it back, counted out of the tree
-rather than hand-listed, with a counter-case. Removing the pipe from either shipped wrapper now turns
-the gate red.
+rather than hand-listed. The pipe is anchored to the invocation that actually runs the guard, so an
+unrelated `| powershell` elsewhere in the command vouches for nothing and a typo'd `||` is not a pipe;
+`pwsh` counts as an interpreter, since this repo ships a CI template that uses it. Each narrowing has
+its own counter-case. Removing the pipe from either shipped wrapper now turns the gate red.
 
 The failure it prevents, since it has not happened: a future edit to either PreToolUse wrapper that
 drops the `printf | powershell` re-pipe. Nothing would fail -- both guards would go on exiting 0 on an

@@ -289,9 +289,29 @@ function Test-WrapperDrainsPayload {
     param([string]$Command)
     return $Command.Contains('$(cat)')
 }
+# THE PIPE IS ANCHORED TO THE INVOCATION THAT RUNS THE GUARD, not merely present somewhere in the
+# string, and each half of that was a counter-case a reviewer produced against the looser first form:
+#
+#   (?<!\|)\|    a SINGLE pipe. '\|\s*powershell' matches '|| powershell' too -- the second character
+#                of a logical OR -- which is a plausible typo that also short-circuits, so the naive
+#                form went green on a wrapper that hands the interpreter an unredirected stdin.
+#   (powershell|pwsh)\b   both interpreters. This repo runs Windows PowerShell 5.1 for its own hooks,
+#                and it SHIPS 'shell: pwsh' in the asana-mirror CI template; command-guard-lib.ps1
+#                carries both in its own interpreter set for the same reason.
+#   [^;|&]*-File  the piped invocation must be the one running a SCRIPT, before any statement ends it.
+#                Without this, 'somecmd | powershell -Command "..."; powershell -File guard.ps1'
+#                passes on an unrelated pipe while the guard itself is invoked unpiped, which is
+#                precisely the regression this group exists to catch.
+#
+# THE RESIDUAL LIMIT, STATED RATHER THAN HIDDEN, on the convention guard-live-theme's own header uses.
+# This does not prove the piped bytes are the CAPTURED payload -- 'echo hi | powershell -File guard.ps1'
+# would pass -- and it does not recognise a wrapper that restores stdin by file redirection
+# ('> tmp; powershell ... < tmp') rather than by a pipe. The first is a residual; the second would turn
+# this gate RED on a correct wrapper, which is the direction to err in here: a false negative is a
+# person reading a failure, and a false positive is silence on the one fact this group exists to hold.
 function Test-WrapperHandsPayloadBack {
     param([string]$Command)
-    return ($Command -match '\|\s*powershell')
+    return ($Command -match '(?<!\|)\|\s*(powershell|pwsh)\b[^;|&]*-File')
 }
 
 # SCANNED OUT OF THE TREE, on group 1's own principle: a list here is the hand-count that produced
@@ -338,11 +358,20 @@ foreach ($w in $wrappers) {
 # THE COUNTER-CASE, because a predicate that has only ever seen passing input is a predicate nobody has
 # tested. It is a fixture rather than an edit to a real manifest: mutating a shipped hooks.json to prove
 # a matcher works leaves the suite one failed cleanup away from shipping the defect it was asserting.
+# EVERY NARROWING ABOVE HAS ITS OWN COUNTER-CASE, because a narrowing without one is a hole with a
+# comment on it -- guard-live-theme's own rule for its own exemptions, one file over. The last three
+# are the shapes the first form of this matcher went green on.
 $fixtureGood = 'p=$(cat); printf ''%s'' "$p" | powershell -NoProfile -File "x.ps1"; rc=$?'
+$fixturePwsh = 'p=$(cat); printf ''%s'' "$p" | pwsh -NoProfile -File "x.ps1"; rc=$?'
 $fixtureBad  = 'p=$(cat); powershell -NoProfile -File "x.ps1"; rc=$?'
-Assert-True (Test-WrapperDrainsPayload $fixtureBad)         'the drain matcher sees a wrapper that captures the payload'
-Assert-True (Test-WrapperHandsPayloadBack $fixtureGood)     'a wrapper that pipes the payload back passes'
-Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureBad)) 'a wrapper that drains and does NOT pipe it back is caught'
+$fixtureOr   = 'p=$(cat); printf ''%s'' "$p" || powershell -NoProfile -File "x.ps1"; rc=$?'
+$fixtureStray = 'p=$(cat); echo hint | powershell -Command "..."; powershell -NoProfile -File "x.ps1"'
+Assert-True (Test-WrapperDrainsPayload $fixtureBad)            'the drain matcher sees a wrapper that captures the payload'
+Assert-True (Test-WrapperHandsPayloadBack $fixtureGood)        'a wrapper that pipes the payload back passes'
+Assert-True (Test-WrapperHandsPayloadBack $fixturePwsh)        'pwsh is an interpreter too -- this repo ships a CI template that uses it'
+Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureBad))  'a wrapper that drains and does NOT pipe it back is caught'
+Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureOr))   'a logical OR is not a pipe -- || short-circuits and leaves stdin unredirected'
+Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureStray)) 'an unrelated | powershell elsewhere in the command does not vouch for the guard invocation'
 
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }

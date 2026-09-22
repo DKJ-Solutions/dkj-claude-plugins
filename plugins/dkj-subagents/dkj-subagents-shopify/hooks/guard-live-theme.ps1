@@ -97,10 +97,13 @@
     by hand from a terminal, where an ungated ReadToEnd waits for a Ctrl+Z that never comes -- and it is
     the one path in this file that ends WITHOUT a verdict rather than fail-towards-CHECKING. What keeps
     that from being a hole is not this script at all but the wrapper above it: hooks.json runs
-    'p=$(cat); printf %s "$p" | powershell ... -File <this file>', and a printf into a pipe is always a
-    real OS pipe, so IsInputRedirected is true on every invocation the harness makes. The branch is
-    unreachable from any call a session can cause, TWICE OVER -- if the harness ever handed the wrapper a
-    console instead of a payload, '$(cat)' would block in bash before this file started.
+    `p=$(cat); printf '%s' "$p" | powershell ... -File <this file>`, and a printf into a pipe is always
+    a real OS pipe, so IsInputRedirected is true on every invocation the harness makes. The branch is
+    unreachable from any call a session can cause, and the bash layer above is a second reason rather
+    than the same one -- if the harness ever handed the wrapper a console instead of a payload, '$(cat)'
+    would block before this file started. Note what that second one is worth: a hang, ended by the
+    hook's own 30s timeout, which the harness reads as a non-blocking error. It keeps this file from
+    reaching a wrong verdict; it does not keep the command from going through.
 
     THAT IS AN ASSUMPTION, NOT A PROPERTY, so it is stated here rather than relied on silently. If the
     wrapper ever stops piping the payload back in, this guard degrades towards ALLOWING -- the direction
