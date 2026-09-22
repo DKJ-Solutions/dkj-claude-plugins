@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 43 minor entries** <!-- pending-tally -->
+**28 / 44 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2314-ci-banner-append-point · 20260922-185439
+
+Every paragraph of reasoning in `.github/workflows/ci.yml` now sits directly above the one key, step or
+job it argues, so a new CI decision brings its own new anchor instead of another paragraph on the end of
+a shared block. The comment run above `jobs:` had no owning key, which is why prose about any job landed
+there -- and git cannot merge two appends at one anchor, so two branches obeying the "argue it where it
+lives" convention correctly conflicted pairwise, by construction. Three CI branches in one afternoon did
+(#2296, #2303, #2304); `ship-pr` found it on #2300 at forward lap 3, after roughly forty minutes of CI
+waits, and resolving it took about five minutes. It is the #1255 shape one file over, where a single
+fixed development document made every merge conflict every other open PR.
+
+Nothing was rewritten: of 301 comment lines, twelve changed, and every one of those twelve was a
+cross-reference the move made false. What stays above `jobs:` is what is true of the file as a whole --
+why there are three jobs, and that every job declares a timeout at all -- so the run went 87 lines to 32.
+`ci-shard.tests.ps1` holds it to a 40-line ceiling, paired with an assert that the convention is stated
+in the file's own head, because a ceiling that fires without saying what to do instead sends the next
+author to raise the ceiling. The `runs-on:` half of the collision is deliberately left alone: two branches
+adding different keys to one job header is irreducible and took thirty seconds.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this is the source repo's own CI workflow. Nothing here travels to a consumer: `ci.yml` is not
+plugin payload, it is not one of the runners `adopt-dkj-policy` scaffolds, and a subscriber of this
+service reads nothing that changed.
+
+**Score:** N/A
+
+#### Pull Request
+
+ci.yml's reasoning sits above the key it argues, so two CI branches no longer append to one anchor
+
+[PR #2320](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2320)
+
+---
 
 ### DEPLOY: feat/2263-suite-bound-scaling · 20260922-184312
 
