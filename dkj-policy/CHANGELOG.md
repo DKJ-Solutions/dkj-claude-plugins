@@ -44,7 +44,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 25 minor entries** <!-- pending-tally -->
+**18 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2230-guard-retracted-release-notes · 20260922-115804
+
+`Build-ReleaseNoteDraft` selected a release's audience-facing entries by tier alone, with no way to see
+that a later pending entry retracts an earlier one -- so a build that reached the trunk and was reverted
+before the cut was drafted as delivered work, in the author's own confident words, in the one document
+an employer or commissioner reads to learn what their money bought (measured in `BWJ-Development/smartwatchbanden`
+v2.44.0: two of three retracted features survived into a published management release-notes page).
+
+The repair is the issue's own suggested shape, in full rather than the weaker report-only fallback: an
+optional `Retracts: <branch>, <branch>` line on the entry that undoes earlier work, read and resolved
+across the whole pending changelog (`Resolve-ReleaseRetractions`), an unresolvable target refused at cut
+time rather than read as "nothing to withhold," and the withheld branches named in an HTML comment in the
+audience document so the person finishing the draft sees the decision instead of a silent gap. `CHANGELOG.md`,
+its changelog note and the generated GitHub Release body are untouched -- all three are records of what
+reached the trunk, and the retracted work did too. The field is optional and absent from every existing
+entry, so an ordinary release is byte-for-byte unchanged; asserted directly in `release-lib.tests.ps1`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The reader here is the party that runs the upgrade -- a consuming repo (life-hub, smartwatchbanden, and
+every other repo that installs `dkj-policy`) cutting its own release with `cut-release.ps1`. Most releases
+carry no retraction and this change is invisible to them. When one does, it is exactly the failure the
+issue measured: a deliberately-pulled build announced as shipped, in a document that has already been read
+by the time anyone notices -- "the one error in this whole cycle that a consumer cannot correct after the
+fact," in the issue's own words. Rare, but when it fires it protects a real published document from a
+confidently wrong sentence rather than merely tidying prose.
+
+**Score:** 3
+
+#### Pull Request
+
+Guard cut-release against drafting a retracted change as delivered work
+
+Plugins: dkj-policy
+
+[PR #2287](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2287)
+
+---
 
 ### DEPLOY: fix/2278-command-guard-docstring-post-1734 · 20260922-114235
 
