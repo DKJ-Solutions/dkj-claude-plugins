@@ -43,17 +43,88 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-ci-floor.ps1`: guard the consumer's own workflow filename (`Get-DisplayPath`, L884 and
+      L1034) and the required-check context name (`Get-DisplayRef`, L1048). In the `else` branch both
+      are computed once -- `$ctxDisplay`, `$wRelDisplay` (L1058) -- and reused across the four report
+      branches, rather than re-interpolated at each.
+- [x] `sync-main.ps1`: guard the `Get-ShopifySyncLogPath` seam answer at all three sites
+      (`Get-DisplayPath`, L550, L572, L577).
+- [x] `check-consumer-siblings.ps1`: guard the sibling checkout's file paths at all four sites
+      (`Format-SafePathToken`, L450, L455, L459, L471) -- chosen over `Get-DisplayPath` because these
+      lines reach session context through `Write-Info`, where a square bracket can be counted as a
+      hook marker.
+- [x] Widen that guard to `$label`/`$f.Member`/`$f.Members` (L448, L450, L455, L471), the same
+      connector-manifest `repo` field `check-connectors.ps1` already guards this way at six sites.
+      `$f.Class` and the `$where` clause are this repo's own values and stay unguarded, with the
+      reason stated in the code.
+- [x] Carry both plugin mirrors -- `dkj-policy`'s `adopt-ci-floor.ps1` and `dkj-subagents-shopify`'s
+      `sync-main.ps1` -- and confirm each byte-identical to its source again.
+- [x] Make registry entries 4, 8 and 13 in
+      [`../plugins/dkj-policy/skills/new-branch/SKILL.md`](../plugins/dkj-policy/skills/new-branch/SKILL.md)
+      true: each said the value prints RAW and was not repaired on this branch.
+- [~] `$_.Exception.Message` at `sync-main.ps1` L577 stays raw -- dropped here deliberately. It is a
+      repo-wide question (34 console sites, none stripped, and the registry has no entry for the
+      class), not a one-line patch inside an unrelated fix. Filed as #2271.
 
 ### TEST
 
+- [x] Lint gate (`check-plugin-integrity.ps1`) clean.
+- [x] Full suite gate green, bar one documented PowerShell-contention flake in
+      `test-suite-gate.tests.ps1` -- unrelated to any file touched here, and green standalone.
+- [x] Targeted suites green: `adopt-ci-floor`, `ref-print-lib`, `check-report-lib`,
+      `sibling-divergence`, `shared-scripts` (mirror parity) and `pr-issues` (which pins *which* libs
+      may carry the strip pattern -- untouched, since this branch only calls the existing functions).
+- [x] Every line number cited in the three registry entries verified against the tree after the edit.
+
 ### DEPLOY: fix/2248-guard-raw-foreign-text-prints
 
-**Score:**
+Four classes of foreign text -- characters typed by somebody outside this repo -- reached a console
+unstripped. Three of the four sat on or beside a line where a neighbouring value *was* guarded, which
+is what makes them misses rather than judgements: `adopt-ci-floor.ps1` printed the consumer's own
+workflow filename raw next to a job id it sent through `Get-DisplayRef`, and `sync-main.ps1` printed
+the `Get-ShopifySyncLogPath` seam answer raw next to a branch name it guarded on the same line. All
+four are now guarded -- `Get-DisplayPath` for the paths and filenames, `Get-DisplayRef` for the
+required-check context name, `Format-SafePathToken` for `check-consumer-siblings.ps1`, whose lines
+reach session context through `Write-Info` where a square bracket can be counted as a hook marker.
+
+The repair went further than the report at one site. `check-consumer-siblings.ps1`'s
+`$label`/`$f.Member`/`$f.Members` are the same connector-manifest `repo` field that
+`check-connectors.ps1` already guards at six sites, so they are guarded here too; `$f.Class` and the
+`$where` clause are this repo's own values and are deliberately left alone, with the reason in the
+code rather than in anyone's memory.
+
+**This also corrects a claim the registry was making.** #2247 asserted of `adopt-ci-floor.ps1` that
+"this is an accuracy defect in the registry, not an unguarded site -- nothing is exploitable today",
+and that was false: two more values at the same site were unguarded, one of them on the very line the
+assertion cited as proof. Registry entries 4, 8 and 13 each said their value prints RAW and was not
+repaired; all three now describe the guard and the line it sits on. What each entry said about how
+the *list itself* fails is kept, because that outlives the repair.
+
+One value was deliberately not touched. `$_.Exception.Message` stays raw, here and at 33 other
+console sites -- .NET composes that sentence, but it interpolates the offending path into it, so a
+guarded path can come back unguarded in the second half of the same line. Whether to strip all 34, or
+only where the exception's own input was foreign, or to state in the registry that the class is out
+of scope, is a repo-wide decision rather than a one-line patch inside an unrelated fix. Filed as
+#2271 with the measurement.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+These three scripts run in a consumer's own tree rather than in this one -- `adopt-ci-floor.ps1`
+exists to read a consuming repo's `.github/workflows/` and ruleset and report what it found, and
+`check-consumer-siblings.ps1` reads sibling checkouts. So every value repaired here is the reader's
+own text being read back to them, and it is their console that was unguarded.
+
+Nothing was exploited and this prevents a failure that has not happened, so the failure is worth
+naming precisely: a format character in a workflow filename, or in a required-check name a
+third-party integration built out of branch- or PR-derived text, makes the floor report say something
+other than what it means -- an RTL override reverses a verdict line, a zero-width run welds two names
+into one that reads as a legitimate third, an escape sequence repaints the terminal. These scripts
+print verdicts a person acts on, which is the whole reason the guard exists everywhere else in the
+workflow. Reaching the consumer needs a release; nothing they run today changes on its own.
+
+**Score:** 1
 
 #### Pull Request
 
