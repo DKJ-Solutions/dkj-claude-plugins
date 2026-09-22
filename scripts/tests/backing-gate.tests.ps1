@@ -292,6 +292,12 @@ try {
     Assert-True (-not $backing9b.CommittedKnown) 'no ref anywhere: CommittedKnown stays false, same as before the fix'
     Assert-Equal 0 $backing9b.Committed 'no ref anywhere: the default zero, not a measured zero'
     Assert-Equal 'nonexistent-trunk' $backing9b.Trunk 'no ref anywhere: Trunk still echoes back whatever name was asked for'
+
+    # -- 10. Resolve-TrunkRef ITSELF (#2322): the one definition both park-lib readers now call --------
+    Write-Host "`n== 10. Resolve-TrunkRef: remote-tracking first, bare name second, `$null when neither ==" -ForegroundColor Cyan
+    Assert-Equal 'refs/remotes/origin/main' (Resolve-TrunkRef -RepoRoot $fix8a -Trunk 'main') 'origin present: the remote-tracking ref wins, even with a local main of the same name'
+    Assert-Equal 'main' (Resolve-TrunkRef -RepoRoot $fix9a -Trunk 'main') 'no origin: falls back to the bare local name'
+    Assert-True ($null -eq (Resolve-TrunkRef -RepoRoot $fix9a -Trunk 'nonexistent-trunk')) 'no ref anywhere: $null, never a name that does not resolve'
 } finally {
     foreach ($f in $script:gitFixtures) {
         if (Test-Path -LiteralPath $f) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }
