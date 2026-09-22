@@ -55,18 +55,35 @@ function Assert-Equal {
     else { $script:fail++; Write-Host "  [FAIL] $Name`n         expected: '$Expected'`n         got:      '$Actual'" -ForegroundColor Red }
 }
 
-# THE MATCHER IS [Console]::In AND NOT THE WORD ReadToEnd. A StreamReader over a child process's
-# stdout calls ReadToEnd too (native-capture-lib.ps1 does, twice), and that is somebody else's
-# stream with somebody else's failure mode. What this suite is about is a script reading ITS OWN
-# stdin, which is what [Console]::In names and nothing else does.
-$ReadPattern  = '\[Console\]::In\.ReadToEnd'
+# TWO READ SHAPES, AND THE SECOND ONE ARRIVED WHILE THIS BRANCH WAS IN FLIGHT. The matcher knew only
+# [Console]::In, and #2249 landed its bound mid-flight -- replacing that idiom with
+# [Console]::OpenStandardInput().CopyToAsync() in all six of its sites. The count fell from 10 to 4
+# and this suite went red in CI, which is the behaviour its own floor comment predicted: a new way of
+# reading stdin needs the same guard, and going red is how the suite says the matcher has to learn it
+# rather than quietly stopping at the old shape. So it learned it. Both are named, and a third shape
+# will do exactly the same thing again -- that is the mechanism working, not a defect in it.
+#
+# WHAT IS NOT MATCHED IS THE WORD ReadToEnd. A StreamReader over a child process's stdout calls it too
+# (native-capture-lib.ps1 does, twice), and that is somebody else's stream with somebody else's
+# failure mode. Both entries below name [Console] and this process's OWN stdin, which is the subject.
+$ReadPatterns = @(
+    '\[Console\]::In\.ReadToEnd'
+    '\[Console\]::OpenStandardInput'
+)
 $GuardPattern = '\[Console\]::IsInputRedirected'
 
-# THREE LINES, because the family uses two shapes and both are correct: the guard on the same line
-# as the read (an if with the assignment in its body), and the guard opening a block the read sits
-# inside. The window is what keeps the second shape passing without letting a guard three screens up
-# count as one.
-$WindowLines = 3
+# THE WINDOW COUNTS CODE LINES, NOT LINES, and #2249's own shape is why. It reads:
+#
+#     if (-not [Console]::IsInputRedirected) { return '' }
+#     $sink = New-Object System.IO.MemoryStream
+#     # two lines of comment about why CopyToAsync and not [Console]::In's async methods
+#     if (-not ([Console]::OpenStandardInput().CopyToAsync($sink)).Wait($TimeoutMs)) { return '' }
+#
+# which is FOUR raw lines from guard to read and TWO code lines. Widening a raw-line window to reach
+# it would weaken the heuristic everywhere -- the further back a textual guard may sit, the likelier
+# it is an unrelated one. Counting only lines that survive comment-stripping keeps the window tight
+# while following the code, and it is comment density that varies in this tree, not code density.
+$WindowCodeLines = 3
 
 Write-Host ""
 Write-Host "-- group 1: every [Console]::In read in the tree is gated on IsInputRedirected" -ForegroundColor Cyan
@@ -85,28 +102,35 @@ $files = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter '*.ps1' -File |
 # file that explains itself well would be the one that fails, which is the incentive to get exactly
 # backwards.
 # A LITERAL PREFILTER AHEAD OF THE PER-LINE LOOP, and it buys the walk rather than the guarantee.
-# The expensive half is not the file walk but the comment tracking: two [regex]::Matches calls and a
-# -notmatch on every line of every script in the tree, ~183,000 lines to find ten sites. $ReadPattern
-# has no live metacharacters -- every special character in it is escaped to its literal -- so a plain
+# The expensive half is not the file walk but the comment tracking: the strip plus a match on every
+# line of every script in the tree, ~183,000 lines to find ten sites. Neither pattern above has a
+# live metacharacter -- every special character in both is escaped to its literal -- so a plain
 # substring test over the whole file is byte-for-byte equivalent and can produce no false negative.
-# Measured: 3.4-4.3s over 244 files, against 0.53-0.59s when only the ~10 files that can possibly
-# match reach the loop. The file SET is unchanged, so this is still counted out of the tree.
-$ReadLiteral = '[Console]::In.ReadToEnd'
+# Measured: 3.4-4.3s over 244 files, against 0.53-0.59s when only the handful that can possibly match
+# reach the loop. The file SET is unchanged, so this is still counted out of the tree.
+$ReadLiterals = @('[Console]::In.ReadToEnd', '[Console]::OpenStandardInput')
 
 $sites = @()
 foreach ($f in $files) {
     $whole = Get-Content -LiteralPath $f.FullName -Raw
-    if ($null -eq $whole -or -not $whole.Contains($ReadLiteral)) { continue }
+    if ($null -eq $whole) { continue }
+    $couldMatch = $false
+    foreach ($lit in $ReadLiterals) {
+        if ($whole.Contains($lit)) { $couldMatch = $true; break }
+    }
+    if (-not $couldMatch) { continue }
 
     $lines = @(Get-Content -LiteralPath $f.FullName)
+
+    # PASS ONE: STRIP THE COMMENTS AND KEEP WHAT STILL CARRIES CODE, remembering each survivor's real
+    # line number. Two things need this and neither is a convenience. A read site must not be hidden
+    # by a comment sharing its line -- `$raw = [Console]::In.ReadToEnd() <# why #>` is a genuinely
+    # unguarded read, and skipping any line carrying a marker made it invisible to the one suite whose
+    # job is to find it. And prose must not be counted AS a site: this family documents itself, so
+    # every good explanation of the hazard would otherwise read as an instance of it.
+    $codeLines = @()
     $inBlockComment = $false
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        # THE COMMENT IS REMOVED FROM THE LINE, NOT THE LINE FROM THE SCAN. Counting the markers and
-        # skipping any line that carried one was the first shape of this, and it hid a read site
-        # written as `$raw = [Console]::In.ReadToEnd() <# why #>` -- a real unguarded read, silently
-        # absent from a suite whose whole job is to find them. That shape is not far-fetched in a tree
-        # that argues in prose on the lines either side of every one of these reads. So a complete
-        # <# ... #> span is cut out and whatever is left is judged as code.
         $code = $lines[$i]
 
         # A block still open from an earlier line ends at the first #>; the remainder is code again.
@@ -136,12 +160,23 @@ foreach ($f in $files) {
         # which turns this suite red and is read by a person. Stripping it would risk a false negative,
         # which is silence. The error this suite may make is the loud one.
         if ($code.TrimStart().StartsWith('#')) { continue }
-        if ($code -notmatch $ReadPattern) { continue }
-        $from   = [Math]::Max(0, $i - $WindowLines)
-        $window = ($lines[$from..$i] -join "`n")
+        if ([string]::IsNullOrWhiteSpace($code)) { continue }
+        $codeLines += [pscustomobject]@{ Num = $i + 1; Text = $code }
+    }
+
+    # PASS TWO: the read sites, each judged against the code lines immediately above it.
+    for ($k = 0; $k -lt $codeLines.Count; $k++) {
+        $isRead = $false
+        foreach ($p in $ReadPatterns) {
+            if ($codeLines[$k].Text -match $p) { $isRead = $true; break }
+        }
+        if (-not $isRead) { continue }
+
+        $from   = [Math]::Max(0, $k - $WindowCodeLines)
+        $window = (@($codeLines[$from..$k]) | ForEach-Object { $_.Text }) -join "`n"
         $sites += [pscustomobject]@{
             Path    = $f.FullName.Substring($RepoRoot.Length + 1).Replace('\', '/')
-            Line    = $i + 1
+            Line    = $codeLines[$k].Num
             Guarded = ($window -match $GuardPattern)
         }
     }

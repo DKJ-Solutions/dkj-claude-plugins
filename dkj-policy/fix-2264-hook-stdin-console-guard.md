@@ -47,17 +47,36 @@ guard-live-theme.ps1. The timeout half depends on #2249's mechanism, which is un
 #2264 asks for two things and names them as separable itself: the missing **guard** on the two hooks
 that lack one, and a **bound** on the four unbounded reads. This branch is the guard only.
 
-The bound's mechanism does not exist in this tree. #2264 states it as settled -- "the table is in
-`Get-HookPayloadRaw`'s docstring" -- and it is not there: `session-cache-lib.ps1:130` still carries
-`ReadToEndAsync()` and the docstring carries no table. #2249 itself calls that shape "likely to work
-and was not tried". Its branch, `origin/fix/2249-bound-stdin-read`, is one park commit touching only
-its own document, claimed under another account an hour before this branch was cut. So the mechanism
-is somebody's live work, and writing a second copy of it here is the duplicate this workflow's pickup
-checks exist to prevent.
+The bound's mechanism did not exist in this tree when the branch was cut. #2264 stated it as settled
+-- "the table is in `Get-HookPayloadRaw`'s docstring" -- and it was not there: `session-cache-lib.ps1`
+still carried `ReadToEndAsync()` and the docstring carried no table. #2249 itself called that shape
+"likely to work and was not tried". Its branch was one park commit touching only its own document,
+claimed under another account an hour before this branch was cut. So the mechanism was somebody's live
+work, and writing a second copy of it here would have been the duplicate this workflow's pickup checks
+exist to prevent.
 
-The two halves touch disjoint files, which is what makes this branch safe to build now rather than a
-thing to ask about: #2249 owns `session-cache-lib.ps1`, `adopt-statusline.ps1` and
+The two halves touch disjoint files, which is what made this branch safe to build alongside it rather
+than a thing to ask about: #2249 owned `session-cache-lib.ps1`, `adopt-statusline.ps1` and
 `show-progress.ps1`; this branch owns the two hooks and one new suite.
+
+#### And #2249 LANDED while this branch was in flight, which is the most useful thing that happened
+
+It merged as #2270 between this PR opening and `ship-pr` reaching the merge, and it replaced
+`[Console]::In.ReadToEnd` with `[Console]::OpenStandardInput().CopyToAsync()` in all six of its sites.
+The new suite's matcher knew only the old idiom, so its count fell from 10 to 4 and it **went red in
+CI** -- while every local run before the push had been green.
+
+That is the mechanism working rather than a defect in it, and the suite had said so in advance: the
+floor's own comment named this exact event, argued that a new way of reading stdin needs the same
+guard, and concluded that going red is how the suite says the matcher must learn the new shape instead
+of quietly stopping at the old one. It was written as a prediction and collected as a measurement four
+hours later. The matcher now names both shapes, and a third will do the same thing again.
+
+**It also found a second thing nothing else would have.** #2249's shape puts its guard four RAW lines
+above its read, with two lines of comment between them -- so the three-line window missed it even once
+the pattern matched. The window now counts CODE lines rather than lines, which follows the code instead
+of the commentary; in a tree where comment density varies far more than code density, that is the
+measurement the heuristic actually wanted.
 
 #### And one correction to #2264 itself, measured rather than argued
 
@@ -95,6 +114,10 @@ this to be checked per hook rather than assumed; it is checked, and the answer m
 - [x] A literal prefilter ahead of the per-line scan: same file set, same matcher, identical 10
       sites, and the suite drops from ~4.4s to 1.71s -- the cost check measured 75-80% of its
       wall-clock going into comment tracking over ~183,000 lines to find ten of them.
+- [x] After #2249 landed mid-flight: the matcher names both read shapes, the window counts code
+      lines, and the tree is back to 10 sites -- all guarded, 15/0.
+- [x] And red on the NEW shape too: removing the guard above the `CopyToAsync` read in
+      `session-cache-lib.ps1` gives `14 passed, 1 failed`, naming that file and line. Restored.
 - [x] No regressions in the three suites that own this ground: `guard-working-copy.tests.ps1`
       32/0, `guard-live-theme.tests.ps1` 110/0, `hook-fail-closed.tests.ps1` 43/0.
 - [x] Both hooks exit 0 on an empty payload, down each one's own documented degradation path.
@@ -115,7 +138,9 @@ git or a theme command is refused and they want to know why -- used to hang on l
 printed, waiting on a console read for a Ctrl+Z that is never coming. Both now read stdin only where
 there is a handle to read, which is the guard the other five members of this family already carried.
 A new suite counts that family out of the tree rather than from a list, because a wrong hand-count is
-what let these two sit unguarded through two separate sweeps.
+what let these two sit unguarded through two separate sweeps. It proved itself within hours: a
+neighbouring branch changed how six of those sites read stdin, and the suite went red on the spot
+rather than reporting the shrunken family as a clean one.
 
 **Score:** 3
 
