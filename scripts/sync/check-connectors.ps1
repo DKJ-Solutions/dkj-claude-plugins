@@ -105,7 +105,7 @@
          them; and the source repo is never asked, because it runs those scripts by local path and is
          the one registered repo that can never produce a reference. Runs on both routes -- the disk
          and, under -RemoteRunners, the network, where it replaces what used to be deliberate silence.
-      7. WHICH SPELLING ARE THIS CONSUMER'S LENSES WRITTEN IN? (#2289) A non-counting [LENS-NAMING]
+      7. WHICH SPELLING ARE THIS CONSUMER'S LENSES WRITTEN IN? (#2289) A non-counting [LENS-RETIREMENT]
          line per connector, and a roll-up across the whole register at the foot of the run. It exists
          because the sentence that governs the #2130 dual-name layer's retirement -- "the old names are
          retired once the connector register shows all six are over", Dave, September 19, 2026 -- was
@@ -113,10 +113,18 @@
          and the one check that does resolve a lens file resolves it to compare its BODY. MEASURED, never
          declared in a manifest field, for the reason the plugins[].id rule gives. NOT A FINDING: a
          consumer on the old spelling is not broken, which is the whole purpose of the dual-read layer.
-         THREE ENDINGS: "not answerable from this machine" (any connector unreachable or holding no lens
-         at all), "not yet", and only then "all N are over" -- a verdict is never printed without its
+         THREE ENDINGS, IN PRECEDENCE ORDER (#2298): "not yet" whenever any connector was MEASURED as
+         behind -- that settles the condition as false and no unreachable connector can unsettle it, so
+         it is stated rather than understated, carrying the unmeasured count in its own sentence; then
+         "not answerable from this machine" (a connector unreachable, or holding no lens at all, with
+         none measured behind); and only then "all N are over". A verdict is never printed without its
          coverage. Lens only; the other three kinds live in a consumer's plugin CACHE and are keyed on
          installed versions rather than on this register.
+         THE MARKER IS [LENS-RETIREMENT], NOT [LENS-NAMING] (#2298). check-roster-sync.ps1 prints the
+         latter for an unrelated fact -- that ITS own naming vocabulary is older than the tree it reads
+         (#2219) -- and two checks emitting one token is a collision a reader grepping either one pays
+         for. Scoped honestly: no hook selects either token, so this was never a session-start
+         ambiguity; the newer of the two is simply the cheaper to move.
     The register no longer keeps a syncedVersion bookkeeping: the check reads the actual installed
     version from the machine record, and register administration that only duplicates numbers
     produced nothing but maintenance PRs (Dave's decision, July 20, 2026).
@@ -159,6 +167,14 @@
     inherit whatever the machine running the suite has enabled globally, so a "plugin not enabled" case
     would pass here and fail on the next machine for a reason no assertion mentions.
 
+.PARAMETER ConnectorsRootOverride
+    (Optional, for tests) Read the register from this directory instead of connectors/. It exists for the
+    ONE finding here that has no other seam (#2298): the lens-naming roll-up is a verdict about the WHOLE
+    register, so it prints only on a full sweep -- which makes it the one check in this file that
+    -Manifest, the suite's usual isolation, deliberately switches off. Without it a scenario could only
+    assert against whatever six repositories the machine running it happens to hold, which is a test that
+    passes for a reason nobody chose.
+
 .EXAMPLE
     .\scripts\sync\check-connectors.ps1
 .EXAMPLE
@@ -174,7 +190,8 @@ param(
     [switch]$SkipDrift,
     [switch]$SkipVersions,
     [switch]$RemoteRunners,
-    [string]$UserHomeOverride = ''
+    [string]$UserHomeOverride = '',
+    [string]$ConnectorsRootOverride = ''
 )
 
 Set-StrictMode -Version Latest
@@ -420,7 +437,10 @@ function Get-PluginIds([string]$PluginDir) {
 if ($Manifest) {
     $manifestFiles = @(Get-Item -LiteralPath $Manifest)
 } else {
-    $connectorsRoot = Join-Path $RepoRoot 'connectors'
+    # -ConnectorsRootOverride is test-only (see its .PARAMETER note): the register is otherwise always
+    # this repo's own connectors/ folder, which is what makes a full sweep a statement about THE
+    # register rather than about a directory somebody pointed at.
+    $connectorsRoot = if ($ConnectorsRootOverride) { $ConnectorsRootOverride } else { Join-Path $RepoRoot 'connectors' }
     $manifestFiles = @()
     if (Test-Path -LiteralPath $connectorsRoot) {
         $manifestFiles = @(Get-ChildItem -LiteralPath $connectorsRoot -Filter '*.json' -File)
@@ -1585,10 +1605,10 @@ foreach ($mf in $manifestFiles) {
         $namingState = Get-SpecialistNamingState -Kind Lens -Name $lensNames
         $lensNaming[$connectorLabel] = $namingState
         switch ($namingState.State) {
-            'Current'  { Write-Host "  [LENS-NAMING] $($namingState.Current) lens file(s), all on the written spelling ($($namingState.CurrentName)) -- over the #2130 rename." -ForegroundColor Green }
-            'AlsoRead' { Write-Host "  [LENS-NAMING] $($namingState.AlsoRead) lens file(s), all on the also-read spelling ($($namingState.AlsoReadName -join ', ')) -- not migrated yet, which is a state and not a defect." -ForegroundColor DarkGray }
-            'Mixed'    { Write-Host "  [LENS-NAMING] $($namingState.Current) lens file(s) on the written spelling and $($namingState.AlsoRead) on the also-read one -- part-migrated." -ForegroundColor Yellow }
-            'None'     { Write-Host "  [LENS-NAMING] no lens file under any of the $($lensDirs.Count) candidate director(ies) -- nothing measured, which is not the same as migrated." -ForegroundColor DarkGray }
+            'Current'  { Write-Host "  [LENS-RETIREMENT] $($namingState.Current) lens file(s), all on the written spelling ($($namingState.CurrentName)) -- over the #2130 rename." -ForegroundColor Green }
+            'AlsoRead' { Write-Host "  [LENS-RETIREMENT] $($namingState.AlsoRead) lens file(s), all on the also-read spelling ($($namingState.AlsoReadName -join ', ')) -- not migrated yet, which is a state and not a defect." -ForegroundColor DarkGray }
+            'Mixed'    { Write-Host "  [LENS-RETIREMENT] $($namingState.Current) lens file(s) on the written spelling and $($namingState.AlsoRead) on the also-read one -- part-migrated." -ForegroundColor Yellow }
+            'None'     { Write-Host "  [LENS-RETIREMENT] no lens file under any of the $($lensDirs.Count) candidate director(ies) -- nothing measured, which is not the same as migrated." -ForegroundColor DarkGray }
         }
     }
 
@@ -1686,12 +1706,33 @@ if (-not $OnlyConsumer -and -not $Manifest) {
     # over: a check that cannot tell silence from a clean answer teaches a reader to trust the wrong
     # one. "Not answerable here" is a different fact from "not yet", and only the third may ever be
     # read as the window being open.
-    if ($namingUnreached.Count -gt 0 -or $namingEmpty.Count -gt 0) {
-        Write-Host "  [LENS-NAMING] NOT ANSWERABLE FROM THIS MACHINE: $($namingOver.Count + $namingBehind.Count) of $($seenConnectors.Count) connectors measured. Run this where the rest are checked out before reading any verdict about retirement." -ForegroundColor DarkGray
-    } elseif ($namingBehind.Count -gt 0) {
-        Write-Host "  [LENS-NAMING] NOT YET: $($namingBehind.Count) of $($seenConnectors.Count) connectors still carry the also-read spelling. The dual-name layer stays." -ForegroundColor Yellow
+    #
+    # A MEASURED 'NOT YET' OUTRANKS AN UNREACHED CONNECTOR, and the order used to be the other way
+    # round (#2298). Both arms are about coverage, so it reads as though the more cautious one should
+    # win -- but they are not on the same axis. A connector measurably on the also-read spelling
+    # settles the condition as FALSE, and nothing the unreached ones hold can make it true again, so
+    # answering 'not answerable' there states LESS than this run actually established. Measured on the
+    # live register the day it was built: 1 over, 2 behind, 3 unreached printed NOT ANSWERABLE, while
+    # the answer -- no -- was in hand.
+    #
+    # THE COVERAGE CLAIM IS NOT DROPPED, IT MOVES INTO THAT LINE. That is the whole of what the old
+    # order was protecting: without it 'NOT YET: 2 of 6' reads as the complete list of what still has
+    # to migrate, which on partial coverage it is not. So the unreached count is stated in the same
+    # sentence, and the reader is told what it means rather than left to infer it from an ordering.
+    #
+    # THE GREEN ENDING IS UNTOUCHED BY THE SWAP, which is what keeps this safe: it is still reachable
+    # only when nothing is behind AND nothing is unreached or empty, because the first arm no longer
+    # fires does not mean the second one stops guarding -- an unreached connector with nothing measured
+    # as behind still lands in the middle arm. The false-green case has exactly the same gate it had.
+    if ($namingBehind.Count -gt 0) {
+        $behindTail = if ($namingUnreached.Count -gt 0 -or $namingEmpty.Count -gt 0) {
+            " $($namingUnreached.Count + $namingEmpty.Count) of the $($seenConnectors.Count) could not be measured here, so this is NOT the full list of what still has to migrate."
+        } else { '' }
+        Write-Host "  [LENS-RETIREMENT] NOT YET: $($namingBehind.Count) of $($seenConnectors.Count) connectors still carry the also-read spelling, so the condition is FALSE and the dual-name layer stays.$behindTail" -ForegroundColor Yellow
+    } elseif ($namingUnreached.Count -gt 0 -or $namingEmpty.Count -gt 0) {
+        Write-Host "  [LENS-RETIREMENT] NOT ANSWERABLE FROM THIS MACHINE: $($namingOver.Count + $namingBehind.Count) of $($seenConnectors.Count) connectors measured, and none of them is behind. Run this where the rest are checked out before reading any verdict about retirement." -ForegroundColor DarkGray
     } else {
-        Write-Host "  [LENS-NAMING] ALL $($seenConnectors.Count) CONNECTORS ARE OVER -- the retirement condition in #2128's plan is MET for the Lens kind. Retiring that AlsoRead row is a deliberate act with its own issue -- #2292 -- and never a tidy-up: read Get-SpecialistFileShapes' banner first, and note that the other three kinds are keyed on plugin CACHES rather than on this register, so this line says nothing about them." -ForegroundColor Green
+        Write-Host "  [LENS-RETIREMENT] ALL $($seenConnectors.Count) CONNECTORS ARE OVER -- the retirement condition in #2128's plan is MET for the Lens kind. Retiring that AlsoRead row is a deliberate act with its own issue -- #2292 -- and never a tidy-up: read Get-SpecialistFileShapes' banner first, and note that the other three kinds are keyed on plugin CACHES rather than on this register, so this line says nothing about them." -ForegroundColor Green
     }
 }
 
