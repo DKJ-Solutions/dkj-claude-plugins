@@ -87,6 +87,14 @@ this to be checked per hook rather than assumed; it is checked, and the answer m
       mirrored pairs), all guarded.
 - [x] It goes RED on the defect: reverting `guard-working-copy.ps1`'s guard by hand gives
       `14 passed, 1 failed`, naming the file and line. Restored afterwards.
+- [x] And red on the defect wearing a comment: `$raw = [Console]::In.ReadToEnd() <# fallback #>`
+      is reported as an unguarded site rather than skipped as prose -- the classifier gap the code
+      review found, closed and then proved with the exact shape it named.
+- [x] The floor is the SITE count (10), not the file count (7), so one half of a mirrored pair
+      losing its guard cannot pass.
+- [x] A literal prefilter ahead of the per-line scan: same file set, same matcher, identical 10
+      sites, and the suite drops from ~4.4s to 1.71s -- the cost check measured 75-80% of its
+      wall-clock going into comment tracking over ~183,000 lines to find ten of them.
 - [x] No regressions in the three suites that own this ground: `guard-working-copy.tests.ps1`
       32/0, `guard-live-theme.tests.ps1` 110/0, `hook-fail-closed.tests.ps1` 43/0.
 - [x] Both hooks exit 0 on an empty payload, down each one's own documented degradation path.

@@ -84,22 +84,59 @@ $files = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter '*.ps1' -File |
 # below them. Counting prose would make every explanation of this hazard an instance of it -- so a
 # file that explains itself well would be the one that fails, which is the incentive to get exactly
 # backwards.
+# A LITERAL PREFILTER AHEAD OF THE PER-LINE LOOP, and it buys the walk rather than the guarantee.
+# The expensive half is not the file walk but the comment tracking: two [regex]::Matches calls and a
+# -notmatch on every line of every script in the tree, ~183,000 lines to find ten sites. $ReadPattern
+# has no live metacharacters -- every special character in it is escaped to its literal -- so a plain
+# substring test over the whole file is byte-for-byte equivalent and can produce no false negative.
+# Measured: 3.4-4.3s over 244 files, against 0.53-0.59s when only the ~10 files that can possibly
+# match reach the loop. The file SET is unchanged, so this is still counted out of the tree.
+$ReadLiteral = '[Console]::In.ReadToEnd'
+
 $sites = @()
 foreach ($f in $files) {
+    $whole = Get-Content -LiteralPath $f.FullName -Raw
+    if ($null -eq $whole -or -not $whole.Contains($ReadLiteral)) { continue }
+
     $lines = @(Get-Content -LiteralPath $f.FullName)
     $inBlockComment = $false
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        $trimmed = $lines[$i].TrimStart()
-        # The block state is updated before the line is judged, so the opening <# line is itself
-        # comment. Both markers on one line cancel out, which is the inline <# ... #> shape.
-        $opens  = ([regex]::Matches($lines[$i], '<#')).Count
-        $closes = ([regex]::Matches($lines[$i], '#>')).Count
-        $wasInBlock = $inBlockComment
-        if ($opens -gt $closes) { $inBlockComment = $true }
-        elseif ($closes -gt $opens) { $inBlockComment = $false }
-        if ($wasInBlock -or $opens -gt 0) { continue }
-        if ($trimmed.StartsWith('#')) { continue }
-        if ($lines[$i] -notmatch $ReadPattern) { continue }
+        # THE COMMENT IS REMOVED FROM THE LINE, NOT THE LINE FROM THE SCAN. Counting the markers and
+        # skipping any line that carried one was the first shape of this, and it hid a read site
+        # written as `$raw = [Console]::In.ReadToEnd() <# why #>` -- a real unguarded read, silently
+        # absent from a suite whose whole job is to find them. That shape is not far-fetched in a tree
+        # that argues in prose on the lines either side of every one of these reads. So a complete
+        # <# ... #> span is cut out and whatever is left is judged as code.
+        $code = $lines[$i]
+
+        # A block still open from an earlier line ends at the first #>; the remainder is code again.
+        if ($inBlockComment) {
+            $close = $code.IndexOf('#>')
+            if ($close -lt 0) { continue }
+            $code = $code.Substring($close + 2)
+            $inBlockComment = $false
+        }
+
+        # Then every complete span on this line, and an unclosed <# opens a block and truncates here.
+        while ($true) {
+            $open = $code.IndexOf('<#')
+            if ($open -lt 0) { break }
+            $close = $code.IndexOf('#>', $open + 2)
+            if ($close -lt 0) {
+                $code = $code.Substring(0, $open)
+                $inBlockComment = $true
+                break
+            }
+            $code = $code.Remove($open, $close + 2 - $open)
+        }
+
+        # A TRAILING # COMMENT IS DELIBERATELY NOT STRIPPED. A '#' is a comment anywhere on a line but
+        # is also an ordinary character inside a string, so cutting at one risks discarding real code.
+        # Left alone, a prose mention after a '#' is reported as an unguarded site -- a FALSE POSITIVE,
+        # which turns this suite red and is read by a person. Stripping it would risk a false negative,
+        # which is silence. The error this suite may make is the loud one.
+        if ($code.TrimStart().StartsWith('#')) { continue }
+        if ($code -notmatch $ReadPattern) { continue }
         $from   = [Math]::Max(0, $i - $WindowLines)
         $window = ($lines[$from..$i] -join "`n")
         $sites += [pscustomobject]@{
@@ -116,9 +153,21 @@ foreach ($s in $sites) {
 }
 
 # A FLOOR ON THE COUNT, so a matcher that silently stops matching cannot report an empty family as a
-# clean one. It is a floor and not an equality: a new member is the normal case and must not turn
-# this suite red for existing.
-Assert-True ($sites.Count -ge 7) "the scan found the family (>= 7 sites, got $($sites.Count)) -- a zero here means the matcher broke, not that the tree is clean"
+# clean one. It is a floor and not an equality: a new member is the normal case and must not turn this
+# suite red for existing.
+#
+# TEN IS THE SITE COUNT, NOT THE FILE COUNT. The family is 7 source files and 10 code sites, because
+# three of the seven are mirrored into a plugin; a floor of 7 would tolerate losing three real sites --
+# one half of a mirrored pair silently losing its guard, say -- which is the exact silence this assert
+# exists to break.
+#
+# AND A DROP HERE HAS TWO CAUSES, BOTH OF WHICH WANT A LOOK. Either the matcher broke, or a read site
+# legitimately changed shape -- which is what #2249's bound will do to session-cache-lib.ps1 when it
+# lands, since OpenStandardInput().CopyToAsync() is not [Console]::In and this matcher will not see it.
+# That second case is not a false alarm: a new way of reading stdin needs the same guard, and going red
+# is how this suite says the matcher has to learn it rather than quietly stopping at the old shape. The
+# enumeration printed above says which sites it did find, so telling the two apart is one look.
+Assert-True ($sites.Count -ge 10) "the scan found the family (>= 10 sites, got $($sites.Count)) -- a drop means the matcher broke or a read changed shape, never that the tree is clean"
 
 foreach ($s in $sites) {
     Assert-True $s.Guarded "$($s.Path):$($s.Line) reads stdin only where there is a handle"
