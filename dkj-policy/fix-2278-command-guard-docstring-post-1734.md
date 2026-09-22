@@ -55,11 +55,19 @@ directly above it still said **"The twin under plugins/dkj-policy/scripts/lib/ i
 mirror"**. That second mirror is exactly what #1734 added, so the singular is the same staleness one
 sentence up -- there are three identical copies now, and the drift lint holds all three.
 
+A third, found by the copy edit and fixed here rather than filed, because it sits in the very clause
+this branch re-asserts: the paragraph cited check-report-lib as being "mirrored for its two readers",
+and `check-report-lib-shopify` made that three in #1917 (September 13, 2026). The count is now
+dropped rather than corrected -- this one sentence has carried a stale count twice, so it names
+"every plugin that reads it" and says why no number is given.
+
 ### CREATE
 
 - [x] Rewrite the passage in the past tense, keeping the reasoning: #1669 extracted the lib and left
       the copy standing for a stated reason, #1734 took the second-mirror route and retired it.
 - [x] Correct "the twin ... is its released mirror" to name both mirrors.
+- [x] Drop the "check-report-lib ... its two readers" count, stale since #1917 and re-asserted by this
+      very rewrite.
 - [x] `scripts/sync/build-shared-scripts.ps1` -- both mirrors updated from the source copy.
 
 ### TEST
@@ -79,8 +87,10 @@ ground that a divergent twin exists. The passage is now in the past tense, the w
 `guard-live-theme.ps1`'s own header already reads it, and it names where the route landed: the
 `command-guard-lib-shopify` registry entry and the `$PSScriptRoot`-relative dot-source. The
 reasoning behind the deferral is kept, because it is what the `-TextTools` parameterisation rests on.
-The sentence above it was stale in the same way and is repaired with it -- one mirror named where
-there are two, the second being the one #1734 created.
+Two further clauses in the same paragraph were stale in the same way and are repaired with it: one
+mirror named where there are two (the second being the one #1734 created), and check-report-lib cited
+as having two readers when #1917 made it three. That second count is dropped rather than corrected,
+because this one sentence has now carried a stale count twice.
 
 **Score:** 2
 

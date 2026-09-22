@@ -52,13 +52,14 @@
     guard-live-theme USED TO CARRY ITS OWN COPY OF THIS LOGIC, and #1734 retired it. #1669 extracted
     this lib and deliberately left that copy standing: a plugin must not reach into another plugin's
     tree -- they are separately versioned and separately installed -- so the route was always a second
-    registry entry rather than a rewrite, the way check-report-lib is mirrored for its two readers, and
-    putting that refactor in the branch that introduced a brand-new hook would have doubled the review
-    surface of both, with the half that has money behind it getting the less careful attention. #1734
-    took that route: the second entry is 'command-guard-lib-shopify' in Get-SharedScriptPairs, and
-    guard-live-theme.ps1 dot-sources this file as a $PSScriptRoot-relative sibling. So the two guards
-    are the two callers this file is parameterised for, which is what the -TextTools block above is
-    about -- there is no third copy of this logic left to reconcile.
+    registry entry rather than a rewrite, the way check-report-lib is mirrored into every plugin that
+    reads it. That reader count is deliberately not stated here: this sentence has already carried a
+    stale one. Putting the refactor in the branch that introduced a brand-new hook would have doubled
+    the review surface of both, and the half with money behind it would have got the less careful
+    attention. #1734 took that route: the second entry is 'command-guard-lib-shopify' in
+    Get-SharedScriptPairs, and guard-live-theme.ps1 dot-sources this file as a $PSScriptRoot-relative
+    sibling. So the two guards are the two callers this file is parameterised for -- which is what the
+    -TextTools block above is about -- and there is no third copy of this logic left to reconcile.
 
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
     Pure ASCII (repo convention for .ps1): Windows PowerShell 5.1 reads a BOM-less script as ANSI.
