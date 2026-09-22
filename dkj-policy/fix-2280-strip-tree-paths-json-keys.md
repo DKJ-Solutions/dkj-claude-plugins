@@ -105,6 +105,25 @@ the collision is an ordinary merge conflict on an unmerged branch, not a finding
 - [x] Proven to go RED rather than only to pass: group 5's logic run against a fixture whose line 2
       prints both values raw and whose line 4 guards the path and prints the JSON key raw reports
       exactly those two and passes the two repaired shapes.
+- [x] **A second review pass of group 5 alone reproduced four more holes in it, against working
+      PowerShell rather than by reading**, all now closed and each with its own counter-case:
+      `Join-Path -Path $s.Path` was certified GUARDED, because the check asked for a `-Path` parameter
+      without asking which function it belonged to -- and `$GuardCallTokens` sat declared and unread
+      beside it; the sentinel was a bare substring test, so a line whose printed MESSAGE carried the
+      phrase left the scan entirely rather than merely passing; `Assert-Equal` was missing from the
+      print-bearing call list although it prints raw values on failure; and the foreign-value list was
+      an enumeration, so a later group reading a new scanned field would have been invisible. That last
+      one is now inverted -- foreign by default, own by declaration -- which is the same fail-open
+      enumeration that put this site on the print-site list to begin with.
+- [x] Three FALSE failures closed in the same pass, and they matter as much: an abbreviated parameter
+      (`-Pa`), the colon form (`-Path:$x`) and a positional call all genuinely strip, and reporting
+      them would have put a red line beside a line that visibly calls the guard -- the shape that gets
+      a check deleted rather than the code fixed. The residual, stated in the file: a call wrapped
+      across two physical lines is still a loud false failure, which is the direction this file
+      already chooses.
+- [x] The own-value declaration verified complete against the tree: six distinct member accesses on
+      the two scan-result variables, three declared own (`$s.Line`, `$s.Guarded`, `$w.HandsBack`) and
+      three foreign (`$s.Path`, `$w.Path`, `$w.Event`). 47 passed / 0 failed.
 - [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors.
 - [x] Full suite via `open-pr.ps1`'s gate.
 

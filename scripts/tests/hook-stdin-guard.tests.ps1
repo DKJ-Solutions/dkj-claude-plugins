@@ -467,17 +467,38 @@ Write-Host "-- group 5: the repaired print lines still CALL the strip (issue #22
 # scan catches a raw print must carry the raw shape, so it would be reported as a defect. Every such
 # line is marked, and the scan skips a marked line -- the same trick as excluding scripts/tests from
 # group 1's own walk, one scale down.
-$ForeignValueTokens = @('$s.Path', '$w.Path', '$w.Event')
-$GuardCallTokens    = @('Get-DisplayPath', 'Get-DisplayRef')
+# FOREIGN BY DEFAULT, OWN BY DECLARATION -- and the first form of this had it the other way round. It
+# listed the three foreign values by name, so a later group reading a NEW scanned field was invisible
+# to this scan until somebody remembered to add its token, and the floor below would not have gone red
+# either. That is fail-OPEN on exactly the kind of addition this list exists to catch: entry 14 is on
+# the print-site list because group 3 added a value class nobody registered. So every member access on
+# the two scan-result variables is foreign unless it is named here as this suite's own, and adding an
+# own value is now the deliberate act rather than an omission.
+$OwnValueTokens  = @('$s.Line', '$s.Guarded', '$w.HandsBack')
+$ScannedValueRef = '\$[sw]\.\w+'
+$GuardCallTokens = @('Get-DisplayPath', 'Get-DisplayRef')
+# Assert-Equal prints its raw $Expected and $Actual on failure, so it is a print-bearing call in this
+# file exactly as the other two are. It was missing from the first form of this filter -- latent,
+# since no call site hands it a scanned value today, and named here rather than left to be found.
+$PrintingCalls   = 'Write-Host|Assert-True|Assert-Equal'
+
+function Get-ForeignValueMatches {
+    param([string]$Line)
+    return @([regex]::Matches($Line, $ScannedValueRef) | Where-Object { $OwnValueTokens -notcontains $_.Value })
+}
 
 function Test-LineIsForeignPrint {
     param([string]$Line)
     # Prose about the hazard is not an instance of it -- group 1's rule, one file over.
     if ($Line.TrimStart().StartsWith('#')) { return $false }
-    if ($Line.Contains('not-a-print-site')) { return $false }
-    if ($Line -notmatch 'Write-Host|Assert-True') { return $false }
-    foreach ($tok in $ForeignValueTokens) { if ($Line.Contains($tok)) { return $true } }
-    return $false
+    # THE SENTINEL IS A TRAILING COMMENT, NOT A SUBSTRING, and the difference is a hole. A bare
+    # .Contains let any line whose printed MESSAGE happened to carry the phrase opt itself out of this
+    # scan completely -- not merely be judged guarded, but never counted at all, so the floor below
+    # could not see it go missing either. Anchored here, an exemption is a visible, deliberate mark at
+    # the end of a line rather than something a message can say by accident.
+    if ($Line -match '#\s*not-a-print-site\s*$') { return $false }
+    if ($Line -notmatch $PrintingCalls) { return $false }
+    return ((Get-ForeignValueMatches -Line $Line).Count -gt 0)
 }
 
 # PER VALUE, NOT PER LINE, and the first form of this function was per line. It asked whether the line
@@ -487,24 +508,34 @@ function Test-LineIsForeignPrint {
 # against a fixture rather than by reading it. It is also the miss the print-site list already records
 # one entry over: a repair "complete only as far as the colon".
 #
-# THE TEST IS THE ARGUMENT POSITION. A guarded value is the argument of a guard call, so it is preceded
-# by that call's parameter name; a raw one is preceded by the opening of its interpolation. Every
-# occurrence is judged, not the first -- a value can appear twice on one line.
+# THE TEST IS THE ARGUMENT POSITION, AND IT IS ANCHORED TO THE GUARD FUNCTION'S OWN NAME. The second
+# form of this asked only whether SOME '-Path' or '-Ref' parameter sat immediately before the value,
+# never which function that parameter belonged to -- so 'Join-Path -Path $s.Path' was certified as
+# guarded while stripping nothing, and $GuardCallTokens was declared and never read, which is the
+# check the first author meant to write sitting beside the one they wrote. Reproduced live by the code
+# review of this branch rather than reasoned about.
 #
-# A POSITIONAL CALL WOULD BE REPORTED AS UNGUARDED, and that is the direction to err in, on this file's
-# own rule for its comment stripper: the error this suite may make is the loud one. A false positive is
-# a person reading a failure; a false negative is silence on the one fact this group exists to hold.
+# Every occurrence is judged, not the first -- a value can appear twice on one line, and group 3's own
+# print carries two.
+#
+# THE PARAMETER NAME IS OPTIONAL AND ITS SPELLING IS NOT PINNED, which closes three false FAILURES the
+# review reproduced against real, working PowerShell: an abbreviated parameter ('-Pa'), the colon form
+# ('-Path:$x'), and a positional call. All three genuinely strip, and reporting them would have put a
+# red line beside a line that visibly calls the guard -- which is the shape that gets a check loosened
+# or deleted rather than the code fixed. What is required is the guard's NAME, on a word boundary, with
+# at most one parameter between it and the value.
+#
+# WHAT IT STILL CANNOT SEE, stated rather than left to be found: a call WRAPPED ACROSS TWO PHYSICAL
+# LINES, since the scan reads one line at a time exactly as group 1's does. That direction is a loud
+# false failure, not silence, which is this file's own stated rule for its comment stripper -- the
+# error this suite may make is the one a person reads.
 function Get-UnguardedForeignValues {
     param([string]$Line)
+    $names    = ($GuardCallTokens | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    $guarded  = "(?:^|[^\w-])(?:$names)(?:\s+-\w+[:\s])?\s*$"
     $unguarded = @()
-    foreach ($tok in $ForeignValueTokens) {
-        $from = 0
-        while ($true) {
-            $at = $Line.IndexOf($tok, $from)
-            if ($at -lt 0) { break }
-            if (-not ($Line.Substring(0, $at) -match '-(Path|Ref)\s+$')) { $unguarded += $tok }
-            $from = $at + $tok.Length
-        }
+    foreach ($m in (Get-ForeignValueMatches -Line $Line)) {
+        if (-not ($Line.Substring(0, $m.Index) -match $guarded)) { $unguarded += $m.Value }
     }
     return $unguarded
 }
@@ -548,6 +579,26 @@ $fixtureKeyRaw   = 'Assert-True $w.HandsBack "$($w.Path) [$($w.Event)]: the wrap
 $fixturePartial  = 'Assert-True $w.HandsBack "$(Get-DisplayPath -Path $w.Path) [$($w.Event)]: back"'   # not-a-print-site
 $fixtureProse    = '#   Write-Host "   $($w.Event)" -- prose explaining the hazard, not an instance'   # not-a-print-site
 $fixtureOwnValue = 'Write-Host "     the family, counted out of the tree: $($sites.Count) site(s)"'    # not-a-print-site
+
+# THE FOUR THE CODE REVIEW REPRODUCED AGAINST WORKING POWERSHELL. The first is the dangerous
+# direction -- a call that strips nothing, certified as guarded because it happens to take a -Path.
+# The next two are the loud-but-wrong direction, which is what trains somebody to delete a check. The
+# last is the sentinel: a phrase inside a printed MESSAGE must not exempt the line that prints it.
+$fixtureWrongFunc = 'Write-Host "   $(Join-Path -Path $s.Path -ChildPath x.txt)"'                      # not-a-print-site
+$fixtureColonForm = 'Write-Host "   $(Get-DisplayPath -Path:$s.Path)"'                                # not-a-print-site
+$fixtureAbbrev    = 'Write-Host "   $(Get-DisplayPath -Pa $s.Path)"'                                   # not-a-print-site
+$fixturePositional = 'Write-Host "   $(Get-DisplayPath $s.Path)"'                                      # not-a-print-site
+# Built by concatenation on purpose: this one must NOT carry the sentinel, since what it proves is that
+# the phrase inside a message no longer exempts anything -- so it must not carry the raw shape either.
+$bareToken             = '$' + 's.Path'
+$fixtureSentinelInText = 'Assert-True $x "' + $bareToken + ' -- not-a-print-site appears in this message"'
+
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureWrongFunc).Count)     'a call that merely TAKES a -Path is not a strip -- Join-Path guards nothing, and the per-parameter form of this check certified it'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixtureColonForm).Count)     'the colon form of parameter binding is a real call and is not reported'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixtureAbbrev).Count)        'nor is an abbreviated parameter name, which PowerShell resolves and this check must not second-guess'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixturePositional).Count)    'nor a positional call -- it strips, so a red line beside it would only teach somebody to delete this group'
+Assert-True (Test-LineIsForeignPrint -Line $fixtureSentinelInText)               'the exemption phrase inside a printed MESSAGE does not exempt the line -- the sentinel is a trailing comment, not a substring'
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureSentinelInText).Count) 'and that line is still reported as printing a raw value'
 
 Assert-True (Test-LineIsForeignPrint -Line $fixtureRaw)                          'the scan sees a print line carrying a value this suite did not author'
 Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureRaw).Count)           'and reports that value UNGUARDED when no strip is named on it -- the shape a bad merge resolution would leave behind'

@@ -509,6 +509,17 @@ count is worth stating precisely because the wrong one is what kept the second s
     All four now pass `Get-DisplayPath` (the paths) and `Get-DisplayRef` (the key), dot-sourced from
     `ref-print-lib.ps1`. Not capped -- the console here is a CI log, which wraps rather than truncates.
 
+    **And this is the first site on the list to carry a regression guard on its own WIRING**, which is
+    the part worth copying rather than the repair. Asserting that the strip functions work leaves the
+    repaired lines free to be un-repaired later, so the suite scans its own source and holds each line
+    printing a scanned value to naming a strip -- **per VALUE and anchored to the guard function's own
+    name**, both of which it learned the hard way inside one branch. Per line, it passed a line that
+    guards its path and prints the JSON key beside it raw, which is this entry's own defect. Anchored
+    to a bare parameter name, it certified `Join-Path -Path $s.Path` as guarded, which strips nothing.
+    Every value is foreign unless declared as the suite's own, so a later group reading a new scanned
+    field is in scope the moment it is written -- the fail-open enumeration being exactly what put this
+    site on the list in the first place.
+
     **The reason a suite belongs on a list of scripts is where its output goes**: it runs in CI on
     every PR, in a PUBLIC repository, so its text reaches a public log before anybody has read the
     branch it describes. Entries 1 through 13 are all scripts a person invokes, and reading the list as
