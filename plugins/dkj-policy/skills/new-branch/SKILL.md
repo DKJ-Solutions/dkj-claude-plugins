@@ -308,7 +308,7 @@ file, and the rule flips with the destination rather than with the text.
 
 **It is NOT the only console this workflow writes somebody else's words to** -- that claim stood here
 and was false from the day `ship-pr` began relaying the sentence a failing workflow wrote about itself
-(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are thirteen**, and the
+(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are fourteen**, and the
 count is worth stating precisely because the wrong one is what kept the second site unguarded:
 
 1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch`, `open-pr` and a third
@@ -447,12 +447,61 @@ count is worth stating precisely because the wrong one is what kept the second s
     written straight to `Write-Info` with no strip at all. The script already dot-sources
     `check-report-lib.ps1` (L105) for that same `Write-Info`, so `Format-SafePathToken` sits one
     argument away at every one of these four lines and is called at none of them.
+14. **`$_.Exception.Message`, at every console site that prints one -- a value class that READS as ours
+    and is not** (`Format-SafeProseToken`, `Format-ForConsole`, #2271). .NET composes the sentence, so
+    most of the characters genuinely are its own -- and it INTERPOLATES THE OFFENDING INPUT INTO THAT
+    SENTENCE, which in these scripts is routinely foreign. Three shapes were measured rather than
+    reasoned about, and they are asserted in `scripts/tests/exception-message-guard.tests.ps1` so the
+    argument for the sweep stays re-derivable:
+
+    - a dot-source of a consumer's `scripts/repo-config.ps1` that does not PARSE produces a message
+      carrying **their own source line verbatim and real newlines** -- the inbound #309 line-forging
+      vector at its widest, reached by the most ordinary failure there is, a typo in their seam file;
+    - a dot-source of one that **throws** produces a message that is entirely their text, with no .NET
+      characters in it at all;
+    - a file API given a foreign path puts that path, brackets and all, back into its own sentence --
+      so `sync-main.ps1` L573 guarded `$rel` in the first half of the line under #2248 and took the
+      same path back unguarded in the second half, via the exception thrown on it. The repair was
+      complete only as far as the colon.
+
+    **Three guard families, because three kinds of file reach a console here and cannot all reach the
+    same helper.** The 34 sites under `scripts/**` take `Format-SafeProseToken` -- the sibling for a
+    SENTENCE somebody else wrote, which is what this is; three of those files (`check-branch-entry.ps1`,
+    `check-unfolded-entry.ps1`, `new-internal-note.ps1`) had to dot-source `check-report-lib.ps1` to
+    reach it. `asana-mirror.ps1`'s seven sites take `Format-ForConsole`, this page's own fourth copy
+    above, for the reason that section already gives. **The eight SessionStart hook catch-alls take an
+    INLINE `-replace` chain and deliberately not a call**: `hook-check-lib.ps1` is dot-sourced INSIDE
+    their `try`, so "the lib did not load" is one of the failures that lands in the catch, and a guard
+    call there would throw inside the catch and escape it -- breaking the session start on its own
+    reporting line, which is the one thing that catch exists to prevent. The dependency is the hazard;
+    the duplication is the cheaper cost, and the suite pins all three passes in all eight.
+
+    **The class already had one correctly guarded site and the reporting grep could not see it.**
+    `check-claude-home.ps1` prints `Get-InstallRecord`'s parse error through `Format-SafeProseToken`,
+    with a comment naming `ConvertFrom-Json` embedding the whole offending document -- but the field it
+    prints is assigned `$_.Exception.Message` in `repo-root-lib.ps1`, two files away. A same-line grep
+    therefore reported the class as having **no** guarded site anywhere. It had been decided once,
+    correctly, and never generalised.
+
+    **#2271's own measurement undercounted twice, and both bounds are worth keeping.** It grepped
+    `scripts/**` only, which missed the eight hook catch-alls -- the highest-severity members of the
+    class, since their output is precisely what a SessionStart hook forwards into session context --
+    and it matched same-line only, which is what hid the guarded precedent above. The suite's tree scan
+    now reads `scripts/` and `plugins/` both, and states in its own comment that it still proves only
+    that no site prints one INLINE unguarded.
+
+    **The lesson is entry 6's, one level further in.** That entry landed on "a phrase this workflow
+    assembles out of somebody else's words is somebody else's words". This one is a sentence **.NET**
+    assembles out of somebody else's path -- and it is harder to see, because the composing function is
+    not ours to read and the result looks like a message we wrote. The unit is still a VALUE, and where
+    the characters were typed is still the only question.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
 September 11, five until September 15, six until September 17, seven until September 21 -- and on that
-same September 21 a single deliberate sweep raised it straight to **thirteen** (entries 8 through 13),
-in one pass rather than one at a time. Each of the first six arrived as a counter-example to a sentence
-that had stopped being checked, found incidentally by work that was about something else entirely.
+same September 21 a single deliberate sweep raised it straight to **thirteen** (entries 8 through 13);
+in one pass rather than one at a time, and #2271 added the fourteenth on September 22. Each of the
+first six arrived as a counter-example to a sentence that had stopped being checked, found
+incidentally by work that was about something else entirely.
 **The list is the thing that has to be kept true, not the number in front of it** -- entry 5 sat outside
 it for as long as the list existed, guarded by an ASCII-only strip nobody had re-read, and entry 6 sat
 outside it while carrying no strip of any kind. **Entry 6 is also the first one this list did not
@@ -501,10 +550,10 @@ share nothing else -- different bounds, different source processes, and none of 
 callers -- so what is guarded is that they cannot DISAGREE, by an assert in `pr-issues.tests.ps1` that
 compares the patterns themselves and pins **which** libs carry the class. **The retired sentence this
 list replaced claimed completeness, and this list must not make the same claim twice.** It grew from
-three sites to seven one incidental find at a time, then from seven to thirteen in a single afternoon
-the moment somebody looked on purpose (#2247) -- which argues that the technique works, not that it has
-run out of sites. A reader who needs every place this workflow prints foreign text has, at most, every
-place found so far.
+three sites to seven one incidental find at a time, then from seven to thirteen in a single
+afternoon the moment somebody looked on purpose (#2247), then to fourteen the next day -- which
+argues that the technique works, not that it has run out of sites. A reader who needs every place
+this workflow prints foreign text has, at most, every place found so far.
 
 **A FOURTH copy sits outside the libs, and #2019 is why it is a copy rather than a call.**
 `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` ships standalone: `adopt-dkj-policy-bwj`

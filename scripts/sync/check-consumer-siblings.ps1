@@ -333,7 +333,7 @@ function Get-MarketplaceShippedScript {
     } catch {
         # A registry that names a plugin the marketplace does not declare throws by design. The direct
         # walk below is unaffected and is the larger half, so the lane reports what it can.
-        Write-Info "the shared-scripts registry could not be read ($($_.Exception.Message)) -- the SHIPPED lane covers only what the plugins ship directly."
+        Write-Info "the shared-scripts registry could not be read ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the SHIPPED lane covers only what the plugins ship directly."
     }
 
     foreach ($p in $pluginRoots) {

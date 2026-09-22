@@ -178,7 +178,7 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'adopt-ci-floor.ps1'
 # slug (Get-RepoName) and any trunk override, and every read below has a fallback.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in defaults are used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in defaults are used." }
 }
 
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')

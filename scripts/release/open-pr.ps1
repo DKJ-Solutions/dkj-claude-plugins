@@ -829,7 +829,7 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
             $parsed = ($q.Output -join "`n") | ConvertFrom-Json
             return @(@($parsed) | ForEach-Object { [int]$_.number })
         } catch {
-            Write-Warning "could not parse the open-issue list from gh ($($_.Exception.Message)) -- the resolves gate cannot check and will not block."
+            Write-Warning "could not parse the open-issue list from gh ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the resolves gate cannot check and will not block."
             return $null
         }
     }

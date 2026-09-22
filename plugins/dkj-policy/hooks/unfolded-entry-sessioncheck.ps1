@@ -115,6 +115,17 @@ try {
         Write-Host "unfolded-entry-sessioncheck: the check could not complete (exit $code)."
     }
 } catch {
-    Write-Host ('unfolded-entry-sessioncheck skipped due to an error: ' + $_.Exception.Message)
+    # THE STRIP IS INLINED HERE, DELIBERATELY, AND IS NOT A CALL TO Format-SafeProseToken (#2271).
+    # This is the hook's last-resort catch, and hook-check-lib.ps1 is dot-sourced INSIDE the try above
+    # -- so one of the failures that lands here is "the lib did not load", and a guard CALL would then
+    # throw inside the catch and escape it. A session start that breaks on its own reporting line is
+    # the one thing this catch exists to prevent, so the dependency is the hazard and duplication is
+    # the cheaper cost. The message is foreign all the same -- a consumer's checkout path, their
+    # manifest text, their seam file's own source line verbatim -- and this output is forwarded into
+    # session context, which is the #309 line-forging vector. Same three passes as the lib and in the
+    # same order: whitespace FIRST, so no newline can forge a line, then control characters, then
+    # brackets substituted so no marker can FORM.
+    $safe = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+    Write-Host ('unfolded-entry-sessioncheck skipped due to an error: ' + $safe.Trim())
 }
 exit 0

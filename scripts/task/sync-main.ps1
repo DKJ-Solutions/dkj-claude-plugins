@@ -442,7 +442,7 @@ $seam = & {
         try {
             $answers.Labels = @(Get-ShopifySyncPrLabels | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         } catch {
-            Write-Host "Get-ShopifySyncPrLabels threw, so the sync PR gets no label: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Get-ShopifySyncPrLabels threw, so the sync PR gets no label: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
         }
     }
     return $answers
@@ -495,7 +495,7 @@ function Get-SyncPrBodySeamAnswer {
         try {
             $answer = [string](Get-ShopifySyncPrBody -Take $take -Keep $keep -Default $default)
         } catch {
-            Write-Host "Get-ShopifySyncPrBody threw, so the PR body is the default one: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Get-ShopifySyncPrBody threw, so the PR body is the default one: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
             return ''
         }
         if (-not $answer.Trim()) {
@@ -570,7 +570,7 @@ function Write-SyncLogEntry {
         Write-Host "Sync log: entry for $(Get-DisplayRef -Ref $Branch) written to $rel." -ForegroundColor DarkGray
         return $rel
     } catch {
-        Write-Host "Could not write the sync-log entry to '$rel', so this sync leaves no record in the tree: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "Could not write the sync-log entry to '$rel', so this sync leaves no record in the tree: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
         return ''
     }
 }

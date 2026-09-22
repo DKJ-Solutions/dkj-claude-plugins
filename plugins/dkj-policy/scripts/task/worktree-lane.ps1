@@ -446,7 +446,7 @@ try {
     & $newBranch -Name $Name -Title $Title -Intent $Intent -Resolves $Resolves -RepoRoot $lanePath -SkipStaleBase
     $delegateOk = ($LASTEXITCODE -eq 0 -or $null -eq $LASTEXITCODE)
 } catch {
-    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host (Format-SafeProseToken -Value $_.Exception.Message) -ForegroundColor Red
     $delegateOk = $false
 }
 

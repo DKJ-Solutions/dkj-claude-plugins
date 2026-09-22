@@ -253,7 +253,7 @@ function Write-ThemeArchiveManifest {
         Set-Content -LiteralPath $file -Value $text -Encoding ascii -NoNewline
         return $merged.Change
     } catch {
-        Write-Host "  Manifest FAILED for $Folder : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  Manifest FAILED for $Folder : $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Red
         return 'failed'
     }
 }
