@@ -39,21 +39,77 @@
 
 ### PLAN
 
+Inbound #2230: `Build-ReleaseNoteDraft` selects a release's audience entries by tier alone, so a build
+that reached the trunk and was then reverted before the cut is drafted as delivered work -- measured in
+`BWJ-Development/smartwatchbanden` v2.44.0, where two retracted features survived into the published
+management release-notes page. The issue's own suggested shape is an optional `Retracts:` line on the
+retracting entry, resolved at cut time; its own honest objection rules out inferring a retraction from
+prose or git history, so this branch reads only what an entry says about itself.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-EntryRetracts` (release-lib.ps1) and `Get-EntryDeclaredBranch` (entry-scaffold-lib.ps1): read
+      the optional `Retracts:` line, and a single entry's own declared branch.
+- [x] `Resolve-ReleaseRetractions` (release-lib.ps1): resolves every `Retracts:` line across the WHOLE
+      pending set (not one tier), returning retracted/retracting branches, what was withheld, and an
+      unresolved-target error list -- a typo is an error, never a silent no-op (the issue's point 5).
+- [x] `Format-RetractionWithheldNote` + `Build-ReleaseNoteDraft -WithheldNote`: the audience document
+      keeps rendering its section (and the caller's note) even where retraction empties it completely,
+      instead of silently falling through the "no section where nothing reached this tier" rule.
+- [x] `cut-release.ps1`: a guardrail refuses the cut (nothing written) on an unresolved `Retracts:`
+      target; `$audienceEntries` is filtered to the intersection actually present in this one document
+      before `Build-ReleaseNoteDraft` runs. `CHANGELOG.md`, its changelog note (the record) and the
+      generated GitHub Release body are all left untouched, exactly as the issue asks.
+- [x] `scripts/sync/build-shared-scripts.ps1` run so the `plugins/dkj-policy/scripts/` mirrors match.
 
 ### TEST
 
+- Unit coverage added: `Get-EntryDeclaredBranch` (entry-scaffold.tests.ps1), `Get-EntryRetracts` /
+  `Resolve-ReleaseRetractions` / `Format-RetractionWithheldNote` / `Build-ReleaseNoteDraft -WithheldNote`
+  (release-lib.tests.ps1) -- including the unresolved-target error case and the byte-identical-when-omitted
+  case for the new parameter.
+- End-to-end coverage added in `cut-release-drive.tests.ps1`: a real cut against a throwaway git repo with
+  a tier-2 entry and a tier-0 entry that retracts it -- the audience document withholds the retracted
+  entry and names both branches in its comment, while the changelog note (the record) keeps both; and a
+  second scenario proving a typo'd `Retracts:` target refuses the cut before anything is written.
+- All four affected suites run locally: `release-lib.tests.ps1` (549 asserts), `entry-scaffold.tests.ps1`
+  (853), `cut-release-guardrail.tests.ps1` (111), `cut-release-drive.tests.ps1` (58) -- all green, no
+  regressions against the pre-branch baseline. `scripts/lint/check-plugin-integrity.ps1` run locally too
+  (green after the mirror sync above); the full local suite gate is skipped per this machine's own memory
+  note and left to CI.
+
 ### DEPLOY: fix/2230-guard-retracted-release-notes
 
-**Score:**
+`Build-ReleaseNoteDraft` selected a release's audience-facing entries by tier alone, with no way to see
+that a later pending entry retracts an earlier one -- so a build that reached the trunk and was reverted
+before the cut was drafted as delivered work, in the author's own confident words, in the one document
+an employer or commissioner reads to learn what their money bought (measured in `BWJ-Development/smartwatchbanden`
+v2.44.0: two of three retracted features survived into a published management release-notes page).
+
+The repair is the issue's own suggested shape, in full rather than the weaker report-only fallback: an
+optional `Retracts: <branch>, <branch>` line on the entry that undoes earlier work, read and resolved
+across the whole pending changelog (`Resolve-ReleaseRetractions`), an unresolvable target refused at cut
+time rather than read as "nothing to withhold," and the withheld branches named in an HTML comment in the
+audience document so the person finishing the draft sees the decision instead of a silent gap. `CHANGELOG.md`,
+its changelog note and the generated GitHub Release body are untouched -- all three are records of what
+reached the trunk, and the retracted work did too. The field is optional and absent from every existing
+entry, so an ordinary release is byte-for-byte unchanged; asserted directly in `release-lib.tests.ps1`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The reader here is the party that runs the upgrade -- a consuming repo (life-hub, smartwatchbanden, and
+every other repo that installs `dkj-policy`) cutting its own release with `cut-release.ps1`. Most releases
+carry no retraction and this change is invisible to them. When one does, it is exactly the failure the
+issue measured: a deliberately-pulled build announced as shipped, in a document that has already been read
+by the time anyone notices -- "the one error in this whole cycle that a consumer cannot correct after the
+fact," in the issue's own words. Rare, but when it fires it protects a real published document from a
+confidently wrong sentence rather than merely tidying prose.
+
+**Score:** 3
 
 #### Pull Request
 
-Withhold a retracted change from the hand-written release document
+Guard cut-release against drafting a retracted change as delivered work
 
