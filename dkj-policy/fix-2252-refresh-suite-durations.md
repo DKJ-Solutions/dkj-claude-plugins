@@ -43,19 +43,38 @@ Run record-suite-durations.ps1 against post-merge CI runs on main and commit the
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Confirmed #2252's reason still holds: `#2236` merged at `1fa18227`, so post-merge CI runs now exist.
+- [x] Ran `scripts/maintenance/record-suite-durations.ps1` against three post-merge merge-commit CI runs
+      on `main` -- `35664490957` (#2256), `35671058308` (#2257), `35682991043` (#2258) -- each of which
+      printed a full 121-row per-suite table, and committed the regenerated
+      `scripts/tests/suite-durations.json`.
+- [x] Measured what the refresh actually moved, rather than assuming it moved only #2252's suite.
 
 ### TEST
 
+- [x] `-DryRun` first: three runs read, 121 suite rows each, no suite left without a row and no
+      `no rows for N suite(s)` warning -- so nothing in the tree is charged the maximum any more.
+- [x] The lint gate and all suites, via `open-pr.ps1`.
+
 ### DEPLOY: fix/2252-refresh-suite-durations
 
-**Score:**
+`scripts/tests/suite-durations.json` is re-recorded from three post-merge CI runs, and it repairs more
+than the row #2252 reported. `script-contract.tests.ps1` moves from 98.8s to **208.9s**, which is the
++12 child spawns #2236 added plus the contention of a pool that has grown since. But the file was also
+**eleven days and 30 suites stale**: it listed 91 of the 121 suites in the tree, and
+`Invoke-TestSuiteGate` charges an unlisted suite the largest recorded value -- so it was packing 30
+suites at 290.2s each when they total **266.5s between them**. The packer believed the lightest
+thirty suites in the pool were its heaviest. Every row is now a measured mean rather than a ceiling.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. The file is this repo's own CI packing hint; nothing in it ships in a plugin payload, so no
+consumer reads it and none of their gates change.
+
+**Score:** N/A
 
 #### Pull Request
 
 Refresh the recorded CI suite durations from post-2236 runs
-
