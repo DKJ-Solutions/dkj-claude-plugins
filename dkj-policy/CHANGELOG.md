@@ -44,7 +44,53 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 26 minor entries** <!-- pending-tally -->
+**18 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2279-cpu-time-in-lane-timeout-verdict · 20260922-121322
+
+A lane the test gate kills at its bound now reports what its process tree actually consumed -- the
+whole tree's CPU over its lifetime, and how much of that it consumed in the last three seconds before
+the kill -- directly under that suite's own `TIMED OUT` header.
+
+**It answers ONE of the two questions #2279 asked, and the other turned out to be unanswerable.**
+That issue's table wanted three cases separated: a suspended machine, a wedged lane and a deadlocked
+tree. This file's own `$script:GateSuspendGapSeconds` block already records #1941's deadlock at 0.23s
+across 29 children over 141 MINUTES, which is indistinguishable from #2231's wedge at 0.58s over 22 --
+so no CPU reading separates those two, and this does not claim to. What it does separate is "something
+was running" from "nothing was running", which is precisely the question the console had been handing
+to the reader with a whole standalone re-run attached to it (#2255, whose own measurement cost a second
+full gate run on a suite that was merely slow).
+
+It also settles the implementation question #2279 left open. `TotalProcessorTime` reads the direct
+child only, and every wedge in this family sits in a grandchild -- so the reading is taken from one
+`Win32_Process` CIM snapshot of the machine and walked down the tree. Measured against a real busy
+grandchild (3.45s of CPU over a 3s window, all of it two levels down) and a real idle one (0.000s).
+
+Nothing about when a lane is reaped changed. The bound, the grace window and the kill are exactly what
+they were; the sweep now marks, measures and then kills in the same pass, three seconds later in it.
+And it does not reopen the suspend question, which that same block declines CPU for on grounds that
+are untouched here: nothing added credits, reaps or kills anything -- it composes sentences.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this repo's subscribers consume the plugins, and the test gate is a development-time tool that
+runs before a release exists. A consumer running the shared `native-capture-lib.ps1` does get the
+better diagnosis on their own gate, but only ever as a maintainer of their own repo, never as a
+subscriber to anything this repo ships.
+
+**Score:** N/A
+
+#### Pull Request
+
+The test gate's timeout verdict reports the lane tree's CPU time
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2291](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2291)
+
+---
 
 ### DEPLOY: fix/2230-guard-retracted-release-notes · 20260922-115804
 
