@@ -152,7 +152,7 @@ $config = & {
     $configPath = Join-Path $args[0] 'scripts\repo-config.ps1'
     if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) { return $answers }
     try { . $configPath } catch {
-        Write-Warning "scripts\repo-config.ps1 could not be loaded ($($_.Exception.Message)) -- using the built-in defaults."
+        Write-Warning "scripts\repo-config.ps1 could not be loaded ($(Format-SafeProseToken -Value $_.Exception.Message)) -- using the built-in defaults."
         return $answers
     }
     if (Test-FunctionDefined 'Get-ReleaseNoteRoot') { $answers.NoteRoot    = Get-ReleaseNoteRoot }
