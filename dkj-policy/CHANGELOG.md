@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 18 minor entries** <!-- pending-tally -->
+**13 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2264-hook-stdin-console-guard · 20260922-093846
+
+Running either of this workflow's two command guards by hand -- the first thing anybody does when a
+git or a theme command is refused and they want to know why -- used to hang on line one with nothing
+printed, waiting on a console read for a Ctrl+Z that is never coming. Both now read stdin only where
+there is a handle to read, which is the guard the other five members of this family already carried.
+A new suite counts that family out of the tree rather than from a list, because a wrong hand-count is
+what let these two sit unguarded through two separate sweeps. It proved itself within hours: a
+neighbouring branch changed how six of those sites read stdin, and the suite went red on the spot
+rather than reporting the shrunken family as a clean one.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer of this workflow gets the same repair, and it reaches the guard protecting their live
+Shopify theme as well as the one protecting their working copy. Nothing about how either guard judges
+a command changes, so there is nothing to act on -- what changes is that the guard can be questioned
+by hand on the machine it just refused something on.
+
+**Score:** 2
+
+#### Pull Request
+
+Two PreToolUse guards no longer block on a console read when run by hand
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2269](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2269)
+
+---
 
 ### DEPLOY: feat/2265-declared-settings-at-the-moment-of-change · 20260922-092503
 
