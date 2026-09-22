@@ -100,7 +100,7 @@ function Invoke-Gate {
     param([string]$TestsDir, [int]$MaxParallel = 0, [string]$WorkDir = '', [string]$CommandsFile = '', [int]$ResidentCount = -1,
           [int]$SuiteTimeoutSeconds = 0, [string]$FocusSuite = '', [int]$FocusRepeat = 0,
           [double]$SuspendCreditSeconds = 0, [int]$SuspendCreditOnCall = 2, [int]$AvailableMemoryMB = -1,
-          [double]$PaceScale = 0)
+          [double]$PaceScale = 0, [double]$PaceScaleThen = 0, [int]$PaceScaleThenAfterCall = 2)
     # NOT $args: that is an automatic variable holding a function's unbound arguments, and splatting it
     # after assignment is the kind of collision this repo already documents for $script:-owned names.
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:Driver, '-TestsDir', $TestsDir, '-MaxParallel', "$MaxParallel")
@@ -118,6 +118,7 @@ function Invoke-Gate {
     # which resolves to 1.0 and therefore to exactly the fixed bound those cases were written against
     # (issue #2263). That is what keeps their silence about scaling evidence that the gate is silent.
     if ($PaceScale -gt 0) { $psArgs += @('-PaceScale', "$PaceScale") }
+    if ($PaceScaleThen -gt 0) { $psArgs += @('-PaceScaleThen', "$PaceScaleThen", '-PaceScaleThenAfterCall', "$PaceScaleThenAfterCall") }
     if ($WorkDir) { $psArgs += @('-WorkDir', $WorkDir) }
     if ($CommandsFile) { $psArgs += @('-CommandsFile', $CommandsFile) }
     # -1 (the default) means "let the real Get-Process answer" -- OS-wide process state is not
@@ -370,7 +371,7 @@ try {
 param([string]`$TestsDir, [int]`$MaxParallel = 0, [string]`$WorkDir = '', [string]`$CommandsFile = '', [int]`$ResidentCount = -1,
       [int]`$SuiteTimeoutSeconds = 0, [string]`$FocusSuite = '', [int]`$FocusRepeat = 0,
       [double]`$SuspendCreditSeconds = 0, [int]`$SuspendCreditOnCall = 2, [int]`$AvailableMemoryMB = -1,
-      [double]`$PaceScale = 0)
+      [double]`$PaceScale = 0, [double]`$PaceScaleThen = 0, [int]`$PaceScaleThenAfterCall = 2)
 `$ErrorActionPreference = 'Stop'
 . '$LibPath'
 if (`$WorkDir) { Set-Location -LiteralPath `$WorkDir }
@@ -417,11 +418,22 @@ if (`$SuspendCreditSeconds -gt 0) {
 # has no suite-durations.json at all. The real Get-TestSuitePaceScale is a pure judgement and is asserted
 # directly, row by row, against #2263's three measured runs; what this stub leaves unproven is the
 # RATIO -- not the re-read, the clamp or the line the pool prints when the bound moves.
+#
+# AND IT CAN FALL AS WELL AS RISE, which a single fixed value cannot express (code review on #2263). The
+# real ratio is CUMULATIVE over the suites reaped so far, and a cumulative ratio is not monotonic: the
+# early samples are taken under the heaviest contention and the ratio peaks early, then falls back as the
+# queue drains. -PaceScaleThen is what lets a case drive that shape, because a stub that only ever
+# returns one number can never reproduce a bound following the pace DOWN onto a running lane.
 if (`$PaceScale -gt 0) {
     `$script:GatePaceScale = `$PaceScale
+    `$script:GatePaceCalls = 0
     function Get-TestSuitePaceScale {
         param([double]`$ExpectedSeconds, [double]`$ActualSeconds, [int]`$SampleCount,
               [int]`$MinimumSamples = 5, [double]`$MinimumExpectedSeconds = 60.0)
+        `$script:GatePaceCalls++
+        if (`$PaceScaleThen -gt 0 -and `$script:GatePaceCalls -gt `$PaceScaleThenAfterCall) {
+            return [double]`$PaceScaleThen
+        }
         return [double]`$script:GatePaceScale
     }
 }
@@ -815,10 +827,18 @@ try {
         'two finished suites is not evidence, however slow they were -- the bound stays where it was'
     Assert-Equal 1.0 (Get-TestSuitePaceScale -ExpectedSeconds 30 -ActualSeconds 300 -SampleCount 10) `
         'and neither is 30s of recorded mass, however many suites it was spread over'
-    # THE MEASURED ROW THIS WHOLE CHANGE EXISTS FOR: #2255's 9-lane run spent 1,890s of wall clock on a
-    # pool whose recorded cost is 6,253.7 lane-seconds, i.e. 695s of ideal wall clock at 9 lanes.
+    # THE ROW THIS WHOLE CHANGE EXISTS FOR, and it is a RECONSTRUCTION rather than a reading taken from
+    # that run: #2255's 9-lane run left wall clock and a lane count, not a per-suite table, so the inputs
+    # here are its 1,890s over 9 lanes against the 6,253.7 lane-seconds its pool's rows sum to. Wall clock
+    # charges the run for a draining tail nobody was using, so 2.72x is an UPPER estimate of what the
+    # summed-duration ratio would have read -- which is why the row below it exists.
     Assert-Equal 2.72 ([math]::Round((Get-TestSuitePaceScale -ExpectedSeconds 6253.7 -ActualSeconds 17010 -SampleCount 121), 2)) `
-        'the memory-starved run that hit the bound reads 2.72x the recorded pace'
+        'the memory-starved run that hit the bound reconstructs to 2.72x the recorded pace'
+    # AND THE CONCLUSION SURVIVES THE ESTIMATE BEING GENEROUS, which is the assert that makes the one
+    # above worth quoting at all. The file that was killed needed ~1,820s; at 1.8x -- well under the
+    # reconstruction -- the bound is 3,240s and it finishes. The repair does not rest on 2.72 being exact.
+    Assert-Equal 3240 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 1.8 -CeilingSeconds 3600) `
+        'even at 1.8x, materially below the reconstruction, the bound clears the 1,820s that file needed'
     # A RUN FASTER THAN THE RECORDING IS REAL AND COMMON -- 1.15x is this repo's own idle-workstation
     # figure and a wider box reads under 1 -- and it must NOT tighten anything. Getting this backwards
     # would turn a green suite red on the machines best able to finish it, which is a worse version of
@@ -887,6 +907,28 @@ try {
     $pacedOff = Invoke-Gate -TestsDir $ok -MaxParallel 1 -SuiteTimeoutSeconds -1 -PaceScale 2.72
     Assert-True ($pacedOff.Text -match 'GATE-RESULT: True') '-SuiteTimeoutSeconds -1 with a slow pace still runs the suites'
     Assert-True ($pacedOff.Flat -notmatch 'each suite is bounded at') 'and still says nothing about a bound, because there still is none'
+
+    # THE RATCHET, AND IT IS THE CASE CODE REVIEW HAD TO ASK FOR because a fixed stub cannot produce it.
+    # The pace ratio is cumulative and cumulative ratios FALL: the early samples are taken under the
+    # heaviest contention, so the ratio peaks early and eases as the queue drains. With the bound assigned
+    # on '-ne' rather than '-gt' it followed the pace back down -- and a lane 2,500s into a 3,600s bound
+    # that had applied for its whole life would then be killed by a 1,980s bound computed after it
+    # started, having never exceeded any bound in force while it ran. A deadline that moves TOWARDS a
+    # running lane is the one thing this mechanism must not do.
+    $ratchet = Invoke-Gate -TestsDir $ok -MaxParallel 1 -PaceScale 2.72 -PaceScaleThen 1.1
+    Assert-True ($ratchet.Text -match 'GATE-RESULT: True') 'a run whose pace rises then falls still goes green'
+    Assert-Says $ratchet.Flat 'each suite is now bounded at 3,600s, not 1,800s' `
+        'the bound rises with the early, contended samples'
+    Assert-True ($ratchet.Flat -notmatch 'now bounded at 1,980s') `
+        'and does NOT follow the cumulative ratio back down -- the bound ratchets, it does not track'
+    # THE SAME RULE STATED AS AN INVARIANT OVER THE WHOLE RUN, so a future change that reintroduces the
+    # defect by another route still fails here: no line may ever announce a bound below one already
+    # announced. Parsed off the console rather than asserted on a single expected string, because what
+    # matters is the sequence and not which numbers happened to be in it.
+    $announced = [regex]::Matches($ratchet.Flat, 'now bounded at ([\d,]+)s') | ForEach-Object { [int](($_.Groups[1].Value) -replace ',', '') }
+    $monotonic = $true
+    for ($i = 1; $i -lt @($announced).Count; $i++) { if ($announced[$i] -lt $announced[$i - 1]) { $monotonic = $false } }
+    Assert-True $monotonic 'every bound this run announced is at least the one it announced before it'
 
     # THE RULE ITSELF, HELD AGAINST THE SOURCE, because the console assert above only discriminates on a
     # machine whose culture disagrees with English -- and CI's does not. Asserted the way

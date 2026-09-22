@@ -250,10 +250,16 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # number was fixed, and it is the property the scaling below exists to preserve.
 #
 # THAT BASIS READ 290.2s AND ~6x UNTIL SEPTEMBER 22, 2026, off new-branch.tests.ps1 in a hints file that
-# then covered 91 of 121 suites. #2252's refresh covers all 121 and moved the maximum to 669.1s, so the
-# headroom this paragraph claims fell from ~6x to ~2.7x without one line of this file changing. A basis
-# that moves when a DIFFERENT file is regenerated is one worth reading at run time rather than quoting
-# by hand, which is the second reason the scaling below reads that file instead of a constant.
+# then held 91 rows. #2252's refresh took it to 121 and moved the maximum to 669.1s, so the headroom this
+# paragraph claims fell from ~6x to ~2.7x without one line of this file changing. A basis that moves when
+# a DIFFERENT file is regenerated is one worth reading at run time rather than quoting by hand, which is
+# the second reason the scaling below reads that file instead of a constant.
+#
+# AND THE ROW COUNT IS NOT A COVERAGE CLAIM, deliberately. The directory held 122 suites on the day those
+# 121 rows were recorded -- native-not-started-wording.tests.ps1 merged after the run they came from --
+# so "every suite is listed" is a sentence that goes stale on the next new test file. Nothing here needs
+# it to be true: a suite with no row simply contributes no pace sample, exactly as a repo with no hints
+# file at all contributes none.
 #
 # WHAT ACTUALLY MOVES A SUITE PAST THIS BOUND IS THE PACE OF THE WHOLE RUN, AND IT WAS MEASURED RATHER
 # THAN INFERRED -- issue #2263, September 22, 2026. #2255 recorded a 9-lane run that timed
@@ -261,21 +267,30 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # standalone minutes later, and #2263 read the difference as lane CONTENTION -- fewer lanes, slower
 # suite -- proposing a bound scaled by the lane count. Instrumented with
 # scripts/maintenance/reproduce-suite-contention.ps1 (one machine, one suite, connectors.tests.ps1),
-# contention runs the OTHER WAY: 53.4/53.2/53.6s under 3 busy siblings, 118.0s under 13, 198.9/188.1s
-# under 23, against 53.4/50.5s standalone on a settled machine. MORE lanes make a suite slower, by 3.7x
-# across that span -- so a bound keyed on the lane count would be most generous exactly where suites run
-# fastest, and #2263's own reading of its evidence is the one shape that cannot be built.
+# contention runs the OTHER WAY: 53.4/53.2/53.6s under 3 busy siblings, 118.0s under 13 and
+# 198.9/188.1s under 23, against 53.4/50.5s standalone on a settled machine. Taken against the slower
+# standalone reading of 53.4s, that is 1.00x, 2.21x and 3.72x. MORE lanes make a suite slower -- so a
+# bound keyed on the lane count would be most generous exactly where suites run fastest, and #2263's own
+# reading of its evidence is the one shape that cannot be built.
 #
-# THE QUANTITY THAT DOES TRACK IT IS THE RUN'S OWN PACE AGAINST THE RECORDED ONE, and all three of
-# #2263's readings agree once it is computed. suite-durations.json sums to 6,253.7 lane-seconds over its
-# 121 rows, so a run's ideal wall clock is that sum over its lanes and the ratio of what it actually
-# spent to that ideal is how much slower this machine is running than the recording:
+# THE QUANTITY THAT DOES TRACK IT IS THE RUN'S OWN PACE AGAINST THE RECORDED ONE: the seconds the
+# finished suites actually spent, over the seconds suite-durations.json records for those same suites.
+# That is what Get-TestSuitePaceScale computes, and it is immune to how well the pool happened to be
+# packed, because both halves are per-suite runtime rather than wall clock.
+#
+# THE THREE READINGS BELOW ARE A RECONSTRUCTION OF THAT RATIO, NOT THE RATIO ITSELF, and the difference
+# is stated because the whole reason this block was rewritten is a basis nobody re-checked. #2263's runs
+# left wall clock and a lane count, not per-suite tables, so what can be recovered is the pool's wall
+# clock against the 6,253.7 lane-seconds its 121 recorded rows sum to, divided by its lanes:
 #     24 lanes,   300s wall  ->  261s ideal  ->  1.15x   a fast, idle workstation
 #     22 lanes,   421.2s     ->  284s ideal  ->  1.48x   the same box, critical-path bound on one file
 #      9 lanes,  1890s       ->  695s ideal  ->  2.72x   the memory-starved box that hit this bound
-# At 2.72x the recorded 669.1s of check-plugin-integrity-docs.tests.ps1 predicts 1,820s, which is why
-# that file was still running when a 1,800s bound killed it. The pace model predicts the observed
-# failure to within about one percent; no lane-count model predicts it at all.
+# A pool's tail drains with lanes standing idle, so wall clock charges this run for capacity nobody was
+# using and each figure is an UPPER estimate of what the summed-duration ratio would have read. The
+# conclusion survives that, which is the only reason the reconstruction is worth quoting: at 2.72x the
+# recorded 669.1s of check-plugin-integrity-docs.tests.ps1 predicts 1,820s -- within about one percent of
+# the 1,800s bound that killed it -- and even at 1.8x, well under the estimate, the bound would have been
+# 3,240s and that file would have finished. What no lane-count model predicts is the failure at all.
 #
 # SO THIS IS THE FLOOR OF A RANGE AND THE SCALING CAN ONLY EVER LOOSEN IT. Get-TestSuitePaceScale reads
 # the ratio off the suites THIS run has already finished, and Get-TestSuiteDeadlineSeconds clamps the
@@ -2647,7 +2662,14 @@ function Get-TestSuiteDeadlineSeconds {
 
     if ($BaseSeconds -le 0) { return 0 }
 
-    $scaled = [int][Math]::Round($BaseSeconds * [Math]::Max(1.0, $Scale))
+    # CLAMPED IN DOUBLE, THEN CAST -- and the order is the whole point. Casting first and clamping after
+    # reads the same and is not: $Scale has no upper limit of its own, so a large enough one overflows
+    # Int32 and THROWS, out of the one function whose stated job is that the ceiling always catches an
+    # arbitrarily large ratio. Practically unreachable at a 1800s base (it needs a ratio around 1.19
+    # million, i.e. suites accumulating centuries of runtime inside one gate), and repaired anyway: a
+    # property the arithmetic guarantees is worth more than one the input space happens not to reach.
+    $ceiling = if ($CeilingSeconds -gt 0) { [double]$CeilingSeconds } else { [double][int]::MaxValue }
+    $scaled  = [int][Math]::Round([Math]::Min([double]$BaseSeconds * [Math]::Max(1.0, $Scale), $ceiling))
     if ($scaled -lt $BaseSeconds) { return $BaseSeconds }
     if ($CeilingSeconds -gt 0 -and $scaled -gt $CeilingSeconds) {
         # The ceiling never drags the bound BELOW the floor, however it is configured: a repo that set a
@@ -3493,7 +3515,22 @@ function Invoke-TestSuiteGate {
                     $scaledDeadline = Get-TestSuiteDeadlineSeconds -BaseSeconds $deadlineFloor `
                                                                    -Scale $paceScale `
                                                                    -CeilingSeconds $script:GateSuiteTimeoutCeilingSeconds
-                    if ($scaledDeadline -ne $suiteDeadline) {
+                    # RATCHET: '-gt', NEVER '-ne'. Get-TestSuiteDeadlineSeconds guarantees a single call
+                    # never returns below the floor, and that is NOT the same guarantee as a bound that
+                    # only grows across a run -- the difference is a real defect and this comment claimed
+                    # the wrong one of the two until code review caught it.
+                    #
+                    # THE PACE RATIO IS CUMULATIVE AND CUMULATIVE RATIOS ARE NOT MONOTONIC. The queue
+                    # dequeues longest-first into a full pool, so the early samples are the ones taken
+                    # under the heaviest contention -- 3.7x on this repo's own measurement -- and the
+                    # ratio peaks early. As the queue drains, lanes empty and later suites run closer to
+                    # their recorded cost, pulling the cumulative ratio back down. With '-ne' the bound
+                    # would follow it down: a lane 2,500s into a 3,600s bound that had applied for its
+                    # whole life would be killed by a 1,980s bound computed after it started, having never
+                    # exceeded any bound in force while it ran. A deadline that moves TOWARDS a running
+                    # lane is the one thing this mechanism must not do, so the resolved bound only
+                    # ratchets up and the floor from the previous pass is the floor for the next one.
+                    if ($scaledDeadline -gt $suiteDeadline) {
                         # SAID OUT LOUD, ON THE SAME ARGUMENT #2121 MADE FOR THE LANE COUNT: a run that
                         # quietly changes the largest number it judges itself by has made a decision the
                         # console has to be able to show its working for. One line per change, and the

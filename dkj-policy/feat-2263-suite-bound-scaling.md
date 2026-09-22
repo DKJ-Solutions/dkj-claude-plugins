@@ -1,4 +1,4 @@
-﻿## feat/2263-suite-bound-scaling
+## feat/2263-suite-bound-scaling
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -59,12 +59,15 @@ lanes make a suite slower. Instrumented with `scripts/maintenance/reproduce-suit
 the tool built for exactly this question, and the instrumentation #2263 says was never done --
 contention runs the other way on one machine, one suite (`connectors.tests.ps1`):
 
-| busy siblings | duration | vs standalone |
+Ratios are against **53.4s**, the slower of the two standalone readings, so every row is the
+conservative reading of the same baseline:
+
+| busy siblings | duration | vs 53.4s standalone |
 |---|---|---|
-| 0, settled machine | 53.4s, 50.5s | 1.0x |
-| 3 (4 lanes) | 53.4s, 53.2s, 53.6s | 1.0x |
-| 13 | 118.0s | 2.3x |
-| 23 (24 lanes) | 198.9s, 188.1s | **3.7x** |
+| 0, settled machine | 53.4s, 50.5s | 1.00x, 0.95x |
+| 3 (4 lanes) | 53.4s, 53.2s, 53.6s | 1.00x |
+| 13 | 118.0s | 2.21x |
+| 23 (24 lanes) | 198.9s, 188.1s | **3.72x, 3.52x** |
 
 More lanes make a suite **slower**. So a bound scaled by the lane count would be most generous exactly
 where suites run fastest, and the shape #2263 points hardest at is the one shape that cannot be built.
@@ -75,20 +78,28 @@ from machine load alone, with no gate lanes involved.
 
 #### What the repair is keyed on instead, and why all three readings agree on it
 
-The quantity that tracks the failure is the **pace of the whole run against the recorded one**.
-`suite-durations.json` sums to 6,253.7 lane-seconds over its 121 rows, so a run's ideal wall clock is
-that sum over its lanes, and the ratio of what it actually spent is how much slower the machine is
-going than the recording:
+The quantity that tracks the failure is the **pace of the whole run against the recorded one**: the
+seconds the finished suites actually spent, over the seconds `suite-durations.json` records for those
+same suites. That is what the code computes, and it is immune to how well the pool was packed, because
+both halves are per-suite runtime.
 
-| #2263's reading | lanes | wall | ideal | pace |
+The three rows below are a **reconstruction** of that ratio and not the ratio itself -- #2263's runs left
+wall clock and a lane count, not per-suite tables -- so what is recoverable is each pool's wall clock
+against the 6,253.7 lane-seconds its rows sum to, over its lanes:
+
+| #2263's reading | lanes | wall | ideal | reconstructed pace |
 |---|---|---|---|---|
 | the fast idle workstation | 24 | 300s | 261s | 1.15x |
 | the same box, critical-path bound | 22 | 421.2s | 284s | 1.48x |
 | the memory-starved box that hit the bound | 9 | 1,890s | 695s | **2.72x** |
 
-At 2.72x the recorded 669.1s of `check-plugin-integrity-docs.tests.ps1` predicts **1,820s** -- which is
-why that file was still running when a 1,800s bound killed it. The pace model predicts the observed
-failure to within about one percent; no lane-count model predicts it at all.
+**A pool's tail drains with lanes standing idle**, so wall clock charges a run for capacity nobody was
+using and every figure here is an *upper* estimate of what the summed-duration ratio would have read.
+That is stated rather than glossed, because a basis nobody re-checked is the defect this whole area is
+being repaired for. The conclusion survives it: at 2.72x the recorded 669.1s of
+`check-plugin-integrity-docs.tests.ps1` predicts **1,820s**, within about one percent of the 1,800s bound
+that killed it -- and even at 1.8x, well below the estimate, the bound would be 3,240s and that file
+finishes. Both figures are asserted. No lane-count model predicts the failure at all.
 
 #### Two things this branch does NOT do, and one it inherited
 
@@ -100,11 +111,19 @@ failure to within about one percent; no lane-count model predicts it at all.
   and keeping it exactly that is what makes the objection not reach this shape.
 - **It does not raise the constant.** 1,800s is now the **floor**, unchanged for every run at or faster
   than the recorded pace, so no currently-green run can be turned red by this.
-- **`open-pr` on this branch will report a basis #2252 moved underneath it.** The comment sized 1,800s
-  off `new-branch.tests.ps1` at 290.2s in a hints file covering 91 of 121 suites. #2252's refresh landed
-  today, covers all 121, and moved the maximum to 669.1s -- so the claimed headroom fell from ~6x to
-  ~2.7x with no line of the lib changing. Corrected here, since the branch is rewriting that paragraph
-  anyway.
+- **The comment's basis moved underneath it while this was being written.** It sized 1,800s off
+  `new-branch.tests.ps1` at 290.2s in a hints file of 91 rows. #2252's refresh landed today, took it to
+  121 rows, and moved the maximum to 669.1s -- so the claimed headroom fell from ~6x to ~2.7x with no
+  line of the lib changing. Corrected here, since the branch is rewriting that paragraph anyway. The row
+  count is deliberately not restated as a coverage claim: the directory already holds 122 suites, one
+  having merged after the run those rows came from, and a suite with no row simply contributes no pace
+  sample.
+- **The three pace figures are computed from TODAY's recording, not from the file as it stood at the
+  time.** Each of those runs executed 121 suites; the file then held 91 rows summing 3,747.3
+  lane-seconds, against today's 121 rows summing 6,253.7. Using the current, more complete recording is
+  the right basis precisely because the older one was missing thirty suites -- but it is a
+  reconstruction, and it is named as one rather than presented as what those runs would have computed
+  about themselves.
 
 #### The ordering against PR #2262 (issue #2255)
 
@@ -138,17 +157,53 @@ against it before merging. That ordering is the owner's call and is stated here 
 
 ### TEST
 
-- [x] `scripts/tests/test-suite-gate.tests.ps1` -- 19 asserts added. Both pure functions are asserted
-      row by row against #2263's three measured runs rather than against round numbers, including the
-      2.72x row that is the repair itself. A `-PaceScale` seam on the driver (the idiom the memory and
-      suspend seams already use) drives the mid-run re-read end to end: the line fires, the bound moves
-      1,800s -> 3,600s, and neither an explicit bound nor a disabled one is reached by it. 262 pass, 0 fail.
+- [x] `scripts/tests/test-suite-gate.tests.ps1` -- **26 asserts added, 0 removed** (counted off the diff,
+      not by hand, after a review recount caught a claim of 19). Both pure functions are asserted row by
+      row against #2263's three measured runs rather than against round numbers, including the 2.72x row
+      that is the repair itself and the 1.8x row that shows the conclusion survives that estimate being
+      generous. A `-PaceScale`/`-PaceScaleThen` seam on the driver (the idiom the memory and suspend
+      seams already use) drives the mid-run re-read end to end: the line fires, the bound moves
+      1,800s -> 3,600s, it does **not** follow a falling pace back down, and neither an explicit bound
+      nor a disabled one is reached by it. **267 pass, 0 fail.**
 - [x] A defect the suite caught during the work: the ratio was first composed with PowerShell's `-f`,
       which formats in the **current** culture, and printed `2,72x` on the Dutch machine it was written
       on -- the exact defect `Format-GateSeconds` exists for (#1159). Now `[string]::Format` against the
       invariant culture, held by a source assert since an English runner cannot tell the two apart.
 - [x] `native-capture.tests.ps1` (337 pass), `script-contract.tests.ps1` (386 pass), `shared-scripts`
       and `ci-shard` -- the lib's own behaviour, the mirrors and the shard partition are all untouched.
+
+#### What the review chain changed, since two of it were real defects
+
+- **The bound could SHRINK under a running lane** (code review). `Get-TestSuiteDeadlineSeconds` never
+  returns below the floor, and that is *not* the same guarantee as a bound that only grows across a run
+  -- the call site assigned on `-ne`. The pace ratio is cumulative and cumulative ratios are not
+  monotonic: the early samples are taken under the heaviest contention, so the ratio peaks early and
+  eases as the queue drains. A lane 2,500s into a 3,600s bound would have been killed by a 1,980s bound
+  computed after it started, having never exceeded any bound in force while it ran. Now a ratchet
+  (`-gt`), with the regression case the review also had to ask for, since a stub returning one fixed
+  value can never drive a pace that rises and falls. **This branch's own comment claimed the property
+  the code did not enforce**, which is the same defect class the branch exists to repair.
+- **The ceiling could be missed by an overflow** (code review and security review, independently). The
+  `[int]` cast happened before the ceiling clamp, so a large enough ratio threw out of the one function
+  whose stated job is that the ceiling always catches an arbitrarily large one. Practically unreachable;
+  repaired anyway, because a property the arithmetic guarantees beats one the input space happens not to
+  reach.
+- **Three prose defects** (copy edit): an assert count of 19 against 26 actually added, a contention
+  table whose rows silently divided by different standalone baselines, and a UTF-8 BOM on this document
+  that no sibling branch document carries. All three corrected above.
+- **Security review found no blocking finding.** The bound cannot be disabled or driven unbounded by
+  data -- the ceiling is a script constant, never read from the hints file -- and the new console line
+  prints only numbers the gate computed, so it does not join this repo's list of sites that print
+  foreign text. It named one thing worth recording: this is the first place `Get-TestSuiteCostHints`'
+  output sizes a *safety timeout* rather than an ordering hint, and that docstring's guarantees
+  (numeric, positive) were written for the ordering use. The blast radius is bounded by the ceiling and
+  by the loosen-only direction.
+- **Cost review found nothing to change and sized the tradeoff.** The two new calls cost ~64us per poll
+  pass against a 100ms tick -- two to three orders of magnitude under the `Start-Process` and `taskkill`
+  the same loop already does. `.github/workflows/ci.yml` sets no `timeout-minutes`, so both jobs take
+  GitHub's 6-hour default and a 3,600s ceiling comes nowhere near it. The suite costs ~4.5s more locally
+  (~8%). The real price is the one this branch already states, now with a number on it: on a run whose
+  pace reaches 2.0x or more, a genuine wedge is reported up to 30 minutes later than before.
 
 ### DEPLOY: feat/2263-suite-bound-scaling
 
