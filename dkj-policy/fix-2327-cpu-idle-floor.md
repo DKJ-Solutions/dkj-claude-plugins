@@ -133,7 +133,9 @@ and the constant's block now says so in as many words.
 - [x] Read the window off `$script:GateCpuSampleSeconds` rather than a literal, so the assert cannot
       stop tracking the constant it checks
 - [x] `test-suite-gate.tests.ps1` standalone: green
-- [ ] Full lint + test gate green via `open-pr.ps1`
+- [~] Dropped: the full lint + test gate is `open-pr.ps1`'s OWN gate, which it runs before the push --
+      so it cannot be a step in the list it reads first, and pre-running a copy proves nothing that
+      gate would not catch
 
 ### DEPLOY: fix/2327-cpu-idle-floor
 
