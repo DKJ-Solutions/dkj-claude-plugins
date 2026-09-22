@@ -240,15 +240,60 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # the longest CORRECT call in the workflow into a failure. There is no such call here: NO TEST SUITE IS
 # EVER LEGITIMATELY INFINITE, so the safe default is the bounded one and the escape valve is the flag.
 #
-# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. The slowest suite this repo has ever recorded is
-# new-branch.tests.ps1 at 290.2s on a four-lane hosted runner (scripts/tests/suite-durations.json), so
-# this sits at roughly 6x the worst honest run and no suite can reach it by being slow -- not even one
-# that is 2.6x slower on some other machine, which this file's own notes record as a real reading rather
-# than a hypothetical. It is also a fraction of the 141 minutes the measured wedge sat for, and well
+# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. The slowest suite CI has ever recorded is
+# check-plugin-integrity-docs.tests.ps1 at 669.1s on a four-lane hosted runner
+# (scripts/tests/suite-durations.json), so on a machine running at CI's pace this sits at roughly 2.7x
+# the worst honest run. It is also a fraction of the 141 minutes the measured wedge sat for, and well
 # inside a hosted runner's own job timeout, so the gate reports WHICH suite wedged instead of the job
 # being killed with no per-suite attribution at all -- which is precisely the residual #1704 was left
-# with. Read it as an upper bound on patience, not as a model of any suite.
+# with. Read it as an upper bound on PATIENCE, not as a model of any suite -- that was true while the
+# number was fixed, and it is the property the scaling below exists to preserve.
+#
+# THAT BASIS READ 290.2s AND ~6x UNTIL SEPTEMBER 22, 2026, off new-branch.tests.ps1 in a hints file that
+# then covered 91 of 121 suites. #2252's refresh covers all 121 and moved the maximum to 669.1s, so the
+# headroom this paragraph claims fell from ~6x to ~2.7x without one line of this file changing. A basis
+# that moves when a DIFFERENT file is regenerated is one worth reading at run time rather than quoting
+# by hand, which is the second reason the scaling below reads that file instead of a constant.
+#
+# WHAT ACTUALLY MOVES A SUITE PAST THIS BOUND IS THE PACE OF THE WHOLE RUN, AND IT WAS MEASURED RATHER
+# THAN INFERRED -- issue #2263, September 22, 2026. #2255 recorded a 9-lane run that timed
+# check-plugin-integrity-docs.tests.ps1 out at 1,800s while that file passed all 188 of its asserts
+# standalone minutes later, and #2263 read the difference as lane CONTENTION -- fewer lanes, slower
+# suite -- proposing a bound scaled by the lane count. Instrumented with
+# scripts/maintenance/reproduce-suite-contention.ps1 (one machine, one suite, connectors.tests.ps1),
+# contention runs the OTHER WAY: 53.4/53.2/53.6s under 3 busy siblings, 118.0s under 13, 198.9/188.1s
+# under 23, against 53.4/50.5s standalone on a settled machine. MORE lanes make a suite slower, by 3.7x
+# across that span -- so a bound keyed on the lane count would be most generous exactly where suites run
+# fastest, and #2263's own reading of its evidence is the one shape that cannot be built.
+#
+# THE QUANTITY THAT DOES TRACK IT IS THE RUN'S OWN PACE AGAINST THE RECORDED ONE, and all three of
+# #2263's readings agree once it is computed. suite-durations.json sums to 6,253.7 lane-seconds over its
+# 121 rows, so a run's ideal wall clock is that sum over its lanes and the ratio of what it actually
+# spent to that ideal is how much slower this machine is running than the recording:
+#     24 lanes,   300s wall  ->  261s ideal  ->  1.15x   a fast, idle workstation
+#     22 lanes,   421.2s     ->  284s ideal  ->  1.48x   the same box, critical-path bound on one file
+#      9 lanes,  1890s       ->  695s ideal  ->  2.72x   the memory-starved box that hit this bound
+# At 2.72x the recorded 669.1s of check-plugin-integrity-docs.tests.ps1 predicts 1,820s, which is why
+# that file was still running when a 1,800s bound killed it. The pace model predicts the observed
+# failure to within about one percent; no lane-count model predicts it at all.
+#
+# SO THIS IS THE FLOOR OF A RANGE AND THE SCALING CAN ONLY EVER LOOSEN IT. Get-TestSuitePaceScale reads
+# the ratio off the suites THIS run has already finished, and Get-TestSuiteDeadlineSeconds clamps the
+# result into [this constant, the ceiling below]. A run at or faster than CI's pace is bounded at
+# exactly 1800s, as it was before #2263, so no currently-green run can be turned red by this -- the
+# change adds patience on a slow machine and takes none from a fast one.
 $script:GateSuiteTimeoutSeconds = 1800
+
+# THE MOST PATIENCE THE SCALING ABOVE MAY BUY, however slowly a run turns out to be going (issue #2263).
+# A ceiling is needed because the pace ratio has no upper limit of its own: a machine paging badly enough
+# reports an arbitrarily large one, and a bound derived from it would walk back to the unbounded wait
+# #1941 closed. 3600s is TWICE the largest need any measured run has shown -- the 1,820s the pace model
+# predicts for the 9-lane run above, which is the worst honest reading in this repo's history -- and it
+# still catches the 141-minute wedge #1941 measured with 2.4x to spare. The cost is stated rather than
+# hidden: on a machine slow enough to reach it, a genuine wedge is now reported after 60 minutes instead
+# of 30, and that is the whole price of not failing a green suite on the machines least able to afford a
+# second full gate run.
+$script:GateSuiteTimeoutCeilingSeconds = 3600
 
 # HOW LONG A TIMED-OUT LANE IS GIVEN TO DIE BEFORE THE POOL STOPS WAITING ON IT AT ALL (issue #1941).
 # Stop-NativeProcessTree is best-effort by nature -- its own docstring says so at length: taskkill can be
@@ -2518,6 +2563,101 @@ function Get-TestSuiteGateLaneCount {
 }
 
 
+function Get-TestSuitePaceScale {
+    <#
+        HOW MUCH SLOWER THIS RUN IS GOING THAN THE RUN suite-durations.json WAS RECORDED FROM, as a PURE
+        judgement over three numbers -- issue #2263. Split out from Invoke-TestSuiteGate for exactly the
+        reason Get-TestSuiteGateLaneCount above is: a fixture cannot arrange a loaded machine, and a plain
+        function can be measured directly.
+
+        IT IS A RATIO WITHIN ONE RUN, WHICH IS WHY IT DOES NOT CONVERT A CI FIGURE INTO A LOCAL ONE. That
+        conversion is the thing Get-TestSuiteCostHints' own docstring forbids at length -- there is no
+        divisor and the sign is not even fixed -- and #2255 declined a per-suite bound on precisely that
+        ground. Nothing here converts anything: both halves of this ratio are seconds, the numerator
+        measured on THIS machine minutes ago and the denominator the recorded cost of the SAME suites, so
+        whatever makes CI and a workstation incomparable divides out. What survives is the only question
+        the bound needs answered -- is this run going at the recorded pace, or half it.
+
+        THE SAMPLE IS THE SUITES THAT HAVE ALREADY FINISHED, summed rather than averaged per suite. A
+        weighted total is what makes the giants dominate: this repo's median row is 13.4s against a
+        669.1s maximum, so a mean of per-suite ratios would let a swarm of one-second suites, whose
+        ratios are mostly process bring-up, outvote the files the bound is actually about.
+
+        TWO FLOORS ON THE EVIDENCE, AND THEY ARE NOT THE SAME FLOOR. A count alone is satisfied by five
+        trivial suites, and an expected-seconds mass alone is satisfied by one giant whose single reading
+        could be an outlier -- so both are required before the ratio is trusted at all. Until then this
+        returns 1.0, which resolves the caller to exactly the fixed bound it had before #2263: no
+        evidence produces no change, never a guess.
+
+        AND IT NEVER RETURNS LESS THAN 1.0. A run going FASTER than the recording is real and common --
+        1.15x on an idle workstation is this repo's own measured figure, and a wider box would read under
+        1 -- but a bound is patience rather than a model, and tightening one below the number every
+        previous run was judged against would turn a currently-green suite red on the machines best able
+        to finish it. The scaling exists to loosen; the clamp here is what makes "can only ever loosen" a
+        property of the arithmetic instead of a claim in a comment.
+    #>
+    param(
+        # The recorded cost of the finished suites, in seconds -- the denominator.
+        [Parameter(Mandatory)][double]$ExpectedSeconds,
+        # What those same suites actually spent in this run, in seconds -- the numerator.
+        [Parameter(Mandatory)][double]$ActualSeconds,
+        # How many finished suites those two totals were summed over.
+        [Parameter(Mandatory)][int]$SampleCount,
+        # The two floors above. Defaults are the gate's; the suite sets its own to measure the edges.
+        [int]$MinimumSamples = 5,
+        [double]$MinimumExpectedSeconds = 60.0
+    )
+
+    if ($SampleCount -lt $MinimumSamples) { return 1.0 }
+    if ($ExpectedSeconds -lt $MinimumExpectedSeconds) { return 1.0 }
+    # Guarded separately from the floor above rather than relying on it: the floor is a policy a caller
+    # may lower, and a division by zero is not something a policy gets to permit.
+    if ($ExpectedSeconds -le 0) { return 1.0 }
+
+    $scale = $ActualSeconds / $ExpectedSeconds
+    if ($scale -lt 1.0) { return 1.0 }
+    return $scale
+}
+
+
+function Get-TestSuiteDeadlineSeconds {
+    <#
+        THE DEADLINE ONE SUITE RUNS UNDER, given the pace the run is going at -- issue #2263, and a PURE
+        judgement over three numbers for the same reason as the two functions above.
+
+        FLOOR FIRST, THEN CEILING, AND THE ORDER MATTERS. The floor is $script:GateSuiteTimeoutSeconds --
+        what every run was bounded at before #2263 -- so a run at or faster than the recorded pace is
+        bounded at exactly that and nothing about it changes. The ceiling is
+        $script:GateSuiteTimeoutCeilingSeconds, and it exists because the pace ratio has no upper limit of
+        its own; both constants carry their own measurements at the top of this file.
+
+        A NON-POSITIVE BASE IS THE OFF SWITCH AND IS CARRIED THROUGH UNTOUCHED, because that is how the
+        whole deadline mechanism is disabled (-SuiteTimeoutSeconds -1 resolves to 0, and every check in
+        the pool tests for 0). Scaling a disabled bound into a live one would turn the escape valve into
+        a trap, which is the one failure a bound is not allowed to have.
+    #>
+    param(
+        # The floor, in seconds: the bound this run would have used before #2263. 0 or less = disabled.
+        [Parameter(Mandatory)][int]$BaseSeconds,
+        # Get-TestSuitePaceScale's answer for this run so far.
+        [Parameter(Mandatory)][double]$Scale,
+        # The most the scaling may buy. 0 or less = no ceiling, which no caller in this file passes.
+        [int]$CeilingSeconds = 0
+    )
+
+    if ($BaseSeconds -le 0) { return 0 }
+
+    $scaled = [int][Math]::Round($BaseSeconds * [Math]::Max(1.0, $Scale))
+    if ($scaled -lt $BaseSeconds) { return $BaseSeconds }
+    if ($CeilingSeconds -gt 0 -and $scaled -gt $CeilingSeconds) {
+        # The ceiling never drags the bound BELOW the floor, however it is configured: a repo that set a
+        # ceiling under the base would otherwise silently tighten every suite in the pool.
+        return [Math]::Max($BaseSeconds, $CeilingSeconds)
+    }
+    return $scaled
+}
+
+
 function Get-ResidentPowerShellCount {
     <#
         The number of powershell.exe processes on this MACHINE right now (this repo's gate targets
@@ -2918,6 +3058,24 @@ function Invoke-TestSuiteGate {
                      elseif ($SuiteTimeoutSeconds -eq 0) { $script:GateSuiteTimeoutSeconds }
                      else { $SuiteTimeoutSeconds }
 
+    # AND ONLY THE RESOLVED DEFAULT SCALES WITH THE RUN'S PACE -- issue #2263. An explicit
+    # -SuiteTimeoutSeconds is a number somebody chose for this call, and native-capture.tests.ps1's #2233
+    # fixture is the measured case: it asks for 25s to make a wedge reachable inside a test, so a bound
+    # that grew to an hour under load would turn that suite into the wedge it is probing for. Off stays
+    # off for the reason Get-TestSuiteDeadlineSeconds gives. So the scaling applies to exactly one of the
+    # three branches above -- the one nobody typed.
+    $deadlineScales = ($SuiteTimeoutSeconds -eq 0)
+    # The floor the scaling is measured from, kept apart from $suiteDeadline because that variable MOVES
+    # once the pool starts reporting a pace and this one must not.
+    $deadlineFloor  = $suiteDeadline
+
+    # THE PACE SAMPLE, ACCUMULATED ACROSS THE POOL (issue #2263). Both totals are seconds over the SAME
+    # set of finished suites -- see Get-TestSuitePaceScale for why a ratio within one run is the only
+    # comparison this file permits itself against a CI-recorded number.
+    $paceExpectedSeconds = 0.0
+    $paceActualSeconds   = 0.0
+    $paceSampleCount     = 0
+
     # ADVISORY ONLY, AND CHECKED BEFORE THIS RUN ADDS A SINGLE CHILD OF ITS OWN (issue #1464). See
     # $script:ResidentPowerShellWarnThreshold and Get-ResidentPowerShellCount above for the numbers and
     # the reasoning; this never blocks the run, because a resident count says nothing about whose
@@ -3133,7 +3291,16 @@ function Invoke-TestSuiteGate {
             Write-Host "  lanes set by $laneLimitReason -- pass -MaxParallel to override." -ForegroundColor DarkGray
         }
         if ($suiteDeadline -gt 0) {
-            Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s (issue #1941); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
+            # 'TO START WITH' IS LOAD-BEARING SINCE #2263: on the default bound this figure is a floor
+            # that grows with the run's own pace, and a reader who took it as final would read the scaling
+            # line below as the gate contradicting itself. An explicit -SuiteTimeoutSeconds does not
+            # scale, so it is announced as the flat number it is -- which is also what keeps this run's
+            # own suite asserting 'each suite is bounded at 3s' on the -SuiteTimeoutSeconds 3 fixture.
+            if ($deadlineScales) {
+                Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s to start with, rising with this run's own pace to at most $(Format-GateSeconds $script:GateSuiteTimeoutCeilingSeconds)s (issues #1941, #2263); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
+            } else {
+                Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s (issue #1941); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
+            }
         }
 
         # THE PROGRESS SIGNAL, AND THE DEPTH THAT MAKES IT ATTRIBUTABLE -- issue #1717. The reasoning for
@@ -3309,6 +3476,43 @@ function Invoke-TestSuiteGate {
                 # window later, stop waiting on it at all. Without the second stage a kill that taskkill
                 # refused would put the pool straight back into the unbounded wait this exists to end --
                 # which is the 141-minute measurement in #1941, one layer down.
+                #
+                # THE BOUND IS RE-READ HERE EVERY PASS RATHER THAN FIXED WHEN A LANE OPENED -- issue
+                # #2263, and that is the half that makes the scaling reach the suite it exists for. The
+                # queue dequeues longest-first (#1358), so the heaviest file in the pool opens its lane at
+                # t=0, when no suite has finished and there is no pace to read; a deadline stamped at that
+                # moment would be the unscaled floor for the one suite most likely to need more. By the
+                # time it approaches that floor, most of the pool has reported and the pace is well
+                # established. Re-reading is safe in exactly one direction: Get-TestSuiteDeadlineSeconds
+                # never returns less than the floor, so a bound can only grow under a running lane and a
+                # suite can never be killed by a deadline that moved towards it.
+                if ($deadlineScales) {
+                    $paceScale = Get-TestSuitePaceScale -ExpectedSeconds $paceExpectedSeconds `
+                                                        -ActualSeconds $paceActualSeconds `
+                                                        -SampleCount $paceSampleCount
+                    $scaledDeadline = Get-TestSuiteDeadlineSeconds -BaseSeconds $deadlineFloor `
+                                                                   -Scale $paceScale `
+                                                                   -CeilingSeconds $script:GateSuiteTimeoutCeilingSeconds
+                    if ($scaledDeadline -ne $suiteDeadline) {
+                        # SAID OUT LOUD, ON THE SAME ARGUMENT #2121 MADE FOR THE LANE COUNT: a run that
+                        # quietly changes the largest number it judges itself by has made a decision the
+                        # console has to be able to show its working for. One line per change, and the
+                        # figures it was made on, so a later reader checks the arithmetic instead of
+                        # re-deriving it from another gate run.
+                        #
+                        # FORMATTED INVARIANTLY, and NOT with '-f' -- issue #1159, whose whole measurement
+                        # is that PowerShell's operator formats in the CURRENT culture. The seconds on
+                        # this line already go through Format-GateSeconds for that reason; the ratio is a
+                        # second number on the same line and needs the same treatment, or a Dutch machine
+                        # prints '2,72x' where every other figure in this repo reads as English. Measured
+                        # on exactly that machine while this line was being written.
+                        Write-Host ([string]::Format([cultureinfo]::InvariantCulture,
+                                        'test gate: this run is going {0:N2}x the recorded pace ({1} suite(s), {2}s recorded vs {3}s spent) -- each suite is now bounded at {4}s, not {5}s (issue #2263).',
+                                        $paceScale, $paceSampleCount, [int]$paceExpectedSeconds, [int]$paceActualSeconds,
+                                        (Format-GateSeconds $scaledDeadline), (Format-GateSeconds $suiteDeadline))) -ForegroundColor DarkGray
+                        $suiteDeadline = $scaledDeadline
+                    }
+                }
                 if ($suiteDeadline -gt 0) {
                     foreach ($r in @($running)) {
                         if ($r.TimedOut -or $r.Process.HasExited) { continue }
@@ -3380,6 +3584,29 @@ function Invoke-TestSuiteGate {
                         # prints its own seconds, which is where that file's real cost is legible.
                         Crashed     = $false
                     }) | Out-Null
+
+                    # THE PACE SAMPLE THIS SUITE CONTRIBUTES -- issue #2263, and it is taken here for the
+                    # reason the timing row above is: reaping is the only moment the loop holds a suite's
+                    # start, its finish and the file it came from at once.
+                    #
+                    # TWO KINDS OF ROW ARE EXCLUDED, AND BOTH WOULD BIAS THE RATIO DOWNWARDS -- which is
+                    # the one direction a bound must not be biased in, since it would tighten the deadline
+                    # on the runs that need it loosest. A TIMED-OUT row's duration is the bound plus the
+                    # grace window, a fact about this run rather than about the file; a row whose exit code
+                    # could not be read (#1931) is a process that died early, and its seconds are the lie
+                    # the Crashed flag exists to mark. Both are excluded from the shape of the run's pace
+                    # for exactly the reason the table beside them marks them for a human reader.
+                    #
+                    # KEYED ON THE FILE NAME AND NOT $d.Name, because in a focus run the label tells five
+                    # copies of one file apart (#1944) and none of those labels is a key in the hints map.
+                    if ($costHints -and -not $d.TimedOut -and -not $codeUnknown) {
+                        $paceKey = [System.IO.Path]::GetFileName($d.Path)
+                        if ($paceKey -and $costHints.ContainsKey($paceKey)) {
+                            $paceExpectedSeconds += [double]$costHints[$paceKey]
+                            $paceActualSeconds   += ($sw.Elapsed.TotalSeconds - $d.StartOffset)
+                            $paceSampleCount++
+                        }
+                    }
                     # ONE LINE PER SUITE LEAVING A LANE, printed immediately ABOVE the block header it
                     # announces -- issue #1717. That placement is what makes it read as the index #1717
                     # asked for ('== [37/84] roster-sync.tests.ps1 ==') while '== <suite> ==' stays byte
