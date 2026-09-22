@@ -44,7 +44,56 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 46 minor entries** <!-- pending-tally -->
+**29 / 47 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2315-open-pr-overlap-scan · 20260922-194917
+
+`open-pr` now says which OTHER open pull requests change a file this branch also changes -- a note,
+never a refusal, printed beside the label gate and repeated at each of the script's endings. Nothing
+reported that before: the first thing that did was `ship-pr`'s forward lap meeting it as
+`422 merge conflict between base and head`, on PR #2300 at forward lap 3, roughly forty minutes of CI
+waits in -- while both colliding PRs (#2308 opened 15:01Z, #2310 at 15:22Z, against a merge at 16:17Z)
+were listed in `gh pr list` throughout that run, readable by one command.
+
+It is not `ship-pr`'s conflict guard ([#1584](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1584))
+firing late. That one asks whether this PR is conflicting *now*, a fact about the trunk, and it was
+correct and silent here because the conflict came into existence during the run. This asks whether
+somebody else is editing what you are editing -- a fact about other open *branches*, knowable before
+the trunk has moved at all.
+
+**There is no exclusion list, and that is measured rather than omitted.**
+[#2315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2315) predicted path equality would
+be noisy on `CHANGELOG.md` and proposed one while naming it as the obvious way for this to go stale.
+Over this repo's last 60 pull requests: 40 with a concurrent PR, 11 of them would see this note, 13
+overlapping pairs -- and filtering the changelog and the branch document out changed nothing, 13
+against 13. The fold writes the changelog on the trunk after the merge, and #1255 gave every branch its
+own document, so neither path is ever in a PR's diff. All 13 pairs were real same-file collisions.
+
+Because the note is advisory it costs nothing when it is wrong, which is why the reach question is
+answered by measuring rather than by narrowing: one `gh pr list --json files` at ~700ms, bounded by the
+shared network bound, on a path before the suites rather than after them.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer running this workflow gets the note in their own `open-pr` with no configuration: the lib
+ships as a `dkj-policy` mirror and the scan reads only what `git` and `gh` already answer. It is silent
+on a repo with one branch in flight, which is most consumers most of the time, and it can refuse
+nothing -- so the cost of adopting it is one extra `gh` call before the gates and the benefit lands on
+exactly the days two people are working the same file.
+
+**Score:** 2
+
+#### Pull Request
+
+open-pr reports which other open PRs change a file this branch also changes
+
+Plugins: dkj-policy
+
+[PR #2324](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2324)
+
+---
 
 ### DEPLOY: docs/2323-gate-proof-per-suite-declined · 20260922-193045
 
