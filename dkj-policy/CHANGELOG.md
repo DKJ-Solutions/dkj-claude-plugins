@@ -44,7 +44,84 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 28 minor entries** <!-- pending-tally -->
+**21 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2284-claim-absorbed-issue · 20260922-131923
+
+An issue a pull request declares it closes is no longer left unowned on the tracker. Before the push
+`open-pr` reads the assignees off the open-issue list it already fetches and, for each issue this PR
+declares, claims an unassigned one under the account `claim-issue` would resolve, warns when somebody
+else holds it, and says nothing when the list could not be read.
+
+It closes the one route into a branch that no pickup check can see: a finding filed mid-branch and
+repaired on the branch already in flight is never *started*, so it is never claimed -- and the next
+session is correct to read it as untouched. Measured at a conflicting pull request, a hand-resolved
+conflict, three corrected documents and a second ship.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+The assignee field stops lying by omission. Until now it answered "is somebody working this?" only for
+issues somebody *started*; the issues most likely to be worked twice were exactly the ones it was silent
+about, because they were created by the session that went on to repair them.
+
+For a subscriber of this workflow it is one line in an `open-pr` run they will mostly not notice -- and
+on the day two people are on one board, it is the difference between a refusal at pickup and a conflict
+at the merge.
+
+**Score:** 3
+
+#### Pull Request
+
+A declared issue is claimed at the push, so an issue absorbed mid-branch stops reading as unowned
+
+Plugins: dkj-policy
+
+[PR #2293](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2293)
+
+---
+
+### DEPLOY: fix/2280-strip-tree-paths-json-keys · 20260922-125809
+
+`hook-stdin-guard.tests.ps1` printed a tracked file path and a `hooks.json` event key raw, at four
+sites across two groups, into a CI log on a public repository. Both classes now pass
+`ref-print-lib.ps1`'s strip -- `Get-DisplayPath` for the paths, `Get-DisplayRef` for the key -- and the
+site is registered as entry 14 of the standing print-site list, which is the part that outlives the
+repair. The suite is the first entry on that list that is not a script: a sweep looking for foreign-text
+prints in the tooling read past it, because a test suite does not look like a place this workflow
+prints.
+
+A second guard came out of the branch's own review. Asserting that the strip FUNCTIONS work leaves the
+four repaired lines free to be un-repaired by a later edit, so the suite now also scans its own source
+and holds each line printing a scanned value to naming a strip -- per VALUE, not per line, because the
+per-line form passed a line that guards its path and prints the JSON key beside it raw, which is the
+reported defect itself.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The list entry ships to every consumer of `dkj-policy`; the suite does not. So what a consumer receives
+is one more entry on the page they read to find every place this workflow prints somebody else's words
+-- and the reason it was missed, which is the reusable half. No behaviour of theirs changes, and there
+is no live exploit to have been exposed to: the tree holds three `hooks.json` files, all at reviewed
+paths. The failure this prevents is a tracked path or a JSON key carrying a `\p{Cf}` run -- an RTL
+override or a zero-width sequence -- repainting a public CI log so it reads as something other than
+what it says. `check-plugin-integrity.ps1`'s `tracked-name` check does not hold a path to that class,
+and no lint has an opinion about a JSON key at all.
+
+**Score:** 1
+
+#### Pull Request
+
+hook-stdin-guard.tests.ps1 routes its printed tree paths and JSON event keys through the console strip
+
+Plugins: dkj-policy
+
+[PR #2290](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2290)
+
+---
 
 ### DEPLOY: fix/2283-ship-pr-refusal-signal · 20260922-122815
 

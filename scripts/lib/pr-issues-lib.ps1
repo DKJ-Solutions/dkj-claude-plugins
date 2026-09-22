@@ -3503,3 +3503,137 @@ function Get-RequiredCheckContexts {
 
     return [pscustomobject]@{ Readable = $true; Names = @(@($names) | Sort-Object -Unique) }
 }
+
+function ConvertFrom-OpenIssueList {
+    <#
+    .SYNOPSIS
+        The numbers AND the assignee logins in a `gh issue list --json number,assignees` payload.
+        $null when the payload cannot be read at all; an empty record when it is a readable empty list.
+
+    .DESCRIPTION
+        THE ASSIGNEE HALF IS WHY THIS EXISTS (issue #2284). open-pr already fetches the open-issue list
+        once, for the resolves gate and the typo check, and asked for 'number' alone. Asking for
+        'assignees' on that same call is free -- one field on a query already made -- and it is the only
+        thing the claim check below needs, so the check costs no extra round trip on any branch.
+
+        $null VERSUS AN EMPTY RECORD IS THE WHOLE CONTRACT, and the caller's gate depends on it: "the
+        list could not be read" must never read as "no issue is open", which would let the resolves gate
+        pass in silence -- the one outcome that gate exists to prevent. So unparseable input yields
+        $null, and a payload that parses to nothing (gh prints '[]' for an empty tracker) yields a record
+        with an empty Numbers and an empty map. That distinction is the caller's pre-existing behaviour,
+        preserved here rather than reinvented.
+
+        ASSIGN THE PARSE RESULT FIRST, THEN WRAP IT. Windows PowerShell 5.1 emits a parsed JSON array as
+        a SINGLE pipeline object, so `@(... | ConvertFrom-Json)` collects one element that IS the whole
+        Object[]. The caller's own note records what that cost the first time: a `[int]` cast handed an
+        Object[], throwing inside a try that swallowed it, so the gate silently never blocked while every
+        pure unit test stayed green.
+
+        AND EVERY FIELD IS PROBED BEFORE IT IS READ, for Get-AssigneeLogins' reason one layer over: under
+        Set-StrictMode -Version Latest a dot-read of an absent property THROWS, and an assignee record
+        without a login (schema drift, a ghost account, a future gh) must be skipped rather than take the
+        whole run down.
+
+    .OUTPUTS
+        Numbers   -- the open issue numbers, as [int], de-duplicated and in payload order.
+        Assignees -- a hashtable, number -> the logins on it (an EMPTY array for an unassigned issue,
+                     which is the answer the claim check turns on).
+    #>
+    param([string]$Json)
+
+    if (-not $Json -or -not $Json.Trim()) { return $null }
+    try { $parsed = $Json | ConvertFrom-Json } catch { return $null }
+
+    $numbers = New-Object System.Collections.Generic.List[int]
+    $map = @{}
+    foreach ($record in @(@($parsed) | Where-Object { $_ })) {
+        if (-not $record.PSObject.Properties['number']) { continue }
+        $number = 0
+        if (-not [int]::TryParse((([string]$record.number).Trim()), [ref]$number)) { continue }
+        if ($number -le 0) { continue }
+        if (-not $numbers.Contains($number)) { $numbers.Add($number) | Out-Null }
+
+        $logins = New-Object System.Collections.Generic.List[string]
+        if ($record.PSObject.Properties['assignees']) {
+            foreach ($assignee in @(@($record.assignees) | Where-Object { $_ })) {
+                if (-not $assignee.PSObject.Properties['login']) { continue }
+                $login = ([string]$assignee.login).Trim()
+                if ($login -and -not $logins.Contains($login)) { $logins.Add($login) | Out-Null }
+            }
+        }
+        $map[$number] = @($logins)
+    }
+
+    return [pscustomobject]@{ Numbers = @($numbers); Assignees = $map }
+}
+
+function Get-ClaimGapVerdict {
+    <#
+    .SYNOPSIS
+        Per issue a PR DECLARES it closes: is anybody holding it on the tracker? The pure half of the
+        claim check (issue #2284).
+
+    .DESCRIPTION
+        THE GAP THIS ANSWERS. claim-issue is bound to the act of STARTING an issue -- "fix issue 1234",
+        "pick up #87" -- and an issue can enter a branch's scope without anybody starting it: a finding
+        filed mid-branch and repaired on the branch already in flight is never claimed, so the tracker
+        shows it unassigned and a second session correctly reads it as untouched. Measured September 22,
+        2026 (#2284): #2272 was filed from fix/2248-guard-raw-foreign-text-prints, absorbed into that
+        branch, shipped by somebody else as PR #2275 in the meantime, and the collision surfaced as a
+        CONFLICTING pull request, a hand-resolved conflict, three corrected documents and a second ship.
+
+        THE SUBJECT IS THE DECLARED SET, NOT THE MENTIONED ONE, and that is the narrowing that makes this
+        safe to act on. A mention is context -- this workflow PRESCRIBES citing issues in prose -- while
+        `Closes #<n>` is the author stating that this branch repairs that issue. Claiming what you
+        declare you will close writes strictly less than the declaration already does.
+
+        FOUR STATES, BECAUSE THREE OF THEM MEAN DIFFERENT THINGS TO THE CALLER. 'mine' is the ordinary
+        path and needs no output at all; 'unclaimed' is the gap; 'foreign' is a possible duplicate and is
+        the one the caller must not act on by itself; 'unknown' is the read that did not answer, which is
+        never reported as 'unclaimed' -- the Get-AssigneeLogins rule, one layer up: a failed query read
+        as "free" would hand out claims on other people's work.
+
+        LOGINS ARE COMPARED CASE-INSENSITIVELY, because GitHub logins are.
+
+    .PARAMETER Issues
+        The numbers this PR declares it closes.
+    .PARAMETER AssigneeMap
+        number -> logins, from ConvertFrom-OpenIssueList. $null when the list could not be read, which
+        makes every issue 'unknown'.
+    .PARAMETER Account
+        The account this checkout claims under (Resolve-ClaimAccount). '' leaves every held issue
+        'foreign', because with no account of our own no holder can be us.
+
+    .OUTPUTS
+        One record per issue, in the order given: Issue, State ('mine' | 'unclaimed' | 'foreign' |
+        'unknown'), Holders.
+    #>
+    param(
+        [int[]]$Issues = @(),
+        $AssigneeMap = $null,
+        [string]$Account = ''
+    )
+
+    $account = if ($Account) { $Account.Trim() } else { '' }
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($issue in @($Issues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)) {
+        $state = 'unknown'
+        $holders = @()
+        if ($null -ne $AssigneeMap -and $AssigneeMap.Contains($issue)) {
+            $holders = @($AssigneeMap[$issue] | Where-Object { $_ })
+            if ($holders.Count -eq 0) {
+                $state = 'unclaimed'
+            } elseif ($account -and @($holders | Where-Object { $_ -ieq $account }).Count -gt 0) {
+                $state = 'mine'
+            } else {
+                $state = 'foreign'
+            }
+        }
+        $out.Add([pscustomobject]@{ Issue = $issue; State = $state; Holders = @($holders) }) | Out-Null
+    }
+    # ToArray() RATHER THAN @($out), and it is a 5.1 trap rather than a style choice: wrapping a
+    # List[object] of PSCustomObjects in @() throws 'Argument types do not match' (ArgumentException),
+    # measured here while this function was written. Get-AssigneeLogins above gets away with @() only
+    # because its list is a List[string].
+    return @($out.ToArray())
+}
