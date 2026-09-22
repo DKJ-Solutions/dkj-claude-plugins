@@ -804,7 +804,7 @@ function Format-EntryFoldFooter {
 
 function Format-EntryMergeStamp {
     <#
-        Pure: the merge moment as it is written into the 'Pull Request' heading -- '20260819-171500'.
+        Pure: the merge moment as it is written into the entry's own heading -- '20260819-171500'.
 
         RENDERED IN UTC, deliberately (inbound #1542): since #1280 Get-EntryInsertOffset derives the
         entry's INSERT POSITION from this stamp -- it walks to the first entry in the list whose own stamp
@@ -3419,12 +3419,12 @@ $script:EntryWrittenSectionKeys = @('What', 'PullRequest')
 # in for. Removed rather than left defined and unread, which is this file's own rule.
 #
 # THE MERGE STAMP IS UNTOUCHED, and the pair the comment below describes is now a single: the entry's
-# 'Pull Request' heading still carries the moment it landed, which is the stamp the changelog's own
-# ordering reads (Get-EntryHeadingStamp).
+# OWN heading still carries the moment it landed -- since August 23, 2026, where it was the 'Pull Request'
+# heading -- which is the stamp the changelog's own ordering reads (Get-EntryHeadingStamp).
 
 # Its counterpart at the other end of the branch's life (Dave, August 19, 2026): what the template
-# shows beside 'Pull Request', where a folded entry carries the moment it landed. The pair is the point --
-# the cycle file's heading stamps the branch's first moment, this section's heading its last -- and each
+# shows on the entry's own heading, where a folded entry carries the moment it landed. The pair is the
+# point -- the cycle file's heading stamps the branch's first moment, this heading its last -- and each
 # stamp sits in the document that owns that moment.
 $script:EntryMergeStampTemplatePlaceholder = '<timestamp of the moment this branch was merged>'
 
@@ -3515,8 +3515,8 @@ function Get-EntryIdSeparator {
 # trunk state, and that heading carries no stamp any more.
 
 function Get-EntryMergeStampTemplatePlaceholder {
-    <# The same, for the 'Pull Request' heading: what the template shows where a folded entry carries the
-       moment it landed. #>
+    <# The same, for the entry's own heading (the 'Pull Request' heading before August 23, 2026): what the
+       template shows where a folded entry carries the moment it landed. #>
     return $script:EntryMergeStampTemplatePlaceholder
 }
 
@@ -4416,9 +4416,12 @@ function Get-EntrySectionHeading {
     <# One section's full heading line, e.g. '### Branch type'. One formatter, so the writer and the
        parser cannot disagree about the level or the spacing.
 
-       -Stamp appends ' <sep> <stamp>' -- the merge moment on the 'Pull Request' heading, and the template's
-       placeholder in the same slot. Empty for every other caller and every other section, so the bare
-       heading is still what a marker or a gate compares against. #>
+       -Stamp appends ' <sep> <stamp>' onto whichever section heading the caller names, and the template's
+       placeholder in the same slot, via the same Format-EntrySectionHeadingSuffix that Set-EntryMergeStamp
+       now applies to the entry's own heading rather than to 'Pull Request', where the merge stamp sat
+       until August 23, 2026. No caller passes a real stamp for 'PullRequest' any more. Empty for every
+       other caller and every other section, so the bare heading is still what a marker or a gate compares
+       against. #>
     param(
         [Parameter(Mandatory)][ValidateSet('Description', 'Id', 'Type', 'What', 'Significance', 'PullRequest')][string]$Key,
         [AllowEmptyString()][string]$Stamp = ''
@@ -4882,7 +4885,7 @@ function Format-EntryBlock {
         [string]$Body = '',
         $ImpactRows = @(),
         [string]$TitleSuffix = '',
-        # PLACEHOLDER TEXT WHERE A FACT DOES NOT EXIST YET -- the merge stamp on the Pull Request heading.
+        # PLACEHOLDER TEXT WHERE A FACT DOES NOT EXIST YET -- the merge stamp on the entry's own heading.
         # It replaces -Template (August 23, 2026): the guidance comments are unconditional now, so the only
         # thing that separated the reference from a working file was which stamps it could honestly show.
         # True for the copy on the trunk, false for the file a branch is handed.
@@ -6768,7 +6771,7 @@ function Format-Development {
     # NO CREATION STAMP AND NO TITLE IN THE HEADING SINCE #1335 (Dave). It read
     # '## Development: `feat/x` * 20260903-152650'; it is '## feat/x'. The stamp was the branch's birth
     # moment, written here and read by nothing -- the changelog's own ordering keys on the MERGE stamp
-    # (Get-EntryHeadingStamp, on the Pull Request heading), and the one place the creation stamp was ever
+    # (Get-EntryHeadingStamp, on the entry's own heading), and the one place the creation stamp was ever
     # used was a measurement taken by hand over 38 merged branches. So it goes, and -Id goes with it rather
     # than being kept as a parameter no caller can spend.
     $lines = New-Object System.Collections.Generic.List[string]
