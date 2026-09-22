@@ -126,6 +126,18 @@ function Assert-Says {
     }
 }
 
+function Get-FixtureDeadlineFile {
+    <#
+        THE ONE SPELLING OF THE LATE-BOUND DEADLINE PATH (#2307), because it has two writers that must
+        agree: the case, which seeds it and hands it to park-cycle, and the `gh` shim, which rewrites it
+        mid-call to spend the budget. A path typed twice is a case that passes while proving nothing --
+        park-cycle would read a file nobody ever moved, and the look after the PR check would be reported
+        as taken rather than skipped.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Dir)
+    return (Join-Path $Dir '_bin\budget-deadline.txt')
+}
+
 function New-Fixture {
     <#
         A throwaway git repo with park-cycle.ps1 and its four libs copied in, an initial commit on
@@ -144,24 +156,29 @@ function New-Fixture {
         [Parameter(Mandatory = $true)][string]$Label,
         [ValidateSet('none', 'pr', 'merged', 'closed', 'pr-nostate', 'fail')][string]$GhAnswer = 'none',
         [switch]$NoOrigin,
-        # ANSWERS AT AN ABSOLUTE INSTANT (#2077), read from _bin\gh-wake.txt as Unix epoch seconds --
-        # so a case can put a run's network budget in a state no assert could otherwise reach: enough
-        # left at the PR check, spent by the look after it.
+        # SPENDS THE RUN'S NETWORK BUDGET AS IT ANSWERS (#2307): before printing its payload the shim
+        # rewrites the deadline file park-cycle is reading -- Get-FixtureDeadlineFile -- to three seconds
+        # from now, which is under the 5s floor. So a case can put a run in a state no assert could
+        # otherwise reach: enough budget left at the PR check, none for the look after it.
         #
-        # THE INSTANT IS ABSOLUTE AND NOT A DURATION, and that is the whole repair. A fixed sleep leaves
-        # BOTH margins measured from when the run happened to reach the gh call, so the case only passes
-        # while the local plumbing before it stays inside a window four seconds wide -- which a loaded
-        # GitHub runner does not (#2077). Anchored to an instant, and with the budget's deadline anchored
-        # to the SAME one, the gap between the two calls is a constant and no machine can move it.
+        # IT MOVES THE DEADLINE; IT DOES NOT STOP THE CLOCK. Real time still runs and the budget still
+        # genuinely expires -- what is faked is when it falls due, which is the same thing
+        # -BudgetDeadlineEpochSeconds already states once. The whole gain is that NOTHING here is
+        # measured from when the run reached the gh call.
         #
-        # A FILE AND NOT A PARAMETER, because the two instants have to come from ONE reading of the
-        # clock, and that reading can only be taken after the fixture is built -- building it is itself
-        # seconds of git. So the shim is written to READ its wake-up, and the case writes it next to the
-        # deadline it passes to the script.
+        # WHAT IT REPLACED, AND WHY BOTH EARLIER SHAPES HAD TO GO RED. Before this the shim WAITED --
+        # first for a fixed sleep (#2077), then until an absolute instant (#2307) -- and the budget was
+        # a real countdown started before the process was. Call the budget B and the floor 5: the PR
+        # check needs 5 left when it is reached, so everything before it, process start-up and local git
+        # included, has to fit in B - 5; and the case cannot end before the deadline is nearly due, so it
+        # COSTS about B in wall clock. Tolerance and cost are the same number, and raising B raises both.
+        # ~7s did not hold, ~15s did not hold, and there was never a third number worth picking.
         #
-        # powershell and not `ping`/`timeout`: only a real clock can wait for an instant. Invoke-
-        # NativeCapture redirects stdin, which timeout.exe refuses outright and which -Command ignores.
-        [switch]$GhWakeFromFile,
+        # powershell and not a `copy` of a pre-written file: the near deadline has to be three seconds
+        # from THE MOMENT THE CALL HAPPENS, and a file written while the fixture was being built names an
+        # instant that may already be long past by then. Only a clock read inside the call can say when
+        # "now" is, and cmd has no arithmetic for one.
+        [switch]$GhSpendsBudget,
         # Writes a scripts/repo-config.ps1 answering the OPTIONAL trunk seam with this name. Omitted:
         # no repo-config at all, which is the unadopted repo every other fixture here models.
         [string]$TrunkName = ''
@@ -215,17 +232,17 @@ function New-Fixture {
         'closed'     { & $stateAware "[{`"number`":969,`"state`":`"CLOSED`"}]" }
         'fail'       { "@echo off`r`nexit /b 1`r`n" }
     }
-    if ($GhWakeFromFile) {
-        # After '@echo off' and before whatever the shim answers, so every variant above can be waited on.
-        # NO FILE MEANS NO WAIT, deliberately: the shim stays usable in a case that never writes one, and
-        # a missing file must not turn into an error on a path whose whole job is to answer like gh.
-        # Built with .Replace and not -replace: the body carries `$w`, and a regex REPLACEMENT string
-        # reads `$` as a group reference -- ordinal replacement has no such reading.
-        $wake = "powershell -NoProfile -ExecutionPolicy Bypass -Command " +
-                "`"`$f = '$dir\_bin\gh-wake.txt'; if (Test-Path `$f) { " +
-                "`$w = [datetimeoffset]::FromUnixTimeSeconds([long]((Get-Content -Raw `$f).Trim())).UtcDateTime; " +
-                "while ([datetime]::UtcNow -lt `$w) { Start-Sleep -Milliseconds 100 } }`""
-        $ghBody = $ghBody.Replace("@echo off`r`n", "@echo off`r`n$wake`r`n")
+    if ($GhSpendsBudget) {
+        # After '@echo off' and before whatever the shim answers, so every variant above can spend the
+        # budget on its way out. The write is unconditional: this switch is only ever passed by a case
+        # that hands park-cycle the same path, so there is no "no file" state to be careful about --
+        # unlike the wake-up this replaced, which had to tolerate one.
+        # Built with .Replace and not -replace: a regex REPLACEMENT string reads `$` as a group
+        # reference, and the line below carries one -- ordinal replacement has no such reading.
+        $spend = "powershell -NoProfile -ExecutionPolicy Bypass -Command " +
+                 "`"[System.IO.File]::WriteAllText('$(Get-FixtureDeadlineFile -Dir $dir)', " +
+                 "[string]([datetimeoffset]::UtcNow.ToUnixTimeSeconds() + 3))`""
+        $ghBody = $ghBody.Replace("@echo off`r`n", "@echo off`r`n$spend`r`n")
     }
     [System.IO.File]::WriteAllText((Join-Path $dir '_bin\gh.cmd'), $ghBody, (New-Object System.Text.ASCIIEncoding))
 
@@ -291,15 +308,19 @@ function Invoke-ParkCycle {
         [Parameter(Mandatory = $true)][string]$Dir,
         [switch]$Quiet,
         [int]$BudgetSeconds = 0,
-        # The absolute form (#2077): Unix epoch seconds, passed straight through. A case that also
-        # pins the gh shim's wake-up writes both from one reading of the clock -- see case (u).
-        [long]$BudgetDeadlineEpochSeconds = 0
+        # The absolute form (#2077): Unix epoch seconds, passed straight through.
+        [long]$BudgetDeadlineEpochSeconds = 0,
+        # The late-bound form (#2307): a path holding that same instant, re-read by the run on every
+        # budget question -- so a case can move the deadline WHILE the run is going, which is what
+        # case (u) does from inside the gh shim.
+        [string]$BudgetDeadlineFile = ''
     )
     $scriptPath = Join-Path $Dir 'scripts\task\park-cycle.ps1'
     $callArgs = @()
     if ($Quiet) { $callArgs += '-Quiet' }
     if ($BudgetSeconds -gt 0) { $callArgs += @('-BudgetSeconds', "$BudgetSeconds") }
     if ($BudgetDeadlineEpochSeconds -gt 0) { $callArgs += @('-BudgetDeadlineEpochSeconds', "$BudgetDeadlineEpochSeconds") }
+    if ($BudgetDeadlineFile) { $callArgs += @('-BudgetDeadlineFile', $BudgetDeadlineFile) }
 
     $prevPd   = $env:CLAUDE_PROJECT_DIR
     $prevPath = $env:PATH
@@ -905,6 +926,22 @@ try {
     Assert-Equal 1 (Get-CommitCount -Dir $fixT) 'spent budget: nothing was committed'
     Assert-True (-not (Test-RefOnRemote -Bare "$fixT.git" -Ref 'refs/heads/feat/budget-spent-v1')) 'spent budget: and nothing reached origin'
 
+    # --- (t2) THE SAME REFUSAL, FROM AN ABSOLUTE DEADLINE ALREADY PAST (issue #2077) ---------------
+    # AND THE ABSOLUTE SPELLING REFUSES IDENTICALLY (#2077, kept covered here since #2307). A deadline
+    # already in the past is the same verdict as a duration too small to buy anything, and this is the one
+    # end-to-end reading of -BudgetDeadlineEpochSeconds left: case (u) below states its deadline in a file
+    # now, and a parameter nothing passes is a parameter nothing proves. Deterministic for the reason the
+    # block above gives, one step further along -- an instant that is already behind us has no room on any
+    # machine, and no clock reading later in the run can give it any.
+    $fixT2 = New-Fixture -Label 't2' -GhAnswer 'none'
+    Switch-ToBranch -Dir $fixT2 -Name 'feat/budget-past-deadline-v1'
+    $null = New-CycleDocument -Dir $fixT2 -Branch 'feat/budget-past-deadline-v1'
+
+    $rT2 = Invoke-ParkCycle -Dir $fixT2 -BudgetDeadlineEpochSeconds ([System.DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - 10)
+    Assert-Equal 0 $rT2.Code 'past deadline: exit 0'
+    Assert-Says $rT2.Out 'network budget for this turn is spent' 'past deadline: an absolute instant already behind us is a spent budget'
+    Assert-True (-not (Test-RefOnRemote -Bare "$fixT2.git" -Ref 'refs/heads/feat/budget-past-deadline-v1')) 'past deadline: and nothing reached origin'
+
     # --- (u) ROOM FOR THE PR CHECK, NONE FOR THE LOOK AFTER IT -------------------------------------
     # THE CASE ABOVE ONLY PROVES THE FIRST GUARD. What a run-wide deadline is FOR is that the calls after
     # the first one get what is LEFT rather than a fresh 120 s each, and that arm is unreachable without a
@@ -914,50 +951,54 @@ try {
     # look that never happened is not that -- reporting them the same way would be #1953's silence coming
     # back through the budget instead of through the bound.
     #
-    # BOTH INSTANTS ARE ABSOLUTE AND COME FROM ONE READING OF THE CLOCK (#2077), and the reading is taken
-    # HERE -- after the fixture is built, which is itself seconds of git. The budget expires at $deadline
-    # and the gh shim answers at $deadline - 3, so the gap between the PR check and the look after it is
-    # a CONSTANT: 3 < the 5s floor, whatever the machine does. Nothing about the second margin depends on
-    # how long anything took.
+    # NEITHER MARGIN IS MEASURED IN REAL TIME ANY MORE (#2307). The deadline is LATE-BOUND -- park-cycle
+    # re-reads it from a file on every budget question -- so it is seeded an hour out, which is room the
+    # PR check has however slow the machine is, and the `gh` shim rewrites it to now + 3 as it answers.
+    # The look after it then reads 3 against the 5s floor and is skipped. Both facts are constants: one
+    # is "an hour", the other is a number written three seconds before it is read, and no amount of load
+    # moves either. The case costs no wall clock beyond the run itself.
     #
-    # WHAT THIS REPLACED, AND WHY RAISING THE NUMBERS COULD NOT HAVE WORKED. It was a 12s budget against a
-    # fixed 8s sleep, and the comment here reasoned that the 12 bought "7s of process start-up". It did
-    # not, and the arithmetic is the whole of #2077: the bound handed to that gh call IS what the budget
-    # has left, so with e seconds of local plumbing before it the shim's 8s sleep is killed the moment
-    # 12 - e <= 8. Call the budget B, the sleep d and that plumbing e; the case needs
-    # d < B - e (the call survives) and B - e - d < 5 (the look is skipped), i.e. e is confined to a
-    # window (B - d - 5, B - d) that is FOUR SECONDS WIDE -- and raising B and d together slides that
-    # window without widening it by one second. There was no pair of numbers to move to.
+    # WHAT MOVES IS THE DEADLINE, NOT THE CLOCK. Real time still runs and a budget still genuinely
+    # expires; the seam only restates when it falls due -- which is the same fact
+    # -BudgetDeadlineEpochSeconds already states once, made restatable. A faked clock could have made a
+    # budget immortal, and that is the failure this deliberately cannot reach.
     #
-    # Measured September 17, 2026 on PR #2072: red on a GitHub runner with 'gh did not answer in time'
-    # -- the TIMEOUT arm, not the budget arm -- and green on a rerun of the same commit, costing a full
-    # cycle on the one required check. The clock seam this file once recorded as declined ("test-only
-    # machinery, to save a cost measured at zero") is the repair, and the cost is no longer zero. It is
-    # also no longer test-only: -BudgetDeadlineEpochSeconds says when the TURN's ceiling falls due, which
-    # is a fact a hook holds and park-cycle could until now only re-derive from a later moment.
+    # WHY THE TWO EARLIER SHAPES BOTH WENT RED, AND WHY A THIRD NUMBER WAS NOT WORTH PICKING. Both ran a
+    # real countdown started before the process was, and differed only in how the shim delayed: a fixed
+    # sleep (12s budget, 8s sleep), then a wait until an absolute instant (20s budget, waking at
+    # deadline - 3). Take the second, which is the stronger of the two: with budget B and floor 5, the PR
+    # check is reached with B - e left for e seconds of process start-up and local git, so the case needs
+    # e <= B - 5 -- and it cannot finish before the shim wakes, so it COSTS about B. Tolerance and cost
+    # are one number. B = 20 bought 15s of tolerance at ~17s a run, and a GitHub-hosted 4-core runner
+    # under four lanes spent more than 15 (#2307, run 35740528029, both asserts, one blocked merge plus a
+    # full re-run). The first shape was worse and not merely smaller: its sleep was bounded by what the
+    # budget had left, so the window for e was four seconds wide and raising B and the sleep together
+    # slid it without widening it (#2077).
     #
-    # THE WALL-CLOCK WAS COSTED AND KEPT, so nobody has to re-argue it. The run now ends at a fixed
-    # $deadline - 3 from here rather than at start-up + 8, a handful of seconds either way; suite-
-    # durations.json records THIS suite at 79.1s ON CI against new-branch.tests.ps1 at 290.2s, and
-    # Invoke-TestSuiteGate dequeues longest-first -- so the work lands in a pool whose tail is nearly
-    # four times this suite and changes the gate's wall-clock by nothing. A cost review once read the
-    # earlier version at 26s -> 37s on a workstation and called it a new contributor to the critical
-    # path; that same file's note says a local reading does not convert into a CI one and that the sign
-    # is not even fixed, which is exactly the trap the workstation number fell into.
+    # AND THE TRIGGER WAS NOT IN THIS FILE, WHICH IS WHY THE ASSUMPTION HAD TO GO RATHER THAN GROW. The
+    # branch that turned it red added an unrelated suite; an unpriced suite is charged the pool MAXIMUM
+    # by Get-TestSuiteShardOrder, which is right for its own purpose and relocated this suite from shard
+    # 2 to shard 1 without touching it. A case with a wall-clock assumption is therefore red at the
+    # convenience of every branch that adds a suite -- see that function's own docstring.
+    #
+    # THE WALL CLOCK IT USED TO SPEND IS SIMPLY GONE, and the saving is the tolerance it stopped needing.
+    # Timed on this workstation from the banner above to the first assert below: 18.3s before, 2.4s after.
+    # That is a LOCAL reading and does not convert into a CI one -- suite-durations.json's own note says
+    # so, and records this suite at 79.1s there -- but the thing removed is a fixed wait rather than work,
+    # so its sign is not in doubt the way a workstation-versus-runner comparison of real work would be.
     Write-Host "park-cycle.ps1 -- a budget healthy at the PR check and spent by the look says which it was" -ForegroundColor Cyan
-    $fixU = New-Fixture -Label 'u' -GhAnswer 'pr' -GhWakeFromFile
+    $fixU = New-Fixture -Label 'u' -GhAnswer 'pr' -GhSpendsBudget
     Switch-ToBranch -Dir $fixU -Name 'feat/budget-mid-run-v1'
     $relU = New-CycleDocument -Dir $fixU -Branch 'feat/budget-mid-run-v1'
     $null = New-PeerDivergence -Dir $fixU -Branch 'feat/budget-mid-run-v1' -Rel $relU `
                                -PeerSubject 'park: feat/budget-mid-run-v1 (all outstanding work)'
 
-    # 20s to the deadline: the PR check needs 5 of them left when it is reached, so this tolerates 15
-    # seconds of process start-up and local git before the run is in trouble -- against the ~3 the old
-    # shape had. Past that it fails on the BUDGET arm with the budget's own sentence, not on a timeout.
-    $deadlineU = [System.DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 20
-    [System.IO.File]::WriteAllText((Join-Path $fixU '_bin\gh-wake.txt'), "$($deadlineU - 3)", (New-Object System.Text.ASCIIEncoding))
+    # An hour out, so the PR check has room on any machine; the shim brings it back to now + 3 on its way
+    # out, and the look after it is what meets that.
+    $deadlineFileU = Get-FixtureDeadlineFile -Dir $fixU
+    [System.IO.File]::WriteAllText($deadlineFileU, "$([System.DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 3600)", (New-Object System.Text.ASCIIEncoding))
 
-    $rU = Invoke-ParkCycle -Dir $fixU -BudgetDeadlineEpochSeconds $deadlineU
+    $rU = Invoke-ParkCycle -Dir $fixU -BudgetDeadlineFile $deadlineFileU
     Assert-Equal 0 $rU.Code 'mid-run budget: exit 0'
     Assert-Says $rU.Out 'PR #42' 'mid-run budget: the PR check itself ran -- it had room'
     Assert-Says $rU.Out 'did NOT check whether another session is on' 'mid-run budget: and the look after it is reported as skipped, not as empty'

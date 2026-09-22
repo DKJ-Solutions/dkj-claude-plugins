@@ -1493,6 +1493,64 @@ $malformed = [pscustomobject]@{ TotalSeconds = 45 }
 Assert-True (-not (Test-NativeCaptureBudgetSet -Budget $malformed))      'malformed budget: it reads as unset rather than throwing'
 Assert-Equal (Get-NativeCaptureBudgetBound -Budget $malformed) $NativeCaptureNetworkTimeoutSeconds 'malformed budget: and the call keeps the standing bound'
 
+# --- THE DEADLINE STATED IN A FILE, RE-READ AS THE RUN GOES (issue #2307) -------------------------
+# -ExpiresUtc above fixes the instant at birth, which is what a hook wants and what a SUITE cannot use:
+# proving that the second network call gets what the first one left needs a budget healthy at one call
+# and spent at the next, and with a fixed deadline the only way to get from one to the other is to WAIT.
+# That wait is also the case's tolerance for start-up, so the two are one number -- measured red twice on
+# a loaded runner. -ExpiresFile makes the instant restatable, so the transition costs no wall clock.
+$deadlineFile = New-ScratchPath -Label 'budget-deadline' -Extension '.txt'
+try {
+    [System.IO.File]::WriteAllText($deadlineFile, "$([System.DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 3600)")
+    $lateBound = New-NativeCaptureBudget -ExpiresFile $deadlineFile
+    Assert-True (Test-NativeCaptureBudgetSet -Budget $lateBound)          'deadline file: it is a set budget'
+    Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $lateBound)      'deadline file: an hour out, it has room'
+
+    # THE WHOLE POINT, IN ONE ASSERT: the SAME object answers differently once the file moves, with no
+    # clock having advanced. This is what a fixed deadline can only reach by waiting.
+    [System.IO.File]::WriteAllText($deadlineFile, "$([System.DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 3)")
+    Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $lateBound) -le 3) 'deadline file: restating it mid-run is read on the next question'
+    Assert-True (-not (Test-NativeCaptureBudgetHasRoom -Budget $lateBound))     'deadline file: and under the floor there is no room, without anything having slept'
+
+    # A READ THAT FAILS MID-RUN KEEPS THE INSTANT THE BUDGET WAS BORN WITH -- it must not fail open into
+    # "no budget" (an unbounded call inside a hook) nor closed into a spent one (a run that skips every
+    # remaining call over a transient read). Garbage here, because a deleted file and unreadable content
+    # are the same answer to this function and the content is the half a test can pin exactly.
+    [System.IO.File]::WriteAllText($deadlineFile, 'not an instant')
+    Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $lateBound)      'deadline file: an unreadable restatement falls back to the instant it was born with'
+
+    # PRECEDENCE: the file wins over both knobs above it, which is the ladder park-cycle.ps1 states for
+    # its four. Asserted because silently preferring either would put the budget back on the clock.
+    [System.IO.File]::WriteAllText($deadlineFile, "$([System.DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 3600)")
+    $ladder = New-NativeCaptureBudget -TotalSeconds 10 -ExpiresUtc ((Get-Date).ToUniversalTime().AddSeconds(10)) -ExpiresFile $deadlineFile
+    Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $ladder) -gt 60) 'deadline file: it wins over -ExpiresUtc and -TotalSeconds alike'
+} finally {
+    Remove-Item -LiteralPath $deadlineFile -Force -ErrorAction SilentlyContinue
+}
+
+# A PATH THAT CANNOT BE READ AT BIRTH IS THE NO-BUDGET SHAPE, not a spent one: a budget that was never
+# established must cost the standing bound rather than the run, which is this lib's standing direction
+# for a malformed one. And it cannot be revived by a later write -- Expires is $null, so every reader
+# above stops at Test-NativeCaptureBudgetSet.
+$absentFile = New-ScratchPath -Label 'budget-deadline-absent' -Extension '.txt'
+$noSuchBudget = New-NativeCaptureBudget -ExpiresFile $absentFile
+Assert-True (-not (Test-NativeCaptureBudgetSet -Budget $noSuchBudget))   'deadline file: a path with no file is the no-budget shape'
+Assert-Equal (Get-NativeCaptureBudgetBound -Budget $noSuchBudget) $NativeCaptureNetworkTimeoutSeconds 'deadline file: so the call keeps the standing bound'
+
+# THE READER ITSELF ANSWERS $null FOR EVERY WAY IT CAN FAIL, one value for all of them, because every
+# caller does the same thing with a deadline it could not read.
+Assert-True ($null -eq (Get-NativeCaptureBudgetFileDeadline -Path ''))         'deadline file: no path is $null'
+Assert-True ($null -eq (Get-NativeCaptureBudgetFileDeadline -Path $absentFile)) 'deadline file: a missing file is $null'
+$garbageFile = New-ScratchPath -Label 'budget-deadline-garbage' -Extension '.txt'
+try {
+    [System.IO.File]::WriteAllText($garbageFile, "2026-09-22T10:00:00Z`r`n")
+    Assert-True ($null -eq (Get-NativeCaptureBudgetFileDeadline -Path $garbageFile)) 'deadline file: content that is not an integer is $null rather than a throw'
+    [System.IO.File]::WriteAllText($garbageFile, "  1758484800`r`n")
+    Assert-True ($null -ne (Get-NativeCaptureBudgetFileDeadline -Path $garbageFile)) 'deadline file: surrounding whitespace and a newline are tolerated'
+} finally {
+    Remove-Item -LiteralPath $garbageFile -Force -ErrorAction SilentlyContinue
+}
+
 # THE CALLERS, PINNED. park-cycle.ps1 is the reason all of this exists, and an edit that dropped the
 # budget from one of its network calls would leave every assert above green.
 #
