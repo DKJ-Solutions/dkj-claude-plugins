@@ -657,7 +657,19 @@ function Get-RemoteConsumerWorkflow {
         # which is why it sits beside the short read rather than in the generic arm: the arm below would
         # have printed "gh exited  and answered with nothing this could parse as JSON", a sentence about
         # that repository built on a number this run never had. Same split, same remedy.
-        $reason = if (-not (Test-NativeExitMeasured -Capture $call)) {
+        # AND A COULD-NOT-START READING SITS AHEAD OF BOTH (issue #2250, on #2234's repair): a gh that
+        # never started sets ExitCodeUnknown too, so the arm below would say "gh ran" about a child that
+        # did not, and offer a re-run that cannot settle it.
+        #
+        # ITS WORDING IS NOT THE SHAPE #2250 PRESCRIBES, AND THAT IS MEASURED RATHER THAN LOOSE. This
+        # function is only ever called under $RemoteRunnerRead, which is set only after `Get-Command gh`
+        # has found gh AND `gh auth status` has exited 0 -- both of them up at the -RemoteRunners probe.
+        # So an absent gh is reported there, in its own sentence, and cannot reach this line; saying "gh
+        # is not installed" here would name a cause this run has already measured to be false. What is
+        # left is a gh that was found, authenticated, and still could not be launched on this call.
+        $reason = if (-not (Test-NativeCommandStarted -Capture $call)) {
+            'gh was found and authenticated at the start of this run but could not be started for this read (issue #2234) -- a fact about this machine rather than about that repository, and a re-run will not settle it while gh itself cannot launch'
+        } elseif (-not (Test-NativeExitMeasured -Capture $call)) {
             'gh ran and its exit code came back unmeasurable (issue #1931), so nothing arrived that this could judge -- a fact about this run rather than about that repository, and it normally settles on a re-run'
         } elseif ($call.ShortRead) {
             'gh exited 0 but its capture was still being written when this run read it, so what arrived was not a whole JSON document -- a fact about this run rather than about that repository, and it normally settles on a re-run'
