@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 17 minor entries** <!-- pending-tally -->
+**12 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2265-declared-settings-at-the-moment-of-change · 20260922-092503
+
+A GitHub-side setting -- a merge switch, a ruleset rule, a required check -- can be a decided answer with
+a measured reason, and until now nothing pointed a session at that reason before it proposed changing
+one. The declaration has been machine-readable since #1726, but its only runner is a daily schedule, so
+its earliest catch is after the change and after whatever the change let through. Two pointers close that:
+a hard rule in the system administrator's portable manual (read the declaration first, and an empty
+declaration means nothing is watched rather than that a setting is free to move), and a line in
+`ship-pr`'s CI-wait invitation -- the block that already answers *what do I do about this wait* now also
+answers *not that*, naming how many settings the repo declares and the one command that prints them with
+their reasons. The line is derived from `Get-ExpectedRepoSettings`, never asserted, so a repo that
+declares nothing gets no line at all.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing to migrate and no behaviour changes: both halves are pointers, and the session-side guard that
+#1726 weighed and declined stays declined. For a consumer of this workflow the manual travels with the
+core team plugin and the `ship-pr` line travels with `dkj-policy`, where it stays silent until that repo
+declares settings of its own -- the same rule that keeps `ship-pr`'s watch from naming a CI check it
+cannot vouch for, applied to a repo's settings.
+
+**Score:** 2
+
+#### Pull Request
+
+Point a session at the declared GitHub-side settings before it proposes changing one
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2274](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2274)
+
+---
 
 ### DEPLOY: docs/2242-fold-stamp-heading-drift · 20260922-090154
 
