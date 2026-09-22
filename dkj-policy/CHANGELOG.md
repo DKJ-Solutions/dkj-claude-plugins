@@ -44,7 +44,128 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 24 minor entries** <!-- pending-tally -->
+**18 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2279-cpu-time-in-lane-timeout-verdict · 20260922-121322
+
+A lane the test gate kills at its bound now reports what its process tree actually consumed -- the
+whole tree's CPU over its lifetime, and how much of that it consumed in the last three seconds before
+the kill -- directly under that suite's own `TIMED OUT` header.
+
+**It answers ONE of the two questions #2279 asked, and the other turned out to be unanswerable.**
+That issue's table wanted three cases separated: a suspended machine, a wedged lane and a deadlocked
+tree. This file's own `$script:GateSuspendGapSeconds` block already records #1941's deadlock at 0.23s
+across 29 children over 141 MINUTES, which is indistinguishable from #2231's wedge at 0.58s over 22 --
+so no CPU reading separates those two, and this does not claim to. What it does separate is "something
+was running" from "nothing was running", which is precisely the question the console had been handing
+to the reader with a whole standalone re-run attached to it (#2255, whose own measurement cost a second
+full gate run on a suite that was merely slow).
+
+It also settles the implementation question #2279 left open. `TotalProcessorTime` reads the direct
+child only, and every wedge in this family sits in a grandchild -- so the reading is taken from one
+`Win32_Process` CIM snapshot of the machine and walked down the tree. Measured against a real busy
+grandchild (3.45s of CPU over a 3s window, all of it two levels down) and a real idle one (0.000s).
+
+Nothing about when a lane is reaped changed. The bound, the grace window and the kill are exactly what
+they were; the sweep now marks, measures and then kills in the same pass, three seconds later in it.
+And it does not reopen the suspend question, which that same block declines CPU for on grounds that
+are untouched here: nothing added credits, reaps or kills anything -- it composes sentences.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this repo's subscribers consume the plugins, and the test gate is a development-time tool that
+runs before a release exists. A consumer running the shared `native-capture-lib.ps1` does get the
+better diagnosis on their own gate, but only ever as a maintainer of their own repo, never as a
+subscriber to anything this repo ships.
+
+**Score:** N/A
+
+#### Pull Request
+
+The test gate's timeout verdict reports the lane tree's CPU time
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2291](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2291)
+
+---
+
+### DEPLOY: fix/2230-guard-retracted-release-notes · 20260922-115804
+
+`Build-ReleaseNoteDraft` selected a release's audience-facing entries by tier alone, with no way to see
+that a later pending entry retracts an earlier one -- so a build that reached the trunk and was reverted
+before the cut was drafted as delivered work, in the author's own confident words, in the one document
+an employer or commissioner reads to learn what their money bought (measured in `BWJ-Development/smartwatchbanden`
+v2.44.0: two of three retracted features survived into a published management release-notes page).
+
+The repair is the issue's own suggested shape, in full rather than the weaker report-only fallback: an
+optional `Retracts: <branch>, <branch>` line on the entry that undoes earlier work, read and resolved
+across the whole pending changelog (`Resolve-ReleaseRetractions`), an unresolvable target refused at cut
+time rather than read as "nothing to withhold," and the withheld branches named in an HTML comment in the
+audience document so the person finishing the draft sees the decision instead of a silent gap. `CHANGELOG.md`,
+its changelog note and the generated GitHub Release body are untouched -- all three are records of what
+reached the trunk, and the retracted work did too. The field is optional and absent from every existing
+entry, so an ordinary release is byte-for-byte unchanged; asserted directly in `release-lib.tests.ps1`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The reader here is the party that runs the upgrade -- a consuming repo (life-hub, smartwatchbanden, and
+every other repo that installs `dkj-policy`) cutting its own release with `cut-release.ps1`. Most releases
+carry no retraction and this change is invisible to them. When one does, it is exactly the failure the
+issue measured: a deliberately-pulled build announced as shipped, in a document that has already been read
+by the time anyone notices -- "the one error in this whole cycle that a consumer cannot correct after the
+fact," in the issue's own words. Rare, but when it fires it protects a real published document from a
+confidently wrong sentence rather than merely tidying prose.
+
+**Score:** 3
+
+#### Pull Request
+
+Guard cut-release against drafting a retracted change as delivered work
+
+Plugins: dkj-policy
+
+[PR #2287](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2287)
+
+---
+
+### DEPLOY: fix/2278-command-guard-docstring-post-1734 · 20260922-114235
+
+`command-guard-lib.ps1`'s docstring described the arrangement #1734 replaced. It told a reader of a
+security-relevant lib that `guard-live-theme` **still** carries its own copy of this logic, which may
+have drifted -- exactly the hazard #1734 removed -- and pointed at #1734 as an open filing. A reader
+acting on it would go hunting for a second copy to reconcile, or decline to change this file on the
+ground that a divergent twin exists. The passage is now in the past tense, the way
+`guard-live-theme.ps1`'s own header already reads it, and it names where the route landed: the
+`command-guard-lib-shopify` registry entry and the `$PSScriptRoot`-relative dot-source. The
+reasoning behind the deferral is kept, because it is what the `-TextTools` parameterisation rests on.
+Two further clauses in the same paragraph were stale in the same way and are repaired with it: one
+mirror named where there are two (the second being the one #1734 created), and check-report-lib cited
+as having two readers when #1917 made it three. That second count is dropped rather than corrected,
+because this one sentence has now carried a stale count twice.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a docstring in an internal lib. Nothing a subscriber of a service reaches, and nothing about
+what any script does.
+
+**Score:** N/A
+
+#### Pull Request
+
+command-guard-lib.ps1's docstring describes the arrangement #1734 replaced
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2285](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2285)
+
+---
 
 ### DEPLOY: fix/2248-guard-raw-foreign-text-prints · 20260922-111836
 

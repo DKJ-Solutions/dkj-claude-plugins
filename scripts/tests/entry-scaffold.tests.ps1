@@ -2738,6 +2738,24 @@ $foldText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\
 Assert-True ($foldText -match 'Get-FoldedEntryForBranch -ChangelogText') 'the fold consults this read before it writes'
 Assert-True ($foldText -match '\$alreadyFolded -and -not \$Force') 'and -Force is the only way past it'
 
+# --- Get-EntryDeclaredBranch: the branch ONE entry's own heading declares (inbound #2230) ----------
+# The mirror image of Get-FoldedEntryForBranch above: that one searches a whole changelog for the
+# heading naming a GIVEN branch, this reads the one heading a single entry block already opens with.
+# Resolve-ReleaseRetractions needs it to key entries by branch without re-deriving the two delimitings.
+Write-Host "Get-EntryDeclaredBranch -- the branch a single entry block's own heading names" -ForegroundColor Cyan
+Assert-Equal 'fix/722-revert-premature-cro-builds' `
+    (Get-EntryDeclaredBranch -EntryText "$eH DEPLOY: fix/722-revert-premature-cro-builds`n`nBody text.") `
+    'declared branch: the bare shape (today''s), read up to the next whitespace'
+Assert-Equal 'feat/x-v1' `
+    (Get-EntryDeclaredBranch -EntryText "$eH DEPLOY: ``feat/x-v1`` $md 20260210-101500`n`nBody text.") `
+    'declared branch: the backticked shape (every entry folded before September 3, 2026)'
+Assert-Equal '' (Get-EntryDeclaredBranch -EntryText '') 'declared branch: an empty entry declares none'
+Assert-Equal '' (Get-EntryDeclaredBranch -EntryText "Just a paragraph, no heading at all.") `
+    'declared branch: an entry with no heading declares none'
+$twoHeadingEntry = "$eH DEPLOY: fix/first-v1`n`nQuotes a later one:`n`n$eH DEPLOY: fix/second-v1"
+Assert-Equal 'fix/first-v1' (Get-EntryDeclaredBranch -EntryText $twoHeadingEntry) `
+    'declared branch: only the FIRST heading line counts -- a later one inside the block is not a second declaration'
+
 # --- THE PENDING TALLY (issue #1515) --------------------------------------------------------------
 #
 # The line the fold and the cut write under the pending heading: how many entries are waiting, split by
