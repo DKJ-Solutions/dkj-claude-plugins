@@ -964,9 +964,43 @@ infrastructure.
   nothing in the declaration can go stale for a fact nobody chose to declare — but the converse is that
   a load-bearing setting nobody declares stays exactly as invisible as all seven of these were before
   September 9. `scripts/tests/repo-settings-gate.tests.ps1` holds the declaration to shape rather than
-  to values (46 asserts): every `Field` must be one the check knows how to read, and every record must
-  carry its `Recorded`, `Where` and `Why`, because a `Field` typo is this check's own failure mode
-  arriving from the inside — a declared fact silently ceasing to be watched.
+  to values (68 asserts, re-counted September 22, 2026 — this figure read 46 against an actual 64,
+  having been left behind by asserts added after it was written): every `Field` must be one the check
+  knows how to read, and every record must carry its `Recorded`, `Where` and `Why`, because a `Field`
+  typo is this check's own failure mode arriving from the inside — a declared fact silently ceasing to
+  be watched.
+
+  **AND THE ONE MOMENT IT STRUCTURALLY CANNOT COVER IS THE SESSION THAT IS ABOUT TO CAUSE THE DRIFT**
+  ([#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265), September 22, 2026).
+  Measured while landing #2255: `ship-pr` was waiting on `lint-en-tests` for PR #2262 with three of the
+  four CI shards still queued on GitHub runners, and the session offered enabling `allow_auto_merge` as
+  the way to stop waiting. It was enabled and auto-merge was armed — against the record above declaring
+  it `false`, whose reason is that *with strict off, "up to date" is not a merge requirement, so
+  auto-merge lands a stale-but-green certificate unattended* — with `origin/main` nine commits ahead of
+  that branch at that very moment, which is that reason live rather than theoretical, and with step 3b
+  blind to it because an auto-merge happens without a shipping session (#1730). Both the setting and the
+  armed auto-merge were reverted in the same session; the check reads 7 of 7 `[OK]` again, re-measured
+  September 22, 2026, so nothing persisted.
+
+  **The schedule is not the defect and #1726 is not reversed.** Dave's call there was about detecting
+  drift *somebody else* caused, where a dated daily record is exactly the right instrument. This is the
+  other shape: the session is the one about to cause it, and at that moment these seven declared facts
+  are the most relevant thing in the repo and the least visible — machine-readable, about a second
+  away, and pointed at by nothing in a session. So the repair is two **pointers** and not a third
+  runner; the session-side guard #1726 weighed and declined stays declined.
+  - **The portable half** is a hard rule in
+    [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
+    read the declaration before proposing a GitHub-side setting change, because the check's earliest
+    catch is *after* the change and after whatever the change let through. It travels, because a
+    consumer's GitHub-side state drifts the same way and `check-repo-settings.ps1` is theirs too
+    (#1843).
+  - **The local half is at the measured moment**, in `ship-pr.ps1`'s CI-wait invitation — the block that
+    already answers *"this wait is long, what do I do about it"* now also answers *"not that"*: it says
+    how many GitHub-side settings this repo declares, names auto-merge among them where that field is
+    one of them, and points at the check. **Derived from `Get-ExpectedRepoSettings`, never asserted**,
+    so a consumer who declares nothing gets no line at all — the same rule that keeps step 3 from naming
+    a check (*"naming one here would be a claim about the consumer's CI that this script cannot keep"*),
+    applied to a repo's settings.
 
   **BOTH RUNNERS ABOVE NOW HAVE A CONSUMER-SHAPED TWIN, AND NOTHING HOLDS THE TWO IN SYNC** (issue
   [#1516](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1516), September 6, 2026).
