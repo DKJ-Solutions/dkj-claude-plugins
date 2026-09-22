@@ -39,21 +39,58 @@
 
 ### PLAN
 
+#### What was verified before anything was written
+
+The report's symptom, reason and proposed repair all still stand, checked against the tree rather
+than taken from the issue:
+
+- `#1734` is CLOSED (September 9, 2026) and its work landed.
+- `plugins/dkj-subagents/dkj-subagents-shopify/hooks/guard-live-theme.ps1` dot-sources this lib and
+  says so in its own header (`AND THE MACHINERY ABOVE NO LONGER LIVES IN THIS FILE`).
+- `scripts/lib/shared-scripts-lib.ps1` carries the second registry entry,
+  `command-guard-lib-shopify`, and its neighbour reads the old copy as historical.
+
+One thing the report did not name, found in the same paragraph and repaired with it: the sentence
+directly above it still said **"The twin under plugins/dkj-policy/scripts/lib/ is its released
+mirror"**. That second mirror is exactly what #1734 added, so the singular is the same staleness one
+sentence up -- there are three identical copies now, and the drift lint holds all three.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rewrite the passage in the past tense, keeping the reasoning: #1669 extracted the lib and left
+      the copy standing for a stated reason, #1734 took the second-mirror route and retired it.
+- [x] Correct "the twin ... is its released mirror" to name both mirrors.
+- [x] `scripts/sync/build-shared-scripts.ps1` -- both mirrors updated from the source copy.
 
 ### TEST
 
+- [x] The file is still pure ASCII (repo convention for `.ps1`) and the docstring is still one
+      comment block.
+- [x] `check-plugin-integrity.ps1` and the suites, via `open-pr.ps1`'s gate -- including the
+      shared-scripts drift lint, which is what proves the two mirrors match the source.
+
 ### DEPLOY: fix/2278-command-guard-docstring-post-1734
 
-**Score:**
+`command-guard-lib.ps1`'s docstring described the arrangement #1734 replaced. It told a reader of a
+security-relevant lib that `guard-live-theme` **still** carries its own copy of this logic, which may
+have drifted -- exactly the hazard #1734 removed -- and pointed at #1734 as an open filing. A reader
+acting on it would go hunting for a second copy to reconcile, or decline to change this file on the
+ground that a divergent twin exists. The passage is now in the past tense, the way
+`guard-live-theme.ps1`'s own header already reads it, and it names where the route landed: the
+`command-guard-lib-shopify` registry entry and the `$PSScriptRoot`-relative dot-source. The
+reasoning behind the deferral is kept, because it is what the `-TextTools` parameterisation rests on.
+The sentence above it was stale in the same way and is repaired with it -- one mirror named where
+there are two, the second being the one #1734 created.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a docstring in an internal lib. Nothing a subscriber of a service reaches, and nothing about
+what any script does.
+
+**Score:** N/A
 
 #### Pull Request
 
 command-guard-lib.ps1's docstring describes the arrangement #1734 replaced
-
