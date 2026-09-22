@@ -44,7 +44,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**30 / 50 minor entries** <!-- pending-tally -->
+**31 / 51 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2319-merge-on-green · 20260922-224254
+
+A pull request whose CI goes green *after* `ship-pr` refused is now merged by a CI runner instead of by
+whoever happens to notice. `ship-pr` arms the pull request with `merge-when-green` at the moment its own
+CI verdict refuses, and `.github/workflows/merge-on-green.yml` -- woken by a CI `workflow_run`, a
+30-minute schedule or `workflow_dispatch` -- sweeps for an armed pull request that is green on its own
+head, checks its branch out and runs `ship-pr.ps1`. It re-derives no gate: the staleness check, the
+step-list gate and the DEPLOY lock are all that script's, so the runner is a session that cannot die
+rather than a second opinion about when a merge is owed, and it folds and verifies the resolves exactly
+as a live session would. `ship-pr`'s own on-the-trunk refusal now performs the `git checkout` it used to
+print, on exactly one candidate and a clean tree. Measured on PR #2316, where a flake, a
+`gh run rerun --failed` and a green check still cost a full human round trip.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+The runner does not travel yet ([#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329)),
+so what a consumer receives at the next release is the two halves that live in `ship-pr.ps1`: the
+on-the-trunk resume, which they get in full, and the arming label, which is inert there until a sweep
+exists to read it. The merge itself is made by `FOLD_PUSH_TOKEN` rather than by the job token, because a
+push caused by `GITHUB_TOKEN` starts no workflow runs -- a consumer adopting the runner later will need
+`Pull requests: write` on their own PAT for the same reason.
+
+**Score:** 2
+
+#### Pull Request
+
+A merge owed to a green PR no longer needs a live session that is also on the right branch
+
+Plugins: dkj-policy
+
+[PR #2331](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2331)
+
+---
 
 ### DEPLOY: fix/2327-cpu-idle-floor · 20260922-223306
 
