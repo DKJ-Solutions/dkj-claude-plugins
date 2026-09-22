@@ -100,6 +100,30 @@ real work, and the other three are answered rather than built:
 - [x] `test-suite-gate.tests.ps1` -- the floor asserted directly (the boundary, the burst charge, both
       allow-anyway rules), plus the plumbing: a pool that holds still passes every suite, announces the
       hold once rather than per poll, releases, and an explicit `-MaxParallel` never holds at all.
+- [x] Reviewed in parallel on the diff -- code, copy, security, cost. Four findings acted on:
+      - **The dormant collision, found in the tree rather than in the suite.** `open-pr` held its
+        `rev-parse HEAD` capture under `$headSha` while `Wait-CiTestCertificate` takes `[string]$HeadSha`;
+        case-insensitively that is one name, and the parameter wins. Nothing read it, which is what made
+        it worth renaming -- the two values look alike enough that a later edit would hide rather than
+        break. Renamed to `$headShaCapture`, with a guard that pins the language behaviour (the absence
+        is not achievable) plus a source assert that the name is gone.
+      - **`& $Sleeper` was unguarded** where `& $Reader` was wrapped, so a throwing sleeper left the wait
+        by exception. Guarded.
+      - **The wait bound's justification was wrong twice.** It cited shard runtimes this repo's own
+        `ci.yml` contradicts, and it claimed a worst case of "the bound plus the pool" as if that were
+        the loss -- it is this run's cost, not the change's, because the old path cannot merge before the
+        same check either. Both corrected, and the bound is now argued from the measured distribution:
+        98 recent runs, median 693s, four between 900s and the bound, two above it (3422s, 4273s).
+      - **The tail reads backwards, and that is written down.** The cost review proposed lowering the
+        bound to 900s because everything above it is runner queueing rather than real CI. True, and it
+        does not follow: what decides the saving is whether a run certifies BEFORE the bound, and all
+        four in that band do. Lowering would give up on four to cap the loss on two.
+- [~] Not measured, and said so in the code rather than left implied: how often the floor holds on a
+      run that would never have been reaped. The memory reading moves ~100 MB between calls seconds
+      apart by its own docstring, so a machine near the per-lane boundary can hold on noise. A spurious
+      hold self-corrects in one poll interval, so the exposure is small and bounded -- but "the worst
+      case is the slow run that already finishes" bounds a permanent squeeze, not the frequency of
+      transient ones, and nothing here counts them.
 
 ### DEPLOY: feat/2317-gate-cost-ci-wait
 
