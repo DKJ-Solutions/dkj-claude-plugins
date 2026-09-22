@@ -44,7 +44,41 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 24 minor entries** <!-- pending-tally -->
+**17 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2278-command-guard-docstring-post-1734 · 20260922-114235
+
+`command-guard-lib.ps1`'s docstring described the arrangement #1734 replaced. It told a reader of a
+security-relevant lib that `guard-live-theme` **still** carries its own copy of this logic, which may
+have drifted -- exactly the hazard #1734 removed -- and pointed at #1734 as an open filing. A reader
+acting on it would go hunting for a second copy to reconcile, or decline to change this file on the
+ground that a divergent twin exists. The passage is now in the past tense, the way
+`guard-live-theme.ps1`'s own header already reads it, and it names where the route landed: the
+`command-guard-lib-shopify` registry entry and the `$PSScriptRoot`-relative dot-source. The
+reasoning behind the deferral is kept, because it is what the `-TextTools` parameterisation rests on.
+Two further clauses in the same paragraph were stale in the same way and are repaired with it: one
+mirror named where there are two (the second being the one #1734 created), and check-report-lib cited
+as having two readers when #1917 made it three. That second count is dropped rather than corrected,
+because this one sentence has now carried a stale count twice.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a docstring in an internal lib. Nothing a subscriber of a service reaches, and nothing about
+what any script does.
+
+**Score:** N/A
+
+#### Pull Request
+
+command-guard-lib.ps1's docstring describes the arrangement #1734 replaced
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2285](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2285)
+
+---
 
 ### DEPLOY: fix/2248-guard-raw-foreign-text-prints · 20260922-111836
 
