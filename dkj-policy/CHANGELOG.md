@@ -44,7 +44,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 19 minor entries** <!-- pending-tally -->
+**14 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2255-suite-bound-basis · 20260922-094657
+
+The per-suite timeout in `Invoke-TestSuiteGate` carried a comment claiming **"no suite can reach it by
+being slow"**, sized off the slowest row in `suite-durations.json` (`new-branch.tests.ps1`, 290.2s on a
+four-lane hosted runner). That sentence is what tells a reader a 1,800s timeout means a wedge -- the
+reading that made #2233 diagnosable -- and it has been false since #2232 recorded
+`check-plugin-integrity-docs.tests.ps1` at 415.5s. A 9-lane run of this repo's 121 suites then reached
+the bound on that file, which passed all 188 of its asserts standalone on the same checkout minutes
+later.
+
+The comment now carries both readings that bracket the bound instead of the CI one alone, retracts the
+false sentence against the run that falsified it, and records why the bound stays a fixed constant
+rather than being derived from `suite-durations.json`: that file is measured on CI, a local reading does
+not convert into a CI one and the sign is not even fixed, so a derived bound would be tightest exactly
+where the machine is slowest.
+
+The correction is also printed. A red verdict naming a timed-out suite now adds that a slow suite can
+reach the bound, so the timeout is not by itself a wedge, and names the one measurement that separates
+the two -- a standalone re-run of that suite. The comment is read by whoever maintains the lib; the
+verdict line is read by whoever just lost half an hour, and that is where the false reading cost its
+second full gate run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+`native-capture-lib.ps1` is mirrored into `dkj-policy`, so every consumer running this workflow's test
+gate gets the corrected verdict. It lands hardest where it is worth most: a slow machine is the one that
+reaches an 1,800s bound on a green suite, and also the one least able to afford a second full gate run
+spent hunting a wedge that was never there.
+
+Nothing changes for a run that does not time out, and the constant itself is untouched.
+
+**Score:** 2
+
+#### Pull Request
+
+The 1800s suite bound no longer claims a basis that a measured run has already exceeded
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2262](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2262)
+
+---
 
 ### DEPLOY: fix/2264-hook-stdin-console-guard · 20260922-093846
 
