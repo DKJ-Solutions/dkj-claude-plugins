@@ -74,7 +74,7 @@ rather than a note beside it.
 
 - [x] A guard on the orphan anchor: `ci-shard.tests.ps1` holds the `jobs:` banner to a measured
       ceiling, so a re-grown banner fails a suite instead of surfacing at the next conflict.
-- [ ] Every assert that reads `ci.yml` by regex still passes -- `ci-shard.tests.ps1`,
+- [x] Every assert that reads `ci.yml` by regex still passes -- `ci-shard.tests.ps1`,
       `merge-queue-prereq.tests.ps1`, `workflow-timeouts.tests.ps1`.
 - [x] No reasoning lost: the change is a move, verified by comparing the comment bodies before and
       after rather than by reading the diff.
