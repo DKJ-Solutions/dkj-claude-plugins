@@ -760,20 +760,24 @@ function Format-EntryFoldFooter {
         until the merge. '[PR #468](https://...)'.
 
         THE MERGE DATE IS NOT ON THIS LINE ANY MORE (Dave, August 19, 2026). It sat here from August 5,
-        as ' <middot> merged 2026-08-05', and it moved to the 'Pull Request' heading directly above --
-        Set-EntryMergeStamp writes it there, from the same PR field this line's number comes from. Dave's
-        call when the stamp arrived, and the reason is that the alternative was the same fact twice in one
-        section: the heading says when it landed, the line says which PR it was.
+        as ' <middot> merged 2026-08-05', and it moved to a heading above -- Set-EntryMergeStamp writes it
+        there, from the same PR field this line's number comes from. Dave's call when the stamp arrived,
+        and the reason is that the alternative was the same fact twice: the heading says when it landed,
+        the line says which PR it was. It went to the 'Pull Request' section heading for four days and to
+        the entry's OWN heading from August 23, which changes where it lands and not this line's job.
 
         WHICH IS WHY $MergedStamp EXISTS, AND WHY IT IS NORMALLY EMPTY. That reasoning holds only while
-        there IS a heading to hold the date, and one shape has none: a PRE-DOSSIER entry, whose title was
-        its heading and which carries no named sections at all. Every branch in flight from before
-        August 6, 2026 is one -- here and in every consumer, who meet this change through a plugin update
-        rather than by choosing to -- and the fold explicitly still folds them. Set-EntryMergeStamp finds
-        nothing to stamp in such an entry and returns it unchanged, silently, so the date would simply be
-        gone: the same entry folded a day earlier always carried one, in the one document whose subject is
-        when things landed. So the caller asks whether the section is there (Test-EntryHasSection) and
-        passes the stamp only when it is not. One fact, one place, wherever that place happens to be.
+        there IS a heading to hold the date, and an entry with none -- no heading at the entry's level, or
+        only one inside a fence -- would lose the date silently: the same entry folded a day earlier always
+        carried one, in the one document whose subject is when things landed. So the caller asks
+        Test-EntryHeadingTakesMergeStamp, which reads Set-EntryMergeStamp's own scan, and passes the stamp
+        only when the answer is no. One fact, one place, wherever that place happens to be.
+
+        IT USED TO ASK Test-EntryHasSection -Key 'PullRequest' INSTEAD, and that proxy is issue #2259: it
+        stopped tracking the writer on August 23 and started answering wrongly on August 26, when the
+        levels shifted and a PRE-DOSSIER entry's title-heading came to sit at exactly the entry level. Such
+        an entry then had a heading the writer stamped and no section for the gate to find, so it folded
+        with the merge moment written in both places at once.
 
         WHY THE PR'S TIMESTAMP AND NOT THE CLOCK (Dave, August 5, 2026), which is still the rule and now
         lives on the stamp: the date used to be scaffolded into the entry's HEADING when the branch was
@@ -825,17 +829,72 @@ function Format-EntryMergeStamp {
     try { return ([datetime]$MergedAt).ToUniversalTime().ToString('yyyyMMdd-HHmmss') } catch { return $FallbackNow }
 }
 
+function Get-EntryMergeStampTarget {
+    <#
+        Private helper: WHERE Set-EntryMergeStamp would write -- resolved once, so the writer and the gate
+        that decides whether the CLOSING LINE should carry the date instead cannot ask different questions.
+        Returns an object with
+
+          Parts   the Get-EntryLineFlagPairs split, so the writer can rewrite the line in place
+          Index   the index into Parts of the line that takes the stamp, or -1 when there is none
+          Match   that line's match, or $null
+
+        WHY THE GATE MAY NOT RUN A QUESTION OF ITS OWN (issue #2259). Exactly one of two places carries the
+        merge moment -- this heading, or the closing '[PR #NN](url)' line -- and the fold has to know which
+        BEFORE it writes that line. It used to infer it from Test-EntryHasSection -Key 'PullRequest', which
+        was the same question only while the stamp went on the 'Pull Request' SECTION heading. The stamp
+        moved to the entry's own heading on August 23, 2026 and that gate did not move with it; on
+        August 26 the heading levels shifted and a PRE-DOSSIER entry's title-heading -- promoted by the
+        fold's own re-level step -- landed at exactly the entry level. From that day such an entry had a
+        heading the writer would stamp and no 'Pull Request' section for the gate to find, so it folded with
+        the same moment stated twice. A proxy that was accurate when it was written is the failure here, so
+        there is no proxy any more: one scan, two readers.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$EntryText)
+    $rx = '^(#{' + $script:EntryHeadingLevel + '}\s+.*?)' + (Get-EntrySectionHeadingTail)
+    $pair = Get-EntryLineFlagPairs -EntryText $EntryText
+    $parts = $pair.Parts
+    $line = -1
+    for ($i = 0; $i -lt $parts.Count; $i += 2) {
+        $line++
+        if ($pair.Fenced[$line]) { continue }
+        $m = [regex]::Match([string]$parts[$i], $rx)
+        if (-not $m.Success) { continue }
+        return [pscustomobject]@{ Parts = $parts; Index = $i; Match = $m }
+    }
+    return [pscustomobject]@{ Parts = $parts; Index = -1; Match = $null }
+}
+
+function Test-EntryHeadingTakesMergeStamp {
+    <#
+        Pure: will the merge moment land on this entry's own heading? The fold reads this before it builds
+        the closing line, and passes that line the stamp only when the answer is no -- so one fact stands
+        in one place, wherever that place happens to be.
+
+        IT IS TRUE FOR EVERY SHAPE THIS FORMAT HAS HAD, which is the point: today's title-first DEPLOY
+        line, the branch-first 'deployment' and 'changelog' forms, and the pre-dossier entry whose heading
+        was its own title. False is what remains -- an entry with no heading at the entry's level at all, or
+        one whose only such heading sits inside a fence -- and that is the case the closing line covers.
+
+        ASKED OF THE ENTRY THE FOLD IS ABOUT TO STAMP, after its re-level step, because the level is what
+        the answer turns on.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$EntryText)
+    return ((Get-EntryMergeStampTarget -EntryText $EntryText).Index -ge 0)
+}
+
 function Set-EntryMergeStamp {
     <#
-        Pure: the entry with its 'Pull Request' heading restamped -- '### Pull Request <middot> 20260819-171500'.
-        Unchanged when the stamp is empty, when the entry has no such section, or where the heading sits
-        inside a fence.
+        Pure: the entry with the merge moment stamped onto its OWN heading -- '### A title <middot>
+        20260819-171500'. Unchanged when the stamp is empty, when the entry has no heading at the entry's
+        level, or where the only such heading sits inside a fence. Test-EntryHeadingTakesMergeStamp above
+        answers, ahead of the write, which of those two outcomes a caller is going to get.
 
         THE FOLD WRITES INTO A HEADING AGAIN, which reverses nothing (August 19, 2026). What was retired on
         August 5 was the DATE IN THE ENTRY'S OWN HEADING, and it was retired because the scaffolder wrote it
         at creation -- making it the branch's birth date in the one document whose subject is when things
-        landed. This is a section heading, written by the fold, from the PR's own merge timestamp. Same
-        fact, right source, right moment.
+        landed. This is written by the fold, from the PR's own merge timestamp. Same fact, right source,
+        right moment.
 
         AN ALREADY-STAMPED HEADING IS RESTAMPED RATHER THAN APPENDED TO, so folding twice cannot grow a
         line of timestamps -- and so a heading still carrying the TEMPLATE's placeholder (an entry someone
@@ -853,27 +912,17 @@ function Set-EntryMergeStamp {
     #
     # IT IS THE FIRST HEADING AT THE ENTRY'S OWN LEVEL, which is a stronger anchor than a section NAME and
     # the reason this rewrite simplifies rather than complicates. There is exactly one such heading in an
-    # entry, in every shape this format has ever had -- today's title-first DEPLOY line, the branch-first
-    # 'deployment' and 'changelog' forms, and the pre-dossier entry whose heading was its own title and which
-    # had no named sections at all to stamp. That last one is the case the old code had to detect and hand to
-    # the footer instead; it needs no special handling here.
+    # entry, in every shape this format has ever had -- including the pre-dossier entry whose heading was its
+    # own title and which had no named sections at all to stamp. That last one is the case the old code had
+    # to detect and hand to the footer instead; it needs no special handling HERE -- but the fold's gate over
+    # the footer does have to be told, which is what Test-EntryHeadingTakesMergeStamp is for (#2259).
     #
-    # AN ALREADY-STAMPED HEADING IS RESTAMPED RATHER THAN APPENDED TO -- the tail is part of the match -- so
-    # folding twice cannot grow a line of timestamps, and a heading still carrying the reset state's
-    # placeholder comes out with a real one.
-    $rx = '^(#{' + $script:EntryHeadingLevel + '}\s+.*?)' + (Get-EntrySectionHeadingTail)
-
-    $pair = Get-EntryLineFlagPairs -EntryText $EntryText
-    $parts = $pair.Parts
-    $line = -1
-    for ($i = 0; $i -lt $parts.Count; $i += 2) {
-        $line++
-        if ($pair.Fenced[$line]) { continue }
-        $m = [regex]::Match([string]$parts[$i], $rx)
-        if (-not $m.Success) { continue }
-        $parts[$i] = $m.Groups[1].Value.TrimEnd() + (Format-EntrySectionHeadingSuffix -Stamp $Stamp)
-        break
-    }
+    # THE SCAN ITSELF IS IN Get-EntryMergeStampTarget, so that gate reads this decision rather than a
+    # restatement of it.
+    $target = Get-EntryMergeStampTarget -EntryText $EntryText
+    if ($target.Index -lt 0) { return $EntryText }
+    $parts = $target.Parts
+    $parts[$target.Index] = $target.Match.Groups[1].Value.TrimEnd() + (Format-EntrySectionHeadingSuffix -Stamp $Stamp)
     return ($parts -join '')
 }
 

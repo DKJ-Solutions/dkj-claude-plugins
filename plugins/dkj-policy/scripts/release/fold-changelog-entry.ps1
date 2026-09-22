@@ -960,23 +960,30 @@ foreach ($file in $entryFiles) {
         # entry-scaffold-lib.ps1 -- the lib that owns the entry FORMAT, so the one place that writes this
         # line is the one place a test can read it.
         #
-        # THE MOMENT IS READ ONCE AND WRITTEN IN EXACTLY ONE OF TWO PLACES. The 'Pull Request' heading
-        # takes it -- the counterpart of the creation stamp the cycle file's heading carries -- and the
-        # closing line then carries only the link, so one fact stands in one place.
+        # THE MOMENT IS READ ONCE AND WRITTEN IN EXACTLY ONE OF TWO PLACES. The entry's own heading takes
+        # it -- the counterpart of the creation stamp the cycle file's heading carries -- and the closing
+        # line then carries only the link, so one fact stands in one place.
         #
-        # UNLESS THE ENTRY HAS NO SUCH HEADING, which is a shape this script explicitly still folds rather
-        # than a hypothetical: a pre-dossier entry carried its title AS its heading and has no named
-        # sections at all. Set-EntryMergeStamp finds nothing to stamp there and returns the text unchanged,
-        # silently -- so without this test the date would simply be missing from an entry that carried one
-        # the day before, in the one document whose subject is when things landed. Test-EntryHasSection is
-        # the same reader the emptiness gate uses for "absent versus empty", so the two cannot disagree
-        # about which shape they are looking at.
+        # UNLESS THERE IS NO SUCH HEADING TO STAMP, in which case Set-EntryMergeStamp returns the text
+        # unchanged, silently -- so without this test the date would simply be missing from an entry that
+        # carried one the day before, in the one document whose subject is when things landed.
+        #
+        # THE GATE ASKS THE WRITER'S OWN QUESTION, and it did not always (issue #2259). It used to ask
+        # Test-EntryHasSection -Key 'PullRequest', which was the same question only while the stamp went on
+        # the 'Pull Request' SECTION heading; it moved to the entry's own heading on August 23, 2026 and
+        # this line did not move with it. From August 26 -- when the levels shifted and a pre-dossier
+        # entry's title-heading, promoted by the re-level step above, landed at exactly the entry level --
+        # such an entry had a heading the writer stamped AND no 'Pull Request' section for the gate to
+        # find, so the footer was given the date as well and the same moment was stated twice.
+        # Test-EntryHeadingTakesMergeStamp reads Set-EntryMergeStamp's own scan, so the pair cannot drift
+        # apart again the way a proxy did.
+        #
         # The fallback is UTC, matching Format-EntryMergeStamp's own rendering (inbound #1542): since
         # #1280 this stamp is Get-EntryInsertOffset's sort key, and a local-time fallback on one machine
         # would sort against UTC stamps written on another.
         $mergeStamp = Format-EntryMergeStamp -MergedAt ([string]$prs[0].mergedAt) `
             -FallbackNow ((Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss'))
-        $stampFitsTheHeading = Test-EntryHasSection -EntryText $entryContent -Key 'PullRequest'
+        $stampFitsTheHeading = Test-EntryHeadingTakesMergeStamp -EntryText $entryContent
         $entryContent = $entryContent.TrimEnd() + "$nl$nl" + (Format-EntryFoldFooter `
             -Number $num -Url $prs[0].url `
             -MergedStamp $(if ($stampFitsTheHeading) { '' } else { $mergeStamp }))
