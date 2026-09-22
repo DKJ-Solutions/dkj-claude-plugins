@@ -39,21 +39,111 @@
 
 ### PLAN
 
+#### What #2289 reported, and which of its three options this branch takes
+
+The issue reported two things and decided neither:
+
+1. The #2130 dual-name layer has **no retirement tracker** — verified: 12 open issues, none of them
+   this, and a search across all states returns only the round's own six steps.
+2. The readiness signal #2128's plan names — *"the old names are retired once the connector register
+   shows all six are over"* — **cannot ever report it**. Verified against the tree: every
+   `connectors/*.json` stores bare ids and zero filenames, and `check-consumer-drift.ps1` resolves a
+   lens through `Get-SpecialistFileNameCandidates` only in order to compare its **body**, never
+   reporting which spelling it found.
+
+The issue then listed three answers: build the signal, rekey the retirement on something else, or keep
+the layer forever. **This branch takes the first, and the reason it needs no further decision is that
+the other two reverse a decision that is Dave's.** Decision 1 of September 19, 2026 already fixed both
+halves — *"Not a permanent dual-name state"* rules out the third, and the register sentence is the
+second. Building the signal **implements** that decision; rekeying or abandoning it would overrule it,
+and neither is a call this branch may make. The signal is also the thing option 2's own fallback (*"a
+manual sweep of the six checkouts"*) would otherwise be done by hand.
+
+#### One correction to the issue, carried into the work
+
+#2289 describes the layer as a bridge *"carried until the six consumers are migrated"*. That is exact
+for **Lens** and wrong for the other three kinds: `Get-SpecialistFileShapes`' own banner states that a
+reader runs against a consumer's **plugin cache**, which holds whatever version that machine last
+installed, so manual/persona/subagent are keyed on installed versions rather than on this register.
+Dave's sentence is about the lens convention specifically. Every artefact this branch writes therefore
+says **Lens only**, in the roll-up's own closing line as well as in the prose — a register signal read
+as covering all four kinds would retire three rows on evidence about one.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-SpecialistNamingState` in `scripts/lib/check-report-lib.ps1` — the classifier: hand it the
+      filenames in a tree and it reports `Current` / `AlsoRead` / `Mixed` / `None`, counting names that
+      match neither rather than dropping them. Named after the shapes table (`Current`/`AlsoRead`),
+      never `new`/`legacy`, for the reason that table's banner gives.
+- [x] Mirrored to the three plugin copies via `scripts/sync/build-shared-scripts.ps1`.
+- [x] `check-connectors.ps1` check 7 — a non-counting `[LENS-NAMING]` line per connector, measured
+      across every `Get-LensDirCandidates` directory for every published plugin.
+- [x] `check-connectors.ps1` roll-up — the register-wide verdict, with its coverage stated first and
+      **three** endings, so a partial sweep can never read as the window being open.
+- [x] `connectors/README.md` — a section under *The check* stating the signal, and the four things
+      about it that are deliberate.
+- [x] `Get-SpecialistFileShapes`' banner — points at the tracker and restates the Lens-only bound at
+      the one place a reader deciding to prune a row actually lands.
+- [x] Filed the tracker the issue's first half asks for: **#2292**, on #1848's precedent, keyed on this
+      signal and carrying the bounds.
 
 ### TEST
 
+- [x] `scripts/tests/check-report-lib.tests.ps1` — 14 new assertions over the classifier: the four
+      states, a null list, unrecognised names counted rather than dropped, kind independence
+      (a lens name is not a subagent name), and the display names composed from the table rather than
+      written as literals. 398 pass, 0 fail.
+- [x] Ran `check-connectors.ps1 -SkipDrift -SkipVersions` on the real register. It answered, and the
+      answer is a real measurement rather than a self-test: **3 of 6 reachable here, 1 over, 2 not
+      over** — both BWJ stores still carry 25 lens files each on `<g>-<id>-extension.md`, and three
+      connectors are not checked out on this machine, so the verdict printed is
+      `NOT ANSWERABLE FROM THIS MACHINE`.
+- [x] Lint gate + full suite via `open-pr.ps1`.
+
+#### The test gap, named rather than papered over
+
+There is **no suite over the roll-up itself** — the classifier is tested, the assembly around it is
+not. `check-connectors.ps1` takes its input from the live register and six real checkouts, so covering
+the three endings would mean a fixture register plus fabricated consumer trees, and that fixture would
+then be the thing under test. The measurement above exercises two of the three endings on real data;
+the third (`ALL N ARE OVER`) is unreachable until the migration actually completes, which is the
+condition #2292 exists to wait for.
+
 ### DEPLOY: feat/2289-lens-naming-readiness-signal
 
-**Score:**
+`check-connectors.ps1` can now answer the question the #2130 dual-name layer's retirement is keyed on:
+which spelling each registered consumer's repo lenses are actually written in. A non-counting
+`[LENS-NAMING]` line per connector, and a roll-up across the register that states its coverage before
+its verdict — `NOT ANSWERABLE FROM THIS MACHINE`, `NOT YET`, or `ALL N ARE OVER`, and only the third
+opens the window. The classifier behind it, `Get-SpecialistNamingState`, reads the shapes table rather
+than any literal, so a future rename step that flips a row cannot leave the report describing the wrong
+file.
+
+Dave's decision of September 19, 2026 retires the old lens names *"once the connector register shows all
+six are over"*, and the register could not show it: manifests store bare ids and no filenames, and the
+one check that does resolve a lens file resolves it to compare its **body**. A bridge whose expiry
+cannot be established is a permanent one by default, which is what #2289 measured. The signal is
+**measured, never declared** — no `lensNaming` manifest field, on the same ground the `plugins[].id`
+rule already stands on: hand-maintained state about somebody else's tree turns the register into a false
+alarm about a migration nobody ran.
+
+Run on the real register it reports 3 of 6 connectors reachable on this machine, 1 over and 2 not —
+so the honest answer today is that the window is not yet answerable, which is exactly the fact that was
+previously unobtainable. #2292 is the retirement tracker the issue's other half asks for.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing a consumer runs changes. `check-connectors.ps1` and the `connectors/` register are
+source-repo-only — a consumer's session check runs `plugin-versions` in `-Brief` mode instead — and the
+new classifier travels in the plugin payload unused by any consumer-side caller. The `[LENS-NAMING]`
+lines are deliberately neither `[ERROR]` nor `[INFO]`, so they do not count and no session hook surfaces
+them: a consumer still on the old spelling is **not broken**, which is the entire purpose of the layer
+being measured.
+
+**Score:** N/A
 
 #### Pull Request
 
-The lens-naming readiness signal the dual-name retirement is keyed on
-
+The lens-naming readiness signal the #2130 dual-name retirement is keyed on
