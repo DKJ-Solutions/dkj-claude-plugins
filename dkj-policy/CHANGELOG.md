@@ -44,7 +44,47 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 39 minor entries** <!-- pending-tally -->
+**26 / 40 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2307-mid-run-budget-wall-clock · 20260922-163148
+
+`park-cycle.tests.ps1`'s mid-run-budget case no longer measures anything in real time. A network
+budget's deadline can now be stated in a **file** -- `New-NativeCaptureBudget -ExpiresFile`,
+`park-cycle.ps1 -BudgetDeadlineFile` -- and is re-read on every budget question, so the suite's `gh`
+shim moves it from inside the call instead of the case sitting idle until it falls due. What moves is
+the deadline, not the clock: real time still runs and a budget still genuinely expires.
+
+That case had gone red on CI twice, on the same two asserts, at ~7s of tolerance (#2077) and at ~15s
+(#2307), each time costing a blocked merge and a full re-run. A third number would have failed the
+same way, because the tolerance and the wall clock the case spends are one number: the budget starts
+before the process does, so everything before the first call has to fit inside it, and the case cannot
+end before it falls due. Timed banner to first assert on a workstation, the case went from 18.3s to
+2.4s.
+
+The trigger is recorded where it belongs rather than repaired: `Get-TestSuiteShardOrder` charges an
+untimed suite the pool maximum, which is right for its own purpose and also **relocates suites it does
+not name** -- a 0.7s addition priced at 669.1s moved this suite into a differently loaded shard, and the
+branch that added it got the red. Its docstring now says so.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. A consumer running this workflow gets one optional parameter nobody types and a lib seam that is
+inert unless it is passed: `park-cycle`'s behaviour under the Stop hook, by hand, and with either
+existing budget knob is byte for byte what it was. What is fixed is this repo's own required check.
+
+**Score:** N/A
+
+#### Pull Request
+
+The mid-run budget test case stops depending on how fast the machine is
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2311](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2311)
+
+---
 
 ### DEPLOY: fix/2296-workflow-job-timeouts · 20260922-161759
 
