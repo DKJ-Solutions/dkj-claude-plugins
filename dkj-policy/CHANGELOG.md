@@ -44,7 +44,61 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**29 / 47 minor entries** <!-- pending-tally -->
+**30 / 48 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2317-gate-cost-ci-wait · 20260922-212713
+
+The local test gate ran twice for one answer. `ship-pr` calls `open-pr` immediately after the push, so
+the required check has just started and the CI certificate is refused for the one reason that is about
+to stop being true -- and the whole pool then re-proved, locally, the commit CI was at that moment
+proving on a clean checkout. Measured over seven gate runs in one session: 12,801s of local gate for
+two pull requests, of which one single re-run was 2,595s. It could not make the merge happen one
+second sooner, because `main`'s ruleset blocks the merge on that check whatever a local pool decides.
+
+`Get-CiTestCertificate` now separates a check that has **failed** from one that is **still running** --
+they were one refusal, 'not green', and they are opposite facts -- and where the check is running on
+this exact commit the gate waits for it instead of re-taking the measurement. Two of the wait's three
+exits are byte-for-byte the old behaviour, and the third is a skip the caller was already entitled to:
+nothing here can fail a gate, skip a suite or move a merge.
+
+The second half is the lane count. It resolves once, at t=0, from a single memory reading, and #2317
+measured what happens when that is wrong downwards: the pool is a background shell, and a harness that
+finds the system critically low on memory **reaps** it -- 731s with 18 of 124 suites done, then 2,166s
+with 54 of 124, neither producing a verdict. A lane start now consults a fresh reading and is held when
+there is no room for one more lane. It can only delay a start, and it can never wedge, because nothing
+running always starts.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Two of the issue's five levers turned out not to be work at all, and finding that out cost one read
+each. Lever 4 -- pack lanes longest-first locally -- has been true since #1358: the gate calls
+`Get-TestSuiteShardOrder` unconditionally with the hints file, and at `ShardCount 0` that returns the
+cost-descending order. Lever 5 had landed hours earlier as #2304. **The standing lesson is the one
+this repo already writes down for an inbound report and does not always apply to its own plan: a
+proposed repair is verified against the tree before it is built, because a plan is a snapshot of the
+moment somebody wrote it.** Here the snapshot was eight hours old and the trunk had moved 44 commits.
+
+The other half is a trap worth keeping. PowerShell scriptblocks are **dynamically** scoped, so an
+injected `-Reader` runs in a child of the function's own scope and can read -- and be shadowed by --
+its locals. A test helper named `$reading` and a loop local named `$reading` met, the caller's read
+resolved to the function's `$null`, every lap threw, each throw was swallowed as an unreadable read,
+and the wait ran to its bound. It fails as *"CI never answered"*, which is indistinguishable from the
+real thing, on a mechanism whose whole job is to decide when to stop waiting. The loop's locals carry
+a prefix now and the suite asserts that a caller's own names survive.
+
+**Score:** 2
+
+#### Pull Request
+
+Stop the local test gate re-proving what CI is proving, and hold lane starts under a memory floor
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2326](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2326)
+
+---
 
 ### DEPLOY: feat/2315-open-pr-overlap-scan · 20260922-194917
 
