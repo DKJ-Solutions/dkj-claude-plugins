@@ -117,19 +117,87 @@ function Get-HookPayloadRaw {
         until somebody types EOF -- which is exactly what happens when this hook is run by hand or by
         a test suite from a terminal. Second, the read is bounded by a timeout even when redirected,
         because a redirected handle that nobody closes blocks just as completely as a console does.
-        The normal case pays neither: the harness writes the payload and closes the handle, so the
-        text is already buffered and the wait returns immediately.
+
+        THE SECOND GUARD DID NOT BIND UNTIL #2249, AND THE MECHANISM IS THE WHOLE POINT OF THIS BLOCK.
+        It used to read [Console]::In.ReadToEndAsync() and then Wait($TimeoutMs) on the task. On .NET
+        Framework (Windows PowerShell 5.1) [Console]::In is a SyncTextReader, whose async methods are
+        overridden to run SYNCHRONOUSLY on the calling thread -- so ReadToEndAsync() blocked before
+        Wait() was ever reached and the bound had no effect at all. Measured September 21, 2026, on a
+        child spawned with RedirectStandardInput on a handle nobody writes to or closes: still alive
+        after 15,021 ms at 0.14 s of CPU, printing nothing (#2249's own measurement; everything below
+        was taken on the branch that repaired it, September 22). A SessionStart hook that never
+        returns prints nothing either, so nothing would have reported it.
+
+        WHY IT STOOD UP SO LONG: the guard is correct in the case it is exercised in. A real harness
+        writes the payload and closes the handle, so the text is already buffered and the call returns
+        at once. The bound is only load-bearing in the case nobody had been in -- which is the case its
+        own docstring named.
+
+        EVERY CANDIDATE WAS JUDGED IN BOTH DIRECTIONS -- a handle left open, AND a payload written and
+        closed -- because the obvious repairs pass one and fail the other. Rows 2 and 3 are #2249's own
+        findings and were not re-run here; the rest were measured on the branch that repaired it:
+
+          [Console]::In.ReadToEndAsync() + Wait   normal 13-20 ms  | open handle: WEDGED, forever
+          a [PowerShell]::Create() runspace       the timeout fires, then the process hangs at EXIT
+          a Thread with IsBackground = $true      bounds the wedge, and FAILS THE NORMAL CASE: a
+                                                  PowerShell scriptblock as ThreadStart runs in the
+                                                  originating runspace, which is busy in Join()
+          raw stream ReadAsync in a loop          normal 91-153 ms | open handle: '' at the bound
+          BeginRead + AsyncWaitHandle.WaitOne     normal 89-138 ms | open handle: '' at the bound
+          OpenStandardInput().CopyToAsync()       normal 77-88 ms  | open handle: '' at the bound
+
+        THE LAST ONE IS WHAT THIS USES, and it is the cheapest of the three that bind as well as the
+        shortest. Stream.CopyToAsync's default implementation queues the read to the THREAD POOL, so
+        the calling thread stays free and Wait() is reached; the pool thread left blocked on a handle
+        nobody closes is a background thread, which is why the process still exits cleanly instead of
+        hanging at exit the way the runspace variant did. Measured against it as well: a 1 MB payload
+        84 ms, a writer that sleeps 60 ms before writing 78 ms, an empty stdin 73 ms.
+
+        THE PRICE, STATED RATHER THAN BURIED: the normal case goes from ~15 ms to ~80 ms, because the
+        async machinery is what costs, not the wait. That is paid by every firing that reads a payload,
+        against the 1.1-1.8 s per replayed firing this cache exists to save -- so the cache is still
+        worth roughly an order of magnitude more than the bound costs. It is not free, and a caller on
+        a two-second cadence should know it before reaching for this idiom.
+
+        AND THE DEFAULT BOUND ROSE WITH IT, FROM 250 ms TO 1000 ms. 250 was chosen when the wait never
+        fired, so its size cost nothing and was never measured. Now that it binds, firing WRONGLY means
+        a payload silently lost (no session id, so no cache) while firing RIGHTLY means a bounded delay
+        in a case that was previously unbounded -- an asymmetry that argues for headroom. 1000 ms is
+        about an order of magnitude above the measured normal case rather than the 3x that 250 gives.
+
+        DECODING IS UTF-8 NOW, WITH BOM DETECTION, AND THAT IS A SECOND REPAIR RATHER THAN A SIDE
+        EFFECT. [Console]::In decodes with Console.InputEncoding, which on Windows is the OEM console
+        codepage -- cp850 on the machine this was measured on, not UTF-8. So a payload carrying any
+        non-ASCII byte was already being mangled: '/tmp/Rene' with an e-acute (UTF-8 C3 A9) came back
+        as two cp850 characters (U+251C, U+00AE) and now comes back as the one character it is
+        (U+00E9). Harmless for a session_id, which is a UUID -- and not harmless for the cwd field the
+        sibling readers in this family take a repo root from.
+
+        NOTHING IS DISPOSED ON THE TIMEOUT PATH, DELIBERATELY. On the case this bound exists for a
+        pool thread is still blocked inside the copy, so disposing the stream or the sink out from
+        under it would be a race for no gain: the process is about to exit, and a background thread
+        does not hold it open. On the normal path the copy has completed and the same objects are
+        collected with everything else the hook allocated.
 
         A hook that cannot read its payload gets '' and therefore no cache -- the failing-towards-
         measuring rule in this file's header.
+
+    .PARAMETER TimeoutMs
+        How long the bounded read may wait once the copy has been queued. See the note above on why
+        the default is 1000 rather than the 250 this started with.
     #>
-    param([int]$TimeoutMs = 250)
+    param([int]$TimeoutMs = 1000)
 
     try {
         if (-not [Console]::IsInputRedirected) { return '' }
-        $task = [Console]::In.ReadToEndAsync()
-        if (-not $task.Wait($TimeoutMs)) { return '' }
-        return [string]$task.Result
+        $sink = New-Object System.IO.MemoryStream
+        # The bound only binds because CopyToAsync queues to the thread pool -- see the block above
+        # before reaching for [Console]::In's own async methods here again (#2249).
+        if (-not ([Console]::OpenStandardInput().CopyToAsync($sink)).Wait($TimeoutMs)) { return '' }
+        $sink.Position = 0
+        # detectEncodingFromByteOrderMarks, so a BOM is consumed rather than left at the front of the
+        # string where ConvertFrom-Json would choke on it; UTF-8 is the fallback and the normal case.
+        return (New-Object System.IO.StreamReader($sink, [System.Text.Encoding]::UTF8, $true)).ReadToEnd()
     } catch {
         return ''
     }
@@ -198,7 +266,7 @@ function Get-HookSessionId {
     .SYNOPSIS
         The two above in one call: read this hook's payload and return its session id, or ''.
     #>
-    param([int]$TimeoutMs = 250)
+    param([int]$TimeoutMs = 1000)
 
     return (Get-SessionIdFromPayload -Payload (Get-HookPayloadRaw -TimeoutMs $TimeoutMs))
 }

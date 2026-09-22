@@ -134,8 +134,22 @@ $ErrorActionPreference = 'SilentlyContinue'
 try {
     # Read the session payload HERE and hand it over as a parameter: the harness pipes it to this
     # process, so the script we call would otherwise find an already-drained stdin.
+    #
+    # BOUNDED, because a redirected handle nobody closes blocks forever and this runs every couple of
+    # seconds -- one more wedged process per refresh, none of which prints anything (#2249). It is
+    # written this way rather than with [Console]::In's own async methods because those belong to a
+    # SyncTextReader, which overrides them to run synchronously on the calling thread, so a Wait()
+    # after them is never reached. Get-HookPayloadRaw in the payload's session-cache-lib.ps1 is the
+    # canonical copy and carries the measurement; the shim cannot dot-source it for the same reason it
+    # reads installed_plugins.json itself -- that lib lives in the payload this file is looking for.
     $payload = ''
-    if ([Console]::IsInputRedirected) { $payload = [Console]::In.ReadToEnd() }
+    if ([Console]::IsInputRedirected) {
+        $sink = New-Object System.IO.MemoryStream
+        if (([Console]::OpenStandardInput().CopyToAsync($sink)).Wait(1000)) {
+            $sink.Position = 0
+            $payload = (New-Object System.IO.StreamReader($sink, [System.Text.Encoding]::UTF8, $true)).ReadToEnd()
+        }
+    }
 
     $userHome = ''
     foreach ($candidate in @($env:USERPROFILE, $env:HOME)) {

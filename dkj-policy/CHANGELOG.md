@@ -44,7 +44,335 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**15 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2272-guard-repo-field-two-more-sites · 20260922-103528
+
+`check-consumer-siblings.ps1` printed a sibling's own manifest `repo` field raw at two console
+sites -- the per-member "read" line and the "not compared" line built from it -- both sitting just
+above the block df25f9f6 (#2248) already guarded with `Format-SafePathToken`. A `repo` field
+carrying an embedded newline forged a second console line; both sites now go through the same
+guard as their neighbours, so the whole loop treats this manifest field consistently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Same value class and same script as #2248: a sibling checkout's own manifest text, read back to
+the person running the comparison. Nothing was exploited, and this closes the two sites #2248's
+own widening did not reach.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard the manifest repo field at the two console sites df25f9f6 (#2248) missed
+
+[PR #2275](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2275)
+
+---
+
+### DEPLOY: feat/avatars-assets-folder · 20260922-101346
+
+The three GitHub-account avatars move out of the repo root into `assets/avatars/`, with a README
+stating the fixed path every machine reaches them at and why the folder is root material rather than
+plugin payload. `README.md`'s **Repo layout** gains the matching bullet.
+
+Small, and noticed the moment somebody looks for those images or at the root listing: the root is
+back to its entry documents, and "where are the avatars" has an answer that holds on every machine
+instead of per download folder.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing reaches the subscriber of this workflow. The folder is this repo's own material, deliberately
+outside the plugin payload, so no consuming repo receives it in a cut or has anything to adopt.
+
+**Score:** N/A
+
+#### Pull Request
+
+GitHub-account avatars in assets/avatars/
+
+[PR #2277](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2277)
+
+---
+
+### DEPLOY: fix/2255-suite-bound-basis · 20260922-094657
+
+The per-suite timeout in `Invoke-TestSuiteGate` carried a comment claiming **"no suite can reach it by
+being slow"**, sized off the slowest row in `suite-durations.json` (`new-branch.tests.ps1`, 290.2s on a
+four-lane hosted runner). That sentence is what tells a reader a 1,800s timeout means a wedge -- the
+reading that made #2233 diagnosable -- and it has been false since #2232 recorded
+`check-plugin-integrity-docs.tests.ps1` at 415.5s. A 9-lane run of this repo's 121 suites then reached
+the bound on that file, which passed all 188 of its asserts standalone on the same checkout minutes
+later.
+
+The comment now carries both readings that bracket the bound instead of the CI one alone, retracts the
+false sentence against the run that falsified it, and records why the bound stays a fixed constant
+rather than being derived from `suite-durations.json`: that file is measured on CI, a local reading does
+not convert into a CI one and the sign is not even fixed, so a derived bound would be tightest exactly
+where the machine is slowest.
+
+The correction is also printed. A red verdict naming a timed-out suite now adds that a slow suite can
+reach the bound, so the timeout is not by itself a wedge, and names the one measurement that separates
+the two -- a standalone re-run of that suite. The comment is read by whoever maintains the lib; the
+verdict line is read by whoever just lost half an hour, and that is where the false reading cost its
+second full gate run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+`native-capture-lib.ps1` is mirrored into `dkj-policy`, so every consumer running this workflow's test
+gate gets the corrected verdict. It lands hardest where it is worth most: a slow machine is the one that
+reaches an 1,800s bound on a green suite, and also the one least able to afford a second full gate run
+spent hunting a wedge that was never there.
+
+Nothing changes for a run that does not time out, and the constant itself is untouched.
+
+**Score:** 2
+
+#### Pull Request
+
+The 1800s suite bound no longer claims a basis that a measured run has already exceeded
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2262](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2262)
+
+---
+
+### DEPLOY: fix/2264-hook-stdin-console-guard · 20260922-093846
+
+Running either of this workflow's two command guards by hand -- the first thing anybody does when a
+git or a theme command is refused and they want to know why -- used to hang on line one with nothing
+printed, waiting on a console read for a Ctrl+Z that is never coming. Both now read stdin only where
+there is a handle to read, which is the guard the other five members of this family already carried.
+A new suite counts that family out of the tree rather than from a list, because a wrong hand-count is
+what let these two sit unguarded through two separate sweeps. It proved itself within hours: a
+neighbouring branch changed how six of those sites read stdin, and the suite went red on the spot
+rather than reporting the shrunken family as a clean one.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer of this workflow gets the same repair, and it reaches the guard protecting their live
+Shopify theme as well as the one protecting their working copy. Nothing about how either guard judges
+a command changes, so there is nothing to act on -- what changes is that the guard can be questioned
+by hand on the machine it just refused something on.
+
+**Score:** 2
+
+#### Pull Request
+
+Two PreToolUse guards no longer block on a console read when run by hand
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2269](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2269)
+
+---
+
+### DEPLOY: feat/2265-declared-settings-at-the-moment-of-change · 20260922-092503
+
+A GitHub-side setting -- a merge switch, a ruleset rule, a required check -- can be a decided answer with
+a measured reason, and until now nothing pointed a session at that reason before it proposed changing
+one. The declaration has been machine-readable since #1726, but its only runner is a daily schedule, so
+its earliest catch is after the change and after whatever the change let through. Two pointers close that:
+a hard rule in the system administrator's portable manual (read the declaration first, and an empty
+declaration means nothing is watched rather than that a setting is free to move), and a line in
+`ship-pr`'s CI-wait invitation -- the block that already answers *what do I do about this wait* now also
+answers *not that*, naming how many settings the repo declares and the one command that prints them with
+their reasons. The line is derived from `Get-ExpectedRepoSettings`, never asserted, so a repo that
+declares nothing gets no line at all.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing to migrate and no behaviour changes: both halves are pointers, and the session-side guard that
+#1726 weighed and declined stays declined. For a consumer of this workflow the manual travels with the
+core team plugin and the `ship-pr` line travels with `dkj-policy`, where it stays silent until that repo
+declares settings of its own -- the same rule that keeps `ship-pr`'s watch from naming a CI check it
+cannot vouch for, applied to a repo's settings.
+
+**Score:** 2
+
+#### Pull Request
+
+Point a session at the declared GitHub-side settings before it proposes changing one
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2274](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2274)
+
+---
+
+### DEPLOY: docs/2242-fold-stamp-heading-drift · 20260922-090154
+
+Corrects the tree's ~15-site drift about where the fold's merge stamp lands: the entry's own
+`### DEPLOY:` heading since August 23, 2026, not the `Pull Request` heading that carried it from
+August 19–23. Left untouched: passages that correctly describe that August 19–23 window as history,
+and the lint's duplicate-section errors, which are about the closing PR *link* rather than the stamp.
+
+**Score:** 3 -- self-contradicting comments and docstrings (a summary line disagreeing with its own
+body) are exactly the kind of drift that misleads the next person to touch this code.
+
+#### What makes this deploy extra special
+
+`DEVELOPMENT-portable.md` and `CONTRIBUTING-portable.md` are the only description a consumer has of
+where their changelog's ordering key lives; the stale text pointed at the wrong heading.
+
+**Score:** 1 -- prevents a consumer debugging their changelog's ordering from looking at the
+`Pull Request` heading, finding no stamp, and concluding the fold is broken.
+
+#### Pull Request
+
+Correct the stale 'Pull Request heading' claims about the fold's merge stamp
+
+Plugins: dkj-policy
+
+[PR #2268](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2268)
+
+---
+
+### DEPLOY: fix/2249-bound-stdin-read · 20260922-084156
+
+A SessionStart hook could hang a session start forever and print nothing while doing it. The timeout
+that was supposed to stop that never ran: `[Console]::In` is a `SyncTextReader` on Windows PowerShell,
+so `ReadToEndAsync()` completed on the calling thread before the `Wait()` bounding it was ever reached.
+On a redirected handle nobody closes, the read blocked for as long as the session lasted -- measured at
+15 s and still going, at no CPU at all. The read now goes through the raw stdin stream, which queues to
+the thread pool and leaves the calling thread free to time out, so the bound binds. The same repair
+went into the two neighbours that had no bound at all: the status line and the shim that wires it up,
+both of which run every couple of seconds and would otherwise have left one more stuck process behind
+on every refresh.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A second defect surfaced in the same three lines and was fixed with them: the payload was being decoded
+with the OEM console codepage rather than UTF-8, so any accented character in a path came through
+mangled. Harmless for the session id, which is a UUID, and not harmless for the working-directory field
+other readers in this family take a repo root from.
+
+For a consumer of this workflow, nothing changes about how anything is used and no migration is needed;
+a failure that had not visibly happened yet can now no longer happen. The read costs about 80 ms where
+it used to cost about 15, which is the price of the bound actually binding, and it is stated in the code
+beside the measurement rather than left for somebody to find.
+
+**Score:** N/A
+
+#### Pull Request
+
+Bound the hook stdin read so an open handle cannot wedge a session start
+
+Plugins: dkj-policy
+
+[PR #2270](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2270)
+
+---
+
+### DEPLOY: fix/2259-predossier-double-merge-stamp · 20260922-082715
+
+The fold wrote the merge moment twice on a pre-dossier entry -- once on its heading, once on the closing
+`[PR #NN](url)` line -- because its gate still asked whether the entry had a `'Pull Request'` section, a
+question the stamp writer stopped acting on on August 23, 2026. The gate now reads
+`Test-EntryHeadingTakesMergeStamp`, which shares `Set-EntryMergeStamp`'s own scan, so the two cannot
+answer differently. Nothing changes for an entry written in the current shape.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer of this workflow meets the fold through the plugin mirror, so the duplicate landed there too.
+It prevents a failure that has not happened yet, and the failure is namable: any branch parked before
+August 6, 2026 -- here or in a consuming repo -- carries a pre-dossier entry, and folding one now writes
+the landing date in two places at once.
+
+**Score:** 1
+
+#### Pull Request
+
+A pre-dossier entry no longer folds with the merge date written twice
+
+Plugins: dkj-policy
+
+[PR #2266](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2266)
+
+---
+
+### DEPLOY: fix/2250-gh-not-started-wording · 20260922-074056
+
+Six `gh` reads composed their own sentence about an unmeasured exit code, so a `gh` that is **not
+installed** -- a state #2234 deliberately reports with `ExitCodeUnknown` set, to keep the ~63 audited
+sites working untouched -- was described as one that ran, and the reader was sent to a re-run that
+cannot settle a missing dependency. Each now asks `Test-NativeCommandStarted` first, and names the
+install as the remedy.
+
+Two of the six say something different on purpose. `check-repo-settings.ps1` and
+`check-connectors.ps1` sit behind a `Get-Command gh` guard that has already proved gh is on PATH, so
+*"gh is not installed"* would be a cause the same run has measured to be false -- the class of
+unmeasured diagnosis this whole family exists to stop printing. What is reachable at those two is a gh
+that was found and still could not be launched, and their sentences say that instead.
+
+At `ship-pr.ps1` the repair also reaches one layer out of what the report named: the enclosing
+`Write-Warning` closed with *"so a re-run normally settles it"*, which is the same false advice in the
+same printed sentence.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every one of these sentences is what a consumer reads in the window this workflow keeps measuring
+against itself: adopting it before installing the GitHub CLI. The gate runners are the sharpest of
+them -- `check-branch-entry.ps1` runs in a consumer's CI, and `ship-pr.ps1` prints its line while
+merging -- and both told that reader to try again, forever, instead of naming the one thing that would
+fix it. `check-consumer-siblings.ps1` reaches the same reader through `-Source github`, which bypasses
+its own availability gate.
+
+**Score:** 2
+
+#### Pull Request
+
+Six gh sites no longer say a missing gh ran, nor advise a re-run that cannot settle it
+
+Plugins: dkj-policy
+
+[PR #2261](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2261)
+
+---
+
+### DEPLOY: fix/2252-refresh-suite-durations · 20260922-072057
+
+`scripts/tests/suite-durations.json` is re-recorded from three post-merge CI runs, and it repairs more
+than the row #2252 reported. `script-contract.tests.ps1` moves from 98.8s to **208.9s**, which is the
++12 child spawns #2236 added plus the contention of a pool that has grown since. But the file was also
+**eleven days and 30 suites stale**: it listed 91 of the 121 suites in the tree, and
+`Invoke-TestSuiteGate` charges an unlisted suite the largest recorded value -- so it was packing 30
+suites at 290.2s each when they total **266.5s between them**. The packer believed the lightest
+thirty suites in the pool were its heaviest. Every row is now a measured mean rather than a ceiling.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The file is this repo's own CI packing hint; nothing in it ships in a plugin payload, so no
+consumer reads it and none of their gates change.
+
+**Score:** N/A
+
+#### Pull Request
+
+Refresh the recorded CI suite durations from post-2236 runs
+
+[PR #2260](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2260)
+
+---
 
 ### DEPLOY: fix/2234-native-capture-launch-failure · 20260922-032338
 

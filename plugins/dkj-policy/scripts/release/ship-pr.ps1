@@ -1502,6 +1502,44 @@ Write-Host "  It does need this session's process: the merge and the fold are st
 Write-Host "  So leave this one running and carry on in a SECOND terminal -- do not quit the harness." -ForegroundColor DarkGray
 Write-Host "  $(Get-TrunkReturnGoAheadLine -Returned $treeOnTrunk -Branch $branchShown)" -ForegroundColor DarkGray
 Write-Host "  Open that second terminal in a lane: scripts\task\worktree-lane.ps1 -Name <name>" -ForegroundColor DarkGray
+# --- AND THE ANSWER IS NEVER A GITHUB-SIDE SETTING (issue #2265) ---------------------------------
+# The block above answers "this wait is long, what do I do about it". This line answers the other thing
+# a session reaches for at exactly this moment, and it is the one answer that is wrong: turning a merge
+# switch on so that the wait stops needing anybody. Measured September 22, 2026 on PR #2262, three of
+# four CI shards still queued -- `allow_auto_merge` was enabled and armed against a record in that
+# repo's own tree declaring it `false`, with the trunk nine commits ahead at that moment. That is
+# exactly the stale-but-green certificate step 3b refuses, and step 3b cannot see it, because an
+# auto-merge happens without a shipping session (#1730). The declaration was machine-readable, about a
+# second away, and pointed at by nothing in the session.
+#
+# WHY HERE AND NOT IN A GUARD. The repo-settings check is a SCHEDULED leg by decision (#1726), so its
+# earliest catch is the next scheduled run -- after the change, and after whatever the change let
+# through. That decision is about drift somebody else caused and it stands; this is the other shape,
+# where the session is the one about to cause it, and the whole repair is a pointer at the moment of
+# the temptation rather than a third runner.
+#
+# DERIVED, NEVER ASSERTED. It names only what the repo's OWN Get-ExpectedRepoSettings declares, so a
+# repo that declares nothing gets no line at all -- the same rule the watch below follows when it
+# refuses to name a check ("a claim about the consumer's CI that this script cannot keep"), one surface
+# over. The seam is optional and the read is guarded, so a tree without it is unchanged.
+if (Test-FunctionDefined 'Get-ExpectedRepoSettings') {
+    try {
+        $declaredSettings = @(Get-ExpectedRepoSettings)
+        if ($declaredSettings.Count -gt 0) {
+            $autoMergeDeclared = @($declaredSettings |
+                Where-Object { $_.Field -eq 'repo.allow_auto_merge' }).Count -gt 0
+            $settingsSubject = if ($autoMergeDeclared) {
+                "$($declaredSettings.Count) GitHub-side settings, auto-merge among them"
+            } else {
+                "$($declaredSettings.Count) GitHub-side settings"
+            }
+            $settingsLine = "  A GitHub SETTING is not one of the answers: this repo declares " +
+                "$settingsSubject, each with its reason -- read them (check-repo-settings.ps1) " +
+                'before proposing one.'
+            Write-Host $settingsLine -ForegroundColor DarkGray
+        }
+    } catch { }
+}
 # --- THE WATCH BLOCKS ON THE REQUIRED CHECKS ONLY (issue #1602) ----------------------------------
 # WHAT THIS CHANGES, AND WHAT IT DELIBERATELY DOES NOT. The merge below is allowed to go as soon as
 # every check the ruleset REQUIRES is green; the non-required ones are still waited for and still
@@ -2638,9 +2676,19 @@ if ($null -ne $shipCycleText) {
     # satisfies `-ne 0`, so this printed "gh exited " -- the sentence built to send the reader to their
     # network or token, with the number that would justify it missing out of it. Like the short read
     # beside it, it is a fact about this run rather than about the PR, and it lands in the same branch.
+    # A FOURTH REASON JOINED THEM UNDER #2250, and it is asked ahead of all three. A gh that never
+    # STARTED sets ExitCodeUnknown on purpose -- that is what lets the audited sites keep working
+    # untouched -- so absorbed by the arm below it, a missing gh was described as one that ran. There is
+    # no Get-Command guard on this call, so that state is reachable here in full. It also has to be
+    # carried as a flag rather than sniffed out of the string, because the sentence this block feeds
+    # closes with advice that is false in exactly this state -- see $lockRetry below.
     $lockUnread = ''
     $lockShortRead = $false
-    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+    $lockNotStarted = $false
+    if (-not (Test-NativeCommandStarted -Capture $lockView)) {
+        $lockUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran'
+        $lockNotStarted = $true
+    } elseif (-not (Test-NativeExitMeasured -Capture $lockView)) {
         $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read'
     } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = "gh exited $($lockView.ExitCode)"
@@ -2699,7 +2747,17 @@ CI has already passed, so a re-run picks up from here. There is no -Force for th
         # than a bigger number. A capture that is merely being flushed settles on the first probe
         # (measured: 2-8 ms over five gh calls), and one held by a grandchild that is still RUNNING
         # never releases inside any budget worth waiting for -- so raising it buys stalls, not reads.
-        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        # THE CLOSING SENTENCE IS THE OTHER HALF OF #2250'S DEFECT, AND IT IS OUTSIDE THE PARENTHETICAL.
+        # That report names $lockUnread's arm; repairing only that would leave this line printing "a
+        # re-run normally settles it" about a gh that is not installed -- the same false advice, in the
+        # same printed sentence, one layer out. A reader does not experience the two as separate strings,
+        # so they are answered together or the repair satisfies the report and still misleads.
+        $lockRetry = if ($lockNotStarted) {
+            'That is a fact about this machine rather than about the PR, and a re-run will NOT settle it -- install the GitHub CLI, or put it on PATH.'
+        } else {
+            "This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        }
+        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. $lockRetry"
     } else {
         Write-Host "  DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- not checked (this is not a finding)." -ForegroundColor DarkGray
     }
