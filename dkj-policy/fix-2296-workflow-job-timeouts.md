@@ -94,10 +94,12 @@ so whatever wedged sat below the level a bound inside the process can reach.
 #### What makes this deploy extra special
 
 A consumer's scaffolded runners get the same treatment, which is the half no gate in this repo could
-ever see: a wedge in an adopted `branch-entry`, `fold-on-merge`, `verify-resolved`, `repo-settings`,
-theme-check or `asana-mirror` job blocks that repo's own required check with nobody watching, and the
-write-capable ones would spend six hours holding a standing credential. Existing consumers pick the caps
-up on their next `adopt-dkj-policy` run; nothing already scaffolded changes on its own.
+ever see: a wedge in an adopted `branch-entry`, `always-on-budget`, `fold-on-merge`, `verify-resolved`,
+`repo-settings`, skeleton `ci`, `theme-check` or `asana-mirror` job blocks that repo's own required check
+with nobody watching, and the write-capable ones would spend six hours holding a standing credential.
+Nothing already scaffolded changes on its own, and the pickup runs along three separate routes rather
+than one: the first six arrive on a consumer's next `adopt-dkj-policy` run, `theme-check` on
+`adopt-shopify-floor`, and `asana-mirror` on `adopt-dkj-policy-bwj`.
 
 **Score:** 2
 
