@@ -336,16 +336,16 @@ count is worth stating precisely because the wrong one is what kept the second s
    U+202E or a zero-width run straight into those lines; `sync-main`'s come off `git ls-remote` and its
    seam answers, which git never validated at all. Not capped.
 
-   **And this entry had a value it never named.** `sync-main.ps1`'s `$rel` -- the consuming repo's own
-   `Get-ShopifySyncLogPath` seam answer -- prints RAW, with no guard of any kind, at L549, L570 and
-   L573, sharing L570 with a branch name this entry already guards. A seam-answered path was never a ref
-   name, so it was never this entry's to cover -- which is exactly how a raw print survived inside a
-   site the list already carried. Filed under #2248, not repaired on this branch. **This is an unguarded
-   VALUE inside a site the list already had, not an unguarded SITE** -- entries 8 and 13 below are the
-   two of those the sweep found, and the two kinds of miss are not the same size: a value hiding inside
-   a site already on the page is exactly this page's own "an entry goes stale the way the list does, one
-   level in" lesson, while a whole site the list never carried at all is a bigger gap the same lesson
-   does not by itself explain.
+   **And this entry had a value it never named -- repaired under #2248.** `sync-main.ps1`'s `$rel` --
+   the consuming repo's own `Get-ShopifySyncLogPath` seam answer -- printed RAW, with no guard of any
+   kind, at the scaffold-marker line, the success line it shares with the already-guarded `$Branch`, and
+   the catch block (L550, L572, L577). A seam-answered path was never a ref name, so it was never this
+   entry's to cover -- which is exactly how a raw print survived inside a site the list already carried.
+   All three now go through `Get-DisplayPath`. **This was an unguarded VALUE inside a site the list
+   already had, not an unguarded SITE** -- entries 8 and 13 below are the two of those the sweep found,
+   and the two kinds of miss are not the same size: a value hiding inside a site already on the page is
+   exactly this page's own "an entry goes stale the way the list does, one level in" lesson, while a
+   whole site the list never carried at all is a bigger gap the same lesson does not by itself explain.
 5. **`claim-issue`'s own report** (`Format-ForConsole`, `scripts/lib/claim-issue-lib.ps1`, #1858) --
    **four** classes of value, not one, because that report grew a pickup signal at a time and each one
    arrived carrying its own: the issue TITLE off the tracker; the AUTHOR, the SUBJECT and the BRANCH
@@ -374,21 +374,27 @@ count is worth stating precisely because the wrong one is what kept the second s
    spelling and the printed one are kept apart here**: the `gh run list --workflow=<name>` line is
    printed only where the stripped name still equals the real one, because a stripped name is no longer
    the file gh has to be given -- #1594's distinction, one file type over.
-8. **`adopt-ci-floor.ps1`'s floor report -- the site #2247 reported, and worse than it reported**
-   (`scripts/task/adopt-ci-floor.ps1`, #2247, #2248). **The first of two SITES this sweep found that the
-   list had never carried at all** -- as against entry 4's raw VALUE above, which hid inside a site
-   already on the list. Three values at this site are GUARDED via
+8. **`adopt-ci-floor.ps1`'s floor report -- the site #2247 reported, and worse than it reported, now
+   repaired under #2248** (`scripts/task/adopt-ci-floor.ps1`, #2247, #2248). **The first of two SITES
+   this sweep found that the list had never carried at all** -- as against entry 4's raw VALUE above,
+   which hid inside a site already on the list. Three values at this site were already GUARDED via
    `Get-DisplayRef`: the lone candidate job id when it is refused as unsafe to paste (L980), the repo
    slug when it is refused as unsafe to paste (L988, off `Get-RepoName`), and every candidate check
-   printed as `<job id> -- from <workflow>` (L1032; job ids and `name:` values come off the consumer's
+   printed as `<job id> -- from <workflow>` (L1034; job ids and `name:` values come off the consumer's
    own `.github/workflows/*.yml` via `Get-WorkflowFacts`). Not capped. **Two more values at the SAME
-   site print RAW, with no guard and no cap**: the consumer's own workflow FILENAME
-   (`$w.Rel = ".github/workflows/$($f.Name)"`, read off their disk at L883, L1032, L1053, L1056 and
-   L1061 -- sharing L1032 with the guarded job id) and the required-check CONTEXT NAME (`$ctx`, off the
-   repo's own ruleset JSON via `Get-DirectPushBlockingRules`, at L1046, L1053, L1056 and L1061). **#2247
-   asserted nothing here was exploitable today; that assertion was false.** The repair is filed as
-   #2248, deliberately not on this branch -- this entry exists to make the list true, not to make the
-   script safe.
+   site printed RAW, with no guard and no cap, until #2248**: the consumer's own workflow FILENAME
+   (`$w.Rel = ".github/workflows/$($f.Name)"`, read off their disk) and the required-check CONTEXT NAME
+   (`$ctx`, off the repo's own ruleset JSON via `Get-DirectPushBlockingRules`). **#2247 asserted nothing
+   here was exploitable today; that assertion was false.**
+
+   Both are now guarded: the filename via `Get-DisplayPath` (L884, and again at L1034 sharing the line
+   with the already-guarded job id) and the context name via `Get-DisplayRef` (L1048). Inside the `else`
+   branch that walks each required check, both are computed once -- `$ctxDisplay` at L1048,
+   `$wRelDisplay` at L1058 -- and reused rather than re-interpolated at each print: `$ctxDisplay` across
+   all four `[note]`/`[ok]`/`[ERROR]`/`[gap]` branches (L1051, L1060, L1063, L1068), `$wRelDisplay`
+   across the three of those that actually have a matching workflow file (L1060, L1063, L1068 --
+   `[note]` fires before a `$w` exists at all). This entry exists to make the list true, not to make the
+   script safe; the fix itself is #2248's.
 9. **The `check-report-lib.ps1` family -- a FOURTH hand-typed strip mechanism, and the largest single
    find this sweep made** (`Format-SafeToken`, `Format-SuspectToken`, `Format-SafeProseToken`,
    `Format-SafePathToken`, `scripts/lib/check-report-lib.ps1`, inbound #309, inbound #414, #1419).
@@ -441,12 +447,57 @@ count is worth stating precisely because the wrong one is what kept the second s
     `Get-DisplayPath`, including a path a subagent RENAMED FROM inside the comparison window. Both
     functions' own caps apply; nothing further here. **Also no defect**: both were guarded already, and
     #2247 names the sweep that found the site, not a fix.
-13. **`check-consumer-siblings.ps1`'s ONLY-IN/PARTIAL/DRIFTED lines -- printed RAW, the second of the two
-    SITES this sweep found that the list never carried at all** (L445, L450, L454, L463, #2247, #2248)
-    -- a sibling consumer repo's own file paths (`$f.Path`), read out of that repo's checkout and
-    written straight to `Write-Info` with no strip at all. The script already dot-sources
-    `check-report-lib.ps1` (L105) for that same `Write-Info`, so `Format-SafePathToken` sits one
-    argument away at every one of these four lines and is called at none of them.
+13. **`check-consumer-siblings.ps1`'s ONLY-IN/PARTIAL/DRIFTED/SHIPPED lines -- the second of the two
+    SITES this sweep found that the list never carried at all, now repaired under #2248**
+    (L474, L476, L481, L485, L497, #2247, #2248) -- a sibling consumer repo's own file paths
+    (`$f.Path`), read out of that repo's checkout, were printed at four lines (the `ONLY-IN`, `PARTIAL`
+    and `DRIFTED` lines, plus the `SHIPPED` lane #1885 added) with no strip at all. The script already
+    dot-sourced `check-report-lib.ps1` (L105) for that same `Write-Info`, so `Format-SafePathToken` sat
+    one argument away at every one of these four lines and was called at none of them.
+
+    All four now guard `$f.Path` via `Format-SafePathToken`. **The repair went further than the four
+    values this entry named**: `$label` (the `ONLY-IN` group header, L474), `$f.Member` (L476) and
+    `$f.Members` (L481, L497) -- a sibling group's own connector-manifest `repo` field, printed at the
+    same sites -- are guarded the same way, on the verified precedent that `check-connectors.ps1`
+    already guards that identical `$manifestRepo` field with `Format-SafePathToken` at six sites
+    (L983, L990, L1039, L1041, L1065, L1069). **And deliberately left unguarded, stated as a decision in
+    a code comment rather than missed**: `$f.Class` (this script's own enum, its `'only-in'`/`'partial'`/
+    `'drifted'` literals assigned in `Find-ShippedMechanism`, `scripts/lib/sibling-divergence-lib.ps1`
+    ~L416-418, off `Compare-SiblingInventory`'s output rather than by that function itself) and
+    `$_.Plugin`/`$_.Path` inside `$where` at L496 (off `Get-MarketplaceShippedScript`, this repo's own
+    marketplace index) -- neither is foreign text, both are this repo's own.
+
+    **And two more sites in the same file needed a further guard -- `$label`'s reached the trunk
+    independently, under #2272 via PR #2275; `$inv.Reason`'s is this branch's own.** Tycho filed #2272
+    after finding `$label`, the same connector-manifest `repo` field, still printing completely
+    unguarded earlier in the script, before the group loop: L444 (the `$unreadable` line, inside the
+    `if (-not $inv.Ok)` branch) and L449 (the per-member `read <label> : N comparable path(s) via
+    <reason>` line). #2272 sat unclaimed on the tracker while this branch carried it; another session
+    picked it up, fixed `$label` at those two lines, and shipped it as PR #2275, merged to `main` ahead
+    of this branch -- so that half of the guard is not this branch's work, and this entry does not claim
+    it. What this branch adds at the same two lines is the value #2272's own fix did not touch.
+
+    Both lines also guard a value this entry had not named before: **`$inv.Reason`, via
+    `Format-SafeProseToken`, not `Format-SafePathToken`** -- a different shape from every other value in
+    this entry, because it is not a foreign value printed whole but a **composed sentence that sometimes
+    embeds foreign text at a variable position**. Verified against the tree rather than assumed:
+    `$inv.Reason` is assigned in three places -- `Get-GitHubInventory`, `Get-DiskInventory` (L152-235),
+    and one arm inline in the script body itself (L427, when no `localCheckout` candidate resolves on
+    this machine). Of all of those, only two carry foreign text, both in `Get-GitHubInventory` and both
+    built from `$branch` -- the sibling's own default branch name, read off `gh api`:
+    `"gh exited $($call.ExitCode) reading the tree of $branch"` (L192) and `"github:$branch"` (L202).
+    Every other arm is this script's own literal text, or embeds only a number (an exit code, a timeout
+    in seconds). No total is given here on purpose: a count of arms is exactly the kind of value this
+    page has now gotten wrong three times running before this branch even shipped (nine-plus-two, a
+    relay of it, and a recount scoped to two functions when a third arm reaches the same print), and the
+    file gained two more literal arms from an unrelated merge while this entry was being written (#2234,
+    now L176 and L190) -- proof, not just argument, that any total here would already be stale. The
+    lines above are what a reader needs to re-verify this claim, and they cannot go stale the way a
+    summed total can. Guarded at the print rather than at composition, deliberately:
+    `"github:$branch"` is the arm `$memberSource[$label].Branch` is stripped from (L422,
+    `-replace '^github:', ''`) and carried into a later `contents/$($f.Path)?ref=$($src.Branch)` API
+    call (L279), so sanitizing `$inv.Reason` at composition would corrupt a real, if unusual, sibling
+    branch name rather than merely change what the console shows.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
 September 11, five until September 15, six until September 17, seven until September 21 -- and on that
@@ -486,7 +537,22 @@ claim that its one reported site was already guarded turned out false**: reading
 the report about it found two raw, uncapped values sitting beside the guarded ones -- one of them on the
 very same line as a value #2247 had checked and called safe. That is this page's own "verify the reason,
 not just the symptom" discipline paying for itself: a site's entry is written by reading the site, never
-by reading the report about it.
+by reading the report about it. **And the six were not evenly a defect.** Only entries 8 and 13 were
+unguarded prints -- both now repaired under #2248. The other four were never anything but list gaps:
+11 and 12 say so outright ("no defect at all", "also no defect"), and 9 and 10 read the same way on
+inspection -- a strip mechanism and a guarded print that already worked, simply not yet carried onto
+this page.
+
+**And entry 13 went one round further, inside this very branch -- and the repair split in two hands.**
+#2272 found `$label` and `$inv.Reason` still raw at two more lines of that same site, missed by the
+repair that had just rewritten the entry above to say it was fixed. Every earlier instance of this
+lesson -- entry 5, entry 6 -- was found by unrelated work sometime after the fact; this one was found
+before the rewrite had even reached `main`, by a regression test's fixture rather than by anyone
+rereading the site or this page. **But #2272 was never claimed on the tracker**, so while it sat open
+against this branch, another session picked it up unaware and shipped `$label`'s half as its own PR,
+merged first; only `$inv.Reason`'s half is this branch's repair. That split is a lesson about issue
+ownership, not about foreign text, and it is not this page's to hold -- named here only because it is
+why the sentence above splits credit rather than claiming the whole site.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and

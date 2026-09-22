@@ -53,6 +53,18 @@
          consumer's edit; a repo that already runs CI under any name is never offered or given one;
          its job's check name follows the Get-CiTestCheckName seam when declared; and an unsafe
          declared name is refused rather than interpolated into the YAML as-is.
+      10. #2248: THE REQUIRED-CHECK CONTEXT NAME IS GUARDED WHEN NOBODY OWNS IT (section 5b). $ctx is
+          read off the repo's OWN ruleset JSON -- unlike a job id, GitHub's schema does not constrain
+          its characters -- and df25f9f6 sent it through Get-DisplayRef before either report branch.
+          This is a behavioural pin, not a spelling one: it crafts a context whose embedded newline
+          would forge a second console line if the guard were dropped, and asserts on the actual
+          rendered shape (one line, the control character collapsed to a space) rather than on the
+          presence of 'Get-DisplayRef' in the source. It does not cover $w.Rel (the consumer's own
+          workflow FILENAME, also guarded by that commit) -- see check-consumer-siblings.tests.ps1's
+          own docstring for why a filename-carried deceptive character is a worse test subject than a
+          JSON-carried one (console code-page decoding of a filename is not this suite's concern, but
+          reaching it needs a real file on disk with a name no #2248 fixture here builds), and
+          Tycho's closing report for that gap named plainly.
 
     THE RULES PAYLOAD ARRIVES FROM A FIXTURE FILE, via -RulesJsonOverride. It is the only way to reach
     the queue-is-active arm at all: a test tree is not a checkout, has no remote, and CI has no token
@@ -98,6 +110,16 @@ function Assert-Equal {
 # context inside parameters.required_status_checks, which is where Get-DirectPushBlockingRules reads it.
 $RulesQueueOn = '[{"type":"deletion"},{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"lint-en-tests"}]}},{"type":"merge_queue"}]'
 $RulesQueueOff = '[{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"lint-en-tests"}]}}]'
+# ISSUE #2248's REGRESSION PIN. A required-check CONTEXT NAME is read off the repo's own ruleset JSON
+# (Get-DirectPushBlockingRules), not off this tree, so nothing constrains its characters -- unlike a job
+# id, which GitHub Actions' own schema already restricts to [a-zA-Z0-9_-]. This payload's context names
+# no job in ANY fixture consumer (deliberately: "weird-check" -> `n -> "INJECTED-marker" cannot be a
+# real Actions job id), so it always lands in the '[note] ... matches no job' arm -- the one where
+# $ctxDisplay = Get-DisplayRef -Ref $ctx is computed before either report branch. Get-DisplayRef replaces a
+# control character with a SPACE and collapses runs of spaces (unlike Format-SafePathToken, which
+# deletes and welds -- see check-consumer-siblings.tests.ps1), so the embedded newline below is expected
+# to survive as one joining space, not as a line break and not as nothing.
+$RulesQueueOffDeceptiveContext = '[{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"weird-check' + "`n" + 'INJECTED-marker"}]}}]'
 # NO QUEUE AND NOTHING REQUIRED -- the shape that leaves the staleness guard with no certificate to
 # date, which is the one gap this command still reports after the queue stopped being policy (#1546).
 $RulesQueueOffNoChecks = '[{"type":"deletion"},{"type":"non_fast_forward"}]'
@@ -493,6 +515,25 @@ try {
     $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOn)
     Assert-True ($r.Flat -like '*which triggers on merge_group*') 'a workflow that does carry the trigger is reported as ready'
     Assert-True ($r.Flat -notlike '*every merge fails*') 'and the outage is not reported against it'
+
+    # --- 5b. #2248's regression pin: a required-check context name this repo does not own is guarded --
+    Write-Host '-- 5b. #2248: a deceptive required-check context name is guarded, not printed raw --' -ForegroundColor Cyan
+    $rulesDeceptiveContext = New-RulesFile -Label 'deceptive-context' -Json $RulesQueueOffDeceptiveContext
+    $dir = New-FixtureConsumer -Label 'deceptive-context'
+    $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesDeceptiveContext)
+    Assert-True ($r.Flat -like '*matches no job*') 'the fixture reaches the no-owner arm at all, so the asserts below are testing something'
+    # $r.Out keeps real line breaks (see Invoke-Adopt's own docstring) -- the property under test is
+    # exactly whether the embedded newline in $ctx survives as ANOTHER one, so Out is read, not Flat.
+    # '[note]' ALSO PRINTS FOR repo-settings.yml's own schedule note AND FOR "no merge_queue rule" IN
+    # AN ORDINARY DRY RUN -- neither carries a manifest- or ruleset-supplied value, so both are filtered
+    # out here rather than counted; the subject is the ONE line this fixture's deceptive context produces.
+    $noteLines = @($r.Out -split "`n" | Where-Object { $_ -match "\[note\].*required check" })
+    Assert-True ($noteLines.Count -eq 1) `
+        'the deceptive context name produces exactly ONE required-check [note] line -- its embedded newline did not forge a second'
+    Assert-True ($noteLines.Count -gt 0 -and $noteLines[0] -match 'weird-check INJECTED-marker') `
+        "and that one line reads the context as Get-DisplayRef renders it -- the control character replaced by a SPACE, collapsed, not deleted and not left as a literal newline"
+    Assert-True (-not ($r.Flat -match 'weird-checkINJECTED')) `
+        "the raw, unguarded context value never appears WELDED in the flattened report -- that shape is what a leaked newline would produce (Out split into two array elements, joined by Flat with no separator)"
 
     # --- 6. The trunk is read, never assumed ---------------------------------------------------------
     Write-Host '-- 6. the placed runners follow this repo trunk --' -ForegroundColor Cyan
