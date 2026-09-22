@@ -85,6 +85,13 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
       `sibling-divergence`, `shared-scripts` (mirror parity) and `pr-issues` (which pins *which* libs
       may carry the strip pattern -- untouched, since this branch only calls the existing functions).
 - [x] Every line number cited in the three registry entries verified against the tree after the edit.
+- [x] **Deliberate local gate bypass, recorded rather than slipped through**: `ship-pr` ran with
+      `-SkipTests`. `open-pr` had just run all 122 suites green on this exact tree (1,259s, 8 lanes)
+      and nothing was committed after it, so the local re-run would have measured nothing new --
+      while CI runs the authoritative copy of the same gate as the required check `lint-en-tests`,
+      which is what the merge is actually gated on. The lint gate was **not** skipped. The
+      contention flake in `test-suite-gate.tests.ps1` on an already-loaded machine was the second
+      reason not to spend the run a third time.
 - [x] Behavioural regression pin written -- `scripts/tests/check-consumer-siblings.tests.ps1`, new,
       22 asserts, where this script had no suite-level coverage at all before (only its pure lib).
       It drives the real script with `-Source disk` over crafted manifests and asserts on the
