@@ -52,10 +52,10 @@ answer -- build one of the three shapes it names, or decline with the numbers.
 #### One premise in the issue body does not hold
 
 #2323 says levers 1 and 3 *"are built on `feat/2317-gate-cost-ci-wait`"*, and its "not urgent" framing rests on
-that. Measured on the day of this branch: that branch carries one `park:` commit with its plan document and
-`- [ ] TODO: the first step of this branch`. Lever 1 is scoped, not built. It does not change the verdict --
-it strengthens it, since lever 1 still dominates lever 2 on the same case at a fraction of the cost -- but it
-is recorded on the issue rather than left for the next reader to trip over.
+that. Measured on the day of this branch: that branch carries one `park:` commit with its plan document, whose
+CREATE section still holds nothing but the scaffolder's own placeholder. Lever 1 is scoped, not built. That
+does not change the verdict -- it strengthens it, since lever 1 still dominates lever 2 at a fraction of the
+cost on the same case -- but it is recorded on the issue rather than left for the next reader to trip over.
 
 ### CREATE
 
