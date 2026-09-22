@@ -501,7 +501,8 @@ count is worth stating precisely because the wrong one is what kept the second s
 14. **A TEST SUITE's own scan output -- the first entry on this list that is not a script**
     (`scripts/tests/hook-stdin-guard.tests.ps1`, #2280). Two value classes, both scanned out of the
     tree rather than typed in the file: a tracked FILE PATH off a `Get-ChildItem -Recurse` over the
-    whole repo with only `.git` excluded (group 1's enumeration and its per-site assert message), and a
+    whole repo, excluding `.git` and `scripts/tests` (group 1's enumeration and its per-site assert
+    message), and a
     JSON PROPERTY KEY -- the event name, read straight out of a parsed `hooks.json` and printed as
     `[$($w.Event)]` in group 3's enumeration and its per-wrapper assert message. The path half had
     printed raw since #2264; the JSON-key half arrived with #2276, which is what surfaced the site.

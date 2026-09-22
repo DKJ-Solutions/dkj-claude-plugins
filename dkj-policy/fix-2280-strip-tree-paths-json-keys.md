@@ -100,8 +100,8 @@ the collision is an ordinary merge conflict on an unmerged branch, not a finding
       whether a line NAMED a strip anywhere on it, which passes a line that guards one of its two
       foreign values and prints the other raw -- exactly the shape group 3 carries, where a path and a
       JSON key share a line. So the check written to catch #2280 went green on #2280's own defect. It
-      is now per VALUE, keyed on the argument position, and the partial case is one of the seven
-      counter-cases.
+      is now per VALUE, keyed on the argument position, and the partial case is one of the six fixtures
+      the counter-case block holds it to across eight asserts.
 - [x] Proven to go RED rather than only to pass: group 5's logic run against a fixture whose line 2
       prints both values raw and whose line 4 guards the path and prints the JSON key raw reports
       exactly those two and passes the two repaired shapes.
