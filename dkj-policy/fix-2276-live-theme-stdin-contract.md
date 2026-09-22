@@ -41,19 +41,52 @@
 
 Write the piped-stdin assumption into guard-live-theme.ps1's header beside the fail-towards-CHECKING rule, and assert the wrapper half in hook-stdin-guard.tests.ps1.
 
+#### What #2276 actually asks for
+
+Two deficiencies, named in the issue itself: the piped-stdin assumption is "recorded nowhere durable"
+and "asserted by no test". The first is a header edit. The second is reachable for the half this repo
+owns -- the `hooks.json` wrapper that does the piping -- and unreachable for the runtime behaviour, which
+`hook-stdin-guard.tests.ps1` already names as a gap.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Sylvester: write the stdin contract into `guard-live-theme.ps1`'s header -- what makes the
+      no-handle branch unreachable in production, and what it would cost if the wrapper stopped piping
+- [x] Sylvester: point the code-site comment above the `IsInputRedirected` read at that header block
+- [x] Tycho: group 3 in `hook-stdin-guard.tests.ps1` -- a wrapper that drains the payload with `$(cat)`
+      must pipe it back into the interpreter, counted out of the tree rather than hand-listed
 
 ### TEST
 
+- [x] `hook-stdin-guard.tests.ps1` green, and its new group red when the pipe is removed from a fixture
+- [x] the lint gate + all suites via `open-pr.ps1`
+
 ### DEPLOY: fix/2276-live-theme-stdin-contract
 
-**Score:**
+`guard-live-theme.ps1`'s header now states the assumption its no-handle branch rests on: the
+`hooks.json` wrapper drains the payload with `$(cat)` and pipes it back into PowerShell, so
+`IsInputRedirected` is true on every call the harness makes and the `exit 0` path is unreachable from
+any command a session can cause. It also states what breaks if that ever stops -- this guard would
+degrade towards ALLOWING, the one direction its own fail-towards-CHECKING rule forbids, on a subject
+that cannot be un-published. `hook-stdin-guard.tests.ps1` gains a third group holding the half that is
+reachable: every hooks.json command that drains the payload must hand it back, counted out of the tree
+rather than hand-listed, with a counter-case. Removing the pipe from either shipped wrapper now turns
+the gate red.
+
+The failure it prevents, since it has not happened: a future edit to either PreToolUse wrapper that
+drops the `printf | powershell` re-pipe. Nothing would fail -- both guards would go on exiting 0 on an
+empty payload, which is their documented behaviour -- and the live-theme guard would be silently
+waving through publishes, deletes and live pushes in production instead of only in the hand-run case
+the branch was built for.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify consumer auditing the live-theme guard now meets that assumption in the file itself rather
+than reconstructing it from the wrapper. Nothing the guard does changes.
+
+**Score:** 1
 
 #### Pull Request
 
