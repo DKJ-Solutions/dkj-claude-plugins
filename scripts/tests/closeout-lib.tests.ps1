@@ -338,6 +338,57 @@ foreach ($other in @('scripts\release\open-pr.ps1', 'scripts\release\fold-change
 }
 
 Write-Host ''
+Write-Host 'The other half of a chain ending: the refusal verdict (issue #2283)' -ForegroundColor Cyan
+
+# THE RECEIPT IS WHAT A CHAIN ENDER PRINTS WHEN IT FINISHES; THIS IS WHAT IT PRINTS WHEN IT REFUSES.
+# Measured September 22, 2026 on ship-pr: the report said the refusal "does not set an exit code", and
+# that is not what happens -- under $ErrorActionPreference = 'Stop' every Write-Error in these scripts is
+# a TERMINATING error, so the host exits 1 by itself and the `exit 1` beneath each one is dead code
+# (verified: unpiped, the trunk refusal exits 1). What destroys the signal is the PIPE every recorded
+# invocation of these scripts is read through -- `| tail -40`, `| Select-Object -Last 150` -- because a
+# pipeline reports its LAST element's status, which is 0 however the run ended. So a backgrounded ship
+# came back as `completed (exit code 0)` with the PR open, conflicting and unmerged.
+#
+# The repair is in-band, where a pipe cannot take it: a trap that prints the error record on the stream
+# the host would have used, then one unmistakable last line, then exits 1 explicitly. Asserted here
+# rather than in each script's own suite because the claim is about the SET -- the five scripts whose
+# ending is a close-out are exactly the five that now have two endings to tell apart.
+$verdictMarker = 'THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283)'
+foreach ($c in $callers) {
+    $name = Split-Path -Leaf $c.Path
+    $text = Get-Content -LiteralPath (Join-Path $RepoRoot $c.Path) -Raw
+    Assert-True ($text -match '(?m)^trap \{')                 "$name installs a script-scope refusal trap"
+    Assert-True ($text -match [regex]::Escape($verdictMarker)) "$name names the pipe as what the exit code is lost to"
+    # ON THE ERROR STREAM, not through Write-Host: a caller that separates the two streams has to keep
+    # exactly what the host gave it before, or this repair would move the record out from under it.
+    Assert-True ($text -match '\$host\.UI\.WriteErrorLine\(\(\$\w+ \| Out-String\)\.TrimEnd\(\)\)') "$name re-prints the error record on the stream the host used"
+    # THE EXIT CODE IS STATED RATHER THAN INHERITED. It is 1 either way today; written down, it stays 1
+    # if a future PowerShell changes what an unhandled terminating error does to the code.
+    Assert-True ($text -match '(?s)\ntrap \{.*?\n    exit 1\n\}') "$name exits 1 from that trap explicitly"
+}
+
+# AND ONLY THE FIVE, for the reason the receipt's own set assert gives: a sixth script printing this
+# line would be claiming an ending it does not have.
+$verdictFound = @(
+    Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'scripts') -Recurse -Filter *.ps1 |
+        Where-Object { $_.DirectoryName -notlike '*\scripts\tests' } |
+        Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match [regex]::Escape($verdictMarker) } |
+        ForEach-Object { $_.Name } | Sort-Object -Unique
+)
+Assert-Equal ($declared -join ', ') ($verdictFound -join ', ') 'the scripts that print a refusal verdict are exactly the declared five'
+
+# SHIP-PR SAYS WHICH SIDE OF THE MERGE IT STOPPED ON, and that is the one place a single sentence would
+# have been a lie. Its refusals live on both sides -- step 4 refuses when `gh pr merge` returned 0 and the
+# PR does not read MERGED, and step 5 can fail with the merge already landed, which is #1270's trapped
+# entry and the opposite of "nothing happened". One variable, set at the line that reports the merge.
+$shipRaw = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\release\ship-pr.ps1') -Raw
+Assert-True ($shipRaw -match '(?m)^\$shipMergeLanded = \$false')  'ship-pr starts the run with the merge not landed'
+Assert-True ($shipRaw -match '(?m)^\$shipMergeLanded = \$true')   '...and records it at the one line that reports the merge'
+Assert-Equal 1 ([regex]::Matches($shipRaw, '(?m)^\$shipMergeLanded = \$true')).Count 'set in exactly one place, so the verdict cannot claim a merge the run did not make'
+Assert-True ($shipRaw -match 'if \(\$shipMergeLanded\) \{')       '...and the trap branches on it'
+Assert-True ($shipRaw -match 'FOLD IS STILL OWED')                '...naming the trapped-entry state a post-merge refusal leaves behind'
+
+Write-Host ''
 Write-Host 'The lib is ASCII and mirrored' -ForegroundColor Cyan
 
 # The repo-wide script-ASCII rule (check 27) covers this too; asserted here as well because this file

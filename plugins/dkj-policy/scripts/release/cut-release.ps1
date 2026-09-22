@@ -253,6 +253,29 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# THE REFUSAL VERDICT THAT SURVIVES ITS CALLER (issue #2283). A chain-ending script already prints the close-out
+# receipt when it FINISHES (#1884); this is the other half -- one unmistakable last line when it refuses. The
+# measurement, and why the exit code cannot carry this on its own, is in ship-pr.ps1's copy of this block:
+# under the 'Stop' above every Write-Error here is a TERMINATING error, so the host already exits 1, and it is
+# the CALLER that replaces that exit status with its own 0 -- a pipe, which every recorded invocation of these
+# scripts is read through (`| tail -n`, `| Select-Object -Last n`), or any wrapper ending in a second
+# command, which was measured doing the same thing to a run that was redirected to a file and not piped at
+# all. So the line below names both rather than naming the pipe, which a reader can rule out and be wrong.
+#
+# It fires only on a terminating error nothing caught, which is what every refusal in this file already is, so
+# no path that runs today changes. It prints the record on the stream the host would have used, so a caller
+# separating the streams keeps exactly what it had.
+trap {
+    $refusalRecord = $_
+    $host.UI.WriteErrorLine(($refusalRecord | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    $host.UI.WriteErrorLine('[REFUSED] cut-release stopped at the error above -- this run did NOT finish. The error itself says what had')
+    $host.UI.WriteErrorLine('          and had not been done by then; do not read the absence of a failure elsewhere as success.')
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
+
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
