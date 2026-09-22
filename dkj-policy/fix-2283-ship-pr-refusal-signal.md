@@ -99,7 +99,7 @@ alone.
       three lines under `| tail -6`, and exits 1 unpiped.
 - [x] Parse-checked all five edited scripts.
 
-### DEPLOY: fix: a refused chain-ending run says so in its LAST LINE, not only in an exit code a pipe throws away
+### DEPLOY: fix/2283-ship-pr-refusal-signal
 
 `ship-pr`, `open-pr`, `fold-changelog-entry`, `cut-release` and `park-branch` now end a refusal with a
 `[REFUSED]` line naming what did and did not happen -- printed on the error stream the host already used,
@@ -127,3 +127,5 @@ difference between reading a stack trace and reading a verdict. Nothing about wh
 **Score:** 3
 
 #### Pull Request
+
+A refused chain-ending run says so in its LAST LINE, not only in an exit code a pipe throws away
