@@ -115,9 +115,42 @@ concurrency:
 # `skipped` on a fold commit, and this job would then have to accept `skipped` from that leg -- one
 # accepted non-success away from accepting the one that matters. Four short runners on a fold commit cost
 # nothing on a public repo's standard runners; a summary job with an exception in it costs the gate.
+#
+# EVERY JOB DECLARES `timeout-minutes`, AND THE NUMBERS ARE READ OFF RUN HISTORY -- issue #2296,
+# September 22, 2026. A job with none runs to GitHub's default of SIX HOURS, and until that issue no job
+# in this repo's .github/workflows/ declared one.
+#
+# WHAT THAT COST. Run 35728958033's `suites (2)` wedged: 38 minutes and still `in_progress`, on a commit
+# whose other three shards went green in about six minutes each and whose shard 2 ran all 29 of its
+# suites locally in 344s. `lint-en-tests` `needs:` the shards, so it never registered at all -- and a
+# required check that never registers is not a red check somebody can read, it is a branch that cannot
+# merge with nothing saying why. ship-pr spent its whole 1800s registration wait and refused correctly;
+# the branch still needed a person to go and cancel the job by hand, which itself took ~8 minutes to land.
+#
+# AND THE IN-PROCESS BOUND CANNOT COVER IT. $script:GateSuiteTimeoutSeconds (native-capture-lib.ps1) is
+# 1800s PER SUITE and reaps a wedged child with an attribution -- it has done so three times on a local
+# machine (#1941). At 2,280 minutes-worth of wall clock here it should have fired and did not, so
+# whatever wedged sat BELOW the level a gate inside the process can reach. That class is exactly what a
+# runner-level cap is for, and it is why this is not a duplicate of #1941/#2233/#2255/#2263 -- those are
+# all the in-process bound, this is the one layer under it.
+#
+# 25 ON `suites`, AND THE NUMBER IS PICKED AGAINST ship-pr's WAIT, NOT JUST AGAINST THE SUITES. Over the
+# 19 most recent successful runs the shards measure: (1) med 8.5m/max 9.2m, (2) med 12.5m/max 13.4m,
+# (3) med 7.1m/max 7.4m, (4) med 6.3m/max 8.5m -- so 25 is ~1.9x the worst shard ever observed and
+# nothing legitimate comes near it. What decides the upper end is that ship-pr's registration wait is
+# ALSO 1800s (`$maxRequiredWaitSec`, ship-pr.ps1): a cap at 30 or above times the job out at the same
+# moment the shipping session gives up, so the session still learns nothing. At 25 the shard goes red,
+# `lint-en-tests` concludes seconds later, and ship-pr -- still inside its wait -- reads a FAILED
+# required check with a job log naming which shard, which is a diagnosis instead of a silence.
+# Re-derive it from scripts/tests/suite-durations.json and the run history, never from this paragraph.
+#
+# 10 ON `lint` (max 1.5m) AND 5 ON THE SUMMARY (max 0.1m, two string comparisons on ubuntu). Both are
+# far above anything measured, deliberately: the cap is a wedge detector, not a performance budget, and
+# a cap that fails a merely slow run turns this guard into the thing it was built to prevent.
 jobs:
   lint:
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -129,6 +162,9 @@ jobs:
 
   suites:
     runs-on: windows-latest
+    # 25, against a worst observed shard of 13.4m and against ship-pr's own 1800s registration wait --
+    # see the timeout-minutes banner above jobs: for both halves of that derivation (#2296).
+    timeout-minutes: 25
     strategy:
       # FOUR, AND A SHARD'S FLOOR IS max(ITS LONGEST FILE, ITS LANE-SECONDS / 4) -- issue #1358,
       # corrected September 4, 2026 against the first REAL per-suite tables. This comment used to name
@@ -258,6 +294,7 @@ jobs:
     # note at the top of this file does not apply to it -- and a linux runner starts in seconds where a
     # windows one costs a minute for the same two string comparisons.
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Every leg must have succeeded
         shell: bash

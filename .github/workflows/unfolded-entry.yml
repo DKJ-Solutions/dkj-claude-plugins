@@ -53,6 +53,11 @@ concurrency:
 jobs:
   unfolded-entry:
     runs-on: windows-latest
+    # 10 MINUTES, AND THE CAP IS A WEDGE DETECTOR RATHER THAN A PERFORMANCE BUDGET -- issue #2296. A job
+    # with no timeout-minutes runs to GitHub's SIX-HOUR default; this one measures under a minute over its
+    # 20 most recent successful runs, so 10 is an order of magnitude of headroom and still bounds a wedge.
+    # The full derivation, and the incident it was written for, are in the banner above jobs: in ci.yml.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 

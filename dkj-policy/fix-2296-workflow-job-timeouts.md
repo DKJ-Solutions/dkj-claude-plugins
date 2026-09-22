@@ -39,23 +39,68 @@
 
 ### PLAN
 
-Cap every job in .github/workflows/ and in the two consumer scaffolders. Values off measured run history; suites at 25 so a wedge goes red INSIDE ship-pr's 1800s registration wait.
+Cap every job in `.github/workflows/` and every job this workflow scaffolds into a consumer. Values
+read off run history rather than picked; the one on `suites` picked against `ship-pr`'s own
+registration wait, so a wedge goes red while the shipping session is still listening.
+
+- [x] Verify the report against the tree: zero `timeout-minutes` across all nine workflow files.
+- [x] Measure the real job durations (19-20 most recent successful runs per workflow) instead of
+      quoting the issue's own paragraph.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.github/workflows/`: a cap on all eleven jobs across the nine files, with the derivation in a
+      banner above `jobs:` in `ci.yml` and a pointer to it from the rest.
+- [x] `scripts/task/adopt-ci-floor.ps1`: caps on the four jobs it composes for a consumer -- the fold
+      runner, the resolves runner, the scheduled repo-settings runner, and the skeleton `ci.yml`.
+- [x] `scripts/task/adopt-workflow-folder.ps1`: caps on the branch-entry and always-on-budget gates.
+- [x] `scripts/task/adopt-shopify-floor.ps1` and the `asana-mirror.yml` template: the two scaffolded
+      runners that sit outside the three the issue named, reached by the same argument.
+- [x] Mirrors rebuilt with `scripts/sync/build-shared-scripts.ps1`.
+- [x] `.claude/specialists/lenses/specialist-05-15-lens.md`: the layer distinction recorded where
+      Sylvester's other CI runners are described.
 
 ### TEST
 
+- [x] `scripts/tests/workflow-timeouts.tests.ps1` -- new suite, 54 asserts, all green.
+- [x] `check-plugin-integrity.ps1` green on the tree (the full suite gate runs inside `open-pr`, so it
+      is not a step here).
+
 ### DEPLOY: fix/2296-workflow-job-timeouts
 
-**Score:**
+Every job in `.github/workflows/` now declares `timeout-minutes`, and so does every job this workflow
+scaffolds into a consuming repo. Until now none did, so a wedged job ran to GitHub's six-hour default --
+and the damage is not a red check but a check that never registers at all: `lint-en-tests` `needs:` the
+suite shards, so a wedged shard leaves the required check unreported, which reads as *still running* to
+`ship-pr`, to the ruleset and to anyone looking at the pull request. Measured on run 35728958033, where
+`suites (2)` sat in progress for 38 minutes against a normal ~13 and a local re-run of the identical
+shard that finished every suite in 344s; the branch could not merge until somebody cancelled the job by
+hand, which itself took about eight minutes to land.
+
+The caps are read off run history rather than chosen: 10 on `lint` (max 1.5m), 5 on the summary job
+(max 0.1m), 10 on each short runner (all under 1m), 60 on the two agent jobs, whose runtime is the
+model's work rather than a script of this repo's. The one on `suites` is picked against a second number
+instead -- `ship-pr`'s required-check registration wait is also 1800s, so a cap of 30 or more would time
+the job out at the same moment the shipping session gives up and teach it nothing. At 25, roughly twice
+the worst shard ever observed, the shard goes red and `ship-pr` reads a failed check with a job log
+behind it.
+
+This does not replace the in-process suite bound and is not another argument about its constant.
+`$script:GateSuiteTimeoutSeconds` reaps a wedged child *with an attribution*, and here it never fired --
+so whatever wedged sat below the level a bound inside the process can reach.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's scaffolded runners get the same treatment, which is the half no gate in this repo could
+ever see: a wedge in an adopted `branch-entry`, `fold-on-merge`, `verify-resolved`, `repo-settings`,
+theme-check or `asana-mirror` job blocks that repo's own required check with nobody watching, and the
+write-capable ones would spend six hours holding a standing credential. Existing consumers pick the caps
+up on their next `adopt-dkj-policy` run; nothing already scaffolded changes on its own.
+
+**Score:** 2
 
 #### Pull Request
 
 Every CI job declares timeout-minutes, so a wedged job cannot hold the required check for six hours
-

@@ -1088,6 +1088,46 @@ infrastructure.
     workflow headers, `adopt-dkj-policy`'s SKILL, and `adopt-ci-floor.ps1`'s own console note now say
     so; a fine-grained PAT lists repositories one by one, so a repo *created* rather than transferred
     (an org move with no GitHub transfer) falls outside an existing token's selection silently.
+
+- **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
+  in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
+  September 22, 2026). Until that issue no job in `.github/workflows/` declared one, so a wedged job ran
+  to GitHub's **six-hour** default. Measured: run 35728958033's `suites (2)` sat `in_progress` for 38
+  minutes on a commit whose other three shards were green in ~6 minutes each and whose shard 2 ran all
+  29 of its own suites locally in 344s; the cancel request itself took ~8 minutes to land.
+
+  **The failure mode is not a red check, and that is the whole reason this is worth a guard.**
+  `lint-en-tests` `needs:` the shards, so it never registered at all — and a required check that never
+  registers reads as *still running* to `ship-pr`, to the ruleset and to a person looking at the PR.
+  `ship-pr` spent its entire 1800s registration wait and refused correctly, with the right diagnosis and
+  nothing behind it; the branch still needed somebody to go and cancel the job by hand.
+
+  **`$script:GateSuiteTimeoutSeconds` cannot cover this, and it is not the same repair.** That bound is
+  1800s *per suite* inside the gate process and it reaps a wedged child **with an attribution** — #1941
+  records it doing exactly that, three times, on a local machine. At 38 minutes it should have fired and
+  did not, so whatever wedged sat **below** the level a bound inside the process can reach. That is the
+  one class a runner-level cap exists for, and it is why this is a different layer from
+  #1941/#2233/#2255/#2263 rather than a fifth argument about the same constant.
+
+  **The numbers are read off run history, and the one on `suites` is picked against `ship-pr` rather
+  than against the suites.** Over the 19 most recent successful runs the shards measure (1) max 9.2m,
+  (2) max 13.4m, (3) max 7.4m, (4) max 8.5m — so any cap in the twenties is ~2x the worst ever observed.
+  What decides the upper end is that `ship-pr`'s registration wait is **also** 1800s
+  (`$maxRequiredWaitSec`): a cap of 30 or more times the job out at the same moment the shipping session
+  gives up, so the session learns nothing and the incident repeats *with a cap in place*. At **25** the
+  shard goes red, the summary concludes seconds later, and `ship-pr` — still listening — reads a failed
+  required check with a job log naming which shard. `lint` is 10, the summary 5, every short runner 10,
+  and the two agent jobs 60, because their runtime is the model's work rather than a script of ours.
+
+  **And the consumer half is the one no gate here could ever see.** Every runner this workflow scaffolds
+  carries a cap too — `adopt-ci-floor.ps1`'s four, `adopt-workflow-folder.ps1`'s two,
+  `adopt-shopify-floor.ps1`'s theme check, and the `asana-mirror.yml` template — because a wedge there
+  blocks a *consumer's* required check with nobody watching at all. The skeleton `ci.yml` is deliberately
+  the loosest of them at 30, and says in its own comment that it is the one number you re-size when you
+  replace the placeholder step with real work. [`scripts/tests/workflow-timeouts.tests.ps1`](../../../scripts/tests/workflow-timeouts.tests.ps1)
+  holds all four properties, including the `suites`-versus-`$maxRequiredWaitSec` inequality, which it
+  derives from both files rather than hard-coding either.
+
 - **`scripts/lint/check-git-identity.ps1`** — the split-identity check (issue
   [#1315](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1315), September 3, 2026): does
   this checkout commit as the same account it acts as on the tracker? The claim rule's `@me` resolves
