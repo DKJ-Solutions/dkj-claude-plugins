@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Issue #2318: `native-capture.tests.ps1`'s absolute-deadline case built a budget 30s out and asserted
+at least 25s remained -- a 5-second allowance for four cheap library calls, which on a loaded CI
+shard measures the runner's own responsiveness rather than the budget's arithmetic. Red on CI
+(run 35758609981, shard 2/4), green locally on the same commit -- exactly the wall-clock-tolerance
+class #1232/#1401/#2095/#2279 already named. Repair it by bracketing the same window with a
+Stopwatch (the idiom this file already uses for `$sw`/`$flushWatch`/`$calWatch`) and deriving the
+lower bound from what the run actually measured, instead of a constant chosen when the machine was
+fast.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the fixed 25s floor in the `absolute deadline` case with a Stopwatch-derived one:
+      capture elapsed time between building the budget and reading `Get-NativeCaptureBudgetSecondsLeft`,
+      then assert the seconds-left is no lower than `30 - ceil(elapsed) - 1`.
 
 ### TEST
 
+- [x] `scripts/tests/native-capture.tests.ps1` run standalone: 350 pass, 0 fail, including the five
+      `absolute deadline:` asserts (`floor=28` against a measured 0.02s elapsed on this machine).
+
 ### DEPLOY: fix/2318-native-capture-absolute-deadline-floor
 
-**Score:**
+`native-capture.tests.ps1`'s absolute-deadline assert no longer budgets 5 seconds of runner latency
+against four cheap function calls -- the floor is now derived from a Stopwatch bracketing the same
+window, so the assert passes under any load while still catching a wrong `SecondsLeft` calculation.
+Repairs the CI-only flake in #2318.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a test-only change with no reach past this repo's own developers/CI.
+
+**Score:** N/A
 
 #### Pull Request
 
