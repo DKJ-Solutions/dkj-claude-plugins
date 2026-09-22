@@ -44,7 +44,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**10 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2249-bound-stdin-read · 20260922-084156
+
+A SessionStart hook could hang a session start forever and print nothing while doing it. The timeout
+that was supposed to stop that never ran: `[Console]::In` is a `SyncTextReader` on Windows PowerShell,
+so `ReadToEndAsync()` completed on the calling thread before the `Wait()` bounding it was ever reached.
+On a redirected handle nobody closes, the read blocked for as long as the session lasted -- measured at
+15 s and still going, at no CPU at all. The read now goes through the raw stdin stream, which queues to
+the thread pool and leaves the calling thread free to time out, so the bound binds. The same repair
+went into the two neighbours that had no bound at all: the status line and the shim that wires it up,
+both of which run every couple of seconds and would otherwise have left one more stuck process behind
+on every refresh.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A second defect surfaced in the same three lines and was fixed with them: the payload was being decoded
+with the OEM console codepage rather than UTF-8, so any accented character in a path came through
+mangled. Harmless for the session id, which is a UUID, and not harmless for the working-directory field
+other readers in this family take a repo root from.
+
+For a consumer of this workflow, nothing changes about how anything is used and no migration is needed;
+a failure that had not visibly happened yet can now no longer happen. The read costs about 80 ms where
+it used to cost about 15, which is the price of the bound actually binding, and it is stated in the code
+beside the measurement rather than left for somebody to find.
+
+**Score:** N/A
+
+#### Pull Request
+
+Bound the hook stdin read so an open handle cannot wedge a session start
+
+Plugins: dkj-policy
+
+[PR #2270](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2270)
+
+---
 
 ### DEPLOY: fix/2259-predossier-double-merge-stamp · 20260922-082715
 
