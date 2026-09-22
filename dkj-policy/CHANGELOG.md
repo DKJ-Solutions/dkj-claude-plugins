@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**8 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2252-refresh-suite-durations · 20260922-072057
+
+`scripts/tests/suite-durations.json` is re-recorded from three post-merge CI runs, and it repairs more
+than the row #2252 reported. `script-contract.tests.ps1` moves from 98.8s to **208.9s**, which is the
++12 child spawns #2236 added plus the contention of a pool that has grown since. But the file was also
+**eleven days and 30 suites stale**: it listed 91 of the 121 suites in the tree, and
+`Invoke-TestSuiteGate` charges an unlisted suite the largest recorded value -- so it was packing 30
+suites at 290.2s each when they total **266.5s between them**. The packer believed the lightest
+thirty suites in the pool were its heaviest. Every row is now a measured mean rather than a ceiling.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The file is this repo's own CI packing hint; nothing in it ships in a plugin payload, so no
+consumer reads it and none of their gates change.
+
+**Score:** N/A
+
+#### Pull Request
+
+Refresh the recorded CI suite durations from post-2236 runs
+
+[PR #2260](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2260)
+
+---
 
 ### DEPLOY: fix/2234-native-capture-launch-failure · 20260922-032338
 
