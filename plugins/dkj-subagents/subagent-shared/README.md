@@ -86,6 +86,7 @@ copy editor's context.
 | `no-conversation-history` · `no-commit-push-pr` | the specialists who deliver material rather than land it |
 | `working-copy-boundary` | every agent def that holds `Bash`, and no persona — the circle is the capability, see below |
 | `browser-compatibility` · `webcontent-boundary` · `artifact-publishing-boundary` · `design-owner-boundary` · `changelog-entry-boundary` · `storefront-preview-boundary` | the narrow circles whose craft touches that surface |
+| `guard-exercised` | the two who pass judgement on a guard before it lands — the code reviewer and the security engineer |
 
 Run `build-agent-defs.ps1 -Check` for the exact carrier count per block; a table of numbers here would be
 a second statement of something the generator already knows, and would go stale the first time a

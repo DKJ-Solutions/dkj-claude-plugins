@@ -432,11 +432,21 @@ foreach ($groupName in $groups.Keys) {
         }
 
         if (-not $inv.Ok) {
-            $unreadable = @($unreadable) + @("$label -- $($inv.Reason)")
+            # $label's guard arrived on the trunk with #2272 (PR #2275), independently of this
+            # branch. What is added here is $inv.Reason, traced rather than assumed: every arm is
+            # this script's own composed text (or embeds only a number) EXCEPT Get-GitHubInventory's
+            # two, built from $branch -- the sibling's own default-branch name off gh's API
+            # ('gh exited N reading the tree of <branch>', 'github:<branch>'). The whole sentence is
+            # guarded as prose rather than picking that one arm apart at its composition site: the
+            # underlying $inv.Reason is stripped of its 'github:' prefix into
+            # $memberSource[$label].Branch and carried into a live contents/...?ref= call, so only
+            # this print copy may be sanitized.
+            $unreadable = @($unreadable) + @("$(Format-SafePathToken -Value $label) -- $(Format-SafeProseToken -Value $inv.Reason)")
             continue
         }
         $inventory[$label] = $inv.Paths
-        Write-Host "   read $label : $($inv.Paths.Count) comparable path(s) via $($inv.Reason)" -ForegroundColor DarkGray
+        # Same trace and the same two guards as above.
+        Write-Host "   read $(Format-SafePathToken -Value $label) : $($inv.Paths.Count) comparable path(s) via $(Format-SafeProseToken -Value $inv.Reason)" -ForegroundColor DarkGray
     }
 
     # ONE SCHEME PER GROUP. Anything less than every member read the same way is not a smaller
@@ -453,30 +463,38 @@ foreach ($groupName in $groups.Keys) {
     # GROUPED BY MEMBER, because the reader's question is "what does the other one have that we do
     # not" -- one member at a time. A flat path-sorted list interleaves the two and makes the answer
     # something you have to assemble by eye, which on the BWJ pair is 75 lines of assembling.
+    #
+    # #2248: $label/$f.Member/$f.Members are a sibling group's own manifest 'repo' field and $f.Path is
+    # a path read straight off that sibling's checkout (disk walk or GitHub listing) -- both foreign
+    # text, guarded via Format-SafePathToken the same way check-connectors.ps1 already guards the same
+    # manifest field (manifestRepo/remoteRepo/originRepo there).
     foreach ($label in @($result.Members)) {
         $mine = @($result.OnlyIn | Where-Object { $_.Member -eq $label })
         if ($mine.Count -eq 0) { continue }
-        Write-Host "   ONLY-IN $label ($($mine.Count)):" -ForegroundColor Yellow
+        Write-Host "   ONLY-IN $(Format-SafePathToken -Value $label) ($($mine.Count)):" -ForegroundColor Yellow
         foreach ($f in $mine) {
-            Write-Info "ONLY-IN  $($f.Member)  $($f.Path)"
+            Write-Info "ONLY-IN  $(Format-SafePathToken -Value $f.Member)  $(Format-SafePathToken -Value $f.Path)"
             $findingCount++
         }
     }
     foreach ($f in @($result.Partial)) {
-        Write-Info "PARTIAL  $($f.Path) -- held by $($f.Members -join ', ') and not by the rest of the group"
+        Write-Info "PARTIAL  $(Format-SafePathToken -Value $f.Path) -- held by $(@($f.Members | ForEach-Object { Format-SafePathToken -Value $_ }) -join ', ') and not by the rest of the group"
         $findingCount++
     }
     foreach ($f in @($result.Drifted)) {
-        Write-Info "DRIFTED  $($f.Path)"
+        Write-Info "DRIFTED  $(Format-SafePathToken -Value $f.Path)"
         $findingCount++
     }
 
     # THE SHIPPED LANE (#1885). Reported AFTER the three consumer-to-consumer lanes and never instead
     # of them: these paths are still only-in or drifted, and this line adds the fact that decides what
     # to do about them -- adopt, rather than pick an owner and move a mechanism that already has one.
+    # #2248: $f.Path/$f.Members guarded as above. $f.Class is our own enum and $_.Plugin/$_.Path in
+    # $where come off Get-MarketplaceShippedScript -- this repo's own marketplace index -- so neither is
+    # foreign and neither is guarded.
     foreach ($f in (Find-ShippedMechanism -Comparison $result -Index $shippedIndex)) {
         $where = (@($f.Shipped | ForEach-Object { "$($_.Plugin) ($($_.Path))" }) -join '; ')
-        Write-Info ("SHIPPED  $($f.Path) -- carried by $(@($f.Members) -join ', ') [$($f.Class)]; " +
+        Write-Info ("SHIPPED  $(Format-SafePathToken -Value $f.Path) -- carried by $(@($f.Members | ForEach-Object { Format-SafePathToken -Value $_ }) -join ', ') [$($f.Class)]; " +
                     "the marketplace already ships this: $where. An ADOPTION gap, not divergence. Matched on filename.")
         $findingCount++
     }

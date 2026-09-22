@@ -320,13 +320,42 @@ function Get-WorkflowFacts {
         in ci.yml that declares no name). Both are collected, and a context matching neither is
         reported as unmatched rather than guessed at -- an unmatched context is a real answer here,
         because a required check may come from something other than Actions.
+
+        THAT SENTENCE IS TRUE ONLY BECAUSE THE TEXT IS NORMALISED TO LF ON READ (inbound #2237). On a
+        CRLF checkout the name half of "both" collected nothing, so "unmatched" stopped meaning what it
+        says here and started meaning "this reader cannot see names at all". The reasoning, and why the
+        damage reached past the note into the auto-filled ruleset, is at the read itself below.
     #>
     param([Parameter(Mandatory)][string]$WorkflowDir)
 
     $facts = @()
     if (-not (Test-Path -LiteralPath $WorkflowDir -PathType Container)) { return @() }
     foreach ($f in @(Get-ChildItem -LiteralPath $WorkflowDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.yml', '.yaml') })) {
-        $text = [System.IO.File]::ReadAllText($f.FullName)
+        # NORMALISED TO LF ON READ, ONCE, BEFORE ANY REGEX BELOW SEES IT (inbound #2237).
+        # Not a tidy-up. The job-`name:` capture below is anchored on '$', and .NET's multiline '$'
+        # matches only immediately before a '\n' -- so against a CRLF file '[^\r\n]*' stops before the
+        # '\r' and the anchor fails, collecting NO names at all. Its neighbour, the job-KEY capture,
+        # survives the same file only by accident, because its '\s*$' absorbs the '\r' first.
+        #
+        # ONE OF A PAIR CRLF-TOLERANT AND THE OTHER NOT IS WORSE THAN A WRONG NOTE. $prJobIds then holds
+        # ONE id where LF holds two (the key and the name), and ONE is exactly the count the paste-ready
+        # ruleset call further down auto-fills on -- so a Windows consumer with a single named job in a
+        # single pull_request workflow is handed a ruleset requiring the job KEY, while GitHub reports
+        # that check under its NAME. A required check that never reports leaves every pull request
+        # pending forever. On LF the same tree declines to auto-fill and prints the candidate list, which
+        # is the safe path: the bug does not merely mute a note, it moves the script onto the branch it
+        # would otherwise have refused. Measured from a consumer on `core.autocrlf=true`; this repo never
+        # hit it because .gitattributes pins `eol=lf` AND its own ci.yml job declares no `name:`, so the
+        # broken half of the pair had nothing to capture either way.
+        #
+        # NORMALISING BEATS ANCHORING BOTH ON '\r?$': it closes the whole class rather than the two
+        # instances visible today, so a regex added to this function later cannot reintroduce it. The
+        # `on:`/`jobs:` matchers keep their explicit '\r?\n' -- harmless on LF, and the honest record
+        # that this text has more than one possible shape on disk. Same normalise-on-read
+        # subagent-shared-lib.ps1 already does. It does NOT weaken the single-line guarantee the
+        # auto-fill block downstream names this capture for: '[^\r\n]*' admits no newline of either
+        # kind, before the normalisation or after it.
+        $text = ([System.IO.File]::ReadAllText($f.FullName)) -replace "`r`n", "`n"
 
         $onBlock = [regex]::Match($text, '(?ms)^on:\r?\n(?<body>(?:[ \t]+\S[^\r\n]*\r?\n)+)')
         $hasMergeGroup = $onBlock.Success -and ($onBlock.Groups['body'].Value -match '(?m)^\s{2}merge_group:')
@@ -880,7 +909,8 @@ if (-not $queueReadable) {
     Write-Host '            Every workflow below is listed with its trigger so you can judge it yourself.' -ForegroundColor DarkGray
     foreach ($w in $workflows | Where-Object { $_.OnPullRequest }) {
         $mark = if ($w.HasMergeGroup) { 'has merge_group' } else { 'NO merge_group' }
-        Write-Host "            $($w.Rel) -- $mark" -ForegroundColor DarkGray
+        # #2248: $w.Rel is a filename read off THIS CONSUMER's own directory -- foreign text.
+        Write-Host "            $(Get-DisplayPath -Path $w.Rel) -- $mark" -ForegroundColor DarkGray
     }
 } elseif ($requiredContexts.Count -eq 0) {
     # THE REASON CHANGED WITH THE POLICY (#1546), AND IT GOT STRONGER. This used to read as a
@@ -1029,7 +1059,8 @@ if (-not $queueReadable) {
         }
         foreach ($w in $prWorkflows) {
             foreach ($jid in $w.JobIds) {
-                Write-Host "              $(Get-DisplayRef -Ref $jid) -- from $($w.Rel)" -ForegroundColor DarkGray
+                # #2248: $w.Rel beside it is the same foreign-filename class $jid was already guarded for.
+                Write-Host "              $(Get-DisplayRef -Ref $jid) -- from $(Get-DisplayPath -Path $w.Rel)" -ForegroundColor DarkGray
             }
         }
         Write-Host '' -ForegroundColor Yellow
@@ -1041,24 +1072,29 @@ if (-not $queueReadable) {
     Write-Host "              gh api repos/$rulesetSlug/rulesets" -ForegroundColor DarkGray
 } else {
     foreach ($ctx in $requiredContexts) {
+        # #2248: $ctx is the ruleset's required-check CONTEXT NAME off the repo's own ruleset JSON --
+        # foreign text, same class Test-CiSuiteCertified already sends through Get-DisplayRef.
+        $ctxDisplay = Get-DisplayRef -Ref $ctx
         $owner = @($workflows | Where-Object { $_.JobIds -contains $ctx })
         if ($owner.Count -eq 0) {
-            Write-Host "  [note]    required check '$ctx' matches no job in .github/workflows/ -- it comes from" -ForegroundColor Yellow
+            Write-Host "  [note]    required check '$ctxDisplay' matches no job in .github/workflows/ -- it comes from" -ForegroundColor Yellow
             Write-Host '            somewhere else (another app, or a job name this reader cannot see). If it IS an' -ForegroundColor Yellow
             Write-Host '            Actions job, that workflow needs the merge_group trigger too.' -ForegroundColor Yellow
             continue
         }
         foreach ($w in $owner) {
+            # #2248: $w.Rel is the consumer's own workflow filename, guarded the same way as $w.Rel above.
+            $wRelDisplay = Get-DisplayPath -Path $w.Rel
             if ($w.HasMergeGroup) {
-                Write-Host "  [ok]      required check '$ctx' -> $($w.Rel), which triggers on merge_group." -ForegroundColor Green
+                Write-Host "  [ok]      required check '$ctxDisplay' -> $wRelDisplay, which triggers on merge_group." -ForegroundColor Green
             } elseif ($queueActive) {
                 $liveDefects++
-                Write-Host "  [ERROR]   required check '$ctx' -> $($w.Rel), which does NOT trigger on merge_group," -ForegroundColor Red
+                Write-Host "  [ERROR]   required check '$ctxDisplay' -> $wRelDisplay, which does NOT trigger on merge_group," -ForegroundColor Red
                 Write-Host "            and a queue is ACTIVE on '$trunk'. That check never reports for a queue entry," -ForegroundColor Red
                 Write-Host '            so every merge fails. Add to its on: block, at two spaces of indent:' -ForegroundColor Red
                 Write-Host '              merge_group:' -ForegroundColor Red
             } else {
-                Write-Host "  [gap]     required check '$ctx' -> $($w.Rel), which does NOT trigger on merge_group." -ForegroundColor Yellow
+                Write-Host "  [gap]     required check '$ctxDisplay' -> $wRelDisplay, which does NOT trigger on merge_group." -ForegroundColor Yellow
                 Write-Host '            Inert today; a TOTAL MERGE OUTAGE the moment a queue is switched on. Add to its' -ForegroundColor Yellow
                 Write-Host '            on: block, at two spaces of indent:' -ForegroundColor Yellow
                 Write-Host '              merge_group:' -ForegroundColor Yellow
