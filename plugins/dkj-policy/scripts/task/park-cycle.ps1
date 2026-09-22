@@ -134,6 +134,15 @@
     ceiling falls due can state that instead of having it re-derived from a later moment. 0 (the default)
     means it was not given and the two knobs above decide, exactly as before.
 
+.PARAMETER BudgetDeadlineFile
+    (Optional) a PATH holding that same instant -- Unix epoch seconds, UTC -- re-read on every budget
+    question instead of being captured once at start-up. It WINS over all three knobs above, one rung
+    further along the same ladder. Nothing in production restates a deadline mid-run, and this exists for
+    the suite (#2307): it is what lets a case drive this script through "healthy at the PR check, spent by
+    the look after it" without waiting out the difference in real time. An unreadable path is the
+    NO-BUDGET shape, not a spent one -- see New-NativeCaptureBudget's -ExpiresFile block, which carries
+    the whole argument.
+
 .PARAMETER Quiet
     (Optional switch) print nothing when there is nothing to do. What the hook passes: a turn in which
     the document did not change must not add a line to the session. A push still reports itself, and so
@@ -152,7 +161,8 @@ param(
     [switch]$Quiet,
     [switch]$UnderHook,
     [int]$BudgetSeconds = 0,
-    [long]$BudgetDeadlineEpochSeconds = 0
+    [long]$BudgetDeadlineEpochSeconds = 0,
+    [string]$BudgetDeadlineFile = ''
 )
 
 Set-StrictMode -Version Latest
@@ -304,8 +314,17 @@ function Write-CycleCollisionReport {
 # a moment that is only near the truth. It is also what makes the deadline testable: everything the
 # budget decides then stops depending on how loaded the machine was between launch and here, which is
 # the variance that turned this suite's mid-run case red on CI with no defect behind it.
+#
+# AND -BudgetDeadlineFile WINS OVER ALL THREE (#2307), by that same reasoning one rung further again: a
+# deadline that can be RESTATED during the run is more specific than one fixed at this line. Nothing in
+# production restates one; what it buys is that a suite can put this run in a state -- healthy at the PR
+# check, spent by the look after it -- without waiting out the difference in real time. Before it, the
+# case that proves that transition had to sit idle for its own margin, and the margin was also the
+# tolerance: it went red on a loaded runner twice, at ~7s (#2077) and at ~15s (#2307).
 $budget = if ($BudgetSeconds -gt 0) { $BudgetSeconds } elseif ($UnderHook) { $NativeCaptureHookNetworkBudgetSeconds } else { 0 }
-$netBudget = if ($BudgetDeadlineEpochSeconds -gt 0) {
+$netBudget = if ($BudgetDeadlineFile) {
+    New-NativeCaptureBudget -ExpiresFile $BudgetDeadlineFile
+} elseif ($BudgetDeadlineEpochSeconds -gt 0) {
     New-NativeCaptureBudget -ExpiresUtc ([System.DateTimeOffset]::FromUnixTimeSeconds($BudgetDeadlineEpochSeconds).UtcDateTime)
 } else {
     New-NativeCaptureBudget -TotalSeconds $budget
