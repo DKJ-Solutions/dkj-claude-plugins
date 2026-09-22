@@ -728,6 +728,27 @@ function Get-EntryPlugins {
     return @($m.Groups[1].Value -split '\s*,\s*' | Where-Object { $_ })
 }
 
+function Get-EntryRetracts {
+    <#
+        Reads the optional 'Retracts: a, b' line from an entry block -- the branch names of EARLIER
+        entries in the same pending set that this one undoes (inbound #2230). Returns an array of branch
+        names, in the order written; empty = the entry retracts nothing.
+
+        SAME SHAPE AS Get-EntryPlugins, deliberately: a hand-written, comma-separated metadata line, read
+        by its own line start rather than nested under a section, so an author writes it once beside the
+        heading and every reader that cares finds it the same way. Unlike 'Plugins:' this line is the
+        AUTHOR's to write, never the fold's -- there is nothing here for a merge to derive.
+
+        THE CHANGELOG STAYS THE RECORD (the issue's own framing): this function only READS the line. What
+        a caller does with what it reads -- withholding retracted work from the one hand-written document
+        that narrates delivered work -- is Resolve-ReleaseRetractions' job, not this one's.
+    #>
+    param([Parameter(Mandatory)][string]$EntryText)
+    $m = [regex]::Match($EntryText, '(?m)^Retracts:\s*(.+?)\s*$')
+    if (-not $m.Success) { return @() }
+    return @($m.Groups[1].Value -split '\s*,\s*' | ForEach-Object { $_.Trim('`', ' ') } | Where-Object { $_ })
+}
+
 # --- MOVED, NOT DELETED: Remove-EntryPluginsLine now lives in entry-scaffold-lib.ps1 ---------------
 #
 # In scope here regardless, because this file dot-sources that lib unconditionally at the top -- so
@@ -1505,6 +1526,112 @@ function Convert-EntryHeadingToTitle {
 # order was not load-bearing (issue #467). The draft ranks at a fixed tier too (-RankByTier
 # $AudienceTier), so the argument survives under a name that still exists, and those comments now say so.
 
+function Resolve-ReleaseRetractions {
+    <#
+        Pure: reads every pending entry's 'Retracts:' line (Get-EntryRetracts) and answers, across the
+        WHOLE pending set, which branches are retracted and which entries themselves only retract --
+        so a caller can withhold both from the one document that narrates delivered work, while
+        CHANGELOG.md and the generated GitHub Release body stay untouched (inbound #2230: a build that
+        reached the trunk and was then reverted before the cut was drafted as delivered work, in the
+        author's own confident words, because Build-ReleaseNoteDraft selected by tier and had no way to
+        see that a later entry in the same release retracted an earlier one).
+
+        Returns:
+          RetractedBranches   string[], unique -- every branch a Retracts: line names and that resolves.
+          RetractingBranches  string[], unique -- every entry's OWN branch that carries a Retracts: line.
+          Withheld            one object per retracting entry that resolved at least one target:
+                               RetractingBranch, RetractedBranches (only the ones actually found).
+          Errors               one string per Retracts: target that names no pending entry.
+
+        RESOLVED AGAINST THE FULL PENDING SET, NOT ONE TIER'S ENTRIES -- the entry that retracts and the
+        entry it retracts are not guaranteed to share a tier (the revert itself is ordinarily
+        repo-internal, tier 0, exactly like PR #723 in the issue's own measured instance), and a typo in
+        the target name is exactly as real whichever tier it would have reached. A caller that wants to
+        know what a SPECIFIC document actually lost intersects Withheld/RetractedBranches with that
+        document's own entries -- Format-RetractionWithheldNote's $Removed does exactly that.
+
+        WHAT THIS DOES NOT DO, BY DESIGN (the issue's own "honest objection"): it does not INFER a
+        retraction from prose, a diff, or git-revert provenance. That is a semantic claim, and guessing at
+        it would produce both false positives and a silently dropped real feature -- worse than the defect
+        this answers. An entry retracts another only by saying so, in its own 'Retracts:' line.
+
+        AN UNRESOLVABLE TARGET IS AN ERROR, NOT A SILENT NO-OP (the issue's point 5): a typo must not read
+        as "nothing to withhold". The caller is expected to stop the cut on $Errors rather than proceed --
+        this function only reports, because the pure/orchestration split in this file's own header keeps
+        every refusal ("nothing was written") in cut-release.ps1, never in here.
+    #>
+    param([AllowEmptyCollection()][string[]]$Entries = @())
+
+    $real = @($Entries | Where-Object { $_ -and $_.Trim() })
+    $byBranch = @{}
+    foreach ($e in $real) {
+        $b = Get-EntryDeclaredBranch -EntryText $e
+        if ($b) { $byBranch[$b] = $e }
+    }
+
+    $retractedBranches  = New-Object System.Collections.Generic.List[string]
+    $retractingBranches = New-Object System.Collections.Generic.List[string]
+    $withheld = New-Object System.Collections.Generic.List[object]
+    $errors   = New-Object System.Collections.Generic.List[string]
+
+    foreach ($e in $real) {
+        $targets = @(Get-EntryRetracts -EntryText $e)
+        if ($targets.Count -eq 0) { continue }
+        $own = Get-EntryDeclaredBranch -EntryText $e
+        $ownLabel = if ($own) { $own } else { '(an entry with no declared branch)' }
+        if ($own) { $retractingBranches.Add($own) }
+        $found = New-Object System.Collections.Generic.List[string]
+        foreach ($t in $targets) {
+            if ($byBranch.ContainsKey($t)) {
+                $retractedBranches.Add($t)
+                $found.Add($t)
+            } else {
+                $errors.Add("'$ownLabel' names '$t' in its Retracts: line, and no pending entry declares that branch.")
+            }
+        }
+        if ($found.Count -gt 0) {
+            $withheld.Add([pscustomobject]@{ RetractingBranch = $own; RetractedBranches = @($found.ToArray()) })
+        }
+    }
+
+    return [pscustomobject]@{
+        RetractedBranches  = @($retractedBranches.ToArray()  | Select-Object -Unique)
+        RetractingBranches = @($retractingBranches.ToArray() | Select-Object -Unique)
+        Withheld           = @($withheld.ToArray())
+        Errors             = @($errors.ToArray())
+    }
+}
+
+function Format-RetractionWithheldNote {
+    <#
+        Pure: the HTML comment naming what was withheld from ONE document and why (inbound #2230, point
+        4) -- so the person finishing the draft sees the decision instead of wondering at a gap. '' when
+        nothing in THIS document was affected, so a caller can add it unconditionally on every release.
+
+        $Removed IS THIS DOCUMENT'S OWN BRANCH LIST, not the whole pending set's. Resolve-ReleaseRetractions
+        answers what retracts what across every tier; a retraction that never reached this document's own
+        tier has nothing to withhold here and nothing to explain here -- reporting it anyway would name a
+        branch the reader never expected to see in the first place.
+    #>
+    param(
+        [Parameter(Mandatory)]$Retractions,
+        [AllowEmptyCollection()][string[]]$Removed = @()
+    )
+    $removedSet = @($Removed | Where-Object { $_ })
+    if ($removedSet.Count -eq 0) { return '' }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add('Withheld from this section, retracted before the cut -- CHANGELOG.md keeps the full record:')
+    foreach ($w in @($Retractions.Withheld)) {
+        $relevant = @($w.RetractedBranches | Where-Object { $removedSet -contains $_ })
+        foreach ($r in $relevant) { $lines.Add("  - $r (retracted by $($w.RetractingBranch))") }
+        if ($relevant.Count -eq 0 -and $w.RetractingBranch -and ($removedSet -contains $w.RetractingBranch)) {
+            $lines.Add("  - $($w.RetractingBranch) -- names no work of its own here, only a retraction")
+        }
+    }
+    return "<!-- $($lines -join "`n     ") -->"
+}
+
 function Build-ReleaseNoteDraft {
     <#
         The ONE hand-written release document, as a draft: a named section per reader. Pure string out.
@@ -1553,6 +1680,14 @@ function Build-ReleaseNoteDraft {
 
         THE DEFAULT IS 2 SO EVERY EXISTING CALLER IS BYTE-IDENTICAL. This repo answers 2, so its documents do
         not move; the change is visible only where the answer is 1.
+
+        $WithheldNote IS THE CALLER'S DECISION, ALREADY MADE (inbound #2230). This function still renders
+        exactly the $Entries it is given -- it does not read 'Retracts:' lines or filter anything itself,
+        because it cannot see the rest of the pending set that Resolve-ReleaseRetractions needs. The caller
+        filters $Entries and hands the already-built HTML comment (Format-RetractionWithheldNote, or '' for
+        an ordinary release) in here, so it renders even where the whole audience section would otherwise
+        be suppressed for having nothing left in it -- a retraction is exactly the kind of gap a silently
+        empty section would hide.
     #>
     param(
         [AllowEmptyCollection()][string[]]$Entries = @(),
@@ -1562,7 +1697,8 @@ function Build-ReleaseNoteDraft {
         [string]$Title = '',
         [hashtable]$Wording = @{},
         [string]$LinkPrefix = '../../../',
-        [int]$AudienceTier = 2
+        [int]$AudienceTier = 2,
+        [string]$WithheldNote = ''
     )
     # Merged over the defaults rather than replacing them, so a repo that renames one heading does not
     # have to restate the rest -- the same contract the note script's wording seam already had.
@@ -1675,27 +1811,39 @@ function Build-ReleaseNoteDraft {
     $out.Add('')
     if ($Title) { $out.Add($Title); $out.Add('') }
 
-    if ($real.Count -gt 0) {
-        $linked = @($real | ForEach-Object { Convert-EntryRelativeLinks -EntryText $_ -Prefix $LinkPrefix })
-        # THE SAME SWITCHES THE CONSUMER DOCUMENT USED, called rather than re-derived: the score orders the
-        # section and is then stripped, and the branch administration goes. Entries sit one level deeper
-        # than before because they now live under a section heading rather than under the H1.
-        # THE LEVEL IS ASKED FOR RATHER THAN SPELLED OUT (#1369). It was the literal 3, which happens to be
-        # the right answer today and is right for the same reason Build-ReleaseNotes' 2 was wrong: an entry
-        # belongs at the level it was WRITTEN at, and that level moved once already without either renderer
-        # noticing. Same value, no change to any note -- the literal simply stops being a second statement
-        # of a fact entry-scaffold-lib.ps1 owns.
-        # RANKED ON THE AUDIENCE TIER, not on 2. This is a sort key rather than a filter -- what an entry
-        # is worth to THIS document's reader decides where it sits -- so ranking a tier-1 repo's entries on
-        # a tier they never scored would read every score as absent and collapse the order to arrival.
-        $body = Format-RankedEntries -Entries $linked -EntryLevel (Get-EntryHeadingLevel) -BareTitles -RankByTier $AudienceTier `
-            -StripSignificance -StripAdminSections
+    # $WithheldNote CAN HOLD THIS SECTION OPEN ON ITS OWN (inbound #2230): a release cut down to nothing
+    # but a retraction would otherwise fall through the "no audience section where no entry reached that
+    # tier" rule above and say nothing at all about the withholding -- the exact silence the rule was
+    # written to avoid, aimed at the one case it had not been asked about yet.
+    if ($real.Count -gt 0 -or $WithheldNote) {
         $out.Add("## $($w.SectionAudience)")
         $out.Add('')
-        $out.Add("<!-- $($w.HintAudience) -->")
-        $out.Add('')
-        $out.Add($body)
-        $out.Add('')
+        if ($real.Count -gt 0) {
+            $out.Add("<!-- $($w.HintAudience) -->")
+            $out.Add('')
+        }
+        if ($WithheldNote) {
+            $out.Add($WithheldNote)
+            $out.Add('')
+        }
+        if ($real.Count -gt 0) {
+            $linked = @($real | ForEach-Object { Convert-EntryRelativeLinks -EntryText $_ -Prefix $LinkPrefix })
+            # THE SAME SWITCHES THE CONSUMER DOCUMENT USED, called rather than re-derived: the score orders the
+            # section and is then stripped, and the branch administration goes. Entries sit one level deeper
+            # than before because they now live under a section heading rather than under the H1.
+            # THE LEVEL IS ASKED FOR RATHER THAN SPELLED OUT (#1369). It was the literal 3, which happens to be
+            # the right answer today and is right for the same reason Build-ReleaseNotes' 2 was wrong: an entry
+            # belongs at the level it was WRITTEN at, and that level moved once already without either renderer
+            # noticing. Same value, no change to any note -- the literal simply stops being a second statement
+            # of a fact entry-scaffold-lib.ps1 owns.
+            # RANKED ON THE AUDIENCE TIER, not on 2. This is a sort key rather than a filter -- what an entry
+            # is worth to THIS document's reader decides where it sits -- so ranking a tier-1 repo's entries on
+            # a tier they never scored would read every score as absent and collapse the order to arrival.
+            $body = Format-RankedEntries -Entries $linked -EntryLevel (Get-EntryHeadingLevel) -BareTitles -RankByTier $AudienceTier `
+                -StripSignificance -StripAdminSections
+            $out.Add($body)
+            $out.Add('')
+        }
     }
 
     $out.Add("## $($w.SectionValue)")

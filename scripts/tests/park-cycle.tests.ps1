@@ -1043,6 +1043,16 @@ try {
     # gets one of its own.
     $twiceArm = @($srcLines | Where-Object { $_ -match 'answered twice' })
     Assert-Equal 1 $twiceArm.Count 'unknown exit: exactly one arm claims two asks'
+    # AND A COMMAND THAT NEVER STARTED IS NOT RE-ASKED (#2234). Structural for the same reason the block
+    # above is, and then one reason more: fixturing it needs a PATH with no gh on it, which is machine
+    # state rather than a shim. An absent gh now returns a capture that sets ExitCodeUnknown -- on
+    # purpose, so the audited family keeps working untouched -- so without this guard the retry above
+    # fires on it, spends a budget slot relaunching something that is not installed, and cannot answer.
+    $startedGuard = @($unknownReads | Where-Object { $_ -match 'Test-NativeCommandStarted' })
+    Assert-Equal 1 $startedGuard.Count 'unknown exit: the re-ask is gated on the command having started at all'
+    # AND THE REFUSAL NAMES THAT STATE SEPARATELY. Folded into the unmeasurable arms it would read as
+    # "answered, but its exit code could not be read" about a gh that answered nothing.
+    Assert-Equal 1 @($srcLines | Where-Object { $_ -match 'could not be started at all' }).Count 'unknown exit: the refusal has its own arm for a gh that is not on PATH'
     Assert-True ($twiceArm[0] -match '\$reAsked') 'unknown exit: and it fires only when the re-ask actually ran'
 } finally {
     foreach ($f in $script:fixtures) {

@@ -1061,6 +1061,29 @@ exit -1
     Assert-True ($to.Text -match '== s-quick\.tests\.ps1 ==\r?\n') 'the sibling that finished keeps its plain header'
     Assert-Says $to.Flat 'did not finish within the 3s bound: s-wedged.tests.ps1' `
         'the verdict tells a suite that never answered apart from one that asserted and said no'
+    # AND IT DOES NOT LET THAT BE READ AS PROOF OF A WEDGE -- issue #2255. The bound's own comment said
+    # "no suite can reach it by being slow" until a 9-lane run of this repo's 121 suites timed out
+    # check-plugin-integrity-docs.tests.ps1, which passed all 188 asserts standalone minutes later. The
+    # sentence above is where a session decides what to suspect, so the ambiguity is named there and so is
+    # the one measurement that settles it. Asserted on BOTH halves: a hedge that says "maybe not a wedge"
+    # and stops has moved the re-litigation rather than ended it.
+    Assert-Says $to.Flat 'not by itself a wedge (#2255)' `
+        'and it says a slow suite can reach the bound, so a timeout is not read as a wedge by default'
+    Assert-Says $to.Flat 're-run the named suite alone' `
+        'and it names the measurement that separates "never answered" from "answered late"'
+    # AND THE CPU READING IS THE INTEGRATION PROOF -- issue #2279. Everything asserted in this suite's
+    # own CPU section is pure, driven over a fabricated machine; these three are the only place the
+    # SWEEP is shown to actually take the two snapshots, fill the lane's CpuNote and print it under the
+    # suite's own header. A wedged suite here is `Start-Sleep -Seconds 60`, which is the idle-tree shape
+    # exactly -- nothing in it consumes CPU while it sits past the bound.
+    Assert-Says $to.Flat 'CPU over the bound:' `
+        'the timed-out lane reports what its process tree consumed (issue #2279)'
+    Assert-Says $to.Flat 'NOTHING IN THAT TREE WAS RUNNING' `
+        'and a sleeping suite is read as nothing running, not as a suite answering late'
+    # UNDER ITS OWN HEADER, not among the kill lines thirty rows above. This is the line a session
+    # copies into an issue, so the measurement has to travel attached to the suite it is about.
+    Assert-True ($to.Text -match '== s-wedged\.tests\.ps1 == TIMED OUT[^\r\n]*\r?\n\s+CPU over the bound:') `
+        'and it sits directly under that suite, where a reader meets it'
     # NOT A CRASH, AND THEREFORE NOT RE-RUN. The whole judgement in #1941's branch: re-running a wedged
     # suite alone removes the contention that is the likeliest cause, passes, and leaves the gate green
     # over a run that cost the machine 90 processes.
@@ -1488,6 +1511,179 @@ try {
 }
 
 Write-Host ''
+
+# ---------------------------------------------------------------------------------------------------
+# THE CPU READING A TIMED-OUT LANE REPORTS (issue #2279). Two pure functions and a fabricated machine,
+# which is the whole reason this is assertable at all: nothing in a fixture can wedge a real process
+# tree, so the snapshot is a seam (Get-GateProcessSnapshot) and everything that JUDGES one is pure --
+# the same split Get-GateSuspendCredit's docstring sets out for the suspend credit.
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host "the timeout CPU reading -- whether anything in the lane's tree was running" -ForegroundColor Cyan
+
+# A MACHINE, BUILT THE WAY Get-GateProcessSnapshot BUILDS ONE. Rows are {pid, ppid, cpuSeconds,
+# createdTicks}; the helper assembles the same two indexes the real function returns, so what is
+# asserted below is the walk itself and not a second implementation of it.
+function New-FakeProcessSnapshot {
+    param([object[]]$Rows)
+    $byId = @{}
+    $childrenOf = @{}
+    foreach ($r in $Rows) {
+        $byId[[int]$r.Pid] = [pscustomobject]@{
+            ProcessId       = [int]$r.Pid
+            ParentProcessId = [int]$r.Ppid
+            CpuSeconds      = [double]$r.Cpu
+            CreatedTicks    = $(if ($null -ne $r.Created) { [long]$r.Created } else { $null })
+        }
+        if (-not $childrenOf.ContainsKey([int]$r.Ppid)) { $childrenOf[[int]$r.Ppid] = New-Object System.Collections.ArrayList }
+        $childrenOf[[int]$r.Ppid].Add([int]$r.Pid) | Out-Null
+    }
+    return [pscustomobject]@{ ById = $byId; ChildrenOf = $childrenOf }
+}
+
+# THE CASE #2279 LEFT OPEN, AND IT IS THE ONE THAT DECIDES THE WHOLE DESIGN: is the reading readable
+# for the TREE, or only for the direct child? Every wedge in this family sits in a grandchild -- #2233's
+# three suites each held one child which held the blocked hook -- so a direct-child reading would report
+# ~0 for a tree that is working. The lane here is 100, its child 200, and the work is all in 300.
+$grandchild = New-FakeProcessSnapshot -Rows @(
+    @{ Pid = 100; Ppid = 4;   Cpu = 0.10; Created = 1000 }
+    @{ Pid = 200; Ppid = 100; Cpu = 0.20; Created = 2000 }
+    @{ Pid = 300; Ppid = 200; Cpu = 26.3; Created = 3000 }
+    # A PROCESS OUTSIDE THE TREE, so a walk that summed the whole snapshot would be caught here rather
+    # than passing on a machine whose only processes belonged to the lane.
+    @{ Pid = 900; Ppid = 4;   Cpu = 99.0; Created = 1500 }
+)
+$gcRead = Get-GateTreeCpuSeconds -Snapshot $grandchild -ProcessId 100
+Assert-True $gcRead.Measured 'Get-GateTreeCpuSeconds: a lane present in the snapshot reads as measured'
+Assert-Equal 3 $gcRead.ProcessCount 'Get-GateTreeCpuSeconds: the whole TREE is counted, not the direct child'
+Assert-Equal '26.60' (Format-GateSeconds $gcRead.CpuSeconds -Decimals 2) `
+    "Get-GateTreeCpuSeconds: a GRANDCHILD's CPU reaches the lane's total -- #2279's open question"
+
+# PID REUSE. Windows reuses process ids, so a long-lived stranger holding the id of a dead child would
+# drag its subtree in. 300 claims 200 as its parent and started BEFORE it, which is impossible.
+$reused = New-FakeProcessSnapshot -Rows @(
+    @{ Pid = 100; Ppid = 4;   Cpu = 0.10; Created = 2000 }
+    @{ Pid = 200; Ppid = 100; Cpu = 0.20; Created = 3000 }
+    @{ Pid = 300; Ppid = 200; Cpu = 88.0; Created = 1000 }
+)
+$reusedRead = Get-GateTreeCpuSeconds -Snapshot $reused -ProcessId 100
+Assert-Equal 2 $reusedRead.ProcessCount 'Get-GateTreeCpuSeconds: a child older than its claimed parent is somebody else'
+Assert-Equal '0.30' (Format-GateSeconds $reusedRead.CpuSeconds -Decimals 2) `
+    'Get-GateTreeCpuSeconds: and its CPU is not charged to this lane'
+
+# AN UNREADABLE CREATION TIME KEEPS THE NODE. Dropping a subtree on missing metadata would understate
+# the reading in exactly the direction that reads as a wedge, which is the one error worth avoiding.
+$noTime = New-FakeProcessSnapshot -Rows @(
+    @{ Pid = 100; Ppid = 4;   Cpu = 0.10; Created = $null }
+    @{ Pid = 200; Ppid = 100; Cpu = 5.00; Created = $null }
+)
+Assert-Equal 2 (Get-GateTreeCpuSeconds -Snapshot $noTime -ProcessId 100).ProcessCount `
+    'Get-GateTreeCpuSeconds: a node with no readable creation time is kept, not dropped'
+
+# A CYCLE TERMINATES. A snapshot is assembled from rows read at slightly different moments, so a cycle
+# through a reused id is representable -- and an unbounded walk would hang the poll loop at the exact
+# point the pool is trying to stop waiting on something.
+$cycle = New-FakeProcessSnapshot -Rows @(
+    @{ Pid = 100; Ppid = 200; Cpu = 1.0; Created = $null }
+    @{ Pid = 200; Ppid = 100; Cpu = 2.0; Created = $null }
+)
+Assert-Equal 2 (Get-GateTreeCpuSeconds -Snapshot $cycle -ProcessId 100).ProcessCount `
+    'Get-GateTreeCpuSeconds: a cycle in the snapshot terminates rather than hanging the poll loop'
+
+# UNMEASURED IS NOT ZERO -- the three-state distinction this whole note rests on. A missing snapshot and
+# a lane that is not in one are both "no reading", which is a different fact from "nothing ran".
+Assert-True (-not (Get-GateTreeCpuSeconds -Snapshot $null -ProcessId 100).Measured) `
+    'Get-GateTreeCpuSeconds: no snapshot reads as UNMEASURED, not as zero'
+Assert-True (-not (Get-GateTreeCpuSeconds -Snapshot $grandchild -ProcessId 555).Measured) `
+    'Get-GateTreeCpuSeconds: a lane absent from the snapshot reads as UNMEASURED too'
+
+# ---- the note itself: what the reap is allowed to SAY -------------------------------------------
+function New-CpuReading {
+    param([double]$Cpu, [int]$Count = 2, [bool]$Measured = $true)
+    return [pscustomobject]@{ CpuSeconds = $Cpu; ProcessCount = $Count; Measured = $Measured }
+}
+
+# THE WEDGE #2231 MEASURED: 0.58s total over ~22 minutes, and 0.000s over the sampled window.
+$wedge = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 0.58) -Window (New-CpuReading 0.0) -WindowSeconds 3)
+Assert-True (@($wedge | Where-Object { $_ -match 'NOTHING IN THAT TREE WAS RUNNING' }).Count -eq 1) `
+    "Get-GateTimeoutCpuNote: #2231's wedge reads as nothing running"
+Assert-True (@($wedge | Where-Object { $_ -match 'standalone re-run will not reproduce it' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: and it says the re-run #2255 prescribes will not reproduce this one'
+# THE HEDGE IS PART OF THE VERDICT, NOT DECORATION. A lane blocked on slow I/O also reads zero, and
+# #2279's own "what is NOT established" section is explicit that this is evidence rather than proof --
+# so a reading that dropped the caveat would be claiming more than was measured.
+Assert-True (@($wedge | Where-Object { $_ -match 'slow I/O also reads zero' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: the slow-I/O caveat travels with the zero reading'
+# AND IT DOES NOT NAME A WEDGE OVER A DEADLOCK. #1941's deadlock read 0.23s across 29 children over 141
+# minutes, which is the same shape -- so this is a two-way discriminator and must not print a third.
+Assert-True (@($wedge | Where-Object { $_ -match 'cannot tell those two apart' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: a wedge and a deadlock are NOT separated -- #1941 read ~0 too'
+
+# THE SLOW SUITE #2255 MEASURED: it hit the bound and then passed all 188 asserts standalone. A tree
+# still executing is exactly that case, and naming it is what saves the second full gate run.
+$slow = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 1450.0) -Window (New-CpuReading 2.9) -WindowSeconds 3)
+Assert-True (@($slow | Where-Object { $_ -match 'STILL EXECUTING' }).Count -eq 1) `
+    "Get-GateTimeoutCpuNote: #2255's slow suite reads as still executing"
+Assert-True (@($slow | Where-Object { $_ -match 'ANSWERING LATE' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: and is named as answering late rather than never answering'
+Assert-True (@($slow | Where-Object { $_ -match 'NOTHING IN THAT TREE' }).Count -eq 0) `
+    'Get-GateTimeoutCpuNote: the two readings are exclusive -- a busy tree never prints the idle verdict'
+
+# THE FLOOR IS A FLOOR, NOT A THRESHOLD TO ACT ON -- 1% of the window, i.e. 30ms over 3s. Both sides of
+# it are asserted through the parameter, so the suite pins the SIZING without pinning the constant.
+$atFloor = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 5.0) -Window (New-CpuReading 0.03) -WindowSeconds 3 -IdleFloorFraction 0.01)
+Assert-True (@($atFloor | Where-Object { $_ -match 'NOTHING IN THAT TREE' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: the floor itself counts as nothing running'
+$overFloor = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 5.0) -Window (New-CpuReading 0.031) -WindowSeconds 3 -IdleFloorFraction 0.01)
+Assert-True (@($overFloor | Where-Object { $_ -match 'STILL EXECUTING' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: and a hair over it does not'
+
+# UNMEASURABLE SAYS SO, AND SAYS IT INSTEAD OF A NUMBER. Printing "0.00s" where CIM never answered is
+# the one wrong answer this note must not give: it would send a reader hunting a handle that is not there.
+$none = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 0 0 $false) -Window $null -WindowSeconds 3)
+Assert-Equal 1 $none.Count 'Get-GateTimeoutCpuNote: an unmeasurable tree gets exactly one line'
+Assert-True ($none[0] -match 'could not be measured') `
+    'Get-GateTimeoutCpuNote: and it says so rather than reporting a zero'
+Assert-True (@($none | Where-Object { $_ -match 'NOTHING IN THAT TREE' }).Count -eq 0) `
+    'Get-GateTimeoutCpuNote: an unreadable machine is never reported as an idle tree'
+
+# A CUMULATIVE READING WITH NO WINDOW -- the snapshot answered once and not twice. That is a lifetime
+# total and is labelled as one, because the window is what separates "ran, then stopped" from "ran".
+$lifetimeOnly = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 12.5) -Window $null -WindowSeconds 3)
+Assert-True (@($lifetimeOnly | Where-Object { $_ -match 'lifetime total only' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: a reading with no live sample is labelled a lifetime total'
+Assert-True (@($lifetimeOnly | Where-Object { $_ -match 'STILL EXECUTING|NOTHING IN THAT TREE' }).Count -eq 0) `
+    'Get-GateTimeoutCpuNote: and it draws NEITHER verdict, because the window is what decides them'
+
+# THE NUMBERS ARE FORMATTED INVARIANTLY, which is #1159 one caller further on: under nl-NL a raw '{0}'
+# would render 1450.25 as '1450,25' and an English reader of this repo gets a thousands separator.
+$prevCulture = [System.Threading.Thread]::CurrentThread.CurrentCulture
+try {
+    [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo('nl-NL')
+    $dutch = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 1450.25) -Window (New-CpuReading 0.0) -WindowSeconds 3)
+    Assert-True (@($dutch | Where-Object { $_ -match '1,450\.25s across' }).Count -eq 1) `
+        'Get-GateTimeoutCpuNote: the cumulative figure keeps the invariant dot under nl-NL'
+    Assert-True (@($dutch | Where-Object { $_ -match '0\.000s was consumed' }).Count -eq 1) `
+        'Get-GateTimeoutCpuNote: and so does the window figure'
+} finally {
+    [System.Threading.Thread]::CurrentThread.CurrentCulture = $prevCulture
+}
+
+# THE REAL SNAPSHOT READER IS EXERCISED ONCE, against this very process. It is the seam, so it is not
+# driven anywhere else -- but a seam nothing ever calls is a seam that can stop working silently, and
+# this session's own tree is a machine that certainly exists.
+$liveSnapshot = Get-GateProcessSnapshot
+if ($null -eq $liveSnapshot) {
+    # NOT A FAILURE. CIM can be refused on a locked-down machine, and the note's whole unmeasurable
+    # branch exists for that -- asserting a reading here would make this suite fail on exactly the
+    # machines the fallback was written for.
+    Write-Host '  (Get-GateProcessSnapshot returned nothing on this machine -- the unmeasurable branch above covers it)' -ForegroundColor DarkGray
+} else {
+    $self = Get-GateTreeCpuSeconds -Snapshot $liveSnapshot -ProcessId $PID
+    Assert-True $self.Measured 'Get-GateProcessSnapshot: this suite finds its OWN process in the snapshot it read'
+    Assert-True ($self.CpuSeconds -gt 0) 'Get-GateProcessSnapshot: and a process that is demonstrably running reads above zero'
+}
+
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }
 exit 0

@@ -909,7 +909,8 @@ if (-not $queueReadable) {
     Write-Host '            Every workflow below is listed with its trigger so you can judge it yourself.' -ForegroundColor DarkGray
     foreach ($w in $workflows | Where-Object { $_.OnPullRequest }) {
         $mark = if ($w.HasMergeGroup) { 'has merge_group' } else { 'NO merge_group' }
-        Write-Host "            $($w.Rel) -- $mark" -ForegroundColor DarkGray
+        # #2248: $w.Rel is a filename read off THIS CONSUMER's own directory -- foreign text.
+        Write-Host "            $(Get-DisplayPath -Path $w.Rel) -- $mark" -ForegroundColor DarkGray
     }
 } elseif ($requiredContexts.Count -eq 0) {
     # THE REASON CHANGED WITH THE POLICY (#1546), AND IT GOT STRONGER. This used to read as a
@@ -1058,7 +1059,8 @@ if (-not $queueReadable) {
         }
         foreach ($w in $prWorkflows) {
             foreach ($jid in $w.JobIds) {
-                Write-Host "              $(Get-DisplayRef -Ref $jid) -- from $($w.Rel)" -ForegroundColor DarkGray
+                # #2248: $w.Rel beside it is the same foreign-filename class $jid was already guarded for.
+                Write-Host "              $(Get-DisplayRef -Ref $jid) -- from $(Get-DisplayPath -Path $w.Rel)" -ForegroundColor DarkGray
             }
         }
         Write-Host '' -ForegroundColor Yellow
@@ -1070,24 +1072,29 @@ if (-not $queueReadable) {
     Write-Host "              gh api repos/$rulesetSlug/rulesets" -ForegroundColor DarkGray
 } else {
     foreach ($ctx in $requiredContexts) {
+        # #2248: $ctx is the ruleset's required-check CONTEXT NAME off the repo's own ruleset JSON --
+        # foreign text, same class Test-CiSuiteCertified already sends through Get-DisplayRef.
+        $ctxDisplay = Get-DisplayRef -Ref $ctx
         $owner = @($workflows | Where-Object { $_.JobIds -contains $ctx })
         if ($owner.Count -eq 0) {
-            Write-Host "  [note]    required check '$ctx' matches no job in .github/workflows/ -- it comes from" -ForegroundColor Yellow
+            Write-Host "  [note]    required check '$ctxDisplay' matches no job in .github/workflows/ -- it comes from" -ForegroundColor Yellow
             Write-Host '            somewhere else (another app, or a job name this reader cannot see). If it IS an' -ForegroundColor Yellow
             Write-Host '            Actions job, that workflow needs the merge_group trigger too.' -ForegroundColor Yellow
             continue
         }
         foreach ($w in $owner) {
+            # #2248: $w.Rel is the consumer's own workflow filename, guarded the same way as $w.Rel above.
+            $wRelDisplay = Get-DisplayPath -Path $w.Rel
             if ($w.HasMergeGroup) {
-                Write-Host "  [ok]      required check '$ctx' -> $($w.Rel), which triggers on merge_group." -ForegroundColor Green
+                Write-Host "  [ok]      required check '$ctxDisplay' -> $wRelDisplay, which triggers on merge_group." -ForegroundColor Green
             } elseif ($queueActive) {
                 $liveDefects++
-                Write-Host "  [ERROR]   required check '$ctx' -> $($w.Rel), which does NOT trigger on merge_group," -ForegroundColor Red
+                Write-Host "  [ERROR]   required check '$ctxDisplay' -> $wRelDisplay, which does NOT trigger on merge_group," -ForegroundColor Red
                 Write-Host "            and a queue is ACTIVE on '$trunk'. That check never reports for a queue entry," -ForegroundColor Red
                 Write-Host '            so every merge fails. Add to its on: block, at two spaces of indent:' -ForegroundColor Red
                 Write-Host '              merge_group:' -ForegroundColor Red
             } else {
-                Write-Host "  [gap]     required check '$ctx' -> $($w.Rel), which does NOT trigger on merge_group." -ForegroundColor Yellow
+                Write-Host "  [gap]     required check '$ctxDisplay' -> $wRelDisplay, which does NOT trigger on merge_group." -ForegroundColor Yellow
                 Write-Host '            Inert today; a TOTAL MERGE OUTAGE the moment a queue is switched on. Add to its' -ForegroundColor Yellow
                 Write-Host '            on: block, at two spaces of indent:' -ForegroundColor Yellow
                 Write-Host '              merge_group:' -ForegroundColor Yellow

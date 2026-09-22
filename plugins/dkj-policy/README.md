@@ -153,6 +153,7 @@ below changes for you, and nothing here asks you to run anything.
 |---|---|
 | [`adopt-dkj-policy`](skills/adopt-dkj-policy/SKILL.md) | right after installing, in either order — **Part 1** scaffolds `dkj-policy/`, the one folder in your root where everything portable gathers (an install alone writes nothing into your repo); **Part 2** reads the blueprint, places what states the shared way of working, proposes the rest |
 | [`claim-issue`](skills/claim-issue/SKILL.md) | an issue number has been named as the work — puts your account on it first, and refuses a closed one or one somebody else holds. Before the branch, because the tracker is the only thing two sessions share |
+| [`sweep-issues`](skills/sweep-issues/SKILL.md) | issues have piled up and several machines should work them at once — claims by TAG (machine/account), so a claim names the machine even where two checkouts share one GitHub account, settles a two-machine race on the tracker's own timestamps, and stops where a result has to be judged by eye |
 | [`new-branch`](skills/new-branch/SKILL.md) | starting any piece of work — creates the branch and its `dkj-policy/<branch>.md` in one move |
 | [`park`](skills/park/SKILL.md) | handing an unfinished branch to another machine: push, no PR |
 | [`worktree-lane`](skills/worktree-lane/SKILL.md) | one branch has to be built while another one ships — opens a branch in its own worktree, and hands it back when it is ready to ship |

@@ -546,7 +546,8 @@ function Write-SyncLogEntry {
     # A 'VUL-IN' left standing in the seam block reads as answered to anything testing for emptiness --
     # the same rule the theme-id check applies above, for the same reason.
     if ($rel -match 'VUL-IN') {
-        Write-Host "Get-ShopifySyncLogPath still answers with a scaffold marker ('$rel'), so no sync-log entry was written." -ForegroundColor Yellow
+        # #2248: $rel is the consumer's own Get-ShopifySyncLogPath seam answer -- foreign text.
+        Write-Host "Get-ShopifySyncLogPath still answers with a scaffold marker ('$(Get-DisplayPath -Path $rel)'), so no sync-log entry was written." -ForegroundColor Yellow
         return ''
     }
 
@@ -567,10 +568,13 @@ function Write-SyncLogEntry {
         $text = Add-SyncLogEntry -Existing $existing -Entry $entry
 
         [System.IO.File]::WriteAllText($full, $text, (New-Object System.Text.UTF8Encoding($false)))
-        Write-Host "Sync log: entry for $(Get-DisplayRef -Ref $Branch) written to $rel." -ForegroundColor DarkGray
+        # #2248: $rel guarded beside the already-guarded $Branch it shares this line with.
+        Write-Host "Sync log: entry for $(Get-DisplayRef -Ref $Branch) written to $(Get-DisplayPath -Path $rel)." -ForegroundColor DarkGray
         return $rel
     } catch {
-        Write-Host "Could not write the sync-log entry to '$rel', so this sync leaves no record in the tree: $($_.Exception.Message)" -ForegroundColor Yellow
+        # #2248: $rel guarded; $_.Exception.Message stays raw -- .NET's own text, not this seam's, and
+        # ~30 other sites already print one unguarded (out of scope here).
+        Write-Host "Could not write the sync-log entry to '$(Get-DisplayPath -Path $rel)', so this sync leaves no record in the tree: $($_.Exception.Message)" -ForegroundColor Yellow
         return ''
     }
 }

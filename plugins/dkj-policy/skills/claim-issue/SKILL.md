@@ -52,7 +52,7 @@ The script:
    no git call at all where nothing was surfaced.
 7. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
-## Two parameters
+## The parameters
 
 - **`-Issue <n>`** (positional, required) -- the issue. A bare number (`1234`), a hash-prefixed one
   (`#1234`), or the issue's own URL: all three are what a person has in their hand at that moment,
@@ -60,6 +60,32 @@ The script:
   itself.
 - **`-DryRun`** -- read and judge, write nothing. Prints the verdict it would act on, so you can see
   **who holds an issue without taking it**.
+
+## And a second claim, for a backlog worked by several machines (`-Tag`)
+
+**Everything above claims by ASSIGNEE, and that claim cannot name a machine.** Two checkouts
+authenticated as the same account write the same assignee and neither can tell its own claim from the
+other's; and an assignee a colleague put on their own ticket months ago is not somebody mid-flight, so
+the `taken` refusal would skip work that is free. Both are measured in
+[#2243](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2243).
+
+So there is a second mode, and **the default one is untouched by it** -- without `-Tag` this script
+behaves exactly as the rest of this page says, refusals and all. The procedure that uses these
+parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do is:
+
+- **`-Tag`** -- claim by TAG instead: `machine/account`, written as a marker comment, with the assignee
+  beside it as the tracker's visible signal rather than as the claim. It reads the marker back and
+  settles a two-machine race on the tracker's own timestamps -- **earliest marker wins**, and the
+  losing session releases its own and stops.
+- **`-Verify`** (with `-Tag`) -- read only. Exit 0 when THIS tag still holds the issue, exit 1
+  otherwise. It is what a session runs before resuming a branch it parked hours ago.
+- **`-Release`** (with `-Tag`) -- drop this tag's claim: its own marker comments and its assignee, and
+  nothing else. Another session's marker is another session's record and is never touched.
+- **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
+  `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
+  somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
+- **`-Marker`** -- the marker name a claim is written under (`claim-tag`), plus any predecessors a repo
+  still has claim comments under, which are **read and never written**.
 
 ## Which account -- and why never `@me`
 
@@ -483,6 +509,49 @@ which is a complete answer.
   a judgement about the work -- which this step has not read yet.
 - **Not a filing step.** It claims an issue that exists; it does not create one.
 - **Not a substitute for reading the issue.** A claim says who is working, not what the work is.
+
+## Filing an issue is not claiming it -- and absorbing one into the branch you are on is a pickup
+
+**This step is bound to the act of STARTING an issue**, and every example above says so: *"fix issue
+1234"*, *"pick up #87"*, a resume. There is a second way an issue enters a branch's scope, and it does
+not look like a start at all: you are working a branch, you find something real, you file it because
+the filing rule says a finding becomes an issue — and then you judge it in scope for the branch already
+in flight and repair it there. Nothing announces a pickup, so this skill is never invoked, and on the
+tracker that issue reads exactly like any other new, open, unassigned one.
+
+**Measured, September 22, 2026**
+([#2284](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2284)): #2272 was filed from
+`fix/2248-guard-raw-foreign-text-prints` and absorbed into it — correctly, because the branch had
+already rewritten a registry entry to say that site was repaired. Another session found it unassigned,
+picked it up exactly as it should, and shipped it as PR #2275. PR #2282 then went `CONFLICTING` on the
+file both branches had guarded: a trunk merge, a hand conflict resolution, three documents corrected,
+and a second ship. **Nobody did anything wrong under the rules as they stood** — an unassigned open
+issue is an unowned one.
+
+**Not "claim every issue you file."** Most findings are filed precisely so they can be left alone, and
+claiming those would make the assignee field meaningless across a backlog nobody is on. The trigger is
+narrower: an issue is filed **and then worked**, in the branch you are standing on.
+
+**So `open-pr` takes the claim at the moment the tooling can first SEE the absorption** — the run that
+declares `Closes #<n>`. Before the push it reads the assignees off the open-issue list it already
+fetches, and for each issue this PR declares it closes:
+
+| what the tracker says | what happens |
+|---|---|
+| **held by this checkout's account** | nothing — the ordinary path, where this skill already ran |
+| **unassigned** | **claimed**, under the account `Resolve-ClaimAccount` resolves, and one line says so |
+| **held by somebody else** | a warning naming the holder — two sessions may be building one repair |
+| **could not be read** | nothing is said and nothing is written; a failed query is never a free issue |
+
+**It never blocks**, on the reason this whole family shares: a claim that wedges a real pull request
+costs the whole assignment ([#1485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1485)),
+and this check cannot tell a rival from a colleague who is simply also on the thread.
+
+**That is a backstop, not a replacement for claiming it yourself.** It fires at the push, which is the
+end of the branch; the collision above happened days of work earlier. If you absorb an issue into the
+branch you are on, run this skill on it **then** — you also get the parked-fix scan, the title-overlap
+scan and the branch-weight scan, none of which `open-pr` performs, and all of which are about work that
+is already under way somewhere else.
 
 ## And then you carry on -- the claim opens the work, it does not conclude a turn
 

@@ -1329,6 +1329,53 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
     Assert-Equal $guardSeam $guardCands[0] 'the seam is still candidate 0 after a failed enumeration'
     Assert-Equal (Join-Path $guardRoot '.claude\extensions') $guardCands[-1] 'and the legacy location is still read, and still last'
     Assert-True ($guardCands -contains (Join-Path $guardRoot '.claude\plugins\claude-specialists\dkj-subagents-alpha')) 'the composed pre-seam candidate survives too -- it needs no enumeration'
+
+    # --- Get-SpecialistNamingState: the retirement signal the dual-name layer is keyed on (#2289) ---
+    #     Dave's decision retires the old names "once the connector register shows all six are over",
+    #     and this function is the only thing that can answer "over". Four states, and the fourth is
+    #     the one worth asserting hardest: a directory holding nothing must NOT report as migrated.
+    Write-Host "Get-SpecialistNamingState -- which spelling a tree is written in" -ForegroundColor Cyan
+
+    $nsCurrent = Get-SpecialistNamingState -Kind Lens -Name @('specialist-01-01-lens.md', 'specialist-05-05-lens.md')
+    Assert-Equal 'Current' $nsCurrent.State 'all written-spelling lenses report Current'
+    Assert-Equal 2 $nsCurrent.Current 'and both are counted'
+    Assert-Equal 0 $nsCurrent.AlsoRead 'with nothing on the also-read spelling'
+
+    $nsAlso = Get-SpecialistNamingState -Kind Lens -Name @('01-01-extension.md', '05-05-extension.md')
+    Assert-Equal 'AlsoRead' $nsAlso.State 'all pre-rename lenses report AlsoRead'
+    Assert-Equal 2 $nsAlso.AlsoRead 'and both are counted on that side'
+
+    $nsMixed = Get-SpecialistNamingState -Kind Lens -Name @('specialist-01-01-lens.md', '05-05-extension.md')
+    Assert-Equal 'Mixed' $nsMixed.State 'a part-migrated directory reports Mixed -- the state no single file can show'
+    Assert-Equal 1 $nsMixed.Current 'one on each side: Current'
+    Assert-Equal 1 $nsMixed.AlsoRead 'one on each side: AlsoRead'
+
+    # THE EMPTY CASE IS THE POINT (#221, one layer in). 'None' exists so a caller cannot print a clean
+    # verdict over a directory it never read: "0 of 0" and "all over" are different facts, and only
+    # this state keeps a roll-up from closing the retirement window on a consumer with no lenses at all.
+    $nsNone = Get-SpecialistNamingState -Kind Lens -Name @()
+    Assert-Equal 'None' $nsNone.State 'nothing measured reports None, never Current'
+    $nsNull = Get-SpecialistNamingState -Kind Lens -Name $null
+    Assert-Equal 'None' $nsNull.State 'and a null list is the same answer rather than a throw'
+
+    # A name following neither shape is COUNTED, not dropped: a directory of four unrecognised files is
+    # a different fact from an empty one, and a caller that cannot see the difference reports the wrong
+    # one. It still does not make the tree 'migrated'.
+    $nsJunk = Get-SpecialistNamingState -Kind Lens -Name @('README.md', 'notes.md')
+    Assert-Equal 'None' $nsJunk.State 'unrecognised names alone still report None'
+    Assert-Equal 2 $nsJunk.Unmatched 'and they are counted as Unmatched rather than silently dropped'
+
+    # THE KINDS ARE INDEPENDENT, which is the half the roll-up's closing line warns about: the Lens
+    # register signal says nothing about Subagent, whose old spelling moves BOTH prefix and stem.
+    $nsSub = Get-SpecialistNamingState -Kind Subagent -Name @('02-09-agent.md', 'specialist-02-09-subagent.md')
+    Assert-Equal 'Mixed' $nsSub.State 'Subagent reads its own two shapes, stem included'
+    $nsCross = Get-SpecialistNamingState -Kind Subagent -Name @('specialist-01-01-lens.md')
+    Assert-Equal 'None' $nsCross.State "and a lens name is not a subagent name -- no kind borrows another's shapes"
+
+    # The display names come from the shapes table rather than from a literal here, so a future rename
+    # step that flips a row cannot leave this report describing the wrong file.
+    Assert-Equal 'specialist-<g>-<id>-lens.md' $nsCurrent.CurrentName 'CurrentName is composed from the table'
+    Assert-True ($nsCurrent.AlsoReadName -contains '<g>-<id>-extension.md') 'AlsoReadName carries every tolerated spelling'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
