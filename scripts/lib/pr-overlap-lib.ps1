@@ -87,14 +87,20 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
-# GUARDED, and resolved ONCE rather than per path: Get-Command is not free, and Get-PrOverlapFindings
+# THE FUNCTION-TABLE PROBE (issue #1729), unconditional and $PSScriptRoot-relative like every other
+# reader of this leaf: Test-FunctionDefined is how this tree asks whether a function exists, and a
+# tree-wide gate in command-probe-lib.tests.ps1 refuses a Get-Command probe anywhere under scripts/.
+# It is a dependency-free leaf, so loading it first is safe for the two guarded libs below.
+. (Join-Path $PSScriptRoot 'command-probe-lib.ps1')
+
+# GUARDED, and resolved ONCE rather than per path: the probe is not free, and Get-PrOverlapFindings
 # normalises every path of every open pull request.
 $prOverlapPorcelainLib = Join-Path $PSScriptRoot 'git-porcelain-lib.ps1'
 if (Test-Path -LiteralPath $prOverlapPorcelainLib -PathType Leaf) { . $prOverlapPorcelainLib }
 $prOverlapRefPrintLib = Join-Path $PSScriptRoot 'ref-print-lib.ps1'
 if (Test-Path -LiteralPath $prOverlapRefPrintLib -PathType Leaf) { . $prOverlapRefPrintLib }
-$script:PrOverlapCanDecodePath = [bool](Get-Command -Name 'Convert-GitQuotedPath' -ErrorAction SilentlyContinue)
-$script:PrOverlapCanSanitise   = [bool](Get-Command -Name 'Get-DisplayRef' -ErrorAction SilentlyContinue)
+$script:PrOverlapCanDecodePath = Test-FunctionDefined 'Convert-GitQuotedPath'
+$script:PrOverlapCanSanitise   = Test-FunctionDefined 'Get-DisplayRef'
 
 function Get-OpenPrPathRecords {
     <#
