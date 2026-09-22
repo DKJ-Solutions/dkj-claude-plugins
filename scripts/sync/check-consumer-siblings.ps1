@@ -432,11 +432,11 @@ foreach ($groupName in $groups.Keys) {
         }
 
         if (-not $inv.Ok) {
-            $unreadable = @($unreadable) + @("$label -- $($inv.Reason)")
+            $unreadable = @($unreadable) + @("$(Format-SafePathToken -Value $label) -- $($inv.Reason)")
             continue
         }
         $inventory[$label] = $inv.Paths
-        Write-Host "   read $label : $($inv.Paths.Count) comparable path(s) via $($inv.Reason)" -ForegroundColor DarkGray
+        Write-Host "   read $(Format-SafePathToken -Value $label) : $($inv.Paths.Count) comparable path(s) via $($inv.Reason)" -ForegroundColor DarkGray
     }
 
     # ONE SCHEME PER GROUP. Anything less than every member read the same way is not a smaller
