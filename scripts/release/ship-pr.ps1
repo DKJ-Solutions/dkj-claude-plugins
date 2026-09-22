@@ -348,7 +348,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# EVERY REFUSAL ENDS WITH A LINE THAT SURVIVES A PIPE (issue #2283). The report behind this one said the
+# EVERY REFUSAL ENDS WITH A LINE THAT SURVIVES ITS CALLER (issue #2283). The report behind this one said the
 # refusal "does not set an exit code, and nothing downstream converts it into one", and that half does not
 # hold: under the 'Stop' above every Write-Error in this file is a TERMINATING error, so the host exits 1 on
 # its own and the `exit 1` written beneath each one is dead code. Measured on this script's own trunk
@@ -362,7 +362,14 @@ $ErrorActionPreference = 'Stop'
 # `completed (exit code 0)` while the pull request sits open, conflicting and unmerged -- and "merged and
 # folded" and "refused, nothing done" are indistinguishable to the one signal that caller reads.
 #
-# SO THE VERDICT MOVES IN-BAND, WHERE A PIPE CANNOT TAKE IT. The trap prints the error record exactly as the
+# AND THE PIPE IS ONLY THE COMMONEST WAY, WHICH IS WHY THE LINE BELOW DOES NOT SAY "PIPE" ON ITS OWN.
+# Measured on this very branch, hours after the paragraph above was written: the ship that was to land it
+# was run WITHOUT a pipe, redirected to a file -- and as `powershell ... > log 2>&1; echo "EXIT=$?"`, whose
+# last command is the echo. The harness reported `completed (exit code 0)` again, for a run that refused on
+# a red required check. Any wrapper ending in a second command does this, so a reader who concludes "no
+# pipe, so my exit code is sound" has drawn exactly the wrong lesson from the right observation.
+#
+# SO THE VERDICT MOVES IN-BAND, WHERE NEITHER CAN TAKE IT. The trap prints the error record exactly as the
 # host would and on the stream the host would (WriteErrorLine, so a caller separating the streams keeps what
 # it always had), then ONE unmistakable last line, then exits 1 explicitly rather than leaving the code to
 # the host. A successful run already ends with the close-out receipt (#1884), so the two endings are now
@@ -389,8 +396,8 @@ trap {
     } else {
         $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above -- NOT merged, NOT folded; nothing past that point ran.')
     }
-    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): read through a pipe -- `| tail -n`,')
-    $host.UI.WriteErrorLine('          `| Select-Object -Last n` -- this run reports the PIPE exit status, which is 0 however it ended.')
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
     exit 1
 }
 

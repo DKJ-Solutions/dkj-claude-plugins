@@ -45,7 +45,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 lags its own source by however many merges have landed since. A consumer keeps no copy of their own, so
 for them the line above is the correct one.
 
-**A PIPE THROWS THIS RUN'S EXIT CODE AWAY, so read the LAST LINE instead**
+**THE CALLER THROWS THIS RUN'S EXIT CODE AWAY, so read the LAST LINE instead**
 ([#2283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2283)). The output is long, so it is
 tempting to read it through `| tail -40` or `| Select-Object -Last 150` — and a pipeline reports the exit
 status of its *last* element, which is `0` however the run ended. Measured on PR #2282, September 22, 2026:
@@ -54,6 +54,12 @@ back to its caller as `completed (exit code 0)` — so *merged and folded* and *
 indistinguishable to the one signal that caller reads, and the session closed out saying the branch was
 shipping. The script's own exit code was never the problem: unpiped it is `1`, because every refusal here is
 a terminating error.
+
+**And the pipe is only the commonest way.** The ship meant to land that very repair was run *without* one —
+redirected to a file, as `powershell ... > log 2>&1; echo "EXIT=$?"` — and came back as
+`completed (exit code 0)` again, because the last command in that line is the `echo`. Any wrapper ending in
+a second command does it, so *"no pipe, so my exit code is sound"* is the wrong lesson drawn from the right
+observation.
 
 So the verdict is in the output now, where a pipe cannot take it. **Every refusal ends with a `[REFUSED]`
 line naming what did and did not happen** — including which side of the merge it stopped on, since a refusal

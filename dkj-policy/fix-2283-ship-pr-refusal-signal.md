@@ -59,6 +59,17 @@ is long -- 82 piped invocations for `open-pr` alone. So the exit code is a chann
 reading habit throws away every time, and telling sessions to stop piping is a rule enforced by memory,
 which is the class this tree keeps replacing with a mechanism.
 
+**And the pipe turned out to be only the commonest way -- measured on this branch, hours after the
+paragraph above was written.** The ship meant to land this repair was run *without* a pipe, deliberately,
+redirected to a file: `powershell ... > log 2>&1; echo "SHIP EXIT=$?"`. It refused correctly on a red
+required check, printed the new `[REFUSED]` block, and came back to its caller as
+`completed (exit code 0)` **again** -- because the last command in that line is the `echo`. Any wrapper
+ending in a second command does this. The first draft of the verdict line named only the pipe, which
+invites exactly the wrong inference (*"no pipe, so my exit code is sound"*), so the printed line and every
+comment behind it now name the CALLER rather than the pipe. That is the one thing the second measurement
+changed, and it is also this branch's own evidence that the verdict had to move in-band rather than the
+habit being talked out of.
+
 #### So the verdict moves in-band, and the scope is the five chain enders
 
 `closeout-lib.ps1` already names the five scripts whose ending IS a close-out (`Get-ChainEndingScripts`,
