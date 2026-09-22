@@ -1052,7 +1052,15 @@ Both are honest answers; the gate only refuses to guess.
                 # THE SAME RESOLUTION claim-issue MAKES, AND NEVER '@me' (#1315): @me binds to whatever gh
                 # is authenticated as, while the branch a second session correlates the claim with carries
                 # the GIT identity, so on a split checkout @me claims under the wrong name in silence.
-                $claimAccount = (Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName)).Account
+                #
+                # -RepoRoot IS NOT OPTIONAL HERE, and it is the half the code review caught: without it
+                # Get-GitUserName drops its '-C' and reads whatever the PROCESS's current directory
+                # resolves to -- this script never calls Set-Location, so that is the caller's directory,
+                # and outside a checkout it is the GLOBAL config. The two other call sites in the tree
+                # (claim-issue.ps1, check-git-identity.ps1) both thread it for that reason, and the skill
+                # page's promise -- "it claims under the account claim-issue would resolve" -- is only
+                # true while all three ask the same question of the same repository.
+                $claimAccount = (Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName -RepoRoot $repoRoot)).Account
             }
             foreach ($gap in @(Get-ClaimGapVerdict -Issues $resolveIssues -AssigneeMap $openAssignees -Account $claimAccount)) {
                 if ($gap.State -eq 'mine' -or $gap.State -eq 'unknown') { continue }

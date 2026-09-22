@@ -3439,7 +3439,15 @@ Assert-True ($openPrText -like '*ConvertFrom-OpenIssueList -Json*')  '...and par
 
 # NEVER '@me' (#1315): it binds to whatever gh is authenticated as, while the branch a second session
 # correlates the claim with carries the git identity.
-Assert-True ($openPrText -like '*Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName)*') 'it claims under the account claim-issue would resolve'
+#
+# AND -RepoRoot IS PART OF THE ASSERT RATHER THAN DECORATION. Without it Get-GitUserName drops its '-C'
+# and reads the CURRENT DIRECTORY's config -- and open-pr never calls Set-Location, so that is wherever
+# the caller stood, which outside a checkout is the global config. Caught by the code review on this
+# branch: the first version of this assert pinned the call WITHOUT -RepoRoot, so it documented the gap
+# instead of catching it. The skill page's promise -- "it claims under the account claim-issue would
+# resolve" -- holds only while all three call sites ask the same question of the same repository.
+Assert-True ($openPrText -like '*Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName -RepoRoot $repoRoot)*') 'it claims under the account claim-issue would resolve, read from THIS repo'
+Assert-True ($openPrText -notlike '*-GitUserName (Get-GitUserName)*') '...and never through the directory-dependent call'
 Assert-True ($openPrText -notlike "*'--add-assignee', '@me'*") "...and never under '@me'"
 
 # IT NEVER BLOCKS. A claim that wedges a real PR costs the whole assignment (#1485), and this check

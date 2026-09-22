@@ -114,6 +114,51 @@ runs on every push and on every ship, so a rival that lands mid-review is now re
       comparison, and the structural asserts on `open-pr`: the declared set and not the mentioned one,
       the single query, never `@me`, the guarded loads, and that nothing on this path exits.
 - [x] All 1122 asserts in that suite pass.
+- [x] Security review on the diff (the write is new, and this script is mirrored into every consumer's
+      plugin cache, so it runs in other people's repositories). **No blocking findings.** What was traced
+      end to end: `$resolveIssues` can only be filled from the author's own `-Resolves`, a closing keyword
+      already published on this branch's own PR body, or `$Body` -- never from any issue's title, body or
+      comments, and never from the mentioned set. Every value reaching the `gh` argument array is
+      shape-constrained: the number is `[int]` throughout so it cannot begin with `-`, the repo comes from
+      repo-config, and the account passes `Test-GitHubLoginShape`, whose pattern structurally forbids a
+      leading `-` -- so a hostile local `git config user.name` cannot produce a flag. No tracker-authored
+      text is read at all: the query asks for `number,assignees`, and only logins reach output.
+
+- [x] Code review on the diff. **One real bug, repaired here:** the account resolution called
+      `Get-GitUserName` **without `-RepoRoot`**, while both other call sites in the tree
+      (`claim-issue.ps1`, `check-git-identity.ps1`) thread it. Without it that function drops its `-C` and
+      reads the **current directory's** config -- and `open-pr.ps1` never calls `Set-Location`, so that is
+      wherever the caller stood, which outside a checkout is the **global** config. The skill page's
+      promise, *"it claims under the account `claim-issue` would resolve"*, was therefore not guaranteed
+      by the code. Worse, the first version of the assert pinned the call *as written*, so it documented
+      the gap instead of catching it; the assert now pins `-RepoRoot` and refuses the bare form.
+
+#### Two further review findings, recorded rather than built
+
+- **The assignee map can stay unfetched on one resumed shape.** The open-issue fetch is gated on
+  `$mentions.Count -gt 0 -or $resolveList.Count -gt 0`, while `$resolveIssues` can also come from a
+  `Closes #<n>` already published on the branch's own PR body. On a resumed run where the keyword exists
+  *only* there, the map is `$null` and the check reads that issue as 'unknown' and does nothing. **Never
+  wrongly** -- 'unknown' is the safe state by design -- and self-limiting: whichever run first published
+  that keyword had `-Resolves` explicit, so the fetch happened and the claim was taken then. Widening the
+  gate would buy a re-verification of a claim already made, at one query on every resumed run.
+- **The login-extraction loop is duplicated** between `ConvertFrom-OpenIssueList` and
+  `Get-AssigneeLogins`. Not shared, and the reason is a dependency rather than taste: `Get-AssigneeLogins`
+  lives in `claim-issue-lib.ps1`, which `open-pr` loads **guarded** because a consumer's mirror may
+  predate it -- so `pr-issues-lib.ps1`, which is loaded unguarded and much earlier, cannot call into it.
+  Sharing would mean moving that function to a third lib, which is a larger change than the six lines it
+  would save. The two also parse different payload shapes (`issue view` wraps one array; `issue list`
+  gives one per record), so only the inner half is common.
+
+#### The one security advisory, and why it is declined rather than built
+
+The review noted that the only lever over the new write is `-NoResolves`, which also drops the closing
+keyword -- so a consumer wanting the PR without the claim has no narrower switch. Declined, for now and
+with the reason recorded rather than left implicit: the write is a SELF-claim, bounded to what this run is
+about to declare it closes, and it is undone by one `gh issue edit --remove-assignee`. A `-NoClaim` would
+be a third flag on a gate that already carries two, and the case for it is hypothetical -- nobody has
+wanted it yet. If somebody does, that is the moment to add it, and this paragraph is what they should read
+first.
 
 ### DEPLOY: fix/2284-claim-absorbed-issue
 
