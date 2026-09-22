@@ -882,6 +882,26 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE MERGE-ON-GREEN HANDSHAKE (issue #2319, September 22, 2026). ship-pr.ps1 writes the
+            # arming label at its own CI refusal and scripts/ci/pick-merge-on-green.ps1 reads it; this
+            # file is the one place that spells it, so the two halves cannot drift apart into a repo with
+            # armed pull requests no sweep can see.
+            #
+            # MIRRORED BECAUSE ship-pr.ps1 DOT-SOURCES IT, which is the whole of the reason and is not a
+            # judgement about the runner. That dot-source is unguarded, like the seven above it, so a
+            # plugin payload carrying ship-pr without this file would fail at LOAD in every consumer --
+            # the one failure mode a mirror exists to prevent. The runner itself does not travel yet
+            # (#2329); this file has to, the moment ship-pr does.
+            #
+            # NO CONTRACT ROW: nothing in it is repo-owned. The label is deliberately a constant rather
+            # than a seam -- see the lib's own header for why a consumer must not be able to rename one
+            # half of a handshake.
+            Name    = 'merge-on-green-lib'
+            Source  = 'scripts\lib\merge-on-green-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a

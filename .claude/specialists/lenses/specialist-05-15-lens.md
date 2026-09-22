@@ -1150,6 +1150,98 @@ infrastructure.
     so; a fine-grained PAT lists repositories one by one, so a repo *created* rather than transferred
     (an org move with no GitHub transfer) falls outside an existing token's selection silently.
 
+- **`.github/workflows/merge-on-green.yml` + `scripts/ci/pick-merge-on-green.ps1` + `scripts/lib/merge-on-green-lib.ps1`**
+  — the merge that survives the *session*, where the two runners above survive the *merger*
+  ([#2319](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2319), September 23, 2026).
+  `ship-pr` refusing on a red required check leaves the merge owed to three things at once: a session
+  still alive, a person who notices CI turned green, and a checkout standing on the branch. Measured on
+  PR #2316: `gh run rerun --failed` turned every check green and nothing merged it, because the run that
+  had been watching exited at step 3 — and re-running `ship-pr` then refused *again*, on a checkout its
+  own step 2b (#1073) had put on the trunk.
+
+  **IT RUNS `ship-pr.ps1`; IT DOES NOT RE-DERIVE A SINGLE GATE.** #2319 proposed a runner that merges
+  "only when the required check is green on the exact head and the staleness count is zero" — and that
+  second predicate is step 3b, with the step-list gate and the DEPLOY lock two more the issue's list
+  leaves out. So the job checks the branch out and runs the script that holds all of them, which also
+  means it folds (step 5) and verifies the resolves (step 6) exactly as a live session would. Every
+  later repair to `ship-pr` reaches this runner with no edit here. The same restraint
+  `ci-merge-skip-lib.ps1` shows one file over, taken one step further: that one re-asks step 3b's
+  question from CI by calling the identical pure functions; this one does not ask it twice at all.
+
+  **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** `CLAUDE.md` holds two
+  kinds of PR back for Dave's own word — a visible result, and anything irreversible or outward-facing —
+  and a runner merging every green PR would merge those too. `merge-when-green` is set at the moment
+  `ship-pr`'s own CI verdict refuses, so it is a record that a session had *already begun shipping*,
+  which is precisely what those two exceptions withhold. A PR kept back for Dave never had `ship-pr` run
+  on it. The label creates itself on first use rather than needing an adoption step, because
+  `gh pr edit --add-label` fails outright on a label the repo does not have and this script travels to
+  every consumer.
+
+  **THE MERGE IS MADE BY `FOLD_PUSH_TOKEN`, AND THAT IS NOT A CONVENIENCE.** A push *caused by* the
+  job-scoped `GITHUB_TOKEN` starts no workflow runs — the fact `verify-resolved.yml`'s header already
+  records from the other side. So a `GITHUB_TOKEN` merge would land the PR and silence `ci.yml` on the
+  trunk, `fold-on-merge.yml` and `verify-resolved.yml` all three: the unobserved-merge state those two
+  runners exist to close, reintroduced by the mechanism meant to help. The cost is that the secret needs
+  `Pull requests: write` added to it, which is Dave's act and not a branch's; until it is made this job
+  fails loudly with a 403 on the merge and can never merge without folding.
+
+  **IT IS THE PRINCIPLED ANSWER TO THE TEMPTATION #2265 MEASURED**, and it does not reverse that
+  record. `repo.allow_auto_merge` stays `false`: GitHub's own auto-merge cannot perform step 3b, so with
+  `strict` off it lands a stale-but-green certificate unattended, which is #1292 exactly. What #2265
+  measured was a session reaching for that switch to stop waiting. This runner gives that impulse
+  somewhere legitimate to go — the wait ends without a person in it, *and* the staleness check is kept
+  rather than skipped.
+
+  **IT SHIPS WITH `-SkipLint -SkipTests`, AND OMITTING THAT PAIR WOULD BE THE EXPENSIVE MISTAKE.**
+  `ship-pr`'s step 1 calls `open-pr.ps1` even for a pull request that is already open — it skips only
+  the `gh pr create` and still runs the gates and the push (#457's repair, deliberately made in
+  `open-pr` rather than in the orchestrator). So a runner that just ran `ship-pr.ps1` would re-run the
+  whole local suite pool, ~43 minutes (#2317), inside a job whose cap is 45. Skipping it is not a gate
+  bypassed: the sweep picked this pull request *because* the required check is green on its own head,
+  and that check **is** this same gate, run on GitHub, on this same commit — the certificate is what the
+  merge is allowed on, not the local copy.
+
+  **A SWEEP, NOT AN EVENT-DERIVED PR.** Three triggers wake one sweep — a CI `workflow_run`, a
+  30-minute schedule, `workflow_dispatch` — and none of them is read for *which* PR is owed a merge;
+  `pick-merge-on-green.ps1` reads the tracker instead. The schedule is what makes it durable: #2319's own
+  incident was repaired with `gh run rerun --failed`, and whether a partial re-run re-emits
+  `workflow_run` is not a contract worth resting this on. The concurrency group is a **constant** with
+  `cancel-in-progress: false`, which is the opposite choice from the two push-triggered runners and for a
+  reason they do not have — those answer a question about one push, while two concurrent sweeps would
+  race to ship the *same* PR. One PR per sweep, lowest number first; the merge is itself a push to the
+  trunk, so the next sweep is already queued behind it and the backlog drains by construction.
+
+  **`workflow_run` RUNS THE DEFAULT BRANCH'S COPY OF THIS FILE**, whatever branch the CI run was for —
+  so this workflow cannot be proved on its own pull request, and its first live proof is its own first
+  sweep after the merge. Read alongside `check-repo-settings.ps1`'s own `[?]` verdict above: both are
+  places where the honest answer is *this cannot be checked from here*.
+
+  **AND `workflow_run` IS THE TRIGGER THAT RUNS WITH SECRETS FOR A FORK'S PULL REQUEST**, which is its
+  standard hazard and the reason this job reads **nothing** out of the event. Everything it acts on comes
+  from the tracker: an open pull request carrying a label only `ship-pr` writes, whose head is a branch of
+  *this* repository — `pick-merge-on-green.ps1` refuses a cross-repository one outright rather than letting
+  it fail at the checkout. This repo is public, so a fork's pull request can start the job and reach none of
+  its decisions. Both guards are asked because neither is load-bearing alone: today the label is out of a
+  stranger's reach, and "is the head ref in this repo" does not depend on that staying true.
+
+  **THE THIRD PRECONDITION IS REMOVED IN `ship-pr` ITSELF.** #1620 turned the on-the-trunk refusal from
+  a rule into a diagnosis; it still handed a person a command the script had already worked out. Now,
+  on **exactly one** candidate, a **clean** tree and a name `ref-print-lib.ps1` would already put on a
+  command line, it performs the checkout and carries on. The widening is over which branch gets *read*,
+  never over what may merge — a parked branch is still refused by the step-list gate a few steps down.
+  **It is a test gap and named as one**: the block reads HEAD, the tracker and the working tree and
+  drives `git checkout`, so there is no pure function to hand a payload to;
+  `scripts/tests/merge-on-green-lib.tests.ps1` holds the three conditions structurally and asserts the
+  #1620 refusal survived, which is not the same as covering the behaviour.
+
+  **NO CONSUMER TWIN YET, WHILE THE HALF THAT *ARMS* ONE TRAVELS AT THE NEXT RELEASE**
+  ([#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329)). `ship-pr.ps1` is a shared
+  script, so a consumer gets the labelling and the sentence promising a sweep, with no sweep behind it.
+  Inert rather than harmful — and the reason `merge-on-green-lib.ps1` is registered as a shared lib
+  regardless: that dot-source is unguarded, so a payload carrying the script without the lib fails at
+  load in every consumer. `fold-on-merge.yml` landed the same way, built here under #1493 and derived
+  into `adopt-ci-floor.ps1` afterwards.
+
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
   September 22, 2026). Until that issue no job in `.github/workflows/` declared one, so a wedged job ran
