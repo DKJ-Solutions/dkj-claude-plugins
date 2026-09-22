@@ -1014,6 +1014,21 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE OVERLAP SCAN (issue #2315): which OTHER open pull requests change a file this branch
+            # changes -- the parse, the intersection and the wording. Dot-sourced by open-pr.ps1 and
+            # mirrored for the same reason as the libs around it: that script is mirrored and would
+            # otherwise dot-source a file the consumer does not have.
+            #
+            # ITS OWN FILE RATHER THAN pr-issues-lib.ps1, on issue-state-lib's precedent above and for the
+            # neighbouring reason: that file is about the ISSUES a PR resolves, this one about the FILES
+            # two branches share, and the only thing they have in common is that gh answers both. Both are
+            # pure, so neither gains anything from the other's suite.
+            Name    = 'pr-overlap-lib'
+            Source  = 'scripts\lib\pr-overlap-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # The PR-body helpers open-pr.ps1 dot-sources: Get-EntryDescription (shared by the fresh and
             # the -RefreshBody path) and Update-PrBodySection. Mirrored for the same reason as the two libs
             # above -- open-pr is mirrored and would otherwise dot-source a file the consumer does not have.

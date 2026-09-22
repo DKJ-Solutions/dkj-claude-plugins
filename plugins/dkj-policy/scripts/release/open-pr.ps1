@@ -155,6 +155,18 @@
     abolished PR labels outright): there is nothing to look up, and the create sends no --label at all
     rather than `--label ''` -- a label named '', which gh cannot find and refuses the whole create over.
 
+    Overlap scan (issue #2315, September 22, 2026): a NOTE, never a refusal, naming the other open pull
+    requests that change a file this branch also changes. Nothing used to report that at all -- the first
+    thing that did was ship-pr's forward lap meeting it as '422 merge conflict between base and head',
+    after the branch had been certified by CI one or more times. Measured on PR #2300: the 422 arrived at
+    forward lap 3, roughly forty minutes of CI waits in, while the two colliding PRs had been listed in
+    `gh pr list` for over an hour. It is NOT ship-pr's conflict guard (#1584) firing late: that one asks
+    whether this PR is conflicting NOW, a fact about the trunk, and it was correct and silent here
+    because the conflict came into existence during the run. There is deliberately no exclusion list --
+    measured over this repo's last 60 PRs, filtering CHANGELOG.md and the branch document changed nothing
+    (13 overlapping pairs against 13), because the fold writes the changelog on the trunk and #1255 gave
+    every branch its own document. See scripts/lib/pr-overlap-lib.ps1 for both measurements.
+
     Lint gate (guardrail for main): before the push, scripts/lint/check-plugin-integrity.ps1 runs.
     If that finds errors (invalid marketplace/plugin manifests, missing agent-def frontmatter,
     dead links), the branch is NOT pushed and NO PR is opened. Use -SkipLint to deliberately skip
@@ -478,6 +490,12 @@ $repo = Get-RepoName
 # THE REMOTE-AHEAD NOTE COMPOSER (issue #1450), shared with new-branch.ps1 -- see that lib's own header
 # for why this is one definition rather than a second hand-typed copy of it.
 . (Join-Path $PSScriptRoot '..\lib\remote-ahead-lib.ps1')
+
+# WHICH OTHER OPEN PRs CHANGE A FILE THIS BRANCH CHANGES (issue #2315) -- the parse, the intersection
+# and the wording, all pure, so the suite can assert them without a remote. The two calls they read
+# from are made below, which is the one place they can be. Mirrored for the same reason as the libs
+# above: this script is mirrored and would otherwise dot-source a file the consumer does not have.
+. (Join-Path $PSScriptRoot '..\lib\pr-overlap-lib.ps1')
 
 # WHAT IS BEHIND THE PLAN (issue #1026). park-cycle already takes this measurement, on the device holding
 # the work, and writes it into a commit body -- where the reader who could act on it never looks. open-pr
@@ -1785,6 +1803,86 @@ if (-not $existingPr) {
     }
 }
 
+# --- Overlap scan (issue #2315): which other open PRs change a file this branch changes -----------
+#
+# THE DEFECT. Nothing in this workflow said that another open pull request was editing the same file.
+# The first thing that did was ship-pr's forward lap, learning it from GitHub as '422 merge conflict
+# between base and head' -- after the branch had been built, reviewed, pushed and certified by CI one
+# or more times. Measured on PR #2300, September 22, 2026: the 422 arrived at forward lap 3, roughly
+# forty minutes of CI waits in, while #2308 and #2310 had been listed in `gh pr list` changing
+# .github/workflows/ci.yml since 15:01Z and 15:22Z. Resolving it took about five minutes.
+#
+# NOT THE CONFLICT GUARD FIRING LATE. ship-pr refuses a CONFLICTING PR up front (#1584) and that guard
+# was correct and silent here -- 'main' had not yet gained the colliding commit, so the PR genuinely
+# read MERGEABLE. This asks a different question at a different time: not "is this PR conflicting now",
+# a fact about the trunk, but "is somebody else editing what I am editing", a fact about other open
+# BRANCHES, knowable before the trunk has moved at all. See pr-overlap-lib.ps1's header.
+#
+# WARN, NEVER REFUSE, and no -Force valve -- the machine-local gate's reasoning above, verbatim: two
+# branches touching one file is ordinary and usually harmless, and this repo declines findings-list
+# gates on their false-positive rate. SAID TWICE for the same reason that one is, at whichever ending
+# the run reaches.
+#
+# HERE, BESIDE THE LABEL GATE, AND BEFORE THE LINT AND TEST GATES. The suites are the most expensive
+# thing in this script and the whole point of the scan is to be read BEFORE time is spent on a head
+# that may not merge -- and because ship-pr's step 1 is this script, this is also the last cheap moment
+# before the certification laps begin. One `gh pr list --json files` measured at ~700ms here against
+# ~580ms for the label gate's own query, rising ~25ms per open PR (September 22, 2026).
+#
+# BOTH SIDES FAIL SILENTLY AND INDEPENDENTLY. An unreadable diff, an unreadable gh, an old gh with no
+# --json: each leaves $overlapNote empty and says one DarkGray line, because an advisory that cannot be
+# computed must not look like an advisory that found nothing to say -- and must not block either.
+#
+# COMMITTED WORK ONLY, and that is the right side rather than a gap. The scan reads HEAD, which is what
+# the push ships and therefore the only thing that can collide with anybody; an edit still sitting in
+# the working copy conflicts with nothing yet. The gate for THAT state is the backing gate further
+# down, whose subject is work missing from the commit.
+$overlapNote = ''
+$overlapTrunk = Get-BranchTrunkName
+# THE REMOTE-TRACKING REF FIRST, on park-lib's precedent: a local trunk sitting behind origin makes the
+# merge base older than it is, which pulls in paths this branch did not change and invents overlaps.
+$overlapTrunkRef = $overlapTrunk
+$overlapRemoteRef = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', '--verify', '--quiet', "refs/remotes/origin/$overlapTrunk") -DiscardStderr
+if ($overlapRemoteRef.ExitCode -eq 0) { $overlapTrunkRef = "refs/remotes/origin/$overlapTrunk" }
+# THREE DOTS: this branch against its MERGE BASE with the trunk, so a trunk that has moved on since the
+# branch was cut does not report its own commits as this branch's work -- park-lib's own wording.
+$overlapDiff = Invoke-NativeCapture -FilePath 'git' -Arguments @('-c', 'core.quotePath=true', '-C', $repoRoot, 'diff', '--name-only', "$overlapTrunkRef...HEAD") -DiscardStderr
+if ($overlapDiff.ExitCode -ne 0) {
+    Write-Host "overlap scan: could not read this branch's changed paths against $overlapTrunkRef - skipped." -ForegroundColor DarkGray
+} else {
+    $overlapMine = @(($overlapDiff.Output | Out-String) -split '\r?\n' | Where-Object { $_.Trim() })
+    if ($overlapMine.Count -eq 0) {
+        Write-Host "overlap scan: this branch changes no file against $overlapTrunkRef - nothing to compare." -ForegroundColor DarkGray
+    } else {
+        # -Utf8 because a path is DATA and routinely carries an accent (#907), and -DiscardStderr because
+        # gh's progress is not the answer. --limit is load-bearing for the same reason the label gate's
+        # is: a truncated list would report a clean scan over PRs that did not fit.
+        #
+        # NO --base, DELIBERATELY. Every other gh call in this script names 'main' literally, and passing
+        # a trunk here would be the one place a wrong answer is SILENT: a seam naming a different trunk,
+        # or a stacked PR based on a sibling branch, would filter the list down and print the clean line
+        # below over PRs that were never compared. Scanning every open PR costs a few records and cannot
+        # go quiet that way -- and a stacked PR's files are worth comparing anyway.
+        $overlapList = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @('pr', 'list', '--state', 'open', '--json', 'number,title,headRefName,files', '--limit', '100', '--repo', $repo) -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not (Test-NativeExitMeasured -Capture $overlapList) -or $overlapList.ExitCode -ne 0) {
+            Write-Host "overlap scan: could not ask gh which PRs are open in $repo ($(Get-NativeExitLabel -Capture $overlapList)) - skipped, and nothing is blocked by it." -ForegroundColor DarkGray
+        } else {
+            $overlapPrs = @(Get-OpenPrPathRecords -Json ($overlapList.Output -join "`n"))
+            # SELF BY BOTH KEYS: the number where this branch already has a PR, the head ref where it does
+            # not yet -- see Get-PrOverlapFindings for why one of the two is always the only one available.
+            $overlapSelfNumber = if ($existingPr) { [int]$existingPr.number } else { 0 }
+            $overlapFindings = @(Get-PrOverlapFindings -ChangedPaths $overlapMine -OpenPrs $overlapPrs `
+                                                       -SelfNumber $overlapSelfNumber -SelfBranch $branch)
+            if ($overlapFindings.Count -eq 0) {
+                Write-Host "overlap scan: no other open PR in $repo changes a file this branch changes ($($overlapMine.Count) path(s) compared against $($overlapPrs.Count) open PR(s))." -ForegroundColor DarkGray
+            } else {
+                $overlapNote = Format-PrOverlapNote -Findings $overlapFindings
+                Write-Warning $overlapNote
+            }
+        }
+    }
+}
+
 # --- Always-on budget gate: this branch may not grow what every session pays (issue #2037) --------
 #
 # THE FINDING IT COMES OFF. The always-on document path -- CLAUDE.md plus everything it '@'-imports --
@@ -2361,6 +2459,8 @@ if ($existingPr) {
 
     # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
     if ($machineLocalNote) { Write-Warning $machineLocalNote }
+    # AND THE OVERLAP SCAN WITH IT (issue #2315), for the same reason and at the same three endings.
+    if ($overlapNote) { Write-Warning $overlapNote }
 
     Write-Host "PR #$($existingPr.number) was already open for '$branch' - the push above updated it." -ForegroundColor Green
     Write-Host "  $($existingPr.url)"
@@ -2609,6 +2709,8 @@ try {
             if ($recheckPr) {
                 # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
                 if ($machineLocalNote) { Write-Warning $machineLocalNote }
+                # AND THE OVERLAP SCAN WITH IT (issue #2315), for the same reason and at the same three endings.
+                if ($overlapNote) { Write-Warning $overlapNote }
                 Write-Host "PR #$($recheckPr.number) for '$branch' exists -- the create landed despite the reported failure. $($recheckPr.url)" -ForegroundColor Green
                 if (Test-FunctionDefined 'Write-CloseOutReceipt') {
                     Write-CloseOutReceipt -Cite "PR #$($recheckPr.number)" -Bypass (Get-GateBypassNote -SkipLint:$SkipLint -SkipTests:$SkipTests)
@@ -2631,6 +2733,8 @@ try {
 }
 # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
 if ($machineLocalNote) { Write-Warning $machineLocalNote }
+# AND THE OVERLAP SCAN WITH IT (issue #2315), for the same reason and at the same three endings.
+if ($overlapNote) { Write-Warning $overlapNote }
 Write-Host "PR created for '$branch'." -ForegroundColor Green
 
 # THE RECEIPT SHAPE, LAST (issue #1884) -- see closeout-lib.ps1. A PR opened and not yet shipped is a

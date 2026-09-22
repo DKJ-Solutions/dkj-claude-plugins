@@ -112,6 +112,7 @@ an absent link is a fact rather than an oversight.
 | `lib/script-contract-lib.ps1` | the contract registry the check above reads | none — dot-sourced lib |
 | `lib/pr-body-lib.ps1` | composes and refreshes the PR body from the entry | none — dot-sourced lib |
 | `lib/pr-issues-lib.ps1` | reads the issues a PR declares it closes | none — dot-sourced lib |
+| `lib/pr-overlap-lib.ps1` | finds which other open PRs change a file this branch changes, and words the note | none — dot-sourced lib |
 | `lib/issue-state-lib.ps1` | asks `gh` what each cited number actually IS, so the already-done check is told which are closed issues rather than inferring it from their absence from the open list — a number naming another repository, or a pull request, is silent instead of "already CLOSED" | none — dot-sourced lib |
 | `lib/park-lib.ps1` | `Invoke-GitPark` — the one stage/commit/push behind both parking entry points | none — dot-sourced lib |
 | `lib/closeout-lib.ps1` | `Write-CloseOutReceipt` — the close-out receipt shape: what happened, where to read it, whether the session can be cleared, and the clause a run that skipped a gate owes the PR body. Printed as the last line of four of the five scripts that end a work chain, and just above the hand-written-note reminder in the fifth (`cut-release.ps1`), so it is not read as the last item on a to-do list. A conductor that spawns another of them suppresses the child's copy, so one chain prints one receipt. The one thing here addressed to the READER of a run rather than to the run | none — dot-sourced lib |
