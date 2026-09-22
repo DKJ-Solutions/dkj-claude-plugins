@@ -257,13 +257,13 @@ be established is a permanent one by default.
 `check-connectors.ps1` therefore measures it, per connector and then across the register:
 
 ```
-  [LENS-NAMING] 25 lens file(s), all on the also-read spelling (<g>-<id>-extension.md) -- not migrated yet, which is a state and not a defect.
+  [LENS-RETIREMENT] 25 lens file(s), all on the also-read spelling (<g>-<id>-extension.md) -- not migrated yet, which is a state and not a defect.
 
 -- lens naming across the register (the #2130 dual-name layer's retirement condition) --
   [lens naming] checked 3 of 6 -- not present on this machine: ...
   over:      DKJ-Solutions/dkj-claude-plugins
   not over:  BWJ-Development/smartwatchbanden, BWJ-Development/xoxowildhearts
-  [LENS-NAMING] NOT ANSWERABLE FROM THIS MACHINE: 3 of 6 connectors measured.
+  [LENS-RETIREMENT] NOT YET: 2 of 6 connectors still carry the also-read spelling, so the condition is FALSE and the dual-name layer stays. 3 of the 6 could not be measured here, so this is NOT the full list of what still has to migrate.
 ```
 
 Four things about it are deliberate:
@@ -281,6 +281,20 @@ Four things about it are deliberate:
   six repos and this machine holds some subset of them, so the coverage is stated before the verdict and
   a partial run never says `MET` — the same rule the `[COVERAGE]` lines already carry (#221). A connector
   whose checkout resolves but holds **no** lens file counts as unmeasured too, never as migrated.
+- **And a measured *not yet* outranks an unreached connector**
+  ([#2298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2298)). The two arms are both
+  about coverage, which makes the cautious one look like the one that should win — but they are not on
+  the same axis. A connector measurably on the also-read spelling settles the condition as **false**,
+  and nothing an unreached one holds can make it true again, so answering *not answerable* there states
+  less than the run established. The coverage claim is not dropped; it moves into that line, because
+  without it `NOT YET: 2 of 6` reads as the complete migration list, which on partial coverage it is
+  not. The green ending keeps exactly the gate it had: it is still reachable only when nothing is behind
+  **and** nothing is unreached or empty.
+- **The marker is `[LENS-RETIREMENT]`, not `[LENS-NAMING]`** (#2298).
+  [`check-roster-sync.ps1`](../scripts/sync/check-roster-sync.ps1) already prints the latter for an
+  unrelated fact — that *its own* naming vocabulary is older than the tree it is reading (#2219) — and
+  two checks emitting one token is a collision whoever greps either one pays for. Scoped honestly: no
+  hook selects either token, so this was never a session-start ambiguity.
 - **Lens only.** The dual-read layer covers four kinds, and the other three — manual, persona, subagent —
   live in a consumer's **plugin cache** rather than in their own tree, so their retirement is keyed on
   which versions are still installed somewhere, not on this register. The roll-up's closing line says so;

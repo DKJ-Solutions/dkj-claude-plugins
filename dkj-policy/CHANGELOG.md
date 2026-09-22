@@ -44,7 +44,128 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 33 minor entries** <!-- pending-tally -->
+**25 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2288-summary-asserts-unmeasured-capture · 20260922-153046
+
+`update-plugins.tests.ps1` went red under gate load at roughly the rate #2114 measured -- about a
+coin flip per full run -- and for a reason that repair had left standing. #2114 gave `Assert-CleanExit`
+a third state for a capture whose exit code was never measured, on the stated bound that everything
+else in a scenario is unaffected by it. Two asserts are not: `update-plugins.ps1` counts such a
+capture as a failure, by a decision #2081 argued and #2114 accepted, so its green summary line is
+never printed in precisely the runs the tolerance waves through -- and scenario 1 was asserting that
+green line. They are now asserted through `Assert-Summary`, which holds a measured run to the green
+summary and an unmeasured one to the red summary the script is specified to print instead. A run that
+prints neither still fails, so the scenario keeps proving something about the summary rather than
+being excused from it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing to migrate and nothing to run: this is a test suite in the source repo, and no consumer
+carries it. What it buys is that a gate and a CI leg stop going red on a documented race that nobody
+can act on, which is the failure mode that teaches a reader to skim red checks.
+
+The measurement worth keeping is the shape rather than the rate. #2114 repaired the assert the race
+lands on **first** and reasoned about the rest by class -- commands, ids, scopes, order -- which was
+right for every assert except the one composed from the failure counters. So the lesson is that the
+bound to check is not "is this assert about the exit code" but "is this assert downstream of a value
+the unknown feeds".
+
+**Score:** N/A
+
+#### Pull Request
+
+The update-plugins summary asserts survive an unmeasured capture, as its exit assert already does
+
+[PR #2309](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2309)
+
+---
+
+### DEPLOY: fix/2298-harden-lens-naming-rollup · 20260922-151146
+
+The lens-naming roll-up from #2289 gets three corrections. Its marker becomes `[LENS-RETIREMENT]`, so it
+no longer shares a token with `check-roster-sync.ps1`, which prints `[LENS-NAMING]` for the unrelated
+fact that its own naming vocabulary is older than the tree it reads (#2219). Its verdict now lets a
+measured `NOT YET` outrank an unreached connector, carrying the unmeasured count into that same sentence.
+And a test-only `-ConnectorsRootOverride` gives the roll-up the seam it needs to be tested at all.
+
+The precedence is the half that changes an answer. Both arms are about coverage, which makes the cautious
+one look like the one that should win -- but they are not on the same axis: a connector measurably on the
+also-read spelling settles the condition as FALSE, and nothing an unreached one holds can make it true
+again. On the live register -- 1 over, 2 behind, 3 unreached -- the run printed `NOT ANSWERABLE FROM THIS
+MACHINE` while the answer, *no*, was in hand. The green ending keeps exactly the gate it had: still
+reachable only when nothing is behind **and** nothing is unreached or empty.
+
+The seam exists because the roll-up fires only on a full-register sweep, which is precisely what
+`-Manifest` -- that suite's isolation everywhere else -- switches off, so its verdict logic landed with
+zero assertions on it. Scenario 14 now covers all three endings, the part-migrated state, the grouping
+and the narrowed run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is a signal being made trustworthy in the same week it was built. A readiness check exists to be read
+once, months later, by somebody deciding whether a compatibility layer may be removed -- which is the
+worst possible moment to discover that its verdict understated what it measured, or that nothing ever
+asserted its verdict at all.
+
+For a subscriber of this workflow nothing changes in behaviour: no new error, no new exit code, no new
+session-start line. What changes is what a deliberate run of the connector check tells them when part of
+the register is out of reach, which is the normal case rather than the exception.
+
+**Score:** 2
+
+#### Pull Request
+
+The lens-naming roll-up: a marker of its own, a verdict that does not understate what it measured, and the seam that pins both
+
+[PR #2305](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2305)
+
+---
+
+### DEPLOY: fix/2237-workflow-facts-crlf · 20260922-145824
+
+`adopt-ci-floor` reads a job's `name:` on a CRLF checkout, so a Windows consumer is no longer handed a
+ruleset requiring a check GitHub never reports.
+
+`Get-WorkflowFacts` collected job keys and job names with two regexes, both anchored on `$`. .NET's
+multiline `$` matches only immediately before a `\n`, so against a CRLF file the name capture's
+`[^\r\n]*` stopped at the `\r` and the anchor failed -- collecting no names at all -- while the key
+capture survived the same file by accident, its `\s*$` absorbing the `\r` first. The text is normalised
+to LF once on read now, which closes the class rather than the two instances visible today.
+
+**The damage reached past the wrong note it was reported as.** `$prJobIds` then held one id where LF
+holds two, and one is exactly the count the paste-ready ruleset call auto-fills on -- so a consumer with
+a single named job in a single `pull_request` workflow was handed a ruleset requiring the job KEY, while
+GitHub reports that check under its NAME. A required check that never reports leaves every pull request
+pending forever. On LF the same tree declines to auto-fill and prints the candidate list, so the bug
+moved the script onto the branch it would otherwise have refused.
+
+Reported from `BWJ-Development/xoxowildhearts` as inbound #2237.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A subscriber of this workflow on Windows -- which is the reporting consumer's own configuration -- could
+follow a printed instruction into a merge outage on their trunk. It reaches only a consumer who adopts
+the CI floor without a required check already in place, but for that consumer the failure is total and
+the cause is three layers from the symptom.
+
+**Score:** 4
+
+#### Pull Request
+
+Get-WorkflowFacts reads a job `name:` on CRLF too
+
+Plugins: dkj-policy
+
+[PR #2306](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2306)
+
+---
 
 ### DEPLOY: fix/2295-capturedir-empty-race · 20260922-143220
 
