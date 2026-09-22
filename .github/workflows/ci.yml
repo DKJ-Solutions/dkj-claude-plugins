@@ -116,6 +116,21 @@ concurrency:
 # accepted non-success away from accepting the one that matters. Four short runners on a fold commit cost
 # nothing on a public repo's standard runners; a summary job with an exception in it costs the gate.
 #
+# THE MERGE COMMIT GETS THE SAME KIND OF SHORTCUT, CONDITIONALLY -- issue #2303, priced against #1300's
+# own precedent. Measured over six machines, September 22, 2026: 46% of that window's CI runs were on the
+# trunk, and the `merge:` half of them (233 of the day's total) re-ran the full four-shard suite pool for a
+# tree ship-pr had, seconds earlier, certified as non-stale. Unlike the fold, a merge commit's tree is NOT
+# provably safe from its subject alone -- a ship-pr merge carries the guarantee that 'main' had not moved
+# past the certified tree at merge time, but a GitHub-UI merge does not, and a push event cannot tell the
+# two apart. So the skip here is not a static `startsWith` match: the "Merge-commit certificate" step in
+# the suites job below RE-DERIVES the fact from GitHub's own records -- the identical reads and pure
+# functions ship-pr.ps1's own step 3b already uses before merging (scripts/ci/get-merge-suite-skip.ps1,
+# scripts/lib/ci-merge-skip-lib.ps1) -- rather than trusting the commit that claims it. That is what makes
+# the answer trustworthy regardless of how the merge landed, and it is also why this shortcut stays on the
+# STEP for the same reason the fold's does: a job-level `if:` sourced from another job's output would make
+# `needs.suites.result` legitimately `skipped` on the ordinary, overwhelming-majority case of a PR run or a
+# non-merge push, one missing `always()` away from silently skipping the whole gate.
+#
 # EVERY JOB DECLARES `timeout-minutes`, AND THE NUMBERS ARE READ OFF RUN HISTORY -- issue #2296,
 # September 22, 2026. A job with none runs to GitHub's default of SIX HOURS, and until that issue no job
 # in this repo's .github/workflows/ declared one.
@@ -130,9 +145,9 @@ concurrency:
 # AND THE IN-PROCESS BOUND CANNOT COVER IT. $script:GateSuiteTimeoutSeconds (native-capture-lib.ps1) is
 # 1800s PER SUITE and reaps a wedged child with an attribution -- it has done so three times on a local
 # machine (#1941). At 38 minutes -- 2,280 seconds, so eight minutes past that bound -- it should have
-# fired and did not, so whatever wedged sat BELOW the level a gate inside the process can reach. That class is exactly what a
-# runner-level cap is for, and it is why this is not a duplicate of #1941/#2233/#2255/#2263 -- those are
-# all the in-process bound, this is the one layer under it.
+# fired and did not, so whatever wedged sat BELOW the level a gate inside the process can reach.
+# That class is exactly what a runner-level cap is for, and it is why this is not a duplicate of
+# #1941/#2233/#2255/#2263 -- those are all the in-process bound, this is the one layer under it.
 #
 # 25 ON `suites`, AND THE NUMBER IS PICKED AGAINST ship-pr's WAIT, NOT JUST AGAINST THE SUITES. Over the
 # 19 most recent successful runs the shards measure: (1) med 8.5m/max 9.2m, (2) med 12.5m/max 13.4m,
@@ -165,6 +180,16 @@ jobs:
     # 25, against a worst observed shard of 13.4m and against ship-pr's own 1800s registration wait --
     # see the timeout-minutes banner above jobs: for both halves of that derivation (#2296).
     timeout-minutes: 25
+    # WIDER THAN THE WORKFLOW-LEVEL contents: read (issue #2303), and job-scoped rather than raised
+    # at the top of this file: the merge-commit certificate step below (Get-MergeCommitSuiteSkipVerdict)
+    # reads a merged PR's own checks and the Actions runs behind them, which `contents: read` alone does
+    # not reach. Still READ-ONLY throughout -- Sean's least-privilege advice, unchanged -- and scoped to
+    # this job alone so `lint` and `lint-en-tests` keep the workflow-level grant with nothing added.
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+      actions: read
     strategy:
       # FOUR, AND A SHARD'S FLOOR IS max(ITS LONGEST FILE, ITS LANE-SECONDS / 4) -- issue #1358,
       # corrected September 4, 2026 against the first REAL per-suite tables. This comment used to name
@@ -224,7 +249,39 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
+      # FULL HISTORY, BUT ONLY ON THE ONE PUSH THAT NEEDS IT (issue #2303). The merge-commit certificate
+      # step below walks 'main's first-parent history back to whenever the merged PR's certifying run
+      # began, which the default shallow clone (depth 1) cannot do at all -- HEAD's own parents are not
+      # even present as objects. `fetch-depth: 0` buys that, at the cost of a full clone instead of a
+      # shallow one; keeping the condition narrow (push AND the 'merge: ' subject, not every push) is what
+      # keeps that cost off the PR path, the merge_group path and the 'fold:' path, which is every run
+      # except the one this exists for.
       - uses: actions/checkout@v5
+        with:
+          # QUOTED, NOT BARE: the literal 'merge: ' this expression matches against carries a colon
+          # followed by a space, which YAML reads as a nested mapping indicator in an unquoted scalar --
+          # exactly the shape `js-yaml` refused this line with before it was wrapped. `'fold:'` a few
+          # lines below has no space after its colon and stays bare for that reason alone.
+          fetch-depth: "${{ (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'merge: ')) && 0 || 1 }}"
+
+      # THE MERGE-COMMIT CERTIFICATE -- issue #2303. Re-derives, from GitHub's own records rather than
+      # from the commit's own subject, whether this 'merge:' push's tree was already proved fresh: the
+      # repo's named check (Get-CiTestCheckName) reads 'pass' on the merged PR's own head SHA, and 'main'
+      # gained no first-parent commit (net of #1592's fold exemption) between the run that certified it and
+      # this merge. See the banner above `jobs:` for why this lives at the step level, and the script's own
+      # header for why it always runs and fails closed rather than being gated by its own `if:`.
+      #
+      # ALWAYS RUNS, EVEN OFF-SUBJECT: the script itself answers 'skip=false' fast, with no network call,
+      # the moment the event is not a push or the subject is not a 'merge: <branch> (#NN)' line -- an `if:`
+      # here would only restate that check a second way.
+      - name: Merge-commit certificate (can this push skip the suites?)
+        id: merge-suite-skip
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/get-merge-suite-skip.ps1
+          exit $LASTEXITCODE
 
       # THE SAME SHARED GATE open-pr.ps1 AND cut-release.ps1 RUN, not a third copy of its loop. This step
       # held an inline copy until August 7, 2026 (issue #512), which is how it would have kept running the
@@ -275,7 +332,7 @@ jobs:
       # silent in the worst direction: a matrix of four against a count of five runs four fifths of the
       # pool and reports four green shards, for ever.
       - name: Test suites (shard ${{ matrix.shard }} of 4, scripts/tests/*.tests.ps1)
-        if: ${{ !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'fold:')) }}
+        if: ${{ !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'fold:')) && steps.merge-suite-skip.outputs.skip != 'true' }}
         shell: powershell
         run: |
           . ./scripts/lib/native-capture-lib.ps1

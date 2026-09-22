@@ -356,6 +356,42 @@ Assert-True ($suitesBody -match "(?m)^        if:[^\r\n]*startsWith\(github\.eve
 Assert-True ($suitesBody -match 'fail-fast: false') `
     'fail-fast is false -- a red shard must not cancel the other three, which is where the re-run evidence lives'
 
+Write-Host "== ci.yml: the merge-commit certificate (#2303) ==" -ForegroundColor Cyan
+
+# THE SAME STEP-LEVEL CONSTRAINT AS THE FOLD SHORTCUT, for the same reason: a job-level if: sourced from
+# another job's output would make needs.suites.result legitimately 'skipped' on the overwhelming majority
+# of runs (any PR, any non-merge push). The blanket job-level-if assert a few lines up already covers this
+# (no '^    if:' anywhere in the suites job body); this reasserts it against the SPECIFIC line so a future
+# refactor that moves only this condition is still caught.
+Assert-True ($suitesBody -match "(?m)^        if:[^\r\n]*steps\.merge-suite-skip\.outputs\.skip\s*!=\s*'true'") `
+    'the Test suites step also refuses on the merge-commit certificate output, at step level'
+
+# THE STEP THAT COMPUTES IT: an id (so the Test suites step above can read its output), and it calls the
+# dedicated script rather than growing an inline block the way the fold check never needed to.
+Assert-True ($suitesBody -match "(?m)^      - name: Merge-commit certificate[^\r\n]*$") `
+    'the certificate step exists'
+Assert-True ($suitesBody -match "(?m)^        id: merge-suite-skip\s*$") `
+    'and carries the id the Test suites step reads'
+Assert-True ($suitesBody -match 'scripts[\\/]ci[\\/]get-merge-suite-skip\.ps1') `
+    'and calls the dedicated script rather than an inline block'
+Assert-True ($suitesBody -match 'GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}') `
+    'with a token so its gh calls can authenticate'
+
+# THE CHECKOUT IS DEEPENED ONLY ON THE ONE PUSH THAT NEEDS IT. A bare 'fetch-depth: 0' on every run would
+# pay a full clone on every PR and every ordinary push -- the overwhelming majority -- for a read only a
+# 'merge: ' push ever makes.
+Assert-True ($suitesBody -match 'fetch-depth:\s*"\$\{\{[^\r\n]*startsWith\(github\.event\.head_commit\.message,\s*''merge: ''\)[^\r\n]*&&\s*0\s*\|\|\s*1[^\r\n]*\}\}"') `
+    'the checkout deepens to full history only when the subject is a merge: commit, and stays shallow otherwise'
+
+# READ-ONLY PERMISSIONS WIDER THAN THE WORKFLOW LEVEL, SCOPED TO THIS JOB ALONE -- the certificate step
+# reads a merged PR's checks and the Actions runs behind them, which contents: read cannot reach.
+Assert-True ($suitesBody -match '(?m)^    permissions:\s*$') 'the suites job states its own permissions block'
+foreach ($scope in @('contents: read', 'checks: read', 'pull-requests: read', 'actions: read')) {
+    Assert-True ($suitesBody -match [regex]::Escape($scope)) "and grants '$scope'"
+}
+Assert-True ($suitesBody -notmatch '(?m)^\s+\w[\w-]*:\s*write\s*$') `
+    'no permission in the suites job is write -- the certificate step only reads'
+
 # The gate is still the shared one (#512), and CI still does not walk scripts/tests itself.
 Assert-True ($ci -match 'Invoke-TestSuiteGate') 'CI still calls the shared gate rather than a copy of its loop'
 Assert-True ($ci -notmatch 'Get-ChildItem[^\r\n]*tests') 'and still does not glob the suites itself'
