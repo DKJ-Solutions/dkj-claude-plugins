@@ -1811,7 +1811,19 @@ foreach ($af in $auditFiles) {
 # already hold; $raceRead, because a race nobody could settle is not a race won), and an unmeasurable
 # WRITE stops without asserting what it could not measure -- re-running is safe, since a marker that did
 # land comes back as 'already-yours'.
-Assert-Equal 70 $boundedTotal 'the parser still counts 70 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+#
+# MOVED 70 -> 71 ON THE #2315 BRANCH, DELIBERATELY AND AUDITED. One new site, open-pr.ps1's overlap
+# scan: $overlapList, the `gh pr list --json ...,files` that asks which OTHER open pull requests change
+# a file this branch changes. Bounded at the shared network bound like every other gh read here, and it
+# is the one in this file whose failure direction is the OPPOSITE of the claim's above -- an
+# unmeasurable read is SILENT and blocks nothing, because the scan is advisory by construction and a
+# note that cannot be computed must never be able to refuse a PR. It asks Test-NativeExitMeasured about
+# its own capture before testing the code against 0, which is why the companion assert below stayed
+# green: the DarkGray line it falls through to names which of the two it was in.
+# The scan's sibling read -- the `git diff --name-only` for this branch's own paths -- is deliberately
+# NOT bounded: it touches no network, and the standing convention here bounds the calls that can hang
+# on one.
+Assert-Equal 71 $boundedTotal 'the parser still counts 71 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
