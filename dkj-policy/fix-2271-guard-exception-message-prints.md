@@ -97,6 +97,11 @@ shared scripts that run **in a consumer's checkout**. So the audit option 2 aske
 - [x] Ran the four hook-run checks after the change; all four still exit 0 with their normal output.
 - [x] Runtime load check on the three files that gained a dot-source -- not just a parse check, since
       a missing function resolves at RUN time and these are all catch blocks.
+- [x] Repaired the fixture debt the new dot-source created: `internal-note.tests.ps1` builds its fixture
+      by copying `new-internal-note.ps1` and the libs it loads, and the guard's lib was not among them,
+      so the child died at load and took four asserts plus `fixture-lib-deps.tests.ps1` with it.
+      `check-report-lib.ps1` dot-sources only `repo-root-lib.ps1`, which that fixture already copies --
+      on #2115, for this very lib -- so the repair is one copy line.
 - [x] Full gate: `check-plugin-integrity.ps1` plus all suites.
 
 #### Two live bugs this branch introduced and the review caught
