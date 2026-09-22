@@ -2078,7 +2078,15 @@ Fast-forward it and read what is there before trying again:
 # unnecessary skip of a gate the merge does not depend on; it is named here rather than mechanised.
 $testsProvedByCi = ''
 if ($existingPr -and -not $SkipTests) {
-    $headSha = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
+    # NAMED FOR WHAT IT HOLDS -- A CAPTURE OBJECT -- AND NOT $headSha, WHICH WOULD COLLIDE (issue #2317,
+    # code review). Wait-CiTestCertificate below takes a [string]$HeadSha parameter, PowerShell is
+    # case-insensitive, and the scriptblocks this file hands that function run in a child of ITS scope --
+    # so a scriptblock here reading $headSha would resolve the function's own string parameter rather
+    # than this capture object. Nothing here reads it today, which is exactly why it is worth renaming:
+    # the collision is dormant, and a later edit that logs or compares the outer head inside -Reader
+    # would bind the wrong value with no error to show for it. Same class as the $reading collision that
+    # function's own docstring records, met in the one call site that introduced the mechanism.
+    $headShaCapture = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
     $prHead  = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
     $reqJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
     # `gh pr checks` EXITS NON-ZERO WHEN ANY CHECK IS FAILING OR STILL PENDING -- that is documented
@@ -2087,7 +2095,7 @@ if ($existingPr -and -not $SkipTests) {
     # The seam is read defensively: a consumer whose repo-config predates it has no such function, and
     # a missing name is the safe answer (no certificate, the gate runs) rather than an error.
     $ciCheckName = if (Test-FunctionDefined 'Get-CiTestCheckName') { Get-CiTestCheckName } else { '' }
-    $cert = Get-CiTestCertificate -HeadSha ($headSha.Output -join '') `
+    $cert = Get-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
                                   -PrHeadSha ($prHead.Output -join '') `
                                   -RequiredChecksJson ($reqJson.Output -join "`n") `
                                   -CheckName $ciCheckName
@@ -2104,7 +2112,7 @@ if ($existingPr -and -not $SkipTests) {
         $waitBound = [Math]::Ceiling($script:CiCertificateWaitSeconds / [double]$script:CiCertificateWaitPollSeconds)
         Write-Host "test gate: $($cert.Note) -- waiting for it rather than re-proving the same tree locally (issue #2317)." -ForegroundColor Cyan
         Write-Host "           up to $([int]($script:CiCertificateWaitSeconds / 60)) min, one read every $($script:CiCertificateWaitPollSeconds)s. Past that, or on any other answer, the suites run below." -ForegroundColor DarkGray
-        $waited = Wait-CiTestCertificate -HeadSha ($headSha.Output -join '') `
+        $waited = Wait-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
                                          -CheckName $ciCheckName `
                                          -MaxLaps $waitBound `
                                          -TimeoutSeconds $script:CiCertificateWaitSeconds `

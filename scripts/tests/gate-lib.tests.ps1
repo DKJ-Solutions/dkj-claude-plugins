@@ -931,6 +931,26 @@ exit __EXIT__
     Assert-Equal 'not a certificate' $cert 'nor its $cert'
     Assert-Equal 'not a note' $lastNote 'nor its $lastNote'
 
+    # THE PARAMETERS ARE IN THAT SAME NAMESPACE, and this is the collision the code review actually
+    # found in the tree rather than in this suite: open-pr held a $headSha CAPTURE OBJECT while this
+    # function takes a [string]$HeadSha, and PowerShell is case-insensitive. It was dormant -- no
+    # scriptblock there read it -- which is what makes it worth a guard: the two values look alike
+    # enough that a later edit reading the wrong one would hide rather than break. The caller's local
+    # is $headShaCapture now, and this asserts the property that made the rename necessary.
+    # THIS PINS THE COLLISION RATHER THAN ITS ABSENCE, because the absence is not achievable: a
+    # parameter and a caller's variable of the same name ARE the same name, and the parameter wins.
+    # Measured here rather than asserted from the docstring -- the caller sets $headSha to something
+    # that is not a sha, the reader reads $headSha, and what reaches the certificate is the PARAMETER,
+    # so the run certifies. A future PowerShell that resolved the caller's value instead would flip
+    # this assert, which is the signal that the rename below is no longer load-bearing.
+    $headSha = 'the caller''s own head, which is NOT a sha at all'
+    $w9 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 2 -Sleeper {} -Reader { & $newReading $headSha $green }
+    Assert-True $w9.Certified 'a reader reading $headSha gets the FUNCTION''s parameter, not the caller''s variable of that name'
+    # AND THE GUARD ITSELF IS THE RENAME, since the language behaviour above cannot be guarded against.
+    # open-pr holds the capture object under a name no parameter of this function shares.
+    Assert-True ($openPr -notmatch '(?m)^\s*\$headSha\s*=') 'open-pr no longer holds a variable whose name collides with -HeadSha'
+    Assert-True ($openPr -match '\$headShaCapture\s*=') 'it holds the capture object under a name that cannot be shadowed by a parameter'
+
     # THE SLEEPER RUNS BEFORE THE READ, not after: the caller has just read, so reading again
     # immediately would spend a `gh` call to learn what it already knows.
     $script:sleepFirst = $false

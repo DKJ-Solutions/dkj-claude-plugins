@@ -243,6 +243,12 @@ $script:TestSuiteGateLaneMemoryMB = 512
 #
 # IT COSTS NOTHING ON A FULL POOL. The reading is taken only where a lane is about to open, so a pool
 # running at its lane count takes none at all, and a pool with room takes one per freed lane.
+#
+# AND THE BILL ON A REAL POOL WAS MEASURED RATHER THAN LEFT AS 'CHEAP' (#2317, cost review). Because a
+# reap invalidates the cached reading, a pool with a queue behind it makes roughly one extra
+# Get-CimInstance per completed suite: ~200 ms per call on the machine #2317 was measured on (343 ms
+# cold, 160-210 ms warm, n=8), so about 24 s across a 124-suite pool. Against the 1,100-2,600 s that
+# pool takes, under 2% -- and it buys the reading being current at the one moment it decides anything.
 $script:GateLaneMemoryPollSeconds = 5
 
 # THE DEADLINE A SINGLE SUITE RUNS UNDER inside Invoke-TestSuiteGate's pool (issue #1941,
@@ -2997,6 +3003,22 @@ function Get-GateLaneStartVerdict {
             that refuses to run at all is not a verdict a gate gets to reach. So the floor can squeeze
             the pool down to one lane and no further -- which is the sequential loop this gate replaced,
             i.e. a known-finishing state rather than a new failure mode.
+            THE ONE COMBINATION THAT ESCAPES THAT ARGUMENT, named rather than guarded against (code
+            review, #2317): a caller passing -SuiteTimeoutSeconds -1 turns every lane's deadline off, so
+            a genuinely hung lane never leaves $running and the count never reaches zero. The floor then
+            holds the lanes behind it too. That is not a hazard this introduces -- a hung lane with no
+            deadline already stalls the pool, which is the whole of what #1941 was filed about -- but it
+            is a way the stall can become total rather than partial, and it needs both opt-outs at once.
+
+        WHAT IS NOT MEASURED, stated because the argument above is only measured on one side. The
+        reap-avoidance case has numbers; the cost of holding when nothing would have been reaped does
+        not. Get-AvailableMemoryMB's own docstring records this property moving 100 MB between two reads
+        seconds apart, so a machine sitting near the per-lane boundary can take a transient dip and hold
+        where the old single-reading code would have carried on and finished. A spurious hold self-
+        corrects at the next dequeue attempt and costs a poll interval, so the exposure is small and
+        bounded -- but nothing here counts how often it happens, and "the worst case is the slow run
+        that already finishes" is the bound on a PERMANENT squeeze, not on the frequency of transient
+        ones. The machine most likely to meet it is the one with plenty of cores and modest free memory.
 
         $PerLaneMB 0 OR LESS DISABLES THE FLOOR ENTIRELY, so a caller that has no budget to reason
         about gets byte-for-byte the behaviour this function was added to.

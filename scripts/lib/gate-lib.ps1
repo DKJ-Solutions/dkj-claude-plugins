@@ -134,16 +134,31 @@ $script:GateEvidenceKnownGates = @('lint', 'tests')
 # of 12.5 min and a maximum of 13.4 min. Against that, #2317 measured one of its own local pools at
 # 43.3 minutes reaching the same verdict.
 #
-# 1800 SECONDS IS AN UPPER BOUND ON THE WAIT, NOT AN ESTIMATE OF THE RUN. Half an hour is roughly 2x
-# the slowest `lint-en-tests` this repo has recorded, which leaves room for a queued runner without
-# waiting out an arbitrary one.
+# 1800 SECONDS IS AN UPPER BOUND ON THE WAIT, NOT AN ESTIMATE OF THE RUN, AND IT IS SIZED OFF THE
+# WHOLE DISTRIBUTION RATHER THAN OFF THE MEDIAN. Measured September 22, 2026 over the 98 most recent
+# completed CI runs, end to end: median 693s, six runs over 900s (1137, 1194, 1378, 1413) and two over
+# this bound (3422s and 4273s). The shape is a tight body with a long, sparse tail, and the tail is
+# NOT suite runtime -- it is GitHub runner-queue contention, one shard starting 15-70 minutes late
+# while its siblings start on time and finish normally.
 #
-# AND THE WORST CASE IS THE BOUND **PLUS** THE POOL, WHICH IS WORTH STATING PLAINLY BECAUSE THE
-# TEMPTING SENTENCE -- "waiting too long is bounded by the cost of not waiting" -- IS FALSE. An
-# expired wait falls through and runs the suites, so a check that is still pending at the bound costs
-# this half hour ON TOP of the run it was trying to replace. That is the one shape in which this
-# change loses time, and the trade is deliberate: the common case saves a whole pool run, and the
-# losing case needs CI to be stuck for longer than any run this repo has recorded.
+# THE TAIL IS WHY THE BOUND IS HIGH AND NOT WHY IT SHOULD BE LOW, which is the reading worth writing
+# down because the obvious one is backwards. A review of this constant proposed lowering it to 900s on
+# the ground that everything above that is queueing rather than real CI. True, and it does not follow:
+# what decides the saving is not whether a run was QUEUED but whether it CERTIFIES BEFORE THE BOUND,
+# and all four runs between 900s and this bound did. Lowering to 900s would give up on those four --
+# paying the wait AND the pool on each -- to cap the loss on the two above it. On this distribution
+# that is a worse trade, four times over.
+#
+# AND THE WORST CASE IS NOT "THE BOUND PLUS THE POOL", WHICH IS WHAT THIS COMMENT SAID FIRST AND IS
+# TOO PESSIMISTIC BY THE WHOLE OF ITS OWN POINT. That figure is what an expired wait costs THIS RUN;
+# it is not what the change costs, because the run it is compared against also cannot merge until the
+# required check is green -- ship-pr waits for exactly that in its own step 3. So against the old
+# behaviour the loss is (bound + pool) - max(pool, T) for a check finishing at T, which is at its
+# worst when T lands just past the bound (loss about the bound) and shrinks to nothing as T grows:
+# at the measured 4273s the old path was already waiting out the same queue, and the loss is minutes.
+#
+# THE TRADE, THEN: the body of the distribution saves a whole pool run, and the losing case is a check
+# that finishes just after a bound sized past 97% of this repo's recorded runs.
 #
 # THE FALL-THROUGH IS ALSO WHY THE NUMBER IS ALLOWED TO BE APPROXIMATE, in the direction that matters.
 # Nothing here can fail a gate, skip a suite or move a merge: every exit either hands back a
@@ -835,7 +850,13 @@ function Wait-CiTestCertificate {
         if ($MaxLaps -gt 0 -and $waitLaps -ge $MaxLaps) { break }
         if ($TimeoutSeconds -gt 0 -and $waitClock.Elapsed.TotalSeconds -ge $TimeoutSeconds) { break }
 
-        if ($Sleeper) { & $Sleeper | Out-Null }
+        # GUARDED LIKE THE READ, because the asymmetry was the finding (code review, #2317): a throwing
+        # -Reader is an unreadable lap and a throwing -Sleeper was an exception out of the whole wait.
+        # Nothing in either case is worth failing a gate over -- the caller's fall-through is to run the
+        # suites -- and a sleeper that cannot sleep turns the poll into a spin, which the two bounds
+        # below already contain. Inert with today's caller (Start-Sleep on a fixed positive constant);
+        # written so that a -Sleeper doing anything more interesting cannot take the run with it.
+        if ($Sleeper) { try { & $Sleeper | Out-Null } catch { } }
         $waitLaps++
 
         # EVERY LOCAL IN THIS LOOP IS PREFIXED, AND THAT IS NOT STYLE -- PowerShell scriptblocks are
