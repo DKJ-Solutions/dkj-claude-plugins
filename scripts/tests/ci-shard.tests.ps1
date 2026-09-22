@@ -380,8 +380,17 @@ Assert-True ($suitesBody -match 'GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}') `
 # THE CHECKOUT IS DEEPENED ONLY ON THE ONE PUSH THAT NEEDS IT. A bare 'fetch-depth: 0' on every run would
 # pay a full clone on every PR and every ordinary push -- the overwhelming majority -- for a read only a
 # 'merge: ' push ever makes.
-Assert-True ($suitesBody -match 'fetch-depth:\s*"\$\{\{[^\r\n]*startsWith\(github\.event\.head_commit\.message,\s*''merge: ''\)[^\r\n]*&&\s*0\s*\|\|\s*1[^\r\n]*\}\}"') `
+Assert-True ($suitesBody -match 'fetch-depth:\s*"\$\{\{[^\r\n]*startsWith\(github\.event\.head_commit\.message,\s*''merge: ''\)[^\r\n]*&&\s*''0''\s*\|\|\s*''1''[^\r\n]*\}\}"') `
     'the checkout deepens to full history only when the subject is a merge: commit, and stays shallow otherwise'
+
+# THE FALSY-ZERO TRAP, GUARDED -- issue #2312, measured on the merge commit for #2303 itself: GitHub
+# Actions expressions treat the NUMBER 0 as falsy, so 'cond && 0 || 1' evaluates the true branch to 0,
+# which is itself falsy, and the || silently falls through to 1 regardless of cond. fetch-depth then
+# never receives 0, so the certificate step's own history walk fails closed on EVERY merge commit --
+# fail-closed, so never unsafe, but the whole saving #2303 exists for never fires. The fix is quoting
+# both arms as strings, and this assert pins that a bare, unquoted 0 or 1 never returns to this line.
+Assert-True ($suitesBody -notmatch 'fetch-depth:\s*"\$\{\{[^\r\n]*&&\s*0\b') `
+    'fetch-depth''s true branch is never a bare number 0 -- that is the falsy-zero trap that made this line a no-op on the one push it exists for'
 
 # READ-ONLY PERMISSIONS WIDER THAN THE WORKFLOW LEVEL, SCOPED TO THIS JOB ALONE -- the certificate step
 # reads a merged PR's checks and the Actions runs behind them, which contents: read cannot reach.
