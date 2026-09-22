@@ -240,14 +240,41 @@ $script:TestSuiteGateLaneMemoryMB = 512
 # the longest CORRECT call in the workflow into a failure. There is no such call here: NO TEST SUITE IS
 # EVER LEGITIMATELY INFINITE, so the safe default is the bounded one and the escape valve is the flag.
 #
-# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. The slowest suite this repo has ever recorded is
-# new-branch.tests.ps1 at 290.2s on a four-lane hosted runner (scripts/tests/suite-durations.json), so
-# this sits at roughly 6x the worst honest run and no suite can reach it by being slow -- not even one
-# that is 2.6x slower on some other machine, which this file's own notes record as a real reading rather
-# than a hypothetical. It is also a fraction of the 141 minutes the measured wedge sat for, and well
-# inside a hosted runner's own job timeout, so the gate reports WHICH suite wedged instead of the job
-# being killed with no per-suite attribution at all -- which is precisely the residual #1704 was left
-# with. Read it as an upper bound on patience, not as a model of any suite.
+# 1800 SECONDS, AND WHAT THAT NUMBER IS SIZED OFF. It is an upper bound on PATIENCE, not a model of any
+# suite, and two readings bracket it. On a four-lane hosted runner the slowest row in
+# scripts/tests/suite-durations.json is new-branch.tests.ps1 at 290.2s, so CI runs at ~6x headroom. On a
+# workstation the dominant file is a different one and far slower: #2232's closing measurement recorded
+# check-plugin-integrity-docs.tests.ps1 at 415.5s inside a 22-lane pool on 24 idle cores (~4.3x), and
+# #2255 recorded that same file at 851s run STANDALONE on the machine that then hit this bound (~2.1x).
+# It is also a fraction of the 141 minutes the measured wedge sat for, and well inside a hosted runner's
+# own job timeout, so the gate reports WHICH suite wedged instead of the job being killed with no
+# per-suite attribution at all -- which is precisely the residual #1704 was left with.
+#
+# A SUITE *CAN* REACH THIS BOUND BY BEING SLOW, AND THIS COMMENT CLAIMED THE OPPOSITE UNTIL #2255. It
+# read "no suite can reach it by being slow", sized off the 290.2s CI row alone and off nothing else. A
+# 9-lane run of this repo's own 121 suites then timed out check-plugin-integrity-docs.tests.ps1 at 1,800s
+# after 1,890s of wall clock, and that suite passed all 188 of its asserts standalone on the same
+# checkout minutes later. So a timeout here does NOT by itself prove a wedge.
+#
+# THE FALSE SENTENCE WAS EXPENSIVE RATHER THAN UNTIDY, WHICH IS WHY THE CORRECTION IS PRINTED AND NOT
+# ONLY WRITTEN HERE. "A timeout means a wedge" is the reading that made #2233 diagnosable; believed
+# unconditionally, it costs a second full gate run before anything else is suspected, and it lands
+# hardest on the slowest machines -- the ones least able to afford a 31-minute run that ends red over a
+# green suite. So the verdict line names the ambiguity where a reader actually meets it, and names the
+# one measurement that resolves it: re-run the suite STANDALONE, which separates "never answered" from
+# "answered late" without any further reasoning about load.
+#
+# WHY IT IS STILL A FIXED CONSTANT AND NOT DERIVED PER SUITE. #2255's second suggestion was to derive the
+# bound from suite-durations.json, and that file's own note is the argument against it: it is MEASURED ON
+# CI, a local reading does not convert into a CI one, and the sign is not even fixed -- one suite ran
+# 2.6x SLOWER solo on an 18-thread workstation than on a 4-lane runner. A per-suite bound derived from a
+# CI row would therefore be tightest exactly where the machine is slowest, i.e. on the population this
+# bound already fails hardest on. It is also incomplete: #2232 found 91 of the 121 suites listed, and a
+# suite missing from that file is charged the MAXIMUM, so the suites with no reading at all would draw
+# the most generous bound rather than the most careful one. Refreshing the file is real work and is
+# tracked separately (#2252, which needs a CI run that does not exist yet); it does not make the
+# derivation sound. Whether 1800 is the right constant is a third question, deliberately not settled
+# here.
 $script:GateSuiteTimeoutSeconds = 1800
 
 # HOW LONG A TIMED-OUT LANE IS GIVEN TO DIE BEFORE THE POOL STOPS WAITING ON IT AT ALL (issue #1941).
@@ -3821,6 +3848,16 @@ function Invoke-TestSuiteGate {
     # answered, and the two send you to completely different places.
     if ($timedOutNames.Count -gt 0) {
         Write-Host ("           did not finish within the $(Format-GateSeconds $suiteDeadline)s bound: " + (@($timedOutNames | Sort-Object) -join ', ')) -ForegroundColor Red
+        # AND A TIMEOUT IS NOT BY ITSELF A WEDGE -- issue #2255. $script:GateSuiteTimeoutSeconds's own
+        # comment claimed "no suite can reach it by being slow" until a 9-lane run of this repo's 121
+        # suites timed out check-plugin-integrity-docs.tests.ps1, which then passed all 188 asserts
+        # standalone on the same checkout. The correction belongs HERE and not only in that comment: the
+        # console line is what a session reads at the moment it decides what to suspect, and the cost of
+        # the false reading was a second full gate run before anything else was considered. One sentence,
+        # naming the single measurement that settles it, so the next reader spends one suite instead of a
+        # whole pool.
+        Write-Host ("           a slow suite CAN reach that bound, so this is not by itself a wedge (#2255) --") -ForegroundColor Red
+        Write-Host ("           re-run the named suite alone to tell 'never answered' from 'answered late'.") -ForegroundColor Red
     }
     # THE KEPT OUTPUT IS NAMED ON THE VERDICT, for the reason #1318 put the lane count there: this is the
     # line a session copies into a branch document, a commit message or an issue, so it is the one place a

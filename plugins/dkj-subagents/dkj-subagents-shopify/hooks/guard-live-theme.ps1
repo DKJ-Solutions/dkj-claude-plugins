@@ -222,7 +222,25 @@ if (Test-Path -LiteralPath $libPath -PathType Leaf) {
     try { . $libPath; $libLoaded = $true } catch { }
 }
 
-$raw = [Console]::In.ReadToEnd()
+# READ STDIN ONLY WHERE THERE IS A HANDLE TO READ -- the guard the rest of this family carries and
+# this hook did not until #2264. An UNREDIRECTED [Console]::In is a live console, and ReadToEnd on
+# one waits for a Ctrl+Z that is never coming, so running this guard by hand from a terminal -- the
+# first thing anybody does when a theme command is refused and they want to know why -- hangs before
+# a single line of the decision below runs.
+#
+# NO HANDLE IS NOT AN UNPARSEABLE PAYLOAD, and this file's fail-towards-CHECKING rule is not weakened
+# by saying so. That rule is about a payload that arrived and could not be read: there IS a command in
+# it, so the whole text becomes the segment to match. Here nothing arrived, there is no command, and
+# there is nothing to check -- the empty string matches no marker and names no theme, so the run ends
+# without a verdict instead of refusing a command nobody issued.
+#
+# AND DELIBERATELY NO try/catch, for the reason guard-working-copy.ps1 states at the same line: under
+# $ErrorActionPreference = 'Stop' a throw exits non-zero, and this hook's own hooks.json wrapper reads
+# any code other than 0 or 2 as a start failure and refuses a payload naming shopify and theme.
+# Swallowing it would convert that fail-CLOSED path into a fail-open one, on the guard whose subject
+# is a live customer-facing theme.
+$raw = ''
+if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
 
 # A MISSING OR UNLOADABLE LIB DEGRADES TOWARDS CHECKING, NOT TOWARDS ALLOWING -- and this is where
 # this hook parts company with guard-working-copy.ps1, which exits 0 in the same situation and says
