@@ -2339,11 +2339,13 @@ $ehSectionNames = @($ehSectionNames | Where-Object { -not [string]::IsNullOrWhit
 # At or above the entry's own level: '#' .. '###' while an entry is an H3.
 $ehTooHighRx = '^#{1,' + $ehEntryLevel + '}\s'
 # AND THE SAME TAIL TOLERANCE THE LIB'S READERS GOT (August 19, 2026) -- this gate is one of them, and it
-# was the one left out. The 'Pull Request' heading carries the merge stamp now, so a folded entry reaches
-# CHANGELOG.md as '### Pull Request <middot> 20260819-171500'. Anchored on a bare '\s*$' the name has to be
-# the whole line, so that heading reads as a section nobody declares and the CHANGELOG.md half below raises
-# [entry-heading] on it -- on the one write that happens directly on main, past every PR gate, inside the
-# required CI check. Every PR after the first fold would have been blocked by the fold of the one before it.
+# was the one left out. The 'Pull Request' heading carried the merge stamp then, so a folded entry reached
+# CHANGELOG.md as '### Pull Request <middot> 20260819-171500' -- and since August 23, 2026 the stamp sits
+# on the entry's own heading instead, which needs the same tail tolerance. Anchored on a bare '\s*$' the
+# name has to be the whole line, so a stamped heading reads as a section nobody declares and the
+# CHANGELOG.md half below raises [entry-heading] on it -- on the one write that happens directly on main,
+# past every PR gate, inside the required CI check. Every PR after the first fold would have been blocked
+# by the fold of the one before it.
 # THE STAMP IS STRIPPED BEFORE THE COMPARISON, not tolerated inside it: the capture is still only the name,
 # so 'Who is this For' differing by one letter is caught exactly as strictly as it was.
 $ehSectionRx = '^#{' + $ehSectionLevel + '}\s+(.+?)' + (Get-EntrySectionHeadingTail)

@@ -83,9 +83,9 @@ try {
 
     # --- 3. the payload reader over REAL stdin ------------------------------------------------------
     # The only part of this lib that cannot be exercised in-process: [Console]::IsInputRedirected and
-    # ReadToEndAsync are properties of the process, so this runs a child with the payload piped into
-    # it exactly as the harness pipes one into a hook. Worth one spawn -- the guard it proves is what
-    # keeps a hand-run hook from blocking on a console that will never send EOF.
+    # the standard input handle itself are properties of the PROCESS, so this runs a child with the
+    # payload piped into it exactly as the harness pipes one into a hook. Worth one spawn -- the guard
+    # it proves is what keeps a hand-run hook from blocking on a console that will never send EOF.
     Write-Host '3. Get-HookSessionId -- over a real redirected stdin, and over one with nothing on it' -ForegroundColor Cyan
     $probe = Join-Path $Fixture 'probe.ps1'
     [System.IO.File]::WriteAllText($probe, ". `"$Lib`"`r`nWrite-Host ('[' + (Get-HookSessionId) + ']')`r`n", $Utf8)
@@ -93,6 +93,70 @@ try {
     Assert-Equal "[$VALID]" ($piped -join '') '3: a piped payload is read off stdin and its id returned'
     $empty = '' | & powershell -NoProfile -ExecutionPolicy Bypass -File $probe
     Assert-Equal '[]' ($empty -join '') '3: a redirected stdin carrying nothing usable returns no id instead of blocking'
+
+    # --- 3b. the bound actually binds (issue #2249) -------------------------------------------------
+    # THE ONE CASE NOTHING ELSE IN THIS SUITE CAN REACH, and the one the guard exists for. Section 3
+    # pipes a payload and closes the handle, so the text is already buffered and the read returns at
+    # once -- which is why the bound stood for two weeks without binding. This spawns a child with
+    # stdin REDIRECTED and then never writes to it and never closes it: the shape a harness leaves
+    # behind when it hands a hook a handle it forgets about, and the shape #2233 reported from the
+    # other end.
+    #
+    # IT ASSERTS TERMINATION, NOT A DURATION, and deliberately so. The failure this pins is infinite
+    # -- before the repair the child was still alive after 15 s at 0.14 s of CPU -- so any finite wall
+    # is evidence and a tight one would only make the suite flaky on a loaded runner. The elapsed time
+    # is PRINTED for whoever is reading the log, and not asserted on.
+    Write-Host '3b. a redirected stdin nobody writes to or closes -- the read is bounded, not forever' -ForegroundColor Cyan
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName               = 'powershell.exe'
+    $psi.Arguments              = "-NoProfile -ExecutionPolicy Bypass -File `"$probe`""
+    $psi.RedirectStandardInput  = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.UseShellExecute        = $false
+    $child = [System.Diagnostics.Process]::Start($psi)
+    # Drained asynchronously so a child that DOES print cannot fill its pipe and block against the
+    # very wait this is timing.
+    $childOut = $child.StandardOutput.ReadToEndAsync()
+    $wall = [System.Diagnostics.Stopwatch]::StartNew()
+    $exited = $child.WaitForExit(30000)
+    $wall.Stop()
+    if (-not $exited) { try { $child.Kill() } catch { } }
+    Write-Host ("     (child " + $(if ($exited) { "exited after $($wall.ElapsedMilliseconds) ms" } else { 'WEDGED -- killed' }) + ')') -ForegroundColor DarkGray
+    Assert-True $exited '3b: the child returns instead of blocking forever on a handle nobody closes'
+    if ($exited) { Assert-Equal '[]' ($childOut.Result.Trim()) '3b: and it reports no id rather than a partial read' }
+
+    # --- 3c. the payload is decoded as UTF-8, not as the console codepage (issue #2249) --------------
+    # A SECOND REPAIR IN THE SAME CHANGE, pinned because it is invisible in the field. [Console]::In
+    # decodes with Console.InputEncoding -- the OEM console codepage on Windows, cp850 where this was
+    # measured -- so every non-ASCII byte in a payload was mangled before it reached ConvertFrom-Json.
+    # A session_id is a UUID and never noticed; the cwd field the sibling readers in this family take a
+    # repo root from is not.
+    #
+    # THE BYTES ARE COMPOSED AND WRITTEN TO THE CHILD'S RAW STDIN, for two reasons. This file is pure
+    # ASCII by repo convention, so the character cannot be typed; and piping through PowerShell would
+    # re-encode it with the parent's own output encoding, which is the very thing under test.
+    Write-Host '3c. a non-ASCII payload is decoded as UTF-8, not as the console codepage' -ForegroundColor Cyan
+    $accentProbe = Join-Path $Fixture 'accent-probe.ps1'
+    [System.IO.File]::WriteAllText($accentProbe, ". `"$Lib`"`r`n`$raw = Get-HookPayloadRaw`r`nWrite-Host ((`$raw.ToCharArray() | ForEach-Object { [int]`$_ }) -join ',')`r`n", $Utf8)
+    $api = New-Object System.Diagnostics.ProcessStartInfo
+    $api.FileName               = 'powershell.exe'
+    $api.Arguments              = "-NoProfile -ExecutionPolicy Bypass -File `"$accentProbe`""
+    $api.RedirectStandardInput  = $true
+    $api.RedirectStandardOutput = $true
+    $api.RedirectStandardError  = $true
+    $api.UseShellExecute        = $false
+    $ac = [System.Diagnostics.Process]::Start($api)
+    $acOut = $ac.StandardOutput.ReadToEndAsync()
+    # {"cwd":"Ren<U+00E9>"} as UTF-8 bytes, no BOM.
+    $acBytes = $Utf8.GetBytes('{"cwd":"Ren' + [char]0x00E9 + '"}')
+    $ac.StandardInput.BaseStream.Write($acBytes, 0, $acBytes.Length)
+    $ac.StandardInput.BaseStream.Flush()
+    $ac.StandardInput.Close()
+    if (-not $ac.WaitForExit(30000)) { try { $ac.Kill() } catch { } }
+    $acText = $acOut.Result.Trim()
+    Assert-True ($acText -match '(^|,)233(,|$)') '3c: a UTF-8 e-acute arrives as U+00E9 (233), not as two console-codepage characters'
+    Assert-True ($acText -notmatch '(^|,)9500(,|$)') '3c: and the cp850 mojibake the old read produced (U+251C) is gone'
 
     # --- 4. the round trip --------------------------------------------------------------------------
     Write-Host '4. Set/Get -- the round trip, and every reason a read is a MISS' -ForegroundColor Cyan

@@ -1429,7 +1429,18 @@ hour to go red and reports a timeout rather than a defect. The first run of this
 Re-running with stdin at EOF — what CI has, and what a plain console has for the opposite reason — is the
 only difference between that run and the 421.2s above. The mechanism is verified on #2233's own thread:
 `Get-HookPayloadRaw`'s documented timeout does not fire, because `[Console]::In` is a `SyncTextReader`
-whose `ReadToEndAsync()` runs synchronously and never returns a task to wait on.
+whose `ReadToEndAsync()` runs synchronously on the calling thread -- so it has already blocked by the
+time the `Wait()` bounding it is reached.
+
+**BOTH HALVES ARE REPAIRED NOW, AND THEY WERE TWO DIFFERENT REPAIRS** --
+[#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233) closed the trigger and
+[#2249](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2249) closed the mechanism. The gate
+now redirects its lanes' stdin to an empty file, so no lane child is handed a handle the gate never
+closes; and the read itself now goes through `OpenStandardInput().CopyToAsync()`, which queues to the
+thread pool and therefore leaves the calling thread free to time out. **The warning below survives both
+of them**, because it is about what a wall clock silently carries and not about this one defect -- and
+the figure it is anchored on is worth keeping for exactly that reason: a state that cost a factor of
+~4.8 took two repairs in two branches to remove, and neither of them was visible in the gate's output.
 
 **READ THAT AS A WARNING ABOUT MEASURING, not only about the gate.** A wall clock taken on a workstation
 carries whatever that session's stdin happens to be, and nothing in the gate's output names it. The two

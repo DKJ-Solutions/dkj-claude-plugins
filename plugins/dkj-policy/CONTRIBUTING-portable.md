@@ -552,7 +552,8 @@ wants it. The trigger is for the queue and only a repo with one does.
 [`skills/fold-changelog/SKILL.md`](skills/fold-changelog/SKILL.md) · `fold-changelog-entry.ps1`
 
 On the trunk, right after the merge, the fold moves the entry into your changelog, appends the PR link as
-its closing line, stamps the landing moment onto the `Pull Request` heading, strips the guidance comments,
+its closing line, stamps the landing moment onto the entry's own DEPLOY heading (Dave, August 23, 2026,
+where it stamped the `Pull Request` heading before that), strips the guidance comments,
 and **removes the branch document** — so the trunk is ready for the next branch and the merged branch's
 ticked-off steps do not greet whoever opens it. It commits that directly on the trunk, naming exactly those
 paths so nothing else in the tree can ride along.
