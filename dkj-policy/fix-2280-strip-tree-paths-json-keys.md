@@ -92,6 +92,19 @@ the collision is an ordinary merge conflict on an unmerged branch, not a finding
       with a comment on it: U+202E in a path and U+200B in an event key both fail to reach the console,
       and the path keeps its length while the label collapses -- the contract difference that is why
       the two values take two functions.
+- [x] Group 5 added after the security review found that group 4 guards the LIBRARY and not the
+      WIRING: it would pass unchanged if a later edit put one of the four repaired lines back to a raw
+      interpolation while leaving the dot-source alone. Group 5 scans this file's own source and
+      asserts each line printing a scanned value names a strip. 41 passed / 0 failed.
+- [x] **Group 5's own first form was wrong, and a fixture caught it rather than a reading.** It asked
+      whether a line NAMED a strip anywhere on it, which passes a line that guards one of its two
+      foreign values and prints the other raw -- exactly the shape group 3 carries, where a path and a
+      JSON key share a line. So the check written to catch #2280 went green on #2280's own defect. It
+      is now per VALUE, keyed on the argument position, and the partial case is one of the seven
+      counter-cases.
+- [x] Proven to go RED rather than only to pass: group 5's logic run against a fixture whose line 2
+      prints both values raw and whose line 4 guards the path and prints the JSON key raw reports
+      exactly those two and passes the two repaired shapes.
 - [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors.
 - [x] Full suite via `open-pr.ps1`'s gate.
 
@@ -104,6 +117,12 @@ site is registered as entry 14 of the standing print-site list, which is the par
 repair. The suite is the first entry on that list that is not a script: a sweep looking for foreign-text
 prints in the tooling read past it, because a test suite does not look like a place this workflow
 prints.
+
+A second guard came out of the branch's own review. Asserting that the strip FUNCTIONS work leaves the
+four repaired lines free to be un-repaired by a later edit, so the suite now also scans its own source
+and holds each line printing a scanned value to naming a strip -- per VALUE, not per line, because the
+per-line form passed a line that guards its path and prints the JSON key beside it raw, which is the
+reported defect itself.
 
 **Score:** 2
 

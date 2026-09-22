@@ -480,19 +480,44 @@ function Test-LineIsForeignPrint {
     return $false
 }
 
-function Test-LineGuardsForeignPrint {
+# PER VALUE, NOT PER LINE, and the first form of this function was per line. It asked whether the line
+# NAMED a strip anywhere on it, which passes a line that guards one of its two foreign values and
+# prints the other raw -- exactly the shape group 3 carries, where a path and a JSON key share a line.
+# So the check that was written to catch #2280 went green on #2280's own defect, caught by running it
+# against a fixture rather than by reading it. It is also the miss the print-site list already records
+# one entry over: a repair "complete only as far as the colon".
+#
+# THE TEST IS THE ARGUMENT POSITION. A guarded value is the argument of a guard call, so it is preceded
+# by that call's parameter name; a raw one is preceded by the opening of its interpolation. Every
+# occurrence is judged, not the first -- a value can appear twice on one line.
+#
+# A POSITIONAL CALL WOULD BE REPORTED AS UNGUARDED, and that is the direction to err in, on this file's
+# own rule for its comment stripper: the error this suite may make is the loud one. A false positive is
+# a person reading a failure; a false negative is silence on the one fact this group exists to hold.
+function Get-UnguardedForeignValues {
     param([string]$Line)
-    foreach ($g in $GuardCallTokens) { if ($Line.Contains($g)) { return $true } }
-    return $false
+    $unguarded = @()
+    foreach ($tok in $ForeignValueTokens) {
+        $from = 0
+        while ($true) {
+            $at = $Line.IndexOf($tok, $from)
+            if ($at -lt 0) { break }
+            if (-not ($Line.Substring(0, $at) -match '-(Path|Ref)\s+$')) { $unguarded += $tok }
+            $from = $at + $tok.Length
+        }
+    }
+    return $unguarded
 }
 
 $selfLines  = @(Get-Content -LiteralPath $PSCommandPath)
 $printLines = @()
 for ($i = 0; $i -lt $selfLines.Count; $i++) {
     if (-not (Test-LineIsForeignPrint -Line $selfLines[$i])) { continue }
+    $bare = @(Get-UnguardedForeignValues -Line $selfLines[$i])
     $printLines += [pscustomobject]@{
         Num     = $i + 1
-        Guarded = (Test-LineGuardsForeignPrint -Line $selfLines[$i])
+        Guarded = ($bare.Count -eq 0)
+        Bare    = ($bare -join ', ')
     }
 }
 
@@ -508,7 +533,11 @@ foreach ($p in $printLines) {
 Assert-True ($printLines.Count -ge 4) "the scan found this file's own print lines (>= 4, got $($printLines.Count)) -- a drop means the scan broke or a line changed shape, never that there is nothing to guard"
 
 foreach ($p in $printLines) {
-    Assert-True $p.Guarded "line $($p.Num) hands its scanned value to the strip before printing it"
+    # The names of the unguarded values are this suite's OWN tokens, typed in the array above -- so
+    # naming them in a failure message prints nothing foreign, and it is what turns a red line into a
+    # repair somebody can make without opening the file.
+    $which = if ($p.Guarded) { '' } else { " -- unguarded: $($p.Bare)" }
+    Assert-True $p.Guarded "line $($p.Num) hands EVERY scanned value on it to the strip before printing$which"
 }
 
 # THE COUNTER-CASES, on the rule this file states twice already. The first pair is the whole point: the
@@ -516,15 +545,20 @@ foreach ($p in $printLines) {
 $fixtureRaw      = 'Write-Host "   $($s.Path):$($s.Line)" -ForegroundColor DarkGray'                  # not-a-print-site
 $fixtureGuarded  = 'Write-Host "   $(Get-DisplayPath -Path $s.Path):$($s.Line)" -ForegroundColor Gray' # not-a-print-site
 $fixtureKeyRaw   = 'Assert-True $w.HandsBack "$($w.Path) [$($w.Event)]: the wrapper pipes it back"'    # not-a-print-site
+$fixturePartial  = 'Assert-True $w.HandsBack "$(Get-DisplayPath -Path $w.Path) [$($w.Event)]: back"'   # not-a-print-site
 $fixtureProse    = '#   Write-Host "   $($w.Event)" -- prose explaining the hazard, not an instance'   # not-a-print-site
 $fixtureOwnValue = 'Write-Host "     the family, counted out of the tree: $($sites.Count) site(s)"'    # not-a-print-site
 
-Assert-True (Test-LineIsForeignPrint -Line $fixtureRaw)              'the scan sees a print line carrying a value this suite did not author'
-Assert-True (-not (Test-LineGuardsForeignPrint -Line $fixtureRaw))   'and calls it UNGUARDED when no strip is named on it -- the shape a bad merge resolution would leave behind'
-Assert-True (Test-LineGuardsForeignPrint -Line $fixtureGuarded)      'while the repaired shape passes'
-Assert-True (Test-LineIsForeignPrint -Line $fixtureKeyRaw)           'an assert MESSAGE is a print site too, which is half of what issue #2280 reported'
-Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureProse))     'prose about the hazard is not an instance of it -- this file documents itself, and counting that would make a good explanation the failure'
-Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureOwnValue))  'and a line printing this suite own count is not a subject at all'
+Assert-True (Test-LineIsForeignPrint -Line $fixtureRaw)                          'the scan sees a print line carrying a value this suite did not author'
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureRaw).Count)           'and reports that value UNGUARDED when no strip is named on it -- the shape a bad merge resolution would leave behind'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixtureGuarded).Count)       'while the repaired shape reports none'
+Assert-True (Test-LineIsForeignPrint -Line $fixtureKeyRaw)                       'an assert MESSAGE is a print site too, which is half of what issue #2280 reported'
+Assert-Equal 2 (@(Get-UnguardedForeignValues -Line $fixtureKeyRaw).Count)        'and BOTH of its values are counted, not just the first one found'
+# THE ONE THAT CAUGHT THIS CHECK'S OWN FIRST FORM: a path guarded, the JSON key beside it still raw.
+# Per-line the line names a strip and passes; per-value it is exactly the defect #2280 reported.
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixturePartial).Count)       'a line that guards its PATH and prints its JSON KEY raw is still a finding -- the partial repair, which the per-line form of this check went green on'
+Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureProse))                 'prose about the hazard is not an instance of it -- this file documents itself, and counting that would make a good explanation the failure'
+Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureOwnValue))              'and a line printing this suite own count is not a subject at all'
 
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }
