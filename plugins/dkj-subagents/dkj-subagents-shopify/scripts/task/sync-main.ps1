@@ -572,10 +572,7 @@ function Write-SyncLogEntry {
         Write-Host "Sync log: entry for $(Get-DisplayRef -Ref $Branch) written to $(Get-DisplayPath -Path $rel)." -ForegroundColor DarkGray
         return $rel
     } catch {
-        # #2248 guarded $rel through Get-DisplayPath and left the exception message raw, on the ground
-        # that ~30 other sites already printed one unguarded. #2271 is the branch that took those sites
-        # in scope, so both halves are guarded here now: the path by its display helper, the message by
-        # the prose strip.
+        # BOTH halves are foreign: #2248 guarded the path, #2271 the message (registry entry 15).
         Write-Host "Could not write the sync-log entry to '$(Get-DisplayPath -Path $rel)', so this sync leaves no record in the tree: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
         return ''
     }
