@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 40 minor entries** <!-- pending-tally -->
+**26 / 41 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2312-merge-fetch-depth-falsy-zero · 20260922-165021
+
+`ci.yml`'s conditional `fetch-depth` on the merge-commit checkout (#2303) never actually reached
+`0`: GitHub Actions expressions treat the number `0` as falsy, so `cond && 0 || 1` silently fell
+through to `1` on every push, regardless of `cond`. Fail-closed, so this cost no safety margin --
+the full suite ran on every merge commit exactly as it did before #2303 -- but it meant the
+suite-skip #2303 was built for had never actually fired. Fixed by quoting both arms as strings
+(`'0'` / `'1'`), which GitHub Actions never treats as falsy, plus a new assert pinning that a bare
+unquoted `0` cannot return to this line unnoticed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a CI-internal fix to this repo's own `.github/workflows/ci.yml`; nothing here is mirrored
+to a consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+ci.yml's merge-commit fetch-depth no longer falls through the falsy-zero && / || trap
+
+[PR #2313](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2313)
+
+---
 
 ### DEPLOY: fix/2307-mid-run-budget-wall-clock · 20260922-163148
 
