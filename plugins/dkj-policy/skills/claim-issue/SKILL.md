@@ -510,6 +510,49 @@ which is a complete answer.
 - **Not a filing step.** It claims an issue that exists; it does not create one.
 - **Not a substitute for reading the issue.** A claim says who is working, not what the work is.
 
+## Filing an issue is not claiming it -- and absorbing one into the branch you are on is a pickup
+
+**This step is bound to the act of STARTING an issue**, and every example above says so: *"fix issue
+1234"*, *"pick up #87"*, a resume. There is a second way an issue enters a branch's scope, and it does
+not look like a start at all: you are working a branch, you find something real, you file it because
+the filing rule says a finding becomes an issue — and then you judge it in scope for the branch already
+in flight and repair it there. Nothing announces a pickup, so this skill is never invoked, and on the
+tracker that issue reads exactly like any other new, open, unassigned one.
+
+**Measured, September 22, 2026**
+([#2284](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2284)): #2272 was filed from
+`fix/2248-guard-raw-foreign-text-prints` and absorbed into it — correctly, because the branch had
+already rewritten a registry entry to say that site was repaired. Another session found it unassigned,
+picked it up exactly as it should, and shipped it as PR #2275. PR #2282 then went `CONFLICTING` on the
+file both branches had guarded: a trunk merge, a hand conflict resolution, three documents corrected,
+and a second ship. **Nobody did anything wrong under the rules as they stood** — an unassigned open
+issue is an unowned one.
+
+**Not "claim every issue you file."** Most findings are filed precisely so they can be left alone, and
+claiming those would make the assignee field meaningless across a backlog nobody is on. The trigger is
+narrower: an issue is filed **and then worked**, in the branch you are standing on.
+
+**So `open-pr` takes the claim at the moment the tooling can first SEE the absorption** — the run that
+declares `Closes #<n>`. Before the push it reads the assignees off the open-issue list it already
+fetches, and for each issue this PR declares it closes:
+
+| what the tracker says | what happens |
+|---|---|
+| **held by this checkout's account** | nothing — the ordinary path, where this skill already ran |
+| **unassigned** | **claimed**, under the account `Resolve-ClaimAccount` resolves, and one line says so |
+| **held by somebody else** | a warning naming the holder — two sessions may be building one repair |
+| **could not be read** | nothing is said and nothing is written; a failed query is never a free issue |
+
+**It never blocks**, on the reason this whole family shares: a claim that wedges a real pull request
+costs the whole assignment ([#1485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1485)),
+and this check cannot tell a rival from a colleague who is simply also on the thread.
+
+**That is a backstop, not a replacement for claiming it yourself.** It fires at the push, which is the
+end of the branch; the collision above happened days of work earlier. If you absorb an issue into the
+branch you are on, run this skill on it **then** — you also get the parked-fix scan, the title-overlap
+scan and the branch-weight scan, none of which `open-pr` performs, and all of which are about work that
+is already under way somewhere else.
+
 ## And then you carry on -- the claim opens the work, it does not conclude a turn
 
 *"Fix issue 1234"* is one assignment, and this is its opening move. So a clean `[OK]` is followed, in

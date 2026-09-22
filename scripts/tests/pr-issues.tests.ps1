@@ -3377,6 +3377,84 @@ Assert-True (($openPrText -notmatch '(?m)^\s*\$resolveList\s*\+?=.*Get-BranchNam
 Assert-True ($openPrText -like "*comes from this branch's NAME, not from its document*") 'the refusal names the branch name as the source'
 Assert-True ($openPrText -like '*$branchOnly = @(@($branchIssue) | Where-Object { $_ -gt 0 -and $docMentions -notcontains $_ })*') 'and it only says so for a number the document really does not carry'
 
+
+Write-Host ''
+Write-Host 'ConvertFrom-OpenIssueList + Get-ClaimGapVerdict -- the claim check (issue #2284)' -ForegroundColor Cyan
+
+# THE $null VERSUS EMPTY CONTRACT IS THE FIRST THING ASSERTED, because the resolves gate depends on it:
+# "the list could not be read" must never read as "no issue is open", which would let the gate pass in
+# silence. That is the behaviour the inline parse this replaced already had, pinned here rather than
+# re-derived.
+Assert-True ($null -eq (ConvertFrom-OpenIssueList -Json ''))        'an empty payload is undeterminable, not an empty tracker'
+Assert-True ($null -eq (ConvertFrom-OpenIssueList -Json '   '))     'whitespace too'
+Assert-True ($null -eq (ConvertFrom-OpenIssueList -Json 'not json')) 'and an unparseable one'
+$emptyList = ConvertFrom-OpenIssueList -Json '[]'
+Assert-True ($null -ne $emptyList)               "gh's own empty answer IS determinable"
+Assert-Equal 0 (@($emptyList.Numbers).Count)     '...and it carries no numbers'
+
+$listJson = '[{"number":2272,"assignees":[]},{"number":2248,"assignees":[{"login":"maikel-bwj"}]},{"number":7,"assignees":[{"login":"Ann"},{"login":"Bo"}]}]'
+$records = ConvertFrom-OpenIssueList -Json $listJson
+Assert-Set @(2272, 2248, 7) $records.Numbers          'every open number is read, in payload order'
+Assert-Equal 0 (@($records.Assignees[2272]).Count)    'an unassigned issue maps to an EMPTY array, which is the answer the check turns on'
+Assert-NameSet @('maikel-bwj') $records.Assignees[2248]   'a held issue maps to its holder'
+Assert-NameSet @('Ann', 'Bo')  $records.Assignees[7]      '...and a co-assignment to both'
+
+# EVERY FIELD IS PROBED BEFORE IT IS READ, for Get-AssigneeLogins' reason: under StrictMode a dot-read of
+# an absent property throws, and schema drift must be skipped rather than take the run down.
+$odd = ConvertFrom-OpenIssueList -Json '[{"number":1},{"assignees":[{"login":"Ann"}]},{"number":"x"},{"number":3,"assignees":[{"noLogin":1},{"login":"Cy"}]}]'
+Assert-Set @(1, 3) $odd.Numbers                  'a record with no number, and one whose number is not a number, are skipped'
+Assert-Equal 0 (@($odd.Assignees[1]).Count)      'an absent assignees field reads as unassigned rather than throwing'
+Assert-NameSet @('Cy') $odd.Assignees[3]             'an assignee record with no login is skipped, and the rest survive'
+
+# THE FOUR STATES. 'unknown' is the one that matters most: a number the list could not account for must
+# never present as free, or this check would hand out claims on other people's work.
+$verdict = @(Get-ClaimGapVerdict -Issues @(2272, 2248, 7, 9999) -AssigneeMap $records.Assignees -Account 'maikel-bwj')
+Assert-Equal 4 $verdict.Count 'one record per declared issue'
+Assert-Equal 'unclaimed' (@($verdict | Where-Object { $_.Issue -eq 2272 })[0].State) 'unassigned and open -> unclaimed, which is the gap'
+Assert-Equal 'mine'      (@($verdict | Where-Object { $_.Issue -eq 2248 })[0].State) 'held by this account -> mine, and nothing is said'
+Assert-Equal 'foreign'   (@($verdict | Where-Object { $_.Issue -eq 7    })[0].State) 'held by somebody else -> foreign'
+Assert-Equal 'unknown'   (@($verdict | Where-Object { $_.Issue -eq 9999 })[0].State) 'not in the list at all -> unknown, never unclaimed'
+
+Assert-Equal 'unknown' (@(Get-ClaimGapVerdict -Issues @(2272) -AssigneeMap $null -Account 'maikel-bwj')[0].State) `
+    'an unread list leaves every issue unknown -- a failed query is not a free issue'
+Assert-Equal 'foreign' (@(Get-ClaimGapVerdict -Issues @(2248) -AssigneeMap $records.Assignees)[0].State) `
+    'with no account of our own, a holder can never be us'
+# GitHub logins are case-insensitive, so a case difference is the same account and must not read as two.
+Assert-Equal 'mine' (@(Get-ClaimGapVerdict -Issues @(2248) -AssigneeMap $records.Assignees -Account 'MAIKEL-BWJ')[0].State) `
+    'the account comparison is case-insensitive, as GitHub logins are'
+Assert-Equal 0 (@(Get-ClaimGapVerdict -Issues @() -AssigneeMap $records.Assignees -Account 'x')).Count 'nothing declared -> nothing to say'
+
+Write-Host ''
+Write-Host 'open-pr wires the claim check where the absorption first becomes visible' -ForegroundColor Cyan
+
+# THE SUBJECT IS THE DECLARED SET AND NOT THE MENTIONED ONE. This workflow PRESCRIBES citing issues in
+# prose, so claiming every mention would make the assignee field meaningless across a backlog nobody is
+# on -- which is the narrowing #2284 asks for by name.
+Assert-True ($openPrText -like '*Get-ClaimGapVerdict -Issues $resolveIssues*') 'the claim check reads what the PR DECLARES it closes, not what the branch mentions'
+Assert-True ($openPrText -notlike '*Get-ClaimGapVerdict -Issues $targetIssues*') '...and never the mentioned set'
+
+# THE ASSIGNEES COME OFF A READ THIS RUN ALREADY MAKES, so the check costs no round trip on any branch.
+Assert-True ($openPrText -like "*'--json', 'number,assignees'*") 'the open-issue list asks for the assignees on the same call'
+Assert-True ($openPrText -like '*ConvertFrom-OpenIssueList -Json*')  '...and parses it through the lib, where a suite can assert it without a network'
+
+# NEVER '@me' (#1315): it binds to whatever gh is authenticated as, while the branch a second session
+# correlates the claim with carries the git identity.
+Assert-True ($openPrText -like '*Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName)*') 'it claims under the account claim-issue would resolve'
+Assert-True ($openPrText -notlike "*'--add-assignee', '@me'*") "...and never under '@me'"
+
+# IT NEVER BLOCKS. A claim that wedges a real PR costs the whole assignment (#1485), and this check
+# cannot tell a rival from a colleague who is also on the thread.
+$idxClaim = Get-OpenPrIdx -Needle 'Get-ClaimGapVerdict -Issues $resolveIssues' -Code
+$idxClaimExit = Get-OpenPrIdx -Needle 'exit 1' -From $idxClaim -Code -Optional
+$idxAfterBlock = Get-OpenPrIdx -Needle '$closingAtMerge = @($resolveIssues)' -Code
+Assert-True ($idxClaimExit -lt 0 -or $idxClaimExit -gt $idxAfterBlock) 'nothing in the claim check refuses -- it warns and the push goes on'
+
+# THE TWO LIBS IT NEEDS ARE LOADED GUARDED, on closeout-lib's reasoning: a consumer's mirror arrives by
+# plugin UPDATE rather than by choice, and one that predates either lib must not crash on LOAD of the
+# script that opens their PR.
+Assert-True ($openPrText -like '*Test-Path -LiteralPath $claimIdentityLib*') 'git-identity-lib is dot-sourced guarded'
+Assert-True ($openPrText -like '*Test-Path -LiteralPath $claimAccountLib*')  'claim-issue-lib is dot-sourced guarded'
+Assert-True ($openPrText -like "*Test-FunctionDefined 'Resolve-ClaimAccount'*") '...and the CALL is guarded too, through the cheap probe'
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1

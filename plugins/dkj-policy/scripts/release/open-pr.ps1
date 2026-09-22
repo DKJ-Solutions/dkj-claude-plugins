@@ -462,6 +462,17 @@ $repo = Get-RepoName
 # reasoning as the libs above; park-lib needs only the native-capture helper, loaded further up.
 . (Join-Path $PSScriptRoot '..\lib\park-lib.ps1')
 
+# WHICH ACCOUNT THE CLAIM CHECK CLAIMS AS (issue #2284) -- Resolve-ClaimAccount, plus the two reads it
+# judges. GUARDED, on closeout-lib's own reasoning: these scripts are mirrored into every consumer's
+# plugin cache and arrive by plugin UPDATE rather than by choice, so a mirror that predates either lib
+# must not crash on LOAD of the script that opens their PR. Without them the claim check finds no
+# Resolve-ClaimAccount, says nothing and writes nothing, which is the direction every other failure on
+# that path takes too.
+$claimIdentityLib = Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1'
+if (Test-Path -LiteralPath $claimIdentityLib -PathType Leaf) { . $claimIdentityLib }
+$claimAccountLib = Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1'
+if (Test-Path -LiteralPath $claimAccountLib -PathType Leaf) { . $claimAccountLib }
+
 # Pre-flight (#86): an unfilled scaffold (repo-config still at VUL-IN) would otherwise only fail
 # further down with an unclear gh error. Stop here with a clear pointer.
 if ($repo -match 'VUL-IN' -or (Get-LintScript) -match 'VUL-IN') {
@@ -804,40 +815,39 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
         $mentionText = Get-DevelopmentBranchText -Text ([System.IO.File]::ReadAllText($entryPath, [System.Text.Encoding]::UTF8))
     }
     if ($Body) { $mentionText = $mentionText + "`n" + $Body }
-
-    # The open-issue list, fetched ONCE and used for both the gate verdict and the typo check below.
-    # It used to be two near-identical query blocks, each carrying its own copy of the 5.1 flatten
-    # trick -- a second hand-copied instance of a subtle workaround, which is the accumulation shape
-    # this repo already paid for twice (#275, #331). Returns $null when it cannot be determined.
-    function Get-OpenIssueNumbers {
+    # The open-issue list, fetched ONCE and used for the gate verdict, the typo check below, and -- since
+    # #2284 -- the claim check at the foot of this block. It used to be two near-identical query blocks,
+    # each carrying its own copy of the 5.1 flatten trick -- a second hand-copied instance of a subtle
+    # workaround, which is the accumulation shape this repo already paid for twice (#275, #331). Returns
+    # $null when it cannot be determined.
+    #
+    # 'number,assignees' RATHER THAN 'number' (issue #2284), and the second field is what makes the claim
+    # check free. It is one more field on a query this run already makes, so no branch pays a round trip
+    # for it; the parse moved to ConvertFrom-OpenIssueList (pr-issues-lib.ps1), where a suite can assert
+    # it without a network -- including the $null-versus-empty contract this gate depends on.
+    function Get-OpenIssueRecords {
         param([string]$Repo)
         # --limit 1000, not 200: an issue past the page boundary would read as "not open" and let the
         # gate pass in silence, which is the one outcome this whole feature exists to prevent.
-        $q = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'list', '--repo', $Repo, '--state', 'open', '--limit', '1000', '--json', 'number') -DiscardStderr
+        $q = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'list', '--repo', $Repo, '--state', 'open', '--limit', '1000', '--json', 'number,assignees') -DiscardStderr
         if ($q.ExitCode -ne 0) {
             Write-Warning "could not ask gh which issues are open (exit $($q.ExitCode)) -- the resolves gate cannot check and will not block."
             return $null
         }
-        try {
-            # ASSIGN the parse result first, THEN wrap it in @(). Windows PowerShell 5.1 emits a
-            # parsed JSON array as a SINGLE pipeline object, so `@(... | ConvertFrom-Json)` collects
-            # one element that IS the whole Object[] -- and `$_.number` on an array does member
-            # enumeration, handing the [int] cast an Object[] that throws. Assigning first gives @()
-            # a real array to flatten. That throw was swallowed as "cannot check", so the gate
-            # silently never blocked while every pure unit test stayed green; only the wiring fixture
-            # caught it.
-            $parsed = ($q.Output -join "`n") | ConvertFrom-Json
-            return @(@($parsed) | ForEach-Object { [int]$_.number })
-        } catch {
-            Write-Warning "could not parse the open-issue list from gh ($($_.Exception.Message)) -- the resolves gate cannot check and will not block."
-            return $null
+        $records = ConvertFrom-OpenIssueList -Json ($q.Output -join "`n")
+        if ($null -eq $records) {
+            Write-Warning "could not parse the open-issue list from gh -- the resolves gate cannot check and will not block."
         }
+        return $records
     }
 
     # Which mentioned numbers are OPEN issues right now. $null = could not determine, which the
     # decision table treats as "do not block" (it only warns).
     $openMentions = $null
     $openAll = $null
+    # number -> the logins holding it, off the same read (issue #2284). $null while the list is unread,
+    # which the claim check at the foot of this block reads as 'unknown' rather than as 'free'.
+    $openAssignees = $null
     # WHAT THE BRANCH NAME DECLARES, FOLDED IN BESIDE WHAT THE DOCUMENT SAYS (issue #2225). The prose
     # above is optional and -Resolves is memory; the branch name is where new-branch.ps1 PUTS the number
     # when a branch is cut for an issue, and it was the one place nothing read. So a branch cut for an
@@ -858,8 +868,10 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
     $branchOnly = @(@($branchIssue) | Where-Object { $_ -gt 0 -and $docMentions -notcontains $_ })
     $mentions = @(@($docMentions) + @($branchOnly) | Sort-Object -Unique)
     if ($mentions.Count -gt 0 -or $resolveList.Count -gt 0) {
-        $openAll = Get-OpenIssueNumbers -Repo $repo
-        if ($null -ne $openAll) {
+        $openRecords = Get-OpenIssueRecords -Repo $repo
+        if ($null -ne $openRecords) {
+            $openAll = @($openRecords.Numbers)
+            $openAssignees = $openRecords.Assignees
             $openMentions = @($mentions | Where-Object { $openAll -contains $_ })
         }
     }
@@ -1003,6 +1015,62 @@ Both are honest answers; the gate only refuses to guess.
             if ($w.IsClosed) { $says += 'is already CLOSED' }
             foreach ($p in $w.ClaimingPrs) { $says += "is already resolved by PR #$($p.Number) ($($p.State.ToLowerInvariant()))" }
             Write-Warning ("already-done check: issue #$($w.Issue) " + ($says -join ', and it ') + " -- this branch may repeat work that is already merged. If that is deliberate (a shared number, the issue reopened, cited only as context), nothing to do.")
+        }
+
+        # --- The claim check (issue #2284): an issue this PR DECLARES it closes is claimed ----------
+        #
+        # THE GAP. claim-issue is bound to the act of STARTING an issue -- its own page says so, and its
+        # examples are "fix issue 1234" and "pick up #87". An issue can enter a branch's scope without
+        # anybody starting it: a finding filed mid-branch and repaired on the branch already in flight is
+        # never claimed, so the tracker shows it unassigned and the next session is CORRECT to read it as
+        # untouched. Nothing else catches it -- new-branch's already-done check runs before a checkout
+        # that already happened, the parked-fix and title-overlap scans live inside claim-issue and it is
+        # never called, and the already-done check above finds a rival PR only once one exists.
+        #
+        # MEASURED, September 22, 2026 (#2284): #2272 was filed from
+        # fix/2248-guard-raw-foreign-text-prints, judged in scope and repaired on that branch. Another
+        # session found it unassigned, picked it up correctly, and shipped it as PR #2275. PR #2282 then
+        # went CONFLICTING on the file both had guarded -- a trunk merge, a hand conflict resolution,
+        # three documents corrected, and a second ship.
+        #
+        # SO THE CLAIM IS TAKEN AT THE MOMENT THE TOOLING CAN FIRST SEE THE ABSORPTION: the run that
+        # declares `Closes #<n>`. Not the mentioned set -- this workflow PRESCRIBES citing issues in
+        # prose, and claiming those would make the assignee field meaningless across a backlog nobody is
+        # on. Declaring that this PR closes an issue is a stronger statement than an assignee is, so this
+        # writes strictly less than the body it is about to publish already does.
+        #
+        # IT NEVER BLOCKS, on the already-done check's own reasoning: a claim that wedges a real PR costs
+        # the whole assignment (#1485), and this check cannot tell a rival from a colleague who is simply
+        # also on the thread. A foreign holder is a WARNING and the push goes on.
+        #
+        # AND A FAILED READ IS NEVER READ AS FREE. Get-ClaimGapVerdict marks an issue the open list could
+        # not account for 'unknown', which says nothing and writes nothing -- Get-AssigneeLogins' rule one
+        # layer up, because the opposite direction hands out claims on other people's work.
+        if ($resolveIssues.Count -gt 0) {
+            $claimAccount = ''
+            if ((Test-FunctionDefined 'Resolve-ClaimAccount') -and (Test-FunctionDefined 'Get-ActiveGhAccount')) {
+                # THE SAME RESOLUTION claim-issue MAKES, AND NEVER '@me' (#1315): @me binds to whatever gh
+                # is authenticated as, while the branch a second session correlates the claim with carries
+                # the GIT identity, so on a split checkout @me claims under the wrong name in silence.
+                $claimAccount = (Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName)).Account
+            }
+            foreach ($gap in @(Get-ClaimGapVerdict -Issues $resolveIssues -AssigneeMap $openAssignees -Account $claimAccount)) {
+                if ($gap.State -eq 'mine' -or $gap.State -eq 'unknown') { continue }
+                if ($gap.State -eq 'foreign') {
+                    Write-Warning ("claim check: issue #$($gap.Issue) is held by " + (($gap.Holders | ForEach-Object { "'$_'" }) -join ', ') + " and this PR declares it closes it -- two sessions may be building the same repair. Nothing is blocked; go and ask before you merge.")
+                    continue
+                }
+                if (-not $claimAccount) {
+                    Write-Warning "claim check: issue #$($gap.Issue) is unassigned and this PR declares it closes it, but there is no account to claim as (gh absent or logged out) -- the tracker will go on showing it unowned."
+                    continue
+                }
+                $claim = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'edit', "$($gap.Issue)", '--repo', $repo, '--add-assignee', $claimAccount) -DiscardStderr
+                if ($claim.ExitCode -ne 0) {
+                    Write-Warning "claim check: issue #$($gap.Issue) is unassigned and this PR declares it closes it, but claiming it for '$claimAccount' failed (exit $($claim.ExitCode)) -- claim it by hand, or another session will correctly read it as untouched."
+                    continue
+                }
+                Write-Host "  claim check: issue #$($gap.Issue) was unassigned and this PR closes it -- claimed for '$claimAccount' (#2284)." -ForegroundColor DarkGray
+            }
         }
     }
 }
