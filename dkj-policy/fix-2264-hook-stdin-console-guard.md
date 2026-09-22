@@ -39,21 +39,86 @@
 
 ### PLAN
 
-Half A of #2264: the separable IsInputRedirected guard on guard-working-copy.ps1 and guard-live-theme.ps1. The timeout half depends on #2249's mechanism, which is unlanded.
+Half A of #2264: the separable IsInputRedirected guard on guard-working-copy.ps1 and
+guard-live-theme.ps1. The timeout half depends on #2249's mechanism, which is unlanded.
+
+#### What this branch does NOT carry, and why
+
+#2264 asks for two things and names them as separable itself: the missing **guard** on the two hooks
+that lack one, and a **bound** on the four unbounded reads. This branch is the guard only.
+
+The bound's mechanism does not exist in this tree. #2264 states it as settled -- "the table is in
+`Get-HookPayloadRaw`'s docstring" -- and it is not there: `session-cache-lib.ps1:130` still carries
+`ReadToEndAsync()` and the docstring carries no table. #2249 itself calls that shape "likely to work
+and was not tried". Its branch, `origin/fix/2249-bound-stdin-read`, is one park commit touching only
+its own document, claimed under another account an hour before this branch was cut. So the mechanism
+is somebody's live work, and writing a second copy of it here is the duplicate this workflow's pickup
+checks exist to prevent.
+
+The two halves touch disjoint files, which is what makes this branch safe to build now rather than a
+thing to ask about: #2249 owns `session-cache-lib.ps1`, `adopt-statusline.ps1` and
+`show-progress.ps1`; this branch owns the two hooks and one new suite.
+
+#### And one correction to #2264 itself, measured rather than argued
+
+Its exposure table says `guard-live-theme.ps1`'s exposure is "a wedge blocks the tool call", and puts
+`guard-working-copy.ps1` apart as the one whose `hooks.json` entry does not pipe the payload straight
+in. Both entries are the same shape -- `p=$(cat); printf '%s' "$p" | powershell ...` -- so in both the
+**shell** drains stdin to EOF and hands PowerShell a pipe it then closes. A never-closed harness
+handle wedges that `cat`, not the `[Console]::In.ReadToEnd()` in either file.
+
+That matters for the half this branch is not doing: the two hooks with the highest firing rates, and
+therefore the whole of #2264's cost objection, are the two the bound would not repair. #2264 asked for
+this to be checked per hook rather than assumed; it is checked, and the answer moves one row.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `guard-working-copy.ps1`: read stdin only where a handle is redirected, with the reason and the
+      deliberate absence of a `try/catch` written down (it would convert #2217's fail-CLOSED wrapper
+      path into a fail-open one).
+- [x] `guard-live-theme.ps1`: the same guard, arguing separately why "no handle" is not the
+      "unparseable payload" its own fail-towards-CHECKING rule is about.
+- [x] `scripts/tests/hook-stdin-guard.tests.ps1`: a new suite that counts the family **out of the
+      tree** instead of from a list, since a wrong hand-count is what produced both #2249 and #2264.
 
 ### TEST
 
+- [x] The new suite: 15 passed, 0 failed. It reports 10 code sites across 7 source files (three are
+      mirrored pairs), all guarded.
+- [x] It goes RED on the defect: reverting `guard-working-copy.ps1`'s guard by hand gives
+      `14 passed, 1 failed`, naming the file and line. Restored afterwards.
+- [x] No regressions in the three suites that own this ground: `guard-working-copy.tests.ps1`
+      32/0, `guard-live-theme.tests.ps1` 110/0, `hook-fail-closed.tests.ps1` 43/0.
+- [x] Both hooks exit 0 on an empty payload, down each one's own documented degradation path.
+- [x] The full lint gate and every suite, via `open-pr.ps1`.
+
+#### The test gap, stated rather than papered over
+
+Group 1 reads the SOURCE, because the behaviour is unreachable from a test process: the failing case
+needs a child whose stdin is a live console, and a suite is spawned with stdin redirected -- since
+#2233 the gate redirects every lane's stdin to an empty file deliberately. Guarded and unguarded both
+return immediately there, so a behavioural assert would pass on the defect. What is asserted
+behaviourally is the value the guard produces.
+
 ### DEPLOY: fix/2264-hook-stdin-console-guard
 
-**Score:**
+Running either of this workflow's two command guards by hand -- the first thing anybody does when a
+git or a theme command is refused and they want to know why -- used to hang on line one with nothing
+printed, waiting on a console read for a Ctrl+Z that is never coming. Both now read stdin only where
+there is a handle to read, which is the guard the other five members of this family already carried.
+A new suite counts that family out of the tree rather than from a list, because a wrong hand-count is
+what let these two sit unguarded through two separate sweeps.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer of this workflow gets the same repair, and it reaches the guard protecting their live
+Shopify theme as well as the one protecting their working copy. Nothing about how either guard judges
+a command changes, so there is nothing to act on -- what changes is that the guard can be questioned
+by hand on the machine it just refused something on.
+
+**Score:** 2
 
 #### Pull Request
 

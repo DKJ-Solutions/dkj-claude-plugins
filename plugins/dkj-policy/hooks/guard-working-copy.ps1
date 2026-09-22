@@ -81,7 +81,27 @@
 #>
 $ErrorActionPreference = 'Stop'
 
-$raw = [Console]::In.ReadToEnd()
+# READ STDIN ONLY WHERE THERE IS A HANDLE TO READ, which is the guard four other members of this
+# family already carry (closeout-gate.ps1, publish-background-run.ps1, adopt-statusline.ps1,
+# show-progress.ps1) and this one did not until #2264. An UNREDIRECTED [Console]::In is a live
+# console, and ReadToEnd on one waits for a Ctrl+Z that is never coming -- so running this hook by
+# hand from a terminal, which is what anybody debugging a refusal does first, hangs on line one with
+# nothing printed. show-progress.ps1's own comment states the cost: a thing that hangs the first time
+# somebody looks at it by hand is a thing nobody will look at twice.
+#
+# THE COST IS A PROPERTY READ, which is why this is separable from the timeout half of #2264. The
+# bound belongs to the unbounded-handle case; this belongs to the no-handle case, and only the bound
+# has a per-firing price worth weighing on a hook that fires 9,084 times in this repo's transcripts.
+#
+# AND DELIBERATELY NO try/catch AROUND IT, unlike the two sibling hooks that have one. Under
+# $ErrorActionPreference = 'Stop' a throw here exits non-zero, and the bash wrapper #2217 put in
+# hooks.json reads any exit code other than 0 or 2 as a start failure and refuses a payload that
+# carries agent_id and names git. Swallowing the throw into an empty payload would turn that
+# fail-CLOSED path into a fail-open one -- a change to the guarantee #2217 exists for, not a
+# tidying-up of this line. Where there is genuinely no handle there is no throw either, so the guard
+# below reaches the documented main-thread path without touching that contract.
+$raw = ''
+if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
 
 # THE CHEAP PRE-GATE, AND IT IS HERE FOR A MEASURED REASON. This hook fires on EVERY Bash and
 # PowerShell call, not once per session, and the overwhelming majority of those calls are the main
