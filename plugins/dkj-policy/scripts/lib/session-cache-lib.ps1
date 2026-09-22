@@ -124,31 +124,34 @@ function Get-HookPayloadRaw {
         overridden to run SYNCHRONOUSLY on the calling thread -- so ReadToEndAsync() blocked before
         Wait() was ever reached and the bound had no effect at all. Measured September 21, 2026, on a
         child spawned with RedirectStandardInput on a handle nobody writes to or closes: still alive
-        after 15,021 ms at 0.14 s of CPU, printing nothing. A SessionStart hook that never returns
-        prints nothing either, so nothing would have reported it.
+        after 15,021 ms at 0.14 s of CPU, printing nothing (#2249's own measurement; everything below
+        was taken on the branch that repaired it, September 22). A SessionStart hook that never
+        returns prints nothing either, so nothing would have reported it.
 
         WHY IT STOOD UP SO LONG: the guard is correct in the case it is exercised in. A real harness
         writes the payload and closes the handle, so the text is already buffered and the call returns
         at once. The bound is only load-bearing in the case nobody had been in -- which is the case its
         own docstring named.
 
-        THREE MECHANISMS WERE MEASURED IN BOTH DIRECTIONS -- a handle left open, AND a payload written
-        and closed -- because the obvious repairs pass one and fail the other:
+        EVERY CANDIDATE WAS JUDGED IN BOTH DIRECTIONS -- a handle left open, AND a payload written and
+        closed -- because the obvious repairs pass one and fail the other. Rows 2 and 3 are #2249's own
+        findings and were not re-run here; the rest were measured on the branch that repaired it:
 
-          [Console]::In.ReadToEndAsync() + Wait   normal 13-20 ms | open handle: WEDGED, forever
+          [Console]::In.ReadToEndAsync() + Wait   normal 13-20 ms  | open handle: WEDGED, forever
           a [PowerShell]::Create() runspace       the timeout fires, then the process hangs at EXIT
           a Thread with IsBackground = $true      bounds the wedge, and FAILS THE NORMAL CASE: a
                                                   PowerShell scriptblock as ThreadStart runs in the
                                                   originating runspace, which is busy in Join()
           raw stream ReadAsync in a loop          normal 91-153 ms | open handle: '' at the bound
+          BeginRead + AsyncWaitHandle.WaitOne     normal 89-138 ms | open handle: '' at the bound
           OpenStandardInput().CopyToAsync()       normal 77-88 ms  | open handle: '' at the bound
 
         THE LAST ONE IS WHAT THIS USES, and it is the cheapest of the three that bind as well as the
         shortest. Stream.CopyToAsync's default implementation queues the read to the THREAD POOL, so
         the calling thread stays free and Wait() is reached; the pool thread left blocked on a handle
         nobody closes is a background thread, which is why the process still exits cleanly instead of
-        hanging at exit the way the runspace variant did. Measured the same day: 1 MB payload 84 ms, a
-        writer that sleeps 60 ms first 78 ms, an empty stdin 73 ms.
+        hanging at exit the way the runspace variant did. Measured against it as well: a 1 MB payload
+        84 ms, a writer that sleeps 60 ms before writing 78 ms, an empty stdin 73 ms.
 
         THE PRICE, STATED RATHER THAN BURIED: the normal case goes from ~15 ms to ~80 ms, because the
         async machinery is what costs, not the wait. That is paid by every firing that reads a payload,

@@ -43,9 +43,11 @@ Get-HookPayloadRaw's 250 ms bound does not bind on .NET Framework: [Console]::In
 
 #### The mechanism was picked by measurement, not by argument
 
-#2249 listed two mechanisms it had tried and rejected and named a third it had not. All of them were
-measured here, in BOTH directions -- a handle left open AND a payload written and closed -- because
-the failing candidates each pass one and fail the other:
+#2249 listed two mechanisms it had tried and rejected and named a third it had not. That third one,
+plus one more it did not name, were measured here in BOTH directions -- a handle left open AND a
+payload written and closed -- because a failing candidate passes one and fails the other, so measuring
+either direction alone would have picked a wrong mechanism with evidence behind it. The two #2249 had
+already rejected were taken on its word and not re-run; the rows below are what this branch measured:
 
 | mechanism | payload written and closed | handle left open |
 |---|---|---|
@@ -119,8 +121,14 @@ it by name. #2264 re-asks the question, because seven copies is a different arit
 - [x] the three edited files and the shim body inside the here-string all parse, and the shim stays
       pure ASCII
 - [x] `check-plugin-integrity.ps1`: 0 error(s)
-- [ ] the full suite set, green
-- [ ] CI green on the pull request
+- [~] the full suite set: dropped as a STEP rather than skipped as work. `open-pr.ps1` runs
+      `Invoke-TestSuiteGate` over `scripts/tests/` as its own gate and refuses to push on a failure, so
+      nothing here can tick before that run and a tick after it records a measurement the tooling
+      already made. It was started by hand once on this branch and stopped for exactly that reason --
+      Chris's page names pre-running a gate as charging the same measurement twice
+- [~] CI green on the pull request: not a step this document can resolve, because it cannot happen
+      before the PR exists. `ship-pr.ps1` dates the run behind the required check `lint-en-tests` and
+      refuses the merge on a stale or failing one, which is where that guarantee lives
 
 ### DEPLOY: fix/2249-bound-stdin-read
 

@@ -83,9 +83,9 @@ try {
 
     # --- 3. the payload reader over REAL stdin ------------------------------------------------------
     # The only part of this lib that cannot be exercised in-process: [Console]::IsInputRedirected and
-    # ReadToEndAsync are properties of the process, so this runs a child with the payload piped into
-    # it exactly as the harness pipes one into a hook. Worth one spawn -- the guard it proves is what
-    # keeps a hand-run hook from blocking on a console that will never send EOF.
+    # the standard input handle itself are properties of the PROCESS, so this runs a child with the
+    # payload piped into it exactly as the harness pipes one into a hook. Worth one spawn -- the guard
+    # it proves is what keeps a hand-run hook from blocking on a console that will never send EOF.
     Write-Host '3. Get-HookSessionId -- over a real redirected stdin, and over one with nothing on it' -ForegroundColor Cyan
     $probe = Join-Path $Fixture 'probe.ps1'
     [System.IO.File]::WriteAllText($probe, ". `"$Lib`"`r`nWrite-Host ('[' + (Get-HookSessionId) + ']')`r`n", $Utf8)
