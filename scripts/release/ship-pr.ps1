@@ -2638,9 +2638,19 @@ if ($null -ne $shipCycleText) {
     # satisfies `-ne 0`, so this printed "gh exited " -- the sentence built to send the reader to their
     # network or token, with the number that would justify it missing out of it. Like the short read
     # beside it, it is a fact about this run rather than about the PR, and it lands in the same branch.
+    # A FOURTH REASON JOINED THEM UNDER #2250, and it is asked ahead of all three. A gh that never
+    # STARTED sets ExitCodeUnknown on purpose -- that is what lets the audited sites keep working
+    # untouched -- so absorbed by the arm below it, a missing gh was described as one that ran. There is
+    # no Get-Command guard on this call, so that state is reachable here in full. It also has to be
+    # carried as a flag rather than sniffed out of the string, because the sentence this block feeds
+    # closes with advice that is false in exactly this state -- see $lockRetry below.
     $lockUnread = ''
     $lockShortRead = $false
-    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+    $lockNotStarted = $false
+    if (-not (Test-NativeCommandStarted -Capture $lockView)) {
+        $lockUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran'
+        $lockNotStarted = $true
+    } elseif (-not (Test-NativeExitMeasured -Capture $lockView)) {
         $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read'
     } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = "gh exited $($lockView.ExitCode)"
@@ -2699,7 +2709,17 @@ CI has already passed, so a re-run picks up from here. There is no -Force for th
         # than a bigger number. A capture that is merely being flushed settles on the first probe
         # (measured: 2-8 ms over five gh calls), and one held by a grandchild that is still RUNNING
         # never releases inside any budget worth waiting for -- so raising it buys stalls, not reads.
-        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        # THE CLOSING SENTENCE IS THE OTHER HALF OF #2250'S DEFECT, AND IT IS OUTSIDE THE PARENTHETICAL.
+        # That report names $lockUnread's arm; repairing only that would leave this line printing "a
+        # re-run normally settles it" about a gh that is not installed -- the same false advice, in the
+        # same printed sentence, one layer out. A reader does not experience the two as separate strings,
+        # so they are answered together or the repair satisfies the report and still misleads.
+        $lockRetry = if ($lockNotStarted) {
+            'That is a fact about this machine rather than about the PR, and a re-run will NOT settle it -- install the GitHub CLI, or put it on PATH.'
+        } else {
+            "This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        }
+        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. $lockRetry"
     } else {
         Write-Host "  DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- not checked (this is not a finding)." -ForegroundColor DarkGray
     }
