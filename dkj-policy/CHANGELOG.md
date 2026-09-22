@@ -44,7 +44,30 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 44 minor entries** <!-- pending-tally -->
+**28 / 45 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2318-native-capture-absolute-deadline-floor · 20260922-190918
+
+`native-capture.tests.ps1`'s absolute-deadline assert no longer budgets 5 seconds of runner latency
+against four cheap function calls -- the floor is now derived from a Stopwatch bracketing the same
+window, so the assert passes under any load while still catching a wrong `SecondsLeft` calculation.
+Repairs the CI-only flake in #2318.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a test-only change with no reach past this repo's own developers/CI.
+
+**Score:** N/A
+
+#### Pull Request
+
+Native-capture budget test: derive the absolute-deadline floor from measured elapsed time instead of a fixed constant
+
+[PR #2321](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2321)
+
+---
 
 ### DEPLOY: fix/2314-ci-banner-append-point · 20260922-185439
 
