@@ -44,7 +44,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 33 minor entries** <!-- pending-tally -->
+**24 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2237-workflow-facts-crlf · 20260922-145824
+
+`adopt-ci-floor` reads a job's `name:` on a CRLF checkout, so a Windows consumer is no longer handed a
+ruleset requiring a check GitHub never reports.
+
+`Get-WorkflowFacts` collected job keys and job names with two regexes, both anchored on `$`. .NET's
+multiline `$` matches only immediately before a `\n`, so against a CRLF file the name capture's
+`[^\r\n]*` stopped at the `\r` and the anchor failed -- collecting no names at all -- while the key
+capture survived the same file by accident, its `\s*$` absorbing the `\r` first. The text is normalised
+to LF once on read now, which closes the class rather than the two instances visible today.
+
+**The damage reached past the wrong note it was reported as.** `$prJobIds` then held one id where LF
+holds two, and one is exactly the count the paste-ready ruleset call auto-fills on -- so a consumer with
+a single named job in a single `pull_request` workflow was handed a ruleset requiring the job KEY, while
+GitHub reports that check under its NAME. A required check that never reports leaves every pull request
+pending forever. On LF the same tree declines to auto-fill and prints the candidate list, so the bug
+moved the script onto the branch it would otherwise have refused.
+
+Reported from `BWJ-Development/xoxowildhearts` as inbound #2237.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A subscriber of this workflow on Windows -- which is the reporting consumer's own configuration -- could
+follow a printed instruction into a merge outage on their trunk. It reaches only a consumer who adopts
+the CI floor without a required check already in place, but for that consumer the failure is total and
+the cause is three layers from the symptom.
+
+**Score:** 4
+
+#### Pull Request
+
+Get-WorkflowFacts reads a job `name:` on CRLF too
+
+Plugins: dkj-policy
+
+[PR #2306](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2306)
+
+---
 
 ### DEPLOY: fix/2295-capturedir-empty-race · 20260922-143220
 
