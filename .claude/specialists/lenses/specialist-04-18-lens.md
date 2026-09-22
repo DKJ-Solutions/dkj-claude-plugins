@@ -25,8 +25,8 @@ logic in `release-lib.ps1` (version bump, CHANGELOG transformation, release-note
   dependency-free (no Pester), dot-sources `release-lib.ps1` and asserts the version bump + CHANGELOG
   transformation, exit 1 on the first failure (usable in a CI gate) — and that dependency-free,
   exit-1-on-first-failure style now runs across the suite under `scripts/tests/`, which covers most
-  of what Sylvester's lens lists: the lint gate (`check-plugin-integrity-*.tests.ps1`, four of them —
-  see [the split below](#the-lint-gate-suite-is-four-files-august-16-2026)), the shared
+  of what Sylvester's lens lists: the lint gate (`check-plugin-integrity-*.tests.ps1`, seven of them —
+  see [the split below](#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026)), the shared
   agent-def blocks (`subagent-shared.tests.ps1`), the branch/changelog/release chain
   (`branch-info.tests.ps1`, `new-branch.tests.ps1`, `fold-changelog.tests.ps1`,
   `cut-release-guardrail.tests.ps1`, `park-branch.tests.ps1`), the connectors + roster machinery
@@ -57,12 +57,28 @@ logic in `release-lib.ps1` (version bump, CHANGELOG transformation, release-note
 - He works together with [Sylvester #15](specialist-05-15-lens.md) (who owns the scripts) and
   [Victor #19](specialist-06-19-lens.md) (who flags a missing test during review).
 
-### The lint-gate suite is four files (August 16, 2026)
+### The lint-gate suite is more than one file (August 16, 2026; split again September 22, 2026)
 
-`check-plugin-integrity.tests.ps1` is now four suites plus a shared, non-asserting
+`check-plugin-integrity.tests.ps1` is now seven suites plus a shared, non-asserting
 [`check-plugin-integrity-fixture.ps1`](../../../scripts/tests/check-plugin-integrity-fixture.ps1):
 `-links` (checks 4 and 10), `-commands` (11 and 12), `-entries` (13, 13b, coverage, the staleness
-checks) and `-docs` (18-27 and `-SkipCheck`).
+checks), and the four `-docs` descendants — `-docs` (19, 20, 20b, 20c, 25 — consumer documents),
+`-scripts` (18, 39, 40, 27, 35 — the script layer), `-invocations` (22, 42, 42b, 24, 26 — printed
+invocations) and `-roster` (6b, 38, 45, 3d and `-SkipCheck` — defs and names).
+
+**The second split is the same finding one generation later**
+([#2304](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2304)): `-docs` had grown to
+669.1s on CI against a 391s work bound over 16 lanes, so it alone **was** the gate's critical path —
+the measured CI duration matched that one file's recorded duration to within 0.3 min. Standalone the
+family's longest part went **235.8s → 64.3s**, and all **188** asserts were preserved and verified by
+running the four parts, exactly as #714 preserved its own count.
+
+**What it cost, and the lesson for a partition:** the split surfaced one latent order dependency —
+check 42b wrote into `scripts\task` that check 18 happened to create first, which held only while the
+two shared a file. It is repaired in `New-IntegrityFixture` rather than worked around by keeping the
+two together. **A cost-based partition may not depend on which scenario runs first**, so a scenario
+that inherits another's directory is a defect the moment anyone wants to split on weight — and it is
+invisible until they do.
 
 **Why, measured** ([#714](https://github.com/DaveKJohn/claude-code-specialists/issues/714)): the gate's
 whole wall clock **was** this one suite, to a tenth of a second, in four runs out of four. Every other
@@ -72,9 +88,13 @@ make it more than one file. The four together run in **~51s**.
 
 **Three rules for working on them, each of which cost something to learn:**
 
-- **The asserts must still sum to 234** — 48 + 42 + 69 + 75 at the split. That number is what makes
-  "nothing was dropped" checkable rather than claimed, and the split was verified on it before the old
-  file was deleted. If you move a scenario between the four, the total is the invariant, not the four.
+- **The asserts must still sum to what the file before the split reported.** At #714 that was **234**
+  (48 + 42 + 69 + 75); at #2304 it was **188** across the four `-docs` descendants (31 + 58 + 39 + 60).
+  The *number* is per split and goes stale as checks are added — `-docs` alone had grown from 75 to 188
+  between the two — so the durable rule is the **relation**: record the total before you cut, and
+  require the parts to reproduce it before the old file is deleted. That is what makes "nothing was
+  dropped" checkable rather than claimed. If you move a scenario between the parts, the total is the
+  invariant, not the parts.
 - **Each suite builds its own fixture, in its own `$PID`-keyed directory.** They run concurrently under
   the gate, so a shared path would have them tearing down each other's tree mid-assert — the exact
   failure `test-suite-gate.tests.ps1` pins the convention against.

@@ -1,26 +1,46 @@
 <#
 .SYNOPSIS
-    Shared fixture, assert helpers and gate runner for the four check-plugin-integrity suites.
+    Shared fixture, assert helpers and gate runner for the seven check-plugin-integrity suites.
 
 .DESCRIPTION
     NOT NAMED *.tests.ps1 ON PURPOSE: the test gate globs that pattern, and this file asserts
-    nothing. It is dot-sourced by the four suites that do:
+    nothing. It is dot-sourced by the seven suites that do:
 
-      check-plugin-integrity-links.tests.ps1      checks 4, 10, 28 and 29 -- the scan set and the spans
-      check-plugin-integrity-commands.tests.ps1   checks 11 and 12 -- printed commands and queries
-      check-plugin-integrity-entries.tests.ps1    checks 13, 13b, 14-16 -- entries, templates, figures
-      check-plugin-integrity-docs.tests.ps1       checks 18-27 and -SkipCheck -- scripts, docs, manifests
+      check-plugin-integrity-links.tests.ps1       checks 4, 10, 28 and 29 -- the scan set and the spans
+      check-plugin-integrity-commands.tests.ps1    checks 11 and 12 -- printed commands and queries
+      check-plugin-integrity-entries.tests.ps1     checks 13, 13b, 14-16 -- entries, templates, figures
+      check-plugin-integrity-docs.tests.ps1        checks 19, 20, 20b, 20c, 25 -- consumer documents
+      check-plugin-integrity-scripts.tests.ps1     checks 18, 39, 40, 27, 35 -- the script layer
+      check-plugin-integrity-invocations.tests.ps1 checks 22, 42, 42b, 24, 26 -- printed invocations
+      check-plugin-integrity-roster.tests.ps1      checks 6b, 38, 45, 3d and -SkipCheck -- defs and names
 
-    WHY THERE ARE FOUR, MEASURED (August 16, 2026, issue #714). As one file this suite ran the gate
-    111 times in sequence, took 160s standalone and 196-213s inside the parallel gate -- and the
-    gate's whole wall clock WAS this suite, to a tenth of a second, in four runs out of four. Every
-    other suite finished at 126.9s, after which one process ran alone for another 70-86 seconds with
-    15 of 16 lanes empty. The gate parallelises per FILE, so the only way to give that work the idle
-    lanes is to make it more than one file.
+    WHY THERE IS MORE THAN ONE, MEASURED TWICE. The gate parallelises per FILE, so the only way to
+    give a heavy suite's work the idle lanes is to make it more than one file -- and the same
+    measurement has now forced the same answer at two different scales.
 
-    NOTHING WAS REMOVED TO BUY THE TIME. The four suites carry the same scenarios, in the same order,
-    against the same fixture -- the asserts still sum to the count the single file reported. Narrowing
-    test scope was explicitly refused in #714 and is not what happened here.
+      #714, August 16, 2026 -- the FIRST split, one file into four. As one file this suite ran the
+      gate 111 times in sequence, took 160s standalone and 196-213s inside the parallel gate -- and
+      the gate's whole wall clock WAS this suite, to a tenth of a second, in four runs out of four.
+      Every other suite finished at 126.9s, after which one process ran alone for another 70-86
+      seconds with 15 of 16 lanes empty.
+
+      #2304, September 22, 2026 -- the SECOND split, -docs into four. The same failure had regrown
+      inside the largest of the four: at 669.1s on CI against a 391s work bound over 16 lanes,
+      -docs alone WAS the gate's critical path, and the measured CI duration (11.5 min) matched that
+      one file's recorded duration to within 0.3 min. #1358 had priced this split and declined it,
+      correctly, when that file was 221.8s; it was three times that when the decision was revisited,
+      so the gap it was weighed against had gone from ~15s to 278s. Standalone the split takes the
+      family's longest file from 235.8s to 64.3s.
+
+    NOTHING WAS REMOVED TO BUY THE TIME, AT EITHER SPLIT. The suites carry the same scenarios
+    against the same fixture -- the asserts still sum to the count the single file reported, which
+    is 188 across the four -docs descendants and was verified by running them. Narrowing test scope
+    was explicitly refused in #714 and is not what happened on either occasion.
+
+    THE SECOND SPLIT SURFACED ONE LATENT ORDER DEPENDENCY, and it is repaired here rather than
+    worked around by the grouping -- see the scripts\task note in New-IntegrityFixture. A scenario
+    that inherits a directory an earlier scenario created only works while the two share a file,
+    which is precisely the property a cost-based partition may not depend on.
 
     EACH SUITE BUILDS ITS OWN FIXTURE, in its own per-process directory. They run CONCURRENTLY under
     the gate, so a shared path would have them tearing down each other's tree mid-assert -- the exact
@@ -179,6 +199,15 @@ function New-IntegrityFixture {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture }
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'scripts\lint') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'scripts\lib') -Force | Out-Null
+    # scripts\task IS FIXTURE INFRASTRUCTURE, NOT ONE SCENARIO'S SETUP -- issue #2304. Two independent
+    # checks write into it: 18 (a shared script's parameters against its skill, via park-branch.ps1) and
+    # 42b (a printed powershell command in the script layer, via ep-fixture.ps1). While both sat in one
+    # file, 18 ran first and created the directory, and 42b inherited it -- an order dependency nothing
+    # declared and nothing tested. The split that moved them into separate suites is what surfaced it:
+    # 42b alone died at its first WriteAllText with DirectoryNotFoundException. Created here beside
+    # scripts\lint and scripts\lib so each scenario owns its own state, which is what lets the suites be
+    # partitioned on cost rather than on which one happens to run first.
+    New-Item -ItemType Directory -Path (Join-Path $Fixture 'scripts\task') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'connectors') -Force | Out-Null
     # check 10 fixture: two canonical skills (skill-alpha, skill-beta) plus a DEPTH DECOY -- a
     # SKILL.md one level deeper (skills/<name>/references/SKILL.md) that must NOT be picked up as a

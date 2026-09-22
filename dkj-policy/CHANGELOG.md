@@ -44,7 +44,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 37 minor entries** <!-- pending-tally -->
+**25 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2304-split-critical-path-suites · 20260922-160144
+
+The CI gate was bound by one test file. `check-plugin-integrity-docs.tests.ps1` recorded 669.1s
+against a 391s work bound over 16 lanes, so the gate's 11.5 min was that file's duration and not the
+pool's -- the other 120 suites ran free in its shadow. It is now four suites, partitioned on
+gate-invocation count, and the family's longest part went 235.8s to 64.3s standalone. All 188 asserts
+are preserved and were verified by running the four parts, exactly as the first split of this family
+held itself to its own count in #714.
+
+This is step 1 of #2304: the critical path moves to the next heaviest file rather than to the work
+bound, so the shard count does not change and the issue stays open for the remaining three.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+#1358 priced this exact split and declined it -- correctly, when the file was 221.8s and the gap was
+~15s. It was 669.1s when the decision was revisited, so the gap had become 278s: 40% of the gate. The
+decision never became wrong, the thing it was measured on changed underneath it, and nothing reported
+that. The split also surfaced a latent order dependency between two checks that only held while they
+shared a file -- the standing lesson being that a cost-based partition may not depend on which
+scenario runs first, and that such a dependency is invisible until somebody wants to split on weight.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-docs into four suites: CI was bound by one 669s file
+
+[PR #2310](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2310)
+
+---
 
 ### DEPLOY: feat/2303-conditional-merge-commit-suite-skip · 20260922-154718
 
