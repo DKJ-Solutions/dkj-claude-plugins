@@ -39,23 +39,76 @@
 
 ### PLAN
 
-Add a shared block saying a guard/matcher/check in the diff is RUN against input designed to defeat it; carriers Victor #19 and Sebastian #23; craft paragraph in each portable manual.
+Add a shared block saying a guard/matcher/check in the diff is RUN against input designed to defeat it;
+carriers Victor #19 and Sebastian #23; craft paragraph in each portable manual.
+
+#### The two decisions #2297 left open, and how they were settled
+
+**One rule, not two.** The act is identical for both reviewers -- put the guard in front of input built
+to defeat it -- and only the *question* differs (does it hold, versus can it be got past). Writing that
+twice by hand is precisely the duplication `subagent-shared/` exists to retire, so it is one block with
+two carriers.
+
+**The portable layer, not the repo lens**, per `CLAUDE.md`'s source-is-the-default rule: nothing about
+the rule is specific to this repo, and a consumer's reviewer needs it exactly as much.
+
+**And deliberately NOT in the chain that deploys them.** #2297's own finding is that what made the
+second pass work was the PROMPT; a rule added to Chris's chain description would be the same defect
+wearing a fix's clothes, firing only when the deployer remembers to type it. It goes where it is
+carried into every invocation regardless of the brief: the agent-def body.
+
+**Tycho #18 is deliberately not a carrier.** His manual already holds the same lesson for the surface
+he owns -- *"A new test must be shown to fail... An assertion that has only ever been seen passing is
+not known to test anything"* -- so a second copy under his name would be a near-duplicate of a rule
+he already has.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/dkj-subagents/subagent-shared/guard-exercised.md` -- the new shared block, two bullets:
+      a guard is exercised rather than read, and it fires without a prompt asking for it (with the
+      cannot-run-it-here case named as a finding of its own, so silence never reads as clean).
+- [x] Sentinel pair placed under **Boundaries** in `specialist-06-19-subagent.md` (Victor) and
+      `specialist-06-23-subagent.md` (Sebastian), directly after each one's own craft bullets and above
+      the family blocks; filled by `build-agent-defs.ps1`.
+- [x] The craft paragraph in each portable manual, written per specialist rather than copied: Victor's
+      under his hard rules with #2297's own measurement (no findings, then four defects on the same
+      check), Sebastian's from the guardrail-audit angle.
+- [x] Row for the block in `plugins/dkj-subagents/subagent-shared/README.md`'s "what each block is for"
+      table, which is the one place the directory's circles are stated in prose.
 
 ### TEST
 
+- [x] `build-agent-defs.ps1 -Check` -- all shared blocks in sync with the source, so lint check 7 has
+      nothing to report and neither copy can drift by hand.
+- [x] `check-plugin-integrity.ps1` -- 0 error(s), including the dead-link scan over the two new
+      `#2297` citations and the frontmatter of both rebuilt agent defs.
+- [x] All suites green via `open-pr.ps1`'s gate.
+- [~] No new test suite. The change adds no code path: the block is content, and the mechanism carrying
+      it (`subagent-shared.tests.ps1` plus lint check 7) already asserts that a sentinel pair matches
+      its source, for this block exactly as for the sixteen before it.
+
 ### DEPLOY: fix/2297-exercise-guards-in-review
 
-**Score:**
+The code reviewer and the security engineer now carry a standing rule that a guard, matcher, validator
+or sanitiser in the material under review is **run** against input designed to defeat it, rather than
+read -- and that reporting "no findings" on one nobody exercised is a false report. It arrives as one
+shared block (`guard-exercised`) in both agent defs, so it fires on every invocation regardless of how
+the review was asked for, with the craft reasoning and the measurement behind it in each portable
+manual. Measured on PR #2290: asked generically, the review returned no findings on a newly added lint
+check; asked specifically what unguarded spellings it would wrongly pass, the same reviewer ran it and
+found four defects -- the worst certifying a call site as guarded while it stripped nothing.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo that installs `dkj-subagents-alpha` gets the rule on its next plugin update, and it changes
+what a review is worth there: a reviewer that reads a guard and reports clean is the failure mode this
+closes, and it needed no prompt to produce. Noticed the first time either specialist is put on a diff
+that adds a check.
+
+**Score:** 3
 
 #### Pull Request
 
 A guard in the diff is exercised against adversarial input, not read
-
