@@ -355,8 +355,18 @@ if ($Pr) {
     # `$null -ne 0` is true, so it took the token-or-network arm and printed a cause this run never
     # measured -- the failure mode #1931 named, arriving at an advisory gate. Same class as the short
     # read beside it: a fact about this run, settled by running it again.
+    #
+    # AND A FOURTH READING AHEAD OF THAT ONE (issue #2250, on #2234's repair). A gh that never STARTED
+    # sets ExitCodeUnknown deliberately -- that is what lets the audited sites keep working untouched --
+    # so absorbed by the arm below it, a missing gh is described as one that ran. Both halves of that
+    # sentence are false here: "gh ran" is exactly what did not happen, and "it normally settles on a
+    # re-run" is false ADVICE rather than merely imprecise, because a command that is not installed does
+    # not settle, and the reader re-runs forever while the real remedy is never named. There is no
+    # Get-Command guard above this call, so the missing-gh state is reachable here in full.
     $lockUnread = ''
-    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+    if (-not (Test-NativeCommandStarted -Capture $lockView)) {
+        $lockUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran -- that is a fact about this machine rather than about the token, the network or the section, and a re-run will not settle it; install the GitHub CLI'
+    } elseif (-not (Test-NativeExitMeasured -Capture $lockView)) {
         $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read -- that is a fact about this run rather than about the token, the network or the section, and it normally settles on a re-run'
     } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = 'That is a statement about the token or the network, not about the section'

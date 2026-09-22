@@ -44,7 +44,104 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2259-predossier-double-merge-stamp · 20260922-082715
+
+The fold wrote the merge moment twice on a pre-dossier entry -- once on its heading, once on the closing
+`[PR #NN](url)` line -- because its gate still asked whether the entry had a `'Pull Request'` section, a
+question the stamp writer stopped acting on on August 23, 2026. The gate now reads
+`Test-EntryHeadingTakesMergeStamp`, which shares `Set-EntryMergeStamp`'s own scan, so the two cannot
+answer differently. Nothing changes for an entry written in the current shape.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer of this workflow meets the fold through the plugin mirror, so the duplicate landed there too.
+It prevents a failure that has not happened yet, and the failure is namable: any branch parked before
+August 6, 2026 -- here or in a consuming repo -- carries a pre-dossier entry, and folding one now writes
+the landing date in two places at once.
+
+**Score:** 1
+
+#### Pull Request
+
+A pre-dossier entry no longer folds with the merge date written twice
+
+Plugins: dkj-policy
+
+[PR #2266](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2266)
+
+---
+
+### DEPLOY: fix/2250-gh-not-started-wording · 20260922-074056
+
+Six `gh` reads composed their own sentence about an unmeasured exit code, so a `gh` that is **not
+installed** -- a state #2234 deliberately reports with `ExitCodeUnknown` set, to keep the ~63 audited
+sites working untouched -- was described as one that ran, and the reader was sent to a re-run that
+cannot settle a missing dependency. Each now asks `Test-NativeCommandStarted` first, and names the
+install as the remedy.
+
+Two of the six say something different on purpose. `check-repo-settings.ps1` and
+`check-connectors.ps1` sit behind a `Get-Command gh` guard that has already proved gh is on PATH, so
+*"gh is not installed"* would be a cause the same run has measured to be false -- the class of
+unmeasured diagnosis this whole family exists to stop printing. What is reachable at those two is a gh
+that was found and still could not be launched, and their sentences say that instead.
+
+At `ship-pr.ps1` the repair also reaches one layer out of what the report named: the enclosing
+`Write-Warning` closed with *"so a re-run normally settles it"*, which is the same false advice in the
+same printed sentence.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every one of these sentences is what a consumer reads in the window this workflow keeps measuring
+against itself: adopting it before installing the GitHub CLI. The gate runners are the sharpest of
+them -- `check-branch-entry.ps1` runs in a consumer's CI, and `ship-pr.ps1` prints its line while
+merging -- and both told that reader to try again, forever, instead of naming the one thing that would
+fix it. `check-consumer-siblings.ps1` reaches the same reader through `-Source github`, which bypasses
+its own availability gate.
+
+**Score:** 2
+
+#### Pull Request
+
+Six gh sites no longer say a missing gh ran, nor advise a re-run that cannot settle it
+
+Plugins: dkj-policy
+
+[PR #2261](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2261)
+
+---
+
+### DEPLOY: fix/2252-refresh-suite-durations · 20260922-072057
+
+`scripts/tests/suite-durations.json` is re-recorded from three post-merge CI runs, and it repairs more
+than the row #2252 reported. `script-contract.tests.ps1` moves from 98.8s to **208.9s**, which is the
++12 child spawns #2236 added plus the contention of a pool that has grown since. But the file was also
+**eleven days and 30 suites stale**: it listed 91 of the 121 suites in the tree, and
+`Invoke-TestSuiteGate` charges an unlisted suite the largest recorded value -- so it was packing 30
+suites at 290.2s each when they total **266.5s between them**. The packer believed the lightest
+thirty suites in the pool were its heaviest. Every row is now a measured mean rather than a ceiling.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The file is this repo's own CI packing hint; nothing in it ships in a plugin payload, so no
+consumer reads it and none of their gates change.
+
+**Score:** N/A
+
+#### Pull Request
+
+Refresh the recorded CI suite durations from post-2236 runs
+
+[PR #2260](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2260)
+
+---
 
 ### DEPLOY: fix/2234-native-capture-launch-failure · 20260922-032338
 

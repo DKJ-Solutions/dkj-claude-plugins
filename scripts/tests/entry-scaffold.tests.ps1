@@ -1880,25 +1880,53 @@ Assert-True ($twice -match ('(?m)^' + ('#' * (Get-EntryHeadingLevel)) + ' DEPLOY
 Assert-True (-not ($twice -match '20260819-171500')) 'and does not leave the first stamp behind'
 Assert-Equal $bareEntry (Set-EntryMergeStamp -EntryText $bareEntry -Stamp '') 'an empty stamp changes nothing -- a fold with no PR leaves the heading bare'
 
-# AND THE SHAPE WITH NO SECTION AT ALL, which is the discriminator the fold reads before it decides where
-# to put the date. A pre-dossier entry carried its title AS its heading; the stamp has nowhere to go, and
-# the failure is silent rather than loud -- the text simply comes back unchanged. So the predicate is
-# asserted beside the no-op, because the fold's correctness rests on the pair and not on either alone.
+# AND THE SHAPE THAT USED TO HAVE NOWHERE TO PUT IT, which is what the fold's gate is for. A pre-dossier
+# entry carried its title AS its heading and has no named sections at all; the stamp had nowhere to go and
+# the failure was silent -- the text simply came back unchanged -- so the fold asks first and gives the
+# date to the closing line instead. The predicate is asserted beside the writer, because the fold's
+# correctness rests on the PAIR and not on either alone.
 $preDossier = "### A title $md Feat $md 2026-08-05`n`nTier: 0`n`nSome body text.`n"
-Assert-True (-not (Test-EntryHasSection -EntryText $preDossier -Key 'PullRequest')) 'a pre-dossier entry has no Pull Request section, so the fold knows the heading cannot hold the date'
+Assert-True (-not (Test-EntryHasSection -EntryText $preDossier -Key 'PullRequest')) 'a pre-dossier entry still has no Pull Request section'
 # AND SINCE AUGUST 26, 2026 THE STAMP LANDS ON ITS HEADING RATHER THAN NOWHERE, because that shape's level
 # and today's entry level are now the same number. The pre-dossier entry was an H3 while an entry was an H2;
 # both pairs then moved one down, so H3 is what an entry IS. There is no way to tell the two apart by depth
 # any more -- recorded here rather than worked around, because the alternative would be a reader guessing at
 # an era.
-#
-# IT COSTS NOTHING IN PRACTICE, and that is why it is accepted rather than repaired. Set-EntryMergeStamp is
-# only ever called by the fold, on the entry it is folding, which is a freshly written current-shape entry.
-# No caller hands it a historical one. What the assert protects is the shape of the output -- a stamp on the
-# entry's own heading, not a second one appended somewhere else.
 $preStamped = Set-EntryMergeStamp -EntryText $preDossier -Stamp '20260819-171500'
 Assert-True ($preStamped -match ('(?m)^' + ('#' * (Get-EntryHeadingLevel)) + ' A title .* 20260819-171500$')) 'and a shape sharing the entry level is stamped on its own heading -- the two are no longer distinguishable by depth'
 Assert-Equal 1 (@([regex]::Matches($preStamped, '20260819-171500')).Count) 'once, not twice -- the stamp replaces rather than accumulates'
+
+# THE GATE THAT DECIDES WHICH OF THE TWO PLACES CARRIES THE MOMENT (issue #2259). This is the assert whose
+# ABSENCE let the defect stand: the line above proves the writer stamps a pre-dossier heading, and the fold
+# was separately asking Test-EntryHasSection -Key 'PullRequest' -- False for that shape -- so it ALSO handed
+# the date to the closing line. Each half was right and the composition wrote the same moment twice. What is
+# asserted now is the composition, in the order the fold performs it, because that is the only place the
+# duplication was ever visible.
+#
+# WHAT THE NOTE THAT USED TO SIT HERE SAID, so it is not written again: that the collapse of the two shapes
+# "costs nothing in practice", because Set-EntryMergeStamp is only ever called by the fold on a freshly
+# written current-shape entry. The first clause was the wrong test -- the cost was in the CALLER'S gate, not
+# in this function -- and the second was contradicted by fold-changelog-entry.ps1's own comment, which calls
+# the pre-dossier shape one it "explicitly still folds rather than a hypothetical". Two documents disagreeing
+# about whether a path is reachable is what an assert settles.
+$fence = '```'
+foreach ($shape in @(
+    @{ Name = 'a pre-dossier entry'; Text = $preDossier },
+    @{ Name = 'a current DEPLOY entry'; Text = $bareEntry },
+    @{ Name = 'an entry with no heading at the entry level'; Text = "Just a paragraph.`n" },
+    @{ Name = 'an entry whose only such heading is fenced'; Text = (('text', '', ($fence + 'md'), '### A fenced heading', $fence) -join "`n") }
+)) {
+    $fits = Test-EntryHeadingTakesMergeStamp -EntryText $shape.Text
+    $folded = (Set-EntryMergeStamp -EntryText $shape.Text -Stamp '20260819-171500').TrimEnd() + "`n`n" +
+        (Format-EntryFoldFooter -Number 475 -Url 'https://example.invalid/475' -MergedStamp $(if ($fits) { '' } else { '20260819-171500' }))
+    Assert-Equal 1 (@([regex]::Matches($folded, '20260819-171500')).Count) "$($shape.Name) folds with the merge moment in exactly one place"
+    Assert-Equal $fits ((Set-EntryMergeStamp -EntryText $shape.Text -Stamp '20260819-171500') -ne $shape.Text) "and the gate over $($shape.Name) answers what the writer actually does"
+}
+# The predicate is not a restatement of the writer's regex: both read Get-EntryMergeStampTarget, so a future
+# change to the anchor moves both at once. Asserted on the target itself, because a proxy agreeing with its
+# subject on four fixtures is exactly what the old gate did for four days.
+Assert-True ((Get-EntryMergeStampTarget -EntryText $preDossier).Index -ge 0) 'the shared scan finds the line the writer rewrites'
+Assert-True ((Get-EntryMergeStampTarget -EntryText "no heading here`n").Index -lt 0) 'and reports -1 where there is none, which is the whole of what the gate reads'
 
 # THE ENTRIES ALREADY WRITTEN SAY 'changelog' IN THEIR HEADING, and every one of them is in CHANGELOG.md
 # right now. The type is read off that word, and Test-EntryDeclaresShape ends on the type -- so a reader
