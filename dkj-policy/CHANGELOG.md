@@ -44,7 +44,46 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 22 minor entries** <!-- pending-tally -->
+**16 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2276-live-theme-stdin-contract · 20260922-104858
+
+`guard-live-theme.ps1`'s header now states the assumption its no-handle branch rests on: the
+`hooks.json` wrapper drains the payload with `$(cat)` and pipes it back into PowerShell, so
+`IsInputRedirected` is true on every call the harness makes and the `exit 0` path is unreachable from
+any command a session can cause. It also states what breaks if that ever stops -- this guard would
+degrade towards ALLOWING, the one direction its own fail-towards-CHECKING rule forbids, on a subject
+that cannot be un-published. `hook-stdin-guard.tests.ps1` gains a third group holding the half that is
+reachable: every hooks.json command that drains the payload must hand it back, counted out of the tree
+rather than hand-listed. The pipe is anchored to the invocation that actually runs the guard, so an
+unrelated `| powershell` elsewhere in the command vouches for nothing and a typo'd `||` is not a pipe;
+`pwsh` counts as an interpreter, since this repo ships a CI template that uses it. Each narrowing has
+its own counter-case. Removing the pipe from either shipped wrapper now turns the gate red.
+
+The failure it prevents, since it has not happened: a future edit to either PreToolUse wrapper that
+drops the `printf | powershell` re-pipe. Nothing would fail -- both guards would go on exiting 0 on an
+empty payload, which is their documented behaviour -- and the live-theme guard would be silently
+waving through publishes, deletes and live pushes in production instead of only in the hand-run case
+the branch was built for.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A Shopify consumer auditing the live-theme guard now meets that assumption in the file itself rather
+than reconstructing it from the wrapper. Nothing the guard does changes.
+
+**Score:** 1
+
+#### Pull Request
+
+guard-live-theme records the stdin contract its no-handle branch depends on
+
+Plugins: dkj-subagents-shopify
+
+[PR #2281](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2281)
+
+---
 
 ### DEPLOY: fix/2272-guard-repo-field-two-more-sites · 20260922-103528
 
