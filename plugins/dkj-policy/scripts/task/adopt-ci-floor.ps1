@@ -320,13 +320,42 @@ function Get-WorkflowFacts {
         in ci.yml that declares no name). Both are collected, and a context matching neither is
         reported as unmatched rather than guessed at -- an unmatched context is a real answer here,
         because a required check may come from something other than Actions.
+
+        THAT SENTENCE IS TRUE ONLY BECAUSE THE TEXT IS NORMALISED TO LF ON READ (inbound #2237). On a
+        CRLF checkout the name half of "both" collected nothing, so "unmatched" stopped meaning what it
+        says here and started meaning "this reader cannot see names at all". The reasoning, and why the
+        damage reached past the note into the auto-filled ruleset, is at the read itself below.
     #>
     param([Parameter(Mandatory)][string]$WorkflowDir)
 
     $facts = @()
     if (-not (Test-Path -LiteralPath $WorkflowDir -PathType Container)) { return @() }
     foreach ($f in @(Get-ChildItem -LiteralPath $WorkflowDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.yml', '.yaml') })) {
-        $text = [System.IO.File]::ReadAllText($f.FullName)
+        # NORMALISED TO LF ON READ, ONCE, BEFORE ANY REGEX BELOW SEES IT (inbound #2237).
+        # Not a tidy-up. The job-`name:` capture below is anchored on '$', and .NET's multiline '$'
+        # matches only immediately before a '\n' -- so against a CRLF file '[^\r\n]*' stops before the
+        # '\r' and the anchor fails, collecting NO names at all. Its neighbour, the job-KEY capture,
+        # survives the same file only by accident, because its '\s*$' absorbs the '\r' first.
+        #
+        # ONE OF A PAIR CRLF-TOLERANT AND THE OTHER NOT IS WORSE THAN A WRONG NOTE. $prJobIds then holds
+        # ONE id where LF holds two (the key and the name), and ONE is exactly the count the paste-ready
+        # ruleset call further down auto-fills on -- so a Windows consumer with a single named job in a
+        # single pull_request workflow is handed a ruleset requiring the job KEY, while GitHub reports
+        # that check under its NAME. A required check that never reports leaves every pull request
+        # pending forever. On LF the same tree declines to auto-fill and prints the candidate list, which
+        # is the safe path: the bug does not merely mute a note, it moves the script onto the branch it
+        # would otherwise have refused. Measured from a consumer on `core.autocrlf=true`; this repo never
+        # hit it because .gitattributes pins `eol=lf` AND its own ci.yml job declares no `name:`, so the
+        # broken half of the pair had nothing to capture either way.
+        #
+        # NORMALISING BEATS ANCHORING BOTH ON '\r?$': it closes the whole class rather than the two
+        # instances visible today, so a regex added to this function later cannot reintroduce it. The
+        # `on:`/`jobs:` matchers keep their explicit '\r?\n' -- harmless on LF, and the honest record
+        # that this text has more than one possible shape on disk. Same normalise-on-read
+        # subagent-shared-lib.ps1 already does. It does NOT weaken the single-line guarantee the
+        # auto-fill block downstream names this capture for: '[^\r\n]*' admits no newline of either
+        # kind, before the normalisation or after it.
+        $text = ([System.IO.File]::ReadAllText($f.FullName)) -replace "`r`n", "`n"
 
         $onBlock = [regex]::Match($text, '(?ms)^on:\r?\n(?<body>(?:[ \t]+\S[^\r\n]*\r?\n)+)')
         $hasMergeGroup = $onBlock.Success -and ($onBlock.Groups['body'].Value -match '(?m)^\s{2}merge_group:')
