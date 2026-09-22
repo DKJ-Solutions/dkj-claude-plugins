@@ -159,8 +159,9 @@
     requests that change a file this branch also changes. Nothing used to report that at all -- the first
     thing that did was ship-pr's forward lap meeting it as '422 merge conflict between base and head',
     after the branch had been certified by CI one or more times. Measured on PR #2300: the 422 arrived at
-    forward lap 3, roughly forty minutes of CI waits in, while the two colliding PRs had been listed in
-    `gh pr list` for over an hour. It is NOT ship-pr's conflict guard (#1584) firing late: that one asks
+    forward lap 3, roughly forty minutes of CI waits in, while the two colliding PRs (#2308 opened 15:01Z,
+    #2310 at 15:22Z, against a merge at 16:17Z) were listed in `gh pr list` throughout that run, readable
+    by one command. It is NOT ship-pr's conflict guard (#1584) firing late: that one asks
     whether this PR is conflicting NOW, a fact about the trunk, and it was correct and silent here
     because the conflict came into existence during the run. There is deliberately no exclusion list --
     measured over this repo's last 60 PRs, filtering CHANGELOG.md and the branch document changed nothing
@@ -1810,7 +1811,8 @@ if (-not $existingPr) {
 # between base and head' -- after the branch had been built, reviewed, pushed and certified by CI one
 # or more times. Measured on PR #2300, September 22, 2026: the 422 arrived at forward lap 3, roughly
 # forty minutes of CI waits in, while #2308 and #2310 had been listed in `gh pr list` changing
-# .github/workflows/ci.yml since 15:01Z and 15:22Z. Resolving it took about five minutes.
+# .github/workflows/ci.yml since 15:01Z and 15:22Z, against a merge at 16:17Z. Resolving it took about
+# five minutes.
 #
 # NOT THE CONFLICT GUARD FIRING LATE. ship-pr refuses a CONFLICTING PR up front (#1584) and that guard
 # was correct and silent here -- 'main' had not yet gained the colliding commit, so the PR genuinely

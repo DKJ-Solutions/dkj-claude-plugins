@@ -119,11 +119,31 @@ Assert-Equal '' (ConvertTo-ComparablePath -Path '')    'the empty string normali
 Assert-Equal '' (ConvertTo-ComparablePath -Path '   ') 'whitespace normalises to nothing'
 Assert-Equal '' (ConvertTo-ComparablePath -Path $null) 'a null path normalises to nothing rather than throwing'
 
-# THE QUOTE STRIP. With -c core.quotePath=true a path holding a non-ASCII byte comes back wrapped in
-# double quotes while gh's copy of the same path does not -- so without this the pair never matches.
+# THE C-QUOTED FORM, IN THE SHAPE git ACTUALLY EMITS. This is the assert the first draft of this suite
+# got wrong and the review caught: it wrapped a LITERAL accented character in plain quotes, which is a
+# shape `-c core.quotePath=true` never produces, so it passed over a normalisation that was broken for
+# every real path. Verified by hand against a throwaway repo on this machine:
+#
+#     $ git -c core.quotePath=true diff --name-only --cached
+#     "cafe\314\201.md"
+#
+# Half-stripping that -- quotes off, then backslashes to slashes -- yields 'cafe/314/201.md', while gh's
+# JSON copy of the same file arrives correctly decoded. The two could never match, so the scan went
+# silent on exactly the paths it claimed to handle. Convert-GitQuotedPath is the repo's decoder for it.
 $eacute = [char]0x00E9
-Assert-Equal "docs/caf$($eacute).md" (ConvertTo-ComparablePath -Path "`"docs/caf$($eacute).md`"") 'a C-quoted path loses its wrapping quotes'
-Assert-Equal 'docs/"quoted".md' (ConvertTo-ComparablePath -Path 'docs/"quoted".md') 'an inner quote is left alone -- only a wrapped path is unwrapped'
+$combiningAcute = [char]0x0301
+Assert-Equal "docs/caf$($eacute).md" (ConvertTo-ComparablePath -Path '"docs/caf\303\251.md"') 'git''s octal-escaped path decodes to the character gh sends'
+Assert-Equal "docs/cafe$($combiningAcute).md" (ConvertTo-ComparablePath -Path '"docs/cafe\314\201.md"') 'and so does the decomposed spelling measured on this machine'
+# THE MATCH IS THE POINT, not the decode in isolation: the two sides have to meet.
+$accented = @(Get-PrOverlapFindings -ChangedPaths @('"docs/caf\303\251.md"') `
+                                    -OpenPrs @([pscustomobject]@{ Number = 5; Paths = @("docs/caf$($eacute).md") }))
+Assert-Equal 1 $accented.Count 'a git-quoted path on one side matches gh''s decoded copy on the other'
+# AN UNQUOTED PATH PASSES THROUGH UNTOUCHED, which is what makes the decode safe to run over both sides.
+Assert-Equal 'docs/plain.md' (ConvertTo-ComparablePath -Path 'docs/plain.md') 'an unquoted path is returned as it came'
+Assert-Equal 'docs/"quoted".md' (ConvertTo-ComparablePath -Path 'docs/"quoted".md') 'an inner quote is left alone -- only a wrapped path is decoded'
+# AND A BACKSLASH IN AN UNQUOTED PATH IS STILL A SEPARATOR TO NORMALISE. Asserted beside the decode so
+# the ORDER is pinned: forward-slashing before the decode is the defect above.
+Assert-Equal 'scripts/lib/a.ps1' (ConvertTo-ComparablePath -Path 'scripts\lib\a.ps1') 'a backslashed unquoted path is still forward-slashed'
 
 # CASE IS PINNED. See the banner: forgiving it would invent an overlap on a repo holding both spellings.
 $caseHit = @(Get-PrOverlapFindings -ChangedPaths @('scripts/Foo.ps1') `
@@ -197,6 +217,35 @@ Assert-True ($truncated -notlike "*$longTitle*") 'and the full 200-character tit
 $untitled = Format-PrOverlapNote -Findings @([pscustomobject]@{ Number = 5; Title = ''; HeadRefName = 'fix/x'; SharedPaths = @('a.md') })
 Assert-True ($untitled -like '*#5  (fix/x)*') 'a record with no title leaves no dangling separator behind'
 
+# --- 4b. the three printed fields are written by somebody else, and are sanitised ------------------
+# THIS REPO IS PUBLIC AND ANYBODY CAN OPEN A PULL REQUEST, so the title, the head ref and the paths all
+# arrive chosen by whoever opened the PR this note names. git forbids a control character in a ref but
+# permits the FORMAT characters, and a GitHub title carries no restriction at all -- and this line is
+# read by a person and, in this house, by an agent driving the ship. open-pr.ps1 already declines to
+# print even its OWN branch name raw (#1623); a stranger's is the case Get-DisplayRef exists for.
+Write-Host ''
+Write-Host '4b. the fields somebody else wrote are sanitised' -ForegroundColor Cyan
+
+$rtl        = [char]0x202E   # RIGHT-TO-LEFT OVERRIDE -- reverses the printed run
+$zwj        = [char]0x200D   # ZERO WIDTH JOINER -- welds two names into one that reads as a third
+$lineSep    = [char]0x2028   # LINE SEPARATOR -- makes one printed line read as two
+$hostileTitle = "fix: harmless$($rtl)REVERSED$($lineSep)[OK] gates green"
+$hostileRef   = "feat/a$($zwj)b"
+$hostile = Format-PrOverlapNote -Findings @([pscustomobject]@{
+    Number = 5; Title = $hostileTitle; HeadRefName = $hostileRef; SharedPaths = @("docs/a$($lineSep)b.md") })
+Assert-True ($hostile.IndexOf($rtl) -lt 0)     'an RTL override in a PR title does not reach the printed note'
+Assert-True ($hostile.IndexOf($zwj) -lt 0)     'a zero-width joiner in a head ref does not reach it either'
+Assert-True ($hostile.IndexOf($lineSep) -lt 0) 'and neither does a line separator, in the title or in a path'
+# THE WORDS SURVIVE -- Get-DisplayRef replaces rather than deletes, so the reader still recognises the PR.
+Assert-True ($hostile -like '*harmless*' -and $hostile -like '*REVERSED*') 'the words themselves are kept -- the strip replaces, it does not delete'
+Assert-True ($hostile -like '*#5*') 'and the number, which is what the reader acts on, is untouched'
+# THE TRUNCATION HAPPENS AFTER THE STRIP, so a fixed-length cut cannot sever a combining sequence.
+$libText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\lib\pr-overlap-lib.ps1'))
+Assert-True ($libText -match [regex]::Escape('$title = Get-PrOverlapDisplayText') ) 'the title is sanitised before it is measured or cut'
+Assert-True ($libText -match [regex]::Escape('Get-DisplayPath -Path')) 'a shared path goes through Get-DisplayPath, not Get-DisplayRef -- a path may hold a space'
+Assert-True ($libText -match [regex]::Escape("Join-Path `$PSScriptRoot 'git-porcelain-lib.ps1'")) 'the decoder is reused from git-porcelain-lib rather than hand-rolled'
+Assert-True ($libText -match [regex]::Escape('Convert-GitQuotedPath -Path')) 'and it is actually called'
+
 # THE REPAIR #2315'S OWN PROPOSED WORDING NEEDED. Every PR named is OPEN, so its work is not on the
 # trunk: "merge the trunk in now" would send the reader to run a command that does nothing, and the
 # silence would read as reassurance. Pinned so it cannot be helpfully re-added.
@@ -232,8 +281,10 @@ Assert-True ($openPrText -match [regex]::Escape("lib\pr-overlap-lib.ps1")) 'open
 Assert-True ($openPrText -match [regex]::Escape('Get-OpenPrPathRecords')) 'it parses the payload through the lib'
 Assert-True ($openPrText -match [regex]::Escape('Get-PrOverlapFindings')) 'it intersects through the lib'
 Assert-True ($openPrText -match [regex]::Escape('Format-PrOverlapNote'))  'it words the note through the lib'
-Assert-True ($openPrText -match 'gh''\s*,\s*-Arguments\s*@\(''pr'',\s*''list''' -or
-             $openPrText -match [regex]::Escape("'pr', 'list', '--state', 'open', '--json', 'number,title,headRefName,files'")) 'it asks gh for exactly the four fields the parse reads'
+# ONE PATTERN AND NOT TWO. This was written as a pair of alternatives whose first could never match --
+# -Utf8 sits between -FilePath and -Arguments, so the comma it looked for is not there -- which is dead
+# test logic that reads as coverage. Caught in review on this branch.
+Assert-True ($openPrText -match [regex]::Escape("'pr', 'list', '--state', 'open', '--json', 'number,title,headRefName,files'")) 'it asks gh for exactly the four fields the parse reads'
 
 # THE THREE ENDINGS. The same three the machine-local note (#1559) is repeated at: everything printed
 # before the gates is off-screen by the time anybody reads an ending, so a note printed once is

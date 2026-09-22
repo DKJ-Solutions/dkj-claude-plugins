@@ -16,9 +16,11 @@
 
     MEASURED ON PR #2300, SEPTEMBER 22, 2026. The 422 arrived at forward lap 3, roughly forty minutes
     of CI waits in; resolving the conflict took about five minutes. Two other pull requests -- #2308
-    (opened 15:01Z) and #2310 (15:22Z) -- were changing .github/workflows/ci.yml at that moment, both
-    listed in `gh pr list` the whole time, and #2300 merged at 16:17Z. So the fact was public and
-    readable for over an hour before the tooling met it as a refusal.
+    (opened 15:01Z) and #2310 (15:22Z) -- were changing .github/workflows/ci.yml at that moment, and
+    #2300 merged at 16:17Z. So both were listed in `gh pr list`, readable by one command, throughout the
+    run that ended by meeting them as a refusal. No duration is claimed for either: a draft of this
+    paragraph said "for over an hour", which holds for #2308 measured to the merge and for neither of
+    them measured to the 422 -- and the timestamps above are the part that can be checked.
 
     IT IS A DIFFERENT QUESTION FROM THE CONFLICT GUARD, NOT THAT GUARD FIRING LATE. ship-pr already
     refuses a CONFLICTING pull request up front, before the CI wait (#1584), and that guard was correct
@@ -57,9 +59,42 @@
     changed paths and the open pull requests' -- are made by open-pr.ps1, which is the one place they
     can be, and which is also why they cannot be covered by a suite while everything here can.
 
+    TWO SIBLING LIBS ARE REUSED RATHER THAN RE-IMPLEMENTED, and hand-rolling either was caught in review
+    on this branch's own first draft:
+
+      Convert-GitQuotedPath (git-porcelain-lib.ps1) -- the DECODE. The caller forces
+      '-c core.quotePath=true', so git emits a path holding any byte above 0x7F with OCTAL escapes:
+      'cafe.md' with an accent arrives as '"cafe\314\201.md"'. The first draft stripped the wrapping
+      quotes by hand and then forward-slashed the result, which turns those escape backslashes into
+      separators -- 'cafe/314/201.md' -- while gh's copy of the same file arrives correctly decoded as
+      JSON. The two could never match, so the scan went SILENT on exactly the paths its own comment
+      claimed to handle. That is inbound #821's lesson reproduced one file over, and the decoder written
+      for it was one dot-source away.
+
+      Get-DisplayRef (ref-print-lib.ps1) -- the DISPLAY. A PR title and a head ref on a PUBLIC repo are
+      written by whoever opened the pull request, and this note prints both. git forbids a control
+      character in a ref but permits the format characters -- an RTL override, a zero-width joiner, a
+      line separator, stacking combining marks -- and a TITLE is free text with no git restriction at
+      all. open-pr.ps1 already declines to print even its OWN branch name raw for this reason; a
+      stranger's is the case that lib exists for.
+
+    Both are dot-sourced GUARDED, on closeout-lib's precedent: these files travel to a consumer by
+    plugin update rather than by choice, so a mirror that predates either must not crash on LOAD of the
+    script that opens their PR. Where one is absent the corresponding step is skipped and the other
+    still runs -- see each call site for what that costs.
+
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
     Pure ASCII (repo convention for .ps1).
 #>
+
+# GUARDED, and resolved ONCE rather than per path: Get-Command is not free, and Get-PrOverlapFindings
+# normalises every path of every open pull request.
+$prOverlapPorcelainLib = Join-Path $PSScriptRoot 'git-porcelain-lib.ps1'
+if (Test-Path -LiteralPath $prOverlapPorcelainLib -PathType Leaf) { . $prOverlapPorcelainLib }
+$prOverlapRefPrintLib = Join-Path $PSScriptRoot 'ref-print-lib.ps1'
+if (Test-Path -LiteralPath $prOverlapRefPrintLib -PathType Leaf) { . $prOverlapRefPrintLib }
+$script:PrOverlapCanDecodePath = [bool](Get-Command -Name 'Convert-GitQuotedPath' -ErrorAction SilentlyContinue)
+$script:PrOverlapCanSanitise   = [bool](Get-Command -Name 'Get-DisplayRef' -ErrorAction SilentlyContinue)
 
 function Get-OpenPrPathRecords {
     <#
@@ -124,9 +159,8 @@ function Get-OpenPrPathRecords {
 function ConvertTo-ComparablePath {
     <#
     .SYNOPSIS
-        One repo path, normalised so the two sides of this comparison can be compared at all: trimmed,
-        stripped of the quotes `git diff --name-only` puts round a path it C-quotes, and forward-slashed.
-        '' for anything that normalises to nothing.
+        One repo path, normalised so the two sides of this comparison can be compared at all: C-decoded
+        where git quoted it, then forward-slashed and trimmed. '' for anything that normalises to nothing.
 
     .DESCRIPTION
         THE COMPARISON IS ORDINAL AND CASE-SENSITIVE, deliberately. Both sides originate in git, which
@@ -135,19 +169,55 @@ function ConvertTo-ComparablePath {
         already lost the distinction. Forgiving it would invent overlaps on a repo that legitimately
         holds Foo.ps1 and foo.ps1, which is the direction an advisory note must not err in.
 
-        THE QUOTE STRIP MATTERS BECAUSE THE CALLER PASSES -c core.quotePath=true, exactly as park-lib
-        and check-fanout already do: a path with a non-ASCII byte then arrives wrapped in double quotes
-        while the gh payload's copy of the same path does not, and the pair would never match.
+        THE DECODE COMES FIRST, AND THE ORDER IS THE WHOLE OF IT. Convert-GitQuotedPath unpacks git's
+        C-quoting -- the wrapping quotes AND the octal escapes behind them -- and passes an unquoted
+        path through untouched, which is what makes it safe to run over BOTH sides: only the git side is
+        ever quoted, and the gh payload's JSON strings arrive decoded already. Forward-slashing BEFORE
+        that decode is the defect this function was reviewed for: it rewrites the escapes' own
+        backslashes into separators and produces a path matching nothing.
+
+        WITHOUT THE DECODER -- a consumer whose mirror predates git-porcelain-lib -- a QUOTED path is
+        returned exactly as git printed it rather than half-stripped. It then matches nothing, which is
+        the same silence that consumer already had, and it cannot produce a WRONG match. An unquoted
+        path, which is every ASCII path and therefore almost all of them, is unaffected either way.
     #>
     param([string]$Path)
 
     if ($null -eq $Path) { return '' }
     $value = $Path.Trim()
     if (-not $value) { return '' }
-    if ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"')) {
-        $value = $value.Substring(1, $value.Length - 2)
+    $quoted = ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"'))
+    if ($quoted) {
+        if (-not $script:PrOverlapCanDecodePath) { return $value }
+        $value = Convert-GitQuotedPath -Path $value
     }
     return ($value -replace '\\', '/').Trim()
+}
+
+function Get-PrOverlapDisplayText {
+    <#
+    .SYNOPSIS
+        One label written by somebody else -- a pull request's title or its head ref -- made safe to
+        print as prose. '' for empty input.
+
+    .DESCRIPTION
+        ONE WRAPPER SO THE TWO CALL SITES CANNOT DIVERGE, and so the absent-lib fallback is stated once
+        rather than twice. Get-DisplayRef is the repo's single answer for this and its header argues the
+        substance: every control and format character replaced by a SPACE rather than deleted, because
+        deleting a zero-width joiner welds two halves of a name into a different legitimate-looking one,
+        which is the deception rather than the repair.
+
+        IT IS NOT ONLY FOR REFS, WHICH THE NAME HIDES. That function's own synopsis says "the ref name,
+        OR ANY OTHER SINGLE-LINE LABEL, about to be printed as PROSE" -- and a title is the weaker of the
+        two inputs here, not the stronger: git at least refuses a control character in a ref, while a
+        GitHub title carries no such restriction at all.
+    #>
+    param([Parameter(Mandatory = $false)][AllowEmptyString()][AllowNull()][string]$Text)
+
+    $value = ([string]$Text).Trim()
+    if (-not $value) { return '' }
+    if (-not $script:PrOverlapCanSanitise) { return $value }
+    return (Get-DisplayRef -Ref $value)
 }
 
 function Get-PrOverlapFindings {
@@ -272,14 +342,36 @@ function Format-PrOverlapNote {
         # refactor without spending a second gh call on it -- and the ordering question is exactly "which
         # of these two should land first". TRUNCATED, because a PR title in this house is a sentence: the
         # number is the citation and the full text is one `gh pr view` away.
-        $head = if ($finding.HeadRefName) { "  ($($finding.HeadRefName))" } else { '' }
-        $title = ([string]$finding.Title).Trim()
+        #
+        # BOTH ARE SANITISED FIRST, because on a public repo both are written by whoever opened that pull
+        # request and this line is read by a person -- and, in this house, by an agent driving the ship.
+        # The TRUNCATION depends on it too: cutting at a fixed length through raw text can sever a
+        # combining sequence, so the sanitise has to happen before the Substring rather than after it.
+        # Where the lib is absent the fields are printed as they came, which is this note's own
+        # warn-never-refuse direction: the reader still gets the numbers, which is what they act on.
+        $head = Get-PrOverlapDisplayText -Text ([string]$finding.HeadRefName)
+        if ($head) { $head = "  ($head)" }
+        $title = Get-PrOverlapDisplayText -Text ([string]$finding.Title)
         if ($title.Length -gt 72) { $title = $title.Substring(0, 69) + '...' }
         if ($title) { $title = "  $title" }
         $lines.Add("  #$($finding.Number)$head$title") | Out-Null
+        # THE PATHS GO THROUGH Get-DisplayPath AND NOT Get-DisplayRef, which is that lib's own #1638
+        # distinction: a path may legitimately hold a space, a leading one included, so collapsing runs
+        # and trimming the ends would print a path that is not the path -- and these are rows a reader
+        # compares against their own tree by eye.
+        #
+        # A SHARED path is the weakest of the three fields here, because it had to appear in THIS
+        # branch's diff as well to be printed at all -- so it is not a stranger's free text. It is
+        # sanitised anyway: it still arrives over a wire, the call is free, and a rule with one
+        # unexplained exception is the one somebody removes next.
         $paths = @($finding.SharedPaths)
         foreach ($path in @($paths | Select-Object -First $MaxPaths)) {
-            $lines.Add("      $path") | Out-Null
+            # NOT $shown, WHICH IS THE FINDING LIST ABOVE. Written that way first, this shadowed it with a
+            # string and the truncation line below then asked a string for its .Count -- which under
+            # Set-StrictMode is a terminating error, so the whole note failed to compose rather than
+            # printing wrongly. Caught by this lib's own suite on the first run after the sanitise landed.
+            $shownPath = if ($script:PrOverlapCanSanitise) { Get-DisplayPath -Path ([string]$path) } else { [string]$path }
+            $lines.Add("      $shownPath") | Out-Null
         }
         if ($paths.Count -gt $MaxPaths) {
             $lines.Add("      ... and $($paths.Count - $MaxPaths) more shared path(s)") | Out-Null

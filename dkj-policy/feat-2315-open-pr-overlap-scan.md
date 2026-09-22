@@ -62,8 +62,8 @@ false-positive rate over recent PRs before building the check.
 #### The measurement the issue asked for, and what it changed
 
 Held against this repo's last 60 pull requests (#2195-#2316, September 22, 2026): 40 had at least one
-concurrently open PR, 11 of those would have seen this note, 13 overlapping pairs in all -- about 18%
-of PRs.
+concurrently open PR, and 11 of those -- about 18% of all 60 -- would have seen this note, over 13
+overlapping pairs in all.
 
 **Filtering `CHANGELOG.md` and the branch document out changed nothing: 13 against 13.** Neither path
 appears in a single PR's changed-file set, because the fold writes the changelog on the trunk after the
@@ -88,7 +88,10 @@ and an assert pins that the old wording cannot be helpfully re-added.
 ### CREATE
 
 - [x] `scripts/lib/pr-overlap-lib.ps1` -- the payload parse, the path normalisation, the intersection
-      and the wording, all pure: no git, no gh, no disk.
+      and the wording, all pure: no git, no gh, no disk. It reuses two sibling libs rather than
+      hand-rolling either, both after review caught the hand-rolled version: `Convert-GitQuotedPath`
+      (`git-porcelain-lib.ps1`) for the decode, `Get-DisplayRef` / `Get-DisplayPath`
+      (`ref-print-lib.ps1`) for the three fields the note prints.
 - [x] `scripts/release/open-pr.ps1` -- the scan block beside the label gate, before the lint and test
       gates, composing the note and warning with it; re-printed at all three of the script's endings,
       exactly where the machine-local note (#1559) is, because everything before the gates is
@@ -98,13 +101,46 @@ and an assert pins that the old wording cannot be helpfully re-added.
 
 ### TEST
 
-- [x] `scripts/tests/pr-overlap-lib.tests.ps1` -- 73 asserts over six sections: the parse (including
+- [x] `scripts/tests/pr-overlap-lib.tests.ps1` -- 86 asserts over seven sections: the parse (including
       both Windows PowerShell 5.1 traps and the three unreadable answers), the normalisation, the
-      intersection, the wording, the `open-pr` wiring, and the mirror.
+      intersection, the wording, the sanitising of the three fields somebody else wrote, the `open-pr`
+      wiring, and the mirror.
 - [x] Smoke-tested against the live repo: the two real calls made, this branch measured against the
       open PRs, and the note rendered on a replayed positive case.
 - [x] Lint gate green (`check-plugin-integrity.ps1`, 0 errors) -- it caught the missing mirror row.
 - [x] Full suite gate via `open-pr`.
+
+#### What the review chain caught, and what it changed
+
+Three reviewers read the diff in parallel. Four findings, all repaired here rather than filed:
+
+- **The path normalisation was broken for every non-ASCII path** (code review + security review,
+  independently). The caller forces `-c core.quotePath=true`, so git emits `"cafe\314\201.md"`, and the
+  hand-rolled quote-strip left the octal escapes for the slash-normalisation to turn into separators --
+  `cafe/314/201.md` -- while gh's copy arrived decoded. The two could never match, so the scan went
+  silent on exactly the paths its own comment claimed to handle. That is inbound #821's lesson one file
+  over; `Convert-GitQuotedPath` now does the decode, before the slash-normalisation.
+  **The suite had asserted the wrong shape**: its fixture wrapped a literal accented character in
+  quotes, which git never emits under that flag, so the assert passed over broken code. It now uses the
+  octal form, verified by hand against a throwaway repo.
+- **The title, the head ref and the shared paths are written by strangers** (security review). This repo
+  is public, anyone can open a pull request, and git permits the format characters in a ref while a
+  GitHub title is unrestricted free text -- an RTL override, a zero-width joiner or a line separator can
+  make this note read as something other than what it is, to a person and to an agent driving the ship.
+  `open-pr.ps1` already declines to print even its own branch name raw (#1623). All three fields now go
+  through `ref-print-lib.ps1`, paths via `Get-DisplayPath` rather than `Get-DisplayRef` because a path
+  may legitimately hold a space (#1638).
+- **A percentage attached to the wrong number, and a duration that did not hold** (copy edit). "About
+  18%" sat beside the 13 pairs where it describes the 11 PRs, and "both PRs listed for over an hour" is
+  false for #2310, which was open 55 minutes. The percentage moved; the duration is replaced by the
+  timestamps, which are the checkable part.
+- **A dead test alternative** (code review): a two-branch regex whose first branch could never match,
+  reading as coverage. Trimmed to the one that does.
+
+And one the repair itself introduced, caught by the suite on its first run after: the sanitised path was
+assigned to `$shown`, shadowing the finding list of the same name, so the truncation line asked a string
+for its `.Count` -- a terminating error under `Set-StrictMode`, which failed the whole note rather than
+printing it wrongly.
 
 ### DEPLOY: feat/2315-open-pr-overlap-scan
 
@@ -112,7 +148,8 @@ and an assert pins that the old wording cannot be helpfully re-added.
 never a refusal, printed beside the label gate and repeated at each of the script's endings. Nothing
 reported that before: the first thing that did was `ship-pr`'s forward lap meeting it as
 `422 merge conflict between base and head`, on PR #2300 at forward lap 3, roughly forty minutes of CI
-waits in, while both colliding PRs had been listed in `gh pr list` for over an hour.
+waits in -- while both colliding PRs (#2308 opened 15:01Z, #2310 at 15:22Z, against a merge at 16:17Z)
+were listed in `gh pr list` throughout that run, readable by one command.
 
 It is not `ship-pr`'s conflict guard ([#1584](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1584))
 firing late. That one asks whether this PR is conflicting *now*, a fact about the trunk, and it was
