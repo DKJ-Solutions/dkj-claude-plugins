@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 16 minor entries** <!-- pending-tally -->
+**11 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2242-fold-stamp-heading-drift · 20260922-090154
+
+Corrects the tree's ~15-site drift about where the fold's merge stamp lands: the entry's own
+`### DEPLOY:` heading since August 23, 2026, not the `Pull Request` heading that carried it from
+August 19–23. Left untouched: passages that correctly describe that August 19–23 window as history,
+and the lint's duplicate-section errors, which are about the closing PR *link* rather than the stamp.
+
+**Score:** 3 -- self-contradicting comments and docstrings (a summary line disagreeing with its own
+body) are exactly the kind of drift that misleads the next person to touch this code.
+
+#### What makes this deploy extra special
+
+`DEVELOPMENT-portable.md` and `CONTRIBUTING-portable.md` are the only description a consumer has of
+where their changelog's ordering key lives; the stale text pointed at the wrong heading.
+
+**Score:** 1 -- prevents a consumer debugging their changelog's ordering from looking at the
+`Pull Request` heading, finding no stamp, and concluding the fold is broken.
+
+#### Pull Request
+
+Correct the stale 'Pull Request heading' claims about the fold's merge stamp
+
+Plugins: dkj-policy
+
+[PR #2268](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2268)
+
+---
 
 ### DEPLOY: fix/2249-bound-stdin-read · 20260922-084156
 
