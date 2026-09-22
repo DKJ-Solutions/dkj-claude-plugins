@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 14 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2259-predossier-double-merge-stamp · 20260922-082715
+
+The fold wrote the merge moment twice on a pre-dossier entry -- once on its heading, once on the closing
+`[PR #NN](url)` line -- because its gate still asked whether the entry had a `'Pull Request'` section, a
+question the stamp writer stopped acting on on August 23, 2026. The gate now reads
+`Test-EntryHeadingTakesMergeStamp`, which shares `Set-EntryMergeStamp`'s own scan, so the two cannot
+answer differently. Nothing changes for an entry written in the current shape.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer of this workflow meets the fold through the plugin mirror, so the duplicate landed there too.
+It prevents a failure that has not happened yet, and the failure is namable: any branch parked before
+August 6, 2026 -- here or in a consuming repo -- carries a pre-dossier entry, and folding one now writes
+the landing date in two places at once.
+
+**Score:** 1
+
+#### Pull Request
+
+A pre-dossier entry no longer folds with the merge date written twice
+
+Plugins: dkj-policy
+
+[PR #2266](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2266)
+
+---
 
 ### DEPLOY: fix/2250-gh-not-started-wording · 20260922-074056
 
