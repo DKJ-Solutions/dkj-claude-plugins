@@ -118,6 +118,13 @@ real work, and the other three are answered rather than built:
         bound to 900s because everything above it is runner queueing rather than real CI. True, and it
         does not follow: what decides the saving is whether a run certifies BEFORE the bound, and all
         four in that band do. Lowering would give up on four to cap the loss on two.
+- [x] **Exercised on a real pool, which is the run that opened this PR.** 130 suites, 1,873s, all green.
+      The lane count was memory-bound exactly as #2121 intends -- `2719 MB free / 512 MB per lane = 5,
+      under the 16 this machine's cores would allow` -- and the floor was consulted on every lane start
+      and **never held**: no hold line, and no hold clause on the verdict. That is the relationship the
+      two mechanisms are meant to have. The t=0 count and the floor share the same 512 MB figure, so on
+      a machine where the opening reading is right the floor has nothing to add and stays silent; it is
+      the net for when that reading turns out to be wrong, which is the case #2317 measured being reaped.
 - [~] Not measured, and said so in the code rather than left implied: how often the floor holds on a
       run that would never have been reaped. The memory reading moves ~100 MB between calls seconds
       apart by its own docstring, so a machine near the per-lane boundary can hold on noise. A spurious
