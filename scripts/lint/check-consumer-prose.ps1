@@ -177,7 +177,7 @@ if (Test-IsWorkflowSourceRepo -RepoRoot $repoRoot) {
 # the built-in defaults, on the day a seam does reach this path.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in wording is used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in wording is used." }
 }
 
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')

@@ -109,7 +109,7 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'adopt-workflow-folder.ps1'
 # loads it: it only supplies wording overrides here, and every string has a built-in default.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in wording is used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in wording is used." }
 }
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')
 # Get-SeamValue + the computed defaults (issue #885): this scaffold reads the SAME seam definitions the

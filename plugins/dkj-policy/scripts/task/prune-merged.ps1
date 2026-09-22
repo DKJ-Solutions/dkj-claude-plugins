@@ -228,7 +228,7 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'prune-merged.ps1'
 $repoConfigPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfigPath -PathType Leaf) {
     try { . $repoConfigPath } catch {
-        Write-Warning "scripts\repo-config.ps1 could not be loaded ($($_.Exception.Message)); falling back to the default trunk name."
+        Write-Warning "scripts\repo-config.ps1 could not be loaded ($(Format-SafeProseToken -Value $_.Exception.Message)); falling back to the default trunk name."
     }
 }
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')
@@ -523,7 +523,7 @@ if ($branches.Count -gt 0 -or $IncludeRemote) {
                 })
                 $ghKnown = $true
             } catch {
-                Write-Warning "gh's merged-PR list could not be read as JSON -- a squash-merged branch cannot be proven merged and will be kept. ($($_.Exception.Message))"
+                Write-Warning "gh's merged-PR list could not be read as JSON -- a squash-merged branch cannot be proven merged and will be kept. ($(Format-SafeProseToken -Value $_.Exception.Message))"
             }
         } else {
             Write-Warning "gh could not list merged PRs -- a squash-merged branch cannot be proven merged and will be kept. ($(Get-NativeOutputText $prRes.Output))"

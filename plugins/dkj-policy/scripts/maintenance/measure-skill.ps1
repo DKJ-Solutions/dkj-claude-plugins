@@ -251,7 +251,7 @@ function Read-Baseline {
     try {
         return (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json)
     } catch {
-        Write-Info "the baseline at $Path did not parse ($($_.Exception.Message)) -- reporting without a delta."
+        Write-Info "the baseline at $Path did not parse ($(Format-SafeProseToken -Value $_.Exception.Message)) -- reporting without a delta."
         return $null
     }
 }
