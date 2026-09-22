@@ -50,11 +50,12 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
 - [x] `sync-main.ps1`: guard the `Get-ShopifySyncLogPath` seam answer at all three sites
       (`Get-DisplayPath`, L550, L572, L577).
 - [x] `check-consumer-siblings.ps1`: guard the sibling checkout's file paths at all four sites
-      (`Format-SafePathToken`, L450, L455, L459, L471) -- chosen over `Get-DisplayPath` because these
-      lines reach session context through `Write-Info`, where a square bracket can be counted as a
-      hook marker.
-- [x] Widen that guard to `$label`/`$f.Member`/`$f.Members` (L448, L450, L455, L471), the same
-      connector-manifest `repo` field `check-connectors.ps1` already guards this way at six sites.
+      (`Format-SafePathToken`) -- chosen over `Get-DisplayPath` because these lines reach session
+      context through `Write-Info`, where a square bracket can be counted as a hook marker.
+- [x] Widen that guard to `$label`/`$f.Member`/`$f.Members`, the same connector-manifest `repo`
+      field `check-connectors.ps1` already guards this way at six sites.
+      *(No line numbers in these two bullets on purpose: the #2272 step below shifted them, and this
+      list is not the place that is kept in sync -- registry entry 13 is, and it carries them.)*
       `$f.Class` and the `$where` clause are this repo's own values and stay unguarded, with the
       reason stated in the code.
 - [x] Carry both plugin mirrors -- `dkj-policy`'s `adopt-ci-floor.ps1` and `dkj-subagents-shopify`'s
@@ -98,10 +99,14 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
 ### DEPLOY: fix/2248-guard-raw-foreign-text-prints
 
 Four classes of foreign text -- characters typed by somebody outside this repo -- reached a console
-unstripped. Three of the four sat on or beside a line where a neighbouring value *was* guarded, which
-is what makes them misses rather than judgements: `adopt-ci-floor.ps1` printed the consumer's own
+unstripped. **Two of the four sat on a line where a neighbouring value *was* guarded**, which is what
+makes those two misses rather than judgements: `adopt-ci-floor.ps1` printed the consumer's own
 workflow filename raw next to a job id it sent through `Get-DisplayRef`, and `sync-main.ps1` printed
-the `Get-ShopifySyncLogPath` seam answer raw next to a branch name it guarded on the same line. All
+the `Get-ShopifySyncLogPath` seam answer raw next to a branch name it guarded on the same line. The
+other two had no guarded neighbour to be measured against -- the required-check context name sat
+beside that same raw filename, and `check-consumer-siblings.ps1` carried no strip of any kind
+anywhere in the file. (#2248 itself said three; that was its own count, and it does not survive a
+reading of the trunk.) All
 four are now guarded -- `Get-DisplayPath` for the paths and filenames, `Get-DisplayRef` for the
 required-check context name, `Format-SafePathToken` for `check-consumer-siblings.ps1`, whose lines
 reach session context through `Write-Info` where a square bracket can be counted as a hook marker.
@@ -140,10 +145,13 @@ of scope, is a repo-wide decision rather than a one-line patch inside an unrelat
 
 #### What makes this deploy extra special
 
-These three scripts run in a consumer's own tree rather than in this one -- `adopt-ci-floor.ps1`
-exists to read a consuming repo's `.github/workflows/` and ruleset and report what it found, and
-`check-consumer-siblings.ps1` reads sibling checkouts. So every value repaired here is the reader's
-own text being read back to them, and it is their console that was unguarded.
+Two of the three scripts ship to consumers and run in their own tree: `adopt-ci-floor.ps1`, whose
+whole job is to read a consuming repo's `.github/workflows/` and ruleset and report what it found,
+and `sync-main.ps1`. Both are mirrored into the plugin payload, so the values repaired in them are
+the reader's own text being read back to them on their own console. `check-consumer-siblings.ps1`
+is **not** in that group -- it has no plugin mirror and runs only here, as this repo's own
+maintenance tool, taking consumer data as input. Its half of this fix reaches no subscriber and is
+tier 0 work; the score below is for the two that do ship.
 
 Nothing was exploited and this prevents a failure that has not happened, so the failure is worth
 naming precisely: a format character in a workflow filename, or in a required-check name a
