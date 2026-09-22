@@ -421,15 +421,21 @@ Write-Host "== ci.yml: the banner above jobs: stays an orphan nobody appends to 
 # 87 lines before #2314 and 32 after, so the ceiling is the post-change reading plus one paragraph of
 # headroom, and still under half of what it had reached. Re-measure it here if a genuinely file-wide
 # decision ever needs the room; do NOT raise it to admit a paragraph that has a key of its own.
-$ciLines = @(Get-Content -LiteralPath $ciPath)
+$ciLines = @($ci -split '\r?\n')
 $jobsIdx = -1
 for ($i = 0; $i -lt $ciLines.Count; $i++) { if ($ciLines[$i] -match '^jobs:\s*$') { $jobsIdx = $i; break } }
 Assert-True ($jobsIdx -ge 0) 'ci.yml declares a top-level jobs: key'
 
-$bannerLines = 0
-for ($i = $jobsIdx - 1; $i -ge 0 -and $ciLines[$i] -match '^#'; $i--) { $bannerLines++ }
-Assert-True ($bannerLines -le 40) `
-    "the comment run directly above jobs: is $bannerLines lines, at or under the 40-line ceiling -- a paragraph that argues ONE key belongs above that key, not here (#2314)"
+# GUARDED ON THE KEY BEING THERE, so the degrade path is SILENT rather than green. Without it a file
+# with no `jobs:` leaves $jobsIdx at -1, the walk starts below the array and never runs, and the ceiling
+# assert reports a measured 0 -- a PASS from a check that measured nothing, which is the exact class
+# ci.yml's own `!cancelled()` paragraph is about. The assert above is what fails in that case.
+if ($jobsIdx -ge 0) {
+    $bannerLines = 0
+    for ($i = $jobsIdx - 1; $i -ge 0 -and $ciLines[$i] -match '^#'; $i--) { $bannerLines++ }
+    Assert-True ($bannerLines -le 40) `
+        "the comment run directly above jobs: is $bannerLines lines, at or under the 40-line ceiling -- a paragraph that argues ONE key belongs above that key, not here (#2314)"
+}
 
 # AND THE CONVENTION IS WRITTEN DOWN IN THE FILE ITSELF, not only here. A ceiling that fires without
 # saying what to do instead sends the next author to raise the ceiling -- which is the one repair that

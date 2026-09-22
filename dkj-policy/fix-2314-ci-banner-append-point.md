@@ -90,7 +90,7 @@ lives" convention correctly conflicted pairwise, by construction. Three CI branc
 waits, and resolving it took about five minutes. It is the #1255 shape one file over, where a single
 fixed development document made every merge conflict every other open PR.
 
-Nothing was rewritten: of 302 comment lines, eleven changed, and every one of those eleven was a
+Nothing was rewritten: of 301 comment lines, twelve changed, and every one of those twelve was a
 cross-reference the move made false. What stays above `jobs:` is what is true of the file as a whole --
 why there are three jobs, and that every job declares a timeout at all -- so the run went 87 lines to 32.
 `ci-shard.tests.ps1` holds it to a 40-line ceiling, paired with an assert that the convention is stated

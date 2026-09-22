@@ -360,7 +360,6 @@ jobs:
           exit 0
 
   # THE REQUIRED CHECK. Reports nothing of its own -- it exists so that `main-ci-gate`'s single required
-  # context still names one job while the work happens in five. See the banner above jobs: for why the
   # context still names one job while the work happens in five. Why the name must not change is the
   # paragraph below; `!cancelled()` and the strict result check are argued at the keys they sit on.
   #

@@ -612,13 +612,22 @@ infrastructure.
   rather than trading it away, which is why it beat the candidate the issue itself named — a one-line
   pointer per decision with the argument moved into this lens — and a third option, one file per decision
   under `.github/workflows/ci-decisions/`. Both of those buy conflict-freedom by moving the reasoning away
-  from the line it explains, and that property is the whole reason the file is 78% comment.
+  from the line it explains, and that property is the whole reason the file is ~80% comment.
 
-  **Nothing was rewritten: 302 comment lines, of which eleven changed, and every one of those eleven was a
+  **Nothing was rewritten: 301 comment lines, of which twelve changed, and every one of those twelve was a
   cross-reference that the move made false** — *"see the banner above `jobs:`"* pointing at a paragraph now
   sitting on the same key, and *"the shortcut below"* where the shortcut had become the paragraph above.
   The move was verified by diffing the sorted comment bodies before and after rather than by reading the
-  diff, because a 155-line reshuffle is exactly the diff a reviewer cannot read.
+  diff, because a 156-line reshuffle is exactly the diff a reviewer cannot read.
+
+  **AND THAT METHOD HAS ONE BLIND SPOT, WHICH IT FOUND THE HARD WAY.** A sorted-comment-body diff proves
+  no line was **lost** and is structurally silent about a line that was **kept when it should have gone** —
+  a superseded clause left standing beside its replacement is an addition on one side and nothing at all on
+  the other, so it never appears in the comparison. Measured on this branch: the old *"See the banner above
+  `jobs:` for why the"* survived directly above its own replacement, leaving a stuttered clause and a
+  continuation pointing nowhere, and the verification reported clean. It was [Edith #17](specialist-06-17-lens.md)
+  reading the diff in place who caught it — so the sorted comparison answers *"is anything missing"* and a
+  human read of the new position answers *"does it still parse"*, and a relocation of this size needs both.
 
   **What stays above `jobs:` is what is true of the FILE** — why there are three jobs (#1351), and that
   every job declares a timeout at all (#2296). The per-job *numbers* moved to the keys they cap. The run
