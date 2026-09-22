@@ -474,6 +474,10 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 # re-certifying rather than refusing. Pure functions, for worktree-lib's own stated reason -- the
 # decisions are the part that can be tested and this file cannot be.
 . (Join-Path $PSScriptRoot '..\lib\forward-lane-lib.ps1')
+# For step 3's arming of the merge-on-green sweep (#2319): the one place that names the label this
+# script writes and pick-merge-on-green.ps1 reads. Dot-sourced for a single constant, deliberately --
+# the two halves of a handshake must not each carry their own spelling of it.
+. (Join-Path $PSScriptRoot '..\lib\merge-on-green-lib.ps1')
 
 # THE CLOSE-OUT RECEIPT SHAPE (issue #1884), printed as this run's last line -- see closeout-lib.ps1
 # for why step 6 of the ritual got a mechanism after losing four times in prose. Guarded on
@@ -522,6 +526,7 @@ if ($branch -eq 'main') {
     # Same posture and same reason as Get-MissingCheckSuiteRefusalNote below -- a diagnostic must never be
     # why a refusal cannot be printed. It costs two commands on a path that is already refusing.
     $resumeNote = ''
+    $resumeCandidates = @()
     $openPrList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--state', 'open', '--json', 'number,headRefName', '--limit', '100', '--repo', $repo) -DiscardStderr
     $localHeads = Invoke-NativeCapture -FilePath 'git' -Arguments @('for-each-ref', '--format=%(refname:short)', 'refs/heads') -DiscardStderr
     if ($openPrList.ExitCode -eq 0 -and $localHeads.ExitCode -eq 0) {
@@ -534,8 +539,54 @@ if ($branch -eq 'main') {
         })
         $resumeNote = Get-InterruptedShipResumeNote -Candidates $resumeCandidates -TrunkBranch 'main'
     }
-    Write-Error "You are on main; ship-pr runs from a branch.$resumeNote"
-    exit 1
+
+    # AND WHERE THE ANSWER IS UNAMBIGUOUS, IT IS PERFORMED RATHER THAN PRINTED (issue #2319). #1620
+    # above turned this refusal from a rule into a diagnosis; what it still does is hand a person a
+    # command the script has already worked out for itself. That is the third of the three things
+    # #2319 measured a merge being owed to -- a live session, a person noticing, and a checkout
+    # standing on the right branch -- and it is the cheapest of the three to remove: step 2b put the
+    # tree here deliberately (#1073), and the resume is the one moment that move has to be undone.
+    #
+    # THREE CONDITIONS, AND EVERY ONE OF THEM IS A REFUSAL WHEN IT FAILS. Exactly ONE candidate,
+    # because two is a question about which ship to resume and this script has no way to ask it. A
+    # CLEAN tree, because a checkout carries uncommitted work across with it, and work left in a tree
+    # standing on the trunk is far likelier to be somebody's half-finished edit than anything this
+    # branch wants. And a name ref-print-lib.ps1 will already put on a command line -- the same
+    # judgement the printed remedy is held to, since a name too untrustworthy to paste is too
+    # untrustworthy to run.
+    #
+    # IT NEVER CREATES OR MOVES A BRANCH. `git checkout <existing local branch>` is the whole of it,
+    # and Get-InterruptedShipCandidates has already established the branch exists locally and has an
+    # open pull request. Where the checkout itself fails the refusal is the one that was always here.
+    #
+    # AND THE CANDIDATE IS NOT PROOF THAT A SHIP WAS INTERRUPTED -- that lib's own header says so: a
+    # branch parked with its pull request open, or one another session is shipping in a lane, satisfies
+    # the same pair. Checking it out is still the right next move in all three, and it is exactly what
+    # the printed remedy has been telling the operator to do since #1620; what is new is only that the
+    # script stops asking somebody to type back a name it has already resolved. The gates decide the
+    # rest, unchanged -- a parked branch is refused by the step-list gate a few steps down, not by this
+    # one -- so the widening here is over which branch gets READ, never over what may merge.
+    if ($resumeCandidates.Count -eq 1 -and -not $resumeCandidates[0].Note) {
+        $resumeTarget = $resumeCandidates[0]
+        $treeRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('status', '--porcelain') -DiscardStderr
+        $treeIsClean = ($treeRead.ExitCode -eq 0) -and (@($treeRead.Output | Where-Object { $_ -and $_.Trim() }).Count -eq 0)
+        if ($treeIsClean) {
+            $resumeSwitch = Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', $resumeTarget.Branch)
+            if ($resumeSwitch.ExitCode -eq 0) {
+                $branch = $resumeTarget.Branch
+                Write-Host "ship-pr: resumed the interrupted ship of PR #$($resumeTarget.Number) -- checked out '$(Get-DisplayRef -Ref $branch)' and carrying on (issue #2319)." -ForegroundColor DarkCyan
+            } else {
+                Write-Warning "could not check out '$(Get-DisplayRef -Ref $resumeTarget.Branch)' to resume PR #$($resumeTarget.Number) -- refusing below, as before."
+            }
+        } else {
+            Write-Host "ship-pr: PR #$($resumeTarget.Number) looks like an interrupted ship, but this tree is not clean -- not checking it out for you (issue #2319)." -ForegroundColor DarkYellow
+        }
+    }
+
+    if ($branch -eq 'main') {
+        Write-Error "You are on main; ship-pr runs from a branch.$resumeNote"
+        exit 1
+    }
 }
 
 # JUDGED ONCE, HERE, RATHER THAN AT EACH OF THE FIVE PRINT SITES (issue #1594). Every remedy this
@@ -2042,6 +2093,58 @@ if ($checks.ExitCode -ne 0) {
             }
         } catch {
             $stalled = @()
+        }
+
+        # ARM THE MERGE-ON-GREEN SWEEP BEFORE REFUSING (issue #2319). Everything above this point has
+        # established that CI, and only CI, is why the merge has not happened: the branch is pushed, the
+        # pull request is open, and the local gates passed before either. So the merge is owed the moment
+        # the required check turns green -- and that moment is routinely after this process is gone.
+        # Measured on PR #2316, 2026-09-22: `gh run rerun --failed` turned every check green and nothing
+        # merged it, because the merge was owed to a session that had exited, to a person noticing, and
+        # to a checkout standing on the right branch. It sat green and unmerged until somebody asked.
+        #
+        # THE LABEL IS THE AUTHORISATION, NOT A REMINDER, and that is why it is written HERE rather than
+        # by whoever opens the pull request. CLAUDE.md holds two kinds of pull request back for Dave's
+        # own word -- one with a visible result he has to judge by eye, and anything irreversible or
+        # outward-facing -- and a runner that merged every green pull request would merge those too.
+        # A pull request kept back for him never had this script run on it, so it can never carry this
+        # label. That is the whole of what makes an unattended merge safe here.
+        #
+        # NOT UNDER -NoMerge, which says in so many words that this run is not to merge. Arming a sweep
+        # to do it minutes later would be the same act through another door.
+        #
+        # AND IT ARMS ON ALL THREE WORDINGS BELOW, not only on the red one. A run that never STARTED and
+        # a watch that dropped are both "CI has not said yes yet" -- neither says anything about this
+        # branch -- so the merge is owed on the same terms once it does. Narrowing to the red case would
+        # leave the two rarer refusals holding exactly the gap this closes.
+        #
+        # BEST-EFFORT, LIKE EVERY DIAGNOSTIC ON THIS PATH: a failed arming call leaves precisely the
+        # behaviour this refusal has always had, names the command that arms it by hand, and is never
+        # the reason a refusal cannot be printed.
+        if (-not $NoMerge) {
+            $armLabel = Get-MergeOnGreenArmLabel
+            $armCall = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+                'pr', 'edit', "$pr", '--add-label', $armLabel, '--repo', $repo)
+            # THE LABEL CREATES ITSELF ON FIRST USE, WHICH IS WHY THERE IS NO ADOPTION STEP FOR IT.
+            # `gh pr edit --add-label` fails outright on a label the repo does not have, and this script
+            # travels to every consumer of this workflow -- so without this, the first red CI run in a
+            # freshly adopting repo would print a warning naming a command that fails the same way.
+            # Asked SECOND rather than first: the label exists on every run after the first, and paying
+            # a `gh label create` on each of them to save one on the first is the wrong trade.
+            if ($armCall.ExitCode -ne 0) {
+                [void](Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+                    'label', 'create', $armLabel, '--repo', $repo,
+                    '--color', '0E8A16',
+                    '--description', 'ship-pr has shipped this: the merge-on-green sweep finishes it once the required check is green'))
+                $armCall = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+                    'pr', 'edit', "$pr", '--add-label', $armLabel, '--repo', $repo)
+            }
+            if ($armCall.ExitCode -eq 0) {
+                Write-Host "ship-pr: armed PR #$pr with '$armLabel' -- the merge-on-green sweep finishes this once the required check is green, with no session of its own (issue #2319)." -ForegroundColor DarkCyan
+                Write-Host "  It re-runs every gate this script runs, including the staleness check and the DEPLOY lock. To disarm: gh pr edit $pr --remove-label $armLabel" -ForegroundColor DarkGray
+            } else {
+                Write-Warning "could not arm PR #$pr with '$armLabel', so this merge stays owed to a session -- 'gh pr edit $pr --add-label $armLabel' arms it by hand (issue #2319)."
+            }
         }
 
         # THREE WORDINGS, ONE VERDICT. The two below are #1044's; the middle one is #1219's, and the
