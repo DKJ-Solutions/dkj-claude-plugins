@@ -506,10 +506,18 @@ function Get-GateSuspendCredit {
 #
 # 3 SECONDS, AND WHAT IT IS SIZED AGAINST. Windows accounts CPU in ~15.6ms clock ticks, so a window has
 # to be long enough that a genuinely running tree accrues something unmistakable: over 3s a single busy
-# thread accrues ~3000ms, against a floor two orders of magnitude below that. It is also 0.17% of the
+# thread accrues ~3000ms, more than an order of magnitude above the floor below. It is also 0.17% of the
 # bound it reports on -- the pool is already 1800s into this lane by the time a byte of this is read, so
 # the cost is invisible. #2279's own hand measurement used 4s; nothing in the reading turns on the
 # difference, and the shorter window is the one that holds the poll loop up less.
+#
+# WIDENING IT IS NOT A WAY TO BUY A QUIETER READING, and that was measured rather than argued (#2327).
+# The tempting reading is that a longer window averages the scheduler noise of a sleeping tree away --
+# it does not, because the noise accrues over time exactly as the signal does. Same box, same 48
+# competing lanes: over 3s a sleeping tree read at most 0.047s, which is 1.56% of the window; over 10s
+# it read up to 0.219s, which is 2.19% of it. The fraction went UP. So the window is sized for the poll
+# loop's sake and the floor below is what does the separating -- moving the first to repair the second
+# buys nothing, and the arithmetic quietly relaxes the floor while looking like a fix.
 #
 # THE LOOP IS BLOCKED FOR THAT WINDOW, ONCE PER SWEEP AND NOT ONCE PER LANE. Every lane that passed its
 # bound in the same pass is measured off the same pair of snapshots, so two lanes timing out together
@@ -518,12 +526,77 @@ function Get-GateSuspendCredit {
 # kill past its bound, because the kill happens after the second snapshot in the same pass.
 $script:GateCpuSampleSeconds = 3
 
-# WHAT COUNTS AS "NOTHING RAN" -- 1% of the window, i.e. 30ms over the 3s above. A floor rather than a
+# WHAT COUNTS AS "NOTHING RAN" -- 8% of the window, i.e. 240ms over the 3s above. A floor rather than a
 # threshold, and the distinction is the whole of what this number is allowed to mean: it separates a
 # reading that is indistinguishable from zero from one that is not, and it decides nothing. #2231's
-# wedged tree read 0.000s over a sampled window; a tree still executing reads three full seconds. There
-# is no case in this repo's measurements that lands near 30ms, which is why a coarse floor is enough.
-$script:GateCpuIdleFloorFraction = 0.01
+# wedged tree read 0.000s over a sampled window; a tree still executing reads three full seconds.
+#
+# IT WAS 1% UNTIL ISSUE #2327, ON THE CLAIM THAT "there is no case in this repo's measurements that
+# lands near 30ms". That sentence was the defect, and not because it was carelessly written: it read a
+# sleeping tree's CPU as a property of SLEEPING, and it is a property of the MACHINE. A sleeping process
+# still takes timer interrupts and scheduler wakeups, and it takes more of them on a loaded box -- so
+# the reading rises with contention while the floor stayed a fixed 1%. Measured by #2327 under a 7-lane
+# pool: this file's own fixture sleeper, whose entire body is `Start-Sleep -Seconds 60`, read 0.031s
+# against the 0.030s floor and printed THE TREE WAS STILL EXECUTING. One millisecond, and it inverted
+# the verdict and failed the gate over a branch that had nothing wrong with it.
+#
+# WHERE 8% COMES FROM -- BOTH populations, and the second one measured across a range rather than at
+# one point, because that is where the first attempt at this repair went wrong. Readings in CPU-seconds
+# over this 3s window (#2327). The SLEEPING side, on a 32-core box:
+#
+#   sleeping tree, idle machine                    0.000s
+#   sleeping tree, 16 competing lanes              0.000 - 0.0156s   (0-1 clock tick)
+#   sleeping tree, 48 competing lanes              0.000 - 0.0469s   (0-3 clock ticks)
+#   sleeping tree of 18 processes, 48 lanes        0.000 - 0.0156s   (settled -- see below)
+#
+# THE WORKING SIDE IS NOT ONE NUMBER, IT IS A FUNCTION OF OVERSUBSCRIPTION, and that is the whole of
+# why this constant is 8% rather than the 10% first proposed. A starved tree gets roughly
+# cores/participants of the window, so the harder the box is oversubscribed the closer a genuinely
+# EXECUTING tree creeps toward a sleeping one. Measured by pinning every participant to two cores:
+#
+#   participants/cores    working tree, lowest reading     sleeping tree, highest
+#   x1                    2.22s                            0.000s
+#   x2                    1.14s                            0.000s
+#   x4                    1.03s                            0.0156s
+#   x8                    0.19s                            0.000s
+#
+# THE FIRST ATTEMPT READ 1.42s OFF A SINGLE x1.5 POINT AND CALLED IT "the poorest working reading". It
+# is not: it is one favourable sample. The honest figure for the band this gate actually creates -- its
+# pool is sized on the core count, so x1 to about x4 with ambient load -- is the 1.03s at x4, and 0.24s
+# clears BOTH measured extremes by the same 4x: 5.1x above the worst sleeping reading, 4.3x below the
+# poorest working one in that band. The old floor of 0.030s sat INSIDE the sleeping population, which
+# is why a single millisecond could decide anything at all.
+#
+# AT x8 THE SEPARATION BREAKS, AND NO FLOOR REPAIRS THAT. A working tree reads 0.19s there, under this
+# floor and under any floor that still clears the sleeping population. That is a property of the
+# measurement rather than of the number: at enough contention a tree that is executing and a tree that
+# is asleep consume indistinguishable amounts of CPU. It is named here so the next reader does not go
+# hunting a fraction that makes it go away -- there is none. It sits outside the band this gate runs
+# in, and the verdict it produces there is the hedged one (see the asymmetry below).
+#
+# 15.6ms IS THE INSTRUMENT'S OWN RESOLUTION, so the old floor was 1.9 clock ticks. Every sleeping
+# reading above is a multiple of one tick and #2327's 0.031s is exactly two of them -- a floor landing
+# between the first tick and the second is a floor inside the quantization noise of what it measures.
+#
+# IT DOES NOT SCALE WITH TREE SIZE, WHICH WAS THE OBVIOUS FEAR AND IS MEASURABLY NOT TRUE. An
+# 18-process sleeping tree first read 0.875s over the window -- until the sample was taken 20s after the
+# spawn instead of 4s, when it dropped to a single tick. That 0.875s was PROCESS STARTUP, i.e. a tree
+# genuinely executing, so the high reading was the correct verdict rather than noise. Settled, tree size
+# buys nothing: a process that is asleep is asleep whether there are two of them or eighteen.
+#
+# AND THE ERRORS ARE NOT SYMMETRIC, WHICH IS WHAT LETS THE TWO CASES ABOVE COEXIST. The idle verdict
+# says in its own last line that a lane blocked on slow I/O reads zero too, so a working-but-quiet tree
+# landing under the floor -- the x8 case, and equally a suite genuinely blocked on a network share or a
+# cold disk -- meets a verdict that already hedges for exactly that. The busy verdict carries no such
+# hedge: it sends the reader to spend a whole standalone re-run. So a sleeper landing ABOVE the floor is
+# the expensive direction and is the one this number is sized against.
+#
+# WHAT THAT COSTS, STATED RATHER THAN GLOSSED. Moving from 30ms to 240ms widens the bucket that draws
+# the idle verdict eightfold, so more genuinely-quiet-but-working trees land in it than before. They are
+# not newly mis-served -- an I/O-bound tree read under the old floor too -- but there are more of them,
+# and the hedge in that verdict's last two lines is the whole of what carries them. Do not remove it to
+# make the sentence read more decisively.
+$script:GateCpuIdleFloorFraction = 0.08
 
 function Get-GateProcessSnapshot {
     <#
@@ -723,6 +796,11 @@ function Get-GateTimeoutCpuNote {
     $null = $lines.Add(("           Of that, $(Format-GateSeconds $windowCpu -Decimals 3)s was consumed in the last " +
                         "$(Format-GateSeconds $windowLength)s before the kill."))
 
+    # THE FLOOR SEPARATES A SLEEPING TREE FROM A WORKING ONE, AND WHAT IT HAS TO CLEAR IS THE MACHINE'S
+    # NOISE RATHER THAN ZERO -- $script:GateCpuIdleFloorFraction's own block carries both populations and
+    # why it is 10% rather than the 1% that let one millisecond invert this comparison (#2327). What is
+    # worth knowing HERE is which way the comparison leans: `-le` puts the floor itself on the idle side,
+    # because the idle verdict is the hedged one and the busy verdict is the one that costs a re-run.
     if ($windowCpu -le ($windowLength * $floorFraction)) {
         $null = $lines.Add('           NOTHING IN THAT TREE WAS RUNNING -- so this is NOT a suite answering late, and a')
         $null = $lines.Add('           standalone re-run will not reproduce it. Look for a wedge or a deadlock: an')
