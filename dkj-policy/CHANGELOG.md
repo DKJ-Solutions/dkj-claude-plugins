@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 21 minor entries** <!-- pending-tally -->
+**15 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2272-guard-repo-field-two-more-sites · 20260922-103528
+
+`check-consumer-siblings.ps1` printed a sibling's own manifest `repo` field raw at two console
+sites -- the per-member "read" line and the "not compared" line built from it -- both sitting just
+above the block df25f9f6 (#2248) already guarded with `Format-SafePathToken`. A `repo` field
+carrying an embedded newline forged a second console line; both sites now go through the same
+guard as their neighbours, so the whole loop treats this manifest field consistently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Same value class and same script as #2248: a sibling checkout's own manifest text, read back to
+the person running the comparison. Nothing was exploited, and this closes the two sites #2248's
+own widening did not reach.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard the manifest repo field at the two console sites df25f9f6 (#2248) missed
+
+[PR #2275](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2275)
+
+---
 
 ### DEPLOY: feat/avatars-assets-folder · 20260922-101346
 
