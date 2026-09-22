@@ -129,7 +129,13 @@ if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
     exit 0
 }
 try { . $libPath } catch {
-    [Console]::Error.WriteLine("guard-working-copy: working-copy-guard-lib.ps1 could not be loaded -- the working-copy guard is OFF for this call. $($_.Exception.Message)")
+    # THE STRIP IS INLINED, NOT A CALL, FOR THIS CATCH'S OWN REASON (#2271) -- the same one the eight
+    # SessionStart catch-alls carry. What landed here is "the lib could not be loaded", so a guard call
+    # would depend on a lib that may be exactly what is missing, and it would throw inside the catch and
+    # escape it. The three passes in the lib's order: whitespace FIRST, so no newline can forge a line,
+    # then control characters, then brackets substituted so no marker can FORM.
+    $safeLoadErr = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+    [Console]::Error.WriteLine("guard-working-copy: working-copy-guard-lib.ps1 could not be loaded -- the working-copy guard is OFF for this call. $($safeLoadErr.Trim())")
     exit 0
 }
 

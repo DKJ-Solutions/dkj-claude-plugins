@@ -852,7 +852,7 @@ function Resolve-AsanaStageMap {
     }
 
     try { . $cfg } catch {
-        Write-Host "  scripts/repo-config.ps1 could not be loaded ($($_.Exception.Message)) -- using the built-in stage map."
+        Write-Host "  scripts/repo-config.ps1 could not be loaded ($(Format-ForConsole -Text $_.Exception.Message)) -- using the built-in stage map."
         return $default
     }
     if (-not (Get-Command -Name 'Get-AsanaStageMap' -ErrorAction SilentlyContinue)) {
@@ -862,7 +862,7 @@ function Resolve-AsanaStageMap {
 
     $own = $null
     try { $own = Get-AsanaStageMap } catch {
-        Write-Host "  Get-AsanaStageMap threw ($($_.Exception.Message)) -- using the built-in stage map."
+        Write-Host "  Get-AsanaStageMap threw ($(Format-ForConsole -Text $_.Exception.Message)) -- using the built-in stage map."
         return $default
     }
 
@@ -952,7 +952,7 @@ function Resolve-GithubStatusMap {
     }
 
     try { . $cfg } catch {
-        Write-Host "  scripts/repo-config.ps1 could not be loaded ($($_.Exception.Message)) -- using the built-in status map."
+        Write-Host "  scripts/repo-config.ps1 could not be loaded ($(Format-ForConsole -Text $_.Exception.Message)) -- using the built-in status map."
         return $default
     }
     if (-not (Get-Command -Name 'Get-GithubStatusMap' -ErrorAction SilentlyContinue)) {
@@ -962,7 +962,7 @@ function Resolve-GithubStatusMap {
 
     $own = $null
     try { $own = Get-GithubStatusMap } catch {
-        Write-Host "  Get-GithubStatusMap threw ($($_.Exception.Message)) -- using the built-in status map."
+        Write-Host "  Get-GithubStatusMap threw ($(Format-ForConsole -Text $_.Exception.Message)) -- using the built-in status map."
         return $default
     }
 
@@ -1364,7 +1364,7 @@ function Get-AsanaTaskState {
         $resp = Invoke-RestMethod -Method GET -Uri $uri -Headers @{ Authorization = "Bearer $Pat" }
         return $resp.data
     } catch {
-        Write-Host "  Asana task $Gid is not readable with this token ($($_.Exception.Message)) -- skipped."
+        Write-Host "  Asana task $Gid is not readable with this token ($(Format-ForConsole -Text $_.Exception.Message)) -- skipped."
         return $null
     }
 }
@@ -1395,7 +1395,7 @@ function Test-MirrorUpdatePosted {
         }
         return $seen
     } catch {
-        Write-Host "  Comments of Asana task $Gid are not readable ($($_.Exception.Message)) -- skipped rather than commented on blindly."
+        Write-Host "  Comments of Asana task $Gid are not readable ($(Format-ForConsole -Text $_.Exception.Message)) -- skipped rather than commented on blindly."
         return $true
     }
 }
@@ -1455,7 +1455,7 @@ function Get-ProjectStageSections {
             $uri = if ($resp.next_page -and $resp.next_page.uri) { $resp.next_page.uri } else { $null }
         }
     } catch {
-        Write-Host "  Sections of Asana project $ProjectGid are not readable ($($_.Exception.Message)) -- no card is moved on that board."
+        Write-Host "  Sections of Asana project $ProjectGid are not readable ($(Format-ForConsole -Text $_.Exception.Message)) -- no card is moved on that board."
     }
     $script:StageSectionCache[$ProjectGid] = $map
     return $map

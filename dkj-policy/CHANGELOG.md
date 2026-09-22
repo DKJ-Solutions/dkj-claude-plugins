@@ -44,7 +44,98 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 41 minor entries** <!-- pending-tally -->
+**28 / 43 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2263-suite-bound-scaling · 20260922-184312
+
+`Invoke-TestSuiteGate` bounded every suite at a fixed 1,800s, and #2255 measured what that costs on a
+loaded machine: a 9-lane run spent 31 minutes to end red over `check-plugin-integrity-docs.tests.ps1`,
+which passed all 188 of its asserts standalone minutes later. The bound was blind to the one thing that
+decides whether a suite reaches it -- how fast the machine is actually going.
+
+It now scales with that. As each suite finishes, the gate compares what it spent against the cost
+`suite-durations.json` records for it, and the ratio of the two is how much slower this run is going
+than the recording; the per-suite bound is that ratio applied to 1,800s, clamped between 1,800s and
+3,600s. Nothing is converted between machines -- both halves of the ratio are seconds from the same
+suites in the same run -- which is why this does not re-open the per-suite derivation #2255 declined.
+Applied to the run that produced the failure, the pace reads 2.72x and the bound would have been
+3,600s against the 1,820s that file needed.
+
+**It can only ever loosen.** A run at or faster than the recorded pace is bounded at exactly 1,800s, so
+no currently-green run can be turned red; an explicit `-SuiteTimeoutSeconds` and the `-1` off switch are
+untouched. The cost is stated rather than hidden: on a machine slow enough to reach the ceiling, a
+genuine wedge is now reported after 60 minutes instead of 30.
+
+The issue proposed scaling by the **lane count**. Instrumented, contention runs the other way -- one
+suite takes 3.7x longer under 23 busy siblings than under 3 -- so that shape would have been most
+generous exactly where suites run fastest. The 9-lane run was slow because the machine was starved,
+which is also why only 9 lanes opened; the lane count reports the cause rather than being it.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+`native-capture-lib.ps1` is mirrored into `dkj-policy`, so every consumer running this workflow's test
+gate gets the scaled bound. It lands hardest where it is worth most: a slow or loaded machine is the one
+that reaches an 1,800s bound on a green suite, and also the one least able to afford a second full gate
+run spent hunting a wedge that was never there. A consumer with no `suite-durations.json` is unaffected
+-- no recorded cost means no pace, and no pace resolves to exactly the bound they have today.
+
+**Score:** 3
+
+#### Pull Request
+
+The per-suite test-gate bound now scales with the machine state that actually slows a suite down
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2273](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2273)
+
+---
+
+### DEPLOY: fix/2271-guard-exception-message-prints · 20260922-182527
+
+A `$_.Exception.Message` reads like text this workflow wrote and is not: .NET composes the sentence
+and then interpolates the offending input into it, which in these scripts is routinely somebody
+else's. Measured here, a consuming repo whose `scripts/repo-config.ps1` fails to parse puts its own
+source line -- newlines and square brackets intact -- straight into a `Write-Warning`, and one that
+`throw`s supplies the whole message. That output is forwarded into session context by the
+SessionStart hooks, which is the line-forging vector the foreign-text guards exist for. Every console
+print of an exception message now passes a strip: 34 sites under `scripts/**` via
+`Format-SafeProseToken`, seven in the `dkj-policy-bwj` template via its own `Format-ForConsole`, and
+the nine hook catch-alls via an inlined chain, because there the lib may be the very thing that
+failed to load. A new suite asserts the three measurements the sweep rests on and scans the tree so
+the 51st site cannot be written unguarded.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing to migrate and nothing to run -- a consumer gets this with the next release, and the only
+visible difference is on a day something was already broken: an error line is now one line, with
+brackets shown as parentheses. What changes underneath is that a repo's own file can no longer put
+a forged line or a counted `[ERROR]` marker into a session start it did not author.
+
+The sweep also went further than the issue measured, in two directions worth knowing about. The
+issue reported 34 sites from a `scripts/**` grep; the eight SessionStart hook catch-alls sit outside
+that path and are the highest-severity members of the class, since their output is precisely what
+reaches session context. And the class already had one correctly guarded site -- two files away from
+its own capture, so a same-line grep reported none. Both are recorded as registry entry 15, which
+also states the bound the new tree scan still has: it proves no site prints one inline unguarded, not
+that the indirect route is clean. A ninth hook joined the class from the trunk while this branch was
+open, which is why that scan now reads every hook rather than every `*-sessioncheck.ps1`.
+
+**Score:** 2
+
+#### Pull Request
+
+Every console print of an exception message passes the prose guard
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2316](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2316)
+
+---
 
 ### DEPLOY: fix/2312-merge-fetch-depth-falsy-zero · 20260922-165021
 
