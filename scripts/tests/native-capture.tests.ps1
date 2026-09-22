@@ -1458,11 +1458,23 @@ Assert-Equal (Get-NativeCaptureBudgetBound -Budget $spent) $NativeCaptureHookNet
 # its start-up and its dot-sources -- time the hook's ceiling has already spent. -ExpiresUtc lets a
 # caller that KNOWS when the turn falls due say so, and it is what makes a budget's behaviour independent
 # of how loaded the machine was between launch and that line.
+#
+# THE LOWER BOUND IS DERIVED FROM A STOPWATCH, NOT A FIXED CONSTANT (issue #2318). A 25s floor on a 30s
+# budget is a 5-second allowance for four cheap calls that should cost microseconds -- so on a loaded
+# shared runner it measured the runner's responsiveness for those four lines, not whether SecondsLeft
+# reports the budget's own remaining time correctly. Bracketing the same window with a Stopwatch (the
+# idiom already used above for $sw/$flushWatch/$calWatch) makes the assert self-relative: whatever the
+# runner actually cost between building the budget and reading it is exactly what this floor allows for,
+# so it passes under any load and still catches a wrong calculation.
+$absoluteWatch = [System.Diagnostics.Stopwatch]::StartNew()
 $absolute = New-NativeCaptureBudget -ExpiresUtc ((Get-Date).ToUniversalTime().AddSeconds(30))
 Assert-True (Test-NativeCaptureBudgetSet -Budget $absolute)             'absolute deadline: it is a set budget'
 Assert-True (Test-NativeCaptureBudgetHasRoom -Budget $absolute)         'absolute deadline: 30s out, it has room'
-Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $absolute) -le 30) 'absolute deadline: no more is left than the instant allows'
-Assert-True ((Get-NativeCaptureBudgetSecondsLeft -Budget $absolute) -ge 25) 'absolute deadline: and very nearly all of it'
+$absoluteSecondsLeft = Get-NativeCaptureBudgetSecondsLeft -Budget $absolute
+$absoluteWatch.Stop()
+$absoluteFloor = 30 - [int][Math]::Ceiling($absoluteWatch.Elapsed.TotalSeconds) - 1
+Assert-True ($absoluteSecondsLeft -le 30) 'absolute deadline: no more is left than the instant allows'
+Assert-True ($absoluteSecondsLeft -ge $absoluteFloor) "absolute deadline: within the $($absoluteWatch.Elapsed.TotalSeconds.ToString('0.00'))s this run actually spent building and reading it (left=$absoluteSecondsLeft, floor=$absoluteFloor)"
 
 # IT WINS OVER -TotalSeconds where both are given -- the most specific of the knobs, which is the same
 # ordering park-cycle.ps1 states for its three. Asserted because the precedence is the whole contract:
