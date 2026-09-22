@@ -78,3 +78,5 @@ N/A. The lib is mirrored into `dkj-policy`, but nothing a consumer runs behaves 
 
 #### Pull Request
 
+park-lib resolves the trunk ref through one Resolve-TrunkRef instead of two inline copies
+
