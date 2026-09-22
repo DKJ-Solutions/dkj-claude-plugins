@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#### The size, as measured on pickup
+
+#2322 counts three copies of the idiom. Two of them are on `main`, both in `scripts/lib/park-lib.ps1`.
+The third, `open-pr.ps1`'s overlap scan, exists only on the parked branch
+`origin/feat/2315-open-pr-overlap-scan`, which has no PR and belongs to another account. That branch
+is not touched here. `open-pr.ps1` already dot-sources `park-lib.ps1`, so its copy can call the
+helper once both land. The other trunk-ref sites (`open-pr.ps1`'s subject loop and `claim-issue.ps1`'s
+multi-ref lists) loop over candidate refs rather than verify-then-fallback, so they are not copies of
+this idiom.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Resolve-TrunkRef` in `park-lib.ps1`: returns `refs/remotes/origin/<trunk>`, else the bare name, else `$null`
+- [x] `Get-GitParkBacking` and `Get-BranchMachineLocalFindings` call it in place of their inline copies
+- [x] plugin mirror regenerated with `build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] `backing-gate.tests.ps1` section 10 asserts the helper's three answers directly; backing-gate, machine-local-gate, park-branch and park-cycle suites all green
+
 ### DEPLOY: fix/2322-resolve-trunk-ref-helper
 
-**Score:**
+The "use `refs/remotes/origin/<trunk>` where it verifies, otherwise the bare local name" resolution
+was written out twice in `park-lib.ps1`, once for the backing gate and once for the machine-local
+check. Both copies now call one helper, `Resolve-TrunkRef`, which returns `$null` when neither ref
+verifies, so the "not measured" cases are unchanged. The ordering matters because a local trunk behind
+`origin` over-reports a branch's work (#1399). With one definition there is no second copy to get
+wrong. Behaviour is unchanged, and `backing-gate.tests.ps1` now asserts the helper directly.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. The lib is mirrored into `dkj-policy`, but nothing a consumer runs behaves differently.
+
+**Score:** N/A
 
 #### Pull Request
 
