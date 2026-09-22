@@ -3935,10 +3935,26 @@ function Invoke-TestSuiteGate {
             # cannot collide with a later run's -- not even one that reuses this PID. It used to be
             # "test-suite-gate-$PID" and the try opened by deleting whatever stood there, a recursive delete
             # at a name anyone could have planted a junction at; there is no stale one to clear now.
+            #
+            # THE LENGTH IS READ THE SAME SETTLE-AWARE WAY Write-GateCaptureBlock JUST READ THESE SAME
+            # FILES TO PRINT THEM -- issue #2295. A plain Get-Item races the exact ambiguity #1679/#1731
+            # already named for this lib: $proc.WaitForExit() returning true says the CHILD has exited, not
+            # that Start-Process's own pipe-to-file copy (running in THIS process, on its own thread) has
+            # caught up, and a grandchild that inherited the handle (#1252) can hold it a moment longer
+            # still. Under CI contention that gap widens rather than closes -- measured twice in one CI
+            # hour, on a genuinely wedged suite and on an ordinary failing one, both cases where the console
+            # had just printed the suite's own marker text a few lines above the now-empty verdict. Read-
+            # NativeCaptureFile's probe waits (bounded, $script:NativeCaptureSettleMilliseconds) for a
+            # lingering writer to release before it is read as empty, exactly as the print already does --
+            # so the retention decision can no longer disagree with what the console just showed.
+            $captureOem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
             if (Test-Path -LiteralPath $captureDir) {
                 $keep = @()
                 foreach ($f in @($failedCaptureFiles)) {
-                    if ((Test-Path -LiteralPath $f) -and ((Get-Item -LiteralPath $f).Length -gt 0)) { $keep += $f }
+                    if (-not (Test-Path -LiteralPath $f)) { continue }
+                    $settled = Read-NativeCaptureFile -Path $f -Encoding $captureOem `
+                                                       -SettleMilliseconds $script:NativeCaptureSettleMilliseconds
+                    if ($settled.Text.Length -gt 0) { $keep += $f }
                 }
                 if ($keep.Count -eq 0) {
                     Remove-Item -Recurse -Force -LiteralPath $captureDir -ErrorAction SilentlyContinue
