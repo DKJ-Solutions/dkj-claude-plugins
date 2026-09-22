@@ -44,7 +44,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 30 minor entries** <!-- pending-tally -->
+**21 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2289-lens-naming-readiness-signal · 20260922-135444
+
+`check-connectors.ps1` can now answer the question the #2130 dual-name layer's retirement is keyed on:
+which spelling each registered consumer's repo lenses are actually written in. A non-counting
+`[LENS-NAMING]` line per connector, and a roll-up across the register that states its coverage before
+its verdict — `NOT ANSWERABLE FROM THIS MACHINE`, `NOT YET`, or `ALL N ARE OVER`, and only the third
+opens the window. The classifier behind it, `Get-SpecialistNamingState`, reads the shapes table rather
+than any literal, so a future rename step that flips a row cannot leave the report describing the wrong
+file.
+
+Dave's decision of September 19, 2026 retires the old lens names *"once the connector register shows all
+six are over"*, and the register could not show it: manifests store bare ids and no filenames, and the
+one check that does resolve a lens file resolves it to compare its **body**. A bridge whose expiry
+cannot be established is a permanent one by default, which is what #2289 measured. The signal is
+**measured, never declared** — no `lensNaming` manifest field, on the same ground the `plugins[].id`
+rule already stands on: hand-maintained state about somebody else's tree turns the register into a false
+alarm about a migration nobody ran.
+
+Run on the real register it reports 3 of 6 connectors reachable on this machine, 1 over and 2 not —
+so the honest answer today is that the window is not yet answerable, which is exactly the fact that was
+previously unobtainable. #2292 is the retirement tracker the issue's other half asks for.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing a consumer runs changes. `check-connectors.ps1` and the `connectors/` register are
+source-repo-only — a consumer's session check runs `plugin-versions` in `-Brief` mode instead — and the
+new classifier travels in the plugin payload unused by any consumer-side caller. The `[LENS-NAMING]`
+lines are deliberately neither `[ERROR]` nor `[INFO]`, so they do not count and no session hook surfaces
+them: a consumer still on the old spelling is **not broken**, which is the entire purpose of the layer
+being measured.
+
+**Score:** N/A
+
+#### Pull Request
+
+The lens-naming readiness signal the #2130 dual-name retirement is keyed on
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2294](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2294)
+
+---
 
 ### DEPLOY: fix/2284-claim-absorbed-issue · 20260922-131923
 
