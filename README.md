@@ -860,7 +860,7 @@ SessionStart hooks the enabled plugins ship (read them in each plugin's `hooks/h
 hand-written list here was named as three and went stale twice inside two days) and the Stop hooks
 `cycle-autopark` and `closeout-gate`
 function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session — only the skills
-<!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `park`, `fix-mojibake`,
+<!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `sweep-issues`, `park`, `fix-mojibake`,
 `specialists-init`, `specialists-teardown`, `sync-roster`, `start-task`, `adopt-shopify-floor`,
 `cut-release`, `adopt-dkj-policy`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`,
@@ -949,7 +949,7 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 ## How we use skills — and what we deliberately don't
 
 <!-- skills:all -->Most skills in claude-code-specialists today (`fold-changelog`, `open-pr`, `ship-pr`,
-`new-branch`, `claim-issue`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
+`new-branch`, `claim-issue`, `sweep-issues`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`, `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `measure-closeouts`, `worktree-lane`, `check-fanout`,
