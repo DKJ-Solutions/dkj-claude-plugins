@@ -264,7 +264,7 @@ push`, or `did NOT check whether another session is on '<branch>'`. That wording
 never happened and a look that found nothing are different answers, and reporting them alike would put
 #1953's silence back through a new door. **Nothing is lost either way** -- the next turn asks again.
 
-Four parameters, all for callers rather than for you:
+Six parameters, all for callers rather than for you:
 
 - **`-Quiet`** -- print nothing when there is nothing to do. What the hook passes, so an ordinary turn adds
   no line to the session. A push still reports itself, and so does a **collision**: a refusal is "nothing

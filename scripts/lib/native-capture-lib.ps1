@@ -1202,20 +1202,24 @@ function New-NativeCaptureBudget {
         [string]$ExpiresFile = ''
     )
 
+    # WHAT AN INSTANT LEAVES FROM NOW, for the two absolute arms below -- floored at 0, and 0 for an
+    # instant there is none of. One definition rather than one per arm, so the arms stay a plain reading
+    # of the precedence ladder in the docstring and cannot come to disagree about the arithmetic. Same
+    # scriptblock idiom as $costOf in Get-TestSuiteShardOrder.
+    $leftFrom = {
+        param($instant)
+        if ($null -eq $instant) { return 0 }
+        $n = [int][math]::Floor(($instant - (Get-Date).ToUniversalTime()).TotalSeconds)
+        if ($n -lt 0) { 0 } else { $n }
+    }
+
     if ($ExpiresFile) {
         $fromFile = Get-NativeCaptureBudgetFileDeadline -Path $ExpiresFile
-        $leftAtBirth = 0
-        if ($null -ne $fromFile) {
-            $leftAtBirth = [int][math]::Floor(($fromFile - (Get-Date).ToUniversalTime()).TotalSeconds)
-            if ($leftAtBirth -lt 0) { $leftAtBirth = 0 }
-        }
-        return [pscustomobject]@{ TotalSeconds = $leftAtBirth; Expires = $fromFile; ExpiresFile = $ExpiresFile }
+        return [pscustomobject]@{ TotalSeconds = (& $leftFrom $fromFile); Expires = $fromFile; ExpiresFile = $ExpiresFile }
     }
 
     if ($ExpiresUtc -ne [datetime]::MinValue) {
-        $leftAtBirth = [int][math]::Floor(($ExpiresUtc - (Get-Date).ToUniversalTime()).TotalSeconds)
-        if ($leftAtBirth -lt 0) { $leftAtBirth = 0 }
-        return [pscustomobject]@{ TotalSeconds = $leftAtBirth; Expires = $ExpiresUtc; ExpiresFile = '' }
+        return [pscustomobject]@{ TotalSeconds = (& $leftFrom $ExpiresUtc); Expires = $ExpiresUtc; ExpiresFile = '' }
     }
 
     $expires = $null
@@ -1233,8 +1237,10 @@ function Get-NativeCaptureBudgetFileDeadline {
 
         Unix epoch seconds, UTC, as text -- the same unit park-cycle.ps1's -BudgetDeadlineEpochSeconds
         takes, so the two spellings of "when this run's ceiling falls due" cannot disagree about units.
-        Anchored `^-?\d+$` before the cast, because [long]'ConvertFrom' on free text is an exception and
-        this lib is loaded by scripts whose whole contract is that they never fail.
+        Anchored `^-?\d+$` before the cast, because a [long] cast on free text THROWS and this lib is
+        loaded by scripts whose whole contract is that they never fail. The try/catch behind it is not
+        redundant with the anchor: a run of digits can still be out of [long]'s range, and
+        FromUnixTimeSeconds has a range of its own that is narrower again.
     #>
     param([string]$Path)
 

@@ -84,6 +84,15 @@ still genuinely expires -- so nothing can be made immortal by this seam.
 - [x] Timed, banner to first assert, on this workstation: **18.3s before, 2.4s after**.
 - [x] `park-cycle.tests.ps1` (141), `native-capture.tests.ps1` (349), `shared-scripts.tests.ps1`
       (972) and `cycle-autopark.tests.ps1` (25) green; `check-plugin-integrity.ps1` green.
+- [x] Negative probe: with the shim's budget-spend widened from `now + 3` to `now + 3600`, the case
+      goes red on exactly the two asserts #2307 reports. It cannot pass vacuously.
+- [x] Review chain on the diff -- code review, copy edit, security -- and their findings applied:
+      the `[long]` cast described as a method that does not exist, a stale parameter count on the
+      `park` skill page (already wrong at five before this branch added a sixth), a leftover clause
+      arguing against `timeout.exe` where the rejected alternative is now a file copy, a missing
+      case banner for (t2), and the floor-at-0 arithmetic written twice in `New-NativeCaptureBudget`.
+      Security: no meaningful surface -- the seam moves the deadline and never the clock, cannot
+      reach the lib's UNBOUNDED value, and no production caller passes it.
 - [~] Full local suite gate not run -- this machine cannot finish it, so CI's required check
       `lint-en-tests` is the gate, as it is for every branch from here.
 

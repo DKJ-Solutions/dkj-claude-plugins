@@ -175,8 +175,9 @@ function New-Fixture {
         # ~7s did not hold, ~15s did not hold, and there was never a third number worth picking.
         #
         # powershell and not a `copy` of a pre-written file: the near deadline has to be three seconds
-        # from THE MOMENT THE CALL HAPPENS, and only a real clock read at that moment can say when that
-        # is. Invoke-NativeCapture redirects stdin, which timeout.exe refuses outright.
+        # from THE MOMENT THE CALL HAPPENS, and a file written while the fixture was being built names an
+        # instant that may already be long past by then. Only a clock read inside the call can say when
+        # "now" is, and cmd has no arithmetic for one.
         [switch]$GhSpendsBudget,
         # Writes a scripts/repo-config.ps1 answering the OPTIONAL trunk seam with this name. Omitted:
         # no repo-config at all, which is the unadopted repo every other fixture here models.
@@ -925,6 +926,7 @@ try {
     Assert-Equal 1 (Get-CommitCount -Dir $fixT) 'spent budget: nothing was committed'
     Assert-True (-not (Test-RefOnRemote -Bare "$fixT.git" -Ref 'refs/heads/feat/budget-spent-v1')) 'spent budget: and nothing reached origin'
 
+    # --- (t2) THE SAME REFUSAL, FROM AN ABSOLUTE DEADLINE ALREADY PAST (issue #2077) ---------------
     # AND THE ABSOLUTE SPELLING REFUSES IDENTICALLY (#2077, kept covered here since #2307). A deadline
     # already in the past is the same verdict as a duration too small to buy anything, and this is the one
     # end-to-end reading of -BudgetDeadlineEpochSeconds left: case (u) below states its deadline in a file
