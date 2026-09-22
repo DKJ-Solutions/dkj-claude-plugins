@@ -449,49 +449,54 @@ count is worth stating precisely because the wrong one is what kept the second s
     #2247 names the sweep that found the site, not a fix.
 13. **`check-consumer-siblings.ps1`'s ONLY-IN/PARTIAL/DRIFTED/SHIPPED lines -- the second of the two
     SITES this sweep found that the list never carried at all, now repaired under #2248**
-    (L455, L457, L462, L466, L478, #2247, #2248) -- a sibling consumer repo's own file paths
+    (L474, L476, L481, L485, L497, #2247, #2248) -- a sibling consumer repo's own file paths
     (`$f.Path`), read out of that repo's checkout, were printed at four lines (the `ONLY-IN`, `PARTIAL`
     and `DRIFTED` lines, plus the `SHIPPED` lane #1885 added) with no strip at all. The script already
     dot-sourced `check-report-lib.ps1` (L105) for that same `Write-Info`, so `Format-SafePathToken` sat
     one argument away at every one of these four lines and was called at none of them.
 
     All four now guard `$f.Path` via `Format-SafePathToken`. **The repair went further than the four
-    values this entry named**: `$label` (the `ONLY-IN` group header, L455), `$f.Member` (L457) and
-    `$f.Members` (L462, L478) -- a sibling group's own connector-manifest `repo` field, printed at the
+    values this entry named**: `$label` (the `ONLY-IN` group header, L474), `$f.Member` (L476) and
+    `$f.Members` (L481, L497) -- a sibling group's own connector-manifest `repo` field, printed at the
     same sites -- are guarded the same way, on the verified precedent that `check-connectors.ps1`
     already guards that identical `$manifestRepo` field with `Format-SafePathToken` at six sites
     (L983, L990, L1039, L1041, L1065, L1069). **And deliberately left unguarded, stated as a decision in
     a code comment rather than missed**: `$f.Class` (this script's own enum, its `'only-in'`/`'partial'`/
     `'drifted'` literals assigned in `Find-ShippedMechanism`, `scripts/lib/sibling-divergence-lib.ps1`
     ~L416-418, off `Compare-SiblingInventory`'s output rather than by that function itself) and
-    `$_.Plugin`/`$_.Path` inside `$where` at L477 (off `Get-MarketplaceShippedScript`, this repo's own
+    `$_.Plugin`/`$_.Path` inside `$where` at L496 (off `Get-MarketplaceShippedScript`, this repo's own
     marketplace index) -- neither is foreign text, both are this repo's own.
 
-    **And two more sites in the same file were still raw after that repair -- found by Tycho's
-    regression pin, then closed under #2272.** `$label`, the same connector-manifest `repo` field, was
-    printing completely unguarded earlier in the script, before the group loop: L425 (the `$unreadable`
-    line, inside the `if (-not $inv.Ok)` branch) and L430 (the per-member `read <label> : N comparable
-    path(s) via <reason>` line). Both now guard `$label` via `Format-SafePathToken`, the same function
-    and the same field as the five sites above.
+    **And two more sites in the same file needed a further guard -- `$label`'s reached the trunk
+    independently, under #2272 via PR #2275; `$inv.Reason`'s is this branch's own.** Tycho filed #2272
+    after finding `$label`, the same connector-manifest `repo` field, still printing completely
+    unguarded earlier in the script, before the group loop: L444 (the `$unreadable` line, inside the
+    `if (-not $inv.Ok)` branch) and L449 (the per-member `read <label> : N comparable path(s) via
+    <reason>` line). #2272 sat unclaimed on the tracker while this branch carried it; another session
+    picked it up, fixed `$label` at those two lines, and shipped it as PR #2275, merged to `main` ahead
+    of this branch -- so that half of the guard is not this branch's work, and this entry does not claim
+    it. What this branch adds at the same two lines is the value #2272's own fix did not touch.
 
     Both lines also guard a value this entry had not named before: **`$inv.Reason`, via
     `Format-SafeProseToken`, not `Format-SafePathToken`** -- a different shape from every other value in
     this entry, because it is not a foreign value printed whole but a **composed sentence that sometimes
     embeds foreign text at a variable position**. Verified against the tree rather than assumed:
-    `$inv.Reason` is assigned in three places -- `Get-GitHubInventory`, `Get-DiskInventory` (L152-219),
-    and one arm inline in the script body itself (L411, when no `localCheckout` candidate resolves on
+    `$inv.Reason` is assigned in three places -- `Get-GitHubInventory`, `Get-DiskInventory` (L152-235),
+    and one arm inline in the script body itself (L427, when no `localCheckout` candidate resolves on
     this machine). Of all of those, only two carry foreign text, both in `Get-GitHubInventory` and both
     built from `$branch` -- the sibling's own default branch name, read off `gh api`:
-    `"gh exited $($call.ExitCode) reading the tree of $branch"` (L176) and `"github:$branch"` (L186).
+    `"gh exited $($call.ExitCode) reading the tree of $branch"` (L192) and `"github:$branch"` (L202).
     Every other arm is this script's own literal text, or embeds only a number (an exit code, a timeout
     in seconds). No total is given here on purpose: a count of arms is exactly the kind of value this
-    page has now gotten wrong three times running (nine-plus-two, a relay of it, and a recount scoped to
-    two functions when a third arm reaches the same print) -- the two lines above are what a reader needs
-    to re-verify this claim, and they cannot go stale the way a summed total can. Guarded at the print
-    rather than at composition, deliberately:
-    `"github:$branch"` is the arm `$memberSource[$label].Branch` is stripped from (L406,
+    page has now gotten wrong three times running before this branch even shipped (nine-plus-two, a
+    relay of it, and a recount scoped to two functions when a third arm reaches the same print), and the
+    file gained two more literal arms from an unrelated merge while this entry was being written (#2234,
+    now L176 and L190) -- proof, not just argument, that any total here would already be stale. The
+    lines above are what a reader needs to re-verify this claim, and they cannot go stale the way a
+    summed total can. Guarded at the print rather than at composition, deliberately:
+    `"github:$branch"` is the arm `$memberSource[$label].Branch` is stripped from (L422,
     `-replace '^github:', ''`) and carried into a later `contents/$($f.Path)?ref=$($src.Branch)` API
-    call (L263), so sanitizing `$inv.Reason` at composition would corrupt a real, if unusual, sibling
+    call (L279), so sanitizing `$inv.Reason` at composition would corrupt a real, if unusual, sibling
     branch name rather than merely change what the console shows.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
@@ -538,12 +543,16 @@ unguarded prints -- both now repaired under #2248. The other four were never any
 inspection -- a strip mechanism and a guarded print that already worked, simply not yet carried onto
 this page.
 
-**And entry 13 went one round further, inside this very branch.** #2272 found `$label` and
-`$inv.Reason` still raw at two more lines of that same site, missed by the repair that had just
-rewritten the entry above to say it was fixed. Every earlier instance of this lesson -- entry 5, entry
-6 -- was found by unrelated work sometime after the fact; this one was found before the rewrite had
-even reached `main`, by a regression test's fixture rather than by anyone rereading the site or this
-page.
+**And entry 13 went one round further, inside this very branch -- and the repair split in two hands.**
+#2272 found `$label` and `$inv.Reason` still raw at two more lines of that same site, missed by the
+repair that had just rewritten the entry above to say it was fixed. Every earlier instance of this
+lesson -- entry 5, entry 6 -- was found by unrelated work sometime after the fact; this one was found
+before the rewrite had even reached `main`, by a regression test's fixture rather than by anyone
+rereading the site or this page. **But #2272 was never claimed on the tracker**, so while it sat open
+against this branch, another session picked it up unaware and shipped `$label`'s half as its own PR,
+merged first; only `$inv.Reason`'s half is this branch's repair. That split is a lesson about issue
+ownership, not about foreign text, and it is not this page's to hold -- named here only because it is
+why the sentence above splits credit rather than claiming the whole site.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and

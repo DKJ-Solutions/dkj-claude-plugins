@@ -74,6 +74,13 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
       rather than at composition because the same value feeds a live `?ref=` API call (L263).
       Ruled in scope rather than deferred: entry 13 had already been rewritten to say this site was
       guarded, so leaving them raw would have made the registry false the day it was written.
+- [~] **...and #2272 was then shipped independently by another session, as PR #2275, while this
+      branch was in review.** Nobody had claimed it — Tycho filed it and it was folded into this
+      branch without a claim, so the tracker showed it unowned and a colleague correctly took it.
+      Their repair landed on the trunk first and this PR went `CONFLICTING`. Resolved by merging
+      the trunk in and keeping this branch's version, which is a strict superset: the trunk guards
+      `$label` only, this also guards `$inv.Reason`. Marked dropped rather than done because the
+      issue was closed by their PR, not by this one.
 - [x] Extend registry entry 13 for those two sites and the second guard function.
 
 ### TEST
@@ -85,13 +92,14 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
       `sibling-divergence`, `shared-scripts` (mirror parity) and `pr-issues` (which pins *which* libs
       may carry the strip pattern -- untouched, since this branch only calls the existing functions).
 - [x] Every line number cited in the three registry entries verified against the tree after the edit.
-- [x] **Deliberate local gate bypass, recorded rather than slipped through**: `ship-pr` ran with
-      `-SkipTests`. `open-pr` had just run all 122 suites green on this exact tree (1,259s, 8 lanes)
-      and nothing was committed after it, so the local re-run would have measured nothing new --
-      while CI runs the authoritative copy of the same gate as the required check `lint-en-tests`,
-      which is what the merge is actually gated on. The lint gate was **not** skipped. The
-      contention flake in `test-suite-gate.tests.ps1` on an already-loaded machine was the second
-      reason not to spend the run a third time.
+- [x] **A deliberate local gate bypass on the FIRST ship, recorded rather than slipped through --
+      and withdrawn on the second.** The first `ship-pr` ran with `-SkipTests`, because `open-pr`
+      had just run all 122 suites green on that exact tree (1,259s, 8 lanes) with nothing committed
+      after it, so the local re-run would have measured nothing new. That ship never merged (the
+      trunk had gained #2272 and the PR went `CONFLICTING`), and the reconciliation merged the
+      whole trunk in. **The tree is therefore no longer the one that was gated, so the second ship
+      runs the full gate** — the argument for the valve was that the measurement would be
+      identical, and it no longer would be. The lint gate was never skipped in either run.
 - [x] Behavioural regression pin written -- `scripts/tests/check-consumer-siblings.tests.ps1`, new,
       22 asserts, where this script had no suite-level coverage at all before (only its pure lib).
       It drives the real script with `-Source disk` over crafted manifests and asserts on the
@@ -128,13 +136,21 @@ code rather than in anyone's memory.
 
 **Then the regression pin written for that repair found two more sites the repair had missed** --
 `$label`, the same manifest field, printed completely raw at the `$unreadable` line and the
-per-member `read` line earlier in the same file (#2272). Both are guarded here rather than deferred,
-because registry entry 13 had by then been rewritten to say this site was repaired: leaving them
-would have made the entry false the day it was written, which is the exact failure the entry
-describes. `$inv.Reason` at those lines is guarded too, via `Format-SafeProseToken` -- it is a
-composed sentence carrying foreign text only in its two `Get-GitHubInventory` arms, and it is
-guarded at the print rather than at composition because the same value feeds a live `?ref=` API
-call.
+per-member `read` line earlier in the same file (#2272). They were guarded here rather than
+deferred, because registry entry 13 had by then been rewritten to say this site was repaired:
+leaving them would have made the entry false the day it was written, which is the exact failure the
+entry describes.
+
+**#2272 was then shipped by somebody else first, and that is worth recording rather than tidying
+away.** It was filed here and folded into this branch without anyone claiming it on the tracker, so
+it read as unowned and another session correctly picked it up and landed it as PR #2275 while this
+branch was in review. Their repair guards `$label`; this branch's also guards `$inv.Reason`, via
+`Format-SafeProseToken` -- a composed sentence carrying foreign text only in its two
+`Get-GitHubInventory` arms, guarded at the print rather than at composition because the same value
+is carried into a live `?ref=` API call. The two were reconciled by merging the trunk in and
+keeping the superset. The cost was a conflicting pull request and a re-ship, and the cause was one
+missing claim: the tracker is the only thing two sessions share, and an issue absorbed into an open
+branch is still an unclaimed issue to everybody else.
 
 **This also corrects a claim the registry was making.** #2247 asserted of `adopt-ci-floor.ps1` that
 "this is an accuracy defect in the registry, not an unguarded site -- nothing is exploitable today",
