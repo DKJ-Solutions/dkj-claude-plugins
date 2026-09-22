@@ -407,6 +407,37 @@ Assert-True ($ci -notmatch 'Get-ChildItem[^\r\n]*tests') 'and still does not glo
 Assert-True ($ci -match '(?m)^\s{2}merge_group:') 'the merge_group trigger survived the restructure (#1325 prerequisite 1)'
 Assert-True ($ci -like '*#1351*') 'and the file cites the issue whose measurement explains the shape'
 
+Write-Host "== ci.yml: the banner above jobs: stays an orphan nobody appends to (#2314) ==" -ForegroundColor Cyan
+
+# THE ONLY COMMENT RUN IN ci.yml THAT BELONGS TO NO KEY, which is exactly why it grew. Every other run
+# sits above a key and is bounded by that key's subject; this one had no owner, so a paragraph about any
+# job landed here -- and two branches appending to one anchor conflict pairwise, by construction. Three
+# CI branches in one afternoon did (#2296, #2303, #2304), and the cost was never the resolution but the
+# forty minutes of CI laps it took to discover. Same shape as #1255 one file over.
+#
+# A CEILING, NOT A BAN. What legitimately belongs here is what is true of the FILE -- why there are three
+# jobs, and that every job declares a timeout at all -- and that is two subjects, so a ceiling is the
+# check that admits them and refuses a third. 40 is derived, not chosen for roundness: this run measured
+# 87 lines before #2314 and 32 after, so the ceiling is the post-change reading plus one paragraph of
+# headroom, and still under half of what it had reached. Re-measure it here if a genuinely file-wide
+# decision ever needs the room; do NOT raise it to admit a paragraph that has a key of its own.
+$ciLines = @(Get-Content -LiteralPath $ciPath)
+$jobsIdx = -1
+for ($i = 0; $i -lt $ciLines.Count; $i++) { if ($ciLines[$i] -match '^jobs:\s*$') { $jobsIdx = $i; break } }
+Assert-True ($jobsIdx -ge 0) 'ci.yml declares a top-level jobs: key'
+
+$bannerLines = 0
+for ($i = $jobsIdx - 1; $i -ge 0 -and $ciLines[$i] -match '^#'; $i--) { $bannerLines++ }
+Assert-True ($bannerLines -le 40) `
+    "the comment run directly above jobs: is $bannerLines lines, at or under the 40-line ceiling -- a paragraph that argues ONE key belongs above that key, not here (#2314)"
+
+# AND THE CONVENTION IS WRITTEN DOWN IN THE FILE ITSELF, not only here. A ceiling that fires without
+# saying what to do instead sends the next author to raise the ceiling -- which is the one repair that
+# reopens the class. The file's own head states where a decision is argued; this pins that it still does.
+Assert-True ($ci -match '(?m)^# WHERE A DECISION IS ARGUED: DIRECTLY ABOVE THE KEY IT DECIDES') `
+    'ci.yml states the per-anchor convention in its own head, so the ceiling above has somewhere to point'
+Assert-True ($ci -like '*#2314*') 'and cites the issue that measured the collision'
+
 # ------------------------------------------------------------------------------------------------
 Write-Host ""
 if ($script:fail -gt 0) {

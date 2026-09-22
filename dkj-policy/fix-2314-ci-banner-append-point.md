@@ -39,23 +39,75 @@
 
 ### PLAN
 
-Option A chosen by Dave: per-anchor paragraphs. Split the file-level banners so each decision's prose sits directly above the key or step it argues; state the convention; keep every word.
+Option A chosen by Dave: per-anchor paragraphs. Split the file-level banners so each decision's prose
+sits directly above the key or step it argues; state the convention; keep every word.
+
+#### What the collision actually is
+
+`ci.yml` carries five comment runs. Four sit directly above a key and are bounded by that key's
+subject; the fifth -- the banner above `jobs:` -- belongs to no key, so it is where prose about *any*
+job lands. That is the orphan anchor, and it is the one #2303 and #2296 both appended to while also
+inserting a key under `runs-on:` in the `suites` job.
+
+#### The one thing the issue did not name
+
+#2296 had already half-adopted the answer: it wrote a two-line pointer above `timeout-minutes:` in
+the `suites` job AND a 31-line banner above `jobs:`. So the convention is not merely unstated -- it is
+stated by example in both directions at once, which is why writing it down is part of the repair
+rather than a note beside it.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Re-home every paragraph in the `jobs:` banner that argues a single key, to that key: the name
+      rule and the two `!cancelled()` paragraphs to `lint-en-tests`, the strict-success paragraph to
+      the step that enforces it, the merge-commit shortcut (#2303) to the certificate step that
+      already carries a pointer back to it, and the two per-job timeout derivations (#2296) to the
+      `timeout-minutes:` keys they name.
+- [x] Collapse the duplication those pointers created -- #2303's argument is currently in the banner
+      AND on its step, #2296's in the banner AND on the `suites` key.
+- [x] Leave the genuinely file-wide paragraphs where they are: why there are three jobs, and the
+      rule that every job declares a timeout at all.
+- [x] State the convention in `ci.yml`'s own head, so the next CI branch reads it before it appends.
+- [x] Record the argument in Sylvester's lens, which is where this repo already writes CI reasoning.
 
 ### TEST
 
+- [x] A guard on the orphan anchor: `ci-shard.tests.ps1` holds the `jobs:` banner to a measured
+      ceiling, so a re-grown banner fails a suite instead of surfacing at the next conflict.
+- [ ] Every assert that reads `ci.yml` by regex still passes -- `ci-shard.tests.ps1`,
+      `merge-queue-prereq.tests.ps1`, `workflow-timeouts.tests.ps1`.
+- [x] No reasoning lost: the change is a move, verified by comparing the comment bodies before and
+      after rather than by reading the diff.
+
 ### DEPLOY: fix/2314-ci-banner-append-point
 
-**Score:**
+Every paragraph of reasoning in `.github/workflows/ci.yml` now sits directly above the one key, step or
+job it argues, so a new CI decision brings its own new anchor instead of another paragraph on the end of
+a shared block. The comment run above `jobs:` had no owning key, which is why prose about any job landed
+there -- and git cannot merge two appends at one anchor, so two branches obeying the "argue it where it
+lives" convention correctly conflicted pairwise, by construction. Three CI branches in one afternoon did
+(#2296, #2303, #2304); `ship-pr` found it on #2300 at forward lap 3, after roughly forty minutes of CI
+waits, and resolving it took about five minutes. It is the #1255 shape one file over, where a single
+fixed development document made every merge conflict every other open PR.
+
+Nothing was rewritten: of 302 comment lines, eleven changed, and every one of those eleven was a
+cross-reference the move made false. What stays above `jobs:` is what is true of the file as a whole --
+why there are three jobs, and that every job declares a timeout at all -- so the run went 87 lines to 32.
+`ci-shard.tests.ps1` holds it to a 40-line ceiling, paired with an assert that the convention is stated
+in the file's own head, because a ceiling that fires without saying what to do instead sends the next
+author to raise the ceiling. The `runs-on:` half of the collision is deliberately left alone: two branches
+adding different keys to one job header is irreducible and took thirty seconds.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this is the source repo's own CI workflow. Nothing here travels to a consumer: `ci.yml` is not
+plugin payload, it is not one of the runners `adopt-dkj-policy` scaffolds, and a subscriber of this
+service reads nothing that changed.
+
+**Score:** N/A
 
 #### Pull Request
 
 ci.yml's reasoning sits above the key it argues, so two CI branches no longer append to one anchor
-
