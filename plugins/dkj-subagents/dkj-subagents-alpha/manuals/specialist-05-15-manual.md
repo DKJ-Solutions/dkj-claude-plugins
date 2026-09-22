@@ -101,6 +101,24 @@ and safe hook construction.
 - **Never add a permission or hook that undermines the safety rules.** The safety rules stand above
   any config convenience: no allowlist rule that would blindly let a dangerous or irreversible action
   through. The concrete per-repo details live in the `## Specific to this repo` extension.
+- **A GitHub-side setting may already be a DECIDED answer — read the declaration before you propose
+  changing one.** A ruleset rule, a merge switch, a required check: none of them leaves a trace in the
+  repo when it moves, so a session meets them as bare switches with the reasoning nowhere in sight —
+  and the reasoning is the whole content. Where this workflow's declaration is filled in
+  (`Get-ExpectedRepoSettings` in the repo's own `repo-config.ps1`), every watched fact carries the
+  document in the tree that states it, the date that statement was last measured, and one line of why
+  it holds; `check-repo-settings.ps1` prints all of them in about a second and writes nothing to
+  GitHub. **Run it before the proposal, not after the change** — its own runner is a schedule, so its
+  earliest catch is the next scheduled run, which is after the change and after whatever the change
+  let through. An empty declaration is a complete answer and means only that nothing is watched; it is
+  never evidence that a setting is free to move.
+  **The trap is that the switch looks cheapest at exactly the moment it is being reached for**, and the
+  declared reason is usually about precisely that moment. Measured in the source repo, September 22,
+  2026 (#2265): a session waiting on a queued CI check offered enabling `allow_auto_merge` as the way
+  to stop waiting — a setting declared `false` there because with strict off "up to date" is not a
+  merge requirement, so auto-merge lands a stale-but-green certificate unattended. The trunk had gained
+  nine commits while that pull request was being prepared, which is the condition the declaration
+  names. Both the setting and the armed auto-merge were reverted in the same session.
 - **Config changes everyone's behavior** — a change that determines how every response looks or which
   tools may run is meta-work: it goes through a branch and is aligned with the user before it goes
   live. Sylvester works closely with the orchestrator here.

@@ -424,6 +424,27 @@ try {
         'and the run passes -RequireRead, so a token that cannot read reports a failure instead of a green nothing'
 
     Write-Host ''
+    Write-Host 'the declaration is POINTED AT where a session meets the decision to change one (issue #2265)'
+    # The check is a scheduled leg by decision (#1726), so its earliest catch is after the change. What
+    # was missing was a pointer at the moment of the change, and the measured moment is ship-pr's CI
+    # wait: a session offered enabling allow_auto_merge to stop waiting on a queued check, against this
+    # tree's own record declaring it false. These asserts hold the pointer's SHAPE -- derived from the
+    # seam, guarded, and silent where a repo declares nothing -- because a line that hardcoded this
+    # repo's answer would be a claim about a consumer's settings that ship-pr cannot keep.
+    $shipPr = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\release\ship-pr.ps1') -Raw
+    Assert-True ($shipPr -match "Test-FunctionDefined 'Get-ExpectedRepoSettings'") `
+        'ship-pr reads the declaration through the optional seam, behind the same guard every optional seam uses'
+    Assert-True ($shipPr -match 'check-repo-settings\.ps1') `
+        'and it names the check, so the reader has the one command rather than only the warning'
+    Assert-True ($shipPr -match '\$declaredSettings\.Count -gt 0') `
+        'it prints nothing where a repo declares nothing -- derived, never asserted'
+    $waitAt    = $shipPr.IndexOf('waiting for the CI check(s) on PR')
+    $pointerAt = $shipPr.IndexOf("Test-FunctionDefined 'Get-ExpectedRepoSettings'")
+    $watchAt   = $shipPr.IndexOf('THE WATCH BLOCKS ON THE REQUIRED CHECKS ONLY')
+    Assert-True ($waitAt -gt 0 -and $pointerAt -gt $waitAt -and $pointerAt -lt $watchAt) `
+        'and it sits in the CI-wait invitation, which is the measured moment -- not in a docstring nobody reads mid-wait'
+
+    Write-Host ''
     Write-Host 'the registered mirror (issue #1843) -- one case proves it, not merely the file this suite sits beside'
     Assert-True (Test-Path -LiteralPath $Mirror -PathType Leaf) 'the plugin mirror exists at the registered path'
     $dirMirror = New-Fixture -Label 'mirror' -Declared $DeclareRules

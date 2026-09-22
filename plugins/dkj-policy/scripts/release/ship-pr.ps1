@@ -1502,6 +1502,44 @@ Write-Host "  It does need this session's process: the merge and the fold are st
 Write-Host "  So leave this one running and carry on in a SECOND terminal -- do not quit the harness." -ForegroundColor DarkGray
 Write-Host "  $(Get-TrunkReturnGoAheadLine -Returned $treeOnTrunk -Branch $branchShown)" -ForegroundColor DarkGray
 Write-Host "  Open that second terminal in a lane: scripts\task\worktree-lane.ps1 -Name <name>" -ForegroundColor DarkGray
+# --- AND THE ANSWER IS NEVER A GITHUB-SIDE SETTING (issue #2265) ---------------------------------
+# The block above answers "this wait is long, what do I do about it". This line answers the other thing
+# a session reaches for at exactly this moment, and it is the one answer that is wrong: turning a merge
+# switch on so that the wait stops needing anybody. Measured September 22, 2026 on PR #2262, three of
+# four CI shards still queued -- `allow_auto_merge` was enabled and armed against a record in that
+# repo's own tree declaring it `false`, with the trunk nine commits ahead at that moment. That is
+# exactly the stale-but-green certificate step 3b refuses, and step 3b cannot see it, because an
+# auto-merge happens without a shipping session (#1730). The declaration was machine-readable, about a
+# second away, and pointed at by nothing in the session.
+#
+# WHY HERE AND NOT IN A GUARD. The repo-settings check is a SCHEDULED leg by decision (#1726), so its
+# earliest catch is the next scheduled run -- after the change, and after whatever the change let
+# through. That decision is about drift somebody else caused and it stands; this is the other shape,
+# where the session is the one about to cause it, and the whole repair is a pointer at the moment of
+# the temptation rather than a third runner.
+#
+# DERIVED, NEVER ASSERTED. It names only what the repo's OWN Get-ExpectedRepoSettings declares, so a
+# repo that declares nothing gets no line at all -- the same rule the watch below follows when it
+# refuses to name a check ("a claim about the consumer's CI that this script cannot keep"), one surface
+# over. The seam is optional and the read is guarded, so a tree without it is unchanged.
+if (Test-FunctionDefined 'Get-ExpectedRepoSettings') {
+    try {
+        $declaredSettings = @(Get-ExpectedRepoSettings)
+        if ($declaredSettings.Count -gt 0) {
+            $autoMergeDeclared = @($declaredSettings |
+                Where-Object { $_.Field -eq 'repo.allow_auto_merge' }).Count -gt 0
+            $settingsSubject = if ($autoMergeDeclared) {
+                "$($declaredSettings.Count) GitHub-side settings, auto-merge among them"
+            } else {
+                "$($declaredSettings.Count) GitHub-side settings"
+            }
+            $settingsLine = "  A GitHub SETTING is not one of the answers: this repo declares " +
+                "$settingsSubject, each with its reason -- read them (check-repo-settings.ps1) " +
+                'before proposing one.'
+            Write-Host $settingsLine -ForegroundColor DarkGray
+        }
+    } catch { }
+}
 # --- THE WATCH BLOCKS ON THE REQUIRED CHECKS ONLY (issue #1602) ----------------------------------
 # WHAT THIS CHANGES, AND WHAT IT DELIBERATELY DOES NOT. The merge below is allowed to go as soon as
 # every check the ruleset REQUIRES is green; the non-required ones are still waited for and still
