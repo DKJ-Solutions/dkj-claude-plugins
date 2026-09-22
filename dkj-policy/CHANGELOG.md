@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 35 minor entries** <!-- pending-tally -->
+**25 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2288-summary-asserts-unmeasured-capture · 20260922-153046
+
+`update-plugins.tests.ps1` went red under gate load at roughly the rate #2114 measured -- about a
+coin flip per full run -- and for a reason that repair had left standing. #2114 gave `Assert-CleanExit`
+a third state for a capture whose exit code was never measured, on the stated bound that everything
+else in a scenario is unaffected by it. Two asserts are not: `update-plugins.ps1` counts such a
+capture as a failure, by a decision #2081 argued and #2114 accepted, so its green summary line is
+never printed in precisely the runs the tolerance waves through -- and scenario 1 was asserting that
+green line. They are now asserted through `Assert-Summary`, which holds a measured run to the green
+summary and an unmeasured one to the red summary the script is specified to print instead. A run that
+prints neither still fails, so the scenario keeps proving something about the summary rather than
+being excused from it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing to migrate and nothing to run: this is a test suite in the source repo, and no consumer
+carries it. What it buys is that a gate and a CI leg stop going red on a documented race that nobody
+can act on, which is the failure mode that teaches a reader to skim red checks.
+
+The measurement worth keeping is the shape rather than the rate. #2114 repaired the assert the race
+lands on **first** and reasoned about the rest by class -- commands, ids, scopes, order -- which was
+right for every assert except the one composed from the failure counters. So the lesson is that the
+bound to check is not "is this assert about the exit code" but "is this assert downstream of a value
+the unknown feeds".
+
+**Score:** N/A
+
+#### Pull Request
+
+The update-plugins summary asserts survive an unmeasured capture, as its exit assert already does
+
+[PR #2309](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2309)
+
+---
 
 ### DEPLOY: fix/2298-harden-lens-naming-rollup · 20260922-151146
 
