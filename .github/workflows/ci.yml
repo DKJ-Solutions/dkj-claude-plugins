@@ -129,8 +129,8 @@ concurrency:
 #
 # AND THE IN-PROCESS BOUND CANNOT COVER IT. $script:GateSuiteTimeoutSeconds (native-capture-lib.ps1) is
 # 1800s PER SUITE and reaps a wedged child with an attribution -- it has done so three times on a local
-# machine (#1941). At 2,280 minutes-worth of wall clock here it should have fired and did not, so
-# whatever wedged sat BELOW the level a gate inside the process can reach. That class is exactly what a
+# machine (#1941). At 38 minutes -- 2,280 seconds, so eight minutes past that bound -- it should have
+# fired and did not, so whatever wedged sat BELOW the level a gate inside the process can reach. That class is exactly what a
 # runner-level cap is for, and it is why this is not a duplicate of #1941/#2233/#2255/#2263 -- those are
 # all the in-process bound, this is the one layer under it.
 #
