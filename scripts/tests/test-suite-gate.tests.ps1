@@ -1061,6 +1061,16 @@ exit -1
     Assert-True ($to.Text -match '== s-quick\.tests\.ps1 ==\r?\n') 'the sibling that finished keeps its plain header'
     Assert-Says $to.Flat 'did not finish within the 3s bound: s-wedged.tests.ps1' `
         'the verdict tells a suite that never answered apart from one that asserted and said no'
+    # AND IT DOES NOT LET THAT BE READ AS PROOF OF A WEDGE -- issue #2255. The bound's own comment said
+    # "no suite can reach it by being slow" until a 9-lane run of this repo's 121 suites timed out
+    # check-plugin-integrity-docs.tests.ps1, which passed all 188 asserts standalone minutes later. The
+    # sentence above is where a session decides what to suspect, so the ambiguity is named there and so is
+    # the one measurement that settles it. Asserted on BOTH halves: a hedge that says "maybe not a wedge"
+    # and stops has moved the re-litigation rather than ended it.
+    Assert-Says $to.Flat 'not by itself a wedge (#2255)' `
+        'and it says a slow suite can reach the bound, so a timeout is not read as a wedge by default'
+    Assert-Says $to.Flat 're-run the named suite alone' `
+        'and it names the measurement that separates "never answered" from "answered late"'
     # NOT A CRASH, AND THEREFORE NOT RE-RUN. The whole judgement in #1941's branch: re-running a wedged
     # suite alone removes the contention that is the likeliest cause, passes, and leaves the gate green
     # over a run that cost the machine 90 processes.
