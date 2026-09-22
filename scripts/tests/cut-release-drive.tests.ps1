@@ -135,7 +135,11 @@ function New-CutFixture {
         [string]$PluginVersion = '1.4.0',
         [string]$HistoryMajors = "#### 1.x`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n",
         [int]$AudienceTier = 2,
-        [int]$EntryTopTier = 0)
+        [int]$EntryTopTier = 0,
+        # A SECOND, CALLER-WRITTEN ENTRY, appended verbatim after the fixture's own one (inbound #2230).
+        # Raw rather than another set of named knobs: the one scenario that needs it is a 'Retracts:' entry,
+        # whose whole point is a line no other scenario's fixture needs to know about.
+        [string]$ExtraEntry = '')
 
     $root = Join-Path $FixtureDir $Name
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
@@ -256,6 +260,8 @@ $topTierSection
 $cutSectH Pull Request
 
 https://github.com/DaveKJohn/claude-code-specialists/pull/1
+
+$ExtraEntry
 "@
 
     Write-Utf8 (Join-Path $root 'releases\README.md') @"
@@ -480,6 +486,83 @@ try {
     # pair already makes.
     $r8 = Invoke-Cut -Root $root7 -Arguments @('-Bump', 'patch', '-Type', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
     Assert-True ($r8.Code -ne 0) '-Type alongside -Bump is refused rather than resolved by precedence'
+
+    # --- 8. A retracted change is withheld from the audience document, not from the record (#2230) --
+    # The measured instance, reproduced end to end: a tier-2 entry ('fix/a-fixture-change') and a second,
+    # repo-internal entry that undoes it ('fix/revert-a-fixture-change', tier 0) and names it in a
+    # 'Retracts:' line. The audience document must not carry the retracted change; CHANGELOG.md's own
+    # record (folded into the changelog note) must carry both, because both reached the trunk.
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- a retracted entry is withheld from the audience document, not the record" -ForegroundColor Cyan
+    $cutEntryH = '#' * (Get-EntryHeadingLevel)
+    $cutSectH  = '#' * (Get-EntrySectionLevel)
+    $cutTierH  = '#' * (Get-EntryTierSubLevel)
+    $revertEntry = @"
+$cutEntryH ``fix/revert-a-fixture-change`` changelog
+
+Retracts: fix/a-fixture-change
+
+$cutSectH Branch title
+
+Revert a-fixture-change
+
+$cutSectH Branch ID
+
+20260816-000000
+
+$cutSectH Branch type
+
+fix
+
+$cutSectH What does the change on this branch bring to main?
+
+Restores the file exactly as it was before -- the earlier merge is undone before this release ships.
+
+$cutSectH Significance
+
+$cutTierH Tier 0
+
+The maintainers notice it.
+
+**Score:** 2
+
+$cutSectH Pull Request
+
+https://github.com/DaveKJohn/claude-code-specialists/pull/2
+"@
+    $root9 = New-CutFixture -Name 'retraction' -EntryTopTier 2 -ExtraEntry $revertEntry
+    $r9 = Invoke-Cut -Root $root9 -Arguments @('-Bump', 'minor', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-Equal 0 $r9.Code 'retraction: the minor is still earned by the retracted entry''s own tier-2 declaration'
+    $note9 = Join-Path $root9 'dkj-policy\releases\audience\1.x\1.5.0.md'
+    Assert-True (Test-Path -LiteralPath $note9) 'retraction: the audience document was still drafted'
+    if (Test-Path -LiteralPath $note9) {
+        $n9 = Get-Content -LiteralPath $note9 -Raw
+        Assert-Match   '(?m)^## What changed$' $n9 'retraction: the audience section still renders'
+        Assert-NotMatch 'A fixture change'     $n9 'retraction: but the retracted entry''s own body is withheld from it'
+        Assert-Match 'fix/a-fixture-change'         $n9 'retraction: the withheld-note names the retracted branch'
+        Assert-Match 'fix/revert-a-fixture-change'   $n9 'retraction: and the branch that retracted it'
+    }
+    # THE RECORD KEEPS BOTH -- CHANGELOG.md's own history, folded into the changelog note, is untouched
+    # by any of this: it is what reached the trunk, and both entries did.
+    $changelogNote9 = Join-Path $root9 'dkj-policy\releases\changelog\1.x\1.5.0.md'
+    Assert-True (Test-Path -LiteralPath $changelogNote9) 'retraction: the changelog note (the record) was written'
+    if (Test-Path -LiteralPath $changelogNote9) {
+        $cn9 = Get-Content -LiteralPath $changelogNote9 -Raw
+        Assert-Match 'A fixture change' $cn9 'retraction: the record keeps the retracted entry'
+        Assert-Match 'fix/revert-a-fixture-change' $cn9 'retraction: and the entry that retracted it'
+    }
+
+    # --- 9. An unresolvable 'Retracts:' target refuses the cut, before anything is written -----------
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- a 'Retracts:' typo refuses the cut instead of reading as nothing to withhold" -ForegroundColor Cyan
+    $typoEntry = $revertEntry -replace 'fix/a-fixture-change', 'fix/a-fixture-chnage'
+    $root10 = New-CutFixture -Name 'retraction-typo' -EntryTopTier 2 -ExtraEntry $typoEntry
+    $r10 = Invoke-Cut -Root $root10 -Arguments @('-Bump', 'minor', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r10.Code -ne 0) 'retraction typo: refused with a non-zero exit'
+    Assert-Says 'do not name any pending entry' $r10.Out 'retraction typo: and says why'
+    $v10 = (Get-Content -LiteralPath (Join-Path $root10 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v10 'retraction typo: nothing was written -- the guardrail runs before the first write'
+    Assert-Equal '' (Get-GitOut -Root $root10 -GitArgs @('tag','--list')).Trim() 'retraction typo: and no tag was created'
 
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {
