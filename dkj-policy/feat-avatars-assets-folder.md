@@ -41,19 +41,53 @@
 
 Move the three account avatar PNGs out of the repo root into assets/avatars/, so every machine can reach them at a fixed path via the marketplace clone.
 
+#### Why the root is not the place
+
+Three avatar PNGs sat untracked in the repo root, beside `README.md` and `CLAUDE.md`. The root is
+reserved for the entry documents, so they needed a home -- and the home had to be reachable from
+every machine, because their whole function is to say which GitHub account a machine is set up as.
+
+`assets/avatars/` answers both. It is at the root rather than under `plugins/` for the reason
+`connectors/` is: the marketplace clone is the whole repository, so anything at the root is on every
+machine at `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a marketplace update --
+no release, no version bump. Under `plugins/` the same files would wait for a cut and then land in
+the payload of every consuming repo, none of which has any use for them.
+
+Scope is the placement only, by Dave's word: no rename to the exact GitHub login, and nothing in the
+tree reads these files.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `assets/avatars/` created and the three PNGs moved there from the repo root
+- [x] `assets/avatars/README.md` written: what the folder is, the fixed path every machine reaches it
+      at, why it is not plugin payload, and the file/tile/account table
+- [x] `README.md`: an `assets/` bullet added to **Repo layout**, beside `connectors/`
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1` + the full suite via `open-pr.ps1` -- manifests, frontmatter and
+      the dead-link scan, which is what reads the two new relative links in `README.md`
+- [x] `.gitattributes` already carries `*.png binary`, so the three files need no handling of their
+      own -- verified before the move rather than added by it
+
 ### DEPLOY: feat/avatars-assets-folder
 
-**Score:**
+The three GitHub-account avatars move out of the repo root into `assets/avatars/`, with a README
+stating the fixed path every machine reaches them at and why the folder is root material rather than
+plugin payload. `README.md`'s **Repo layout** gains the matching bullet.
+
+Small, and noticed the moment somebody looks for those images or at the root listing: the root is
+back to its entry documents, and "where are the avatars" has an answer that holds on every machine
+instead of per download folder.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches the subscriber of this workflow. The folder is this repo's own material, deliberately
+outside the plugin payload, so no consuming repo receives it in a cut or has anything to adopt.
+
+**Score:** N/A
 
 #### Pull Request
 
