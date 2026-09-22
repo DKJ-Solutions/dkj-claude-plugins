@@ -258,12 +258,50 @@ A local re-run cannot change the merge decision; it can only delay it.
 
 **Every ambiguity runs the gate.** No named check, no PR yet, a PR head that is not this `HEAD` (an
 unpushed commit, a bring-forward, a moved trunk), an unreadable answer, an empty required set, the
-named check missing from it, or the named check not green — each of those prints its reason and the
+named check missing from it, or the named check **red** — each of those prints its reason and the
 suites run exactly as they always did:
 
 ```text
 test gate: no CI certificate for this commit -- the PR head (7c1a44f0) is not this HEAD (1e805d22) -- the certificate is about a different commit. The suites run below.
 ```
+
+### The check is still RUNNING: the gate waits instead of re-proving it (`-NoCiWait`)
+
+**One of those refusals is not an ambiguity at all, and it used to be the commonest one**
+([#2317](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2317), September 22, 2026). A named
+check that has **failed** and one that is **still running** were the same refusal — *not green* — and
+they are opposite facts. `ship-pr` calls this script immediately after the push, so the check has
+typically just started: the certificate was refused for the one reason about to stop being true, and
+the whole pool then re-proved locally the commit CI was proving at that moment on a clean checkout.
+
+So where the check is registered and **pending on this exact `HEAD`**, the gate waits for it:
+
+```text
+test gate: 'lint-en-tests' is still running on this exact commit (1e805d22) -- waiting for it rather than re-proving the same tree locally (issue #2317).
+           up to 30 min, one read every 30s. Past that, or on any other answer, the suites run below.
+           still running -- read 1, 30s elapsed.
+test gate: CI answered after 214s -- the local pool was not run (issue #2317).
+```
+
+**It cannot fail a gate, skip a suite or move a merge.** There are three ways out. *Certified*: the
+caller takes the same skip it would have taken had the check been green when it first asked.
+*Settled*: the check went red, the PR head moved under it, or the payload stopped being readable — the
+suites run exactly as before. *Gave up*: the bound ran out while it was still pending — the suites run.
+Two of the three are the old behaviour byte for byte.
+
+**Measured, over the 98 most recent completed runs of this repo's own CI:** median 693s, four runs
+between 900s and the 30-minute bound, two above it (3422s, 4273s). The tail is not suite runtime — it
+is GitHub runner-queue contention, one shard starting late while its siblings run normally. That tail
+is why the bound is **high** and not why it should be low: what decides the saving is whether a run
+certifies *before* the bound, and all four in that band do.
+
+**`-NoCiWait` turns it off** and runs the suites immediately, as this script did before #2317. The
+mechanism is narrow enough to need no flag on the ordinary paths — no wait on a first `open-pr`, under
+`-SkipTests`, on an unpushed commit, on an unregistered check, or on a red one. Reach for the switch
+when you want the *local* verdict in your own hands: chasing a suite that is red under the pool and
+green standalone, say, where CI's answer is precisely the one that will not help.
+
+`ship-pr` takes the same switch and forwards it.
 
 **Why it asks for the named check by name rather than counting greens.** `gh pr checks --required`
 reports the required checks that have **registered**, so a workflow which has not created its check
