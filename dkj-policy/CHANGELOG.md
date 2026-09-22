@@ -44,7 +44,75 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 35 minor entries** <!-- pending-tally -->
+**25 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2303-conditional-merge-commit-suite-skip · 20260922-154718
+
+CI no longer re-runs the full ~11-minute, four-shard test suite on a `merge:` push to `main` when
+the merged PR's own head SHA already carries a green required check and `main` had not advanced
+(net of fold commits) since the run that certified it -- prices and answers #2303, which measured
+that 46% of a day's CI runs land on the trunk and the `merge:` half of those re-tests a tree
+`ship-pr` had just certified as non-stale. Unlike #1300's fold shortcut, this cannot be decided
+from the commit subject alone (a UI merge carries no such guarantee), so CI re-derives the fact
+from GitHub's own records instead of trusting the commit that claims it, reusing the identical
+pure functions `ship-pr.ps1`'s own pre-merge staleness gate already relies on. Fail-closed
+throughout: an unreadable check, an undateable run, or `main` having actually moved all fall back
+to running the suites in full.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a CI-internal change to this repo's own `.github/workflows/ci.yml` and the scripts it
+calls; nothing here is mirrored to a consumer (unlike `ci-fold-lib.ps1`, this repo's own internal
+suite gate is never shipped), so no subscriber of the plugin marketplace is affected.
+
+**Score:** N/A
+
+#### Pull Request
+
+CI on a merge commit skips the suites when the merged PR is already independently re-certified fresh
+
+[PR #2308](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2308)
+
+---
+
+### DEPLOY: fix/2288-summary-asserts-unmeasured-capture · 20260922-153046
+
+`update-plugins.tests.ps1` went red under gate load at roughly the rate #2114 measured -- about a
+coin flip per full run -- and for a reason that repair had left standing. #2114 gave `Assert-CleanExit`
+a third state for a capture whose exit code was never measured, on the stated bound that everything
+else in a scenario is unaffected by it. Two asserts are not: `update-plugins.ps1` counts such a
+capture as a failure, by a decision #2081 argued and #2114 accepted, so its green summary line is
+never printed in precisely the runs the tolerance waves through -- and scenario 1 was asserting that
+green line. They are now asserted through `Assert-Summary`, which holds a measured run to the green
+summary and an unmeasured one to the red summary the script is specified to print instead. A run that
+prints neither still fails, so the scenario keeps proving something about the summary rather than
+being excused from it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing to migrate and nothing to run: this is a test suite in the source repo, and no consumer
+carries it. What it buys is that a gate and a CI leg stop going red on a documented race that nobody
+can act on, which is the failure mode that teaches a reader to skim red checks.
+
+The measurement worth keeping is the shape rather than the rate. #2114 repaired the assert the race
+lands on **first** and reasoned about the rest by class -- commands, ids, scopes, order -- which was
+right for every assert except the one composed from the failure counters. So the lesson is that the
+bound to check is not "is this assert about the exit code" but "is this assert downstream of a value
+the unknown feeds".
+
+**Score:** N/A
+
+#### Pull Request
+
+The update-plugins summary asserts survive an unmeasured capture, as its exit assert already does
+
+[PR #2309](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2309)
+
+---
 
 ### DEPLOY: fix/2298-harden-lens-naming-rollup · 20260922-151146
 

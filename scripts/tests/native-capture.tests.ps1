@@ -1677,6 +1677,7 @@ $auditExempt = @{
     'task\claim-issue.ps1|allBranchesCapture' = 'same scan, same direction -- it prints "title-overlap scan skipped" with no number'
     'release\ship-pr.ps1|diffRead'     = 'fail-closed: the commit stays COUNTED in the staleness verdict, so a third state would be a no-op'
     'task\park-cycle.ps1|prList'       = 'repaired on fix/2068-park-cycle-unknown-exit-code, which is the worked instance #2081 was split out of'
+    'ci\get-merge-suite-skip.ps1|diffRead' = 'the SAME site as ship-pr.ps1''s own diffRead one row up, re-derived after the merge instead of before it (#2303): an unreadable diff leaves the commit COUNTED in the staleness verdict, the identical fail-closed direction'
 }
 
 $auditFiles = Get-ChildItem -Path $auditRoot -Recurse -Filter *.ps1 |
@@ -1798,7 +1799,7 @@ foreach ($af in $auditFiles) {
 # already hold; $raceRead, because a race nobody could settle is not a race won), and an unmeasurable
 # WRITE stops without asserting what it could not measure -- re-running is safe, since a marker that did
 # land comes back as 'already-yours'.
-Assert-Equal 69 $boundedTotal 'the parser still counts 69 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+Assert-Equal 70 $boundedTotal 'the parser still counts 70 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
