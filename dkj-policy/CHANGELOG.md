@@ -44,7 +44,92 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 23 minor entries** <!-- pending-tally -->
+**17 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2248-guard-raw-foreign-text-prints · 20260922-111836
+
+Four classes of foreign text -- characters typed by somebody outside this repo -- reached a console
+unstripped. **Two of the four sat on a line where a neighbouring value *was* guarded**, which is what
+makes those two misses rather than judgements: `adopt-ci-floor.ps1` printed the consumer's own
+workflow filename raw next to a job id it sent through `Get-DisplayRef`, and `sync-main.ps1` printed
+the `Get-ShopifySyncLogPath` seam answer raw next to a branch name it guarded on the same line. The
+other two had no guarded neighbour to be measured against -- the required-check context name sat
+beside that same raw filename, and `check-consumer-siblings.ps1` carried no strip of any kind
+anywhere in the file. (#2248 itself said three; that was its own count, and it does not survive a
+reading of the trunk.) All
+four are now guarded -- `Get-DisplayPath` for the paths and filenames, `Get-DisplayRef` for the
+required-check context name, `Format-SafePathToken` for `check-consumer-siblings.ps1`, whose lines
+reach session context through `Write-Info` where a square bracket can be counted as a hook marker.
+
+The repair went further than the report at one site. `check-consumer-siblings.ps1`'s
+`$label`/`$f.Member`/`$f.Members` are the same connector-manifest `repo` field that
+`check-connectors.ps1` already guards at six sites, so they are guarded here too; `$f.Class` and the
+`$where` clause are this repo's own values and are deliberately left alone, with the reason in the
+code rather than in anyone's memory.
+
+**Then the regression pin written for that repair found two more sites the repair had missed** --
+`$label`, the same manifest field, printed completely raw at the `$unreadable` line and the
+per-member `read` line earlier in the same file (#2272). They were guarded here rather than
+deferred, because registry entry 13 had by then been rewritten to say this site was repaired:
+leaving them would have made the entry false the day it was written, which is the exact failure the
+entry describes.
+
+**#2272 was then shipped by somebody else first, and that is worth recording rather than tidying
+away.** It was filed here and folded into this branch without anyone claiming it on the tracker, so
+it read as unowned and another session correctly picked it up and landed it as PR #2275 while this
+branch was in review. Their repair guards `$label`; this branch's also guards `$inv.Reason`, via
+`Format-SafeProseToken` -- a composed sentence carrying foreign text only in its two
+`Get-GitHubInventory` arms, guarded at the print rather than at composition because the same value
+is carried into a live `?ref=` API call. The two were reconciled by merging the trunk in and
+keeping the superset. The cost was a conflicting pull request and a re-ship, and the cause was one
+missing claim: the tracker is the only thing two sessions share, and an issue absorbed into an open
+branch is still an unclaimed issue to everybody else.
+
+**This also corrects a claim the registry was making.** #2247 asserted of `adopt-ci-floor.ps1` that
+"this is an accuracy defect in the registry, not an unguarded site -- nothing is exploitable today",
+and that was false: two more values at the same site were unguarded, one of them on the very line the
+assertion cited as proof. Registry entries 4, 8 and 13 each said their value prints RAW and was not
+repaired; all three now describe the guard and the line it sits on. What each entry said about how
+the *list itself* fails is kept, because that outlives the repair.
+
+One value was deliberately not touched. `$_.Exception.Message` stays raw, here and at 33 other
+console sites -- .NET composes that sentence, but it interpolates the offending path into it, so a
+guarded path can come back unguarded in the second half of the same line. Whether to strip all 34, or
+only where the exception's own input was foreign, or to state in the registry that the class is out
+of scope, is a repo-wide decision rather than a one-line patch inside an unrelated fix. Filed as
+#2271 with the measurement.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Two of the three scripts ship to consumers and run in their own tree: `adopt-ci-floor.ps1`, whose
+whole job is to read a consuming repo's `.github/workflows/` and ruleset and report what it found,
+and `sync-main.ps1`. Both are mirrored into the plugin payload, so the values repaired in them are
+the reader's own text being read back to them on their own console. `check-consumer-siblings.ps1`
+is **not** in that group -- it has no plugin mirror and runs only here, as this repo's own
+maintenance tool, taking consumer data as input. Its half of this fix reaches no subscriber and is
+tier 0 work; the score below is for the two that do ship.
+
+Nothing was exploited and this prevents a failure that has not happened, so the failure is worth
+naming precisely: a format character in a workflow filename, or in a required-check name a
+third-party integration built out of branch- or PR-derived text, makes the floor report say something
+other than what it means -- an RTL override reverses a verdict line, a zero-width run welds two names
+into one that reads as a legitimate third, an escape sequence repaints the terminal. These scripts
+print verdicts a person acts on, which is the whole reason the guard exists everywhere else in the
+workflow. Reaching the consumer needs a release; nothing they run today changes on its own.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard the foreign text that adopt-ci-floor, sync-main and check-consumer-siblings printed raw
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2282](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2282)
+
+---
 
 ### DEPLOY: fix/2276-live-theme-stdin-contract · 20260922-104858
 
