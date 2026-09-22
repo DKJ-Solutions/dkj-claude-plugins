@@ -411,6 +411,243 @@ function Get-GateSuspendCredit {
     return [double]0
 }
 
+# HOW LONG THE CPU SAMPLE WINDOW IS, AND WHY THERE IS A WINDOW AT ALL -- issue #2279. The cumulative
+# reading alone cannot see a suite that did real work and THEN stopped: a lane that ran honestly for 25s
+# and wedged for the remaining 29 minutes carries a healthy cumulative figure and a dead one over the
+# last three seconds. So the sweep takes two snapshots and reports both -- what the tree has consumed in
+# its whole life, and what it consumed while the gate watched it.
+#
+# 3 SECONDS, AND WHAT IT IS SIZED AGAINST. Windows accounts CPU in ~15.6ms clock ticks, so a window has
+# to be long enough that a genuinely running tree accrues something unmistakable: over 3s a single busy
+# thread accrues ~3000ms, against a floor two orders of magnitude below that. It is also 0.17% of the
+# bound it reports on -- the pool is already 1800s into this lane by the time a byte of this is read, so
+# the cost is invisible. #2279's own hand measurement used 4s; nothing in the reading turns on the
+# difference, and the shorter window is the one that holds the poll loop up less.
+#
+# THE LOOP IS BLOCKED FOR THAT WINDOW, ONCE PER SWEEP AND NOT ONCE PER LANE. Every lane that passed its
+# bound in the same pass is measured off the same pair of snapshots, so two lanes timing out together
+# cost 3s between them rather than 6s. What the pause actually delays is the reaping of lanes that
+# finished during it, by up to 3s on a run that has already spent half an hour -- and it cannot delay a
+# kill past its bound, because the kill happens after the second snapshot in the same pass.
+$script:GateCpuSampleSeconds = 3
+
+# WHAT COUNTS AS "NOTHING RAN" -- 1% of the window, i.e. 30ms over the 3s above. A floor rather than a
+# threshold, and the distinction is the whole of what this number is allowed to mean: it separates a
+# reading that is indistinguishable from zero from one that is not, and it decides nothing. #2231's
+# wedged tree read 0.000s over a sampled window; a tree still executing reads three full seconds. There
+# is no case in this repo's measurements that lands near 30ms, which is why a coarse floor is enough.
+$script:GateCpuIdleFloorFraction = 0.01
+
+function Get-GateProcessSnapshot {
+    <#
+        EVERY PROCESS ON THE MACHINE, WITH ITS PARENT AND ITS CPU -- issue #2279, and this is the
+        impure half.
+
+        ONE CIM CALL FOR THE WHOLE MACHINE, NOT ONE PER PROCESS. Win32_Process carries ParentProcessId,
+        KernelModeTime and UserModeTime on every row, so the tree walk below is arithmetic over a
+        snapshot rather than a query per node -- which matters because the thing being measured is a
+        tree whose size is unknown and, in #1941's measurement, 90 processes. Measured on DAVE-KOK-BWJ:
+        506 processes in 416ms.
+
+        Win32_Process RATHER THAN System.Diagnostics.Process.TotalProcessorTime, which is what #2279
+        proposed and left open as a question. TotalProcessorTime reads the DIRECT CHILD only, and every
+        wedge in this family sits in a GRANDCHILD -- #2233's three wedged suites each held exactly one
+        child, which held the hook that was actually blocked -- so a direct-child reading would report
+        ~0 for a tree that is working and answer the question backwards. It also opens a handle per
+        process and throws on one that exited mid-read, where a CIM row for a process that has since
+        gone is simply a row.
+
+        IT RETURNS $null RATHER THAN THROWING. CIM can be refused, slow, or unavailable, and by the time
+        this is called the pool is already killing a lane -- replacing a diagnosable timeout with an
+        unrelated error is the failure Stop-NativeProcessTree's own docstring argues against, one
+        function over. The caller reports "could not measure", which is a different sentence from
+        "nothing ran" and must not be printed as it.
+
+        THE SEAM. Nothing in a fixture can wedge a real process tree, so the suite shadows this after
+        the dot-source and drives the pure walk below over a fabricated machine -- the pattern
+        Get-GateSuspendCredit's docstring sets out and Get-ResidentPowerShellCount already uses (#1464).
+    #>
+    try {
+        $rows = Get-CimInstance -ClassName Win32_Process `
+            -Property ProcessId, ParentProcessId, KernelModeTime, UserModeTime, CreationDate `
+            -ErrorAction Stop
+    } catch {
+        return $null
+    }
+    if ($null -eq $rows) { return $null }
+
+    $byId       = @{}
+    $childrenOf = @{}
+    foreach ($row in @($rows)) {
+        $id   = [int]$row.ProcessId
+        $ppid = [int]$row.ParentProcessId
+        # 100-NANOSECOND UNITS, WHICH IS WHAT Win32_Process REPORTS. Divided here rather than at every
+        # reader, so no caller can forget the conversion and print a number 10 million times too large.
+        # [double] before the addition: these are UInt64, and a long-lived process overflows Int32.
+        $cpu = ([double]$row.KernelModeTime + [double]$row.UserModeTime) / 1e7
+        $byId[$id] = [pscustomobject]@{
+            ProcessId       = $id
+            ParentProcessId = $ppid
+            CpuSeconds      = $cpu
+            # WHEN IT STARTED, CARRIED FOR THE PID-REUSE GUARD IN THE WALK BELOW. $null where CIM did
+            # not answer, which the walk reads as "cannot disprove the parentage" rather than as a
+            # reason to drop the node.
+            CreatedTicks    = if ($null -ne $row.CreationDate) { [long]$row.CreationDate.Ticks } else { $null }
+        }
+        if (-not $childrenOf.ContainsKey($ppid)) { $childrenOf[$ppid] = New-Object System.Collections.ArrayList }
+        $childrenOf[$ppid].Add($id) | Out-Null
+    }
+    return [pscustomobject]@{ ById = $byId; ChildrenOf = $childrenOf }
+}
+
+function Get-GateTreeCpuSeconds {
+    <#
+        THE CPU ONE LANE'S WHOLE TREE HAS CONSUMED -- issue #2279, and this is the pure half: a walk
+        over a snapshot, with no process, clock or machine state of its own. That is what lets the
+        suite assert the judgement directly instead of only through a run staged around a real wedge.
+
+        Returns a row carrying CpuSeconds, ProcessCount and Measured. Measured is $false when the
+        snapshot is absent or the root is not in it -- a lane whose process exited between the sweep
+        deciding to kill it and this call is the ordinary way that happens, and it is a different fact
+        from a tree that consumed nothing.
+
+        THE PID-REUSE GUARD. A snapshot names parents by number, and Windows reuses process ids -- so a
+        long-lived unrelated process that happens to hold the id of one of this tree's dead children
+        would drag its whole subtree into the sum. A child that started BEFORE its claimed parent
+        cannot be that parent's child, so it is dropped. Where either creation time is unreadable the
+        node is kept: this measurement exists to say whether anything ran, and discarding a subtree on
+        missing metadata would understate it in exactly the direction that reads as a wedge.
+
+        THE VISITED SET IS NOT BELT-AND-BRACES. It bounds the walk whatever the snapshot says, and a
+        snapshot is assembled from rows read at slightly different moments, so a cycle through a reused
+        id is representable even though a real process tree has none. An unbounded walk here would hang
+        the poll loop at the exact point the pool is trying to stop waiting on something.
+    #>
+    param(
+        $Snapshot,
+        [Parameter(Mandatory = $true)][int]$ProcessId
+    )
+
+    $unmeasured = [pscustomobject]@{ CpuSeconds = [double]0; ProcessCount = 0; Measured = $false }
+    if ($null -eq $Snapshot -or $null -eq $Snapshot.ById) { return $unmeasured }
+    if (-not $Snapshot.ById.ContainsKey($ProcessId)) { return $unmeasured }
+
+    $total   = [double]0
+    $count   = 0
+    $visited = @{}
+    $queue   = New-Object System.Collections.Queue
+    $queue.Enqueue($ProcessId) | Out-Null
+
+    while ($queue.Count -gt 0) {
+        $id = [int]$queue.Dequeue()
+        if ($visited.ContainsKey($id)) { continue }
+        $visited[$id] = $true
+
+        $node = $Snapshot.ById[$id]
+        if ($null -eq $node) { continue }
+        $total += [double]$node.CpuSeconds
+        $count++
+
+        if ($null -eq $Snapshot.ChildrenOf -or -not $Snapshot.ChildrenOf.ContainsKey($id)) { continue }
+        foreach ($childId in @($Snapshot.ChildrenOf[$id])) {
+            $cid = [int]$childId
+            if ($visited.ContainsKey($cid)) { continue }
+            $child = $Snapshot.ById[$cid]
+            if ($null -eq $child) { continue }
+            # See the PID-REUSE GUARD above: a child older than its claimed parent is somebody else's.
+            if ($null -ne $child.CreatedTicks -and $null -ne $node.CreatedTicks -and
+                $child.CreatedTicks -lt $node.CreatedTicks) { continue }
+            $queue.Enqueue($cid) | Out-Null
+        }
+    }
+
+    return [pscustomobject]@{ CpuSeconds = $total; ProcessCount = $count; Measured = $true }
+}
+
+function Get-GateTimeoutCpuNote {
+    <#
+        WHAT THE REAP IS ALLOWED TO SAY ABOUT WHY -- issue #2279. Pure: given two readings of a lane's
+        tree, return the console lines that go under its timeout. The bound and the reap are not this
+        function's business and are unchanged -- #2279 proposed the reporting half only, and this is it.
+
+        IT IS A TWO-WAY DISCRIMINATOR, NOT THE THREE-WAY ONE #2279's TABLE ASKED FOR, and that
+        correction is the whole design. That table's third row reads "deadlocked tree -- CPU varies";
+        this file's own $script:GateSuspendGapSeconds block records #1941's deadlock at 0.23s across 29
+        children over 141 MINUTES, which is indistinguishable from #2231's wedge at 0.58s over 22. So a
+        wedge and a deadlock read the same here and no reading separates them. What CPU DOES separate is
+        "something was running" from "nothing was running" -- and that is the one question the console
+        currently spends a whole standalone re-run on:
+
+            a slow suite CAN reach that bound, so this is not by itself a wedge (#2255) --
+            re-run the named suite alone to tell 'never answered' from 'answered late'.
+
+        #2255 is the measurement behind that line: a genuinely slow suite hit the bound and then passed
+        all 188 asserts standalone, at the cost of a second full gate run. A tree still burning CPU at
+        the moment it was killed answers "answered late" without that run; a tree at zero answers
+        "never answered" and sends the reader to the handles instead of to the clock.
+
+        AND IT DOES NOT REOPEN THE SUSPEND QUESTION. $script:GateSuspendGapSeconds's block declines CPU
+        as the discriminator for MACHINE SUSPEND, correctly, and for a reason untouched here: a deadlock
+        burns no CPU either, so CPU cannot be what credits a lane back. Nothing below credits, reaps or
+        kills anything -- it composes sentences. A suspended machine is handled one mechanism over, and
+        by the time a lane reaches this its gap has been credited or there was none.
+
+        WHY IT HEDGES RATHER THAN CLASSIFYING. A lane blocked on slow I/O -- a network share, a cold
+        disk, a CI volume -- also consumes almost no CPU while being perfectly honest, and #2279 flags
+        that in its own "what is NOT established" section. So zero is evidence toward "not a runaway"
+        and is not proof of a wedge, and the wording says which of the two it is offering. The value is
+        removing ONE of two branches from the reader's search, not handing them a verdict nobody took.
+    #>
+    param(
+        $Cumulative,
+        $Window,
+        [double]$WindowSeconds = 0,
+        [double]$IdleFloorFraction = 0
+    )
+
+    $lines = New-Object System.Collections.ArrayList
+    if ($null -eq $Cumulative -or -not $Cumulative.Measured) {
+        # NOT SILENCE, AND NOT "NOTHING RAN". A reading that did not happen and a reading of zero are
+        # opposite facts, and the second is the one that would send a reader hunting a handle that is
+        # not there -- the same three-state reasoning claim-issue's read-back states for its own
+        # unverifiable case.
+        $null = $lines.Add('           CPU over the bound: could not be measured on this machine -- no reading either way (#2279).')
+        return @($lines)
+    }
+
+    $floorFraction = if ($IdleFloorFraction -gt 0) { $IdleFloorFraction } else { $script:GateCpuIdleFloorFraction }
+    # NOT $window, AND THE CASE IS NOT THE POINT -- PowerShell variable names are case-INSENSITIVE, so a
+    # local $window here IS the $Window parameter and silently replaces the reading with a number. Caught
+    # by a probe against a real idle tree: the seconds landed in $Window, '$Window.Measured' then read
+    # $null on a [double], and every lane reported 'could not be re-read for a live sample' while holding
+    # a perfectly good sample. The defect is invisible in review and unmistakable at runtime, which is
+    # this file's recurring shape -- the wrong answer arrives as a plausible value instead of as an error.
+    $windowLength = if ($WindowSeconds -gt 0) { $WindowSeconds } else { [double]$script:GateCpuSampleSeconds }
+    $windowCpu    = if ($null -ne $Window -and $Window.Measured) { [double]$Window.CpuSeconds } else { $null }
+
+    $null = $lines.Add(("           CPU over the bound: $(Format-GateSeconds $Cumulative.CpuSeconds -Decimals 2)s across " +
+                        "$($Cumulative.ProcessCount) process(es) in the tree (#2279)."))
+
+    if ($null -eq $windowCpu) {
+        $null = $lines.Add('           The tree could not be re-read for a live sample, so that is a lifetime total only.')
+        return @($lines)
+    }
+
+    $null = $lines.Add(("           Of that, $(Format-GateSeconds $windowCpu -Decimals 3)s was consumed in the last " +
+                        "$(Format-GateSeconds $windowLength)s before the kill."))
+
+    if ($windowCpu -le ($windowLength * $floorFraction)) {
+        $null = $lines.Add('           NOTHING IN THAT TREE WAS RUNNING -- so this is NOT a suite answering late, and a')
+        $null = $lines.Add('           standalone re-run will not reproduce it. Look for a wedge or a deadlock: an')
+        $null = $lines.Add('           inherited handle nobody closes (#2233), or a lock nothing releases (#1941).')
+        $null = $lines.Add('           CPU cannot tell those two apart, and a lane blocked on slow I/O also reads zero.')
+    } else {
+        $null = $lines.Add('           THE TREE WAS STILL EXECUTING when it was killed, so this reads as a suite')
+        $null = $lines.Add('           ANSWERING LATE rather than one that never answered (#2255) -- re-run it alone.')
+    }
+    return @($lines)
+}
+
 function Test-GateSuiteCrashed {
     <#
         DID THIS SUITE FAIL, OR DID ITS PROCESS DIE? -- issue #1723.
@@ -3306,6 +3543,10 @@ function Invoke-TestSuiteGate {
                         # take instead of waiting on HasExited forever.
                         TimedOut = $false
                         KilledAt = 0.0
+                        # WHAT THE TREE WAS DOING WHEN IT WAS KILLED (issue #2279). Filled by the
+                        # deadline sweep only, and empty on every lane that never timed out -- so a
+                        # suite that simply passed carries nothing and prints nothing.
+                        CpuNote  = @()
                     }) | Out-Null
                     # ONE LINE PER LANE OPENING -- issue #1717, and this is the half a done-count alone
                     # cannot report: the queue dequeues longest-first (#1358), so on a truthful hints
@@ -3337,14 +3578,56 @@ function Invoke-TestSuiteGate {
                 # refused would put the pool straight back into the unbounded wait this exists to end --
                 # which is the 141-minute measurement in #1941, one layer down.
                 if ($suiteDeadline -gt 0) {
+                    # WHICH LANES PASSED THEIR BOUND IN THIS PASS, COLLECTED BEFORE ANYTHING IS KILLED --
+                    # issue #2279. The kill used to happen inside this loop; the CPU reading has to be
+                    # taken while the tree is still alive, and taking it per lane would pay the sample
+                    # window once per lane. So the pass is now three steps over one list: mark, measure,
+                    # kill. Nothing about WHEN a lane is reaped changed -- the kill still happens in the
+                    # same pass that observed the bound, a few seconds later in it.
+                    $overBound = New-Object System.Collections.ArrayList
                     foreach ($r in @($running)) {
                         if ($r.TimedOut -or $r.Process.HasExited) { continue }
                         if (($sw.Elapsed.TotalSeconds - $r.StartOffset) -le $suiteDeadline) { continue }
                         $r.TimedOut = $true
                         $r.KilledAt = $sw.Elapsed.TotalSeconds
                         Write-Host ("test gate: $($r.Name) passed its $(Format-GateSeconds $suiteDeadline)s bound -- killing its process tree (issue #1941).") -ForegroundColor Red
-                        Stop-NativeProcessTree -ProcessId $r.Process.Id
+                        $overBound.Add($r) | Out-Null
                     }
+
+                    if ($overBound.Count -gt 0) {
+                        # TWO SNAPSHOTS OF THE WHOLE MACHINE, SHARED BY EVERY LANE IN THIS PASS -- issue
+                        # #2279. One CIM read each, and the sleep between them is the sample window, so
+                        # the pass costs $script:GateCpuSampleSeconds however many lanes timed out. The
+                        # whole block is guarded: on a machine where CIM does not answer, both readings
+                        # come back unmeasured and the note says so rather than reporting a zero.
+                        $cpuBefore = Get-GateProcessSnapshot
+                        Start-Sleep -Seconds $script:GateCpuSampleSeconds
+                        $cpuAfter  = Get-GateProcessSnapshot
+                        foreach ($r in $overBound) {
+                            $before = Get-GateTreeCpuSeconds -Snapshot $cpuBefore -ProcessId $r.Process.Id
+                            $after  = Get-GateTreeCpuSeconds -Snapshot $cpuAfter  -ProcessId $r.Process.Id
+                            # THE LIFETIME TOTAL IS TAKEN FROM THE LATER SNAPSHOT, and the window is the
+                            # difference. A process that exited during the window is missing from the
+                            # second one, which is why the fallback is the first rather than a zero --
+                            # a tree that finished dying mid-sample still consumed what it consumed.
+                            $cumulative = if ($after.Measured) { $after } else { $before }
+                            $window = if ($before.Measured -and $after.Measured) {
+                                # NEVER NEGATIVE. A child that exited between the two reads takes its
+                                # CPU out of the second sum, so the difference can go below zero while
+                                # nothing whatsoever was running -- and a negative printed here would
+                                # read as a measurement error rather than as the idle tree it is.
+                                $delta = [Math]::Max([double]0, ([double]$after.CpuSeconds - [double]$before.CpuSeconds))
+                                [pscustomobject]@{ CpuSeconds = $delta; ProcessCount = $after.ProcessCount; Measured = $true }
+                            } else { $null }
+                            # HELD ON THE LANE RATHER THAN PRINTED HERE, so the note sits under the
+                            # suite's own '== <name> == TIMED OUT' header where a reader meets it, and
+                            # not thirty lines above it among the other lanes' kill lines.
+                            $r.CpuNote = Get-GateTimeoutCpuNote -Cumulative $cumulative -Window $window `
+                                -WindowSeconds ([double]$script:GateCpuSampleSeconds)
+                        }
+                    }
+
+                    foreach ($r in $overBound) { Stop-NativeProcessTree -ProcessId $r.Process.Id }
                 }
 
                 # A LANE IS REAPABLE WHEN ITS PROCESS EXITED, OR WHEN THE POOL HAS GIVEN UP ON IT. The
@@ -3445,6 +3728,11 @@ function Invoke-TestSuiteGate {
                         $killNote = if ($exited) { 'its process tree was killed' }
                                     else { "its process tree did NOT die within $(Format-GateSeconds $script:GateSuiteKillGraceSeconds)s of the kill and was ABANDONED -- it may still be running" }
                         Write-Host "== $($d.Name) == TIMED OUT after $(Format-GateSeconds ($sw.Elapsed.TotalSeconds - $d.StartOffset) -Decimals 1)s (bound $(Format-GateSeconds $suiteDeadline)s) -- $killNote; no verdict (issue #1941)$loadNote" -ForegroundColor Red
+                        # WHAT THE TREE WAS DOING WHEN IT WAS KILLED, directly under this suite's own
+                        # header -- issue #2279. This is the line a session copies into an issue, so the
+                        # measurement has to travel attached to the suite it is about rather than being
+                        # findable somewhere further up the run.
+                        foreach ($cpuLine in @($d.CpuNote)) { Write-Host $cpuLine -ForegroundColor Red }
                         $timedOutNames.Add($d.Name) | Out-Null
                         if ($d.Decides) { $failedNames.Add($d.Name) | Out-Null }
                         $failedCaptureFiles.Add($d.OutFile) | Out-Null
@@ -3857,7 +4145,14 @@ function Invoke-TestSuiteGate {
         # naming the single measurement that settles it, so the next reader spends one suite instead of a
         # whole pool.
         Write-Host ("           a slow suite CAN reach that bound, so this is not by itself a wedge (#2255) --") -ForegroundColor Red
-        Write-Host ("           re-run the named suite alone to tell 'never answered' from 'answered late'.") -ForegroundColor Red
+        # AND THE CPU READING IS WHERE TO LOOK BEFORE SPENDING THAT RE-RUN -- issue #2279. The standalone
+        # re-run is still the measurement that settles it, and this does not claim otherwise: what it says
+        # is that each suite's own block above already carries a reading which usually removes one of the
+        # two branches, so the re-run is confirming an answer rather than searching for one. #2255's cost
+        # was a whole second gate run spent on a suite that was merely slow, which is exactly the case
+        # that reading names on sight.
+        Write-Host ("           re-run the named suite alone to tell 'never answered' from 'answered late'") -ForegroundColor Red
+        Write-Host ("           -- and read the CPU line under each one first (#2279): it usually says which.") -ForegroundColor Red
     }
     # THE KEPT OUTPUT IS NAMED ON THE VERDICT, for the reason #1318 put the lane count there: this is the
     # line a session copies into a branch document, a commit message or an issue, so it is the one place a
