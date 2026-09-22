@@ -286,7 +286,7 @@ if ($polluted.Count -eq 0) {
                 Write-Host "       snapshot refreshed: $snapshotPath"
             }
         } catch {
-            Write-Host "       (snapshot not written: $($_.Exception.Message))"
+            Write-Host "       (snapshot not written: $(Format-SafeProseToken -Value $_.Exception.Message))"
         }
     }
     exit 0

@@ -82,6 +82,14 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # mirror as well as here, and loaded before the anchor block that reads it.
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
+# THE PROSE GUARD (#2271), loaded here because the catch below PRINTS an exception message and that
+# message is not ours. A consumer's scripts/repo-config.ps1 that does not parse produces a message
+# carrying their own source line VERBATIM, real newlines included -- measured, not inferred -- and a
+# `throw` in it produces a message that is entirely their text. Unguarded and $PSScriptRoot-relative
+# on check-report-lib's own precedent: the lib is mirrored into every plugin this script ships in, so
+# the sibling is always there in any payload the generator wrote.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+
 # --- Anchor the repo root -------------------------------------------------------------------------
 # Every path below is absolute and derived from this root. Deliberately no Set-Location: then a
 # divergent process cwd cannot write into the wrong repo (the pitfall cut-release.ps1 has to close with
@@ -129,7 +137,7 @@ if (Test-Path -LiteralPath $configPath) {
     try {
         . $configPath
     } catch {
-        Write-Warning "scripts\repo-config.ps1 could not be loaded ($($_.Exception.Message)) -- writing the skeleton with the built-in English wording."
+        Write-Warning "scripts\repo-config.ps1 could not be loaded ($(Format-SafeProseToken -Value $_.Exception.Message)) -- writing the skeleton with the built-in English wording."
     }
 }
 

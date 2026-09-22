@@ -586,6 +586,67 @@ infrastructure.
   **What would reopen it:** the fire rate climbing back above ~25%, or CI cost past ~10 minutes. Until
   then the queue is a priced-and-declined option, not an open question.
 
+  **WHERE A DECISION IS ARGUED IN THAT FILE: DIRECTLY ABOVE THE KEY IT DECIDES** (September 22, 2026,
+  [#2314](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2314)). `ci.yml` is ~80% comment, and
+  that is the property this repo wants — a decision argued where it lives. What it had grown alongside it
+  is a **shared append point**: the comment run above `jobs:` belonged to no key, so a paragraph about
+  *any* job landed there, and git cannot merge two appends at one anchor. Two branches obeying the
+  convention correctly therefore conflicted **pairwise, by construction**.
+
+  **Measured, and the cost is not where it looks.** Three CI branches in one afternoon each appended to
+  that banner and each inserted a key under `runs-on:` in the `suites` job — #2296 (`timeout-minutes`),
+  #2303 (a job-scoped `permissions:` block) and #2304. `ship-pr` on #2300 found it at forward lap 3, as
+  `PUT .../pulls/2300/update-branch -> 422 merge conflict between base and head`, after roughly forty
+  minutes of CI waits across three laps. **Resolving it took about five minutes** — both sides were purely
+  additive and both were kept verbatim. The conflict was cheap; finding it was not.
+
+  **This is [#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255) one file over**, which
+  is what settles that it is a shape rather than an accident: a single fixed `dkj-policy/development.md`
+  made every merge to the trunk conflict every *other* open PR, the answer was one document per branch, and
+  the reasoning is quoted in `CLAUDE.md` to this day. A banner is that same shared anchor wearing a
+  different name.
+
+  **The answer is per-anchor placement, chosen by Dave over two alternatives that were priced.** Every
+  paragraph moves to sit above the one key, step or job it argues, so a new decision brings a **new**
+  anchor rather than another paragraph on an existing block. It strengthens *argue it where it lives*
+  rather than trading it away, which is why it beat the candidate the issue itself named — a one-line
+  pointer per decision with the argument moved into this lens — and a third option, one file per decision
+  under `.github/workflows/ci-decisions/`. Both of those buy conflict-freedom by moving the reasoning away
+  from the line it explains, and that property is the whole reason the file is ~80% comment.
+
+  **Nothing was rewritten: 301 comment lines, of which twelve changed, and every one of those twelve was a
+  cross-reference that the move made false** — *"see the banner above `jobs:`"* pointing at a paragraph now
+  sitting on the same key, and *"the shortcut below"* where the shortcut had become the paragraph above.
+  The move was verified by diffing the sorted comment bodies before and after rather than by reading the
+  diff, because a 156-line reshuffle is exactly the diff a reviewer cannot read.
+
+  **AND THAT METHOD HAS ONE BLIND SPOT, WHICH IT FOUND THE HARD WAY.** A sorted-comment-body diff proves
+  no line was **lost** and is structurally silent about a line that was **kept when it should have gone** —
+  a superseded clause left standing beside its replacement is an addition on one side and nothing at all on
+  the other, so it never appears in the comparison. Measured on this branch: the old *"See the banner above
+  `jobs:` for why the"* survived directly above its own replacement, leaving a stuttered clause and a
+  continuation pointing nowhere, and the verification reported clean. It was [Edith #17](specialist-06-17-lens.md)
+  reading the diff in place who caught it — so the sorted comparison answers *"is anything missing"* and a
+  human read of the new position answers *"does it still parse"*, and a relocation of this size needs both.
+
+  **What stays above `jobs:` is what is true of the FILE** — why there are three jobs (#1351), and that
+  every job declares a timeout at all (#2296). The per-job *numbers* moved to the keys they cap. The run
+  went 87 lines → 32, and `ci-shard.tests.ps1` now holds it to a **40**-line ceiling: the post-change
+  reading plus one paragraph of headroom, still under half of what it had reached. The ceiling is paired
+  with an assert that the convention is stated in the file's own head, because a ceiling that fires without
+  saying what to do instead sends the next author to raise the ceiling — the one repair that reopens the
+  class.
+
+  **The half the issue did not name, and the reason writing the convention down is part of the repair
+  rather than a note beside it:** #2296 had already half-adopted the answer. It wrote a two-line pointer
+  above `timeout-minutes:` in the `suites` job **and** a 31-line banner above `jobs:` — so the convention
+  was not merely unstated, it was stated by example in both directions at once, and a later author copying
+  whichever sat nearest had even odds of recreating the anchor.
+
+  **What this does NOT fix, deliberately:** two branches adding different keys under one `runs-on:` still
+  collide. That half is irreducible, took thirty seconds to resolve, and engineering it away would cost
+  more than it saves.
+
 - **`.github/workflows/claude.yml` + `.github/workflows/claude-code-review.yml`** — the two Claude Code
   workflows, added August 14, 2026 via
   [PR #658](https://github.com/DaveKJohn/claude-code-specialists/pull/658). The first answers an

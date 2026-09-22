@@ -99,7 +99,8 @@ function New-FakeSuite {
 function Invoke-Gate {
     param([string]$TestsDir, [int]$MaxParallel = 0, [string]$WorkDir = '', [string]$CommandsFile = '', [int]$ResidentCount = -1,
           [int]$SuiteTimeoutSeconds = 0, [string]$FocusSuite = '', [int]$FocusRepeat = 0,
-          [double]$SuspendCreditSeconds = 0, [int]$SuspendCreditOnCall = 2, [int]$AvailableMemoryMB = -1)
+          [double]$SuspendCreditSeconds = 0, [int]$SuspendCreditOnCall = 2, [int]$AvailableMemoryMB = -1,
+          [double]$PaceScale = 0, [double]$PaceScaleThen = 0, [int]$PaceScaleThenAfterCall = 2)
     # NOT $args: that is an automatic variable holding a function's unbound arguments, and splatting it
     # after assignment is the kind of collision this repo already documents for $script:-owned names.
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:Driver, '-TestsDir', $TestsDir, '-MaxParallel', "$MaxParallel")
@@ -112,6 +113,12 @@ function Invoke-Gate {
     # file drives the REAL Get-GateSuspendCredit -- which is what keeps their silence about suspend
     # evidence that the gate is silent about it (issue #2095).
     if ($SuspendCreditSeconds -gt 0) { $psArgs += @('-SuspendCreditSeconds', "$SuspendCreditSeconds", '-SuspendCreditOnCall', "$SuspendCreditOnCall") }
+    # 0 (the default) means the child never touches the pace seam either, so every other case in this
+    # file drives the REAL Get-TestSuitePaceScale over a fixture directory with no suite-durations.json --
+    # which resolves to 1.0 and therefore to exactly the fixed bound those cases were written against
+    # (issue #2263). That is what keeps their silence about scaling evidence that the gate is silent.
+    if ($PaceScale -gt 0) { $psArgs += @('-PaceScale', "$PaceScale") }
+    if ($PaceScaleThen -gt 0) { $psArgs += @('-PaceScaleThen', "$PaceScaleThen", '-PaceScaleThenAfterCall', "$PaceScaleThenAfterCall") }
     if ($WorkDir) { $psArgs += @('-WorkDir', $WorkDir) }
     if ($CommandsFile) { $psArgs += @('-CommandsFile', $CommandsFile) }
     # -1 (the default) means "let the real Get-Process answer" -- OS-wide process state is not
@@ -363,7 +370,8 @@ try {
     $driverBody = @"
 param([string]`$TestsDir, [int]`$MaxParallel = 0, [string]`$WorkDir = '', [string]`$CommandsFile = '', [int]`$ResidentCount = -1,
       [int]`$SuiteTimeoutSeconds = 0, [string]`$FocusSuite = '', [int]`$FocusRepeat = 0,
-      [double]`$SuspendCreditSeconds = 0, [int]`$SuspendCreditOnCall = 2, [int]`$AvailableMemoryMB = -1)
+      [double]`$SuspendCreditSeconds = 0, [int]`$SuspendCreditOnCall = 2, [int]`$AvailableMemoryMB = -1,
+      [double]`$PaceScale = 0, [double]`$PaceScaleThen = 0, [int]`$PaceScaleThenAfterCall = 2)
 `$ErrorActionPreference = 'Stop'
 . '$LibPath'
 if (`$WorkDir) { Set-Location -LiteralPath `$WorkDir }
@@ -402,6 +410,31 @@ if (`$SuspendCreditSeconds -gt 0) {
         `$script:GateSuspendCalls++
         if (`$script:GateSuspendCalls -eq `$SuspendCreditOnCall) { return [double]`$SuspendCreditSeconds }
         return [double]0
+    }
+}
+# Shadows the pace seam the same way, and for the same reason as the two above (issue #2263): a fixture
+# cannot arrange a memory-starved machine, and it cannot even arrange the EVIDENCE for one -- the real
+# function needs 5 finished suites carrying 60s of recorded cost between them, and a fixture directory
+# has no suite-durations.json at all. The real Get-TestSuitePaceScale is a pure judgement and is asserted
+# directly, row by row, against #2263's three measured runs; what this stub leaves unproven is the
+# RATIO -- not the re-read, the clamp or the line the pool prints when the bound moves.
+#
+# AND IT CAN FALL AS WELL AS RISE, which a single fixed value cannot express (code review on #2263). The
+# real ratio is CUMULATIVE over the suites reaped so far, and a cumulative ratio is not monotonic: the
+# early samples are taken under the heaviest contention and the ratio peaks early, then falls back as the
+# queue drains. -PaceScaleThen is what lets a case drive that shape, because a stub that only ever
+# returns one number can never reproduce a bound following the pace DOWN onto a running lane.
+if (`$PaceScale -gt 0) {
+    `$script:GatePaceScale = `$PaceScale
+    `$script:GatePaceCalls = 0
+    function Get-TestSuitePaceScale {
+        param([double]`$ExpectedSeconds, [double]`$ActualSeconds, [int]`$SampleCount,
+              [int]`$MinimumSamples = 5, [double]`$MinimumExpectedSeconds = 60.0)
+        `$script:GatePaceCalls++
+        if (`$PaceScaleThen -gt 0 -and `$script:GatePaceCalls -gt `$PaceScaleThenAfterCall) {
+            return [double]`$PaceScaleThen
+        }
+        return [double]`$script:GatePaceScale
     }
 }
 # THE CHILD'S OWN PID, printed so the retention cases (issue #1636) can find the capture directory of
@@ -777,6 +810,149 @@ try {
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'a memory-sized pool still runs its suites'
     Assert-True ($r.Text -match "test gate: all 3 suites passed in \d+s \($($expected.Lanes) lanes?\)\.") `
         'and the lanes it opened are the ones the formula chose'
+
+    # --- 7c. The suite bound scales with the run's own pace (issue #2263) --------------------------
+    #
+    # ASSERTED ON THE JUDGEMENT AND NOT ON A POOL, for the reason 7b gives one block up: the input is a
+    # property of the MACHINE and the moment, so a pool-driven assert on a literal number of seconds
+    # would be a claim about whatever box is running this suite. The rows below are the three readings
+    # #2263 measured, not round numbers -- each is that run's own lane-seconds against the 6,253.7 the
+    # hints file records, so this table is a regression test on the reported failure.
+    Write-Host "the pace scale -- how much slower this run is going than the recording" -ForegroundColor Cyan
+    # THE TWO FLOORS ARE SEPARATE EVIDENCE AND BOTH ARE REQUIRED. A count alone is satisfied by five
+    # trivial suites whose ratios are mostly process bring-up; a mass alone is satisfied by one giant
+    # whose single reading could be an outlier. Either one missing must resolve to 1.0 -- the fixed bound
+    # this repo had before #2263 -- because no evidence has to produce no change rather than a guess.
+    Assert-Equal 1.0 (Get-TestSuitePaceScale -ExpectedSeconds 500 -ActualSeconds 1500 -SampleCount 2) `
+        'two finished suites is not evidence, however slow they were -- the bound stays where it was'
+    Assert-Equal 1.0 (Get-TestSuitePaceScale -ExpectedSeconds 30 -ActualSeconds 300 -SampleCount 10) `
+        'and neither is 30s of recorded mass, however many suites it was spread over'
+    # THE ROW THIS WHOLE CHANGE EXISTS FOR, and it is a RECONSTRUCTION rather than a reading taken from
+    # that run: #2255's 9-lane run left wall clock and a lane count, not a per-suite table, so the inputs
+    # here are its 1,890s over 9 lanes against the 6,253.7 lane-seconds its pool's rows sum to. Wall clock
+    # charges the run for a draining tail nobody was using, so 2.72x is an UPPER estimate of what the
+    # summed-duration ratio would have read -- which is why the row below it exists.
+    Assert-Equal 2.72 ([math]::Round((Get-TestSuitePaceScale -ExpectedSeconds 6253.7 -ActualSeconds 17010 -SampleCount 121), 2)) `
+        'the memory-starved run that hit the bound reconstructs to 2.72x the recorded pace'
+    # AND THE CONCLUSION SURVIVES THE ESTIMATE BEING GENEROUS, which is the assert that makes the one
+    # above worth quoting at all. The file that was killed needed ~1,820s; at 1.8x -- well under the
+    # reconstruction -- the bound is 3,240s and it finishes. The repair does not rest on 2.72 being exact.
+    Assert-Equal 3240 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 1.8 -CeilingSeconds 3600) `
+        'even at 1.8x, materially below the reconstruction, the bound clears the 1,820s that file needed'
+    # A RUN FASTER THAN THE RECORDING IS REAL AND COMMON -- 1.15x is this repo's own idle-workstation
+    # figure and a wider box reads under 1 -- and it must NOT tighten anything. Getting this backwards
+    # would turn a green suite red on the machines best able to finish it, which is a worse version of
+    # the defect being repaired here.
+    Assert-Equal 1.0 (Get-TestSuitePaceScale -ExpectedSeconds 500 -ActualSeconds 250 -SampleCount 20) `
+        'a run going faster than the recording is clamped to 1.0 -- the scaling loosens, it never tightens'
+
+    Write-Host "the scaled deadline -- floored at the old constant, capped at the ceiling" -ForegroundColor Cyan
+    # THE FLOOR IS THE WHOLE SAFETY ARGUMENT: a run at or faster than CI's pace is bounded at exactly the
+    # number every run was bounded at before #2263, so no currently-green run can be turned red by this.
+    Assert-Equal 1800 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 1.0 -CeilingSeconds 3600) `
+        'a run at the recorded pace is bounded at exactly the pre-#2263 constant'
+    Assert-Equal 2070 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 1.15 -CeilingSeconds 3600) `
+        'an idle workstation at 1.15x buys 15% more patience and no more'
+    # AT 2.72x THE BOUND REACHES THE CEILING, and that is the row that matters: the pace model predicts
+    # 669.1 * 2.72 = 1,820s for the file a 1,800s bound killed, so 3,600s is twice what the failure
+    # actually needed. This assert is the repair.
+    Assert-Equal 3600 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 2.72 -CeilingSeconds 3600) `
+        'the starved run that timed out at 1,800s would have been bounded at 3,600s -- twice what it needed'
+    # THE CEILING IS NOT OPTIONAL. The ratio has no upper limit of its own, so a machine paging badly
+    # enough would walk the bound back to the unbounded wait #1941 closed.
+    Assert-Equal 3600 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 40 -CeilingSeconds 3600) `
+        'an absurd pace cannot buy more than the ceiling -- a wedge stays catchable'
+    # OFF STAYS OFF. -SuiteTimeoutSeconds -1 resolves to 0 and every check in the pool tests for 0, so
+    # scaling a disabled bound into a live one would turn the escape valve into a trap.
+    Assert-Equal 0 (Get-TestSuiteDeadlineSeconds -BaseSeconds 0 -Scale 9 -CeilingSeconds 3600) `
+        'a disabled bound is carried through disabled, whatever the pace'
+    # AND A CEILING BELOW THE FLOOR CANNOT TIGHTEN ANYTHING. Nothing in this file configures that pair,
+    # but a consumer editing two constants can, and the failure would be silent across the whole pool.
+    Assert-Equal 1800 (Get-TestSuiteDeadlineSeconds -BaseSeconds 1800 -Scale 5 -CeilingSeconds 600) `
+        'a ceiling set under the floor is ignored rather than allowed to tighten every suite'
+
+    # AND THE PLUMBING: the run says the bound is a floor that rises, and says it only where it can.
+    Assert-True ($r.Flat -match 'each suite is bounded at 1,?800s to start with, rising with this run''s own pace') `
+        'the default bound is announced as a floor that rises with the pace, not as a flat number'
+    # THE EXPLICIT BOUND IS THE CASE THAT MUST NOT SCALE: native-capture.tests.ps1's #2233 fixture asks
+    # for 25s to make a wedge reachable inside a test, so a bound that grew under load would turn that
+    # suite into the very wedge it is probing for.
+    $fixed = Invoke-Gate -TestsDir $ok -MaxParallel 1 -SuiteTimeoutSeconds 7
+    Assert-Says $fixed.Flat 'each suite is bounded at 7s' 'an explicit -SuiteTimeoutSeconds is announced as the flat number it is'
+    Assert-True ($fixed.Flat -notmatch 'rising with this run') 'and it does not scale -- a number somebody typed is not a floor'
+
+    # AND THE RE-READ ITSELF, WHICH IS THE ACTUAL REPAIR AND THE ONE PART THE ROWS ABOVE CANNOT REACH.
+    # The bound is recomputed on every poll pass rather than stamped when a lane opened, because the
+    # queue dequeues longest-first (#1358): the heaviest file in the pool opens at t=0, when nothing has
+    # finished and there is no pace to read. A deadline fixed at that moment would be the unscaled floor
+    # for the one suite most likely to need more, which is precisely the suite #2255 watched get killed.
+    $paced = Invoke-Gate -TestsDir $ok -MaxParallel 1 -PaceScale 2.72
+    Assert-True ($paced.Text -match 'GATE-RESULT: True') 'a paced run still runs its suites and still goes green'
+    # '2.72x' WITH A FULL STOP IS PART OF THE ASSERT, not incidental to it. PowerShell's '-f' formats in
+    # the CURRENT culture (issue #1159, which Format-GateSeconds exists for), so the first draft of this
+    # line printed '2,72x' on the Dutch machine it was written on -- a second number on the same line as
+    # seconds that were already being formatted invariantly. On an English runner both spellings pass, so
+    # the source assert below is what actually holds the rule; this one is what caught it.
+    Assert-Says $paced.Flat 'this run is going 2.72x the recorded pace' `
+        'the pool re-reads the pace mid-run and says what it read'
+    Assert-Says $paced.Flat 'each suite is now bounded at 3,600s, not 1,800s' `
+        'and the bound it judges suites by actually moves -- floored at the old constant, capped at the ceiling'
+    # THE PACE SEAM MUST NOT REACH A BOUND SOMEBODY TYPED, and this is the case that proves the wiring
+    # rather than the arithmetic: same stub, same 2.72x, an explicit bound, and nothing moves.
+    $pacedFixed = Invoke-Gate -TestsDir $ok -MaxParallel 1 -SuiteTimeoutSeconds 7 -PaceScale 2.72
+    Assert-True ($pacedFixed.Flat -notmatch 'the recorded pace') `
+        'a run with an explicit bound never even reads the pace -- the scaling reaches one branch only'
+    # AND OFF STAYS OFF THROUGH THE SAME SEAM: -1 disables the bound, and a pace of 2.72x must not
+    # resurrect it. This is the escape-valve-into-a-trap case, driven end to end.
+    $pacedOff = Invoke-Gate -TestsDir $ok -MaxParallel 1 -SuiteTimeoutSeconds -1 -PaceScale 2.72
+    Assert-True ($pacedOff.Text -match 'GATE-RESULT: True') '-SuiteTimeoutSeconds -1 with a slow pace still runs the suites'
+    Assert-True ($pacedOff.Flat -notmatch 'each suite is bounded at') 'and still says nothing about a bound, because there still is none'
+
+    # THE RATCHET, AND IT IS THE CASE CODE REVIEW HAD TO ASK FOR because a fixed stub cannot produce it.
+    # The pace ratio is cumulative and cumulative ratios FALL: the early samples are taken under the
+    # heaviest contention, so the ratio peaks early and eases as the queue drains. With the bound assigned
+    # on '-ne' rather than '-gt' it followed the pace back down -- and a lane 2,500s into a 3,600s bound
+    # that had applied for its whole life would then be killed by a 1,980s bound computed after it
+    # started, having never exceeded any bound in force while it ran. A deadline that moves TOWARDS a
+    # running lane is the one thing this mechanism must not do.
+    $ratchet = Invoke-Gate -TestsDir $ok -MaxParallel 1 -PaceScale 2.72 -PaceScaleThen 1.1
+    Assert-True ($ratchet.Text -match 'GATE-RESULT: True') 'a run whose pace rises then falls still goes green'
+    Assert-Says $ratchet.Flat 'each suite is now bounded at 3,600s, not 1,800s' `
+        'the bound rises with the early, contended samples'
+    Assert-True ($ratchet.Flat -notmatch 'now bounded at 1,980s') `
+        'and does NOT follow the cumulative ratio back down -- the bound ratchets, it does not track'
+    # THE SAME RULE STATED AS AN INVARIANT OVER THE WHOLE RUN, so a future change that reintroduces the
+    # defect by another route still fails here: no line may ever announce a bound below one already
+    # announced. Parsed off the console rather than asserted on a single expected string, because what
+    # matters is the sequence and not which numbers happened to be in it.
+    $announced = [regex]::Matches($ratchet.Flat, 'now bounded at ([\d,]+)s') | ForEach-Object { [int](($_.Groups[1].Value) -replace ',', '') }
+    $monotonic = $true
+    for ($i = 1; $i -lt @($announced).Count; $i++) { if ($announced[$i] -lt $announced[$i - 1]) { $monotonic = $false } }
+    Assert-True $monotonic 'every bound this run announced is at least the one it announced before it'
+
+    # AND THE VERDICT SAYS WHEN THE BOUND HAD ALREADY BEEN RAISED. #2255's discriminator -- "a slow suite
+    # CAN reach that bound, re-run it alone" -- is the right default and the wrong one once the pace
+    # scaling has already paid out: a suite that overran a bound widened to fit a machine measured slow
+    # has spent that allowance and blown it anyway. Driven with a 3s floor so the fixture's own slow suite
+    # reaches it, and a pace stub that widens it to 6s.
+    $slowDir = Join-Path $Fixture 'paced-timeout'
+    New-Item -ItemType Directory -Path $slowDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $slowDir 'a-wedge.tests.ps1'), "Start-Sleep -Seconds 30`r`n", $Utf8NoBom)
+    $pacedTimeout = Invoke-Gate -TestsDir $slowDir -MaxParallel 1 -SuiteTimeoutSeconds 3 -PaceScale 2.0
+    Assert-True ($pacedTimeout.Flat -notmatch 'that bound was already raised') `
+        'an EXPLICIT bound never scales, so it never claims to have been raised'
+    Assert-Says $pacedTimeout.Flat 'a slow suite CAN reach that bound' `
+        'and #2255 discriminator still prints on an explicit bound'
+
+    # THE RULE ITSELF, HELD AGAINST THE SOURCE, because the console assert above only discriminates on a
+    # machine whose culture disagrees with English -- and CI's does not. Asserted the way
+    # native-capture.tests.ps1 already asserts a rule about this same lib's reads: the ratio is formatted
+    # through the invariant culture, never through PowerShell's culture-sensitive '-f'.
+    $libText = Get-Content -LiteralPath $LibPath -Raw
+    Assert-Equal 1 ([regex]::Matches($libText, 'this run is going \{0:N2\}x the recorded pace').Count) `
+        'the pace line is composed in exactly one place in the lib'
+    Assert-True ($libText -match "(?s)\[string\]::Format\(\[cultureinfo\]::InvariantCulture,\s*[\r\n]+\s*'test gate: this run is going \{0:N2\}x") `
+        'and its ratio is formatted invariantly, not with the culture-sensitive -f operator (#1159)'
     if ($expected.BoundBy -eq 'memory') {
         Assert-Says $r.Flat "$stubMB MB free" 'the memory-bound run names the free memory it read'
         Assert-Says $r.Flat 'memory, not cores' 'and says which of the two reservations bound it'
