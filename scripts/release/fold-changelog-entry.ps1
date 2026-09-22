@@ -85,10 +85,12 @@ repo-root meta docs (CONTRIBUTING.md, SECURITY.md, ...) that open with an H1 are
 mode targets exactly the named entry and is unaffected.
 
 What the fold adds is exactly what does not exist until the merge, and since August 19, 2026 it is one
-fact per place: the closing line '[PR #NN](url)', and the landing moment stamped on the 'Pull Request'
-section's own heading -- the counterpart of the creation stamp the cycle file carries. That closing line
-held ' <midDot> merged <date>' as well until that day; the heading holds the moment now -- except in a
-pre-dossier entry, which has no such heading, and where the line keeps carrying it rather than losing it.
+fact per place: the closing line '[PR #NN](url)', and the landing moment stamped on a heading -- the
+counterpart of the creation stamp the cycle file carries. That closing line held ' <midDot> merged <date>'
+as well until that day; the heading holds the moment now -- except in a pre-dossier entry, which has no
+such heading, and where the line keeps carrying it rather than losing it. WHICH HEADING CARRIES IT MOVED
+AGAIN ON AUGUST 23, 2026: from the 'Pull Request' section's own heading to the ENTRY'S OWN heading, so the
+moment it landed sits beside what landed rather than three sections further down (Set-EntryMergeStamp).
 The ENTRY'S heading is left as its author wrote it --
 the fold used to prepend '#NN <midDot> ' to the title as well, and that is gone (Dave, August 5, 2026).
 Nothing is lost by it: the number is still in the entry, on that closing line, where the url makes it
@@ -111,9 +113,10 @@ scaffolded in) are left exactly as written.
 THE DATE MOVED HERE FROM THE SCAFFOLD ON AUGUST 5, 2026 (Dave), and that half is unchanged: it is the
 FOLD's to write, because new-branch.ps1 runs when the branch is created and could only ever record the
 branch's birth date -- wrong by however many days the branch lived, in the one document whose subject is
-when things landed. WHERE in the entry it goes changed on August 19, 2026: it stamps the 'Pull Request'
-heading rather than closing the block, so the section's heading says when it landed and its last line says
-which PR it was.
+when things landed. WHERE in the entry it goes changed on August 19, 2026, and again on August 23, 2026:
+it stamps a heading rather than closing the block -- first the 'Pull Request' section's own heading, then
+(since August 23) the entry's own heading -- so the heading a reader meets first says when it landed and
+the closing line still says which PR it was.
 
 Nothing here parses that date back out, and neither does anything downstream: release-lib reads the
 TYPE off the heading by matching the known branch types rather than by counting fields from the end,
@@ -832,8 +835,9 @@ foreach ($file in $entryFiles) {
     $entryContent = $promoted
 
     # THE HEADING IS JUST THE TITLE (Dave, August 5, 2026). The fold adds the PR link as the entry's
-    # closing line and stamps the merge moment on the 'Pull Request' heading, and touches the ENTRY's
-    # heading no further -- it used to also prepend '#NN <midDot> ' to the title, and that prepend is gone.
+    # closing line -- it used to also prepend '#NN <midDot> ' to the title, and that prepend is gone.
+    # THE MERGE STAMP DOES TOUCH THIS HEADING NOW, since August 23, 2026 (Set-EntryMergeStamp); it sat on
+    # the 'Pull Request' heading instead from August 19 to August 23.
     #
     # NOTHING IS LOST, WHICH IS WHY IT COULD GO: the number is still in the entry, on the closing
     # '[PR #NN](url)' line, where the url makes it clickable rather than merely
@@ -956,9 +960,9 @@ foreach ($file in $entryFiles) {
         }
 
         # THE CLOSING LINE CARRIES THE PR ITSELF; THE HEADING ABOVE IT CARRIES WHEN IT LANDED (Dave,
-        # August 5, 2026 for the line, August 19, 2026 for the split). Built by Format-EntryFoldFooter in
-        # entry-scaffold-lib.ps1 -- the lib that owns the entry FORMAT, so the one place that writes this
-        # line is the one place a test can read it.
+        # August 5, 2026 for the line, August 19, 2026 for the split, August 23, 2026 for which heading).
+        # Built by Format-EntryFoldFooter in entry-scaffold-lib.ps1 -- the lib that owns the entry FORMAT,
+        # so the one place that writes this line is the one place a test can read it.
         #
         # THE MOMENT IS READ ONCE AND WRITTEN IN EXACTLY ONE OF TWO PLACES. The entry's own heading takes
         # it -- the counterpart of the creation stamp the cycle file's heading carries -- and the closing
@@ -992,8 +996,8 @@ foreach ($file in $entryFiles) {
     else {
         # No PR: no number, no url -- and no merge date either, deliberately. There is nothing to read a
         # landing date off, and inventing one from the clock would put a fact in the changelog that
-        # nothing backs. An entry folded this way simply carries no closing line and no stamp on its
-        # 'Pull Request' heading: both facts have the same single source, so they are absent together.
+        # nothing backs. An entry folded this way simply carries no closing line and no stamp on its own
+        # heading: both facts have the same single source, so they are absent together.
         Write-Host "  No PR found for '$branchForPr' - entry without PR number/url or merge date." -ForegroundColor Yellow
     }
 

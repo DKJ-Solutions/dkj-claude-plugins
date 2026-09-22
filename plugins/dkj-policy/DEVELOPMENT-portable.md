@@ -70,8 +70,9 @@ branch in backticks and the branch's creation stamp — `` # Development: `feat/
 — and every part of that had a reason that has since run out. The title said what the file is, which the
 filename now says; the backticks delimited the branch name for the readers below, which they no longer
 need; and the stamp recorded when the branch began, which nothing ever read back. What the changelog
-orders by is the **merge** stamp, and that one still stands on the DEPLOY section's `#### Pull Request`
-heading, written by the fold from the pull request's own merge moment.
+orders by is the **merge** stamp, and that one stands on the `### DEPLOY:` heading itself (Dave,
+August 23, 2026, where it sat on the `#### Pull Request` heading before that), written by the fold from
+the pull request's own merge moment.
 
 The **DEPLOY heading keeps its title word** — `### DEPLOY: feat/thing` — and that asymmetry is deliberate
 rather than an oversight. That heading travels into your changelog, where it stands beside other entries

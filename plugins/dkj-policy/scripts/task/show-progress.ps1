@@ -70,13 +70,26 @@ try {
 # Second, not first: the bar is what this file exists for, and the thing a reader is looking for
 # belongs where their eye lands first. With nothing running this is the whole status line.
 try {
-    # ONLY WHEN STDIN IS ACTUALLY REDIRECTED. Claude Code always pipes the session payload in, so the
-    # read always has an end -- but a person debugging this file by running it in a console has no pipe,
-    # and ReadToEnd on a live console waits for a Ctrl+Z that is never coming. A status line that hangs
-    # the first time somebody looks at it by hand is a status line nobody will look at twice.
+    # ONLY WHEN STDIN IS ACTUALLY REDIRECTED, AND THEN ONLY FOR A BOUNDED WHILE. Claude Code always
+    # pipes the session payload in, so the read normally has an end -- but a person debugging this file
+    # by running it in a console has no pipe, and ReadToEnd on a live console waits for a Ctrl+Z that is
+    # never coming. A status line that hangs the first time somebody looks at it by hand is a status
+    # line nobody will look at twice.
+    #
+    # AND A REDIRECTED HANDLE NOBODY CLOSES HANGS JUST AS COMPLETELY (#2249), which at a two-second
+    # cadence is not one wedged process but one MORE wedged process every two seconds, forever. So the
+    # read is bounded -- and it is written this way rather than with [Console]::In's own async methods
+    # because those are a SyncTextReader's, overridden to run synchronously on the calling thread, so a
+    # Wait() after them is never reached. Get-HookPayloadRaw in scripts/lib/session-cache-lib.ps1 is the
+    # canonical copy and carries the measurement; this one is inline because loading a lib is a cost
+    # this file's own header refuses to pay at this cadence.
     if (-not $Payload -and [Console]::IsInputRedirected) {
-        $stdin = [Console]::In.ReadToEnd()
-        if ($stdin) { $Payload = $stdin }
+        $sink = New-Object System.IO.MemoryStream
+        if (([Console]::OpenStandardInput().CopyToAsync($sink)).Wait(1000)) {
+            $sink.Position = 0
+            $stdin = (New-Object System.IO.StreamReader($sink, [System.Text.Encoding]::UTF8, $true)).ReadToEnd()
+            if ($stdin) { $Payload = $stdin }
+        }
     }
 
     $model = ''
