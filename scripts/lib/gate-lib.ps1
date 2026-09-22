@@ -48,6 +48,62 @@
         not a safety property of the content, but an honest limit on how long "nothing moved" is
         allowed to stand in for "nothing changed".
 
+    AND WHY IT IS THE WHOLE TREE RATHER THAN PER SUITE -- MEASURED, AND DECLINED (issue #2323,
+    September 22, 2026). The objection is obvious and correct as far as it goes: one fingerprint over
+    the whole tree means ANY commit discards the proof for every suite at once, so a comment-only edit
+    throws away 130 green runs. It has a nasty circularity too -- #2317's measured instance was a
+    commit the gate itself had demanded, a comment having pushed a `return` outside a test's 400-char
+    window. Fixing what the gate asked for is what cost the re-run. The proposal was a per-suite proof
+    keyed on the files that suite actually reads, so an edit to a file no suite reads keeps the other
+    129.
+
+    THE MEASUREMENT WAS POSSIBLE BECAUSE THE ERROR ONLY RUNS ONE WAY. Nothing here knows what a suite
+    reads -- a suite is a `powershell` child that dot-sources libs, globs directories, builds git
+    fixtures and shells out, and its read set is neither statically knowable nor constant between
+    runs. But a static model of that read set is a FLOOR on the real one, so the survival rate it
+    produces is a CEILING on what any per-suite scheme could recover. A low ceiling therefore settles
+    the question without anyone having to build the mechanism first.
+
+    WHAT IT SAID. Over 1,114 non-merge commits in the 14 days after the September rename (branch
+    documents and the trunk's own fold and release commits excluded, leaving 606 that touch code or
+    docs), the issue's own target class -- at most two files and twenty lines under `scripts/**` or
+    `plugins/**` -- is 39 commits, 3.5% of the population. For those, the ceiling is a median 88.5% of
+    suites and 80.5% of suite-seconds. Real, and never the whole prize, because of three things the
+    numbers made visible:
+
+      - IT NEVER REACHES 100%. Sixteen of the 130 suites are whole-tree self-checks: they lint every
+        `.md` and every manifest, or scan `scripts/**` against its mirror. Scanning the tree IS what
+        they do, so no keying scheme can narrow them, and every commit under `scripts/**` or
+        `plugins/**` loses nine to fourteen suites structurally. They are 12.3% of the count and 20.7%
+        of the seconds.
+      - A FEW LIBS ARE IN NEARLY EVERY READ SET. `command-probe-lib.ps1` is in 94 of 130 (72%),
+        `repo-root-lib.ps1` in 84, `check-report-lib.ps1` in 79 -- mostly reached transitively, through
+        libs that almost every suite loads. A commit touching one of them is close to the status quo
+        whatever the mechanism.
+      - WALL CLOCK RUNS 10-15 POINTS BEHIND SUITE COUNT, consistently. The suites that never survive
+        are the expensive ones, so the count overstates what is actually bought.
+
+    AND THE DECIDING FACT IS NOT THE NUMBER, IT IS THE CHEAPER ALTERNATIVE. #2317's lever 1 -- when
+    the local proof is stale but CI for this exact commit is in flight, wait for the certificate
+    instead of re-proving -- removes the expensive instance ENTIRELY, where a per-suite proof recovers
+    about four fifths of it. The merge cannot land before that check is green anyway, Get-CiTestCertificate
+    below is already the reader it needs, and 100% beats 80% at a fraction of the machinery. What is
+    left over for a per-suite scheme is the narrower case lever 1 cannot reach: local iteration before
+    any certificate exists. Nobody has measured how often that happens or what it costs, and THAT
+    measurement -- not a rebuild of this one -- is what would reopen this.
+
+    WHY EACH OF THE THREE SHAPES FAILS THE BAR. Get-TestSuiteCostHints states the bar for its own
+    file: a hint that can only cost wall clock, never coverage. A per-suite proof is not a hint. A
+    false negative costs one suite run; a false positive skips a suite on a tree it never measured,
+    and unlike the CI certificate -- which is stronger evidence than the run it replaces -- there is
+    nothing behind the local proof to catch one. DECLARED, each suite naming its own inputs in a
+    header, is cheap and drifts silently, which fails in precisely that direction; the static model
+    above took three iterations to get right and the dependency graph moved twice while it was being
+    built. COARSE ZONES is undercut by the near-universal libs: any boundary coarse enough to be
+    practical bundles them with everything else. OBSERVED, recording what each suite actually opened,
+    is the only shape that meets the bar, and it is a large amount of Windows-specific machinery for a
+    saving that is now the secondary one.
+
     AND THE SAME FINGERPRINT ANSWERS A SECOND QUESTION, ASKED AT THE OTHER END OF THE RUN (issue
     #1145). Before the gates it decides whether they may be skipped; after them, compared with a
     fresh reading, it says whether the tree the gates judged is still the tree in front of you. It

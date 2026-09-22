@@ -44,7 +44,45 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**28 / 45 minor entries** <!-- pending-tally -->
+**28 / 46 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2323-gate-proof-per-suite-declined · 20260922-193045
+
+#2323 asked whether the local gate proof should be keyed per suite instead of over the whole tree, so that a
+comment-only commit stops discarding 130 green suites. Measured over 1,114 non-merge commits in the 14 days
+after the September rename, the ceiling for the issue's own target class is a median 88.5% of suites and 80.5%
+of suite-seconds -- real, and not the prize. Sixteen suites are whole-tree self-checks that no keying scheme
+can narrow; `command-probe-lib.ps1` sits in 72% of read sets, mostly transitively, so a commit touching it is
+close to the status quo whatever the mechanism; and wall clock runs 10-15 points behind suite count, because
+the suites that never survive are the expensive ones. The deciding fact is the cheaper alternative: #2317's
+lever 1 removes the expensive instance entirely where a per-suite proof recovers four fifths of it. Declined,
+with the reasoning written into `gate-lib.ps1`'s own header so the next proposal meets it there.
+
+**Score:** 1
+
+The failure it prevents, since that is the only part a later reader can use: a per-suite gate proof built on
+the cheap shape, drifting silently, skipping a suite on a tree it never measured. Nothing behind the local
+proof catches that -- it is the one direction `Get-TestSuiteCostHints`' bar rules out, and the measurement is
+what says the saving would not have been worth the exposure.
+
+#### What makes this deploy extra special
+
+A measurement that says *do not build it* is the cheapest deliverable this repo produces and the easiest to
+lose. This one cost a full read of the dependency graph and 1,114 commits of history, and it lands as fifty
+lines of docstring in the file that would have been changed -- so the next person to have this idea meets the
+numbers before they write anything, rather than after.
+
+**Score:** N/A
+
+#### Pull Request
+
+Record why the local gate proof is whole-tree and not per-suite: measured, and declined with the numbers
+
+Plugins: dkj-policy
+
+[PR #2325](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2325)
+
+---
 
 ### DEPLOY: fix/2318-native-capture-absolute-deadline-floor · 20260922-190918
 
