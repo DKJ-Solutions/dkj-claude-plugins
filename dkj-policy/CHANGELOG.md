@@ -44,7 +44,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**24 / 34 minor entries** <!-- pending-tally -->
+**25 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2298-harden-lens-naming-rollup · 20260922-151146
+
+The lens-naming roll-up from #2289 gets three corrections. Its marker becomes `[LENS-RETIREMENT]`, so it
+no longer shares a token with `check-roster-sync.ps1`, which prints `[LENS-NAMING]` for the unrelated
+fact that its own naming vocabulary is older than the tree it reads (#2219). Its verdict now lets a
+measured `NOT YET` outrank an unreached connector, carrying the unmeasured count into that same sentence.
+And a test-only `-ConnectorsRootOverride` gives the roll-up the seam it needs to be tested at all.
+
+The precedence is the half that changes an answer. Both arms are about coverage, which makes the cautious
+one look like the one that should win -- but they are not on the same axis: a connector measurably on the
+also-read spelling settles the condition as FALSE, and nothing an unreached one holds can make it true
+again. On the live register -- 1 over, 2 behind, 3 unreached -- the run printed `NOT ANSWERABLE FROM THIS
+MACHINE` while the answer, *no*, was in hand. The green ending keeps exactly the gate it had: still
+reachable only when nothing is behind **and** nothing is unreached or empty.
+
+The seam exists because the roll-up fires only on a full-register sweep, which is precisely what
+`-Manifest` -- that suite's isolation everywhere else -- switches off, so its verdict logic landed with
+zero assertions on it. Scenario 14 now covers all three endings, the part-migrated state, the grouping
+and the narrowed run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is a signal being made trustworthy in the same week it was built. A readiness check exists to be read
+once, months later, by somebody deciding whether a compatibility layer may be removed -- which is the
+worst possible moment to discover that its verdict understated what it measured, or that nothing ever
+asserted its verdict at all.
+
+For a subscriber of this workflow nothing changes in behaviour: no new error, no new exit code, no new
+session-start line. What changes is what a deliberate run of the connector check tells them when part of
+the register is out of reach, which is the normal case rather than the exception.
+
+**Score:** 2
+
+#### Pull Request
+
+The lens-naming roll-up: a marker of its own, a verdict that does not understate what it measured, and the seam that pins both
+
+[PR #2305](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2305)
+
+---
 
 ### DEPLOY: fix/2237-workflow-facts-crlf · 20260922-145824
 
