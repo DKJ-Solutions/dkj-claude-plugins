@@ -44,7 +44,132 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 31 minor entries** <!-- pending-tally -->
+**24 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2237-workflow-facts-crlf · 20260922-145824
+
+`adopt-ci-floor` reads a job's `name:` on a CRLF checkout, so a Windows consumer is no longer handed a
+ruleset requiring a check GitHub never reports.
+
+`Get-WorkflowFacts` collected job keys and job names with two regexes, both anchored on `$`. .NET's
+multiline `$` matches only immediately before a `\n`, so against a CRLF file the name capture's
+`[^\r\n]*` stopped at the `\r` and the anchor failed -- collecting no names at all -- while the key
+capture survived the same file by accident, its `\s*$` absorbing the `\r` first. The text is normalised
+to LF once on read now, which closes the class rather than the two instances visible today.
+
+**The damage reached past the wrong note it was reported as.** `$prJobIds` then held one id where LF
+holds two, and one is exactly the count the paste-ready ruleset call auto-fills on -- so a consumer with
+a single named job in a single `pull_request` workflow was handed a ruleset requiring the job KEY, while
+GitHub reports that check under its NAME. A required check that never reports leaves every pull request
+pending forever. On LF the same tree declines to auto-fill and prints the candidate list, so the bug
+moved the script onto the branch it would otherwise have refused.
+
+Reported from `BWJ-Development/xoxowildhearts` as inbound #2237.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A subscriber of this workflow on Windows -- which is the reporting consumer's own configuration -- could
+follow a printed instruction into a merge outage on their trunk. It reaches only a consumer who adopts
+the CI floor without a required check already in place, but for that consumer the failure is total and
+the cause is three layers from the symptom.
+
+**Score:** 4
+
+#### Pull Request
+
+Get-WorkflowFacts reads a job `name:` on CRLF too
+
+Plugins: dkj-policy
+
+[PR #2306](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2306)
+
+---
+
+### DEPLOY: fix/2295-capturedir-empty-race · 20260922-143220
+
+#2295 measured `test-suite-gate.tests.ps1`'s capture-retention asserts going red in CI at random,
+twice in one hour on two unrelated branches, always in CI and never standalone: `CaptureDir` came
+back empty on a run that should have kept it, once for a genuinely timed-out suite and once for an
+ordinary failing one.
+
+The retention decision (in `Invoke-TestSuiteGate`'s own `finally` block) judged whether a suite's
+output survived by calling `(Get-Item -LiteralPath $f).Length -gt 0` the instant the pool reaped it.
+That races the exact ambiguity this file already named and built a fix for, twice, elsewhere
+(#1679, #1731, #1252): `$proc.WaitForExit()` returning true says the CHILD process exited, not that
+`Start-Process`'s own pipe-to-file copy -- running on its own thread, in this process -- has caught
+up, and a grandchild that inherited the handle can hold it a moment longer still. Under CI
+contention that gap widens rather than closes, which is exactly the class #2255 already measured
+for this same pool one door over. `Write-GateCaptureBlock` already reads these same files through
+`Read-NativeCaptureFile`'s settle-budget-aware probe when it PRINTS them a few lines above the
+verdict -- the retention check was the one remaining reader of a reaped suite's capture file that
+still used the unprotected form, so it could (and did) disagree with what the console had just
+shown.
+
+The retention check now reads through the same settle-aware probe, bounded by the same
+`$script:NativeCaptureSettleMilliseconds` budget the print path already spends, so a suite whose
+output legitimately arrived -- just not by the instant `Get-Item` was called -- is no longer read as
+having written nothing and its whole capture directory deleted out from under it.
+
+**Score:** 2 -- an occasional, CI-only false-red on the required check (`lint-en-tests`), costing a
+full CI cycle plus a judgement call each time it fires; most PRs never touch this path at all.
+
+#### What makes this deploy extra special
+
+`scripts/lib/native-capture-lib.ps1` mirrors into every consumer that runs this workflow's test
+gate as their own CI check, so the same race -- deleting a failing suite's kept evidence under the
+consumer's own CI contention -- was reachable there too, not only in this repo's CI.
+
+**Score:** 1 -- a reliability fix for a race a consumer would rarely hit and would have read as "the
+gate deleted my evidence," not as something to act on.
+
+#### Pull Request
+
+guard the capture-retention asserts against an empty CaptureDir race
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2301](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2301)
+
+---
+
+### DEPLOY: fix/2297-exercise-guards-in-review · 20260922-141728
+
+The code reviewer and the security engineer now carry a standing rule that a guard, matcher, validator
+or sanitiser in the material under review is **run** against input designed to defeat it, rather than
+read -- and that reporting "no findings" on one nobody exercised is a false report. It arrives as one
+shared block (`guard-exercised`) in both agent defs, so it fires on every invocation regardless of how
+the review was asked for, with the craft reasoning and the measurement behind it in each portable
+manual. Measured on PR #2290: asked generically, the review returned no findings on a newly added lint
+check; asked specifically what unguarded spellings it would wrongly pass, the same reviewer ran it and
+found four defects -- the worst certifying a call site as guarded while it stripped nothing.
+
+The act is bounded rather than open-ended: the guard is run as the **subject** of the review and never
+obeyed, its body is read for side effects before it is called, the function is copied into a scratch
+file instead of the module around it being loaded, and a guard that cannot be exercised safely is
+reported as a finding rather than run anyway.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo that installs `dkj-subagents-alpha` gets the rule on its next plugin update, and it changes
+what a review is worth there: a reviewer that reads a guard and reports clean is the failure mode this
+closes, and it needed no prompt to produce. Noticed the first time either specialist is put on a diff
+that adds a check.
+
+**Score:** 3
+
+#### Pull Request
+
+A guard in the diff is exercised against adversarial input, not read
+
+Plugins: dkj-subagents-alpha
+
+[PR #2299](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2299)
+
+---
 
 ### DEPLOY: feat/2289-lens-naming-readiness-signal · 20260922-135444
 
