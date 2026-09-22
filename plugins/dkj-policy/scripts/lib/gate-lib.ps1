@@ -128,9 +128,11 @@ $script:GateEvidenceKnownGates = @('lint', 'tests')
 
 # HOW LONG A CALLER WILL WAIT FOR AN IN-FLIGHT CI CERTIFICATE BEFORE RUNNING THE SUITES ANYWAY --
 # issue #2317. The wait replaces a local pool run with the CI run that is already proving the same
-# commit, so the bound is sized against what that run costs rather than against anybody's patience:
-# this repo's `lint-en-tests` is four shards of four to six minutes plus provisioning, and #2317
-# measured one of its own local pools at 43 minutes for the same verdict.
+# commit, so the bound is sized against what that run costs rather than against anybody's patience.
+# The figures are in ci.yml's own `timeout-minutes` banner, re-derived there from the run history
+# rather than restated here: over its 19 most recent runs the slowest shard was shard 2 at a median
+# of 12.5 min and a maximum of 13.4 min. Against that, #2317 measured one of its own local pools at
+# 43.3 minutes reaching the same verdict.
 #
 # 1800 SECONDS IS AN UPPER BOUND ON THE WAIT, NOT AN ESTIMATE OF THE RUN. Half an hour is roughly 2x
 # the slowest `lint-en-tests` this repo has recorded, which leaves room for a queued runner without
