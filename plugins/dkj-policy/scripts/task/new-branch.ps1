@@ -327,6 +327,14 @@ if (-not (Test-Path -LiteralPath $branchInfoPath)) {
 # why this moved out of here rather than being copied a second time.
 . (Join-Path $PSScriptRoot '..\lib\remote-ahead-lib.ps1')
 
+# THE PROSE GUARD (#2271), for the repo-config catch below. That catch PRINTS an exception message,
+# and the message is not ours: a consumer's scripts/repo-config.ps1 that does not parse returns their
+# own source line verbatim, real newlines included. Unguarded and $PSScriptRoot-relative, like the
+# four above -- and it is loaded HERE rather than relied on through a sibling, because none of the
+# libs this script already dot-sources pulls it in. Measured: with all six of them loaded and this
+# line absent, Format-SafeProseToken is undefined, so the catch would throw where it means to warn.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+
 # THE COMMIT-ABILITY PROBE (inbound #1867), for the refusal below the branch-name validation. Dot-sourced
 # GUARDED, unlike the four above: this file is the workflow's most-mirrored script, and a plugin payload
 # built before this lib existed must degrade to the old behaviour rather than fail to load at all. The
@@ -369,7 +377,7 @@ if (Test-Path -LiteralPath $configPath) {
             $ghRepoName = Get-RepoName
         }
     } catch {
-        Write-Warning "scripts\repo-config.ps1 could not be loaded ($($_.Exception.Message)) -- writing the development document with the built-in default wording."
+        Write-Warning "scripts\repo-config.ps1 could not be loaded ($(Format-SafeProseToken -Value $_.Exception.Message)) -- writing the development document with the built-in default wording."
     }
 }
 

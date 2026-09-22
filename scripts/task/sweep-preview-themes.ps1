@@ -136,7 +136,7 @@ $seam = & {
     $answers = @{ LiveThemeId = ''; StoreDomain = ''; DeleteMarker = ''; External = @() }
     $cfg = Join-Path $repoRoot 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
-        try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $($_.Exception.Message)" }
+        try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $(Format-SafeProseToken -Value $_.Exception.Message)" }
     }
     if (Test-FunctionDefined 'Get-ShopifyLiveThemeId')        { $answers.LiveThemeId  = [string](Get-ShopifyLiveThemeId) }
     if (Test-FunctionDefined 'Get-ShopifyThemeEstateStore')   { $answers.StoreDomain  = [string](Get-ShopifyThemeEstateStore) }

@@ -113,6 +113,15 @@ $ErrorActionPreference = 'Stop'
 # and thereby the hook -- at every session start in the source repo. The CI half runs the in-repo copy
 # (via actions/checkout), which the guard would not have fired on anyway.
 
+# THE PROSE GUARD (#2271), loaded here because the catch below PRINTS an exception message and that
+# message is not ours. A consumer's scripts/repo-config.ps1 that does not parse produces a message
+# carrying their own source line VERBATIM, real newlines included -- measured, not inferred -- and a
+# `throw` in it produces a message that is entirely their text. This check's output is forwarded into
+# session context by the SessionStart hook, so that is the #309 line-forging vector at its widest.
+# Unguarded and $PSScriptRoot-relative on check-report-lib's own precedent: the lib is mirrored into
+# every plugin this check ships in, so the sibling is always there in any payload the generator wrote.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+
 # THE ROOT COMES FROM ONE DEFINITION (#1422). Dot-sourced guarded, so a mirror built before this lib
 # existed degrades to the old inline form rather than throwing.
 $checkLib = Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1'
@@ -150,7 +159,7 @@ if (-not $repoRoot) {
 # read by its own names only while this is in the session.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in wording is used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in wording is used." }
 }
 
 # GUARDED, LIKE consumer-check-lib ABOVE, AND FOR THE SAME REASON. Get-TrunkGap needs

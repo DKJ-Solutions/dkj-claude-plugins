@@ -2511,7 +2511,17 @@ function Get-TestSuiteCostHints {
     try {
         $doc = ConvertFrom-Json ((Get-Content -LiteralPath $path -Raw -Encoding UTF8))
     } catch {
-        Write-Warning "test gate: $path is not readable JSON - using the stride. ($($_.Exception.Message))"
+        # THE STRIP IS INLINED, NOT A CALL, AND THE REASON IS THIS FILE'S POSITION (#2271). The value
+        # is foreign -- ConvertFrom-Json's message EMBEDS the offending document, and in a consumer
+        # this is their tests directory, not ours. But native-capture-lib is a LEAF that nearly every
+        # script here loads, and Format-SafeProseToken lives in check-report-lib.ps1, ~1,800 lines
+        # that this file otherwise needs for nothing: dot-sourcing it would put that load on every
+        # caller to buy one warning line. So the three passes are typed here, in the lib's own order
+        # -- whitespace FIRST, so no newline can forge a line, then control characters, then brackets
+        # substituted so no marker can FORM. Same reasoning as the hook catch-alls, different cause:
+        # there a CALL is the hazard, here the DEPENDENCY is.
+        $safeJsonErr = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+        Write-Warning "test gate: $path is not readable JSON - using the stride. ($($safeJsonErr.Trim()))"
         return $null
     }
     if (-not $doc -or -not $doc.seconds) {
