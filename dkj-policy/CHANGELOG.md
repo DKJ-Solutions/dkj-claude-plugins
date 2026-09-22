@@ -44,7 +44,60 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 20 minor entries** <!-- pending-tally -->
+**15 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2272-guard-repo-field-two-more-sites · 20260922-103528
+
+`check-consumer-siblings.ps1` printed a sibling's own manifest `repo` field raw at two console
+sites -- the per-member "read" line and the "not compared" line built from it -- both sitting just
+above the block df25f9f6 (#2248) already guarded with `Format-SafePathToken`. A `repo` field
+carrying an embedded newline forged a second console line; both sites now go through the same
+guard as their neighbours, so the whole loop treats this manifest field consistently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Same value class and same script as #2248: a sibling checkout's own manifest text, read back to
+the person running the comparison. Nothing was exploited, and this closes the two sites #2248's
+own widening did not reach.
+
+**Score:** 1
+
+#### Pull Request
+
+Guard the manifest repo field at the two console sites df25f9f6 (#2248) missed
+
+[PR #2275](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2275)
+
+---
+
+### DEPLOY: feat/avatars-assets-folder · 20260922-101346
+
+The three GitHub-account avatars move out of the repo root into `assets/avatars/`, with a README
+stating the fixed path every machine reaches them at and why the folder is root material rather than
+plugin payload. `README.md`'s **Repo layout** gains the matching bullet.
+
+Small, and noticed the moment somebody looks for those images or at the root listing: the root is
+back to its entry documents, and "where are the avatars" has an answer that holds on every machine
+instead of per download folder.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing reaches the subscriber of this workflow. The folder is this repo's own material, deliberately
+outside the plugin payload, so no consuming repo receives it in a cut or has anything to adopt.
+
+**Score:** N/A
+
+#### Pull Request
+
+GitHub-account avatars in assets/avatars/
+
+[PR #2277](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2277)
+
+---
 
 ### DEPLOY: fix/2255-suite-bound-basis · 20260922-094657
 
