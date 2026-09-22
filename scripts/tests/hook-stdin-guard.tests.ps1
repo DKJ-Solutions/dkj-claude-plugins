@@ -446,6 +446,86 @@ Assert-Equal $false ((Get-DisplayRef -Ref $zwspEvent).Contains([char]0x200B)) 'n
 Assert-Equal 'plugins/dkj-policy/hooks/ nosj.skooh' (Get-DisplayPath -Path $rtlPath) 'the PATH keeps its length and its spaces, because a path has to survive being read off the screen and typed back'
 Assert-Equal 'Pre ToolUse' (Get-DisplayRef -Ref $zwspEvent) 'while the LABEL collapses and trims -- the contract difference that is why these two values take two functions'
 
+Write-Host ""
+Write-Host "-- group 5: the repaired print lines still CALL the strip (issue #2280)" -ForegroundColor Cyan
+
+# GROUP 4 GUARDS THE LIBRARY; THIS GUARDS THE WIRING, and they are not the same assert. Group 4 proves
+# the dot-source landed and that each function strips its own class -- and it would pass UNCHANGED if a
+# later edit put one of the four repaired lines back to a raw interpolation while leaving the
+# dot-source alone. A bad merge-conflict resolution is the likely shape, and this file is about to have
+# one: a parked branch edits the same print-site list. That is a counter-case which passes either way,
+# which is this file's own definition of a hole with a comment on it. Found by the security review of
+# this branch rather than by the repair.
+#
+# WHY A SOURCE SCAN AND NOT AN INJECTED FIXTURE. The values at those lines are scanned out of the real
+# tree, so driving a hazardous one through them means writing a deceptive path or a deceptive
+# hooks.json into the tree being scanned -- which is exactly what group 3's own comment refuses to do
+# to a shipped manifest. So this reads the SOURCE, as group 1 does and for the reason group 1's
+# docstring already gives: the behaviour is not reachable from a test process, and the source is.
+#
+# ONE SENTINEL, BECAUSE THE COUNTER-CASE HAS TO CONTAIN WHAT IT FORBIDS. A fixture line proving the
+# scan catches a raw print must carry the raw shape, so it would be reported as a defect. Every such
+# line is marked, and the scan skips a marked line -- the same trick as excluding scripts/tests from
+# group 1's own walk, one scale down.
+$ForeignValueTokens = @('$s.Path', '$w.Path', '$w.Event')
+$GuardCallTokens    = @('Get-DisplayPath', 'Get-DisplayRef')
+
+function Test-LineIsForeignPrint {
+    param([string]$Line)
+    # Prose about the hazard is not an instance of it -- group 1's rule, one file over.
+    if ($Line.TrimStart().StartsWith('#')) { return $false }
+    if ($Line.Contains('not-a-print-site')) { return $false }
+    if ($Line -notmatch 'Write-Host|Assert-True') { return $false }
+    foreach ($tok in $ForeignValueTokens) { if ($Line.Contains($tok)) { return $true } }
+    return $false
+}
+
+function Test-LineGuardsForeignPrint {
+    param([string]$Line)
+    foreach ($g in $GuardCallTokens) { if ($Line.Contains($g)) { return $true } }
+    return $false
+}
+
+$selfLines  = @(Get-Content -LiteralPath $PSCommandPath)
+$printLines = @()
+for ($i = 0; $i -lt $selfLines.Count; $i++) {
+    if (-not (Test-LineIsForeignPrint -Line $selfLines[$i])) { continue }
+    $printLines += [pscustomobject]@{
+        Num     = $i + 1
+        Guarded = (Test-LineGuardsForeignPrint -Line $selfLines[$i])
+    }
+}
+
+Write-Host "     lines of this file printing a scanned value: $($printLines.Count)" -ForegroundColor DarkGray
+foreach ($p in $printLines) {
+    Write-Host "       line $($p.Num)" -ForegroundColor DarkGray
+}
+
+# A FLOOR AT FOUR, group 1's reasoning applied to this file: two groups print two value classes, each
+# once in its enumeration and once in its per-item assert message. A fifth is the normal case and must
+# not turn this red for existing; a DROP means the scan stopped matching, never that there is nothing
+# left to guard.
+Assert-True ($printLines.Count -ge 4) "the scan found this file's own print lines (>= 4, got $($printLines.Count)) -- a drop means the scan broke or a line changed shape, never that there is nothing to guard"
+
+foreach ($p in $printLines) {
+    Assert-True $p.Guarded "line $($p.Num) hands its scanned value to the strip before printing it"
+}
+
+# THE COUNTER-CASES, on the rule this file states twice already. The first pair is the whole point: the
+# scan has to SEE a raw print line and has to call it unguarded, or the asserts above are decoration.
+$fixtureRaw      = 'Write-Host "   $($s.Path):$($s.Line)" -ForegroundColor DarkGray'                  # not-a-print-site
+$fixtureGuarded  = 'Write-Host "   $(Get-DisplayPath -Path $s.Path):$($s.Line)" -ForegroundColor Gray' # not-a-print-site
+$fixtureKeyRaw   = 'Assert-True $w.HandsBack "$($w.Path) [$($w.Event)]: the wrapper pipes it back"'    # not-a-print-site
+$fixtureProse    = '#   Write-Host "   $($w.Event)" -- prose explaining the hazard, not an instance'   # not-a-print-site
+$fixtureOwnValue = 'Write-Host "     the family, counted out of the tree: $($sites.Count) site(s)"'    # not-a-print-site
+
+Assert-True (Test-LineIsForeignPrint -Line $fixtureRaw)              'the scan sees a print line carrying a value this suite did not author'
+Assert-True (-not (Test-LineGuardsForeignPrint -Line $fixtureRaw))   'and calls it UNGUARDED when no strip is named on it -- the shape a bad merge resolution would leave behind'
+Assert-True (Test-LineGuardsForeignPrint -Line $fixtureGuarded)      'while the repaired shape passes'
+Assert-True (Test-LineIsForeignPrint -Line $fixtureKeyRaw)           'an assert MESSAGE is a print site too, which is half of what issue #2280 reported'
+Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureProse))     'prose about the hazard is not an instance of it -- this file documents itself, and counting that would make a good explanation the failure'
+Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureOwnValue))  'and a line printing this suite own count is not a subject at all'
+
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }
 exit 0
