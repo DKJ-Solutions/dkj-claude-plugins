@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**30 / 48 minor entries** <!-- pending-tally -->
+**30 / 49 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2322-resolve-trunk-ref-helper · 20260922-220835
+
+The "use `refs/remotes/origin/<trunk>` where it verifies, otherwise the bare local name" resolution
+was written out twice in `park-lib.ps1`, once for the backing gate and once for the machine-local
+check. Both copies now call one helper, `Resolve-TrunkRef`, which returns `$null` when neither ref
+verifies, so the "not measured" cases are unchanged. The ordering matters because a local trunk behind
+`origin` over-reports a branch's work (#1399). With one definition there is no second copy to get
+wrong. Behaviour is unchanged, and `backing-gate.tests.ps1` now asserts the helper directly.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. The lib is mirrored into `dkj-policy`, but nothing a consumer runs behaves differently.
+
+**Score:** N/A
+
+#### Pull Request
+
+park-lib resolves the trunk ref through one Resolve-TrunkRef instead of two inline copies
+
+Plugins: dkj-policy
+
+[PR #2328](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2328)
+
+---
 
 ### DEPLOY: feat/2317-gate-cost-ci-wait · 20260922-212713
 
