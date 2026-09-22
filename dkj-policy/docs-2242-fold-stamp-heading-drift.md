@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Fixes #2242: sort the ~15 sites claiming the fold stamps the `Pull Request` heading -- current-tense
+drift since the stamp moved to the entry's own heading on August 23, 2026 -- into current (fix),
+historical (leave), and different-mechanism (leave: the lint's duplicate-section PR-link errors).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Classify and correct the current-tense sites in `scripts/lib/entry-scaffold-lib.ps1`,
+      `scripts/release/fold-changelog-entry.ps1`, `scripts/lint/check-plugin-integrity.ps1` and
+      `scripts/tests/entry-scaffold.tests.ps1`
+- [x] Correct the two portable pages consumers read (`DEVELOPMENT-portable.md`,
+      `CONTRIBUTING-portable.md`) and the `fold-changelog` skill page, which carried both answers
+- [x] Correct the two current-tense sites in Rendall's repo lens (`specialist-05-06-lens.md`)
+- [x] Sync the `plugins/dkj-policy/scripts/` mirrors via `build-shared-scripts.ps1`
+- [x] File a separate issue for a real double-stamp bug found while verifying the fix (a
+      pre-dossier entry now gets the merge date on both its heading and its closing line) --
+      #2259, out of scope for this docs-only branch
 
 ### TEST
 
+- [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors
+- [x] `scripts/tests/entry-scaffold.tests.ps1` -- all 838 asserts passed
+
 ### DEPLOY: docs/2242-fold-stamp-heading-drift
 
-**Score:**
+Corrects the tree's ~15-site drift about where the fold's merge stamp lands: the entry's own
+`### DEPLOY:` heading since August 23, 2026, not the `Pull Request` heading that carried it from
+August 19–23. Left untouched: passages that correctly describe that August 19–23 window as history,
+and the lint's duplicate-section errors, which are about the closing PR *link* rather than the stamp.
+
+**Score:** 3 -- self-contradicting comments and docstrings (a summary line disagreeing with its own
+body) are exactly the kind of drift that misleads the next person to touch this code.
 
 #### What makes this deploy extra special
 
-**Score:**
+`DEVELOPMENT-portable.md` and `CONTRIBUTING-portable.md` are the only description a consumer has of
+where their changelog's ordering key lives; the stale text pointed at the wrong heading.
+
+**Score:** 1 -- prevents a consumer debugging their changelog's ordering from looking at the
+`Pull Request` heading, finding no stamp, and concluding the fold is broken.
 
 #### Pull Request
 

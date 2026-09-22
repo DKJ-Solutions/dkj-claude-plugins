@@ -514,9 +514,9 @@ Assert-Equal 'Tier: 2' (Format-EntryTierLine -Tier 2) 'and writes the tier it is
 #     same reason) as Get-ExistingPrRecord in pr-issues-lib.ps1.
 Write-Host "the fold footer (Format-EntryFoldFooter) and the merge stamp beside it" -ForegroundColor Cyan
 # THE LINE IS THE PR AND NOTHING ELSE SINCE AUGUST 19, 2026 (Dave). It carried ' <middot> merged <date>'
-# from August 5; the date stamps the 'Pull Request' heading now, so the same fact does not stand twice in
-# one section. Asserted as the WHOLE line, which is the claim that proves the date is gone rather than moved
-# within it.
+# from August 5; the date stamps the entry's own heading now (the 'Pull Request' heading from August 19
+# to August 23, 2026), so the same fact does not stand twice in one section. Asserted as the WHOLE line,
+# which is the claim that proves the date is gone rather than moved within it.
 $footer = Format-EntryFoldFooter -Number 468 -Url 'https://gh.test/pr/468'
 Assert-Equal '[PR #468](https://gh.test/pr/468)' $footer 'the footer carries the PR link, and only that'
 
