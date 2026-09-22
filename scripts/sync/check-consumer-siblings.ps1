@@ -416,11 +416,18 @@ foreach ($groupName in $groups.Keys) {
         }
 
         if (-not $inv.Ok) {
-            $unreadable = @($unreadable) + @("$label -- $($inv.Reason)")
+            # #2272: $label guarded as at L448/L450 below -- same manifest 'repo' field. $inv.Reason is
+            # traced: every literal arm is this script's own composed text (or embeds only a number),
+            # EXCEPT Get-GitHubInventory's two arms built from $branch -- the sibling's own default-branch
+            # name off gh's API ('gh exited N reading the tree of <branch>', 'github:<branch>') -- so the
+            # whole sentence is guarded as prose rather than picking that one arm apart here. The
+            # underlying $inv.Reason is untouched; only this print copy is sanitized.
+            $unreadable = @($unreadable) + @("$(Format-SafePathToken -Value $label) -- $(Format-SafeProseToken -Value $inv.Reason)")
             continue
         }
         $inventory[$label] = $inv.Paths
-        Write-Host "   read $label : $($inv.Paths.Count) comparable path(s) via $($inv.Reason)" -ForegroundColor DarkGray
+        # #2272: same trace and guards as above.
+        Write-Host "   read $(Format-SafePathToken -Value $label) : $($inv.Paths.Count) comparable path(s) via $(Format-SafeProseToken -Value $inv.Reason)" -ForegroundColor DarkGray
     }
 
     # ONE SCHEME PER GROUP. Anything less than every member read the same way is not a smaller

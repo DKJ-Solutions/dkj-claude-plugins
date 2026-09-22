@@ -65,6 +65,15 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
 - [~] `$_.Exception.Message` at `sync-main.ps1` L577 stays raw -- dropped here deliberately. It is a
       repo-wide question (34 console sites, none stripped, and the registry has no entry for the
       class), not a one-line patch inside an unrelated fix. Filed as #2271.
+- [x] **#2272, found after the above by the regression pin's own fixture**: two further sites in
+      `check-consumer-siblings.ps1` printed the same `$label` completely raw -- L425 (the
+      `$unreadable` line) and L430 (the per-member `read` line). Both now guard `$label` via
+      `Format-SafePathToken`, and `$inv.Reason` via `Format-SafeProseToken` -- a composed sentence
+      that embeds foreign text only in its two `Get-GitHubInventory` arms, guarded at the print
+      rather than at composition because the same value feeds a live `?ref=` API call (L263).
+      Ruled in scope rather than deferred: entry 13 had already been rewritten to say this site was
+      guarded, so leaving them raw would have made the registry false the day it was written.
+- [x] Extend registry entry 13 for those two sites and the second guard function.
 
 ### TEST
 
@@ -75,6 +84,16 @@ Four value classes verified unguarded against the tree: the consumer workflow FI
       `sibling-divergence`, `shared-scripts` (mirror parity) and `pr-issues` (which pins *which* libs
       may carry the strip pattern -- untouched, since this branch only calls the existing functions).
 - [x] Every line number cited in the three registry entries verified against the tree after the edit.
+- [x] Behavioural regression pin written -- `scripts/tests/check-consumer-siblings.tests.ps1`, new,
+      22 asserts, where this script had no suite-level coverage at all before (only its pure lib).
+      It drives the real script with `-Source disk` over crafted manifests and asserts on the
+      rendered console lines, never on the source containing a guard's name: a spelling test would
+      fail on any harmless refactor and teach people to update the assert rather than think.
+- [x] Three asserts added to `adopt-ci-floor.tests.ps1` for the required-check context name.
+- [x] The suite's own "deliberately not covered" section re-read against the tree in full. Two of
+      its four bullets had gone stale -- one describing the now-repaired L425/L430 sites, one
+      describing an unreadable member as uncovered when it now is. `sync-main.ps1`'s `$rel` guard is
+      named there as a live-exercise gap that remains open, rather than left silent.
 
 ### DEPLOY: fix/2248-guard-raw-foreign-text-prints
 
@@ -92,6 +111,16 @@ The repair went further than the report at one site. `check-consumer-siblings.ps
 `check-connectors.ps1` already guards at six sites, so they are guarded here too; `$f.Class` and the
 `$where` clause are this repo's own values and are deliberately left alone, with the reason in the
 code rather than in anyone's memory.
+
+**Then the regression pin written for that repair found two more sites the repair had missed** --
+`$label`, the same manifest field, printed completely raw at the `$unreadable` line and the
+per-member `read` line earlier in the same file (#2272). Both are guarded here rather than deferred,
+because registry entry 13 had by then been rewritten to say this site was repaired: leaving them
+would have made the entry false the day it was written, which is the exact failure the entry
+describes. `$inv.Reason` at those lines is guarded too, via `Format-SafeProseToken` -- it is a
+composed sentence carrying foreign text only in its two `Get-GitHubInventory` arms, and it is
+guarded at the print rather than at composition because the same value feeds a live `?ref=` API
+call.
 
 **This also corrects a claim the registry was making.** #2247 asserted of `adopt-ci-floor.ps1` that
 "this is an accuracy defect in the registry, not an unguarded site -- nothing is exploitable today",
