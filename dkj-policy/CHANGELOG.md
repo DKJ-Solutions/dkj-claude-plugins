@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 27 minor entries** <!-- pending-tally -->
+**19 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2283-ship-pr-refusal-signal · 20260922-122815
+
+`ship-pr`, `open-pr`, `fold-changelog-entry`, `cut-release` and `park-branch` now end a refusal with a
+`[REFUSED]` line naming what did and did not happen -- printed on the error stream the host already used,
+and followed by an explicit `exit 1`. `ship-pr`'s says which side of the merge it stopped on, because a
+refusal after the merge leaves the fold owed, and that is the opposite of nothing having happened.
+
+The defect it closes is that a backgrounded run reported `completed (exit code 0)` for a run that merged
+nothing (measured on PR #2282): the refusal's only machine-readable signal is the process exit code, and
+every recorded invocation of these scripts is read through a pipe, which reports its own `0` instead. The
+scripts' exit codes were never wrong -- unpiped they are 1 -- so the repair had to move the verdict into
+the output rather than into the exit path the report named.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+It is the half of a chain ending that was missing. A finishing run has printed a close-out receipt since
+#1884; a refusing one printed a PowerShell error record and nothing that said *this run did not finish*.
+The two endings are symmetrical now, and the asymmetry had been costing exactly what it was bound to cost:
+a session reading the cheap signal and closing out on the wrong one of the two.
+
+For a subscriber of this workflow the change is invisible until a run refuses -- and then it is the
+difference between reading a stack trace and reading a verdict. Nothing about which runs refuse changed.
+
+**Score:** 3
+
+#### Pull Request
+
+A refused chain-ending run says so in its LAST LINE, not only in an exit code a pipe throws away
+
+Plugins: dkj-policy
+
+[PR #2286](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2286)
+
+---
 
 ### DEPLOY: feat/2279-cpu-time-in-lane-timeout-verdict · 20260922-121322
 

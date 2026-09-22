@@ -348,6 +348,59 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# EVERY REFUSAL ENDS WITH A LINE THAT SURVIVES ITS CALLER (issue #2283). The report behind this one said the
+# refusal "does not set an exit code, and nothing downstream converts it into one", and that half does not
+# hold: under the 'Stop' above every Write-Error in this file is a TERMINATING error, so the host exits 1 on
+# its own and the `exit 1` written beneath each one is dead code. Measured on this script's own trunk
+# refusal, September 22, 2026: `powershell -File scripts/release/ship-pr.ps1` exits 1.
+#
+# WHAT ACTUALLY DESTROYS THE SIGNAL IS THE PIPE, and the pipe is not an accident -- it is how this script is
+# read. Every recorded invocation of it in this machine's session transcripts goes through one (`| tail -40`,
+# `| Select-Object -Last 150`), because the run is long and nobody wants all of it; a pipeline reports the
+# exit status of its LAST element, so `ship-pr.ps1 2>&1 | tail -40` exits 0 whatever this run did. Verified
+# both ways on one refusal: unpiped 1, piped 0. A backgrounded ship then comes back to its caller as
+# `completed (exit code 0)` while the pull request sits open, conflicting and unmerged -- and "merged and
+# folded" and "refused, nothing done" are indistinguishable to the one signal that caller reads.
+#
+# AND THE PIPE IS ONLY THE COMMONEST WAY, WHICH IS WHY THE LINE BELOW DOES NOT SAY "PIPE" ON ITS OWN.
+# Measured on this very branch, hours after the paragraph above was written: the ship that was to land it
+# was run WITHOUT a pipe, redirected to a file -- and as `powershell ... > log 2>&1; echo "EXIT=$?"`, whose
+# last command is the echo. The harness reported `completed (exit code 0)` again, for a run that refused on
+# a red required check. Any wrapper ending in a second command does this, so a reader who concludes "no
+# pipe, so my exit code is sound" has drawn exactly the wrong lesson from the right observation.
+#
+# SO THE VERDICT MOVES IN-BAND, WHERE NEITHER CAN TAKE IT. The trap prints the error record exactly as the
+# host would and on the stream the host would (WriteErrorLine, so a caller separating the streams keeps what
+# it always had), then ONE unmistakable last line, then exits 1 explicitly rather than leaving the code to
+# the host. A successful run already ends with the close-out receipt (#1884), so the two endings are now
+# symmetrical: whatever the caller reads, the LAST line of the output says which of them happened.
+#
+# IT CHANGES NO PATH THAT RUNS TODAY. A trap fires only on a terminating error nothing caught, which is what
+# every refusal in this file already is -- and a deliberate try/catch is closer, so it keeps its error. It
+# is installed ABOVE the dot-sources on purpose: the source-repo guard refuses before any lib is loaded, and
+# a refusal that cannot reach its own verdict line is the defect this block exists to remove.
+#
+# AND IT SAYS WHICH SIDE OF THE MERGE IT STOPPED ON, because a single sentence here would be a lie on one of
+# them. Refusals live on both sides: step 4's read-back refuses when `gh pr merge` returned 0 and the PR does
+# not read MERGED, and step 5 can fail with the merge already landed -- which is #1270's trapped-entry state,
+# the expensive one, and the opposite of "nothing happened". $shipMergeLanded is set at exactly one place,
+# the line that reports the merge, so the verdict states what this run actually knows and nothing more.
+$shipMergeLanded = $false
+trap {
+    $shipRefusal = $_
+    $host.UI.WriteErrorLine(($shipRefusal | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    if ($shipMergeLanded) {
+        $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above AFTER the merge landed -- the PR IS merged and the FOLD IS STILL OWED.')
+        $host.UI.WriteErrorLine('          That is the trapped-entry state (#1270): the branch document sits on the trunk with nothing saying so.')
+    } else {
+        $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above -- NOT merged, NOT folded; nothing past that point ran.')
+    }
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
+
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
@@ -3010,6 +3063,10 @@ that actually carries it. Nothing here needs undoing -- the PR is queued, not lo
     exit 1
 }
 Write-Host "ship-pr: PR #$pr merged (--$mergeMethod)." -ForegroundColor Green
+# THE MERGE IS NOW A FACT THIS RUN CARRIES, and the refusal trap at the top of the file reads it (#2283).
+# Everything that refuses from here on refuses with the merge already landed, which is the opposite state
+# from everything above -- and the two are indistinguishable in an error record.
+$shipMergeLanded = $true
 
 # --- Step 5: main + fold + commit + push ---------------------------------------------------------
 #
