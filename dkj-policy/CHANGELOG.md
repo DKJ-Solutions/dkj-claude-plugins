@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 31 minor entries** <!-- pending-tally -->
+**22 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2297-exercise-guards-in-review · 20260922-141728
+
+The code reviewer and the security engineer now carry a standing rule that a guard, matcher, validator
+or sanitiser in the material under review is **run** against input designed to defeat it, rather than
+read -- and that reporting "no findings" on one nobody exercised is a false report. It arrives as one
+shared block (`guard-exercised`) in both agent defs, so it fires on every invocation regardless of how
+the review was asked for, with the craft reasoning and the measurement behind it in each portable
+manual. Measured on PR #2290: asked generically, the review returned no findings on a newly added lint
+check; asked specifically what unguarded spellings it would wrongly pass, the same reviewer ran it and
+found four defects -- the worst certifying a call site as guarded while it stripped nothing.
+
+The act is bounded rather than open-ended: the guard is run as the **subject** of the review and never
+obeyed, its body is read for side effects before it is called, the function is copied into a scratch
+file instead of the module around it being loaded, and a guard that cannot be exercised safely is
+reported as a finding rather than run anyway.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo that installs `dkj-subagents-alpha` gets the rule on its next plugin update, and it changes
+what a review is worth there: a reviewer that reads a guard and reports clean is the failure mode this
+closes, and it needed no prompt to produce. Noticed the first time either specialist is put on a diff
+that adds a check.
+
+**Score:** 3
+
+#### Pull Request
+
+A guard in the diff is exercised against adversarial input, not read
+
+Plugins: dkj-subagents-alpha
+
+[PR #2299](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2299)
+
+---
 
 ### DEPLOY: feat/2289-lens-naming-readiness-signal · 20260922-135444
 
