@@ -44,7 +44,52 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 10 minor entries** <!-- pending-tally -->
+**7 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2243-sweep-issues-skill · 20260922-001336
+
+A backlog worked by several machines at once had one procedure in this marketplace and it was a
+**prompt block** in `dkj-policy-bwj` -- pasted by hand into a fresh session per machine, with its claim
+written as prose for a session to type and its race resolution releasing the issue from both sides of a
+tie. `sweep-issues` is that procedure as a skill in `dkj-policy`, and `claim-issue.ps1` gains the claim
+it needs: **`-Tag`**, which claims with a marker comment carrying `machine/account` instead of with an
+assignee. Both halves of that tag are load-bearing and both were measured -- two accounts sharing a
+machine name and two machines sharing an account each produced an ambiguous claim
+([#701](https://github.com/BWJ-Development/smartwatchbanden/issues/701)) -- and the assignee is still
+written beside it as the tracker's visible signal rather than as the claim. `Resolve-ClaimRace` reads
+the markers back and names the **winner** (earliest comment, ties broken on the node id, which is
+arbitrary and identical for every reader) so exactly one session keeps the issue and the losers release
+their own marker. `-Verify` answers in an exit code whether THIS tag still holds an issue, which is what
+the resume step needs and the sharpest place a vague claim costs; `-Release` drops this tag's own
+markers and nothing else; `-Candidates` reads the whole board in one call and judges it without writing
+anything, because between choosing and claiming sits the question of whether the issue is this repo's
+work at all ([#722](https://github.com/BWJ-Development/smartwatchbanden/issues/722)). The default
+assignee mode is untouched throughout, and the tag verdict is mapped onto its vocabulary so the
+parked-fix, prerequisite and title-overlap scans all still run.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A consumer repo gets a way to put several machines on one backlog without the two failures that shape
+costs: building the same issue twice, and a session resuming somebody else's branch because the claim
+could not name a machine. Before this, the only shared claim was an assignee -- which two checkouts
+under one GitHub account write identically, and which refuses an issue carrying the name of the
+colleague who owns the ticket, measured at three of fourteen open issues on one board. The skill also
+carries the stop that a parallel round most wants to skip: where the result has to be judged by eye it
+parks the branch and takes the next issue rather than opening a pull request on work nobody has seen.
+
+**Score:** 3
+
+#### Pull Request
+
+Sweep an issue backlog with several machines, claiming by tag
+
+Plugins: dkj-policy
+
+[PR #2257](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2257)
+
+---
 
 ### DEPLOY: docs/2247-foreign-text-registry-sweep · 20260921-224745
 
