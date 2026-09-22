@@ -326,6 +326,11 @@ jobs:
   theme-check:
     name: Shopify theme check
     runs-on: ubuntu-latest
+    # A job with no timeout-minutes runs to GitHub's SIX-HOUR default (issue #2296). A wedge in a gate
+    # that runs on every pull request does not fail the branch -- it leaves the check unreported, which
+    # reads as "still running" to every gate and to every person. 10 is far above anything a theme check
+    # measures; re-size it if this repo's theme grows one that genuinely runs longer.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - name: Run theme check
