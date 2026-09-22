@@ -1521,7 +1521,7 @@ this repo's:
   again and was worse than it read: the gate's total EQUALLED this suite to a tenth of a second, four runs
   out of four, with 15 of 16 lanes idle for its last 70-86 seconds. **The generalisation worth keeping:
   when a gate's cost is one file, ask whether the work has to be one file before asking whether it has to
-  be done.** The convention for the four is in [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-four-files-august-16-2026).
+  be done.** The convention for the four is in [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026).
 - **Do not hand-roll a second parallel runner — and re-run a red suite alone before believing its assert.**
   Measured August 12, 2026: a `Start-Job` fan-out over all **31** suites reported **6** failures —
   `subagent-shared`, `bootstrap-drift`, `config-blueprint`, `fix-mojibake`, `roster-sync`,
