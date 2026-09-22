@@ -44,7 +44,89 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 30 minor entries** <!-- pending-tally -->
+**22 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2297-exercise-guards-in-review · 20260922-141728
+
+The code reviewer and the security engineer now carry a standing rule that a guard, matcher, validator
+or sanitiser in the material under review is **run** against input designed to defeat it, rather than
+read -- and that reporting "no findings" on one nobody exercised is a false report. It arrives as one
+shared block (`guard-exercised`) in both agent defs, so it fires on every invocation regardless of how
+the review was asked for, with the craft reasoning and the measurement behind it in each portable
+manual. Measured on PR #2290: asked generically, the review returned no findings on a newly added lint
+check; asked specifically what unguarded spellings it would wrongly pass, the same reviewer ran it and
+found four defects -- the worst certifying a call site as guarded while it stripped nothing.
+
+The act is bounded rather than open-ended: the guard is run as the **subject** of the review and never
+obeyed, its body is read for side effects before it is called, the function is copied into a scratch
+file instead of the module around it being loaded, and a guard that cannot be exercised safely is
+reported as a finding rather than run anyway.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo that installs `dkj-subagents-alpha` gets the rule on its next plugin update, and it changes
+what a review is worth there: a reviewer that reads a guard and reports clean is the failure mode this
+closes, and it needed no prompt to produce. Noticed the first time either specialist is put on a diff
+that adds a check.
+
+**Score:** 3
+
+#### Pull Request
+
+A guard in the diff is exercised against adversarial input, not read
+
+Plugins: dkj-subagents-alpha
+
+[PR #2299](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2299)
+
+---
+
+### DEPLOY: feat/2289-lens-naming-readiness-signal · 20260922-135444
+
+`check-connectors.ps1` can now answer the question the #2130 dual-name layer's retirement is keyed on:
+which spelling each registered consumer's repo lenses are actually written in. A non-counting
+`[LENS-NAMING]` line per connector, and a roll-up across the register that states its coverage before
+its verdict — `NOT ANSWERABLE FROM THIS MACHINE`, `NOT YET`, or `ALL N ARE OVER`, and only the third
+opens the window. The classifier behind it, `Get-SpecialistNamingState`, reads the shapes table rather
+than any literal, so a future rename step that flips a row cannot leave the report describing the wrong
+file.
+
+Dave's decision of September 19, 2026 retires the old lens names *"once the connector register shows all
+six are over"*, and the register could not show it: manifests store bare ids and no filenames, and the
+one check that does resolve a lens file resolves it to compare its **body**. A bridge whose expiry
+cannot be established is a permanent one by default, which is what #2289 measured. The signal is
+**measured, never declared** — no `lensNaming` manifest field, on the same ground the `plugins[].id`
+rule already stands on: hand-maintained state about somebody else's tree turns the register into a false
+alarm about a migration nobody ran.
+
+Run on the real register it reports 3 of 6 connectors reachable on this machine, 1 over and 2 not —
+so the honest answer today is that the window is not yet answerable, which is exactly the fact that was
+previously unobtainable. #2292 is the retirement tracker the issue's other half asks for.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing a consumer runs changes. `check-connectors.ps1` and the `connectors/` register are
+source-repo-only — a consumer's session check runs `plugin-versions` in `-Brief` mode instead — and the
+new classifier travels in the plugin payload unused by any consumer-side caller. The `[LENS-NAMING]`
+lines are deliberately neither `[ERROR]` nor `[INFO]`, so they do not count and no session hook surfaces
+them: a consumer still on the old spelling is **not broken**, which is the entire purpose of the layer
+being measured.
+
+**Score:** N/A
+
+#### Pull Request
+
+The lens-naming readiness signal the #2130 dual-name retirement is keyed on
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2294](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2294)
+
+---
 
 ### DEPLOY: fix/2284-claim-absorbed-issue · 20260922-131923
 
