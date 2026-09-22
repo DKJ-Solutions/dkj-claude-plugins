@@ -166,6 +166,13 @@
     needs `gh` and a readable repo name (scripts\repo-config.ps1's Get-RepoName): where either is missing,
     it says so and is skipped, exactly like every other optional gh call in this workflow.
 
+    AND THE FIRST HALF OF THAT SENTENCE ONLY BECAME TRUE WITH #2234, which is recorded because the
+    sentence itself did not change. The missing-repo-name half always had its own branch below; a
+    missing `gh` had none, and Invoke-NativeCapture THREW on it -- so under this script's own
+    $ErrorActionPreference = 'Stop' the run died at an OPTIONAL check, creating no branch and no
+    development document. The repair is in the lib (a not-started capture rather than an exception), so
+    this script degrades through the same branch every other outcome already used.
+
 .EXAMPLE
     ./scripts/task/new-branch.ps1 -Name feat/new-plugin -Title "New domain plugin"
 
@@ -858,8 +865,14 @@ if ($resolveList.Count -gt 0) {
         # exists to prevent.
         $openAll = $null
         $openQuery = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'list', '--repo', $ghRepoName, '--state', 'open', '--limit', '1000', '--json', 'number') -DiscardStderr
-        if ($openQuery.ExitCode -ne 0) {
-            Write-Warning "could not ask gh which issues are open (exit $($openQuery.ExitCode)) -- the already-done check for $targetList cannot check and will not block."
+        # THE LABEL RATHER THAN THE RAW NUMBER (issues #2081 and #2234). This branch is reached on every
+        # non-zero AND on both states that have no number at all -- an exit code that is not a
+        # measurement (#1931), and, since #2234, a `gh` that is not installed, which used to THROW here
+        # and take the whole run with it. PowerShell interpolates $null as the empty string, so the raw
+        # form printed "(exit )" -- a sentence whose grammar promises a number that is not there. The
+        # verdict was already right; only the reason needed to stop lying.
+        if (-not (Test-NativeExitMeasured -Capture $openQuery) -or $openQuery.ExitCode -ne 0) {
+            Write-Warning "could not ask gh which issues are open ($(Get-NativeExitLabel -Capture $openQuery)) -- the already-done check for $targetList cannot check and will not block."
         } else {
             try {
                 # ASSIGN FIRST, WRAP SECOND -- Windows PowerShell 5.1 hands a parsed JSON array to the
@@ -886,8 +899,19 @@ if ($resolveList.Count -gt 0) {
         # AN UNMEASURABLE EXIT CODE IS THE THIRD READING (issue #1931, audited under #2081), asked ahead
         # of the number because `$null -ne 0` is true and the warning otherwise came out as "(exit )".
         # Same repair as open-pr.ps1 makes on the same search, for the same reason.
+        # AND A FOURTH READING AHEAD OF THAT ONE (issue #2234), because the third one is WRONG about it in
+        # both halves: "gh ran" is exactly what did not happen, and "a re-run normally settles it" is
+        # false advice rather than merely imprecise -- a gh that is not installed does not settle on a
+        # re-run. A not-started capture sets ExitCodeUnknown on purpose, so without this arm it is
+        # absorbed by the one below and this script tells the reader to try again forever.
+        #
+        # CAUGHT BY MEASURING THE END-TO-END RUN RATHER THAN BY READING THE DIFF: the sibling call twenty
+        # lines up was the one #2234 named, and repairing only what a report names is how the second
+        # instance of a class survives its own fix.
         $searchUnread = ''
-        if (-not (Test-NativeExitMeasured -Capture $prSearch)) {
+        if (-not (Test-NativeCommandStarted -Capture $prSearch)) {
+            $searchUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the search never ran'
+        } elseif (-not (Test-NativeExitMeasured -Capture $prSearch)) {
             $searchUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the search; a re-run normally settles it'
         } elseif ($prSearch.ExitCode -ne 0) {
             $searchUnread = "exit $($prSearch.ExitCode)"

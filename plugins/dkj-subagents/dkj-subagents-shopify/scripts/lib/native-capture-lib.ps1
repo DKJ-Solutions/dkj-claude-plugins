@@ -1067,6 +1067,128 @@ function Get-NativeOutputText {
     return ($lines -join "`n").Replace("`r`n", "`n").Trim()
 }
 
+function New-NativeNotStartedCapture {
+    <#
+    .SYNOPSIS
+        The capture Invoke-NativeCapture returns when the child NEVER STARTED -- the executable is not
+        on PATH, or the OS refused to launch it (issue #2234).
+
+    .DESCRIPTION
+        THE THIRD STATE ON ExitCodeUnknown'S OWN AXIS, and the reason it is a state rather than a guard
+        at each call site. Until this existed, a missing executable was the one outcome of a capture that
+        a caller could not read at all: BOTH arms threw before composing anything, so there was no
+        ExitCode, no ExitCodeUnknown, no TimedOut and no Output to judge. Under a caller's
+        $ErrorActionPreference = 'Stop' -- which every task script in this workflow sets on line 1 --
+        that ended the whole run rather than the one call.
+
+        BOTH ARMS THREW, WHICH IS ONE STEP PAST WHAT #2234 MEASURED and is why the repair is here rather
+        than in Start-Process's arm alone. The report measured the Start-Process arm, where a missing
+        file surfaces as InvalidOperationException out of the cmdlet. The & arm throws too, earlier and
+        for a different reason: command DISCOVERY fails with CommandNotFoundException, which is a
+        terminating error that $ErrorActionPreference = 'Continue' does not suppress -- so this
+        function's own EAP dance, which exists precisely so a caller gets a verdict rather than an
+        exception, never reached it. A repair on one arm would have left `gh` missing fatal on every
+        unbounded call in the family, which is most of them.
+
+        WHY A GUARD AT EACH CALL SITE WAS REFUSED. There were two unguarded sites when this was written
+        -- new-branch.ps1's already-done check and fold-changelog-entry.ps1's PR enrichment, both of them
+        OPTIONAL enrichment whose own docstrings promise they degrade -- and the objection is that the
+        third one is written by whoever forgets. A missing executable is a fact about the call, and this
+        lib already has the vocabulary for exactly that class of fact.
+
+        THE FIELDS, AND WHY ExitCodeUnknown IS $true HERE. A caller reads one field whichever arm
+        answered it, which is the promise TimedOut and ShortRead already make -- so a never-started child
+        reports the exit code it does not have the same way a raced one does:
+
+          - Output          : one '[not-started]' line naming the command and the launcher's own reason,
+                              because that is where every existing caller already looks. It is safe to
+                              append here where ExitCodeUnknown's own docstring refuses to append for the
+                              race: a child that never started wrote no stdout, so there is no
+                              machine-readable capture to corrupt -- and ExitCode is $null, so every
+                              site that parses Output gates on `-eq 0` and never reaches the parse.
+          - ExitCode        : $null. There is no exit code, and a substituted number would be a verdict
+                              this function invented -- which is the distinction TimedOut's own 124 is
+                              careful to be on the other side of.
+          - ExitCodeUnknown : $true. NOT because the child ran, but because the FIELD'S QUESTION is "is
+                              ExitCode a measurement of how it ended", and the answer is no. Setting it
+                              $false and relying on NotStarted alone was considered and is measurably
+                              worse: a site reading ExitCodeUnknown directly would then treat $null as
+                              measured, land on `$null -ne 0`, and print "(exit )" -- the empty-number
+                              sentence #2081 was filed to end. So ExitCodeUnknown's documented meaning
+                              widens to "ExitCode is not a measurement", and NotStarted says WHICH of the
+                              two reasons it is.
+          - TimedOut        : $false. Nothing was waited on.
+          - ShortRead       : $false. No capture file was read.
+          - NotStarted      : $true, and $false on every other return from both arms.
+
+        THE ONE THING THE FIELD BUYS THAT ExitCodeUnknown CANNOT is the WORDING, and it is not cosmetic:
+        Get-NativeExitLabel's unmeasured sentence says "the child ran" and advises "this normally settles
+        on a re-run". Both are false here and the second is actively misleading -- a command that is not
+        installed does not settle on a re-run. The two sites in this family that RE-ASK on an unmeasured
+        code (claim-issue's read, park-cycle's PR check) read this field for the same reason: a second
+        launch of a command that does not exist buys nothing and reports "answered twice" about a child
+        that never answered once.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Reason
+    )
+
+    # ONE LINE, AND THE SHAPE MATCHES THE TIMEOUT DIAGNOSIS ABOVE IT -- a '[tag]' prefix, the command in
+    # quotes, then the reason -- because a reader meeting either one is reading the same console and the
+    # two answer the same question about the same call.
+    #
+    # $FilePath IS A CALLER-CHOSEN LITERAL, AND THAT IS A CONSTRAINT RATHER THAN AN OBSERVATION. The line
+    # below interpolates it, and $Reason, into text a console and an agent session both read -- with no
+    # control-character strip, unlike ConvertTo-ConsoleStrippedText which claim-issue-lib applies to
+    # TRACKER-supplied text, and no masking, unlike Format-UrlForDisplay. That is sound only because
+    # every call site in this tree passes a hardcoded literal ('gh', 'git', 'powershell'), so $Reason can
+    # only ever echo one of those back; verified across the tree when this was written.
+    #
+    # SO A CALLER MUST NOT DERIVE $FilePath FROM TRACKER, BRANCH OR USER CONTENT. The library cannot
+    # enforce it -- the parameter is a plain [string] -- and the rule is written here because one nobody
+    # wrote down is one the next caller gets to discover. A call site that genuinely needs a
+    # caller-supplied path strips it first, the way park-cycle and claim-issue already do with a branch
+    # name. Raised in security review on this branch, not exploitable as the tree stands, and recorded
+    # because this shape is exactly what made those two existing rules necessary.
+    $line = "[not-started] '$FilePath' could not be started: $Reason"
+    return [pscustomobject]@{
+        Output          = @($line)
+        ExitCode        = $null
+        TimedOut        = $false
+        ShortRead       = $false
+        ExitCodeUnknown = $true
+        NotStarted      = $true
+    }
+}
+
+function Test-NativeCommandStarted {
+    <#
+    .SYNOPSIS
+        Did the child actually start? $false only for a capture New-NativeNotStartedCapture made.
+
+    .DESCRIPTION
+        THE ASK, on Test-NativeExitMeasured's precedent one function down, and property-guarded for the
+        same reason: a caller can be holding a capture object made by an OLDER copy of this lib -- the
+        plugin mirror lags its own source by however many merges have landed -- and under
+        Set-StrictMode -Version Latest a bare $Capture.NotStarted THROWS on an object without the field.
+
+        THE MISSING FIELD ANSWERS $true, and that is the honest default rather than the convenient one:
+        before this field existed a capture object could not be produced at all unless the child had
+        started, because the launch failure threw instead. So "no field" really does mean "it started",
+        and the degrade is exact rather than merely safe.
+
+        A NULL CAPTURE ANSWERS $false -- the call did not happen, which is the strongest possible
+        statement that nothing was started. Same answer shape as Test-NativeExitMeasured gives $null, and
+        for the same reason.
+    #>
+    param([Parameter(Mandatory = $true)][AllowNull()]$Capture)
+
+    if (-not $Capture) { return $false }
+    if ($Capture.PSObject.Properties['NotStarted'] -and $Capture.NotStarted) { return $false }
+    return $true
+}
+
 function Invoke-NativeCapture {
     <#
         Run $FilePath with $Arguments under $ErrorActionPreference = 'Continue' and return a
@@ -1103,8 +1225,26 @@ function Invoke-NativeCapture {
                        that changed no files, and `gh --json body -q .body` on a PR with an empty body
                        (both measured, 0 bytes, exit 0) -- so "empty means the read failed" is not a
                        rule a caller may assume. This field is the only thing that separates them.
-          - ExitCodeUnknown: $true when the child ran and ExitCode is NOT a measurement of it -- issue
-                       #1931. THIS IS NOT WHAT #1931 ITSELF CLAIMS: its text says #1920 already added
+          - NotStarted: $true when the child NEVER RAN -- the executable is not on PATH, or the OS
+                       refused to launch it (issue #2234). Present on every return from both arms, so a
+                       caller never has to know which arm answered it. THIS USED TO BE THE ONE OUTCOME
+                       WITH NO FIELD AT ALL: both arms threw before composing anything, and under a
+                       caller's $ErrorActionPreference = 'Stop' -- which every task script in this
+                       workflow sets on line 1 -- that ended the whole run rather than the one call.
+                       Read it with Test-NativeCommandStarted, which is property-guarded for a capture
+                       made by an older copy of this lib. See New-NativeNotStartedCapture above for the
+                       full argument, including why a guard at each call site was refused and why BOTH
+                       arms needed the repair rather than the Start-Process one #2234 measured.
+          - ExitCodeUnknown: $true when ExitCode is NOT a measurement of how the child ended -- issue
+                       #1931. IT USED TO SAY "when the child RAN and ExitCode is not a measurement of
+                       it", and #2234 widened it by one case rather than changing its question: a child
+                       that never started has no exit code either, so it sets this field too. That is
+                       deliberate and is what keeps every site audited under #2081 correct without being
+                       touched -- a site reading this field directly would otherwise treat $null as
+                       measured and print "(exit )", the empty-number sentence that audit was filed to
+                       end. NotStarted says WHICH of the two reasons it is, and the only callers that
+                       need to know are the two that re-ask. THE REST OF THIS ENTRY IS ABOUT THE RACE,
+                       which is the case it was built for. THIS IS NOT WHAT #1931 ITSELF CLAIMS: its text says #1920 already added
                        this field to both arms, so the state was merely unconsulted. That is not what
                        the tree held when this was picked up -- `ExitCodeUnknown` did not exist
                        anywhere in scripts/ (grep confirms it), and #1920's own fix narrowed
@@ -1281,10 +1421,43 @@ function Invoke-NativeCapture {
         # caller reads one field whichever arm answered it -- the same reasoning ShortRead and
         # ExitCodeUnknown are reported on this arm under. [string] on a string is a no-op; branching on
         # it would only add a second shape to reason about.
-        if ($DiscardStderr) {
-            $output = & $FilePath @Arguments 2>$null | ForEach-Object { Get-NativeLineText $_ }
-        } else {
-            $output = & $FilePath @Arguments 2>&1   | ForEach-Object { Get-NativeLineText $_ }
+        # THE CATCH IS COMMAND DISCOVERY, NOT THE CHILD'S OWN FAILURES (issue #2234). A missing
+        # executable is the ONE error on this arm that $ErrorActionPreference = 'Continue' does not
+        # reach: CommandNotFoundException is raised by PowerShell's command resolver BEFORE the EAP
+        # dance above has anything to apply to, and it is terminating regardless of the preference -- so
+        # the whole point of this function, that a caller gets a verdict rather than an exception, did
+        # not hold for it. See New-NativeNotStartedCapture for why that is a state rather than a guard
+        # at each call site.
+        #
+        # THE TYPE IS NAMED RATHER THAN CAUGHT BARE, deliberately. A bare `catch` here would also
+        # swallow a child's own terminating failures and hand every one of them back as "not started",
+        # which is a wrong answer arriving as a plausible value -- the exact failure mode -Utf8 was
+        # introduced to end. Anything else still propagates, exactly as it did before this branch.
+        try {
+            if ($DiscardStderr) {
+                $output = & $FilePath @Arguments 2>$null | ForEach-Object { Get-NativeLineText $_ }
+            } else {
+                $output = & $FilePath @Arguments 2>&1   | ForEach-Object { Get-NativeLineText $_ }
+            }
+        } catch [System.Management.Automation.CommandNotFoundException] {
+            return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
+        } catch [System.Management.Automation.ApplicationFailedException] {
+            # THE SECOND WAY A LAUNCH FAILS ON THIS ARM, and it is the one the first catch alone does not
+            # reach: the file IS found on PATH and the Win32 loader then refuses the image -- a wrong
+            # architecture, a corrupt binary, or an extensionless POSIX shim handed to CreateProcess.
+            # PowerShell raises ApplicationFailedException rather than CommandNotFoundException for it.
+            #
+            # CAUGHT IN REVIEW AND THEN MEASURED, because the asymmetry it creates is invisible from the
+            # diff: Start-Process raises InvalidOperationException for BOTH shapes, so the -Utf8 arm was
+            # already returning a verdict for this one while this arm went on throwing -- against a
+            # docstring that says "the OS refused to launch it" for both. Reproduced September 21, 2026
+            # with a text file named '.exe' on PATH: the & arm threw ApplicationFailedException, the
+            # -Utf8 arm returned NotStarted with the loader's own words.
+            #
+            # NOT A HYPOTHETICAL SHAPE HERE: Resolve-NativeApplicationPath above exists precisely because
+            # npm's global install drops an extensionless shim beside its '.cmd', and handing that file
+            # to the loader fails with "%1 is not a valid Win32 application" -- this class, one arm over.
+            return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
         }
         # $LASTEXITCODE IS STILL THE NATIVE COMMAND'S, read after the pipeline drains: only a native
         # command writes it, and ForEach-Object is not one. Get-ShopifyLineText's caller one lib over
@@ -1307,7 +1480,12 @@ function Invoke-NativeCapture {
     # reason to expect it here. The check stays rather than being narrowed to the other arm, on the same
     # reasoning ShortRead's own comment gives one line up: a caller reads one field whichever arm
     # answered it, and $null -eq $LASTEXITCODE costs nothing to ask.
-    return [pscustomobject]@{ Output = $output; ExitCode = $code; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = ($null -eq $code) }
+    #
+    # NotStarted IS $false HERE AS A FACT, not as a default: this line is reached only after the &
+    # operator resolved the command and ran it, since the one failure that prevents that returns from
+    # the catch above. Reported rather than omitted for the reason ShortRead's own comment gives -- a
+    # caller reads one field whichever arm answered it.
+    return [pscustomobject]@{ Output = $output; ExitCode = $code; TimedOut = $false; ShortRead = $false; ExitCodeUnknown = ($null -eq $code); NotStarted = $false }
 }
 
 function Read-NativeCaptureFile {
@@ -1512,7 +1690,24 @@ function Invoke-NativeCaptureUtf8 {
             $startArgs['ArgumentList'] = @($Arguments | ForEach-Object { ConvertTo-NativeArgumentToken -Value $_ })
         }
 
-        $proc = Start-Process @startArgs
+        # THE LAUNCH IS GUARDED, AND ONLY THE LAUNCH (issue #2234). Start-Process raises
+        # InvalidOperationException when the OS refuses to create the process at all -- a file that is
+        # not on PATH, or one the Win32 loader will not take -- and it does so before there is a handle,
+        # an exit code or a capture file, so none of the verdicts below could be composed. Under a
+        # caller's $ErrorActionPreference = 'Stop' that ended the whole run rather than the one call;
+        # see New-NativeNotStartedCapture for the state that replaces it and why it is not a per-site
+        # guard.
+        #
+        # SCOPED TO THIS ONE STATEMENT rather than wrapped around the body, because everything after it
+        # -- the bounded wait, the kill, the settle, the decode -- already reports its own outcome
+        # through a field, and a catch spanning those would convert a real measurement into "not
+        # started". The finally below still runs on this return, so the environment is restored and the
+        # capture directory is removed exactly as on every other path.
+        try {
+            $proc = Start-Process @startArgs
+        } catch [System.InvalidOperationException] {
+            return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
+        }
         $null = $proc.Handle
 
         # THE BOUNDED WAIT (#1179). WaitForExit(ms) returns $false when the deadline passed rather than
@@ -1604,7 +1799,10 @@ function Invoke-NativeCaptureUtf8 {
         # -Utf8 call, including the `gh --json ...` ones whose Output a caller feeds straight into
         # ConvertFrom-Json, so inserting a line here would corrupt exactly the callers ShortRead's own
         # docstring warns against breaking. The field is the only signal, same as ShortRead.
-        return [pscustomobject]@{ Output = $lines; ExitCode = $code; TimedOut = $timedOut; ShortRead = $shortRead; ExitCodeUnknown = $codeUnknown }
+        # NotStarted IS $false HERE AS A FACT, for the reason the & arm's own return states: this line
+        # is reached only after Start-Process handed back a process object, since the launch failure
+        # returns from the catch above.
+        return [pscustomobject]@{ Output = $lines; ExitCode = $code; TimedOut = $timedOut; ShortRead = $shortRead; ExitCodeUnknown = $codeUnknown; NotStarted = $false }
     } finally {
         Pop-NativeNonInteractiveEnv -Previous $prevEnv
         if (Test-Path -LiteralPath $capDir) {
@@ -1694,6 +1892,14 @@ function Test-NativeExitMeasured {
         the first step of an issue-driven session. Everywhere else a re-ask buys a skipped check back at
         the price of a second network call, and the state reported as itself is cheaper and honest.
 
+        IT ANSWERS $false FOR A CHILD THAT NEVER STARTED TOO, and that needs no code here (issue #2234):
+        New-NativeNotStartedCapture sets ExitCodeUnknown on the capture it builds, precisely so that
+        every one of the sites audited above keeps working unchanged. The two questions are different
+        and the difference is real -- "it ran and I could not measure how it ended" against "it never
+        ran" -- but they have the SAME answer to this one, because neither produced a measurement. A
+        caller that needs to tell them apart asks Test-NativeCommandStarted, and the only ones that do
+        are the two that re-ask and Get-NativeExitLabel, which has to word it.
+
         IT SAYS NOTHING ABOUT A TIMEOUT, deliberately. Invoke-NativeCapture SUBSTITUTES 124 on a bounded
         call it killed, which is a verdict this lib chose rather than a measurement gap -- ExitCodeUnknown
         is $false there by construction, and TimedOut is the field that reports it. A caller that judges
@@ -1735,6 +1941,21 @@ function Get-NativeExitLabel {
         whole remedy, because the next process is overwhelmingly likely to answer.
     #>
     param([Parameter(Mandatory = $true)][AllowNull()]$Capture)
+
+    # THE NOT-STARTED CASE IS ASKED FIRST, because it is a SUBSET of "not measured" and the general
+    # sentence below is wrong about it in both halves (issue #2234): it says "the child ran", which is
+    # exactly what did not happen, and it advises "this normally settles on a re-run", which is false
+    # advice rather than merely imprecise -- a command that is not installed does not settle on a
+    # re-run, and a reader who takes that advice spends the retry and learns nothing. The order is the
+    # whole of the mechanism here: reversed, the broader test would answer first and this branch would
+    # be unreachable.
+    if (-not (Test-NativeCommandStarted -Capture $Capture)) {
+        # THE SAME NOUN-PHRASE CONTRACT the measured form and the sentence below both keep, so it drops
+        # into the parenthetical every existing caller already wrote: "(exit $($r.ExitCode))". The
+        # remedy names the command rather than the mechanism, because a reader who meets this line has
+        # a missing dependency and the install is the whole of the fix.
+        return 'the command could not be started -- it is not on PATH, or the system refused to launch it (issue #2234); install it, or check the name'
+    }
 
     if (-not (Test-NativeExitMeasured -Capture $Capture)) {
         # A NOUN PHRASE, AND THE CALL SITE HAS TO GIVE IT A NOUN SLOT. Both returns are things rather than
@@ -1822,6 +2043,15 @@ function Get-GitFileTextAtRef {
     $gitArgs += @('show', "${Ref}:${rel}")
 
     $show = Invoke-NativeCapture -Utf8 -DiscardStderr -FilePath 'git' -Arguments $gitArgs
+    # A git THAT NEVER STARTED IS ITS OWN THROW (issue #2234), asked ahead of the unmeasured one because
+    # the not-started state sets ExitCodeUnknown as well -- absorbed below, this function's refusal would
+    # tell the reader to "re-run once the transient native-process read has cleared" about a git that is
+    # not installed, where no amount of re-running clears anything. The DIRECTION is unchanged and
+    # deliberately so: both still throw, because the one caller treats an absent path as nothing to
+    # check, and a launch failure must not be read as an absent path either.
+    if (-not (Test-NativeCommandStarted -Capture $show)) {
+        throw "Get-GitFileTextAtRef: 'git show ${Ref}:${rel}' could not be started (issue #2234) -- git is not on PATH here, or the system refused to launch it. This cannot be read as 'the path is absent', because the one caller of this function treats an absent path as nothing to check. Install git, or check the name; re-running will not help."
+    }
     if ($show.PSObject.Properties['ExitCodeUnknown'] -and $show.ExitCodeUnknown) {
         throw "Get-GitFileTextAtRef: 'git show ${Ref}:${rel}' did not return a measurable exit code (issue #1931) -- this cannot be read as 'the path is absent', because the one caller of this function treats an absent path as nothing to check. Re-run once the transient native-process read has cleared."
     }
