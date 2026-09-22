@@ -44,7 +44,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 29 minor entries** <!-- pending-tally -->
+**21 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2284-claim-absorbed-issue · 20260922-131923
+
+An issue a pull request declares it closes is no longer left unowned on the tracker. Before the push
+`open-pr` reads the assignees off the open-issue list it already fetches and, for each issue this PR
+declares, claims an unassigned one under the account `claim-issue` would resolve, warns when somebody
+else holds it, and says nothing when the list could not be read.
+
+It closes the one route into a branch that no pickup check can see: a finding filed mid-branch and
+repaired on the branch already in flight is never *started*, so it is never claimed -- and the next
+session is correct to read it as untouched. Measured at a conflicting pull request, a hand-resolved
+conflict, three corrected documents and a second ship.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+The assignee field stops lying by omission. Until now it answered "is somebody working this?" only for
+issues somebody *started*; the issues most likely to be worked twice were exactly the ones it was silent
+about, because they were created by the session that went on to repair them.
+
+For a subscriber of this workflow it is one line in an `open-pr` run they will mostly not notice -- and
+on the day two people are on one board, it is the difference between a refusal at pickup and a conflict
+at the merge.
+
+**Score:** 3
+
+#### Pull Request
+
+A declared issue is claimed at the push, so an issue absorbed mid-branch stops reading as unowned
+
+Plugins: dkj-policy
+
+[PR #2293](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2293)
+
+---
 
 ### DEPLOY: fix/2280-strip-tree-paths-json-keys · 20260922-125809
 
