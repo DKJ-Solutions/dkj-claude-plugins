@@ -44,7 +44,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 11 minor entries** <!-- pending-tally -->
+**8 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2234-native-capture-launch-failure · 20260922-032338
+
+`Invoke-NativeCapture` threw when the executable was absent, so a caller got an exception where the
+whole point of the function is that it gets a verdict. Under `$ErrorActionPreference = 'Stop'` -- which
+every task script in this workflow sets on line 1 -- that ended the run rather than the one call. It now
+returns a capture carrying a new `NotStarted` field, and the two optional `gh` calls that used to die
+degrade the way their own docstrings already promised.
+
+The report measured the `Start-Process` arm. The `&` arm threw too, earlier and for a different reason:
+command discovery raises `CommandNotFoundException`, which is terminating regardless of
+`$ErrorActionPreference`, so the function's own preference dance never reached it. Both arms are
+repaired -- a fix on one would have left `gh` fatal on every unbounded call in the family, which is most
+of them.
+
+`ExitCodeUnknown` is set on the new state deliberately, so all 63 bounded call sites keep working
+untouched; `NotStarted` only says which of the two reasons it is. The four sites that needed more than
+that got it: two that composed a sentence around a number that is now `$null`, and two that would have
+spent a re-ask relaunching a command that is not installed.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Anyone adopting this workflow before installing the GitHub CLI -- the first hour of every adoption --
+met this as a dead `new-branch` run that created no branch and no development document. On such a
+machine `fold-changelog.tests.ps1` also ran red, 20+ asserts across four fixture scenarios, every one
+reporting a fold that never ran; that half is felt by whoever runs this repo's suites without `gh`,
+not by a consumer, who never runs them. And `claim-issue`'s documented *no account* refusal never
+printed on the one machine state it was written for, because the read above it threw first. All three
+are gone.
+
+**Score:** 3
+
+#### Pull Request
+
+Invoke-NativeCapture returns a verdict instead of throwing when the executable cannot be started
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2258](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2258)
+
+---
 
 ### DEPLOY: feat/2243-sweep-issues-skill · 20260922-001336
 
