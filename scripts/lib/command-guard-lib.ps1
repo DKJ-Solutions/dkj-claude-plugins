@@ -45,16 +45,21 @@
         vector guard-live-theme's header names as the thing a permission rule cannot close, and it is
         closed here by splitting the body and matching its segments too, to a bounded depth.
 
-    THIS IS THE SOURCE COPY. The twin under plugins/dkj-policy/scripts/lib/ is its released mirror,
-    and the shared-scripts drift lint holds the two identical.
+    THIS IS THE SOURCE COPY. The twins under plugins/dkj-policy/scripts/lib/ and
+    plugins/dkj-subagents/dkj-subagents-shopify/scripts/lib/ are its released mirrors, and the
+    shared-scripts drift lint holds all three identical.
 
-    guard-live-theme STILL CARRIES ITS OWN COPY OF THIS LOGIC, and that is a scope decision rather than
-    a constraint. A plugin must not reach into another plugin's tree -- they are separately versioned
-    and separately installed -- but the shared-scripts registry already answers that by mirroring ONE
-    source into TWO plugins, which is what check-report-lib does for its two readers. So the route for
-    dkj-subagents-shopify to dot-source this file is a second registry entry, not a rewrite. It is not taken
-    here because guard-live-theme guards a revenue-serving live theme, and putting that refactor in the
-    same branch as a new guard doubles the review surface of both. Filed as #1734.
+    guard-live-theme USED TO CARRY ITS OWN COPY OF THIS LOGIC, and #1734 retired it. #1669 extracted
+    this lib and deliberately left that copy standing: a plugin must not reach into another plugin's
+    tree -- they are separately versioned and separately installed -- so the route was always a second
+    registry entry rather than a rewrite, the way check-report-lib is mirrored into every plugin that
+    reads it. That reader count is deliberately not stated here: this sentence has already carried a
+    stale one. Putting the refactor in the branch that introduced a brand-new hook would have doubled
+    the review surface of both, and the half with money behind it would have got the less careful
+    attention. #1734 took that route: the second entry is 'command-guard-lib-shopify' in
+    Get-SharedScriptPairs, and guard-live-theme.ps1 dot-sources this file as a $PSScriptRoot-relative
+    sibling. So the two guards are the two callers this file is parameterised for -- which is what the
+    -TextTools block above is about -- and there is no third copy of this logic left to reconcile.
 
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
     Pure ASCII (repo convention for .ps1): Windows PowerShell 5.1 reads a BOM-less script as ANSI.
