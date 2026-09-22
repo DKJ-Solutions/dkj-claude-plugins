@@ -156,6 +156,28 @@ jobs:
       # split takes the floor the last ~15s to the 16-lane work bound, for the price of preserving 340
       # asserts across ~2,950 lines. Not bought.
       #
+      # THAT DECLINE WAS CORRECT AND THEN EXPIRED, AND THE SPLIT IS NOW BOUGHT -- issue #2304,
+      # September 22, 2026. #1358 weighed a ~15s gap because the heaviest file was 221.8s at the time.
+      # Measured again over a 121-suite pool of 6,254 lane-seconds: the work bound over 16 lanes is 391s
+      # while check-plugin-integrity-docs.tests.ps1 alone recorded 669.1s, so the gap it was weighed
+      # against had become 278s -- 40% of a gate that measured 11.5 min, matching that ONE file's
+      # recorded duration to within 0.3 min. The file is now four (-docs, -scripts, -invocations,
+      # -roster; see check-plugin-integrity-fixture.ps1 for the partition and its cost basis), all 188
+      # of its asserts preserved and verified by running them, and its standalone longest part went
+      # 235.8s -> 64.3s.
+      #
+      # THE ORDER MATTERS AND IT IS THE PARAGRAPH ABOVE, NOT A NEW RULE: a shard buys nothing until the
+      # pool is at its work bound. -docs is off the critical path now, which puts the next heaviest file
+      # there (check-plugin-integrity-links.tests.ps1, 539.2s) rather than the bound. So the shard count
+      # STILL does not go up in this change, and a reader reaching for a fifth runner should split that
+      # file first for the same reason and by the same measurement.
+      #
+      # AND suite-durations.json DOES NOT KNOW THE FOUR NEW NAMES YET. A suite missing from it is charged
+      # the largest recorded value, so it packs early and can never be the one left last -- safe, and
+      # deliberately not hand-edited: that file is regenerated from CI logs by
+      # scripts/maintenance/record-suite-durations.ps1, and a typed figure is exactly the local reading
+      # its own header refuses.
+      #
       # ~30s CAME OFF THE PER-FILE COST separately in #1358, by making the lint parse and walk the script
       # set once instead of twice (see Get-PsScriptCommandAsts in check-plugin-integrity.ps1): those four
       # suites are ~100% lint invocations -- 52 of them in the heaviest, at ~1.12s each on a workstation --
