@@ -182,6 +182,54 @@ $script:GateEvidenceMaxAgeMinutes = 240
 # which fails in the worst direction: silently, as a gate that keeps running.
 $script:GateEvidenceKnownGates = @('lint', 'tests')
 
+# HOW LONG A CALLER WILL WAIT FOR AN IN-FLIGHT CI CERTIFICATE BEFORE RUNNING THE SUITES ANYWAY --
+# issue #2317. The wait replaces a local pool run with the CI run that is already proving the same
+# commit, so the bound is sized against what that run costs rather than against anybody's patience.
+# The figures are in ci.yml's own `timeout-minutes` banner, re-derived there from the run history
+# rather than restated here: over its 19 most recent runs the slowest shard was shard 2 at a median
+# of 12.5 min and a maximum of 13.4 min. Against that, #2317 measured one of its own local pools at
+# 43.3 minutes reaching the same verdict.
+#
+# 1800 SECONDS IS AN UPPER BOUND ON THE WAIT, NOT AN ESTIMATE OF THE RUN, AND IT IS SIZED OFF THE
+# WHOLE DISTRIBUTION RATHER THAN OFF THE MEDIAN. Measured September 22, 2026 over the 98 most recent
+# completed CI runs, end to end: median 693s, six runs over 900s (1137, 1194, 1378, 1413) and two over
+# this bound (3422s and 4273s). The shape is a tight body with a long, sparse tail, and the tail is
+# NOT suite runtime -- it is GitHub runner-queue contention, one shard starting 15-70 minutes late
+# while its siblings start on time and finish normally.
+#
+# THE TAIL IS WHY THE BOUND IS HIGH AND NOT WHY IT SHOULD BE LOW, which is the reading worth writing
+# down because the obvious one is backwards. A review of this constant proposed lowering it to 900s on
+# the ground that everything above that is queueing rather than real CI. True, and it does not follow:
+# what decides the saving is not whether a run was QUEUED but whether it CERTIFIES BEFORE THE BOUND,
+# and all four runs between 900s and this bound did. Lowering to 900s would give up on those four --
+# paying the wait AND the pool on each -- to cap the loss on the two above it. On this distribution
+# that is a worse trade, four times over.
+#
+# AND THE WORST CASE IS NOT "THE BOUND PLUS THE POOL", WHICH IS WHAT THIS COMMENT SAID FIRST AND IS
+# TOO PESSIMISTIC BY THE WHOLE OF ITS OWN POINT. That figure is what an expired wait costs THIS RUN;
+# it is not what the change costs, because the run it is compared against also cannot merge until the
+# required check is green -- ship-pr waits for exactly that in its own step 3. So against the old
+# behaviour the loss is (bound + pool) - max(pool, T) for a check finishing at T, which is at its
+# worst when T lands just past the bound (loss about the bound) and shrinks to nothing as T grows:
+# at the measured 4273s the old path was already waiting out the same queue, and the loss is minutes.
+#
+# THE TRADE, THEN: the body of the distribution saves a whole pool run, and the losing case is a check
+# that finishes just after a bound sized past 97% of this repo's recorded runs.
+#
+# THE FALL-THROUGH IS ALSO WHY THE NUMBER IS ALLOWED TO BE APPROXIMATE, in the direction that matters.
+# Nothing here can fail a gate, skip a suite or move a merge: every exit either hands back a
+# certificate CI actually granted, or hands back nothing and lets the pool run. So a wrong constant
+# costs wall clock and never coverage -- the same asymmetry Get-TestSuiteCostHints states for its own
+# hints file, and the reason this is a constant rather than another knob. The knob for a session that
+# wants none of it is -NoCiWait, which is a switch and cannot be set to a wrong number.
+$script:CiCertificateWaitSeconds = 1800
+
+# How long between two reads of the required checks while waiting. 30s against a run measured in
+# minutes is ~60 reads at the bound, which is cheap against `gh`'s own rate limit and fine-grained
+# enough that the wait ends within half a minute of CI finishing. Lower would spend calls to learn
+# nothing; higher would hand the saved minutes back at the end.
+$script:CiCertificateWaitPollSeconds = 30
+
 function Invoke-GitRead {
     <#
         A git QUERY, captured with its exit code. Query commands write their result to stdout and
@@ -653,7 +701,28 @@ function Get-CiTestCertificate {
         Empty or absent -> not certified, which is the pre-seam behaviour.
 
     .OUTPUTS
-        [pscustomobject] Certified (bool), Note (string).
+        [pscustomobject] Certified (bool), Note (string), InFlight (bool).
+
+        InFlight IS THE THIRD STATE, AND UNTIL #2317 THE TWO IT SEPARATES WERE ONE WORD -- 'not green'.
+        A named check that has FAILED and a named check that is STILL RUNNING are opposite facts about
+        the same commit: the first says the suites have been measured and the answer is no, the second
+        says the very measurement this gate is about to make by hand is already running, on a clean
+        checkout of this exact tree. Both refused the certificate identically, so the caller re-proved
+        the whole pool locally while the run the merge is gated on was in flight -- 43 minutes on
+        PR #2316, which could not make the merge happen one second sooner, because `main`'s ruleset
+        blocks it on that check regardless of what any local run decides.
+
+        IT IS TRUE ONLY ON A COMMIT MATCH, which is what keeps it from being a licence to wait on
+        anything. Every refusal above the bucket test -- no check name, no head, a PR head that is not
+        this HEAD, an unreadable payload, a check that has not registered -- returns $false, because
+        none of them has established that the thing still running is running on THIS tree. So a caller
+        may read InFlight as "waiting is not patience here, it is waiting for the answer to exactly the
+        question I was about to spend the pool on".
+
+        NOT REGISTERED IS DELIBERATELY NOT IN FLIGHT, and that asymmetry is the whole safety of the
+        state. A check absent from the payload is indistinguishable from one this trunk will never run
+        on this commit, so a caller that waited on it would wait out its entire bound and then run the
+        suites anyway. Absent stays a plain refusal, exactly as it was for the certificate.
     #>
     param(
         [string]$HeadSha,
@@ -662,7 +731,9 @@ function Get-CiTestCertificate {
         [string]$CheckName
     )
 
-    $refuse = { param([string]$Why) [pscustomobject]@{ Certified = $false; Note = $Why } }
+    # $InFlight defaults to $false, so every refusal already written below keeps its exact shape and
+    # only the one call that has established both a commit match and a pending bucket passes $true.
+    $refuse = { param([string]$Why, [bool]$InFlight = $false) [pscustomobject]@{ Certified = $false; Note = $Why; InFlight = $InFlight } }
     # Eight characters is what git itself abbreviates to here, and a reader asked to compare two
     # 40-character hashes by eye is being asked to do the job this line exists to have done for them.
     $short = { param([string]$Sha) $Sha.Substring(0, [Math]::Min(8, $Sha.Length)) }
@@ -701,17 +772,200 @@ function Get-CiTestCertificate {
         return (& $refuse ("'{0}' is not among this trunk's required checks on this commit (found: {1})" -f $wanted, ($present -join ', ')))
     }
 
-    $notPassing = @($named | Where-Object {
-        $bucket = if ($_.PSObject.Properties['bucket']) { ([string]$_.bucket).Trim().ToLowerInvariant() } else { '' }
-        $bucket -ne 'pass'
+    # THE BUCKETS ARE READ ONCE AND KEPT, because two questions are asked of them now: is the named
+    # check green, and -- where it is not -- is it FAILING or still RUNNING. A record with no bucket
+    # property reads as '' and is therefore neither, which keeps an unparseable record on the refusing
+    # side of both tests instead of letting it fall through to the in-flight one.
+    $buckets = @($named | ForEach-Object {
+        if ($_.PSObject.Properties['bucket']) { ([string]$_.bucket).Trim().ToLowerInvariant() } else { '' }
     })
+    $notPassing = @($buckets | Where-Object { $_ -ne 'pass' })
     if ($notPassing.Count -gt 0) {
+        # EVERY non-passing record has to be pending for this to read as 'still running'. A check name
+        # that appears more than once -- a matrix leg, a re-run -- is green only when all of its records
+        # are, and it is FAILING the moment one of them is. Requiring unanimity puts a mixed payload on
+        # the red side, which is the safe direction: the caller then runs the suites exactly as it
+        # always did, rather than waiting for a verdict that has already been reached.
+        $pending = @($notPassing | Where-Object { $_ -eq 'pending' })
+        if ($pending.Count -eq $notPassing.Count) {
+            return (& $refuse ("'{0}' is still running on this exact commit ({1})" -f $wanted, (& $short $head)) $true)
+        }
         return (& $refuse ("'{0}' is not green on this commit" -f $wanted))
     }
 
     return [pscustomobject]@{
         Certified = $true
         Note      = ("{0} green on this exact commit ({1})" -f $wanted, (& $short $head))
+        InFlight  = $false
+    }
+}
+
+function Wait-CiTestCertificate {
+    <#
+        Poll an IN-FLIGHT CI certificate to its verdict, instead of re-proving the same commit locally
+        while that run is still going -- issue #2317, September 22, 2026.
+
+        WHAT IT REPLACES. Get-CiTestCertificate above answers one question at one instant, and the
+        caller acted on it at the one instant it is least likely to be answerable: ship-pr calls
+        open-pr immediately after the push, so the required check has typically just started. The
+        certificate refused, correctly, and the whole pool then ran -- against the run that was at that
+        moment proving the identical tree on a clean checkout. Measured over seven gate runs in one
+        session: 12,801s of local gate for two pull requests, of which one single re-run was 2,595s
+        (43.3 min) spent re-proving a commit whose CI went on to decide the merge anyway.
+
+        THE ARGUMENT IS THE ONE THE CERTIFICATE ALREADY MAKES, ONE TENSE LATER. That function's own
+        docstring states it: the certificate is STRONGER evidence than the run it replaces, because CI
+        ran the same suites on a clean checkout of that exact commit and it is the certificate the
+        MERGE is gated on -- a local re-run cannot change the merge decision, it can only delay it.
+        All this adds is that the same sentence is just as true five minutes before the check goes
+        green as five minutes after, and the only thing separating the two is time nobody has to spend
+        running a second copy of the measurement.
+
+        IT CANNOT FAIL A GATE, SKIP A SUITE, OR MOVE A MERGE, and that is the safety argument in full.
+        There are exactly three ways out. CERTIFIED: CI granted the certificate, and the caller takes
+        the same skip it would have taken had the check been green when it first asked. SETTLED: the
+        certificate stopped being in flight for some other reason -- the check went red, the PR head
+        moved under it, the payload stopped being readable -- and the caller runs the suites exactly as
+        it did before this function existed. GAVE UP: the bound ran out while it was still pending, and
+        the caller runs the suites. Two of the three are byte-for-byte the old behaviour, and the third
+        is a skip the caller was already entitled to.
+
+        A RED CHECK IS DELIBERATELY NOT A REFUSAL HERE. It would be a defensible one -- the merge is
+        blocked on that check, so a green local pool cannot rescue the branch -- but it is a SECOND
+        behaviour change riding on this one, and it would take a verdict away from a session whose CI
+        red may be the flake this repo has measured twice (#1232/#1401, and #2317's own
+        native-capture.tests.ps1 red that passed locally on the same commit, exit 0). So red falls
+        through to the pool, which is what a session would have got anyway, and this function stays a
+        pure saving.
+
+        WHY THE READS ARE INJECTED. This runs inside a loop that must be walked at its every exit --
+        certified, red, moved, unreadable, expired -- and none of those is reachable from a fixture
+        that has to produce a real pull request with a real check suite in a real state. So the caller
+        passes -Reader, the same shadowing seam Get-AvailableMemoryMB and Get-ResidentPowerShellCount
+        use one lib over for the same reason, and -Sleeper so a suite can walk laps without spending
+        them. The JUDGEMENT stays in Get-CiTestCertificate and is not restated here: this function
+        decides only when to ask again, never what an answer means.
+
+        A LAP THAT CANNOT BE READ IS NOT A VERDICT. -Reader returning $null, or throwing, is treated as
+        "ask again" rather than as an answer, because an intermittently-unhealthy `gh` is exactly the
+        shape this workflow has measured before (#1628) and one failed call says nothing about the
+        check. The bound is what stops that being unbounded patience: a `gh` that never answers spends
+        the wait and then the caller runs the pool, which is where it would have been regardless.
+
+        BOTH BOUNDS ARE CHECKED, and they answer different failures. -MaxLaps bounds the number of
+        READS, which is what a fixture can control and what a rate limit cares about; -TimeoutSeconds
+        bounds the WALL CLOCK, which is what the operator is actually spending and what a slow `gh`
+        would otherwise blow past while the lap count sat still. Whichever is reached first ends the
+        wait. Either may be 0 to disable that half, and a caller passing 0 for both has asked for an
+        unbounded wait, which this function will give it -- named here because it is the one way to
+        misuse this and it is the caller's to avoid.
+
+    .PARAMETER HeadSha
+        The local HEAD being waited on. Re-compared on every lap against the PR head the reader
+        returns, so a push landing during the wait ends it as 'settled' rather than certifying a
+        commit that is no longer the one in hand.
+
+    .PARAMETER CheckName
+        The check context whose green proves the suites, exactly as Get-CiTestCertificate takes it.
+
+    .PARAMETER Reader
+        Scriptblock returning an object with PrHeadSha and RequiredChecksJson, or $null when the read
+        failed. Called once per lap.
+
+    .PARAMETER Sleeper
+        Scriptblock called once per lap BEFORE the read -- the caller has just read, so reading again
+        immediately would spend a call to learn what it already knows. Omitted means no delay, which
+        is what a suite passes.
+
+    .PARAMETER OnLap
+        Optional scriptblock called with (lap, elapsedSeconds) after each read that did not end the
+        wait, so a caller can narrate a long wait without this function owning a console.
+
+    .OUTPUTS
+        [pscustomobject] Certified (bool), Note (string), Outcome ('certified'|'settled'|'gave-up'),
+        Laps (int), WaitedSeconds (double).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$HeadSha,
+        [string]$CheckName,
+        [Parameter(Mandatory)][scriptblock]$Reader,
+        [scriptblock]$Sleeper,
+        [scriptblock]$OnLap,
+        [int]$MaxLaps = 0,
+        [int]$TimeoutSeconds = 0
+    )
+
+    $waitClock = [System.Diagnostics.Stopwatch]::StartNew()
+    $waitLaps  = 0
+    # The note a gave-up verdict carries when the loop never got a readable answer at all. Overwritten
+    # by the last in-flight note the moment one arrives, so the caller's message names the check rather
+    # than this placeholder wherever there is something better to say.
+    $waitLastNote = 'the required checks were never readable during the wait'
+
+    while ($true) {
+        if ($MaxLaps -gt 0 -and $waitLaps -ge $MaxLaps) { break }
+        if ($TimeoutSeconds -gt 0 -and $waitClock.Elapsed.TotalSeconds -ge $TimeoutSeconds) { break }
+
+        # GUARDED LIKE THE READ, because the asymmetry was the finding (code review, #2317): a throwing
+        # -Reader is an unreadable lap and a throwing -Sleeper was an exception out of the whole wait.
+        # Nothing in either case is worth failing a gate over -- the caller's fall-through is to run the
+        # suites -- and a sleeper that cannot sleep turns the poll into a spin, which the two bounds
+        # below already contain. Inert with today's caller (Start-Sleep on a fixed positive constant);
+        # written so that a -Sleeper doing anything more interesting cannot take the run with it.
+        if ($Sleeper) { try { & $Sleeper | Out-Null } catch { } }
+        $waitLaps++
+
+        # EVERY LOCAL IN THIS LOOP IS PREFIXED, AND THAT IS NOT STYLE -- PowerShell scriptblocks are
+        # DYNAMICALLY scoped, so `& $Reader` runs in a child of THIS scope and the caller's scriptblock
+        # can see -- and shadow against -- every variable named here. Measured while writing this
+        # function's own suite: a caller whose helper was also called $reading resolved it to this
+        # local instead, which was $null on the line that reads it, so every lap threw, was swallowed
+        # as an unreadable read, and the wait ran to its bound. It fails as "CI never answered", which
+        # is indistinguishable from the real thing. The prefix is what keeps a caller's own names out
+        # of the collision.
+        # THE PARAMETERS ABOVE ARE IN THAT SAME NAMESPACE, and PowerShell is CASE-INSENSITIVE, so a
+        # caller whose scriptblock reads its own $headSha gets this function's $HeadSha. That one
+        # happens to hold the same value and so would hide rather than break -- which is worse. A
+        # caller's scriptblock should assign what it uses, and read only what it passed in.
+        $lapReading = $null
+        try { $lapReading = & $Reader } catch { $lapReading = $null }
+        if ($null -eq $lapReading) {
+            if ($OnLap) { & $OnLap $waitLaps $waitClock.Elapsed.TotalSeconds | Out-Null }
+            continue
+        }
+
+        $lapCert = Get-CiTestCertificate -HeadSha $HeadSha `
+                                         -PrHeadSha ([string]$lapReading.PrHeadSha) `
+                                         -RequiredChecksJson ([string]$lapReading.RequiredChecksJson) `
+                                         -CheckName $CheckName
+        if ($lapCert.Certified) {
+            return [pscustomobject]@{
+                Certified     = $true
+                Note          = $lapCert.Note
+                Outcome       = 'certified'
+                Laps          = $waitLaps
+                WaitedSeconds = $waitClock.Elapsed.TotalSeconds
+            }
+        }
+        if (-not $lapCert.InFlight) {
+            return [pscustomobject]@{
+                Certified     = $false
+                Note          = $lapCert.Note
+                Outcome       = 'settled'
+                Laps          = $waitLaps
+                WaitedSeconds = $waitClock.Elapsed.TotalSeconds
+            }
+        }
+        $waitLastNote = $lapCert.Note
+        if ($OnLap) { & $OnLap $waitLaps $waitClock.Elapsed.TotalSeconds | Out-Null }
+    }
+
+    return [pscustomobject]@{
+        Certified     = $false
+        Note          = $waitLastNote
+        Outcome       = 'gave-up'
+        Laps          = $waitLaps
+        WaitedSeconds = $waitClock.Elapsed.TotalSeconds
     }
 }
 

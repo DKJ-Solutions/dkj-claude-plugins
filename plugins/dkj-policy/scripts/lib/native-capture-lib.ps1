@@ -227,6 +227,30 @@ $script:ResidentPowerShellWarnThreshold = 20
 # reason written there, so a hosted runner's four lanes are unchanged by anything here.
 $script:TestSuiteGateLaneMemoryMB = 512
 
+# HOW STALE THE FREE-MEMORY READING MAY BE WHEN THE POOL DECIDES TO OPEN A LANE -- issue #2317, and
+# the second half of the constant above. That one sizes the pool ONCE, from a reading taken before the
+# first lane opens; this one bounds how old the reading behind each individual lane start is allowed to
+# be, so a machine whose memory is disappearing underneath the run is noticed while it still has a run
+# to save. Get-GateLaneStartVerdict carries the measurement -- two automatic-lane runs reaped by the
+# harness at 15% and 44% completion, 48 minutes between them, no verdict from either.
+#
+# FIVE SECONDS, AND WHY IT IS NOT LOWER. The reading is a Get-CimInstance call, and the pool's poll
+# loop turns every 100 ms -- so an unthrottled reading would be taken up to ten times a second for as
+# long as the floor holds, which is exactly the period when the machine can least afford it. Five
+# seconds is short against the seconds a lane takes to allocate and long against the poll, and the
+# per-lane charge in Get-GateLaneStartVerdict is what covers the interval in between: lanes opened
+# inside one window are subtracted from the reading rather than trusted against it.
+#
+# IT COSTS NOTHING ON A FULL POOL. The reading is taken only where a lane is about to open, so a pool
+# running at its lane count takes none at all, and a pool with room takes one per freed lane.
+#
+# AND THE BILL ON A REAL POOL WAS MEASURED RATHER THAN LEFT AS 'CHEAP' (#2317, cost review). Because a
+# reap invalidates the cached reading, a pool with a queue behind it makes roughly one extra
+# Get-CimInstance per completed suite: ~200 ms per call on the machine #2317 was measured on (343 ms
+# cold, 160-210 ms warm, n=8), so about 24 s across a 124-suite pool. Against the 1,100-2,600 s that
+# pool takes, under 2% -- and it buys the reading being current at the one moment it decides anything.
+$script:GateLaneMemoryPollSeconds = 5
+
 # THE DEADLINE A SINGLE SUITE RUNS UNDER inside Invoke-TestSuiteGate's pool (issue #1941,
 # September 13, 2026). Until this existed the reap loop had NO deadline of any kind -- it slept 100 ms
 # and looped for as long as a lane took, whatever had stopped that lane progressing -- so one wedged
@@ -2941,6 +2965,111 @@ function Get-TestSuiteGateLaneCount {
 }
 
 
+function Get-GateLaneStartVerdict {
+    <#
+        May the pool open ONE MORE lane right now -- a PURE judgement over four integers, issue #2317.
+
+        WHY THE LANE COUNT ALONE WAS NOT ENOUGH. Get-TestSuiteGateLaneCount above resolves once, at
+        t=0, from a single reading of free memory. That is a decision about a machine taken before the
+        run starts, and #2121 already measured how wrong it can be; what #2317 added is what happens
+        when it is wrong DOWNWARDS. The pool is a background shell, and a harness that finds the system
+        critically low on memory reaps it -- so the run does not degrade into a slow tail, it DIES.
+        Measured on one machine in one session: two automatic-lane runs killed at 731s (18 of 124
+        suites done) and at 2,166s (54 of 124), 48 minutes between them, producing no verdict at all.
+        The same pool at -MaxParallel 2 finished every time. The machine could finish slowly or die
+        quickly and nothing in between was reachable, because the only lever was chosen before the
+        first lane opened.
+
+        SO THE READING IS RE-TAKEN AND A LANE START IS HELD, WHICH IS STRICTLY CHEAPER THAN GUESSING.
+        A held start costs the queue a poll interval; a reaped run costs everything it has done. And
+        because holding can only ever DELAY a start -- never skip a suite, never fail one, never change
+        a verdict -- the worst case of holding too eagerly is the -MaxParallel 2 run that already
+        finishes, while the worst case of not holding is the 2,166s that produced nothing.
+
+        THE READING IS CHARGED FOR LANES OPENED SINCE IT WAS TAKEN, which is what makes this work at
+        t=0 as well as mid-run. A child takes seconds to allocate, so thirty lanes opened in one burst
+        would every one of them consult a reading taken before any of them had cost anything -- the
+        exact blindness this exists to remove, reproduced inside a single poll pass. Subtracting one
+        lane's budget per start since the last reading means a burst stops itself at the point the
+        machine is about to run out, rather than at the point a later reading finally notices.
+
+        TWO ALLOW-ANYWAY RULES, AND BOTH ARE LOAD-BEARING:
+
+          - $AvailableMemoryMB 0 MEANS 'COULD NOT ASK', NOT 'NO MEMORY' -- Get-AvailableMemoryMB's
+            stated contract, the same one Get-TestSuiteGateLaneCount reads it under. A machine that
+            cannot answer is never throttled on the strength of a reading nobody took. Negatives are
+            treated identically.
+          - NOTHING RUNNING ALWAYS STARTS. A pool that holds every lane never terminates, and a gate
+            that refuses to run at all is not a verdict a gate gets to reach. So the floor can squeeze
+            the pool down to one lane and no further -- which is the sequential loop this gate replaced,
+            i.e. a known-finishing state rather than a new failure mode.
+            THE ONE COMBINATION THAT ESCAPES THAT ARGUMENT, named rather than guarded against (code
+            review, #2317): a caller passing -SuiteTimeoutSeconds -1 turns every lane's deadline off, so
+            a genuinely hung lane never leaves $running and the count never reaches zero. The floor then
+            holds the lanes behind it too. That is not a hazard this introduces -- a hung lane with no
+            deadline already stalls the pool, which is the whole of what #1941 was filed about -- but it
+            is a way the stall can become total rather than partial, and it needs both opt-outs at once.
+
+        WHAT IS NOT MEASURED, stated because the argument above is only measured on one side. The
+        reap-avoidance case has numbers; the cost of holding when nothing would have been reaped does
+        not. Get-AvailableMemoryMB's own docstring records this property moving 100 MB between two reads
+        seconds apart, so a machine sitting near the per-lane boundary can take a transient dip and hold
+        where the old single-reading code would have carried on and finished. A spurious hold self-
+        corrects at the next dequeue attempt and costs a poll interval, so the exposure is small and
+        bounded -- but nothing here counts how often it happens, and "the worst case is the slow run
+        that already finishes" is the bound on a PERMANENT squeeze, not on the frequency of transient
+        ones. The machine most likely to meet it is the one with plenty of cores and modest free memory.
+
+        $PerLaneMB 0 OR LESS DISABLES THE FLOOR ENTIRELY, so a caller that has no budget to reason
+        about gets byte-for-byte the behaviour this function was added to.
+
+        Returns Allow (bool), AssumedFreeMB (int) and Reason (string) -- the caller prints the two
+        figures when it holds, for the reason #2121 gave about the lane count: a run that quietly slows
+        itself down has made a decision about its own wall clock, and a reader who cannot see the
+        arithmetic re-derives the whole finding from scratch.
+
+    .PARAMETER AvailableMemoryMB
+        The last reading, in MB. 0 or negative means the question could not be asked.
+
+    .PARAMETER LanesStartedSinceReading
+        Lanes opened since that reading was taken, each charged $PerLaneMB against it.
+
+    .PARAMETER RunningLanes
+        Lanes open right now. 0 always allows -- see above.
+
+    .PARAMETER PerLaneMB
+        One lane's memory budget, $script:TestSuiteGateLaneMemoryMB at the call site. 0 or less
+        disables the floor.
+    #>
+    param(
+        [int]$AvailableMemoryMB,
+        [int]$LanesStartedSinceReading = 0,
+        [int]$RunningLanes = 0,
+        [int]$PerLaneMB = 0
+    )
+
+    $allow = { param([int]$Assumed, [string]$Why) [pscustomobject]@{ Allow = $true; AssumedFreeMB = $Assumed; Reason = $Why } }
+
+    if ($PerLaneMB -le 0)         { return (& $allow 0 'no per-lane budget is configured, so there is no floor to apply') }
+    if ($AvailableMemoryMB -le 0) { return (& $allow 0 'the memory reading could not be taken, so no memory term is applied') }
+
+    $assumed = $AvailableMemoryMB - ($LanesStartedSinceReading * $PerLaneMB)
+    if ($assumed -ge $PerLaneMB) {
+        return (& $allow $assumed 'there is room for another lane')
+    }
+    if ($RunningLanes -le 0) {
+        return (& $allow $assumed 'nothing is running -- a pool that holds every lane never terminates')
+    }
+
+    return [pscustomobject]@{
+        Allow         = $false
+        AssumedFreeMB = $assumed
+        Reason        = ("$assumed MB assumed free is under the $PerLaneMB MB one lane is budgeted, " +
+                         "and $RunningLanes lane(s) are already open")
+    }
+}
+
+
 function Get-TestSuitePaceScale {
     <#
         HOW MUCH SLOWER THIS RUN IS GOING THAN THE RUN suite-durations.json WAS RECORDED FROM, as a PURE
@@ -3378,6 +3507,28 @@ function Invoke-TestSuiteGate {
         THE TARGET IS NOT RE-RUN ALONE ON A CRASH EITHER, unlike an ordinary run: running it alone is
         exactly what this mode replaces, so a crash under load is the answer being asked for and is red.
 
+        AND SINCE #2317 THE LANE COUNT IS NOT THE ONLY MEMORY DECISION -- September 22, 2026. #2121 made
+        the count itself memory-aware, and it resolves ONCE, at t=0, from one reading. What that could
+        not price is the consequence of being wrong downwards: this pool is a background shell, and a
+        harness that finds the system critically low on memory REAPS it. Measured on one machine in one
+        session, on the automatic count: killed at 731s with 18 of 124 suites done, and killed again at
+        2,166s with 54 of 124 -- 48 minutes, two runs, no verdict from either. The same pool at
+        -MaxParallel 2 finished every time, 2.3x slower than 7 lanes had been. The machine could finish
+        slowly or die quickly, and nothing in between was reachable, because the only lever had already
+        been pulled before the first lane opened.
+        SO A LANE START NOW CONSULTS A FRESH READING (Get-GateLaneStartVerdict,
+        $script:GateLaneMemoryPollSeconds) and is HELD when there is not room for one more lane. It can
+        only delay a start -- never skip a suite, never fail one, never change a verdict -- and it can
+        never wedge, because nothing running always starts. So the floor's worst case is the
+        -MaxParallel 2 run that already finishes, against a 2,166s run that produced nothing.
+        IT APPLIES ONLY WHERE THIS FUNCTION CHOSE THE LANE COUNT, which is exactly where
+        $script:TestSuiteGateLaneMemoryMB already applies and for the reason that constant's banner
+        gives: ci.yml passes -MaxParallel explicitly, so a hosted runner is untouched, and the
+        population the floor covers is the one that was measured being reaped.
+        AND THE SECONDS IT HOLDS ARE ON THE VERDICT LINE, beside #2095's suspend seconds and for the
+        same reason: a run slower than its own lane count implies has to say which of the two causes it
+        was, or the next reader attributes it to the tree.
+
         Returns $true when every suite exited 0, $false when any did not, and $true with a warning when
         there is nothing to run -- an empty or missing directory is a repo without suites, not a failure,
         and neither is a shard that drew none of them. In a focus run it returns $true only when every
@@ -3534,6 +3685,11 @@ function Invoke-TestSuiteGate {
     # answer falls back to exactly the core formula it had before this change rather than to two lanes.
     # The two states are distinguishable here and nowhere downstream, which is why the branch is here.
     $laneLimitReason = ''
+    # WHETHER THIS RUN CHOSE ITS OWN LANE COUNT -- issue #2317. Recorded here because $MaxParallel is
+    # overwritten two lines down and clamped again later, so by the time the pool needs the answer the
+    # parameter no longer carries it. It gates the memory floor on lane starts, for the reason the
+    # floor's own declaration in the pool gives: a caller that named its lane count owns that decision.
+    $laneCountWasAutomatic = ($MaxParallel -le 0)
     if ($MaxParallel -le 0) {
         $availableMB = Get-AvailableMemoryMB
         $laneChoice  = Get-TestSuiteGateLaneCount -ProcessorCount ([Environment]::ProcessorCount) -AvailableMemoryMB $availableMB
@@ -3615,6 +3771,12 @@ function Invoke-TestSuiteGate {
     # session quotes can say which part of its own seconds nothing was running for -- the figure #2095
     # was filed on is '11,749s' for a pool that did 853s of work.
     $suspendedSeconds = 0.0
+    # WALL CLOCK THIS RUN SPENT DELIBERATELY NOT STARTING A LANE -- issue #2317, and out here beside
+    # $suspendedSeconds for the reason that one gives: the verdict is printed after the pool block has
+    # closed. The two are different facts and both belong on that line -- suspend is time the MACHINE
+    # took, a hold is time this gate chose to take, and a run that reports neither leaves a reader with
+    # an unexplained figure and no way to tell one cause from the other.
+    $laneHeldSeconds = 0.0
     $failedNames = New-Object System.Collections.ArrayList
     # THE SUITES WHOSE PROCESS DIED IN THE POOL, whatever their lone re-run then decided -- issue #1723.
     # Out here beside $failedNames because the verdict is printed after the pool block has closed, and a
@@ -3751,6 +3913,24 @@ function Invoke-TestSuiteGate {
             # pass rather than at 0, so the pool's own bring-up is never read as a discontinuity.
             $lastPollAt = $sw.Elapsed.TotalSeconds
 
+            # THE MEMORY FLOOR'S STATE -- issue #2317, the rest of it in Get-GateLaneStartVerdict and in
+            # $script:GateLaneMemoryPollSeconds. $laneMemoryMB is the last reading, -1 meaning 'not yet
+            # taken' so the first lane start takes one; $laneMemoryReadAt is when, on $sw's clock;
+            # $lanesSinceMemoryRead is what has been charged against it since. $laneHoldStartedAt is 0
+            # when the pool is not holding, which is what makes the console line fire on the TRANSITION
+            # rather than on every one of the ten polls a second a hold would otherwise narrate.
+            $laneMemoryMB         = -1
+            $laneMemoryReadAt     = 0.0
+            $lanesSinceMemoryRead = 0
+            $laneHoldStartedAt    = 0.0
+            # ONLY WHERE THE GATE CHOSE ITS OWN LANE COUNT, which is exactly where $script:TestSuiteGateLaneMemoryMB
+            # already applies and for the same reason its banner gives: a caller that NAMED its lane
+            # count made that decision itself and has nothing to be told. ci.yml passes
+            # -MaxParallel ([Environment]::ProcessorCount) explicitly, so a hosted runner is untouched by
+            # this -- and the population the floor covers is precisely the one #2317 measured being
+            # reaped, which ran on the automatic count.
+            $laneFloorMB = if ($laneCountWasAutomatic) { $script:TestSuiteGateLaneMemoryMB } else { 0 }
+
             while ($queue.Count -gt 0 -or $running.Count -gt 0) {
                 # THE CLOCK IS CHECKED FOR A DISCONTINUITY BEFORE ANYTHING IS JUDGED AGAINST IT --
                 # issue #2095, and it runs ahead of the launch block so the pass that OBSERVES a
@@ -3787,6 +3967,45 @@ function Invoke-TestSuiteGate {
                 }
 
                 while ($queue.Count -gt 0 -and $running.Count -lt $MaxParallel) {
+                    # THE MEMORY FLOOR, ASKED BEFORE THE DEQUEUE -- issue #2317. Before the dequeue and
+                    # not after it, because a held start must leave the queue exactly as it found it:
+                    # an item pulled off and pushed back would lose its place in an order two
+                    # measurements went into (#1358's longest-first pack), and a focus run's queue is
+                    # not even a set of distinct files. `break` returns to the outer poll, which sleeps
+                    # 100 ms and asks again -- so a hold is a delay and never a decision about a suite.
+                    if ($laneFloorMB -gt 0) {
+                        $now = $sw.Elapsed.TotalSeconds
+                        if ($laneMemoryMB -lt 0 -or ($now - $laneMemoryReadAt) -ge $script:GateLaneMemoryPollSeconds) {
+                            $laneMemoryMB         = Get-AvailableMemoryMB
+                            $laneMemoryReadAt     = $now
+                            $lanesSinceMemoryRead = 0
+                        }
+                        $laneVerdict = Get-GateLaneStartVerdict -AvailableMemoryMB $laneMemoryMB `
+                                                                -LanesStartedSinceReading $lanesSinceMemoryRead `
+                                                                -RunningLanes $running.Count `
+                                                                -PerLaneMB $laneFloorMB
+                        if (-not $laneVerdict.Allow) {
+                            # ON THE TRANSITION ONLY. This block is reached on every pass of a 100 ms
+                            # poll loop for as long as the hold lasts, so an unguarded line would print
+                            # ten times a second -- which is how a line stops being read, and this one
+                            # has to be read: it is the only signal that a run is deliberately going
+                            # slower than its lane count says.
+                            if ($laneHoldStartedAt -le 0) {
+                                $laneHoldStartedAt = $now
+                                Write-Host ("test gate: holding lane starts -- $($laneVerdict.Reason). " +
+                                            "Waiting rather than risking the run being reaped (issue #2317).") -ForegroundColor Yellow
+                            }
+                            break
+                        }
+                        if ($laneHoldStartedAt -gt 0) {
+                            $held = $now - $laneHoldStartedAt
+                            $laneHeldSeconds += $held
+                            $laneHoldStartedAt = 0.0
+                            Write-Host ("test gate: lane starts resumed after $(Format-GateSeconds $held -Decimals 1)s -- " +
+                                        "$($laneVerdict.AssumedFreeMB) MB assumed free.") -ForegroundColor DarkGray
+                        }
+                        $lanesSinceMemoryRead++
+                    }
                     $item    = $queue.Dequeue()
                     $suite   = $item.File
                     # THE STEM, NOT THE BASE NAME -- issue #1944. They are the same thing on every
@@ -4174,6 +4393,15 @@ function Invoke-TestSuiteGate {
                     # for the encoding, the settle budget and what the swap cost.
                     Write-GateCaptureBlock -Path @($d.OutFile, $d.ErrFile)
                     $running.Remove($d)
+                    # THE MEMORY READING IS INVALIDATED WHEN A LANE LEAVES, not only when it goes stale
+                    # -- issue #2317. A completed lane has just given its memory back, so this is the
+                    # one moment the cached figure is known to be wrong in the direction that matters,
+                    # and the charge against it is known to be owed by a process that no longer exists.
+                    # Without this the charge only ever grows inside a poll window, so a pool at its
+                    # lane count would hold on arithmetic about lanes that had already finished -- a
+                    # hold that is real, self-inflicted, and invisible in any reading of the machine.
+                    # It costs one CIM read per completed suite, taken where a suite has just ended.
+                    $laneMemoryMB = -1
                 }
             }
 
@@ -4482,12 +4710,21 @@ function Invoke-TestSuiteGate {
     # has no way to tell it from a tree that got three hours slower. Absent on every ordinary run, so
     # nothing that already reads this line sees a byte it did not see before.
     $suspendNote = if ($suspendedSeconds -gt 0) { " [$(Format-GateSeconds $suspendedSeconds)s of that was machine suspend, issue #2095]" } else { '' }
+    # AND THE PART IT SPENT HOLDING LANE STARTS -- issue #2317, on $suspendNote's own grounds one cause
+    # over. A pool that held is slower than its lane count implies, and the only honest reading of the
+    # difference is on this line: without it a reader meets a run that took half as long again as the
+    # last one and has nothing to attribute it to but the tree. Absent on every run that never held.
+    # ONE DECIMAL, unlike $suspendNote's whole seconds: a suspend is measured in minutes or hours by
+    # definition of what produces one, while a hold is the pool waiting out a 100 ms poll -- so at
+    # whole seconds a run that really did hold reports '0s', which reads as a bug in the accounting
+    # rather than as a short hold.
+    $holdNote = if ($laneHeldSeconds -gt 0) { " [$(Format-GateSeconds $laneHeldSeconds -Decimals 1)s of that was holding lane starts under the memory floor, issue #2317]" } else { '' }
     if ($failedNames.Count -eq 0) {
         $passScope = if ($focusMode) { "{0} focus repeat(s) of $FocusSuite passed" }
                      elseif ($ShardCount -gt 1) { "{0} of $poolTotal suites passed" }
                      else { 'all {0} suites passed' }
         $passCount = if ($focusMode) { $focusResults.Count } else { $total }
-        Write-Host ("test gate: $passScope in {1}s{2}{3}{4}{5}." -f $passCount, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote) -ForegroundColor Green
+        Write-Host ("test gate: $passScope in {1}s{2}{3}{4}{5}{6}." -f $passCount, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote, $holdNote) -ForegroundColor Green
         # NAMED ON THE GREEN VERDICT TOO -- issue #1941. A timeout on a LOAD item cannot fail a focus run
         # (its verdict decides nothing), and a run that quietly abandoned a process while reporting green
         # is the silence this whole mechanism was built to end. Same shape as the crash note below it.
@@ -4509,7 +4746,7 @@ function Invoke-TestSuiteGate {
     $namesInOrder = @($failedNames | Sort-Object) -join ', '
     $redTotal = if ($focusMode) { $focusResults.Count } else { $total }
     $redUnit  = if ($focusMode) { 'focus repeat(s)' } else { 'suites' }
-    Write-Host ("test gate: {0} of {1} $redUnit FAILED in {2}s{3}{4}{5}{6}: {7}" -f $failedNames.Count, $redTotal, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote, $namesInOrder) -ForegroundColor Red
+    Write-Host ("test gate: {0} of {1} $redUnit FAILED in {2}s{3}{4}{5}{6}{7}: {8}" -f $failedNames.Count, $redTotal, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote, $holdNote, $namesInOrder) -ForegroundColor Red
     # WHICH OF THE RED ONES DID NOT FINISH, spelled out under the verdict -- issue #1941. A reader who
     # only has this line cannot otherwise tell a suite that asserted and said no from one that never
     # answered, and the two send you to completely different places.

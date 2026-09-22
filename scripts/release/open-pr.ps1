@@ -383,6 +383,28 @@
     THE KNOB IS UNCHANGED AND STILL THE WAY PAST. A better default narrows the case for typing one, and
     it does not remove it: the budget is sized off one repo's suite mix on one machine, and a run that
     still will not finish is answered here rather than with -SkipTests, for the reason stated above.
+
+.PARAMETER NoCiWait
+    Turn off the wait for an in-flight CI certificate (issue #2317) and run the suites immediately, as
+    this script did before that change.
+
+    WHAT THE WAIT IS. When a PR already exists, HEAD is the commit CI is running on, and the check this
+    repo named is REGISTERED AND STILL PENDING, the local pool would be a second copy of a measurement
+    already in progress on a clean checkout of the same tree. So the gate waits for that answer instead
+    of re-taking it. Measured across seven gate runs in one session (#2317): 12,801s of local gate for
+    two pull requests, one single re-run of which was 2,595s spent proving a commit whose CI decided the
+    merge anyway -- `main`'s ruleset blocks the merge on that check whatever a local pool says, so the
+    re-run could not make the merge sooner, only later.
+
+    IT IS NARROW BY CONSTRUCTION AND NEEDS NO FLAG ON THE ORDINARY PATHS. There is no wait on the first
+    open-pr of a branch (no PR), none under -SkipTests, none when HEAD is not the PR head (an unpushed
+    commit), none when the check has not registered, and none when it is red -- every one of those runs
+    the suites exactly as before. What is left is the one state where waiting is strictly cheaper than
+    measuring.
+
+    SO THE FLAG IS FOR THE CASE THE MECHANISM CANNOT SEE: a session that wants the local verdict in its
+    own hands -- chasing a suite that is red under the pool and green standalone, say, where CI's answer
+    is precisely the one that will not help. It costs the saving and changes nothing else.
 .EXAMPLE
     ./scripts/release/open-pr.ps1
 
@@ -406,7 +428,9 @@ param(
     # Ask whether the test gate can be deduced away over a note-tree-only change. See .PARAMETER NoteTreeOnly.
     [switch]$NoteTreeOnly,
     # Lanes for the test gate; 0 keeps Invoke-TestSuiteGate's own default. See .PARAMETER MaxParallel.
-    [int]$MaxParallel = 0
+    [int]$MaxParallel = 0,
+    # Run the suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
+    [switch]$NoCiWait
 )
 $ErrorActionPreference = 'Stop'
 
@@ -2154,7 +2178,15 @@ Fast-forward it and read what is there before trying again:
 # unnecessary skip of a gate the merge does not depend on; it is named here rather than mechanised.
 $testsProvedByCi = ''
 if ($existingPr -and -not $SkipTests) {
-    $headSha = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
+    # NAMED FOR WHAT IT HOLDS -- A CAPTURE OBJECT -- AND NOT $headSha, WHICH WOULD COLLIDE (issue #2317,
+    # code review). Wait-CiTestCertificate below takes a [string]$HeadSha parameter, PowerShell is
+    # case-insensitive, and the scriptblocks this file hands that function run in a child of ITS scope --
+    # so a scriptblock here reading $headSha would resolve the function's own string parameter rather
+    # than this capture object. Nothing here reads it today, which is exactly why it is worth renaming:
+    # the collision is dormant, and a later edit that logs or compares the outer head inside -Reader
+    # would bind the wrong value with no error to show for it. Same class as the $reading collision that
+    # function's own docstring records, met in the one call site that introduced the mechanism.
+    $headShaCapture = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
     $prHead  = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
     $reqJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
     # `gh pr checks` EXITS NON-ZERO WHEN ANY CHECK IS FAILING OR STILL PENDING -- that is documented
@@ -2163,12 +2195,58 @@ if ($existingPr -and -not $SkipTests) {
     # The seam is read defensively: a consumer whose repo-config predates it has no such function, and
     # a missing name is the safe answer (no certificate, the gate runs) rather than an error.
     $ciCheckName = if (Test-FunctionDefined 'Get-CiTestCheckName') { Get-CiTestCheckName } else { '' }
-    $cert = Get-CiTestCertificate -HeadSha ($headSha.Output -join '') `
+    $cert = Get-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
                                   -PrHeadSha ($prHead.Output -join '') `
                                   -RequiredChecksJson ($reqJson.Output -join "`n") `
                                   -CheckName $ciCheckName
     if ($cert.Certified) {
         $testsProvedByCi = $cert.Note
+    } elseif ($cert.InFlight -and -not $NoCiWait) {
+        # THE CHECK IS RUNNING ON THIS EXACT COMMIT, SO THE POOL IS THE SECOND COPY -- issue #2317.
+        # This is the branch the read above almost always lands on when ship-pr is the caller: it runs
+        # open-pr right after the push, so the required check has just started and the certificate is
+        # refused for the one reason that is about to stop being true. Re-proving here bought nothing
+        # measurable and cost 43.3 minutes on PR #2316, because `main`'s ruleset blocks the merge on
+        # the CI check whatever a local pool decides -- so the merge could not have come sooner, only
+        # later. Every other refusal still falls through to the pool, unchanged.
+        $waitBound = [Math]::Ceiling($script:CiCertificateWaitSeconds / [double]$script:CiCertificateWaitPollSeconds)
+        Write-Host "test gate: $($cert.Note) -- waiting for it rather than re-proving the same tree locally (issue #2317)." -ForegroundColor Cyan
+        Write-Host "           up to $([int]($script:CiCertificateWaitSeconds / 60)) min, one read every $($script:CiCertificateWaitPollSeconds)s. Past that, or on any other answer, the suites run below." -ForegroundColor DarkGray
+        $waited = Wait-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
+                                         -CheckName $ciCheckName `
+                                         -MaxLaps $waitBound `
+                                         -TimeoutSeconds $script:CiCertificateWaitSeconds `
+                                         -Sleeper { Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds } `
+                                         -OnLap {
+                                             param($lap, $elapsed)
+                                             # ONE LINE PER LAP, because the alternative is the silence
+                                             # #1717 was filed on one gate over: a wait that prints
+                                             # nothing for half an hour is indistinguishable from a
+                                             # wedge, and this one has no suite output to hide behind.
+                                             Write-Host ("           still running -- read {0}, {1}s elapsed." -f $lap, [int]$elapsed) -ForegroundColor DarkGray
+                                         } `
+                                         -Reader {
+                                             # BOTH HALVES ARE RE-READ, not just the checks. The head
+                                             # was compared once above, before the wait; a push landing
+                                             # during it would leave that comparison describing a commit
+                                             # nobody is on any more, and the certificate would then be
+                                             # granted for the wrong tree. Re-reading makes that case
+                                             # come back as 'settled' and run the pool.
+                                             $lapHead = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
+                                             $lapJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
+                                             [pscustomobject]@{
+                                                 PrHeadSha          = ($lapHead.Output -join '')
+                                                 RequiredChecksJson = ($lapJson.Output -join "`n")
+                                             }
+                                         }
+        if ($waited.Certified) {
+            $testsProvedByCi = $waited.Note
+            Write-Host "test gate: CI answered after $([int]$waited.WaitedSeconds)s -- the local pool was not run (issue #2317)." -ForegroundColor DarkGray
+        } elseif ($waited.Outcome -eq 'gave-up') {
+            Write-Host "test gate: no CI certificate after $([int]$waited.WaitedSeconds)s -- $($waited.Note). The suites run below." -ForegroundColor DarkGray
+        } else {
+            Write-Host "test gate: no CI certificate for this commit -- $($waited.Note). The suites run below." -ForegroundColor DarkGray
+        }
     } else {
         Write-Host "test gate: no CI certificate for this commit -- $($cert.Note). The suites run below." -ForegroundColor DarkGray
     }

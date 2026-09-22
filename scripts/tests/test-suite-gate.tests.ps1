@@ -970,6 +970,89 @@ try {
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'the real, unshadowed memory read still sizes a pool that passes'
     Assert-True ($r.Text -match 'test gate: all 3 suites passed in \d+s \(\d+ lanes?\)\.') 'and it resolves to a lane count'
 
+    # --- 7c. A LANE START IS HELD UNDER THE MEMORY FLOOR (issue #2317) -----------------------------
+    #
+    # WHAT 7b LEAVES OPEN. The lane count above resolves ONCE, at t=0, from one reading -- so it is a
+    # decision about the machine taken before the run starts. #2317 measured what happens when that
+    # decision is wrong downwards: the pool is a background shell, and a harness that finds the system
+    # critically low on memory REAPS it. Two automatic-lane runs were killed at 731s (18 of 124 suites
+    # done) and 2,166s (54 of 124), 48 minutes between them, neither producing a verdict. So the
+    # reading is re-taken before a lane opens, and a start is HELD rather than risking the run.
+    #
+    # ASSERTED DIRECTLY, on 7b's own grounds: every input is a property of the machine, so a
+    # pool-driven assert on a literal would be a claim about whatever box runs this suite.
+    Write-Host "the memory floor on lane starts -- hold rather than be reaped" -ForegroundColor Cyan
+    $per = 512
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB 4096 -RunningLanes 3 -PerLaneMB $per).Allow `
+        'plenty free: another lane opens, which is every ordinary run'
+    Assert-True (-not (Get-GateLaneStartVerdict -AvailableMemoryMB 400 -RunningLanes 2 -PerLaneMB $per).Allow) `
+        'under one lane''s budget with lanes already open: the start is held'
+
+    # NOTHING RUNNING ALWAYS STARTS, and this is the assert that keeps the floor from being able to
+    # wedge a pool. A gate that refuses to run at all is not a verdict a gate gets to reach, so the
+    # floor can squeeze the pool down to one lane and no further -- which is the sequential loop this
+    # pool replaced, i.e. a known-finishing state rather than a new failure mode.
+    $starved = Get-GateLaneStartVerdict -AvailableMemoryMB 1 -RunningLanes 0 -PerLaneMB $per
+    Assert-True $starved.Allow 'with nothing running the start is allowed however little is free -- a pool that holds every lane never terminates'
+    Assert-True ($starved.Reason -match 'never terminates') 'and the reason says why, so nobody repairs it into a deadlock'
+
+    # 0 IS 'COULD NOT ASK', NOT 'NO MEMORY' -- Get-AvailableMemoryMB's stated contract, and the same
+    # trap 7b asserts one function over. Getting it backwards would hold lane starts on every machine
+    # whose CIM query fails, silently, which is a worse version of the defect being repaired.
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB 0 -RunningLanes 8 -PerLaneMB $per).Allow `
+        'a reading of 0 means the question could not be asked -- no memory term is applied'
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB -5 -RunningLanes 8 -PerLaneMB $per).Allow `
+        'and a negative reading is treated the same way'
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB 1 -RunningLanes 8 -PerLaneMB 0).Allow `
+        'no per-lane budget configured means no floor at all -- the behaviour this was added to'
+
+    # THE READING IS CHARGED FOR LANES OPENED SINCE IT WAS TAKEN, which is what makes this work at t=0
+    # as well as mid-run. A child takes seconds to allocate, so a burst of lanes opened inside one
+    # reading's window would every one of them consult a figure taken before any of them had cost
+    # anything -- the exact blindness this exists to remove, reproduced inside a single poll pass.
+    # 2048 MB against a 512 MB budget is exactly four lanes' worth, so the boundary is unambiguous:
+    # four starts are allowed against one reading and the fifth is not.
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB 2048 -LanesStartedSinceReading 0 -RunningLanes 1 -PerLaneMB $per).Allow `
+        '2048 MB free opens a lane'
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB 2048 -LanesStartedSinceReading 3 -RunningLanes 4 -PerLaneMB $per).Allow `
+        'and the fourth still opens -- three lanes charged leaves exactly one lane''s room'
+    $burst = Get-GateLaneStartVerdict -AvailableMemoryMB 2048 -LanesStartedSinceReading 4 -RunningLanes 5 -PerLaneMB $per
+    Assert-True (-not $burst.Allow) 'but the fifth is held -- the burst stops itself instead of waiting for a later reading to notice'
+    Assert-Equal 0 $burst.AssumedFreeMB 'and it reports what it assumed was left, so the arithmetic is checkable from the console'
+
+    # THE EXACT BOUNDARY, stated because "under the budget" has two readings and only one is right:
+    # room for one MORE lane, not room for the lanes already open.
+    Assert-True (Get-GateLaneStartVerdict -AvailableMemoryMB 512 -RunningLanes 1 -PerLaneMB $per).Allow `
+        'exactly one lane''s budget free is room for exactly one more lane'
+    Assert-True (-not (Get-GateLaneStartVerdict -AvailableMemoryMB 511 -RunningLanes 1 -PerLaneMB $per).Allow) `
+        'and one megabyte under it is not'
+
+    # AND THE PLUMBING: a pool whose reading leaves no room after the first lane HOLDS, says so, and
+    # still passes every suite. 600 MB against a 512 MB budget is the deterministic shape -- the first
+    # lane opens (nothing running), the second is held (600 - 512 = 88 assumed free), and the hold
+    # releases the moment that first lane frees. What is being proved is that the floor fires, is
+    # announced, releases, and cannot wedge the run.
+    $held = Invoke-Gate -TestsDir $ok -AvailableMemoryMB 600
+    Assert-True ($held.Text -match 'GATE-RESULT: True') 'a pool that holds lane starts still passes all its suites'
+    Assert-Says $held.Flat 'holding lane starts' 'and says it is holding rather than going quiet'
+    Assert-Says $held.Flat 'issue #2317' 'citing the measurement, so the console points somewhere'
+    Assert-Says $held.Flat 'lane starts resumed' 'and says when it stopped holding, so a reader can see it was a delay and not a stall'
+    Assert-Says $held.Flat 'holding lane starts under the memory floor' 'and the verdict line accounts for the seconds it spent held'
+
+    # ONE LINE PER HOLD, NOT ONE PER POLL. The launch block is reached on every pass of a 100 ms loop
+    # for as long as a hold lasts, so an unguarded line would print ten times a second -- which is how
+    # a line stops being read, and this one has to be read.
+    Assert-True ([regex]::Matches($held.Text, 'holding lane starts --').Count -le 3) `
+        'the hold is announced on the transition, not on every poll'
+
+    # AND A CALLER THAT NAMED ITS OWN LANE COUNT IS UNTOUCHED, which is where
+    # $script:TestSuiteGateLaneMemoryMB already draws the same line and for the same reason: ci.yml
+    # passes -MaxParallel explicitly, so a hosted runner must see no byte of this.
+    $named2 = Invoke-Gate -TestsDir $ok -MaxParallel 2 -AvailableMemoryMB 600
+    Assert-True ($named2.Text -match 'GATE-RESULT: True') 'an explicit lane count still passes its suites'
+    Assert-True ($named2.Flat -notmatch 'holding lane starts') `
+        'and never holds -- a caller that named its lane count made that decision itself'
+
     # --- 8. A CRASHED suite is not a FAILED one (issue #1723) ---------------------------------------
     #
     # WHAT WENT WRONG. The gate judged a suite on its exit code alone, so a child killed by an
