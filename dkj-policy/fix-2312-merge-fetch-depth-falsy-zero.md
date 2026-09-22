@@ -39,19 +39,56 @@
 
 ### PLAN
 
+Closes #2312. Measured on the merge commit that landed #2303 itself (`4819ec02`, run 35749674281):
+the checkout step printed `fetch-depth: 1` even though the push subject matched `startsWith(...,
+'merge: ')`, so the deepened checkout never happened and the new "Merge-commit certificate" step
+answered `skip=false` on every shard with `'git log HEAD^1' failed ... history too shallow`.
+Fail-closed, so no trunk safety issue -- the full suites ran, exactly as before #2303 -- but the
+whole saving that issue was written for has never actually fired.
+
+Root cause: GitHub Actions expressions use JS-like truthiness, where the NUMBER `0` is falsy. The
+line read `cond && 0 || 1`; `cond && 0` evaluates to `0`, itself falsy, so `||` falls through to
+`1` regardless of `cond`. The classic ternary-idiom trap, firing exactly because the "true" branch
+value (a fetch depth of zero) is itself falsy.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] .github/workflows/ci.yml -- quote both arms as strings (`'0'` / `'1'`) instead of bare
+      numbers. A non-empty string is never falsy in this expression language (including the string
+      `"0"`), and `with:` values are passed to the action as strings regardless, so this is the
+      fix rather than a cosmetic change. Comment added explaining the trap for the next reader.
 
 ### TEST
 
+- [x] scripts/tests/ci-shard.tests.ps1 -- updated the existing fetch-depth assert to match the
+      quoted string literals, and added a new guard asserting the true branch is never a bare,
+      unquoted `0` -- so a future edit that reintroduces the trap fails the suite instead of
+      silently no-op'ing on the one push it exists for.
+- [x] `npx js-yaml .github/workflows/ci.yml` -- parses cleanly.
+- [x] Full lint gate (`check-plugin-integrity.ps1`): 0 errors.
+- [~] A live CI run on a real 'merge: ' push proving `fetch-depth: 0` actually lands and the
+      suites skip fires -- can only be proved once this lands and the next branch merges through
+      ship-pr; not reproducible locally since GitHub Actions expression evaluation only happens on
+      GitHub's own runners.
+
 ### DEPLOY: fix/2312-merge-fetch-depth-falsy-zero
 
-**Score:**
+`ci.yml`'s conditional `fetch-depth` on the merge-commit checkout (#2303) never actually reached
+`0`: GitHub Actions expressions treat the number `0` as falsy, so `cond && 0 || 1` silently fell
+through to `1` on every push, regardless of `cond`. Fail-closed, so this cost no safety margin --
+the full suite ran on every merge commit exactly as it did before #2303 -- but it meant the
+suite-skip #2303 was built for had never actually fired. Fixed by quoting both arms as strings
+(`'0'` / `'1'`), which GitHub Actions never treats as falsy, plus a new assert pinning that a bare
+unquoted `0` cannot return to this line unnoticed.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a CI-internal fix to this repo's own `.github/workflows/ci.yml`; nothing here is mirrored
+to a consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
