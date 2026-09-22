@@ -114,8 +114,8 @@ $RulesQueueOff = '[{"type":"required_status_checks","ruleset_id":7,"parameters":
 # (Get-DirectPushBlockingRules), not off this tree, so nothing constrains its characters -- unlike a job
 # id, which GitHub Actions' own schema already restricts to [a-zA-Z0-9_-]. This payload's context names
 # no job in ANY fixture consumer (deliberately: "weird-check" -> `n -> "INJECTED-marker" cannot be a
-# real Actions job id), so it always lands in the '[note] ... matches no job' arm -- the one where L1049
-# reads $ctxDisplay = Get-DisplayRef -Ref $ctx before either report branch. Get-DisplayRef replaces a
+# real Actions job id), so it always lands in the '[note] ... matches no job' arm -- the one where
+# $ctxDisplay = Get-DisplayRef -Ref $ctx is computed before either report branch. Get-DisplayRef replaces a
 # control character with a SPACE and collapses runs of spaces (unlike Format-SafePathToken, which
 # deletes and welds -- see check-consumer-siblings.tests.ps1), so the embedded newline below is expected
 # to survive as one joining space, not as a line break and not as nothing.
@@ -524,9 +524,9 @@ try {
     Assert-True ($r.Flat -like '*matches no job*') 'the fixture reaches the no-owner arm at all, so the asserts below are testing something'
     # $r.Out keeps real line breaks (see Invoke-Adopt's own docstring) -- the property under test is
     # exactly whether the embedded newline in $ctx survives as ANOTHER one, so Out is read, not Flat.
-    # '[note]' ALSO PRINTS FOR repo-settings.yml AND FOR "no merge_queue rule" IN AN ORDINARY DRY RUN
-    # (L1109, L1150) -- neither carries a manifest- or ruleset-supplied value, so both are filtered out
-    # here rather than counted; the subject is the ONE line this fixture's deceptive context produces.
+    # '[note]' ALSO PRINTS FOR repo-settings.yml's own schedule note AND FOR "no merge_queue rule" IN
+    # AN ORDINARY DRY RUN -- neither carries a manifest- or ruleset-supplied value, so both are filtered
+    # out here rather than counted; the subject is the ONE line this fixture's deceptive context produces.
     $noteLines = @($r.Out -split "`n" | Where-Object { $_ -match "\[note\].*required check" })
     Assert-True ($noteLines.Count -eq 1) `
         'the deceptive context name produces exactly ONE required-check [note] line -- its embedded newline did not forge a second'

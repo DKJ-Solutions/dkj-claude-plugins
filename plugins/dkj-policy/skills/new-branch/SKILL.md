@@ -461,10 +461,11 @@ count is worth stating precisely because the wrong one is what kept the second s
     same sites -- are guarded the same way, on the verified precedent that `check-connectors.ps1`
     already guards that identical `$manifestRepo` field with `Format-SafePathToken` at six sites
     (L983, L990, L1039, L1041, L1065, L1069). **And deliberately left unguarded, stated as a decision in
-    a code comment rather than missed**: `$f.Class` (this script's own enum, off
-    `Compare-SiblingInventory`) and `$_.Plugin`/`$_.Path` inside `$where` at L477 (off
-    `Get-MarketplaceShippedScript`, this repo's own marketplace index) -- neither is foreign text, both
-    are this repo's own.
+    a code comment rather than missed**: `$f.Class` (this script's own enum, its `'only-in'`/`'partial'`/
+    `'drifted'` literals assigned in `Find-ShippedMechanism`, `scripts/lib/sibling-divergence-lib.ps1`
+    ~L416-418, off `Compare-SiblingInventory`'s output rather than by that function itself) and
+    `$_.Plugin`/`$_.Path` inside `$where` at L477 (off `Get-MarketplaceShippedScript`, this repo's own
+    marketplace index) -- neither is foreign text, both are this repo's own.
 
     **And two more sites in the same file were still raw after that repair -- found by Tycho's
     regression pin, then closed under #2272.** `$label`, the same connector-manifest `repo` field, was
@@ -492,13 +493,6 @@ count is worth stating precisely because the wrong one is what kept the second s
     `-replace '^github:', ''`) and carried into a later `contents/$($f.Path)?ref=$($src.Branch)` API
     call (L263), so sanitizing `$inv.Reason` at composition would corrupt a real, if unusual, sibling
     branch name rather than merely change what the console shows.
-
-    **This is "an entry goes stale the way the list does, one level in" at its sharpest instance yet.**
-    Every earlier case of that lesson (entry 5, entry 6) was found by work that was about something
-    else entirely, sometime after the fact. Here the same variable, in the same file, was missed by the
-    very repair that rewrote this entry to say the site was fixed -- and the miss was caught inside the
-    branch making that repair, before this entry's rewrite had even reached `main`, by a regression
-    test's fixture rather than by anyone reading the site or this page.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
 September 11, five until September 15, six until September 17, seven until September 21 -- and on that
@@ -543,6 +537,13 @@ unguarded prints -- both now repaired under #2248. The other four were never any
 11 and 12 say so outright ("no defect at all", "also no defect"), and 9 and 10 read the same way on
 inspection -- a strip mechanism and a guarded print that already worked, simply not yet carried onto
 this page.
+
+**And entry 13 went one round further, inside this very branch.** #2272 found `$label` and
+`$inv.Reason` still raw at two more lines of that same site, missed by the repair that had just
+rewritten the entry above to say it was fixed. Every earlier instance of this lesson -- entry 5, entry
+6 -- was found by unrelated work sometime after the fact; this one was found before the rewrite had
+even reached `main`, by a regression test's fixture rather than by anyone rereading the site or this
+page.
 
 The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
 `ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and

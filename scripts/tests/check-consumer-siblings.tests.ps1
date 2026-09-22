@@ -6,12 +6,13 @@
     WHY THIS SUITE EXISTS AND WHAT IT DOES NOT COVER. sibling-divergence.tests.ps1 already exercises
     Compare-SiblingInventory, Group-SiblingConsumer and Find-ShippedMechanism thoroughly -- the pure
     lib the entry point sits on top of. Nothing anywhere ran the SCRIPT ITSELF before this file: the
-    reading (gh / disk), the grouping, and the four Write-Host/Write-Info lines that print a manifest's
-    own 'repo' field and a sibling's own file paths were untested end to end. That gap is what #2248
-    closed in production and what this suite pins against reopening.
+    reading (gh / disk), the grouping, and the Write-Host/Write-Info lines that print a manifest's own
+    'repo' field and a sibling's own file paths were untested end to end. That gap is what #2248 and its
+    #2272 follow-up closed in production and what this suite pins against reopening.
 
-    THE SUBJECT IS THE GUARD, NOT THE COMPARISON. Two crafted manifest 'repo' values are run through
-    the real script with -Source disk (no network, no gh) and the captured console text is checked for
+    THE SUBJECT IS THE GUARD, NOT THE COMPARISON. Crafted manifest 'repo' values -- one deceptive, one
+    plain, per sibling group below -- are run through the real script with -Source disk (no network, no
+    gh) and the captured console text is checked for
     what #2248's commit message names as the risk: a manifest-supplied value reaching the console (and,
     via Write-Info, session context) with its control characters and brackets intact.
 
@@ -19,12 +20,12 @@
     check-report-lib.tests.ps1 already pin exactly what it strips (control characters via \p{C}, square
     brackets, run-length capping) against the function directly -- U+202E and friends included. Nothing
     here re-proves that; see check-report-lib.tests.ps1 for the function-level pin. This suite proves
-    the CALL SITE, which is a different failure mode: the function was never in doubt, whether these
-    four lines actually route their value through it was. A bracket and an embedded newline are used
-    because they are the two properties Format-SafePathToken's docstring names as load-bearing (a
-    bracket a hook could count as a marker, a newline that could forge a line) AND because both are
-    plain ASCII -- unlike a bidi override or a zero-width run, neither can be mangled by the console's
-    own code page on the way through a child-process capture (see the language-layers.md note on
+    the CALL SITE, which is a different failure mode: the function was never in doubt, whether the
+    script's own print lines actually route their value through it was. A bracket and an embedded
+    newline are used because they are the two properties Format-SafePathToken's docstring names as
+    load-bearing (a bracket a hook could count as a marker, a newline that could forge a line) AND
+    because both are plain ASCII -- unlike a bidi override or a zero-width run, neither can be mangled
+    by the console's own code page on the way through a child-process capture (see the language-layers.md note on
     native-command output decoding), so a false pass here cannot be an artefact of the terminal rather
     than of the guard.
 
@@ -55,13 +56,13 @@
         of a manifest's FIELDS, so it carries nothing #2248 or #2272 was ever about.
 
     #2272, A FOLLOW-UP LANDED ON THIS SAME BRANCH, AND THE BULLET IT RETIRES. The 'read $label : N
-    comparable path(s) via ...' line (now L430) and the 'group ... not compared' line an unreadable
-    member feeds (now L425) used to print the manifest 'repo' field completely raw -- found BY this
-    suite's own fixture (it forged exactly the two-line console split the guard exists to prevent) and
-    filed as #2272. Both are now guarded ($label via Format-SafePathToken, $inv.Reason via
-    Format-SafeProseToken) and both are exercised below, by a SECOND sibling group: one unreadable
-    member skips its WHOLE group's comparison ('ONE SCHEME PER GROUP' in the script), so reaching L425
-    needs a member whose localCheckout never resolves, and reusing group 1 for that would have silently
+    comparable path(s) via ...' line and the 'group ... not compared' line an unreadable member feeds
+    used to print the manifest 'repo' field completely raw -- found BY this suite's own fixture (it
+    forged exactly the two-line console split the guard exists to prevent) and filed as #2272. Both are
+    now guarded ($label via Format-SafePathToken, $inv.Reason via Format-SafeProseToken) and both are
+    exercised below, by a SECOND sibling group: one unreadable member skips its WHOLE group's
+    comparison ('ONE SCHEME PER GROUP' in the script), so reaching the not-compared line needs a
+    member whose localCheckout never resolves, and reusing group 1 for that would have silently
     stopped the ONLY-IN asserts above from ever firing. $inv.Reason's own STRIPPING is deliberately not
     separately asserted: on -Source disk it is always this script's own literal sentence ('disk', or the
     unreadable branch's fixed reason) -- never manifest-supplied. The only arms that build it from
@@ -132,7 +133,7 @@ try {
     ($manifestB | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConnectorDir 'fixture-b.json') -Encoding utf8
 
     # A SECOND, INDEPENDENT sibling group (#2272), to reach the 'read $label : ...' line every readable
-    # member prints (now L430) and the 'group ... not compared' line an UNREADABLE one feeds (now L425).
+    # member prints and the 'group ... not compared' line an UNREADABLE one feeds.
     # C's localCheckout is deliberately a path that will never exist, so C is unreadable and D -- readable
     # -- still prints its own 'read' line before the group-level check sees C and skips the comparison.
     # A second group rather than adding a third, unreadable member to group 1: ONE unreadable member
@@ -168,10 +169,9 @@ try {
     # SCOPED TO THE ONLY-IN LINES DELIBERATELY, NOT THE WHOLE REPORT -- kept scoped even after #2272,
     # rather than widened to a blob-wide assert, because the group-2 asserts below already cover the
     # 'read'/'not compared' lines by name and a blob-wide assert here would duplicate them rather than
-    # add anything. #2248's own diff guarded $label at the ONLY-IN/PARTIAL/DRIFTED/SHIPPED loop only
-    # (scripts/sync/check-consumer-siblings.ps1 lines 437-471 in that commit); the 'read $label : N
-    # comparable path(s) via ...' line and the 'group ... not compared' line it feeds print the SAME
-    # manifest 'repo' field, at what were then L423/L419/L429 -- UNGUARDED until this branch's own #2272
+    # add anything. #2248's own diff guarded $label only in the ONLY-IN/PARTIAL/DRIFTED/SHIPPED loop;
+    # the 'read $label : N comparable path(s) via ...' line and the 'group ... not compared' line it
+    # feeds print the SAME manifest 'repo' field, and were UNGUARDED until this branch's own #2272
     # follow-up, found BY this very fixture. See the docstring's '#2272' paragraph and the group-2
     # asserts further down for what closed that gap and how it is pinned.
     $onlyInHeader = @($out | Where-Object { $_ -match '^\s*ONLY-IN\s' })
@@ -204,7 +204,7 @@ try {
     Assert-True (-not ($onlyInFinding[0].Contains($deceptiveRepo))) `
         'the raw, unguarded manifest repo value never appears verbatim in the ONLY-IN finding line'
 
-    # #2272: THE 'read' LINE (now L430), printed for every READABLE member. Three fire this run --
+    # #2272: THE 'read' LINE, printed for every READABLE member. Three fire this run --
     # group 1's A and B, and group 2's D (D is readable; only C is not, and C's own unreadability is
     # what triggers the 'not compared' line below rather than a 'read' line of its own).
     $readLines = @($out | Where-Object { $_ -match '^\s*read\s' })
@@ -220,7 +220,7 @@ try {
     Assert-True (-not ($readLineA[0].Contains($deceptiveRepo))) `
         'the raw, unguarded manifest repo value never appears verbatim on the read line'
 
-    # #2272: THE 'group ... not compared' LINE (now L425), fed by $unreadable when a member's checkout
+    # #2272: THE 'group ... not compared' LINE, fed by $unreadable when a member's checkout
     # does not resolve -- group 2 (C+D) exists only to reach this branch; C's localCheckout is
     # deliberately a path that will never exist, so the group is read but never compared.
     $notComparedLines = @($out | Where-Object { $_ -match 'not compared' })

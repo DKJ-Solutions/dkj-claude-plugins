@@ -167,5 +167,5 @@ workflow. Reaching the consumer needs a release; nothing they run today changes 
 
 #### Pull Request
 
-Guard the foreign text adopt-ci-floor, sync-main and check-consumer-siblings printed raw
+Guard the foreign text that adopt-ci-floor, sync-main and check-consumer-siblings printed raw
 
