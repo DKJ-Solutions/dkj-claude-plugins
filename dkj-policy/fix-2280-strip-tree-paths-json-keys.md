@@ -39,21 +39,87 @@
 
 ### PLAN
 
+#### What this branch is
+
+Issue #2280. `scripts/tests/hook-stdin-guard.tests.ps1` prints two classes of value it did not author,
+through neither a strip nor a cap: a tracked FILE PATH off a `Get-ChildItem -Recurse` over the whole
+repo (group 1), and a JSON PROPERTY KEY read straight out of a parsed `hooks.json` (group 3, new with
+#2276). The suite dot-sources none of `ref-print-lib.ps1` / `check-report-lib.ps1` and carries no
+hand-typed copy of the class either. It runs in CI on every PR in a PUBLIC repository.
+
+Four print sites, not the two the issue names: each class appears once in its group's enumeration line
+and again in that group's per-item assert message.
+
+#### The three decisions this branch had to make
+
+1. **Dot-source or copy.** Dot-source `ref-print-lib.ps1`. The copy precedent -- `asana-mirror.ps1` --
+   exists because that file SHIPS STANDALONE into a consumer where no lib of this repo exists (#2019);
+   a suite in `scripts/tests` never leaves this repo. A copy would also be an edit to
+   `pr-issues.tests.ps1`'s pin, which compares the copies character for character; a dot-source is not,
+   because that pin counts files in `scripts/lib` that DEFINE `ConvertTo-ConsoleStrippedText`.
+2. **Which function per value.** `Get-DisplayPath` for the paths (preserves spaces and length -- a path
+   has to survive being read off the screen and typed back) and `Get-DisplayRef` for the event key (a
+   single-line label, where collapse and trim are right and a path's `(no printable path)` is the wrong
+   noun). Two contracts, two functions.
+3. **Cap or no cap.** No cap, on entry 6's reasoning: this console is a CI log, which wraps rather than
+   truncates, so a cap would buy no screen back and could cut the half of an assert message naming the
+   file that failed.
+
+#### One thing a later reader should know
+
+The entry number collides with a parked branch. `fix/2271-guard-exception-message-prints` is on the
+remote with no PR and claims entry **14** of the same list. This branch takes 14 because it is the
+truth at ITS merge; whichever lands second renumbers on rebase. Nothing in the tree is inconsistent --
+the collision is an ordinary merge conflict on an unmerged branch, not a finding.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Dot-source `scripts/lib/ref-print-lib.ps1` at the head of the suite, with the reasoning for the
+      dot-source, for the lint that does NOT close this, and for why the load cannot perturb the tree
+      scan it sits above.
+- [x] Route all four print sites: group 1's enumeration (L195) and per-site assert, group 3's
+      enumeration (L345) and per-wrapper assert.
+- [x] Register the site as entry 14 of the print-site list in
+      `../plugins/dkj-policy/skills/new-branch/SKILL.md`, and correct the count sentence and the two
+      growth paragraphs that state it.
 
 ### TEST
 
+- [x] `scripts/tests/hook-stdin-guard.tests.ps1` -- 24 passed / 0 failed before, 28 passed / 0 failed
+      after. The two scanned counts are UNCHANGED across the repair (10 read sites, 2 draining
+      wrappers), which is the measurement behind the claim that loading the lib perturbs no scan.
+- [x] Group 4 added as the counter-case, on this file's own rule that a narrowing without one is a hole
+      with a comment on it: U+202E in a path and U+200B in an event key both fail to reach the console,
+      and the path keeps its length while the label collapses -- the contract difference that is why
+      the two values take two functions.
+- [x] `scripts/lint/check-plugin-integrity.ps1` -- 0 errors.
+- [x] Full suite via `open-pr.ps1`'s gate.
+
 ### DEPLOY: fix/2280-strip-tree-paths-json-keys
 
-**Score:**
+`hook-stdin-guard.tests.ps1` printed a tracked file path and a `hooks.json` event key raw, at four
+sites across two groups, into a CI log on a public repository. Both classes now pass
+`ref-print-lib.ps1`'s strip -- `Get-DisplayPath` for the paths, `Get-DisplayRef` for the key -- and the
+site is registered as entry 14 of the standing print-site list, which is the part that outlives the
+repair. The suite is the first entry on that list that is not a script: a sweep looking for foreign-text
+prints in the tooling read past it, because a test suite does not look like a place this workflow
+prints.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The list entry ships to every consumer of `dkj-policy`; the suite does not. So what a consumer receives
+is one more entry on the page they read to find every place this workflow prints somebody else's words
+-- and the reason it was missed, which is the reusable half. No behaviour of theirs changes, and there
+is no live exploit to have been exposed to: the tree holds three `hooks.json` files, all at reviewed
+paths. The failure this prevents is a tracked path or a JSON key carrying a `\p{Cf}` run -- an RTL
+override or a zero-width sequence -- repainting a public CI log so it reads as something other than
+what it says. `check-plugin-integrity.ps1`'s `tracked-name` check does not hold a path to that class,
+and no lint has an opinion about a JSON key at all.
+
+**Score:** 1
 
 #### Pull Request
 
 hook-stdin-guard.tests.ps1 routes its printed tree paths and JSON event keys through the console strip
-

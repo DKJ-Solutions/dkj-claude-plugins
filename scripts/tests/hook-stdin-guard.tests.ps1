@@ -42,11 +42,47 @@
     guards and it was asserted nowhere. It is a string in a JSON file, which is reachable, so group 3
     holds it: a wrapper that drains the payload with $(cat) must hand it back.
 
+    AND THE FOURTH GROUP IS ABOUT THIS FILE'S OWN OUTPUT (issue #2280). Groups 1 and 3 both print values
+    they did not author -- a tracked path off a tree walk, and a JSON property key off a parsed
+    hooks.json -- into a CI log on a PUBLIC repository. Those prints now pass ref-print-lib.ps1's strip,
+    dot-sourced at the head of this file for the reasons stated there, and group 4 is the counter-case
+    that keeps the call from being a comment. The site is registered as entry 14 of the standing
+    print-site list in plugins/dkj-policy/skills/new-branch/SKILL.md.
+
     Pure ASCII (repo convention for .ps1).
 #>
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+
+# THE VALUES THIS SUITE PRINTS ARE NOT ITS OWN (issue #2280). Two classes, both scanned out of the tree
+# by the groups below rather than typed here: a tracked FILE PATH off a Get-ChildItem walk, and -- new
+# with group 3 -- a JSON PROPERTY KEY read straight out of a parsed hooks.json. This suite runs in CI on
+# every PR, in a PUBLIC repository, so whatever it prints reaches a public log before anybody has read
+# the branch it describes.
+#
+# THE NEIGHBOURING LINT DOES NOT CLOSE IT, which is why a strip here is not belt-and-braces.
+# check-plugin-integrity.ps1's tracked-name check holds every tracked path to three classes -- a
+# private-use character (U+E000-U+F8FF), one of Windows' reserved characters, and a control character --
+# and \p{Cf} is not among them. \p{Cf} is the class the strip exists for: an RTL override or a
+# zero-width run makes a printed line read as something other than what it says. A path carrying one is
+# tracked, committed and printed raw with that lint green. The JSON key is not a path at all, and no
+# lint has an opinion about it.
+#
+# DOT-SOURCED RATHER THAN COPIED, between the two precedents this repo has already argued.
+# asana-mirror.ps1 types the class out by hand because it SHIPS STANDALONE into a consumer where none of
+# these libs exist (#2019) -- a dot-source there would name a path that is not there. A suite in
+# scripts/tests never leaves this repo and scripts/lib sits beside it, so that argument does not reach
+# here. A copy would cost what the copies already cost: pr-issues.tests.ps1 pins WHICH files carry the
+# class by comparing them character for character, so a fifth copy is an edit to that pin as well. A
+# dot-source is neither -- the pin counts files in scripts/lib that DEFINE
+# ConvertTo-ConsoleStrippedText, and this file defines nothing.
+#
+# AND IT CANNOT PERTURB THE SCAN BELOW, which is the one thing a new load in this file could break.
+# ref-print-lib.ps1 is a leaf: it dot-sources nothing, sets no preference variable, and contains neither
+# read pattern group 1 matches on -- so loading it adds no site. Group 1's file SET is unchanged either
+# way, since it excludes scripts/tests and already walks the lib.
+. (Join-Path $RepoRoot 'scripts\lib\ref-print-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -190,9 +226,14 @@ foreach ($f in $files) {
     }
 }
 
+# STRIPPED AT EACH PRINT SITE RATHER THAN ONCE AT CONSTRUCTION (#2280), so that a reader auditing "does
+# this site guard?" sees the answer on the line they are auditing. Storing a pre-stripped field would
+# hide the guard one loop away and leave a raw .Path sitting on the object for the next print to reach
+# for; the two extra calls cost nothing on a ten-element list. The LINE NUMBER is this suite's own
+# integer and needs no guard.
 Write-Host "     the family, counted out of the tree: $($sites.Count) read site(s)" -ForegroundColor DarkGray
 foreach ($s in $sites) {
-    Write-Host "       $($s.Path):$($s.Line)" -ForegroundColor DarkGray
+    Write-Host "       $(Get-DisplayPath -Path $s.Path):$($s.Line)" -ForegroundColor DarkGray
 }
 
 # A FLOOR ON THE COUNT, so a matcher that silently stops matching cannot report an empty family as a
@@ -213,7 +254,7 @@ foreach ($s in $sites) {
 Assert-True ($sites.Count -ge 10) "the scan found the family (>= 10 sites, got $($sites.Count)) -- a drop means the matcher broke or a read changed shape, never that the tree is clean"
 
 foreach ($s in $sites) {
-    Assert-True $s.Guarded "$($s.Path):$($s.Line) reads stdin only where there is a handle"
+    Assert-True $s.Guarded "$(Get-DisplayPath -Path $s.Path):$($s.Line) reads stdin only where there is a handle"
 }
 
 Write-Host ""
@@ -340,9 +381,20 @@ foreach ($m in $hookManifests) {
     }
 }
 
+# TWO VALUES, TWO FUNCTIONS, because a path and a label have different contracts (#2280). The manifest
+# PATH takes Get-DisplayPath, which preserves spaces and length -- git and NTFS both accept a leading,
+# trailing or doubled space, and a path has to survive being read off the screen and typed back. The
+# EVENT NAME is a JSON property key off a parsed hooks.json: a single-line label, not a path, so it
+# takes Get-DisplayRef, whose collapse and trim are right for a label and wrong for a path. A key that
+# strips to nothing comes back as '' and prints as an empty [], which is the honest answer beside a path
+# that already identifies the file -- Get-DisplayPath's '(no printable path)' is the wrong noun here.
+#
+# NEITHER IS CAPPED, on the reasoning entry 6 of the print-site list already gives one file type over:
+# this console is a CI log, which wraps rather than truncates, so a cap would buy no screen back and
+# could cut the half of an assert message that says which file failed.
 Write-Host "     draining wrappers, counted out of the tree: $($wrappers.Count)" -ForegroundColor DarkGray
 foreach ($w in $wrappers) {
-    Write-Host "       $($w.Path)  [$($w.Event)]" -ForegroundColor DarkGray
+    Write-Host "       $(Get-DisplayPath -Path $w.Path)  [$(Get-DisplayRef -Ref $w.Event)]" -ForegroundColor DarkGray
 }
 
 # A FLOOR, for group 1's reason one file type over: a walk that silently stops walking reports an empty
@@ -352,7 +404,7 @@ foreach ($w in $wrappers) {
 Assert-True ($wrappers.Count -ge 2) "the scan found the draining wrappers (>= 2, got $($wrappers.Count)) -- a drop means the matcher broke or a wrapper changed shape, never that the tree is clean"
 
 foreach ($w in $wrappers) {
-    Assert-True $w.HandsBack "$($w.Path) [$($w.Event)]: the wrapper pipes the drained payload back into the interpreter"
+    Assert-True $w.HandsBack "$(Get-DisplayPath -Path $w.Path) [$(Get-DisplayRef -Ref $w.Event)]: the wrapper pipes the drained payload back into the interpreter"
 }
 
 # THE COUNTER-CASE, because a predicate that has only ever seen passing input is a predicate nobody has
@@ -372,6 +424,27 @@ Assert-True (Test-WrapperHandsPayloadBack $fixturePwsh)        'pwsh is an inter
 Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureBad))  'a wrapper that drains and does NOT pipe it back is caught'
 Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureOr))   'a logical OR is not a pipe -- || short-circuits and leaves stdin unredirected'
 Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureStray)) 'an unrelated | powershell elsewhere in the command does not vouch for the guard invocation'
+
+Write-Host ""
+Write-Host "-- group 4: this suite's own printed values pass the console strip (issue #2280)" -ForegroundColor Cyan
+
+# GROUP 3'S OWN RULE, TURNED ON THIS FILE: a narrowing without a counter-case is a hole with a comment
+# on it. The guard added above is a call, and a call nobody has exercised is a comment -- so these
+# assert that the dot-source at the head of this file actually LANDED and that each of the two value
+# classes reaches the function its own print site calls.
+#
+# NOT A SECOND TEST OF ref-print-lib.ps1, which has its own suite and is where the runtime's category
+# table, the soft hyphen and the surrogate pairs above the BMP are pinned. What is asserted here is the
+# SEAM: that this file loaded the lib rather than merely naming it in a comment, and that a path and a
+# label are not routed through each other's function -- which is the one thing this file decided and
+# nothing else can check.
+$rtlPath   = 'plugins/dkj-policy/hooks/' + [char]0x202E + 'nosj.skooh'
+$zwspEvent = 'Pre' + [char]0x200B + 'ToolUse'
+
+Assert-Equal $false ((Get-DisplayPath -Path $rtlPath).Contains([char]0x202E)) 'a tracked path carrying U+202E RIGHT-TO-LEFT OVERRIDE does not reach the console -- the \p{Cf} class check-plugin-integrity.ps1 does NOT hold a tracked path to'
+Assert-Equal $false ((Get-DisplayRef -Ref $zwspEvent).Contains([char]0x200B)) 'nor does a hooks.json event key carrying a zero-width space -- and no lint has an opinion about a JSON key at all'
+Assert-Equal 'plugins/dkj-policy/hooks/ nosj.skooh' (Get-DisplayPath -Path $rtlPath) 'the PATH keeps its length and its spaces, because a path has to survive being read off the screen and typed back'
+Assert-Equal 'Pre ToolUse' (Get-DisplayRef -Ref $zwspEvent) 'while the LABEL collapses and trims -- the contract difference that is why these two values take two functions'
 
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }

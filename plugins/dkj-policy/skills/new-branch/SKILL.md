@@ -308,7 +308,7 @@ file, and the rule flips with the destination rather than with the text.
 
 **It is NOT the only console this workflow writes somebody else's words to** -- that claim stood here
 and was false from the day `ship-pr` began relaying the sentence a failing workflow wrote about itself
-(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are thirteen**, and the
+(`Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`, #1103). **There are fourteen**, and the
 count is worth stating precisely because the wrong one is what kept the second site unguarded:
 
 1. **This one** -- the remote tip's `%an` and `%s`, printed by `new-branch`, `open-pr` and a third
@@ -498,17 +498,60 @@ count is worth stating precisely because the wrong one is what kept the second s
     `-replace '^github:', ''`) and carried into a later `contents/$($f.Path)?ref=$($src.Branch)` API
     call (L279), so sanitizing `$inv.Reason` at composition would corrupt a real, if unusual, sibling
     branch name rather than merely change what the console shows.
+14. **A TEST SUITE's own scan output -- the first entry on this list that is not a script**
+    (`scripts/tests/hook-stdin-guard.tests.ps1`, #2280). Two value classes, both scanned out of the
+    tree rather than typed in the file: a tracked FILE PATH off a `Get-ChildItem -Recurse` over the
+    whole repo with only `.git` excluded (group 1's enumeration and its per-site assert message), and a
+    JSON PROPERTY KEY -- the event name, read straight out of a parsed `hooks.json` and printed as
+    `[$($w.Event)]` in group 3's enumeration and its per-wrapper assert message. The path half had
+    printed raw since #2264; the JSON-key half arrived with #2276, which is what surfaced the site.
+    All four now pass `Get-DisplayPath` (the paths) and `Get-DisplayRef` (the key), dot-sourced from
+    `ref-print-lib.ps1`. Not capped -- the console here is a CI log, which wraps rather than truncates.
+
+    **The reason a suite belongs on a list of scripts is where its output goes**: it runs in CI on
+    every PR, in a PUBLIC repository, so its text reaches a public log before anybody has read the
+    branch it describes. Entries 1 through 13 are all scripts a person invokes, and reading the list as
+    "the places this workflow's TOOLING prints foreign text" is what kept a suite off it -- the page's
+    own stated test is where the characters were typed, and a value scanned out of a tree was typed by
+    whoever wrote that file.
+
+    **The neighbouring lint does not close it**, which is worth stating because the path half sits in
+    the one place a reader would expect a lint to have an opinion. `check-plugin-integrity.ps1`'s
+    `tracked-name` check holds every tracked path to three classes -- a Unicode private-use character
+    (U+E000-U+F8FF), one of Windows' reserved characters, and a control character -- and **`\p{Cf}` is
+    not among them**, which is the class this whole list exists for. A tracked path carrying an RTL
+    override or a zero-width run is committed and printed raw with that lint green. The JSON key is not
+    a path at all, and no lint has an opinion about it.
+
+    **DOT-SOURCED, not copied, and that is the decision #2280 asked for.** The two precedents are the
+    fourth copy in `asana-mirror.ps1` and the three libs below: that file types the class out because it
+    SHIPS STANDALONE into a consumer where no lib of this repo exists (#2019), and a suite in
+    `scripts/tests` never leaves this repo. A copy would also be an edit to `pr-issues.tests.ps1`'s pin,
+    which compares the copies character for character; a dot-source is neither, because that pin counts
+    files in `scripts/lib` that DEFINE `ConvertTo-ConsoleStrippedText`. **And the load cannot perturb
+    the scan it sits above** -- `ref-print-lib.ps1` dot-sources nothing, sets no preference variable and
+    contains neither stdin-read pattern group 1 matches on, verified by the counts being unchanged
+    across the repair.
+
+    **No live exploit today, and that is why it was filed rather than fixed in flight**: the tree holds
+    three `hooks.json` files, all at reviewed paths. This entry is the class being closed, not an
+    incident.
 
 **These entries are why the count was worth stating.** It was three until September 8, 2026, four until
 September 11, five until September 15, six until September 17, seven until September 21 -- and on that
 same September 21 a single deliberate sweep raised it straight to **thirteen** (entries 8 through 13),
-in one pass rather than one at a time. Each of the first six arrived as a counter-example to a sentence
-that had stopped being checked, found incidentally by work that was about something else entirely.
+in one pass rather than one at a time -- and **fourteen** on September 22. Each of the first six arrived
+as a counter-example to a sentence that had stopped being checked, found incidentally by work that was
+about something else entirely.
 **The list is the thing that has to be kept true, not the number in front of it** -- entry 5 sat outside
 it for as long as the list existed, guarded by an ASCII-only strip nobody had re-read, and entry 6 sat
 outside it while carrying no strip of any kind. **Entry 6 is also the first one this list did not
 find**: it was measured by a security review of an unrelated diff, which is the reading this page cannot
-do for itself -- so the list going quiet is not evidence that it is complete.
+do for itself -- so the list going quiet is not evidence that it is complete. **Entry 14 arrived the
+same way**, by the security review of #2276's branch, the day after the deliberate sweep that had
+raised the count to thirteen: a sweep looking for foreign-text prints in the tooling read past a test
+suite, because a suite does not look like a place this workflow prints. Two of the fourteen were found
+by a reader rather than by this page, and both times the page had just been brought up to date.
 
 **And entry 6 is worth reading twice, because its own repair missed a site on the first pass.** The
 task name was the reported symptom; the board's column names and the phrase saying why a card moved
@@ -568,9 +611,9 @@ callers -- so what is guarded is that they cannot DISAGREE, by an assert in `pr-
 compares the patterns themselves and pins **which** libs carry the class. **The retired sentence this
 list replaced claimed completeness, and this list must not make the same claim twice.** It grew from
 three sites to seven one incidental find at a time, then from seven to thirteen in a single afternoon
-the moment somebody looked on purpose (#2247) -- which argues that the technique works, not that it has
-run out of sites. A reader who needs every place this workflow prints foreign text has, at most, every
-place found so far.
+the moment somebody looked on purpose (#2247), and to fourteen the next day off another incidental find
+(#2280) -- which argues that the technique works, not that it has run out of sites. A reader who needs
+every place this workflow prints foreign text has, at most, every place found so far.
 
 **A FOURTH copy sits outside the libs, and #2019 is why it is a copy rather than a call.**
 `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` ships standalone: `adopt-dkj-policy-bwj`
