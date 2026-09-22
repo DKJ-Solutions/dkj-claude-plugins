@@ -72,6 +72,11 @@ concurrency:
 jobs:
   mirror:
     runs-on: ubuntu-latest
+    # A job with no timeout-minutes runs to GitHub's SIX-HOUR default (issue #2296). Nobody waits on this
+    # runner -- it fires on an issue event and on a schedule -- so a wedge here is six hours of an
+    # unattended job holding ASANA_PAT, found only by somebody scrolling the Actions list. 10 is an order
+    # of magnitude above what the mirror measures.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 

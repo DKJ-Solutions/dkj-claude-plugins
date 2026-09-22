@@ -462,6 +462,15 @@ The full picture, top-level folder by folder:
   they are in sync (see its own [README](connectors/README.md)). At the root, deliberately **not** under
   `plugins/`: it is maintenance data read by `scripts/sync/check-connectors.ps1`, not payload, and it
   must not travel along with the plugin cache.
+- **[`assets/`](assets/)** — material that is neither code nor documentation, one subfolder per kind;
+  today that is [`assets/avatars/`](assets/avatars/), the profile images of the GitHub accounts this
+  repo is worked on under (see its own [README](assets/avatars/README.md)). At the root for the same
+  reason as `connectors/` and with one extra property: **the marketplace clone is the whole
+  repository**, so anything here is on every machine at
+  `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
+  `claude plugin marketplace update` — no release, no version bump. Under `plugins/` the same files
+  would wait for a cut and then land in the payload of every consumer, none of which has any use for
+  them.
 - **`scripts/lib/`, `scripts/lint/`, `scripts/release/`, `scripts/sync/`, `scripts/agents/`,
   `scripts/task/`, `scripts/tests/`** — the shared helpers (`branch-info.ps1`, `release-lib.ps1`,
   `subagent-shared-lib.ps1`, and `plugin-tree-lib.ps1`, which answers which plugins this repo publishes

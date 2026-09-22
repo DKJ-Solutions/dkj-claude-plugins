@@ -91,6 +91,29 @@
     itself stays HERE, because the two guards disagree about 'git' and the lib therefore has no default.
     ------------------------------------------------------------------------------------------------
 
+    WHAT MAKES THE NO-HANDLE BRANCH UNREACHABLE IN PRODUCTION, AND WHY IT IS WRITTEN DOWN (issue #2276).
+    The stdin read below is gated on [Console]::IsInputRedirected, so a run with NO handle yields an empty
+    payload and reaches exit 0. That is right for the case it was added for -- a person running this guard
+    by hand from a terminal, where an ungated ReadToEnd waits for a Ctrl+Z that never comes -- and it is
+    the one path in this file that ends WITHOUT a verdict rather than fail-towards-CHECKING. What keeps
+    that from being a hole is not this script at all but the wrapper above it: hooks.json runs
+    `p=$(cat); printf '%s' "$p" | powershell ... -File <this file>`, and a printf into a pipe is always
+    a real OS pipe, so IsInputRedirected is true on every invocation the harness makes. The branch is
+    unreachable from any call a session can cause, and the bash layer above is a second reason rather
+    than the same one -- if the harness ever handed the wrapper a console instead of a payload, '$(cat)'
+    would block before this file started. Note what that second one is worth: a hang, ended by the
+    hook's own 30s timeout, which the harness reads as a non-blocking error. It keeps this file from
+    reaching a wrong verdict; it does not keep the command from going through.
+
+    THAT IS AN ASSUMPTION, NOT A PROPERTY, so it is stated here rather than relied on silently. If the
+    wrapper ever stops piping the payload back in, this guard degrades towards ALLOWING -- the direction
+    its own rule below forbids, on the one subject that cannot be un-published. The wrapper half is
+    asserted by hook-stdin-guard.tests.ps1 (a command that drains the payload with '$(cat)' must hand it
+    back); the runtime half is not reachable from a test process, and that suite names why.
+    guard-working-copy.ps1 carries the same branch and is NOT the same case: its header already declares
+    an unreadable payload a deliberate fail-OPEN, with the blast-radius reasoning behind it, so its
+    no-handle path reaches a decision somebody made rather than one nobody wrote down.
+
     WHAT IT NEEDS FROM THE REPO, AND WHAT IT DOES WITHOUT IT. Two optional functions in the consuming
     repo's scripts/repo-config.ps1:
 
@@ -233,6 +256,10 @@ if (Test-Path -LiteralPath $libPath -PathType Leaf) {
 # it, so the whole text becomes the segment to match. Here nothing arrived, there is no command, and
 # there is nothing to check -- the empty string matches no marker and names no theme, so the run ends
 # without a verdict instead of refusing a command nobody issued.
+#
+# AND WHAT KEEPS THAT SAFE IS NOT IN THIS FILE: the hooks.json wrapper pipes the payload back in, so
+# this branch is unreachable from any call the harness makes. The header states that assumption and
+# what it would cost if the wrapper ever stopped -- read it before changing either side of this line.
 #
 # AND DELIBERATELY NO try/catch, for the reason guard-working-copy.ps1 states at the same line: under
 # $ErrorActionPreference = 'Stop' a throw exits non-zero, and this hook's own hooks.json wrapper reads

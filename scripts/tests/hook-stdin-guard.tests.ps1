@@ -34,11 +34,55 @@
     guard only. When #2249's bound lands, the read sites change shape and this matcher is what will
     say which ones were missed.
 
+    AND THE THIRD GROUP IS ABOUT THE WRAPPER, NOT THE HOOK (issue #2276). The guard's value is an empty
+    payload, and for guard-live-theme.ps1 that ends the run WITHOUT a verdict -- which on a guard whose
+    subject is a live customer-facing theme is the one direction its own header forbids. What keeps that
+    from being a hole is the hooks.json wrapper piping the payload back in, so IsInputRedirected is true
+    on every call the harness makes. That was the single load-bearing fact behind "no bypass" for both
+    guards and it was asserted nowhere. It is a string in a JSON file, which is reachable, so group 3
+    holds it: a wrapper that drains the payload with $(cat) must hand it back.
+
+    AND THE FOURTH GROUP IS ABOUT THIS FILE'S OWN OUTPUT (issue #2280). Groups 1 and 3 both print values
+    they did not author -- a tracked path off a tree walk, and a JSON property key off a parsed
+    hooks.json -- into a CI log on a PUBLIC repository. Those prints now pass ref-print-lib.ps1's strip,
+    dot-sourced at the head of this file for the reasons stated there, and group 4 is the counter-case
+    that keeps the call from being a comment. The site is registered as entry 14 of the standing
+    print-site list in plugins/dkj-policy/skills/new-branch/SKILL.md.
+
     Pure ASCII (repo convention for .ps1).
 #>
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+
+# THE VALUES THIS SUITE PRINTS ARE NOT ITS OWN (issue #2280). Two classes, both scanned out of the tree
+# by the groups below rather than typed here: a tracked FILE PATH off a Get-ChildItem walk, and -- new
+# with group 3 -- a JSON PROPERTY KEY read straight out of a parsed hooks.json. This suite runs in CI on
+# every PR, in a PUBLIC repository, so whatever it prints reaches a public log before anybody has read
+# the branch it describes.
+#
+# THE NEIGHBOURING LINT DOES NOT CLOSE IT, which is why a strip here is not belt-and-braces.
+# check-plugin-integrity.ps1's tracked-name check holds every tracked path to three classes -- a
+# private-use character (U+E000-U+F8FF), one of Windows' reserved characters, and a control character --
+# and \p{Cf} is not among them. \p{Cf} is the class the strip exists for: an RTL override or a
+# zero-width run makes a printed line read as something other than what it says. A path carrying one is
+# tracked, committed and printed raw with that lint green. The JSON key is not a path at all, and no
+# lint has an opinion about it.
+#
+# DOT-SOURCED RATHER THAN COPIED, between the two precedents this repo has already argued.
+# asana-mirror.ps1 types the class out by hand because it SHIPS STANDALONE into a consumer where none of
+# these libs exist (#2019) -- a dot-source there would name a path that is not there. A suite in
+# scripts/tests never leaves this repo and scripts/lib sits beside it, so that argument does not reach
+# here. A copy would cost what the copies already cost: pr-issues.tests.ps1 pins WHICH files carry the
+# class by comparing them character for character, so a fifth copy is an edit to that pin as well. A
+# dot-source is neither -- the pin counts files in scripts/lib that DEFINE
+# ConvertTo-ConsoleStrippedText, and this file defines nothing.
+#
+# AND IT CANNOT PERTURB THE SCAN BELOW, which is the one thing a new load in this file could break.
+# ref-print-lib.ps1 is a leaf: it dot-sources nothing, sets no preference variable, and contains neither
+# read pattern group 1 matches on -- so loading it adds no site. Group 1's file SET is unchanged either
+# way, since it excludes scripts/tests and already walks the lib.
+. (Join-Path $RepoRoot 'scripts\lib\ref-print-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -182,9 +226,14 @@ foreach ($f in $files) {
     }
 }
 
+# STRIPPED AT EACH PRINT SITE RATHER THAN ONCE AT CONSTRUCTION (#2280), so that a reader auditing "does
+# this site guard?" sees the answer on the line they are auditing. Storing a pre-stripped field would
+# hide the guard one loop away and leave a raw .Path sitting on the object for the next print to reach
+# for; the two extra calls cost nothing on a ten-element list. The LINE NUMBER is this suite's own
+# integer and needs no guard.
 Write-Host "     the family, counted out of the tree: $($sites.Count) read site(s)" -ForegroundColor DarkGray
 foreach ($s in $sites) {
-    Write-Host "       $($s.Path):$($s.Line)" -ForegroundColor DarkGray
+    Write-Host "       $(Get-DisplayPath -Path $s.Path):$($s.Line)" -ForegroundColor DarkGray
 }
 
 # A FLOOR ON THE COUNT, so a matcher that silently stops matching cannot report an empty family as a
@@ -205,7 +254,7 @@ foreach ($s in $sites) {
 Assert-True ($sites.Count -ge 10) "the scan found the family (>= 10 sites, got $($sites.Count)) -- a drop means the matcher broke or a read changed shape, never that the tree is clean"
 
 foreach ($s in $sites) {
-    Assert-True $s.Guarded "$($s.Path):$($s.Line) reads stdin only where there is a handle"
+    Assert-True $s.Guarded "$(Get-DisplayPath -Path $s.Path):$($s.Line) reads stdin only where there is a handle"
 }
 
 Write-Host ""
@@ -256,6 +305,312 @@ $r = Invoke-HookWithEmptyStdin -HookPath $glt
 Assert-Equal 0 $r.Code 'guard-live-theme: an empty payload carries no command, so there is no verdict to reach'
 
 Write-Host ""
+Write-Host "-- group 3: a wrapper that drains the payload hands it back (issue #2276)" -ForegroundColor Cyan
+
+# WHY THIS GROUP IS ABOUT hooks.json AND NOT ABOUT A HOOK. Groups 1 and 2 hold the guard and the value
+# it produces. Neither can say why producing that value is SAFE -- and for guard-live-theme.ps1 it is
+# safe only because the branch is unreachable: an empty payload there ends without a verdict, which on
+# a guard whose subject is a live customer-facing theme is the one direction its own header forbids.
+# What makes it unreachable is the wrapper, and the wrapper is a string in a JSON file that nobody's
+# suite was reading.
+#
+# THE CONTRACT, STATED AS THE ONE THING THAT CAN BREAK IT. A wrapper that captures the payload with
+# '$(cat)' has CONSUMED this process's stdin; whatever it runs next inherits a handle at EOF at best.
+# So a wrapper that drains must pipe the payload back into the interpreter, and 'printf | powershell'
+# is what makes [Console]::IsInputRedirected true on every call the harness makes. Drop the pipe and
+# the guarded read below it yields an empty payload in PRODUCTION rather than only in the hand-run
+# case #2264 built it for.
+#
+# WHAT IT CANNOT ASSERT, NAMED RATHER THAN IMPLIED. The runtime half -- a child whose stdin is a live
+# console -- is out of reach for the reason group 1's own docstring gives, and #2276 filed it as a
+# decision rather than a patch for exactly that reason. This asserts the half this repo owns and
+# writes the other half down in the hook's header. Half a guard that says which half is not the same
+# thing as a guard that looks whole.
+function Test-WrapperDrainsPayload {
+    param([string]$Command)
+    return $Command.Contains('$(cat)')
+}
+# THE PIPE IS ANCHORED TO THE INVOCATION THAT RUNS THE GUARD, not merely present somewhere in the
+# string, and each half of that was a counter-case a reviewer produced against the looser first form:
+#
+#   (?<!\|)\|    a SINGLE pipe. '\|\s*powershell' matches '|| powershell' too -- the second character
+#                of a logical OR -- which is a plausible typo that also short-circuits, so the naive
+#                form went green on a wrapper that hands the interpreter an unredirected stdin.
+#   (powershell|pwsh)\b   both interpreters. This repo runs Windows PowerShell 5.1 for its own hooks,
+#                and it SHIPS 'shell: pwsh' in the asana-mirror CI template; command-guard-lib.ps1
+#                carries both in its own interpreter set for the same reason.
+#   [^;|&]*-File  the piped invocation must be the one running a SCRIPT, before any statement ends it.
+#                Without this, 'somecmd | powershell -Command "..."; powershell -File guard.ps1'
+#                passes on an unrelated pipe while the guard itself is invoked unpiped, which is
+#                precisely the regression this group exists to catch.
+#
+# THE RESIDUAL LIMIT, STATED RATHER THAN HIDDEN, on the convention guard-live-theme's own header uses.
+# This does not prove the piped bytes are the CAPTURED payload -- 'echo hi | powershell -File guard.ps1'
+# would pass -- and it does not recognise a wrapper that restores stdin by file redirection
+# ('> tmp; powershell ... < tmp') rather than by a pipe. The first is a residual; the second would turn
+# this gate RED on a correct wrapper, which is the direction to err in here: a false negative is a
+# person reading a failure, and a false positive is silence on the one fact this group exists to hold.
+function Test-WrapperHandsPayloadBack {
+    param([string]$Command)
+    return ($Command -match '(?<!\|)\|\s*(powershell|pwsh)\b[^;|&]*-File')
+}
+
+# SCANNED OUT OF THE TREE, on group 1's own principle: a list here is the hand-count that produced
+# #2249's three and #2264's seven. A wrapper written tomorrow is in scope the moment it is written.
+$hookManifests = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'hooks.json' -File |
+    Where-Object { $_.FullName -notmatch '\\\.git\\' }
+
+$wrappers = @()
+foreach ($m in $hookManifests) {
+    $rel = $m.FullName.Substring($RepoRoot.Length + 1).Replace('\', '/')
+    try { $json = Get-Content -LiteralPath $m.FullName -Raw | ConvertFrom-Json } catch { $json = $null }
+    if ($null -eq $json -or $null -eq $json.hooks) { continue }
+    foreach ($evt in $json.hooks.PSObject.Properties) {
+        foreach ($matcherBlock in @($evt.Value)) {
+            foreach ($h in @($matcherBlock.hooks)) {
+                $cmd = [string]$h.command
+                if (-not $cmd) { continue }
+                if (-not (Test-WrapperDrainsPayload $cmd)) { continue }
+                $wrappers += [pscustomobject]@{
+                    Path      = $rel
+                    Event     = $evt.Name
+                    HandsBack = (Test-WrapperHandsPayloadBack $cmd)
+                }
+            }
+        }
+    }
+}
+
+# TWO VALUES, TWO FUNCTIONS, because a path and a label have different contracts (#2280). The manifest
+# PATH takes Get-DisplayPath, which preserves spaces and length -- git and NTFS both accept a leading,
+# trailing or doubled space, and a path has to survive being read off the screen and typed back. The
+# EVENT NAME is a JSON property key off a parsed hooks.json: a single-line label, not a path, so it
+# takes Get-DisplayRef, whose collapse and trim are right for a label and wrong for a path. A key that
+# strips to nothing comes back as '' and prints as an empty [], which is the honest answer beside a path
+# that already identifies the file -- Get-DisplayPath's '(no printable path)' is the wrong noun here.
+#
+# NEITHER IS CAPPED, on the reasoning entry 6 of the print-site list already gives one file type over:
+# this console is a CI log, which wraps rather than truncates, so a cap would buy no screen back and
+# could cut the half of an assert message that says which file failed.
+Write-Host "     draining wrappers, counted out of the tree: $($wrappers.Count)" -ForegroundColor DarkGray
+foreach ($w in $wrappers) {
+    Write-Host "       $(Get-DisplayPath -Path $w.Path)  [$(Get-DisplayRef -Ref $w.Event)]" -ForegroundColor DarkGray
+}
+
+# A FLOOR, for group 1's reason one file type over: a walk that silently stops walking reports an empty
+# family as a clean one. Two is the count at the time of writing -- guard-working-copy and
+# guard-live-theme, the two PreToolUse guards #2217 wrapped -- and it is a floor because a third
+# draining wrapper is the normal case and must not turn this suite red for existing.
+Assert-True ($wrappers.Count -ge 2) "the scan found the draining wrappers (>= 2, got $($wrappers.Count)) -- a drop means the matcher broke or a wrapper changed shape, never that the tree is clean"
+
+foreach ($w in $wrappers) {
+    Assert-True $w.HandsBack "$(Get-DisplayPath -Path $w.Path) [$(Get-DisplayRef -Ref $w.Event)]: the wrapper pipes the drained payload back into the interpreter"
+}
+
+# THE COUNTER-CASE, because a predicate that has only ever seen passing input is a predicate nobody has
+# tested. It is a fixture rather than an edit to a real manifest: mutating a shipped hooks.json to prove
+# a matcher works leaves the suite one failed cleanup away from shipping the defect it was asserting.
+# EVERY NARROWING ABOVE HAS ITS OWN COUNTER-CASE, because a narrowing without one is a hole with a
+# comment on it -- guard-live-theme's own rule for its own exemptions, one file over. The last three
+# are the shapes the first form of this matcher went green on.
+$fixtureGood = 'p=$(cat); printf ''%s'' "$p" | powershell -NoProfile -File "x.ps1"; rc=$?'
+$fixturePwsh = 'p=$(cat); printf ''%s'' "$p" | pwsh -NoProfile -File "x.ps1"; rc=$?'
+$fixtureBad  = 'p=$(cat); powershell -NoProfile -File "x.ps1"; rc=$?'
+$fixtureOr   = 'p=$(cat); printf ''%s'' "$p" || powershell -NoProfile -File "x.ps1"; rc=$?'
+$fixtureStray = 'p=$(cat); echo hint | powershell -Command "..."; powershell -NoProfile -File "x.ps1"'
+Assert-True (Test-WrapperDrainsPayload $fixtureBad)            'the drain matcher sees a wrapper that captures the payload'
+Assert-True (Test-WrapperHandsPayloadBack $fixtureGood)        'a wrapper that pipes the payload back passes'
+Assert-True (Test-WrapperHandsPayloadBack $fixturePwsh)        'pwsh is an interpreter too -- this repo ships a CI template that uses it'
+Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureBad))  'a wrapper that drains and does NOT pipe it back is caught'
+Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureOr))   'a logical OR is not a pipe -- || short-circuits and leaves stdin unredirected'
+Assert-True (-not (Test-WrapperHandsPayloadBack $fixtureStray)) 'an unrelated | powershell elsewhere in the command does not vouch for the guard invocation'
+
+Write-Host ""
+Write-Host "-- group 4: this suite's own printed values pass the console strip (issue #2280)" -ForegroundColor Cyan
+
+# GROUP 3'S OWN RULE, TURNED ON THIS FILE: a narrowing without a counter-case is a hole with a comment
+# on it. The guard added above is a call, and a call nobody has exercised is a comment -- so these
+# assert that the dot-source at the head of this file actually LANDED and that each of the two value
+# classes reaches the function its own print site calls.
+#
+# NOT A SECOND TEST OF ref-print-lib.ps1, which has its own suite and is where the runtime's category
+# table, the soft hyphen and the surrogate pairs above the BMP are pinned. What is asserted here is the
+# SEAM: that this file loaded the lib rather than merely naming it in a comment, and that a path and a
+# label are not routed through each other's function -- which is the one thing this file decided and
+# nothing else can check.
+$rtlPath   = 'plugins/dkj-policy/hooks/' + [char]0x202E + 'nosj.skooh'
+$zwspEvent = 'Pre' + [char]0x200B + 'ToolUse'
+
+Assert-Equal $false ((Get-DisplayPath -Path $rtlPath).Contains([char]0x202E)) 'a tracked path carrying U+202E RIGHT-TO-LEFT OVERRIDE does not reach the console -- the \p{Cf} class check-plugin-integrity.ps1 does NOT hold a tracked path to'
+Assert-Equal $false ((Get-DisplayRef -Ref $zwspEvent).Contains([char]0x200B)) 'nor does a hooks.json event key carrying a zero-width space -- and no lint has an opinion about a JSON key at all'
+Assert-Equal 'plugins/dkj-policy/hooks/ nosj.skooh' (Get-DisplayPath -Path $rtlPath) 'the PATH keeps its length and its spaces, because a path has to survive being read off the screen and typed back'
+Assert-Equal 'Pre ToolUse' (Get-DisplayRef -Ref $zwspEvent) 'while the LABEL collapses and trims -- the contract difference that is why these two values take two functions'
+
+Write-Host ""
+Write-Host "-- group 5: the repaired print lines still CALL the strip (issue #2280)" -ForegroundColor Cyan
+
+# GROUP 4 GUARDS THE LIBRARY; THIS GUARDS THE WIRING, and they are not the same assert. Group 4 proves
+# the dot-source landed and that each function strips its own class -- and it would pass UNCHANGED if a
+# later edit put one of the four repaired lines back to a raw interpolation while leaving the
+# dot-source alone. A bad merge-conflict resolution is the likely shape, and this file is about to have
+# one: a parked branch edits the same print-site list. That is a counter-case which passes either way,
+# which is this file's own definition of a hole with a comment on it. Found by the security review of
+# this branch rather than by the repair.
+#
+# WHY A SOURCE SCAN AND NOT AN INJECTED FIXTURE. The values at those lines are scanned out of the real
+# tree, so driving a hazardous one through them means writing a deceptive path or a deceptive
+# hooks.json into the tree being scanned -- which is exactly what group 3's own comment refuses to do
+# to a shipped manifest. So this reads the SOURCE, as group 1 does and for the reason group 1's
+# docstring already gives: the behaviour is not reachable from a test process, and the source is.
+#
+# ONE SENTINEL, BECAUSE THE COUNTER-CASE HAS TO CONTAIN WHAT IT FORBIDS. A fixture line proving the
+# scan catches a raw print must carry the raw shape, so it would be reported as a defect. Every such
+# line is marked, and the scan skips a marked line -- the same trick as excluding scripts/tests from
+# group 1's own walk, one scale down.
+# FOREIGN BY DEFAULT, OWN BY DECLARATION -- and the first form of this had it the other way round. It
+# listed the three foreign values by name, so a later group reading a NEW scanned field was invisible
+# to this scan until somebody remembered to add its token, and the floor below would not have gone red
+# either. That is fail-OPEN on exactly the kind of addition this list exists to catch: entry 14 is on
+# the print-site list because group 3 added a value class nobody registered. So every member access on
+# the two scan-result variables is foreign unless it is named here as this suite's own, and adding an
+# own value is now the deliberate act rather than an omission.
+$OwnValueTokens  = @('$s.Line', '$s.Guarded', '$w.HandsBack')
+$ScannedValueRef = '\$[sw]\.\w+'
+$GuardCallTokens = @('Get-DisplayPath', 'Get-DisplayRef')
+# Assert-Equal prints its raw $Expected and $Actual on failure, so it is a print-bearing call in this
+# file exactly as the other two are. It was missing from the first form of this filter -- latent,
+# since no call site hands it a scanned value today, and named here rather than left to be found.
+$PrintingCalls   = 'Write-Host|Assert-True|Assert-Equal'
+
+function Get-ForeignValueMatches {
+    param([string]$Line)
+    return @([regex]::Matches($Line, $ScannedValueRef) | Where-Object { $OwnValueTokens -notcontains $_.Value })
+}
+
+function Test-LineIsForeignPrint {
+    param([string]$Line)
+    # Prose about the hazard is not an instance of it -- group 1's rule, one file over.
+    if ($Line.TrimStart().StartsWith('#')) { return $false }
+    # THE SENTINEL IS A TRAILING COMMENT, NOT A SUBSTRING, and the difference is a hole. A bare
+    # .Contains let any line whose printed MESSAGE happened to carry the phrase opt itself out of this
+    # scan completely -- not merely be judged guarded, but never counted at all, so the floor below
+    # could not see it go missing either. Anchored here, an exemption is a visible, deliberate mark at
+    # the end of a line rather than something a message can say by accident.
+    if ($Line -match '#\s*not-a-print-site\s*$') { return $false }
+    if ($Line -notmatch $PrintingCalls) { return $false }
+    return ((Get-ForeignValueMatches -Line $Line).Count -gt 0)
+}
+
+# PER VALUE, NOT PER LINE, and the first form of this function was per line. It asked whether the line
+# NAMED a strip anywhere on it, which passes a line that guards one of its two foreign values and
+# prints the other raw -- exactly the shape group 3 carries, where a path and a JSON key share a line.
+# So the check that was written to catch #2280 went green on #2280's own defect, caught by running it
+# against a fixture rather than by reading it. It is also the miss the print-site list already records
+# one entry over: a repair "complete only as far as the colon".
+#
+# THE TEST IS THE ARGUMENT POSITION, AND IT IS ANCHORED TO THE GUARD FUNCTION'S OWN NAME. The second
+# form of this asked only whether SOME '-Path' or '-Ref' parameter sat immediately before the value,
+# never which function that parameter belonged to -- so 'Join-Path -Path $s.Path' was certified as
+# guarded while stripping nothing, and $GuardCallTokens was declared and never read, which is the
+# check the first author meant to write sitting beside the one they wrote. Reproduced live by the code
+# review of this branch rather than reasoned about.
+#
+# Every occurrence is judged, not the first -- a value can appear twice on one line, and group 3's own
+# print carries two.
+#
+# THE PARAMETER NAME IS OPTIONAL AND ITS SPELLING IS NOT PINNED, which closes three false FAILURES the
+# review reproduced against real, working PowerShell: an abbreviated parameter ('-Pa'), the colon form
+# ('-Path:$x'), and a positional call. All three genuinely strip, and reporting them would have put a
+# red line beside a line that visibly calls the guard -- which is the shape that gets a check loosened
+# or deleted rather than the code fixed. What is required is the guard's NAME, on a word boundary, with
+# at most one parameter between it and the value.
+#
+# WHAT IT STILL CANNOT SEE, stated rather than left to be found: a call WRAPPED ACROSS TWO PHYSICAL
+# LINES, since the scan reads one line at a time exactly as group 1's does. That direction is a loud
+# false failure, not silence, which is this file's own stated rule for its comment stripper -- the
+# error this suite may make is the one a person reads.
+function Get-UnguardedForeignValues {
+    param([string]$Line)
+    $names    = ($GuardCallTokens | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    $guarded  = "(?:^|[^\w-])(?:$names)(?:\s+-\w+[:\s])?\s*$"
+    $unguarded = @()
+    foreach ($m in (Get-ForeignValueMatches -Line $Line)) {
+        if (-not ($Line.Substring(0, $m.Index) -match $guarded)) { $unguarded += $m.Value }
+    }
+    return $unguarded
+}
+
+$selfLines  = @(Get-Content -LiteralPath $PSCommandPath)
+$printLines = @()
+for ($i = 0; $i -lt $selfLines.Count; $i++) {
+    if (-not (Test-LineIsForeignPrint -Line $selfLines[$i])) { continue }
+    $bare = @(Get-UnguardedForeignValues -Line $selfLines[$i])
+    $printLines += [pscustomobject]@{
+        Num     = $i + 1
+        Guarded = ($bare.Count -eq 0)
+        Bare    = ($bare -join ', ')
+    }
+}
+
+Write-Host "     lines of this file printing a scanned value: $($printLines.Count)" -ForegroundColor DarkGray
+foreach ($p in $printLines) {
+    Write-Host "       line $($p.Num)" -ForegroundColor DarkGray
+}
+
+# A FLOOR AT FOUR, group 1's reasoning applied to this file: two groups print two value classes, each
+# once in its enumeration and once in its per-item assert message. A fifth is the normal case and must
+# not turn this red for existing; a DROP means the scan stopped matching, never that there is nothing
+# left to guard.
+Assert-True ($printLines.Count -ge 4) "the scan found this file's own print lines (>= 4, got $($printLines.Count)) -- a drop means the scan broke or a line changed shape, never that there is nothing to guard"
+
+foreach ($p in $printLines) {
+    # The names of the unguarded values are this suite's OWN tokens, typed in the array above -- so
+    # naming them in a failure message prints nothing foreign, and it is what turns a red line into a
+    # repair somebody can make without opening the file.
+    $which = if ($p.Guarded) { '' } else { " -- unguarded: $($p.Bare)" }
+    Assert-True $p.Guarded "line $($p.Num) hands EVERY scanned value on it to the strip before printing$which"
+}
+
+# THE COUNTER-CASES, on the rule this file states twice already. The first pair is the whole point: the
+# scan has to SEE a raw print line and has to call it unguarded, or the asserts above are decoration.
+$fixtureRaw      = 'Write-Host "   $($s.Path):$($s.Line)" -ForegroundColor DarkGray'                  # not-a-print-site
+$fixtureGuarded  = 'Write-Host "   $(Get-DisplayPath -Path $s.Path):$($s.Line)" -ForegroundColor Gray' # not-a-print-site
+$fixtureKeyRaw   = 'Assert-True $w.HandsBack "$($w.Path) [$($w.Event)]: the wrapper pipes it back"'    # not-a-print-site
+$fixturePartial  = 'Assert-True $w.HandsBack "$(Get-DisplayPath -Path $w.Path) [$($w.Event)]: back"'   # not-a-print-site
+$fixtureProse    = '#   Write-Host "   $($w.Event)" -- prose explaining the hazard, not an instance'   # not-a-print-site
+$fixtureOwnValue = 'Write-Host "     the family, counted out of the tree: $($sites.Count) site(s)"'    # not-a-print-site
+
+# THE FOUR THE CODE REVIEW REPRODUCED AGAINST WORKING POWERSHELL. The first is the dangerous
+# direction -- a call that strips nothing, certified as guarded because it happens to take a -Path.
+# The next two are the loud-but-wrong direction, which is what trains somebody to delete a check. The
+# last is the sentinel: a phrase inside a printed MESSAGE must not exempt the line that prints it.
+$fixtureWrongFunc = 'Write-Host "   $(Join-Path -Path $s.Path -ChildPath x.txt)"'                      # not-a-print-site
+$fixtureColonForm = 'Write-Host "   $(Get-DisplayPath -Path:$s.Path)"'                                # not-a-print-site
+$fixtureAbbrev    = 'Write-Host "   $(Get-DisplayPath -Pa $s.Path)"'                                   # not-a-print-site
+$fixturePositional = 'Write-Host "   $(Get-DisplayPath $s.Path)"'                                      # not-a-print-site
+# Built by concatenation on purpose: this one must NOT carry the sentinel, since what it proves is that
+# the phrase inside a message no longer exempts anything -- so it must not carry the raw shape either.
+$bareToken             = '$' + 's.Path'
+$fixtureSentinelInText = 'Assert-True $x "' + $bareToken + ' -- not-a-print-site appears in this message"'
+
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureWrongFunc).Count)     'a call that merely TAKES a -Path is not a strip -- Join-Path guards nothing, and the per-parameter form of this check certified it'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixtureColonForm).Count)     'the colon form of parameter binding is a real call and is not reported'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixtureAbbrev).Count)        'nor is an abbreviated parameter name, which PowerShell resolves and this check must not second-guess'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixturePositional).Count)    'nor a positional call -- it strips, so a red line beside it would only teach somebody to delete this group'
+Assert-True (Test-LineIsForeignPrint -Line $fixtureSentinelInText)               'the exemption phrase inside a printed MESSAGE does not exempt the line -- the sentinel is a trailing comment, not a substring'
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureSentinelInText).Count) 'and that line is still reported as printing a raw value'
+
+Assert-True (Test-LineIsForeignPrint -Line $fixtureRaw)                          'the scan sees a print line carrying a value this suite did not author'
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixtureRaw).Count)           'and reports that value UNGUARDED when no strip is named on it -- the shape a bad merge resolution would leave behind'
+Assert-Equal 0 (@(Get-UnguardedForeignValues -Line $fixtureGuarded).Count)       'while the repaired shape reports none'
+Assert-True (Test-LineIsForeignPrint -Line $fixtureKeyRaw)                       'an assert MESSAGE is a print site too, which is half of what issue #2280 reported'
+Assert-Equal 2 (@(Get-UnguardedForeignValues -Line $fixtureKeyRaw).Count)        'and BOTH of its values are counted, not just the first one found'
+# THE ONE THAT CAUGHT THIS CHECK'S OWN FIRST FORM: a path guarded, the JSON key beside it still raw.
+# Per-line the line names a strip and passes; per-value it is exactly the defect #2280 reported.
+Assert-Equal 1 (@(Get-UnguardedForeignValues -Line $fixturePartial).Count)       'a line that guards its PATH and prints its JSON KEY raw is still a finding -- the partial repair, which the per-line form of this check went green on'
+Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureProse))                 'prose about the hazard is not an instance of it -- this file documents itself, and counting that would make a good explanation the failure'
+Assert-True (-not (Test-LineIsForeignPrint -Line $fixtureOwnValue))              'and a line printing this suite own count is not a subject at all'
+
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }
 exit 0
