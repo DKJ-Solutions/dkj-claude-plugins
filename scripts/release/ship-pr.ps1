@@ -264,6 +264,13 @@
     Passed through to open-pr.ps1: how many test suites its test gate runs at once. 0 (the default)
     is not forwarded at all, so an ordinary run is byte-identical to before.
 
+.PARAMETER NoCiWait
+    Passed through to open-pr.ps1: run the local suites instead of waiting for an in-flight CI
+    certificate on the same commit (issue #2317). This script is the caller that wait exists for --
+    it opens the PR and then waits for CI anyway in step 3, so before #2317 an ordinary ship spent a
+    full local pool and a full CI run to answer one question, and only the second of the two could
+    move the merge.
+
     THE PAIR MATTERS MORE HERE THAN ANYWHERE (issue #1443). This is the script a session reaches for,
     and the one whose gate runs unattended while the session does something else -- so it is the one
     where a gate that will not finish used to leave -SkipTests as the only way forward. Running the
@@ -341,6 +348,8 @@ param(
     [switch]$RefreshBody,
     # Lanes for open-pr's test gate; 0 forwards nothing. See .PARAMETER MaxParallel.
     [int]$MaxParallel = 0,
+    # Run open-pr's suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
+    [switch]$NoCiWait,
     # How many times step 3b may bring the branch forward and re-certify before refusing. See
     # .PARAMETER MaxForwardLaps. 0 restores the detect-and-rebase behaviour this repo had before #2087.
     [ValidateRange(0, 10)]
@@ -812,6 +821,9 @@ if ($SkipTests)   { $openArgs += '-SkipTests' }
 # default IS 0, so passing it explicitly would be a no-op that puts a lane count on the command line of
 # every ordinary run -- and a reader of that line would take it for a deliberate choice.
 if ($MaxParallel -gt 0) { $openArgs += @('-MaxParallel', "$MaxParallel") }
+# FORWARDED ONLY WHEN SET, on the same grounds as the two above: open-pr's default is to wait, so
+# passing the switch unconditionally is impossible and passing nothing is the ordinary run (#2317).
+if ($NoCiWait)    { $openArgs += '-NoCiWait' }
 if ($Force)       { $openArgs += '-Force' }
 if ($RefreshBody) { $openArgs += '-RefreshBody' }
 # Handed over as the raw string. open-pr.ps1 parses it itself precisely BECAUSE this hop goes through
