@@ -39,19 +39,50 @@
 
 ### PLAN
 
+#2272: `check-consumer-siblings.ps1` reads `$label = [string]$m.repo` off a consumer's own
+connector manifest and prints it raw at two sites just above the group loop's ONLY-IN/PARTIAL/
+DRIFTED/SHIPPED block -- the block df25f9f6 (#2248) guarded with `Format-SafePathToken`. A `repo`
+field carrying an embedded newline forges a second console line, exactly the harm #2248's own
+reasoning names. Fix: guard `$label` at both remaining sites with the same function already used a
+few lines below, so the whole loop is consistent.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Guard `$label` at both unguarded sites (the `$unreadable` line and the `read ... :` line)
+      with `Format-SafePathToken -Value $label`, matching the guard already applied to the
+      ONLY-IN/PARTIAL/DRIFTED/SHIPPED block a few lines below.
 
 ### TEST
 
+- [x] Reproduced the issue's repro (`$label = "acme/repo`n[INJECTED]"`) against the unpatched line
+      and confirmed the guarded line welds it to one line with no bracket, matching the ONLY-IN
+      lines' existing behaviour.
+- [x] `sibling-divergence.tests.ps1` (70 pass, 0 fail) and `check-report-lib.tests.ps1` (382 pass,
+      0 fail) green -- the underlying lib and the divergence logic this script depends on are
+      unaffected by a two-site console-formatting change.
+- [~] A dedicated `check-consumer-siblings.tests.ps1` regression suite is not added here -- #2272
+      itself was filed by a session already building that suite on a separate, unmerged branch
+      (fix/2248-guard-raw-foreign-text-prints); duplicating that effort here would fork the same
+      test file in two places. This branch instead verifies by direct repro (above) plus the
+      existing suites for the guard function and the comparison logic.
+
 ### DEPLOY: fix/2272-guard-repo-field-two-more-sites
 
-**Score:**
+`check-consumer-siblings.ps1` printed a sibling's own manifest `repo` field raw at two console
+sites -- the per-member "read" line and the "not compared" line built from it -- both sitting just
+above the block df25f9f6 (#2248) already guarded with `Format-SafePathToken`. A `repo` field
+carrying an embedded newline forged a second console line; both sites now go through the same
+guard as their neighbours, so the whole loop treats this manifest field consistently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Same value class and same script as #2248: a sibling checkout's own manifest text, read back to
+the person running the comparison. Nothing was exploited, and this closes the two sites #2248's
+own widening did not reach.
+
+**Score:** 1
 
 #### Pull Request
 
