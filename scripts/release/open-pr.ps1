@@ -397,6 +397,27 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# THE REFUSAL VERDICT THAT SURVIVES A PIPE (issue #2283). A chain-ending script already prints the close-out
+# receipt when it FINISHES (#1884); this is the other half -- one unmistakable last line when it refuses. The
+# measurement, and why the exit code cannot carry this on its own, is in ship-pr.ps1's copy of this block:
+# under the 'Stop' above every Write-Error here is a TERMINATING error, so the host already exits 1, and it is
+# the PIPE that every recorded invocation of these scripts is read through (`| tail -n`, `| Select-Object
+# -Last n`) that replaces that exit status with its own 0.
+#
+# It fires only on a terminating error nothing caught, which is what every refusal in this file already is, so
+# no path that runs today changes. It prints the record on the stream the host would have used, so a caller
+# separating the streams keeps exactly what it had.
+trap {
+    $refusalRecord = $_
+    $host.UI.WriteErrorLine(($refusalRecord | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    $host.UI.WriteErrorLine('[REFUSED] open-pr stopped at the error above -- this run did NOT finish. The error itself says what had')
+    $host.UI.WriteErrorLine('          and had not been done by then; do not read the absence of a failure elsewhere as success.')
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): read through a pipe -- `| tail -n`,')
+    $host.UI.WriteErrorLine('          `| Select-Object -Last n` -- this run reports the PIPE exit status, which is 0 however it ended.')
+    exit 1
+}
+
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'

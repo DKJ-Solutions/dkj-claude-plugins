@@ -31,6 +31,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 lags its own source by however many merges have landed since. A consumer keeps no copy of their own, so
 for them the line above is the correct one.
 
+**A PIPE THROWS THIS RUN'S EXIT CODE AWAY, so read the LAST LINE instead**
+([#2283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2283)). `| tail -40` and
+`| Select-Object -Last 150` report the *pipe's* exit status, which is `0` however the run ended — and this
+script's output is long enough that reading it through one is the norm rather than the exception. Since
+#2283 every refusal here ends with a `[REFUSED]` line saying the run did not finish, and a run that gets all
+the way ends with the close-out receipt, so the last line tells the two apart whatever the exit code says.
+The measurement that produced this is on ship-pr, whose refusal came back to a backgrounded caller as
+`completed (exit code 0)`; the shape is identical here.
+
 **No title is passed, and that is the change of August 7, 2026 ([#506](https://github.com/DKJ-Solutions/claude-code-specialists/issues/506)
 + [#505](https://github.com/DKJ-Solutions/claude-code-specialists/issues/505)).** The PR is called
 `<branch type>: <the entry's Branch title>` — the type off the branch prefix, the words out of

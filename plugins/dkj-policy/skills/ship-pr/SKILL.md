@@ -45,6 +45,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 lags its own source by however many merges have landed since. A consumer keeps no copy of their own, so
 for them the line above is the correct one.
 
+**A PIPE THROWS THIS RUN'S EXIT CODE AWAY, so read the LAST LINE instead**
+([#2283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2283)). The output is long, so it is
+tempting to read it through `| tail -40` or `| Select-Object -Last 150` — and a pipeline reports the exit
+status of its *last* element, which is `0` however the run ended. Measured on PR #2282, September 22, 2026:
+a backgrounded ship refused on a `CONFLICTING` pull request, correctly and with a full diagnosis, and came
+back to its caller as `completed (exit code 0)` — so *merged and folded* and *refused, nothing done* were
+indistinguishable to the one signal that caller reads, and the session closed out saying the branch was
+shipping. The script's own exit code was never the problem: unpiped it is `1`, because every refusal here is
+a terminating error.
+
+So the verdict is in the output now, where a pipe cannot take it. **Every refusal ends with a `[REFUSED]`
+line naming what did and did not happen** — including which side of the merge it stopped on, since a refusal
+*after* the merge leaves the fold owed, which is the opposite of nothing having happened. A successful run
+still ends with the close-out receipt. Whichever way you read the run, the last line says which of the two
+it was. If you do want the exit code, drop the pipe: redirect to a file and read the file, or (in bash)
+`set -o pipefail`.
+
 **Nothing is passed, because there is nothing left to say.** Since
 [#506](https://github.com/DaveKJohn/claude-code-specialists/issues/506) the PR title is composed from the
 branch prefix and the entry's `Branch title` section, so it was already written when the branch was
