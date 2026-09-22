@@ -44,7 +44,48 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 13 minor entries** <!-- pending-tally -->
+**9 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2250-gh-not-started-wording · 20260922-074056
+
+Six `gh` reads composed their own sentence about an unmeasured exit code, so a `gh` that is **not
+installed** -- a state #2234 deliberately reports with `ExitCodeUnknown` set, to keep the ~63 audited
+sites working untouched -- was described as one that ran, and the reader was sent to a re-run that
+cannot settle a missing dependency. Each now asks `Test-NativeCommandStarted` first, and names the
+install as the remedy.
+
+Two of the six say something different on purpose. `check-repo-settings.ps1` and
+`check-connectors.ps1` sit behind a `Get-Command gh` guard that has already proved gh is on PATH, so
+*"gh is not installed"* would be a cause the same run has measured to be false -- the class of
+unmeasured diagnosis this whole family exists to stop printing. What is reachable at those two is a gh
+that was found and still could not be launched, and their sentences say that instead.
+
+At `ship-pr.ps1` the repair also reaches one layer out of what the report named: the enclosing
+`Write-Warning` closed with *"so a re-run normally settles it"*, which is the same false advice in the
+same printed sentence.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every one of these sentences is what a consumer reads in the window this workflow keeps measuring
+against itself: adopting it before installing the GitHub CLI. The gate runners are the sharpest of
+them -- `check-branch-entry.ps1` runs in a consumer's CI, and `ship-pr.ps1` prints its line while
+merging -- and both told that reader to try again, forever, instead of naming the one thing that would
+fix it. `check-consumer-siblings.ps1` reaches the same reader through `-Source github`, which bypasses
+its own availability gate.
+
+**Score:** 2
+
+#### Pull Request
+
+Six gh sites no longer say a missing gh ran, nor advise a re-run that cannot settle it
+
+Plugins: dkj-policy
+
+[PR #2261](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2261)
+
+---
 
 ### DEPLOY: fix/2252-refresh-suite-durations · 20260922-072057
 

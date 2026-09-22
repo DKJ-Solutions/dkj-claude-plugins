@@ -287,6 +287,21 @@ function Read-Payload {
         # "gh refused the read (exit ) -- no access, or no such branch" -- a missing number inside a
         # sentence whose grammar promises one, plus two causes nobody measured. Same class as the short
         # read below, and it carries the same remedy.
+        #
+        # AND A COULD-NOT-START READING AHEAD OF THAT ONE (issue #2250, on #2234's repair), because a gh
+        # that never started sets ExitCodeUnknown too and would be described by the arm below as one that
+        # ran, advising a re-run that cannot settle it.
+        #
+        # THIS SITE'S WORDING IS DELIBERATELY NOT ITS SIBLINGS'. #2250 lists six sites and prescribes one
+        # shape, and at five of them the sentence names a gh that is absent or off PATH. Here it must not:
+        # the `Get-Command gh` guard twelve lines up has ALREADY proved gh is on PATH, so an absent CLI
+        # cannot reach this line and "gh is not installed" would be the same class of unmeasured cause
+        # this whole family exists to stop printing. What is left, and all that is left, is a gh that was
+        # found and still could not be launched -- a broken shim, a permissions refusal, a bad image --
+        # so the remedy points at the executable rather than at an install.
+        if (-not (Test-NativeCommandStarted -Capture $read)) {
+            return (& $fail 'gh is on PATH but could not be started (issue #2234) -- a broken shim, or the system refused to launch it; nothing is known about this read, and a re-run will not settle it. Check that gh itself runs')
+        }
         if (-not (Test-NativeExitMeasured -Capture $read)) {
             return (& $fail 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about this read -- not the access and not whether it exists; run again')
         }

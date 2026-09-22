@@ -163,6 +163,17 @@ function Get-GitHubInventory {
     # as "gh exited  reading the default branch (no access, or the repo is gone)" -- a missing number, and
     # two diagnoses about a consumer repository that this run measured nothing about. Ok stays $false
     # either way; it is the sentence the register carries to a reader that had to change.
+    # AND A COULD-NOT-START READING AHEAD OF THAT ONE, AT BOTH READS (issue #2250, on #2234's repair). A
+    # gh that never started sets ExitCodeUnknown on purpose, so absorbed by the arm above it a missing gh
+    # is described as one that ran, and the Reason this register carries to a reader closes with advice
+    # that cannot work: a command that is not installed does not settle on a re-run.
+    #
+    # AND IT IS REACHABLE HERE DESPITE Test-GhCanAnswer, which is the whole reason this arm is worth
+    # writing rather than reasoning away. That guard opens with `Get-Command gh` and would indeed keep an
+    # absent gh away from this function -- but it is consulted only on the DEFAULT route: `-Source github`
+    # sets $useGitHub straight to $true and never asks it. So the one caller who forces the remote route
+    # on a machine without gh lands here exactly as #2250 describes, and this arm names the remedy.
+    if (-not (Test-NativeCommandStarted -Capture $head)) { return @{ Ok = $false; Reason = 'gh is not installed here, or is not on PATH (issue #2234), so the default branch was never read -- a fact about this machine rather than about that repository; a re-run will not settle it, and with -Source github this run never asked whether gh was available. Install the GitHub CLI, or drop -Source github to compare off the disk'; Paths = @{} } }
     if (-not (Test-NativeExitMeasured -Capture $head)) { return @{ Ok = $false; Reason = 'gh ran and its exit code came back unmeasurable (issue #1931) reading the default branch -- a fact about this run rather than about that repository; it normally settles on a re-run'; Paths = @{} } }
     if ($head.ExitCode -ne 0) { return @{ Ok = $false; Reason = "gh exited $($head.ExitCode) reading the default branch (no access, or the repo is gone)"; Paths = @{} } }
     $branch = ([string]($head.Output -join '')).Trim()
@@ -172,6 +183,11 @@ function Get-GitHubInventory {
         -Arguments @('api', "repos/$Repo/git/trees/$branch`?recursive=1", '--jq', '.tree[] | select(.type=="blob") | "\(.sha) \(.path)"') `
         -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     if ($call.TimedOut) { return @{ Ok = $false; Reason = "gh did not answer within $NativeCaptureNetworkTimeoutSeconds seconds"; Paths = @{} } }
+    # The second of the two reads named above, and it takes the same arm for the same reason. In practice
+    # the first read is what fails on a gh-less machine and this one is never reached -- but "unreachable
+    # because its sibling refuses first" is a property of the other read rather than of this one, and the
+    # pair is deliberately kept in step so a later change to that arm cannot silently leave this one lying.
+    if (-not (Test-NativeCommandStarted -Capture $call)) { return @{ Ok = $false; Reason = 'gh is not installed here, or is not on PATH (issue #2234), so the tree was never read -- a fact about this machine rather than about that repository; a re-run will not settle it. Install the GitHub CLI, or drop -Source github to compare off the disk'; Paths = @{} } }
     if (-not (Test-NativeExitMeasured -Capture $call)) { return @{ Ok = $false; Reason = 'gh ran and its exit code came back unmeasurable (issue #1931) reading the tree -- a fact about this run rather than about that repository; it normally settles on a re-run'; Paths = @{} } }
     if ($call.ExitCode -ne 0) { return @{ Ok = $false; Reason = "gh exited $($call.ExitCode) reading the tree of $branch"; Paths = @{} } }
 
