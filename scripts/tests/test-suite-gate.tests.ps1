@@ -1888,14 +1888,52 @@ Assert-True (@($slow | Where-Object { $_ -match 'ANSWERING LATE' }).Count -eq 1)
 Assert-True (@($slow | Where-Object { $_ -match 'NOTHING IN THAT TREE' }).Count -eq 0) `
     'Get-GateTimeoutCpuNote: the two readings are exclusive -- a busy tree never prints the idle verdict'
 
-# THE FLOOR IS A FLOOR, NOT A THRESHOLD TO ACT ON -- 1% of the window, i.e. 30ms over 3s. Both sides of
-# it are asserted through the parameter, so the suite pins the SIZING without pinning the constant.
+# THE FLOOR IS A FLOOR, NOT A THRESHOLD TO ACT ON. Both sides of it are asserted through the parameter,
+# so these two pin the SIZING -- that the comparison leans onto the idle side and that a hair over it
+# flips -- without pinning the constant. The fraction passed here is arbitrary and deliberately not the
+# default; the block below is what holds the default.
 $atFloor = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 5.0) -Window (New-CpuReading 0.03) -WindowSeconds 3 -IdleFloorFraction 0.01)
 Assert-True (@($atFloor | Where-Object { $_ -match 'NOTHING IN THAT TREE' }).Count -eq 1) `
     'Get-GateTimeoutCpuNote: the floor itself counts as nothing running'
 $overFloor = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 5.0) -Window (New-CpuReading 0.031) -WindowSeconds 3 -IdleFloorFraction 0.01)
 Assert-True (@($overFloor | Where-Object { $_ -match 'STILL EXECUTING' }).Count -eq 1) `
     'Get-GateTimeoutCpuNote: and a hair over it does not'
+
+# AND THE DEFAULT FLOOR IS PINNED AGAINST THE TWO MEASURED POPULATIONS -- issue #2327, which is the
+# regression the two asserts above could not catch. They pass an explicit fraction, so they went on
+# passing while the constant they do not read was sized inside the noise it exists to clear: a sleeping
+# fixture tree read 0.031s against a 0.030s floor and was reported as still executing. What is asserted
+# here is therefore not the number but the MARGINS, read off $script:GateCpuIdleFloorFraction with no
+# fraction passed, so a future change to the constant has to survive both sides of the gap rather than
+# only compile.
+#
+# The readings are #2327's own. SLEEPING worst: 0.0469s, on a 32-core box under 48 competing lanes --
+# three 15.6ms clock ticks. WORKING worst: 1.03s, and that one is deliberately NOT the 1.42s the first
+# attempt at this repair used. A working tree's reading is a function of oversubscription, not a
+# constant, so a single favourable point is not a population floor: pinned to two cores it read 2.22s at
+# x1, 1.14s at x2, 1.03s at x4 and 0.19s at x8. 1.03s is the poorest reading in the band this gate
+# creates, its pool being sized on the core count. Anything between the two is unmeasured ground, which
+# is why nothing is asserted there.
+#
+# THE WINDOW COMES OFF THE CONSTANT, not a literal 3. The two asserts below read the live
+# $script:GateCpuSampleSeconds, so a hardcoded window here would let the two disagree silently -- which
+# is this whole issue's own shape, a check that stops reading the thing it is checking.
+$idleWorst = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 5.0) -Window (New-CpuReading 0.0469) `
+    -WindowSeconds ([double]$script:GateCpuSampleSeconds))
+Assert-True (@($idleWorst | Where-Object { $_ -match 'NOTHING IN THAT TREE' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: the noisiest SLEEPING tree #2327 measured still reads as nothing running'
+$busyWorst = @(Get-GateTimeoutCpuNote -Cumulative (New-CpuReading 5.0) -Window (New-CpuReading 1.03) `
+    -WindowSeconds ([double]$script:GateCpuSampleSeconds))
+Assert-True (@($busyWorst | Where-Object { $_ -match 'STILL EXECUTING' }).Count -eq 1) `
+    'Get-GateTimeoutCpuNote: and the poorest WORKING tree in this gate own load band still reads as still executing'
+# THE MARGIN IS THE POINT, NOT THE PASS. Both asserts above would also pass with the old 1% floor on one
+# side and a 30% floor on the other, so the headroom is asserted as a number -- the same 4x on each
+# side, against the worst measured reading of each population. Fitting a looser bar to one side is how
+# a floor ends up calibrated on a single favourable sample, which is what #2327's first repair did.
+Assert-True (($script:GateCpuSampleSeconds * $script:GateCpuIdleFloorFraction) -ge (0.0469 * 4)) `
+    'Get-GateTimeoutCpuNote: the floor clears the measured idle noise by at least 4x, not by one millisecond'
+Assert-True (($script:GateCpuSampleSeconds * $script:GateCpuIdleFloorFraction) -le (1.03 / 4)) `
+    'Get-GateTimeoutCpuNote: and it stays at least 4x below the poorest working reading, so it is a floor and not a threshold'
 
 # UNMEASURABLE SAYS SO, AND SAYS IT INSTEAD OF A NUMBER. Printing "0.00s" where CIM never answered is
 # the one wrong answer this note must not give: it would send a reader hunting a handle that is not there.
