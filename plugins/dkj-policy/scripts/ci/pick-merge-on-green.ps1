@@ -96,7 +96,9 @@ if ($listRead.ExitCode -ne 0) {
 
 $armed = @()
 try {
-    $armed = @(($listRead.Output -join "`n") | ConvertFrom-Json)
+    # THROUGH THE LIB, NOT A PIPE INTO ConvertFrom-Json: under 5.1 that wraps the whole array as ONE
+    # record, and the sweep then evaluated nothing (#2381).
+    $armed = @(ConvertFrom-MergeOnGreenListJson -Json ($listRead.Output -join "`n"))
 } catch {
     Write-PickVerdict -Picked $false -Reason "the list of '$label' pull requests could not be parsed"
     exit 0
@@ -109,7 +111,12 @@ if ($armed.Count -eq 0) {
 
 $verdicts = @()
 foreach ($record in $armed) {
-    if ($null -eq $record -or -not $record.PSObject.Properties['number']) { continue }
+    # FAIL-CLOSED, BUT NEVER SILENTLY (#2381). A skip that printed nothing read exactly like "not
+    # eligible yet", which is how a parse that dropped every record went unnoticed for six sweeps.
+    if ($null -eq $record -or -not $record.PSObject.Properties['number']) {
+        Write-Host '  (skipped) a record in the list carries no pull request number -- it was not evaluated'
+        continue
+    }
     $number = [string]$record.number
 
     # ONE gh CALL PER ARMED PULL REQUEST, and the armed set is normally empty or one. The required
@@ -141,6 +148,13 @@ foreach ($record in $armed) {
         Eligible = $verdict.Eligible
         Reason   = $verdict.Reason
     }
+}
+
+# N ARMED AND NO VERDICT IS A CONTRADICTION, NOT A WAIT: every armed pull request the list held was
+# skipped before it could be judged. Still fail-closed -- the reason just says what actually happened.
+if ($verdicts.Count -eq 0) {
+    Write-PickVerdict -Picked $false -Reason "$($armed.Count) record(s) in the '$label' list, but none could be evaluated -- the list was not read as pull requests"
+    exit 0
 }
 
 $pick = Select-MergeOnGreenCandidate -Verdicts $verdicts

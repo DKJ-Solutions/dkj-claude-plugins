@@ -130,9 +130,9 @@ Small and maintenance-focused — and **every plugin in the marketplace is enabl
 
 add-on teams included, so that the repo which ships a plugin is also a repo that loads it. Those three
 
-have no work here and are not expected to; that is validation, not a roster, and the repo slot in
+have no work here and are not expected to; that is validation, not a roster, and
 
-[`CLAUDE.md`](../../CLAUDE.md) states what it costs. The portable playbooks come from the four team
+[`.claude/rules/this-repo.md`](../rules/this-repo.md) states what it costs. The portable playbooks come from the four team
 
 plugins; each specialist's repo lens lives in [`.claude/specialists/lenses/`](lenses/).
 

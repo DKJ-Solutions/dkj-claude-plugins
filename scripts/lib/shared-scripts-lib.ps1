@@ -1326,8 +1326,9 @@ function Get-SharedScriptPairs {
             Skill  = 'adopt-dkj-policy'
             # A test points the command at a fixture rules payload instead of calling gh, which is the
             # only way to reach the queue-is-active arm without a network and a trunk. A consumer never
-            # types it, and documenting it would invite someone to.
-            SkillParamsExempt = @('RulesJsonOverride')
+            # types it, and documenting it would invite someone to. SharedRefOverride is the same shape
+            # for the write runners' release pin (#2333): the suite supplies it so it needs no network.
+            SkillParamsExempt = @('RulesJsonOverride', 'SharedRefOverride')
             # Timeable with no arguments: the default is a dry run that writes nothing. It does make one
             # gh call, so the figure carries a network leg -- which is the honest cost of this command.
             MeasureArgs = @()

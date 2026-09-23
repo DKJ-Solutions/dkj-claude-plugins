@@ -86,8 +86,18 @@ The marker goes on first, the assignee beside it, and then the claim is **read b
 machine got there first, this session releases its own marker and stops with exit 1. Take the next free
 number -- a lost race costs a claim, never work.
 
-**A refusal is final here.** `held` means another machine is mid-flight and its branch is somewhere
-this session cannot see. There is no flag past it.
+**A refusal is final here -- with one deliberate exception.** `held` means another machine is mid-flight
+and its branch is somewhere this session cannot see. The exception is your OWN issue on another of your
+machines, whose branch IS on origin -- the state a machine you cannot reach leaves behind
+([#2387](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2387)):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" <n> -Tag -TakeOver
+```
+
+It refuses a colleague's claim, an issue with no branch on origin, and one with several; otherwise it
+replaces the old marker with this tag's, comments the handover, and prints the checkout. The old machine's
+`-Verify` then reads `[NO]`, so step 6 stops it there.
 
 ### 3. Build it
 
@@ -177,8 +187,10 @@ a card parked with a question nobody can read is a waiting room nobody knows the
 - **Open a pull request on work nobody has looked at**, where the result has to be judged by eye.
   Waiting means NOT OPENED, not "opened and unmerged".
 - **Push anything live, publish anything, or cut a release.** Those come from a person, always.
-- **Take an issue whose marker carries another tag**, or one whose source ticket it could not read.
-- **Delete another session's marker.** `-Release` touches this tag's own and nothing else.
+- **Take an issue whose marker carries another tag** (outside `-TakeOver` above), or one whose source
+  ticket it could not read.
+- **Delete another session's marker** -- except through `-TakeOver`, on this account's own issue with its
+  branch on origin. `-Release` touches this tag's own and nothing else.
 - **Close an issue that carries the repo's parked label.** That one is with the requester.
 
 ## Requirements
