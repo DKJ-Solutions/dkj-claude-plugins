@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**2 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2347-release-asset-reupload-by-id · 20260923-114927Z
+
+The `cut-release` skill told the second pass to re-upload an edited release document with `gh release
+upload --clobber`. At `v5.7.0`, on gh 2.101.0, that returned `HTTP 422 ... ReleaseAsset.name already
+exists` and left the stale asset in place, and `gh release delete-asset` reported it *not found*. A new
+shared script, `upload-release-asset.ps1`, now does both uploads: it reads the Release's assets from the
+`releases/{id}/assets` endpoint (not `gh release view`, which listed none for `v5.7.0`), deletes a same-named asset **by id**, uploads without `--clobber`, and exits 1 unless the
+published asset has the file's exact byte count. The skill page and `RELEASES-portable.md` call it at
+step 5 and in the second pass (#2347).
+
+**Score:** 2 -- the old one-liner failed loudly but left the published note one revision behind, and
+the fallback a reader reached for failed too; the byte check replaces a size somebody had to watch.
+
+#### What makes this deploy extra special
+
+N/A -- the reader is whoever cuts a release in a repo running this workflow, and for them it is a
+different command at two steps of the same checklist, nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release: re-upload a Release attachment by asset id and verify its byte count
+
+Plugins: dkj-policy
+
+[PR #2357](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2357)
+
+---
 
 ### DEPLOY: docs/specialists-update-commands · 20260923-113308Z
 
