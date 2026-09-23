@@ -158,7 +158,10 @@ function Get-ConstitutionImportLine {
     $parts = @(($LibDir -replace '\\', '/').Split('/') | Where-Object { $_ })
     for ($i = 0; $i -lt $parts.Count - 2; $i++) {
         if ($parts[$i] -ieq 'cache' -and $i -gt 0 -and $parts[$i - 1] -ieq 'plugins' -and $parts[$i + 2] -ieq 'dkj-policy') {
-            $marketplace = $parts[$i + 1]
+            # A SLUG OR NOTHING. The segment is the name a repo's own committed settings.json registered
+            # the marketplace under, and this line is forwarded into session context by the hook -- so
+            # anything but a plain slug falls back to the canonical name rather than being printed.
+            if ($parts[$i + 1] -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { $marketplace = $parts[$i + 1] }
             break
         }
     }

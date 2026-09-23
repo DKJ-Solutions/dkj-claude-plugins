@@ -208,7 +208,7 @@ $inverted = @(Get-SupremacyDeclaration -RepoRoot $repoRoot -Documents $documents
 if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ConstitutionImported') -and
     -not (Test-ConstitutionImported -Documents $documents)) {
     Write-Host '[WARNING] this repo''s CLAUDE.md does not import the dkj-policy constitution -- the rules it runs under.' -ForegroundColor Yellow
-    Write-Host '          Add this line directly below its first heading, and keep only facts about this repo beneath it:' -ForegroundColor Yellow
+    Write-Host '          Add this line near the top, and keep only facts about this repo beneath it:' -ForegroundColor Yellow
     Write-Host "            $(Get-ConstitutionImportLine)" -ForegroundColor Yellow
     Write-Host '          Then remove any rule the constitution already states -- see CONTRIBUTING-portable.md, "A third rank sits above both".' -ForegroundColor Yellow
 }

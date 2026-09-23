@@ -334,7 +334,7 @@ $title
 <!-- TODO (fill in after bootstrap): replace this placeholder with the repo lens of this
      specialist -- who he or she directs or serves in THIS repo and along which agreements:
      team and routing, pipelines and gatekeepers (safety rules, branch discipline,
-     and PR rule; refer to repo-CLAUDE.md#safety-rules). The portable expertise remains in the
+     and PR rule; the rules themselves are in the dkj-policy constitution the repo CLAUDE.md imports). The portable expertise remains in the
      plugin persona; only repo-specific matters belong here. -->
 "@
     [System.IO.File]::WriteAllText($dest, ($content.TrimEnd() + "`n"), $Utf8NoBom)

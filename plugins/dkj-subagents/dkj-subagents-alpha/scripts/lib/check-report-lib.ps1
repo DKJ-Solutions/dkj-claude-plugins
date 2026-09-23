@@ -2074,7 +2074,7 @@ function Get-ClaudeMdScaffold {
         Heading = '# CLAUDE.md'
         Prose   = @(
             'This repo is governed by **Claude Specialists** -- a team of specialized Claudes led by a Chief of Staff.',
-            'This scaffold was created by `specialists-init` skill; the rules are imported from the plugins, so add only facts about this repo here.'
+            'This scaffold was created by the `specialists-init` skill; the rules are imported from the plugins, so add only facts about this repo here.'
         )
         Legacy  = @(
             'This scaffold was created by `specialists-init` skill; expand with governance and safety rules for this repo.'

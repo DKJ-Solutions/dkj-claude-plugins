@@ -1178,7 +1178,8 @@ that list on September 23, 2026**
 the plugin's own [`CLAUDE.md`](CLAUDE.md), which sits on the top rung beside this page. A consumer's
 `CLAUDE.md` imports it with one absolute `@`-line
 (`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/CLAUDE.md`), and below that line it
-carries facts about the repo and nothing else. Restating that scope matters because the failure this section describes looks exactly like
+carries facts about the repo and nothing else. Restating that scope matters because the failure this
+section describes looks exactly like
 diligence: a repo folds a shared rule into its always-on `CLAUDE.md` *in order to* keep one document
 self-contained, and the fold is where the divergence gets in.
 

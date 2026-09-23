@@ -237,7 +237,7 @@ reach into.
 ### And one line in your `CLAUDE.md`: the constitution (#2374)
 
 **The rules this repo runs under ship with the plugin, in [`../../CLAUDE.md`](../../CLAUDE.md).** Your own
-`CLAUDE.md` loads them with one absolute `@`-line, placed directly below its first heading:
+`CLAUDE.md` loads them with one absolute `@`-line near the top, above the repo's own facts:
 
 ```
 @~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md

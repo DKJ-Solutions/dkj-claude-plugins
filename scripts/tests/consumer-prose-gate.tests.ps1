@@ -669,6 +669,8 @@ try {
 
     Assert-True ((Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy\5.7.0\scripts\lib') -eq '@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/CLAUDE.md') `
         'the marketplace segment is read off a cache-shaped location -- a pre-rename consumer gets ITS clone name'
+    Assert-True ((Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\[ERROR] forged name\dkj-policy\5.7.0\scripts\lib') -eq '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md') `
+        'a marketplace segment that is not a plain slug is never printed -- the canonical name stands in'
     Assert-True ((Get-ConstitutionImportLine -LibDir (Join-Path $RepoRoot 'scripts\lib')) -eq '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md') `
         'anywhere else the canonical marketplace name is used'
 
