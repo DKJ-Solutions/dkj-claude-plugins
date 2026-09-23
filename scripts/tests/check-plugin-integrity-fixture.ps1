@@ -1,22 +1,25 @@
 <#
 .SYNOPSIS
-    Shared fixture, assert helpers and gate runner for the seven check-plugin-integrity suites.
+    Shared fixture, assert helpers and gate runner for the ten check-plugin-integrity suites.
 
 .DESCRIPTION
     NOT NAMED *.tests.ps1 ON PURPOSE: the test gate globs that pattern, and this file asserts
-    nothing. It is dot-sourced by the seven suites that do:
+    nothing. It is dot-sourced by the ten suites that do:
 
-      check-plugin-integrity-links.tests.ps1       checks 4, 10, 28 and 29 -- the scan set and the spans
-      check-plugin-integrity-commands.tests.ps1    checks 11 and 12 -- printed commands and queries
-      check-plugin-integrity-entries.tests.ps1     checks 13, 13b, 14-16 -- entries, templates, figures
-      check-plugin-integrity-docs.tests.ps1        checks 19, 20, 20b, 20c, 25 -- consumer documents
-      check-plugin-integrity-scripts.tests.ps1     checks 18, 39, 40, 27, 35 -- the script layer
-      check-plugin-integrity-invocations.tests.ps1 checks 22, 42, 42b, 24, 26 -- printed invocations
-      check-plugin-integrity-roster.tests.ps1      checks 6b, 38, 45, 3d and -SkipCheck -- defs and names
+      check-plugin-integrity-links.tests.ps1        checks 4 and 28 -- the scan set, links and imports
+      check-plugin-integrity-skill-spans.tests.ps1  check 10 and scenario 16 -- the skills:all spans
+      check-plugin-integrity-plugin-spans.tests.ps1 checks 29 and 32 -- the plugin-scoped spans
+      check-plugin-integrity-plugin-links.tests.ps1 check 30 -- a plugin link must stay in its plugin
+      check-plugin-integrity-commands.tests.ps1     checks 11 and 12 -- printed commands and queries
+      check-plugin-integrity-entries.tests.ps1      checks 13, 13b, 14-16 -- entries, templates, figures
+      check-plugin-integrity-docs.tests.ps1         checks 19, 20, 20b, 20c, 25 -- consumer documents
+      check-plugin-integrity-scripts.tests.ps1      checks 18, 39, 40, 27, 35 -- the script layer
+      check-plugin-integrity-invocations.tests.ps1  checks 22, 42, 42b, 24, 26 -- printed invocations
+      check-plugin-integrity-roster.tests.ps1       checks 6b, 38, 45, 3d and -SkipCheck -- defs and names
 
-    WHY THERE IS MORE THAN ONE, MEASURED TWICE. The gate parallelises per FILE, so the only way to
-    give a heavy suite's work the idle lanes is to make it more than one file -- and the same
-    measurement has now forced the same answer at two different scales.
+    WHY THERE IS MORE THAN ONE, MEASURED THREE TIMES. The gate parallelises per FILE, so the only way
+    to give a heavy suite's work the idle lanes is to make it more than one file -- and the same
+    measurement has now forced the same answer at two different scales, the second of them twice.
 
       #714, August 16, 2026 -- the FIRST split, one file into four. As one file this suite ran the
       gate 111 times in sequence, took 160s standalone and 196-213s inside the parallel gate -- and
@@ -32,15 +35,23 @@
       so the gap it was weighed against had gone from ~15s to 278s. Standalone the split takes the
       family's longest file from 235.8s to 64.3s.
 
-    NOTHING WAS REMOVED TO BUY THE TIME, AT EITHER SPLIT. The suites carry the same scenarios
-    against the same fixture -- the asserts still sum to the count the single file reported, which
-    is 188 across the four -docs descendants and was verified by running them. Narrowing test scope
-    was explicitly refused in #714 and is not what happened on either occasion.
+      #2304, September 23, 2026 -- the THIRD split, -links into four, which step 2 had named as the
+      next critical path (539.2s on CI). Cut at check boundaries and balanced on gate invocations,
+      13/18/21/13 of its 65; checks 4 and 28 stay together because scenario 23 compares their two
+      coverage counts inside one run. Side by side on one workstation the longest part took 55s
+      against the original's 159s.
 
-    THE SECOND SPLIT SURFACED ONE LATENT ORDER DEPENDENCY, and it is repaired here rather than
-    worked around by the grouping -- see the scripts\task note in New-IntegrityFixture. A scenario
-    that inherits a directory an earlier scenario created only works while the two share a file,
-    which is precisely the property a cost-based partition may not depend on.
+    NOTHING WAS REMOVED TO BUY THE TIME, AT ANY SPLIT. The suites carry the same scenarios against
+    the same fixture -- the asserts still sum to the count the single file reported, which is 188
+    across the four -docs descendants and 141 across the four -links descendants, both verified by
+    running them. Narrowing test scope was explicitly refused in #714 and is not what happened on
+    any occasion.
+
+    BOTH #2304 SPLITS SURFACED A LATENT ORDER DEPENDENCY, and both are repaired here rather than
+    worked around by the grouping -- see the scripts\task note in New-IntegrityFixture and
+    Write-QuietRootDocuments. A scenario that inherits state an earlier scenario created only works
+    while the two share a file, which is precisely the property a cost-based partition may not
+    depend on.
 
     EACH SUITE BUILDS ITS OWN FIXTURE, in its own per-process directory. They run CONCURRENTLY under
     the gate, so a shared path would have them tearing down each other's tree mid-assert -- the exact
@@ -188,6 +199,19 @@ $deadLink = './this-file-does-not-exist-xyz.md'
 # variable, 500 lines further down. A copy in each file would be free to drift, and the drift would
 # show up as a coverage assert failing in a suite that never wrote the file.
 $s24Contributing = @('# Contributing', '', 'Nothing to run here.')
+
+# THE QUIET ROOT DOCUMENTS -- issue #2304, the -links split. The fixture itself writes neither
+# CONTRIBUTING.md nor the connectors README; check 4's scenarios A and B do, first broken and then fixed,
+# and while checks 10, 28, 29, 30 and 32 shared that file every one of them started from the FIXED pair
+# without saying so. Two of them lean on it outright: check 28's scenario 19 needs a CONTRIBUTING.md at
+# the root to prove the import rule is file-relative, and check 32's scenario 49 reads the file back to
+# restore it. So the suites split out of -links call this first, and it writes exactly what scenario B
+# leaves behind -- the same state, stated once, rather than inherited from whichever scenario ran above.
+function Write-QuietRootDocuments {
+    param([Parameter(Mandatory)][string]$Fixture)
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), "# Contributing`n`nNothing to link to here.`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'connectors\README.md'), "# Connectors`n`nNothing to link to here.`n", $Utf8NoBom)
+}
 
 # The fixture every one of the four suites starts from: a throwaway repo root holding the REAL
 # check-plugin-integrity.ps1 and its dot-sourced libs, a marketplace declaring three plugins, a
