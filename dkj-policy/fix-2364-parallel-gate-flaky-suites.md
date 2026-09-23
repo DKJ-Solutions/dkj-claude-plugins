@@ -68,13 +68,28 @@ gate run on this machine, and `reproduce-suite-contention.ps1` against the suite
 
 ### TEST
 
+- [x] All seven `check-plugin-integrity-*.tests.ps1` suites green standalone, with zero
+  `[FIXTURE GATE DID NOT FINISH]` notices -- the guard is silent on a healthy run.
+- [x] `test-suite-gate.tests.ps1` beside a 22-lane repro: the deadline case passed at 34.9s against
+  the 120s sleeper; the three lane-count asserts that failed in that run are the ones loosened
+  after it. The whole suite runs again under the open-pr gate's full pool.
+
 ### DEPLOY: fix/2364-parallel-gate-flaky-suites
 
-**Score:**
+Three causes behind "red under the parallel gate, green alone" in two test suites, repaired in the
+suites and nowhere else. A one-line sibling in the deadline case was held to a 3s ceiling it cannot
+meet under load (8.6s measured); four lane-count asserts refused the lane-hold note a memory-starved
+run appends; and the integrity fixture read a child gate that stopped before its report as a gate
+that found nothing. The fourth symptom the issue names, the nested-gate case, has no surviving
+capture, so it now prints its own evidence when red instead of being given a guessed cause.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- test suites only; nothing a subscriber runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 

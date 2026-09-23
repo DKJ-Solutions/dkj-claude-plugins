@@ -165,13 +165,28 @@ function Invoke-Integrity {
     # marketplace scenario: the run ended at this line with a raw exception and printed neither a [FAIL]
     # nor a total, which is a test that discriminates but cannot say why. A gate crashing is exactly the
     # kind of thing this suite exists to catch, so it has to survive catching it.
+    #
+    # A RUN WITH NO 'Summary:' LINE CARRIES NO VERDICT, AND IS RUN ONCE MORE (issue #2364). The gate
+    # collects every finding and prints them all at the END, just above that line -- so a child that
+    # stops part-way loses every finding it had, and an assert looking for one reads that as "not
+    # reported". No scenario expects that shape: the corrupt-marketplace ones assert the Summary is
+    # reached. Measured under a 22-lane gate: scenario 44d failed on its one output assert while its
+    # in-process precondition passed and all 58 asserts ran, then passed alone -- the shape of a child
+    # that did not finish rather than of a check that answered wrongly. A second unfinished run is
+    # returned as it is, so a gate that really dies still fails its asserts, now with a line saying why.
     $prevEap = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @skipArgs 2>&1
-        $code = $LASTEXITCODE
-        # #1934: a load failure is not a gate crash -- say so before the scenarios read an empty verdict.
-        Assert-FixtureScriptLoaded -Code $code -Script $scriptPath -Output $out
+        foreach ($attempt in 1, 2) {
+            $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @skipArgs 2>&1
+            $code = $LASTEXITCODE
+            # #1934: a load failure is not a gate crash -- say so before the scenarios read an empty verdict.
+            Assert-FixtureScriptLoaded -Code $code -Script $scriptPath -Output $out
+            if ((@($out) -join "`n") -match '(?m)^Summary: \d+ error\(s\)\.') { break }
+            $again = $(if ($attempt -eq 1) { 'running it once more' } else { 'returning it as it is -- the asserts below read an unfinished run' })
+            Write-Host "  [FIXTURE GATE DID NOT FINISH] exit $code, attempt $attempt -- check-plugin-integrity.ps1 printed no Summary line, so its findings were never printed; $again" -ForegroundColor Magenta
+            foreach ($line in @(@($out) | Select-Object -Last 5)) { Write-Host "      $line" -ForegroundColor Magenta }
+        }
     } finally {
         $ErrorActionPreference = $prevEap
     }
