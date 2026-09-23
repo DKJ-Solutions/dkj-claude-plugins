@@ -112,6 +112,18 @@
     on that branch off the trunk is authored under one of this checkout's names (issue #2394). "This
     same account" also covers the accounts declared in DKJ_OWN_ACCOUNTS -- see Get-OwnAccountNames.
 
+.PARAMETER ReleaseAll
+    With -Tag, and no issue number: release EVERY open issue this tag holds -- its own marker comments
+    and the assignee written beside them, and nothing else (issue #2395). The tidy-up before a PLANNED
+    device switch, so a sweep on the next machine does not read your own old tag as 'held'. DRY-RUN BY
+    DEFAULT: it lists what it would release and writes only with -Apply. Another tag's marker is never
+    touched, and a bare assignee with no marker of this tag is not a claim and stays. It is a
+    convenience, not the mechanism: -TakeOver already resumes from another machine with no prior
+    release, which is what covers the release forgotten on the departing machine.
+
+.PARAMETER Apply
+    With -ReleaseAll: actually release. Without it -ReleaseAll lists and writes nothing.
+
 .PARAMETER Candidates
     List which open issues a sweep may pick up -- free, this tag's already, held by another tag, or
     skipped with the reason. Takes no issue number and WRITES NOTHING: choosing is a separate step from
@@ -130,7 +142,7 @@
     With -Candidates: issue numbers held out of this round by hand.
 
 .PARAMETER Limit
-    With -Candidates: how many open issues to read. Default 100.
+    With -Candidates or -ReleaseAll: how many open issues to read. Default 100.
 
 .PARAMETER RootOverride
     Repo root to resolve repo-config.ps1 in, for the test suite. A consumer never types this: the root
@@ -153,11 +165,15 @@
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag -TakeOver
+
+.EXAMPLE
+    ./scripts/task/claim-issue.ps1 -Tag -ReleaseAll -Apply
 #>
 [CmdletBinding(DefaultParameterSetName = 'Issue')]
 param(
     [Parameter(Mandatory = $true, Position = 0, ParameterSetName = 'Issue')][string]$Issue,
-    [Parameter(ParameterSetName = 'Issue')][switch]$Tag,
+    [Parameter(ParameterSetName = 'Issue')]
+    [Parameter(ParameterSetName = 'ReleaseAll')][switch]$Tag,
     [Parameter(ParameterSetName = 'Issue')][switch]$Verify,
     [Parameter(ParameterSetName = 'Issue')][switch]$Release,
     [Parameter(ParameterSetName = 'Issue')][switch]$TakeOver,
@@ -166,7 +182,10 @@ param(
     # [string[]], not [int[]]: under -File an [int[]] reads '12,34' as the one number 1234 (a
     # thousands separator), excluding an unrelated issue and neither of the two named (#2358).
     [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipIssue = @(),
-    [Parameter(ParameterSetName = 'Candidates')][int]$Limit = 100,
+    [Parameter(ParameterSetName = 'Candidates')]
+    [Parameter(ParameterSetName = 'ReleaseAll')][int]$Limit = 100,
+    [Parameter(Mandatory = $true, ParameterSetName = 'ReleaseAll')][switch]$ReleaseAll,
+    [Parameter(ParameterSetName = 'ReleaseAll')][switch]$Apply,
     [string[]]$Marker = @('claim-tag'),
     [switch]$DryRun,
     [string]$RootOverride = ''
@@ -219,7 +238,22 @@ foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {
 # -Candidates HAS NO ISSUE, which is the whole of why it is its own parameter set: it asks WHICH issue
 # rather than about one, so a mandatory number there would be a value the caller cannot have yet.
 $number = ''
-if (-not $Candidates) {
+# -ReleaseAll HAS NO ISSUE EITHER, for the mirror reason: it acts on every issue this tag holds. It is
+# refused without -Tag, like -Release -- and with -DryRun beside -Apply, since the two contradict and
+# guessing which was meant is guessing whether to write.
+if ($ReleaseAll) {
+    if (-not $Tag) {
+        Write-Host '[ERROR] -ReleaseAll only means something with -Tag -- nothing was read or written.' -ForegroundColor Red
+        Write-Host '        It drops this tag''s claim markers. The default mode claims by assignee and has no' -ForegroundColor Red
+        Write-Host '        claim of this session''s to release.' -ForegroundColor Red
+        exit 1
+    }
+    if ($Apply -and $DryRun) {
+        Write-Host '[ERROR] -Apply and -DryRun contradict each other -- name one. -ReleaseAll is a dry run unless -Apply.' -ForegroundColor Red
+        exit 1
+    }
+}
+if (-not $Candidates -and -not $ReleaseAll) {
     $raw = $Issue.Trim().TrimStart('#')
     if ($raw -match '/([0-9]+)/?$') { $raw = $Matches[1] }
     if ($raw -notmatch '^[0-9]+$') {
@@ -235,7 +269,7 @@ if (-not $Candidates) {
     # relies on.
     if (($Verify -or $Release) -and -not $Tag) {
         $named = if ($Verify -and $Release) { '-Verify and -Release' } elseif ($Verify) { '-Verify' } else { '-Release' }
-        Write-Host "[ERROR] $named only mean something with -Tag -- nothing was read or written." -ForegroundColor Red
+        Write-Host "[ERROR] $named only $(if ($Verify -and $Release) { 'mean' } else { 'means' }) something with -Tag -- nothing was read or written." -ForegroundColor Red
         Write-Host '        They read and drop a TAG claim (the marker comment). The default mode claims by' -ForegroundColor Red
         Write-Host '        assignee and has nothing of this session''s to verify or release.' -ForegroundColor Red
         exit 1
@@ -286,6 +320,7 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
 $repoArgs = if ($repoName) { @('--repo', $repoName) } else { @() }
 
 $banner = if ($Candidates) { 'candidates' }
+          elseif ($ReleaseAll) { "-Tag -ReleaseAll$(if ($Apply) { ' -Apply' })" }
           elseif ($Verify) { "#$number -Tag -Verify" }
           elseif ($Release) { "#$number -Tag -Release" }
           elseif ($TakeOver) { "#$number -Tag -TakeOver" }
@@ -358,6 +393,107 @@ if ($Tag -or $Candidates) {
         exit 1
     }
     Write-Host "  tag: $($claimTag.Tag)"
+}
+
+# --- THE TWO WRITES THAT UNDO A TAG CLAIM ---------------------------------------------------------
+#
+# ONE WAY TO DELETE A MARKER, used by -Release, -ReleaseAll (#2395) and -TakeOver (#2387). Returns how
+# many of the given records could NOT be deleted, so every caller reports a partial delete the same way.
+# Defined up here, ahead of every mode, because -ReleaseAll acts before the per-issue read below.
+#
+# THE GRAPHQL MUTATION RATHER THAN THE REST ROUTE, because the id in hand is the node id
+# `gh issue view --json comments` returns ('IC_...'). REST wants the numeric database id, which would
+# mean a second read of the same comments to learn a number we already have an identifier for.
+function Remove-ClaimMarkerComments {
+    param([object[]]$Records)
+    $failedCount = 0
+    foreach ($record in @($Records)) {
+        if (-not $record.Id) { $failedCount++; continue }
+        $deleteArgs = @('api', 'graphql', '-f', 'query=mutation($id:ID!){deleteIssueComment(input:{id:$id}){clientMutationId}}', '-f', "id=$($record.Id)")
+        $del = Invoke-NativeCapture -FilePath 'gh' -Arguments $deleteArgs -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not $del -or -not (Test-NativeExitMeasured -Capture $del) -or $del.ExitCode -ne 0) { $failedCount++ }
+    }
+    return $failedCount
+}
+
+# AND ONE WAY TO DROP THE ASSIGNEE A TAG CLAIM WROTE BESIDE ITS MARKER -- this checkout's own account,
+# never anybody else's. $true when gh answered 0; the callers decide what a failure costs.
+function Remove-ClaimAssignee {
+    param([string]$IssueNumber)
+    $unassign = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'edit', $IssueNumber) + $repoArgs + @('--remove-assignee', $identity.Account)) -Utf8 `
+                                     -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    return [bool]($unassign -and (Test-NativeExitMeasured -Capture $unassign) -and $unassign.ExitCode -eq 0)
+}
+
+# --- EVERY CLAIM OF THIS TAG, RELEASED (-ReleaseAll, issue #2395) ---------------------------------
+#
+# THE BOUND IS THE FEATURE. The owner first proposed wiping every marker and assignee before a device
+# switch; the red-team verdict was to build this instead. Other markers are other machines' and
+# colleagues' live claims, and in tag mode a foreign assignee is whose TICKET an issue is -- deleting
+# either recreates the duplicate-work hazard #2207 and #2243 closed, and cannot be undone. So
+# Get-OwnTagClaims returns only this tag's own records, and the assignee dropped is this checkout's own
+# and only where this tag's marker sits beside it.
+#
+# DRY-RUN UNLESS -Apply, the inverse of every other mode here, because this is the one write that
+# fans out over a whole backlog on a single command.
+#
+# A CONVENIENCE, NOT THE MECHANISM. -TakeOver resumes on another machine with no prior release, so a
+# release forgotten here costs nothing; this only keeps the next machine's -Candidates from reading
+# your own old tag as 'held' after a switch you planned.
+if ($ReleaseAll) {
+    $listArgs = @('issue', 'list') + $repoArgs + @('--state', 'open', '--limit', "$Limit", '--json', 'number,title,assignees,comments')
+    $ownList = Invoke-NativeCapture -FilePath 'gh' -Arguments $listArgs -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if (-not $ownList -or -not (Test-NativeExitMeasured -Capture $ownList) -or $ownList.ExitCode -ne 0 -or $ownList.ShortRead) {
+        # AN UNREAD BACKLOG IS NOT ONE WITH NOTHING TO RELEASE, and saying "nothing held" here would send
+        # the operator off to the next machine with every marker still standing.
+        Write-Host '[ERROR] could not read the open issues -- nothing was judged or released.' -ForegroundColor Red
+        Write-Host '        Check gh (gh auth status) and run it again.' -ForegroundColor Red
+        exit 1
+    }
+    $ownJson = @($ownList.Output) -join "`n"
+    $held = @(Get-OwnTagClaims -Json $ownJson -Tag $claimTag.Tag -Account $identity.Account -Marker $Marker)
+    # A FULL PAGE MAY BE A TRUNCATED ONE: an issue past -Limit is never read, so its marker would stand
+    # while the run reports success.
+    # Two statements, not @($ownJson | ConvertFrom-Json): in 5.1 ConvertFrom-Json emits the array as ONE
+    # pipeline object, so wrapping the pipeline counts 1 whatever the payload holds -- and this warning
+    # could never fire (measured in review on a two-issue payload at -Limit 2).
+    $readCount = 0
+    try { $parsedList = $ownJson | ConvertFrom-Json; $readCount = @($parsedList).Count } catch { $readCount = 0 }
+    if ($readCount -ge $Limit) {
+        Write-Host "  [limit] read $readCount open issues, which is the -Limit -- older ones were not looked at. Raise -Limit to be sure." -ForegroundColor Yellow
+    }
+
+    if ($held.Count -eq 0) {
+        Write-Host "[OK] no open issue carries a claim of this tag ($($claimTag.Tag)) -- nothing to release." -ForegroundColor Green
+        exit 0
+    }
+    foreach ($h in $held) {
+        $assignNote = if ($h.Assigned) { ", assignee '$($identity.Account)'" } else { '' }
+        Write-Host ("  #{0,-6} {1} marker(s){2}  {3}" -f $h.Number, @($h.Records).Count, $assignNote, (Format-ForConsole -Text $h.Title))
+    }
+
+    if (-not $Apply) {
+        Write-Host "[DRY RUN] would release $($held.Count) issue(s) held by $($claimTag.Tag) -- only this tag's markers and this account's assignee. Nothing was written." -ForegroundColor Yellow
+        Write-Host "          Release them with: claim-issue.ps1 -Tag -ReleaseAll -Apply" -ForegroundColor Yellow
+        exit 0
+    }
+
+    $stillHeld = @()
+    foreach ($h in $held) {
+        $failedMarkers = Remove-ClaimMarkerComments -Records @($h.Records)
+        if ($failedMarkers -gt 0) { $stillHeld += $h.Number }
+        # The assignee's failure is a warning, as in -Release: the marker is the claim.
+        if ($h.Assigned -and -not (Remove-ClaimAssignee -IssueNumber ([string]$h.Number))) {
+            Write-Host "  [WARNING] the assignee '$($identity.Account)' could not be removed from #$($h.Number) -- the marker is what another session reads." -ForegroundColor Yellow
+        }
+    }
+    if ($stillHeld.Count -gt 0) {
+        Write-Host "[ERROR] $($stillHeld.Count) of $($held.Count) issue(s) MAY STILL READ AS HELD: #$($stillHeld -join ', #') -- a marker could not be deleted." -ForegroundColor Red
+        Write-Host '        Run this again; it only ever touches what this tag still holds.' -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "[OK] released $($held.Count) issue(s) held by $($claimTag.Tag) -- they are free for the next machine." -ForegroundColor Green
+    exit 0
 }
 
 # --- WHICH ISSUES ARE FREE (-Candidates) ----------------------------------------------------------
@@ -600,24 +736,6 @@ if ($assignees.Count -gt 0) { Write-Host "  assignees: $($assignees -join ', ')"
 $tagVerdict = $null
 $claimRecords = @()
 
-# ONE WAY TO DELETE A MARKER, used by -Release and by -TakeOver (#2387). Returns how many of the given
-# records could NOT be deleted, so both callers report a partial delete the same way.
-#
-# THE GRAPHQL MUTATION RATHER THAN THE REST ROUTE, because the id in hand is the node id
-# `gh issue view --json comments` returns ('IC_...'). REST wants the numeric database id, which would
-# mean a second read of the same comments to learn a number we already have an identifier for.
-function Remove-ClaimMarkerComments {
-    param([object[]]$Records)
-    $failedCount = 0
-    foreach ($record in @($Records)) {
-        if (-not $record.Id) { $failedCount++; continue }
-        $deleteArgs = @('api', 'graphql', '-f', 'query=mutation($id:ID!){deleteIssueComment(input:{id:$id}){clientMutationId}}', '-f', "id=$($record.Id)")
-        $del = Invoke-NativeCapture -FilePath 'gh' -Arguments $deleteArgs -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-        if (-not $del -or -not (Test-NativeExitMeasured -Capture $del) -or $del.ExitCode -ne 0) { $failedCount++ }
-    }
-    return $failedCount
-}
-
 $takeOverFrom = @()
 $takeOverAuthors = @()
 $takeOverBranch = ''
@@ -669,9 +787,7 @@ if ($Tag) {
         # The assignee goes with it, and its failure is a WARNING rather than a stop: the marker is the
         # claim, so an assignee left behind is untidy where a marker left behind is a held issue.
         if ($assignees -contains $identity.Account) {
-            $unassign = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'edit', $number) + $repoArgs + @('--remove-assignee', $identity.Account)) -Utf8 `
-                                             -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-            if (-not $unassign -or -not (Test-NativeExitMeasured -Capture $unassign) -or $unassign.ExitCode -ne 0) {
+            if (-not (Remove-ClaimAssignee -IssueNumber $number)) {
                 Write-Host "[WARNING] the assignee '$($identity.Account)' could not be removed from #$number." -ForegroundColor Yellow
                 Write-Host "          The claim itself is released -- the marker is what another session reads." -ForegroundColor Yellow
             }

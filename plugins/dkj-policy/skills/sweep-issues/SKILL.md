@@ -116,6 +116,12 @@ than one account**, declare the others in `DKJ_OWN_ACCOUNTS` (the `env` block of
 `~/.claude/settings.json`) -- a branch on origin written by one of your declared accounts is then
 resumable through `-TakeOver`, and an undeclared author still stops you.
 
+**Leaving a machine on purpose, you can tidy first** -- `claim-issue.ps1 -Tag -ReleaseAll` lists every
+open issue this tag holds, and `-Apply` releases them, so the next machine's `-Candidates` does not read
+your old tag as `held` ([#2395](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2395)). It
+touches this tag's own markers only, never another's, and it is optional: `-TakeOver` above is what
+covers the switch you did not plan.
+
 ### 3. Build it
 
 Read the issue and its comments in full. Then the ordinary workflow, unchanged:

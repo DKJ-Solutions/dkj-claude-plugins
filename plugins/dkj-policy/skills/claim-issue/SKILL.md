@@ -81,6 +81,17 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   otherwise. It is what a session runs before resuming a branch it parked hours ago.
 - **`-Release`** (with `-Tag`) -- drop this tag's claim: its own marker comments and its assignee, and
   nothing else. Another session's marker is another session's record and is never touched.
+- **`-ReleaseAll`** (with `-Tag`, no issue number) -- `-Release` over every open issue at once, for a
+  **planned** device switch, so a sweep on the next machine does not read your own old tag as `held`
+  ([#2395](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2395)). **It is bounded exactly
+  as `-Release` is: this tag's own markers, and this account's assignee only where one of those markers
+  sits beside it.** A marker counts as this tag's only when its comment was written by the tag's own
+  account, so a comment somebody else plants with your tag in it is not released. Another tag's marker is never touched, even another machine under your own account,
+  and a bare assignee with no marker of this tag stays, because in tag mode that is whose ticket it is.
+  **It is a dry run unless `-Apply`**: it lists what it would release and writes nothing. It is *not* the
+  wipe-all it replaced -- deleting other markers recreates the duplicate-work hazard #2207 and #2243
+  closed, and cannot be undone -- and it is not needed for a switch you forgot to plan either:
+  `-TakeOver` resumes on the new machine with no release at all.
 - **`-TakeOver`** (with `-Tag`) -- hand a `held` issue over to this machine, deliberately (#2387). Only
   where the holder is **this same gh account** on another machine and **exactly one** `<prefix>/<n>-...`
   branch for it is on origin; a colleague's claim, no branch, or several are each refused. It is the one
