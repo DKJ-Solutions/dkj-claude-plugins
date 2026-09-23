@@ -44,7 +44,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 17 minor entries** <!-- pending-tally -->
+**5 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2379-native-capture-exitcode-flake · 20260923-181117Z
+
+`native-capture.tests.ps1` no longer goes red on #1931's 1-in-300 unmeasured exit code
+([#2379](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2379)). The exact-exit asserts on the
+Start-Process arm now re-ask a real child up to three times, and only while the lib itself reports
+`ExitCodeUnknown`. The regression they guard is a dropped `.Handle` read, which empties every attempt, so
+it still fails. The lib is unchanged: it was already reporting the race correctly. Nobody outside this
+repo's CI notices.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: test-only, never reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+native-capture.tests: re-ask an -Utf8 exit-code assert only while the lib reports ExitCodeUnknown
+
+[PR #2383](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2383)
+
+---
 
 ### DEPLOY: fix/2384-run-progress-fixed-clock · 20260923-180053Z
 
