@@ -137,11 +137,14 @@ The review round was re-run from scratch.
 
 ### TEST
 
-- [x] `scripts/tests/roster-sync.tests.ps1`: cases 18f-18i. 408 pass, 0 fail; case 18b left exactly as it was.
-- [ ] Code review, copy edit and security review on the diff — started, cut off by the session ending,
-      no verdict received. Re-run from scratch.
-- [ ] `check-plugin-integrity.ps1` plus every suite green. Lint is clean; the suite half is the red-on-two
-      state described under PLAN, and the way past it is the open decision recorded there.
+- [x] `scripts/tests/roster-sync.tests.ps1`: cases 18f-18i. 414 pass, 0 fail after the merge with #2224;
+      case 18b left exactly as it was.
+- [x] Code review, copy edit and security review on the diff — re-run from scratch on September 23, 2026.
+      Code review: no bugs, merge resolution sound. Copy edit: PLAN was stale about #2224, repaired. Security:
+      nothing blocking; advised that the comment claimed a content-identity guarantee the code does not give
+      (the pairing is a naming match) — the comment now says so.
+- [x] `check-plugin-integrity.ps1` clean (0 errors). The suite half runs in CI's required `lint-en-tests`,
+      per #2267 for this machine; `open-pr` runs with `-SkipTests` and the PR body says so.
 
 ### DEPLOY: fix/2226-roster-check-overlap-exemption
 

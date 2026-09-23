@@ -631,8 +631,12 @@ if ($seamImports.Count -gt 0) {
             # Deliberately narrow: same directory required (only the leaf's 'specialist-' prefix is
             # normalised, #2128 never touched directories); a sibling that is ALSO dead does not soften
             # this to [INFO] (both stay [ERROR] -- that is the genuine "the orchestrator has no body"
-            # state this check exists for); and a live sibling that resolves to a DIFFERENT document
-            # does not count as an overlap pair either.
+            # state this check exists for); and a live sibling under a different directory or leaf
+            # does not count as an overlap pair either. The pairing is a NAMING match -- same directory,
+            # same leaf modulo 'specialist-' -- and never a content comparison: two files that share the
+            # key are assumed to be the two spellings of one document, which is what #2128 produced. It
+            # opens nothing an editor of this file does not already have: deleting the dead line
+            # silences it just as completely.
             $overlapKey = Get-ImportOverlapKey -Import $imp
             $liveSibling = $null
             foreach ($other in $seamImports) {
