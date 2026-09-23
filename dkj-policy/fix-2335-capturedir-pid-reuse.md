@@ -41,19 +41,42 @@
 
 The fixture's CaptureDir lookup globs test-suite-gate-<pid>-* and demands exactly one hit, so a retained capture directory from an earlier, dead process with the same PID makes a red run read as having kept nothing.
 
+#### The reason, measured before the repair
+
+#2335 inferred a sibling suite deleting the directory. It is not deleted -- it is never *found*. The
+lookup took the child's PID as unique, but red runs retain their capture directory on purpose (#1636):
+this machine's temp folder held **110** `test-suite-gate-<pid>-*` leaves, with PIDs 13876 and 31180
+twice and 37660 three times. A driver that draws a dead run's PID matches two leaves, the `-eq 1`
+returns `''`, and exactly the four positive retention asserts fail while the two negative ones pass --
+#2335's signature to the assert. Standalone re-runs pass because they draw a fresh PID.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Invoke-Gate` records the child's launch time; the lookup (now `Find-GateCaptureDir`) keeps only
+      leaves created at or after it.
+- [x] Regression asserts on a planted stale leaf with the same PID, inside `$Fixture`.
 
 ### TEST
 
+- [x] `test-suite-gate.tests.ps1` standalone: 328 pass, 0 fail (326 + the 2 new).
+
 ### DEPLOY: fix/2335-capturedir-pid-reuse
 
-**Score:**
+`test-suite-gate.tests.ps1` could go red under the local gate on a correct gate: the lookup that finds a
+red fixture run's kept capture directory globbed `test-suite-gate-<pid>-*` and demanded exactly one hit,
+while every earlier red run's directory is kept on purpose -- 110 of them in the authoring machine's
+temp folder, PIDs already repeating. A driver drawing a dead run's PID found two and read as having kept
+nothing. The lookup now also requires the directory to be newer than the child's launch, and a planted
+stale leaf pins it (#2335).
+
+**Score:** 2 -- an intermittent false-red on one suite of the local gate, costing a re-run and a
+judgement call; the gate itself was always right.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- `scripts/tests/` is not mirrored into consumers, and the gate lib is untouched.
+
+**Score:** N/A
 
 #### Pull Request
 
