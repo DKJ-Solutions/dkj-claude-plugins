@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#2379 read the red `native-capture.tests` shard as a lib defect. It is not: the empty value is #1931's
+documented race, and the lib already reports it as `ExitCodeUnknown`. The flaky part is the test, which
+took a single answer as a regression.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Invoke-MeasuredCapture` in `scripts/tests/native-capture.tests.ps1`: re-asks a real child up to three times, only while the capture says `ExitCodeUnknown` (never after a timeout or a failed launch)
+- [x] the exact-exit asserts on the Start-Process arm (exit 0, exit 3, the bounded exit 7, the `git --version` probe) go through it
+- [x] the re-ask pinned both ways against a stand-in: a race that clears yields the code, and an empty that persists stays empty
 
 ### TEST
 
+- [x] `native-capture.tests.ps1` alone: 352 pass, 0 fail
+
 ### DEPLOY: fix/2379-native-capture-exitcode-flake
 
-**Score:**
+`native-capture.tests.ps1` no longer goes red on #1931's 1-in-300 unmeasured exit code
+([#2379](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2379)). The exact-exit asserts on the
+Start-Process arm now re-ask a real child up to three times, and only while the lib itself reports
+`ExitCodeUnknown`. The regression they guard is a dropped `.Handle` read, which empties every attempt, so
+it still fails. The lib is unchanged: it was already reporting the race correctly. Nobody outside this
+repo's CI notices.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: test-only, never reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
