@@ -74,6 +74,9 @@
   settle window, the age parser (slowest check, UTC, unreadable shapes, zero date), the picker reading
   `completedAt`, NaN/Infinity ages, and arming before step 3 plus disarming at all four refusals (structural). PowerShell 7
   is not installed on this machine, so the PS 7 date branch runs only in CI, if CI runs it.
+- [x] After the merge of `main`: 110 pass, 0 fail. #2338's "a path that merely NAMES scripts" assert
+  called the verdict without an age, so the settle window refused it (fail-closed). It now passes
+  `-GreenAgeMinutes 30`, the same as every other eligible assert in the suite.
 - [x] `ship-pr.ps1` parses clean. `gh pr checks 2390 --required --json completedAt` returns the field as ISO Z.
 
 ### DEPLOY: fix/2393-arm-merge-when-green-on-watch

@@ -173,7 +173,7 @@ foreach ($hit in @(
 }
 Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts\repo-config.ps1')) -MergeBlockVerdict (New-Green)).Eligible) `
     'a backslash spelling is the same path'
-Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green)).Eligible `
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
     'a path that merely NAMES scripts is not one -- the match is anchored on the directory'
 # FAIL-CLOSED ON A LIST THAT DID NOT SHOW THE WHOLE DIFF: gh returns at most 100 files per record.
 $truncated = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md') -ChangedFiles 150) -MergeBlockVerdict (New-Green)
