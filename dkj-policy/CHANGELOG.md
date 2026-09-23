@@ -44,7 +44,31 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 20 minor entries** <!-- pending-tally -->
+**6 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2388-durations-merge-advice · 20260923-191439Z
+
+`record-suite-durations.ps1`'s no-table refusal used to send the caller from a `fold:` run to the
+`merge:` run beside it. Since the merge-commit certificate (#2303), that run normally has no suite table
+either. The refusal and the `-RunId` docstring now name a PR run, the run that always has one. This prevents a
+failure that already happened twice during #2304's duration re-reads: a maintainer following the throw's
+advice to a second tableless run.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+record-suite-durations: the no-table refusal names a PR run, not a merge run
+
+[PR #2389](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2389)
+
+---
 
 ### DEPLOY: feat/2333-pin-write-runners · 20260923-183716Z
 
