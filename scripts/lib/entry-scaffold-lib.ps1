@@ -804,7 +804,18 @@ function Format-EntryFoldFooter {
 
 function Format-EntryMergeStamp {
     <#
-        Pure: the merge moment as it is written into the entry's own heading -- '20260819-171500'.
+        Pure: the merge moment as it is written into the entry's own heading -- '20260819-171500Z'.
+
+        AND IT SAYS SO, since inbound #2240: the trailing 'Z' is the ISO 8601 zone designator, so the stamp
+        states the zone it is in instead of leaving the reader to supply their own. The value is unchanged --
+        what the marker fixes is a stamp that was right and unreadable as right in every non-UTC timezone.
+        See $script:EntryMergeStampZoneMarker for the measurement and for why the sort key survives it.
+
+        THE MARKER IS GUARANTEED ON BOTH PATHS, including the fallback, and that is the reason it is
+        appended here rather than by each caller. A caller hands in $FallbackNow as a bare stamp -- the fold
+        composes it straight off the clock -- so a marker applied at the call site would be on the field the
+        caller remembered and off the one it did not, which is a changelog carrying both spellings for no
+        reason a reader could work out. One writer, one guarantee.
 
         RENDERED IN UTC, deliberately (inbound #1542): since #1280 Get-EntryInsertOffset derives the
         entry's INSERT POSITION from this stamp -- it walks to the first entry in the list whose own stamp
@@ -825,8 +836,18 @@ function Format-EntryMergeStamp {
         [string]$MergedAt = '',
         [Parameter(Mandatory)][string]$FallbackNow
     )
-    if (-not $MergedAt) { return $FallbackNow }
-    try { return ([datetime]$MergedAt).ToUniversalTime().ToString('yyyyMMdd-HHmmss') } catch { return $FallbackNow }
+    # THE MARKER IS APPLIED ONCE, TO WHICHEVER VALUE THIS RETURNS, and an already-marked input is not
+    # marked twice -- a caller that has read a stamp back out of a heading and hands it in as the fallback
+    # must not produce '...ZZ'. TrimEnd on the marker rather than a match-and-skip, so the idempotence does
+    # not depend on the marker being one character.
+    $marker = $script:EntryMergeStampZoneMarker
+    $stamp = $FallbackNow
+    if ($MergedAt) {
+        try { $stamp = ([datetime]$MergedAt).ToUniversalTime().ToString('yyyyMMdd-HHmmss') } catch { $stamp = $FallbackNow }
+    }
+    # No empty-stamp case to guard: $FallbackNow is Mandatory without AllowEmptyString, so PowerShell
+    # refuses '' at the binding and every path above therefore holds a stamp.
+    return ($stamp.TrimEnd($marker) + $marker)
 }
 
 function Get-EntryMergeStampTarget {
@@ -3448,6 +3469,30 @@ $script:EntryMergeStampTemplatePlaceholder = '<timestamp of the moment this bran
 # downstream too, one gate later and after it had been copied into somebody's entry.
 $script:EntryIdSeparator = [string][char]0x00B7
 
+# What marks the merge stamp as UTC: the ISO 8601 zone designator, appended to the stamp the fold writes
+# ('20260921-143322Z'). One character, and it answers the only thing '20260921-143322' could not say.
+#
+# INBOUND #2240, AND IT REOPENS NOTHING #1542 SETTLED. That issue established that the stamp is RENDERED in
+# UTC and must stay so, because since #1280 it is Get-EntryInsertOffset's sort key and a repo folds from
+# both a UTC runner and a maintainer's laptop. That reasoning holds and is untouched here. What was open is
+# narrower: the VALUE was right and the value did not say which zone it was in, so a reader supplied their
+# own -- and in every non-UTC timezone that reading is wrong. Measured September 21, 2026 in
+# BWJ-Development/smartwatchbanden: an entry that had landed eight minutes earlier carried
+# '20260921-143322' and was reported as stale, correctly read as 14:33 local against a 16:41 wall clock in
+# Europe/Amsterdam. Correctness of the value and legibility of the value are separate problems; only the
+# second one was ever open.
+#
+# AND IT IS READ LONG AFTER THE FOLD, which is why marking the changelog's introduction instead was the
+# weaker answer. The same heading is copied verbatim into the release record under
+# releases/changelog/<X>.x/<X.Y.Z>.md, where no introduction travels with it -- so every historical entry
+# carries the stamp to readers who were not there when it landed.
+#
+# A SUFFIX RATHER THAN A SEPARATE FIELD, because the suffix is constant across every stamp and sits at the
+# end: 'yyyyMMdd-HHmmss' stays fixed-width and big-endian in its first 15 characters, so the ordinal
+# comparison #1280's walk makes is still the chronological one. Get-EntryHeadingStamp NORMALISES it away
+# rather than passing it through -- see there for why the key stays 15 characters wide.
+$script:EntryMergeStampZoneMarker = 'Z'
+
 function Get-EntrySectionHeadingTail {
     <#
         Pure: the regex tail every section-heading matcher ends with -- what may legitimately follow a
@@ -3483,6 +3528,25 @@ function Get-EntryHeadingStamp {
         inverse of Format-EntrySectionHeadingSuffix, and placed beside it so the writer and the reader
         cannot drift apart about the spacing or the separator.
 
+        BOTH SPELLINGS ARE READ AND ONE IS RETURNED (inbound #2240). The zone marker Format-EntryMergeStamp
+        now appends is optional here and is STRIPPED from the answer, so what comes back is the bare
+        'yyyyMMdd-HHmmss' key whichever form the heading carried. Two reasons, and the second is the one
+        that decides it:
+
+          It has to accept the bare form for ever. Every entry already folded carries no marker -- in this
+          repo's CHANGELOG.md, in every consumer's, and in every release record under
+          releases/changelog/ -- and so does every entry in flight on a branch during the rollout. A reader
+          that required the marker would read all of them as carrying no stamp, which this function's own
+          no-stamp path treats as "stop the walk": the entry would be placed by the pre-#1280 answer
+          silently, in the one document whose subject is when things landed.
+
+          It must not order by NOTATION. Returning the marker would leave the caller comparing a 15- and a
+          16-character key, and [string]::CompareOrdinal then ranks the bare one first for the SAME
+          instant -- so during the rollout window two entries that landed in the same second would be
+          ordered by which spelling they happened to be written in. Stripping it makes that a genuine tie,
+          which the walk already has a rule for (equal stamps continue, so the entry folded first stays on
+          top). It also keeps the paragraph below literally true rather than nearly true.
+
         STRICT ABOUT THE SHAPE, WHERE THE TAIL PATTERN IS DELIBERATELY LOOSE, and the difference is the
         reason this function exists rather than a capture group being added to Get-EntrySectionHeadingTail.
         That tail is a TOLERANCE -- '(?:\s<sep>\s\S.*?)?\s*$', anything non-blank -- and its own docstring
@@ -3499,7 +3563,13 @@ function Get-EntryHeadingStamp {
         happens once, here.
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$HeadingLine)
-    $m = [regex]::Match($HeadingLine, '\s' + [regex]::Escape($script:EntryIdSeparator) + '\s+(\d{8}-\d{6})\s*$')
+    # The marker is matched OUTSIDE the capture, which is the whole of the normalisation: the group is the
+    # 15-character key either way, so no caller has to know the suffix exists.
+    # GROUPED BEFORE THE '?', so the marker stays optional as a WHOLE. Escaping it bare would make only its
+    # last character optional, which is invisible while the marker is one character and wrong the day it is
+    # not -- the kind of latent defect a named constant exists to keep out.
+    $m = [regex]::Match($HeadingLine, '\s' + [regex]::Escape($script:EntryIdSeparator) + '\s+(\d{8}-\d{6})(?:' +
+        [regex]::Escape($script:EntryMergeStampZoneMarker) + ')?\s*$')
     if ($m.Success) { return $m.Groups[1].Value }
     return ''
 }
@@ -3507,6 +3577,12 @@ function Get-EntryHeadingStamp {
 function Get-EntryIdSeparator {
     <# The separator between the entry's title and its creation stamp -- U+00B7 MIDDLE DOT. #>
     return $script:EntryIdSeparator
+}
+
+function Get-EntryMergeStampZoneMarker {
+    <# What marks the merge stamp as UTC -- the ISO 8601 'Z' (inbound #2240). Read by this lib's own suite,
+       so the assertions cannot claim a marker the writer does not append. #>
+    return $script:EntryMergeStampZoneMarker
 }
 
 # --- RETIRED, SEPTEMBER 3, 2026 (#1335): Get-EntryIdTemplatePlaceholder ------------------------------

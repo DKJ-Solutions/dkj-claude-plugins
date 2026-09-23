@@ -1008,6 +1008,10 @@ foreach ($file in $entryFiles) {
         # The fallback is UTC, matching Format-EntryMergeStamp's own rendering (inbound #1542): since
         # #1280 this stamp is Get-EntryInsertOffset's sort key, and a local-time fallback on one machine
         # would sort against UTC stamps written on another.
+        #
+        # IT IS COMPOSED WITHOUT THE ZONE MARKER ON PURPOSE (inbound #2240). Format-EntryMergeStamp appends
+        # that itself, to whichever of its two values it returns, so this line hands it the moment and not
+        # the notation -- and the fallback path cannot end up spelled differently from the PR path.
         $mergeStamp = Format-EntryMergeStamp -MergedAt ([string]$prs[0].mergedAt) `
             -FallbackNow ((Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss'))
         $stampFitsTheHeading = Test-EntryHeadingTakesMergeStamp -EntryText $entryContent
