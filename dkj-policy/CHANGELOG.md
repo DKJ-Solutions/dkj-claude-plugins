@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 13 minor entries** <!-- pending-tally -->
+**5 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2360-asana-task-only-with-reach-label · 20260923-151130Z
+
+`report-issue` created a colleague-facing Asana task for every issue it filed, although step 1 had just
+decided whether a colleague would notice the finding at all. Now only an issue carrying the reach label
+gets a card; a tier-0 issue stays GitHub-only, and the report says so, so the missing card reads as a
+decision. A ticket that came from Asana keeps its card, and an issue that gains the label later is
+mirrored at that moment. The rule is stated in `WORKFLOW-portable.md` section 2.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store's board stops receiving cards for developer-only findings after the next plugin update: four
+such cards were open in `smartwatchbanden` on the day the rule was written, one of them for a
+comment-only fix whose card forced its pull request to ship without resolving the issue. Colleagues see
+fewer cards, and every card that remains is one they can check in a preview.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue: only an issue carrying the reach label gets an Asana task
+
+Plugins: dkj-policy-bwj
+
+[PR #2377](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2377)
+
+---
 
 ### DEPLOY: fix/2304-rerecord-durations-after-split · 20260923-145307Z
 
