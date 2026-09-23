@@ -14,8 +14,10 @@
     worked was deleting it BY ID through the API and uploading without --clobber. That route is this
     script.
 
-    SO IT NEVER ASKS gh TO FIND AN ASSET BY NAME. It reads the release's asset list from the REST API
-    itself (repos/{repo}/releases/tags/{tag}), matches the name here, and deletes by the id it read.
+    SO IT NEVER ASKS gh TO FIND AN ASSET BY NAME. It resolves the Release id from the tag, reads the
+    asset list from repos/{repo}/releases/{id}/assets, matches the name here, and deletes by the id it
+    read. Not `gh release view --json assets` either: that returned [] for v5.7.0 while the assets
+    endpoint listed both attachments (#2349).
     --clobber is deliberately not passed: after the delete there is nothing to clobber, and a name that
     somehow still exists should fail loudly rather than be resolved by the lookup that already failed.
 
@@ -85,26 +87,48 @@ $repoArgs = @()
 $apiRepo = '{owner}/{repo}'  # gh api expands these placeholders from the current checkout
 if ($Repo) { $repoArgs = @('--repo', $Repo); $apiRepo = $Repo }
 
-function Get-ReleaseAssets {
-    <# The release's assets as objects (id, name, size), read from the REST API -- never through a gh
-       subcommand that looks an asset up by name, which is the half #2347 measured failing. Returns
-       $null when the read itself failed, so "no assets" and "could not read" stay different answers. #>
+function Get-ReleaseId {
+    <# The Release's numeric id for -Tag, or $null when there is no Release (or the read failed). The id
+       is all this read is trusted for: the ASSET LIST comes from its own endpoint, below. #>
     $r = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @('api', "repos/$apiRepo/releases/tags/$Tag") `
         -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     if (-not (Test-NativeExitMeasured -Capture $r) -or $r.ExitCode -ne 0) { return $null }
     try { $release = (($r.Output -join "`n") | ConvertFrom-Json) } catch { return $null }
-    # The leading comma keeps an EMPTY list a list: returned bare, @() unrolls to $null, and a Release
-    # with no attachments yet -- step 5's first upload -- would read as a Release that could not be read.
-    return ,@($release.assets | Where-Object { $_ } | ForEach-Object {
+    if (-not $release.id) { return $null }
+    return [string]$release.id
+}
+
+function Get-ReleaseAssets {
+    <# The release's assets as objects (id, name, size), read from repos/{repo}/releases/{id}/assets --
+       never through a gh subcommand that looks an asset up by name, which is the half #2347 measured
+       failing, and never through `gh release view --json assets`, which returned [] for v5.7.0 while
+       this endpoint listed both assets at their right sizes (#2349, measured on #2347). A read-back
+       that sees nothing where the upload landed would report a successful upload as missing.
+       Returns $null when the read itself failed, so "no assets" and "could not read" stay different. #>
+    $r = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @('api', "repos/$apiRepo/releases/$releaseId/assets?per_page=100") `
+        -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if (-not (Test-NativeExitMeasured -Capture $r) -or $r.ExitCode -ne 0) { return $null }
+    try { $parsed = (($r.Output -join "`n") | ConvertFrom-Json) } catch { return $null }
+    # Assign first, then wrap: @(... | ConvertFrom-Json) on 5.1 yields ONE element holding the whole
+    # array. And the leading comma keeps an EMPTY list a list: returned bare, @() unrolls to $null, and a
+    # Release with no attachments yet -- step 5's first upload -- would read as one that could not be read.
+    return ,@(@($parsed) | Where-Object { $_ } | ForEach-Object {
         [pscustomobject]@{ Id = [string]$_.id; Name = [string]$_.name; Size = [long]$_.size }
     })
 }
 
+
 Write-Host "== upload-release-asset: $assetName -> $Tag ($expectedBytes B) ==" -ForegroundColor Cyan
 
+$releaseId = Get-ReleaseId
+if ($null -eq $releaseId) {
+    Write-Host "[ERROR] could not read a Release for tag '$Tag' -- nothing was deleted or uploaded." -ForegroundColor Red
+    Write-Host "        The tag needs a published Release first. Check: gh release view $Tag" -ForegroundColor Red
+    exit 1
+}
 $before = Get-ReleaseAssets
 if ($null -eq $before) {
-    Write-Host "[ERROR] could not read the Release for tag '$Tag' -- nothing was deleted or uploaded." -ForegroundColor Red
+    Write-Host "[ERROR] could not read the assets of Release $releaseId ($Tag) -- nothing was deleted or uploaded." -ForegroundColor Red
     Write-Host "        The tag needs a published Release first. Check: gh release view $Tag" -ForegroundColor Red
     exit 1
 }
@@ -136,7 +160,7 @@ function Write-UploadOutput { foreach ($line in @($up.Output)) { if ("$line".Tri
 $after = Get-ReleaseAssets
 if ($null -eq $after) {
     Write-Host "[WARNING] the upload ended with $uploadExit, and the Release could not be read back, so this run cannot say whether $assetName is published." -ForegroundColor Yellow
-    Write-Host "          Check: gh release view $Tag --json assets" -ForegroundColor Yellow
+    Write-Host "          Check: gh api repos/$apiRepo/releases/$releaseId/assets -- not gh release view, which can list none (#2349)" -ForegroundColor Yellow
     exit 1
 }
 $published = @($after | Where-Object { $_.Name -eq $assetName })

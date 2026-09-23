@@ -1823,9 +1823,9 @@ foreach ($af in $auditFiles) {
 # The scan's sibling read -- the `git diff --name-only` for this branch's own paths -- is deliberately
 # NOT bounded: it touches no network, and the standing convention here bounds the calls that can hang
 # on one.
-# 71 -> 74 (#2347): upload-release-asset.ps1's asset read, by-id delete and upload -- all three network
+# 71 -> 75 (#2347): upload-release-asset.ps1's release-id read, asset-list read, by-id delete and upload -- all four network
 # calls, each judged through Test-NativeExitMeasured / Get-NativeExitLabel.
-Assert-Equal 74 $boundedTotal 'the parser still counts 74 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+Assert-Equal 75 $boundedTotal 'the parser still counts 75 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

@@ -44,8 +44,9 @@ uploads, and verifies the size.
 
 #### Triage (#2347)
 
-- Symptom not reproducible now: `v5.7.0` has **no** assets at all (measured with `gh release view`), so
-  the stale asset is gone -- and so is everything else. Filed as #2349 (outward-facing repair, not this branch).
+- Symptom not reproducible now: `v5.7.0` carries both assets at the committed sizes. #2349, filed from
+  `gh release view --json assets` returning [], was a false negative of that read and is closed -- which is
+  why the helper reads `releases/{id}/assets`.
 - Reason inferred by the report (gh's name lookup) is not verified here; the repair does not depend on
   it, because the helper never asks gh to resolve an asset by name.
 - Repair: the report's second option, a helper, since the upload runs twice per cut (step 5 and the
@@ -57,6 +58,7 @@ uploads, and verifies the size.
 - [x] `cut-release` SKILL.md: step 5 and the second pass call the helper; the `--clobber` line replaced with the measurement
 - [x] `RELEASES-portable.md` closing step names the helper; both scripts READMEs carry a row
 - [x] `scripts/tests/upload-release-asset.tests.ps1` against a fake gh that returns the 422 on a duplicate name
+- [x] Read the asset list from `releases/{id}/assets`, not the release-level read: `gh release view --json assets` returned [] for v5.7.0 while that endpoint listed both (#2349, closed as a false negative)
 - [~] Is the change visible in the frontend / storefront? No -- a release script and its docs.
 
 ### TEST
@@ -70,7 +72,7 @@ The `cut-release` skill told the second pass to re-upload an edited release docu
 upload --clobber`. At `v5.7.0`, on gh 2.101.0, that returned `HTTP 422 ... ReleaseAsset.name already
 exists` and left the stale asset in place, and `gh release delete-asset` reported it *not found*. A new
 shared script, `upload-release-asset.ps1`, now does both uploads: it reads the Release's assets from the
-REST API, deletes a same-named asset **by id**, uploads without `--clobber`, and exits 1 unless the
+`releases/{id}/assets` endpoint (not `gh release view`, which listed none for `v5.7.0`), deletes a same-named asset **by id**, uploads without `--clobber`, and exits 1 unless the
 published asset has the file's exact byte count. The skill page and `RELEASES-portable.md` call it at
 step 5 and in the second pass (#2347).
 

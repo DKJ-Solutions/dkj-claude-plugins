@@ -77,7 +77,8 @@ try {
 
     # --- Fake gh -----------------------------------------------------------------------------------
     # State: GH_ASSETS_FILE holds a JSON array of {id,name,size}. Answers:
-    #   api repos/<r>/releases/tags/<t>           -> {"assets":[...]}   (GH_FAIL_VIEW: exit 1)
+    #   api repos/<r>/releases/tags/<t>           -> {"id":7}, no assets  (GH_FAIL_VIEW: exit 1)
+    #   api repos/<r>/releases/7/assets           -> [...]              (GH_FAIL_ASSETS: exit 1)
     #   api -X DELETE repos/<r>/releases/assets/N -> removes id N        (GH_FAIL_DELETE: exit 1)
     #   release upload <t> <file>                 -> 422 when the name exists; otherwise adds it with
     #                                                the file's length, or GH_UPLOAD_SIZE when set;
@@ -94,9 +95,16 @@ if ($args[0] -eq 'api' -and $args -contains 'DELETE') {
     Save @($assets | Where-Object { "$($_.id)" -ne $id })
     exit 0
 }
-if ($args[0] -eq 'api') {
+if ($args[0] -eq 'api' -and $args[1] -match '/releases/tags/') {
     if ($env:GH_FAIL_VIEW) { [Console]::Error.WriteLine('fake gh: release not found'); exit 1 }
-    Write-Output (ConvertTo-Json -InputObject @{ assets = @($assets) } -Depth 3)
+    # Deliberately carries NO assets field: the script must read the list from the assets endpoint
+    # (#2349 -- the release-level read returned [] while that endpoint listed both).
+    Write-Output '{"id": 7}'
+    exit 0
+}
+if ($args[0] -eq 'api' -and $args[1] -match '/releases/7/assets') {
+    if ($env:GH_FAIL_ASSETS) { [Console]::Error.WriteLine('fake gh: assets read failed'); exit 1 }
+    Write-Output (ConvertTo-Json -InputObject @($assets) -Depth 3)
     exit 0
 }
 if ($args[0] -eq 'release' -and $args[1] -eq 'upload') {
@@ -126,7 +134,7 @@ exit 1
         param([object[]]$Assets = @(), [string]$Path = $doc, [hashtable]$Env = @{})
         Remove-Item -Path $callLog -Force -ErrorAction SilentlyContinue
         [System.IO.File]::WriteAllText($stateFile, (ConvertTo-Json -InputObject @($Assets) -Depth 3), $Utf8NoBom)
-        foreach ($k in 'GH_FAIL_VIEW', 'GH_FAIL_DELETE', 'GH_UPLOAD_NOOP', 'GH_UPLOAD_SIZE') {
+        foreach ($k in 'GH_FAIL_VIEW', 'GH_FAIL_ASSETS', 'GH_FAIL_DELETE', 'GH_UPLOAD_NOOP', 'GH_UPLOAD_SIZE') {
             if ($Env.ContainsKey($k)) { Set-Item "Env:\$k" $Env[$k] } else { Remove-Item "Env:\$k" -ErrorAction SilentlyContinue }
         }
         $run = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass',
@@ -174,6 +182,11 @@ exit 1
     Assert-Equal 1 $r.ExitCode 'exit 1 when the Release read fails'
     Assert-True (@($r.Log | Where-Object { $_ -match 'DELETE|release upload' }).Count -eq 0) 'no delete and no upload after a failed read'
 
+    Write-Host "The asset list cannot be read: nothing is deleted or uploaded" -ForegroundColor Cyan
+    $r = Invoke-Upload -Assets @($staleAsset) -Env @{ GH_FAIL_ASSETS = '1' }
+    Assert-Equal 1 $r.ExitCode 'exit 1 when the assets read fails'
+    Assert-True (@($r.Log | Where-Object { $_ -match 'DELETE|release upload' }).Count -eq 0) 'no delete and no upload after a failed assets read'
+    Assert-True (@($r.Log | Where-Object { $_ -match 'release view' }).Count -eq 0) 'never reads through gh release view (#2349)'
     Write-Host "The delete fails: nothing is uploaded, the old asset stands" -ForegroundColor Cyan
     $r = Invoke-Upload -Assets @($staleAsset) -Env @{ GH_FAIL_DELETE = '1' }
     Assert-Equal 1 $r.ExitCode 'exit 1 when the by-id delete fails'
