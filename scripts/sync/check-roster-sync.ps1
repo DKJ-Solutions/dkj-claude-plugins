@@ -507,6 +507,20 @@ function Resolve-ImportTarget {
     return (Join-Path $BaseDir $p)
 }
 
+# The '#2128 overlap' key for an import: the same import path with a 'specialist-' prefix stripped off
+# its FILENAME only. Two imports that share this key, in the same directory, name the same document
+# under the old and the new #2128 spelling -- directories are untouched by that rename, so only the
+# leaf is normalised.
+function Get-ImportOverlapKey {
+    param([string]$Import)
+    $p = $Import -replace '\\', '/'
+    $idx = $p.LastIndexOf('/')
+    $dir  = if ($idx -ge 0) { $p.Substring(0, $idx + 1) } else { '' }
+    $leaf = if ($idx -ge 0) { $p.Substring($idx + 1) } else { $p }
+    if ($leaf -match '^specialist-(?<rest>.+)$') { $leaf = $Matches['rest'] }
+    return ($dir + $leaf)
+}
+
 Write-Host '== check-roster-sync ==' -ForegroundColor Cyan
 Write-CheckScope -Scope $scope -CheckName 'check-roster-sync'
 
@@ -595,38 +609,83 @@ if ($seamImports.Count -gt 0) {
             Write-Ok "import '$impShown' resolves"
         } else {
             $where = if ($target) { Format-SafePathToken -Value $target } else { 'a path that could not be resolved (no user home)' }
-            # THE CAUSE LIST IS SPLIT BY IMPORT CLASS, because the closing instruction was wrong for one
-            # of them (#2224, September 20, 2026). A '~/'-relative import resolves into the machine-wide
-            # marketplace CLONE, and that clone tracks the TRUNK: it advances on
-            # 'claude plugin marketplace update' alone -- not on a release, not on a push, not on a
-            # 'plugin update'. So for that class the likeliest cause is not a wrong path at all, it is a
-            # file renamed on the trunk that this machine's clone has not been refreshed to.
+
+            # #2226, September 21, 2026 -- narrow exception to the [ERROR] above. INSTALL.md's own
+            # migration recipe ("Migrating to the 'specialist-' filenames (#2128)") prescribes carrying
+            # BOTH the new and the old '@'-import line side by side for the whole overlap, on the
+            # stated ground that "a dead '@'-import is silent and harmless". During that overlap exactly
+            # ONE of the two is dead by design -- so without this check, a consumer following that
+            # recipe gets a permanent [ERROR] at every session start for the whole migration, which is
+            # neither silent nor harmless.
             #
-            # Measured: the persona rename of #2128 had landed here while this machine's clone sat 510
-            # commits back, so the orchestrator's body was silently absent from every session -- and the
-            # finding said 'Repair the path', naming only causes that imply the path is wrong. Followed
-            # literally that reverts a path which is already correct, re-breaking the rename in the one
-            # file that carries it, and the next refresh then breaks it again the other way. The repair
-            # order is what had to change: refresh first, edit only if that does not resolve it.
+            # The [ERROR] above exists because "everything that file was supposed to bring in is simply
+            # absent from every session" -- and during a prescribed overlap that premise is false: a
+            # SIBLING import, same directory, same leaf once the '#2128' 'specialist-' prefix is
+            # stripped, is carrying it under the other spelling. So this looks for exactly that sibling
+            # before falling through to the existing [ERROR], and downgrades to [INFO] -- not a new
+            # severity: roster-sessioncheck.ps1's own docstring already states that [INFO] stays SILENT
+            # at session start, and Write-Info does not increment $script:errors, so a consumer mid-
+            # migration keeps exit 0 and the hook's "blocking finding(s)" headline does not fire. A
+            # deliberate run of this script still prints the line.
             #
-            # The in-tree class keeps the original wording. There is no clone under it, so a refresh
-            # cannot help and 'Repair the path' is the right instruction there.
-            $common = "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- and Claude Code fails an unresolvable import SILENTLY. Everything that file was supposed to bring in is simply absent from every session here, while the roster around it keeps rendering, so nothing looks wrong. For the persona-body import that means the orchestrator runs without his ritual and his delegation rules."
-            if ($imp -match '^\s*~[\\/]') {
-                # The marketplace name is the segment after 'marketplaces/', and it is what the refresh
-                # command takes. Validated as a slug before it is printed INTO a command line: an
-                # unvalidated segment out of repo markdown would be a command for the reader to paste.
-                # Where the path carries no usable one, the bare command is still correct -- it refreshes
-                # every registered marketplace.
-                $market = if ($imp -match 'marketplaces[\\/]([^\\/]+)') { Format-SafeToken -Value $Matches[1] } else { '' }
-                $refresh = if ($market -and (Test-PluginMarketplaceSlug -Marketplace $market)) {
-                    "claude plugin marketplace update $market"
-                } else {
-                    'claude plugin marketplace update'
+            # Deliberately narrow: same directory required (only the leaf's 'specialist-' prefix is
+            # normalised, #2128 never touched directories); a sibling that is ALSO dead does not soften
+            # this to [INFO] (both stay [ERROR] -- that is the genuine "the orchestrator has no body"
+            # state this check exists for); and a live sibling under a different directory or leaf
+            # does not count as an overlap pair either. The pairing is a NAMING match -- same directory,
+            # same leaf modulo 'specialist-' -- and never a content comparison: two files that share the
+            # key are assumed to be the two spellings of one document, which is what #2128 produced. It
+            # opens nothing an editor of this file does not already have: deleting the dead line
+            # silences it just as completely.
+            $overlapKey = Get-ImportOverlapKey -Import $imp
+            $liveSibling = $null
+            foreach ($other in $seamImports) {
+                if ($other -eq $imp) { continue }
+                if ((Get-ImportOverlapKey -Import $other) -ne $overlapKey) { continue }
+                $otherTarget = Resolve-ImportTarget -Import $other -BaseDir $rosterDir
+                if ($otherTarget -and (Test-Path -LiteralPath $otherTarget -PathType Leaf)) {
+                    $liveSibling = $otherTarget
+                    break
                 }
-                Write-Failure ($common + " This import points into the machine-wide marketplace CLONE, which tracks the trunk and advances on a refresh alone -- not on a release, a push, or a 'plugin update'. Usual causes, in order of likelihood: this machine's clone is behind the trunk and the file was renamed there; the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. REFRESH FIRST -- $refresh -- and edit the path in $rosterRel only if that does not resolve it. Editing first reverts a path that may already be correct.")
+            }
+
+            if ($liveSibling) {
+                $liveShown = Format-SafePathToken -Value $liveSibling
+                Write-Info "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- but a sibling import resolves to the same document at '$liveShown' under the other #2128 spelling. Nothing is missing from this session: this is the documented #2128 migration overlap (INSTALL.md's 'Migrating to the specialist- filenames' recipe carries both lines on purpose). Delete the dead line in $rosterRel once '$liveShown' is the spelling you are keeping."
             } else {
-                Write-Failure ($common + " Usual causes, in order of likelihood: the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. Repair the path in $rosterRel.")
+                # THE CAUSE LIST IS SPLIT BY IMPORT CLASS, because the closing instruction was wrong for one
+                # of them (#2224, September 20, 2026). A '~/'-relative import resolves into the machine-wide
+                # marketplace CLONE, and that clone tracks the TRUNK: it advances on
+                # 'claude plugin marketplace update' alone -- not on a release, not on a push, not on a
+                # 'plugin update'. So for that class the likeliest cause is not a wrong path at all, it is a
+                # file renamed on the trunk that this machine's clone has not been refreshed to.
+                #
+                # Measured: the persona rename of #2128 had landed here while this machine's clone sat 510
+                # commits back, so the orchestrator's body was silently absent from every session -- and the
+                # finding said 'Repair the path', naming only causes that imply the path is wrong. Followed
+                # literally that reverts a path which is already correct, re-breaking the rename in the one
+                # file that carries it, and the next refresh then breaks it again the other way. The repair
+                # order is what had to change: refresh first, edit only if that does not resolve it.
+                #
+                # The in-tree class keeps the original wording. There is no clone under it, so a refresh
+                # cannot help and 'Repair the path' is the right instruction there.
+                $common = "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- and Claude Code fails an unresolvable import SILENTLY. Everything that file was supposed to bring in is simply absent from every session here, while the roster around it keeps rendering, so nothing looks wrong. For the persona-body import that means the orchestrator runs without his ritual and his delegation rules."
+                if ($imp -match '^\s*~[\\/]') {
+                    # The marketplace name is the segment after 'marketplaces/', and it is what the refresh
+                    # command takes. Validated as a slug before it is printed INTO a command line: an
+                    # unvalidated segment out of repo markdown would be a command for the reader to paste.
+                    # Where the path carries no usable one, the bare command is still correct -- it refreshes
+                    # every registered marketplace.
+                    $market = if ($imp -match 'marketplaces[\\/]([^\\/]+)') { Format-SafeToken -Value $Matches[1] } else { '' }
+                    $refresh = if ($market -and (Test-PluginMarketplaceSlug -Marketplace $market)) {
+                        "claude plugin marketplace update $market"
+                    } else {
+                        'claude plugin marketplace update'
+                    }
+                    Write-Failure ($common + " This import points into the machine-wide marketplace CLONE, which tracks the trunk and advances on a refresh alone -- not on a release, a push, or a 'plugin update'. Usual causes, in order of likelihood: this machine's clone is behind the trunk and the file was renamed there; the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. REFRESH FIRST -- $refresh -- and edit the path in $rosterRel only if that does not resolve it. Editing first reverts a path that may already be correct.")
+                } else {
+                    Write-Failure ($common + " Usual causes, in order of likelihood: the marketplace or plugin directory was renamed and this path was not; the plugin is not installed on this machine; or the file moved inside the plugin. Repair the path in $rosterRel.")
+                }
             }
         }
     }
