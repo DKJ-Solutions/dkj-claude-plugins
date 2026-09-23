@@ -2343,3 +2343,82 @@ function Get-SweepCandidates {
 
     return @($out | Sort-Object -Property Number)
 }
+
+function Get-OwnTagClaims {
+    <#
+        .SYNOPSIS
+            Which open issues carry a claim marker of THIS tag, out of one `gh issue list` payload -- the
+            set -ReleaseAll acts on (issue #2395).
+
+        .DESCRIPTION
+            THIS TAG'S OWN MARKERS AND NOTHING ELSE, which is the whole bound. An issue another tag holds
+            is not returned at all, and on an issue both hold only this tag's records are carried -- so
+            the caller cannot delete another session's marker by construction rather than by care. The
+            same bound -Release already keeps for one issue; the owner's first proposal (#2395) was a
+            wipe of every marker and assignee, rejected because the other markers are other machines'
+            and colleagues' live claims and deleting them recreates the duplicate-work hazard #2207 and
+            #2243 closed.
+
+            THE ASSIGNEE IS REPORTED, NEVER DECIDED ON. Assigned says whether -Account is among the
+            issue's assignees, so the caller removes the assignee a tag claim wrote beside its marker. An
+            issue with this account assigned and no marker of this tag is not returned: in tag mode a
+            bare assignee is whose TICKET this is, not a claim, and it is not this function's to drop.
+
+            ONE READ FOR THE WHOLE BACKLOG, for the reason Get-SweepCandidates gives: a per-issue query
+            is a round-trip per issue before anything is released.
+
+        .PARAMETER Json
+            The payload text of `gh issue list --json number,title,assignees,comments`.
+
+        .PARAMETER Tag
+            This session's tag. Compared case-insensitively, as everywhere else a tag is.
+
+        .PARAMETER Account
+            The login a tag claim writes as its assignee (Resolve-ClaimAccount's answer).
+
+        .PARAMETER Marker
+            The marker names to recognise (see Get-ClaimMarkerPattern).
+
+        .OUTPUTS
+            An array of records, ascending by number -- Number, Title, Records, Assigned -- where
+            Records holds only this tag's markers and is never empty. EMPTY for empty or unparseable
+            input, or a backlog this tag holds nothing on.
+    #>
+    param(
+        [string]$Json,
+        [string]$Tag = '',
+        [string]$Account = '',
+        [AllowNull()][string[]]$Marker = @('claim-tag')
+    )
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $ownTag = $Tag.Trim()
+    if (-not $ownTag) { return @() }
+    try { $parsed = $Json | ConvertFrom-Json } catch { return @() }
+    if ($null -eq $parsed) { return @() }
+
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($issue in @(@($parsed) | Where-Object { $_ })) {
+        if (-not $issue.PSObject.Properties['number']) { continue }
+        if (-not $issue.PSObject.Properties['comments']) { continue }
+        # Re-serialised into the shape Get-ClaimRecords reads, as Get-SweepCandidates does, so a comment
+        # body is still read in exactly one place.
+        $records = @(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @($issue.comments) }) | ConvertTo-Json -Depth 8) -Marker $Marker)
+        $own = @($records | Where-Object { $_.Tag -ieq $ownTag })
+        if ($own.Count -eq 0) { continue }
+
+        $assigned = $false
+        if ($Account.Trim()) {
+            $logins = @(Get-AssigneeLogins -Json (([pscustomobject]@{ assignees = @($(if ($issue.PSObject.Properties['assignees']) { $issue.assignees })) }) | ConvertTo-Json -Depth 5))
+            $assigned = @($logins | Where-Object { $_ -ieq $Account.Trim() }).Count -gt 0
+        }
+
+        $out.Add([pscustomobject]@{
+            Number   = [int]$issue.number
+            Title    = $(if ($issue.PSObject.Properties['title']) { [string]$issue.title } else { '' })
+            Records  = $own
+            Assigned = $assigned
+        }) | Out-Null
+    }
+    return @($out | Sort-Object -Property Number)
+}

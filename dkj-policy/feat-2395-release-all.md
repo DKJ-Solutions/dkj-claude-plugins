@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#2395: the owner proposed a skill that clears every marker and assignee before a device switch; the
+red-team verdict was a scoped version instead. `claim-issue.ps1 -Tag -ReleaseAll` releases only THIS
+tag's own markers (and this account's assignee beside them), dry-run unless `-Apply`. The optional
+`DKJ_OWN_ACCOUNTS` widening depends on #2394, which is still open, so it is left out of this branch.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-OwnTagClaims` in `claim-issue-lib.ps1`: from one `gh issue list` payload, the open issues
+      carrying this tag's markers -- only this tag's records, and whether this account is assigned
+- [x] `claim-issue.ps1 -Tag -ReleaseAll [-Apply] [-Limit]`: its own parameter set, refused without
+      `-Tag` and with `-Apply -DryRun`; warns when the read hit `-Limit`
+- [x] `Remove-ClaimMarkerComments` moved ahead of every mode; `-Release`'s assignee removal became the
+      shared `Remove-ClaimAssignee` helper
+- [x] Plugin mirrors synced; `claim-issue` and `sweep-issues` skill pages state the bound
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 483 passed, including the new #2395 block
+- [x] `native-capture.tests.ps1`: bounded-site count moved 79 -> 80 with its audit note; 352 pass
+- [x] Live dry run on this repo: `[OK] no open issue carries a claim of this tag`; both refusals fire
+
 ### DEPLOY: feat/2395-release-all
 
-**Score:**
+`claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
+claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
+it only lists what it would release. Markers written by any other tag are never touched, including
+another machine under the same account, and an assignee with no marker of this tag stays in place.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 

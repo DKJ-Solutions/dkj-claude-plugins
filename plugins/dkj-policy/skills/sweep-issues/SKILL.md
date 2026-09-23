@@ -108,6 +108,12 @@ It refuses a colleague's claim, an issue with no branch on origin, and one with 
 replaces the old marker with this tag's, comments the handover, and prints the checkout. The old machine's
 `-Verify` then reads `[NO]`, so step 6 stops it there.
 
+**Leaving a machine on purpose, you can tidy first** -- `claim-issue.ps1 -Tag -ReleaseAll` lists every
+open issue this tag holds, and `-Apply` releases them, so the next machine's `-Candidates` does not read
+your old tag as `held` ([#2395](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2395)). It
+touches this tag's own markers only, never another's, and it is optional: `-TakeOver` above is what
+covers the switch you did not plan.
+
 ### 3. Build it
 
 Read the issue and its comments in full. Then the ordinary workflow, unchanged:
