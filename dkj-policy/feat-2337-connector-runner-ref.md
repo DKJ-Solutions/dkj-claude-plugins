@@ -39,19 +39,50 @@
 
 ### PLAN
 
+#### Scope
+
+[#2337](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2337), unblocked by #2345 (#2333's pin).
+`check-connectors.ps1` reads a registered consumer's runners for check 6; it now also reads the `ref:` of
+the checkout that brings this repo in, but only in a runner that holds a write credential, because the
+read-only runners track `main` on purpose (#1805). It reports that ref as moving (a branch, or no `ref:` at
+all) or as a pin behind this tree's dkj-policy version. The report is an `[INFO]`, not an `[ERROR]`: the
+runner works and is exposed, and until a release carries #2333 every consumer's own scaffolder still
+writes `main`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `consumer-runner-lib.ps1`: move the checkout-block walk into `Get-SharedCheckoutBlock` so the path
+      reader and the new ref reader use one recogniser; add `Get-SharedScriptPin` and
+      `Test-WorkflowHoldsWriteCredential`.
+- [x] `check-connectors.ps1`: check 6d (`Write-RunnerPinFinding`) on both routes, the disk and
+      `-RemoteRunners`, plus the header entry.
+- [x] Tests: `connectors.tests.ps1` 12o-12t and 13c2; `adopt-ci-floor.tests.ps1` section 11 reads what the
+      scaffolder writes back through the lib (writer and reader agree).
 
 ### TEST
 
+- [x] `connectors.tests.ps1` 436/0, `adopt-ci-floor.tests.ps1` 232/0, `adopt-workflow-folder.tests.ps1` 96/0.
+- [x] Real register under `-RemoteRunners`: five write runners on `ref: main` across
+      BWJ-Development/smartwatchbanden (2) and BWJ-Development/xoxowildhearts (3); no `branch-entry.yml`
+      flagged.
+
 ### DEPLOY: feat/2337-connector-runner-ref
 
-**Score:**
+`check-connectors.ps1` now reports a registered consumer's write runner that fetches this repo's scripts at
+a moving ref, or pinned behind the current dkj-policy release
+([#2337](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2337)). This is the source-side half of
+#2333's pin: a consumer nobody re-runs `adopt-ci-floor` in no longer stays invisible on `ref: main` beside
+`FOLD_PUSH_TOKEN`. Only runners holding a credential are judged, and the finding is an `[INFO]` naming the
+file, the line and the release to pin to. Its first run found five such runners across the two BWJ
+consumers.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a maintainer-side register check, which never reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
