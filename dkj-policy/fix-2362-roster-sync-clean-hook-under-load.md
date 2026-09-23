@@ -39,19 +39,40 @@
 
 ### PLAN
 
+#2362: `roster-sync.tests.ps1`'s "hook: exit 0 when clean" got exit 1 with no "in sync" line under the
+parallel gate, then passed alone. The reason was verified before repairing anything: `roster-sessioncheck.ps1`
+ends every path, its catch included, on `exit 0`, and every `Invoke-Hook` case expects 0 (the exit-1
+asserts in the suite go through `Invoke-Ps`, not the hook). So exit 1 is a child that never reached its
+script's end, not a verdict. The runner captured stdout only, which is why the report had no cause to
+give. Repair it the way #2364 repaired `Invoke-Integrity`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Invoke-Hook` captures stderr, prints `[FIXTURE HOOK DID NOT FINISH]` with the child's last lines on
+  an off-contract exit, and runs the child once more; a second failure is returned unchanged
 
 ### TEST
 
+- [x] `roster-sync.tests.ps1` alone: 414 pass, 0 fail (unchanged count)
+- [x] The retry path probed on its own with a fake hook exiting 1 (stderr shown, two attempts, code 1
+  returned) and one exiting 0 (single run, output intact)
+- [x] Gates via `open-pr -GatesOnly`
+
 ### DEPLOY: fix/2362-roster-sync-clean-hook-under-load
 
-**Score:**
+`roster-sync.tests.ps1` read a hook child that never finished as a hook that answered wrongly: the hook
+exits 0 on every path, so its "exit 0 when clean" case failing with exit 1 under the parallel gate was a
+run that did not complete, and the runner, which captured stdout only, kept nothing that said why. It
+now captures stderr, prints that evidence on an off-contract exit, and runs the child once more. A hook
+that really stops exiting 0 still fails every assert that reads it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a test suite only; nothing a subscriber runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
