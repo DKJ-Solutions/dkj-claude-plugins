@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**9 / 25 minor entries** <!-- pending-tally -->
+**10 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2338-merge-on-green-trunk-code · 20260923-211820Z
+
+The merge-on-green runner checked out an armed pull request's head with `FOLD_PUSH_TOKEN` in the workspace
+and then ran code from that checkout, so being able to push a branch meant being able to run code with a
+token that bypasses the trunk ruleset. The picker now refuses a pull request whose diff touches code the
+runner executes, and the runner refuses any checkout other than the commit the picker judged (#2338).
+
+**Score:** 3 -- closes a privilege widening on the one runner that holds the standing write token; a
+pull request touching scripts now ships from a session instead.
+
+#### What makes this deploy extra special
+
+A consumer's scaffolded `merge-on-green.yml` ran the plugin's `ship-pr.ps1`, and that dot-sourced the
+branch's `scripts/repo-config.ps1` with the consumer's `FOLD_PUSH_TOKEN` in place. The picker fix reaches
+them as soon as their runner checks out the source's `main`. The SHA pin reaches them when
+`adopt-ci-floor` reports their runner as drifted and they re-apply it.
+
+**Score:** 3 -- a security fix to a runner consumers adopted; those who use merge-on-green will see
+script-touching pull requests left for a session.
+
+#### Pull Request
+
+merge-on-green: never run code from an armed branch that changes what the ship executes
+
+Plugins: dkj-policy
+
+[PR #2346](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2346)
+
+---
 
 ### DEPLOY: docs/2376-sweep-ship-resolves · 20260923-210524Z
 
