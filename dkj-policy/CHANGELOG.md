@@ -44,7 +44,69 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 9 minor entries** <!-- pending-tally -->
+**4 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2352-needs-info-message-form · 20260923-141637Z
+
+`dkj-policy-bwj` now carries the requester message for an issue sent back with `needs-info`, and the
+paste-ready block asks the requester for something. Both lived only in a consumer page that was deleted
+on September 23 ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)).
+`WORKFLOW-portable.md` step 6 makes setting the label and writing the question one act, and gives the
+comment's shape. The issue stays open and the label is left for whoever brings the answer. Step 4
+gains the five rules for what the block asks and names the Asana task's assignee as the one who
+carries it across and closes the issue. `build-golive-block.ps1` now ends the block with that ask
+whenever it is given a result link.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every paste-ready block a BWJ store posts after the update ends by asking the colleague who filed the
+ticket to look at the result themselves. An approval ticks off the task. A rejection names what is
+wrong and what should change, and the issue reopens. The release happens either way. A ticket sent
+back for more information now has a prescribed question on it rather than an empty card in the
+blocked column.
+
+**Score:** 3
+
+#### Pull Request
+
+The needs-info requester message and the paste-ready block's ask, carried in dkj-policy-bwj
+
+Plugins: dkj-policy-bwj
+
+[PR #2371](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2371)
+
+---
+
+### DEPLOY: feat/2304-split-integrity-commands · 20260923-140338Z
+
+`check-plugin-integrity-commands.tests.ps1` was the CI gate's critical path once steps 1 and 2 had
+split `-docs` and `-links`: 498.3s against a 391s work bound. It is now four suites, cut at check
+boundaries and balanced on gate invocations, and side by side on one workstation the longest part took
+64s against the original's 184s. All 132 asserts are preserved and were verified by running the four
+parts. This is step 3 of #2304: the heaviest remaining file, `-entries` at 377.7s, is below the work
+bound, so from here the gate is bound by total work rather than by one file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This is the step where the lever changes. Until now each split moved the critical path to the next
+heaviest file; after this one no single file is above the 391s work bound, so the next saving comes from
+a shard (or a split that goes with one), not from a split alone -- which is exactly what ci.yml's matrix
+comment has said since #1358. The cut again surfaced state carried across a block boundary, this time a
+variable rather than a file, and it is stated again in the suite that reads it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-commands into parallel suites: step 3 of the CI critical path
+
+[PR #2370](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2370)
+
+---
 
 ### DEPLOY: fix/2364-parallel-gate-flaky-suites · 20260923-132216Z
 
