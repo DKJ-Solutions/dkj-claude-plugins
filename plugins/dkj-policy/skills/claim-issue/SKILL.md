@@ -81,8 +81,16 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   otherwise. It is what a session runs before resuming a branch it parked hours ago.
 - **`-Release`** (with `-Tag`) -- drop this tag's claim: its own marker comments and its assignee, and
   nothing else. Another session's marker is another session's record and is never touched.
+- **`-TakeOver`** (with `-Tag`) -- hand a `held` issue over to this machine, deliberately (#2387). Only
+  where the holder is **this same gh account** on another machine and **exactly one** `<prefix>/<n>-...`
+  branch for it is on origin; a colleague's claim, no branch, or several are each refused. It is the one
+  act that removes another tag's marker, then claims through the ordinary path and leaves a comment
+  naming the old tag, the new tag and the branch -- so the old machine's `-Verify` reads `[NO]`.
 - **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
-  `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
+  `mine`, `held`, `branch` or `skipped` with the reason. `branch` is an issue no marker holds but a
+  `<prefix>/<n>-<name>` branch on origin names, with its author and age -- read from one fetch and one
+  `git for-each-ref` for the whole backlog, because a session working without `-Tag` leaves no marker
+  ([#2392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2392)). `-SkipLabel` names the labels that park an issue with
   somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
 - **`-Marker`** -- the marker name a claim is written under (`claim-tag`), plus any predecessors a repo
   still has claim comments under, which are **read and never written**. A comma list

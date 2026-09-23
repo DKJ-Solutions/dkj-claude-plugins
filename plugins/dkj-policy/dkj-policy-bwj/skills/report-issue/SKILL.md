@@ -2,8 +2,8 @@
 name: report-issue
 description: >-
   File a discovered issue the BWJ way -- GitHub first (the source of truth, classified at creation with
-  its issue type and the reach label), then a colleague-facing Asana task, cross-linked both
-  ways. Use this in a repo that runs the BWJ procedure -- smartwatchbanden or xoxowildhearts
+  its issue type and the reach label), then -- only where the issue carries the reach label -- a
+  colleague-facing Asana task, cross-linked both ways. Use this in a repo that runs the BWJ procedure -- smartwatchbanden or xoxowildhearts
   (whichever org), or the plugin's own source repo dkj-claude-plugins -- whenever a real finding
   needs tracking: a bug, a broken customer-facing behaviour, a stale doc, a decision that is
   not yours to make. The Asana card lands in the board's `Filed` section -- tracked on GitHub now --
@@ -106,6 +106,15 @@ gh issue edit <n> --repo <owner>/<repo> --add-label "<reach label>"
 
 ## Step 2 -- the Asana task (a translation, not a copy)
 
+**Only for an issue carrying the reach label.** Step 1 has just answered whether a colleague will notice
+this, and that answer decides whether they get a card: no reach label means tier 0, a finding only this
+repo's developers meet, and it stays **GitHub-only** -- skip steps 2 and 3 and say so in step 4. The
+rule and the measurement behind it are in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#2-then-asana----a-translation-not-a-copy). Two
+cases are not new tasks and are not gated by it: a ticket that **came from Asana** already has its card
+(see below), and an issue that **gains** the reach label later is mirrored then, by running steps 2-3
+at that moment.
+
 Compose the task body from the fixed skeleton -- plain language, outcome-framed, no code or repo
 jargon:
 
@@ -190,7 +199,9 @@ by re-running this skill's steps 2-3.
 
 ## Step 4 -- report
 
-Give both URLs and stop. **Do not resolve anything, and do not promise that anything else will.**
+Give both URLs and stop -- or, for an issue without the reach label, the issue URL and the sentence
+that it is GitHub-only because it is tier 0, so the missing card reads as a decision rather than a
+failed mirror. **Do not resolve anything, and do not promise that anything else will.**
 When the GitHub issue is closed, the `asana-mirror` CI workflow posts an update on the Asana task
 saying the work is ready to test and moves the card to `ReadyToTest`; the task stays open until the
 colleague who filed it ticks it off. Nothing in this chain -- not you, not the CI -- completes a task,
@@ -217,4 +228,5 @@ undone on the next sweep while the label stays.
 reach question is answerable from the finding itself, and the whole backfill of 135 issues was
 classified from the issue text alone. Naming the call here is what makes it correctable: it puts the
 answer in front of the person who knows the store, at no extra turn, beside the one line that changes
-it (`gh issue edit <n> --repo <owner>/<repo> --add-label "<reach label>"`, or `--remove-label`).
+it (`gh issue edit <n> --repo <owner>/<repo> --add-label "<reach label>"`, or `--remove-label`). Adding
+it afterwards also means running steps 2-3 then, since the card follows the label.

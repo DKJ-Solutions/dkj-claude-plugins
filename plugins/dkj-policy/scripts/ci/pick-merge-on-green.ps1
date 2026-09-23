@@ -32,7 +32,7 @@
 $ErrorActionPreference = 'Stop'
 
 function Write-PickVerdict {
-    param([bool]$Picked, [string]$Reason, [string]$Pr = '', [string]$Branch = '')
+    param([bool]$Picked, [string]$Reason, [string]$Pr = '', [string]$Branch = '', [string]$Sha = '')
 
     $value = if ($Picked) { 'true' } else { 'false' }
     Write-Host "merge-on-green: picked=$value -- $Reason"
@@ -40,6 +40,9 @@ function Write-PickVerdict {
         Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "picked=$value"
         Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "pr=$Pr"
         Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "branch=$Branch"
+        # The head commit the verdict was formed on (#2338): the runner refuses to run anything from a
+        # checkout that is not this commit, so a push after the pick cannot bring new code with it.
+        Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "sha=$Sha"
     }
 }
 
@@ -85,7 +88,7 @@ if (-not $repo) {
 # be an owed merge no sweep can ever see, and the page costs one call whatever its size.
 $listRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
     'pr', 'list', '--state', 'open', '--label', $label, '--limit', '100', '--repo', $repo,
-    '--json', 'number,headRefName,isDraft,mergeable,labels,isCrossRepository')
+    '--json', 'number,headRefName,headRefOid,isDraft,mergeable,labels,isCrossRepository,files,changedFiles')
 if ($listRead.ExitCode -ne 0) {
     Write-PickVerdict -Picked $false -Reason "the list of '$label' pull requests could not be read"
     exit 0
@@ -93,7 +96,9 @@ if ($listRead.ExitCode -ne 0) {
 
 $armed = @()
 try {
-    $armed = @(($listRead.Output -join "`n") | ConvertFrom-Json)
+    # THROUGH THE LIB, NOT A PIPE INTO ConvertFrom-Json: under 5.1 that wraps the whole array as ONE
+    # record, and the sweep then evaluated nothing (#2381).
+    $armed = @(ConvertFrom-MergeOnGreenListJson -Json ($listRead.Output -join "`n"))
 } catch {
     Write-PickVerdict -Picked $false -Reason "the list of '$label' pull requests could not be parsed"
     exit 0
@@ -106,7 +111,12 @@ if ($armed.Count -eq 0) {
 
 $verdicts = @()
 foreach ($record in $armed) {
-    if ($null -eq $record -or -not $record.PSObject.Properties['number']) { continue }
+    # FAIL-CLOSED, BUT NEVER SILENTLY (#2381). A skip that printed nothing read exactly like "not
+    # eligible yet", which is how a parse that dropped every record went unnoticed for six sweeps.
+    if ($null -eq $record -or -not $record.PSObject.Properties['number']) {
+        Write-Host '  (skipped) a record in the list carries no pull request number -- it was not evaluated'
+        continue
+    }
     $number = [string]$record.number
 
     # ONE gh CALL PER ARMED PULL REQUEST, and the armed set is normally empty or one. The required
@@ -126,15 +136,25 @@ foreach ($record in $armed) {
     $verdict = Get-MergeOnGreenPrVerdict -Record $record -MergeBlockVerdict $blockVerdict -Label $label
     $branch = ''
     if ($record.PSObject.Properties['headRefName']) { $branch = [string]$record.headRefName }
+    $sha = ''
+    if ($record.PSObject.Properties['headRefOid']) { $sha = [string]$record.headRefOid }
 
     Write-Host ("  #{0} ({1}): {2} -- {3}" -f $number, (Get-DisplayRef -Ref $branch), $(if ($verdict.Eligible) { 'ELIGIBLE' } else { 'waiting' }), $verdict.Reason)
 
     $verdicts += [pscustomobject]@{
         Number   = $number
         Branch   = $branch
+        Sha      = $sha
         Eligible = $verdict.Eligible
         Reason   = $verdict.Reason
     }
+}
+
+# N ARMED AND NO VERDICT IS A CONTRADICTION, NOT A WAIT: every armed pull request the list held was
+# skipped before it could be judged. Still fail-closed -- the reason just says what actually happened.
+if ($verdicts.Count -eq 0) {
+    Write-PickVerdict -Picked $false -Reason "$($armed.Count) record(s) in the '$label' list, but none could be evaluated -- the list was not read as pull requests"
+    exit 0
 }
 
 $pick = Select-MergeOnGreenCandidate -Verdicts $verdicts
@@ -149,10 +169,14 @@ if ($null -eq $pick) {
 # nothing stops a leading '-', which turns the argument into a flag -- so the charset is asserted here
 # and a name outside it refuses the whole pick rather than being sanitised into something else. The
 # set is deliberately narrower than git's: every branch this workflow creates is <prefix>/<name>.
+if ($pick.Sha -notmatch '^[0-9a-f]{40}$') {
+    Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head commit could not be read, so there is no commit to pin the ship to -- the next sweep asks again"
+    exit 0
+}
 if ($pick.Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
     Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head branch is not a plain name this runner will put on a command line -- merge it by hand"
     exit 0
 }
 
-Write-PickVerdict -Picked $true -Reason "PR #$($pick.Number) on '$($pick.Branch)' is owed a merge -- handing it to ship-pr" -Pr $pick.Number -Branch $pick.Branch
+Write-PickVerdict -Picked $true -Reason "PR #$($pick.Number) on '$($pick.Branch)' is owed a merge -- handing it to ship-pr" -Pr $pick.Number -Branch $pick.Branch -Sha $pick.Sha
 exit 0

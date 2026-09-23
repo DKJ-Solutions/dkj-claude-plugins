@@ -54,6 +54,43 @@ function Get-MergeOnGreenArmLabel {
     return $script:MergeOnGreenArmLabel
 }
 
+function ConvertFrom-MergeOnGreenListJson {
+    <#
+    .SYNOPSIS
+        The records of one `gh pr list --json ...` payload, ENUMERATED -- one element per pull request,
+        under Windows PowerShell 5.1 as under 7.
+
+    .DESCRIPTION
+        WHY THIS IS A FUNCTION AND NOT ONE LINE IN THE SCRIPT (#2381). The sweep read the list as
+        `@($text | ConvertFrom-Json)`. Under 5.1 -- which is what the runner's `powershell` is --
+        ConvertFrom-Json writes a JSON array down the pipeline as ONE Object[] instead of enumerating
+        it, so `@(...)` wrapped it: one "record" that was the whole array, with no `number` property.
+        The loop skipped it without a word and every sweep reported "0 armed pull request(s), none
+        eligible yet" while PR #2345 sat armed and green. It held for ANY number of armed pull requests,
+        so under 5.1 the sweep could never pick anything.
+
+        The repair is to take the parse result as a value first and enumerate it explicitly, which
+        behaves the same on both editions. It lives here because the lib's suite is what can feed it a
+        real one- and multi-element payload; the script's own line was invisible to every test.
+
+    .PARAMETER Json
+        The payload text.
+
+    .OUTPUTS
+        The records, written to the pipeline one by one -- collect them with @(...). Nothing for an
+        empty list. THROWS on text that is not JSON, so the caller keeps its own fail-closed "could
+        not be parsed" verdict.
+    #>
+    param([string]$Json)
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $parsed = ConvertFrom-Json -InputObject $Json
+    if ($null -eq $parsed) { return @() }
+    # The ForEach-Object is the enumeration 5.1 skips. NO unary comma on the way out: callers collect
+    # with @(...), and a comma would hand that one element -- the array -- and re-create the defect.
+    return @($parsed | ForEach-Object { $_ })
+}
+
 function Test-MergeOnGreenArmed {
     <#
     .SYNOPSIS
@@ -97,6 +134,55 @@ function Test-MergeOnGreenArmed {
     return $false
 }
 
+function Get-MergeOnGreenExecutedPathHit {
+    <#
+    .SYNOPSIS
+        Why this pull request's diff reaches code the merge-on-green runner executes, or '' where it
+        does not -- issue #2338.
+
+    .DESCRIPTION
+        THE PATHS ARE WHERE THE RUNNER READS CODE FROM, IN EITHER KIND OF REPO:
+          scripts/                every repo's repo-config.ps1 and seam libs, and the source repo's
+                                  ship-pr.ps1 with everything it loads
+          plugins/**/scripts/     the source repo's plugin mirrors of those same scripts
+          .github/                the workflows themselves
+          .workflow-scripts/      where a consumer's runner checks the plugin tree out, INSIDE its
+                                  workspace and only excluded -- and `git checkout` overwrites an
+                                  ignored file, so a branch committing one there replaces the scripts
+
+        FAIL-CLOSED ON AN INCOMPLETE LIST. `gh pr list --json files` returns at most 100 files, so a
+        record whose files fall short of its changedFiles has not shown the whole diff, and one with no
+        file list at all has shown none of it. Both refuse: a path this function did not see is not a
+        path it cleared.
+
+    .PARAMETER Record
+        A pull request record carrying `files` and `changedFiles`.
+
+    .OUTPUTS
+        [string] the reason, or '' where the diff touches none of those paths.
+    #>
+    param($Record)
+
+    if ($null -eq $Record -or -not $Record.PSObject.Properties['files'] -or $null -eq $Record.files) {
+        return 'its changed files could not be read'
+    }
+    $paths = @(@($Record.files) | ForEach-Object { if ($_ -and $_.PSObject.Properties['path']) { [string]$_.path } })
+    $total = -1
+    if ($Record.PSObject.Properties['changedFiles']) { $total = [int]$Record.changedFiles }
+    if ($total -lt 0 -or $paths.Count -lt $total) {
+        return "only $($paths.Count) of its changed files could be listed"
+    }
+    foreach ($p in $paths) {
+        $norm = $p -replace '\\', '/'
+        if ($norm -match '^(scripts|\.github|\.workflow-scripts)/' -or $norm -match '^plugins/(.+/)?scripts/') {
+            # A path is chosen by whoever pushed the branch, and this reason is printed into a CI log.
+            $shown = $norm -replace '[^\x20-\x7E]', '?'
+            return "it changes '$shown', which this runner would execute from the branch"
+        }
+    }
+    return ''
+}
+
 function Get-MergeOnGreenPrVerdict {
     <#
     .SYNOPSIS
@@ -120,7 +206,7 @@ function Get-MergeOnGreenPrVerdict {
 
     .PARAMETER Record
         A pull request record from
-        `gh pr list --json number,headRefName,isDraft,mergeable,labels,isCrossRepository`.
+        `gh pr list --json number,headRefName,headRefOid,isDraft,mergeable,labels,isCrossRepository,files,changedFiles`.
 
     .PARAMETER MergeBlockVerdict
         Get-MergeBlockVerdict's own object for THIS pull request, formed from its own
@@ -166,6 +252,18 @@ function Get-MergeOnGreenPrVerdict {
         return [pscustomobject]@{ Eligible = $false; Reason = 'the head branch is on a fork -- this runner only ships branches of this repository' }
     }
 
+    # A PULL REQUEST THAT CHANGES WHAT THE SHIP RUNS IS LEFT TO A SESSION -- issue #2338. The runner
+    # checks out this head with FOLD_PUSH_TOKEN in the workspace and then executes code from it: the
+    # source repo runs the branch's own ship-pr.ps1 and libs, and every repo's ship-pr dot-sources the
+    # branch's scripts/repo-config.ps1. So "can push a branch here" would become "can run code with a PAT
+    # that bypasses the trunk ruleset" -- and the required check does not have to exercise the file that
+    # runs. Refusing such a pull request here means the only code this runner executes is code the
+    # trunk already carries. It costs nothing a session cannot do: ship-pr from a checkout still ships it.
+    $executed = Get-MergeOnGreenExecutedPathHit -Record $Record
+    if ($executed) {
+        return [pscustomobject]@{ Eligible = $false; Reason = "$executed -- ship it from a session" }
+    }
+
     $mergeable = ''
     if ($Record.PSObject.Properties['mergeable']) { $mergeable = ([string]$Record.mergeable).Trim().ToUpperInvariant() }
     if ($mergeable -ne 'MERGEABLE') {
@@ -200,7 +298,7 @@ function Get-MergeOnGreenPrVerdict {
         return [pscustomobject]@{ Eligible = $false; Reason = "a required check has not finished: $($pending -join ', ')" }
     }
 
-    return [pscustomobject]@{ Eligible = $true; Reason = 'armed, not a draft, mergeable, and every required check is green on its own head' }
+    return [pscustomobject]@{ Eligible = $true; Reason = 'armed, not a draft, touches no code the runner executes, mergeable, and every required check is green on its own head' }
 }
 
 function Select-MergeOnGreenCandidate {

@@ -119,6 +119,15 @@ try {
         }
     } elseif ($code -eq 0) {
         Write-Host 'consumer-prose-sessioncheck: no retired branch-document name and no inverted supremacy declaration in this repo''s always-on prose.'
+        # The constitution-import gap (#2374) is a [WARNING] that leaves the exit code at 0, so it lands
+        # here rather than in the block above. Forwarded whole -- its continuation lines carry the
+        # paste-ready import -- and only where the check WROTE the marker, for the reason given above.
+        if (@(Select-CheckMarkerLine -Output $out -Marker '[WARNING]').Count -gt 0) {
+            foreach ($line in $out) {
+                $t = $line.Trim()
+                if ($t -and $t -notmatch '^\[OK\]') { Write-Host "  $t" }
+            }
+        }
     } else {
         Write-Host "consumer-prose-sessioncheck: the check could not complete (exit $code)."
     }
