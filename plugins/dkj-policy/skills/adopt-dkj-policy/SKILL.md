@@ -237,14 +237,17 @@ reach into.
 ### And one line in your `CLAUDE.md`: the constitution (#2374)
 
 **The rules this repo runs under ship with the plugin, in [`../../CLAUDE.md`](../../CLAUDE.md).** Your own
-`CLAUDE.md` loads them with one absolute `@`-line near the top, above the repo's own facts:
+`CLAUDE.md` holds **only** one absolute `@`-line loading them, and nothing else:
 
 ```
 @~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md
 ```
 
-Below that line, your `CLAUDE.md` holds **facts about this repo only**: its trunk, whether it is public,
-who its owner is, and what it is for. **Remove any rule the constitution already states.** A copy of a
+**Your `CLAUDE.md` carries no prose of its own** — no facts about the repo, no rules, nothing below the
+import line. Facts about this repo only — its trunk, whether it is public, who its owner is, and what
+it is for — go in an unscoped rule your own tooling loads every session, e.g.
+`.claude/rules/this-repo.md`; a fact that belongs to one specialist alone goes in that specialist's own
+lens instead. **Remove any rule the constitution already states, wherever it currently sits.** A copy of a
 rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
 stays behind, and that is the contradiction #2374 was filed about.
 

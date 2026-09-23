@@ -968,10 +968,13 @@ $importBody
 "@
 
 if (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
-    # The heading and the two prose lines come from Get-ClaudeMdScaffold in check-report-lib.ps1, for the
+    # The heading and the Prose row(s) come from Get-ClaudeMdScaffold in check-report-lib.ps1, for the
     # same reason $importNote does: the teardown has to RECOGNISE this exact wording to report it, and a
     # literal re-typed in a second script is what produced both instances of the accumulation bug (inbound
-    # #271, #331). Written by one script, recognised by another, defined in one place.
+    # #271, #331). Written by one script, recognised by another, defined in one place. Since September 23,
+    # 2026's second pass (issue #2374) Prose is ONE HTML COMMENT rather than prose sentences -- a root
+    # CLAUDE.md holds only '@'-import lines now, plus at most an H1 title, blank lines, and comments -- but
+    # nothing here has to change: '-join' over a one-element array is that element, unchanged.
     $sc = Get-ClaudeMdScaffold
     $scaffold = @"
 $($sc.Heading)

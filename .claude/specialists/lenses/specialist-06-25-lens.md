@@ -292,7 +292,7 @@ of this measurement that clone sat ten commits behind `main` and the two files d
 12,294 B in the repo, **11,051 B actually loaded**. The table above reports what the session loads. The
 difference is not error to smooth away — it is **queued cost that arrives at the next plugin update**,
 and it is the always-on face of the consequence
-[`CLAUDE.md`](../../../CLAUDE.md#specific-to-this-repo-claude-code-specialists) already records: through
+[`this-repo.md`](../../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) already records: through
 the `github` source the team sees the last *pushed* plugins. Resolve the load path before measuring it.
 
 **WHERE THE COST IS: IT IS NOT DIFFUSE, IT IS ONE SUB-ITEM.** `CLAUDE.md` stood at 875 lines in 9
@@ -1618,7 +1618,7 @@ together are 0.65 ms, so this always-on path is the lens walk and nothing else.
   and the gate that runs them is `open-pr.ps1`, so the *script* half of any repair is
   [Sylvester #15](specialist-05-15-lens.md)'s and the *coverage* half is Tycho's.
 - **The safety rules are not Nolan's to trade.** The three gates exist because
-  [`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation) says so, and several
+  [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) says so, and several
   of them were built after a measured failure. Nolan may quantify what one costs and put a
   coverage-for-time trade on the table with both sides numbered; whether to take it is Dave's.
 

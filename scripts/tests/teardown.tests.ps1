@@ -887,6 +887,32 @@ function Get-LintScript { return `$script:LintScript }
     Assert-True (@($freshMd | Where-Object { $scaffold.Legacy -contains $_.Trim() }).Count -eq 0) `
         'fresh: the bootstrap never writes a legacy line'
 
+    # SUPERSEDED A SECOND TIME, SAME DAY (#2374, Dave): a root CLAUDE.md now holds only '@'-import lines,
+    # plus at most an H1 title, blank lines and HTML comments -- so Prose is one HTML comment rather than
+    # a sentence, and BOTH earlier generations (the original invitation to write governance prose, and the
+    # September 23 first pass's "add only facts") move into Legacy alongside it.
+    Assert-True (@($scaffold.Prose | Where-Object { $_ -match '^<!--.*-->$' }).Count -eq @($scaffold.Prose).Count) `
+        'the scaffold writes structure, not prose -- every Prose row is an HTML comment'
+    Assert-True (@($scaffold.Legacy) -contains 'This repo is governed by **Claude Specialists** -- a team of specialized Claudes led by a Chief of Staff.') `
+        "September 23's FIRST pass -- the governed-by sentence -- is in Legacy too, not only the original literal"
+    Assert-True (@($scaffold.Legacy) -contains 'This scaffold was created by the `specialists-init` skill; the rules are imported from the plugins, so add only facts about this repo here.') `
+        "September 23's first-pass second line -- 'add only facts' -- is in Legacy too"
+
+    # THE NEW ROOT-PROSE GATE AGREES WITH THE SCAFFOLD IT JUDGES (#2374's second half, consumer-check-lib.ps1
+    # in the dkj-policy mirror): a freshly bootstrapped CLAUDE.md must read as imports-only under the same
+    # gate check-consumer-prose.ps1 runs at session start, or the writer and the gate have drifted apart.
+    #
+    # THROUGH THE GATE SCRIPT, NOT THE RAW DETECTOR. Get-RootClaudeMdProseLines alone has no opinion about
+    # which lines are the PLUGIN'S OWN generated text (the orchestrator note bootstrap.ps1 writes above the
+    # import block; an older consumer's legacy scaffold prose) -- that exclusion lives in the gate script,
+    # by design, because consumer-check-lib.ps1 is documented dependency-free and the exclusion needs
+    # Test-IsOrchestratorNoteLine / Test-IsClaudeMdScaffoldProseLine from check-report-lib.ps1. Calling the
+    # raw function here would assert something the shipped gate does not actually enforce.
+    $checkScript = Join-Path $RepoRoot 'scripts\lint\check-consumer-prose.ps1'
+    $rootProseCheck = Invoke-Script -Path $checkScript -ScriptArgs @('-RootOverride', $Fixture)
+    Assert-True ($rootProseCheck.Out -notmatch 'root CLAUDE\.md carries') `
+        'fresh: the bootstrap-written CLAUDE.md raises no root-prose [WARNING] from the actual gate script'
+
     $fp = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture)
     Assert-Equal 0 $fp.Code 'fresh: preview exit-code 0'
     $keepRx    = "(?m)^\s*\[KEEP\]\s+CLAUDE\.md:(?<line>\d+) -- the bootstrap's scaffold prose"

@@ -167,7 +167,7 @@ gaps to close:
   Chris **does not route to them here**: this repo is not a webshop, a personal-life repo or a Shopify
   store, so an assignment that genuinely belonged to one of them would mean the assignment is in the
   wrong repo. Their lenses stay empty on purpose; see
-  [`SPECIALISTS.md`](../SPECIALISTS.md) and the repo slot in [`CLAUDE.md`](../../../CLAUDE.md).
+  [`SPECIALISTS.md`](../SPECIALISTS.md) and [`.claude/rules/this-repo.md`](../../rules/this-repo.md).
 
 Torn between two addresses? Choose based on *what actually changes*, not which files happen to move
 along — exactly like the `docs/` vs `chore/` rule in

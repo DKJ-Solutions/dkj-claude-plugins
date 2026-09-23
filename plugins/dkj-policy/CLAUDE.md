@@ -2,20 +2,24 @@
 
 **This is the one `CLAUDE.md` every repo running `dkj-policy` reads its rules from** (Dave, issue
 [#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374), September 23, 2026). A
-repo's own `CLAUDE.md` imports it with one absolute `@`-line at the top and then carries **facts about
-that repo only** — its trunk, whether it is public, who owns it, what it is for. It carries no rules of
-its own. That split exists because a consumer's hand-written constitution kept contradicting the plugin
-it had installed, and two copies of one rule always drift.
+repo's own `CLAUDE.md` holds **only** the `@`-import lines — this file, plus a companion extension
+`CLAUDE.md` where one is installed, plus any other plugin import — **and nothing else**. It carries no
+rules of its own, and no facts about the repo either: **facts about the repo (its trunk, whether it is
+public, who owns it, what it is for) go in an unscoped rule your own tooling loads every session** —
+e.g. `.claude/rules/<name>.md` — **and a fact that belongs to one specialist alone goes in that
+specialist's own lens.** That split exists because a consumer's hand-written constitution kept
+contradicting the plugin it had installed, and two copies of one rule always drift; keeping `CLAUDE.md`
+down to imports alone is what makes that drift structurally impossible rather than merely discouraged.
 
-**So a repo's own block states facts and never restates or overrides a rule here.** Where a repo
-genuinely needs a rule to read differently, the route is an `inbound` issue on this plugin's source
-repo, not a local edit. A local override is exactly the drift this file replaces. The mechanics these
-rules name (the branch document, the gates, the fold, the cut) are on
+**So nothing outside the imports restates or overrides a rule here.** Where a repo genuinely needs a
+rule to read differently, the route is an `inbound` issue on this plugin's source repo, not a local
+edit. A local override is exactly the drift this file replaces. The mechanics these rules name (the
+branch document, the gates, the fold, the cut) are on
 [`CONTRIBUTING-portable.md`](CONTRIBUTING-portable.md), which sits beside this file and at the same
 rank. A companion plugin may ship an extension `CLAUDE.md` of its own. It extends this file and never
 overrides it.
 
-**"The owner" below means the person the repo's own block names as its decision-maker.**
+**"The owner" below means the person the repo's own facts name as its decision-maker.**
 
 ---
 

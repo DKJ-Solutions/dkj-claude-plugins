@@ -12,7 +12,7 @@ themselves**. It is **not a replacement** for the safety rules or the routing.
 > workflow (see [`../../README.md`](../../README.md)) — and the repo also consumes that system here
 > **itself**. It enables **all six** of the marketplace's plugins, so that the repo that ships a
 > plugin is also a repo that loads it (Dave, September 8, 2026; the reasoning and what it costs are in
-> [the repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists)). Only
+> [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists)). Only
 > `dkj-subagents-alpha` (the core team) and `dkj-policy` carry real work here, so the team is small and
 > focused on maintaining this product (agent defs, manuals, docs, tooling), not the broad team of a
 > content repo. The other four are enabled for validation — and they are validation of two different
@@ -268,8 +268,7 @@ webshop, a Shopify store or a personal-life repo, so [Chris does not route to
 them](lenses/specialist-01-01-lens.md#the-roster--routing-table--which-assignment-goes-to-whom) at all. **Do
 not treat those eleven as a backlog**: a filled-in lens for one of them would describe work this repo
 does not have. Same reasoning, in
-[`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo slot of
-`CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists).
+[`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists).
 
 ## This organization changes with the team
 
@@ -330,7 +329,7 @@ started before it.
 marketplace clone**, which advances on that first command and on nothing else. So an agent def, a skill
 or a script you merged here takes effect after merge, push *and* that refresh — and **between two
 releases no version check can tell you the clone is behind**, because `version` only moves at a cut.
-[The repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists) states
+[The repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) states
 both halves; this is the procedure they imply.
 
 **Everything the second command touches is per-checkout state, which is why every machine runs it

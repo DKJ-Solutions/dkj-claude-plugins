@@ -1087,7 +1087,7 @@ and does not need to: `minor` is the default.
   **public** — a deliberate choice, so the remote `github` marketplace source can be read without gh auth.
   If you get `Repository not found`, first run `gh auth setup-git`.
 - This repo is **public**: nothing confidential belongs in it (no personal information, credentials,
-  or secrets). See the general guidelines in [`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation).
+  or secrets). See the general guidelines in [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation).
 
 ### Derek is lazy — so he scripted everything
 

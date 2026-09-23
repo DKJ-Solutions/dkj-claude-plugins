@@ -1,0 +1,82 @@
+diff --git a/README.md b/README.md
+index 2d26b72b..84f1a663 100644
+--- a/README.md
++++ b/README.md
+@@ -92,7 +92,8 @@ two kinds of plugin stand in opposite relations to a consumer's own rules:
+ - **`dkj-policy` is adopted BY the consumer, and it wins — on the cycle, not on everything.** The
+   workflow's own page says so: *"where the two disagree, the workflow's page wins"* (Dave,
+   August 14, 2026, in
+-  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). [`CLAUDE.md`](CLAUDE.md) restates it
++  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). This repo's own
++  [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md) restates it
+   from the other side **with its scope attached**, and the scope is the half worth quoting: *"where the
+   two disagree, the plugin's page wins. It does not replace anything below; it adds the workflow's own
+   mechanics."* So what yields is the way work moves — the branch, the gates, the fold — and not a
+@@ -1573,7 +1574,9 @@ its own marketplace. See [One product, one repository](#one-product-one-reposito
+ 
+ Changes to this repo go through a branch + Pull Request to `main`, and that much holds whether or not
+ any plugin is installed — it is the **standard workflow**, three rules long, and it is stated in
+-[`CLAUDE.md`](CLAUDE.md), which is where this repo has kept its floor since it retired its root
++[`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md), the constitution this repo's own
++`CLAUDE.md` imports and never restates; this repo's own floor sits beside the import, in
++[`.claude/rules/this-repo.md`](.claude/rules/this-repo.md), since it retired its root
+ `CONTRIBUTING.md` on August 27, 2026. **The branch dossier, the changelog entry that folds at the
+ merge, the significance model and the release cut are the `dkj-policy` layer on top**, and they are
+ described in [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md), the page that
+@@ -1588,8 +1591,11 @@ seam table, [Derek's](.claude/specialists/lenses/specialist-05-05-lens.md) for t
+ layers, [Rendall's](.claude/specialists/lenses/specialist-05-06-lens.md) for the fold and the cut, and
+ the [specialists handbook](.claude/specialists/README.md) for keeping a checkout's plugins current.
+ 
+-The governance is in [`CLAUDE.md`](CLAUDE.md): the safety rules, the three direct-on-`main` exceptions
+-and their bounds, and this repo's own gates. **The roster and the routing are not there** — they sit
++The safety rules and the three direct-on-`main` exceptions are the imported constitution, in
++[`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md); this repo's own gates and their bounds
++are in [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md), which the root `CLAUDE.md` does not
++carry directly — that file holds only the `@`-imports. **The roster and the routing are not there
++either** — they sit
+ behind the one seam line at its foot, in
+ [`.claude/specialists/SPECIALISTS.md`](.claude/specialists/SPECIALISTS.md) and the lenses beside it,
+ which is what [The seam, specified](#the-seam-specified) is for.
+diff --git a/SECURITY.md b/SECURITY.md
+index fc21cc35..d012a39a 100644
+--- a/SECURITY.md
++++ b/SECURITY.md
+@@ -3,7 +3,7 @@
+ `claude-code-specialists` is the public marketplace repo for Dave (DaveKJohn)'s Claude Code plugins
+ (the Claude Specialists system): plugin/agent definitions, manuals, PowerShell scripts, docs, and
+ CI config. It's public **by design**, and by the same design it holds **no secrets, credentials,
+-or personal data** — see [`CLAUDE.md`](CLAUDE.md#specific-to-this-repo-claude-code-specialists).
++or personal data** — see [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md#specific-to-this-repo-claude-code-specialists).
+ Nothing in here is meant to be confidential in the first place.
+ 
+ ## Reporting a vulnerability
+diff --git a/connectors/README.md b/connectors/README.md
+index f209bf4a..51423a14 100644
+--- a/connectors/README.md
++++ b/connectors/README.md
+@@ -15,8 +15,9 @@ administration.
+ 
+ claude-code-specialists works like a **Customer Data Platform**: all changes to shared plugin content
+ (agent defs, manuals, persona bodies, skills) **land here first**, and are only then synced out to
+-the connected repos — never the other way around (see the safety rules in the repo
+-[`CLAUDE.md`](../CLAUDE.md)). If an improvement nevertheless originates in a consumer, that
++the connected repos — never the other way around (see the safety rules in
++[`plugins/dkj-policy/CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md), which the repo's own
++[`CLAUDE.md`](../CLAUDE.md) imports). If an improvement nevertheless originates in a consumer, that
+ is an **inbound signal**: the change is first brought back here and then synced out again.
+ 
+ **The standing inbound route** (agreed with Dave, July 16, 2026): if a session in a consuming repo
+diff --git a/dkj-policy/releases/history.md b/dkj-policy/releases/history.md
+index 5fdebb37..2f54f8ec 100644
+--- a/dkj-policy/releases/history.md
++++ b/dkj-policy/releases/history.md
+@@ -57,7 +57,8 @@ is. Everything a release *produces* belongs to the workflow and is one layer up,
+ 
+ That is the layering this repo uses throughout: the root holds what is true regardless, and the
+ `contributing-davekjohn` layer adds what the workflow brings. Where the two disagree, the workflow page
+-wins — the same rule [`CONTRIBUTING-portable.md`](../../plugins/dkj-policy/CONTRIBUTING-portable.md) and [`CLAUDE.md`](../../CLAUDE.md) state.
++wins — the same rule [`CONTRIBUTING-portable.md`](../../plugins/dkj-policy/CONTRIBUTING-portable.md) and
++[`.claude/rules/this-repo.md`](../../.claude/rules/this-repo.md) state.
+ 
+ ## The release list
+ 

@@ -108,9 +108,14 @@ A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance mov
   writes it.
 - [x] `check-plugin-integrity.ps1`: 0 errors. `check-always-on-budget.ps1`: the path shrank by
   2,307 B (110,314 -> 108,007).
-- [ ] Re-run the lint and test gates after the imports-only rework (the root `CLAUDE.md` shrink, the
-  new `.claude/rules/this-repo.md`, and every repointed link) -- `check-plugin-integrity.ps1` at a
-  minimum; note the new always-on budget delta once it is known.
+- [x] Re-run the lint and test gates after the imports-only rework: `check-plugin-integrity.ps1` 0
+  errors; consumer-prose-gate 122/122, measure-always-on 85/85, teardown 245/245, always-on-budget
+  135/135; `build-shared-scripts.ps1 -Check` in sync. The always-on walk now counts unscoped
+  `.claude/rules/*.md` (it was blind to them, so the move first read as a false 37 KB shrink); the
+  honest delta is a small shrink against the 108,023 B baseline.
+- [x] Review of the rework: Victor (root-prose detector: comment close by containment, column-0
+  imports, one leading H1 -- fixed and pinned), Sebastian (only an unindented `paths:` scopes a rule --
+  fixed and pinned), Edith (two stale "below" references in the moved text -- fixed).
 
 ### DEPLOY: feat/2374-global-claude-md
 

@@ -1,0 +1,74 @@
+diff --git a/.claude/rules/language-layers.md b/.claude/rules/language-layers.md
+index b12300b9..fa398680 100644
+--- a/.claude/rules/language-layers.md
++++ b/.claude/rules/language-layers.md
+@@ -12,7 +12,7 @@ paths:
+ 
+ # Language — which layers are English, and the exceptions
+ 
+-The norm itself lives in [`CLAUDE.md`](../../CLAUDE.md#language) because it governs every turn. **This
++The norm itself lives in [`this-repo.md`](this-repo.md#language) because it governs every turn. **This
+ file is the per-layer detail**, path-scoped so it loads when you actually touch one of those layers
+ rather than in every session.
+ 
+diff --git a/.claude/skills/triage-inbound/SKILL.md b/.claude/skills/triage-inbound/SKILL.md
+index 4fef9bdf..96ef8d08 100644
+--- a/.claude/skills/triage-inbound/SKILL.md
++++ b/.claude/skills/triage-inbound/SKILL.md
+@@ -10,7 +10,7 @@ description: The measured evidence behind this repo's inbound-item verification
+ > [his lens](../../specialists/lenses/specialist-01-01-lens.md#the-dave-rules). This skill carries the
+ > **measurements** behind it — which is what the repo's own convention asks of a skill: *"personas
+ > and manuals carry no repo-specific detail at all while skills carry the evidence behind a
+-> procedure"* ([`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation)).
++> procedure"* ([`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation)).
+ 
+ Six things are checked before an inbound item is routed, and each one fails independently: the
+ **symptom** may already be repaired, the **reasoning** may have expired, the **repair** it proposes
+diff --git a/.claude/specialists/README.md b/.claude/specialists/README.md
+index c4010290..112a4fee 100644
+--- a/.claude/specialists/README.md
++++ b/.claude/specialists/README.md
+@@ -12,7 +12,7 @@ themselves**. It is **not a replacement** for the safety rules or the routing.
+ > workflow (see [`../../README.md`](../../README.md)) — and the repo also consumes that system here
+ > **itself**. It enables **all six** of the marketplace's plugins, so that the repo that ships a
+ > plugin is also a repo that loads it (Dave, September 8, 2026; the reasoning and what it costs are in
+-> [the repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists)). Only
++> [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists)). Only
+ > `dkj-subagents-alpha` (the core team) and `dkj-policy` carry real work here, so the team is small and
+ > focused on maintaining this product (agent defs, manuals, docs, tooling), not the broad team of a
+ > content repo. The other four are enabled for validation — and they are validation of two different
+@@ -268,8 +268,7 @@ webshop, a Shopify store or a personal-life repo, so [Chris does not route to
+ them](lenses/specialist-01-01-lens.md#the-roster--routing-table--which-assignment-goes-to-whom) at all. **Do
+ not treat those eleven as a backlog**: a filled-in lens for one of them would describe work this repo
+ does not have. Same reasoning, in
+-[`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo slot of
+-`CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists).
++[`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists).
+ 
+ ## This organization changes with the team
+ 
+@@ -330,7 +329,7 @@ started before it.
+ marketplace clone**, which advances on that first command and on nothing else. So an agent def, a skill
+ or a script you merged here takes effect after merge, push *and* that refresh — and **between two
+ releases no version check can tell you the clone is behind**, because `version` only moves at a cut.
+-[The repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists) states
++[The repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) states
+ both halves; this is the procedure they imply.
+ 
+ **Everything the second command touches is per-checkout state, which is why every machine runs it
+diff --git a/.claude/specialists/SPECIALISTS.md b/.claude/specialists/SPECIALISTS.md
+index 3ead8cdd..0418f786 100644
+--- a/.claude/specialists/SPECIALISTS.md
++++ b/.claude/specialists/SPECIALISTS.md
+@@ -130,9 +130,9 @@ Small and maintenance-focused — and **every plugin in the marketplace is enabl
+ 
+ add-on teams included, so that the repo which ships a plugin is also a repo that loads it. Those three
+ 
+-have no work here and are not expected to; that is validation, not a roster, and the repo slot in
++have no work here and are not expected to; that is validation, not a roster, and
+ 
+-[`CLAUDE.md`](../../CLAUDE.md) states what it costs. The portable playbooks come from the four team
++[`.claude/rules/this-repo.md`](../rules/this-repo.md) states what it costs. The portable playbooks come from the four team
+ 
+ plugins; each specialist's repo lens lives in [`.claude/specialists/lenses/`](lenses/).
+ 

@@ -1,9 +1,11 @@
 <#
 .SYNOPSIS
-    Gate: does this consumer's own law-bearing prose contradict the plugin? Two detectors over one
-    corpus, read once -- a RETIRED name of the branch's development document (issue #1389), and an
-    inverted declaration putting this repo's own 'CLAUDE.md' above the workflow's contributing page
-    (issue #1415). Merged into one script by issue #1421.
+    Gate: does this consumer's own law-bearing prose contradict the plugin? Two [ERROR]-emitting
+    detectors over one corpus, read once -- a RETIRED name of the branch's development document (issue
+    #1389), and an inverted declaration putting this repo's own 'CLAUDE.md' above the workflow's
+    contributing page (issue #1415). Merged into one script by issue #1421. Two further [WARNING]-only
+    checks judge the root 'CLAUDE.md' file alone (issue #2374): whether it '@'-imports the dkj-policy
+    constitution, and whether it carries prose beyond that -- both advisory, neither moves the exit code.
 
 .DESCRIPTION
     THE HOLE THIS CLOSES, and it is one hole with two shapes. Nothing else reads a consumer's CLAUDE.md:
@@ -208,9 +210,45 @@ $inverted = @(Get-SupremacyDeclaration -RepoRoot $repoRoot -Documents $documents
 if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ConstitutionImported') -and
     -not (Test-ConstitutionImported -Documents $documents)) {
     Write-Host '[WARNING] this repo''s CLAUDE.md does not import the dkj-policy constitution -- the rules it runs under.' -ForegroundColor Yellow
-    Write-Host '          Add this line near the top, and keep only facts about this repo beneath it:' -ForegroundColor Yellow
+    Write-Host '          Add this line, and keep ONLY ''@''-import lines in CLAUDE.md beneath it:' -ForegroundColor Yellow
     Write-Host "            $(Get-ConstitutionImportLine)" -ForegroundColor Yellow
-    Write-Host '          Then remove any rule the constitution already states -- see CONTRIBUTING-portable.md, "A third rank sits above both".' -ForegroundColor Yellow
+    Write-Host '          Move repo facts into an unscoped .claude/rules/<name>.md, and a specialist''s own' -ForegroundColor Yellow
+    Write-Host '          repo-specific rules into its lens.' -ForegroundColor Yellow
+}
+
+# THE ROOT PROSE RULE (#2374, superseded by Dave September 23, 2026). A root CLAUDE.md holds ONLY
+# '@'-import lines now (plus at most an H1 title, blank lines, and HTML comments); every fact about the
+# repo moves to an unscoped .claude/rules/<name>.md, and a specialist's own repo-specific rule moves to
+# its lens. A SECOND, INDEPENDENT [WARNING] from the import-line one above -- a root file can import the
+# constitution correctly and still carry its own law beneath it. Never an [ERROR], never touches the exit
+# code, and the two [ERROR]-emitting detectors above keep their exit semantics exactly. Judged on the
+# ROOT FILE ALONE (Get-RootClaudeMdProseLines reads it directly), not on the walked closure -- see that
+# function's docstring for why -RootDocument is passed through unchanged from this script's own parameter.
+$rootProse = if (Test-FunctionDefined 'Get-RootClaudeMdProseLines') {
+    @(Get-RootClaudeMdProseLines -RepoRoot $repoRoot -RootDocument $RootDocument)
+} else { @() }
+# THE PLUGIN'S OWN GENERATED LINES ARE NOT THE CONSUMER'S PROSE. bootstrap.ps1 writes two things
+# straight into a fresh root CLAUDE.md that are plain sentences by shape, not '@'-imports: the
+# orchestrator note above the import block (Get-OrchestratorNote / Test-IsOrchestratorNoteLine) and,
+# on an older consumer that adopted before this rule, the scaffold's own former prose lines
+# (Get-ClaudeMdScaffold's Legacy / Test-IsClaudeMdScaffoldProseLine). Judging either as a violation
+# would flag EVERY consumer's bootstrap-written file the moment this check shipped -- the same
+# reasoning the retired-name and supremacy detectors already apply via their Source -ne 'tree'
+# exclusion, here restated because this detector reads its own file rather than a Get-AlwaysOnDocuments
+# row and so cannot reuse that field.
+$rootProse = @($rootProse | Where-Object {
+    -not (Test-IsOrchestratorNoteLine -Line $_.Text) -and -not (Test-IsClaudeMdScaffoldProseLine -Line $_.Text)
+})
+# @() AGAIN, RIGHT BEFORE .Count -- not style, load-bearing (see consumer-prose-gate.tests.ps1's own note
+# on this exact trap): under Set-StrictMode -Version Latest a single-element array assigned out of an
+# if/else expression (or a Where-Object filter) can unwrap to its lone element on the way into the
+# variable, and '.Count' on THAT throws PropertyNotFoundStrict rather than answering 1. $documents above
+# is read the same defensive way.
+if (@($rootProse).Count -gt 0) {
+    Write-Host "[WARNING] this repo's root CLAUDE.md carries $(@($rootProse).Count) line(s) of prose beyond '@'-import lines." -ForegroundColor Yellow
+    Write-Host '          CLAUDE.md holds only ''@''-import lines now (plus an H1 title, blank lines, and HTML' -ForegroundColor Yellow
+    Write-Host '          comments). Move repo facts into an unscoped .claude/rules/<name>.md, and a' -ForegroundColor Yellow
+    Write-Host '          specialist''s own repo-specific rules into its lens.' -ForegroundColor Yellow
 }
 
 if ($retired.Count -eq 0 -and $inverted.Count -eq 0) {

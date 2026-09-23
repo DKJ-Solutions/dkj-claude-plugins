@@ -213,6 +213,110 @@ try {
     Assert-Equal 2 (@(Get-AlwaysOnDocuments -RootDocument $walkRoot -RepoRoot $Fixture -MaxHops 1).Count) 'the hop cap actually caps'
 
     Write-Host ''
+    Write-Host 'Unscoped rules are an always-on floor too (#2374 follow-up)' -ForegroundColor Cyan
+
+    # A SEPARATE FIXTURE ROOT, deliberately not a subfolder of $Fixture. Get-UnscopedRuleFiles resolves
+    # '.claude/rules' off -RepoRoot, and every case above and below this block passes -RepoRoot $Fixture
+    # -- so a '.claude/rules' directory dropped under $Fixture itself would be picked up by ALL of them
+    # and inflate every hard-coded count in this file. Cleaned up at the end of this block rather than in
+    # the shared 'finally', for the same reason it is not shared to begin with.
+    $RulesFixture = Join-Path ([System.IO.Path]::GetTempPath()) ("measure-always-on-rules-$PID-$([guid]::NewGuid().ToString('n'))")
+    New-Item -ItemType Directory -Path $RulesFixture -Force | Out-Null
+    function New-RuleFixtureFile {
+        param([string]$RelPath, [string[]]$Lines)
+        $full = Join-Path $RulesFixture $RelPath
+        $dir = Split-Path -Parent $full
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        [System.IO.File]::WriteAllText($full, (($Lines -join "`n") + "`n"), $Utf8NoBom)
+        return $full
+    }
+    try {
+        # --- Test-IsRuleFileScoped, on its own -------------------------------------------------------
+        $noFm     = New-RuleFixtureFile 'nofm.md'    @('# No frontmatter at all', 'just prose')
+        $withFm   = New-RuleFixtureFile 'withfm.md'  @('---', 'paths:', '  - "scripts/**"', '---', '', '# Scoped')
+        $inlineFm = New-RuleFixtureFile 'inline.md'  @('---', 'paths: ["scripts/**"]', '---', '', '# Scoped, inline list')
+        $otherKey = New-RuleFixtureFile 'otherkey.md' @('---', 'id: 5', '---', '', '# No paths key at all')
+        $unclosed = New-RuleFixtureFile 'unclosed.md' @('---', 'id: 5', '# Frontmatter that never closes')
+        # Sebastian #23, code review: a NESTED 'paths:' -- indented under some other top-level key --
+        # is not the scoping signal this convention reads. Trimming before the match (the first cut)
+        # misread it as one, undercounting the always-on path in exactly the direction this whole
+        # mechanism exists to prevent.
+        $nestedPaths = New-RuleFixtureFile 'nested.md' @('---', 'other:', '  paths:', '    - "scripts/**"', '---', '', '# Not scoped -- paths is nested under other')
+
+        Assert-True (-not (Test-IsRuleFileScoped -Path $noFm)) 'no frontmatter at all -- unscoped'
+        Assert-True (Test-IsRuleFileScoped -Path $withFm) "a 'paths:' key as a block list -- scoped"
+        Assert-True (Test-IsRuleFileScoped -Path $inlineFm) "a 'paths:' key as an inline flow list -- scoped too"
+        Assert-True (-not (Test-IsRuleFileScoped -Path $otherKey)) "frontmatter present but no 'paths:' key -- unscoped"
+        Assert-True (-not (Test-IsRuleFileScoped -Path $unclosed)) 'frontmatter that never closes -- read as unscoped, not guessed at'
+        Assert-True (-not (Test-IsRuleFileScoped -Path (Join-Path $RulesFixture 'does-not-exist.md'))) 'a file that does not exist -- unscoped, no throw'
+        Assert-True (-not (Test-IsRuleFileScoped -Path $nestedPaths)) "a 'paths:' key INDENTED under another key is not a top-level scoping key -- unscoped"
+
+        # --- Get-UnscopedRuleFiles, on its own --------------------------------------------------------
+        $noRulesDirRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("measure-always-on-norules-$PID-$([guid]::NewGuid().ToString('n'))")
+        New-Item -ItemType Directory -Path $noRulesDirRoot -Force | Out-Null
+        try {
+            Assert-Equal 0 (@(Get-UnscopedRuleFiles -RepoRoot $noRulesDirRoot).Count) 'no .claude/rules directory at all -- @(), not an error'
+        } finally { Remove-Item -Recurse -Force $noRulesDirRoot -ErrorAction SilentlyContinue }
+
+        New-RuleFixtureFile '.claude\rules\top.md' @('# Top-level unscoped rule') | Out-Null
+        New-RuleFixtureFile '.claude\rules\sub\nested.md' @('# Nested unscoped rule, one directory down') | Out-Null
+        New-RuleFixtureFile '.claude\rules\scoped.md' @('---', 'paths:', '  - "scripts/**"', '---', '', '# Scoped, excluded') | Out-Null
+        $unscoped = @(Get-UnscopedRuleFiles -RepoRoot $RulesFixture)
+        Assert-Equal 2 $unscoped.Count 'two unscoped rule files found -- top-level and nested, the scoped one excluded'
+        Assert-True (@($unscoped | Where-Object { $_ -like '*sub\nested.md' }).Count -eq 1) 'the recursive glob reaches a subdirectory'
+        Assert-True (@($unscoped | Where-Object { $_ -like '*\scoped.md' }).Count -eq 0) "the 'paths:'-scoped file is excluded"
+
+        # --- Get-AlwaysOnDocuments -- the rules floor is enqueued at Hop 0 alongside the root ----------
+        $rulesRoot = New-RuleFixtureFile 'CLAUDE.md' @('# Root', 'no imports here')
+        $rulesWalk = @(Get-AlwaysOnDocuments -RootDocument $rulesRoot -RepoRoot $RulesFixture)
+        # root.md + top.md + sub/nested.md = 3; scoped.md is never enqueued at all.
+        Assert-Equal 3 $rulesWalk.Count 'the root plus both unscoped rule files -- the scoped one never enters the queue'
+        Assert-True (@($rulesWalk | Where-Object { $_.Hop -eq 0 }).Count -eq 3) 'every one of them is Hop 0 -- a rules-floor document, not something nested @-imports found'
+        $ruleRow = @($rulesWalk | Where-Object { $_.Display -eq '.claude/rules/top.md' })[0]
+        Assert-True ($null -ne $ruleRow) 'the unscoped rule file is on the path, addressed by its repo-relative path'
+        Assert-Equal '.claude/rules' $ruleRow.ImportedBy "its ImportedBy is the synthetic marker, not a real importing file"
+        Assert-Equal 'tree' $ruleRow.Source 'it reads as an in-tree document, same as CLAUDE.md itself'
+
+        # A scoped rule genuinely changes nothing about the walk: same root, no '.claude/rules' at all.
+        $bareRoot = New-RuleFixtureFile 'bare\CLAUDE.md' @('# Root', 'no imports, no rules dir beside it')
+        # bareRoot's OWN directory has no '.claude/rules', but -RepoRoot is still $RulesFixture, which
+        # does -- proving the rules dir is resolved off -RepoRoot, not off the root document's directory.
+        $bareWalk = @(Get-AlwaysOnDocuments -RootDocument $bareRoot -RepoRoot $RulesFixture)
+        Assert-Equal 3 $bareWalk.Count 'the rules floor is keyed off -RepoRoot, not off the root document''s own folder'
+
+        # --- A rule file's OWN '@'-imports are walked too, by the same loop ----------------------------
+        # A FRESH RepoRoot for this case: $RulesFixture's rules dir already carries top.md/sub/nested.md,
+        # and adding another pair to it would make the counts above stale the moment this case ran first
+        # (or fragile to reordering, which is worse). A second, self-contained fixture keeps this case's
+        # arithmetic independent of everything above it.
+        $RulesFixture2 = Join-Path ([System.IO.Path]::GetTempPath()) ("measure-always-on-rules2-$PID-$([guid]::NewGuid().ToString('n'))")
+        New-Item -ItemType Directory -Path $RulesFixture2 -Force | Out-Null
+        try {
+            function New-RuleFixtureFile2 {
+                param([string]$RelPath, [string[]]$Lines)
+                $full = Join-Path $RulesFixture2 $RelPath
+                $dir = Split-Path -Parent $full
+                if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+                [System.IO.File]::WriteAllText($full, (($Lines -join "`n") + "`n"), $Utf8NoBom)
+                return $full
+            }
+            # The imported target sits OUTSIDE '.claude/rules/' on purpose: were it inside that tree too,
+            # Get-UnscopedRuleFiles would enqueue it a second time as its OWN Hop-0 root, and 'first seen
+            # wins' (this function's own dedup) would keep that Hop-0 copy over the Hop-1 one the import
+            # produces -- proving nothing about the import walk at all.
+            New-RuleFixtureFile2 '.claude\rules\importer.md' @('# Importer', '@../../sibling.md') | Out-Null
+            New-RuleFixtureFile2 'sibling.md' @('# Sibling, outside .claude/rules, pulled in by an unscoped rule') | Out-Null
+            $importsRootDoc = New-RuleFixtureFile2 'CLAUDE.md' @('# Root', 'no imports of its own')
+            $importsWalk = @(Get-AlwaysOnDocuments -RootDocument $importsRootDoc -RepoRoot $RulesFixture2)
+            Assert-Equal 3 $importsWalk.Count 'root + the unscoped rule + the document IT imports'
+            $siblingRow = @($importsWalk | Where-Object { $_.Display -eq 'sibling.md' })[0]
+            Assert-True ($null -ne $siblingRow) "the rule file's own '@'-import is followed"
+            Assert-Equal 1 $siblingRow.Hop 'walked one hop past the rule file that named it'
+            Assert-True ($siblingRow.ImportedBy -like '*importer.md') 'and ImportedBy names the REAL importing file this time, not the synthetic marker'
+        } finally { Remove-Item -Recurse -Force $RulesFixture2 -ErrorAction SilentlyContinue }
+    } finally { Remove-Item -Recurse -Force $RulesFixture -ErrorAction SilentlyContinue }
+
+    Write-Host ''
     Write-Host 'The walk guards: a cycle, a diamond, a dead import' -ForegroundColor Cyan
 
     New-Fixture 'cycle\a.md' @('# A', '@b.md') | Out-Null

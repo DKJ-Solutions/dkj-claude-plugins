@@ -681,8 +681,10 @@ try {
         'no import -- a [WARNING] carrying the paste-ready line, and still exit 0'
 
     # The absolute line, unresolved on this machine: the written line is what counts, not the clone.
+    # Imports-only content (#2374 superseded): a trailing fact sentence here would now also trip the
+    # root-prose [WARNING] below, which is a different rule from the one this fixture exists to pin.
     $imported = New-Tree -Label 'constimported'
-    Set-Text -Dir $imported -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md`n`nThis repo's trunk is main."
+    Set-Text -Dir $imported -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
     $rows = @(Get-AlwaysOnRows -Dir $imported)
     Assert-True (Test-ConstitutionImported -Documents $rows) `
         'an absolute import counts even where the clone has not refreshed yet (Exists = false)'
@@ -708,6 +710,144 @@ try {
     $r = Invoke-Hook -Dir $retiredRoot
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'contradicts the plugin' -and $r.Out -match 'does not import the dkj-policy constitution') `
         'the hook forwards the warning inside the [ERROR] report as well, still exit 0'
+
+    # --- the root-prose rule (#2374, superseded September 23, 2026) --------------------------------
+    # Dave's second pass the same day: a root CLAUDE.md holds ONLY '@'-import lines now (plus at most an
+    # H1 title, blank lines, and HTML comments). This is the detector for that rule
+    # (Get-RootClaudeMdProseLines, consumer-check-lib.ps1), judged on the ROOT FILE ALONE -- never the
+    # walked closure -- and it is a second, independent [WARNING] from the import-line one above.
+    Write-Host ''
+    Write-Host 'Get-RootClaudeMdProseLines (#2374 superseded)'
+
+    Assert-True (@(Get-RootClaudeMdProseLines -RepoRoot (New-BareDir -Label 'rootprosenodir')).Count -eq 0) `
+        'a repo root that does not exist -- no findings, no throw'
+
+    $importsOnly = New-Tree -Label 'importsonly'
+    Set-Text -Dir $importsOnly -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n<!-- Repo facts belong in .claude/rules/, not here. -->`n`n@.claude/specialists/SPECIALISTS.md"
+    Assert-True (@(Get-RootClaudeMdProseLines -RepoRoot $importsOnly).Count -eq 0) `
+        'an imports-only CLAUDE.md -- H1, a comment, blanks and one @-import -- carries no findings'
+
+    $withProse = New-Tree -Label 'rootwithprose'
+    Set-Text -Dir $withProse -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`nThis repo is public and its trunk is main.`n`n@.claude/specialists/SPECIALISTS.md"
+    $rp = @(Get-RootClaudeMdProseLines -RepoRoot $withProse)
+    Assert-True ($rp.Count -eq 1 -and $rp[0].Line -eq 3 -and $rp[0].Text -eq 'This repo is public and its trunk is main.') `
+        'a fact sentence beneath the H1 is reported at its own line'
+
+    $h2 = New-Tree -Label 'rooth2'
+    Set-Text -Dir $h2 -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n## Facts`n`n@.claude/specialists/SPECIALISTS.md"
+    Assert-True (@(Get-RootClaudeMdProseLines -RepoRoot $h2).Count -eq 1) `
+        "a second-level heading is NOT the allowed H1 -- 'at most an H1 title' means depth 1 only"
+
+    $multiComment = New-Tree -Label 'rootmulticomment'
+    Set-Text -Dir $multiComment -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n<!--`n  Repo facts belong in .claude/rules/, not here.`n-->`n`n@.claude/specialists/SPECIALISTS.md"
+    Assert-True (@(Get-RootClaudeMdProseLines -RepoRoot $multiComment).Count -eq 0) `
+        'an HTML comment spanning several lines is skipped in full, not just its opening line'
+
+    $twoProse = New-Tree -Label 'roottwoprose'
+    Set-Text -Dir $twoProse -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`nFirst fact.`nSecond fact.`n`n@.claude/specialists/SPECIALISTS.md"
+    Assert-True (@(Get-RootClaudeMdProseLines -RepoRoot $twoProse).Count -eq 2) `
+        'two separate prose lines are two findings, one per line'
+
+    # -RootDocument, exactly like Get-CheckProseCorpus: a caller naming a different root is honoured.
+    $altRootDir = New-Tree -Label 'rootaltdoc'
+    Set-Text -Dir $altRootDir -Rel 'OTHER.md' -Text "# CLAUDE.md`n`nA fact stated here.`n`n@.claude/specialists/SPECIALISTS.md"
+    Assert-True (@(Get-RootClaudeMdProseLines -RepoRoot $altRootDir -RootDocument (Join-Path $altRootDir 'OTHER.md')).Count -eq 1) `
+        '-RootDocument overrides the default <RepoRoot>/CLAUDE.md, matching Get-CheckProseCorpus'
+
+    # --- Victor #19, code review, HIGH: the comment closes on CONTAINMENT, not on ending the line ----
+    # Before this fix, '<!-- x --> prose' set $inComment (it does not END in '-->') and never cleared it,
+    # and a multi-line comment whose CLOSING line carried trailing text did the same -- swallowing the
+    # rest of the file as an unclosed comment.
+    $trailingSingle = New-Tree -Label 'roottrailingsingle'
+    Set-Text -Dir $trailingSingle -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n<!-- note --> a fact right after it`n`n@.claude/specialists/SPECIALISTS.md"
+    $ts = @(Get-RootClaudeMdProseLines -RepoRoot $trailingSingle)
+    Assert-True ($ts.Count -eq 1 -and $ts[0].Line -eq 3 -and $ts[0].Text -eq 'a fact right after it') `
+        'a single-line comment with trailing text on the SAME line -- the trailing text is reported, not swallowed'
+
+    $trailingMulti = New-Tree -Label 'roottrailingmulti'
+    Set-Text -Dir $trailingMulti -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n<!--`n  a comment`n--> and a fact after the close`n`n@.claude/specialists/SPECIALISTS.md"
+    $tm = @(Get-RootClaudeMdProseLines -RepoRoot $trailingMulti)
+    Assert-True ($tm.Count -eq 1 -and $tm[0].Line -eq 5 -and $tm[0].Text -eq 'and a fact after the close') `
+        "a multi-line comment whose CLOSING line carries trailing text -- reported once, at the line it closes on"
+    # The regression this second assert pins: before the fix, that trailing text kept $inComment on
+    # (no further '-->' anywhere in the fixture), so the '@'-import after it was never read at all and
+    # the whole rest of the file went silently uncounted.
+    Assert-True ($tm.Count -eq 1) 'and nothing after the trailing-text line is wrongly swallowed either'
+
+    # --- Victor #19, code review, MEDIUM: an '@'-import needs column 0 on the RAW line ---------------
+    $indentedImport = New-Tree -Label 'rootindentedimport'
+    Set-Text -Dir $indentedImport -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n  @not-actually-an-import.md`n`n@.claude/specialists/SPECIALISTS.md"
+    $ii = @(Get-RootClaudeMdProseLines -RepoRoot $indentedImport)
+    Assert-True ($ii.Count -eq 1 -and $ii[0].Line -eq 3 -and $ii[0].Text -eq '@not-actually-an-import.md') `
+        "an INDENTED '@line' is prose to Claude Code and must be reported, not exempted as if it were an import"
+
+    # --- Victor #19, code review, LOW/MED: only ONE H1, only as the FIRST non-blank line -------------
+    $secondH1 = New-Tree -Label 'rootsecondh1'
+    Set-Text -Dir $secondH1 -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n@.claude/specialists/SPECIALISTS.md`n`n# A second title further down"
+    $sh = @(Get-RootClaudeMdProseLines -RepoRoot $secondH1)
+    Assert-True ($sh.Count -eq 1 -and $sh[0].Line -eq 5 -and $sh[0].Text -eq '# A second title further down') `
+        'a SECOND H1-shaped line later in the file counts as prose -- only the very first one is exempt'
+
+    $h1NotFirst = New-Tree -Label 'rooth1notfirst'
+    Set-Text -Dir $h1NotFirst -Rel 'CLAUDE.md' -Text "@.claude/specialists/SPECIALISTS.md`n`n# CLAUDE.md"
+    $hf = @(Get-RootClaudeMdProseLines -RepoRoot $h1NotFirst)
+    Assert-True ($hf.Count -eq 1 -and $hf[0].Line -eq 3) `
+        'an H1 that is not the FIRST non-blank line of the file -- an import precedes it here -- is not exempt either'
+
+    # --- check-consumer-prose.ps1, the gate -- the root-prose [WARNING] ------------------------------
+    Write-Host ''
+    Write-Host 'check-consumer-prose.ps1 -- the root-prose [WARNING]'
+
+    $r = Invoke-Script -Dir $importsOnly
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'root CLAUDE\.md carries') `
+        'imports-only root -- silent on the root-prose rule'
+
+    $r = Invoke-Script -Dir $withProse
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape("[WARNING] this repo's root CLAUDE.md carries 1 line(s) of prose beyond '@'-import lines.")) `
+        'a fact sentence beneath the H1 -- a [WARNING] naming the count, exit 0 (never an [ERROR])'
+    Assert-True ($r.Out -match [regex]::Escape('.claude/rules/<name>.md')) `
+        'the warning names where repo facts belong'
+
+    # THE TWO WARNINGS ARE INDEPENDENT: a root that imports the constitution correctly but still
+    # carries prose gets ONLY the root-prose warning, never the import one.
+    $importedWithProse = New-Tree -Label 'importedwithprose'
+    Set-Text -Dir $importedWithProse -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md`n`nThis repo is public."
+    $r = Invoke-Script -Dir $importedWithProse
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the dkj-policy constitution' -and $r.Out -match 'root CLAUDE\.md carries 1 line') `
+        'the constitution-import warning stays silent once the line is present -- only the prose warning fires'
+
+    # Exit-code semantics are untouched: an [ERROR] detector still exits 1 with the prose warning riding
+    # along, exactly like the constitution-import warning above it.
+    $retiredWithProse = New-Tree -Label 'retiredwithprose'
+    Set-Text -Dir $retiredWithProse -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`nElke branch krijgt zijn eigen ``dkj-policy/$retired``.`n`nSome other repo fact."
+    $r = Invoke-Script -Dir $retiredWithProse
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[ERROR\]' -and $r.Out -match 'root CLAUDE\.md carries') `
+        'the root-prose [WARNING] rides along an [ERROR] verdict without moving the exit code'
+
+    # THE PLUGIN'S OWN GENERATED LINES DO NOT COUNT -- the orchestrator note bootstrap.ps1 writes above
+    # the import block, and an older consumer's now-legacy scaffold prose, are both plain sentences by
+    # shape but are not the CONSUMER'S prose. Judging them would flag every bootstrap-written CLAUDE.md
+    # the moment this check shipped.
+    . (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1')
+    $orchNote = (Get-OrchestratorNote).Head
+    # The real seam tail, not an arbitrary sentence -- Test-IsOrchestratorNoteLine matches the head by
+    # exact text but the tail only by TailPattern, so a made-up 'from somewhere.' line would (correctly)
+    # NOT be recognised and this fixture would prove nothing.
+    $orchTail = "from ``.claude/specialists/``; that file carries the body import, the lens import and this repo's roster."
+    $legacyScaffoldLine = (Get-ClaudeMdScaffold).Legacy[0]
+    $generatedTree = New-Tree -Label 'rootgenerated'
+    Set-Text -Dir $generatedTree -Rel 'CLAUDE.md' -Text "# CLAUDE.md`n`n$orchNote`n$orchTail`n`n$legacyScaffoldLine`n`n@.claude/specialists/SPECIALISTS.md"
+    $r = Invoke-Script -Dir $generatedTree
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'root CLAUDE\.md carries') `
+        "the orchestrator note and legacy scaffold prose are the plugin's own generated text -- silent"
+
+    # --- consumer-prose-sessioncheck.ps1, the hook -- forwards the root-prose warning too -----------
+    Write-Host ''
+    Write-Host 'consumer-prose-sessioncheck.ps1 -- the root-prose [WARNING]'
+
+    $r = Invoke-Hook -Dir $withProse
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'root CLAUDE\.md carries') `
+        'the hook forwards the root-prose warning beside the clean detector line, still exit 0'
 }
 finally {
     foreach ($t in $script:trees) {

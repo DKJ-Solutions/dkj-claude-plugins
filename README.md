@@ -92,7 +92,8 @@ two kinds of plugin stand in opposite relations to a consumer's own rules:
 - **`dkj-policy` is adopted BY the consumer, and it wins — on the cycle, not on everything.** The
   workflow's own page says so: *"where the two disagree, the workflow's page wins"* (Dave,
   August 14, 2026, in
-  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). [`CLAUDE.md`](CLAUDE.md) restates it
+  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). This repo's own
+  [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md) restates it
   from the other side **with its scope attached**, and the scope is the half worth quoting: *"where the
   two disagree, the plugin's page wins. It does not replace anything below; it adds the workflow's own
   mechanics."* So what yields is the way work moves — the branch, the gates, the fold — and not a
@@ -1573,7 +1574,9 @@ its own marketplace. See [One product, one repository](#one-product-one-reposito
 
 Changes to this repo go through a branch + Pull Request to `main`, and that much holds whether or not
 any plugin is installed — it is the **standard workflow**, three rules long, and it is stated in
-[`CLAUDE.md`](CLAUDE.md), which is where this repo has kept its floor since it retired its root
+[`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md), the constitution this repo's own
+`CLAUDE.md` imports and never restates; this repo's own floor sits beside the import, in
+[`.claude/rules/this-repo.md`](.claude/rules/this-repo.md), since it retired its root
 `CONTRIBUTING.md` on August 27, 2026. **The branch dossier, the changelog entry that folds at the
 merge, the significance model and the release cut are the `dkj-policy` layer on top**, and they are
 described in [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md), the page that
@@ -1588,8 +1591,11 @@ seam table, [Derek's](.claude/specialists/lenses/specialist-05-05-lens.md) for t
 layers, [Rendall's](.claude/specialists/lenses/specialist-05-06-lens.md) for the fold and the cut, and
 the [specialists handbook](.claude/specialists/README.md) for keeping a checkout's plugins current.
 
-The governance is in [`CLAUDE.md`](CLAUDE.md): the safety rules, the three direct-on-`main` exceptions
-and their bounds, and this repo's own gates. **The roster and the routing are not there** — they sit
+The safety rules and the three direct-on-`main` exceptions are the imported constitution, in
+[`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md); this repo's own gates and their bounds
+are in [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md), which the root `CLAUDE.md` does not
+carry directly — that file holds only the `@`-imports. **The roster and the routing are not there
+either** — they sit
 behind the one seam line at its foot, in
 [`.claude/specialists/SPECIALISTS.md`](.claude/specialists/SPECIALISTS.md) and the lenses beside it,
 which is what [The seam, specified](#the-seam-specified) is for.
