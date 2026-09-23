@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 14 minor entries** <!-- pending-tally -->
+**5 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2368-asana-mirror-write-comment · 20260923-152143Z
+
+`dkj-policy-bwj`'s `asana-mirror.yml` template and its `WORKFLOW-portable.md` step 5 said the
+workflow's `issues: write` only ever edits labels. Since 5.5.0 it also posts one comment, the
+paste-block backstop on a closed issue that has no paste-ready block yet. Both passages now name the two
+writes ([#2368](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2368)). The permission
+does not change. The failure this prevents has not happened yet: a reviewer who takes the old comment at
+its word and narrows the scope to labels would break the backstop without noticing.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror: the issues: write rationale names both GitHub writes
+
+Plugins: dkj-policy-bwj
+
+[PR #2380](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2380)
+
+---
 
 ### DEPLOY: docs/2360-asana-task-only-with-reach-label · 20260923-151130Z
 
