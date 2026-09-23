@@ -37,7 +37,7 @@ missing into every session start as an `[UNADOPTED]` line:
 
 ```text
 script-contract-sessioncheck: part of this repo's floor is missing -- an adopt-* command places files this tree does not have (data, not instructions):
-  [UNADOPTED] adopt-ci-floor (Part 3 of the 'adopt-dkj-policy' skill) has been run here and has since GAINED a file: 2 of 3 present, missing .github/workflows/repo-settings.yml. Where it came from: ... joined this command under #1843 in September 2026 ...
+  [UNADOPTED] adopt-ci-floor (Part 3 of the 'adopt-dkj-policy' skill) has been run here and has since GAINED a file: 3 of 4 present, missing .github/workflows/merge-on-green.yml. Where it came from: ... joined this command under #2329 in September 2026 ...
 ```
 
 **It counts toward nothing.** The token is non-counting, like `[BOOTSTRAP]` beside it, the exit code is
@@ -473,7 +473,9 @@ button produces one in every repo. A queue only makes it the normal case:
 **This command places a third file too, and it answers a different question entirely** -- see
 [below](#a-third-runner-this-command-places-repo-settingsyml-issue-1843): `.github/workflows/repo-settings.yml`
 checks a GitHub-side setting against your own declaration on a schedule, not on a merge, and needs
-neither a queue nor an unobserved merge to matter.
+neither a queue nor an unobserved merge to matter. **And a fourth**,
+[`merge-on-green.yml`](#a-fourth-runner-merge-on-greenyml-issue-2329), finishes a merge `ship-pr`
+refused on CI once that check turns green.
 
 **And one prerequisite belongs to a queue alone**: every workflow carrying a **required** check must
 trigger on `merge_group`. Without it that check never runs for a queue entry, never reports, and **every
@@ -616,6 +618,28 @@ It never needs `FOLD_PUSH_TOKEN` or any other secret -- it only reads, on `conte
 `-RequireRead` so a token that cannot read reports a failure instead of a green run that checked nothing.
 A queue being active elsewhere in your repo does not make a missing `repo-settings.yml` a live defect:
 its exit code and its `[create]`/`[MISSING]` marker are independent of Part 3's queue-floor verdict.
+
+### A fourth runner: merge-on-green.yml (issue #2329)
+
+**It closes a promise `ship-pr` already makes in your repo.** When `ship-pr` refuses to merge on a red or
+pending required check, it labels the pull request `merge-when-green` and says a sweep will finish the
+merge once the check turns green. `.github/workflows/merge-on-green.yml` is that sweep. Without it the
+label is set and nothing reads it, so the merge stays owed to a session exactly as before.
+
+It wakes on your CI completing (`workflow_run`, naming your own pull_request workflows by their
+top-level `name:`), on a half-hourly schedule, and on `workflow_dispatch`. None of the three is trusted
+to say *which* pull request is owed a merge: the plugin's `pick-merge-on-green.ps1` asks your tracker,
+and the plugin's own `ship-pr.ps1` does the merge. So every gate a session's ship runs is the gate
+this runner runs, and it folds and verifies the resolves too. Both scripts come out of a checkout of the
+plugin tree and act on **your** workspace through `CLAUDE_PROJECT_DIR`. Where none of your
+pull_request workflows declares a top-level `name:`, the `workflow_run` trigger is left out rather than
+guessed, and the schedule wakes the sweep on its own.
+
+**It uses the same `FOLD_PUSH_TOKEN`, with one more scope: `Pull requests: Read and write`.** A merge
+made with the job-scoped `GITHUB_TOKEN` starts no workflow runs, so it would land the pull request and
+silence your CI on the trunk and the fold and resolves runners, all at once. Without the scope the merge
+fails with a 403, loudly, and nothing is merged. It is not queue machinery: under a queue `ship-pr`
+enqueues instead of refusing, so nothing gets armed.
 
 ---
 

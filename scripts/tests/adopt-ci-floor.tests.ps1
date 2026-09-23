@@ -270,7 +270,8 @@ function Invoke-Adopt {
 $ExpectedRunners = @(
     '.github\workflows\fold-on-merge.yml',
     '.github\workflows\verify-resolved.yml',
-    '.github\workflows\repo-settings.yml'
+    '.github\workflows\repo-settings.yml',
+    '.github\workflows\merge-on-green.yml'
 )
 
 try {
@@ -300,6 +301,8 @@ try {
     $fold = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\fold-on-merge.yml'))
     $verify = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\verify-resolved.yml'))
     $repoSettings = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\repo-settings.yml'))
+    $mergeOnGreen = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\merge-on-green.yml'))
+    $rApply = $r
 
     # THE PATH IS THE WHOLE POINT OF THE SCAFFOLD. A runner calling 'scripts/release/...' would be the
     # SOURCE's path -- correct there, absent in every consumer -- and it would fail at the one moment
@@ -325,7 +328,8 @@ try {
     foreach ($runner in @(
         @{ Name = 'fold-on-merge.yml';    Text = $fold;         Expect = 2 },
         @{ Name = 'verify-resolved.yml';  Text = $verify;       Expect = 1 },
-        @{ Name = 'repo-settings.yml';    Text = $repoSettings; Expect = 1 }
+        @{ Name = 'repo-settings.yml';    Text = $repoSettings; Expect = 1 },
+        @{ Name = 'merge-on-green.yml';   Text = $mergeOnGreen; Expect = 2 }
     )) {
         $refs = @(Get-SharedScriptReference -WorkflowText $runner.Text -RepositoryName 'dkj-claude-plugins')
         Assert-Equal $runner.Expect $refs.Count "$($runner.Name): reaches $($runner.Expect) script(s) out of a checkout of this repo"
@@ -397,6 +401,9 @@ try {
     $verifySentinel = '# pre-existing resolves runner -- not written by this run'
     [System.IO.File]::WriteAllText((Join-Path $onlySettingsDir '.github\workflows\fold-on-merge.yml'), $foldSentinel)
     [System.IO.File]::WriteAllText((Join-Path $onlySettingsDir '.github\workflows\verify-resolved.yml'), $verifySentinel)
+    # THE MERGE-ON-GREEN RUNNER NEEDS THE SAME SECRET (#2329), so it is pre-placed too: this section's
+    # subject is a gap that needs NO secret at all, and a fresh merge-on-green.yml is one that does.
+    [System.IO.File]::WriteAllText((Join-Path $onlySettingsDir '.github\workflows\merge-on-green.yml'), '# pre-existing sweep')
     $r = Invoke-Adopt -Dir $onlySettingsDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
     Assert-True (Test-Path -LiteralPath (Join-Path $onlySettingsDir '.github\workflows\repo-settings.yml')) `
         'repo-settings.yml is created when it is the only one of the three missing'
@@ -411,6 +418,56 @@ try {
     Assert-True ($r.Out -match '(?m)\[created\]\s+\.github/workflows/repo-settings\.yml') 'only the actually-missing repo-settings runner is created'
     Assert-True ($r.Flat -notlike '*FOLD_PUSH_TOKEN*') `
         'and the FOLD_PUSH_TOKEN reminder does NOT fire -- the fold runner itself was not the one created, this run''s (#1843) own fix'
+
+    # --- 2e. The merge-on-green runner (issue #2329) ---------------------------------------------------
+    # ship-pr arms a CI-refused pull request with merge-when-green in every consumer; this runner is the
+    # sweep that reads the label. What it must get right is WHOSE tree it acts on: both scripts come out
+    # of the plugin checkout, and both must judge the consumer's workspace.
+    Write-Host '-- 2e. the merge-on-green runner reaches the plugin scripts and acts on THIS tree --' -ForegroundColor Cyan
+    Assert-True ($mergeOnGreen -like '*.workflow-scripts/plugins/dkj-policy/scripts/ci/pick-merge-on-green.ps1*') `
+        'the sweep calls the plugin mirror of pick-merge-on-green, not the source''s scripts/ci path'
+    Assert-True ($mergeOnGreen -like '*.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1 -SkipLint -SkipTests*') `
+        'and ships through the plugin mirror of ship-pr, with the local gates skipped on the green certificate'
+    Assert-Equal 2 (@([regex]::Matches($mergeOnGreen, 'CLAUDE_PROJECT_DIR: \$\{\{ github\.workspace \}\}')).Count) `
+        'BOTH steps point the mirrored scripts at the consumer tree -- the picker would otherwise read the source repo''s Get-RepoName'
+    Assert-True ($mergeOnGreen -match '(?ms)id: pick.*?GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}') `
+        'the picker reads with the job-scoped token, not the standing PAT'
+    Assert-True ($mergeOnGreen -match '(?ms)- name: Ship it.*?GH_TOKEN: \$\{\{ secrets\.FOLD_PUSH_TOKEN \}\}') `
+        'the ship merges with FOLD_PUSH_TOKEN -- a GITHUB_TOKEN merge would start no workflow runs'
+    Assert-True ($mergeOnGreen -like '*SHIP_BRANCH: ${{ steps.pick.outputs.branch }}*') 'the head branch arrives through env:'
+    Assert-Equal 1 (@([regex]::Matches($mergeOnGreen, 'steps\.pick\.outputs\.branch')).Count) `
+        'and that env: line is its ONLY expression -- never ${{ }} interpolated into a run: body, the one attacker-chosen value in the file'
+    Assert-True ($mergeOnGreen -like '*.git/info/exclude*') `
+        'the plugin checkout is excluded locally, so ship-pr does not read the tree as dirty and detour the fold'
+    Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'
+    Assert-True ($mergeOnGreen -match '(?m)^\s*group:\s*merge-on-green\s*$') 'one sweep at a time, repo-wide'
+    Assert-True ($mergeOnGreen -like '*cancel-in-progress: false*') 'and never cancelled -- it merges and folds'
+    Assert-True ($mergeOnGreen -match '(?m)^\s+-\s+cron:') 'the schedule is present -- the durable half of the three triggers'
+    # THE WAKE LIST IS READ OFF THE TREE: the fixture's own ci.yml is `name: CI`.
+    Assert-True ($mergeOnGreen -match '(?m)^\s+workflows:\s*\["CI"\]\s*$') `
+        'workflow_run names this repo''s own pull_request workflow, read off its top-level name:'
+    Assert-True ($rApply.Flat -like '*Pull requests: Read and write*') 'and the run names the extra token scope the merge needs'
+
+    # A PULL_REQUEST WORKFLOW WITH NO TOP-LEVEL name: IS NOT GUESSED AT. GitHub then names it after its
+    # path, which this reader never saw -- so the trigger is left out and the schedule carries the sweep.
+    $unnamedDir = New-FixtureConsumer -Label 'unnamed-ci'
+    $unnamedCi = ([System.IO.File]::ReadAllText((Join-Path $unnamedDir '.github\workflows\ci.yml'))) -replace '(?m)^name: CI\r?\n', ''
+    [System.IO.File]::WriteAllText((Join-Path $unnamedDir '.github\workflows\ci.yml'), $unnamedCi)
+    $rUnnamed = Invoke-Adopt -Dir $unnamedDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    $unnamedMog = [System.IO.File]::ReadAllText((Join-Path $unnamedDir '.github\workflows\merge-on-green.yml'))
+    Assert-True ($unnamedMog -notmatch 'workflow_run:') 'an unnamed pull_request workflow leaves workflow_run out rather than guessing its name'
+    Assert-True ($unnamedMog -match '(?m)^\s+-\s+cron:') 'and the schedule still wakes the sweep'
+    Assert-True ($rUnnamed.Flat -like '*only the*half-hourly schedule wakes it*') 'and the run says so'
+
+    # THE REMINDER'S OWN NEGATIVE TWIN: a repo missing only this runner is told about the scope it needs.
+    $onlyMogDir = New-FixtureConsumer -Label 'onlymog'
+    foreach ($pre in 'fold-on-merge.yml', 'verify-resolved.yml', 'repo-settings.yml') {
+        [System.IO.File]::WriteAllText((Join-Path $onlyMogDir ".github\workflows\$pre"), '# pre-existing')
+    }
+    $rOnlyMog = Invoke-Adopt -Dir $onlyMogDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rOnlyMog.Out -match '(?m)\[created\]\s+\.github/workflows/merge-on-green\.yml') 'only the missing sweep is created'
+    Assert-True ($rOnlyMog.Flat -like '*Pull requests: Read and write*') 'and the scope note fires for it on its own'
+    Assert-True ($rOnlyMog.Flat -notlike '*THE FOLD RUNNER NEEDS A SECRET*') 'while the fold runner''s own reminder stays silent'
 
     # --- 2b. The three corrections that landed together (inbound #1539/#1543/#1544) -----------------
     # THE CONCURRENCY GROUP IS CONSTANT PER TRUNK, NOT PER COMMIT (#1544). A per-SHA group is its own
@@ -547,6 +604,8 @@ try {
     $repoSettings = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\repo-settings.yml'))
     Assert-True ($repoSettings -like '*-Trunk trunk*') `
         'the repo-settings runner is baked with the same non-main trunk (issue #1843), not a hardcoded main'
+    $mergeOnGreen = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\merge-on-green.yml'))
+    Assert-True ($mergeOnGreen -match '(?m)^\s*ref:\s*trunk\s*$') 'the merge-on-green sweep starts from that same trunk (#2329)'
 
     # --- 7. The switch is composed, never pulled -----------------------------------------------------
     Write-Host '-- 7. the setting itself is the owner act, and this script does not make it --' -ForegroundColor Cyan
@@ -864,6 +923,10 @@ try {
     Assert-True ($ciSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
         "with no Get-CiTestCheckName seam declared, the job's check name falls back to the bare key 'ci'"
     Assert-True ($ciSkeleton -like '*TODO*') 'the one step is a clearly marked placeholder, not a real check'
+    # THE SWEEP PLACED IN THE SAME RUN WAKES ON THE SKELETON'S OWN NAME (#2329), which the tree did not
+    # carry until this very run wrote it.
+    $noCiMog = [System.IO.File]::ReadAllText((Join-Path $noCiApplyDir '.github\workflows\merge-on-green.yml'))
+    Assert-True ($noCiMog -match '(?m)^\s+workflows:\s*\["CI"\]\s*$') 'the merge-on-green sweep placed beside the skeleton wakes on its name, CI'
 
     # 9c. Left exactly as it is on a re-run -- strictly additive, same as every other target here.
     [System.IO.File]::WriteAllText($ciSkeletonPath, "# edited by the consumer`n" + $ciSkeleton)

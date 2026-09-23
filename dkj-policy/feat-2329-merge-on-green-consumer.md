@@ -39,21 +39,53 @@
 
 ### PLAN
 
-Add a third workflow template to adopt-ci-floor.ps1 so a consumer gets the sweep that reads merge-when-green, plus its inventory entry and tests.
+Add a workflow template to adopt-ci-floor.ps1 so a consumer gets the sweep that reads merge-when-green, plus its inventory entry and tests.
+
+#### What the issue did not say
+
+The issue's "the ship must run in the consumer's tree" was true one layer further in than it named:
+`pick-merge-on-green.ps1` resolved its root as `$PSScriptRoot\..\..`, which in a consumer is the checkout
+of the SOURCE tree, so its `Get-RepoName` read would have swept the source repo's pull requests. The
+picker needed a dual-context root and a mirror, not only a template beside it.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/ci/pick-merge-on-green.ps1`: source-repo guard plus `Resolve-RepoRootOrFail`, so it judges the tree `CLAUDE_PROJECT_DIR` names
+- [x] registered as a shared script (`shared-scripts-lib.ps1`) and mirrored to `plugins/dkj-policy/scripts/ci/`
+- [x] `adopt-ci-floor.ps1`: a fourth runner, `merge-on-green.yml`, derived from the source's own; `workflow_run` names read off the consumer's pull_request workflows' top-level `name:`, left out where none is usable; the plugin checkout excluded via `.git/info/exclude` so the fold runs in place
+- [x] the `Pull requests: Read and write` scope note, printed when the file is placed
+- [x] `Get-AdoptionInventory` (`script-contract-lib.ps1`): the fourth `Places` entry with its `Gained` note
+- [x] `adopt-dkj-policy` Part 3 page and Sylvester's lens updated
 
 ### TEST
 
+- [x] `adopt-ci-floor.tests.ps1`: section 2e -- plugin paths exist, both steps carry `CLAUDE_PROJECT_DIR`, token split, branch only through `env:`, exclude line, wake list from the tree, the unnamed-workflow case, the scope note firing alone; the trunk and the skeleton name followed (204 pass)
+- [x] `script-contract.tests.ps1`: the file counts moved from 3 to 4 (388 pass)
+- [x] `merge-on-green-lib`, `shared-scripts`, `pin-parity`, `connectors` suites green
+
 ### DEPLOY: feat/2329-merge-on-green-consumer
 
-**Score:**
+A consumer now gets the merge-on-green sweep. `adopt-ci-floor` places a fourth runner,
+`.github/workflows/merge-on-green.yml`, that reads the `merge-when-green` label `ship-pr` already sets on
+a CI refusal and hands a green pull request to the plugin's own `ship-pr.ps1`. So the refusal's promise
+that a sweep will finish the merge is true outside the source repo too. The runner wakes on the
+consumer's own CI workflows (read off their top-level `name:`), a half-hourly schedule and
+`workflow_dispatch`. It acts on the consumer's workspace through `CLAUDE_PROJECT_DIR`, and
+`pick-merge-on-green.ps1` now travels as a mirrored script with a dual-context root. Until now it
+resolved its root from its own location, which in a consumer would have swept the source repo's pull
+requests. The script-contract session check reports the runner as a gained file wherever the floor was
+built before it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The runner uses the consumer's existing `FOLD_PUSH_TOKEN`, and that token needs one scope more than the
+fold runner's: `Pull requests: Read and write`. A merge made with the job-scoped token starts no workflow
+runs, so it would silence the consumer's CI, fold and resolves runners in one go. Without the scope the
+merge fails with a 403, loudly, and the run says so when it places the file.
+
+**Score:** 3
 
 #### Pull Request
 

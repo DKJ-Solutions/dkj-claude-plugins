@@ -890,8 +890,8 @@ function Get-SharedScriptPairs {
             # MIRRORED BECAUSE ship-pr.ps1 DOT-SOURCES IT, which is the whole of the reason and is not a
             # judgement about the runner. That dot-source is unguarded, like the seven above it, so a
             # plugin payload carrying ship-pr without this file would fail at LOAD in every consumer --
-            # the one failure mode a mirror exists to prevent. The runner itself does not travel yet
-            # (#2329); this file has to, the moment ship-pr does.
+            # the one failure mode a mirror exists to prevent. The picker that reads it travels too since
+            # #2329 -- the entry below.
             #
             # NO CONTRACT ROW: nothing in it is repo-owned. The label is deliberately a constant rather
             # than a seam -- see the lib's own header for why a consumer must not be able to rename one
@@ -900,6 +900,26 @@ function Get-SharedScriptPairs {
             Source  = 'scripts\lib\merge-on-green-lib.ps1'
             Plugin  = 'dkj-policy'
             LibOnly = $true
+        },
+        @{
+            # THE READING HALF OF THAT HANDSHAKE, AND IT TRAVELS BECAUSE A CONSUMER'S RUNNER CALLS IT
+            # (issue #2329). ship-pr's arming reaches every consumer with the plugin; until this, the sweep
+            # that reads the label did not, so in a consumer the refusal's "a sweep will finish the merge"
+            # was false. adopt-ci-floor.ps1 now places a merge-on-green.yml that calls THIS file out of
+            # the plugin tree -- the verify-pushed-merges shape exactly -- so a copy left behind in the
+            # source would leave that runner pointing at a path they do not have.
+            #
+            # Portable since #2329: dual-context root (it read '$PSScriptRoot\..\..' before, which in a
+            # consumer is the checkout of the SOURCE tree and would have swept the source's pull
+            # requests), Get-RepoName off the consumer's own repo-config, every lib it loads mirrored.
+            Name   = 'pick-merge-on-green'
+            Source = 'scripts\ci\pick-merge-on-green.ps1'
+            Plugin = 'dkj-policy'
+            # No skill, on verify-pushed-merges' reasoning: its one caller is a workflow file.
+            Skill  = ''
+            # NO MeasureArgs: a bare run lists the tracker's armed pull requests, which is a network read
+            # of live state rather than a timeable unit of work -- the same declaration verify-pushed-merges
+            # makes for its own reason.
         },
         @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
