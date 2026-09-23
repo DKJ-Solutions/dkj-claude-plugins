@@ -44,7 +44,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 29 minor entries** <!-- pending-tally -->
+**11 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2399-claim-marker-author-check · 20260923-220415Z
+
+A claim marker was taken at its word. Anybody who could comment on an issue could write one naming
+somebody else's tag, and `-Release`, the verdict, the sweep and the race all counted it. A marker now
+counts only when the comment's author is the account its tag names (#2399).
+
+**Score:** 2 -- closes a spoofing gap in tag-mode claims. Nothing changes for a genuine claim, because
+gh always writes it as that account.
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue: a claim marker counts only when its author is the tag's own account
+
+Plugins: dkj-policy
+
+[PR #2404](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2404)
+
+---
 
 ### DEPLOY: feat/2394-resume-from-origin · 20260923-215115Z
 
