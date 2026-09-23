@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Step 5 of #2304. Step 4's comment named the next move: re-read the durations over a few 5-shard runs,
+then split `new-branch` if it is still the floor. A partial step, so it ships with `-NoResolves`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Re-read `suite-durations.json` over three 5-shard PR runs (35902838420, 35900890044,
+  35899919410). The trunk's merge and fold runs print no suite table, so PR runs are the source.
+  Pool 6,593s, work bound ~330s over 20 lanes, `new-branch.tests.ps1` 392.5s: the one file above it.
+- [x] Split it into three suites over a shared `new-branch-fixture.ps1`, cut at scenario boundaries
+  and balanced on measured local time. No scenario reads another one's variables (checked before the cut).
+- [x] Repoint the five comments that name a scenario now in another file, and the `(n2)` citation in
+  `new-branch.ps1` (both copies, still byte-identical).
+- [x] Record step 5 in `ci.yml`'s matrix comment.
 
 ### TEST
 
+- [x] The three suites side by side: 79 + 154 + 69 = 302 asserts, the count the single file
+  reported. Longest part 52.5s against 149s for the single file, on the same workstation.
+
 ### DEPLOY: feat/2304-split-new-branch-suite
 
-**Score:**
+`new-branch.tests.ps1` is three suites now (`new-branch`, `new-branch-document`, `new-branch-base`),
+over a shared `new-branch-fixture.ps1`. Re-read over three 5-shard runs, it was the one file above the
+gate's work bound (392.5s against ~330s over 20 lanes). With it split, the heaviest remaining file is
+229.4s and the gate is bound by total work again. All 302 asserts are preserved and were verified by
+running the three parts. `suite-durations.json` is re-recorded from those runs. Step 5 of #2304.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+This split was cheap. Every scenario already built its own fixture, so nothing had to be rebuilt per
+part the way the integrity family's splits had to. Whether a sixth shard pays is for the next re-read,
+once the three new names have real durations.
+
+**Score:** N/A
 
 #### Pull Request
 
