@@ -74,3 +74,5 @@ Nothing reaches a subscriber: the only consumer-visible change is wording in two
 
 #### Pull Request
 
+Remove scripts/README.md; move its cited rules to the owners' lenses
+
