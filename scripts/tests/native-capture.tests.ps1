@@ -1862,7 +1862,12 @@ foreach ($af in $auditFiles) {
 # commit for the write runners' pin. Bounded at the shared network bound. Its failure direction is a
 # weaker pin rather than none: any read that did not answer 0 -- failed or unmeasured -- leaves the SHA
 # unresolved and the runner is pinned to the TAG instead, which the script reports in yellow.
-Assert-Equal 76 $boundedTotal 'the parser still counts 76 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 76 -> 78 (#2387): claim-issue.ps1's -TakeOver adds $heads, the `git ls-remote --heads origin` that proves the
+# issue's branch is on origin, and $posted, the handover comment. Both at the shared network bound, both judged
+# through Test-NativeExitMeasured: an unmeasured $heads REFUSES (the branch is the precondition), an unmeasured
+# $posted only warns (the claim is the marker, already settled). The $del delete moved into the shared
+# Remove-ClaimMarkerComments helper and is still one site.
+Assert-Equal 78 $boundedTotal 'the parser still counts 78 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
