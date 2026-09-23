@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**34 / 55 minor entries** <!-- pending-tally -->
+**35 / 56 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2339-golive-block-config-scope · 20260923-085447Z
+
+`build-golive-block.ps1` read `scripts/repo-config.ps1` inside a scriptblock, so the functions it
+defined were gone before the live-URL half ran. The config is now read once at script scope, and a suite
+case runs the driver via `-File` (#2339).
+
+**Score:** 2 -- one script in one plugin, with a suite case that holds the invocation shape.
+
+#### What makes this deploy extra special
+
+In a store running dkj-policy-bwj, the `golive-block` skill's own `-File` invocation with `-Path` failed
+with *"this store has not declared its markets"*, even though the store had declared them, so the error
+pointed at the wrong fix. It now prints one live URL per market, without the caller having to dot-source
+the config first.
+
+**Score:** 3 -- the documented invocation works for the first time with `-Path`; noticed the moment
+somebody builds a go-live block for a storefront page.
+
+#### Pull Request
+
+build-golive-block: read repo-config at script scope, so -Path finds the store's markets
+
+Plugins: dkj-policy-bwj
+
+[PR #2342](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2342)
+
+---
 
 ### DEPLOY: fix/2335-capturedir-pid-reuse · 20260923-081822Z
 
