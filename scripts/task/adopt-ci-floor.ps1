@@ -712,7 +712,7 @@ $foldRunner = @(
     ('          ref: ' + $trunk),
     '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
     ''
-) + $writeRunnerPinComment + @(
+    ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
     ('        uses: ' + $checkoutPin),
     '        with:',
@@ -855,7 +855,7 @@ $resolvesRunner = @(
     '        with:',
     '          persist-credentials: false',
     ''
-) + $writeRunnerPinComment + @(
+    ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
     ('        uses: ' + $checkoutPin),
     '        with:',
@@ -1092,7 +1092,7 @@ $mergeOnGreenRunner = @(
     ('          ref: ' + $trunk),
     '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
     ''
-) + $writeRunnerPinComment + @(
+    ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
     ('        uses: ' + $checkoutPin),
     '        with:',
