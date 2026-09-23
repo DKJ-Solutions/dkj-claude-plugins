@@ -378,7 +378,7 @@ function Test-WorkflowHoldsWriteCredential {
 
     if ([string]::IsNullOrWhiteSpace($WorkflowText)) { return $false }
     if ([regex]::IsMatch($WorkflowText, 'secrets\.(?!GITHUB_TOKEN\b)[A-Za-z_][A-Za-z0-9_]*')) { return $true }
-    if ([regex]::IsMatch($WorkflowText, '(?m)^[ \t]*[a-z-]+:[ \t]*write\b')) { return $true }
+    if ([regex]::IsMatch($WorkflowText, '(?m)^[ \t]*[a-z-]+:[ \t]*write[ \t]*(?:#.*)?$')) { return $true }
     if ([regex]::IsMatch($WorkflowText, '(?m)^[ \t]*permissions:[ \t]*write-all\b')) { return $true }
     return $false
 }

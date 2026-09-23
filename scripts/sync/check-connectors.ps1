@@ -238,7 +238,7 @@ $WorkflowPluginNames = @('dkj-policy', 'contributing-davekjohn', 'workflow-davek
 # The release a write runner's shared-scripts pin is judged against, for check 6d (#2337): the workflow
 # plugin's own version in THIS checkout, which is the version adopt-ci-floor.ps1 pins to when it runs
 # from here. Unreadable leaves it empty, and the check then still reports a moving ref -- the half that
-# needs no version -- and says a pinned one could not be dated rather than calling it current.
+# needs no version -- and stays silent about a pinned one rather than calling it current.
 $WorkflowPluginVersion = ''
 try {
     $wfPluginJson = Join-Path $RepoRoot 'plugins\dkj-policy\.claude-plugin\plugin.json'
