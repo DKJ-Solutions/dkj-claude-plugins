@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 9 minor entries** <!-- pending-tally -->
+**3 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2304-split-integrity-commands · 20260923-140338Z
+
+`check-plugin-integrity-commands.tests.ps1` was the CI gate's critical path once steps 1 and 2 had
+split `-docs` and `-links`: 498.3s against a 391s work bound. It is now four suites, cut at check
+boundaries and balanced on gate invocations, and side by side on one workstation the longest part took
+64s against the original's 184s. All 132 asserts are preserved and were verified by running the four
+parts. This is step 3 of #2304: the heaviest remaining file, `-entries` at 377.7s, is below the work
+bound, so from here the gate is bound by total work rather than by one file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This is the step where the lever changes. Until now each split moved the critical path to the next
+heaviest file; after this one no single file is above the 391s work bound, so the next saving comes from
+a shard (or a split that goes with one), not from a split alone -- which is exactly what ci.yml's matrix
+comment has said since #1358. The cut again surfaced state carried across a block boundary, this time a
+variable rather than a file, and it is stated again in the suite that reads it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-commands into parallel suites: step 3 of the CI critical path
+
+[PR #2370](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2370)
+
+---
 
 ### DEPLOY: fix/2364-parallel-gate-flaky-suites · 20260923-132216Z
 
