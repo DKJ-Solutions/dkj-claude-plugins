@@ -39,23 +39,51 @@
 
 ### PLAN
 
-Replace the prescribed 'gh release upload --clobber' with a helper that deletes the stale asset by id, uploads, and verifies the size
+Replace the prescribed `gh release upload --clobber` with a helper that deletes the stale asset by id,
+uploads, and verifies the size.
+
+#### Triage (#2347)
+
+- Symptom not reproducible now: `v5.7.0` has **no** assets at all (measured with `gh release view`), so
+  the stale asset is gone -- and so is everything else. Filed as #2349 (outward-facing repair, not this branch).
+- Reason inferred by the report (gh's name lookup) is not verified here; the repair does not depend on
+  it, because the helper never asks gh to resolve an asset by name.
+- Repair: the report's second option, a helper, since the upload runs twice per cut (step 5 and the
+  second pass) and the by-id route plus the byte check is too long to retype.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/release/upload-release-asset.ps1` + plugin mirror, registered in `shared-scripts-lib.ps1` under the `cut-release` skill
+- [x] `cut-release` SKILL.md: step 5 and the second pass call the helper; the `--clobber` line replaced with the measurement
+- [x] `RELEASES-portable.md` closing step names the helper; both scripts READMEs carry a row
+- [x] `scripts/tests/upload-release-asset.tests.ps1` against a fake gh that returns the 422 on a duplicate name
+- [~] Is the change visible in the frontend / storefront? No -- a release script and its docs.
 
 ### TEST
 
+- [x] `upload-release-asset.tests.ps1`: 21 asserts green -- it caught a real bug on the way (an empty asset list unrolled to `$null` and read as an unreadable Release, which would have broken step 5's first upload)
+- [x] `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: fix/2347-release-asset-reupload-by-id
 
-**Score:**
+The `cut-release` skill told the second pass to re-upload an edited release document with `gh release
+upload --clobber`. At `v5.7.0`, on gh 2.101.0, that returned `HTTP 422 ... ReleaseAsset.name already
+exists` and left the stale asset in place, and `gh release delete-asset` reported it *not found*. A new
+shared script, `upload-release-asset.ps1`, now does both uploads: it reads the Release's assets from the
+REST API, deletes a same-named asset **by id**, uploads without `--clobber`, and exits 1 unless the
+published asset has the file's exact byte count. The skill page and `RELEASES-portable.md` call it at
+step 5 and in the second pass (#2347).
+
+**Score:** 2 -- the old one-liner failed loudly but left the published note one revision behind, and
+the fallback a reader reached for failed too; the byte check replaces a size somebody had to watch.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the reader is whoever cuts a release in a repo running this workflow, and for them it is a
+different command at two steps of the same checklist, nothing to migrate.
+
+**Score:** N/A
 
 #### Pull Request
 
 cut-release: re-upload a Release attachment by asset id and verify its byte count
-
