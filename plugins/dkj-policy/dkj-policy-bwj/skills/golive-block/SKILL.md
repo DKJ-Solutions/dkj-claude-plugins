@@ -32,7 +32,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    already names.
 4. **The live URLs** -- `Get-MarketUrls` over the pages `-Path` names: the LIVE URLs, with no preview
    parameters, out of the same market table a preview pair is built from.
-5. Prints the block. With `-Post`, comments it on the issue.
+5. **The ask** -- where a `-Link` was given, a closing section asking the requester to look at the
+   result themselves: an approval ticks off the task, a rejection names what is not right AND what
+   should change and reopens the issue, and the release happens either way
+   ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
+   are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
+6. Prints the block. With `-Post`, comments it on the issue.
 
 ## The parameters
 

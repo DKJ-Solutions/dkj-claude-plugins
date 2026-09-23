@@ -39,19 +39,58 @@
 
 ### PLAN
 
+#### Scope, as decided at pickup
+
+Inbound #2352: a consumer page carrying the `needs-info` requester message ("form B") and five
+corrections to the delivered-work message was deleted, and the shared layer carried neither. Verified
+against the tree: `WORKFLOW-portable.md` step 6 says what the label does to the card and prescribes no
+message; the paste-ready block `build-golive-block.ps1` writes asks the requester nothing. The source
+page is in a private consumer, so only the rule is carried, never its wording.
+
+- Corrections 2, 3 and 5 (requester judges, rejection asks two things, release is not a reward) are
+  what the pasted block says, so they go into `Format-GoLiveBlock` -- a doc rule the script does not
+  follow would be a new inconsistency.
+- Corrections 1 and 4 (provenance first, issue and task close apart) are documented; the block's first
+  line already names the issue, and step 4 already closes the issue before the task.
+- Form B is a judgement nothing can derive, so it is prose in step 6.
+- The relayer is named as the Asana task's assignee wherever the page said "the person".
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GoLiveBlockAsk` in `golive-block-rules.ps1`, called by `Format-GoLiveBlock`, only with a link
+- [x] asserts in `dkj-policy-bwj.tests.ps1`: present with a link, after the live URLs, both rejection
+      halves, "either way", absent without a link
+- [x] `WORKFLOW-portable.md`: block example, the assignee as relayer, *What the block asks of the
+      requester* (five rules), form B under step 6, step 7's two bullets
+- [x] `report-issue` and `golive-block` skill pages point at the new sections
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1` alone: exit 0
+- [x] `open-pr.ps1 -GatesOnly`
+
 ### DEPLOY: feat/2352-needs-info-message-form
 
-**Score:**
+`dkj-policy-bwj` now carries the requester message for an issue sent back with `needs-info`, and the
+paste-ready block asks the requester for something. Both lived only in a consumer page that was deleted
+on September 23 ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)).
+`WORKFLOW-portable.md` step 6 makes setting the label and writing the question one act, and gives the
+comment's shape. The issue stays open and the label is left for whoever brings the answer. Step 4
+gains the five rules for what the block asks and names the Asana task's assignee as the one who
+carries it across and closes the issue. `build-golive-block.ps1` now ends the block with that ask
+whenever it is given a result link.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every paste-ready block a BWJ store posts after the update ends by asking the colleague who filed the
+ticket to look at the result themselves. An approval ticks off the task. A rejection names what is
+wrong and what should change, and the issue reopens. The release happens either way. A ticket sent
+back for more information now has a prescribed question on it rather than an empty card in the
+blocked column.
+
+**Score:** 3
 
 #### Pull Request
 
