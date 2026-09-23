@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 28 minor entries** <!-- pending-tally -->
+**11 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2394-resume-from-origin · 20260923-215115Z
+
+`claim-issue.ps1 <n> -Tag -TakeOver` now also resumes an issue that carries **no claim marker**, which is
+the common case: a session that never ran `-Tag` leaves only its branch on origin. There exactly one branch
+for the issue must be on origin, and every commit on it off the trunk must be authored under one of this
+checkout's names; one foreign author, or an author list that could not be read, refuses. A new user-level
+variable, `DKJ_OWN_ACCOUNTS`, declares the other accounts one person works under, and both `-TakeOver` and
+the parked-fix scan's `NOT YOURS` verdict count them as yours. That block now also names that route.
+`-Candidates` reading such a branch as `branch` rather than `free` landed separately, in #2392.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this changes how a session picks up its own parked work, which no subscriber of a service sees.
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -TakeOver: resume an untagged branch on origin, and count a person's declared other accounts as theirs
+
+Plugins: dkj-policy
+
+[PR #2397](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2397)
+
+---
 
 ### DEPLOY: fix/2375-boardless-status-map-line · 20260923-214244Z
 
