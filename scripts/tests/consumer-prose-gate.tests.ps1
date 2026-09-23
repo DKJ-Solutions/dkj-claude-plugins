@@ -699,6 +699,15 @@ try {
     $r = Invoke-Hook -Dir $imported
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import') `
         'the hook stays quiet about the import where the line is there'
+
+    # Both at once: $retiredRoot carries a restatement and no import. The [ERROR] keeps exit 1, and the
+    # warning rides along in the same report -- through the script and through the hook.
+    $r = Invoke-Script -Dir $retiredRoot
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[ERROR\]' -and $r.Out -match 'does not import the dkj-policy constitution') `
+        'an [ERROR] and the import [WARNING] together -- both printed, and the exit code is the detector''s'
+    $r = Invoke-Hook -Dir $retiredRoot
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'contradicts the plugin' -and $r.Out -match 'does not import the dkj-policy constitution') `
+        'the hook forwards the warning inside the [ERROR] report as well, still exit 0'
 }
 finally {
     foreach ($t in $script:trees) {

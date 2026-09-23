@@ -71,7 +71,10 @@ A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance mov
 
 ### TEST
 
-- [x] `consumer-prose-gate.tests.ps1`: 99/99, including the new constitution-import cases (warning
+- [x] Review: Victor (no correctness defects; the ERROR+WARNING combination is now asserted), Edith
+  (four wording fixes, incl. a stale `CLAUDE.md#safety-rules` pointer in the lens scaffold), Sebastian
+  (the marketplace name is now slug-only before it reaches session context).
+- [x] `consumer-prose-gate.tests.ps1`: 102/102, including the new constitution-import cases (warning
   and exit 0 without the line, silence with an unresolved absolute line, the marketplace name read
   off a cache-shaped path, the hook forwarding the warning).
 - [x] `teardown.tests.ps1`: the legacy scaffold line is still recognised, and a fresh bootstrap never
@@ -81,11 +84,23 @@ A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance mov
 
 ### DEPLOY: feat/2374-global-claude-md
 
-**Score:**
+The rules a repo runs under now ship with `dkj-policy` itself: one [`CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md)
+holding the constitution and the general working practices, plus a
+[`dkj-policy-bwj` extension](../plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md) for the BWJ repos. A
+consumer's own `CLAUDE.md` imports it with one absolute `@`-line and keeps only facts about the repo
+below it, so a hand-written constitution can no longer drift from the plugin it installed. The
+`consumer-prose-sessioncheck` hook warns at session start where that line is missing and prints it for
+the consumer's own marketplace name; the `specialists-init` scaffold stops inviting a local
+constitution. This repo runs the same model: its constitution moved into the plugin, and its
+`CLAUDE.md` shrank to the imports plus its repo slot.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a repo-governance change; nothing a subscriber runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
