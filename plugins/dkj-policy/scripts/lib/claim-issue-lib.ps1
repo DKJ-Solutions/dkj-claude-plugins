@@ -2042,6 +2042,65 @@ function Get-IssueBranchNames {
     }
 }
 
+function Get-RemoteIssueBranches {
+    <#
+        .SYNOPSIS
+            Every remote-tracking branch that names an issue, out of one `git for-each-ref` listing --
+            with the author and the time of its newest commit.
+
+        .DESCRIPTION
+            THE SWEEP'S HALF OF THE PARKED-FIX SCAN (issue #2392). -Candidates judged from the tracker
+            alone, so an issue somebody was working WITHOUT a claim marker read 'free' -- measured
+            September 23, 2026: 11 free of 11 open, while 9 of them had a live PR-less branch on origin.
+            The only signal arrived after the claim was written, one issue at a time. One listing of
+            refs/remotes/<remote> answers it for the whole backlog, so the one-read property of
+            Get-SweepCandidates holds.
+
+            THE CONVENTION IS THE SAME AS Get-IssueBranchNames': '<prefix>/<n>-<short-name>', the number read only
+            from the segment right after the prefix. A branch named for the subject rather than the
+            number is invisible here, as it is to that function; the claim's title-overlap scan is the
+            check for that shape, and it runs at the claim.
+
+            '<remote>/HEAD' IS SKIPPED -- it is a symbolic ref to the trunk, not somebody's branch.
+
+        .PARAMETER Text
+            The output of
+            `git for-each-ref --format=%(refname:short)%1f%(authorname)%1f%(committerdate:unix) refs/remotes/<remote>`.
+            Unit separator (0x1F), not a tab -- the author is free text, the reason ConvertFrom-CommitScanLog uses it.
+
+        .PARAMETER Remote
+            The remote the listing was taken from; its name is stripped from each ref. Default 'origin'.
+
+        .OUTPUTS
+            Records -- Issue, Branch (with the remote prefix), Author, CommitUnix -- in the order given.
+            Empty when nothing matches.
+    #>
+    param(
+        [AllowNull()][string]$Text,
+        [string]$Remote = 'origin'
+    )
+
+    if (-not $Text) { return @() }
+    $prefix = "$Remote/"
+    foreach ($line in ($Text -split "`r?`n")) {
+        $fields = $line -split [string][char]0x1F
+        if ($fields.Count -lt 3) { continue }
+        $ref = $fields[0].Trim()
+        if (-not $ref.StartsWith($prefix) -or $ref -eq "$Remote/HEAD") { continue }
+        $name = $ref.Substring($prefix.Length)
+        $m = [regex]::Match($name, '^[^/]+/(?<n>\d+)(-|$)')
+        if (-not $m.Success) { continue }
+        $unix = [long]0
+        [void][long]::TryParse($fields[2].Trim(), [ref]$unix)
+        [pscustomobject]@{
+            Issue      = [int]$m.Groups['n'].Value
+            Branch     = $ref
+            Author     = $fields[1].Trim()
+            CommitUnix = $unix
+        }
+    }
+}
+
 function Get-TakeOverVerdict {
     <#
         .SYNOPSIS
@@ -2181,16 +2240,28 @@ function Get-SweepCandidates {
         .PARAMETER SkipIssue
             Issue numbers held out of this round by hand.
 
+        .PARAMETER Branches
+            Get-RemoteIssueBranches' records (issue #2392). An issue no marker holds but a branch on the
+            remote names reads 'branch', not 'free': somebody worked it without -Tag, and a marker is not
+            the only way to be on an issue. A marker still wins over a branch -- 'mine' and 'held' are the
+            stronger statement, and a take-over reads the branch for itself.
+
+        .PARAMETER NowUnix
+            The current time as unix seconds, for the branch's age. Defaults to now; a test pins it.
+
         .OUTPUTS
             An array of records, ascending by number -- Number, Title, Verdict, Holder, Reason --
-            where Verdict is 'free' | 'mine' | 'held' | 'skipped'. EMPTY for empty or unparseable input.
+            where Verdict is 'free' | 'mine' | 'held' | 'branch' | 'skipped'. EMPTY for empty or
+            unparseable input.
     #>
     param(
         [string]$Json,
         [string]$Tag = '',
         [AllowNull()][string[]]$Marker = @('claim-tag'),
         [AllowNull()][string[]]$SkipLabel = @(),
-        [AllowNull()][int[]]$SkipIssue = @()
+        [AllowNull()][int[]]$SkipIssue = @(),
+        [AllowNull()][object[]]$Branches = @(),
+        [long]$NowUnix = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     )
 
     if (-not $Json -or -not $Json.Trim()) { return @() }
@@ -2246,6 +2317,21 @@ function Get-SweepCandidates {
             }
         }
 
+        if ($verdict -eq 'free') {
+            # NEWEST BRANCH FIRST, because it is the one a reader deciding "is somebody on this now?"
+            # needs; the count says whether there are more.
+            $own = @(@($Branches) | Where-Object { $_ -and $_.PSObject.Properties['Issue'] -and [int]$_.Issue -eq $number } |
+                     Sort-Object -Property CommitUnix -Descending)
+            if ($own.Count -gt 0) {
+                $newest = $own[0]
+                $verdict = 'branch'
+                $holder = [string]$newest.Author
+                $age = if ([long]$newest.CommitUnix -gt 0) { Format-CommitAge -Seconds ($NowUnix - [long]$newest.CommitUnix) } else { 'at an unknown time' }
+                $more = if ($own.Count -gt 1) { " (+$($own.Count - 1) more)" } else { '' }
+                $reason = "no claim marker, but $($newest.Branch)$more is on the remote -- $holder, $age"
+            }
+        }
+
         $out.Add([pscustomobject]@{
             Number  = $number
             Title   = $title
@@ -2255,5 +2341,97 @@ function Get-SweepCandidates {
         }) | Out-Null
     }
 
+    return @($out | Sort-Object -Property Number)
+}
+
+function Get-OwnTagClaims {
+    <#
+        .SYNOPSIS
+            Which open issues carry a claim marker of THIS tag, out of one `gh issue list` payload -- the
+            set -ReleaseAll acts on (issue #2395).
+
+        .DESCRIPTION
+            THIS TAG'S OWN MARKERS AND NOTHING ELSE, which is the whole bound. An issue another tag holds
+            is not returned at all, and on an issue both hold only this tag's records are carried -- so
+            the caller cannot delete another session's marker by construction rather than by care. The
+            same bound -Release already keeps for one issue; the owner's first proposal (#2395) was a
+            wipe of every marker and assignee, rejected because the other markers are other machines'
+            and colleagues' live claims and deleting them recreates the duplicate-work hazard #2207 and
+            #2243 closed.
+
+            AND A MARKER COUNTS ONLY WHERE ITS AUTHOR IS THE TAG'S ACCOUNT. The tag is text inside a
+            comment, so matching it alone would let anybody who can comment plant this tag on an issue
+            and have -Apply release it. A tag with no account half returns nothing.
+
+            THE ASSIGNEE IS REPORTED, NEVER DECIDED ON. Assigned says whether -Account is among the
+            issue's assignees, so the caller removes the assignee a tag claim wrote beside its marker. An
+            issue with this account assigned and no marker of this tag is not returned: in tag mode a
+            bare assignee is whose TICKET this is, not a claim, and it is not this function's to drop.
+
+            ONE READ FOR THE WHOLE BACKLOG, for the reason Get-SweepCandidates gives: a per-issue query
+            is a round-trip per issue before anything is released.
+
+        .PARAMETER Json
+            The payload text of `gh issue list --json number,title,assignees,comments`.
+
+        .PARAMETER Tag
+            This session's tag. Compared case-insensitively, as everywhere else a tag is.
+
+        .PARAMETER Account
+            The login a tag claim writes as its assignee (Resolve-ClaimAccount's answer).
+
+        .PARAMETER Marker
+            The marker names to recognise (see Get-ClaimMarkerPattern).
+
+        .OUTPUTS
+            An array of records, ascending by number -- Number, Title, Records, Assigned -- where
+            Records holds only this tag's markers and is never empty. EMPTY for empty or unparseable
+            input, or a backlog this tag holds nothing on.
+    #>
+    param(
+        [string]$Json,
+        [string]$Tag = '',
+        [string]$Account = '',
+        [AllowNull()][string[]]$Marker = @('claim-tag')
+    )
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $ownTag = $Tag.Trim()
+    if (-not $ownTag) { return @() }
+    $slash = $ownTag.LastIndexOf('/')
+    $tagAccount = if ($slash -ge 0) { $ownTag.Substring($slash + 1).Trim() } else { '' }
+    if (-not $tagAccount) { return @() }
+    try { $parsed = $Json | ConvertFrom-Json } catch { return @() }
+    if ($null -eq $parsed) { return @() }
+
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($issue in @(@($parsed) | Where-Object { $_ })) {
+        if (-not $issue.PSObject.Properties['number']) { continue }
+        if (-not $issue.PSObject.Properties['comments']) { continue }
+        # Re-serialised into the shape Get-ClaimRecords reads, as Get-SweepCandidates does, so a comment
+        # body is still read in exactly one place.
+        $records = @(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @($issue.comments) }) | ConvertTo-Json -Depth 8) -Marker $Marker)
+        # THE AUTHOR MUST BE THE TAG'S OWN ACCOUNT, not only the text. The tag inside a marker is free
+        # text anybody who can comment may write, and the tags in use are printed in this repo's own
+        # docstrings -- so a marker planted by somebody else would otherwise be swept in as this tag's,
+        # and -Apply would drop an assignee on the strength of a stranger's comment. gh writes a claim
+        # comment as the gh account the tag's second half names (Get-ClaimTag), so a genuine marker
+        # always carries that author.
+        $own = @($records | Where-Object { $_.Tag -ieq $ownTag -and $_.Author -and $_.Author -ieq $tagAccount })
+        if ($own.Count -eq 0) { continue }
+
+        $assigned = $false
+        if ($Account.Trim()) {
+            $logins = @(Get-AssigneeLogins -Json (([pscustomobject]@{ assignees = @($(if ($issue.PSObject.Properties['assignees']) { $issue.assignees })) }) | ConvertTo-Json -Depth 5))
+            $assigned = @($logins | Where-Object { $_ -ieq $Account.Trim() }).Count -gt 0
+        }
+
+        $out.Add([pscustomobject]@{
+            Number   = [int]$issue.number
+            Title    = $(if ($issue.PSObject.Properties['title']) { [string]$issue.title } else { '' })
+            Records  = $own
+            Assigned = $assigned
+        }) | Out-Null
+    }
     return @($out | Sort-Object -Property Number)
 }

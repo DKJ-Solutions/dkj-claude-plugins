@@ -10,7 +10,7 @@ description: The measured evidence behind this repo's inbound-item verification 
 > [his lens](../../specialists/lenses/specialist-01-01-lens.md#the-dave-rules). This skill carries the
 > **measurements** behind it — which is what the repo's own convention asks of a skill: *"personas
 > and manuals carry no repo-specific detail at all while skills carry the evidence behind a
-> procedure"* ([`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation)).
+> procedure"* ([`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation)).
 
 Six things are checked before an inbound item is routed, and each one fails independently: the
 **symptom** may already be repaired, the **reasoning** may have expired, the **repair** it proposes

@@ -444,6 +444,11 @@ try {
     Assert-True ($mergeOnGreen -like '*SHIP_BRANCH: ${{ steps.pick.outputs.branch }}*') 'the head branch arrives through env:'
     Assert-Equal 1 (@([regex]::Matches($mergeOnGreen, 'steps\.pick\.outputs\.branch')).Count) `
         'and that env: line is its ONLY expression -- never ${{ }} interpolated into a run: body, the one attacker-chosen value in the file'
+    # PINNED TO THE COMMIT THE PICKER JUDGED (#2338): ship-pr dot-sources the checkout's repo-config.ps1,
+    # so a push after the pick must stop the job rather than run unjudged code with the PAT.
+    Assert-True ($mergeOnGreen -like '*SHIP_SHA: ${{ steps.pick.outputs.sha }}*') 'the judged head commit arrives through env: too'
+    Assert-True ($mergeOnGreen -match '(?ms)git checkout --quiet \$env:SHIP_BRANCH.*?\$head -ne \$env:SHIP_SHA.*?ship-pr\.ps1 -SkipLint') `
+        'and the checkout is held to it BEFORE ship-pr runs, not after'
     Assert-True ($mergeOnGreen -like '*.git/info/exclude*') `
         'the plugin checkout is excluded locally, so ship-pr does not read the tree as dirty and detour the fold'
     Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'

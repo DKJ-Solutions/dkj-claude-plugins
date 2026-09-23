@@ -63,9 +63,18 @@ disagree you follow it and say so.
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel needs-info
 ```
 
-It prints every open issue as `free`, `mine`, `held` or `skipped` with the reason, and names the lowest
-free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue` holds
-numbers out by hand.
+It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
+the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
+holds numbers out by hand.
+
+**`branch` means somebody pushed work for it without a claim marker** -- a `<prefix>/<n>-<name>` branch
+is on origin, and the reason names its author and how long ago it last moved. It is not free: a marker is
+only written by a session that ran `-Tag`, so the tracker alone once read 11 of 11 open issues as free
+while 9 had a live branch
+([#2392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2392)). Read that branch, or ask its
+author, before you claim one. **And `free` still means only what this step can see** -- no marker and no
+branch named with the number; a branch named for the subject is caught at the claim, by its
+title-overlap scan.
 
 **Choosing and claiming are two steps on purpose.** Between them you still have to ask whether the
 issue is this repo's work at all. A tracker carrying an issue means the work is TRACKED here, not that
@@ -98,6 +107,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 It refuses a colleague's claim, an issue with no branch on origin, and one with several; otherwise it
 replaces the old marker with this tag's, comments the handover, and prints the checkout. The old machine's
 `-Verify` then reads `[NO]`, so step 6 stops it there.
+
+**Leaving a machine on purpose, you can tidy first** -- `claim-issue.ps1 -Tag -ReleaseAll` lists every
+open issue this tag holds, and `-Apply` releases them, so the next machine's `-Candidates` does not read
+your old tag as `held` ([#2395](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2395)). It
+touches this tag's own markers only, never another's, and it is optional: `-TakeOver` above is what
+covers the switch you did not plan.
 
 ### 3. Build it
 
@@ -139,8 +154,14 @@ step 6 picks it up whenever the answer comes.
 intermediate question: open, merge, fold.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1" -Resolves <n>
 ```
+
+**`-Resolves <n>` is not optional here.** A sweep branch is named after its issue and its entry cites it,
+so `open-pr`'s resolves gate always finds a mention and refuses a bare `ship-pr` before anything is pushed
+([#2376](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2376)). Where the branch is only one
+step of a larger issue -- the issue stays open for the next step -- pass `-NoResolves` instead, and say in
+a comment on the issue what the step did and what is left.
 
 ### 6. Coming back to an approved branch
 
@@ -156,7 +177,8 @@ indistinguishable from your own. **This is the sharpest place a vague claim cost
 everything that carries a marker and is therefore safe whoever wrote it, while this step deliberately
 resumes on the tag's own work.
 
-Then ship it, and close the issue the way this repo closes issues. **Where the issue mirrors a ticket
+Then ship it -- the same `ship-pr.ps1 -Resolves <n>` as step 5 -- and close the issue the way this repo
+closes issues. **Where the issue mirrors a ticket
 somewhere else, the message to the person who asked comes BEFORE the close** -- the plugin that owns
 that mirror carries the form; without such a plugin the ordinary `Closes #<n>` applies.
 

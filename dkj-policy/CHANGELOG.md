@@ -44,7 +44,151 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 22 minor entries** <!-- pending-tally -->
+**10 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2395-release-all · 20260923-212655Z
+
+`claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
+claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
+it only lists what it would release. Markers written by any other tag are never touched, including
+another machine under the same account, and an assignee with no marker of this tag stays in place. A
+marker only counts as this tag's when the comment was actually written by this tag's account, so a
+comment somebody else posts with your tag in it cannot trigger a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -Tag -ReleaseAll
+
+Plugins: dkj-policy
+
+[PR #2400](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2400)
+
+---
+
+### DEPLOY: fix/2338-merge-on-green-trunk-code · 20260923-211820Z
+
+The merge-on-green runner checked out an armed pull request's head with `FOLD_PUSH_TOKEN` in the workspace
+and then ran code from that checkout, so being able to push a branch meant being able to run code with a
+token that bypasses the trunk ruleset. The picker now refuses a pull request whose diff touches code the
+runner executes, and the runner refuses any checkout other than the commit the picker judged (#2338).
+
+**Score:** 3 -- closes a privilege widening on the one runner that holds the standing write token; a
+pull request touching scripts now ships from a session instead.
+
+#### What makes this deploy extra special
+
+A consumer's scaffolded `merge-on-green.yml` ran the plugin's `ship-pr.ps1`, and that dot-sourced the
+branch's `scripts/repo-config.ps1` with the consumer's `FOLD_PUSH_TOKEN` in place. The picker fix reaches
+them as soon as their runner checks out the source's `main`. The SHA pin reaches them when
+`adopt-ci-floor` reports their runner as drifted and they re-apply it.
+
+**Score:** 3 -- a security fix to a runner consumers adopted; those who use merge-on-green will see
+script-touching pull requests left for a session.
+
+#### Pull Request
+
+merge-on-green: never run code from an armed branch that changes what the ship executes
+
+Plugins: dkj-policy
+
+[PR #2346](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2346)
+
+---
+
+### DEPLOY: docs/2376-sweep-ship-resolves · 20260923-210524Z
+
+`sweep-issues` told a session to ship with a bare `ship-pr.ps1`, which `open-pr`'s resolves gate refuses on
+every sweep branch, because the branch and its entry always name the issue. Step 5 now prints
+`ship-pr.ps1 -Resolves <n>`, names `-NoResolves` for a branch that is only one step of a larger issue, and
+step 6 points at the same command.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog no longer loses a round trip on every issue to a refusal the
+skill's own command caused.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: the ship lines name -Resolves, so a sweep branch passes open-pr's resolves gate
+
+Plugins: dkj-policy
+
+[PR #2398](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2398)
+
+---
+
+### DEPLOY: fix/2392-candidates-read-remote-branches · 20260923-205323Z
+
+`claim-issue.ps1 -Candidates` now reads origin's branches once for the whole backlog. An open issue with
+no claim marker but a `<prefix>/<n>-<name>` branch on origin reads `branch` instead of `free`, and the
+reason names the branch, its author and how long ago it last moved. A claim marker still takes
+precedence. If the branch listing cannot be read, the run still judges from the tracker and says that
+`free` then means only "no claim marker".
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep no longer offers you an issue somebody else is already building just because they did not
+claim it by tag. Before this, the only warning came after the claim was written, one issue at a time.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue -Candidates: an unmarked issue with a branch on origin reads 'branch', not 'free'
+
+Plugins: dkj-policy
+
+[PR #2396](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2396)
+
+---
+
+### DEPLOY: feat/2374-global-claude-md · 20260923-204008Z
+
+The rules a repo runs under now ship with `dkj-policy` itself: one [`CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md)
+holding the constitution and the general working practices, plus a
+[`dkj-policy-bwj` extension](../plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md) for the BWJ repos. A
+consumer's own `CLAUDE.md` now holds **only** the `@`-import line(s) and nothing else -- no rules, no
+facts, no repo block. A repo's own facts (trunk, public or not, owner, purpose) move to an unscoped
+rule such as `.claude/rules/<name>.md`, loaded every session exactly as `CLAUDE.md` was; a fact that
+belongs to one specialist alone moves to that specialist's own lens. The
+`consumer-prose-sessioncheck` hook warns at session start where the import line is missing and prints
+it for the consumer's own marketplace name; the `specialists-init` scaffold stops inviting a local
+constitution. This repo runs the same model, one step further than the branch's original plan: its
+constitution moved into the plugin, and its former repo slot -- everything specific to this repo that
+used to sit inside `CLAUDE.md` -- moved whole into `.claude/rules/this-repo.md`. Root `CLAUDE.md` is
+now a one-line title plus the three `@`-imports, and nothing else.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- a repo-governance change; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+One global CLAUDE.md shipped by dkj-policy, imported by consumers
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2390](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2390)
+
+---
 
 ### DEPLOY: feat/2387-claim-takeover · 20260923-193109Z
 

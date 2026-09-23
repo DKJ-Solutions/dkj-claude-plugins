@@ -15,8 +15,9 @@ administration.
 
 claude-code-specialists works like a **Customer Data Platform**: all changes to shared plugin content
 (agent defs, manuals, persona bodies, skills) **land here first**, and are only then synced out to
-the connected repos — never the other way around (see the safety rules in the repo
-[`CLAUDE.md`](../CLAUDE.md)). If an improvement nevertheless originates in a consumer, that
+the connected repos — never the other way around (see the safety rules in
+[`plugins/dkj-policy/CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md), which the repo's own
+[`CLAUDE.md`](../CLAUDE.md) imports). If an improvement nevertheless originates in a consumer, that
 is an **inbound signal**: the change is first brought back here and then synced out again.
 
 **The standing inbound route** (agreed with Dave, July 16, 2026): if a session in a consuming repo
