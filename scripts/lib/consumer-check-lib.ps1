@@ -139,3 +139,45 @@ function Get-CheckProseCorpus {
 
     return @(Get-AlwaysOnDocuments -RootDocument $root -RepoRoot $RepoRoot)
 }
+
+function Get-ConstitutionImportLine {
+    <#
+        The '@'-line a consumer's CLAUDE.md carries to load the dkj-policy constitution (issue #2374):
+        one ABSOLUTE path into the marketplace clone, never into the version-pinned cache -- the same
+        reasoning bootstrap.ps1's Get-DurablePersonaDir gives for the orchestrator import (an '@'-import
+        takes no variable, and the cache directory is purged after an update).
+
+        THE MARKETPLACE SEGMENT IS READ OFF THIS FILE'S OWN LOCATION where it can be. A consumer runs this
+        from '~/.claude/plugins/cache/<marketplace>/dkj-policy/<version>/scripts/lib', and <marketplace>
+        is the name its clone sits under -- which is not always the canonical one: a consumer registered
+        before the September 10, 2026 rename still has 'claude-code-specialists'. Anywhere else (the
+        source tree, a test) the canonical name is used.
+    #>
+    param([string]$LibDir = $PSScriptRoot)
+    $marketplace = 'dkj-claude-plugins'
+    $parts = @(($LibDir -replace '\\', '/').Split('/') | Where-Object { $_ })
+    for ($i = 0; $i -lt $parts.Count - 2; $i++) {
+        if ($parts[$i] -ieq 'cache' -and $i -gt 0 -and $parts[$i - 1] -ieq 'plugins' -and $parts[$i + 2] -ieq 'dkj-policy') {
+            $marketplace = $parts[$i + 1]
+            break
+        }
+    }
+    return "@~/.claude/plugins/marketplaces/$marketplace/plugins/dkj-policy/CLAUDE.md"
+}
+
+function Test-ConstitutionImported {
+    <#
+        Does this always-on closure '@'-import the dkj-policy constitution (issue #2374)? Matched on the
+        tail of the resolved path -- '.../plugins/dkj-policy/CLAUDE.md' -- so the absolute marketplace
+        form, any marketplace name, and the source repo's relative form all count. A row that does NOT
+        resolve (Exists = $false) still counts: the line is written, and a clone that has not refreshed
+        yet is a lag the next 'claude plugin marketplace update' closes, not a missing import.
+    #>
+    param([AllowNull()][AllowEmptyCollection()][object[]]$Documents)
+    foreach ($d in @($Documents)) {
+        if ($null -eq $d) { continue }
+        $p = ([string]$d.Path) -replace '\\', '/'
+        if ($p -imatch '/plugins/dkj-policy/CLAUDE\.md$') { return $true }
+    }
+    return $false
+}

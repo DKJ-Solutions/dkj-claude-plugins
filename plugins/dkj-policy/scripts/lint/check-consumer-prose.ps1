@@ -199,6 +199,20 @@ $documents = if (Test-FunctionDefined 'Get-CheckProseCorpus') {
 $retired  = @(Get-RetiredDocNameMention -RepoRoot $repoRoot -Documents $documents)
 $inverted = @(Get-SupremacyDeclaration -RepoRoot $repoRoot -Documents $documents)
 
+# THE CONSTITUTION IMPORT (#2374). The rules a consumer runs under live in the plugin's own CLAUDE.md,
+# loaded by one '@'-line in the consumer's -- so a CLAUDE.md without it runs on whatever its owner wrote
+# there instead, which is the contradiction #2374 was filed about. A [WARNING], never an [ERROR], and it
+# never moves the exit code: it is a missing line with a paste-ready fix, not a contradiction stated as
+# current, and the two detectors above keep their exit semantics exactly. Only judged where there IS a
+# walked closure -- an empty corpus is "no CLAUDE.md" or "no measure lib", and neither is this gap.
+if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ConstitutionImported') -and
+    -not (Test-ConstitutionImported -Documents $documents)) {
+    Write-Host '[WARNING] this repo''s CLAUDE.md does not import the dkj-policy constitution -- the rules it runs under.' -ForegroundColor Yellow
+    Write-Host '          Add this line directly below its first heading, and keep only facts about this repo beneath it:' -ForegroundColor Yellow
+    Write-Host "            $(Get-ConstitutionImportLine)" -ForegroundColor Yellow
+    Write-Host '          Then remove any rule the constitution already states -- see CONTRIBUTING-portable.md, "A third rank sits above both".' -ForegroundColor Yellow
+}
+
 if ($retired.Count -eq 0 -and $inverted.Count -eq 0) {
     Write-Host '[OK] no retired branch-document name and no inverted supremacy declaration in this repo''s always-on prose.'
     exit 0

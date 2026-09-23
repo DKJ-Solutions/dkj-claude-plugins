@@ -346,7 +346,7 @@ in **both**, while the significance rubric (13 references), the `highlights/` re
 **The last one is this section**, and it is worth having on its own: the first two are a judgement about
 the governance document and the third is arithmetic. **The honest counter-argument to the second, kept
 beside it:** the growth these notes keep recording is
-[the repo's own rule](../../../CLAUDE.md#general-working-practices) working as designed — lessons are
+[the repo's own rule](../../../plugins/dkj-policy/CLAUDE.md#general-working-practices) working as designed — lessons are
 secured in the docs — and moving the evidence does not stop it, it only redirects where it lands.
 
 ### The Claude Code best-practices page, held against this repo (August 14, 2026)
@@ -635,7 +635,7 @@ only while it says when each one was opened.
      standing rule that removes the freedom to ship on demand. Had the ceiling been four hours a day the
      same table would have argued the other way — which is precisely why counting it first was worth doing.
    - **There was never a mechanism to change, only a habit.** A release happens on Dave's explicit request
-     ([`CLAUDE.md`](../../../CLAUDE.md#never-without-daves-explicit-permission)), so the 16 releases in the
+     ([`CLAUDE.md`](../../../plugins/dkj-policy/CLAUDE.md#never-without-the-owners-explicit-permission)), so the 16 releases in the
      window were 16 requests. A cadence policy could only ever have been a self-imposed constraint on his
      own asking, plus a brief telling Rendall to propose fewer. Both were declined.
    - **The counterweight ran in the same direction, which is unusual and worth noting.** Batching would

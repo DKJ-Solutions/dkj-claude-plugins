@@ -2061,22 +2061,34 @@ function Get-ClaudeMdScaffold {
        here it was neither.
 
        Matched on the LITERAL generated wording only, like the note above: a consumer who reworded or
-       translated these lines has authored that text, and the teardown reports nothing about it. #>
+       translated these lines has authored that text, and the teardown reports nothing about it.
+
+       THE SECOND LINE CHANGED ON SEPTEMBER 23, 2026 (issue #2374), and the old one is kept in Legacy.
+       It used to say "expand with governance and safety rules for this repo" -- an invitation to write
+       exactly the hand-made constitution that went on contradicting the plugins. The rules now live in
+       dkj-policy's own CLAUDE.md, imported by one line, so the scaffold asks for facts instead. Legacy is
+       READ and never written: every consumer scaffolded before that day carries the old literal, and the
+       teardown must still recognise it as generated -- a list that only grows, for the reason
+       Get-RetiredRepoNames gives one layer over. #>
     [pscustomobject]@{
         Heading = '# CLAUDE.md'
         Prose   = @(
             'This repo is governed by **Claude Specialists** -- a team of specialized Claudes led by a Chief of Staff.',
+            'This scaffold was created by `specialists-init` skill; the rules are imported from the plugins, so add only facts about this repo here.'
+        )
+        Legacy  = @(
             'This scaffold was created by `specialists-init` skill; expand with governance and safety rules for this repo.'
         )
     }
 }
 
 function Test-IsClaudeMdScaffoldProseLine {
-    <# Is this line one of the scaffold's generated prose lines? Trimmed, so an indentation change in a
-       consumer's editor does not hide it from the reporter. #>
+    <# Is this line one of the scaffold's generated prose lines, current or legacy? Trimmed, so an
+       indentation change in a consumer's editor does not hide it from the reporter. #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
     $t = $Line.Trim()
-    foreach ($p in (Get-ClaudeMdScaffold).Prose) { if ($t -eq $p) { return $true } }
+    $scaffold = Get-ClaudeMdScaffold
+    foreach ($p in @($scaffold.Prose) + @($scaffold.Legacy)) { if ($t -eq $p) { return $true } }
     return $false
 }
 

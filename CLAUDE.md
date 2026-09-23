@@ -1,152 +1,27 @@
-# CLAUDE.md — claude-code-specialists
+# CLAUDE.md — dkj-claude-plugins
 
-This file is the operating guide for this repo. **The rules come first** — the constitution and the
-general practices, which are Dave's and hold across the repos he runs — and **everything
-specific to this repo comes last**, under
-[`## Specific to this repo (claude-code-specialists)`](#specific-to-this-repo-claude-code-specialists).
+**The rules are not in this file.** They are in the `dkj-policy` constitution imported on the next
+line, plus the `dkj-policy-bwj` extension below it. Every repo running the workflow reads the same
+text (Dave, [#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374),
+September 23, 2026). What follows the imports is **facts about this repo only**. It restates no rule
+and overrides none, and a rule that has to read differently goes to the plugin source.
 
-**Everything in this file holds on its own**, and that is deliberate. Two plugins layer on top of it
-where they are installed, and nothing below assumes either one is:
+@plugins/dkj-policy/CLAUDE.md
 
-- **`dkj-policy`** — the branch, entry and release mechanics, on its own page
-  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md).
-- **`dkj-subagents-alpha`** — the specialists, reached through the single `@`-import at the foot of this file.
+@plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md
 
-Uninstall both and this guide still describes how the repo is run: the rules below are the repo's own,
-and where a plugin adds to one, the addition lives in that plugin's layer rather than here. Read a
-statement here as true whether or not anything is installed — if one ever is not, that is a defect in
-this file.
-
-> **This repo is a special case.** See [`README.md`](README.md) for what claude-code-specialists is and
-> [`## Specific to this repo (claude-code-specialists)`](#specific-to-this-repo-claude-code-specialists)
-> below for how it is maintained.
-
----
-
-## Safety rules
-
-**Constitution — read this first.** These rules are broadly shared and take precedence over any
-convenience; the craft detail behind them lives in the layers named above. The concrete implementation
-for this repo (the main branch, the lint gate, the fold exception, being public) is in
-[`## Specific to this repo (claude-code-specialists)`](#specific-to-this-repo-claude-code-specialists).
-
-### Never without Dave's explicit permission
-
-- **Merging work with a visible result** — if the change produces something Dave has to judge with
-  his own eyes (a frontend, styling, rendered output, an artifact), the branch stops and reports
-  instead of merging. No automated gate can prove that something *looks* right. Work whose
-  correctness the gates do prove runs through on its own (see below).
-- **A release/version bump** of a plugin (raising `version` in a `plugin.json`, creating a tag) —
-  only on explicit request. **The closing steps of a cut that was asked for are covered by that
-  request**, including **publishing the GitHub Release**: the version bump and the tag are the
-  irreversible act, and once they are authorised, stopping again at the last step of the same
-  checklist is a rubber stamp. So "cut a release" runs through: generate, commit the hand-written
-  documents on `main`, publish. Where a repo has a separate **live stage**, that block is not part
-  of this — a Release document describes a version, a live push changes what customers see. Decision
-  by Dave, August 5, 2026; the release manager's own statement of it is in his portable body.
-
-  **And the same holds at the other end of the checklist, for the preparation a cut cannot run
-  without.** Opening a new **major** stops before anything is written: the release overview needs that
-  major's own section, and the test pinning which major the overview targets has to be repointed at it.
-  Neither edit is made for you — opening a major is a deliberate milestone moment — so both land
-  directly on the trunk, ahead of the release commit they exist to enable. They are covered by the
-  same request, and **bounded by it**: only for a major, only those two files, and only once a cut has
-  actually been asked for. Without a cut on the table there is nothing for them to be part of, and
-  they are then ordinary changes needing an ordinary route. Decision by Dave, August 9, 2026, after the
-  `v4.0.0` cut needed both by hand under an exception nobody had granted.
-- **`git push --force`** (on any branch whatsoever), **`git reset --hard`**, **`git rebase`** on a
-  shared branch.
-- **Publishing anything externally** beyond the normal PR flow (a gist, an external post, an issue
-  opened on somebody else's repository).
-
-  **The inbound route is NOT this**, and it is carved out by name because an unstated exception is
-  indistinguishable from a prohibition (inbound
-  [#1094](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1094), August 29, 2026). Filing
-  an `inbound` issue on the **source repo of a plugin this repo consumes** needs no permission from
-  anyone: it is the one outward-facing act this family asks a session to perform unprompted, and the
-  only way a defect found in a consumer reaches the tree that can repair it. What applies to it is the
-  ordinary filing bar in the orchestrator's body — verify it still stands, search that tracker first,
-  one subject per issue — never a permission gate.
-
-  **It matters most where this file is copied.** A consumer's scaffolded `CLAUDE.md` tells them to
-  *"expand with governance and safety rules for this repo"*, and this document is the nearest model —
-  so without the carve-out, adopting it hands them a rule forbidding the route the plugin they just
-  installed requires of them. Measured in a fresh consumer: two real defects found during its
-  adoption, both verified, neither filed.
-
-### Never directly on the main branch — via branch + PR
-
-All changes go through a branch + Pull Request. **Whether that PR waits for Dave depends on what is
-in it**, and the test is one question: *does Dave's own look add something the gates cannot?*
-
-- **The default — no waiting.** Once the work on a branch is finished, committed, and the gates are
-  green, the whole movement runs in one go: opening → merging → folding the changelog entry, with no
-  intermediate question. This covers the bulk of the work — scripts, tests, config, manifests, docs,
-  agent defs and manuals, the changelog, research. The lint gate, the test gate, and CI prove this
-  kind of change is sound; a stamp from Dave adds nothing to that, and anything that does turn out
-  wrong is one revert PR away.
-- **The exception — stop and wait for Dave's word.** Two kinds of change do not merge on their own:
-  1. **A visible result** — the change produces something that has to be judged by eye: a frontend,
-     styling, rendered output, an artifact. No gate can prove that something looks right.
-  2. **Irreversible or outward-facing** — a release, a version bump, a tag, repo settings or
-     rulesets, or publishing anything beyond the normal PR flow.
-- **Dave keeps the wheel in both directions.** He can pull any single piece of work under the
-  exception when he assigns it ("this one I want to see first"), and then the chain waits. And when
-  he *does* give an explicit PR command ("open the PR", "set up the PR", "take it live"), that counts
-  as approval for the whole movement exactly as it always did.
-
-The reasoning behind the default: Dave's substantive approval is given in the conversation *before*
-the work is built, not at the merge button afterwards. Where the button used to be a second
-checkpoint, in practice it was a rubber stamp — so it is only a checkpoint now where it genuinely
-buys something. Decision by Dave, July 27, 2026.
-
-On the main branch a few narrowly defined, deliberate exceptions to "never commit directly" exist —
-the **fold commit** after a merge, the **release commit** and the **release-notes commit** (both on
-explicit request) — and a **lint gate** serves as the safety guard before every PR. Exactly which
-exceptions apply here and how they are implemented (scripts, scope) is described in the repo slot. A
-release and the destructive actions above happen only on Dave's explicit request.
-
----
-
-## General working practices
-
-- **Lessons learned are secured in the docs, not just in memory.** If a session learns an
-  important lesson or discovers something that must be remembered for next time, it is recorded
-  immediately in the relevant doc(s) — `README.md`, this `CLAUDE.md`, or the layer that owns the rule
-  — a memory note alone is too noncommittal. Which layer that is, and the split when a rule has both
-  a portable and a local half, is settled further down under
-  [the source-is-the-default rule](#claude-code-specialistss-safety-implementation).
-- **A reported finding's *reason* is verified before it is repaired, not just its symptom.** A report
-  says both what went wrong and why, and the second half is an inference by someone who was measuring
-  the outside. Read the code, the doc, or the output that would have to be true for that explanation
-  to hold — and if it does not, the repair changes with it. Building the proposed fix on an unverified
-  reason produces a change that satisfies the report and is wrong, which is worse than the original
-  defect: it now carries a citation. The measured instance, inbound #388, is in the
-  [`triage-inbound` skill](.claude/skills/triage-inbound/SKILL.md), beside the five other ways a
-  report fails on pickup.
-- Within a branch, be proactive about creating new folders/files as soon as a new topic comes up.
-  Don't ask permission first for the file structure itself; do ask for the content if something is
-  sensitive or uncertain.
-- When in doubt about priority: ask about deadlines/urgency instead of guessing.
-- **Approval questions are rare, not the norm.** Interrupt Dave only for truly exceptional actions:
-  irreversible, outward-facing, or carrying real risk (cutting a release, publishing externally,
-  something destructive). All routine work — git, bash, config, branches, commits, tooling/scripts,
-  and passing a finished deliverable on to the next link in an already agreed chain — is simply
-  executed and reported, not asked about first. When in doubt, pick a sensible default, execute it,
-  and report it. This is separate from the PR rule above: a PR always waits
-  for Dave's explicit word — that is the deliberate, explicitly named exception to this rarity
-  rule, not a contradiction of it.
+**This repo imports both by relative path, where a consumer uses the absolute marketplace path.** This
+repo *is* the source, so a relative import loads the branch's own copy. It never waits on a marketplace
+refresh, and CI can measure it. **The owner is Dave (DaveKJohn)**; wherever the constitution says
+"the owner", that is him here.
 
 ---
 
 ## Specific to this repo (claude-code-specialists)
 
-> *Everything above is how work is run here — the constitution and the general practices. They are
-> **Dave's**, shared across the repos he runs rather than universal: they name him as the
-> decision-maker throughout and carry this repo's own measured instances. This part is the
-> claude-code-specialists lens: not *that* there are safety rules, but what this repo is and how the
-> constitution is concretely implemented here. Copying this file to another repo of Dave's means
-> replacing this part; copying it to somebody else's means replacing the decision-maker above it too.*
+> *The imported constitution says how work is run. This part says what this repo is, and how that
+> constitution is concretely implemented here. It is the only part of this file that belongs to this
+> repo.*
 
 `claude-code-specialists` is the **home repo of one product**: the Claude Specialists system, built and
 maintained here by Dave (DaveKJohn), and the **single source of truth** for all shareable subagent
@@ -355,16 +230,15 @@ publish, in [`plugins/dkj-subagents/README.md`](plugins/dkj-subagents/README.md)
 
 ### claude-code-specialists's safety implementation
 
-**This section stands on its own, and that is deliberate.** Everything below holds in this repo
-whether or not a plugin is installed — the branch, the PR, the required CI check, the lint and test
-gates, and the three direct-on-`main` exceptions with their bounds. **The layer on top** is the
-`dkj-policy` plugin, which carries its own page:
+**These are facts about how this repo meets the constitution, not rules of their own.** The branch,
+the PR, the required CI check, the lint and test gates, and the concrete paths behind the three
+direct-on-`main` exceptions are named here. The rules they implement are in the imported constitution,
+and the mechanics are on its sibling page:
 
 📄 **[`plugins/dkj-policy/CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)**
 
-**When the plugin is installed, that page applies on top of this one — and where the two disagree, the
-plugin's page wins.** It does not replace anything below; it adds the workflow's own mechanics (the
-gates on the branch dossier, how those three exceptions actually run, the measurements behind them).
+**Where this section and either plugin page disagree, the plugin page wins**, and the disagreement is
+a defect in this section.
 
 **The `dkj-policy/` folder carries no prose pages any more** (Dave,
 [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171)): a per-repo `CONTRIBUTING.md`
@@ -373,7 +247,7 @@ ships the sentence. **Each answer moved to the lens of the specialist who owns i
 [Tessa's](.claude/specialists/lenses/specialist-06-16-lens.md) records what the pages were, what the
 move cost, and where every passage landed.
 
-The constitution above, concretely implemented here:
+The constitution, concretely implemented here:
 
 - **The main branch is `main`.** All changes via a `<prefix>/<short-name>` branch + PR to
   `main`, **one change per branch**, described in the PR, and the branch deleted after the merge.
@@ -566,24 +440,13 @@ The constitution above, concretely implemented here:
   — including that personas and manuals carry no repo-specific detail at all while skills carry the
   evidence behind a procedure.
 
-### The how (Dave's, across his repos) vs. the what (this repo only)
+### The how (the plugin) vs. the what (this repo only)
 
-In short: the **how** (everything via branch + PR, lessons learned in the docs, the constitution
-above any convenience) is Dave's and carries across the repos he runs, so it sits at the top. The
-**what** (the marketplace/plugin structure, the language, the concrete `main` branch and fold
-exception, the scripts, and the plugin lint gate) belongs to this repo alone and sits in this slot.
-
-**Neither half is a universal baseline, and the top half least of all.** It names Dave as the
-decision-maker throughout and reaches for mechanisms only this repo has — a `plugin.json` version
-bump, the release overview's `#### N.x` section, the test pinning which major that overview targets.
-What travels is the shape (a constitution, then a repo slot), not the content, so a repo adopting this
-system writes its own owner into the top half rather than inheriting Dave.
-
-**The word *portable* appears elsewhere in this file in the plugin sense — a persona body, a manual,
-the portable half of a rule — and is correct there; do not sweep it.** Those files genuinely travel to
-a consumer through a release, while this repo's constitution travels nowhere on its own. Why the word
-had to be corrected in the three places above, and the miscount the repair itself introduced, are in
-[Tessa's lens](.claude/specialists/lenses/specialist-06-16-lens.md#the-portable-word-and-the-count-that-came-with-it).
+The **how** (everything via branch + PR, lessons learned in the docs, the constitution above any
+convenience) is the imported constitution. Since #2374 it reaches every consumer through the
+absolute `@`-import, so it advances on a marketplace refresh, not on a release. The **what** (the marketplace/plugin structure, the language, the
+concrete `main` branch and fold exception, the scripts, and the plugin lint gate) belongs to this repo
+alone and sits in this slot.
 
 The one line below is the whole specialist surface of this file. Everything about the team — who they
 are, what each covers, how they are routed to — sits behind it, so removing the plugin is removing one

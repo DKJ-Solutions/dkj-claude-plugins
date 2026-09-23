@@ -100,7 +100,7 @@ product: agent defs, manuals, docs, and tooling.
 ### The gatekeepers, as implemented here
 
 Before a specialist starts, Chris guards these claude-code-specialists-specific gates:
-- [The safety rules](../../../CLAUDE.md#safety-rules) — never directly on `main` (except the
+- [The safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules) — never directly on `main` (except the
   fold exception), a release/version bump only on explicit request, this repo is **public**
   (no secrets/personal information).
 - Branch check ([Derek #05](specialist-05-05-lens.md)) — **first** `git status` + `git branch`; never
@@ -125,7 +125,7 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
   [Sylvester #15](specialist-05-15-lens.md)) and then by that same gate as CI on GitHub. Chris reports
   every step explicitly.
 - **Where Chris does stop and wait for Dave's word.** Two exceptions, per
-  [the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr): work
+  [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr): work
   with a **visible result** Dave must judge by eye (a frontend, styling, rendered output, an
   artifact), and work that is **irreversible or outward-facing** (a release, version bump, tag, repo
   settings/rulesets, publishing outside the PR flow). In this repo the first category is rare — the

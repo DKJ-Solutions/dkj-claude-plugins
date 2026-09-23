@@ -880,6 +880,12 @@ function Get-LintScript { return `$script:LintScript }
     $freshMd  = [System.IO.File]::ReadAllLines((Join-Path $Fixture 'CLAUDE.md'))
     Assert-True (@($freshMd | Where-Object { Test-IsClaudeMdScaffoldProseLine -Line $_ }).Count -eq $scaffold.Prose.Count) `
         'fresh: the bootstrap wrote the scaffold prose from the shared source (so the literal is not mirrored by hand)'
+    # #2374: the old second line is READ, never written -- a consumer scaffolded before the change still
+    # carries it, and the teardown must still recognise it as generated.
+    Assert-True (@($scaffold.Legacy).Count -ge 1 -and @($scaffold.Legacy | Where-Object { Test-IsClaudeMdScaffoldProseLine -Line $_ }).Count -eq @($scaffold.Legacy).Count) `
+        'legacy scaffold prose (#2374) is still recognised as generated'
+    Assert-True (@($freshMd | Where-Object { $scaffold.Legacy -contains $_.Trim() }).Count -eq 0) `
+        'fresh: the bootstrap never writes a legacy line'
 
     $fp = Invoke-Script -Path $Teardown -ScriptArgs @('-ConsumerRoot', $Fixture)
     Assert-Equal 0 $fp.Code 'fresh: preview exit-code 0'

@@ -234,6 +234,26 @@ trade-off that puts the timing back in your hands.
 merge is a branch-protection setting, which is a repo decision rather than something a scaffolder should
 reach into.
 
+### And one line in your `CLAUDE.md`: the constitution (#2374)
+
+**The rules this repo runs under ship with the plugin, in [`../../CLAUDE.md`](../../CLAUDE.md).** Your own
+`CLAUDE.md` loads them with one absolute `@`-line, placed directly below its first heading:
+
+```
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md
+```
+
+Below that line, your `CLAUDE.md` holds **facts about this repo only**: its trunk, whether it is public,
+who its owner is, and what it is for. **Remove any rule the constitution already states.** A copy of a
+rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
+stays behind, and that is the contradiction #2374 was filed about.
+
+This run does not write the line, because it never edits a file that already exists. The
+`consumer-prose-sessioncheck` hook raises a `[WARNING]` at every session start until the line is there,
+and that warning prints the exact line for **your** marketplace name. A consumer registered before the
+September 10, 2026 rename still has its clone under `claude-code-specialists`. The line resolves after a
+`claude plugin marketplace update`: an `@`-import reads the marketplace clone, not the plugin cache.
+
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
 The release machinery finds the folder through a `decide` seam in your `scripts/repo-config.ps1`

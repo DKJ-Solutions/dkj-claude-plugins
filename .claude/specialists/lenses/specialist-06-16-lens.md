@@ -307,7 +307,7 @@ the **what** (`CLAUDE.md`, `README.md`, this specialists system with its portabl
 ### The *portable* word, and the count that came with it
 
 Behind *"Neither half is a universal baseline"* in
-[`CLAUDE.md`](../../../CLAUDE.md#the-how-daves-across-his-repos-vs-the-what-this-repo-only). Two lessons
+[`CLAUDE.md`](../../../CLAUDE.md#the-how-the-plugin-vs-the-what-this-repo-only). Two lessons
 from one day, August 19, 2026, and the second one is about the repair rather than the defect.
 
 **The word was wrong in three places.** `CLAUDE.md` called its own top half *portable* where it reaches

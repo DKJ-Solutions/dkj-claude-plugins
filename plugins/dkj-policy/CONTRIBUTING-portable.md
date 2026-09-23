@@ -1136,7 +1136,7 @@ writing, and no gate could flag it, because no gate reads a contributing page or
 — and the middle rank is real only for as long as your repo still carries the page it names:**
 
 ```
-the plugin's portable pages + skills   (the shared law)
+the plugin's CLAUDE.md, portable pages + skills   (the shared law)
         >  dkj-policy/CONTRIBUTING.md  (this repo's answers to its seams -- ONLY where you still
                                         carry one; #2171 stopped scaffolding it, so a fresh
                                         adoption has no middle rank at all)
@@ -1171,9 +1171,14 @@ consumer's copy does — not on the day it is written, but on the day this block
 
 **Scoped as narrowly as it should be.** This ranking governs only what the plugin actually legislates —
 the branch/PR/release mechanics, the gates, the tier model, the shapes described on these portable pages.
-A repo's own rules that the plugin has no opinion on — its live theme's id, its store domain, its
-front-end tokens, the safety rules it runs under — are not in that set at all, and nothing here outranks
-them. Restating that scope matters because the failure this section describes looks exactly like
+A repo's own facts that the plugin has no opinion on — its live theme's id, its store domain, its
+front-end tokens — are not in that set at all, and nothing here outranks them. **The safety rules left
+that list on September 23, 2026**
+([#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374)): they are now legislated by
+the plugin's own [`CLAUDE.md`](CLAUDE.md), which sits on the top rung beside this page. A consumer's
+`CLAUDE.md` imports it with one absolute `@`-line
+(`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/CLAUDE.md`), and below that line it
+carries facts about the repo and nothing else. Restating that scope matters because the failure this section describes looks exactly like
 diligence: a repo folds a shared rule into its always-on `CLAUDE.md` *in order to* keep one document
 self-contained, and the fold is where the divergence gets in.
 

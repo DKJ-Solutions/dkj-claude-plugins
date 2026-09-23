@@ -127,7 +127,7 @@ entries rather than off which section they sit in.
   on August 8, 2026; the line outlived them because the notes were always a second reader. This
   commit goes directly onto `main` — the **first of the three** permitted exceptions, the release commit
   and the release-notes commit being the other two (see
-  [the safety rules](../../../CLAUDE.md#safety-rules)).
+  [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules)).
 - **The same run refreshes the pending tally** — the one line under `## [Unreleased]`, which reads
   `**4 / 9 minor entries**`: how many of the pending entries reach this repo's audience tier, out of how
   many are waiting, and which bump that work has earned. It is **derived, never accumulated**:
@@ -511,7 +511,7 @@ most of the answer. The wrong repair, and the first one that suggests itself, is
 earlier; step 5's ordering exists for the attachments and the skill refuses it explicitly.
 
 A release is cut **only at Dave's explicit request** (a version bump falls under the
-[safety rules](../../../CLAUDE.md#safety-rules)) and deliberately does **not go via a branch + PR**. Like the
+[safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules)) and deliberately does **not go via a branch + PR**. Like the
 fold commit, the release commit is a permitted **direct-on-`main` action** — the **second of three**
 exceptions to "everything via branch + PR". `cut-release.ps1` therefore runs on `main` itself and
 does everything in one motion:

@@ -19,7 +19,7 @@ themselves**. It is **not a replacement** for the safety rules or the routing.
 > kinds: the three add-on teams ship specialists nothing here routes to, while `dkj-policy-bwj` ships
 > no agents at all.
 
-- The constitution remains [`../../CLAUDE.md#safety-rules`](../../CLAUDE.md#safety-rules).
+- The constitution remains [`plugins/dkj-policy/CLAUDE.md#safety-rules`](../../plugins/dkj-policy/CLAUDE.md#safety-rules), which the root `CLAUDE.md` imports.
 - **Chris still takes in and routes every assignment** — see his fixed ritual in
   [`lenses/specialist-01-01-lens.md`](lenses/specialist-01-01-lens.md).
 

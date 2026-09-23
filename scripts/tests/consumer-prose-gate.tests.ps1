@@ -661,6 +661,42 @@ try {
     $r = Invoke-Hook -Dir $clean -CheckScriptOverride (Join-Path ([System.IO.Path]::GetTempPath()) "no-such-check-$PID-$([guid]::NewGuid().ToString('n')).ps1")
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'check script not found -- check skipped') `
         'check script missing -- a notice, exit 0, never a strand'
+
+    # --- the constitution import (#2374) -----------------------------------------------------------
+    Write-Host ''
+    Write-Host 'constitution import (#2374)'
+    . (Join-Path $RepoRoot 'scripts\lib\consumer-check-lib.ps1')
+
+    Assert-True ((Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy\5.7.0\scripts\lib') -eq '@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/CLAUDE.md') `
+        'the marketplace segment is read off a cache-shaped location -- a pre-rename consumer gets ITS clone name'
+    Assert-True ((Get-ConstitutionImportLine -LibDir (Join-Path $RepoRoot 'scripts\lib')) -eq '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md') `
+        'anywhere else the canonical marketplace name is used'
+
+    # $clean carries no import: the gap is WARNED, and the exit code the two detectors own is untouched.
+    $r = Invoke-Script -Dir $clean
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo''s CLAUDE\.md does not import the dkj-policy constitution' -and
+                 $r.Out -match [regex]::Escape('/plugins/dkj-policy/CLAUDE.md')) `
+        'no import -- a [WARNING] carrying the paste-ready line, and still exit 0'
+
+    # The absolute line, unresolved on this machine: the written line is what counts, not the clone.
+    $imported = New-Tree -Label 'constimported'
+    Set-Text -Dir $imported -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md`n`nThis repo's trunk is main."
+    $rows = @(Get-AlwaysOnRows -Dir $imported)
+    Assert-True (Test-ConstitutionImported -Documents $rows) `
+        'an absolute import counts even where the clone has not refreshed yet (Exists = false)'
+    $r = Invoke-Script -Dir $imported
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch '\[WARNING\]' -and $r.Out -match '\[OK\]') `
+        'import present -- no warning, the ordinary [OK]'
+
+    Assert-True (-not (Test-ConstitutionImported -Documents @())) 'an empty closure imports nothing'
+
+    $r = Invoke-Hook -Dir $clean
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'no inverted supremacy declaration' -and $r.Out -match 'does not import the dkj-policy constitution' -and
+                 $r.Out -match [regex]::Escape('/plugins/dkj-policy/CLAUDE.md')) `
+        'the hook forwards the warning and its paste-ready line beside the clean line, still exit 0'
+    $r = Invoke-Hook -Dir $imported
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import') `
+        'the hook stays quiet about the import where the line is there'
 }
 finally {
     foreach ($t in $script:trees) {
