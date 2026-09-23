@@ -97,5 +97,3 @@ tells them, one `ref:` line per runner. A floor adopted from now on is pinned fr
 
 The write runners adopt-ci-floor places now pin the shared scripts to a release
 
-Plugins: dkj-policy
-
