@@ -103,8 +103,8 @@ dkj-policy/
 ```
 
 **Why the budget runner is here and not in Part 3.** Both of the first two fire on `pull_request` and
-gate what is about to land; Part 3's three repair what a merge nobody watched left behind, on `push` and
-on a schedule. The trigger is the difference. The gate itself also runs locally in `open-pr`, so this
+gate what is about to land; Part 3's runners repair what a merge nobody watched left behind, on `push`,
+after CI, or on a schedule. The trigger is the difference. The gate itself also runs locally in `open-pr`, so this
 runner is the half that catches a branch pushed by hand or a PR opened in the GitHub UI -- exactly the
 hole `branch-entry.yml` exists for, on the one thing in your repo whose cost is paid by every future
 session rather than by whoever merged.
