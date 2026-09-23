@@ -44,7 +44,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 10 minor entries** <!-- pending-tally -->
+**4 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2352-needs-info-message-form · 20260923-141637Z
+
+`dkj-policy-bwj` now carries the requester message for an issue sent back with `needs-info`, and the
+paste-ready block asks the requester for something. Both lived only in a consumer page that was deleted
+on September 23 ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)).
+`WORKFLOW-portable.md` step 6 makes setting the label and writing the question one act, and gives the
+comment's shape. The issue stays open and the label is left for whoever brings the answer. Step 4
+gains the five rules for what the block asks and names the Asana task's assignee as the one who
+carries it across and closes the issue. `build-golive-block.ps1` now ends the block with that ask
+whenever it is given a result link.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every paste-ready block a BWJ store posts after the update ends by asking the colleague who filed the
+ticket to look at the result themselves. An approval ticks off the task. A rejection names what is
+wrong and what should change, and the issue reopens. The release happens either way. A ticket sent
+back for more information now has a prescribed question on it rather than an empty card in the
+blocked column.
+
+**Score:** 3
+
+#### Pull Request
+
+The needs-info requester message and the paste-ready block's ask, carried in dkj-policy-bwj
+
+Plugins: dkj-policy-bwj
+
+[PR #2371](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2371)
+
+---
 
 ### DEPLOY: feat/2304-split-integrity-commands · 20260923-140338Z
 
