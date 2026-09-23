@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2353-bwj-ticket-form · 20260923-104615Z
+
+`dkj-policy-bwj` now carries BWJ's ticket form, as step 8 of its ticket-handling page -- the form a
+request arriving from Asana takes in both stores: the Asana assignee deciding whose ticket it is, the
+seven-row header with `Reviewed` as the provenance boundary, the closed `State` and `Ball with`
+vocabularies, the section route with its two dictated gate sentences, and what `### Testing` carries.
+It lived only in `smartwatchbanden`'s tree until now, which left `xoxowildhearts` with no copy and
+the assignee rule one deletion away from being lost (#2353).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store repo can now drop its own ticket-form page and point at the plugin, and both stores read
+the same form from the version they loaded.
+
+**Score:** 2
+
+#### Pull Request
+
+dkj-policy-bwj carries the BWJ ticket form
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2354](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2354)
+
+---
 
 ### DEPLOY: fix/2348-preview-context-settings · 20260923-100607Z
 
