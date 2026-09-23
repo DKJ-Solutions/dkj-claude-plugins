@@ -44,7 +44,43 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**31 / 51 minor entries** <!-- pending-tally -->
+**32 / 52 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2226-roster-check-overlap-exemption · 20260923-061446
+
+`check-roster-sync` no longer reports a dead `@`-import as an error when a sibling import in the same
+directory resolves to the same document under the other spelling — the `specialist-` migration overlap
+that `INSTALL.md` recommends. It reports `[INFO]` there instead, which the session-start hook already
+keeps silent and a deliberate run of the check still shows. Everything else is untouched: an unpaired
+dead import, two dead lines, or a live sibling that is a different document all still error, because
+those are the state this check was built for — the orchestrator running without his body while nothing
+says so.
+
+The two documents disagreed and each was internally consistent: the recipe is correct, and so was the
+check's refusal to exempt anything. What was missing is that during a prescribed overlap nothing is
+absent — a sibling is carrying it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer following `INSTALL.md`'s recommended migration recipe could not be green: the dead half of
+the overlap raised a blocking-shaped `[ERROR]` at every session start, resume, clear and compact, for as
+long as the migration lasted, with no way to silence it short of abandoning the recipe. That is gone
+without them doing anything — the noise stops on the plugin update that carries this, and the recipe
+they were told to follow is the one the check now agrees with.
+
+**Score:** 3
+
+#### Pull Request
+
+A dead roster import that a live sibling already covers no longer errors
+
+Plugins: dkj-subagents-alpha
+
+[PR #2332](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2332)
+
+---
 
 ### DEPLOY: feat/2319-merge-on-green · 20260922-224254
 
