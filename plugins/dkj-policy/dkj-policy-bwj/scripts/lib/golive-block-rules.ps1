@@ -137,6 +137,23 @@ function Step-SemVer {
     return "$maj.$min.$pat"
 }
 
+function Test-PrivateResultLink {
+    <#
+        Pure: true where -Link is a claude.ai Artifact URL -- a page the Asana requester cannot open.
+
+        ISSUE #2341 (measured in BWJ-Development/smartwatchbanden#750, September 23, 2026). A session
+        passed the preview HANDOVER PAGE as -Link, and the block went out with a link its only reader
+        could not use. An Artifact is private to its owner until somebody shares it -- PREVIEW-portable.md
+        says so of the handover page itself -- and it is the REVIEWER's surface, not the requester's.
+
+        Both published shapes are matched: claude.ai/artifact/<id> and claude.ai/code/artifact/<uuid>.
+        The host is anchored so a storefront path that merely contains 'artifact' is not refused.
+    #>
+    param([AllowEmptyString()][string]$Link)
+    if (-not $Link) { return $false }
+    return [bool]($Link -match '^(https?://)?(www\.)?claude\.ai/(code/)?artifact/')
+}
+
 function Format-GoLiveBlock {
     <#
         Pure: the whole GitHub comment -- the marker, the framing sentence that stays on GitHub, and
