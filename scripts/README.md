@@ -191,6 +191,7 @@ scripts named below the table, which nothing in this table reaches at all.
 | [`release/fold-changelog-entry.ps1`](release/fold-changelog-entry.ps1) | folds the entry into `CHANGELOG.md` at its ranked position and removes the branch document | `fold-changelog` |
 | [`release/cut-release.ps1`](release/cut-release.ps1) | the lockstep version bump, the release notes and the tag — **only on Dave's explicit request** | `cut-release` |
 | [`release/new-internal-note.ps1`](release/new-internal-note.ps1) | the tier-1 note's skeleton; needs the development notes, so it runs *after* the cut | `cut-release` |
+| [`release/upload-release-asset.ps1`](release/upload-release-asset.ps1) | attach one document to a published Release, replacing a same-named asset by id and verifying the byte count (#2347) | `cut-release` |
 | [`release/build-release-notes-page.ps1`](release/build-release-notes-page.ps1) | builds the hand-written notes into one browsable page, and with `-Worker` the Cloudflare Worker that serves it — it publishes nothing | `release-notes-page` |
 | [`release/publish-to-business.ps1`](release/publish-to-business.ps1) | publishes the marketplace subset to the business repo Claude Enterprise syncs from — a separate, deliberate step after a cut | `cut-release` (Block 3) |
 | [`lint/check-plugin-integrity.ps1`](lint/check-plugin-integrity.ps1) | the lint gate — the manifests, the frontmatter, dead links, and the two dozen checks named in its own docstring | — |
