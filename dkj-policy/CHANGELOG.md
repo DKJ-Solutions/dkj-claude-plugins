@@ -44,7 +44,92 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 10 minor entries** <!-- pending-tally -->
+**4 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2304-rerecord-durations-after-split · 20260923-145307Z
+
+Re-recorded `scripts/tests/suite-durations.json` from three CI runs carrying the split
+`check-plugin-integrity-*` layout (#2304). The file still named the pre-split suites, so the nine new
+ones were charged the largest recorded value and the gate packed shards off guesses. The reading:
+the pool is 7,260.5 s over 16 lanes, a work bound of 453.8 s, and no single file reaches it any more
+-- `-entries` is heaviest at 426.1 s -- so CI is now bound by total work, not by one file. The splits
+were not free: the `check-plugin-integrity-*` family went from 2,084.3 s to 2,679.0 s of pool work
+(+594.7 s), because each file builds its own fixture. That is what the next step has to weigh, since
+another split raises the work bound it is meant to get under.
+
+**Score:** 1 -- prevents the gate packing CI shards off maximum-charged guesses for nine suites; no
+reader notices it except as CI wall-clock.
+
+#### What makes this deploy extra special
+
+N/A -- data file only; nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-record CI suite durations after the check-plugin-integrity splits
+
+[PR #2378](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2378)
+
+---
+
+### DEPLOY: fix/2362-roster-sync-clean-hook-under-load · 20260923-143338Z
+
+`roster-sync.tests.ps1` read a hook child that never finished as a hook that answered wrongly: the hook
+exits 0 on every path, so its "exit 0 when clean" case failing with exit 1 under the parallel gate was a
+run that did not complete, and the runner, which captured stdout only, kept nothing that said why. It
+now captures stderr, prints that evidence on an off-contract exit, and runs the child once more. A hook
+that really stops exiting 0 still fails every assert that reads it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a test suite only; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+roster-sync: the clean-hook case tells a fixture failure from a verdict under the parallel gate
+
+[PR #2373](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2373)
+
+---
+
+### DEPLOY: feat/2352-needs-info-message-form · 20260923-141637Z
+
+`dkj-policy-bwj` now carries the requester message for an issue sent back with `needs-info`, and the
+paste-ready block asks the requester for something. Both lived only in a consumer page that was deleted
+on September 23 ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)).
+`WORKFLOW-portable.md` step 6 makes setting the label and writing the question one act, and gives the
+comment's shape. The issue stays open and the label is left for whoever brings the answer. Step 4
+gains the five rules for what the block asks and names the Asana task's assignee as the one who
+carries it across and closes the issue. `build-golive-block.ps1` now ends the block with that ask
+whenever it is given a result link.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every paste-ready block a BWJ store posts after the update ends by asking the colleague who filed the
+ticket to look at the result themselves. An approval ticks off the task. A rejection names what is
+wrong and what should change, and the issue reopens. The release happens either way. A ticket sent
+back for more information now has a prescribed question on it rather than an empty card in the
+blocked column.
+
+**Score:** 3
+
+#### Pull Request
+
+The needs-info requester message and the paste-ready block's ask, carried in dkj-policy-bwj
+
+Plugins: dkj-policy-bwj
+
+[PR #2371](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2371)
+
+---
 
 ### DEPLOY: feat/2304-split-integrity-commands · 20260923-140338Z
 
