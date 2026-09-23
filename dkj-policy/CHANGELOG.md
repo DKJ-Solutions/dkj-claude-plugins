@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 8 minor entries** <!-- pending-tally -->
+**3 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2364-parallel-gate-flaky-suites · 20260923-132216Z
+
+Three causes behind "red under the parallel gate, green alone" in two test suites, repaired in the
+suites and nowhere else. A one-line sibling in the deadline case was held to a 3s ceiling it cannot
+meet under load (8.6s measured); six lane-count asserts refused the lane-hold note a memory-starved
+run appends; and the integrity fixture read a child gate that stopped before its report as a gate
+that found nothing. The fourth symptom the issue names, the nested-gate case, has no surviving
+capture, so it now prints its own evidence when red instead of being given a guessed cause.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- test suites only; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two suites fail under the parallel open-pr gate and pass alone
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2367](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2367)
+
+---
 
 ### DEPLOY: feat/2304-split-integrity-links · 20260923-130118Z
 
