@@ -30,6 +30,16 @@
     precisely somebody reaching for the familiar route while the documentation already named the right
     one. Lazy creation cannot be forgotten -- there is no moment at which somebody has to get it right.
 
+    A NEW PREVIEW IS A COPY OF LIVE, NOT A PUSH (inbound #2348, measured in a consumer on 2026-09-23,
+    CLI 4.8.0). 'theme push' silently skips config/settings_data.context.<market>.json -- listed as "to be
+    uploaded", never sent, reported as success -- so a preview born from 'push --unpublished' rendered
+    every market of a Markets store with the global settings only. So step 4 runs 'theme duplicate' of
+    live, which copies every file server-side, WAITS until that copy has filled (pushing into a copy that
+    is still filling is a race the copy can win, putting live's version of a branch file back), and only
+    then pushes the working tree over it. Where no live id is answered there is nothing to copy from, and
+    it falls back to the old create with a notice rather than refusing the preview. The detail is in
+    Get-ThemeDuplicateArgs in the preview-theme lib.
+
     NEVER TOUCHES LIVE. A newly created theme is unpublished by definition, the live id is refused
     outright here, and dkj-subagents-shopify's PreToolUse guard blocks a push aimed at live independently of this
     script.
@@ -51,6 +61,13 @@
     The storefront path to print preview URLs for, e.g. '/products/some-handle'. Default the home page --
     but a home-page link alone is not enough when the change sits on a product page.
 
+.PARAMETER PollSeconds
+    How often to count a freshly duplicated preview while it fills (default 30).
+
+.PARAMETER TimeoutMinutes
+    How long to wait for that copy to fill before giving up WITHOUT pushing (default 20). A re-run resumes
+    the wait on the same theme.
+
 .PARAMETER RootOverride
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
 
@@ -62,8 +79,9 @@
 
 .NOTES
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/push-preview.tests.ps1 pins the lib
-    beside this file: both argument lists, the flag whitelist, the two builders refusing each other's
-    input, the id reader, the theme-list lookup, and the preview URL.
+    beside this file: the three argument lists and both flag whitelists, the builders refusing each
+    other's input, the id reader, the theme-list lookup, the preview URL, and the per-market settings
+    notice (#2348). The fill wait is Get-ThemeFillVerdict's, pinned in theme-lifecycle-rules.tests.ps1.
 
     THIS SCRIPT ITSELF IS NOT DRIVEN, and deliberately: every path in it either invokes the Shopify CLI
     against a real store or reads a consumer's own repo-config, and a suite must not be able to reach a
@@ -77,6 +95,8 @@ param(
     [string]$ThemeId = '',
     [string]$Store = '',
     [string]$Path = '/',
+    [int]$PollSeconds = 30,
+    [int]$TimeoutMinutes = 20,
     [string]$RootOverride = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -287,31 +307,98 @@ if (-not $id) {
     if ($theme) { $id = [string]$theme.id }
 }
 
+function Write-SettingsNotice {
+    <# THE PER-MARKET SETTINGS, SAID OUT LOUD (#2348): a preview that may lack them, and a branch that
+       changes one no push can deliver. Composed in the lib; silent in a repo with no such files.
+       The branch's changes are read against its merge-base with the trunk, WORKING TREE INCLUDED, since
+       an uncommitted edit to one of these files is just as undeliverable as a committed one. #>
+    param([AllowEmptyString()][string]$FillState)
+    $markets = @(Get-ContextSettingsMarkets -RepoRoot $repoRoot)
+    # 'rev-parse --verify --quiet' FIRST, so a missing ref answers with silence instead of a stderr line --
+    # which under this script's 'Stop' would be terminating in Windows PowerShell 5.1, redirected or not.
+    $base = ''
+    foreach ($ref in @("origin/$trunk", $trunk)) {
+        $sha = ([string](git rev-parse --verify --quiet "$ref^{commit}")).Trim()
+        if (-not $sha) { continue }
+        $mb = ([string](git merge-base HEAD $sha)).Trim()
+        if ($mb) { $base = $mb; break }
+    }
+    $changed = @()
+    if ($base) { $changed = @(git diff --name-only $base | Where-Object { Test-ContextSettingsPath -Path $_ }) }
+    $notice = @(Get-PreviewSettingsNotice -FillState $FillState -Markets $markets -ChangedContextFiles $changed)
+    if ($notice.Count -eq 0) { return }
+    Write-Host ""
+    $notice | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+}
+
+# What this checkout knows about how the target theme was made. Read only for the theme it remembers:
+# an explicit -ThemeId, or one found by name, is a theme this run has no record of.
+$remembered = ([string](git config --get "branch.$branch.previewTheme")).Trim()
+$fillState = ''
+if ($id -and "$id" -eq $remembered) { $fillState = ([string](git config --get "branch.$branch.previewFill")).Trim() }
+
 # 4. Still nothing: the theme is created HERE, and not when the branch was created. See the rule above.
 if (-not $id) {
-    Write-Host "No preview theme for '$branch' yet; creating '$themeName' (unpublished)." -ForegroundColor Yellow
-    # --unpublished CREATES the theme and pushes the current working tree in the SAME call, so no second
-    # push follows on purpose.
-    $createArgs = Get-ThemeCreateArgs -Store $store -ThemeName $themeName
-    # -Quiet AND -DiscardStderr for the same two reasons as the list call: Get-ThemeIdFromPushOutput
-    # parses this output, and --json means there is no progress on stdout to show anyway.
-    $create = Invoke-ShopifyCli -Arguments $createArgs -Quiet -DiscardStderr
-    if ($create.ExitCode -ne 0) {
-        Write-Error ("Creating the preview theme failed. If the CLI says 'A shop may only have N " +
-            "themes', the estate is full: archive and remove a spent preview theme first.")
+    if (-not $liveId) {
+        # NOTHING TO COPY FROM, so the old create -- which pushes the working tree in the same call -- and
+        # the notice below says what that theme will lack. Refusing a preview over an unanswered seam
+        # would cost more than the settings do.
+        Write-Host "No preview theme for '$branch' yet, and no live id to copy from; creating '$themeName' by a plain push." -ForegroundColor Yellow
+        $createArgs = Get-ThemeCreateArgs -Store $store -ThemeName $themeName
+        # -Quiet AND -DiscardStderr for the same two reasons as the list call: Get-ThemeIdFromPushOutput
+        # parses this output, and --json means there is no progress on stdout to show anyway.
+        $create = Invoke-ShopifyCli -Arguments $createArgs -Quiet -DiscardStderr
+        if ($create.ExitCode -ne 0) {
+            Write-Error ("Creating the preview theme failed. If the CLI says 'A shop may only have N " +
+                "themes', the estate is full: archive and remove a spent preview theme first.")
+            exit 1
+        }
+        $id = Get-ThemeIdFromPushOutput -Output ($create.Output | Out-String)
+        if ($id) {
+            # '$null = ' and NOT '| Out-Null': piping a native exe into a cmdlet wraps every stderr line in
+            # a terminating ErrorRecord under $ErrorActionPreference = 'Stop'.
+            $null = git config "branch.$branch.previewTheme" $id
+            Write-Host "Preview theme '$themeName' (id $id) created and pushed; id remembered." -ForegroundColor Green
+            Write-PreviewUrls -Id $id
+        } else {
+            Write-Host "Preview theme '$themeName' created and pushed. The id was not in the output, so the next run falls back to the name lookup." -ForegroundColor Yellow
+        }
+        Write-SettingsNotice -FillState ''
+        exit 0
+    }
+
+    Write-Host "No preview theme for '$branch' yet; creating '$themeName' as a copy of live ($liveId)." -ForegroundColor Yellow
+    # LIVE IS ONLY READ HERE: a duplicate copies it into a new theme, which is unpublished by definition.
+    $dupArgs = Get-ThemeDuplicateArgs -Store $store -SourceThemeId $liveId -ThemeName $themeName
+    $dup = Invoke-ShopifyCli -Arguments $dupArgs -Quiet -DiscardStderr
+    if ($dup.ExitCode -ne 0) {
+        Write-Error ("Creating the preview theme (a copy of live) failed. If the CLI says 'A shop may only " +
+            "have N themes', the estate is full: archive and remove a spent preview theme first.")
         exit 1
     }
-    $id = Get-ThemeIdFromPushOutput -Output ($create.Output | Out-String)
-    if ($id) {
-        # '$null = ' and NOT '| Out-Null': piping a native exe into a cmdlet wraps every stderr line in a
-        # terminating ErrorRecord under $ErrorActionPreference = 'Stop'.
-        $null = git config "branch.$branch.previewTheme" $id
-        Write-Host "Preview theme '$themeName' (id $id) created and pushed; id remembered." -ForegroundColor Green
-        Write-PreviewUrls -Id $id
-    } else {
-        Write-Host "Preview theme '$themeName' created and pushed. The id was not in the output, so the next run falls back to the name lookup." -ForegroundColor Yellow
+    $id = Get-ThemeIdFromPushOutput -Output ($dup.Output | Out-String)
+    if (-not $id) {
+        # The name is ours and unique, so the theme list is the authoritative answer where --json was not.
+        $list = Invoke-ShopifyCli -Arguments @('theme', 'list', '--store', $store, '--json') -Quiet -DiscardStderr
+        if ($list.ExitCode -eq 0) {
+            try {
+                $theme = Get-ThemeByName -Parsed (($list.Output | Out-String) | ConvertFrom-Json) -ThemeName $themeName
+                if ($theme) { $id = [string]$theme.id }
+            } catch { }
+        }
     }
-    exit 0
+    if (-not $id) {
+        Write-Error ("The copy '$themeName' was created, but its id cannot be found. Nothing was pushed. " +
+            "Re-run with -ThemeId <id>, after 'git config branch.$branch.previewTheme <id>' and " +
+            "'git config branch.$branch.previewFill pending', so the wait below runs before the push.")
+        exit 1
+    }
+    # 'pending' FIRST, and 'complete' only once verified. A run that dies during the wait leaves the next
+    # run knowing it must wait rather than push into a half-filled copy.
+    $null = git config "branch.$branch.previewTheme" $id
+    $null = git config "branch.$branch.previewFill" pending
+    $fillState = 'pending'
+    Write-Host "Preview theme '$themeName' (id $id) created as a copy of live; id remembered." -ForegroundColor Green
 }
 
 if ($liveId -and "$id" -eq "$liveId") {
@@ -319,10 +406,58 @@ if ($liveId -and "$id" -eq "$liveId") {
     exit 1
 }
 
+# 5. A COPY THAT IS STILL FILLING GETS NO PUSH YET. 'theme duplicate' returns long before the copy is
+#    complete (measured in #1965: 38 -> 538 -> 738 -> 833 files over about eight minutes), and pushing
+#    into it is a race: the copy can afterwards put live's version of a branch file back, and the preview
+#    then silently shows live instead of the branch. The verdict is Get-ThemeFillVerdict's.
+if ($fillState -eq 'pending') {
+    if (-not $liveId) {
+        Write-Error ("This preview is recorded as a copy of live that has not finished filling, and no live " +
+            "id is answered to count it against. Nothing was pushed; answer Get-ShopifyLiveThemeId and re-run.")
+        exit 1
+    }
+    Write-Host "Waiting for the copy of live to fill (every $PollSeconds s, at most $TimeoutMinutes min)..." -ForegroundColor Cyan
+    Write-Host '  each sample pulls the theme and counts files on disk -- heavier than a JSON read.'
+    $sourceCount = Get-ThemeFileCount -Store $store -ThemeId $liveId
+    if ($sourceCount -lt 0) {
+        Write-Error ("Could not count live's files, so the copy cannot be judged filled. Nothing was pushed; " +
+            "re-run this script -- it resumes the wait on the same theme (id $id).")
+        exit 1
+    }
+    Write-Host "  live holds $sourceCount file(s)."
+    $samples = @()
+    $verdict = $null
+    $deadline = [datetime]::Now.AddMinutes($TimeoutMinutes)
+    while ([datetime]::Now -lt $deadline) {
+        $n = Get-ThemeFileCount -Store $store -ThemeId $id
+        if ($n -ge 0) { $samples += $n }
+        $verdict = Get-ThemeFillVerdict -Samples $samples -SourceFileCount $sourceCount
+        Write-Host "    $($verdict.Count) file(s) -- $($verdict.Verdict)"
+        # ONLY 'complete' ENDS THE WAIT EARLY. A copy also stands still in its first seconds and between
+        # bursts, where it reads as 'short' -- stopping there is exactly the race this step prevents.
+        if ($verdict.Verdict -eq 'complete') { break }
+        Start-Sleep -Seconds $PollSeconds
+    }
+    if ($null -eq $verdict -or ($verdict.Verdict -ne 'complete' -and $verdict.Verdict -ne 'short')) {
+        $why = if ($null -eq $verdict) { 'no samples were taken' } else { $verdict.Reason }
+        Write-Error ("The copy has not filled after $TimeoutMinutes min ($why). Nothing was pushed; re-run " +
+            "this script -- it resumes the wait on the same theme (id $id).")
+        exit 1
+    }
+    # 'short' AFTER THE WHOLE WAIT: the copy has stood below live's count all that time. Push anyway -- the
+    # branch arrives in full -- and let the notice say the per-market settings are unverified.
+    $fillState = $verdict.Verdict
+    $null = git config "branch.$branch.previewFill" $fillState
+    Write-Host "  $($verdict.Reason)." -ForegroundColor $(if ($fillState -eq 'complete') { 'Green' } else { 'Yellow' })
+}
+
 $pushArgs = Get-ThemeUpdateArgs -Store $store -ThemeId "$id"
 # STREAMED: Get-ThemeUpdateArgs deliberately passes no --json precisely so the CLI's progress is
-# visible, so this is the one call whose output is the point. Nothing parses it.
+# visible, so this is the one call whose output is the point. Nothing parses it. And NO --nodelete: what
+# live has and the working tree does not, does not belong on this branch's preview. The context-settings
+# files survive it because they exist locally -- the push neither uploads nor deletes them.
 $push = Invoke-ShopifyCli -Arguments $pushArgs
 if ($push.ExitCode -ne 0) { Write-Error "Push failed."; exit 1 }
 Write-Host "Pushed to the preview theme of '$branch' (id $id)." -ForegroundColor Green
 Write-PreviewUrls -Id $id
+Write-SettingsNotice -FillState $fillState

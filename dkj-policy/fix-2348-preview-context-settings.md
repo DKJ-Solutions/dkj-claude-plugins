@@ -39,19 +39,60 @@
 
 ### PLAN
 
+Inbound #2348. Verified on pickup: the symptom stands in source (`push-preview.ps1` created with
+`theme push --unpublished`), and the reason was read in the installed CLI 4.8.0
+(`dist/chunk-7T6M7FAC.js`, function `Do`): `config/settings_data.context.<x>.json` matches no upload
+bucket. That holds for EVERY push, so a server-side `theme duplicate` of live is the only route -- the
+consumer's repair (smartwatchbanden #752, uncommitted in its checkout, read only) is the model.
+
+Departure from the report: `Get-ThemeFileCount` goes into `shopify-cli-lib.ps1`, not
+`theme-lifecycle-rules.ps1`, because that lib's header promises no CLI and no network.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ThemeFileCount -Store -ThemeId` in `scripts/lib/shopify-cli-lib.ps1`; `backup-live-theme.ps1`
+      calls it instead of its local copy.
+- [x] `preview-theme.ps1`: `Get-ThemeDuplicateArgs` with a duplicate flag whitelist measured from
+      `shopify theme duplicate --help` (CLI 4.8.0), `Test-ContextSettingsPath`,
+      `Get-ContextSettingsMarkets`, `Get-PreviewSettingsNotice`.
+- [x] `push-preview.ps1`: step 4 duplicates live (fallback to the old create where no live id is
+      answered), records `branch.<name>.previewFill`, waits on `Get-ThemeFillVerdict` before the push,
+      prints the settings notice.
+- [x] Docs: push-preview skill page (steps, parameters, the why), Steven's manual line.
+- [x] Mirrors rebuilt (`build-shared-scripts.ps1`).
+- [x] Filed #2350: backup-live-theme breaks on an early `short` verdict that push-preview now waits through.
 
 ### TEST
 
+- [x] `push-preview.tests.ps1` -- 95 asserts pass, new ones cover the duplicate call, its whitelist,
+      the context path, the markets reader and the notice.
+- [x] `theme-lifecycle-rules.tests.ps1` -- 102 pass.
+- [x] `check-plugin-integrity.ps1` -- 0 errors.
+- [~] The script itself against a store -- this repo has none; the path is exercised by the consumer's
+      identical #752 repair, not here.
+
 ### DEPLOY: fix/2348-preview-context-settings
 
-**Score:**
+`push-preview` created a new preview with `theme push --unpublished`, and no `theme push` uploads
+`config/settings_data.context.<market>.json` -- the CLI lists the file, never sends it, and reports
+success (CLI 4.8.0; no upload bucket matches a context file under `config/`). On a Markets store every
+preview therefore rendered every market with the global settings. A new preview is now a
+`shopify theme duplicate` of live, waited on until the copy has filled (`Get-ThemeFillVerdict`, with
+`-PollSeconds` / `-TimeoutMinutes`), and only then pushed over -- so the first push of a branch takes
+minutes longer. Where no live id is answered it falls back to the old create. A preview this checkout
+has no record of copying, and a branch that changes a context-settings file, get a printed notice,
+since no push can put those bytes on a theme. `Get-ThemeFileCount` moved from `backup-live-theme.ps1`
+into `shopify-cli-lib.ps1` so both callers share it (#2348).
+
+**Score:** 3 -- a Markets store's previews stop differing from live for reasons the branch did not
+cause, noticed the first time somebody compares one; the first push per branch now waits for the copy.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nothing to migrate. Existing previews keep working and are named by the notice; removing one and
+pushing again gets a copy of live.
+
+**Score:** N/A
 
 #### Pull Request
 

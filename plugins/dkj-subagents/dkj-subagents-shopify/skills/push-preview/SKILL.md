@@ -44,13 +44,39 @@ turns ordinary progress into an error under PowerShell's `Stop` preference.
       earlier run -- per branch, so nothing has to be committed or cleaned up;
    3. a name lookup through `shopify theme list --json`, by the branch name with its slashes flattened to
       dashes (Shopify rejects a theme name containing `/`);
-   4. **otherwise it creates the theme** -- `--unpublished` creates it and pushes the working tree in the
-      same call, so no second push follows.
+   4. **otherwise it creates the theme, as a copy of live** -- `shopify theme duplicate` of the live
+      theme, then the working tree is pushed over it (see below for why). Where `Get-ShopifyLiveThemeId`
+      is unanswered there is nothing to copy from, and it falls back to `theme push --unpublished`, which
+      creates and pushes in one call.
 3. **Refuses the live theme** where step 2 landed on it. That is the second of two independent refusals:
    `dkj-subagents-shopify`'s `PreToolUse` guard blocks a live-aimed push whatever shell wraps the command, whether
    or not this script recognised the target.
 4. **Remembers a newly created id** in the branch's git config, so the next push goes straight to step 2.2.
-5. **Prints the preview URL(s)** to hand over -- plus, from two of them upwards, a note that a list is raw material rather than the handover (see below).
+5. **Waits for a fresh copy to fill before pushing.** `theme duplicate` returns long before the copy is
+   complete, and pushing into a copy still filling is a race the copy can win -- it can put live's
+   version of a branch file back. So it counts the copy against live (`Get-ThemeFillVerdict`) every
+   `-PollSeconds` until it matches, and gives up after `-TimeoutMinutes` **without pushing**; the state
+   sits in `branch.<name>.previewFill`, so a re-run resumes the wait on the same theme.
+6. **Prints the preview URL(s)** to hand over -- plus, from two of them upwards, a note that a list is raw material rather than the handover (see below).
+7. **Says what no push can deliver** -- see the next section.
+
+## Why a new preview is a copy of live (#2348)
+
+**`theme push` never uploads `config/settings_data.context.<market>.json`, and reports success.**
+Measured in a Markets consumer on September 23, 2026 against Shopify CLI 4.8.0, and read in the CLI's
+own source: its upload partition knows `config/settings_data.json` exactly and excludes `config/` from
+its general JSON bucket, so a per-market settings file under `config/` fits no bucket and is dropped. The
+`templates/` and `sections/` context files have a bucket and arrive. This holds for **every** push, not
+only the creating one, so a preview born from `push --unpublished` rendered every market with the global
+settings -- and a reviewer comparing it with live saw differences the branch did not cause.
+
+A server-side `theme duplicate` copies every file, and the push over it neither uploads nor deletes those
+files (they exist locally), so the preview ends as the branch plus live's per-market settings.
+
+**Two cases this cannot repair, so the script prints a notice instead** (silent in a repo with no such
+files): a preview this checkout has no record of creating as a copy -- one made before this change, on
+another machine, or by the fallback -- and a branch that itself changes a per-market settings file,
+which no preview can show, because the preview carries live's values for it.
 
 ## Parameters
 
@@ -59,6 +85,8 @@ turns ordinary progress into an error under PowerShell's `Stop` preference.
 | `-ThemeId` | force a specific preview theme id instead of the remembered or looked-up one. Needed when two themes carry the same name -- the lookup refuses to guess between them rather than pushing to the wrong one, which is invisible until somebody opens the preview. |
 | `-Store` | store domain to push to, overriding `Get-ShopifyStoreDomain`. For a repo whose seam is not answered yet, or a one-off against a second store. |
 | `-Path` | the storefront path to print preview URLs for, e.g. `/products/some-handle`. Default is the home page -- **a home-page link alone is not enough when the change sits on a product page**, which is the one parameter worth reaching for by habit. |
+| `-PollSeconds` | how often a freshly duplicated preview is counted while it fills (default 30). Each count is a full `theme pull` into a scratch directory, since no CLI JSON output carries a file count. |
+| `-TimeoutMinutes` | how long to wait for that copy before giving up without pushing (default 20). |
 
 ## The seam answers it reads
 
