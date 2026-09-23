@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Dave asked for a file `.claude/specialists/UPDATE` holding only the PowerShell commands that update
+the plugins in this checkout: one marketplace refresh, then one `--scope project` update per enabled
+plugin in `.claude/settings.json`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Write `.claude/specialists/UPDATE` with the 1 + 6 commands, nothing else.
 
 ### TEST
 
+- [x] Lint and test gates run by open-pr.
+
 ### DEPLOY: docs/specialists-update-commands
 
-**Score:**
+Added `.claude/specialists/UPDATE`: the bare PowerShell commands that update every plugin this repo
+enables -- `claude plugin marketplace update dkj-claude-plugins`, then
+`claude plugin update <plugin>@dkj-claude-plugins --scope project` for each of the six.
+
+**Score:** 1 -- saves retyping seven commands by hand, and prevents an update run without
+`--scope project` writing a machine-wide record instead of this checkout's.
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a subscriber: the file lives in this repo's own `.claude/` and ships in no plugin.
+
+**Score:** N/A
 
 #### Pull Request
+
+Add .claude/specialists/UPDATE with the plugin update commands
 
