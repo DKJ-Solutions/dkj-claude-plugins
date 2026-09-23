@@ -64,6 +64,9 @@
   `-GreenAgeMinutes` and refuses when it is unread or under the window.
 - [x] `pick-merge-on-green.ps1`: asks for `completedAt` on the payload it already reads (no extra call).
 - [x] Plugin mirrors synced. The Sylvester lens, `adopt-dkj-policy`'s SKILL and `scripts/README.md` now describe the new arming moment.
+- [x] `main` merged in once #2346 landed. The one overlap was `Get-MergeOnGreenPrVerdict`'s eligible return:
+  the settle window stays, and the reason names both #2338's executed-path check and the window.
+  The picker merged cleanly (#2338's `headRefOid` pin beside this branch's `completedAt` read).
 
 ### TEST
 
