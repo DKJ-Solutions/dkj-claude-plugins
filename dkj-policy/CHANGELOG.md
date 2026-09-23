@@ -44,4 +44,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**0 / 1 patch entry** <!-- pending-tally -->
+
+### DEPLOY: fix/2348-preview-context-settings · 20260923-100607Z
+
+`push-preview` created a new preview with `theme push --unpublished`, and no `theme push` uploads
+`config/settings_data.context.<market>.json` -- the CLI lists the file, never sends it, and reports
+success (CLI 4.8.0; no upload bucket matches a context file under `config/`). On a Markets store every
+preview therefore rendered every market with the global settings. A new preview is now a
+`shopify theme duplicate` of live, waited on until the copy has filled (`Get-ThemeFillVerdict`, with
+`-PollSeconds` / `-TimeoutMinutes`), and only then pushed over -- so the first push of a branch takes
+minutes longer. Where no live id is answered it falls back to the old create. A preview this checkout
+has no record of copying gets a printed notice, and so does a branch that changes a context-settings
+file, since no push can put those bytes on a theme. `Get-ThemeFileCount` moved from `backup-live-theme.ps1`
+into `shopify-cli-lib.ps1` so both callers share it (#2348).
+
+**Score:** 3 -- a Markets store's previews stop differing from live for reasons the branch did not
+cause, noticed the first time somebody compares one; the first push per branch now waits for the copy.
+
+#### What makes this deploy extra special
+
+N/A -- nothing to migrate. Existing previews keep working and are named by the notice; removing one and
+pushing again gets a copy of live.
+
+**Score:** N/A
+
+#### Pull Request
+
+push-preview creates previews by duplicating live, so per-market context settings arrive
+
+Plugins: dkj-subagents-shopify
+
+[PR #2351](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2351)
+
+---
+
