@@ -1517,6 +1517,56 @@ Assert-True ($body -match 'Format-ForConsole -Text \$race\.Winner') 'and the rac
 # against "somebody else's" and half a tag cannot tell them apart (#701).
 Assert-True ($body.IndexOf('there is no complete claim tag') -lt $body.IndexOf('# --- WHAT THE TRACKER SAYS')) `
     'an incomplete tag is refused before the tracker is read at all'
+Write-Host ''
+Write-Host 'Get-IssueBranchNames / Get-TakeOverVerdict / Format-HandoverComment -- handing a held issue over (#2387)' -ForegroundColor Cyan
+
+$heads = @"
+aaa`trefs/heads/main
+bbb`trefs/heads/fix/2338-merge-on-green-trunk-code
+ccc`trefs/heads/feat/23380-other-issue
+ddd`trefs/heads/fix/12-pin-2338
+eee`trefs/tags/fix/2338-a-tag
+fff`trefs/heads/docs/2338
+"@
+$names = @(Get-IssueBranchNames -Text $heads -Issue 2338)
+Assert-True ($names.Count -eq 2 -and $names[0] -eq 'fix/2338-merge-on-green-trunk-code' -and $names[1] -eq 'docs/2338') `
+    'the number right after the prefix, followed by a dash or the end -- not a longer number, not later in the name, not a tag'
+Assert-True (@(Get-IssueBranchNames -Text '' -Issue 1).Count -eq 0) 'no text, no branches'
+
+$rival = [pscustomobject]@{ Tag = 'DESKTOP-X/davekokbwj'; CreatedAt = '2026-09-23T10:00:00Z'; Id = 'IC_1' }
+$colleague = [pscustomobject]@{ Tag = 'LAPTOP/maikel-bwj'; CreatedAt = '2026-09-23T10:00:00Z'; Id = 'IC_2' }
+$mine = [pscustomobject]@{ Tag = 'DAVE/davekokbwj'; CreatedAt = '2026-09-23T11:00:00Z'; Id = 'IC_3' }
+
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'take' -and $v.Branch -eq 'fix/2338-x' -and @($v.Rivals).Count -eq 1 -and $v.Rivals[0].Id -eq 'IC_1') `
+    'same account on another machine, one branch on origin -- take, and remove exactly that marker'
+$v = Get-TakeOverVerdict -Tag 'DAVE/DaveKokBWJ' -State 'OPEN' -Records @($rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'take') 'the account half is compared case-insensitively'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($colleague) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'foreign-account' -and @($v.Rivals).Count -eq 0) 'a colleague''s claim is refused whatever the branches say'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival, $colleague) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'foreign-account') 'one foreign holder among several is enough to refuse'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Branches @()
+Assert-True ($v.Code -eq 'no-branch') 'no branch on origin -- the work may exist only on that machine'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Branches @('fix/2338-a', 'feat/2338-b')
+Assert-True ($v.Code -eq 'ambiguous-branch' -and @($v.Branches).Count -eq 2 -and -not $v.Branch) 'two branches -- refused rather than guessed'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'free') 'nothing held passes through as free'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($mine, $rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'already-yours') 'already this tag''s passes through as a resume'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'CLOSED' -Records @($rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'closed') 'a closed issue is refused on its own code'
+
+$note = Format-HandoverComment -OldTags @('DESKTOP-X/davekokbwj') -NewTag 'DAVE/davekokbwj' -Branch 'fix/2338-x' -Issue 2338
+Assert-True ($note -match 'DESKTOP-X/davekokbwj' -and $note -match 'DAVE/davekokbwj' -and $note -match 'fix/2338-x' -and $note -match '2338 -Tag -Verify') `
+    'the handover comment names the old tag, the new tag, the branch and the verify line'
+Assert-True (@(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @([pscustomobject]@{ body = $note; id = 'IC_9' }) }) | ConvertTo-Json -Depth 5)).Count -eq 0) `
+    'and it carries no marker, so it is never read as a second claim'
+
+Assert-True ($body -match "ParameterSetName = 'Issue'\)\]\[switch\]\`$TakeOver") 'the script takes -TakeOver in the issue set'
+Assert-True ($body -match '-TakeOver needs -Tag') 'and refuses it without -Tag or beside -Verify/-Release'
+Assert-True ($body.IndexOf('Remove-ClaimMarkerComments -Records @($take.Rivals)') -lt $body.IndexOf('# THE MARKER GOES FIRST')) `
+    'the holder''s marker is removed before this tag''s is written, so the race read-back sees only this one'
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)

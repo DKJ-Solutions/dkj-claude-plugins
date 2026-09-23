@@ -81,6 +81,11 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   otherwise. It is what a session runs before resuming a branch it parked hours ago.
 - **`-Release`** (with `-Tag`) -- drop this tag's claim: its own marker comments and its assignee, and
   nothing else. Another session's marker is another session's record and is never touched.
+- **`-TakeOver`** (with `-Tag`) -- hand a `held` issue over to this machine, deliberately (#2387). Only
+  where the holder is **this same gh account** on another machine and **exactly one** `<prefix>/<n>-...`
+  branch for it is on origin; a colleague's claim, no branch, or several are each refused. It is the one
+  act that removes another tag's marker, then claims through the ordinary path and leaves a comment
+  naming the old tag, the new tag and the branch -- so the old machine's `-Verify` reads `[NO]`.
 - **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
   `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
   somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
