@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Repair [#2381](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2381): under Windows
+PowerShell 5.1, `pick-merge-on-green.ps1` read the armed list as one record and evaluated nothing.
+Both halves the issue names are fixed: the parse, and the silent skip that hid it. The cause was
+re-measured here on 5.1.26100 before anything was touched: `@('[{...}]' | ConvertFrom-Json)` has a
+Count of 1 and its element is an `Object[]`, for one element as for many.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertFrom-MergeOnGreenListJson` in `merge-on-green-lib.ps1`: take the parse as a value, then enumerate it
+- [x] `pick-merge-on-green.ps1` parses through it; a skipped record prints a line; "armed, but no verdict" is its own reason
+- [x] plugin mirrors of both files synced byte-identical
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1` feeds real one- and three-element `gh pr list` payloads, plus empty and non-JSON: 68 pass, 0 fail under 5.1
+- [x] the first draft returned `,@(...)`, and the new asserts caught it re-wrapping the array in the caller's `@()`. That is the same defect one layer down, so the comma was removed
+- [x] live, read-only run of the picker against this repo: `#2345 ... ELIGIBLE` and `picked=true`, where six CI sweeps had reported `0 armed`
+
 ### DEPLOY: fix/2381-merge-on-green-ps51-parse
 
-**Score:**
+The merge-on-green sweep could never pick an armed pull request under Windows PowerShell 5.1, which
+is what its runner uses. `ConvertFrom-Json` wrote the whole `gh pr list` array as one record with no
+number, and the sweep skipped that record without saying so. Every run then reported "0 armed pull
+request(s), none eligible yet" while PR #2345 sat armed and green. The list is now enumerated
+through a tested lib function (`ConvertFrom-MergeOnGreenListJson`). A skipped record prints a line,
+and "armed but nothing evaluated" is reported as the contradiction it is, not as a wait
+([#2381](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2381)). The script travels in
+`dkj-policy` and consumer runners fetch it at `ref: main`, so every adopted consumer's sweep starts
+merging on its next run.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
