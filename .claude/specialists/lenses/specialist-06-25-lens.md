@@ -692,7 +692,10 @@ with the other 39 suites still finishing at 153.2s and 41s of headroom to spare.
 spread is not a result at n=1 per configuration, and it is not proposed as one.
 
 **IT WAS BUILT THE SAME DAY, AND THE CEILING BELOW WAS ROUGHLY RIGHT** (Dave approved the split;
-`check-plugin-integrity.tests.ps1` is now four suites over one shared fixture builder). Measured in the
+`check-plugin-integrity.tests.ps1` became four suites over one shared fixture builder — **seven since
+September 22, 2026**, when `-docs` was split again on the same finding,
+[#2304](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2304); the figures in this section
+are August 16's and are left as measured). Measured in the
 same harness, four post-split runs: **142.4 / 145.5 / 170.3 / 169.9s**, against 196–235s before —
 about **-25%**, and the two 170s runs came with a busier machine and a visibly larger contended sum
 (2,082s against 1,597s), which is the load-sensitivity above showing up again rather than a second
@@ -1379,6 +1382,84 @@ solve it**: each line carries a `[depth N]`, so a fixture's own nested run is fi
 `progress \[depth 1\]` instead of by knowing which suites exist on disk. What is deliberately still absent
 is a remaining-time estimate: it would have to come from `suite-durations.json`, and that is the CI-seconds
 file the #1713 paragraph above says does not convert to this machine at all.
+
+### The pool at 121 suites — seven minutes, and still one file (September 21, 2026)
+
+[#2232](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2232) reported a gate run of
+**~90 minutes at 120 suites** and asked one question: the degraded band again, or simply 41% more suites
+than the 85-suite table above? It named the measurement that would decide it — the lane line, the wall
+clock, and the sum of the per-suite rows, from one unpiped run. That run exists now, and the answer is
+**neither**.
+
+**n=1, DAVE-KOK-BWJ (24 cores, Windows PowerShell 5.1), whole pool, unpiped, stdin at EOF:**
+
+| | |
+|---|---|
+| lanes | **22** — cores term 22, memory term 61, `BoundBy: cores` |
+| suites | 121, all run (no `Get-TestCommands` here) |
+| makespan | **421.2s (7.02 min)** |
+| work (sum of the per-suite rows) | **5,903.7s** — 98.4 min at one lane |
+| longest file | `check-plugin-integrity-docs.tests.ps1` **415.5s**, dequeued at +5.2s |
+| work ÷ lanes | 268.4s |
+| lower bound `max(file, work÷lanes)` | 415.5s |
+| **makespan ÷ bound** | **101.4%** |
+
+**SO THE SCHEDULER IS AT ITS FLOOR AGAIN, and the regime is the one the September 9 reading found at 16
+lanes:** the pool *is* its longest file. Work ÷ lanes sits 147s **below** that file, so the 41% more
+suites have not made this pool work-bound — they are absorbed by lanes that would otherwise be idle
+behind the same file. Adding lanes buys nothing, the queue order buys nothing, and the only local lever
+is inside one suite. **Which suite has moved**, and that is the part to carry forward rather than the
+figure: September 9 the makespan-setter was `check-plugin-integrity-links`, today it is
+`-docs`, with `-links` third at 341.3s. Four `check-plugin-integrity-*` suites carry
+**1,409.6s of the 5,903.7 — 23.9% of the pool's work in four files.**
+
+**AND #2232's OWN DECISION RULE MIS-READS THIS POOL, which is the reason this section is worth its
+length.** The issue proposed reading utilisation = work ÷ (wall × lanes), with *single digits* meaning
+the degraded band and *60%+* meaning ordinary growth. Measured, it is **63.7%** — the growth branch, and
+a reader would stop there. But utilisation has a **ceiling below 100% whenever one file dominates**: no
+scheduler can finish before that file does, so the most this pool could have scored is
+5,903.7 ÷ (415.5 × 22) = **64.6%**. The 63.7% reading is **98.6% of its own ceiling**, which is the same
+statement as the 101.4% above and the opposite conclusion from the one the threshold invites — "carrying
+more suites, nothing to do" against "one file sets the whole wall clock". **A utilisation threshold is
+only readable next to the bound it is capped by**; quote the pair or neither.
+
+**WHERE THE ~90 MINUTES ACTUALLY CAME FROM, and it is not in this table.** It is
+[#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233): three suites —
+`adopt-statusline`, `connectors`, `connector-sessioncheck` — block forever on a redirected-but-never-closed
+stdin and are released only by the 1,800s per-suite bound (#1941), so a run in that state takes half an
+hour to go red and reports a timeout rather than a defect. The first run of this pair hit exactly that:
+**118 of 121 finished in 410.2s and the remaining three were still at zero CPU nine minutes later.**
+Re-running with stdin at EOF — what CI has, and what a plain console has for the opposite reason — is the
+only difference between that run and the 421.2s above. The mechanism is verified on #2233's own thread:
+`Get-HookPayloadRaw`'s documented timeout does not fire, because `[Console]::In` is a `SyncTextReader`
+whose `ReadToEndAsync()` runs synchronously on the calling thread -- so it has already blocked by the
+time the `Wait()` bounding it is reached.
+
+**BOTH HALVES ARE REPAIRED NOW, AND THEY WERE TWO DIFFERENT REPAIRS** --
+[#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233) closed the trigger and
+[#2249](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2249) closed the mechanism. The gate
+now redirects its lanes' stdin to an empty file, so no lane child is handed a handle the gate never
+closes; and the read itself now goes through `OpenStandardInput().CopyToAsync()`, which queues to the
+thread pool and therefore leaves the calling thread free to time out. **The warning below survives both
+of them**, because it is about what a wall clock silently carries and not about this one defect -- and
+the figure it is anchored on is worth keeping for exactly that reason: a state that cost a factor of
+~4.8 took two repairs in two branches to remove, and neither of them was visible in the gate's output.
+
+**READ THAT AS A WARNING ABOUT MEASURING, not only about the gate.** A wall clock taken on a workstation
+carries whatever that session's stdin happens to be, and nothing in the gate's output names it. The two
+runs here differ by a factor of ~4.8 in what they would have reported, on one machine, one tree, minutes
+apart — so a gate figure quoted without saying how the run was started is the same class of unreadable
+number that #1318 put the lane count on the verdict line to end.
+
+**What was NOT re-derived here, because it is already priced.** `suite-durations.json` is stale again —
+recorded September 11 from two CI runs, it lists **91 of the 121** suites, so 30 are charged the maximum
+and take the opening lanes. The September 9 section above measured exactly this and found it worth **at
+most 13s of 1,806 locally and 0s on CI**, for the same reason that dominates here: no partition beats a
+file. Do not re-open it as a wall-clock lever.
+
+**Honest limit: n=1 per stdin state**, on a machine that is not CI and does not convert to it (the #1713
+rule above). What is n=2 is the regime — September 9 at 16 lanes and today at 22, both within 1.4% of
+their bound.
 
 ### The `-Seen` repair, re-measured — the +11% is the CALL, not the second pass (September 20, 2026)
 

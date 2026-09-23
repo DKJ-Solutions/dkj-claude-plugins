@@ -39,6 +39,12 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
     runs-on: ubuntu-latest
+    # 60, as in claude.yml and for the reason stated there: the runtime is the model's work rather than
+    # a script of this repo's, so there is no measured maximum to size a tight cap against (#2296). The
+    # figure this repo does hold -- #831's n=100, which measured `claude-review` at up to 23m 23s end to
+    # end -- is a tail this cap has to stay clear of, not a bound it can sit near. It is a wedge bound
+    # and not a security window, for the reason spelled out on claude.yml's own cap.
+    timeout-minutes: 60
     # As in claude.yml: `id-token: write` lets the action mint a GitHub App token that upstream
     # documents as Contents/Pull Requests/Issues READ & WRITE. These read-only scopes bound
     # GITHUB_TOKEN, not that token. The single-tool allowlist below is the real boundary here.

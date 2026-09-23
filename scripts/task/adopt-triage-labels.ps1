@@ -114,7 +114,7 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'adopt-triage-labels.ps1'
 # ordinary state for a fresh adoption, not a failure -- every read below has a fallback.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in canonical labels are used instead." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in canonical labels are used instead." }
 }
 
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')

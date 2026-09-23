@@ -114,7 +114,7 @@ if (-not $Path -or @($Path).Count -eq 0) {
         $configured = & {
             Set-StrictMode -Off
             try { . $args[0] } catch {
-                Write-Warning "scripts\repo-config.ps1 could not be loaded ($($_.Exception.Message)) -- using the built-in default file set."
+                Write-Warning "scripts\repo-config.ps1 could not be loaded ($(Format-SafeProseToken -Value $_.Exception.Message)) -- using the built-in default file set."
                 return $null
             }
             if (Test-FunctionDefined 'Get-MojibakePaths') {

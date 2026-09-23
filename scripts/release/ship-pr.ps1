@@ -348,6 +348,59 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# EVERY REFUSAL ENDS WITH A LINE THAT SURVIVES ITS CALLER (issue #2283). The report behind this one said the
+# refusal "does not set an exit code, and nothing downstream converts it into one", and that half does not
+# hold: under the 'Stop' above every Write-Error in this file is a TERMINATING error, so the host exits 1 on
+# its own and the `exit 1` written beneath each one is dead code. Measured on this script's own trunk
+# refusal, September 22, 2026: `powershell -File scripts/release/ship-pr.ps1` exits 1.
+#
+# WHAT ACTUALLY DESTROYS THE SIGNAL IS THE PIPE, and the pipe is not an accident -- it is how this script is
+# read. Every recorded invocation of it in this machine's session transcripts goes through one (`| tail -40`,
+# `| Select-Object -Last 150`), because the run is long and nobody wants all of it; a pipeline reports the
+# exit status of its LAST element, so `ship-pr.ps1 2>&1 | tail -40` exits 0 whatever this run did. Verified
+# both ways on one refusal: unpiped 1, piped 0. A backgrounded ship then comes back to its caller as
+# `completed (exit code 0)` while the pull request sits open, conflicting and unmerged -- and "merged and
+# folded" and "refused, nothing done" are indistinguishable to the one signal that caller reads.
+#
+# AND THE PIPE IS ONLY THE COMMONEST WAY, WHICH IS WHY THE LINE BELOW DOES NOT SAY "PIPE" ON ITS OWN.
+# Measured on this very branch, hours after the paragraph above was written: the ship that was to land it
+# was run WITHOUT a pipe, redirected to a file -- and as `powershell ... > log 2>&1; echo "EXIT=$?"`, whose
+# last command is the echo. The harness reported `completed (exit code 0)` again, for a run that refused on
+# a red required check. Any wrapper ending in a second command does this, so a reader who concludes "no
+# pipe, so my exit code is sound" has drawn exactly the wrong lesson from the right observation.
+#
+# SO THE VERDICT MOVES IN-BAND, WHERE NEITHER CAN TAKE IT. The trap prints the error record exactly as the
+# host would and on the stream the host would (WriteErrorLine, so a caller separating the streams keeps what
+# it always had), then ONE unmistakable last line, then exits 1 explicitly rather than leaving the code to
+# the host. A successful run already ends with the close-out receipt (#1884), so the two endings are now
+# symmetrical: whatever the caller reads, the LAST line of the output says which of them happened.
+#
+# IT CHANGES NO PATH THAT RUNS TODAY. A trap fires only on a terminating error nothing caught, which is what
+# every refusal in this file already is -- and a deliberate try/catch is closer, so it keeps its error. It
+# is installed ABOVE the dot-sources on purpose: the source-repo guard refuses before any lib is loaded, and
+# a refusal that cannot reach its own verdict line is the defect this block exists to remove.
+#
+# AND IT SAYS WHICH SIDE OF THE MERGE IT STOPPED ON, because a single sentence here would be a lie on one of
+# them. Refusals live on both sides: step 4's read-back refuses when `gh pr merge` returned 0 and the PR does
+# not read MERGED, and step 5 can fail with the merge already landed -- which is #1270's trapped-entry state,
+# the expensive one, and the opposite of "nothing happened". $shipMergeLanded is set at exactly one place,
+# the line that reports the merge, so the verdict states what this run actually knows and nothing more.
+$shipMergeLanded = $false
+trap {
+    $shipRefusal = $_
+    $host.UI.WriteErrorLine(($shipRefusal | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    if ($shipMergeLanded) {
+        $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above AFTER the merge landed -- the PR IS merged and the FOLD IS STILL OWED.')
+        $host.UI.WriteErrorLine('          That is the trapped-entry state (#1270): the branch document sits on the trunk with nothing saying so.')
+    } else {
+        $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above -- NOT merged, NOT folded; nothing past that point ran.')
+    }
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
+
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
@@ -1502,6 +1555,44 @@ Write-Host "  It does need this session's process: the merge and the fold are st
 Write-Host "  So leave this one running and carry on in a SECOND terminal -- do not quit the harness." -ForegroundColor DarkGray
 Write-Host "  $(Get-TrunkReturnGoAheadLine -Returned $treeOnTrunk -Branch $branchShown)" -ForegroundColor DarkGray
 Write-Host "  Open that second terminal in a lane: scripts\task\worktree-lane.ps1 -Name <name>" -ForegroundColor DarkGray
+# --- AND THE ANSWER IS NEVER A GITHUB-SIDE SETTING (issue #2265) ---------------------------------
+# The block above answers "this wait is long, what do I do about it". This line answers the other thing
+# a session reaches for at exactly this moment, and it is the one answer that is wrong: turning a merge
+# switch on so that the wait stops needing anybody. Measured September 22, 2026 on PR #2262, three of
+# four CI shards still queued -- `allow_auto_merge` was enabled and armed against a record in that
+# repo's own tree declaring it `false`, with the trunk nine commits ahead at that moment. That is
+# exactly the stale-but-green certificate step 3b refuses, and step 3b cannot see it, because an
+# auto-merge happens without a shipping session (#1730). The declaration was machine-readable, about a
+# second away, and pointed at by nothing in the session.
+#
+# WHY HERE AND NOT IN A GUARD. The repo-settings check is a SCHEDULED leg by decision (#1726), so its
+# earliest catch is the next scheduled run -- after the change, and after whatever the change let
+# through. That decision is about drift somebody else caused and it stands; this is the other shape,
+# where the session is the one about to cause it, and the whole repair is a pointer at the moment of
+# the temptation rather than a third runner.
+#
+# DERIVED, NEVER ASSERTED. It names only what the repo's OWN Get-ExpectedRepoSettings declares, so a
+# repo that declares nothing gets no line at all -- the same rule the watch below follows when it
+# refuses to name a check ("a claim about the consumer's CI that this script cannot keep"), one surface
+# over. The seam is optional and the read is guarded, so a tree without it is unchanged.
+if (Test-FunctionDefined 'Get-ExpectedRepoSettings') {
+    try {
+        $declaredSettings = @(Get-ExpectedRepoSettings)
+        if ($declaredSettings.Count -gt 0) {
+            $autoMergeDeclared = @($declaredSettings |
+                Where-Object { $_.Field -eq 'repo.allow_auto_merge' }).Count -gt 0
+            $settingsSubject = if ($autoMergeDeclared) {
+                "$($declaredSettings.Count) GitHub-side settings, auto-merge among them"
+            } else {
+                "$($declaredSettings.Count) GitHub-side settings"
+            }
+            $settingsLine = "  A GitHub SETTING is not one of the answers: this repo declares " +
+                "$settingsSubject, each with its reason -- read them (check-repo-settings.ps1) " +
+                'before proposing one.'
+            Write-Host $settingsLine -ForegroundColor DarkGray
+        }
+    } catch { }
+}
 # --- THE WATCH BLOCKS ON THE REQUIRED CHECKS ONLY (issue #1602) ----------------------------------
 # WHAT THIS CHANGES, AND WHAT IT DELIBERATELY DOES NOT. The merge below is allowed to go as soon as
 # every check the ruleset REQUIRES is green; the non-required ones are still waited for and still
@@ -2638,9 +2729,19 @@ if ($null -ne $shipCycleText) {
     # satisfies `-ne 0`, so this printed "gh exited " -- the sentence built to send the reader to their
     # network or token, with the number that would justify it missing out of it. Like the short read
     # beside it, it is a fact about this run rather than about the PR, and it lands in the same branch.
+    # A FOURTH REASON JOINED THEM UNDER #2250, and it is asked ahead of all three. A gh that never
+    # STARTED sets ExitCodeUnknown on purpose -- that is what lets the audited sites keep working
+    # untouched -- so absorbed by the arm below it, a missing gh was described as one that ran. There is
+    # no Get-Command guard on this call, so that state is reachable here in full. It also has to be
+    # carried as a flag rather than sniffed out of the string, because the sentence this block feeds
+    # closes with advice that is false in exactly this state -- see $lockRetry below.
     $lockUnread = ''
     $lockShortRead = $false
-    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+    $lockNotStarted = $false
+    if (-not (Test-NativeCommandStarted -Capture $lockView)) {
+        $lockUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran'
+        $lockNotStarted = $true
+    } elseif (-not (Test-NativeExitMeasured -Capture $lockView)) {
         $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read'
     } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = "gh exited $($lockView.ExitCode)"
@@ -2699,7 +2800,17 @@ CI has already passed, so a re-run picks up from here. There is no -Force for th
         # than a bigger number. A capture that is merely being flushed settles on the first probe
         # (measured: 2-8 ms over five gh calls), and one held by a grandchild that is still RUNNING
         # never releases inside any budget worth waiting for -- so raising it buys stalls, not reads.
-        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        # THE CLOSING SENTENCE IS THE OTHER HALF OF #2250'S DEFECT, AND IT IS OUTSIDE THE PARENTHETICAL.
+        # That report names $lockUnread's arm; repairing only that would leave this line printing "a
+        # re-run normally settles it" about a gh that is not installed -- the same false advice, in the
+        # same printed sentence, one layer out. A reader does not experience the two as separate strings,
+        # so they are answered together or the repair satisfies the report and still misleads.
+        $lockRetry = if ($lockNotStarted) {
+            'That is a fact about this machine rather than about the PR, and a re-run will NOT settle it -- install the GitHub CLI, or put it on PATH.'
+        } else {
+            "This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        }
+        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. $lockRetry"
     } else {
         Write-Host "  DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- not checked (this is not a finding)." -ForegroundColor DarkGray
     }
@@ -2952,6 +3063,10 @@ that actually carries it. Nothing here needs undoing -- the PR is queued, not lo
     exit 1
 }
 Write-Host "ship-pr: PR #$pr merged (--$mergeMethod)." -ForegroundColor Green
+# THE MERGE IS NOW A FACT THIS RUN CARRIES, and the refusal trap at the top of the file reads it (#2283).
+# Everything that refuses from here on refuses with the merge already landed, which is the opposite state
+# from everything above -- and the two are indistinguishable in an error record.
+$shipMergeLanded = $true
 
 # --- Step 5: main + fold + commit + push ---------------------------------------------------------
 #

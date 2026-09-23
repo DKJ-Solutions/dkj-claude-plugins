@@ -151,7 +151,7 @@ if (Test-Path -LiteralPath $treeLib -PathType Leaf) { . $treeLib }
 # a seam is read by its own names rather than by the built-in defaults.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in wording is used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in wording is used." }
 }
 
 function Get-PortablePageDir {

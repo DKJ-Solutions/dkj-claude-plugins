@@ -586,7 +586,16 @@ $script:ContractRecords = @(
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-ExpectedRepoSettings'; Scripts = @('check-repo-settings');
        Adopt = 'decide'; AdoptWhy = "the values state WHAT THIS REPO'S RULESET HOLDS -- bypass actors, allow_auto_merge, which checks are required -- copying them would assert a consumer's GitHub settings match this repo's rather than their own, and the first drift they never configured would read as a defect rather than as the ordinary state it is";
        Optional = $true; Default = 'nothing is watched -- an empty or absent declaration is a [SKIP], stated as a choice rather than reported as a gap';
-       Returns = "an array of records, each naming ONE GitHub-side fact to watch: Field (a dotted name the check knows how to read, e.g. 'ruleset.bypass_actor_types' or 'repo.allow_auto_merge'), Expected (the value this repo declares GitHub should still hold), Recorded (the date that value was last measured against GitHub), Where (the document in this tree stating the fact) and Why (the one-line reason it matters) -- Where and Why are both printed on a mismatch, so a red run names which document to repair rather than merely proving something moved" }
+       Returns = "an array of records, each naming ONE GitHub-side fact to watch: Field (a dotted name the check knows how to read, e.g. 'ruleset.bypass_actor_types' or 'repo.allow_auto_merge'), Expected (the value this repo declares GitHub should still hold), Recorded (the date that value was last measured against GitHub), Where (the document in this tree stating the fact) and Why (the one-line reason it matters) -- Where and Why are both printed on a mismatch, so a red run names which document to repair rather than merely proving something moved" },
+    # THE OPT-OUT FOR THE ADOPTION INVENTORY AT THE FOOT OF THIS FILE (issue #2236). A consumer that has
+    # deliberately not built part of the floor names the command here and the advisory goes quiet, which
+    # is what keeps that advisory from being the nag #2236 explicitly did not ask for. A DECLARED
+    # opt-out in the consumer's own seam lib, never an exemption list maintained inside the check: the
+    # second is the shape this repo has scar tissue from, and the whole difference is who writes it down.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-DeclinedAdoptions'; Scripts = @('check-script-contract');
+       Adopt = 'decide'; AdoptWhy = "it states which parts of the floor THIS repo has decided against, which is a fact about one tree rather than a way of working. The source repo is the sharpest case for not copying it: all three file-placing adopters refuse there, for a reason no consumer shares -- it arranges its own runners by hand -- so shipping its answer would silence the advisory in every repo the advisory exists for";
+       Optional = $true; Default = 'nothing is declined -- every adopt-* command with files missing from the tree is reported, and a repo that meant to skip one answers this seam to say so';
+       Returns = "an array of adopt-* command names this repo has deliberately not run, spelled as Get-AdoptionInventory spells them ('adopt-workflow-folder', 'adopt-ci-floor', 'adopt-statusline') and matched case-insensitively. An unknown name silences nothing and is not an error, so a typo shows up as the advisory still being printed rather than as a failure somewhere else" }
 )
 
 # --- Reachability: is a record's Lib in scope for the script that reads it? (inbound #580) ---------
@@ -907,4 +916,173 @@ function Resolve-SharedScriptPath {
         Select-Object -First 1)
     if ($hit.Count -gt 0) { return $hit[0].FullName }
     return ''
+}
+
+# --- The adoption inventory: which FILES each adopt-* command places (issue #2236) ----------------
+#
+# THE GAP THIS CLOSES, REPORTED FROM A CONSUMER. Every adopt-* command is safe to re-run and correctly
+# finds nothing to do, and nothing anywhere tells an ALREADY-ADOPTED consumer that one of those
+# commands has since GAINED a file. Measured in BWJ-Development/xoxowildhearts, September 21, 2026
+# (#2236): its .github/workflows/ carries Part 1's entry gate and NONE of Part 3's three runners, so
+# neither its fold nor its resolves verification survives a merge the shipping session does not observe
+# -- and nothing in its tree, its session or its plugin update said so. adopt-ci-floor.ps1 was named
+# adopt-merge-queue.ps1 until September 13, 2026 (#1903) and grew the repo-settings runner under #1843,
+# so a consumer who worked through the adoption page before those landed has a floor that was complete
+# on the day they built it and is not complete now.
+#
+# WHY THE REGISTER COULD NOT ANSWER IT, which is the half the report did not have. check-connectors.ps1's
+# check 6c was built for almost exactly this question (#1850) and is BINARY: Test-ConsumerRunnerAdoption
+# returns 'adopted' the moment ONE workflow checks this tree out, so a consumer holding branch-entry.yml
+# and none of the three runners reads green. And it runs in the SOURCE repo, over the register, which
+# answers the MAINTAINER's question. This inventory is the consumer-side half, read in the consumer's own
+# tree by the check their own session already runs at every start.
+#
+# IT DECLARES RATHER THAN EXECUTES, which is where it departs from the report's own first proposal ("one
+# entry point that calls each adopter's detect half"). The detection genuinely is there -- every adopter
+# is dry-run by default -- but adopt-ci-floor and adopt-triage-labels reach gh, and all three
+# file-placing adopters REFUSE outright in the repo that publishes this workflow, so an entry point that
+# RUNS them is network-bound and cannot be exercised here at all. A table costs nothing and is testable.
+#
+# THE SECOND LITERAL IS GUARDED RATHER THAN AVOIDED. 'Places' below is a second copy of paths each
+# adopter also names in its own $targets, which is the shape this repo goes stale in. It is held by an
+# assert in scripts/tests/script-contract.tests.ps1 that reads each adopter's own Rel literals and
+# compares them against this table, so a file added to an adopter and not to this inventory fails the
+# suite instead of quietly reporting a complete floor.
+#
+# 'NotPlaced' IS THE OTHER HALF OF THE SAME BOOKKEEPING, and it is a field rather than only the prose
+# below because of what the prose could not do. The suite holds 'Places' to the adopter's own Rel
+# literals in BOTH directions, and the forward half alone catches a path REMOVED from an adopter while
+# the reverse half is what catches one ADDED -- which is the September 2026 repo-settings.yml case, i.e.
+# this issue. A target an adopter places CONDITIONALLY still appears in its source, so without a stated
+# home it would fail that reverse assert forever; with one, a new conditional target has to be
+# classified as either placed or not, and the reason goes on the record. Same reasoning as the exact
+# record count in the suite: a floor cannot force that conversation, an equality can.
+#
+# WHAT IS DELIBERATELY NOT IN 'Places', because a presence check can only be run on a FIXED path:
+#   * the workflow folder itself -- check-script-contract.ps1 already checks it, under all three of the
+#     names it has carried, and that check is an [ERROR] rather than one of these advisories.
+#   * the changelog adopt-workflow-folder writes -- its path is Get-ChangelogPath's answer, so a repo
+#     that has repointed the seam would be reported as missing a file it deliberately moved.
+#   * adopt-ci-floor's ci.yml -- offered only to a repo with NO pull_request check at all, so its
+#     absence is the ordinary state rather than a gap.
+#   * adopt-statusline's statusLine KEY -- a settings key rather than a file, and a repo may legitimately
+#     point it at a script of its own, which is what the source repo does.
+#   * adopt-config (Part 2) and adopt-triage-labels (Part 4) -- neither places a file. Part 2's subject is
+#     the contract records above, which this same check already reports function by function; Part 4's is
+#     a label on a tracker, whose absence a consumer's own 'gh issue create' fails on.
+#
+# 'Gained' IS THE SUBJECT OF #2236 RATHER THAN DECORATION. A bare absence reads as a choice, while "this
+# file joined the command in September 2026 under #1843, after you adopted" is the sentence the consumer
+# needed and could get nowhere. One entry per file that was added to a command already in service.
+$script:AdoptionRecords = @(
+    @{ Command = 'adopt-workflow-folder'; Part = 'Part 1'; Skill = 'adopt-dkj-policy';
+       What = "the workflow's own root folder and the two CI gates that read what a branch carries";
+       Why  = 'without the entry gate a branch reaches a merge with no changelog entry written, and the release cut then describes a version the change is missing from';
+       Places = @(
+           '.github/workflows/branch-entry.yml',
+           '.github/workflows/always-on-budget.yml',
+           '.github/pull_request_template.md'
+       );
+       Gained = @{
+           '.github/workflows/always-on-budget.yml' = 'joined this command under #2037 in September 2026 -- it holds every PR to not growing what every session pays before a single assignment is given'
+       } },
+    @{ Command = 'adopt-ci-floor'; Part = 'Part 3'; Skill = 'adopt-dkj-policy';
+       What = 'the CI floor: the runners that outlive a merge the shipping session never sees, and the scheduled check that a GitHub-side setting has not drifted';
+       Why  = "ship-pr's own enqueue arm PROMISES a fold runner, and the GitHub UI merge button produces an unobserved merge in every repo on earth -- without fold-on-merge.yml the branch document then sits on the trunk unfolded, with the entry never reaching the changelog";
+       Places = @(
+           '.github/workflows/fold-on-merge.yml',
+           '.github/workflows/verify-resolved.yml',
+           '.github/workflows/repo-settings.yml'
+       );
+       Gained = @{
+           '.github/workflows/repo-settings.yml' = 'joined this command under #1843 in September 2026, and is not queue machinery at all -- it asks whether a GitHub-side repo setting still matches what scripts/repo-config.ps1 declares'
+       };
+       NotPlaced = @{
+           '.github/workflows/ci.yml' = 'offered only to a repo with NO pull_request check at all, so its absence is the ordinary state rather than a gap -- and a repo that has its own CI never wants this one'
+       } },
+    @{ Command = 'adopt-statusline'; Part = 'Part 5'; Skill = 'adopt-dkj-policy';
+       What = "the shim behind the statusLine that draws the progress bar for this workflow's long runs";
+       Why  = "the gates and ship-pr's CI wait stream no stdout anywhere visible, so without it a backgrounded run leaves the session looking idle";
+       Places = @('.claude/statusline/dkj-progress.ps1');
+       NotPlaced = @{
+           '.claude/settings.json' = 'a settings KEY rather than a file of this command''s own: the file exists in almost every repo for other reasons, and a repo may legitimately point statusLine at a script of its own, which is what the source repo does'
+       } }
+)
+
+function Get-AdoptionInventory {
+    <# The adoption records. One hashtable per adopt-* command that places files at fixed paths; see the
+       comment block above for what each key means and for what is deliberately absent from 'Places'.
+       Returned as an array so a caller can filter it without mutating the source. #>
+    return @($script:AdoptionRecords)
+}
+
+function Get-AdoptionFindings {
+    <#
+        One verdict per inventory record, for the tree at $RepoRoot -- issue #2236.
+
+        FOUR STATUSES, because the ways of not having a command's files are different conversations and a
+        caller that cannot tell them apart writes a sentence that is wrong in most of them:
+
+          'complete' -- every file this command places is here.
+          'partial'  -- some are and some are not. THIS IS #2236's OWN SHAPE: the command was run, and has
+                        since gained a file. The 'Gained' note per missing path is what says so.
+          'absent'   -- none of them is here. The command may never have been run, deliberately or not,
+                        which is why the caller names the opt-out seam rather than calling it a defect.
+          'declined' -- the repo has named this command in Get-DeclinedAdoptions. A DECLARED opt-out in
+                        the consumer's own seam lib, not an entry in an exemption list maintained here:
+                        the second is the shape this repo has scar tissue from, and the difference is who
+                        writes it down. Same arrangement as Get-ShopifyRepoHasNoStore.
+
+        NO I/O BUT Test-Path, AND NO JUDGEMENT: it reports the state and the caller decides what to call
+        it, exactly as Test-ConsumerRunnerAdoption does for the register's own question.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [AllowEmptyCollection()][AllowNull()][string[]]$Declined = @()
+    )
+
+    # Case-folded, so a repo answering 'Adopt-CI-Floor' is not quietly ignored over its capitals.
+    $declinedSet = @{}
+    foreach ($d in @($Declined)) {
+        if ($null -ne $d -and ([string]$d).Trim()) { $declinedSet[([string]$d).Trim().ToLowerInvariant()] = $true }
+    }
+
+    $findings = @()
+    foreach ($rec in @($script:AdoptionRecords)) {
+        $present = @()
+        $missing = @()
+        foreach ($rel in @($rec.Places)) {
+            $abs = Join-Path $RepoRoot ($rel -replace '/', '\')
+            if (Test-Path -LiteralPath $abs -PathType Leaf) { $present += $rel } else { $missing += $rel }
+        }
+
+        # Only for the paths that are actually MISSING: a note about a file the repo already has is
+        # history rather than a finding, and printing it would bury the one line that needs reading.
+        $gained = @()
+        if ($rec.ContainsKey('Gained')) {
+            foreach ($rel in $missing) {
+                if ($rec.Gained.ContainsKey($rel)) { $gained += "$rel -- $($rec.Gained[$rel])" }
+            }
+        }
+
+        $status =
+            if ($declinedSet.ContainsKey($rec.Command.ToLowerInvariant())) { 'declined' }
+            elseif ($missing.Count -eq 0)                                  { 'complete' }
+            elseif ($present.Count -gt 0)                                  { 'partial'  }
+            else                                                           { 'absent'   }
+
+        $findings += [pscustomobject]@{
+            Command = $rec.Command
+            Part    = $rec.Part
+            Skill   = $rec.Skill
+            What    = $rec.What
+            Why     = $rec.Why
+            Places  = @($rec.Places)
+            Present = @($present)
+            Missing = @($missing)
+            Gained  = @($gained)
+            Status  = $status
+        }
+    }
+    return @($findings)
 }

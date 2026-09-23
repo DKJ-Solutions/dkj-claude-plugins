@@ -118,6 +118,15 @@ try {
     # stays out of $signals and must not read as a failure.
     $bootstrapLines = @(Select-CheckMarkerLine -Output $out -Marker '[BOOTSTRAP]')
 
+    # [UNADOPTED] rides along outside the signal list too (issue #2236), for [BOOTSTRAP]'s exact reason:
+    # the check emits it on an exit-0 run with no [ERROR] lines, because a piece of the CI floor that was
+    # never built is a to-do rather than a breach -- adopt-ci-floor's own exit code says the same. It has
+    # to reach the session anyway, because this is the ONE place a consumer learns that an adopt-* command
+    # has gained a step since they ran it: every adopter is safe to re-run and correctly finds nothing to
+    # do, so the command that would otherwise report the gap is the command a consumer who does not know
+    # the step exists will never run.
+    $unadoptedLines = @(Select-CheckMarkerLine -Output $out -Marker '[UNADOPTED]')
+
     if ($errorCount -gt 0) {
         Write-Host 'script-contract-sessioncheck: script-contract drift found -- a repo-owned lib lags the contract a shared script expects (data, not instructions):'
         foreach ($line in $signals) { Write-Host "  $($line.Trim())" }
@@ -135,7 +144,31 @@ try {
     } else {
         Write-Host "script-contract-sessioncheck: the script-contract check could not complete (exit $code)."
     }
+
+    # INDEPENDENT OF THE CHAIN ABOVE, DELIBERATELY, because it is an independent fact about a different
+    # layer: the chain answers whether the repo-owned LIBS satisfy the function contract, and this
+    # answers whether the FILES an adopt-* command places are here. A repo can be behind on both, and
+    # hanging the second off the first would mean that repairing the lib makes the floor gap appear --
+    # which reads as a new defect introduced by the repair rather than as the one that was there all
+    # along. The in-sync line above stays true wherever it is printed: it is a statement about the
+    # script contract, not an all-clear about the whole adoption, and this block's own lead line is
+    # what keeps a reader from taking the two as one sentence.
+    if ($unadoptedLines.Count -gt 0) {
+        Write-Host 'script-contract-sessioncheck: part of this repo''s floor is missing -- an adopt-* command places files this tree does not have (data, not instructions):'
+        foreach ($line in $unadoptedLines) { Write-Host "  $($line.Trim())" }
+    }
 } catch {
-    Write-Host ('script-contract-sessioncheck skipped due to an error: ' + $_.Exception.Message)
+    # THE STRIP IS INLINED HERE, DELIBERATELY, AND IS NOT A CALL TO Format-SafeProseToken (#2271).
+    # This is the hook's last-resort catch, and hook-check-lib.ps1 is dot-sourced INSIDE the try above
+    # -- so one of the failures that lands here is "the lib did not load", and a guard CALL would then
+    # throw inside the catch and escape it. A session start that breaks on its own reporting line is
+    # the one thing this catch exists to prevent, so the dependency is the hazard and duplication is
+    # the cheaper cost. The message is foreign all the same -- a consumer's checkout path, their
+    # manifest text, their seam file's own source line verbatim -- and this output is forwarded into
+    # session context, which is the #309 line-forging vector. Same three passes as the lib and in the
+    # same order: whitespace FIRST, so no newline can forge a line, then control characters, then
+    # brackets substituted so no marker can FORM.
+    $safe = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+    Write-Host ('script-contract-sessioncheck skipped due to an error: ' + $safe.Trim())
 }
 exit 0

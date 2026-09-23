@@ -586,6 +586,67 @@ infrastructure.
   **What would reopen it:** the fire rate climbing back above ~25%, or CI cost past ~10 minutes. Until
   then the queue is a priced-and-declined option, not an open question.
 
+  **WHERE A DECISION IS ARGUED IN THAT FILE: DIRECTLY ABOVE THE KEY IT DECIDES** (September 22, 2026,
+  [#2314](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2314)). `ci.yml` is ~80% comment, and
+  that is the property this repo wants — a decision argued where it lives. What it had grown alongside it
+  is a **shared append point**: the comment run above `jobs:` belonged to no key, so a paragraph about
+  *any* job landed there, and git cannot merge two appends at one anchor. Two branches obeying the
+  convention correctly therefore conflicted **pairwise, by construction**.
+
+  **Measured, and the cost is not where it looks.** Three CI branches in one afternoon each appended to
+  that banner and each inserted a key under `runs-on:` in the `suites` job — #2296 (`timeout-minutes`),
+  #2303 (a job-scoped `permissions:` block) and #2304. `ship-pr` on #2300 found it at forward lap 3, as
+  `PUT .../pulls/2300/update-branch -> 422 merge conflict between base and head`, after roughly forty
+  minutes of CI waits across three laps. **Resolving it took about five minutes** — both sides were purely
+  additive and both were kept verbatim. The conflict was cheap; finding it was not.
+
+  **This is [#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255) one file over**, which
+  is what settles that it is a shape rather than an accident: a single fixed `dkj-policy/development.md`
+  made every merge to the trunk conflict every *other* open PR, the answer was one document per branch, and
+  the reasoning is quoted in `CLAUDE.md` to this day. A banner is that same shared anchor wearing a
+  different name.
+
+  **The answer is per-anchor placement, chosen by Dave over two alternatives that were priced.** Every
+  paragraph moves to sit above the one key, step or job it argues, so a new decision brings a **new**
+  anchor rather than another paragraph on an existing block. It strengthens *argue it where it lives*
+  rather than trading it away, which is why it beat the candidate the issue itself named — a one-line
+  pointer per decision with the argument moved into this lens — and a third option, one file per decision
+  under `.github/workflows/ci-decisions/`. Both of those buy conflict-freedom by moving the reasoning away
+  from the line it explains, and that property is the whole reason the file is ~80% comment.
+
+  **Nothing was rewritten: 301 comment lines, of which twelve changed, and every one of those twelve was a
+  cross-reference that the move made false** — *"see the banner above `jobs:`"* pointing at a paragraph now
+  sitting on the same key, and *"the shortcut below"* where the shortcut had become the paragraph above.
+  The move was verified by diffing the sorted comment bodies before and after rather than by reading the
+  diff, because a 156-line reshuffle is exactly the diff a reviewer cannot read.
+
+  **AND THAT METHOD HAS ONE BLIND SPOT, WHICH IT FOUND THE HARD WAY.** A sorted-comment-body diff proves
+  no line was **lost** and is structurally silent about a line that was **kept when it should have gone** —
+  a superseded clause left standing beside its replacement is an addition on one side and nothing at all on
+  the other, so it never appears in the comparison. Measured on this branch: the old *"See the banner above
+  `jobs:` for why the"* survived directly above its own replacement, leaving a stuttered clause and a
+  continuation pointing nowhere, and the verification reported clean. It was [Edith #17](specialist-06-17-lens.md)
+  reading the diff in place who caught it — so the sorted comparison answers *"is anything missing"* and a
+  human read of the new position answers *"does it still parse"*, and a relocation of this size needs both.
+
+  **What stays above `jobs:` is what is true of the FILE** — why there are three jobs (#1351), and that
+  every job declares a timeout at all (#2296). The per-job *numbers* moved to the keys they cap. The run
+  went 87 lines → 32, and `ci-shard.tests.ps1` now holds it to a **40**-line ceiling: the post-change
+  reading plus one paragraph of headroom, still under half of what it had reached. The ceiling is paired
+  with an assert that the convention is stated in the file's own head, because a ceiling that fires without
+  saying what to do instead sends the next author to raise the ceiling — the one repair that reopens the
+  class.
+
+  **The half the issue did not name, and the reason writing the convention down is part of the repair
+  rather than a note beside it:** #2296 had already half-adopted the answer. It wrote a two-line pointer
+  above `timeout-minutes:` in the `suites` job **and** a 31-line banner above `jobs:` — so the convention
+  was not merely unstated, it was stated by example in both directions at once, and a later author copying
+  whichever sat nearest had even odds of recreating the anchor.
+
+  **What this does NOT fix, deliberately:** two branches adding different keys under one `runs-on:` still
+  collide. That half is irreducible, took thirty seconds to resolve, and engineering it away would cost
+  more than it saves.
+
 - **`.github/workflows/claude.yml` + `.github/workflows/claude-code-review.yml`** — the two Claude Code
   workflows, added August 14, 2026 via
   [PR #658](https://github.com/DaveKJohn/claude-code-specialists/pull/658). The first answers an
@@ -964,9 +1025,43 @@ infrastructure.
   nothing in the declaration can go stale for a fact nobody chose to declare — but the converse is that
   a load-bearing setting nobody declares stays exactly as invisible as all seven of these were before
   September 9. `scripts/tests/repo-settings-gate.tests.ps1` holds the declaration to shape rather than
-  to values (46 asserts): every `Field` must be one the check knows how to read, and every record must
-  carry its `Recorded`, `Where` and `Why`, because a `Field` typo is this check's own failure mode
-  arriving from the inside — a declared fact silently ceasing to be watched.
+  to values (68 asserts, re-counted September 22, 2026 — this figure read 46 against an actual 64,
+  having been left behind by asserts added after it was written): every `Field` must be one the check
+  knows how to read, and every record must carry its `Recorded`, `Where` and `Why`, because a `Field`
+  typo is this check's own failure mode arriving from the inside — a declared fact silently ceasing to
+  be watched.
+
+  **AND THE ONE MOMENT IT STRUCTURALLY CANNOT COVER IS THE SESSION THAT IS ABOUT TO CAUSE THE DRIFT**
+  ([#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265), September 22, 2026).
+  Measured while landing #2255: `ship-pr` was waiting on `lint-en-tests` for PR #2262 with three of the
+  four CI shards still queued on GitHub runners, and the session offered enabling `allow_auto_merge` as
+  the way to stop waiting. It was enabled and auto-merge was armed — against the record above declaring
+  it `false`, whose reason is that *with strict off, "up to date" is not a merge requirement, so
+  auto-merge lands a stale-but-green certificate unattended* — with `origin/main` nine commits ahead of
+  that branch at that very moment, which is that reason live rather than theoretical, and with step 3b
+  blind to it because an auto-merge happens without a shipping session (#1730). Both the setting and the
+  armed auto-merge were reverted in the same session; the check reads 7 of 7 `[OK]` again, re-measured
+  September 22, 2026, so nothing persisted.
+
+  **The schedule is not the defect and #1726 is not reversed.** Dave's call there was about detecting
+  drift *somebody else* caused, where a dated daily record is exactly the right instrument. This is the
+  other shape: the session is the one about to cause it, and at that moment these seven declared facts
+  are the most relevant thing in the repo and the least visible — machine-readable, about a second
+  away, and pointed at by nothing in a session. So the repair is two **pointers** and not a third
+  runner; the session-side guard #1726 weighed and declined stays declined.
+  - **The portable half** is a hard rule in
+    [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
+    read the declaration before proposing a GitHub-side setting change, because the check's earliest
+    catch is *after* the change and after whatever the change let through. It travels, because a
+    consumer's GitHub-side state drifts the same way and `check-repo-settings.ps1` is theirs too
+    (#1843).
+  - **The local half is at the measured moment**, in `ship-pr.ps1`'s CI-wait invitation — the block that
+    already answers *"this wait is long, what do I do about it"* now also answers *"not that"*: it says
+    how many GitHub-side settings this repo declares, names auto-merge among them where that field is
+    one of them, and points at the check. **Derived from `Get-ExpectedRepoSettings`, never asserted**,
+    so a consumer who declares nothing gets no line at all — the same rule that keeps step 3 from naming
+    a check (*"naming one here would be a claim about the consumer's CI that this script cannot keep"*),
+    applied to a repo's settings.
 
   **BOTH RUNNERS ABOVE NOW HAVE A CONSUMER-SHAPED TWIN, AND NOTHING HOLDS THE TWO IN SYNC** (issue
   [#1516](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1516), September 6, 2026).
@@ -1054,6 +1149,46 @@ infrastructure.
     workflow headers, `adopt-dkj-policy`'s SKILL, and `adopt-ci-floor.ps1`'s own console note now say
     so; a fine-grained PAT lists repositories one by one, so a repo *created* rather than transferred
     (an org move with no GitHub transfer) falls outside an existing token's selection silently.
+
+- **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
+  in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
+  September 22, 2026). Until that issue no job in `.github/workflows/` declared one, so a wedged job ran
+  to GitHub's **six-hour** default. Measured: run 35728958033's `suites (2)` sat `in_progress` for 38
+  minutes on a commit whose other three shards were green in ~6 minutes each and whose shard 2 ran all
+  29 of its own suites locally in 344s; the cancel request itself took ~8 minutes to land.
+
+  **The failure mode is not a red check, and that is the whole reason this is worth a guard.**
+  `lint-en-tests` `needs:` the shards, so it never registered at all — and a required check that never
+  registers reads as *still running* to `ship-pr`, to the ruleset and to a person looking at the PR.
+  `ship-pr` spent its entire 1800s registration wait and refused correctly, with the right diagnosis and
+  nothing behind it; the branch still needed somebody to go and cancel the job by hand.
+
+  **`$script:GateSuiteTimeoutSeconds` cannot cover this, and it is not the same repair.** That bound is
+  1800s *per suite* inside the gate process and it reaps a wedged child **with an attribution** — #1941
+  records it doing exactly that, three times, on a local machine. At 38 minutes it should have fired and
+  did not, so whatever wedged sat **below** the level a bound inside the process can reach. That is the
+  one class a runner-level cap exists for, and it is why this is a different layer from
+  #1941/#2233/#2255/#2263 rather than a fifth argument about the same constant.
+
+  **The numbers are read off run history, and the one on `suites` is picked against `ship-pr` rather
+  than against the suites.** Over the 19 most recent successful runs the shards measure (1) max 9.2m,
+  (2) max 13.4m, (3) max 7.4m, (4) max 8.5m — so any cap in the twenties is ~2x the worst ever observed.
+  What decides the upper end is that `ship-pr`'s registration wait is **also** 1800s
+  (`$maxRequiredWaitSec`): a cap of 30 or more times the job out at the same moment the shipping session
+  gives up, so the session learns nothing and the incident repeats *with a cap in place*. At **25** the
+  shard goes red, the summary concludes seconds later, and `ship-pr` — still listening — reads a failed
+  required check with a job log naming which shard. `lint` is 10, the summary 5, every short runner 10,
+  and the two agent jobs 60, because their runtime is the model's work rather than a script of ours.
+
+  **And the consumer half is the one no gate here could ever see.** Every runner this workflow scaffolds
+  carries a cap too — `adopt-ci-floor.ps1`'s four, `adopt-workflow-folder.ps1`'s two,
+  `adopt-shopify-floor.ps1`'s theme check, and the `asana-mirror.yml` template — because a wedge there
+  blocks a *consumer's* required check with nobody watching at all. The skeleton `ci.yml` is deliberately
+  the loosest of them at 30, and says in its own comment that it is the one number you re-size when you
+  replace the placeholder step with real work. [`scripts/tests/workflow-timeouts.tests.ps1`](../../../scripts/tests/workflow-timeouts.tests.ps1)
+  holds all four properties, including the `suites`-versus-`$maxRequiredWaitSec` inequality, which it
+  derives from both files rather than hard-coding either.
+
 - **`scripts/lint/check-git-identity.ps1`** — the split-identity check (issue
   [#1315](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1315), September 3, 2026): does
   this checkout commit as the same account it acts as on the tracker? The claim rule's `@me` resolves
@@ -1487,7 +1622,7 @@ this repo's:
   again and was worse than it read: the gate's total EQUALLED this suite to a tenth of a second, four runs
   out of four, with 15 of 16 lanes idle for its last 70-86 seconds. **The generalisation worth keeping:
   when a gate's cost is one file, ask whether the work has to be one file before asking whether it has to
-  be done.** The convention for the four is in [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-four-files-august-16-2026).
+  be done.** The convention for the four is in [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026).
 - **Do not hand-roll a second parallel runner — and re-run a red suite alone before believing its assert.**
   Measured August 12, 2026: a `Start-Job` fan-out over all **31** suites reported **6** failures —
   `subagent-shared`, `bootstrap-drift`, `config-blueprint`, `fix-mojibake`, `roster-sync`,

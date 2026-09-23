@@ -53,6 +53,18 @@
          consumer's edit; a repo that already runs CI under any name is never offered or given one;
          its job's check name follows the Get-CiTestCheckName seam when declared; and an unsafe
          declared name is refused rather than interpolated into the YAML as-is.
+      10. #2248: THE REQUIRED-CHECK CONTEXT NAME IS GUARDED WHEN NOBODY OWNS IT (section 5b). $ctx is
+          read off the repo's OWN ruleset JSON -- unlike a job id, GitHub's schema does not constrain
+          its characters -- and df25f9f6 sent it through Get-DisplayRef before either report branch.
+          This is a behavioural pin, not a spelling one: it crafts a context whose embedded newline
+          would forge a second console line if the guard were dropped, and asserts on the actual
+          rendered shape (one line, the control character collapsed to a space) rather than on the
+          presence of 'Get-DisplayRef' in the source. It does not cover $w.Rel (the consumer's own
+          workflow FILENAME, also guarded by that commit) -- see check-consumer-siblings.tests.ps1's
+          own docstring for why a filename-carried deceptive character is a worse test subject than a
+          JSON-carried one (console code-page decoding of a filename is not this suite's concern, but
+          reaching it needs a real file on disk with a name no #2248 fixture here builds), and
+          Tycho's closing report for that gap named plainly.
 
     THE RULES PAYLOAD ARRIVES FROM A FIXTURE FILE, via -RulesJsonOverride. It is the only way to reach
     the queue-is-active arm at all: a test tree is not a checkout, has no remote, and CI has no token
@@ -98,6 +110,16 @@ function Assert-Equal {
 # context inside parameters.required_status_checks, which is where Get-DirectPushBlockingRules reads it.
 $RulesQueueOn = '[{"type":"deletion"},{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"lint-en-tests"}]}},{"type":"merge_queue"}]'
 $RulesQueueOff = '[{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"lint-en-tests"}]}}]'
+# ISSUE #2248's REGRESSION PIN. A required-check CONTEXT NAME is read off the repo's own ruleset JSON
+# (Get-DirectPushBlockingRules), not off this tree, so nothing constrains its characters -- unlike a job
+# id, which GitHub Actions' own schema already restricts to [a-zA-Z0-9_-]. This payload's context names
+# no job in ANY fixture consumer (deliberately: "weird-check" -> `n -> "INJECTED-marker" cannot be a
+# real Actions job id), so it always lands in the '[note] ... matches no job' arm -- the one where
+# $ctxDisplay = Get-DisplayRef -Ref $ctx is computed before either report branch. Get-DisplayRef replaces a
+# control character with a SPACE and collapses runs of spaces (unlike Format-SafePathToken, which
+# deletes and welds -- see check-consumer-siblings.tests.ps1), so the embedded newline below is expected
+# to survive as one joining space, not as a line break and not as nothing.
+$RulesQueueOffDeceptiveContext = '[{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"weird-check' + "`n" + 'INJECTED-marker"}]}}]'
 # NO QUEUE AND NOTHING REQUIRED -- the shape that leaves the staleness guard with no certificate to
 # date, which is the one gap this command still reports after the queue stopped being policy (#1546).
 $RulesQueueOffNoChecks = '[{"type":"deletion"},{"type":"non_fast_forward"}]'
@@ -494,6 +516,25 @@ try {
     Assert-True ($r.Flat -like '*which triggers on merge_group*') 'a workflow that does carry the trigger is reported as ready'
     Assert-True ($r.Flat -notlike '*every merge fails*') 'and the outage is not reported against it'
 
+    # --- 5b. #2248's regression pin: a required-check context name this repo does not own is guarded --
+    Write-Host '-- 5b. #2248: a deceptive required-check context name is guarded, not printed raw --' -ForegroundColor Cyan
+    $rulesDeceptiveContext = New-RulesFile -Label 'deceptive-context' -Json $RulesQueueOffDeceptiveContext
+    $dir = New-FixtureConsumer -Label 'deceptive-context'
+    $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesDeceptiveContext)
+    Assert-True ($r.Flat -like '*matches no job*') 'the fixture reaches the no-owner arm at all, so the asserts below are testing something'
+    # $r.Out keeps real line breaks (see Invoke-Adopt's own docstring) -- the property under test is
+    # exactly whether the embedded newline in $ctx survives as ANOTHER one, so Out is read, not Flat.
+    # '[note]' ALSO PRINTS FOR repo-settings.yml's own schedule note AND FOR "no merge_queue rule" IN
+    # AN ORDINARY DRY RUN -- neither carries a manifest- or ruleset-supplied value, so both are filtered
+    # out here rather than counted; the subject is the ONE line this fixture's deceptive context produces.
+    $noteLines = @($r.Out -split "`n" | Where-Object { $_ -match "\[note\].*required check" })
+    Assert-True ($noteLines.Count -eq 1) `
+        'the deceptive context name produces exactly ONE required-check [note] line -- its embedded newline did not forge a second'
+    Assert-True ($noteLines.Count -gt 0 -and $noteLines[0] -match 'weird-check INJECTED-marker') `
+        "and that one line reads the context as Get-DisplayRef renders it -- the control character replaced by a SPACE, collapsed, not deleted and not left as a literal newline"
+    Assert-True (-not ($r.Flat -match 'weird-checkINJECTED')) `
+        "the raw, unguarded context value never appears WELDED in the flattened report -- that shape is what a leaked newline would produce (Out split into two array elements, joined by Flat with no separator)"
+
     # --- 6. The trunk is read, never assumed ---------------------------------------------------------
     Write-Host '-- 6. the placed runners follow this repo trunk --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'trunk' -Trunk 'trunk'
@@ -878,6 +919,75 @@ try {
     $controlSkeleton = [System.IO.File]::ReadAllText((Join-Path $controlDir '.github\workflows\ci.yml'))
     Assert-True ($controlSkeleton -match '(?m)^\s+name:\s+"ci"\s*$') `
         'an unsafe declared check name (an embedded newline) is refused too, falling back to ''ci'''
+
+    # --- 10. A WINDOWS CONSUMER'S WORKFLOW FILE: CRLF (inbound #2237) ---------------------------------
+    # EVERY FIXTURE ABOVE IS JOINED WITH "`n", WHICH IS WHY NONE OF THEM COULD FAIL THIS. Get-WorkflowFacts
+    # collects a job's KEY and its `name:` with two regexes, both anchored on '$'. .NET's multiline '$'
+    # matches only immediately before a '\n', so on CRLF the name capture's '[^\r\n]*' stops at the '\r'
+    # and the anchor fails -- while the key capture's '\s*$' absorbs the '\r' and survives. One of a pair
+    # CRLF-tolerant by accident and the other not, on files a consumer with `core.autocrlf=true` checks
+    # out as CRLF by default. This repo's own .gitattributes pins `eol=lf` AND its ci.yml job declares no
+    # `name:`, so neither the tree nor the suite could see it: it was reported from a consumer.
+    #
+    # THE JOB CARRIES A `name:` IN BOTH FIXTURES BELOW, unlike New-FixtureConsumer's, because a job
+    # without one has nothing for the broken half of the pair to fail to capture. That is precisely the
+    # source repo's shape, and precisely why it was never hit here.
+    Write-Host '-- 10. a CRLF workflow file, as a Windows consumer checks one out (#2237) --' -ForegroundColor Cyan
+
+    function New-FixtureConsumerCrlf {
+        param([string]$Label, [switch]$Lf)
+        $root = New-FixtureConsumer -Label $Label
+        $lines = @(
+            'name: Theme',
+            'on:',
+            '  pull_request:',
+            '    branches: [main]',
+            'jobs:',
+            '  theme-check:',
+            '    name: Shopify theme check',
+            '    runs-on: ubuntu-latest',
+            '    steps:',
+            '      - run: echo hi'
+        )
+        $eol = if ($Lf) { "`n" } else { "`r`n" }
+        [System.IO.File]::WriteAllText((Join-Path $root '.github\workflows\ci.yml'), (($lines -join $eol) + $eol))
+        return $root
+    }
+
+    # 10a. THE REQUIRED CHECK IS MATCHED TO ITS JOB. GitHub reports an Actions check under the job's
+    #      `name:` where it has one, so that display name is what a real ruleset requires. Before the
+    #      repair this printed the '[note] ... matches no job in .github/workflows/' line about a job
+    #      sitting in the very file it had just read.
+    $crlfRequiresName = New-RulesFile -Label 'crlf-name' `
+        -Json '[{"type":"required_status_checks","ruleset_id":7,"parameters":{"required_status_checks":[{"context":"Shopify theme check"}]}}]'
+    $crlfDir = New-FixtureConsumerCrlf -Label 'crlf'
+    $rCrlf = Invoke-Adopt -Dir $crlfDir -ScriptArgs @('-RulesJsonOverride', $crlfRequiresName)
+    Assert-True ($rCrlf.Flat -notlike '*matches no job*') `
+        'a CRLF workflow: the required check is matched to the job whose name: declares it, not reported as coming from somewhere else'
+
+    # 10b. AND THE AUTO-FILL DECLINES, which is the half that reaches past a wrong note into a merge
+    #      outage. $prJobIds holds the key AND the name for one named job, so the count is 2 and the
+    #      composed ruleset call prints the candidate list for a person to pick from. On CRLF it held
+    #      the key alone, the count WAS 1, and the call auto-filled with a context GitHub never reports
+    #      -- a required check that never reports leaves every pull request pending forever.
+    $rCrlfNoChecks = Invoke-Adopt -Dir $crlfDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rCrlfNoChecks.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*') `
+        'a CRLF workflow with one named job: the ruleset context is left as an explicit placeholder, not auto-filled'
+    Assert-True ($rCrlfNoChecks.Flat -notlike "*the one candidate job, 'theme-check', is already filled in*") `
+        'and specifically never auto-fills the job KEY, which is the spelling GitHub does not report that check under'
+    Assert-True ($rCrlfNoChecks.Flat -like '*CANDIDATE CHECKS*') `
+        'the candidate list is printed instead, so picking one is a copy from a list'
+    Assert-True ($rCrlfNoChecks.Flat -like '*Shopify theme check -- from*') `
+        'and it carries the job NAME -- the capture that collected nothing at all on CRLF'
+
+    # 10c. THE SAME TREE ON LF, so the asserts above are pinned to the line endings rather than to
+    #      anything else this fixture happens to do differently from New-FixtureConsumer's.
+    $lfDir = New-FixtureConsumerCrlf -Label 'crlf-control' -Lf
+    $rLf = Invoke-Adopt -Dir $lfDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rLf.Flat -like '*Shopify theme check -- from*') `
+        'the identical tree written with LF reads the same job name -- the two line endings now agree'
+    Assert-True ($rLf.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*') `
+        'and declines the auto-fill identically, which is the behaviour CRLF was measured against'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

@@ -4,9 +4,29 @@
     complete, and only then rotate the previous backup out. Exactly one backup is retained.
 
 .DESCRIPTION
-    This is the closing step of a release cut in a store repo: it records the baseline of WHAT
-    SHIPPED, so the third-party drift that accumulates on live between releases has a fixed point to
-    be measured from. Inbound #1965.
+    WHAT IT GUARANTEES, WHICH IS NOT THE SAME AS WHERE IT IS CALLED FROM: after a successful run the
+    store holds EXACTLY ONE backup of the live theme, that copy has been PROVEN complete, and the
+    previous backup was dropped only after the proof. Inbound #1965; restated this way by #2228.
+
+    IT USED TO OPEN "this is the closing step of a release cut", and that sentence had to go -- not
+    because it was wrong, but because it was one caller's choice stated as a property of the script.
+    There are two legitimate moments and they produce two different artefacts:
+
+      AFTER THE PUSH (the closing step of a cut) the copy is a BASELINE OF WHAT SHIPPED -- the fixed
+      point the third-party drift that accumulates on live between releases is measured from.
+
+      BEFORE THE PUSH (from live-preflight.ps1) the copy is a ROLLBACK POINT -- the stand to return to
+      if the push goes wrong.
+
+    WHICH ONE A REPO WANTS IS THE REPO'S DECISION, and the trade-off is short enough to state here.
+    A Shopify push is per-file, has no locking and CAN ARRIVE PARTIALLY, so a backup taken AFTER one
+    has captured the broken state and is by construction not a rollback; that is the argument for the
+    earlier moment, and it is the one the consumer that filed #2228 made. What the earlier moment gives
+    up is small: the only difference between the two copies is that repo's own push list, and that is
+    in git. A repo wanting the baseline reading keeps calling this at the cut, unchanged.
+
+    NOTHING ABOUT THE MECHANISM MOVES WITH THE CALLER. The order below is the same order in both, and
+    "moving when it runs" is not licence to reorder it.
 
     THE ORDER IS CREATE -> VERIFY -> ROTATE, AND IT IS THE WHOLE DESIGN.
 
@@ -67,6 +87,12 @@
 .PARAMETER DryRun
     Report every verdict and change nothing. The default is $false, but a first run in a new store is
     worth doing with it.
+
+    AND IT HAS A SECOND, FIRST-CLASS CALLER SINCE #2228: a preflight that wants to SHOW what the backup
+    step would do -- which theme it would duplicate, which previous backup would rotate out -- without
+    paying for a duplicate it is not going to keep. That is a report rather than a rehearsal, so it is
+    worth documenting as its own use and not only as a new-store aid. The run is cheap: it takes no
+    copy, so it never reaches the poll that costs the minutes.
 
 .PARAMETER PollSeconds
     Seconds between file-count samples while waiting for the copy to fill. Default 20. Each sample is
@@ -139,7 +165,7 @@ $seam = & {
     $answers = @{ LiveThemeId = ''; StoreDomain = ''; DeleteMarker = ''; TrunkIsLive = $true }
     $cfg = Join-Path $repoRoot 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
-        try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $($_.Exception.Message)" }
+        try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $(Format-SafeProseToken -Value $_.Exception.Message)" }
     }
     if (Test-FunctionDefined 'Get-ShopifyLiveThemeId')       { $answers.LiveThemeId  = [string](Get-ShopifyLiveThemeId) }
     if (Test-FunctionDefined 'Get-ShopifyThemeEstateStore')  { $answers.StoreDomain  = [string](Get-ShopifyThemeEstateStore) }
@@ -376,4 +402,8 @@ if ($going.Count -eq 0) {
 }
 
 Write-Host ''
-Write-Host "Backup complete: '$backupName' (id $backupId) is the baseline of what shipped." -ForegroundColor Green
+# WHAT THE COPY IS FOR IS THE CALLER'S FACT, NOT THIS SCRIPT'S (#2228). This line used to end "is the
+# baseline of what shipped", which is true when the cut calls it and false when a preflight does -- the
+# same one-caller assumption the header carried. So it reports what it GUARANTEES, and whichever caller
+# ran it says what the copy is for.
+Write-Host "Backup complete: '$backupName' (id $backupId) is the one verified copy of live this store holds." -ForegroundColor Green
