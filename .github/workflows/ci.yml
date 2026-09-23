@@ -210,6 +210,13 @@ jobs:
       # STILL does not go up in this change, and a reader reaching for a fifth runner should split that
       # file first for the same reason and by the same measurement.
       #
+      # AND THAT IS STEP 2, TAKEN THE SAME WAY (#2304, September 23, 2026). -links is now four as well
+      # (-links, -skill-spans, -plugin-spans, -plugin-links), cut at check boundaries and balanced on
+      # gate invocations (13/18/21/13 of its 65), all 141 of its asserts preserved and verified by
+      # running them; side by side on one workstation the longest part took 55s against the original's
+      # 159s. The next heaviest file is check-plugin-integrity-commands.tests.ps1 (498.3s), so the shard
+      # count still does not move -- -commands and -entries are steps 3 and 4.
+      #
       # AND suite-durations.json DOES NOT KNOW THE FOUR NEW NAMES YET. A suite missing from it is charged
       # the largest recorded value, so it packs early and can never be the one left last -- safe, and
       # deliberately not hand-edited: that file is regenerated from CI logs by

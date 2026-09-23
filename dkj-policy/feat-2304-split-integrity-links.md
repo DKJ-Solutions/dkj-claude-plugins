@@ -39,19 +39,47 @@
 
 ### PLAN
 
+Step 2 of #2304. Step 1 (PR #2310) split `-docs` and named `-links` (539.2s on CI) as the next critical
+path. Split it the same way: at check boundaries, balanced on gate invocations rather than lines, all
+asserts preserved and verified by running them, no scope removed. Steps 3 and 4 (`-commands`,
+`-entries`) are separate branches.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Cut `check-plugin-integrity-links.tests.ps1` into four: `-links` (checks 4 + 28, kept together for
+  scenario 23's cross-count), `-skill-spans` (check 10 + scenario 16), `-plugin-spans` (checks 29 + 32),
+  `-plugin-links` (check 30) -- 13/18/21/13 of 65 invocations
+- [x] Repair the order dependency the cut exposed: the fixture writes no root documents, check 4's
+  scenario B did, and every later block inherited them -- now `Write-QuietRootDocuments` in the fixture
+- [x] Fixture header, ci.yml's matrix comment and the carried scenario comments updated to the new layout
 
 ### TEST
 
+- [x] Original and the four parts run side by side: 141 asserts before, 35 + 31 + 48 + 27 = 141 after, all
+  green; static counts equal too (65 calls, 137 assert statements); longest part 55s against 159s
+- [x] Gates via `open-pr -GatesOnly`
+
 ### DEPLOY: feat/2304-split-integrity-links
 
-**Score:**
+`check-plugin-integrity-links.tests.ps1` was the CI gate's critical path once step 1 had split `-docs`:
+539.2s against a 391s work bound. It is now four suites, cut at check boundaries and balanced on gate
+invocations, and side by side on one workstation the longest part took 55s against the original's
+159s. All 141 asserts are preserved and were verified by running the four parts. This is step 2 of
+#2304; the critical path moves to `-commands` (498.3s), so the shard count does not change and the
+issue stays open for steps 3 and 4.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The cut surfaced the same class of defect step 1 did, one layer up: the fixture writes no root
+documents, so checks 10, 28, 29, 30 and 32 had all been starting from the files check 4's scenario B
+happened to leave behind. Two leaned on it outright -- check 28's file-relative proof needs a root
+`CONTRIBUTING.md`, and check 32 reads that file back to restore it. It is now stated once in the fixture
+instead of inherited, which is the second time a weight-based split has found state that only held
+because two scenarios shared a file.
+
+**Score:** N/A
 
 #### Pull Request
 
