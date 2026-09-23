@@ -3920,7 +3920,7 @@ function Invoke-TestSuiteGate {
             # that grows with the run's own pace, and a reader who took it as final would read the scaling
             # line below as the gate contradicting itself. An explicit -SuiteTimeoutSeconds does not
             # scale, so it is announced as the flat number it is -- which is also what keeps this run's
-            # own suite asserting 'each suite is bounded at 3s' on the -SuiteTimeoutSeconds 3 fixture.
+            # own suite asserting 'each suite is bounded at 20s' on the -SuiteTimeoutSeconds 20 fixture.
             if ($deadlineScales) {
                 Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s to start with, rising with this run's own pace to at most $(Format-GateSeconds $script:GateSuiteTimeoutCeilingSeconds)s (issues #1941, #2263); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
             } else {
