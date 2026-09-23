@@ -963,6 +963,28 @@ $goLiveDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\ta
 Assert-True ($goLiveDriver -match 'Test-PrivateResultLink -Link \$LinkArg\) -and -not \$AllowPrivateLink') 'the driver refuses a private link unless -AllowPrivateLink says it was shared'
 Assert-True ($goLiveDriver.IndexOf('Test-PrivateResultLink -Link') -lt $goLiveDriver.IndexOf('Format-GoLiveBlock -Marker')) 'and it refuses before the block is built'
 
+# THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
+# to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
+# refused with "this store has not declared its markets" in a store that had. Every case above calls the
+# libs in THIS process, which is exactly the shape that hid it.
+$glRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-golive-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path (Join-Path $glRoot 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        "function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    $glDriver = Join-Path $PluginRoot 'scripts\task\build-golive-block.ps1'
+    $glOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -RootOverride $glRoot 2>&1
+    $glCode = $LASTEXITCODE
+    $glText = (@($glOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-Equal 0 $glCode 'the driver run with -File and -Path exits 0 in a store that declares its markets'
+    Assert-True ($glText -notmatch 'has not declared its markets') 'and does not claim the store declared none'
+    Assert-True ($glText.Contains('- NL -- https://seam.example/pages/p')) 'the live URL comes from the repo-config the driver read itself'
+} finally {
+    if (Test-Path -LiteralPath $glRoot) { Remove-Item -LiteralPath $glRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
 if ($script:fail -gt 0) {
