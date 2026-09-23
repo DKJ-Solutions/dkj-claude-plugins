@@ -41,21 +41,48 @@
 
 Refuse -Link on claude.ai/artifact URLs the Asana requester cannot open; name the preview URL instead.
 
+#### Triage (inbound #2341)
+
+- Symptom stands: `-Link`'s help named "the handover page" and the example used a `claude.ai/code/artifact` URL.
+- Reason holds: `PREVIEW-portable.md` states the handover page is private until its link is shared.
+- Repair corrected: the report names `Get-MarketUrls` as a source of preview URLs; it builds LIVE URLs.
+  The preview URL is `Get-MarketPreviewUrls`, which is what the refusal and the docs now name.
+- Refuse rather than warn, on a separate `-AllowPrivateLink` valve: `-Force` already answers the
+  duplicate-block check, and conflating the two would let one bypass wave the other through.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-PrivateResultLink` in `golive-block-rules.ps1` -- pure, host-anchored, both Artifact shapes
+- [x] `build-golive-block.ps1` refuses such a `-Link` before building the block, unless `-AllowPrivateLink`; help text and example repointed
+- [x] `golive-block` SKILL.md: `-Link` row requires a link openable without an account, `-AllowPrivateLink` row, a "does not do" bullet
+- [x] Asserts in `dkj-policy-bwj.tests.ps1`
+- [~] Is the change visible in the frontend / storefront? No -- a script refusal and its docs; nothing renders.
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: 370 asserts green
+- [x] Driver run with `-Link https://claude.ai/code/artifact/abc` prints the refusal and exits 1
+
 ### DEPLOY: fix/2341-golive-private-link
 
-**Score:**
+`build-golive-block.ps1` accepted the preview handover page -- a private `claude.ai` Artifact -- as
+`-Link`, and its own help suggested it, so the paste-ready block reached the Asana requester with a link
+they could not open (measured in `BWJ-Development/smartwatchbanden#750`). It now refuses a
+`claude.ai/artifact/` or `claude.ai/code/artifact/` link before the block is built, names a storefront
+preview URL (`Get-MarketPreviewUrls`) as the alternative, and takes `-AllowPrivateLink` for a page that
+has actually been shared. The skill page's `-Link` row now says the link must open without an account
+(#2341).
+
+**Score:** 2 -- one wrong link per affected block, caught by the owner and edited by hand; the refusal
+removes the hand edit.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the reader of the block is a store's colleague, one hop past the party running the upgrade; for
+that party it is a refusal on a mistaken argument, nothing to migrate.
+
+**Score:** N/A
 
 #### Pull Request
 
 golive-block refuses a private claude.ai artifact link
-

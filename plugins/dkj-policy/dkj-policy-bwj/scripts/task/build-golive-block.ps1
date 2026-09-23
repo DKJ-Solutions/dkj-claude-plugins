@@ -53,8 +53,16 @@
     checkout.
 
 .PARAMETER Link
-    Where the result can be seen -- the handover page, a live page, whatever the ticket was about.
-    Omitted, the block simply does not carry that sentence; it is never replaced by a placeholder.
+    Where the result can be seen, openable by the requester WITHOUT an account -- a storefront preview
+    URL (Get-MarketPreviewUrls), a live page, whatever the ticket was about. NOT the preview handover
+    page: a claude.ai Artifact is private to its owner, so it is refused (issue #2341) unless
+    -AllowPrivateLink says it has been shared. Omitted, the block simply does not carry that sentence;
+    it is never replaced by a placeholder.
+
+.PARAMETER AllowPrivateLink
+    Accept a claude.ai Artifact URL as -Link anyway -- for a page that has actually been shared with the
+    requester. Deliberately not -Force: that valve answers the duplicate-block check, and passing it to
+    post a second block must not also wave a private link through.
 
 .PARAMETER Path
     The storefront pages the change touched, as paths ('/products/foo'). Each becomes one live URL
@@ -83,7 +91,7 @@
     The repo root, when this is not run from inside the checkout.
 
 .EXAMPLE
-    ./build-golive-block.ps1 -Issue 412 -Link https://claude.ai/code/artifact/abc
+    ./build-golive-block.ps1 -Issue 412 -Link "https://store.example/products/foo?preview_theme_id=123&_ab=0&_fd=0&_sc=1"
     Prints the block for issue 412, with the date and version derived from this repo.
 
 .EXAMPLE
@@ -101,6 +109,7 @@ param(
     [datetime]$From = (Get-Date),
     [switch]$Post,
     [switch]$Force,
+    [switch]$AllowPrivateLink,
     [string]$RootOverride
 )
 
@@ -155,6 +164,17 @@ if (-not $StoreRepo) {
 # ASSIGNED AFTER THE DOT-SOURCE ABOVE, AND THAT ORDER MATTERS. The template's own param() binds
 # $IssueRef in this scope, PowerShell variable names are case-insensitive, and its default is ''.
 $targetRef = "$StoreRepo#$issueNumber"
+
+# --- The link its reader can open -------------------------------------------------------------------
+# A REFUSAL AND NOT A WARNING, and it applies to printing as much as posting: the printout IS what gets
+# pasted into the Asana task, so a warning under it would travel nowhere the requester looks (#2341).
+if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
+    Write-Host "[ERROR] -Link is a claude.ai Artifact ($LinkArg) -- private to its owner, so the requester" -ForegroundColor Red
+    Write-Host "        reading the Asana task cannot open it. The handover page is the reviewer's surface." -ForegroundColor Red
+    Write-Host "        Pass a storefront preview URL instead (Get-MarketPreviewUrls in market-urls.ps1), or" -ForegroundColor Red
+    Write-Host "        -AllowPrivateLink once the page has actually been shared with them. Nothing written." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host ""
 Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan

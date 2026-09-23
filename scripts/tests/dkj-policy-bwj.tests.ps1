@@ -949,6 +949,20 @@ Assert-True ($goLiveBare.Contains('release of Monday 21 September 2026.')) 'with
 Assert-True ($goLiveBare -notmatch 'as version') 'and no version clause at all'
 Assert-True ($goLiveBare -notmatch 'Once it is live') 'with no markets, there is no live-URL list'
 
+# A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
+# the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
+Assert-True (Test-PrivateResultLink -Link 'https://claude.ai/artifact/abc123') 'a claude.ai/artifact link is private'
+Assert-True (Test-PrivateResultLink -Link 'https://claude.ai/code/artifact/0f1e-uuid') 'a claude.ai/code/artifact link is private'
+Assert-True (Test-PrivateResultLink -Link 'HTTPS://Claude.AI/artifact/abc') 'case does not change the answer'
+Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/products/foo?preview_theme_id=1&_ab=0&_fd=0&_sc=1')) 'a storefront preview URL is openable'
+Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/pages/claude.ai/artifact/x')) 'a path that merely contains the shape is not refused'
+Assert-True (-not (Test-PrivateResultLink -Link '')) 'no link is not a private link'
+
+# AND THE DRIVER REFUSES IT BEFORE ANYTHING IS PRINTED OR POSTED -- a static read, because the driver needs gh.
+$goLiveDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\build-golive-block.ps1'))
+Assert-True ($goLiveDriver -match 'Test-PrivateResultLink -Link \$LinkArg\) -and -not \$AllowPrivateLink') 'the driver refuses a private link unless -AllowPrivateLink says it was shared'
+Assert-True ($goLiveDriver.IndexOf('Test-PrivateResultLink -Link') -lt $goLiveDriver.IndexOf('Format-GoLiveBlock -Marker')) 'and it refuses before the block is built'
+
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
 if ($script:fail -gt 0) {
