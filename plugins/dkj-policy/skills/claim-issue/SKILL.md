@@ -76,7 +76,10 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
 - **`-Tag`** -- claim by TAG instead: `machine/account`, written as a marker comment, with the assignee
   beside it as the tracker's visible signal rather than as the claim. It reads the marker back and
   settles a two-machine race on the tracker's own timestamps -- **earliest marker wins**, and the
-  losing session releases its own and stops.
+  losing session releases its own and stops. **A marker counts only where the comment's author is the
+  account its tag names** ([#2399](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2399)):
+  the tag is free text anybody who can comment may write, so a marker planted under somebody else's tag
+  holds nothing, wins no race, and is never released as yours.
 - **`-Verify`** (with `-Tag`) -- read only. Exit 0 when THIS tag still holds the issue, exit 1
   otherwise. It is what a session runs before resuming a branch it parked hours ago.
 - **`-Release`** (with `-Tag`) -- drop this tag's claim: its own marker comments and its assignee, and

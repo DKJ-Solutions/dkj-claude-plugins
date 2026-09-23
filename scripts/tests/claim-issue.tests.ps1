@@ -1358,7 +1358,23 @@ Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"body":"<!-- claim-tag: --
 
 $noFields = '{"comments":[{"body":"<!-- claim-tag: A/b -->"}]}'
 $r = @(Get-ClaimRecords -Json $noFields)
-Assert-True ($r.Count -eq 1 -and $r[0].Author -eq '' -and $r[0].CreatedAt -eq '') 'a record missing author and createdAt is read, not thrown on -- 5.1 throws on an absent property under StrictMode'
+Assert-True ($r.Count -eq 0) 'a record missing author and createdAt is not thrown on -- 5.1 throws on an absent property under StrictMode -- and, with no author to tie it to its tag, is not a claim (#2399)'
+$noCreated = @(Get-ClaimRecords -Json '{"comments":[{"author":{"login":"b"},"body":"<!-- claim-tag: A/b -->"}]}')
+Assert-True ($noCreated.Count -eq 1 -and $noCreated[0].CreatedAt -eq '' -and $noCreated[0].Id -eq '') 'a record missing createdAt and id is still read when its author is the tag''s account'
+
+# #2399: the tag is free text, so the author the tracker recorded is what makes it a claim. The first
+# fixture is the issue's own measured case, run against the unmodified lib.
+$planted = '{"comments":[{"id":"IC_7","createdAt":"2026-09-23T09:00:00Z","author":{"login":"random-tracker-user"},"body":"<!-- claim-tag: DAVE-KOK-BWJ/DaveKJohn -->"}]}'
+Assert-True ((@(Get-ClaimRecords -Json $planted)).Count -eq 0) 'a marker planted by another account is not a claim -- the measured #2399 case'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"author":{"login":"davekjohn"},"body":"<!-- claim-tag: HOST/DaveKJohn -->"}]}')).Count -eq 1) 'the author comparison is case-insensitive, as every login comparison here is'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"author":{"login":"nohalf"},"body":"<!-- claim-tag: nohalf -->"}]}')).Count -eq 0) 'a tag with no account half ties to nobody and is not a claim'
+$mixed = '{"comments":[{"id":"IC_1","createdAt":"2026-09-23T08:00:00Z","author":{"login":"mallory"},"body":"<!-- claim-tag: HOST-A/dave -->"},{"id":"IC_2","createdAt":"2026-09-23T08:05:00Z","author":{"login":"dave"},"body":"<!-- claim-tag: HOST-A/dave -->"}]}'
+$mixedRecords = @(Get-ClaimRecords -Json $mixed)
+Assert-True ($mixedRecords.Count -eq 1 -and $mixedRecords[0].Id -eq 'IC_2') 'beside a genuine marker, only the genuine one is returned -- so -Release deletes nothing it did not write'
+$race = Resolve-ClaimRace -Tag 'HOST-A/dave' -Records @(Get-ClaimRecords -Json ('{"comments":[{"id":"IC_0","createdAt":"2026-09-23T07:00:00Z","author":{"login":"mallory"},"body":"<!-- claim-tag: HOST-B/erin -->"},{"id":"IC_2","createdAt":"2026-09-23T08:05:00Z","author":{"login":"dave"},"body":"<!-- claim-tag: HOST-A/dave -->"}]}'))
+Assert-True ($race.Action -eq 'keep') 'an earlier marker planted under another tag cannot win the race against a real claim'
+$held = Get-TagClaimVerdict -Tag 'HOST-A/dave' -State 'OPEN' -Records @(Get-ClaimRecords -Json $planted)
+Assert-True ($held.Action -eq 'claim' -and $held.Code -eq 'free') 'and a planted marker does not park a free issue as held'
 
 Write-Host ''
 Write-Host 'Get-TagClaimVerdict -- may this tag claim it' -ForegroundColor Cyan
