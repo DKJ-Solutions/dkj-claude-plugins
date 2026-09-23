@@ -1613,39 +1613,53 @@ function Get-ClaimTag {
     }
 }
 
-function Split-ClaimMarkerNames {
+function Split-CommaListArgument {
     <#
         .SYNOPSIS
-            Turn whatever a caller passed for -Marker into a clean list of marker names.
+            Turn whatever a caller passed for a list parameter into a clean list of values.
 
         .DESCRIPTION
             IT SPLITS ON ',' AND THAT SPLIT IS THE POINT, not the [string[]] parameter it sits behind
             (#2358). The documented route runs through powershell.exe -File, and -File binds its
             arguments as LITERAL strings -- so -Marker claim-tag,xoxo-lane arrives as ONE element
-            'claim-tag,xoxo-lane' even though the parameter is declared an array. Unsplit, that one
-            string was written as a marker name and read as one, so a machine passing a predecessor
-            list was blind to every ordinary 'claim-tag' marker and its own claims were invisible to
-            every machine that passed none. The same -File lesson Get-NormalizedPaths (market-urls.ps1)
-            already carries: declaring the array is necessary and NOT sufficient.
+            'claim-tag,xoxo-lane' even though the parameter is declared an array. The same -File lesson
+            Get-NormalizedPaths (market-urls.ps1) already carries: declaring the array is necessary and
+            NOT sufficient.
 
-            A marker name has no legitimate comma -- it sits between '<!--' and ':' in an HTML comment
-            -- so the split cannot cut a real name in two. Blanks are dropped and a name given twice is
-            kept once, first spelling first, because the FIRST name is the one a claim writes.
+            Every list this script takes -- marker names, labels, issue numbers -- has no legitimate
+            comma inside one value, so the split cannot cut a real value in two. Blanks are dropped and
+            a value given twice is kept once, first spelling first, because for -Marker the FIRST name
+            is the one a claim writes.
 
         .OUTPUTS
-            The names, in order. Empty when nothing usable was given.
+            The values, in order. Empty when nothing usable was given.
     #>
-    param([AllowNull()][string[]]$Marker)
+    param([AllowNull()][string[]]$Value)
 
     $seen = @{}
-    foreach ($raw in @($Marker)) {
+    foreach ($raw in @($Value)) {
         foreach ($part in ("$raw" -split ',')) {
-            $name = $part.Trim()
-            if (-not $name -or $seen.ContainsKey($name)) { continue }
-            $seen[$name] = $true
-            $name
+            $item = $part.Trim()
+            if (-not $item -or $seen.ContainsKey($item)) { continue }
+            $seen[$item] = $true
+            $item
         }
     }
+}
+
+function Split-ClaimMarkerNames {
+    <#
+        .SYNOPSIS
+            The marker names in whatever a caller passed for -Marker (Split-CommaListArgument).
+
+        .DESCRIPTION
+            Unsplit, a comma list under -File was written as ONE marker name and read as one, so a
+            machine passing a predecessor list was blind to every ordinary 'claim-tag' marker and its
+            own claims were invisible to every machine that passed none (#2358). A marker name sits
+            between '<!--' and ':' in an HTML comment and so never holds a comma of its own.
+    #>
+    param([AllowNull()][string[]]$Marker)
+    Split-CommaListArgument -Value $Marker
 }
 
 function Get-ClaimMarkerPattern {

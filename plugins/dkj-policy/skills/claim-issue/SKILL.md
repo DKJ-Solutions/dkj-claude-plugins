@@ -91,7 +91,8 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   different lists could not see each other's claims
   ([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)). A compound marker
   already written that way (`<!-- claim-tag,xoxo-lane: ... -->`) is still read, whenever any of its
-  parts is a listed name.
+  parts is a listed name. `-SkipLabel` and `-SkipIssue` are split the same way, and `-SkipIssue` is
+  parsed from text because an `[int[]]` under `-File` reads `12,34` as the single number `1234`.
 
 ## Which account -- and why never `@me`
 

@@ -49,11 +49,17 @@ comma list as one name to both `Format-ClaimComment` and `Get-ClaimMarkerPattern
 - [x] The pattern also reads a compound marker already written (`claim-tag,xoxo-lane`) when any part is
       a listed name -- the transition, so no consumer has to list the compound spelling
 - [x] Plugin mirrors copied; `-Marker` documented in the script help and the skill page
+- [x] Victor's review: `-SkipLabel` and `-SkipIssue` had the same `-File` defect (`12,34` bound as
+      `1234`) -- both split via the shared `Split-CommaListArgument`, `-SkipIssue` parsed from
+      `[string[]]` and a non-number refused
 
 ### TEST
 
 - [x] `claim-issue.tests.ps1`: split, first-name write, read of ordinary/predecessor/compound markers,
-      no suffix match, and a real `powershell -File` binding probe -- 436 passed, 0 failed
+      no suffix match, real `powershell -File` binding probes for `-Marker` and `-SkipIssue` --
+      442 passed, 0 failed
+- [x] Live `-Candidates -DryRun -SkipIssue 2358,2000 -Marker claim-tag,xoxo-lane` under `-File`:
+      #2358 held out by number, as intended
 
 ### DEPLOY: fix/2358-claim-marker-comma-split
 
@@ -63,7 +69,9 @@ was written as a compound marker name and read as one, so a machine passing a pr
 see ordinary `claim-tag` claims and its own claims were invisible to every other machine. Only the first
 name is written now, every name is read, and a compound marker already written before this repair is
 still recognised whenever one of its parts is a listed name
-([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)).
+([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)). `-SkipLabel` and
+`-SkipIssue` had the same defect and are split the same way; `-SkipIssue` was the sharper case, since an
+`[int[]]` under `-File` read `12,34` as the single issue `1234`.
 
 **Score:** 3
 

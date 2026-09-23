@@ -1315,6 +1315,23 @@ try {
     Assert-True ("$bound" -eq '1|2') 'under -File the list binds as ONE element, and the split turns it into two names'
 } finally { Remove-Item -LiteralPath $bindProbe -ErrorAction SilentlyContinue }
 
+# -SkipLabel and -SkipIssue sit behind the same binding. The issue list is the sharper case: an
+# [int[]] under -File reads '12,34' as the ONE number 1234, so it is declared [string[]] and parsed.
+$intProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("claim-skipissue-bind-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
+Set-Content -LiteralPath $intProbe -Encoding ASCII -Value @('param([int[]]$SkipIssue)', '"{0}|{1}" -f @($SkipIssue).Count, (@($SkipIssue) -join ";")')
+try {
+    $intBound = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $intProbe -SkipIssue 12,34 | Select-Object -Last 1)
+    Assert-True ("$intBound" -eq '1|1234') 'the hazard, measured: an [int[]] under -File binds 12,34 as the one number 1234'
+} finally { Remove-Item -LiteralPath $intProbe -ErrorAction SilentlyContinue }
+
+$claimScriptSource = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\task\claim-issue.ps1') -Raw
+Assert-True ($claimScriptSource -match '\[string\[\]\]\$SkipIssue') '-SkipIssue is declared [string[]], so no comma can be read as a thousands separator'
+Assert-True ($claimScriptSource -notmatch '\[int\[\]\]\$SkipIssue') 'and not [int[]]'
+Assert-True ($claimScriptSource -match '\$SkipLabel = @\(Split-CommaListArgument') '-SkipLabel is split the same way -Marker is'
+Assert-True ($claimScriptSource -match '-SkipIssue \$skipIssueNumbers') 'and the sweep is handed the PARSED numbers, not the raw strings'
+$labels = @(Split-CommaListArgument -Value @('needs-info,blocked'))
+Assert-True ($labels.Count -eq 2 -and $labels[1] -eq 'blocked') 'a label list in one element is split into labels'
+
 Write-Host ''
 Write-Host 'Get-ClaimRecords -- the markers on an issue' -ForegroundColor Cyan
 

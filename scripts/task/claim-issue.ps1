@@ -148,7 +148,9 @@ param(
     [Parameter(ParameterSetName = 'Issue')][switch]$Release,
     [Parameter(Mandatory = $true, ParameterSetName = 'Candidates')][switch]$Candidates,
     [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipLabel = @(),
-    [Parameter(ParameterSetName = 'Candidates')][int[]]$SkipIssue = @(),
+    # [string[]], not [int[]]: under -File an [int[]] reads '12,34' as the one number 1234 (a
+    # thousands separator), excluding an unrelated issue and neither of the two named (#2358).
+    [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipIssue = @(),
     [Parameter(ParameterSetName = 'Candidates')][int]$Limit = 100,
     [string[]]$Marker = @('claim-tag'),
     [switch]$DryRun,
@@ -175,6 +177,19 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'claim-is
 # write or self-invocation sees it (#2358). An empty result falls back to the documented default.
 $Marker = @(Split-ClaimMarkerNames -Marker $Marker)
 if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
+# -SkipLabel and -SkipIssue are lists behind the same -File binding, so they are split the same way;
+# an issue number that is not one is refused rather than dropped, since a skip that silently fails is
+# a held issue handed out.
+$SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
+$skipIssueNumbers = @()
+foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {
+    $n = $s.TrimStart('#')
+    if ($n -notmatch '^[0-9]+$') {
+        Write-Host "[ERROR] -SkipIssue '$(Format-ForConsole -Text $s)' is not an issue number." -ForegroundColor Red
+        exit 1
+    }
+    $skipIssueNumbers += [int]$n
+}
 # THE FETCH-ATTEMPT RECORD (issue #1860) -- the parked-fix scan's fetch runs through it, so an
 # unreachable remote is not waited out again by new-branch.ps1 seconds later.
 . (Join-Path $PSScriptRoot '..\lib\fetch-attempt-lib.ps1')
@@ -343,7 +358,7 @@ if ($Candidates) {
     # this (#2243): the message names a type mismatch in a call whose arguments are all correct, and
     # the call is not where the fault is.
     $sweepList = @(Get-SweepCandidates -Json (@($list.Output) -join "`n") -Tag $claimTag.Tag `
-                                       -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $SkipIssue)
+                                       -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $skipIssueNumbers)
     if ($sweepList.Count -eq 0) {
         Write-Host '[OK] no open issues on this tracker.' -ForegroundColor Green
         exit 0
