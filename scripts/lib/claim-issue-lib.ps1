@@ -1826,7 +1826,9 @@ function Get-TagClaimVerdict {
               3. SOMEBODY ELSE HOLDS IT. One or more markers, none of them this tag. Refused -- and
                  unlike the assignee path this refusal has no override, because in a sweep it is not a
                  judgement call: a machine is mid-flight on that issue and its branch is somewhere this
-                 session cannot see.
+                 session cannot see. The one way past it is not a flag on this verdict but a separate,
+                 visible act whose preconditions check both halves of that sentence instead of assuming
+                 them -- Get-TakeOverVerdict (#2387).
 
               4. IT IS ALREADY THIS TAG'S. A resume -- a crashed session, a second pass, the approval
                  coming back hours later. Nothing to write, and it is the verdict A SWEEP'S RESUME STEP
@@ -1976,6 +1978,165 @@ function Resolve-ClaimRace {
         return [pscustomobject]@{ Action = 'keep'; Winner = $mine.Tag; Mine = $mine; Rivals = $rivals; Reason = $reason }
     }
     [pscustomobject]@{ Action = 'release'; Winner = $winner.Tag; Mine = $mine; Rivals = $rivals; Reason = $reason }
+}
+
+# --- HANDING A HELD ISSUE OVER (issue #2387) -------------------------------------------------------
+#
+# 'held' HAS NO FLAG PAST IT, AND ON ITS OWN TERMS THAT IS RIGHT: a machine is mid-flight and its branch
+# is somewhere this session cannot see (#2243). Both halves of that sentence are checkable, though, and
+# measured September 23, 2026 on machine DAVE neither held: 9 of 11 open issues read 'held', 7 of them by
+# the SAME gh account on two other machines, and every one of the 9 had its branch on origin -- which the
+# cycle-autopark Stop hook guarantees for a session that ended. The only way through was deleting the
+# other machine's marker by hand through `gh api`, the one act the sweep page forbids.
+#
+# SO THE HANDOVER IS A DELIBERATE, VISIBLE ACT WITH TWO PRECONDITIONS, and each refusal below is one of
+# the two halves of #2243's reasoning read instead of assumed:
+#
+#   THE WORK IS NOT TRAPPED ON THE OTHER MACHINE. Exactly one branch for the issue must be on origin.
+#   None means the work may exist only over there; several means this run cannot say which one to
+#   resume, and guessing is how a session resumes the wrong one.
+#
+#   THE HOLDER IS THIS SAME ACCOUNT. Taking over your own issue from another of your machines is
+#   bookkeeping; taking over a colleague's is a conversation, and a switch cannot have one -- the same
+#   line the default mode's 'taken' refusal draws.
+#
+# WHAT IT DOES NOT MEASURE is whether the other session is still alive. Nothing on the tracker can say
+# so; what the handover does instead is make the other side FIND OUT: its marker is gone, so its own
+# `-Verify` answers [NO] and a sweep's resume step stops there.
+
+function Get-IssueBranchNames {
+    <#
+        .SYNOPSIS
+            The branches on a remote that belong to one issue, out of `git ls-remote --heads` text.
+
+        .DESCRIPTION
+            THE CONVENTION IS '<prefix>/<n>-<short-name>', which is what sweep-issues' step 3 names and
+            what every branch on this tracker's origin carries. Only the segment right after the prefix
+            is read: '<n>' followed by a dash or the end. A number that merely APPEARS later in a name --
+            'fix/2338-pin-12' against issue 12 -- is a different issue's branch and must not match.
+
+            REFS ONLY UNDER refs/heads/, so a tag or a pull-request ref in a wider listing is not read as
+            a branch.
+
+        .PARAMETER Text
+            The output of `git ls-remote --heads <remote>`: '<sha><TAB>refs/heads/<name>' per line.
+
+        .PARAMETER Issue
+            The issue number.
+
+        .OUTPUTS
+            The branch names, without 'refs/heads/', in the order given. Empty when none match.
+    #>
+    param(
+        [AllowNull()][string]$Text,
+        [Parameter(Mandatory = $true)][int]$Issue
+    )
+
+    if (-not $Text) { return @() }
+    $pattern = '^[^/]+/' + $Issue + '(-|$)'
+    foreach ($line in ($Text -split "`r?`n")) {
+        $m = [regex]::Match($line, '\srefs/heads/(?<name>\S+)\s*$')
+        if (-not $m.Success) { continue }
+        $name = $m.Groups['name'].Value
+        if ($name -match $pattern) { $name }
+    }
+}
+
+function Get-TakeOverVerdict {
+    <#
+        .SYNOPSIS
+            Whether this tag may take a held issue over from another machine -- read before anything is
+            written.
+
+        .DESCRIPTION
+            Get-TagClaimVerdict FIRST, UNCHANGED. A take-over is only a question for a 'held' issue:
+            every other verdict passes through under its own code, so the caller's existing handling of
+            a closed, free or already-yours issue still applies and this function adds no second copy of
+            it.
+
+            THEN THE TWO PRECONDITIONS, in the order a reader would check them by hand -- whose claim it
+            is before where the work is. A colleague's issue is refused whatever the branches say,
+            because no branch state turns their work into this session's.
+
+            THE ACCOUNT IS THE HALF AFTER THE FIRST '/'. Get-ClaimTag refuses a machine name carrying
+            the separator, so the first one is always the boundary. Compared case-insensitively, like
+            every other tag comparison in this lib.
+
+        .PARAMETER Tag
+            This session's tag (Get-ClaimTag's Tag).
+
+        .PARAMETER State
+            The issue's state -- 'OPEN' or 'CLOSED'.
+
+        .PARAMETER Records
+            The markers on the issue (Get-ClaimRecords).
+
+        .PARAMETER Branches
+            The issue's branches on origin (Get-IssueBranchNames).
+
+        .OUTPUTS
+            Code     -- Get-TagClaimVerdict's code for anything not 'held'; otherwise
+                        'foreign-account' | 'no-branch' | 'ambiguous-branch' | 'take'.
+            Holders  -- the tags that are not this one. Always an array.
+            Branch   -- the one branch to resume, on 'take'. '' otherwise.
+            Branches -- every branch that matched. Always an array.
+            Rivals   -- the marker records the take-over removes, on 'take'. Always an array.
+    #>
+    param(
+        [string]$Tag = '',
+        [string]$State = '',
+        [AllowNull()][object[]]$Records = @(),
+        [AllowNull()][string[]]$Branches = @()
+    )
+
+    $base = Get-TagClaimVerdict -Tag $Tag -State $State -Records $Records
+    $found = @(@($Branches) | Where-Object { $_ })
+    $result = [pscustomobject]@{
+        Code     = $base.Code
+        Holders  = @($base.Holders)
+        Branch   = ''
+        Branches = $found
+        Rivals   = @()
+    }
+    if ($base.Code -ne 'held') { return $result }
+
+    $myAccount = ($Tag -split '/', 2)[1]
+    $foreign = @(@($base.Holders) | Where-Object {
+        $parts = ([string]$_) -split '/', 2
+        $parts.Count -lt 2 -or ($parts[1] -ine $myAccount)
+    })
+    if ($foreign.Count -gt 0) { $result.Code = 'foreign-account'; return $result }
+    if ($found.Count -eq 0) { $result.Code = 'no-branch'; return $result }
+    if ($found.Count -gt 1) { $result.Code = 'ambiguous-branch'; return $result }
+
+    $result.Code = 'take'
+    $result.Branch = $found[0]
+    $result.Rivals = @(@($Records) | Where-Object {
+        $_ -and $_.PSObject.Properties['Tag'] -and (([string]$_.Tag).Trim() -ine $Tag)
+    })
+    return $result
+}
+
+function Format-HandoverComment {
+    <#
+        .SYNOPSIS
+            The visible comment a take-over leaves: which tag held the issue, which tag holds it now, and
+            the branch the work continues on.
+
+        .DESCRIPTION
+            IT CARRIES NO MARKER, on purpose. The claim is the new marker the ordinary claim path writes;
+            this is the record a person reads, and one that also parsed as a claim would give the issue
+            two markers for one tag.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string[]]$OldTags,
+        [Parameter(Mandatory = $true)][string]$NewTag,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][int]$Issue
+    )
+    $old = (@($OldTags) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join ', '
+    "Handed over from $old to $NewTag -- the work continues on ``$Branch``, which is on origin. " +
+        "A session under $old that runs ``claim-issue.ps1 $Issue -Tag -Verify`` now reads [NO] and stops."
 }
 
 function Get-SweepCandidates {

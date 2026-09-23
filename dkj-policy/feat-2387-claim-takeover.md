@@ -39,21 +39,48 @@
 
 ### PLAN
 
+#2387: a `held` tag claim could only be dropped by the tag that wrote it, so an issue parked by one of
+your own machines could not be finished on another -- even with its branch on origin. Measured on machine
+`DAVE`, 2026-09-23: 9 of 11 open issues read `held`, 7 of them by the same gh account on two other
+machines. The only route was deleting the marker by hand through `gh api`, which the sweep page forbids.
+
+Shape, per the issue's proposal: a deliberate `-Tag -TakeOver` whose two preconditions check what the
+`held` refusal otherwise assumes -- the holder is this same account, and exactly one branch is on origin.
+A colleague's claim is refused outright rather than put behind an extra word.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `claim-issue-lib.ps1`: `Get-IssueBranchNames`, `Get-TakeOverVerdict`, `Format-HandoverComment`
+- [x] `claim-issue.ps1`: `-TakeOver` (with `-Tag`); removes the holder's marker, then claims through the
+  ordinary path (marker, assignee, race read-back), comments the handover and prints the checkout. One
+  marker-deletion helper now serves `-Release` and `-TakeOver`. The `held` refusal names the way through.
+- [x] Plugin mirrors updated; `claim-issue` and `sweep-issues` skill pages carry the exception
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: branch matching, all seven take-over verdicts, the handover comment (and that
+  it carries no marker), and the script's ordering -- 458 passed, 0 failed with them
+- [x] Live, on #2387 itself: released this tag, planted a `TESTBOX-2387/davekokbwj` marker, `-TakeOver
+  -DryRun` named the branch, `-TakeOver` removed the marker, claimed, commented, and `-Verify` read `[OK]`
+
 ### DEPLOY: feat/2387-claim-takeover
 
-**Score:**
+`claim-issue.ps1 <n> -Tag -TakeOver` hands a `held` issue over to this machine, deliberately and visibly,
+when the holder is this same gh account on another machine and exactly one branch for the issue is on
+origin. It removes the old marker, claims under this tag through the ordinary path, leaves a comment naming
+the old tag, the new tag and the branch, and prints the checkout, so the old machine's `-Verify` reads
+`[NO]`. A colleague's claim, an issue with no branch on origin, and one with several are each refused.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A sweep run across several of your own machines no longer strands an issue on a machine you cannot reach:
+the work parked on origin can be picked up from any of them in one command, without deleting a marker by
+hand.
+
+**Score:** 3
 
 #### Pull Request
 
 claim-issue -Tag -TakeOver: hand a held issue over to this machine when its branch is on origin
-
