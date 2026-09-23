@@ -97,7 +97,10 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   `scripts/repo-config.ps1`: that file is shared by everybody who clones the repo, so a list there would
   make your accounts "self" for your colleagues too.
 - **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
-  `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
+  `mine`, `held`, `branch` or `skipped` with the reason. `branch` is an issue no marker holds but a
+  `<prefix>/<n>-<name>` branch on origin names, with its author and age -- read from one fetch and one
+  `git for-each-ref` for the whole backlog, because a session working without `-Tag` leaves no marker
+  ([#2392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2392)). `-SkipLabel` names the labels that park an issue with
   somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
 - **`-Marker`** -- the marker name a claim is written under (`claim-tag`), plus any predecessors a repo
   still has claim comments under, which are **read and never written**. A comma list

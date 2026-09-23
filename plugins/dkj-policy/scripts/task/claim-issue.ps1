@@ -387,8 +387,29 @@ if ($Candidates) {
     # System.Object[] to SwitchParameter" AT THE CALL that produced the value. Measured while writing
     # this (#2243): the message names a type mismatch in a call whose arguments are all correct, and
     # the call is not where the fault is.
+    # THE REMOTE'S BRANCHES, READ ONCE FOR THE WHOLE BACKLOG (issue #2392). A marker is only written by
+    # a session that ran -Tag, so the tracker alone read 11 of 11 open issues as free while 9 had a live
+    # branch on origin -- and the claim's parked-fix scan then said so one issue at a time, after the
+    # write. The fetch goes through the seam the claim uses (#1860), best-effort for the same reason: a
+    # failed fetch leaves the refs already here, which is a smaller answer rather than a wrong one, and
+    # the note below says so. An unreadable listing does NOT refuse the run -- the tracker half is still
+    # true -- but it says out loud that 'free' then means only "no marker".
+    $branchNote = ''
+    $remoteBranches = @()
+    $sweepFetch = Invoke-RecordedRemoteFetch -RepoRoot $repoRoot -RecentFailureSeconds $RemoteFetchRecentFailureSeconds `
+                                             -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if ("$($sweepFetch.Note)") { $branchNote = "the fetch did not refresh origin's branches ($($sweepFetch.Note)) -- they may be behind." }
+    $refList = Invoke-NativeCapture -FilePath 'git' -Utf8 -DiscardStderr -Arguments @('-C', $repoRoot, 'for-each-ref',
+        '--format=%(refname:short)%1f%(authorname)%1f%(committerdate:unix)', 'refs/remotes/origin')
+    if (-not $refList -or -not (Test-NativeExitMeasured -Capture $refList) -or $refList.ExitCode -ne 0 -or $refList.ShortRead) {
+        $branchNote = "origin's branches could not be listed, so 'free' below means only that no claim marker holds it."
+    } else {
+        $remoteBranches = @(Get-RemoteIssueBranches -Text (@($refList.Output) -join "`n") -Remote 'origin')
+    }
+
     $sweepList = @(Get-SweepCandidates -Json (@($list.Output) -join "`n") -Tag $claimTag.Tag `
-                                       -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $skipIssueNumbers)
+                                       -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $skipIssueNumbers -Branches $remoteBranches)
+    if ($branchNote) { Write-Host "  [branch scan] $(Format-ForConsole -Text $branchNote)" -ForegroundColor Yellow }
     if ($sweepList.Count -eq 0) {
         Write-Host '[OK] no open issues on this tracker.' -ForegroundColor Green
         exit 0
@@ -400,6 +421,7 @@ if ($Candidates) {
             'free'    { 'Green' }
             'mine'    { 'Cyan' }
             'held'    { 'DarkGray' }
+            'branch'  { 'Yellow' }
             default   { 'DarkGray' }
         }
         Write-Host $line -ForegroundColor $colour
@@ -411,8 +433,15 @@ if ($Candidates) {
 
     $free = @($sweepList | Where-Object { $_.Verdict -eq 'free' })
     $mine = @($sweepList | Where-Object { $_.Verdict -eq 'mine' })
+    $branched = @($sweepList | Where-Object { $_.Verdict -eq 'branch' })
     Write-Host ''
-    Write-Host "[OK] $($free.Count) free, $($mine.Count) already this tag's, $($sweepList.Count) open in total. Nothing was written." -ForegroundColor Green
+    Write-Host "[OK] $($free.Count) free, $($mine.Count) already this tag's, $($branched.Count) with a branch but no marker, $($sweepList.Count) open in total. Nothing was written." -ForegroundColor Green
+    if ($branched.Count -gt 0) {
+        # NOT FREE, AND NOT A REFUSAL EITHER. Somebody pushed work for it without -Tag; whether they are
+        # still on it is what the claim's parked-fix scan answers, with the author and age of every commit.
+        Write-Host "     'branch' is not free: somebody pushed work for it without a claim marker. Read that branch" -ForegroundColor Yellow
+        Write-Host '     (or ask its author) before claiming one of those.' -ForegroundColor Yellow
+    }
     if ($free.Count -gt 0) {
         # THE LOWEST NUMBER, NAMED RATHER THAN TAKEN. Oldest first is the only order six machines agree
         # on without talking to each other, so two sessions starting together collide on ONE issue and

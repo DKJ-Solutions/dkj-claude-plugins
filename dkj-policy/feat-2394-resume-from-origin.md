@@ -78,7 +78,7 @@ for the issue must be on origin, and every commit on it off the trunk must be au
 checkout's names; one foreign author, or an author list that could not be read, refuses. A new user-level
 variable, `DKJ_OWN_ACCOUNTS`, declares the other accounts one person works under, and both `-TakeOver` and
 the parked-fix scan's `NOT YOURS` verdict count them as yours. That block now also names that route.
-Showing such an issue as resumable in `-Candidates` stays with #2392.
+`-Candidates` reading such a branch as `branch` rather than `free` landed separately, in #2392.
 
 **Score:** 3
 

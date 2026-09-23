@@ -63,9 +63,18 @@ disagree you follow it and say so.
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel needs-info
 ```
 
-It prints every open issue as `free`, `mine`, `held` or `skipped` with the reason, and names the lowest
-free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue` holds
-numbers out by hand.
+It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
+the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
+holds numbers out by hand.
+
+**`branch` means somebody pushed work for it without a claim marker** -- a `<prefix>/<n>-<name>` branch
+is on origin, and the reason names its author and how long ago it last moved. It is not free: a marker is
+only written by a session that ran `-Tag`, so the tracker alone once read 11 of 11 open issues as free
+while 9 had a live branch
+([#2392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2392)). Read that branch, or ask its
+author, before you claim one. **And `free` still means only what this step can see** -- no marker and no
+branch named with the number; a branch named for the subject is caught at the claim, by its
+title-overlap scan.
 
 **Choosing and claiming are two steps on purpose.** Between them you still have to ask whether the
 issue is this repo's work at all. A tracker carrying an issue means the work is TRACKED here, not that
