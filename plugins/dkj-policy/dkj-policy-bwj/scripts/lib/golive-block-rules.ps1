@@ -154,6 +154,35 @@ function Test-PrivateResultLink {
     return [bool]($Link -match '^(https?://)?(www\.)?claude\.ai/(code/)?artifact/')
 }
 
+function Get-GoLiveBlockAsk {
+    <#
+        Pure: the closing section of the pasted block -- what it asks of the requester (#2352).
+
+        THE REQUESTER JUDGES THE RESULT, AND THEIR ANSWER CLOSES THE TASK. Not the gates, not the
+        merge, not the session that built it: no gate proves that something looks right, so the block
+        asks for the look instead of assuming it.
+
+        A REJECTION ASKS FOR TWO THINGS -- what is not right yet AND what should change -- because the
+        first alone hands the next round a guess. It then reopens the issue.
+
+        THE RELEASE IS NOT THE REWARD FOR AN APPROVAL. The work is already on the trunk, so it goes
+        along either way; what the look buys is time, and the section says that rather than dangling a
+        key the reader does not hold.
+
+        ONLY WITH A LINK. Without one there is nothing to look at before the release, and an ask to
+        judge a result the block cannot point at is noise -- the same rule as the omitted sentence.
+    #>
+    param([string]$ResultLink)
+    if (-not $ResultLink) { return @() }
+    return @(
+        '',
+        'What we ask of you:',
+        'Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.',
+        '- Is it right? Say so, and tick off this task.',
+        '- Is it not? Tell us two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
+    )
+}
+
 function Format-GoLiveBlock {
     <#
         Pure: the whole GitHub comment -- the marker, the framing sentence that stays on GitHub, and
@@ -213,6 +242,7 @@ function Format-GoLiveBlock {
             $lines += "- $label -- $($row.Url)"
         }
     }
+    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink
     $lines += '---'
 
     return ($lines -join "`n")
