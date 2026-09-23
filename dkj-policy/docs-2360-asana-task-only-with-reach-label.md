@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Inbound #2360. Verified before repairing: `report-issue` step 2 creates the Asana task unconditionally,
+and nothing reads step 1's reach decision; the `asana-mirror` CI template creates no tasks at all, so the
+repair is procedure text only, as the report said. Built without the proposed seam: the rule is BWJ's
+and no repo has asked for the old behaviour, so a seam would be a question nobody is asking.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md` section 2: the rule, its reason, the measurement, and the two cases it leaves
+  alone (a ticket from Asana already has a card; an issue gaining the label later is mirrored then)
+- [x] `report-issue` SKILL.md: the description, step 2's gate, step 4's report for a GitHub-only issue,
+  and the note that adding the label afterwards means running steps 2-3
 
 ### TEST
 
+- [x] Gates via `open-pr -GatesOnly`
+
 ### DEPLOY: docs/2360-asana-task-only-with-reach-label
 
-**Score:**
+`report-issue` created a colleague-facing Asana task for every issue it filed, although step 1 had just
+decided whether a colleague would notice the finding at all. Now only an issue carrying the reach label
+gets a card; a tier-0 issue stays GitHub-only, and the report says so, so the missing card reads as a
+decision. A ticket that came from Asana keeps its card, and an issue that gains the label later is
+mirrored at that moment. The rule is stated in `WORKFLOW-portable.md` section 2.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store's board stops receiving cards for developer-only findings after the next plugin update: four
+such cards were open in `smartwatchbanden` on the day the rule was written, one of them for a
+comment-only fix whose card forced its pull request to ship without resolving the issue. Colleagues see
+fewer cards, and every card that remains is one they can check in a preview.
+
+**Score:** 3
 
 #### Pull Request
 
