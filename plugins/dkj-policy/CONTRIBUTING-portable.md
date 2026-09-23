@@ -959,6 +959,13 @@ this layer has none — every other skill in this plugin exists because a `.ps1`
 Those are the pieces to build **once a second repo runs this**, at which point there is something real to
 generalise from rather than one repo's five hours. Until then, the rules travel and the shape stays local.
 
+**"Local" includes a tracker-specific add-on, and one now carries a shape.** `dkj-policy-bwj` ships BWJ's
+answers to [What your repo answers](#what-your-repo-answers) -- the header, the closed vocabularies, the
+section route -- once for both of its stores, in step 8 of its `WORKFLOW-portable.md` (inbound
+[#2353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2353), September 23, 2026). That is one
+tracker's answer packaged for the repos that share the tracker, not a template here: this plugin still
+fixes no shape, and a repo on another tracker answers the list itself.
+
 ---
 
 ## Significance — two questions, one per reach
