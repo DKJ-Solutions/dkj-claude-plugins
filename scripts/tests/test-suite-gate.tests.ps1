@@ -547,7 +547,7 @@ try {
     Assert-True ($r.Text -match 'GATE-RESULT: False') 'one failing suite fails the whole gate'
     Assert-True ($r.Text -match '== z-broken\.tests\.ps1 == FAILED \(exit 3\)') 'its header carries the failure AND the real exit code'
     Assert-True ($r.Text -match '== a-first\.tests\.ps1 ==\r?\n') 'the passing sibling keeps its plain header'
-    Assert-True ($r.Text -match 'test gate: 1 of 2 suites FAILED in \d+s \(\d+ lanes?\): z-broken\.tests\.ps1') 'and the closing summary carries the lane count and names it (issue #1318 -- the red line too)'
+    Assert-True ($r.Text -match 'test gate: 1 of 2 suites FAILED in \d+s \(\d+ lanes?\)[^:\r\n]*: z-broken\.tests\.ps1') 'and the closing summary carries the lane count and names it (issue #1318 -- the red line too)'
     Assert-True ($r.Text -match 'MARKER-Z') 'the failing suite still prints its own output -- attributable without a second run'
 
     # A RED RUN KEEPS THE FAILING SUITE'S CAPTURE, AND ONLY THAT SUITE'S -- issue #1636. The console block
@@ -637,7 +637,7 @@ try {
     Assert-Says $ser.Flat 'one at a time' 'and says which mode it is in'
     # -MaxParallel 1 is the one deterministic lane count, so it is the one the summary can be asserted on
     # exactly: singular 'lane', not 'lanes' (issue #1318).
-    Assert-True ($ser.Text -match 'test gate: all 6 suites passed in \d+s \(1 lane\)\.') 'the summary says one lane, singular, when the valve is closed'
+    Assert-True ($ser.Text -match 'test gate: all 6 suites passed in \d+s \(1 lane\)[^\r\n]*\.') 'the summary says one lane, singular, when the valve is closed'
     Assert-Equal 0 (Get-OverlapCount -StampDir $stamps) 'serially NOTHING overlaps -- the valve really queues them'
     # The one timing assert that is safe, because it is a floor the sleeps guarantee: six 1.2s suites in
     # sequence cannot come in under 7.2s of sleeping, however fast the machine is.

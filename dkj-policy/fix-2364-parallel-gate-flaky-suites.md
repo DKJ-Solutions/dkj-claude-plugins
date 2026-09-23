@@ -51,7 +51,7 @@ gate run on this machine, and `reproduce-suite-contention.ps1` against the suite
   line. #2005 took the six 1.2s sleepers out from under that ceiling and left `s-quick` under it.
   The bound is now sized for the sibling (20s), with the sleeper (120s) and the wall-clock assert
   (<90s) scaled so the case still tells a fired bound from a waited-out one.
-- [x] `test-suite-gate.tests.ps1`, four lane-count asserts: the verdict line appends optional notes
+- [x] `test-suite-gate.tests.ps1`, six lane-count asserts (two of them found in review): the verdict line appends optional notes
   after `(N lanes)` -- #2317's lane-hold note among them, printed when free memory is below the floor,
   i.e. under the full pool. Anchoring `)` straight to `.` or `:` reds those asserts under load; three
   failed that way in a standalone run beside a 22-lane repro. They now allow the trailing notes.
@@ -78,7 +78,7 @@ gate run on this machine, and `reproduce-suite-contention.ps1` against the suite
 
 Three causes behind "red under the parallel gate, green alone" in two test suites, repaired in the
 suites and nowhere else. A one-line sibling in the deadline case was held to a 3s ceiling it cannot
-meet under load (8.6s measured); four lane-count asserts refused the lane-hold note a memory-starved
+meet under load (8.6s measured); six lane-count asserts refused the lane-hold note a memory-starved
 run appends; and the integrity fixture read a child gate that stopped before its report as a gate
 that found nothing. The fourth symptom the issue names, the nested-gate case, has no surviving
 capture, so it now prints its own evidence when red instead of being given a guessed cause.
