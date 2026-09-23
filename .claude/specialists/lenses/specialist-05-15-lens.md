@@ -1171,10 +1171,11 @@ infrastructure.
   **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** `CLAUDE.md` holds two
   kinds of PR back for Dave's own word — a visible result, and anything irreversible or outward-facing —
   and a runner merging every green PR would merge those too. `merge-when-green` is set once the PR is
-  open and before `ship-pr` starts waiting on CI (#2393; until then only when its CI verdict refused,
-  which left a ship that died mid-watch or refused at step 3b unarmed), so it is a record that a session had *already begun shipping*,
-  which is precisely what those two exceptions withhold. A PR kept back for Dave never had `ship-pr` run
-  on it. The label creates itself on first use rather than needing an adoption step, because
+  open and before `ship-pr` starts waiting on CI (#2393; until then only when its CI verdict
+  refused, which left a ship that died mid-watch or refused at step 3b unarmed), so it is a record
+  that a session had *already begun shipping*, which is precisely what those two exceptions
+  withhold. A PR kept back for Dave never had `ship-pr` run on it. The label creates itself on first use
+  rather than needing an adoption step, because
   `gh pr edit --add-label` fails outright on a label the repo does not have and this script travels to
   every consumer.
 

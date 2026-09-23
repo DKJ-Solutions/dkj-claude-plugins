@@ -326,7 +326,8 @@ function Get-MergeOnGreenPrVerdict {
     # only just gone green is normally being merged by the live session that armed it -- and this sweep
     # was woken by that same CI completion. Get-MergeOnGreenSettleMinutes carries the reasoning.
     $settle = Get-MergeOnGreenSettleMinutes
-    if ($null -eq $GreenAgeMinutes) {
+    # NaN and Infinity compare false against every number, so '-lt' alone would read them as settled.
+    if ($null -eq $GreenAgeMinutes -or [double]::IsNaN([double]$GreenAgeMinutes) -or [double]::IsInfinity([double]$GreenAgeMinutes)) {
         return [pscustomobject]@{ Eligible = $false; Reason = 'when the required checks finished could not be read, so it cannot be told from a live ship' }
     }
     if ([double]$GreenAgeMinutes -lt $settle) {

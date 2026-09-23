@@ -640,10 +640,10 @@ its exit code and its `[create]`/`[MISSING]` marker are independent of Part 3's 
 
 ### A fourth runner: merge-on-green.yml (issue #2329)
 
-**It closes a promise `ship-pr` already makes in your repo.** `ship-pr` labels the pull request `merge-when-green` before it starts
-waiting on CI, so if that run does not finish -- a red or pending check, a session that dies mid-watch, a
-staleness refusal -- a sweep finishes the merge once the required check has been green for ten minutes
-(the window keeps the sweep from racing a live ship). `.github/workflows/merge-on-green.yml` is that sweep. Without it the
+**It closes a promise `ship-pr` already makes in your repo.** `ship-pr` labels the pull request `merge-when-green` before it
+starts waiting on CI. So whenever that run does not merge -- it refuses on a red or pending check or on
+a stale certificate, or the session dies mid-watch -- a sweep finishes the merge once the required
+check has been green for ten minutes (the window keeps the sweep from racing a live ship). `.github/workflows/merge-on-green.yml` is that sweep. Without it the
 label is set and nothing reads it, so the merge stays owed to a session exactly as before.
 
 It wakes on your CI completing (`workflow_run`, naming your own pull_request workflows by their

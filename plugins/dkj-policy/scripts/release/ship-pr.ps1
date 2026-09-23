@@ -1080,7 +1080,7 @@ function Remove-ShipMergeOnGreenArmForJudgement {
     if ($NoMerge) { return }
     $armLabel = Get-MergeOnGreenArmLabel
     if (Set-ShipMergeOnGreenArm -Remove) {
-        Write-Host "ship-pr: disarmed PR #$pr ('$armLabel' removed) -- the $Gate is a judgement on the branch, not a CI state, so no sweep may retry it (issue #2393). The re-run after your fix arms it again." -ForegroundColor DarkCyan
+        Write-Host "ship-pr: disarmed PR #$pr ('$armLabel' removed) -- the $Gate is a judgement, not a CI state, so no sweep may retry it (issue #2393). The re-run after your fix arms it again." -ForegroundColor DarkCyan
     } else {
         Write-Warning "could not remove '$armLabel' from PR #$pr, so the merge-on-green sweep will keep retrying a refusal only a commit can clear -- 'gh pr edit $pr --remove-label $armLabel' disarms it by hand (issue #2393)."
     }
@@ -3063,6 +3063,9 @@ $mergeTransientRecovery = $false
 if ($merge.ExitCode -ne 0) {
     if (-not (Test-GhMutationTransient -OutputLines $merge.Output)) {
         Write-Error "Merge of PR #$pr failed."
+        # A 4xx IS GITHUB REFUSING, not a CI state -- a review or protection rule the picker cannot see
+        # refuses the same way on every retry, so it disarms like the two gates above (#2393).
+        Remove-ShipMergeOnGreenArmForJudgement -Gate 'merge refusal from GitHub'
         exit 1
     }
     Write-Warning "Merge of PR #${pr}: gh reported a 5xx/transport failure on the merge call itself -- this may have landed anyway (inbound #1916). Reading PR #$pr's own state back before deciding."
