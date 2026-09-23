@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**8 / 24 minor entries** <!-- pending-tally -->
+**9 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2376-sweep-ship-resolves · 20260923-210524Z
+
+`sweep-issues` told a session to ship with a bare `ship-pr.ps1`, which `open-pr`'s resolves gate refuses on
+every sweep branch, because the branch and its entry always name the issue. Step 5 now prints
+`ship-pr.ps1 -Resolves <n>`, names `-NoResolves` for a branch that is only one step of a larger issue, and
+step 6 points at the same command.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog no longer loses a round trip on every issue to a refusal the
+skill's own command caused.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: the ship lines name -Resolves, so a sweep branch passes open-pr's resolves gate
+
+Plugins: dkj-policy
+
+[PR #2398](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2398)
+
+---
 
 ### DEPLOY: fix/2392-candidates-read-remote-branches · 20260923-205323Z
 

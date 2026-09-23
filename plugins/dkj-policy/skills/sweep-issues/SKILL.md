@@ -156,8 +156,14 @@ step 6 picks it up whenever the answer comes.
 intermediate question: open, merge, fold.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/ship-pr.ps1" -Resolves <n>
 ```
+
+**`-Resolves <n>` is not optional here.** A sweep branch is named after its issue and its entry cites it,
+so `open-pr`'s resolves gate always finds a mention and refuses a bare `ship-pr` before anything is pushed
+([#2376](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2376)). Where the branch is only one
+step of a larger issue -- the issue stays open for the next step -- pass `-NoResolves` instead, and say in
+a comment on the issue what the step did and what is left.
 
 ### 6. Coming back to an approved branch
 
@@ -173,7 +179,8 @@ indistinguishable from your own. **This is the sharpest place a vague claim cost
 everything that carries a marker and is therefore safe whoever wrote it, while this step deliberately
 resumes on the tag's own work.
 
-Then ship it, and close the issue the way this repo closes issues. **Where the issue mirrors a ticket
+Then ship it -- the same `ship-pr.ps1 -Resolves <n>` as step 5 -- and close the issue the way this repo
+closes issues. **Where the issue mirrors a ticket
 somewhere else, the message to the person who asked comes BEFORE the close** -- the plugin that owns
 that mirror carries the form; without such a plugin the ordinary `Closes #<n>` applies.
 
