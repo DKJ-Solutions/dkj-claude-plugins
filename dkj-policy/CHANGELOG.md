@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**11 / 30 minor entries** <!-- pending-tally -->
+**12 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2393-arm-merge-when-green-on-watch · 20260923-221545Z
+
+`ship-pr` now labels a pull request `merge-when-green` once it is open and before it starts waiting on CI.
+Until now it did that only when its own CI verdict refused. So a ship that dies mid-watch, or refuses at
+step 3b on a timing state, still has its merge finished by the sweep. The sweep now takes over only a pull
+request whose required checks have been green for ten minutes, so it never races a live ship. `ship-pr`
+removes the label again at the refusals only a person can clear: the step-list gate, the DEPLOY lock, a merge
+GitHub itself refuses, and a required check with no Actions run behind it. Leaving the label on would starve
+every armed pull request numbered above it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A shipped pull request no longer sits green and unmerged because the session that shipped it ended early.
+
+**Score:** 2
+
+#### Pull Request
+
+ship-pr: arm merge-when-green before the CI wait, with a settle window so the sweep never races a live ship
+
+Plugins: dkj-policy
+
+[PR #2403](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2403)
+
+---
 
 ### DEPLOY: fix/2399-claim-marker-author-check · 20260923-220415Z
 
