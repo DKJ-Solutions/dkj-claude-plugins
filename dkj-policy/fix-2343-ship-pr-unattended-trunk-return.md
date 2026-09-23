@@ -39,19 +39,44 @@
 
 ### PLAN
 
+#2343 checked against `ship-pr.ps1`: step 2b's return to the trunk is non-fatal, whether it declines or
+fails, and with HEAD still on the branch, step 3b's forward lap takes `git fetch origin <branch>` +
+`git merge --ff-only origin/<branch>`. That writes the live remote head, including anything pushed during
+the CI wait, into the working tree. The merge-on-green runner is the only caller of `ship-pr` inside
+GitHub Actions; no suite runs `ship-pr` past step 2b as a process, so CI's own `GITHUB_ACTIONS=true` is
+unaffected.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `forward-lane-lib.ps1`: `Get-UnattendedTrunkReturnRefusal`, and `Get-LocalRefForwardPlan -Unattended`
+      returns `refuse` where it would otherwise merge into the branch checkout.
+- [x] `ship-pr.ps1`: under `GITHUB_ACTIONS`, a run that is not back on the trunk after step 2b stops
+      before the CI wait, and a refused forward plan ends the run. The pull request stays armed either way.
+- [x] Plugin mirrors synced; tests in `forward-lane-lib.tests.ps1`.
 
 ### TEST
 
+- [x] `forward-lane-lib.tests.ps1` 72/0, `shared-scripts.tests.ps1` 997/0, lint 0 errors.
+
 ### DEPLOY: fix/2343-ship-pr-unattended-trunk-return
 
-**Score:**
+When `ship-pr` runs inside GitHub Actions, as the merge-on-green runner, it now stops before the CI wait
+unless step 2b got the checkout back onto the trunk. A second layer stops the forward lap from merging the
+branch's live remote head into the working tree. Together they close the residual window #2338's security
+review found: code pushed during the wait could land where a `FOLD_PUSH_TOKEN` checkout runs scripts
+(#2343).
+
+**Score:** 2 -- a narrow window, two failures deep; the attended path is unchanged.
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's merge-on-green runner runs the plugin's `ship-pr.ps1`, so it picks this up with the release
+without any change to its workflow. A pull request whose runner cannot reach the trunk now stays armed for
+the next sweep instead of merging.
+
+**Score:** 2 -- invisible unless a runner's trunk return fails, and then the merge waits half an hour.
 
 #### Pull Request
+
+ship-pr: an unattended run stops unless it is back on the trunk, so a forward lap cannot bring in an unjudged head
 

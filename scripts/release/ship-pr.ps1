@@ -1011,6 +1011,19 @@ if ($trunkReturn.Return) {
     Write-Host "ship-pr: staying on '$branchShown' -- $($trunkReturn.Reason)." -ForegroundColor DarkGray
 }
 
+# UNATTENDED, A BRANCH CHECKOUT PAST THIS POINT IS FATAL -- issue #2343. The only unattended caller is the
+# merge-on-green runner, which holds FOLD_PUSH_TOKEN in this checkout's git config and runs the scripts
+# below from it; on the trunk they are code the trunk already carries, on the branch a forward lap would
+# merge in whatever was pushed during the wait. Nothing is merged yet, the pull request stays armed, and
+# the next sweep starts over. Get-UnattendedTrunkReturnRefusal carries the reasoning; the forward lap
+# below refuses its merge route on the same signal, as a second layer.
+$unattendedShip = ($env:GITHUB_ACTIONS -eq 'true')
+$unattendedRefusal = Get-UnattendedTrunkReturnRefusal -TreeOnTrunk $treeOnTrunk -Unattended $unattendedShip
+if ($unattendedRefusal) {
+    Write-Error "ship-pr: $unattendedRefusal -- PR #$pr is NOT merged and stays armed."
+    exit 1
+}
+
 function Get-MissingCheckSuiteRefusalNote {
     <#
     .SYNOPSIS
@@ -2650,7 +2663,11 @@ exactly what the stale-certificate gate exists to find. Fix it on the branch and
                     $headAtForwardRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
                     $headAtForwardLine = @($headAtForwardRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
                     $headAtForward = if ($headAtForwardRead.ExitCode -eq 0 -and $headAtForwardLine) { "$headAtForwardLine".Trim() } else { '' }
-                    $forwardPlan = Get-LocalRefForwardPlan -Head $headAtForward -Branch $branch
+                    $forwardPlan = Get-LocalRefForwardPlan -Head $headAtForward -Branch $branch -Unattended:$unattendedShip
+                    if ($forwardPlan -eq 'refuse') {
+                        Write-Error "ship-pr: an unattended run is standing on '$branchShown' at the forward lap, and its merge route would bring the live remote head into this checkout (issue #2343) -- NOT merged; the pull request stays armed."
+                        exit 1
+                    }
                     $refCatchUp = if ($forwardPlan -eq 'merge-ff-only') {
                         $fetchForBranch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', $branch, '--quiet')
                         if ($fetchForBranch.ExitCode -ne 0) { $fetchForBranch } else {
