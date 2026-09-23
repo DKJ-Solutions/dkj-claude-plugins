@@ -54,6 +54,43 @@ function Get-MergeOnGreenArmLabel {
     return $script:MergeOnGreenArmLabel
 }
 
+function ConvertFrom-MergeOnGreenListJson {
+    <#
+    .SYNOPSIS
+        The records of one `gh pr list --json ...` payload, ENUMERATED -- one element per pull request,
+        under Windows PowerShell 5.1 as under 7.
+
+    .DESCRIPTION
+        WHY THIS IS A FUNCTION AND NOT ONE LINE IN THE SCRIPT (#2381). The sweep read the list as
+        `@($text | ConvertFrom-Json)`. Under 5.1 -- which is what the runner's `powershell` is --
+        ConvertFrom-Json writes a JSON array down the pipeline as ONE Object[] instead of enumerating
+        it, so `@(...)` wrapped it: one "record" that was the whole array, with no `number` property.
+        The loop skipped it without a word and every sweep reported "0 armed pull request(s), none
+        eligible yet" while PR #2345 sat armed and green. It held for ANY number of armed pull requests,
+        so under 5.1 the sweep could never pick anything.
+
+        The repair is to take the parse result as a value first and enumerate it explicitly, which
+        behaves the same on both editions. It lives here because the lib's suite is what can feed it a
+        real one- and multi-element payload; the script's own line was invisible to every test.
+
+    .PARAMETER Json
+        The payload text.
+
+    .OUTPUTS
+        The records, written to the pipeline one by one -- collect them with @(...). Nothing for an
+        empty list. THROWS on text that is not JSON, so the caller keeps its own fail-closed "could
+        not be parsed" verdict.
+    #>
+    param([string]$Json)
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $parsed = ConvertFrom-Json -InputObject $Json
+    if ($null -eq $parsed) { return @() }
+    # The ForEach-Object is the enumeration 5.1 skips. NO unary comma on the way out: callers collect
+    # with @(...), and a comma would hand that one element -- the array -- and re-create the defect.
+    return @($parsed | ForEach-Object { $_ })
+}
+
 function Test-MergeOnGreenArmed {
     <#
     .SYNOPSIS

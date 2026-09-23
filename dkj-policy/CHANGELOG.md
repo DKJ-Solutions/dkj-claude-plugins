@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 15 minor entries** <!-- pending-tally -->
+**5 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2381-merge-on-green-ps51-parse · 20260923-174821Z
+
+The merge-on-green sweep could never pick an armed pull request under Windows PowerShell 5.1, which
+is what its runner uses. `ConvertFrom-Json` wrote the whole `gh pr list` array as one record with no
+number, and the sweep skipped that record without saying so. Every run then reported "0 armed pull
+request(s), none eligible yet" while PR #2345 sat armed and green. The list is now enumerated
+through a tested lib function (`ConvertFrom-MergeOnGreenListJson`). A skipped record prints a line,
+and "armed but nothing evaluated" is reported as the contradiction it is, not as a wait
+([#2381](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2381)). The script travels in
+`dkj-policy` and consumer runners fetch it at `ref: main`, so every adopted consumer's sweep starts
+merging on its next run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+merge-on-green: enumerate the armed list under PowerShell 5.1 and say why a record is skipped
+
+Plugins: dkj-policy
+
+[PR #2382](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2382)
+
+---
 
 ### DEPLOY: docs/2368-asana-mirror-write-comment · 20260923-152143Z
 
