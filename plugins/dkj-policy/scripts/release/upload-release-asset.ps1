@@ -43,7 +43,7 @@
     exists, and otherwise to gh's own resolution of the current checkout.
 
 .EXAMPLE
-    ./scripts/release/upload-release-asset.ps1 -Tag v5.7.0 -Path $env:TEMP/v5.7.0-notes-for-users.md
+    ./scripts/release/upload-release-asset.ps1 -Tag v5.7.0 -Path ./v5.7.0-notes-for-users.md
 #>
 [CmdletBinding()]
 param(
@@ -62,6 +62,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 $repoRoot = Resolve-RepoRootOrFail -ScriptName 'upload-release-asset.ps1'
 
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
 if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     Write-Host "[ERROR] no file at '$Path' -- nothing was uploaded." -ForegroundColor Red
@@ -77,7 +78,7 @@ if (-not $Repo) {
     $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
         . $repoConfig
-        if (Get-Command -Name 'Get-RepoName' -ErrorAction SilentlyContinue) { $Repo = Get-RepoName }
+        if (Test-FunctionDefined 'Get-RepoName') { $Repo = Get-RepoName }
     }
 }
 $repoArgs = @()
