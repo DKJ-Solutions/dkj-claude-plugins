@@ -103,13 +103,23 @@ change and its entry go in **one** commit.
 
 ### 4. The gates, before the hand-over and not after
 
-`open-pr` runs them, and running them yourself first costs nothing:
+**Which command runs them depends on where step 5 sends the branch.**
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
-```
+- **It ships** (the gates prove it): run nothing yourself. `ship-pr` runs the full gate before it pushes,
+  and a pre-run is almost never credited -- `open-pr` skips a gate only on a recorded pass of the
+  *identical* tree (HEAD plus every uncommitted file) in the *same* worktree. A pre-run before the commit,
+  or one in a lane followed by a ship from the primary checkout, is a different tree or a different
+  worktree, so the same gate simply runs twice. Measured
+  ([#2372](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2372)): 1,400s of `-GatesOnly`,
+  then the same 1,400s again inside `ship-pr` on the same commit.
+- **It stops** (a visible result, no pull request): here the gates have no other chance to run, so run
+  them yourself before you park it:
 
-The outcome is a number, not a feeling.
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
+  ```
+
+Either way the outcome is a number, not a feeling.
 
 ### 5. Where the sweep STOPS
 

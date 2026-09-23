@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#2372: `sweep-issues` step 4 said a `-GatesOnly` pre-run "costs nothing". The symptom stands -- measured in
+this session too: every pre-run was followed by a full gate inside `ship-pr`. The REASON the report gives
+does not: `open-pr` does record gate evidence (`Save-GateEvidence`, `scripts/lib/gate-lib.ps1`), but keyed
+on `Get-GateFingerprint` -- HEAD plus every dirty file -- and stored in the worktree's own git directory. A
+pre-run before the commit, or in a lane followed by a ship from the primary, never matches. So the repair
+is the skill's advice, not a missing stamp. One nuance the report does not have: on step 5's stop path
+(visible result, no PR) the pre-run is the only gate that ever runs, so it stays there.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Step 4 splits by where step 5 sends the branch: shipping runs no pre-run (with the evidence rule
+  stated); stopping keeps `-GatesOnly`
 
 ### TEST
 
+- [x] Gates run by `ship-pr` itself -- this branch follows its own advice
+
 ### DEPLOY: docs/2372-sweep-no-gate-prerun
 
-**Score:**
+`sweep-issues` step 4 told a session that a `-GatesOnly` run before the ship costs nothing. It doubles
+the wait: `open-pr` credits a recorded pass only on the identical tree (HEAD plus every uncommitted file)
+in the same worktree, and a sweep's pre-run is almost always before the commit or in another lane, so
+`ship-pr` ran the same gate again (1,400s twice on one commit, as measured). Step 4 now says to run nothing
+before a branch that ships, and keeps `-GatesOnly` for the branch that stops at a visible result, where
+it is the only gate that runs.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session sweeping a consumer's backlog stops paying for every gate twice on the issues it ships.
+
+**Score:** 2
 
 #### Pull Request
 
