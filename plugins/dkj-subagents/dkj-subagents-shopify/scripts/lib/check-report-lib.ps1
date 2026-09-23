@@ -2046,7 +2046,8 @@ function Test-IsOrchestratorNoteLine {
 
 function Get-ClaudeMdScaffold {
     <# The CLAUDE.md scaffold the bootstrap writes when the consumer has NO CLAUDE.md at all -- the heading
-       plus the two prose lines above the orchestrator import block. One source for the writer
+       plus the Prose row(s) above the orchestrator import block (one HTML comment today; two prose
+       sentences before September 23, 2026's second pass -- see below). One source for the writer
        (bootstrap.ps1) and the reporter (teardown.ps1), for the same reason Get-OrchestratorNote is one:
        a literal mirrored by hand in two scripts produced BOTH instances of the accumulation bug documented
        above, and this is the third literal that crosses the same boundary.
@@ -2061,22 +2062,45 @@ function Get-ClaudeMdScaffold {
        here it was neither.
 
        Matched on the LITERAL generated wording only, like the note above: a consumer who reworded or
-       translated these lines has authored that text, and the teardown reports nothing about it. #>
+       translated these lines has authored that text, and the teardown reports nothing about it.
+
+       SUPERSEDED A SECOND TIME, SEPTEMBER 23, 2026 (issue #2374, Dave). The September 23 pass (below)
+       had already moved the second line from an invitation to write governance prose to an invitation to
+       write REPO FACTS -- and Dave then went one step further the same day: a root 'CLAUDE.md' holds
+       ONLY '@'-import lines now (plus at most an H1 title, blank lines, and HTML comments), so there is
+       no prose line left to write at all. What used to be Prose is now ONE HTML COMMENT pointing at
+       where repo facts actually go -- '.claude/rules/<name>.md' -- because a comment is structure this
+       family's own root-prose gate (Get-RootClaudeMdProseLines, consumer-check-lib.ps1) already allows,
+       not a second kind of exception bolted on beside it.
+
+       BOTH EARLIER GENERATIONS MOVE INTO Legacy, NOT JUST THE OLDEST ONE. The two literals this scaffold
+       wrote between September 23's two passes -- "governed by Claude Specialists..." and "...so add only
+       facts about this repo here" -- were current for exactly one window of this same branch and never
+       shipped in a release, but the rule that matters is the SAME one Legacy already existed to serve:
+       every literal this scaffold has EVER written has to stay recognised, because a consumer's disk does
+       not know which pass wrote it. Legacy is READ and never written: every consumer scaffolded before a
+       given pass carries that pass's literal, and the teardown must still recognise it as generated -- a
+       list that only grows, for the reason Get-RetiredRepoNames gives one layer over. #>
     [pscustomobject]@{
         Heading = '# CLAUDE.md'
         Prose   = @(
+            '<!-- Repo facts belong in an unscoped `.claude/rules/<name>.md`, not here -- and a specialist''s own repo-specific rules belong in its lens. -->'
+        )
+        Legacy  = @(
+            'This scaffold was created by `specialists-init` skill; expand with governance and safety rules for this repo.',
             'This repo is governed by **Claude Specialists** -- a team of specialized Claudes led by a Chief of Staff.',
-            'This scaffold was created by `specialists-init` skill; expand with governance and safety rules for this repo.'
+            'This scaffold was created by the `specialists-init` skill; the rules are imported from the plugins, so add only facts about this repo here.'
         )
     }
 }
 
 function Test-IsClaudeMdScaffoldProseLine {
-    <# Is this line one of the scaffold's generated prose lines? Trimmed, so an indentation change in a
-       consumer's editor does not hide it from the reporter. #>
+    <# Is this line one of the scaffold's generated prose lines, current or legacy? Trimmed, so an
+       indentation change in a consumer's editor does not hide it from the reporter. #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
     $t = $Line.Trim()
-    foreach ($p in (Get-ClaudeMdScaffold).Prose) { if ($t -eq $p) { return $true } }
+    $scaffold = Get-ClaudeMdScaffold
+    foreach ($p in @($scaffold.Prose) + @($scaffold.Legacy)) { if ($t -eq $p) { return $true } }
     return $false
 }
 

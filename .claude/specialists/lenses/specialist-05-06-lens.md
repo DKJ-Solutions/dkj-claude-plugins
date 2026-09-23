@@ -127,7 +127,7 @@ entries rather than off which section they sit in.
   on August 8, 2026; the line outlived them because the notes were always a second reader. This
   commit goes directly onto `main` — the **first of the three** permitted exceptions, the release commit
   and the release-notes commit being the other two (see
-  [the safety rules](../../../CLAUDE.md#safety-rules)).
+  [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules)).
 - **The same run refreshes the pending tally** — the one line under `## [Unreleased]`, which reads
   `**4 / 9 minor entries**`: how many of the pending entries reach this repo's audience tier, out of how
   many are waiting, and which bump that work has earned. It is **derived, never accumulated**:
@@ -511,7 +511,7 @@ most of the answer. The wrong repair, and the first one that suggests itself, is
 earlier; step 5's ordering exists for the attachments and the skill refuses it explicitly.
 
 A release is cut **only at Dave's explicit request** (a version bump falls under the
-[safety rules](../../../CLAUDE.md#safety-rules)) and deliberately does **not go via a branch + PR**. Like the
+[safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules)) and deliberately does **not go via a branch + PR**. Like the
 fold commit, the release commit is a permitted **direct-on-`main` action** — the **second of three**
 exceptions to "everything via branch + PR". `cut-release.ps1` therefore runs on `main` itself and
 does everything in one motion:
@@ -720,7 +720,7 @@ The prose is unchanged from the day each paragraph was written; only relative li
 is the published-record rule this repo already applies to `releases/`. Dates and attributions stand as
 written.
 
-See [the safety rules](../../../CLAUDE.md#claude-code-specialistss-safety-implementation) for the operative half.
+See [the safety rules](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) for the operative half.
 
 ---
 
@@ -1033,7 +1033,7 @@ the entry format**, so its consumer document correctly quotes `#### Tier 2`, `**
 separates an illustration from a leak**, and both would have needed an exemption list on the day they
 landed — the shape this repo has already been bitten by. Check 25 escapes it by reading the link
 **target** only: a path in prose is
-[check 4's declined territory](../../../CLAUDE.md#claude-code-specialistss-safety-implementation) (124 findings, none
+[check 4's declined territory](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) (124 findings, none
 real), while a link is not a path being discussed but a destination being offered, and whose repo it
 lives in stops being ambiguous. The other six tests stay prose that a person applies.
 

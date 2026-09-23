@@ -442,6 +442,72 @@ function Get-CrlfPairCount {
     return $pairs
 }
 
+function Test-IsRuleFileScoped {
+    <#
+        Does this '.claude/rules/*.md' file declare a 'paths:' key in its YAML frontmatter -- Claude
+        Code's own signal that the rule loads only once a matching file is read, rather than into every
+        session the way CLAUDE.md does? Issue #2374's follow-up.
+
+        A LIGHTWEIGHT SCAN, NOT A YAML PARSER, and that is deliberate: the only question this function
+        answers is whether the key 'paths:' is present at the top level of the frontmatter block, which a
+        line-anchored match settles without pulling a YAML library into a lib documented DEPENDENCY-FREE
+        one function up. The frontmatter block is the lines between the first line ('---' exactly, once
+        trimmed) and the next line that is '---' exactly; a file with no such opening line, or whose
+        frontmatter never closes, is read as UNSCOPED -- see Get-UnscopedRuleFiles for why that is the
+        safe direction rather than a guess.
+
+        MATCHED ON THE KEY, NOT ON WHERE ITS VALUES SIT. 'paths:' may be followed by an inline flow
+        sequence or by a block list on the following lines (the shape this repo's own rules use); either
+        way the key itself is the line this function looks for, so nesting the VALUES costs nothing.
+
+        BUT THE KEY ITSELF MUST BE UNINDENTED (Sebastian #23, code review). 'paths:' is matched on the
+        RAW line, not a trimmed one, so it counts only as a TOP-LEVEL frontmatter key -- column 0. A
+        'paths:' nested under some other key (an indented mapping value, or a key inside a list item)
+        is not the scoping signal this convention reads, and trimming before the match would misread it
+        as one: the wrong direction to be wrong in for a MEASUREMENT tool, since it would report a file
+        as loaded only conditionally when Claude Code in fact loads it into every session, undercounting
+        the always-on path exactly where this whole mechanism exists to stop that undercount.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    $text = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    $lines = $text -split "(?:\r\n|\n|\r)"
+    if ($lines.Count -eq 0 -or $lines[0].Trim() -ne '---') { return $false }
+
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $raw = [string]$lines[$i]
+        if ($raw.Trim() -eq '---') { return $false }
+        if ($raw -match '^paths:\s*') { return $true }
+    }
+    return $false
+}
+
+function Get-UnscopedRuleFiles {
+    <#
+        Every '.claude/rules/**/*.md' file under $RepoRoot that carries NO 'paths:' frontmatter key --
+        the repo-level always-on floor Claude Code loads into every session independent of any
+        '@'-import, exactly like CLAUDE.md. Issue #2374's follow-up: the walk this repo measures the
+        always-on path with had counted only the '@'-import closure, so a fact moved out of CLAUDE.md and
+        into an unscoped rule for exactly that reason -- to stop restating it -- read as a SHRINK of the
+        always-on path rather than a move within it.
+
+        RETURNS FULL PATHS, SORTED, so the walk below enqueues them in a stable order and a caller
+        comparing two runs sees no reordering that is not a real change.
+
+        @() WHERE THE DIRECTORY DOES NOT EXIST, which is the ordinary case for a fixture tree and for any
+        repo that has not adopted this convention -- not an error, and not a reason to guess.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+
+    $dir = Join-Path $RepoRoot '.claude\rules'
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
+
+    $files = @(Get-ChildItem -LiteralPath $dir -Recurse -Filter '*.md' -File -ErrorAction SilentlyContinue)
+    return @($files | Where-Object { -not (Test-IsRuleFileScoped -Path $_.FullName) } |
+        Select-Object -ExpandProperty FullName | Sort-Object)
+}
+
 function Get-AlwaysOnDocuments {
     <#
         Walks the always-on document path from a root document and returns every document on it, in load
@@ -456,6 +522,15 @@ function Get-AlwaysOnDocuments {
             that does not resolve is the most consequential thing this walk can find -- the seam is
             assembled by scripts, and a path that stopped resolving means a document the session believes
             it is loading and is not. Skipping it would report a smaller, healthier-looking path.
+
+        THE ROOT IS NOT THE ONLY HOP-0 DOCUMENT, since issue #2374's follow-up. Every UNSCOPED
+        '.claude/rules/*.md' file (Get-UnscopedRuleFiles) is enqueued alongside $RootDocument, each at
+        Hop 0 with ImportedBy = '.claude/rules' -- a synthetic marker rather than a real importing file,
+        because nothing in the tree '@'-imports it: Claude Code loads it on its own, off the directory
+        listing, exactly as it loads CLAUDE.md. Its own '@'-imports are then walked by the SAME loop
+        below, unchanged -- a rule file is just another queued item once it is in the queue. A
+        'paths:'-scoped rule is excluded at the source (Get-UnscopedRuleFiles), never enqueued, and so
+        never counted here: it is not always-on, it is loaded only once a matching file is read.
 
         Each row carries Hop, ImportedBy and Source ('tree' or 'external'), plus the tree counterpart and
         its size -- on disk as TreeBytes and stored-LF as TreeLfBytes -- where the loaded copy came from a
@@ -479,6 +554,12 @@ function Get-AlwaysOnDocuments {
 
     $queue = New-Object System.Collections.Generic.Queue[object]
     $queue.Enqueue([pscustomobject]@{ Path = $root; Hop = 0; ImportedBy = $null; Target = $null })
+    # THE UNSCOPED-RULES FLOOR, enqueued before the walk starts so its own '@'-imports are picked up by
+    # the ordinary loop below. $seen (keyed on full path, case-insensitive) is what keeps $RootDocument
+    # itself from being double-counted on the rare tree where CLAUDE.md sits inside '.claude/rules/'.
+    foreach ($rulePath in @(Get-UnscopedRuleFiles -RepoRoot $repo)) {
+        $queue.Enqueue([pscustomobject]@{ Path = $rulePath; Hop = 0; ImportedBy = '.claude/rules'; Target = $null })
+    }
 
     while ($queue.Count -gt 0) {
         $item = $queue.Dequeue()
