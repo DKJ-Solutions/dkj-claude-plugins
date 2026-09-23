@@ -39,19 +39,51 @@
 
 ### PLAN
 
+#2338 checked against the tree: both runners check out the armed head with `FOLD_PUSH_TOKEN` in the
+workspace and then run code from it. The source runner runs the branch's own `ship-pr.ps1` and libs,
+and in every repo `ship-pr` dot-sources the branch's `scripts/repo-config.ps1`. The requester chose the
+picker-side repair over running trunk tooling: a PR that changes what the ship runs is left to a session.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `merge-on-green-lib.ps1`: `Get-MergeOnGreenExecutedPathHit`, and the verdict refuses a diff touching
+      `scripts/`, `.github/`, `.workflow-scripts/` or `plugins/**/scripts/`. It fails closed on a missing
+      file list or one shorter than `changedFiles`, and a pushed path is printed with its control
+      characters replaced.
+- [x] `pick-merge-on-green.ps1`: asks for `files,changedFiles,headRefOid`, refuses without a readable
+      head SHA, and emits `sha`.
+- [x] Both runners (`merge-on-green.yml` and `adopt-ci-floor.ps1`'s template) refuse to run `ship-pr`
+      unless `HEAD` after the checkout is the picked SHA.
+- [x] Plugin mirrors synced; tests in `merge-on-green-lib.tests.ps1` and `adopt-ci-floor.tests.ps1`.
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1` 74/0, `adopt-ci-floor.tests.ps1` 206/0, `shared-scripts.tests.ps1` 997/0.
+- [x] Live `gh pr list --json files,changedFiles,headRefOid` returns all three fields.
+- [x] Security review (Sebastian): closes the path for the ordinary runner shape. His residual finding, a
+      failed step-2b trunk return letting step 3b fast-forward to an unjudged head, is filed as #2343.
+
 ### DEPLOY: fix/2338-merge-on-green-trunk-code
 
-**Score:**
+The merge-on-green runner checked out an armed pull request's head with `FOLD_PUSH_TOKEN` in the workspace
+and then ran code from that checkout, so being able to push a branch meant being able to run code with a
+token that bypasses the trunk ruleset. The picker now refuses a pull request whose diff touches code the
+runner executes, and the runner refuses any checkout other than the commit the picker judged (#2338).
+
+**Score:** 3 -- closes a privilege widening on the one runner that holds the standing write token; a
+pull request touching scripts now ships from a session instead.
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's scaffolded `merge-on-green.yml` ran the plugin's `ship-pr.ps1`, and that dot-sourced the
+branch's `scripts/repo-config.ps1` with the consumer's `FOLD_PUSH_TOKEN` in place. The picker fix reaches
+them as soon as their runner checks out the source's `main`. The SHA pin reaches them when
+`adopt-ci-floor` reports their runner as drifted and they re-apply it.
+
+**Score:** 3 -- a security fix to a runner consumers adopted; those who use merge-on-green will see
+script-touching pull requests left for a session.
 
 #### Pull Request
+
+merge-on-green: never run code from an armed branch that changes what the ship executes
 
