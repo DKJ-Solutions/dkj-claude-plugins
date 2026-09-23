@@ -44,7 +44,91 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 12 minor entries** <!-- pending-tally -->
+**5 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2368-asana-mirror-write-comment · 20260923-152143Z
+
+`dkj-policy-bwj`'s `asana-mirror.yml` template and its `WORKFLOW-portable.md` step 5 said the
+workflow's `issues: write` only ever edits labels. Since 5.5.0 it also posts one comment, the
+paste-block backstop on a closed issue that has no paste-ready block yet. Both passages now name the two
+writes ([#2368](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2368)). The permission
+does not change. The failure this prevents has not happened yet: a reviewer who takes the old comment at
+its word and narrows the scope to labels would break the backstop without noticing.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror: the issues: write rationale names both GitHub writes
+
+Plugins: dkj-policy-bwj
+
+[PR #2380](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2380)
+
+---
+
+### DEPLOY: docs/2360-asana-task-only-with-reach-label · 20260923-151130Z
+
+`report-issue` created a colleague-facing Asana task for every issue it filed, although step 1 had just
+decided whether a colleague would notice the finding at all. Now only an issue carrying the reach label
+gets a card; a tier-0 issue stays GitHub-only, and the report says so, so the missing card reads as a
+decision. A ticket that came from Asana keeps its card, and an issue that gains the label later is
+mirrored at that moment. The rule is stated in `WORKFLOW-portable.md` section 2.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store's board stops receiving cards for developer-only findings after the next plugin update: four
+such cards were open in `smartwatchbanden` on the day the rule was written, one of them for a
+comment-only fix whose card forced its pull request to ship without resolving the issue. Colleagues see
+fewer cards, and every card that remains is one they can check in a preview.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue: only an issue carrying the reach label gets an Asana task
+
+Plugins: dkj-policy-bwj
+
+[PR #2377](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2377)
+
+---
+
+### DEPLOY: fix/2304-rerecord-durations-after-split · 20260923-145307Z
+
+Re-recorded `scripts/tests/suite-durations.json` from three CI runs carrying the split
+`check-plugin-integrity-*` layout (#2304). The file still named the pre-split suites, so the nine new
+ones were charged the largest recorded value and the gate packed shards off guesses. The reading:
+the pool is 7,260.5 s over 16 lanes, a work bound of 453.8 s, and no single file reaches it any more
+-- `-entries` is heaviest at 426.1 s -- so CI is now bound by total work, not by one file. The splits
+were not free: the `check-plugin-integrity-*` family went from 2,084.3 s to 2,679.0 s of pool work
+(+594.7 s), because each file builds its own fixture. That is what the next step has to weigh, since
+another split raises the work bound it is meant to get under.
+
+**Score:** 1 -- prevents the gate packing CI shards off maximum-charged guesses for nine suites; no
+reader notices it except as CI wall-clock.
+
+#### What makes this deploy extra special
+
+N/A -- data file only; nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-record CI suite durations after the check-plugin-integrity splits
+
+[PR #2378](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2378)
+
+---
 
 ### DEPLOY: fix/2362-roster-sync-clean-hook-under-load · 20260923-143338Z
 
