@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**3 / 7 minor entries** <!-- pending-tally -->
+**3 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2304-split-integrity-links · 20260923-130118Z
+
+`check-plugin-integrity-links.tests.ps1` was the CI gate's critical path once step 1 had split `-docs`:
+539.2s against a 391s work bound. It is now four suites, cut at check boundaries and balanced on gate
+invocations, and side by side on one workstation the longest part took 55s against the original's
+159s. All 141 asserts are preserved and were verified by running the four parts. This is step 2 of
+#2304; the critical path moves to `-commands` (498.3s), so the shard count does not change and the
+issue stays open for steps 3 and 4.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The cut surfaced the same class of defect step 1 did, one layer up: the fixture writes no root
+documents, so checks 10, 28, 29, 30 and 32 had all been starting from the files check 4's scenario B
+happened to leave behind. Two leaned on it outright -- check 28's file-relative proof needs a root
+`CONTRIBUTING.md`, and check 32 reads that file back to restore it. It is now stated once in the fixture
+instead of inherited, which is the second time a weight-based split has found state that only held
+because two scenarios shared a file.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-links into parallel suites: step 2 of the CI critical path
+
+[PR #2366](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2366)
+
+---
 
 ### DEPLOY: fix/2358-claim-marker-comma-split · 20260923-120648Z
 
