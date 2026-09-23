@@ -80,8 +80,8 @@ preview therefore rendered every market with the global settings. A new preview 
 `shopify theme duplicate` of live, waited on until the copy has filled (`Get-ThemeFillVerdict`, with
 `-PollSeconds` / `-TimeoutMinutes`), and only then pushed over -- so the first push of a branch takes
 minutes longer. Where no live id is answered it falls back to the old create. A preview this checkout
-has no record of copying, and a branch that changes a context-settings file, get a printed notice,
-since no push can put those bytes on a theme. `Get-ThemeFileCount` moved from `backup-live-theme.ps1`
+has no record of copying gets a printed notice, and so does a branch that changes a context-settings
+file, since no push can put those bytes on a theme. `Get-ThemeFileCount` moved from `backup-live-theme.ps1`
 into `shopify-cli-lib.ps1` so both callers share it (#2348).
 
 **Score:** 3 -- a Markets store's previews stop differing from live for reasons the branch did not
