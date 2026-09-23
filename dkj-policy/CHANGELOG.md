@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 21 minor entries** <!-- pending-tally -->
+**7 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2387-claim-takeover · 20260923-193109Z
+
+`claim-issue.ps1 <n> -Tag -TakeOver` hands a `held` issue over to this machine, deliberately and visibly,
+when the holder is this same gh account on another machine and exactly one branch for the issue is on
+origin. It removes the old marker, claims under this tag through the ordinary path, leaves a comment naming
+the old tag, the new tag and the branch, and prints the checkout, so the old machine's `-Verify` reads
+`[NO]`. A colleague's claim, an issue with no branch on origin, and one with several are each refused.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep run across several of your own machines no longer strands an issue on a machine you cannot reach:
+the work parked on origin can be picked up from any of them in one command, without deleting a marker by
+hand.
+
+**Score:** 3
+
+#### Pull Request
+
+claim-issue -Tag -TakeOver: hand a held issue over to this machine when its branch is on origin
+
+Plugins: dkj-policy
+
+[PR #2391](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2391)
+
+---
 
 ### DEPLOY: fix/2388-durations-merge-advice · 20260923-191439Z
 
