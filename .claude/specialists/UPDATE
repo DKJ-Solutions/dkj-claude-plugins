@@ -1,0 +1,7 @@
+claude plugin marketplace update dkj-claude-plugins
+claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project
+claude plugin update dkj-subagents-ecomm@dkj-claude-plugins --scope project
+claude plugin update dkj-subagents-lifehub@dkj-claude-plugins --scope project
+claude plugin update dkj-subagents-shopify@dkj-claude-plugins --scope project
+claude plugin update dkj-policy@dkj-claude-plugins --scope project
+claude plugin update dkj-policy-bwj@dkj-claude-plugins --scope project
