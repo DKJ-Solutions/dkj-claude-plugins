@@ -56,7 +56,7 @@ uploads, and verifies the size.
 
 - [x] `scripts/release/upload-release-asset.ps1` + plugin mirror, registered in `shared-scripts-lib.ps1` under the `cut-release` skill
 - [x] `cut-release` SKILL.md: step 5 and the second pass call the helper; the `--clobber` line replaced with the measurement
-- [x] `RELEASES-portable.md` closing step names the helper; both scripts READMEs carry a row
+- [x] `RELEASES-portable.md` closing step names the helper; the plugin scripts README carries a row (the root `scripts/README.md` was removed on the trunk by #2356)
 - [x] `scripts/tests/upload-release-asset.tests.ps1` against a fake gh that returns the 422 on a duplicate name
 - [x] Read the asset list from `releases/{id}/assets`, not the release-level read: `gh release view --json assets` returned [] for v5.7.0 while that endpoint listed both (#2349, closed as a false negative)
 - [~] Is the change visible in the frontend / storefront? No -- a release script and its docs.
