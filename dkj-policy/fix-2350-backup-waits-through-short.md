@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#2350: `Get-ThemeFillVerdict`'s two callers read `short` differently -- `backup-live-theme` broke on the
+first one, `push-preview` waited until its deadline. Dave's decision (September 23, 2026): push-preview's
+reading is right; a stable count below the source is a refusal only once the wait is over, since a copy
+grows in bursts with pauses between them (#1965). Verified in the tree: the backup's break is one line, and
+the check below its loop already fails anything that is not `complete` at the deadline.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `backup-live-theme.ps1`: the wait ends early only on `complete`; `short` is judged after the deadline
+- [x] `theme-lifecycle-rules.ps1`: `Get-ThemeFillVerdict`'s docstring states the shared reading
+- [x] Shopify plugin mirrors synced
 
 ### TEST
 
+- [x] `theme-lifecycle-rules.tests.ps1`: a guard that neither caller breaks its fill wait on `short` -- red
+  without the fix, green with it (106 pass). The loops drive a live store, so the guard holds their shape.
+- [x] Gates run by `ship-pr` itself
+
 ### DEPLOY: fix/2350-backup-waits-through-short
 
-**Score:**
+`backup-live-theme` failed a backup the moment two file-count samples agreed below the live theme's count,
+while `push-preview` waited such a reading out. A duplicate grows in bursts with pauses between them, so a
+pause could fail a copy that was still filling. The backup now waits until its deadline like the preview
+does, and still refuses a copy that is short when the wait is over.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify store's release-cut backup no longer fails on a copy that was only pausing, which left a
+half-copy standing and the cut step red. A copy that really stopped short is still refused, only later.
+
+**Score:** 2
 
 #### Pull Request
 
