@@ -39,9 +39,18 @@
 
 ### PLAN
 
+#2364 reports two suites red under the 22-lane open-pr gate and green alone. The run's own kept
+capture is gone, so each suite is judged on what can still be measured: a kept capture from another
+gate run on this machine, and `reproduce-suite-contention.ps1` against the suite itself.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `test-suite-gate.tests.ps1` case 10 (the deadline): a kept 22-lane capture
+  (`test-suite-gate-26272-...`, 68 powershell processes resident) shows the one-line `s-quick`
+  sibling killed at the 3s bound after 8.6s, which failed "keeps its plain header" and the verdict
+  line. #2005 took the six 1.2s sleepers out from under that ceiling and left `s-quick` under it.
+  The bound is now sized for the sibling (20s), with the sleeper (120s) and the wall-clock assert
+  (<90s) scaled so the case still tells a fired bound from a waited-out one.
 
 ### TEST
 
