@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#2375: `Resolve-GithubStatusMap` in the `asana-mirror` template accepted #1536's board-less declaration and
+then printed it as `field '', .`. Verified in the template: the only print line interpolates `FieldName`
+and the status pairs unconditionally. Give the declaration its own sentence, worded as the stage-floor
+line already words it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-mirror.ps1`: an empty `FieldName` prints "this repo has no project board, so stage floors
+  derive from the issue itself"; the board path is unchanged
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: two asserts against a temp repo-config declaring no board -- red without
+  the fix, green with it (383 pass)
+- [x] Gates run by `ship-pr` itself
+
 ### DEPLOY: fix/2375-boardless-status-map-line
 
-**Score:**
+The `asana-mirror` run printed a repo's deliberate "no project board" declaration as an empty field and a
+dangling comma, so its CI log could not tell that answer from a broken map. It now says the repo has no
+project board and that stage floors come from the issue itself.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Visible in a board-less store's `asana-mirror` CI log once its template copy is refreshed (xoxowildhearts
+declared itself board-less the day this was filed); nothing it does changes.
+
+**Score:** 1
 
 #### Pull Request
 
