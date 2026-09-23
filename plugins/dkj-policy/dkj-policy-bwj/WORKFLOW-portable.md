@@ -180,7 +180,18 @@ This label is purely a filing axis again: who raised it, and nothing else.
 
 ### 2. Then Asana -- a translation, not a copy
 
-Once the GitHub issue exists, mirror it to Asana in the project
+**Only an issue carrying the reach label gets an Asana task** (Dave, September 23, 2026,
+[#2360](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2360)). The board is where a colleague
+follows work they can look at themselves, and the reach label is already the answer to whether they will
+-- so the two are one decision, made once, in step 1. An issue without it is tier 0: GitHub-only, with no
+card, and that absence is the answer rather than a mirror that failed. Measured the day the rule was
+written, in `smartwatchbanden`: four open issues carried a card and no reach label, one of them a
+comment-only fix whose own body said *developer-only; no customer impact*. Its card sat in `Filed`, and
+the card then forced the pull request that fixed it to ship with `-NoResolves`. **Two cases are not new cards and the rule leaves them alone:** a
+ticket that arrived from Asana already has one (section 8), and an issue that gains the label later is
+mirrored at that moment.
+
+Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
 `Get-AsanaProjectGid` names. The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
@@ -632,7 +643,10 @@ window the rest of BWJ looks through, and the workbench is where it has to be vi
 step writes to Asana.
 
 **What it costs on the GitHub side:** the workflow's `issues:` permission is `write` rather than
-`read`. That is the only write it makes outside Asana, and it touches labels and nothing else.
+`read`. It makes exactly two writes outside Asana, both on this repo's own issues: this step's label
+edit, and the one comment
+[the step-4 backstop](#the-backstop-asana-mirror-still-writes-one-only-where-the-session-did-not)
+posts on a closed issue that has no paste-ready block yet. Nothing else on GitHub is written.
 
 ### 6. The board's sections ARE the cycle -- one card, one column per stage
 
