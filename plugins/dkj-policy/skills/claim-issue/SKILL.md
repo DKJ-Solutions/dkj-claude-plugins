@@ -87,7 +87,10 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   act that removes another tag's marker, then claims through the ordinary path and leaves a comment
   naming the old tag, the new tag and the branch -- so the old machine's `-Verify` reads `[NO]`.
 - **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
-  `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
+  `mine`, `held`, `branch` or `skipped` with the reason. `branch` is an issue no marker holds but a
+  `<prefix>/<n>-<name>` branch on origin names, with its author and age -- read from one fetch and one
+  `git for-each-ref` for the whole backlog, because a session working without `-Tag` leaves no marker
+  ([#2392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2392)). `-SkipLabel` names the labels that park an issue with
   somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
 - **`-Marker`** -- the marker name a claim is written under (`claim-tag`), plus any predecessors a repo
   still has claim comments under, which are **read and never written**. A comma list

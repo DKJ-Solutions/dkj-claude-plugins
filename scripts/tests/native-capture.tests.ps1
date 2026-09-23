@@ -1867,7 +1867,11 @@ foreach ($af in $auditFiles) {
 # through Test-NativeExitMeasured: an unmeasured $heads REFUSES (the branch is the precondition), an unmeasured
 # $posted only warns (the claim is the marker, already settled). The $del delete moved into the shared
 # Remove-ClaimMarkerComments helper and is still one site.
-Assert-Equal 78 $boundedTotal 'the parser still counts 78 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 78 -> 79 (#2392): claim-issue.ps1's -Candidates adds $refList, the `git for-each-ref refs/remotes/origin` that
+# names every issue with a branch on origin. Counted for its -Utf8 (author names are data), not bounded: it is a
+# local read, after the fetch that is. Judged through Test-NativeExitMeasured, and an unmeasured read never
+# refuses -- the tracker half still stands -- it prints that 'free' then means only "no claim marker".
+Assert-Equal 79 $boundedTotal 'the parser still counts 79 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

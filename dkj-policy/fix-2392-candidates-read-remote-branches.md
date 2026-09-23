@@ -39,19 +39,45 @@
 
 ### PLAN
 
+#2392: `-Candidates` judged from the tracker alone, so an issue somebody was working without `-Tag`
+read `free` while its branch sat on origin. Verified on the trunk before building: `Get-SweepCandidates`
+reads only the `gh issue list` payload. Repair: one fetch (the claim's own seam) and one
+`git for-each-ref refs/remotes/origin` for the whole backlog, and a new `branch` verdict.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-RemoteIssueBranches` in `claim-issue-lib.ps1`: issue number, branch, author, commit time per
+      `<prefix>/<n>-<name>` remote branch
+- [x] `Get-SweepCandidates -Branches`: an unmarked issue with a branch reads `branch`, with the newest
+      branch's author and age; a marker still wins
+- [x] `claim-issue.ps1 -Candidates` reads origin once, counts `branch` in the summary, and says what
+      `free` means when the listing is unreadable
+- [x] Plugin mirrors synced; `claim-issue` and `sweep-issues` skill pages name the new verdict
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 471 passed, including the new #2392 block
+- [x] `native-capture.tests.ps1`: bounded-site count moved 78 -> 79 with its audit note; 352 pass
+- [x] `shared-scripts.tests.ps1`: 1009 passed (mirrors byte-identical); lint gate 0 errors
+- [x] Live run on this repo: 12 of 14 open issues now read `branch` with author and age, 2 `free` --
+      the report's 9 among them
+
 ### DEPLOY: fix/2392-candidates-read-remote-branches
 
-**Score:**
+`claim-issue.ps1 -Candidates` now reads origin's branches once for the whole backlog. An open issue with
+no claim marker but a `<prefix>/<n>-<name>` branch on origin reads `branch` instead of `free`, and the
+reason names the branch, its author and how long ago it last moved. A claim marker still takes
+precedence. If the branch listing cannot be read, the run still judges from the tracker and says that
+`free` then means only "no claim marker".
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A sweep no longer offers you an issue somebody else is already building just because they did not
+claim it by tag. Before this, the only warning came after the claim was written, one issue at a time.
+
+**Score:** 2
 
 #### Pull Request
 
