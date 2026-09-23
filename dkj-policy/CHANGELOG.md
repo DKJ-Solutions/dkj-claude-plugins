@@ -44,7 +44,42 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**32 / 52 minor entries** <!-- pending-tally -->
+**33 / 53 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2240-utc-marked-merge-stamp · 20260923-062833Z
+
+The merge stamp on a folded entry's heading now says that it is UTC: `20260921-143322Z`. The value is
+unchanged -- what was wrong was never the moment but that the moment did not name its zone, so a reader
+supplied their own and was wrong by their own offset. Measured in a consumer: an entry that had landed
+eight minutes earlier read as two hours stale.
+
+The marker is appended by the one function that writes the stamp, on its fallback path as well as its
+main one, so a changelog cannot end up carrying both spellings for no discoverable reason. The reader
+accepts it and strips it, which is what keeps `CHANGELOG.md`'s ordering untouched: every comparison key
+is still the fixed-width 15 characters, so entries written on either side of this change sort together
+and an equal instant in the two spellings is a tie rather than a ranking.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer reads this stamp in two places -- their own `CHANGELOG.md` while an entry is pending, and
+their release records under `releases/changelog/`, where the same heading is copied verbatim and is read
+long after the fold by people who were not there for it. Both now state the zone. Nothing a consumer
+has already folded becomes unreadable: the bare form is still accepted for ever, and a consumer whose
+fold is a release behind keeps writing it and keeps being ordered correctly.
+
+**Score:** 2
+
+#### Pull Request
+
+The folded entry's merge stamp says it is UTC
+
+Plugins: dkj-policy
+
+[PR #2334](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2334)
+
+---
 
 ### DEPLOY: fix/2226-roster-check-overlap-exemption · 20260923-061446
 
