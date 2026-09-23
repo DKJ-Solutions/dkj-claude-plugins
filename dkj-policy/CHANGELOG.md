@@ -44,7 +44,30 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/specialists-update-commands · 20260923-113308Z
+
+Added `.claude/specialists/UPDATE`: the bare PowerShell commands that update every plugin this repo
+enables -- `claude plugin marketplace update dkj-claude-plugins`, then
+`claude plugin update <plugin>@dkj-claude-plugins --scope project` for each of the six.
+
+**Score:** 1 -- saves retyping seven commands by hand, and prevents an update run without
+`--scope project` writing a machine-wide record instead of this checkout's.
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber: the file lives in this repo's own `.claude/` and ships in no plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+Add .claude/specialists/UPDATE with the plugin update commands
+
+[PR #2359](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2359)
+
+---
 
 ### DEPLOY: docs/remove-scripts-readme · 20260923-111221Z
 
