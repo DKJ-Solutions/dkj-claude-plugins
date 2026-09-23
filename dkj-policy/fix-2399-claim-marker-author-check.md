@@ -39,19 +39,45 @@
 
 ### PLAN
 
+The author check goes in `Get-ClaimRecords` itself rather than in each caller, which is the open
+question #2399 left. Every caller judges records: its own (`-Release`, the resume) and other tags'
+(the race, a take-over, the sweep). "The author is the account half of the marker's OWN tag" is the one
+test that is right for both. #2395's branch (PR #2400) added the same check inside `Get-OwnTagClaims`
+for `-ReleaseAll` alone. Once both land that check is redundant but harmless. The two branches touch
+different functions in the same file.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ClaimRecords` drops a marker whose comment author is not its tag's account half, or has no
+  author, or whose tag has no account half. Mirrored byte-identically into the plugin copy.
+- [x] The `-Tag` section of the claim-issue skill page says so.
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 480 passed, 0 failed. The issue's measured case (a
+  `random-tracker-user` comment naming `DAVE-KOK-BWJ/DaveKJohn`) is now not returned. Also tested: a
+  genuine marker beside a planted one returns only the genuine one; a planted earlier marker does not
+  win the race; a planted marker does not park a free issue; the comparison is case-insensitive. The one
+  existing assert that read an authorless marker as a record now asserts it is dropped, and a new assert
+  keeps the StrictMode coverage for a record missing `createdAt`.
+
 ### DEPLOY: fix/2399-claim-marker-author-check
 
-**Score:**
+A claim marker was taken at its word. Anybody who could comment on an issue could write one naming
+somebody else's tag, and `-Release`, the verdict, the sweep and the race all counted it. A marker now
+counts only when the comment's author is the account its tag names (#2399).
+
+**Score:** 2 -- closes a spoofing gap in tag-mode claims. Nothing changes for a genuine claim, because
+gh always writes it as that account.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
+claim-issue: a claim marker counts only when its author is the tag's own account
+
+Plugins: dkj-policy

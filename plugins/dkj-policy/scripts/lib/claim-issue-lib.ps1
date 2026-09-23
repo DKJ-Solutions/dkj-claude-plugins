@@ -1749,6 +1749,11 @@ function Get-ClaimRecords {
             by anybody with access to the tracker; what leaves here is a tag matched against a bounded
             pattern, an author login, a timestamp and an id.
 
+            A MARKER WHOSE AUTHOR IS NOT ITS TAG'S ACCOUNT IS NOT RETURNED (#2399). Anybody who can
+            comment can write a marker naming any tag, so the tag is only evidence alongside the login
+            the tracker itself recorded. A tag with no account half, or a comment with no author, is
+            dropped for the same reason: nothing ties it to the session it names.
+
         .PARAMETER Json
             The payload text of `gh issue view --json comments` (or one element of `gh issue list`'s).
 
@@ -1791,6 +1796,18 @@ function Get-ClaimRecords {
         if ($comment.PSObject.Properties['createdAt']) { $created = ([string]$comment.createdAt).Trim() }
         $id = ''
         if ($comment.PSObject.Properties['id']) { $id = ([string]$comment.id).Trim() }
+
+        # THE AUTHOR MUST BE THE TAG'S OWN ACCOUNT, or the marker is not a claim (#2399). The tag is
+        # free text anybody who can comment may write, and the tags in use are printed in this repo's
+        # own docstrings -- so without this a planted marker is released by -Release, holds a free issue
+        # in the verdict and the sweep, and wins a race on timestamp. gh writes a claim comment as the
+        # account the tag's second half names (Get-ClaimTag), so a genuine marker always carries that
+        # author. Checked here rather than per caller because every caller judges records: its own
+        # (-Release, the resume) and other tags' (the race, a take-over), and "author is the account
+        # half of the marker's OWN tag" is the one test that is right for both.
+        $slash = $tag.LastIndexOf('/')
+        $tagAccount = if ($slash -ge 0) { $tag.Substring($slash + 1).Trim() } else { '' }
+        if (-not $tagAccount -or -not $author -or ($author -ine $tagAccount)) { continue }
 
         $records.Add([pscustomobject]@{
             Tag       = $tag
