@@ -85,7 +85,13 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   `mine`, `held` or `skipped` with the reason. `-SkipLabel` names the labels that park an issue with
   somebody else, `-SkipIssue` the numbers held out by hand, `-Limit` how many to read (100).
 - **`-Marker`** -- the marker name a claim is written under (`claim-tag`), plus any predecessors a repo
-  still has claim comments under, which are **read and never written**.
+  still has claim comments under, which are **read and never written**. A comma list
+  (`-Marker claim-tag,swb-lane`) is split into names, because `powershell -File` binds it as **one**
+  string -- unsplit, that one string was written and read as a single compound name, so machines on
+  different lists could not see each other's claims
+  ([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)). A compound marker
+  already written that way (`<!-- claim-tag,xoxo-lane: ... -->`) is still read, whenever any of its
+  parts is a listed name.
 
 ## Which account -- and why never `@me`
 

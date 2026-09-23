@@ -108,7 +108,9 @@
 
 .PARAMETER Marker
     The marker names a claim is recognised by. The first is the one a claim WRITES; the rest are
-    predecessors a repo still has comments under. Default: 'claim-tag'.
+    predecessors a repo still has comments under. Default: 'claim-tag'. A comma list works under
+    powershell -File too (-Marker claim-tag,swb-lane): -File binds it as one string, and the script
+    splits it into names (#2358).
 
 .PARAMETER SkipLabel
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
@@ -169,6 +171,10 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'claim-is
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1')
+# -File binds '-Marker a,b' as ONE literal element, so the list is split here, once, before any read,
+# write or self-invocation sees it (#2358). An empty result falls back to the documented default.
+$Marker = @(Split-ClaimMarkerNames -Marker $Marker)
+if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # THE FETCH-ATTEMPT RECORD (issue #1860) -- the parked-fix scan's fetch runs through it, so an
 # unreachable remote is not waited out again by new-branch.ps1 seconds later.
 . (Join-Path $PSScriptRoot '..\lib\fetch-attempt-lib.ps1')

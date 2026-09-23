@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Reason verified against the tree before the repair: nothing split `-Marker`, so `-File` delivered a
+comma list as one name to both `Format-ClaimComment` and `Get-ClaimMarkerPattern`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Split-ClaimMarkerNames` in `claim-issue-lib.ps1`; the pattern and the writer use it, and the
+      script normalises `$Marker` once after loading the lib
+- [x] The pattern also reads a compound marker already written (`claim-tag,xoxo-lane`) when any part is
+      a listed name -- the transition, so no consumer has to list the compound spelling
+- [x] Plugin mirrors copied; `-Marker` documented in the script help and the skill page
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: split, first-name write, read of ordinary/predecessor/compound markers,
+      no suffix match, and a real `powershell -File` binding probe -- 436 passed, 0 failed
+
 ### DEPLOY: fix/2358-claim-marker-comma-split
 
-**Score:**
+`claim-issue.ps1 -Marker` now splits a comma list into names. Under the documented
+`powershell -File` route a list such as `-Marker claim-tag,xoxo-lane` arrived as one literal string,
+was written as a compound marker name and read as one, so a machine passing a predecessor list could not
+see ordinary `claim-tag` claims and its own claims were invisible to every other machine. Only the first
+name is written now, every name is read, and a compound marker already written before this repair is
+still recognised whenever one of its parts is a listed name
+([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer sweeping one backlog from several machines with `-Tag` stops seeing claimed issues listed
+as free after a plugin update, and the compound markers already on its issues keep holding.
+
+**Score:** 4
 
 #### Pull Request
 

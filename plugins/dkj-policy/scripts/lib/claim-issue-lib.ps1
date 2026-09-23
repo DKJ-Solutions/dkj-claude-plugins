@@ -1613,6 +1613,41 @@ function Get-ClaimTag {
     }
 }
 
+function Split-ClaimMarkerNames {
+    <#
+        .SYNOPSIS
+            Turn whatever a caller passed for -Marker into a clean list of marker names.
+
+        .DESCRIPTION
+            IT SPLITS ON ',' AND THAT SPLIT IS THE POINT, not the [string[]] parameter it sits behind
+            (#2358). The documented route runs through powershell.exe -File, and -File binds its
+            arguments as LITERAL strings -- so -Marker claim-tag,xoxo-lane arrives as ONE element
+            'claim-tag,xoxo-lane' even though the parameter is declared an array. Unsplit, that one
+            string was written as a marker name and read as one, so a machine passing a predecessor
+            list was blind to every ordinary 'claim-tag' marker and its own claims were invisible to
+            every machine that passed none. The same -File lesson Get-NormalizedPaths (market-urls.ps1)
+            already carries: declaring the array is necessary and NOT sufficient.
+
+            A marker name has no legitimate comma -- it sits between '<!--' and ':' in an HTML comment
+            -- so the split cannot cut a real name in two. Blanks are dropped and a name given twice is
+            kept once, first spelling first, because the FIRST name is the one a claim writes.
+
+        .OUTPUTS
+            The names, in order. Empty when nothing usable was given.
+    #>
+    param([AllowNull()][string[]]$Marker)
+
+    $seen = @{}
+    foreach ($raw in @($Marker)) {
+        foreach ($part in ("$raw" -split ',')) {
+            $name = $part.Trim()
+            if (-not $name -or $seen.ContainsKey($name)) { continue }
+            $seen[$name] = $true
+            $name
+        }
+    }
+}
+
 function Get-ClaimMarkerPattern {
     <#
         .SYNOPSIS
@@ -1628,20 +1663,30 @@ function Get-ClaimMarkerPattern {
             predecessor is something a sweep RECOGNISES and never something it produces -- otherwise the
             older name never dies.
 
+            AND A COMPOUND NAME ALREADY WRITTEN IS READ, for the transition (#2358). Before the split
+            above existed, a comma list under -File was written verbatim -- '<!-- claim-tag,xoxo-lane:
+            TAG -->' sits on real issues. Such a marker is recognised when ANY of its comma-separated
+            parts is a name this sweep reads, so those in-flight claims hold without every consumer
+            having to list the compound spelling by hand. Nothing writes that shape any more.
+
         .PARAMETER Marker
-            One or more marker names, without the angle brackets or the colon.
+            One or more marker names, without the angle brackets or the colon. A comma list in one
+            element is split (Split-ClaimMarkerNames).
 
         .OUTPUTS
             The pattern string, with the tag in a named group 'tag'. '' when no usable name was given.
     #>
     param([AllowNull()][string[]]$Marker = @('claim-tag'))
 
-    $names = @(@($Marker) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { [regex]::Escape(([string]$_).Trim()) })
+    $names = @(Split-ClaimMarkerNames -Marker $Marker | ForEach-Object { [regex]::Escape($_) })
     if ($names.Count -eq 0) { return '' }
 
     # [^>]* rather than .*? because a marker is a single HTML comment on one line: bounding it at the
-    # first '>' means a malformed body cannot make one marker swallow the next one.
-    '<!--\s*(?:' + ($names -join '|') + ')\s*:\s*(?<tag>[^>]*?)\s*-->'
+    # first '>' means a malformed body cannot make one marker swallow the next one. The optional
+    # '<part>,' runs either side of the known name are the compound spellings described above; a part
+    # excludes whitespace, ',', ':' and '>', so it cannot reach past the marker's own colon.
+    $part = '[^\s,:>]+'
+    '<!--\s*(?:' + $part + '\s*,\s*)*(?:' + ($names -join '|') + ')(?:\s*,\s*' + $part + ')*\s*:\s*(?<tag>[^>]*?)\s*-->'
 }
 
 function Format-ClaimComment {
@@ -1663,7 +1708,10 @@ function Format-ClaimComment {
     )
 
     $tag = $Tag.Trim()
-    $name = if ($Marker -and $Marker.Trim()) { $Marker.Trim() } else { 'claim-tag' }
+    # The first NAME, never the whole string: a comma list handed over whole must not be written as one
+    # compound marker name nobody else reads (#2358).
+    $first = @(Split-ClaimMarkerNames -Marker $Marker) | Select-Object -First 1
+    $name = if ($first) { $first } else { 'claim-tag' }
     "Picked up by $tag -- an automated sweep of the open issues. <!-- ${name}: $tag -->"
 }
 
