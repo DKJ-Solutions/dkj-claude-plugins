@@ -73,7 +73,7 @@ function Assert-True {
 function C([int[]]$cp) { -join ($cp | ForEach-Object { [char]$_ }) }
 $MIDDOT = C 0xB7
 
-# $PID in the fixture path, per the suite convention in scripts/README.md: the test gate is a throttled
+# $PID in the fixture path, per the suite convention in Tycho's lens: the test gate is a throttled
 # PARALLEL scheduler, so two runs at one fixed path tear down each other's tree mid-assert and the
 # visible result is a red gate naming a subject that is fine.
 $Fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("measure-always-on-$PID-$([guid]::NewGuid().ToString('n'))")

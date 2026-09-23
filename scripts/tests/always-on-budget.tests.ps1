@@ -59,7 +59,7 @@ function Assert-True {
     else { $script:fail++; Write-Host "  [FAIL] $Name" -ForegroundColor Red }
 }
 
-# $PID plus a guid in the fixture path, per the suite convention in scripts/README.md: the test gate is
+# $PID plus a guid in the fixture path, per the suite convention in Tycho's lens: the test gate is
 # a throttled PARALLEL scheduler, so two runs at one fixed path tear down each other's tree mid-assert.
 $Fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("always-on-budget-$PID-$([guid]::NewGuid().ToString('n'))")
 if (Test-Path $Fixture) { Remove-Item -Recurse -Force $Fixture }

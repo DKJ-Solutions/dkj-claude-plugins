@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Dave asked to remove `scripts/README.md` (rarely read, never always-on), safely: move what code and
+docs cite it for as a place of record into the owners' lenses, repoint every citation, keep the gates
+green.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move the source/mirror rules, the `New-ScratchPath` rule and the #1668 leftovers decision to
+  Sylvester's lens, and the suite fixture convention to Tycho's lens
+- [x] Remove `scripts/README.md`; repoint the root README, the lint docstrings, the guard's printed
+  message, the code comments and the two plugin pages
+- [x] Regenerate the shared-script mirrors
 
 ### TEST
 
+- [x] Lint and test gates via `open-pr`
+
 ### DEPLOY: docs/remove-scripts-readme
 
-**Score:**
+Removed `scripts/README.md`. The rules and measured decisions that code and docs cited it for now live
+in [Sylvester's lens](../.claude/specialists/lenses/specialist-05-15-lens.md#the-scripts-directory-is-the-source)
+and [Tycho's lens](../.claude/specialists/lenses/specialist-04-18-lens.md#a-suites-fixture-path-carries-the-pid-and-a-fresh-guid);
+the directory map and the entry-point table were dropped, because each skill page and each plugin's
+`hooks/hooks.json` already answer them. The source-repo guard's refusal now points at the lens.
+
+**Score:** 1 -- prevents a reader following the guard's printed pointer, or a code comment, to a page
+that no longer exists.
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a subscriber: the only consumer-visible change is wording in two plugin pages.
+
+**Score:** N/A
 
 #### Pull Request
 

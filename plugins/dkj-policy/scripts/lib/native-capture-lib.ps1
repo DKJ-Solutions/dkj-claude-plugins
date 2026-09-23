@@ -1096,7 +1096,7 @@ function New-ScratchPath {
         $PID STAYS IN THE LEAF, in front of the GUID. It buys nothing against an attacker and is not
         there for that: it is what makes a leftover attributable to a run that is still alive, which is
         exactly what the retained-capture note (#1636) and ship-pr's fold-worktree line print for a
-        reader. scripts/README.md's fixture convention already names both spellings for that reason.
+        reader. The suite fixture convention in Tycho's lens (.claude/specialists/lenses/specialist-04-18-lens.md) names both halves for that reason.
 
         THE LABEL IS VALIDATED, because it is the one half a caller composes: ship-pr's carries a PR
         number, verify-resolved-issues' an issue number and sync-main's a branch name. A segment held to
