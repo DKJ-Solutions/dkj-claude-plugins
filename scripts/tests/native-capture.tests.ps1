@@ -1875,7 +1875,12 @@ foreach ($af in $auditFiles) {
 # shared network bound, judged through Test-NativeExitMeasured, and an unmeasured read REFUSES: an unread backlog
 # reported as "nothing to release" would send the operator to the next machine with every marker standing. The
 # -Release $unassign moved into the shared Remove-ClaimAssignee helper and is still one site.
-Assert-Equal 80 $boundedTotal 'the parser still counts 80 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 80 -> 81 (#2394): claim-issue.ps1's -TakeOver adds $authorLog, the `git log --format=%an` that reads an
+# untagged branch's authors. It is local and carries no timeout, and is counted because it passes -Utf8 (an
+# author name is free text and can be non-ASCII). Judged through Test-NativeExitMeasured: anything but a
+# measured 0 leaves the author list empty, which the verdict REFUSES as 'unknown-author'. The branch fetch
+# before it goes through Invoke-RecordedRemoteFetch, so it adds no site here.
+Assert-Equal 81 $boundedTotal 'the parser still counts 81 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

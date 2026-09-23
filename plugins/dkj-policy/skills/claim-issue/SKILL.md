@@ -97,6 +97,16 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   branch for it is on origin; a colleague's claim, no branch, or several are each refused. It is the one
   act that removes another tag's marker, then claims through the ordinary path and leaves a comment
   naming the old tag, the new tag and the branch -- so the old machine's `-Verify` reads `[NO]`.
+  **It also resumes an issue that carries no marker at all** (#2394) -- the common case, since a session
+  that never ran `-Tag` leaves only its branch. There the check is **who wrote the branch**: exactly one
+  branch on origin, and every commit on it off the trunk authored under one of this checkout's names.
+  One foreign author refuses, and so does an author list that could not be read.
+- **`DKJ_OWN_ACCOUNTS`** (environment variable, not a parameter) -- a comma list of the **other accounts
+  you work under**, e.g. a work login at the office and a personal one at home (#2394). They count as
+  yours for `-TakeOver` and for the parked-fix scan's `NOT YOURS` verdict; an account not listed stays a
+  colleague's. Set it in the `env` block of your **own** `~/.claude/settings.json`, never in
+  `scripts/repo-config.ps1`: that file is shared by everybody who clones the repo, so a list there would
+  make your accounts "self" for your colleagues too.
 - **`-Candidates`** -- takes no issue number, writes nothing, and lists every open issue as `free`,
   `mine`, `held`, `branch` or `skipped` with the reason. `branch` is an issue no marker holds but a
   `<prefix>/<n>-<name>` branch on origin names, with its author and age -- read from one fetch and one

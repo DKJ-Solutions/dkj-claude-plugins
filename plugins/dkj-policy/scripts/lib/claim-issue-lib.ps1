@@ -982,6 +982,11 @@ function Format-ParkedFixReport {
         $lines.Add('  That is the locked-door shape -- a different account, and a branch that already exists --') | Out-Null
         $lines.Add('  reaching you through the branch instead of through the assignee field, where nothing would') | Out-Null
         $lines.Add('  have reported it. ASK THEM BEFORE YOU WRITE ANYTHING.') | Out-Null
+        # THE ONE KEY THIS DOOR HAS, named where the door is read (#2394), and above the closing warning
+        # so the verdict stays the last line. Without it a person resuming their own work from another
+        # machine, under another of their accounts, had no route but asking themselves.
+        $lines.Add("  If '$($foreign.Author)' is one of YOUR OWN accounts, declare it in DKJ_OWN_ACCOUNTS (your") | Out-Null
+        $lines.Add("  ~/.claude/settings.json env block) and resume the branch with: claim-issue.ps1 $Issue -Tag -TakeOver") | Out-Null
         $lines.Add('  Do NOT settle this by reading the commit: a park commit is empty by design, so its') | Out-Null
         $lines.Add('  content is the one thing that cannot tell you whether somebody is mid-flight.') | Out-Null
     }
@@ -2003,6 +2008,49 @@ function Resolve-ClaimRace {
 # WHAT IT DOES NOT MEASURE is whether the other session is still alive. Nothing on the tracker can say
 # so; what the handover does instead is make the other side FIND OUT: its marker is gone, so its own
 # `-Verify` answers [NO] and a sweep's resume step stops there.
+#
+# AND TWO GAPS IN THAT FIRST VERSION, measured the same day on the same machine (issue #2394). None of
+# the 9 PR-less branches on origin carried a marker at all -- those sessions never ran -Tag -- so the
+# verdict read 'free' and -TakeOver refused with "nothing to take over", while the parked-fix scan
+# printed NOT YOURS over the same branch. And "the same account" was exactly one account, where the
+# branches were authored under two others one person works under. So:
+#
+#   AN UNTAGGED BRANCH IS TAKEN OVER ON ITS AUTHORS. With no marker there is no holder to compare, so
+#   the precondition moves to the only record of who did the work: every commit on the branch off the
+#   trunk must be authored under one of this checkout's own names. One foreign commit refuses -- the
+#   branch is then shared work, and that is the conversation again.
+#
+#   "THIS ACCOUNT" MAY BE SEVERAL, BUT ONLY WHERE DECLARED. Get-OwnAccountNames reads the list; nothing
+#   is inferred from a name looking similar, because the cost of a wrong guess is a colleague's branch
+#   taken over as bookkeeping.
+
+function Get-OwnAccountNames {
+    <#
+        .SYNOPSIS
+            The other accounts THIS PERSON works under, as declared -- read from the DKJ_OWN_ACCOUNTS
+            environment variable, a comma list of GitHub logins or git author names.
+
+        .DESCRIPTION
+            A USER-LEVEL DECLARATION, NOT A REPO ONE, and that is the design. scripts/repo-config.ps1 is
+            committed and read by everybody who clones the repo, so a list in it would make one person's
+            accounts "self" for every colleague on that checkout as well -- which inverts the one
+            refusal this list must never weaken. An environment variable is per person and per machine;
+            the natural place to set it is the `env` block of the user's own ~/.claude/settings.json.
+
+            IT ONLY WIDENS "SELF" BY WHAT IS NAMED. An account not listed stays foreign, so a real
+            colleague still reads NOT YOURS and -TakeOver still refuses them (issue #2394).
+
+        .PARAMETER Value
+            The raw declaration -- normally $env:DKJ_OWN_ACCOUNTS. '' or $null declares nothing.
+
+        .OUTPUTS
+            The names, in order, blanks and repeats dropped. Empty when nothing is declared.
+    #>
+    param([AllowNull()][string]$Value)
+    # A name carrying '/' cannot be a login or the account half of a tag, so it is dropped rather than
+    # compared -- the same reading Get-ClaimTag gives the separator.
+    @(Split-CommaListArgument -Value @($Value) | Where-Object { $_ -notmatch '/' })
+}
 
 function Get-IssueBranchNames {
     <#
@@ -2119,7 +2167,14 @@ function Get-TakeOverVerdict {
 
             THE ACCOUNT IS THE HALF AFTER THE FIRST '/'. Get-ClaimTag refuses a machine name carrying
             the separator, so the first one is always the boundary. Compared case-insensitively, like
-            every other tag comparison in this lib.
+            every other tag comparison in this lib -- against this tag's account AND every declared own
+            account (Get-OwnAccountNames), so the owner's other accounts are bookkeeping too (#2394).
+
+            AN UNTAGGED ISSUE WITH A BRANCH IS THE SECOND CASE (#2394). Where the base verdict is 'free'
+            and origin carries a branch for the issue, the question is no longer who holds a marker but
+            who wrote the branch: exactly one branch, and every author on it off the trunk one of
+            -SelfNames. With no branch at all, 'free' passes through unchanged -- there is nothing to
+            resume, and the ordinary claim is the answer.
 
         .PARAMETER Tag
             This session's tag (Get-ClaimTag's Tag).
@@ -2133,19 +2188,38 @@ function Get-TakeOverVerdict {
         .PARAMETER Branches
             The issue's branches on origin (Get-IssueBranchNames).
 
+        .PARAMETER OwnAccounts
+            The declared other accounts of this person (Get-OwnAccountNames). Compared against a
+            holder's account half.
+
+        .PARAMETER SelfNames
+            Every name this checkout answers to -- git user.name, the claiming login, the tag's account
+            and the declared own accounts. Compared against the branch's authors (Test-SelfAuthored).
+
+        .PARAMETER BranchAuthors
+            The author names of the one branch's commits off the trunk, as git wrote them. Read by the
+            caller only for an untagged issue with exactly one branch; empty means unread.
+
         .OUTPUTS
-            Code     -- Get-TagClaimVerdict's code for anything not 'held'; otherwise
-                        'foreign-account' | 'no-branch' | 'ambiguous-branch' | 'take'.
+            Code     -- Get-TagClaimVerdict's code for anything not 'held' or untagged-with-a-branch;
+                        otherwise 'foreign-account' | 'no-branch' | 'ambiguous-branch' | 'take' for a
+                        held issue, and 'ambiguous-branch' | 'unknown-author' | 'foreign-author' |
+                        'take-untagged' for an untagged one.
             Holders  -- the tags that are not this one. Always an array.
-            Branch   -- the one branch to resume, on 'take'. '' otherwise.
+            Branch   -- the one branch to resume, on 'take' / 'take-untagged'. '' otherwise.
             Branches -- every branch that matched. Always an array.
             Rivals   -- the marker records the take-over removes, on 'take'. Always an array.
+            Authors  -- the distinct branch authors, on the untagged path. Always an array.
+            Foreign  -- the authors that are not self, on 'foreign-author'. Always an array.
     #>
     param(
         [string]$Tag = '',
         [string]$State = '',
         [AllowNull()][object[]]$Records = @(),
-        [AllowNull()][string[]]$Branches = @()
+        [AllowNull()][string[]]$Branches = @(),
+        [AllowNull()][string[]]$OwnAccounts = @(),
+        [AllowNull()][string[]]$SelfNames = @(),
+        [AllowNull()][string[]]$BranchAuthors = @()
     )
 
     $base = Get-TagClaimVerdict -Tag $Tag -State $State -Records $Records
@@ -2156,13 +2230,34 @@ function Get-TakeOverVerdict {
         Branch   = ''
         Branches = $found
         Rivals   = @()
+        Authors  = @()
+        Foreign  = @()
+    }
+
+    if ($base.Code -eq 'free' -and $found.Count -gt 0) {
+        if ($found.Count -gt 1) { $result.Code = 'ambiguous-branch'; return $result }
+        $result.Branch = $found[0]
+        $seen = @{}
+        $authors = @(foreach ($a in @($BranchAuthors)) {
+            $name = ([string]$a).Trim()
+            if ($name -and -not $seen.ContainsKey($name.ToLowerInvariant())) { $seen[$name.ToLowerInvariant()] = $true; $name }
+        })
+        $result.Authors = $authors
+        # UNREAD IS NOT CLEAN. Test-SelfAuthored says $true for an empty author, which is right for a
+        # warning that must not speak without a measurement and wrong for a write: no authors, no take.
+        $self = @(@($SelfNames) | Where-Object { $_ -and ([string]$_).Trim() })
+        if ($authors.Count -eq 0 -or $self.Count -eq 0) { $result.Code = 'unknown-author'; return $result }
+        $result.Foreign = @($authors | Where-Object { -not (Test-SelfAuthored -Author $_ -SelfNames $self) })
+        $result.Code = if ($result.Foreign.Count -gt 0) { 'foreign-author' } else { 'take-untagged' }
+        return $result
     }
     if ($base.Code -ne 'held') { return $result }
 
-    $myAccount = ($Tag -split '/', 2)[1]
+    $myAccounts = @(@(($Tag -split '/', 2)[1]) + @($OwnAccounts) | Where-Object { $_ })
     $foreign = @(@($base.Holders) | Where-Object {
         $parts = ([string]$_) -split '/', 2
-        $parts.Count -lt 2 -or ($parts[1] -ine $myAccount)
+        $holderAccount = if ($parts.Count -ge 2) { $parts[1] } else { '' }
+        $parts.Count -lt 2 -or (@($myAccounts | Where-Object { $_ -ieq $holderAccount }).Count -eq 0)
     })
     if ($foreign.Count -gt 0) { $result.Code = 'foreign-account'; return $result }
     if ($found.Count -eq 0) { $result.Code = 'no-branch'; return $result }
@@ -2186,14 +2281,25 @@ function Format-HandoverComment {
             IT CARRIES NO MARKER, on purpose. The claim is the new marker the ordinary claim path writes;
             this is the record a person reads, and one that also parsed as a claim would give the issue
             two markers for one tag.
+
+            WITH NO OLD TAG IT NAMES THE AUTHORS INSTEAD (#2394). An untagged branch had no holder, so
+            the record says whose commits it was resumed from -- that is what the other machine, or the
+            owner reading the issue later, needs to recognise.
     #>
     param(
-        [Parameter(Mandatory = $true)][string[]]$OldTags,
+        [AllowNull()][AllowEmptyCollection()][string[]]$OldTags = @(),
         [Parameter(Mandatory = $true)][string]$NewTag,
         [Parameter(Mandatory = $true)][string]$Branch,
-        [Parameter(Mandatory = $true)][int]$Issue
+        [Parameter(Mandatory = $true)][int]$Issue,
+        [AllowNull()][AllowEmptyCollection()][string[]]$Authors = @()
     )
     $old = (@($OldTags) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join ', '
+    if (-not $old) {
+        $by = (@($Authors) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join ', '
+        return "Resumed by $NewTag from ``$Branch``, which is on origin and carried no claim marker " +
+            "(commits off the trunk by $by). A session still working that branch elsewhere should stop " +
+            "and pull before it pushes again."
+    }
     "Handed over from $old to $NewTag -- the work continues on ``$Branch``, which is on origin. " +
         "A session under $old that runs ``claim-issue.ps1 $Issue -Tag -Verify`` now reads [NO] and stops."
 }
