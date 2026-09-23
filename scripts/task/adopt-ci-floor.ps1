@@ -156,6 +156,11 @@
     For the test suite, which has to reach the queue-is-active arm without a network or a trunk. A
     consumer never types it.
 
+.PARAMETER SharedRefOverride
+    The ref the three write runners check the shared scripts out at, used instead of resolving this
+    plugin's release tag over the network. For the test suite, like -RulesJsonOverride. A consumer
+    never types it.
+
 .EXAMPLE
     .\scripts\task\adopt-ci-floor.ps1
     .\scripts\task\adopt-ci-floor.ps1 -Apply
@@ -164,7 +169,8 @@
 [CmdletBinding()]
 param(
     [switch]$Apply,
-    [string]$RulesJsonOverride = ''
+    [string]$RulesJsonOverride = '',
+    [string]$SharedRefOverride = ''
 )
 
 Set-StrictMode -Version Latest
@@ -252,6 +258,80 @@ $pluginDir  = "$sharedPath/plugins/dkj-policy/scripts"
 # a hand-maintained workflow here is bumped and the scaffolder is not -- a consumer's floor cannot
 # quietly fall behind the floor this repo runs on itself.
 $checkoutPin = 'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5'
+
+# THE SHARED SCRIPTS ARE PINNED TOO -- IN THE SAME THREE WRITE RUNNERS, AND ONLY THERE (issue #2333).
+# Pinning the ACTION is half of the job. The second checkout in each of those runners fetches this
+# workflow's own scripts out of $sharedRepo and then EXECUTES them, in a job that holds FOLD_PUSH_TOKEN
+# (fold, merge-on-green) or issues: write (resolves). At ref: main, a change landing on the source
+# repo's trunk -- a bad merge, a compromised account -- reached standing Contents and Pull requests
+# write in every adopted consumer on its next run, with no release in between. So those three check
+# the scripts out at the commit the RELEASE THIS SCAFFOLDER CAME FROM was tagged at: the version is read
+# off this plugin's own plugin.json, and the tag is resolved to its commit SHA, because a tag can be
+# moved by the same account that could push a bad commit and a SHA cannot.
+#
+# THE READ-ONLY RUNNERS STAY ON ref: main, AND THE #1805 ARGUMENT IS WHY. branch-entry.yml and
+# repo-settings.yml hold no write scope and no secret, so tracking the tip costs them nothing worth
+# pinning against, and a pinned gate goes on enforcing a stale convention. That argument is right for
+# them and was never weighed against a credential (#1851); the pin goes exactly where the credential is.
+#
+# A PIN HAS TO MOVE, AND THIS SCRIPT IS WHAT SAYS SO. It writes a runner once and never rewrites it, so
+# re-running it reports every existing write runner still on main or pinned behind the version running
+# now (section 2 below). Bumping it is editing one ref: line per file -- the value this run prints.
+#
+# WHERE THE SHA CANNOT BE RESOLVED (offline, no git), THE TAG IS WRITTEN AND THE RUN SAYS SO. A tag is
+# weaker than a SHA and far stronger than main, and refusing the floor over it would leave the fold
+# unguarded instead. Where not even the version can be read, the runners fall back to main, loudly.
+function Get-ScaffoldingPluginVersion {
+    # Two layouts: the plugin mirror (scripts/task -> the plugin root, which holds .claude-plugin/) and
+    # this script's source copy (scripts/task -> the repo root, which holds plugins/dkj-policy/).
+    foreach ($rel in @('..\..\.claude-plugin\plugin.json', '..\..\plugins\dkj-policy\.claude-plugin\plugin.json')) {
+        $p = Join-Path $PSScriptRoot $rel
+        if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { continue }
+        try {
+            $v = [string]((Get-Content -LiteralPath $p -Raw | ConvertFrom-Json).version)
+            if ($v -match '^\d+\.\d+\.\d+$') { return $v }
+        } catch { }
+    }
+    return ''
+}
+
+$writeRunnerVersion = Get-ScaffoldingPluginVersion
+$writeRunnerRef = $sharedRef
+$writeRunnerPinState = 'unpinned'
+if ($SharedRefOverride) {
+    # The test suite's route: a runner with no network still has to be read for WHERE the pin lands.
+    $writeRunnerRef = $SharedRefOverride
+    $writeRunnerPinState = 'override'
+} elseif ($writeRunnerVersion) {
+    $writeRunnerTag = "v$writeRunnerVersion"
+    $lsRemote = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds -Arguments @('ls-remote', "https://github.com/$sharedRepo.git", "refs/tags/$writeRunnerTag", "refs/tags/$writeRunnerTag^{}")
+    $tagSha = ''
+    if ($lsRemote.ExitCode -eq 0) {
+        # An annotated tag answers twice: the tag object, and the commit it points at under '^{}'. The
+        # commit is the one actions/checkout can take as a ref, so the peeled line wins when present.
+        foreach ($line in @($lsRemote.Output)) {
+            $m = [regex]::Match([string]$line, '^(?<sha>[0-9a-f]{40})\s+refs/tags/(?<tag>\S+)$')
+            if (-not $m.Success) { continue }
+            if ($m.Groups['tag'].Value -eq "$writeRunnerTag^{}") { $tagSha = $m.Groups['sha'].Value; break }
+            if ($m.Groups['tag'].Value -eq $writeRunnerTag) { $tagSha = $m.Groups['sha'].Value }
+        }
+    }
+    if ($tagSha) {
+        $writeRunnerRef = "$tagSha # $writeRunnerTag"
+        $writeRunnerPinState = 'sha'
+    } else {
+        $writeRunnerRef = $writeRunnerTag
+        $writeRunnerPinState = 'tag'
+    }
+}
+
+# The comment every write runner carries above its shared checkout, so the pin is argued where it sits.
+$writeRunnerPinComment = @(
+    '      # THE SHARED SCRIPTS ARE PINNED TO A RELEASE, NOT ref: main (issue #2333). This job holds a write',
+    '      # credential, and code fetched at the tip of another repository would run beside it with no',
+    '      # release in between. Move the pin when you update the dkj-policy plugin: re-running',
+    '      # adopt-ci-floor.ps1 reports a runner pinned behind the version it came from.'
+)
 
 # --- What the trunk's own rules say -----------------------------------------------------------------
 # READ, NEVER WRITTEN, and read once: both questions below (is there a queue, and which contexts are
@@ -631,12 +711,13 @@ $foldRunner = @(
     '        with:',
     ('          ref: ' + $trunk),
     '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
-    '',
+    ''
+    ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
     ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
-    ('          ref: ' + $sharedRef),
+    ('          ref: ' + $writeRunnerRef),
     ('          path: ' + $sharedPath),
     '',
     '      # continue-on-error is deliberate: the check exits non-zero on a genuine FIND, which is the',
@@ -773,12 +854,13 @@ $resolvesRunner = @(
     ('      - uses: ' + $checkoutPin),
     '        with:',
     '          persist-credentials: false',
-    '',
+    ''
+    ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
     ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
-    ('          ref: ' + $sharedRef),
+    ('          ref: ' + $writeRunnerRef),
     ('          path: ' + $sharedPath),
     '',
     '      # THE EVENT''S VALUES ARRIVE THROUGH env:, NOT THROUGH ${{ }} INSIDE run:. Interpolating an',
@@ -845,9 +927,9 @@ $repoSettingsRunner = @(
     '# branch-entry.yml and unfolded-entry.yml (read-only, like this job) are not. persist-credentials:',
     '# false because this job never pushes.',
     '#',
-    '# THIS COMMAND''S OWN FOLD/RESOLVES RUNNERS ARE UNPINNED TOO, though -- despite each carrying a',
-    '# standing push credential or a write scope, unlike their pinned source-repo counterparts above.',
-    '# That gap is filed as #1904 and is deliberately out of scope here.',
+    '# The write runners adopt-ci-floor.ps1 places beside this one (fold, resolves, merge-on-green) pin',
+    '# both the action (#1904) and the shared scripts they fetch (#2333); this one pins neither, and',
+    '# tracks the scripts at main on the #1805 argument, because it holds nothing worth pinning against.',
     '#',
     '# THE SECOND CHECKOUT reaches the check through the plugin''s own tree rather than a copy kept here,',
     '# so this repo shares one definition of "what GitHub-side drift looks like" with the workflow''s',
@@ -1009,12 +1091,13 @@ $mergeOnGreenRunner = @(
     '        with:',
     ('          ref: ' + $trunk),
     '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
-    '',
+    ''
+    ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
     ('        uses: ' + $checkoutPin),
     '        with:',
     ('          repository: ' + $sharedRepo),
-    ('          ref: ' + $sharedRef),
+    ('          ref: ' + $writeRunnerRef),
     ('          path: ' + $sharedPath),
     '          persist-credentials: false',
     '',
@@ -1103,6 +1186,48 @@ $foldRunnerRel = '.github/workflows/fold-on-merge.yml'
 # THE SECOND TARGET THAT NEEDS IT, AND THE ONE THAT NEEDS IT WIDER (#2329): merging needs Pull requests:
 # write on top of the fold's Contents: write. Tracked by name for the same reason as the fold runner.
 $mergeOnGreenRunnerRel = '.github/workflows/merge-on-green.yml'
+# THE THREE THAT HOLD A WRITE CREDENTIAL, and therefore the three whose shared scripts are pinned (#2333).
+$writeRunnerRels = @($foldRunnerRel, '.github/workflows/verify-resolved.yml', $mergeOnGreenRunnerRel)
+
+function Write-WriteRunnerPinVerdict {
+    <#
+        One line about the ref an EXISTING write runner fetches the shared scripts at (#2333): on main,
+        pinned behind the release this run came from, pinned at a SHA it cannot date, or unreadable.
+        Silent where the pin is at or ahead of this release -- that is the ordinary state.
+
+        READ IN THE SHAPE THIS SCAFFOLDER WRITES, AND NO FURTHER: the `ref:` of the same ten-space
+        `with:` block as a `repository:` naming this repo under either name it has carried (a runner
+        scaffolded before the #1769 rename still names the old one). A hand-edited file this cannot
+        read is said to be unread, never judged clean.
+    #>
+    param([string]$Rel, [string]$Text)
+
+    $m = [regex]::Match($Text, '(?m)^ {10}repository:\s*\S*/(?:dkj-claude-plugins|claude-code-specialists)\s*$(?:\n {10}[^\n]*)*?\n {10}ref:[ \t]*(?<ref>[^\s#]+)[ \t]*(?:#[ \t]*(?<tag>\S+))?[ \t]*$')
+    if (-not $m.Success) {
+        Write-Host "            its shared-scripts ref could not be read, so whether it is pinned was NOT established." -ForegroundColor DarkGray
+        return
+    }
+    $ref = $m.Groups['ref'].Value
+    $tag = if ($m.Groups['tag'].Success) { $m.Groups['tag'].Value } else { $ref }
+    $bump = if ($writeRunnerPinState -eq 'unpinned') { 'a release commit of the dkj-policy plugin' } else { Get-DisplayRef -Ref $writeRunnerRef }
+
+    $vm = [regex]::Match($tag, '^v?(?<v>\d+\.\d+\.\d+)$')
+    if (-not $vm.Success) {
+        if ($ref -match '^[0-9a-f]{40}$') {
+            Write-Host '            [pin] it fetches the shared scripts at a SHA with no version beside it, so whether that is' -ForegroundColor DarkGray
+            Write-Host '            behind this release could not be told.' -ForegroundColor DarkGray
+        } else {
+            Write-Host "            [pin] it fetches the shared scripts at '$(Get-DisplayRef -Ref $ref)' -- a moving ref, beside a write credential" -ForegroundColor Yellow
+            Write-Host "            (#2333). Change that ref: line to $bump." -ForegroundColor Yellow
+        }
+        return
+    }
+    if (-not $writeRunnerVersion) { return }
+    if ([version]$vm.Groups['v'].Value -lt [version]$writeRunnerVersion) {
+        Write-Host "            [pin] it fetches the shared scripts at $(Get-DisplayRef -Ref $tag), behind v$writeRunnerVersion which this run came from." -ForegroundColor Yellow
+        Write-Host "            Move that ref: line to $bump." -ForegroundColor Yellow
+    }
+}
 
 # --- Report ------------------------------------------------------------------------------------------
 Write-Host "== adopt-ci-floor -- $repoRoot ==" -ForegroundColor Cyan
@@ -1324,13 +1449,22 @@ $created = 0
 $kept = 0
 $foldRunnerCreated = $false
 $mergeOnGreenRunnerCreated = $false
+$writeRunnerCreated = $false
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
     if (Test-Path -LiteralPath $abs) {
         $kept++
         Write-Host "  [exists]  $($t.Rel) -- left as it is" -ForegroundColor DarkGray
+        # AN EXISTING WRITE RUNNER IS READ FOR ITS PIN (#2333), because this is the only moment anything
+        # looks at it again: the file is never rewritten, so a floor adopted on ref: main, or pinned at
+        # an older release, stays there until somebody is told. Advisory -- the file stays untouched.
+        if ($writeRunnerRels -contains $t.Rel) {
+            $existing = ([System.IO.File]::ReadAllText($abs)) -replace "`r`n", "`n"
+            Write-WriteRunnerPinVerdict -Rel $t.Rel -Text $existing
+        }
         continue
     }
+    if ($writeRunnerRels -contains $t.Rel) { $writeRunnerCreated = $true }
     # QUEUE-RELATED ONLY: repo-settings.yml missing is an ordinary to-do regardless of queue state, so
     # it must never count toward the ACTIVE-QUEUE-AND-INCOMPLETE-FLOOR exit code below.
     if ($queueActive -and -not $Apply -and $t.QueueRelated) { $liveDefects++ }
@@ -1346,6 +1480,22 @@ foreach ($t in $targets) {
         $marker = if ($queueActive -and $t.QueueRelated) { '[MISSING]' } else { '[create] ' }
         $colour = if ($queueActive -and $t.QueueRelated) { 'Red' } else { 'Green' }
         Write-Host "  $marker $($t.Rel) -- $($t.What)" -ForegroundColor $colour
+    }
+}
+if ($writeRunnerCreated) {
+    switch ($writeRunnerPinState) {
+        'sha'      { Write-Host "  [pin]     the write runners fetch the shared scripts at $writeRunnerRef -- this plugin's own release." -ForegroundColor DarkGray }
+        'override' { Write-Host "  [pin]     the write runners fetch the shared scripts at $(Get-DisplayRef -Ref $writeRunnerRef) (-SharedRefOverride)." -ForegroundColor DarkGray }
+        'tag'      {
+            Write-Host "  [pin]     the write runners fetch the shared scripts at the TAG ${writeRunnerRef}: its commit SHA could" -ForegroundColor Yellow
+            Write-Host '            not be resolved (git ls-remote did not answer). A tag can be moved and a SHA cannot --' -ForegroundColor Yellow
+            Write-Host '            re-run this with a network to write the SHA, or replace the ref: lines by hand.' -ForegroundColor Yellow
+        }
+        default    {
+            Write-Host '  [pin]     this plugin''s version could not be read, so the write runners fetch the shared scripts' -ForegroundColor Yellow
+            Write-Host '            at main -- the tip, beside a write credential (#2333). Replace their ref: lines with a' -ForegroundColor Yellow
+            Write-Host '            release commit of the dkj-policy plugin before you store FOLD_PUSH_TOKEN.' -ForegroundColor Yellow
+        }
     }
 }
 Write-Host '  [note]    repo-settings.yml runs on a SCHEDULE, not per merge -- it answers a different' -ForegroundColor DarkGray
