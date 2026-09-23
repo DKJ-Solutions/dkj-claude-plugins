@@ -74,10 +74,12 @@ had to be built.
 
 #### The collision, named rather than worked around
 
-`origin/fix/2224-stale-clone-import-remediation` (maikel-bwj, parked 13 hours, no PR) rewrites the same
-`Write-Failure` block — it splits that finding's cause list by import class. This branch is cut from
-`origin/main` and does not build on it, merge it, or reshape itself around it. Whoever lands second
-resolves one textual conflict in two files.
+`fix/2224-stale-clone-import-remediation` rewrote the same `Write-Failure` block — it splits that
+finding's cause list by import class. This branch was cut from `origin/main` without building on it.
+#2224 landed first (#2245, September 21, 2026), and the conflict was resolved on September 23, 2026 by
+merging `main` into this branch: the overlap check runs first, and its `else` branch carries #2224's
+class-split cause list unchanged, in both script copies. `roster-sync.tests.ps1` holds both repairs:
+414 pass, 0 fail.
 
 #### Handover — this branch was parked mid-chain on September 21, 2026
 
@@ -112,12 +114,15 @@ cost of 26.6s. Measured, with the machine-suspend explanation (#2095) ruled out 
 2,490s suspend does not fit inside a 1,512s process lifetime. The cause of the wedge itself is stated
 as not established.
 
-**Two things to check before writing anything, on a machine that is not this one.**
-`#2226` is claimed for `davekokbwj`; if that machine commits under another identity, claim by name
-rather than resolving `@me`, and read the claim before touching the branch — resuming is picking up.
-And `origin/fix/2224-stale-clone-import-remediation` (maikel-bwj, parked, no PR) still rewrites the same
-`Write-Failure` block in both script copies; whoever lands second resolves one textual conflict in two
-files. Do not merge it into this branch to pre-empt that.
+#### Resumed on September 23, 2026
+
+Picked up under the existing claim (`maikel-bwj`, which is also this checkout's git and gh identity).
+The two open points above are closed: the #2224 collision is resolved (see *The collision*), and the
+gate question was decided by Dave in
+[#2267](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2267) on September 22, 2026 — on the
+machine this runs on, `open-pr` runs with `-SkipTests`, keeping the lint gate, while the required CI
+check `lint-en-tests` runs every suite before the merge. The bypass is stated in the pull request body.
+The review round was re-run from scratch.
 
 ### CREATE
 
