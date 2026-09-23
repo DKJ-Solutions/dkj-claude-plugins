@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound #2368, verified against the tree before building: `asana-mirror.ps1` makes exactly two GitHub
+writes, `gh issue edit` for the prio labels and `gh issue comment` for the paste-block backstop
+(`Add-GithubIssueComment`, since 5.5.0 / #2049). Its graphql calls are read-only queries. The
+permission is right; the two passages that justify it say labels only.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `templates/asana-mirror.yml`: the `issues: write` comment names both writes.
+- [x] `WORKFLOW-portable.md` step 5: the same claim corrected, linking the step-4 backstop section.
 
 ### TEST
 
+- [x] Lint and test gates through `ship-pr`.
+
 ### DEPLOY: docs/2368-asana-mirror-write-comment
 
-**Score:**
+`dkj-policy-bwj`'s `asana-mirror.yml` template and its `WORKFLOW-portable.md` step 5 said the
+workflow's `issues: write` only ever edits labels. Since 5.5.0 it also posts one comment, the
+paste-block backstop on a closed issue that has no paste-ready block yet. Both passages now name the two
+writes ([#2368](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2368)). The permission
+does not change. The failure this prevents has not happened yet: a reviewer who takes the old comment at
+its word and narrows the scope to labels would break the backstop without noticing.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
