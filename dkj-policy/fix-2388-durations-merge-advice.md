@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Resolves #2388. The issue's reason was verified in `.github/workflows/ci.yml` before the repair: the suites
+step's `if:` skips on a `fold:` subject and on `steps.merge-suite-skip.outputs.skip == 'true'`, the #2303
+merge-commit certificate, which answers `true` for the ordinary ship-pr merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `record-suite-durations.ps1`: the no-table throw names a PR run and states why both trunk pushes are
+      normally tableless; the `.PARAMETER RunId` docstring says the same.
 
 ### TEST
 
+- [x] Re-ran the script with `-DryRun` against `35903739236`, the `merge:` run the issue measured: it still
+      refuses, now pointing to a PR run.
+- [x] No test pins the throw text (grep over the tree), and no other page repeats the merge-run advice.
+
 ### DEPLOY: fix/2388-durations-merge-advice
 
-**Score:**
+`record-suite-durations.ps1`'s no-table refusal used to send the caller from a `fold:` run to the
+`merge:` run beside it. Since the merge-commit certificate (#2303), that run normally has no suite table
+either. The refusal and the `-RunId` docstring now name a PR run, the run that always has one. This prevents a
+failure that already happened twice during #2304's duration re-reads: a maintainer following the throw's
+advice to a second tableless run.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
