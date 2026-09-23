@@ -1234,13 +1234,20 @@ infrastructure.
   `scripts/tests/merge-on-green-lib.tests.ps1` holds the three conditions structurally and asserts the
   #1620 refusal survived, which is not the same as covering the behaviour.
 
-  **NO CONSUMER TWIN YET, WHILE THE HALF THAT *ARMS* ONE TRAVELS AT THE NEXT RELEASE**
+  **ITS CONSUMER TWIN IS `adopt-ci-floor.ps1`'s FOURTH RUNNER**
   ([#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329)). `ship-pr.ps1` is a shared
-  script, so a consumer gets the labelling and the sentence promising a sweep, with no sweep behind it.
-  Inert rather than harmful — and the reason `merge-on-green-lib.ps1` is registered as a shared lib
-  regardless: that dot-source is unguarded, so a payload carrying the script without the lib fails at
-  load in every consumer. `fold-on-merge.yml` landed the same way, built here under #1493 and derived
-  into `adopt-ci-floor.ps1` afterwards.
+  script, so a consumer got the labelling and the sentence promising a sweep a release before it got
+  the sweep — the same order `fold-on-merge.yml` landed in, built here under #1493 and derived
+  afterwards. The derived copy reaches `pick-merge-on-green.ps1` and `ship-pr.ps1` out of the plugin
+  checkout and runs both against the consumer's workspace via `CLAUDE_PROJECT_DIR`. **That needed one
+  repair to the picker, not only a template**: it resolved its root as `$PSScriptRoot\..\..`, which in a
+  consumer is the checkout of *this* tree, so its `Get-RepoName` read would have come off this repo's
+  own `repo-config.ps1` and swept this repo's pull requests from a consumer's runner. It now resolves
+  dual-context like every other mirrored script, and is mirrored itself. The derived runner also puts
+  the plugin checkout in `.git/info/exclude`, since `ship-pr` reads an untracked directory as a dirty
+  tree and would otherwise fold through its temporary-worktree arm — correct, but not the path a session
+  takes. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
+  `name:`, and left out rather than guessed where none declares one.
 
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),

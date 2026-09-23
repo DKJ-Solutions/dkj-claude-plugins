@@ -967,7 +967,7 @@ if ($scoped -eq 'never') {
     $r = Invoke-Ps @('-ConsumerPathOverride', $c)
     Assert-Equal 0 $r.Code 'adoption complete: exit-code 0'
     Assert-Equal 0 @([regex]::Matches($r.Out, '\[UNADOPTED\]')).Count 'adoption complete: silent -- nothing to say'
-    Assert-Match '\[OK\]\s+adoption: adopt-ci-floor .* every one of the 3 files it places is here' $r.Out `
+    Assert-Match '\[OK\]\s+adoption: adopt-ci-floor .* every one of the 4 files it places is here' $r.Out `
         'adoption complete: reported as OK on a deliberate run, so silence is never ambiguous'
     Assert-Match '\[OK\]\s+adoption: adopt-statusline .* the only file it places is here' $r.Out `
         'adoption complete: a one-file command gets its own sentence, never "every one of the 1 file"'
@@ -980,7 +980,7 @@ if ($scoped -eq 'never') {
     $c = New-FixtureConsumer -PlaceAdoptionFiles @('.github/workflows/fold-on-merge.yml', '.github/workflows/verify-resolved.yml')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c)
     Assert-Equal 0 $r.Code 'adoption partial: exit-code 0'
-    Assert-Match '\[UNADOPTED\] adopt-ci-floor .*has been run here and has since GAINED a file: 2 of 3 present' $r.Out `
+    Assert-Match '\[UNADOPTED\] adopt-ci-floor .*has been run here and has since GAINED a file: 2 of 4 present' $r.Out `
         'adoption partial: named as a gained step, with the count'
     Assert-Match '\[UNADOPTED\] adopt-ci-floor .*missing \.github/workflows/repo-settings\.yml' $r.Out `
         'adoption partial: the missing file is named'

@@ -84,6 +84,14 @@
     name rather than two to reconcile by hand. Offered only when nothing else already triggers on
     pull_request, and only additively, like every other target here.
 
+    A SIXTH FILE CLOSES A PROMISE ship-pr ALREADY MAKES IN EVERY CONSUMER (#2329):
+    .github/workflows/merge-on-green.yml. ship-pr arms a pull request it refused on a red or pending
+    required check with the merge-when-green label and says a sweep will finish the merge; this is that
+    sweep, derived from the source repo's own runner (#2319). It reaches the plugin's
+    pick-merge-on-green.ps1 and ship-pr.ps1 through the same checkout of the plugin tree, and runs both
+    against THIS tree via CLAUDE_PROJECT_DIR. Its FOLD_PUSH_TOKEN needs Pull requests: write as well,
+    and the run says so when it places the file.
+
     AND ONE PREREQUISITE BELONGS TO THE QUEUE ALONE (#1325): every workflow carrying a REQUIRED check
     context must trigger on `merge_group`. A required workflow without it never runs for a queue entry,
     so its check never reports -- and GitHub's own warning is that the merge then fails. That is a TOTAL
@@ -374,9 +382,20 @@ function Get-WorkflowFacts {
             }
         }
 
+        # THE WORKFLOW'S OWN TOP-LEVEL name:, which is what a workflow_run trigger matches on (#2329) --
+        # not the file name and not a job. Column 0 only, so a job's `name:` at four spaces is never it.
+        # '' where the file declares none: GitHub then names the workflow after its path, and a runner
+        # that guessed that spelling would be matching on something this reader did not see.
+        $wfNameMatch = [regex]::Match($text, '(?m)^name:\s*(?<name>\S[^\r\n]*)$')
+        $wfName = if ($wfNameMatch.Success) { ($wfNameMatch.Groups['name'].Value -replace '\s+#.*$', '').Trim().Trim('''"') } else { '' }
+        # A BLOCK SCALAR (`name: >` or `name: |`) keeps the real name on the lines below, which this
+        # one-line reader does not follow -- so it is treated as no name rather than as the indicator.
+        if ($wfName -match '^[>|][+-]?\d*$') { $wfName = '' }
+
         $facts += [pscustomobject]@{
             Name          = $f.Name
             Rel           = ".github/workflows/$($f.Name)"
+            WorkflowName  = $wfName
             JobIds        = @($ids | Sort-Object -Unique)
             HasMergeGroup = $hasMergeGroup
             OnPullRequest = $onPullRequest
@@ -888,6 +907,175 @@ $repoSettingsRunner = @(
     '          exit $LASTEXITCODE'
 )
 
+# A FOURTH RUNNER, AND THE ONE WHOSE OTHER HALF ALREADY TRAVELS (issue #2329). ship-pr.ps1 is a shared
+# script, so its CI-refusal arm reaches every consumer with the plugin: it labels the pull request
+# merge-when-green and prints that a sweep will finish the merge. Without this file nothing reads that
+# label, so in a consumer the sentence is false and the merge stays owed to a session. Derived from the
+# source repo's own .github/workflows/merge-on-green.yml (#2319), in the shape the fold and resolves
+# runners above already take.
+#
+# WHICH WORKFLOWS WAKE IT IS READ OFF THIS TREE, NOT ASSUMED. The source's copy names [CI] because that
+# is its own ci.yml's name; a consumer's CI is called whatever they called it. workflow_run matches a
+# workflow's top-level name:, so every pull_request workflow declaring one is listed -- plus 'CI' when
+# the skeleton above is about to be placed with exactly that name. Each is refused unless
+# Test-QuotedScalarSafe vouches for it, because it lands inside a double-quoted YAML scalar. Where none
+# survives, the workflow_run trigger is left out rather than guessed, and the schedule carries the sweep
+# on its own -- at most half an hour later, which is the backstop's whole job anyway.
+$mogWakeNames = @($workflows | Where-Object { $_.OnPullRequest -and $_.WorkflowName } | ForEach-Object { $_.WorkflowName })
+if ($ciSkeletonOffered) { $mogWakeNames += 'CI' }
+$mogWakeNames = @($mogWakeNames | Where-Object { Test-QuotedScalarSafe -Value $_ } | Sort-Object -Unique)
+$mogWakeLines = @()
+if ($mogWakeNames.Count -gt 0) {
+    $mogWakeLines = @(
+        '  workflow_run:',
+        ('    workflows: [' + ((@($mogWakeNames | ForEach-Object { '"' + $_ + '"' })) -join ', ') + ']'),
+        '    types: [completed]'
+    )
+}
+
+$mergeOnGreenRunner = @(
+    '# Finishes a ship whose session is gone: merges a pull request ship-pr armed with merge-when-green',
+    '# once its required check turns green (issue #2329, derived from the source repo''s own',
+    '# .github/workflows/merge-on-green.yml, issue #2319).',
+    '#',
+    '# WHAT THIS CLOSES. ship-pr.ps1 refuses to merge on a red or pending required check. When that check',
+    '# later turns green -- a re-run, a flaky leg retried -- nothing merged the pull request: the merge was',
+    '# owed to a session that had already exited. ship-pr now ARMS such a pull request with the',
+    '# merge-when-green label at that refusal, and this job is the sweep that reads the label.',
+    '#',
+    '# IT ADDS NO GATE OF ITS OWN. The plugin''s pick-merge-on-green.ps1 only asks the tracker which armed',
+    '# pull request is owed a merge; the ship is the plugin''s own ship-pr.ps1, so the staleness guard, the',
+    '# step-list gate and the DEPLOY lock are the same implementation a live session runs, and it folds and',
+    '# verifies the resolves exactly as that session would. Both are reached through a checkout of the',
+    '# plugin''s tree rather than copied here.',
+    '#',
+    '# THE SHIP RUNS IN THIS REPO''S TREE, NOT IN THE CHECKED-OUT PLUGIN TREE. CLAUDE_PROJECT_DIR points',
+    '# both scripts at the workspace root, so they read THIS repo''s scripts/repo-config.ps1, its branch',
+    '# document and its trunk -- the plugin checkout is only where the code comes from.',
+    '#',
+    '# THREE TRIGGERS FOR ONE SWEEP, AND THE SWEEP IGNORES WHICH OF THEM WOKE IT. workflow_run gives',
+    '# immediacy; the schedule is what makes it durable (whether a partial re-run re-emits workflow_run is',
+    '# not a contract worth resting this on); workflow_dispatch is the hand valve. workflow_run RUNS THE',
+    '# VERSION OF THIS FILE ON THE DEFAULT BRANCH, so a change here is inert until it is merged.',
+    '#',
+    '# workflow_run RUNS WITH SECRETS EVEN FOR A PULL REQUEST FROM A FORK, which is why this job reads',
+    '# NOTHING out of the event. Everything it acts on comes from the tracker: an open pull request',
+    '# carrying a label only ship-pr writes, whose head is a branch of THIS repository -- the picker',
+    '# refuses a cross-repository one outright. Neither guard is load-bearing alone.',
+    '#',
+    '# THE SHIP NEEDS FOLD_PUSH_TOKEN, AND THAT TOKEN NEEDS ONE MORE SCOPE THAN THE FOLD RUNNER''S:',
+    '# Pull requests: Read and write, beside Contents: Read and write. A merge made with the job-scoped',
+    '# GITHUB_TOKEN starts no workflow runs, so it would land the pull request and silence this repo''s',
+    '# CI on the trunk, fold-on-merge.yml and verify-resolved.yml all at once -- the unobserved-merge state',
+    '# those runners exist to close. Without the scope the merge fails with a 403, loudly; it can never',
+    '# merge without folding.',
+    '#',
+    '# ONE SWEEP AT A TIME, REPO-WIDE, AND NOT CANCELLED: this job merges and folds, and two concurrent',
+    '# sweeps would race to ship the SAME pull request. A sweep re-reads the tracker when it starts, so a',
+    '# dropped duplicate pending run costs nothing.',
+    '#',
+    '# WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what ''shell: powershell'' is.',
+    'name: Merge on green',
+    '',
+    '# The job token only reads; the write half arrives as FOLD_PUSH_TOKEN on the one step that needs it.',
+    'permissions:',
+    '  contents: read',
+    '  pull-requests: read',
+    '',
+    'on:'
+) + $mogWakeLines + @(
+    '  schedule:',
+    '    # Every 30 minutes: a backstop for what workflow_run misses, not the ordinary path.',
+    '    - cron: ''*/30 * * * *''',
+    '  workflow_dispatch:',
+    '',
+    'concurrency:',
+    '  group: merge-on-green',
+    '  cancel-in-progress: false',
+    '',
+    'jobs:',
+    '  merge-on-green:',
+    '    runs-on: windows-latest',
+    '    # 45 minutes, longer than the other runners because this one waits on CI on purpose: ship-pr may',
+    '    # bring a stale branch forward and re-certify it, and each lap is a full CI cycle. Re-size it to',
+    '    # this repo''s own CI duration; the cap is a wedge detector, against GitHub''s six-hour default.',
+    '    timeout-minutes: 45',
+    '    steps:',
+    '      # The trunk, not the event''s head: the sweep asks the tracker which pull request is owed a merge,',
+    '      # and on a scheduled run there is no head at all. Shallow here, deepened only when there is',
+    '      # something to ship. FOLD_PUSH_TOKEN is persisted into the workspace git config, which is what',
+    '      # lets ship-pr''s own fold commit push past the trunk ruleset -- the fold runner''s reasoning.',
+    ('      - uses: ' + $checkoutPin),
+    '        with:',
+    ('          ref: ' + $trunk),
+    '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
+    '',
+    '      - name: Fetch the shared workflow scripts',
+    ('        uses: ' + $checkoutPin),
+    '        with:',
+    ('          repository: ' + $sharedRepo),
+    ('          ref: ' + $sharedRef),
+    ('          path: ' + $sharedPath),
+    '          persist-credentials: false',
+    '',
+    '      # The picker reads with the job-scoped token, not the PAT: it only lists pull requests and',
+    '      # their checks, and the standing credential stays out of every step that does not need it.',
+    '      - name: Is any armed pull request owed a merge?',
+    '        id: pick',
+    '        shell: powershell',
+    '        env:',
+    '          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
+    '          GH_REPO: ${{ github.repository }}',
+    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
+    '        run: |',
+    ('          powershell -NoProfile -ExecutionPolicy Bypass -File ' + $pluginDir + '/ci/pick-merge-on-green.ps1'),
+    '          exit $LASTEXITCODE',
+    '',
+    '      # THE BRANCH ARRIVES THROUGH env:, NOT THROUGH ${{ }} INSIDE run:. A head ref is chosen by',
+    '      # whoever opened the pull request; the picker has already refused any name outside a plain',
+    '      # charset, and this is the second half of that same guard.',
+    '      - name: Ship it',
+    '        if: ${{ steps.pick.outputs.picked == ''true'' }}',
+    '        shell: powershell',
+    '        env:',
+    '          GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}',
+    '          GH_REPO: ${{ github.repository }}',
+    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
+    '          SHIP_BRANCH: ${{ steps.pick.outputs.branch }}',
+    '          SHIP_PR: ${{ steps.pick.outputs.pr }}',
+    '        run: |',
+    '          git config user.name "github-actions[bot]"',
+    '          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
+    '',
+    '          # THE PLUGIN CHECKOUT SITS INSIDE THIS WORKSPACE, AND ship-pr READS THE TREE AS DIRTY BECAUSE',
+    '          # OF IT. Excluded locally, so the fold runs in place on the trunk as it would in a session',
+    '          # rather than detouring through a temporary worktree. .git/info/exclude is never committed.',
+    ('          Add-Content -LiteralPath .git/info/exclude -Value ''/' + $sharedPath + '/'''),
+    '',
+    '          # Widen the refspec before deepening: a checkout with ref: narrows remote.origin.fetch to',
+    '          # the trunk, so an --unshallow alone would not know the branch this job is here to ship.',
+    '          # The full history is what ship-pr''s staleness walk needs to be sound.',
+    '          git remote set-branches origin ''*''',
+    '          git fetch --unshallow --quiet origin',
+    '          if ($LASTEXITCODE -ne 0) {',
+    '            Write-Error "could not deepen this shallow clone -- ship-pr''s staleness walk would be unsound, so nothing was merged."',
+    '            exit 1',
+    '          }',
+    '',
+    '          git checkout --quiet $env:SHIP_BRANCH',
+    '          if ($LASTEXITCODE -ne 0) {',
+    '            Write-Error "could not check out the head branch of PR #$($env:SHIP_PR) -- nothing was merged."',
+    '            exit 1',
+    '          }',
+    '',
+    '          # -SkipLint -SkipTests, and this job must not omit them: the sweep picked this pull request',
+    '          # BECAUSE its required check is green on this exact head, and that certificate is what the',
+    '          # merge is allowed on. Re-running the local gates here would prove nothing it does not carry.',
+    '          Write-Host "merge-on-green: running ship-pr.ps1 on ''$env:SHIP_BRANCH'' for PR #$env:SHIP_PR"',
+    ('          powershell -NoProfile -ExecutionPolicy Bypass -File ' + $pluginDir + '/release/ship-pr.ps1 -SkipLint -SkipTests'),
+    '          exit $LASTEXITCODE'
+)
+
 # QueueRelated MARKS THE TWO TARGETS AN ACTIVE QUEUE MAKES URGENT (fold, resolves-verification) AGAINST
 # THE ONE THAT ISN'T (repo-settings). Without this flag, a missing repo-settings.yml would be reported
 # as a live defect purely because a queue happens to be active elsewhere in the same repo -- a setting
@@ -895,7 +1083,9 @@ $repoSettingsRunner = @(
 $targets = @(
     @{ Rel = '.github/workflows/fold-on-merge.yml';   Content = (($foldRunner -join $nl) + $nl);     What = 'the fold, which the queue takes away from the shipping session'; QueueRelated = $true },
     @{ Rel = '.github/workflows/verify-resolved.yml'; Content = (($resolvesRunner -join $nl) + $nl); What = 'the resolves verification, which the queue takes away too'; QueueRelated = $true },
-    @{ Rel = '.github/workflows/repo-settings.yml';   Content = (($repoSettingsRunner -join $nl) + $nl); What = 'does a GitHub-side repo setting still match what the tree declares'; QueueRelated = $false }
+    @{ Rel = '.github/workflows/repo-settings.yml';   Content = (($repoSettingsRunner -join $nl) + $nl); What = 'does a GitHub-side repo setting still match what the tree declares'; QueueRelated = $false },
+    # NOT QUEUE-RELATED: under a queue ship-pr enqueues rather than refusing on CI, so nothing is armed.
+    @{ Rel = '.github/workflows/merge-on-green.yml';  Content = (($mergeOnGreenRunner -join $nl) + $nl); What = 'the sweep that merges a pull request ship-pr armed with merge-when-green once its check turns green'; QueueRelated = $false }
 )
 # THE FOURTH TARGET IS CONDITIONAL, UNLIKE THE OTHER THREE (issue #1843): it is offered only when
 # nothing in the tree triggers on pull_request at all, never merely because this one file is absent --
@@ -910,6 +1100,9 @@ if ($ciSkeletonOffered) {
 # run", because with three targets that counter no longer says which file is missing: a repo that is
 # only missing repo-settings.yml (no secret involved at all) would otherwise be told to go create one.
 $foldRunnerRel = '.github/workflows/fold-on-merge.yml'
+# THE SECOND TARGET THAT NEEDS IT, AND THE ONE THAT NEEDS IT WIDER (#2329): merging needs Pull requests:
+# write on top of the fold's Contents: write. Tracked by name for the same reason as the fold runner.
+$mergeOnGreenRunnerRel = '.github/workflows/merge-on-green.yml'
 
 # --- Report ------------------------------------------------------------------------------------------
 Write-Host "== adopt-ci-floor -- $repoRoot ==" -ForegroundColor Cyan
@@ -1130,6 +1323,7 @@ Write-Host '-- 2. the runners this floor places (an unobserved merge; on a sched
 $created = 0
 $kept = 0
 $foldRunnerCreated = $false
+$mergeOnGreenRunnerCreated = $false
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
     if (Test-Path -LiteralPath $abs) {
@@ -1142,6 +1336,7 @@ foreach ($t in $targets) {
     if ($queueActive -and -not $Apply -and $t.QueueRelated) { $liveDefects++ }
     $created++
     if ($t.Rel -eq $foldRunnerRel) { $foldRunnerCreated = $true }
+    if ($t.Rel -eq $mergeOnGreenRunnerRel) { $mergeOnGreenRunnerCreated = $true }
     if ($Apply) {
         $dir = Split-Path -Parent $abs
         if (-not (Test-Path -LiteralPath $dir)) { $null = New-Item -ItemType Directory -Path $dir -Force }
@@ -1172,6 +1367,20 @@ if ($foldRunnerCreated) {
     Write-Host '  shows skipped. Create it BEFORE you merge the floor, not after. (A fine-grained PAT lists' -ForegroundColor Yellow
     Write-Host '  repositories one by one, so a repo created rather than transferred falls outside an' -ForegroundColor Yellow
     Write-Host '  existing token''s selection.)' -ForegroundColor Yellow
+}
+if ($mergeOnGreenRunnerCreated) {
+    Write-Host ''
+    Write-Host '  THE MERGE-ON-GREEN RUNNER USES THAT SAME FOLD_PUSH_TOKEN, AND NEEDS ONE MORE SCOPE ON IT:' -ForegroundColor Yellow
+    Write-Host '  Pull requests: Read and write, beside Contents: Read and write. A merge made with the' -ForegroundColor Yellow
+    Write-Host '  job-scoped GITHUB_TOKEN starts no workflow runs, so it would silence this repo''s CI on the' -ForegroundColor Yellow
+    Write-Host '  trunk and the fold and resolves runners in one go. Without the scope the merge fails with a' -ForegroundColor Yellow
+    Write-Host '  403, loudly, and nothing is merged. Its workflow_run trigger names these workflows:' -ForegroundColor Yellow
+    if ($mogWakeNames.Count -gt 0) {
+        foreach ($n in $mogWakeNames) { Write-Host "    $(Get-DisplayRef -Ref $n)" -ForegroundColor DarkGray }
+    } else {
+        Write-Host '    (none -- no pull_request workflow here declares a usable top-level name:, so only the' -ForegroundColor DarkGray
+        Write-Host '    half-hourly schedule wakes it; add a workflow_run trigger by hand if you want it sooner)' -ForegroundColor DarkGray
+    }
 }
 Write-Host ''
 

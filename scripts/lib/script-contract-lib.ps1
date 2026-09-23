@@ -992,10 +992,12 @@ $script:AdoptionRecords = @(
        Places = @(
            '.github/workflows/fold-on-merge.yml',
            '.github/workflows/verify-resolved.yml',
-           '.github/workflows/repo-settings.yml'
+           '.github/workflows/repo-settings.yml',
+           '.github/workflows/merge-on-green.yml'
        );
        Gained = @{
-           '.github/workflows/repo-settings.yml' = 'joined this command under #1843 in September 2026, and is not queue machinery at all -- it asks whether a GitHub-side repo setting still matches what scripts/repo-config.ps1 declares'
+           '.github/workflows/repo-settings.yml' = 'joined this command under #1843 in September 2026, and is not queue machinery at all -- it asks whether a GitHub-side repo setting still matches what scripts/repo-config.ps1 declares';
+           '.github/workflows/merge-on-green.yml' = 'joined this command under #2329 in September 2026 -- ship-pr arms a CI-refused pull request with merge-when-green in every consumer, and without this sweep nothing reads that label'
        };
        NotPlaced = @{
            '.github/workflows/ci.yml' = 'offered only to a repo with NO pull_request check at all, so its absence is the ordinary state rather than a gap -- and a repo that has its own CI never wants this one'
