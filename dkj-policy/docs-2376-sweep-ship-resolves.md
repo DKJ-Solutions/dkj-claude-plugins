@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#2376: `sweep-issues` step 5 prescribed a bare `ship-pr.ps1`, which `open-pr`'s resolves gate refuses on
+every sweep branch. Verified in this session: the first ship of a sweep branch (#2304 step 2) was refused
+with exactly the reported message. The report's open question -- does a sweep ever ship a branch that
+does not resolve its issue -- is answered by the same session: #2304's steps 2 and 3 were partial steps
+and shipped with `-NoResolves`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Step 5's command carries `-Resolves <n>`, with `-NoResolves` named for a partial step; step 6 points
+  at the same command
 
 ### TEST
 
+- [x] Gates run by `ship-pr` itself (no pre-run, see #2372)
+
 ### DEPLOY: docs/2376-sweep-ship-resolves
 
-**Score:**
+`sweep-issues` told a session to ship with a bare `ship-pr.ps1`, which `open-pr`'s resolves gate refuses on
+every sweep branch, because the branch and its entry always name the issue. Step 5 now prints
+`ship-pr.ps1 -Resolves <n>`, names `-NoResolves` for a branch that is only one step of a larger issue, and
+step 6 points at the same command.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session sweeping a consumer's backlog no longer loses a round trip on every issue to a refusal the
+skill's own command caused.
+
+**Score:** 2
 
 #### Pull Request
 
