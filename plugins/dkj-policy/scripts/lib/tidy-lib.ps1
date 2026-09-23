@@ -495,7 +495,7 @@ function Get-RetiredNameInstallRecords {
 
 # The leaf New-ScratchPath composes: '<label>-<pid>-<32 hex guid>', a direct child of the temp root.
 # Anchored at both ends, and the pid is captured because it is the whole attribution mechanism -- the
-# reason that function puts it in front of the guid at all (its own header, and scripts/README.md).
+# reason that function puts it in front of the guid at all (its own header, and Sylvester's lens).
 $script:ScratchLeafPattern = '^(?<label>[A-Za-z0-9][A-Za-z0-9._-]*?)-(?<pid>\d+)-[0-9a-f]{32}$'
 
 # Trees under the temp root that are RETAINED ON PURPOSE and are not litter, matched on their label.
@@ -515,7 +515,7 @@ function Get-ScratchLeftoverVerdict {
 
     .DESCRIPTION
         THIS LANE REPORTS AND NEVER DELETES, AND THAT IS NOT CAUTION -- IT IS A DECISION THIS REPO HAS
-        ALREADY TAKEN AND WRITTEN DOWN. scripts/README.md, on #1668: the leftovers "are left standing on
+        ALREADY TAKEN AND WRITTEN DOWN. Sylvester's lens (.claude/specialists/lenses/specialist-05-15-lens.md), on #1668: the leftovers "are left standing on
         purpose: $PID in the leaf is what makes one attributable to a run that is no longer alive, and a
         person can clear it by hand." It goes further and names the alternative by name -- "the fix that
         would actually reach these is a sweep by name pattern in a shared temp directory, i.e. the same

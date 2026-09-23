@@ -1364,7 +1364,7 @@ Write-Host 'Every temp path the SHIPPING scripts compose carries a guid (#1659)'
 #
 # THE COUNT WENT FROM TWO TO THREE ON SEPTEMBER 10, 2026, and the shape of the third is why that is not
 # a weakening: tidy-machine.ps1's lane 10 ENUMERATES the temp root to attribute what is already standing
-# there, and deletes nothing -- scripts/README.md having already settled that those trees stay standing
+# there, and deletes nothing -- Sylvester's lens having already settled that those trees stay standing
 # (#1668) and named a pattern sweep as the very delete primitive New-ScratchPath exists to remove
 # (#1659). A reader is exactly what this scan is not about. What the count still catches is a fourth
 # line that WRITES.

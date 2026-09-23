@@ -46,7 +46,7 @@
         an old one is reported with its age and its `git stash show` line, and that is all.
       - NO PULL REQUEST is opened, merged or closed, and no issue is touched.
       - NOTHING UNDER THE SCRATCH ROOT IS DELETED, and this one is a decision this repo had already
-        taken before the lane was written. scripts/README.md, on #1668, says those trees are "left
+        taken before the lane was written. Sylvester's lens, on #1668, says those trees are "left
         standing on purpose" and names a sweep by name pattern as the delete primitive New-ScratchPath
         exists to remove (#1659). An earlier draft of lane 10 offered exactly that behind a flag; it
         was removed rather than defended. The lane ATTRIBUTES instead -- which is the scarce thing that
@@ -711,7 +711,7 @@ if ($runMachine) {
             Write-Item 'No tree attributable to a run that has ended.' 'DarkGray'
         } else {
             # NO COMMAND IS HANDED OVER HERE, and that is the one lane where the omission is the point.
-            # scripts/README.md already decided these stay standing, and names a sweep by name pattern
+            # Sylvester's lens (#1668) already decided these stay standing, and names a sweep by name pattern
             # as the delete primitive New-ScratchPath exists to remove (#1659, #1668). Printing the
             # Remove-Item line would be re-proposing exactly that, one copy-paste away.
             Write-Item '  Left standing on purpose (#1668). Clear by hand what you recognise -- a pattern sweep here is the delete primitive New-ScratchPath exists to prevent (#1659).' 'DarkGray'
