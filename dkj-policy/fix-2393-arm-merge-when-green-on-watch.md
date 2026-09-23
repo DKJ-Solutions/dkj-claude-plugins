@@ -97,5 +97,3 @@ A shipped pull request no longer sits green and unmerged because the session tha
 #### Pull Request
 
 ship-pr: arm merge-when-green before the CI wait, with a settle window so the sweep never races a live ship
-
-Plugins: dkj-policy
