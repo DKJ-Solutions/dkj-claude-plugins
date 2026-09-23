@@ -33,7 +33,7 @@
     would put the ordinary PR-run and non-merge-push paths -- the overwhelming majority of runs --
     one missing `always()` away from silently skipping the suites job entirely. Staying a
     same-job, step-level answer avoids that trap outright, which is also where #1300's own
-    shortcut lives. The cost is a few redundant 'gh api' calls on three of the four shards when
+    shortcut lives. The cost is a few redundant 'gh api' calls on every shard but one when
     it fires at all (once per push to main whose subject starts with 'merge: '), immeasurable
     next to the suites run it might save.
 #>

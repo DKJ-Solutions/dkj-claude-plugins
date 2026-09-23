@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Step 4 of #2304. The #2378 re-read put the pool at 7,260.5s (work bound 453.8s over 16 lanes) with
+`-entries` at 426.1s and `new-branch` at 380.2s. A fifth shard alone stops at `-entries`; a split alone
+buys nothing. Both together put the floor at `new-branch`. Partial step: ships with `-NoResolves`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Split `check-plugin-integrity-entries.tests.ps1` at check boundaries into `-entries` (check 13),
+      `-branch-document` (13b + [COVERAGE]) and `-figures` (checks 15, 16), by moving line ranges
+- [x] Restate the one inherited state (`$s24Contributing` before [COVERAGE]) where it is read
+- [x] `ci.yml`: matrix, step name and `-ShardCount` to 5, plus the step-4 paragraph
+- [x] Fixture docs, and the shard-count wording that went stale (`ci.yml`, `get-merge-suite-skip.ps1`,
+      `record-suite-durations.ps1`'s machine string)
 
 ### TEST
 
+- [x] Original `-entries` alone: 86 asserts, 124.4s. The three parts side by side: 37 + 25 + 24 = 86, all
+      green, longest 94.5s
+- [x] `ci-shard.tests.ps1` green (91), which holds the matrix length to `-ShardCount`
+
 ### DEPLOY: feat/2304-split-integrity-entries
 
-**Score:**
+`check-plugin-integrity-entries.tests.ps1` is three suites now, and CI runs on five shards instead of
+four. The re-read durations showed the gate bound by total work (453.8s over 16 lanes) with `-entries`
+(426.1s) the file a fifth shard would stop at, so both levers go in together: the expected floor is
+`new-branch.tests.ps1` at 380.2s. All 86 asserts are preserved and were verified by running the three
+parts. Step 4 of #2304.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The first step of #2304 that moves the shard count, and the one where the issue's own ordering is
+applied rather than quoted: a split alone would have bought nothing here, and a shard alone would have
+stopped at the file this change splits. A sixth shard buys nothing until `new-branch` is split.
+
+**Score:** N/A
 
 #### Pull Request
 

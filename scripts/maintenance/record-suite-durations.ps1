@@ -204,7 +204,7 @@ $doc = [ordered]@{
     recordedFrom = [ordered]@{
         runs    = @($runIds)
         date    = (Get-Date -Format 'yyyy-MM-dd')
-        machine = 'windows-latest (4 cores), 4 shards x 4 lanes'
+        machine = 'windows-latest (4 cores), 4 lanes per shard'
         method  = 'mean of the per-suite durations the gate printed in each shard log'
     }
     seconds = $seconds
