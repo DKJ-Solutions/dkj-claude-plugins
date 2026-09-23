@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 26 minor entries** <!-- pending-tally -->
+**10 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2395-release-all · 20260923-212655Z
+
+`claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
+claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
+it only lists what it would release. Markers written by any other tag are never touched, including
+another machine under the same account, and an assignee with no marker of this tag stays in place. A
+marker only counts as this tag's when the comment was actually written by this tag's account, so a
+comment somebody else posts with your tag in it cannot trigger a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -Tag -ReleaseAll
+
+Plugins: dkj-policy
+
+[PR #2400](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2400)
+
+---
 
 ### DEPLOY: fix/2338-merge-on-green-trunk-code · 20260923-211820Z
 
