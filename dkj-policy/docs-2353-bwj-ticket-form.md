@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Inbound #2353: `smartwatchbanden`'s `dkj-policy-bwj/TICKET-FORM.md` is the only copy of BWJ's answers to
+`dkj-policy`'s *What your repo answers* list. Verified on pickup: none of its markers (`Ball with`,
+`question ready`, `Ga door naar Development`, `Remaining Question`, `About this ticket`) occur anywhere
+under `plugins/`, and `xoxowildhearts` carries no copy. The form goes into `WORKFLOW-portable.md` as
+step 8 rather than a new page, because `dkj-policy-bwj.tests.ps1` counts every `*-portable.md` as a
+chapter and this is chapter one's subject, not a fifth chapter. The consumer's cleanup (deleting its
+page, repointing its references) is the consumer's, after the release.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] step 8 in `plugins/dkj-policy/dkj-policy-bwj/WORKFLOW-portable.md`: the assignee rule, one issue
+      per ticket, language, header, sections, gate sentences, Testing, measuring
+- [x] `plugins/dkj-policy/dkj-policy-bwj/README.md`: chapter one paragraph and folder table name it
+- [x] `plugins/dkj-policy/CONTRIBUTING-portable.md`: *What deliberately is not here* says the add-on
+      now carries a shape
+- [x] copy edit (Edith)
 
 ### TEST
 
+- [x] lint and test gates, run by open-pr
+
 ### DEPLOY: docs/2353-bwj-ticket-form
 
-**Score:**
+`dkj-policy-bwj` now carries BWJ's ticket form, as step 8 of its ticket-handling page -- the form a
+request arriving from Asana takes in both stores: the Asana assignee deciding whose ticket it is, the
+seven-row header with `Reviewed` as the provenance boundary, the closed `State` and `Ball with`
+vocabularies, the section route with its two dictated gate sentences, and what `### Testing` carries.
+It lived only in `smartwatchbanden`'s tree until now, which left `xoxowildhearts` with no copy and
+the assignee rule one deletion away from being lost (#2353).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store repo can now drop its own ticket-form page and point at the plugin, and both stores read
+the same form from the version they loaded.
+
+**Score:** 2
 
 #### Pull Request
 
