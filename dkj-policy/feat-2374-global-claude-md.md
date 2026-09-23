@@ -43,10 +43,17 @@ A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance mov
 
 #### Decisions (Dave, September 23, 2026)
 
-- A consumer's `CLAUDE.md` keeps a short repo block of **facts** below the import -- trunk, public or
-  not, owner, purpose -- and no rules.
-- The source repo runs the same model: its constitution moves into the plugin and it keeps only its
-  repo slot.
+- ~~A consumer's `CLAUDE.md` keeps a short repo block of **facts** below the import -- trunk, public or
+  not, owner, purpose -- and no rules.~~ **Superseded, same day, during a sweep.** A `CLAUDE.md` holds
+  **only** `@`-import lines -- the dkj-policy constitution, plus the dkj-policy-bwj extension where
+  installed, plus any other plugin import. Everything repo-specific -- including the facts the first
+  version of this decision still allowed below the import -- moves to the specialists' lenses or an
+  unscoped `.claude/rules/<name>.md`. This source repo gets the same treatment: its whole former repo
+  slot moves to `.claude/rules/this-repo.md`, and root `CLAUDE.md` shrinks to a one-line title plus the
+  three imports.
+- The source repo runs the same model: its constitution moved into the plugin, and its repo-specific
+  facts and mechanics now live in `.claude/rules/this-repo.md` rather than in a repo slot inside
+  `CLAUDE.md` itself.
 
 ### CREATE
 
@@ -68,6 +75,26 @@ A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance mov
 - [x] `specialists-init` scaffold: the second prose line asks for facts instead of "governance and
   safety rules"; the old literal stays in `Legacy` so the teardown still recognises it.
 - [x] `adopt-dkj-policy` (new Part 1 subsection) and `adopt-dkj-policy-bwj` step 6: the import lines.
+- [x] Superseding pass: root `CLAUDE.md` reduced to a one-line title plus the three `@`-imports, no
+  prose left at all.
+- [x] `.claude/rules/this-repo.md` created (new, unscoped, no `paths:` frontmatter): the whole former
+  repo slot moved in, with the owner fact and the relative-vs-absolute import fact added at the top,
+  and every relative link inside it rewritten to resolve from `.claude/rules/`.
+- [x] Every anchor into the moved root `CLAUDE.md` sections repointed across the tree (grepped on
+  `CLAUDE.md#`): `.claude/rules/language-layers.md`, `SECURITY.md`, `.claude/skills/triage-inbound/SKILL.md`,
+  `.claude/specialists/README.md` (3), `.claude/specialists/SPECIALISTS.md` (1),
+  `.claude/specialists/lenses/specialist-01-01-lens.md`, `-06-25-lens.md` (2), `-06-16-lens.md` (2),
+  `-05-15-lens.md` (1), `-05-06-lens.md` (2), plus the external GitHub blob URL in
+  `plugins/dkj-policy/DEVELOPMENT-portable.md`. `plugins/dkj-policy/CLAUDE.md#safety-rules` anchors were
+  left untouched -- that file did not move.
+- [x] `plugins/dkj-policy/CLAUDE.md`, `plugins/dkj-policy/skills/adopt-dkj-policy/SKILL.md` and
+  `plugins/dkj-policy/CONTRIBUTING-portable.md` (3 spots): "facts below the import" reworded to
+  "imports-only, facts in an unscoped rule or a specialist's lens" throughout.
+  `dkj-policy-bwj`'s own `CLAUDE.md` and its adopt skill's step 6 already only described the import
+  line and needed no change.
+- [x] `dkj-subagents-alpha`'s `specialists-init` skill, step 3: now branches on whether `dkj-policy` is
+  also installed, since that step predates #2374 and used to tell every consumer to hand-write safety
+  rules straight into `CLAUDE.md`.
 
 ### TEST
 
@@ -81,18 +108,25 @@ A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance mov
   writes it.
 - [x] `check-plugin-integrity.ps1`: 0 errors. `check-always-on-budget.ps1`: the path shrank by
   2,307 B (110,314 -> 108,007).
+- [ ] Re-run the lint and test gates after the imports-only rework (the root `CLAUDE.md` shrink, the
+  new `.claude/rules/this-repo.md`, and every repointed link) -- `check-plugin-integrity.ps1` at a
+  minimum; note the new always-on budget delta once it is known.
 
 ### DEPLOY: feat/2374-global-claude-md
 
 The rules a repo runs under now ship with `dkj-policy` itself: one [`CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md)
 holding the constitution and the general working practices, plus a
 [`dkj-policy-bwj` extension](../plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md) for the BWJ repos. A
-consumer's own `CLAUDE.md` imports it with one absolute `@`-line and keeps only facts about the repo
-below it, so a hand-written constitution can no longer drift from the plugin it installed. The
-`consumer-prose-sessioncheck` hook warns at session start where that line is missing and prints it for
-the consumer's own marketplace name; the `specialists-init` scaffold stops inviting a local
-constitution. This repo runs the same model: its constitution moved into the plugin, and its
-`CLAUDE.md` shrank to the imports plus its repo slot.
+consumer's own `CLAUDE.md` now holds **only** the `@`-import line(s) and nothing else -- no rules, no
+facts, no repo block. A repo's own facts (trunk, public or not, owner, purpose) move to an unscoped
+rule such as `.claude/rules/<name>.md`, loaded every session exactly as `CLAUDE.md` was; a fact that
+belongs to one specialist alone moves to that specialist's own lens. The
+`consumer-prose-sessioncheck` hook warns at session start where the import line is missing and prints
+it for the consumer's own marketplace name; the `specialists-init` scaffold stops inviting a local
+constitution. This repo runs the same model, one step further than the branch's original plan: its
+constitution moved into the plugin, and its former repo slot -- everything specific to this repo that
+used to sit inside `CLAUDE.md` -- moved whole into `.claude/rules/this-repo.md`. Root `CLAUDE.md` is
+now a one-line title plus the three `@`-imports, and nothing else.
 
 **Score:** 4
 
