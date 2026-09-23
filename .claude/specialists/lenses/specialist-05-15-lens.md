@@ -1758,7 +1758,7 @@ this repo's:
   test suite"* now states no number under its August 7 stamp. It read `26` there for five days — wrong on the
   day it was written, since there were 27, and wronger every suite since. **And a bare `26` is still correct
   in two other senses**: the lint's own checks (`CHANGELOG.md`) and the agent-def count
-  ([`README.md`](../../../README.md), [`subagent-shared`](../../../plugins/dkj-subagents/subagent-shared/README.md)). Establish
+  ([`README.md`](../../../README.md), [Ravi's lens](specialist-06-24-lens.md#why-each-circle-is-the-width-it-is)). Establish
   which noun a `26` governs before touching it; a find-and-replace here breaks correct statements to repair
   one.
 - **Renaming or moving this checkout unlinks its own plugin install — plan the re-install into the same

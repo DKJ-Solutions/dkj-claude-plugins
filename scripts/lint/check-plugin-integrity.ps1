@@ -4704,7 +4704,7 @@ foreach ($def in @($agentDefs)) {
         if ($raw -notmatch [regex]::Escape("<!-- BEGIN shared:$blockName")) {
             Add-Error ("[tool-block] ${rel}: names '$tool' in its tools line but carries no" +
                 " 'shared:$blockName' block. That block is placed by CAPABILITY rather than by craft" +
-                " (subagent-shared/README.md says why), so holding the tool is what obliges it. Add the" +
+                " (.claude/specialists/lenses/specialist-06-24-lens.md says why), so holding the tool is what obliges it. Add the" +
                 " sentinel pair and run scripts/agents/build-agent-defs.ps1.")
             $toolBlockFindings++
         }

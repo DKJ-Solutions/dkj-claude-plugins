@@ -37,8 +37,8 @@ cycle for one set of repos — is a sub-directory beside them, the way
 and its own opt-in, so it is never enabled by enabling this one; nesting states the rank order, not a
 bundle. Until September 5, 2026 this directory was `plugins/workflows/` and carried a README of its own
 about the *kind*; that page is folded into this one, and what remains of it — the naming and directory
-rule the lint gate enforces — is one level up in
-[`../README.md`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/plugins/README.md),
+rule the lint gate enforces — is in the root README under
+[Teams and workflows — what's the difference?](https://github.com/DKJ-Solutions/dkj-claude-plugins#teams-and-workflows--whats-the-difference),
 beside the same rule for teams
 ([#1467](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1467)).
 

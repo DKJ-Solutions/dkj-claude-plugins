@@ -39,23 +39,50 @@
 
 ### PLAN
 
-Remove plugins/dkj-subagents/dkj-subagents-shopify/README.md, assets/avatars/README.md, plugins/dkj-subagents/subagent-shared/README.md and plugins/README.md; repoint or rehouse whatever cites them.
+Continue removing READMEs that nobody reads and no session needs (after #2356). Four were picked on
+inbound-link count; on reading, three qualify and one does not.
+
+#### Scope decision
+
+- **In:** `assets/avatars/README.md`, `plugins/README.md`, `plugins/dkj-subagents/subagent-shared/README.md`.
+- **Out: `plugins/dkj-subagents/dkj-subagents-shopify/README.md`.** It is the only consumer-facing
+  statement of the `Get-Shopify*` seams and of the live-theme guard's design, it travels in the plugin
+  cache, and `adopt-shopify-floor`'s skill page links into it. Removing it means rehousing it into the
+  skill pages, which is a separate piece of work.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/README.md` removed; everything on it was already in the root README's *Teams and
+  workflows* section. The three pages that pointed at it (root README, `plugins/dkj-subagents/README.md`,
+  `plugins/dkj-policy/README.md`) now point at that section.
+- [x] `assets/avatars/README.md` removed; the root README's repo layout already says why the folder sits
+  at the root and how it reaches every machine. The account table is dropped.
+- [x] `subagent-shared/README.md` removed. The mechanism is already in the root README's *Shared
+  agent-def blocks*; the adding-a-block steps and the four width decisions (BEGIN line, `filecontent-boundary`,
+  `lens-optional`, `working-copy-boundary`) moved to Ravi's lens, *Why each circle is the width it is*. The
+  lint's `[tool-block]` refusal, one test comment and Sylvester's lens now point there.
 
 ### TEST
 
+- [x] Lint and test gates via `open-pr`.
+
 ### DEPLOY: docs/remove-four-readmes
 
-**Score:**
+Removed three READMEs nothing reads: `plugins/README.md` and `assets/avatars/README.md` duplicated
+the root README, and the width decisions on `plugins/dkj-subagents/subagent-shared/README.md` now live in
+[Ravi's lens](../.claude/specialists/lenses/specialist-06-24-lens.md#why-each-circle-is-the-width-it-is),
+where the lint's `[tool-block]` refusal points.
+
+**Score:** 1 -- prevents a reader following the lint's printed pointer, or a link, to a page that no
+longer exists.
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a subscriber: the only plugin-visible change is one sentence in `dkj-policy`'s README.
+
+**Score:** N/A
 
 #### Pull Request
 
-Remove four READMEs nothing needs
+Remove three READMEs nothing needs
 

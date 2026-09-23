@@ -439,9 +439,9 @@ one of the two that has never shipped a skill
 The full picture, top-level folder by folder:
 
 - **`.claude-plugin/marketplace.json`** — the marketplace definition: the plugins (teams and workflow alike) with their `source`.
-- **[`plugins/`](plugins/)** — the plugin source, split by kind (its own
-  [README](plugins/README.md) states that split side by side, with the test question that decides
-  which kind a new plugin is): the teams under
+- **[`plugins/`](plugins/)** — the plugin source, split by kind (the split, and the naming rule that
+  holds it, are under
+  [Teams and workflows — what's the difference?](#teams-and-workflows--whats-the-difference)): the teams under
   [`plugins/dkj-subagents/`](plugins/dkj-subagents/) (`dkj-subagents-alpha`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`, `dkj-subagents-ecomm`) and
   the policy at [`plugins/dkj-policy/`](plugins/dkj-policy/) — the prime ministry's own files at that
   root, and its one ministry `dkj-policy-bwj` a level inside it — each of those two directories carrying
@@ -464,7 +464,7 @@ The full picture, top-level folder by folder:
   must not travel along with the plugin cache.
 - **[`assets/`](assets/)** — material that is neither code nor documentation, one subfolder per kind;
   today that is [`assets/avatars/`](assets/avatars/), the profile images of the GitHub accounts this
-  repo is worked on under (see its own [README](assets/avatars/README.md)). At the root for the same
+  repo is worked on under, one PNG per account and named after it; nothing in the tree reads them. At the root for the same
   reason as `connectors/` and with one extra property: **the marketplace clone is the whole
   repository**, so anything here is on every machine at
   `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
