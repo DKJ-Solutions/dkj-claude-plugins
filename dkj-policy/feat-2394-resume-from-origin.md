@@ -39,19 +39,55 @@
 
 ### PLAN
 
+#2394: a branch on origin should be finishable from another machine. Two gaps in #2387's `-TakeOver`:
+it refused an issue with no claim marker (the common case -- 9 of 9 measured), and "the same account"
+was exactly one login, while one person works under several.
+
+#### Scope
+
+- `-TakeOver` resumes an untagged issue with exactly one branch on origin, on the branch's AUTHORS:
+  every commit off the trunk must carry one of this checkout's names.
+- `DKJ_OWN_ACCOUNTS` (user-level env var, deliberately not `repo-config.ps1`) declares the other
+  accounts one person works under; `-TakeOver` and the parked-fix scan's NOT YOURS read it.
+- The NOT YOURS block names the route past it.
+- NOT here: `-Candidates` showing such an issue as resumable -- that is #2392's subject.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `claim-issue-lib.ps1`: `Get-OwnAccountNames`; `Get-TakeOverVerdict` gains the untagged path
+  (`take-untagged` / `foreign-author` / `unknown-author` / `ambiguous-branch`) and `-OwnAccounts`;
+  `Format-HandoverComment` names the authors when there was no old tag; NOT YOURS names the route.
+- [x] `claim-issue.ps1`: reads `DKJ_OWN_ACCOUNTS`, fetches the one untagged branch and reads its
+  authors off origin's trunk, handles the three new codes.
+- [x] Plugin mirror regenerated (`build-shared-scripts.ps1`).
+- [x] `claim-issue` and `sweep-issues` skill pages describe the untagged case and the declaration.
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 473 passed -- new asserts for every new verdict code, the declared
+  account on both paths, a second undeclared holder, the env parsing and the untagged handover comment.
+- [x] `native-capture.tests.ps1`: the bounded-site count moved 78 -> 79 for the one new fetch, audited.
+- [x] Live dry runs on this repo: #2304 (branch by `DaveKJohn`) refuses as `foreign-author`, and
+  resumes with `DKJ_OWN_ACCOUNTS=DaveKJohn`; #2375 (branch by `davekokbwj`) resumes with no declaration.
+
 ### DEPLOY: feat/2394-resume-from-origin
 
-**Score:**
+`claim-issue.ps1 <n> -Tag -TakeOver` now also resumes an issue that carries **no claim marker**, which is
+the common case: a session that never ran `-Tag` leaves only its branch on origin. There exactly one branch
+for the issue must be on origin, and every commit on it off the trunk must be authored under one of this
+checkout's names; one foreign author, or an author list that could not be read, refuses. A new user-level
+variable, `DKJ_OWN_ACCOUNTS`, declares the other accounts one person works under, and both `-TakeOver` and
+the parked-fix scan's `NOT YOURS` verdict count them as yours. That block now also names that route.
+Showing such an issue as resumable in `-Candidates` stays with #2392.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this changes how a session picks up its own parked work, which no subscriber of a service sees.
+
+**Score:** N/A
 
 #### Pull Request
 
+claim-issue -TakeOver: resume an untagged branch on origin, and count a person's declared other accounts as theirs

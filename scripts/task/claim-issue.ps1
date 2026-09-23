@@ -108,6 +108,9 @@
     is on origin. It removes the holder's marker, claims under this tag through the ordinary path (marker,
     assignee, read-back), leaves a comment naming the old tag, the new tag and the branch, and prints the
     checkout. The old machine's -Verify then answers [NO]. A colleague's claim is refused outright.
+    An issue with NO marker and exactly one branch on origin is resumed the same way when every commit
+    on that branch off the trunk is authored under one of this checkout's names (issue #2394). "This
+    same account" also covers the accounts declared in DKJ_OWN_ACCOUNTS -- see Get-OwnAccountNames.
 
 .PARAMETER Candidates
     List which open issues a sweep may pick up -- free, this tag's already, held by another tag, or
@@ -298,6 +301,13 @@ Write-Host "== claim-issue $banner$(if ($DryRun) {' -DryRun'}) -- $(if ($repoNam
 # passed on, so the signal costs no second process -- which is that issue's own scope note settled.
 $ghAccounts = @(Get-GhAuthAccounts)
 $identity = Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount -Accounts $ghAccounts) -GitUserName (Get-GitUserName -RepoRoot $repoRoot)
+# THE OTHER ACCOUNTS THIS PERSON WORKS UNDER, AS DECLARED (issue #2394) -- per user, never per repo;
+# Get-OwnAccountNames says why. They widen "self" for the parked-fix scan and for -TakeOver, and only by
+# the names listed.
+$ownAccounts = @(Get-OwnAccountNames -Value $env:DKJ_OWN_ACCOUNTS)
+if ($ownAccounts.Count -gt 0) {
+    Write-Host "  own accounts (DKJ_OWN_ACCOUNTS): $(Format-ForConsole -Text ($ownAccounts -join ', '))" -ForegroundColor DarkGray
+}
 
 if ($identity.Reason -eq 'split') {
     # Not an error here, and deliberately not: check-git-identity.ps1 owns that report and the
@@ -580,6 +590,7 @@ function Remove-ClaimMarkerComments {
 }
 
 $takeOverFrom = @()
+$takeOverAuthors = @()
 $takeOverBranch = ''
 if ($Tag) {
     $claimRecords = @(Get-ClaimRecords -Json $viewJson -Marker $Marker)
@@ -673,13 +684,64 @@ if ($Tag) {
             exit 1
         }
         $issueBranches = @(Get-IssueBranchNames -Text (@($heads.Output) -join "`n") -Issue ([int]$number))
-        $take = Get-TakeOverVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Branches $issueBranches
+
+        # AN UNTAGGED ISSUE WITH ONE BRANCH IS JUDGED ON THAT BRANCH'S AUTHORS (issue #2394), so they are
+        # read here -- and only here: a held issue is judged on its marker, and a free one with no branch
+        # or several has nothing a single author list could settle. The fetch brings the branch's objects
+        # in (ls-remote named a sha this checkout may never have seen); the log reads the authors off the
+        # trunk, against origin's trunk where there is one so a stale local trunk cannot pass a landed
+        # colleague's commit off as part of the branch. A failed read leaves the list empty, which the
+        # verdict refuses as 'unknown-author' rather than reading as clean.
+        $branchAuthors = @()
+        $untagged = (Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords).Code -eq 'free'
+        if ($untagged -and $issueBranches.Count -eq 1) {
+            $only = $issueBranches[0]
+            $fetchOne = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'fetch', '--quiet', 'origin', "+refs/heads/${only}:refs/remotes/origin/$only") `
+                                             -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+            if ($fetchOne -and (Test-NativeExitMeasured -Capture $fetchOne) -and $fetchOne.ExitCode -eq 0) {
+                $trunkProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', '--verify', '--quiet', "origin/$trunkBranch") -DiscardStderr
+                $baseRef = if ($trunkProbe -and $trunkProbe.ExitCode -eq 0) { "origin/$trunkBranch" } else { $trunkBranch }
+                $authorLog = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--format=%an', "$baseRef..origin/$only") -Utf8 -DiscardStderr
+                if ($authorLog -and (Test-NativeExitMeasured -Capture $authorLog) -and $authorLog.ExitCode -eq 0 -and -not $authorLog.ShortRead) {
+                    $branchAuthors = @(@($authorLog.Output) | Where-Object { $_ -and ([string]$_).Trim() })
+                }
+            }
+        }
+
+        $takeSelfNames = @($identity.GitUserName, $identity.Account, $claimTag.Account) + $ownAccounts
+        $take = Get-TakeOverVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Branches $issueBranches `
+                                    -OwnAccounts $ownAccounts -SelfNames $takeSelfNames -BranchAuthors $branchAuthors
         $holderText = Format-ForConsole -Text (@($take.Holders) -join ', ')
         switch ($take.Code) {
             'free' {
-                Write-Host "[REFUSED] #$number is not held by anybody -- there is nothing to take over." -ForegroundColor Red
+                Write-Host "[REFUSED] #$number is not held by anybody and has no branch on origin -- there is nothing to take over." -ForegroundColor Red
                 Write-Host "          Claim it the ordinary way: claim-issue.ps1 $number -Tag" -ForegroundColor Red
                 exit 1
+            }
+            'unknown-author' {
+                Write-Host "[REFUSED] #$number carries no claim marker, and the authors of $(Format-ForConsole -Text $take.Branch) could not be read -- nothing was taken over." -ForegroundColor Red
+                Write-Host '          An untagged branch is resumed on WHO WROTE IT, so an unread author list is not a clean one.' -ForegroundColor Red
+                Write-Host '          Check that origin is reachable (git fetch origin) and run this again.' -ForegroundColor Red
+                exit 1
+            }
+            'foreign-author' {
+                Write-Host "[REFUSED] #$number carries no claim marker, and $(Format-ForConsole -Text $take.Branch) has commits by $(Format-ForConsole -Text (@($take.Foreign) -join ', '))." -ForegroundColor Red
+                Write-Host '          Those are not this checkout''s names. If they are YOUR other accounts, declare them --' -ForegroundColor Red
+                Write-Host '          DKJ_OWN_ACCOUNTS=<login>,<login> in the env block of your own ~/.claude/settings.json --' -ForegroundColor Red
+                Write-Host '          and run this again. If they are a colleague''s, ask them: that is a conversation.' -ForegroundColor Red
+                Write-Host "          $($facts.url)" -ForegroundColor Red
+                exit 1
+            }
+            'take-untagged' {
+                $branchText = Format-ForConsole -Text $take.Branch
+                if ($DryRun) {
+                    Write-Host "[DRY RUN] would resume #$number on $branchText (untagged; commits by $(Format-ForConsole -Text (@($take.Authors) -join ', '))) under $($claimTag.Tag). Nothing was written." -ForegroundColor Yellow
+                    exit 0
+                }
+                Write-Host "  [take-over] $branchText carries no marker and every commit on it is yours; claiming under $($claimTag.Tag)." -ForegroundColor Yellow
+                $takeOverAuthors = @($take.Authors)
+                $takeOverBranch = [string]$take.Branch
+                $tagVerdict = [pscustomobject]@{ Action = 'claim'; Code = 'free'; Holders = @() }
             }
             'foreign-account' {
                 Write-Host "[REFUSED] #$number is held by $holderText -- a different account from this one ($($claimTag.Account))." -ForegroundColor Red
@@ -944,7 +1006,9 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
                 # second, so a split checkout (#1315) recognises itself under either. Test-SelfAuthored
                 # treats an empty list as 'no verdict', which is the honest answer on a checkout with no
                 # user.name configured.
-                $selfNames = @($identity.GitUserName, $identity.Account)
+                # And the declared own accounts (#2394), so the owner's other machines read as self while
+                # an undeclared colleague still gets the NOT YOURS verdict.
+                $selfNames = @($identity.GitUserName, $identity.Account) + $ownAccounts
                 $parkedReport = @(Format-ParkedFixReport -Issue ([int]$number) -Findings $findings -SelfNames $selfNames)
                 foreach ($line in $parkedReport) {
                     Write-Host "  $line" -ForegroundColor Yellow
@@ -1357,13 +1421,14 @@ if ($Tag) {
     if ($takeOverBranch) {
         # THE RECORD A PERSON READS, written after the claim is settled so it never announces a handover
         # the race read-back went on to reverse. Its failure is a warning: the claim is the marker.
-        $note = Format-HandoverComment -OldTags $takeOverFrom -NewTag $claimTag.Tag -Branch $takeOverBranch -Issue ([int]$number)
+        $note = Format-HandoverComment -OldTags $takeOverFrom -NewTag $claimTag.Tag -Branch $takeOverBranch -Issue ([int]$number) -Authors $takeOverAuthors
         $posted = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'comment', $number) + $repoArgs + @('--body', $note)) -Utf8 `
                                        -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
         if (-not $posted -or -not (Test-NativeExitMeasured -Capture $posted) -or $posted.ExitCode -ne 0) {
             Write-Host '[WARNING] the handover comment did not land -- the claim did. Say so on the issue by hand.' -ForegroundColor Yellow
         }
-        Write-Host "     Taken over from $(Format-ForConsole -Text ($takeOverFrom -join ', ')). Resume the work where it is:" -ForegroundColor Green
+        $fromText = if ($takeOverFrom.Count -gt 0) { $takeOverFrom -join ', ' } else { "an untagged branch by $($takeOverAuthors -join ', ')" }
+        Write-Host "     Taken over from $(Format-ForConsole -Text $fromText). Resume the work where it is:" -ForegroundColor Green
         Write-Host "       git fetch origin; git checkout $(Format-ForConsole -Text $takeOverBranch)" -ForegroundColor Green
         Write-Host "     $($facts.url)"
         exit 0
