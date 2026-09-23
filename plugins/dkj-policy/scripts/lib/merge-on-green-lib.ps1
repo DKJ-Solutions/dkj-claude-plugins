@@ -46,12 +46,92 @@ function Get-MergeOnGreenArmLabel {
         IRREVERSIBLE OR OUTWARD-FACING. A runner that merged every green pull request would merge
         those two as well, which is the one outcome this whole mechanism must not produce.
 
-        ship-pr.ps1 is the only writer, and it writes this at the moment its own CI verdict refuses.
-        So the label is not a preference a reviewer sets: it is the record that a session had
-        already begun shipping this branch when CI took the decision away from it. A pull request
-        kept back for the owner never had ship-pr run on it, so it can never carry this.
+        ship-pr.ps1 is the only writer, and it writes this once the pull request is open and before it
+        starts waiting on CI (#2393; until then only at the moment its own CI verdict refused, which
+        left every other ending -- a process that died mid-watch, a step-3b refusal -- unarmed). So
+        the label is not a preference a reviewer sets: it is the record that a session had already
+        begun shipping this branch. A pull request kept back for the owner never had ship-pr run on
+        it, so it can never carry this.
     #>
     return $script:MergeOnGreenArmLabel
+}
+
+function Get-MergeOnGreenSettleMinutes {
+    <#
+    .SYNOPSIS
+        How long every required check must have been green before the sweep may take an armed pull
+        request over -- issue #2393.
+
+    .DESCRIPTION
+        WHY THERE IS A WINDOW AT ALL. Since #2393 ship-pr arms BEFORE its CI wait, so a live session's
+        pull request is armed while that session is still watching. The sweep is woken by CI
+        completing -- the same moment that watch returns -- so without a window every ordinary ship
+        would be handed to a second ship-pr on the runner while the live one merges it. Step 5c would
+        absorb the doubled fold, but the runner would still have been started for nothing, and with a
+        standing write token in its workspace.
+
+        TEN MINUTES, AND WHAT IT HAS TO COVER. A live ship merges seconds after green: step 3b's
+        staleness read and the step-4 gates are local reads plus a handful of gh calls. A forward lap
+        pushes a new head, which starts a new CI run, so the required checks are no longer green and
+        the window starts over on the new head -- a lap never runs out this clock. Ten minutes is
+        therefore generous on the live side, and on the dead side it costs one extra half-hourly sweep
+        at the outside.
+    #>
+    return 10
+}
+
+function Get-RequiredGreenAgeMinutes {
+    <#
+    .SYNOPSIS
+        Minutes since the LAST required check finished, from a `gh pr checks --required --json
+        name,bucket,completedAt` payload -- $null where that cannot be read.
+
+    .DESCRIPTION
+        THE LAST ONE, because the pull request only became green when the slowest required check
+        finished; the earlier ones say nothing about when the watch returned.
+
+        $null ON ANYTHING SHORT OF A CLEAN READ, and the caller refuses on $null. An empty payload, a
+        check with no completedAt, one that is still pending (GitHub reports completedAt as the zero
+        date there) -- none of them is evidence the settle window has passed.
+
+    .PARAMETER RequiredChecksJson
+        The raw payload.
+
+    .PARAMETER Now
+        The current time, passed in so this stays pure.
+
+    .OUTPUTS
+        [double] or $null.
+    #>
+    param(
+        [string]$RequiredChecksJson,
+        [datetime]$Now
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RequiredChecksJson)) { return $null }
+    try { $parsed = ConvertFrom-Json -InputObject $RequiredChecksJson } catch { return $null }
+    $checks = @($parsed | ForEach-Object { $_ })
+    if ($checks.Count -eq 0) { return $null }
+
+    $latest = $null
+    foreach ($check in $checks) {
+        if ($null -eq $check -or -not $check.PSObject.Properties['completedAt']) { return $null }
+        $value = $check.completedAt
+        $at = [datetime]::MinValue
+        if ($value -is [datetime]) {
+            # PowerShell 7's ConvertFrom-Json has already parsed the ISO string, keeping its Kind; casting
+            # it back to [string] would drop the Z and re-read it as local time.
+            $at = $value
+        } elseif (-not [datetime]::TryParse([string]$value, [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::RoundtripKind, [ref]$at)) {
+            # RoundtripKind keeps the trailing Z as UTC, so the subtraction below is between two UTC times.
+            return $null
+        }
+        $at = $at.ToUniversalTime()
+        if ($at.Year -lt 2000) { return $null }
+        if ($null -eq $latest -or $at -gt $latest) { $latest = $at }
+    }
+    return ($Now.ToUniversalTime() - $latest).TotalMinutes
 }
 
 function ConvertFrom-MergeOnGreenListJson {
@@ -165,6 +245,10 @@ function Get-MergeOnGreenPrVerdict {
         ship-pr.ps1's step 3 uses to decide whether a green watch is really green, including the
         UnfinishedRequired field inbound #1549 added for exactly that decision. $null refuses.
 
+    .PARAMETER GreenAgeMinutes
+        Get-RequiredGreenAgeMinutes' answer for THIS pull request. $null -- unreadable, or not passed
+        -- refuses, like every other fact this verdict cannot read (#2393).
+
     .PARAMETER Label
         The arming label; defaults to Get-MergeOnGreenArmLabel.
 
@@ -174,6 +258,7 @@ function Get-MergeOnGreenPrVerdict {
     param(
         $Record,
         $MergeBlockVerdict,
+        $GreenAgeMinutes = $null,
         [string]$Label = (Get-MergeOnGreenArmLabel)
     )
 
@@ -237,7 +322,18 @@ function Get-MergeOnGreenPrVerdict {
         return [pscustomobject]@{ Eligible = $false; Reason = "a required check has not finished: $($pending -join ', ')" }
     }
 
-    return [pscustomobject]@{ Eligible = $true; Reason = 'armed, not a draft, mergeable, and every required check is green on its own head' }
+    # GREEN IS NOT YET ORPHANED (#2393). ship-pr arms before its own wait, so a pull request that has
+    # only just gone green is normally being merged by the live session that armed it -- and this sweep
+    # was woken by that same CI completion. Get-MergeOnGreenSettleMinutes carries the reasoning.
+    $settle = Get-MergeOnGreenSettleMinutes
+    if ($null -eq $GreenAgeMinutes) {
+        return [pscustomobject]@{ Eligible = $false; Reason = 'when the required checks finished could not be read, so it cannot be told from a live ship' }
+    }
+    if ([double]$GreenAgeMinutes -lt $settle) {
+        return [pscustomobject]@{ Eligible = $false; Reason = ("green for {0:N0} minute(s), under the {1}-minute settle window -- a live ship-pr may still be merging it" -f [math]::Floor([double]$GreenAgeMinutes), $settle) }
+    }
+
+    return [pscustomobject]@{ Eligible = $true; Reason = "armed, not a draft, mergeable, and every required check has been green on its own head for at least $settle minutes" }
 }
 
 function Select-MergeOnGreenCandidate {

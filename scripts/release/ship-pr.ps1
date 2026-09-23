@@ -1024,6 +1024,108 @@ if ($unattendedRefusal) {
     exit 1
 }
 
+function Set-ShipMergeOnGreenArm {
+    <#
+    .SYNOPSIS
+        Write or remove the merge-on-green arming label on this run's pull request -- best-effort, and
+        $true only where gh reported success.
+
+    .DESCRIPTION
+        THE LABEL CREATES ITSELF ON FIRST USE, WHICH IS WHY THERE IS NO ADOPTION STEP FOR IT.
+        `gh pr edit --add-label` fails outright on a label the repo does not have, and this script
+        travels to every consumer of this workflow -- so without this, the first ship in a freshly
+        adopting repo would print a warning naming a command that fails the same way. Asked SECOND
+        rather than first: the label exists on every run after the first, and paying a `gh label create`
+        on each of them to save one on the first is the wrong trade.
+
+        NEVER THE REASON A SHIP STOPS. Arming is a backstop for a session that does not finish; a
+        failed call leaves exactly the behaviour this script had before #2319 and says so.
+
+    .PARAMETER Remove
+        Disarm instead of arm.
+    #>
+    param([switch]$Remove)
+
+    $armLabel = Get-MergeOnGreenArmLabel
+    $verb = if ($Remove) { '--remove-label' } else { '--add-label' }
+    $call = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+        'pr', 'edit', "$pr", $verb, $armLabel, '--repo', $repo)
+    if ($call.ExitCode -ne 0 -and -not $Remove) {
+        [void](Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+            'label', 'create', $armLabel, '--repo', $repo,
+            '--color', '0E8A16',
+            '--description', 'ship-pr has shipped this: the merge-on-green sweep finishes it once the required check is green'))
+        $call = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+            'pr', 'edit', "$pr", $verb, $armLabel, '--repo', $repo)
+    }
+    return ($call.ExitCode -eq 0)
+}
+
+function Remove-ShipMergeOnGreenArmForJudgement {
+    <#
+    .SYNOPSIS
+        Disarm on a refusal that is a judgement on the branch, and say so -- issue #2393.
+
+    .DESCRIPTION
+        Called only by the step-list gate and the DEPLOY lock. Both refuse identically on every re-run
+        until somebody commits, so an armed PR would be handed to the sweep on every cycle and, being the
+        lowest-numbered eligible one, starve every armed PR above it. The re-run that follows the fix arms
+        it again before its own wait. Under -NoMerge nothing was armed, so nothing is removed.
+
+    .PARAMETER Gate
+        The gate's name, for the printed line.
+    #>
+    param([string]$Gate)
+
+    if ($NoMerge) { return }
+    $armLabel = Get-MergeOnGreenArmLabel
+    if (Set-ShipMergeOnGreenArm -Remove) {
+        Write-Host "ship-pr: disarmed PR #$pr ('$armLabel' removed) -- the $Gate is a judgement on the branch, not a CI state, so no sweep may retry it (issue #2393). The re-run after your fix arms it again." -ForegroundColor DarkCyan
+    } else {
+        Write-Warning "could not remove '$armLabel' from PR #$pr, so the merge-on-green sweep will keep retrying a refusal only a commit can clear -- 'gh pr edit $pr --remove-label $armLabel' disarms it by hand (issue #2393)."
+    }
+}
+
+# --- ARM THE MERGE-ON-GREEN SWEEP BEFORE THE WAIT, NOT AFTER A REFUSAL (issues #2319, #2393) ----------
+# From here on the local gates have passed, the branch is pushed and the pull request is open: the only
+# thing between this PR and its merge is CI, and a timing state after it. So the merge is owed the moment
+# the required check turns green -- and that moment is routinely after this process is gone.
+#
+# THIS USED TO BE WRITTEN ONLY INSIDE THE CI-REFUSAL BRANCH OF STEP 3, and every other ending left a green
+# pull request nobody owed a merge to (#2393, measured on PRs #2390 and #2346, both green for hours and
+# never labelled): a process that DIES while it watches -- a backgrounded ship is a child of the harness --
+# never reaches a verdict; step 3b's refusals (the forward lap could not update the branch, no fresh
+# certificate arrived, the laps ran out) all exit without arming although each is a CI-timing state, not a
+# judgement on the branch. Arming before the wait covers all of them by construction instead of by list.
+#
+# THE LABEL IS STILL THE AUTHORISATION, NOT A REMINDER, and moving it earlier changes nothing about who may
+# write it. CLAUDE.md holds two kinds of pull request back for Dave's own word -- a visible result he has to
+# judge by eye, and anything irreversible or outward-facing -- and a pull request kept back for him never has
+# this script run on it, so it can never carry this label. That is the whole of what makes an unattended
+# merge safe here, and it was already true at the old site.
+#
+# IT DOES NOT RACE THIS RUN, and that is the picker's half rather than this one's. The sweep is woken by CI
+# completing, which is the same moment this run's watch returns -- so an armed PR would otherwise be handed
+# to a second ship-pr while this one merges it. pick-merge-on-green.ps1 therefore refuses a PR whose required
+# checks finished less than Get-MergeOnGreenSettleMinutes ago: a live session merges within seconds of
+# green, a dead one never does, and the half-hourly schedule finishes the dead one.
+#
+# DISARMED AGAIN ONLY WHERE A REFUSAL IS A JUDGEMENT ON THE BRANCH -- the step-list gate and the DEPLOY lock
+# at step 4. Those refuse identically on every re-run until somebody commits, and the picker hands over the
+# LOWEST-numbered eligible PR, so leaving one armed would starve every armed PR above it.
+#
+# NOT UNDER -NoMerge, which says in so many words that this run is not to merge. Arming a sweep to do it
+# minutes later would be the same act through another door.
+if (-not $NoMerge) {
+    $armLabel = Get-MergeOnGreenArmLabel
+    if (Set-ShipMergeOnGreenArm) {
+        Write-Host "ship-pr: armed PR #$pr with '$armLabel' -- if this run does not finish, the merge-on-green sweep does once the required check has been green for $(Get-MergeOnGreenSettleMinutes) minutes (issues #2319, #2393)." -ForegroundColor DarkCyan
+        Write-Host "  It re-runs every gate this script runs, including the staleness check and the DEPLOY lock. To disarm: gh pr edit $pr --remove-label $armLabel" -ForegroundColor DarkGray
+    } else {
+        Write-Warning "could not arm PR #$pr with '$armLabel', so if this run does not finish the merge stays owed to a session -- 'gh pr edit $pr --add-label $armLabel' arms it by hand (issue #2319)."
+    }
+}
+
 function Get-MissingCheckSuiteRefusalNote {
     <#
     .SYNOPSIS
@@ -2108,56 +2210,13 @@ if ($checks.ExitCode -ne 0) {
             $stalled = @()
         }
 
-        # ARM THE MERGE-ON-GREEN SWEEP BEFORE REFUSING (issue #2319). Everything above this point has
-        # established that CI, and only CI, is why the merge has not happened: the branch is pushed, the
-        # pull request is open, and the local gates passed before either. So the merge is owed the moment
-        # the required check turns green -- and that moment is routinely after this process is gone.
-        # Measured on PR #2316, 2026-09-22: `gh run rerun --failed` turned every check green and nothing
-        # merged it, because the merge was owed to a session that had exited, to a person noticing, and
-        # to a checkout standing on the right branch. It sat green and unmerged until somebody asked.
-        #
-        # THE LABEL IS THE AUTHORISATION, NOT A REMINDER, and that is why it is written HERE rather than
-        # by whoever opens the pull request. CLAUDE.md holds two kinds of pull request back for Dave's
-        # own word -- one with a visible result he has to judge by eye, and anything irreversible or
-        # outward-facing -- and a runner that merged every green pull request would merge those too.
-        # A pull request kept back for him never had this script run on it, so it can never carry this
-        # label. That is the whole of what makes an unattended merge safe here.
-        #
-        # NOT UNDER -NoMerge, which says in so many words that this run is not to merge. Arming a sweep
-        # to do it minutes later would be the same act through another door.
-        #
-        # AND IT ARMS ON ALL THREE WORDINGS BELOW, not only on the red one. A run that never STARTED and
-        # a watch that dropped are both "CI has not said yes yet" -- neither says anything about this
-        # branch -- so the merge is owed on the same terms once it does. Narrowing to the red case would
-        # leave the two rarer refusals holding exactly the gap this closes.
-        #
-        # BEST-EFFORT, LIKE EVERY DIAGNOSTIC ON THIS PATH: a failed arming call leaves precisely the
-        # behaviour this refusal has always had, names the command that arms it by hand, and is never
-        # the reason a refusal cannot be printed.
+        # THE PR IS ALREADY ARMED -- since #2393 that happens before the wait, above step 3, so every one
+        # of the three wordings below leaves it for the merge-on-green sweep. Measured on PR #2316,
+        # 2026-09-22: `gh run rerun --failed` turned every check green and nothing merged it, because the
+        # merge was owed to a session that had exited. A red, a run that never started and a dropped watch
+        # are all "CI has not said yes yet", none a judgement on the branch, so none of them disarms.
         if (-not $NoMerge) {
-            $armLabel = Get-MergeOnGreenArmLabel
-            $armCall = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
-                'pr', 'edit', "$pr", '--add-label', $armLabel, '--repo', $repo)
-            # THE LABEL CREATES ITSELF ON FIRST USE, WHICH IS WHY THERE IS NO ADOPTION STEP FOR IT.
-            # `gh pr edit --add-label` fails outright on a label the repo does not have, and this script
-            # travels to every consumer of this workflow -- so without this, the first red CI run in a
-            # freshly adopting repo would print a warning naming a command that fails the same way.
-            # Asked SECOND rather than first: the label exists on every run after the first, and paying
-            # a `gh label create` on each of them to save one on the first is the wrong trade.
-            if ($armCall.ExitCode -ne 0) {
-                [void](Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
-                    'label', 'create', $armLabel, '--repo', $repo,
-                    '--color', '0E8A16',
-                    '--description', 'ship-pr has shipped this: the merge-on-green sweep finishes it once the required check is green'))
-                $armCall = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
-                    'pr', 'edit', "$pr", '--add-label', $armLabel, '--repo', $repo)
-            }
-            if ($armCall.ExitCode -eq 0) {
-                Write-Host "ship-pr: armed PR #$pr with '$armLabel' -- the merge-on-green sweep finishes this once the required check is green, with no session of its own (issue #2319)." -ForegroundColor DarkCyan
-                Write-Host "  It re-runs every gate this script runs, including the staleness check and the DEPLOY lock. To disarm: gh pr edit $pr --remove-label $armLabel" -ForegroundColor DarkGray
-            } else {
-                Write-Warning "could not arm PR #$pr with '$armLabel', so this merge stays owed to a session -- 'gh pr edit $pr --add-label $armLabel' arms it by hand (issue #2319)."
-            }
+            Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)' -- once the required check is green, the merge-on-green sweep finishes it (issue #2319)." -ForegroundColor DarkCyan
         }
 
         # THREE WORDINGS, ONE VERDICT. The two below are #1044's; the middle one is #1219's, and the
@@ -2813,6 +2872,7 @@ $shipDetail
 Each finding above says what resolves it. Commit, and re-run. CI has already passed, so a re-run picks
 up from here. There is no -Force for this gate.
 "@
+        Remove-ShipMergeOnGreenArmForJudgement -Gate 'step-list gate'
         exit 1
     }
 }
@@ -2910,6 +2970,7 @@ verbatim into CHANGELOG.md and from there into the release notes. Choose one:
 
 CI has already passed, so a re-run picks up from here. There is no -Force for this gate.
 "@
+            Remove-ShipMergeOnGreenArmForJudgement -Gate 'DEPLOY lock'
             exit 1
         }
     } elseif ($lockShortRead) {

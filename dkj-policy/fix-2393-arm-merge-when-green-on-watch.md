@@ -39,19 +39,58 @@
 
 ### PLAN
 
+#### Design, since the issue left the direction open
+
+- **Arm before the wait.** Once the gates passed and the PR is open, only CI and a timing state stand
+  between it and the merge. Arming there covers every ending by construction: a process that dies
+  mid-watch, step 3b's refusals, and the old CI refusal.
+- **A settle window in the picker (10 min).** The sweep is woken by CI completing, which is the same moment a
+  live ship's watch returns. Without the window every ordinary ship would be handed to a second ship-pr on the
+  runner, with `FOLD_PUSH_TOKEN` in its workspace. A live ship merges seconds after green, and a forward lap
+  resets the clock with a new head. The cost to an orphan is one more half-hourly sweep at most.
+- **Disarm only at the two judgement gates** (step-list gate, DEPLOY lock). The picker hands over the
+  lowest-numbered eligible PR, so one that refuses identically on every retry would starve every armed PR
+  above it. A red on the forwarded head stays armed, like any red, because a re-run can clear it.
+- Not touched: `merge-on-green.yml`, and #2346's branch. Its hunks in the same two files are separate from these.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ship-pr.ps1`: `Set-ShipMergeOnGreenArm` arms just after step 2b, before step 3. The CI-refusal
+  branch now only says the PR stays armed. `Remove-ShipMergeOnGreenArmForJudgement` runs on the step-list
+  gate and the DEPLOY lock.
+- [x] `merge-on-green-lib.ps1`: `Get-MergeOnGreenSettleMinutes` and `Get-RequiredGreenAgeMinutes` (pure,
+  handles PS 7's pre-parsed dates and the zero date of a pending check). `Get-MergeOnGreenPrVerdict` takes
+  `-GreenAgeMinutes` and refuses when it is unread or under the window.
+- [x] `pick-merge-on-green.ps1`: asks for `completedAt` on the payload it already reads (no extra call).
+- [x] Plugin mirrors synced. The Sylvester lens, `adopt-dkj-policy`'s SKILL and `scripts/README.md` now describe the new arming moment.
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1`: 88 pass, 0 fail under Windows PowerShell 5.1. New asserts cover the
+  settle window, the age parser (slowest check, UTC, unreadable shapes, zero date), the picker reading
+  `completedAt`, and arming before step 3 plus disarming at both judgement gates (structural). PowerShell 7
+  is not installed on this machine, so the PS 7 date branch runs only in CI, if CI runs it.
+- [x] `ship-pr.ps1` parses clean. `gh pr checks 2390 --required --json completedAt` returns the field as ISO Z.
+
 ### DEPLOY: fix/2393-arm-merge-when-green-on-watch
 
-**Score:**
+`ship-pr` now labels a pull request `merge-when-green` once it is open and before it starts waiting on CI.
+Until now it did that only when its own CI verdict refused. So a ship that dies mid-watch, or refuses at
+step 3b on a timing state, still has its merge finished by the sweep. The sweep now takes over only a pull
+request whose required checks have been green for ten minutes, so it never races a live ship. `ship-pr`
+removes the label again at the step-list gate and the DEPLOY lock. Only a commit clears those refusals, and
+leaving the label on would starve every armed pull request numbered above it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A shipped pull request no longer sits green and unmerged because the session that shipped it ended early.
+
+**Score:** 2
 
 #### Pull Request
 
+ship-pr: arm merge-when-green before the CI wait, with a settle window so the sweep never races a live ship
+
+Plugins: dkj-policy
