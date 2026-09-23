@@ -31,6 +31,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 lags its own source by however many merges have landed since. A consumer keeps no copy of their own, so
 for them the line above is the correct one.
 
+**THE CALLER THROWS THIS RUN'S EXIT CODE AWAY, so read the LAST LINE instead**
+([#2283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2283)). `| tail -40` and
+`| Select-Object -Last 150` report the *pipe's* exit status, which is `0` however the run ended — and this
+script's output is long enough that reading it through one is the norm rather than the exception. So does
+any wrapper ending in a second command, `... > log 2>&1; echo "EXIT=$?"` among them, which is why ruling out
+a pipe is not the same as trusting the number. Since #2283 every refusal here ends with a `[REFUSED]` line
+saying the run did not finish, and a run that gets all the way ends with the close-out receipt, so the last
+line tells the two apart whatever the exit code says. The measurement that produced this is on ship-pr,
+whose refusal came back to a backgrounded caller as `completed (exit code 0)`; the shape is identical here.
+
 **No title is passed, and that is the change of August 7, 2026 ([#506](https://github.com/DKJ-Solutions/claude-code-specialists/issues/506)
 + [#505](https://github.com/DKJ-Solutions/claude-code-specialists/issues/505)).** The PR is called
 `<branch type>: <the entry's Branch title>` — the type off the branch prefix, the words out of
@@ -248,12 +258,50 @@ A local re-run cannot change the merge decision; it can only delay it.
 
 **Every ambiguity runs the gate.** No named check, no PR yet, a PR head that is not this `HEAD` (an
 unpushed commit, a bring-forward, a moved trunk), an unreadable answer, an empty required set, the
-named check missing from it, or the named check not green — each of those prints its reason and the
+named check missing from it, or the named check **red** — each of those prints its reason and the
 suites run exactly as they always did:
 
 ```text
 test gate: no CI certificate for this commit -- the PR head (7c1a44f0) is not this HEAD (1e805d22) -- the certificate is about a different commit. The suites run below.
 ```
+
+### The check is still RUNNING: the gate waits instead of re-proving it (`-NoCiWait`)
+
+**One of those refusals is not an ambiguity at all, and it used to be the commonest one**
+([#2317](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2317), September 22, 2026). A named
+check that has **failed** and one that is **still running** were the same refusal — *not green* — and
+they are opposite facts. `ship-pr` calls this script immediately after the push, so the check has
+typically just started: the certificate was refused for the one reason about to stop being true, and
+the whole pool then re-proved locally the commit CI was proving at that moment on a clean checkout.
+
+So where the check is registered and **pending on this exact `HEAD`**, the gate waits for it:
+
+```text
+test gate: 'lint-en-tests' is still running on this exact commit (1e805d22) -- waiting for it rather than re-proving the same tree locally (issue #2317).
+           up to 30 min, one read every 30s. Past that, or on any other answer, the suites run below.
+           still running -- read 1, 30s elapsed.
+test gate: CI answered after 214s -- the local pool was not run (issue #2317).
+```
+
+**It cannot fail a gate, skip a suite or move a merge.** There are three ways out. *Certified*: the
+caller takes the same skip it would have taken had the check been green when it first asked.
+*Settled*: the check went red, the PR head moved under it, or the payload stopped being readable — the
+suites run exactly as before. *Gave up*: the bound ran out while it was still pending — the suites run.
+Two of the three are the old behaviour byte for byte.
+
+**Measured, over the 98 most recent completed runs of this repo's own CI:** median 693s, four runs
+between 900s and the 30-minute bound, two above it (3422s, 4273s). The tail is not suite runtime — it
+is GitHub runner-queue contention, one shard starting late while its siblings run normally. That tail
+is why the bound is **high** and not why it should be low: what decides the saving is whether a run
+certifies *before* the bound, and all four in that band do.
+
+**`-NoCiWait` turns it off** and runs the suites immediately, as this script did before #2317. The
+mechanism is narrow enough to need no flag on the ordinary paths — no wait on a first `open-pr`, under
+`-SkipTests`, on an unpushed commit, on an unregistered check, or on a red one. Reach for the switch
+when you want the *local* verdict in your own hands: chasing a suite that is red under the pool and
+green standalone, say, where CI's answer is precisely the one that will not help.
+
+`ship-pr` takes the same switch and forwards it.
 
 **Why it asks for the named check by name rather than counting greens.** `gh pr checks --required`
 reports the required checks that have **registered**, so a workflow which has not created its check
@@ -913,6 +961,48 @@ function Get-ResolvesExemptMatchers {
 - **An issue whose body cannot be read is warned about and not blocked on**, the same direction every
   other lookup in this gate takes: wedging the PR flow on a network hiccup would be worse than the slip
   it guards against.
+
+## The claim check: an issue this PR closes is not left unowned
+
+**The gate above answers "which issues does this PR close". This asks who is holding them** — and it
+exists because there is a way an issue enters a branch's scope that no pickup check can see
+([#2284](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2284)). The
+[`claim-issue`](../claim-issue/SKILL.md) step is bound to *starting* an issue ("fix issue 1234"); a
+finding you file mid-branch and then repair on the branch you are already on is never started, so it is
+never claimed, and on the tracker it reads exactly like an untouched issue.
+
+**Measured, September 22, 2026:** #2272 was filed from `fix/2248-guard-raw-foreign-text-prints` and
+repaired there. Another session read it as unowned — correctly — picked it up and shipped it as
+PR #2275. The first branch's PR then went `CONFLICTING` on the file both had changed, and reconciling it
+took a trunk merge, a hand conflict resolution, three corrected documents and a second ship.
+
+So before the push, for each issue **this PR declares it closes**:
+
+| what the tracker says | what happens |
+|---|---|
+| **held by this checkout's account** | nothing — the ordinary path |
+| **unassigned** | **claimed**, and one line says so |
+| **held by somebody else** | a warning naming the holder |
+| **could not be read** | nothing said, nothing written |
+
+- **The subject is the DECLARED set, never the mentioned one.** This workflow prescribes citing issues
+  in prose, and claiming every mention would make the assignee field meaningless across a backlog nobody
+  is on. `Closes #<n>` is the author stating that this branch repairs that issue — so claiming it writes
+  strictly less than the body this run is about to publish already does.
+- **It costs no round trip.** The assignees come off the open-issue list this gate already fetches; the
+  query asks for one more field.
+- **It claims under the account `claim-issue` would resolve, never `@me`.** `@me` binds to whatever `gh`
+  is authenticated as, while the branch a second session correlates the claim with carries the *git*
+  identity — so on a split checkout `@me` claims under the wrong name in silence
+  ([#1315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1315)).
+- **A read that did not answer is never read as "free".** An issue the open list could not account for
+  is left alone; the opposite direction would hand out claims on other people's work.
+- **It never blocks.** A claim that wedges a real PR costs the whole assignment
+  ([#1485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1485)), and this check cannot tell
+  a rival from a colleague who is also on the thread. A foreign holder is a warning and the push goes on.
+- **It is a backstop, not a substitute for claiming it yourself.** It fires at the push, which is the end
+  of the branch, and it performs none of `claim-issue`'s scans — the parked fix, the title overlap, the
+  branch weight — all of which are about work already under way somewhere else.
 
 ## Requirements in the consumer
 

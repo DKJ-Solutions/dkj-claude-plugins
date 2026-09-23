@@ -1,0 +1,171 @@
+# The merge-on-green runner: finishes a ship whose session is gone -- issue #2319.
+#
+# WHERE A DECISION IS ARGUED: DIRECTLY ABOVE THE KEY IT DECIDES, the convention ci.yml's own banner
+# states and the reason it states it -- git cannot merge two appends at one anchor, so a file that
+# collects its prose in one block makes every pair of branches touching it conflict by construction.
+name: Merge on green
+
+# THE JOB TOKEN ONLY READS, AND THE MERGE IS NOT ITS WORK. The picker lists pull requests and their
+# required checks; nothing here writes with this token. Declaring a permissions block at all sets every
+# unlisted scope to none, which is the point -- the write half arrives as FOLD_PUSH_TOKEN, on the one
+# step that needs it, and never through this block.
+permissions:
+  contents: read
+  pull-requests: read
+
+# THREE TRIGGERS FOR ONE SWEEP, AND THE SWEEP IGNORES WHICH OF THEM WOKE IT. workflow_run gives
+# immediacy; the schedule is what makes the mechanism durable, because #2319's own incident was
+# repaired with `gh run rerun --failed` and whether a partial re-run re-emits workflow_run is not a
+# contract worth resting this on; workflow_dispatch is the hand valve for when a person wants the
+# sweep now. None of the three is read for WHICH pull request is owed a merge -- pick-merge-on-green.ps1
+# reads the tracker instead, so a trigger that fires late, twice or not at all costs at most one cycle.
+#
+# workflow_run RUNS THE VERSION OF THIS FILE ON THE DEFAULT BRANCH, always, whatever branch the CI run
+# it reacts to was for. So a change here is inert until it is merged -- this workflow cannot be proved
+# on its own pull request, and the first live proof is its own first sweep after the merge.
+#
+# AND workflow_run IS THE TRIGGER THAT RUNS WITH SECRETS FOR A PULL REQUEST FROM A FORK, which is the
+# standard hazard of it and the reason this job reads NOTHING out of the event. Everything it acts on
+# comes from the tracker: an open pull request carrying a label only ship-pr writes, whose head is a
+# branch of THIS repository (pick-merge-on-green.ps1 refuses a cross-repository one outright). A fork's
+# pull request can therefore start this job and can reach none of its decisions -- it cannot set the
+# label, and its head ref is not a branch here. Neither guard is load-bearing alone, which is why both
+# are asked.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  schedule:
+    # EVERY 30 MINUTES, AND THE NUMBER IS A RUNNER-CONTENTION DECISION RATHER THAN A LATENCY ONE.
+    # workflow_run already covers the ordinary path the moment CI finishes, so this only has to catch
+    # what that trigger misses -- a partial re-run, a dropped event -- and every sweep is a
+    # windows-latest job on a repo that has MEASURED runner-queue contention (#2296: a shard sitting
+    # 38 minutes in_progress; #2317: the gate cost of waiting). 48 extra jobs a day is a backstop; 96
+    # would be this runner competing with the CI it exists to react to.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+# ONE SWEEP AT A TIME, REPO-WIDE, AND NOT CANCELLED. cancel-in-progress: false because this job MERGES
+# and FOLDS: dropping an in-flight run is the silent skip the whole family of merger-independent runners
+# exists to close (fold-on-merge.yml, #1493). The group is a constant rather than keyed on a ref, which
+# is the opposite choice from the two push-triggered runners and for a reason they do not have: those
+# answer a question about one push, while this one answers a question about the whole tracker, so two
+# concurrent sweeps would race to ship the SAME pull request. GitHub keeps at most one run pending per
+# group, and dropping a duplicate pending sweep costs nothing because a sweep is idempotent by
+# construction -- it re-reads the tracker when it starts.
+concurrency:
+  group: merge-on-green
+  cancel-in-progress: false
+
+jobs:
+  merge-on-green:
+    runs-on: windows-latest
+    # 45 MINUTES, WHICH IS LONGER THAN EVERY OTHER JOB HERE BECAUSE THIS ONE WAITS ON CI ON PURPOSE.
+    # ship-pr's step 3b may bring a stale branch up to date and re-certify it, up to -MaxForwardLaps
+    # times, and each lap is a full CI cycle (310-461s over the last 40 paired runs, per ci.yml's own
+    # measurement). Two laps plus the ship itself fits inside 45 with room; the cap is still a wedge
+    # detector rather than a budget, in the sense ci.yml's banner gives it -- the alternative is
+    # GitHub's six-hour default.
+    timeout-minutes: 45
+    steps:
+      # THE TRUNK, NOT THE EVENT'S HEAD. This job is woken by a CI run for some branch and then asks the
+      # tracker which pull request is owed a merge; those are routinely different branches, and on a
+      # scheduled sweep there is no head at all. The branch the sweep picks is checked out by the ship
+      # step below, from a tree that starts on the trunk.
+      #
+      # SHALLOW HERE, DEEPENED ONLY WHEN THERE IS SOMETHING TO SHIP. ship-pr's step 3b walks 'main'
+      # first-parent history since a certifying run's timestamp, and a shallow clone silently truncates
+      # that walk -- the one direction a staleness gate must not err in -- so the full history IS
+      # needed, but only on the runs that reach the ship step. Most sweeps find nothing and exit after
+      # one gh call; paying a full-history clone on each of them would be this job competing for the
+      # runners it exists to react to. The deepening is the ship step's first act, below.
+      #
+      # token: FOLD_PUSH_TOKEN, and actions/checkout's default persist-credentials writes it into the
+      # workspace git config -- which is what makes ship-pr's own fold commit push past the main ruleset,
+      # exactly as fold-on-merge.yml has since #1493. Pinned to a commit SHA for the same reason that
+      # file pins: a mutable tag on a step that handles a 366-day standing write token could retag its
+      # way into exfiltrating it.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+          token: ${{ secrets.FOLD_PUSH_TOKEN }}
+
+      # THE PICKER READS WITH THE JOB-SCOPED TOKEN, NOT WITH THE PAT. It only lists pull requests and
+      # their checks, and an hour-lived token that expires with the run is the right credential for a
+      # read -- keeping the standing one out of every step that does not need it.
+      - name: Is any armed pull request owed a merge?
+        id: pick
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/pick-merge-on-green.ps1
+          exit $LASTEXITCODE
+
+      # THE SHIP IS ship-pr.ps1 ITSELF, NOT A SECOND IMPLEMENTATION OF ITS GATES. #2319 describes a
+      # runner that merges "only when the required check is green on the exact head and the staleness
+      # count is zero"; that second predicate is step 3b, and the step-list gate and the DEPLOY lock are
+      # two more this job would otherwise have to restate. Running the script is what keeps one
+      # implementation of each -- and it means every later repair to ship-pr reaches this runner with no
+      # edit here at all. It also folds (step 5) and verifies the resolves (step 6), so this job leaves
+      # the trunk in exactly the state a live session would have left it in.
+      #
+      # GH_TOKEN IS THE PAT HERE, AND THAT IS THE WHOLE REASON THE SECRET NEEDS 'Pull requests: write'
+      # ADDED TO IT. A push CAUSED BY the job-scoped GITHUB_TOKEN starts no workflow runs -- this tree
+      # already records that in verify-resolved.yml's header -- so a GITHUB_TOKEN merge would land the
+      # pull request and silence ci.yml on the trunk, fold-on-merge.yml and verify-resolved.yml all
+      # three. That is the unobserved-merge state those runners exist to close, reintroduced by the
+      # mechanism meant to help. Until the scope is added this step fails with a 403 on the merge, which
+      # is loud and says so; it can never merge without folding.
+      #
+      # THE BRANCH ARRIVES THROUGH env:, NOT THROUGH ${{ }} INSIDE run:. Interpolating an expression
+      # into a shell body substitutes it as TEXT before the shell parses the line, and a head ref is
+      # chosen by whoever opened the pull request -- the one genuinely attacker-controlled value in this
+      # file. pick-merge-on-green.ps1 has already refused any name outside a plain charset; this is the
+      # second half of that same guard, and neither is load-bearing alone.
+      - name: Ship it
+        if: ${{ steps.pick.outputs.picked == 'true' }}
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SHIP_BRANCH: ${{ steps.pick.outputs.branch }}
+          SHIP_PR: ${{ steps.pick.outputs.pr }}
+        run: |
+          # Commit-metadata identity only -- who authored ship-pr's fold commit. It is independent of
+          # the push credential, which the checkout step wired in: a ruleset bypass is checked against
+          # the pushing token's identity, not against the commit author. Same pair, same reason, as
+          # fold-on-merge.yml sets.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # DEEPEN FIRST, AND WIDEN THE REFSPEC BEFORE DEEPENING. actions/checkout with a `ref:` narrows
+          # remote.origin.fetch to that one branch, so an --unshallow alone would deepen 'main' and still
+          # not know the branch this job is here to ship. Both are needed, and both are paid only on a
+          # run that has something to ship: step 3b's first-parent walk over 'main' is wrong on a
+          # truncated history, in the direction a staleness gate must not be wrong in.
+          git remote set-branches origin '*'
+          git fetch --unshallow --quiet origin
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "could not deepen this shallow clone -- ship-pr's staleness walk would be unsound, so nothing was merged."
+            exit 1
+          }
+
+          git checkout --quiet $env:SHIP_BRANCH
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "could not check out the head branch of PR #$($env:SHIP_PR) -- nothing was merged."
+            exit 1
+          }
+
+          # -SkipLint -SkipTests, AND THIS IS THE ONE FLAG PAIR THIS JOB MUST NOT OMIT. ship-pr's step 1
+          # calls open-pr.ps1 even for a pull request that is already open -- it skips only the
+          # `gh pr create` and still runs the gates -- so without these the runner would spend ~43
+          # minutes re-running the whole local suite pool. Skipping it is not a shortcut past a gate: the
+          # sweep only picked this pull request BECAUSE the required check is green on its own head, and
+          # that check IS this same gate, run on GitHub, on this same commit. Running it a second time
+          # would prove nothing the certificate does not already carry -- and it is the certificate, not
+          # the local copy, that the merge is allowed on.
+          Write-Host "merge-on-green: running ship-pr.ps1 on '$env:SHIP_BRANCH' for PR #$env:SHIP_PR"
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/ship-pr.ps1 -SkipLint -SkipTests
+          exit $LASTEXITCODE

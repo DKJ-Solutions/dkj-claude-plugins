@@ -98,9 +98,11 @@ entries rather than off which section they sit in.
   fact; a branch created today carries its version from the start and is read out of the document instead.
 - **After the merge**: `scripts/release/fold-changelog-entry.ps1` reads the entry and inserts it at its
   **ranked position** in the list — the block as written, with `[PR #NN](url)` appended
-  as its last line, the landing stamp on the `Pull Request` heading, and the ENTRY heading **untouched**. (It used to prepend `#NN · ` to the heading too; that went
+  as its last line and the landing stamp on the entry's own `### DEPLOY:` heading (it sat on the
+  `Pull Request` heading from August 19 to August 23, 2026). The ENTRY heading is otherwise **untouched**
+  — it used to also prepend `#NN · ` to it too; that went
   on August 5, 2026 — the number is still in the entry, on that closing line, where the url makes it
-  clickable, and the heading is left readable as a sentence.) **Nothing is consumed:** the impact table
+  clickable, and the heading is left readable as a sentence. **Nothing is consumed:** the impact table
   (or a pre-format entry's `Tier: N` line) travels into `CHANGELOG.md` intact, because with no heading above
   the entry, stripping the declaration would leave every downstream reader taking it as tier 0 — silent,
   correct-looking, and wrong in the direction that empties a release document. The outward-facing renderers
@@ -115,7 +117,8 @@ entries rather than off which section they sit in.
   `gh pr list` on the branch name from the entry (only possible after the merge).
   **The date is the fold's** (Dave, August 5, 2026): the scaffolder runs at
   branch creation, so a date it wrote was the branch's birth date rather than the landing date. The
-  entry carries what the author knows, the fold what only the merge knows -- the moment on the `Pull Request` heading and the link below it — and the date
+  entry carries what the author knows, the fold what only the merge knows -- the moment on the entry's
+  own heading (the `Pull Request` heading before August 23, 2026) and the link below it — and the date
   comes from the PR's `mergedAt`, not the clock, because a fold does not always run in the same minute as
   its merge (this repo has found entries still unfolded the next morning). The fold also
   automatically derives a **`Plugins:` line** from the PR's files (paths under

@@ -253,6 +253,29 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# THE REFUSAL VERDICT THAT SURVIVES ITS CALLER (issue #2283). A chain-ending script already prints the close-out
+# receipt when it FINISHES (#1884); this is the other half -- one unmistakable last line when it refuses. The
+# measurement, and why the exit code cannot carry this on its own, is in ship-pr.ps1's copy of this block:
+# under the 'Stop' above every Write-Error here is a TERMINATING error, so the host already exits 1, and it is
+# the CALLER that replaces that exit status with its own 0 -- a pipe, which every recorded invocation of these
+# scripts is read through (`| tail -n`, `| Select-Object -Last n`), or any wrapper ending in a second
+# command, which was measured doing the same thing to a run that was redirected to a file and not piped at
+# all. So the line below names both rather than naming the pipe, which a reader can rule out and be wrong.
+#
+# It fires only on a terminating error nothing caught, which is what every refusal in this file already is, so
+# no path that runs today changes. It prints the record on the stream the host would have used, so a caller
+# separating the streams keeps exactly what it had.
+trap {
+    $refusalRecord = $_
+    $host.UI.WriteErrorLine(($refusalRecord | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    $host.UI.WriteErrorLine('[REFUSED] cut-release stopped at the error above -- this run did NOT finish. The error itself says what had')
+    $host.UI.WriteErrorLine('          and had not been done by then; do not read the absence of a failure elsewhere as success.')
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
+
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
 $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
@@ -806,6 +829,27 @@ about content, while -SkipLint skips a tool.
     }
 }
 
+# --- Guardrail: does every 'Retracts:' line name a real pending entry? (inbound #2230) ---------------
+# Placed with the other guardrails, before anything is written: the audience-note filtering below relies
+# on $retractions being correct, and an unresolvable target must not read as "nothing to withhold" -- a
+# typo here is a typo in a branch name that is about to be silently treated as ordinary, deliverable work.
+#
+# RESOLVED AGAINST THE FLAT $entries (every tier), NOT ONE TIER GROUP, for the reason
+# Resolve-ReleaseRetractions' own docstring gives: the entry doing the retracting and the entry it
+# retracts are not guaranteed to share a tier, and a typo is exactly as real either way.
+$retractions = Resolve-ReleaseRetractions -Entries $entries
+if ($retractions.Errors.Count -gt 0) {
+    Write-Error @"
+$($retractions.Errors.Count) 'Retracts:' target(s) do not name any pending entry. Nothing was written.
+
+$($retractions.Errors -join "`n")
+
+A Retracts: line names the branch the retracted entry's own DEPLOY heading declares, exactly -- fix the
+name in CHANGELOG.md and cut again.
+"@
+    exit 1
+}
+
 # --- Guardrail: a NEW MAJOR needs its own overview section before the row can land ----------------
 # Placed here, with the other guardrails, because it must stop the run BEFORE anything is written: the
 # row insertion happens after the notes file already exists, and failing there would leave a release
@@ -1043,6 +1087,27 @@ $changelogNew = Set-ChangelogPendingSummary -Content $changelogNew
 # In this repo the answer IS 2, so this call produces exactly the document it produced before -- the
 # change is only visible in a repo that answered 1, where the section existed in no release at all.
 $audienceEntries = @($tierGroups | Where-Object { [int]$_.Tier -eq $audienceTier } | ForEach-Object { $_.Entries } | Where-Object { $_ })
+
+# RETRACTED (AND RETRACTING) WORK IS WITHHELD FROM THIS ONE DOCUMENT ONLY (inbound #2230). CHANGELOG.md
+# ($tierGroups above) and the generated GitHub Release body further down are both left untouched -- both
+# are records of what reached the trunk, and the retracted work did too. This is the one hand-written
+# document that narrates what the organisation NOW GETS, and a build deliberately pulled before the cut
+# is not that, however confidently its own entry says otherwise.
+#
+# $removedFromAudience IS THE INTERSECTION, not $retractions' own two lists directly: a retraction that
+# never reached the audience tier in the first place (its retracted target, and the entry that retracts
+# it, both live at a lower tier) has nothing to withhold from THIS document, and reporting it anyway would
+# name a branch the reader of this document never expected to see.
+$audienceBranches = @($audienceEntries | ForEach-Object { Get-EntryDeclaredBranch -EntryText $_ } | Where-Object { $_ })
+$withheldEverywhere = @($retractions.RetractedBranches + $retractions.RetractingBranches | Select-Object -Unique)
+$removedFromAudience = @($audienceBranches | Where-Object { $withheldEverywhere -contains $_ })
+if ($removedFromAudience.Count -gt 0) {
+    $audienceEntries = @($audienceEntries | Where-Object {
+        $removedFromAudience -notcontains (Get-EntryDeclaredBranch -EntryText $_)
+    })
+}
+$noteWithheldNote = Format-RetractionWithheldNote -Retractions $retractions -Removed $removedFromAudience
+
 $cutNote = ($consumerBumps -contains $bumpType)
 $noteRelPath = "$noteRootRelPath/$notesDirName/$new.md"
 if ($cutNote) {
@@ -1056,7 +1121,7 @@ if ($cutNote) {
     $noteLinkPrefix = Get-EntryLinkPrefix -NoteRelPath $noteRelPath -ChangelogRelPath $changelogRel
     $noteContent = Build-ReleaseNoteDraft -Entries $audienceEntries -Version $new -Date $today `
         -Type $typeLabel -Title $Title -Wording $noteWording -LinkPrefix $noteLinkPrefix `
-        -AudienceTier $audienceTier
+        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote
 }
 
 # --- Write the release-notes file -------------------------------------------------------------

@@ -6,6 +6,23 @@
 # `shell: powershell` (5.1), not pwsh. Since #1351 there is one job that runs none -- the
 # `lint-en-tests` summary at the foot of this file, which only compares two strings -- and it is on
 # ubuntu for that reason; see its own note.
+#
+# WHERE A DECISION IS ARGUED: DIRECTLY ABOVE THE KEY IT DECIDES -- issue #2314, September 22, 2026.
+# Every paragraph in this file sits above the one key, step or job it explains, so a new decision
+# brings its own new anchor instead of another paragraph on the end of an existing block. That is not
+# a matter of taste: git cannot merge two appends at one anchor, so two branches obeying the older
+# "argue it on the way in" habit conflicted PAIRWISE, by construction rather than by bad luck. Three
+# CI branches in one afternoon proved it -- #2296, #2303 and #2304 -- and the resolution was never the
+# expense (five minutes; both sides purely additive and both kept verbatim) but the forty minutes of
+# CI laps it took to find. It is the same shape #1255 removed one file over, where a single fixed
+# dkj-policy/development.md made every merge to the trunk conflict every other open PR, and the
+# answer was one document per branch.
+#
+# SO THE BANNER ABOVE `jobs:` IS SHORT ON PURPOSE AND STAYS THAT WAY. It is the only comment run in
+# this file that belongs to no key, which is exactly why prose about any job used to land there;
+# ci-shard.tests.ps1 holds it to a ceiling, so a re-grown banner fails a suite instead of surfacing
+# at somebody else's merge conflict. What belongs there is what is true of the file as a whole --
+# why there are three jobs, and that every job declares a timeout at all. Everything else has a key.
 name: CI
 
 # Least-privilege (Sean's advice): this workflow only reads -- the GITHUB_TOKEN gets no write access.
@@ -86,38 +103,32 @@ concurrency:
 # use more runners. So the suites fan out over a matrix, the lint keeps its own job (running it once per
 # shard would pay 27s and print its output four times over), and a third job carries the NAME.
 #
-# THE NAME IS THE POINT: `main-ci-gate` requires a check called `lint-en-tests`, and GitHub names a check
-# after the job that reports it. Keeping a job by that exact name means this restructure needs NO ruleset
-# edit, no repo-settings change and nobody's permission -- which is the whole reason it could be done while
-# the merge-queue decision on #1325 was still open. It has since been settled -- NO queue (#1355,
-# September 3, 2026) -- which changes nothing here. Do not rename this job. Renaming it silently un-gates
-# `main`: the ruleset would wait forever for a check nobody reports, and every merge would block.
+# EVERY JOB DECLARES `timeout-minutes`, AND THE NUMBERS ARE READ OFF RUN HISTORY -- issue #2296,
+# September 22, 2026. A job with none runs to GitHub's default of SIX HOURS, and until that issue no job
+# in this repo's .github/workflows/ declared one.
 #
-# `if: !cancelled()` PLUS AN EXPLICIT RESULT CHECK, AND BOTH HALVES ARE LOAD-BEARING. A job that
-# `needs:` a failed job is SKIPPED, not failed, and a skipped required check is not a reported failure --
-# so without an `if:` that outlives a failed dependency a red shard produces no verdict at all, and
-# without the result check that `if:` produces a GREEN one. That combination is the single classic
-# footgun of this pattern and it is the same silence class as #1294's dropped runs: a check that reports
-# success having measured nothing. It is asserted in ci-shard.tests.ps1 in both directions rather than
-# trusted to this comment.
+# WHAT THAT COST. Run 35728958033's `suites (2)` wedged: 38 minutes and still `in_progress`, on a commit
+# whose other three shards went green in about six minutes each and whose shard 2 ran all 29 of its
+# suites locally in 344s. `lint-en-tests` `needs:` the shards, so it never registered at all -- and a
+# required check that never registers is not a red check somebody can read, it is a branch that cannot
+# merge with nothing saying why. ship-pr spent its whole 1800s registration wait and refused correctly;
+# the branch still needed a person to go and cancel the job by hand, which itself took ~8 minutes to land.
 #
-# `!cancelled()` AND NOT `always()` -- issue #1356. `always()` is true even when the run was CANCELLED,
-# and `cancel-in-progress` cancels the four shards whenever a PR run is superseded by a newer push. The
-# summary job would then run anyway, read `cancelled != success`, and report the required check as
-# FAILURE where nothing failed -- a red run in the Actions list on a commit nothing merges, plus a
-# wasted runner per cancellation. `!cancelled()` keeps every property above: it is true when a
-# dependency failed or was skipped, so the fail-closed check still fires, and false only when the run
-# itself was cancelled, so a superseded run reports `cancelled` rather than `failure`.
+# AND THE IN-PROCESS BOUND CANNOT COVER IT. $script:GateSuiteTimeoutSeconds (native-capture-lib.ps1) is
+# 1800s PER SUITE and reaps a wedged child with an attribution -- it has done so three times on a local
+# machine (#1941). At 38 minutes -- 2,280 seconds, so eight minutes past that bound -- it should have
+# fired and did not, so whatever wedged sat BELOW the level a gate inside the process can reach.
+# That class is exactly what a runner-level cap is for, and it is why this is not a duplicate of
+# #1941/#2233/#2255/#2263 -- those are all the in-process bound, this is the one layer under it.
 #
-# STRICT SUCCESS, NOT 'not failure'. `success` is required from every leg, so `skipped`, `cancelled` and
-# `neutral` all refuse. That is deliberate and it is why the fold-commit shortcut below stays on the STEP
-# rather than moving up to the job: a job-level `if:` would make `needs.suites.result` legitimately
-# `skipped` on a fold commit, and this job would then have to accept `skipped` from that leg -- one
-# accepted non-success away from accepting the one that matters. Four short runners on a fold commit cost
-# nothing on a public repo's standard runners; a summary job with an exception in it costs the gate.
+# THE NUMBERS THEMSELVES ARE DERIVED AT THE KEYS THEY CAP, and every one of them sits far above
+# anything measured, deliberately: the cap is a wedge detector, not a performance budget, and a cap
+# that fails a merely slow run turns this guard into the thing it was built to prevent.
 jobs:
   lint:
     runs-on: windows-latest
+    # 10, against a measured max of 1.5m -- a wedge detector, not a performance budget (#2296).
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -129,7 +140,34 @@ jobs:
 
   suites:
     runs-on: windows-latest
+    # 25 ON `suites`, AND THE NUMBER IS PICKED AGAINST ship-pr's WAIT, NOT JUST AGAINST THE SUITES. Over the
+    # 19 most recent successful runs the shards measure: (1) med 8.5m/max 9.2m, (2) med 12.5m/max 13.4m,
+    # (3) med 7.1m/max 7.4m, (4) med 6.3m/max 8.5m -- so 25 is ~1.9x the worst shard ever observed and
+    # nothing legitimate comes near it. What decides the upper end is that ship-pr's registration wait is
+    # ALSO 1800s (`$maxRequiredWaitSec`, ship-pr.ps1): a cap at 30 or above times the job out at the same
+    # moment the shipping session gives up, so the session still learns nothing. At 25 the shard goes red,
+    # `lint-en-tests` concludes seconds later, and ship-pr -- still inside its wait -- reads a FAILED
+    # required check with a job log naming which shard, which is a diagnosis instead of a silence.
+    # Re-derive it from scripts/tests/suite-durations.json and the run history, never from this paragraph.
+    timeout-minutes: 25
+    # WIDER THAN THE WORKFLOW-LEVEL contents: read (issue #2303), and job-scoped rather than raised
+    # at the top of this file: the merge-commit certificate step below (Get-MergeCommitSuiteSkipVerdict)
+    # reads a merged PR's own checks and the Actions runs behind them, which `contents: read` alone does
+    # not reach. Still READ-ONLY throughout -- Sean's least-privilege advice, unchanged -- and scoped to
+    # this job alone so `lint` and `lint-en-tests` keep the workflow-level grant with nothing added.
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+      actions: read
     strategy:
+      # fail-fast IS FALSE, DELIBERATELY. The default would cancel the surviving shards the moment one goes
+      # red, which costs exactly the information this repo needs most from a red gate: these suites have a
+      # measured history of red-under-the-gate/green-alone (#1033, and the two earlier sightings its
+      # comment names), and the standing response is to re-run the suite alone. Losing three shards' worth
+      # of verdicts to learn one of them failed turns one re-run into four.
+      fail-fast: false
+
       # FOUR, AND A SHARD'S FLOOR IS max(ITS LONGEST FILE, ITS LANE-SECONDS / 4) -- issue #1358,
       # corrected September 4, 2026 against the first REAL per-suite tables. This comment used to name
       # only the first term, on #714's authority, and concluded that more shards cannot help and that a
@@ -156,6 +194,28 @@ jobs:
       # split takes the floor the last ~15s to the 16-lane work bound, for the price of preserving 340
       # asserts across ~2,950 lines. Not bought.
       #
+      # THAT DECLINE WAS CORRECT AND THEN EXPIRED, AND THE SPLIT IS NOW BOUGHT -- issue #2304,
+      # September 22, 2026. #1358 weighed a ~15s gap because the heaviest file was 221.8s at the time.
+      # Measured again over a 121-suite pool of 6,254 lane-seconds: the work bound over 16 lanes is 391s
+      # while check-plugin-integrity-docs.tests.ps1 alone recorded 669.1s, so the gap it was weighed
+      # against had become 278s -- 40% of a gate that measured 11.5 min, matching that ONE file's
+      # recorded duration to within 0.3 min. The file is now four (-docs, -scripts, -invocations,
+      # -roster; see check-plugin-integrity-fixture.ps1 for the partition and its cost basis), all 188
+      # of its asserts preserved and verified by running them, and its standalone longest part went
+      # 235.8s -> 64.3s.
+      #
+      # THE ORDER MATTERS AND IT IS THE PARAGRAPH ABOVE, NOT A NEW RULE: a shard buys nothing until the
+      # pool is at its work bound. -docs is off the critical path now, which puts the next heaviest file
+      # there (check-plugin-integrity-links.tests.ps1, 539.2s) rather than the bound. So the shard count
+      # STILL does not go up in this change, and a reader reaching for a fifth runner should split that
+      # file first for the same reason and by the same measurement.
+      #
+      # AND suite-durations.json DOES NOT KNOW THE FOUR NEW NAMES YET. A suite missing from it is charged
+      # the largest recorded value, so it packs early and can never be the one left last -- safe, and
+      # deliberately not hand-edited: that file is regenerated from CI logs by
+      # scripts/maintenance/record-suite-durations.ps1, and a typed figure is exactly the local reading
+      # its own header refuses.
+      #
       # ~30s CAME OFF THE PER-FILE COST separately in #1358, by making the lint parse and walk the script
       # set once instead of twice (see Get-PsScriptCommandAsts in check-plugin-integrity.ps1): those four
       # suites are ~100% lint invocations -- 52 of them in the heaviest, at ~1.12s each on a workstation --
@@ -178,17 +238,68 @@ jobs:
       # comes from the table on a 4-lane run, not from a workstation and not from prose. That is also what
       # suite-durations.json is: those tables, written down, and regenerated by
       # scripts/maintenance/record-suite-durations.ps1 rather than retyped.
-      #
-      # fail-fast IS FALSE, DELIBERATELY. The default would cancel the surviving shards the moment one goes
-      # red, which costs exactly the information this repo needs most from a red gate: these suites have a
-      # measured history of red-under-the-gate/green-alone (#1033, and the two earlier sightings its
-      # comment names), and the standing response is to re-run the suite alone. Losing three shards' worth
-      # of verdicts to learn one of them failed turns one re-run into four.
-      fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
     steps:
+      # FULL HISTORY, BUT ONLY ON THE ONE PUSH THAT NEEDS IT (issue #2303). The merge-commit certificate
+      # step below walks 'main's first-parent history back to whenever the merged PR's certifying run
+      # began, which the default shallow clone (depth 1) cannot do at all -- HEAD's own parents are not
+      # even present as objects. `fetch-depth: 0` buys that, at the cost of a full clone instead of a
+      # shallow one; keeping the condition narrow (push AND the 'merge: ' subject, not every push) is what
+      # keeps that cost off the PR path, the merge_group path and the 'fold:' path, which is every run
+      # except the one this exists for.
       - uses: actions/checkout@v5
+        with:
+          # QUOTED, NOT BARE: the literal 'merge: ' this expression matches against carries a colon
+          # followed by a space, which YAML reads as a nested mapping indicator in an unquoted scalar --
+          # exactly the shape `js-yaml` refused this line with before it was wrapped. `'fold:'` a few
+          # lines below has no space after its colon and stays bare for that reason alone.
+          #
+          # '0' AND '1' ARE STRINGS, NOT THE NUMBERS -- issue #2312, measured on the merge commit for
+          # #2303 itself (run 35749674281): this line printed `fetch-depth: 1` even though the push
+          # subject matched, so the checkout stayed shallow and the certificate step below answered
+          # skip=false every time with "'git log HEAD^1' failed ... history too shallow". GitHub Actions
+          # expressions use JS-like truthiness, where the NUMBER 0 is falsy -- so `cond && 0 || 1`
+          # evaluates `cond && 0` to `0`, which is itself falsy, and the `||` falls through to `1`
+          # regardless of `cond`. The classic ternary-idiom trap, and it fires exactly when the "true"
+          # branch's value is itself falsy, which a fetch depth of zero always is. A non-empty STRING is
+          # never falsy here, including `'0'`, and `with:` values are passed to the action as strings in
+          # any case -- so quoting both arms is the fix, not a cosmetic change.
+          fetch-depth: "${{ (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'merge: ')) && '0' || '1' }}"
+
+      # THE MERGE COMMIT GETS THE SAME KIND OF SHORTCUT, CONDITIONALLY -- issue #2303, priced against #1300's
+      # own precedent. Measured over six machines, September 22, 2026: 46% of that window's CI runs were on the
+      # trunk, and the `merge:` half of them (233 of the day's total) re-ran the full four-shard suite pool for a
+      # tree ship-pr had, seconds earlier, certified as non-stale. Unlike the fold, a merge commit's tree is NOT
+      # provably safe from its subject alone -- a ship-pr merge carries the guarantee that 'main' had not moved
+      # past the certified tree at merge time, but a GitHub-UI merge does not, and a push event cannot tell the
+      # two apart. So the skip here is not a static `startsWith` match: the "Merge-commit certificate"
+      # step below RE-DERIVES the fact from GitHub's own records -- the identical reads and pure
+      # functions ship-pr.ps1's own step 3b already uses before merging (scripts/ci/get-merge-suite-skip.ps1,
+      # scripts/lib/ci-merge-skip-lib.ps1) -- rather than trusting the commit that claims it. That is what makes
+      # the answer trustworthy regardless of how the merge landed, and it is also why this shortcut stays on the
+      # STEP for the same reason the fold's does: a job-level `if:` sourced from another job's output would make
+      # `needs.suites.result` legitimately `skipped` on the ordinary, overwhelming-majority case of a PR run or a
+      # non-merge push, one missing `always()` away from silently skipping the whole gate.
+      #
+      # THE MERGE-COMMIT CERTIFICATE -- issue #2303. Re-derives, from GitHub's own records rather than
+      # from the commit's own subject, whether this 'merge:' push's tree was already proved fresh: the
+      # repo's named check (Get-CiTestCheckName) reads 'pass' on the merged PR's own head SHA, and 'main'
+      # gained no first-parent commit (net of #1592's fold exemption) between the run that certified it and
+      # this merge. The paragraph above is why this lives at the step level; the script's own header is
+      # why it always runs and fails closed rather than being gated by its own `if:`.
+      #
+      # ALWAYS RUNS, EVEN OFF-SUBJECT: the script itself answers 'skip=false' fast, with no network call,
+      # the moment the event is not a push or the subject is not a 'merge: <branch> (#NN)' line -- an `if:`
+      # here would only restate that check a second way.
+      - name: Merge-commit certificate (can this push skip the suites?)
+        id: merge-suite-skip
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/get-merge-suite-skip.ps1
+          exit $LASTEXITCODE
 
       # THE SAME SHARED GATE open-pr.ps1 AND cut-release.ps1 RUN, not a third copy of its loop. This step
       # held an inline copy until August 7, 2026 (issue #512), which is how it would have kept running the
@@ -239,7 +350,7 @@ jobs:
       # silent in the worst direction: a matrix of four against a count of five runs four fifths of the
       # pool and reports four green shards, for ever.
       - name: Test suites (shard ${{ matrix.shard }} of 4, scripts/tests/*.tests.ps1)
-        if: ${{ !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'fold:')) }}
+        if: ${{ !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'fold:')) && steps.merge-suite-skip.outputs.skip != 'true' }}
         shell: powershell
         run: |
           . ./scripts/lib/native-capture-lib.ps1
@@ -249,16 +360,46 @@ jobs:
           exit 0
 
   # THE REQUIRED CHECK. Reports nothing of its own -- it exists so that `main-ci-gate`'s single required
-  # context still names one job while the work happens in five. See the banner above jobs: for why the
-  # name must not change, and why `!cancelled()` and the strict result check are both required.
+  # context still names one job while the work happens in five. Why the name must not change is the
+  # paragraph below; `!cancelled()` and the strict result check are argued at the keys they sit on.
+  #
+  # THE NAME IS THE POINT: `main-ci-gate` requires a check called `lint-en-tests`, and GitHub names a check
+  # after the job that reports it. Keeping a job by that exact name means this restructure needs NO ruleset
+  # edit, no repo-settings change and nobody's permission -- which is the whole reason it could be done while
+  # the merge-queue decision on #1325 was still open. It has since been settled -- NO queue (#1355,
+  # September 3, 2026) -- which changes nothing here. Do not rename this job. Renaming it silently un-gates
+  # `main`: the ruleset would wait forever for a check nobody reports, and every merge would block.
   lint-en-tests:
     needs: [lint, suites]
+    # `if: !cancelled()` PLUS AN EXPLICIT RESULT CHECK, AND BOTH HALVES ARE LOAD-BEARING. A job that
+    # `needs:` a failed job is SKIPPED, not failed, and a skipped required check is not a reported failure --
+    # so without an `if:` that outlives a failed dependency a red shard produces no verdict at all, and
+    # without the result check that `if:` produces a GREEN one. That combination is the single classic
+    # footgun of this pattern and it is the same silence class as #1294's dropped runs: a check that reports
+    # success having measured nothing. It is asserted in ci-shard.tests.ps1 in both directions rather than
+    # trusted to this comment.
+    #
+    # `!cancelled()` AND NOT `always()` -- issue #1356. `always()` is true even when the run was CANCELLED,
+    # and `cancel-in-progress` cancels the four shards whenever a PR run is superseded by a newer push. The
+    # summary job would then run anyway, read `cancelled != success`, and report the required check as
+    # FAILURE where nothing failed -- a red run in the Actions list on a commit nothing merges, plus a
+    # wasted runner per cancellation. `!cancelled()` keeps every property above: it is true when a
+    # dependency failed or was skipped, so the fail-closed check still fires, and false only when the run
+    # itself was cancelled, so a superseded run reports `cancelled` rather than `failure`.
     if: ${{ !cancelled() }}
     # ubuntu, deliberately: this job runs no PowerShell and never touches the repo, so the windows-latest
     # note at the top of this file does not apply to it -- and a linux runner starts in seconds where a
     # windows one costs a minute for the same two string comparisons.
     runs-on: ubuntu-latest
+    # 5, against a measured max of 0.1m: two string comparisons on ubuntu (#2296).
+    timeout-minutes: 5
     steps:
+      # STRICT SUCCESS, NOT 'not failure'. `success` is required from every leg, so `skipped`, `cancelled` and
+      # `neutral` all refuse. That is deliberate and it is why the fold-commit shortcut in the `suites` job stays on the STEP
+      # rather than moving up to the job: a job-level `if:` would make `needs.suites.result` legitimately
+      # `skipped` on a fold commit, and this job would then have to accept `skipped` from that leg -- one
+      # accepted non-success away from accepting the one that matters. Four short runners on a fold commit cost
+      # nothing on a public repo's standard runners; a summary job with an exception in it costs the gate.
       - name: Every leg must have succeeded
         shell: bash
         run: |

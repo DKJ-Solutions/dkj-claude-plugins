@@ -119,6 +119,23 @@
     The walk itself (Test-ContractLibReachable) lives in script-contract-lib.ps1 beside the records,
     with the measurement that chose it over a text match written down there.
 
+    AND SINCE ISSUE #2236 IT ALSO ANSWERS A THIRD QUESTION, ABOUT FILES RATHER THAN FUNCTIONS: which
+    adopt-* commands place files this tree does not have. The workflow-folder line below is the same
+    question one command over and has been here since August 14, 2026; what is added is the rest of
+    the adoption inventory (Get-AdoptionInventory, beside the records), because every adopt-* command is
+    safe to re-run and correctly finds nothing to do -- so nothing told an already-adopted consumer that
+    one of those commands had since GAINED a file. Reported from a consumer whose tree held Part 1's
+    entry gate and none of Part 3's three runners, with neither its fold nor its resolves verification
+    able to survive a merge its shipping session does not observe.
+
+    IT IS REPORTED AS [UNADOPTED], WHICH COUNTS TOWARD NOTHING. An unbuilt piece of the floor is a
+    to-do rather than a breach -- adopt-ci-floor's own exit code says exactly that -- so the token is
+    the same non-counting shape as [BOOTSTRAP] here and [ORPHANS] in check-roster-sync, and the exit
+    code below still means what it always meant. Two guards keep it from being a nag: it says nothing
+    in the repo that PUBLISHES this workflow (every file-placing adopter refuses there) and nothing in a
+    repo with no workflow folder (the [ERROR] there already names that state), and a repo that has
+    deliberately skipped a part silences it by naming that command in Get-DeclinedAdoptions.
+
     Soft/read-only, mirroring check-roster-sync.ps1: this script changes nothing, in any repo.
     [OK]/[INFO]/[ERROR] convention shared via check-report-lib.ps1 (issue #114).
 
@@ -190,6 +207,15 @@ $repoRoot = $scope.Path
 # NOT $repoRoot: this lib is shared machinery, not one of the repo-owned libs the contract is about.
 . (Join-Path $PSScriptRoot '..\lib\script-contract-lib.ps1')
 $script:Contract = Get-ScriptContract
+
+# Test-IsWorkflowSourceRepo, for the adoption section further down (issue #2236): the file-placing
+# adopt-* commands all refuse in the repo that PUBLISHES this workflow, so that is the one tree where
+# their artifacts being absent names a gap no command will ever close. Loaded after command-probe-lib
+# above, which is seam-lib's own only dependency. It re-dot-sources that lib unconditionally (its own
+# stated reason: the same path has to resolve in the plugin mirror), so this costs one further load of a
+# file already in scope -- function redefinition and nothing else -- rather than the zero this comment
+# claimed until the code review read it.
+. (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
 
 # An optional record reports [INFO] (with the fallback the caller uses) where a required one reports
 # [ERROR]. ContainsKey rather than dot-access on a possibly-absent key: this script runs under
@@ -338,6 +364,136 @@ if (-not $foundWorkflowFolder) {
         "it to $($workflowFolderNames[0])/ is yours to do when it suits you (#886).")
 } else {
     Write-Ok "workflow folder: $foundWorkflowFolder/ exists."
+}
+
+# --- Which adopt-* commands' files this tree is missing (issue #2236) -----------------------------
+#
+# THE SIGNAL THIS IS, AND WHY IT IS HERE RATHER THAN IN A COMMAND OF ITS OWN. Every adopt-* command is
+# safe to re-run and correctly finds nothing to do, so a consumer whose floor was complete on the day
+# they built it is never told that one of those commands has since GAINED a file. Reported from
+# BWJ-Development/xoxowildhearts on September 21, 2026 (#2236), where Part 1's entry gate was in place
+# and none of Part 3's three runners was -- so neither the fold nor the resolves verification would
+# survive a merge the shipping session does not observe, and the only thing that would have said so is
+# running the very command a consumer who does not know the step exists will not run. This check is the
+# one thing that already runs in every consumer's session at every start, and the workflow-folder block
+# above is the precedent: the same question about the same class of file, one adopt-* command over.
+#
+# A NON-COUNTING TOKEN, SO NOTHING'S EXIT CODE CHANGES. [UNADOPTED] is the same shape as [BOOTSTRAP]
+# above and [ORPHANS] in check-roster-sync (inbound #204): an unbuilt floor is a to-do rather than a
+# breach -- adopt-ci-floor's own exit code says exactly that -- and promoting it to [ERROR] would put a
+# red line and a non-zero exit in every session of a repo that has made a deliberate choice. The session
+# hook forwards the token on its own branch instead.
+#
+# TWO GUARDS, AND THEY ARE WHAT KEEPS THIS FROM BEING THE NAG #2236 EXPLICITLY DID NOT ASK FOR.
+# In the repo that PUBLISHES this workflow all three file-placing adopters refuse by design -- the source
+# arranges its own runners by hand, and adopt-statusline would have a shim resolve an install record to
+# find the very payload it is the source of -- so every finding here would name a gap no command will
+# ever close. And a repo with no workflow folder has just been told the one thing that describes its
+# actual state, by the [ERROR] above; three more lines about the floor on top of it is the noise that
+# block's own comment refuses. So this speaks only to a repo that demonstrably RUNS this workflow.
+#
+# NOTHING FOREIGN IS PRINTED. Every path and every command name in these lines comes from
+# Get-AdoptionInventory, i.e. from this plugin's own table -- the consumer's Get-DeclinedAdoptions answer
+# is read and MATCHED against that table, never echoed -- so this site does not join the foreign-text
+# print registry, and a repo that answers the seam with a terminal escape silences a command at most.
+if (-not $foundWorkflowFolder) {
+    # NOTE THE WORDING: this message must not SPELL a report marker, because every hook and suite in
+    # this family counts a marker over the whole output (Select-CheckMarkerLine, #2142) and a marker
+    # inside a message is indistinguishable from one the check wrote. Found by this check's own suite,
+    # where the first draft of this line put a second error in the count of a scenario about one.
+    Write-Skip "adoption: not asked -- this repo has no workflow folder, and the finding above already names that state."
+} elseif (Test-IsWorkflowSourceRepo -RepoRoot $repoRoot) {
+    Write-Skip "adoption: not asked -- this is the repo that publishes this workflow, where every file-placing adopt-* command refuses by design."
+} else {
+    # The consumer's own opt-out, read through the same child-scope, StrictMode-off dot-source the lib
+    # probe below uses, and for the same two reasons: repo-config.ps1 is written on the no-strict-mode
+    # assumption, and nothing it defines may leak into this script's own strict scope.
+    #
+    # THE INVOCATION IS INSIDE THE TRY, NOT JUST THE LOAD, AND THAT IS THE WHOLE POINT OF THIS BLOCK'S
+    # SHAPE. This is the first place this check CALLS a consumer-defined function rather than probing for
+    # one -- the loop below only ever asks Test-FunctionDefined -- and the check runs IN-PROCESS inside a
+    # SessionStart hook under $ErrorActionPreference = 'Stop', which the child scope inherits. So a
+    # consumer whose Get-DeclinedAdoptions throws took down the WHOLE check, function-contract drift
+    # report and all, and the session saw only "script-contract-sessioncheck skipped due to an error".
+    # Measured on this branch before the repair, by the code review: an advisory nobody has to act on
+    # was able to cost a consumer the one report this check exists to give.
+    #
+    # THE TWO OUTCOMES ARE KEPT APART because they are different facts with different owners. A lib that
+    # fails to LOAD is reported per record by the loop below, loudly, so saying it again here is noise.
+    # A seam that THROWS is reported nowhere else at all -- presence probing cannot see it -- so it gets
+    # its own line, and silence there would read as "nothing declined" when the truth is "nothing known".
+    #
+    # AND THE EXCEPTION MESSAGE IS NOT PRINTED. It is text this repo did not write, so repeating it would
+    # make this a foreign-text print site -- the class with its own registry in new-branch's page -- for
+    # a string that adds nothing the reader cannot get by running the function themselves.
+    $declinedAdoptions = @()
+    $declinedSeamThrew = $false
+    $repoConfigPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
+    if (Test-Path -LiteralPath $repoConfigPath -PathType Leaf) {
+        $seam = & {
+            Set-StrictMode -Off
+            try { . $args[0] } catch { return [pscustomobject]@{ Threw = $false; Value = @() } }
+            try {
+                # Get-SeamValue rather than a private Test-FunctionDefined-then-invoke: it is the shared
+                # probe this repo tells callers to use instead of rolling their own, and seam-lib is
+                # loaded here anyway. The cast is inside the try too, so a seam answering with something
+                # that will not convert degrades like any other throw instead of failing at the call below.
+                return [pscustomobject]@{ Threw = $false
+                    Value = @(@(Get-SeamValue -Name 'Get-DeclinedAdoptions' -Default @()) | ForEach-Object { [string]$_ }) }
+            } catch {
+                return [pscustomobject]@{ Threw = $true; Value = @() }
+            }
+        } $repoConfigPath
+        $declinedAdoptions = @($seam.Value)
+        $declinedSeamThrew = $seam.Threw
+    }
+    if ($declinedSeamThrew) {
+        Write-Skip ("adoption: Get-DeclinedAdoptions raised an error in scripts\repo-config.ps1, so nothing is " +
+            "treated as declined and every command below is reported. Its message is not repeated here -- it is " +
+            "text this repo did not write -- so call the function yourself to see it.")
+    }
+
+    foreach ($f in @(Get-AdoptionFindings -RepoRoot $repoRoot -Declined $declinedAdoptions)) {
+        $who   = "$($f.Command) ($($f.Part) of the '$($f.Skill)' skill)"
+        $files = if ($f.Places.Count -eq 1) { '1 file' } else { "$($f.Places.Count) files" }
+        switch ($f.Status) {
+            'complete' {
+                $all = if ($f.Places.Count -eq 1) { 'the only file it places is here' } else { "every one of the $files it places is here" }
+                Write-Ok "adoption: $who -- $all."
+            }
+            'declined' { Write-Ok "adoption: $who -- declined in Get-DeclinedAdoptions, so no missing-file advisory follows." }
+            'partial'  {
+                # THE ONE STATE THAT IS UNAMBIGUOUS: the command HAS been run here, so a file it places
+                # and this tree lacks is a step the command GAINED afterwards rather than a choice
+                # anybody made. The note goes INSIDE this line rather than under it, because the session
+                # hook forwards a line by its MARKER (Select-CheckMarkerLine, #2142) -- a continuation
+                # carrying no marker is dropped, and this note is the whole sentence #2236 exists to
+                # deliver. The per-FILE 'Gained' note is preferred over the per-COMMAND 'Why': here the
+                # rest of the command is already in place, so the reason the command exists is the wrong
+                # sentence -- it would argue for a file this tree already has.
+                # THE HEADLINE FOLLOWS THE EVIDENCE, and the two halves are not interchangeable.
+                # A dated note means this file demonstrably joined the command after it shipped, which is
+                # the sentence #2236 exists to deliver. Without one, all that is known is that the command
+                # was run and is now short of a file -- so saying it GAINED that file would date a change
+                # nothing in this table records, and a wrong sentence carrying a citation is worse here
+                # than a vague true one. Reachable today: adopt-workflow-folder's branch-entry.yml has no
+                # note, having been there since the command existed.
+                $lead = if ($f.Gained.Count -gt 0) { 'has been run here and has since GAINED a file' }
+                        else { 'has been run here and is now short of a file it places' }
+                $note = if ($f.Gained.Count -gt 0) { 'Where it came from: ' + ($f.Gained -join ' | ') + '.' }
+                        else { "Why it matters: $($f.Why)." }
+                Write-Host ("  [UNADOPTED] $who $lead`: $($f.Present.Count) of " +
+                    "$($f.Places.Count) present, missing $($f.Missing -join ', '). $note Re-run that part -- it is " +
+                    "dry-run by default, strictly additive, and leaves every file you already have untouched.") -ForegroundColor Yellow
+            }
+            'absent'   {
+                $lacks = if ($f.Places.Count -eq 1) { 'does not have it' } else { 'has none of them' }
+                Write-Host ("  [UNADOPTED] $who places $files and this tree $lacks`: $($f.Missing -join ', '). It covers " +
+                    "$($f.What). Why it matters: $($f.Why). If that is deliberate, name '$($f.Command)' in " +
+                    "Get-DeclinedAdoptions in scripts\repo-config.ps1 and this line goes away.") -ForegroundColor Yellow
+            }
+        }
+    }
 }
 
 foreach ($libRel in $contractLibs) {

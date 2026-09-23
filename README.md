@@ -462,6 +462,15 @@ The full picture, top-level folder by folder:
   they are in sync (see its own [README](connectors/README.md)). At the root, deliberately **not** under
   `plugins/`: it is maintenance data read by `scripts/sync/check-connectors.ps1`, not payload, and it
   must not travel along with the plugin cache.
+- **[`assets/`](assets/)** — material that is neither code nor documentation, one subfolder per kind;
+  today that is [`assets/avatars/`](assets/avatars/), the profile images of the GitHub accounts this
+  repo is worked on under (see its own [README](assets/avatars/README.md)). At the root for the same
+  reason as `connectors/` and with one extra property: **the marketplace clone is the whole
+  repository**, so anything here is on every machine at
+  `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
+  `claude plugin marketplace update` — no release, no version bump. Under `plugins/` the same files
+  would wait for a cut and then land in the payload of every consumer, none of which has any use for
+  them.
 - **`scripts/lib/`, `scripts/lint/`, `scripts/release/`, `scripts/sync/`, `scripts/agents/`,
   `scripts/task/`, `scripts/tests/`** — the shared helpers (`branch-info.ps1`, `release-lib.ps1`,
   `subagent-shared-lib.ps1`, and `plugin-tree-lib.ps1`, which answers which plugins this repo publishes
@@ -860,7 +869,7 @@ SessionStart hooks the enabled plugins ship (read them in each plugin's `hooks/h
 hand-written list here was named as three and went stale twice inside two days) and the Stop hooks
 `cycle-autopark` and `closeout-gate`
 function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session — only the skills
-<!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `park`, `fix-mojibake`,
+<!-- skills:all -->(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `sweep-issues`, `park`, `fix-mojibake`,
 `specialists-init`, `specialists-teardown`, `sync-roster`, `start-task`, `adopt-shopify-floor`,
 `cut-release`, `adopt-dkj-policy`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`,
@@ -949,7 +958,7 @@ typo there would quietly exclude the plugin it meant to keep and report success.
 ## How we use skills — and what we deliberately don't
 
 <!-- skills:all -->Most skills in claude-code-specialists today (`fold-changelog`, `open-pr`, `ship-pr`,
-`new-branch`, `claim-issue`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
+`new-branch`, `claim-issue`, `sweep-issues`, `park`, `fix-mojibake`, `specialists-init`, `specialists-teardown`,
 `sync-roster`, `start-task`, `adopt-dkj-policy`, `adopt-shopify-floor`,
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`, `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `measure-skill`, `measure-closeouts`, `worktree-lane`, `check-fanout`,

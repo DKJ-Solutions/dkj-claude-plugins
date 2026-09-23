@@ -442,7 +442,7 @@ $seam = & {
         try {
             $answers.Labels = @(Get-ShopifySyncPrLabels | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         } catch {
-            Write-Host "Get-ShopifySyncPrLabels threw, so the sync PR gets no label: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Get-ShopifySyncPrLabels threw, so the sync PR gets no label: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
         }
     }
     return $answers
@@ -495,7 +495,7 @@ function Get-SyncPrBodySeamAnswer {
         try {
             $answer = [string](Get-ShopifySyncPrBody -Take $take -Keep $keep -Default $default)
         } catch {
-            Write-Host "Get-ShopifySyncPrBody threw, so the PR body is the default one: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Get-ShopifySyncPrBody threw, so the PR body is the default one: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
             return ''
         }
         if (-not $answer.Trim()) {
@@ -546,7 +546,8 @@ function Write-SyncLogEntry {
     # A 'VUL-IN' left standing in the seam block reads as answered to anything testing for emptiness --
     # the same rule the theme-id check applies above, for the same reason.
     if ($rel -match 'VUL-IN') {
-        Write-Host "Get-ShopifySyncLogPath still answers with a scaffold marker ('$rel'), so no sync-log entry was written." -ForegroundColor Yellow
+        # #2248: $rel is the consumer's own Get-ShopifySyncLogPath seam answer -- foreign text.
+        Write-Host "Get-ShopifySyncLogPath still answers with a scaffold marker ('$(Get-DisplayPath -Path $rel)'), so no sync-log entry was written." -ForegroundColor Yellow
         return ''
     }
 
@@ -567,10 +568,12 @@ function Write-SyncLogEntry {
         $text = Add-SyncLogEntry -Existing $existing -Entry $entry
 
         [System.IO.File]::WriteAllText($full, $text, (New-Object System.Text.UTF8Encoding($false)))
-        Write-Host "Sync log: entry for $(Get-DisplayRef -Ref $Branch) written to $rel." -ForegroundColor DarkGray
+        # #2248: $rel guarded beside the already-guarded $Branch it shares this line with.
+        Write-Host "Sync log: entry for $(Get-DisplayRef -Ref $Branch) written to $(Get-DisplayPath -Path $rel)." -ForegroundColor DarkGray
         return $rel
     } catch {
-        Write-Host "Could not write the sync-log entry to '$rel', so this sync leaves no record in the tree: $($_.Exception.Message)" -ForegroundColor Yellow
+        # BOTH halves are foreign: #2248 guarded the path, #2271 the message (registry entry 15).
+        Write-Host "Could not write the sync-log entry to '$(Get-DisplayPath -Path $rel)', so this sync leaves no record in the tree: $(Format-SafeProseToken -Value $_.Exception.Message)" -ForegroundColor Yellow
         return ''
     }
 }

@@ -109,7 +109,7 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'adopt-workflow-folder.ps1'
 # loads it: it only supplies wording overrides here, and every string has a built-in default.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in wording is used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in wording is used." }
 }
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')
 # Get-SeamValue + the computed defaults (issue #885): this scaffold reads the SAME seam definitions the
@@ -263,6 +263,11 @@ $entryGateWorkflow = @(
     'jobs:',
     '  branch-entry:',
     '    runs-on: windows-latest',
+    '    # 10 minutes against a job that measures well under one (issue #2296). A job with no',
+    '    # timeout-minutes runs to GitHub''s SIX-HOUR default, and a gate that runs on every pull request',
+    '    # is the worst place to spend it: a wedge does not fail the branch, it leaves the check',
+    '    # unreported, which reads as "still running" to every gate and to every person.',
+    '    timeout-minutes: 10',
     '    steps:',
     '      - uses: actions/checkout@v5',
     '',
@@ -335,6 +340,8 @@ $alwaysOnGateWorkflow = @(
     'jobs:',
     '  always-on-budget:',
     '    runs-on: windows-latest',
+    '    # 10 minutes, same reasoning as the branch-entry gate beside it (issue #2296).',
+    '    timeout-minutes: 10',
     '    steps:',
     '      - uses: actions/checkout@v5',
     '',

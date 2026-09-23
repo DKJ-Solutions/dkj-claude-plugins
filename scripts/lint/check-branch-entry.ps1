@@ -115,6 +115,14 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # accented directory name resolved a root that matched nothing.
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
+# THE PROSE GUARD (#2271), loaded here because the catch below PRINTS an exception message and that
+# message is not ours. A consumer's scripts/repo-config.ps1 that does not parse produces a message
+# carrying their own source line VERBATIM, real newlines included -- measured, not inferred -- and a
+# `throw` in it produces a message that is entirely their text. Unguarded and $PSScriptRoot-relative
+# on check-report-lib's own precedent: the lib is mirrored into every plugin this script ships in, so
+# the sibling is always there in any payload the generator wrote.
+. (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+
 # THE ROOT COMES FROM ONE DEFINITION (#1422). Dot-sourced guarded, so a mirror built before this lib
 # existed degrades to the old inline form rather than throwing. AFTER the source-repo guard above, which
 # is dot-sourced on the first line that runs and may rely on nothing being loaded yet.
@@ -158,7 +166,7 @@ if (-not $repoRoot) {
 # entry against the ENGLISH scaffold wording in a repo that translated it would accuse a finished entry.
 $repoConfig = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
-    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($($_.Exception.Message)) -- the built-in wording is used." }
+    try { . $repoConfig } catch { Write-Warning "scripts/repo-config.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the built-in wording is used." }
 }
 
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')
@@ -181,7 +189,7 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # computing it here rather than to a failure.
 $branchInfoLib = Join-Path $repoRoot 'scripts\lib\branch-info.ps1'
 if (Test-Path -LiteralPath $branchInfoLib -PathType Leaf) {
-    try { . $branchInfoLib } catch { Write-Warning "scripts/lib/branch-info.ps1 failed to load ($($_.Exception.Message)) -- the legacy entry path is resolved without it." }
+    try { . $branchInfoLib } catch { Write-Warning "scripts/lib/branch-info.ps1 failed to load ($(Format-SafeProseToken -Value $_.Exception.Message)) -- the legacy entry path is resolved without it." }
 }
 
 if (-not $Branch) {
@@ -355,8 +363,18 @@ if ($Pr) {
     # `$null -ne 0` is true, so it took the token-or-network arm and printed a cause this run never
     # measured -- the failure mode #1931 named, arriving at an advisory gate. Same class as the short
     # read beside it: a fact about this run, settled by running it again.
+    #
+    # AND A FOURTH READING AHEAD OF THAT ONE (issue #2250, on #2234's repair). A gh that never STARTED
+    # sets ExitCodeUnknown deliberately -- that is what lets the audited sites keep working untouched --
+    # so absorbed by the arm below it, a missing gh is described as one that ran. Both halves of that
+    # sentence are false here: "gh ran" is exactly what did not happen, and "it normally settles on a
+    # re-run" is false ADVICE rather than merely imprecise, because a command that is not installed does
+    # not settle, and the reader re-runs forever while the real remedy is never named. There is no
+    # Get-Command guard above this call, so the missing-gh state is reachable here in full.
     $lockUnread = ''
-    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+    if (-not (Test-NativeCommandStarted -Capture $lockView)) {
+        $lockUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran -- that is a fact about this machine rather than about the token, the network or the section, and a re-run will not settle it; install the GitHub CLI'
+    } elseif (-not (Test-NativeExitMeasured -Capture $lockView)) {
         $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read -- that is a fact about this run rather than about the token, the network or the section, and it normally settles on a re-run'
     } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = 'That is a statement about the token or the network, not about the section'

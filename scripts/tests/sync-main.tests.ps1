@@ -31,6 +31,17 @@
       * The push is not ASSERTED, though it does run: the fixture's origin is a local bare repo, so the
         drift case genuinely pushes a sync branch into it. An assert on that would prove git can write to
         a directory, which is not a claim about this script.
+      * WRITE-SYNCLOGENTRY'S OWN #2248 GUARD (Get-DisplayPath on $rel, the Get-ShopifySyncLogPath seam
+        answer, at all three of its Write-Host lines) is NOT exercised live -- named here rather than
+        silently left, per Tycho's #2248 test-gap review. Nothing in this suite ever wires
+        Get-ShopifySyncLogPath via -ExtraSeams (grep confirms it), so the function is reached only
+        through the static source-pattern asserts a few hundred lines down, never through a real run
+        that produces its console text. Building that live case needs a fixture drift big enough to
+        reach the log write (Take/Keep both non-empty) PLUS a repo-config.ps1 seam answer crafted with a
+        deceptive character -- real work, scoped out of the #2248 test-engineering pass rather than
+        attempted and left flaky. check-consumer-siblings.tests.ps1 is the sibling suite that WAS built
+        from nothing for the same issue; this bullet is the honest twin finding for the site that
+        was not.
 
     So the coverage boundary is honest: everything from "which paths differ" through "what happens to
     each one" is measured, and the network half is not.

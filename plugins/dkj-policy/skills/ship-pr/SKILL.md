@@ -45,6 +45,29 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 lags its own source by however many merges have landed since. A consumer keeps no copy of their own, so
 for them the line above is the correct one.
 
+**THE CALLER THROWS THIS RUN'S EXIT CODE AWAY, so read the LAST LINE instead**
+([#2283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2283)). The output is long, so it is
+tempting to read it through `| tail -40` or `| Select-Object -Last 150` — and a pipeline reports the exit
+status of its *last* element, which is `0` however the run ended. Measured on PR #2282, September 22, 2026:
+a backgrounded ship refused on a `CONFLICTING` pull request, correctly and with a full diagnosis, and came
+back to its caller as `completed (exit code 0)` — so *merged and folded* and *refused, nothing done* were
+indistinguishable to the one signal that caller reads, and the session closed out saying the branch was
+shipping. The script's own exit code was never the problem: unpiped it is `1`, because every refusal here is
+a terminating error.
+
+**And the pipe is only the commonest way.** The ship meant to land that very repair was run *without* one —
+redirected to a file, as `powershell ... > log 2>&1; echo "EXIT=$?"` — and came back as
+`completed (exit code 0)` again, because the last command in that line is the `echo`. Any wrapper ending in
+a second command does it, so *"no pipe, so my exit code is sound"* is the wrong lesson drawn from the right
+observation.
+
+So the verdict is in the output now, where a pipe cannot take it. **Every refusal ends with a `[REFUSED]`
+line naming what did and did not happen** — including which side of the merge it stopped on, since a refusal
+*after* the merge leaves the fold owed, which is the opposite of nothing having happened. A successful run
+still ends with the close-out receipt. Whichever way you read the run, the last line says which of the two
+it was. If you do want the exit code, drop the pipe: redirect to a file and read the file, or (in bash)
+`set -o pipefail`.
+
 **Nothing is passed, because there is nothing left to say.** Since
 [#506](https://github.com/DaveKJohn/claude-code-specialists/issues/506) the PR title is composed from the
 branch prefix and the entry's `Branch title` section, so it was already written when the branch was
@@ -119,6 +142,7 @@ The six steps, stopping on the first failure:
 | `-SkipLint` | Passed through to `open-pr`: skip the lint gate. An escape valve. |
 | `-SkipTests` | Passed through to `open-pr`: skip the test gate. An escape valve. |
 | `-MaxParallel` | Passed through to `open-pr`: how many test suites its gate runs at once. `0` (the default) forwards nothing and leaves the gate's own resolution — `ProcessorCount - 2`, floor 2 — untouched. **Reach for this before `-SkipTests`** when the gate will not finish: it runs the suites smaller instead of not at all, so the run still measures. See the [`open-pr` skill](../open-pr/SKILL.md#when-the-test-gate-will-not-finish--maxparallel-not--skiptests). |
+| `-NoCiWait` | Passed through to `open-pr`: run the local suites immediately instead of waiting for a CI check that is **already running on this exact commit** ([#2317](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2317)). **This script is the caller that wait exists for** — step 1 opens the PR and step 3 then waits for CI anyway, so before #2317 an ordinary ship spent a full local pool *and* a full CI run to answer one question, and only the second of the two could move the merge. The wait cannot fail a gate, skip a suite or move a merge: a red check, a moved PR head, an unreadable answer or an expired bound all fall straight through to the suites. See the [`open-pr` skill](../open-pr/SKILL.md#the-check-is-still-running-the-gate-waits-instead-of-re-proving-it--nociwait). |
 | `-SkipStaleCheck` | Skip step 3b's certificate-staleness check (issue #1292): merge even though `main` gained a commit after the run that certified this PR was created, or that check could not be completed at all. Use it only when the situation is known-harmless — e.g. the commits `main` gained are docs-only, or you have confirmed by hand that the certificate is sound. |
 | `-MaxForwardLaps` | How many times step 3b may bring the branch up to date with the trunk and wait for a **fresh** certificate before it refuses ([#2087](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2087)). Default `2`. It does **not** weaken the gate — the predicate is unchanged, and what a lap buys is a certificate that is genuinely fresh. `0` restores the behaviour this workflow had before #2087: refuse on the first stale reading and print the manual remedy. See [the forward lap](#the-forward-lap--why-detect-and-rebase-did-not-converge-2087) below. |
 | `-Force` | Passed through to `open-pr`: ship an entry that still carries its scaffold wording. Deliberately separate from `-SkipLint`/`-SkipTests` — those skip a tool, this overrules a judgement about content. |

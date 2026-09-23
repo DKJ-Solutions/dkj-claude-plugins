@@ -93,9 +93,10 @@ in flight — folds unchanged.
 
 The scaffolder fills in the heading and the PR title. The fold adds what does not exist until the merge,
 one fact per place: the **`PR #NN` link** as the last line of the entry's own `#### Pull Request` section,
-and the **moment it landed** stamped on that section's heading. The separator is a middot in both.
-**The ENTRY heading is left exactly as its author wrote it**, and so is everything else — the fold
-rewrites nothing but the comments it strips.
+and the **moment it landed** stamped on the entry's own `### DEPLOY:` heading (see below — it stood on the
+`Pull Request` heading before August 23, 2026). The separator is a middot in both.
+**The ENTRY heading is left exactly as its author wrote it, except for that stamp** — the fold rewrites
+nothing else but the comments it strips.
 
 **The consumer document is the exception, and only for the heading.** Its reader is a consumer, who has no
 branch — so there the heading is replaced by the entry's PR title, exactly as the PR number and

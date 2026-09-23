@@ -796,6 +796,187 @@ exit __EXIT__
     $failing = '[{"name":"lint-en-tests","bucket":"fail"}]'
     Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $failing -CheckName $named).Certified) 'a red named check refuses it too'
 
+    # --- 18b. THE THIRD STATE: STILL RUNNING IS NOT THE SAME REFUSAL AS RED (issue #2317) -----------
+    #
+    # The two asserts directly above both read 'not Certified' and were both satisfied by one word --
+    # 'not green'. They are opposite facts: one says the suites have been measured and the answer is
+    # no, the other says the measurement this gate is about to make by hand is already running on this
+    # exact commit. Collapsing them is what made the caller re-prove a whole pool locally while the run
+    # the merge is gated on was in flight.
+    #
+    # WRITTEN FROM THE 'MUST NOT BE IN FLIGHT' SIDE, like everything else here, because the asymmetry
+    # runs the same way: a missed in-flight costs one pool run, a spurious one makes a caller wait on a
+    # check that is never going to answer.
+    $c18f = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $mixed -CheckName $named
+    Assert-True $c18f.InFlight 'the named check pending on this exact commit reads as IN FLIGHT'
+    Assert-True (-not $c18f.Certified) 'and it is still not a certificate'
+    Assert-True ($c18f.Note -match 'still running') 'and the note says which of the two refusals it is'
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $failing -CheckName $named).InFlight) 'a RED named check is not in flight -- the verdict is in'
+    Assert-True (-not $c18a.InFlight) 'and neither is a green one'
+
+    # A COMMIT MATCH IS REQUIRED FOR IN FLIGHT, which is what stops this being a licence to wait on
+    # anything. A check pending on a DIFFERENT commit says nothing about this tree.
+    $pendingOnly = '[{"name":"lint-en-tests","bucket":"pending"}]'
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $other -RequiredChecksJson $pendingOnly -CheckName $named).InFlight) 'pending on another commit is NOT in flight for this one'
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $partial -CheckName $named).InFlight) 'a check that has not registered is not in flight -- absent is indistinguishable from never'
+    foreach ($empty in @('', '[]', 'not json at all')) {
+        Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $empty -CheckName $named).InFlight) 'an unreadable payload is not in flight'
+    }
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $pendingOnly -CheckName '').InFlight) 'and neither is anything at all when no check has been named'
+
+    # UNANIMITY, so a matrix leg that has already failed cannot be waited on. One pending record and
+    # one failing record under the same name is a check that is FAILING, not one that is running.
+    $halfRed = '[{"name":"lint-en-tests","bucket":"pending"},{"name":"lint-en-tests","bucket":"fail"}]'
+    $c18u = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $halfRed -CheckName $named
+    Assert-True (-not $c18u.InFlight) 'one failing record among the named check''s own records is not in flight'
+    Assert-True (-not $c18u.Certified) 'and certainly not a certificate'
+
+    # --- 18c. Wait-CiTestCertificate -- the loop around it (issue #2317) ---------------------------
+    #
+    # Every exit is walked here, because none of them is reachable from a fixture: they need a real PR
+    # with a real check suite passing through a real state change. The reader and the sleeper are the
+    # seam that makes them reachable, and the judgement being tested is only WHEN TO ASK AGAIN -- what
+    # an answer means stays in Get-CiTestCertificate above, which 18/18b already cover.
+    $newReading = { param([string]$Head, [string]$Json) [pscustomobject]@{ PrHeadSha = $Head; RequiredChecksJson = $Json } }
+
+    # CERTIFIED: pending, pending, then green. The saving this whole mechanism exists for.
+    $script:waitLaps = 0
+    $w1 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 10 -Sleeper {} -Reader {
+        $script:waitLaps++
+        if ($script:waitLaps -lt 3) { & $newReading $sha $pendingOnly } else { & $newReading $sha $green }
+    }
+    Assert-True $w1.Certified 'a check that goes green while we wait hands back the certificate'
+    Assert-Equal 'certified' $w1.Outcome 'and says so as its outcome'
+    Assert-Equal 3 $w1.Laps 'having stopped on the lap that answered, not later'
+    Assert-True ($w1.Note -match 'lint-en-tests') 'and the note is the certificate''s own, not this loop''s'
+
+    # SETTLED (red): the wait ends the moment the answer is in, and the caller runs the suites. A red
+    # is deliberately NOT a refusal here -- see the function's docstring for why that would be a second
+    # behaviour change riding on this one.
+    $script:waitLaps = 0
+    $w2 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 10 -Sleeper {} -Reader {
+        $script:waitLaps++
+        if ($script:waitLaps -lt 2) { & $newReading $sha $pendingOnly } else { & $newReading $sha $failing }
+    }
+    Assert-True (-not $w2.Certified) 'a check that goes red ends the wait without a certificate'
+    Assert-Equal 'settled' $w2.Outcome 'and reports that the question was answered, not that we gave up'
+    Assert-Equal 2 $w2.Laps 'on the lap that answered it'
+
+    # SETTLED (the head moved): a push landing during the wait must not be certified by a check that
+    # started on the commit before it. This is why the reader re-reads the head and not only the checks.
+    $script:waitLaps = 0
+    $w3 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 10 -Sleeper {} -Reader {
+        $script:waitLaps++
+        if ($script:waitLaps -lt 2) { & $newReading $sha $pendingOnly } else { & $newReading $other $green }
+    }
+    Assert-True (-not $w3.Certified) 'a green check on a head that has MOVED does not certify this HEAD'
+    Assert-Equal 'settled' $w3.Outcome 'and that is an answer, so the wait stops'
+    Assert-True ($w3.Note -match 'different commit') 'with the certificate''s own words for it'
+
+    # GAVE UP: the bound is real. A check that never answers spends the bound and hands the caller back
+    # to the pool, which is exactly where it would have been without any of this.
+    $w4 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 4 -Sleeper {} -Reader { & $newReading $sha $pendingOnly }
+    Assert-True (-not $w4.Certified) 'a check that never answers hands back no certificate'
+    Assert-Equal 'gave-up' $w4.Outcome 'and says the bound ran out rather than claiming an answer'
+    Assert-Equal 4 $w4.Laps 'having spent exactly the laps it was given'
+    Assert-True ($w4.Note -match 'still running') 'the note carries the last thing it actually saw'
+
+    # A LAP THAT CANNOT BE READ IS NOT A VERDICT. An intermittently-unhealthy `gh` (#1628's measured
+    # shape) must not be read as "the check is gone" -- it means ask again. Both shapes: a reader that
+    # returns nothing, and one that throws.
+    $script:waitLaps = 0
+    $w5 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 10 -Sleeper {} -Reader {
+        $script:waitLaps++
+        switch ($script:waitLaps) {
+            1 { $null }
+            2 { throw 'gh fell over' }
+            default { & $newReading $sha $green }
+        }
+    }
+    Assert-True $w5.Certified 'an unreadable lap is retried, not treated as an answer'
+    Assert-Equal 3 $w5.Laps 'and the laps it cost are counted honestly'
+
+    # AND A READER THAT NEVER ANSWERS STILL TERMINATES, on the bound alone.
+    $w6 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 3 -Sleeper {} -Reader { throw 'gh is down' }
+    Assert-Equal 'gave-up' $w6.Outcome 'a reader that only ever throws ends on the bound'
+    Assert-Equal 3 $w6.Laps 'after exactly the laps it was allowed'
+    Assert-True ($w6.Note -match 'never readable') 'and says it never got a readable answer at all, rather than inventing one'
+
+    # THE WALL-CLOCK BOUND IS THE OTHER HALF, and it exists because -MaxLaps cannot see a slow `gh`:
+    # 60 laps of a call that takes a minute each is an hour, with the lap count still inside its bound.
+    $w7 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -TimeoutSeconds 1 -Sleeper { Start-Sleep -Milliseconds 400 } -Reader { & $newReading $sha $pendingOnly }
+    Assert-Equal 'gave-up' $w7.Outcome 'the wall-clock bound ends the wait even with laps to spare'
+    Assert-True ($w7.WaitedSeconds -ge 1) 'having actually spent the seconds it reports'
+
+    # A CALLER'S OWN VARIABLE NAMES MUST NOT REACH INTO THIS LOOP'S LOCALS -- the defect this suite
+    # found while it was being written, and the reason every local in that loop carries a prefix.
+    # PowerShell scriptblocks are DYNAMICALLY scoped: `& $Reader` runs in a child of the function's
+    # scope, so a caller reading a variable they did not assign in their own scriptblock gets the
+    # function's local of that name. The first draft here had a helper called $reading and the
+    # function had a local called $reading, which was $null on the line the caller read -- so every
+    # lap threw, was swallowed as an unreadable read, and the wait ran to its bound. It fails as
+    # "CI never answered", which is indistinguishable from the real thing.
+    #
+    # So this asserts the shape rather than the symptom: the loop's locals are named such that the
+    # obvious caller-side names do not collide. Behavioural, not a source grep -- it uses the four
+    # names a caller would most plausibly reach for.
+    $reading  = & $newReading $sha $green   # deliberately the name that collided
+    $cert     = 'not a certificate'
+    $laps     = 99
+    $lastNote = 'not a note'
+    $w8 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 2 -Sleeper {} -Reader { $reading }
+    Assert-True $w8.Certified 'a caller whose reader closes over $reading still gets its own value'
+    Assert-Equal 1 $w8.Laps 'on the first lap, with the caller''s $laps untouched'
+    Assert-Equal 99 $laps 'and the caller''s own variables are not written by the loop'
+    Assert-Equal 'not a certificate' $cert 'nor its $cert'
+    Assert-Equal 'not a note' $lastNote 'nor its $lastNote'
+
+    # THE PARAMETERS ARE IN THAT SAME NAMESPACE, and this is the collision the code review actually
+    # found in the tree rather than in this suite: open-pr held a $headSha CAPTURE OBJECT while this
+    # function takes a [string]$HeadSha, and PowerShell is case-insensitive. It was dormant -- no
+    # scriptblock there read it -- which is what makes it worth a guard: the two values look alike
+    # enough that a later edit reading the wrong one would hide rather than break. The caller's local
+    # is $headShaCapture now, and this asserts the property that made the rename necessary.
+    # THIS PINS THE COLLISION RATHER THAN ITS ABSENCE, because the absence is not achievable: a
+    # parameter and a caller's variable of the same name ARE the same name, and the parameter wins.
+    # Measured here rather than asserted from the docstring -- the caller sets $headSha to something
+    # that is not a sha, the reader reads $headSha, and what reaches the certificate is the PARAMETER,
+    # so the run certifies. A future PowerShell that resolved the caller's value instead would flip
+    # this assert, which is the signal that the rename below is no longer load-bearing.
+    $headSha = 'the caller''s own head, which is NOT a sha at all'
+    $w9 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 2 -Sleeper {} -Reader { & $newReading $headSha $green }
+    Assert-True $w9.Certified 'a reader reading $headSha gets the FUNCTION''s parameter, not the caller''s variable of that name'
+    # AND THE GUARD ITSELF IS THE RENAME, since the language behaviour above cannot be guarded against.
+    # open-pr holds the capture object under a name no parameter of this function shares.
+    Assert-True ($openPr -notmatch '(?m)^\s*\$headSha\s*=') 'open-pr no longer holds a variable whose name collides with -HeadSha'
+    Assert-True ($openPr -match '\$headShaCapture\s*=') 'it holds the capture object under a name that cannot be shadowed by a parameter'
+
+    # THE SLEEPER RUNS BEFORE THE READ, not after: the caller has just read, so reading again
+    # immediately would spend a `gh` call to learn what it already knows.
+    $script:sleepFirst = $false
+    $script:readSeen   = $false
+    $null = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 1 `
+                                   -Sleeper { if (-not $script:readSeen) { $script:sleepFirst = $true } } `
+                                   -Reader  { $script:readSeen = $true; & $newReading $sha $green }
+    Assert-True $script:sleepFirst 'the poll interval is spent before the first re-read, not after it'
+
+    # AND THE TWO CONSTANTS ARE CONSTANTS, not another knob: a wait that can be set to zero is a gate
+    # somebody can turn off by accident, and the escape valve is -NoCiWait, which is a switch.
+    $gateSrcForWait = [System.IO.File]::ReadAllText($LibPath)
+    Assert-True ($gateSrcForWait -match '\$script:CiCertificateWaitSeconds\s*=\s*\d+') 'the wait bound is a script constant'
+    Assert-True ($gateSrcForWait -match '\$script:CiCertificateWaitPollSeconds\s*=\s*\d+') 'and so is the poll interval'
+
+    # --- 18d. And the wiring in open-pr: the wait sits on the in-flight branch ONLY (issue #2317) ---
+    Assert-True ($openPr -match '\$cert\.InFlight -and -not \$NoCiWait') 'open-pr waits only where the check is in flight and the valve is not set'
+    Assert-True ($openPr -match 'Wait-CiTestCertificate') 'and it is the shared loop that does the waiting'
+    Assert-True ($openPr -match '\[switch\]\$NoCiWait') 'open-pr takes the escape valve'
+    Assert-True ($shipPr -match '\[switch\]\$NoCiWait') 'and ship-pr does too'
+    Assert-True ($shipPr -match 'if \(\$NoCiWait\)\s*\{\s*\$openArgs \+= ''-NoCiWait''') 'forwarding it only when it was actually asked for, like every other flag on that hop'
+    # THE OTHER REFUSALS MUST STILL FALL STRAIGHT THROUGH TO THE POOL. If the `else` ever disappeared,
+    # a red check or a moved head would silently become a wait -- the one way this change could cost
+    # time instead of saving it.
+    Assert-True ($openPr -match "(?s)\} else \{\s*\n\s*Write-Host \""test gate: no CI certificate for this commit") 'every other refusal still runs the suites immediately'
+
     # 5.1 HANDS A ONE-ELEMENT JSON ARRAY THROUGH AS THE OBJECT ITSELF, which is why the parse wraps
     # before it filters. This repo's own ruleset requires exactly ONE check, so a collapse here would
     # be invisible in the source repo and would surface only in a consumer with two.

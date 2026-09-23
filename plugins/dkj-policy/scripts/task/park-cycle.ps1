@@ -134,6 +134,15 @@
     ceiling falls due can state that instead of having it re-derived from a later moment. 0 (the default)
     means it was not given and the two knobs above decide, exactly as before.
 
+.PARAMETER BudgetDeadlineFile
+    (Optional) a PATH holding that same instant -- Unix epoch seconds, UTC -- re-read on every budget
+    question instead of being captured once at start-up. It WINS over all three knobs above, one rung
+    further along the same ladder. Nothing in production restates a deadline mid-run, and this exists for
+    the suite (#2307): it is what lets a case drive this script through "healthy at the PR check, spent by
+    the look after it" without waiting out the difference in real time. An unreadable path is the
+    NO-BUDGET shape, not a spent one -- see New-NativeCaptureBudget's -ExpiresFile block, which carries
+    the whole argument.
+
 .PARAMETER Quiet
     (Optional switch) print nothing when there is nothing to do. What the hook passes: a turn in which
     the document did not change must not add a line to the session. A push still reports itself, and so
@@ -152,7 +161,8 @@ param(
     [switch]$Quiet,
     [switch]$UnderHook,
     [int]$BudgetSeconds = 0,
-    [long]$BudgetDeadlineEpochSeconds = 0
+    [long]$BudgetDeadlineEpochSeconds = 0,
+    [string]$BudgetDeadlineFile = ''
 )
 
 Set-StrictMode -Version Latest
@@ -304,8 +314,17 @@ function Write-CycleCollisionReport {
 # a moment that is only near the truth. It is also what makes the deadline testable: everything the
 # budget decides then stops depending on how loaded the machine was between launch and here, which is
 # the variance that turned this suite's mid-run case red on CI with no defect behind it.
+#
+# AND -BudgetDeadlineFile WINS OVER ALL THREE (#2307), by that same reasoning one rung further again: a
+# deadline that can be RESTATED during the run is more specific than one fixed at this line. Nothing in
+# production restates one; what it buys is that a suite can put this run in a state -- healthy at the PR
+# check, spent by the look after it -- without waiting out the difference in real time. Before it, the
+# case that proves that transition had to sit idle for its own margin, and the margin was also the
+# tolerance: it went red on a loaded runner twice, at ~7s (#2077) and at ~15s (#2307).
 $budget = if ($BudgetSeconds -gt 0) { $BudgetSeconds } elseif ($UnderHook) { $NativeCaptureHookNetworkBudgetSeconds } else { 0 }
-$netBudget = if ($BudgetDeadlineEpochSeconds -gt 0) {
+$netBudget = if ($BudgetDeadlineFile) {
+    New-NativeCaptureBudget -ExpiresFile $BudgetDeadlineFile
+} elseif ($BudgetDeadlineEpochSeconds -gt 0) {
     New-NativeCaptureBudget -ExpiresUtc ([System.DateTimeOffset]::FromUnixTimeSeconds($BudgetDeadlineEpochSeconds).UtcDateTime)
 } else {
     New-NativeCaptureBudget -TotalSeconds $budget
@@ -512,8 +531,17 @@ $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
 # with no room left skips the retry and arrives at the refusal in the SAME state a failed retry leaves.
 # Wording that arm "asked twice" would be this branch's own defect, one elseif over: a sentence
 # describing a run that did not happen. $reAsked is the only thing that can tell them apart afterwards.
+#
+# AND A COMMAND THAT NEVER STARTED IS NOT RE-ASKED (issue #2234). Since that issue, an absent `gh`
+# returns a capture instead of throwing, and it sets ExitCodeUnknown -- deliberately, so the 56 sites
+# audited under #2081 keep working untouched. This gate is one of the two places in the family where
+# that widening would be read WRONG if it were left alone: a second launch of a command that is not
+# installed cannot answer either, so the retry spends a network budget slot to learn nothing, and the
+# refusal below would then claim two asks of a child that never answered once. (Worded around that
+# phrase on purpose: the suite pins how many lines in this file carry it, and a comment quoting the
+# wording is indistinguishable from a second arm using it.)
 $reAsked = $false
-if ($prList.ExitCodeUnknown -and -not $prList.TimedOut -and (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
+if ($prList.ExitCodeUnknown -and (Test-NativeCommandStarted -Capture $prList) -and -not $prList.TimedOut -and (Test-NativeCaptureBudgetHasRoom -Budget $netBudget)) {
     $reAsked = $true
     $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments $ghArgs `
                                    -DiscardStderr -TimeoutSeconds (Get-NativeCaptureBudgetBound -Budget $netBudget)
@@ -531,7 +559,15 @@ if ($prList.ExitCode -ne 0) {
     # installation that was never the problem. It splits in two here because the re-ask above is
     # budget-gated, so an unreadable code that was asked once and one that was asked twice are different
     # facts about what this run did, and only $reAsked knows which.
+    # FIVE STATES SINCE #2234, AND THE NEW ONE IS ASKED AHEAD OF THE TWO ABOUT AN UNREADABLE CODE --
+    # it sets ExitCodeUnknown as well, so in the old order it would have been absorbed by the third arm
+    # and reported as "answered, but its exit code could not be read", about a `gh` that is not
+    # installed and answered nothing. Note what it is NOT: the `else` arm's "could not be asked" is
+    # this run declining to ask (no branch to ask about), which is a decision rather than a failure --
+    # the two read almost identically in English and are opposite facts, which is why this arm names
+    # the installation outright.
     $why = if ($prList.TimedOut) { "did not answer in time" }
+           elseif (-not (Test-NativeCommandStarted -Capture $prList)) { "could not be started at all -- it is not on PATH here (#2234)" }
            elseif ($prList.ExitCodeUnknown -and $reAsked) { "answered twice, and neither run's exit code could be read (#1931)" }
            elseif ($prList.ExitCodeUnknown) { "answered, but its exit code could not be read, and the network budget had no room to ask again (#1931)" }
            else { "could not be asked" }

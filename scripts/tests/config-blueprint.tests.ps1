@@ -307,8 +307,15 @@ Assert-Equal 0 $shared.Count "no `$script: variable is assigned by more than one
 # built-in default would be one family's tracker imposed on every consumer, so the workflow's answer is
 # "nothing", the gate is silent, and it makes no extra `gh` call at all. This repo runs no such mirror,
 # so its own answer IS that default; recorded as declared=false, which tells a consumer exactly that.
+#
+# TEN SINCE SEPTEMBER 21, 2026 (#2236): Get-DeclinedAdoptions joined, and it is the member of this set the
+# source repo can never leave. The seam names the adopt-* commands a repo has decided against, and the
+# adoption section that reads it is SKIPPED here -- every file-placing adopter refuses in the repo that
+# publishes this workflow -- so an answer would be dead text declining commands that refuse anyway.
+# Recorded as declared=false, which tells a consumer the useful thing: the source states nothing, and the
+# reason is peculiar to the source rather than advice a consumer should copy.
 $undeclared = @($bp.records | Where-Object { -not $_.declared })
-Assert-Equal 9 $undeclared.Count 'the nine functions the source itself leaves at the fallback are recorded, not dropped'
+Assert-Equal 10 $undeclared.Count 'the ten functions the source itself leaves at the fallback are recorded, not dropped'
 foreach ($rec in $undeclared) {
     Assert-Equal '' $rec.text "$($rec.function): an undeclared record carries no text to copy"
 }

@@ -264,6 +264,13 @@
     Passed through to open-pr.ps1: how many test suites its test gate runs at once. 0 (the default)
     is not forwarded at all, so an ordinary run is byte-identical to before.
 
+.PARAMETER NoCiWait
+    Passed through to open-pr.ps1: run the local suites instead of waiting for an in-flight CI
+    certificate on the same commit (issue #2317). This script is the caller that wait exists for --
+    it opens the PR and then waits for CI anyway in step 3, so before #2317 an ordinary ship spent a
+    full local pool and a full CI run to answer one question, and only the second of the two could
+    move the merge.
+
     THE PAIR MATTERS MORE HERE THAN ANYWHERE (issue #1443). This is the script a session reaches for,
     and the one whose gate runs unattended while the session does something else -- so it is the one
     where a gate that will not finish used to leave -SkipTests as the only way forward. Running the
@@ -341,12 +348,67 @@ param(
     [switch]$RefreshBody,
     # Lanes for open-pr's test gate; 0 forwards nothing. See .PARAMETER MaxParallel.
     [int]$MaxParallel = 0,
+    # Run open-pr's suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
+    [switch]$NoCiWait,
     # How many times step 3b may bring the branch forward and re-certify before refusing. See
     # .PARAMETER MaxForwardLaps. 0 restores the detect-and-rebase behaviour this repo had before #2087.
     [ValidateRange(0, 10)]
     [int]$MaxForwardLaps = 2
 )
 $ErrorActionPreference = 'Stop'
+
+# EVERY REFUSAL ENDS WITH A LINE THAT SURVIVES ITS CALLER (issue #2283). The report behind this one said the
+# refusal "does not set an exit code, and nothing downstream converts it into one", and that half does not
+# hold: under the 'Stop' above every Write-Error in this file is a TERMINATING error, so the host exits 1 on
+# its own and the `exit 1` written beneath each one is dead code. Measured on this script's own trunk
+# refusal, September 22, 2026: `powershell -File scripts/release/ship-pr.ps1` exits 1.
+#
+# WHAT ACTUALLY DESTROYS THE SIGNAL IS THE PIPE, and the pipe is not an accident -- it is how this script is
+# read. Every recorded invocation of it in this machine's session transcripts goes through one (`| tail -40`,
+# `| Select-Object -Last 150`), because the run is long and nobody wants all of it; a pipeline reports the
+# exit status of its LAST element, so `ship-pr.ps1 2>&1 | tail -40` exits 0 whatever this run did. Verified
+# both ways on one refusal: unpiped 1, piped 0. A backgrounded ship then comes back to its caller as
+# `completed (exit code 0)` while the pull request sits open, conflicting and unmerged -- and "merged and
+# folded" and "refused, nothing done" are indistinguishable to the one signal that caller reads.
+#
+# AND THE PIPE IS ONLY THE COMMONEST WAY, WHICH IS WHY THE LINE BELOW DOES NOT SAY "PIPE" ON ITS OWN.
+# Measured on this very branch, hours after the paragraph above was written: the ship that was to land it
+# was run WITHOUT a pipe, redirected to a file -- and as `powershell ... > log 2>&1; echo "EXIT=$?"`, whose
+# last command is the echo. The harness reported `completed (exit code 0)` again, for a run that refused on
+# a red required check. Any wrapper ending in a second command does this, so a reader who concludes "no
+# pipe, so my exit code is sound" has drawn exactly the wrong lesson from the right observation.
+#
+# SO THE VERDICT MOVES IN-BAND, WHERE NEITHER CAN TAKE IT. The trap prints the error record exactly as the
+# host would and on the stream the host would (WriteErrorLine, so a caller separating the streams keeps what
+# it always had), then ONE unmistakable last line, then exits 1 explicitly rather than leaving the code to
+# the host. A successful run already ends with the close-out receipt (#1884), so the two endings are now
+# symmetrical: whatever the caller reads, the LAST line of the output says which of them happened.
+#
+# IT CHANGES NO PATH THAT RUNS TODAY. A trap fires only on a terminating error nothing caught, which is what
+# every refusal in this file already is -- and a deliberate try/catch is closer, so it keeps its error. It
+# is installed ABOVE the dot-sources on purpose: the source-repo guard refuses before any lib is loaded, and
+# a refusal that cannot reach its own verdict line is the defect this block exists to remove.
+#
+# AND IT SAYS WHICH SIDE OF THE MERGE IT STOPPED ON, because a single sentence here would be a lie on one of
+# them. Refusals live on both sides: step 4's read-back refuses when `gh pr merge` returned 0 and the PR does
+# not read MERGED, and step 5 can fail with the merge already landed -- which is #1270's trapped-entry state,
+# the expensive one, and the opposite of "nothing happened". $shipMergeLanded is set at exactly one place,
+# the line that reports the merge, so the verdict states what this run actually knows and nothing more.
+$shipMergeLanded = $false
+trap {
+    $shipRefusal = $_
+    $host.UI.WriteErrorLine(($shipRefusal | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    if ($shipMergeLanded) {
+        $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above AFTER the merge landed -- the PR IS merged and the FOLD IS STILL OWED.')
+        $host.UI.WriteErrorLine('          That is the trapped-entry state (#1270): the branch document sits on the trunk with nothing saying so.')
+    } else {
+        $host.UI.WriteErrorLine('[REFUSED] ship-pr stopped at the error above -- NOT merged, NOT folded; nothing past that point ran.')
+    }
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
 
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
@@ -412,6 +474,10 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 # re-certifying rather than refusing. Pure functions, for worktree-lib's own stated reason -- the
 # decisions are the part that can be tested and this file cannot be.
 . (Join-Path $PSScriptRoot '..\lib\forward-lane-lib.ps1')
+# For step 3's arming of the merge-on-green sweep (#2319): the one place that names the label this
+# script writes and pick-merge-on-green.ps1 reads. Dot-sourced for a single constant, deliberately --
+# the two halves of a handshake must not each carry their own spelling of it.
+. (Join-Path $PSScriptRoot '..\lib\merge-on-green-lib.ps1')
 
 # THE CLOSE-OUT RECEIPT SHAPE (issue #1884), printed as this run's last line -- see closeout-lib.ps1
 # for why step 6 of the ritual got a mechanism after losing four times in prose. Guarded on
@@ -460,6 +526,7 @@ if ($branch -eq 'main') {
     # Same posture and same reason as Get-MissingCheckSuiteRefusalNote below -- a diagnostic must never be
     # why a refusal cannot be printed. It costs two commands on a path that is already refusing.
     $resumeNote = ''
+    $resumeCandidates = @()
     $openPrList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--state', 'open', '--json', 'number,headRefName', '--limit', '100', '--repo', $repo) -DiscardStderr
     $localHeads = Invoke-NativeCapture -FilePath 'git' -Arguments @('for-each-ref', '--format=%(refname:short)', 'refs/heads') -DiscardStderr
     if ($openPrList.ExitCode -eq 0 -and $localHeads.ExitCode -eq 0) {
@@ -472,8 +539,54 @@ if ($branch -eq 'main') {
         })
         $resumeNote = Get-InterruptedShipResumeNote -Candidates $resumeCandidates -TrunkBranch 'main'
     }
-    Write-Error "You are on main; ship-pr runs from a branch.$resumeNote"
-    exit 1
+
+    # AND WHERE THE ANSWER IS UNAMBIGUOUS, IT IS PERFORMED RATHER THAN PRINTED (issue #2319). #1620
+    # above turned this refusal from a rule into a diagnosis; what it still does is hand a person a
+    # command the script has already worked out for itself. That is the third of the three things
+    # #2319 measured a merge being owed to -- a live session, a person noticing, and a checkout
+    # standing on the right branch -- and it is the cheapest of the three to remove: step 2b put the
+    # tree here deliberately (#1073), and the resume is the one moment that move has to be undone.
+    #
+    # THREE CONDITIONS, AND EVERY ONE OF THEM IS A REFUSAL WHEN IT FAILS. Exactly ONE candidate,
+    # because two is a question about which ship to resume and this script has no way to ask it. A
+    # CLEAN tree, because a checkout carries uncommitted work across with it, and work left in a tree
+    # standing on the trunk is far likelier to be somebody's half-finished edit than anything this
+    # branch wants. And a name ref-print-lib.ps1 will already put on a command line -- the same
+    # judgement the printed remedy is held to, since a name too untrustworthy to paste is too
+    # untrustworthy to run.
+    #
+    # IT NEVER CREATES OR MOVES A BRANCH. `git checkout <existing local branch>` is the whole of it,
+    # and Get-InterruptedShipCandidates has already established the branch exists locally and has an
+    # open pull request. Where the checkout itself fails the refusal is the one that was always here.
+    #
+    # AND THE CANDIDATE IS NOT PROOF THAT A SHIP WAS INTERRUPTED -- that lib's own header says so: a
+    # branch parked with its pull request open, or one another session is shipping in a lane, satisfies
+    # the same pair. Checking it out is still the right next move in all three, and it is exactly what
+    # the printed remedy has been telling the operator to do since #1620; what is new is only that the
+    # script stops asking somebody to type back a name it has already resolved. The gates decide the
+    # rest, unchanged -- a parked branch is refused by the step-list gate a few steps down, not by this
+    # one -- so the widening here is over which branch gets READ, never over what may merge.
+    if ($resumeCandidates.Count -eq 1 -and -not $resumeCandidates[0].Note) {
+        $resumeTarget = $resumeCandidates[0]
+        $treeRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('status', '--porcelain') -DiscardStderr
+        $treeIsClean = ($treeRead.ExitCode -eq 0) -and (@($treeRead.Output | Where-Object { $_ -and $_.Trim() }).Count -eq 0)
+        if ($treeIsClean) {
+            $resumeSwitch = Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', $resumeTarget.Branch)
+            if ($resumeSwitch.ExitCode -eq 0) {
+                $branch = $resumeTarget.Branch
+                Write-Host "ship-pr: resumed the interrupted ship of PR #$($resumeTarget.Number) -- checked out '$(Get-DisplayRef -Ref $branch)' and carrying on (issue #2319)." -ForegroundColor DarkCyan
+            } else {
+                Write-Warning "could not check out '$(Get-DisplayRef -Ref $resumeTarget.Branch)' to resume PR #$($resumeTarget.Number) -- refusing below, as before."
+            }
+        } else {
+            Write-Host "ship-pr: PR #$($resumeTarget.Number) looks like an interrupted ship, but this tree is not clean -- not checking it out for you (issue #2319)." -ForegroundColor DarkYellow
+        }
+    }
+
+    if ($branch -eq 'main') {
+        Write-Error "You are on main; ship-pr runs from a branch.$resumeNote"
+        exit 1
+    }
 }
 
 # JUDGED ONCE, HERE, RATHER THAN AT EACH OF THE FIVE PRINT SITES (issue #1594). Every remedy this
@@ -759,6 +872,9 @@ if ($SkipTests)   { $openArgs += '-SkipTests' }
 # default IS 0, so passing it explicitly would be a no-op that puts a lane count on the command line of
 # every ordinary run -- and a reader of that line would take it for a deliberate choice.
 if ($MaxParallel -gt 0) { $openArgs += @('-MaxParallel', "$MaxParallel") }
+# FORWARDED ONLY WHEN SET, on the same grounds as the two above: open-pr's default is to wait, so
+# passing the switch unconditionally is impossible and passing nothing is the ordinary run (#2317).
+if ($NoCiWait)    { $openArgs += '-NoCiWait' }
 if ($Force)       { $openArgs += '-Force' }
 if ($RefreshBody) { $openArgs += '-RefreshBody' }
 # Handed over as the raw string. open-pr.ps1 parses it itself precisely BECAUSE this hop goes through
@@ -1502,6 +1618,44 @@ Write-Host "  It does need this session's process: the merge and the fold are st
 Write-Host "  So leave this one running and carry on in a SECOND terminal -- do not quit the harness." -ForegroundColor DarkGray
 Write-Host "  $(Get-TrunkReturnGoAheadLine -Returned $treeOnTrunk -Branch $branchShown)" -ForegroundColor DarkGray
 Write-Host "  Open that second terminal in a lane: scripts\task\worktree-lane.ps1 -Name <name>" -ForegroundColor DarkGray
+# --- AND THE ANSWER IS NEVER A GITHUB-SIDE SETTING (issue #2265) ---------------------------------
+# The block above answers "this wait is long, what do I do about it". This line answers the other thing
+# a session reaches for at exactly this moment, and it is the one answer that is wrong: turning a merge
+# switch on so that the wait stops needing anybody. Measured September 22, 2026 on PR #2262, three of
+# four CI shards still queued -- `allow_auto_merge` was enabled and armed against a record in that
+# repo's own tree declaring it `false`, with the trunk nine commits ahead at that moment. That is
+# exactly the stale-but-green certificate step 3b refuses, and step 3b cannot see it, because an
+# auto-merge happens without a shipping session (#1730). The declaration was machine-readable, about a
+# second away, and pointed at by nothing in the session.
+#
+# WHY HERE AND NOT IN A GUARD. The repo-settings check is a SCHEDULED leg by decision (#1726), so its
+# earliest catch is the next scheduled run -- after the change, and after whatever the change let
+# through. That decision is about drift somebody else caused and it stands; this is the other shape,
+# where the session is the one about to cause it, and the whole repair is a pointer at the moment of
+# the temptation rather than a third runner.
+#
+# DERIVED, NEVER ASSERTED. It names only what the repo's OWN Get-ExpectedRepoSettings declares, so a
+# repo that declares nothing gets no line at all -- the same rule the watch below follows when it
+# refuses to name a check ("a claim about the consumer's CI that this script cannot keep"), one surface
+# over. The seam is optional and the read is guarded, so a tree without it is unchanged.
+if (Test-FunctionDefined 'Get-ExpectedRepoSettings') {
+    try {
+        $declaredSettings = @(Get-ExpectedRepoSettings)
+        if ($declaredSettings.Count -gt 0) {
+            $autoMergeDeclared = @($declaredSettings |
+                Where-Object { $_.Field -eq 'repo.allow_auto_merge' }).Count -gt 0
+            $settingsSubject = if ($autoMergeDeclared) {
+                "$($declaredSettings.Count) GitHub-side settings, auto-merge among them"
+            } else {
+                "$($declaredSettings.Count) GitHub-side settings"
+            }
+            $settingsLine = "  A GitHub SETTING is not one of the answers: this repo declares " +
+                "$settingsSubject, each with its reason -- read them (check-repo-settings.ps1) " +
+                'before proposing one.'
+            Write-Host $settingsLine -ForegroundColor DarkGray
+        }
+    } catch { }
+}
 # --- THE WATCH BLOCKS ON THE REQUIRED CHECKS ONLY (issue #1602) ----------------------------------
 # WHAT THIS CHANGES, AND WHAT IT DELIBERATELY DOES NOT. The merge below is allowed to go as soon as
 # every check the ruleset REQUIRES is green; the non-required ones are still waited for and still
@@ -1939,6 +2093,58 @@ if ($checks.ExitCode -ne 0) {
             }
         } catch {
             $stalled = @()
+        }
+
+        # ARM THE MERGE-ON-GREEN SWEEP BEFORE REFUSING (issue #2319). Everything above this point has
+        # established that CI, and only CI, is why the merge has not happened: the branch is pushed, the
+        # pull request is open, and the local gates passed before either. So the merge is owed the moment
+        # the required check turns green -- and that moment is routinely after this process is gone.
+        # Measured on PR #2316, 2026-09-22: `gh run rerun --failed` turned every check green and nothing
+        # merged it, because the merge was owed to a session that had exited, to a person noticing, and
+        # to a checkout standing on the right branch. It sat green and unmerged until somebody asked.
+        #
+        # THE LABEL IS THE AUTHORISATION, NOT A REMINDER, and that is why it is written HERE rather than
+        # by whoever opens the pull request. CLAUDE.md holds two kinds of pull request back for Dave's
+        # own word -- one with a visible result he has to judge by eye, and anything irreversible or
+        # outward-facing -- and a runner that merged every green pull request would merge those too.
+        # A pull request kept back for him never had this script run on it, so it can never carry this
+        # label. That is the whole of what makes an unattended merge safe here.
+        #
+        # NOT UNDER -NoMerge, which says in so many words that this run is not to merge. Arming a sweep
+        # to do it minutes later would be the same act through another door.
+        #
+        # AND IT ARMS ON ALL THREE WORDINGS BELOW, not only on the red one. A run that never STARTED and
+        # a watch that dropped are both "CI has not said yes yet" -- neither says anything about this
+        # branch -- so the merge is owed on the same terms once it does. Narrowing to the red case would
+        # leave the two rarer refusals holding exactly the gap this closes.
+        #
+        # BEST-EFFORT, LIKE EVERY DIAGNOSTIC ON THIS PATH: a failed arming call leaves precisely the
+        # behaviour this refusal has always had, names the command that arms it by hand, and is never
+        # the reason a refusal cannot be printed.
+        if (-not $NoMerge) {
+            $armLabel = Get-MergeOnGreenArmLabel
+            $armCall = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+                'pr', 'edit', "$pr", '--add-label', $armLabel, '--repo', $repo)
+            # THE LABEL CREATES ITSELF ON FIRST USE, WHICH IS WHY THERE IS NO ADOPTION STEP FOR IT.
+            # `gh pr edit --add-label` fails outright on a label the repo does not have, and this script
+            # travels to every consumer of this workflow -- so without this, the first red CI run in a
+            # freshly adopting repo would print a warning naming a command that fails the same way.
+            # Asked SECOND rather than first: the label exists on every run after the first, and paying
+            # a `gh label create` on each of them to save one on the first is the wrong trade.
+            if ($armCall.ExitCode -ne 0) {
+                [void](Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+                    'label', 'create', $armLabel, '--repo', $repo,
+                    '--color', '0E8A16',
+                    '--description', 'ship-pr has shipped this: the merge-on-green sweep finishes it once the required check is green'))
+                $armCall = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+                    'pr', 'edit', "$pr", '--add-label', $armLabel, '--repo', $repo)
+            }
+            if ($armCall.ExitCode -eq 0) {
+                Write-Host "ship-pr: armed PR #$pr with '$armLabel' -- the merge-on-green sweep finishes this once the required check is green, with no session of its own (issue #2319)." -ForegroundColor DarkCyan
+                Write-Host "  It re-runs every gate this script runs, including the staleness check and the DEPLOY lock. To disarm: gh pr edit $pr --remove-label $armLabel" -ForegroundColor DarkGray
+            } else {
+                Write-Warning "could not arm PR #$pr with '$armLabel', so this merge stays owed to a session -- 'gh pr edit $pr --add-label $armLabel' arms it by hand (issue #2319)."
+            }
         }
 
         # THREE WORDINGS, ONE VERDICT. The two below are #1044's; the middle one is #1219's, and the
@@ -2638,9 +2844,19 @@ if ($null -ne $shipCycleText) {
     # satisfies `-ne 0`, so this printed "gh exited " -- the sentence built to send the reader to their
     # network or token, with the number that would justify it missing out of it. Like the short read
     # beside it, it is a fact about this run rather than about the PR, and it lands in the same branch.
+    # A FOURTH REASON JOINED THEM UNDER #2250, and it is asked ahead of all three. A gh that never
+    # STARTED sets ExitCodeUnknown on purpose -- that is what lets the audited sites keep working
+    # untouched -- so absorbed by the arm below it, a missing gh was described as one that ran. There is
+    # no Get-Command guard on this call, so that state is reachable here in full. It also has to be
+    # carried as a flag rather than sniffed out of the string, because the sentence this block feeds
+    # closes with advice that is false in exactly this state -- see $lockRetry below.
     $lockUnread = ''
     $lockShortRead = $false
-    if (-not (Test-NativeExitMeasured -Capture $lockView)) {
+    $lockNotStarted = $false
+    if (-not (Test-NativeCommandStarted -Capture $lockView)) {
+        $lockUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran'
+        $lockNotStarted = $true
+    } elseif (-not (Test-NativeExitMeasured -Capture $lockView)) {
         $lockUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read'
     } elseif ($lockView.ExitCode -ne 0) {
         $lockUnread = "gh exited $($lockView.ExitCode)"
@@ -2699,7 +2915,17 @@ CI has already passed, so a re-run picks up from here. There is no -Force for th
         # than a bigger number. A capture that is merely being flushed settles on the first probe
         # (measured: 2-8 ms over five gh calls), and one held by a grandchild that is still RUNNING
         # never releases inside any budget worth waiting for -- so raising it buys stalls, not reads.
-        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        # THE CLOSING SENTENCE IS THE OTHER HALF OF #2250'S DEFECT, AND IT IS OUTSIDE THE PARENTHETICAL.
+        # That report names $lockUnread's arm; repairing only that would leave this line printing "a
+        # re-run normally settles it" about a gh that is not installed -- the same false advice, in the
+        # same printed sentence, one layer out. A reader does not experience the two as separate strings,
+        # so they are answered together or the repair satisfies the report and still misleads.
+        $lockRetry = if ($lockNotStarted) {
+            'That is a fact about this machine rather than about the PR, and a re-run will NOT settle it -- install the GitHub CLI, or put it on PATH.'
+        } else {
+            "This is this run's own read rather than a fact about the PR, so a re-run normally settles it."
+        }
+        Write-Warning "DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- the section was NOT compared against what the PR published, and the merge is proceeding without that check. $lockRetry"
     } else {
         Write-Host "  DEPLOY lock: PR #$pr's body could not be read ($lockUnread) -- not checked (this is not a finding)." -ForegroundColor DarkGray
     }
@@ -2952,6 +3178,10 @@ that actually carries it. Nothing here needs undoing -- the PR is queued, not lo
     exit 1
 }
 Write-Host "ship-pr: PR #$pr merged (--$mergeMethod)." -ForegroundColor Green
+# THE MERGE IS NOW A FACT THIS RUN CARRIES, and the refusal trap at the top of the file reads it (#2283).
+# Everything that refuses from here on refuses with the merge already landed, which is the opposite state
+# from everything above -- and the two are indistinguishable in an error record.
+$shipMergeLanded = $true
 
 # --- Step 5: main + fold + commit + push ---------------------------------------------------------
 #

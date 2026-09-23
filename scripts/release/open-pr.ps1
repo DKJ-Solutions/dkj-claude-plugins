@@ -155,6 +155,19 @@
     abolished PR labels outright): there is nothing to look up, and the create sends no --label at all
     rather than `--label ''` -- a label named '', which gh cannot find and refuses the whole create over.
 
+    Overlap scan (issue #2315, September 22, 2026): a NOTE, never a refusal, naming the other open pull
+    requests that change a file this branch also changes. Nothing used to report that at all -- the first
+    thing that did was ship-pr's forward lap meeting it as '422 merge conflict between base and head',
+    after the branch had been certified by CI one or more times. Measured on PR #2300: the 422 arrived at
+    forward lap 3, roughly forty minutes of CI waits in, while the two colliding PRs (#2308 opened 15:01Z,
+    #2310 at 15:22Z, against a merge at 16:17Z) were listed in `gh pr list` throughout that run, readable
+    by one command. It is NOT ship-pr's conflict guard (#1584) firing late: that one asks
+    whether this PR is conflicting NOW, a fact about the trunk, and it was correct and silent here
+    because the conflict came into existence during the run. There is deliberately no exclusion list --
+    measured over this repo's last 60 PRs, filtering CHANGELOG.md and the branch document changed nothing
+    (13 overlapping pairs against 13), because the fold writes the changelog on the trunk and #1255 gave
+    every branch its own document. See scripts/lib/pr-overlap-lib.ps1 for both measurements.
+
     Lint gate (guardrail for main): before the push, scripts/lint/check-plugin-integrity.ps1 runs.
     If that finds errors (invalid marketplace/plugin manifests, missing agent-def frontmatter,
     dead links), the branch is NOT pushed and NO PR is opened. Use -SkipLint to deliberately skip
@@ -370,6 +383,28 @@
     THE KNOB IS UNCHANGED AND STILL THE WAY PAST. A better default narrows the case for typing one, and
     it does not remove it: the budget is sized off one repo's suite mix on one machine, and a run that
     still will not finish is answered here rather than with -SkipTests, for the reason stated above.
+
+.PARAMETER NoCiWait
+    Turn off the wait for an in-flight CI certificate (issue #2317) and run the suites immediately, as
+    this script did before that change.
+
+    WHAT THE WAIT IS. When a PR already exists, HEAD is the commit CI is running on, and the check this
+    repo named is REGISTERED AND STILL PENDING, the local pool would be a second copy of a measurement
+    already in progress on a clean checkout of the same tree. So the gate waits for that answer instead
+    of re-taking it. Measured across seven gate runs in one session (#2317): 12,801s of local gate for
+    two pull requests, one single re-run of which was 2,595s spent proving a commit whose CI decided the
+    merge anyway -- `main`'s ruleset blocks the merge on that check whatever a local pool says, so the
+    re-run could not make the merge sooner, only later.
+
+    IT IS NARROW BY CONSTRUCTION AND NEEDS NO FLAG ON THE ORDINARY PATHS. There is no wait on the first
+    open-pr of a branch (no PR), none under -SkipTests, none when HEAD is not the PR head (an unpushed
+    commit), none when the check has not registered, and none when it is red -- every one of those runs
+    the suites exactly as before. What is left is the one state where waiting is strictly cheaper than
+    measuring.
+
+    SO THE FLAG IS FOR THE CASE THE MECHANISM CANNOT SEE: a session that wants the local verdict in its
+    own hands -- chasing a suite that is red under the pool and green standalone, say, where CI's answer
+    is precisely the one that will not help. It costs the saving and changes nothing else.
 .EXAMPLE
     ./scripts/release/open-pr.ps1
 
@@ -393,9 +428,34 @@ param(
     # Ask whether the test gate can be deduced away over a note-tree-only change. See .PARAMETER NoteTreeOnly.
     [switch]$NoteTreeOnly,
     # Lanes for the test gate; 0 keeps Invoke-TestSuiteGate's own default. See .PARAMETER MaxParallel.
-    [int]$MaxParallel = 0
+    [int]$MaxParallel = 0,
+    # Run the suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
+    [switch]$NoCiWait
 )
 $ErrorActionPreference = 'Stop'
+
+# THE REFUSAL VERDICT THAT SURVIVES ITS CALLER (issue #2283). A chain-ending script already prints the close-out
+# receipt when it FINISHES (#1884); this is the other half -- one unmistakable last line when it refuses. The
+# measurement, and why the exit code cannot carry this on its own, is in ship-pr.ps1's copy of this block:
+# under the 'Stop' above every Write-Error here is a TERMINATING error, so the host already exits 1, and it is
+# the CALLER that replaces that exit status with its own 0 -- a pipe, which every recorded invocation of these
+# scripts is read through (`| tail -n`, `| Select-Object -Last n`), or any wrapper ending in a second
+# command, which was measured doing the same thing to a run that was redirected to a file and not piped at
+# all. So the line below names both rather than naming the pipe, which a reader can rule out and be wrong.
+#
+# It fires only on a terminating error nothing caught, which is what every refusal in this file already is, so
+# no path that runs today changes. It prints the record on the stream the host would have used, so a caller
+# separating the streams keeps exactly what it had.
+trap {
+    $refusalRecord = $_
+    $host.UI.WriteErrorLine(($refusalRecord | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    $host.UI.WriteErrorLine('[REFUSED] open-pr stopped at the error above -- this run did NOT finish. The error itself says what had')
+    $host.UI.WriteErrorLine('          and had not been done by then; do not read the absence of a failure elsewhere as success.')
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
 
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
@@ -456,11 +516,28 @@ $repo = Get-RepoName
 # for why this is one definition rather than a second hand-typed copy of it.
 . (Join-Path $PSScriptRoot '..\lib\remote-ahead-lib.ps1')
 
+# WHICH OTHER OPEN PRs CHANGE A FILE THIS BRANCH CHANGES (issue #2315) -- the parse, the intersection
+# and the wording, all pure, so the suite can assert them without a remote. The two calls they read
+# from are made below, which is the one place they can be. Mirrored for the same reason as the libs
+# above: this script is mirrored and would otherwise dot-source a file the consumer does not have.
+. (Join-Path $PSScriptRoot '..\lib\pr-overlap-lib.ps1')
+
 # WHAT IS BEHIND THE PLAN (issue #1026). park-cycle already takes this measurement, on the device holding
 # the work, and writes it into a commit body -- where the reader who could act on it never looks. open-pr
 # is that reader, and it had no way to ask the question. Same not-repo-owned, travels-with-the-payload
 # reasoning as the libs above; park-lib needs only the native-capture helper, loaded further up.
 . (Join-Path $PSScriptRoot '..\lib\park-lib.ps1')
+
+# WHICH ACCOUNT THE CLAIM CHECK CLAIMS AS (issue #2284) -- Resolve-ClaimAccount, plus the two reads it
+# judges. GUARDED, on closeout-lib's own reasoning: these scripts are mirrored into every consumer's
+# plugin cache and arrive by plugin UPDATE rather than by choice, so a mirror that predates either lib
+# must not crash on LOAD of the script that opens their PR. Without them the claim check finds no
+# Resolve-ClaimAccount, says nothing and writes nothing, which is the direction every other failure on
+# that path takes too.
+$claimIdentityLib = Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1'
+if (Test-Path -LiteralPath $claimIdentityLib -PathType Leaf) { . $claimIdentityLib }
+$claimAccountLib = Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1'
+if (Test-Path -LiteralPath $claimAccountLib -PathType Leaf) { . $claimAccountLib }
 
 # Pre-flight (#86): an unfilled scaffold (repo-config still at VUL-IN) would otherwise only fail
 # further down with an unclear gh error. Stop here with a clear pointer.
@@ -804,40 +881,39 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
         $mentionText = Get-DevelopmentBranchText -Text ([System.IO.File]::ReadAllText($entryPath, [System.Text.Encoding]::UTF8))
     }
     if ($Body) { $mentionText = $mentionText + "`n" + $Body }
-
-    # The open-issue list, fetched ONCE and used for both the gate verdict and the typo check below.
-    # It used to be two near-identical query blocks, each carrying its own copy of the 5.1 flatten
-    # trick -- a second hand-copied instance of a subtle workaround, which is the accumulation shape
-    # this repo already paid for twice (#275, #331). Returns $null when it cannot be determined.
-    function Get-OpenIssueNumbers {
+    # The open-issue list, fetched ONCE and used for the gate verdict, the typo check below, and -- since
+    # #2284 -- the claim check at the foot of this block. It used to be two near-identical query blocks,
+    # each carrying its own copy of the 5.1 flatten trick -- a second hand-copied instance of a subtle
+    # workaround, which is the accumulation shape this repo already paid for twice (#275, #331). Returns
+    # $null when it cannot be determined.
+    #
+    # 'number,assignees' RATHER THAN 'number' (issue #2284), and the second field is what makes the claim
+    # check free. It is one more field on a query this run already makes, so no branch pays a round trip
+    # for it; the parse moved to ConvertFrom-OpenIssueList (pr-issues-lib.ps1), where a suite can assert
+    # it without a network -- including the $null-versus-empty contract this gate depends on.
+    function Get-OpenIssueRecords {
         param([string]$Repo)
         # --limit 1000, not 200: an issue past the page boundary would read as "not open" and let the
         # gate pass in silence, which is the one outcome this whole feature exists to prevent.
-        $q = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'list', '--repo', $Repo, '--state', 'open', '--limit', '1000', '--json', 'number') -DiscardStderr
+        $q = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'list', '--repo', $Repo, '--state', 'open', '--limit', '1000', '--json', 'number,assignees') -DiscardStderr
         if ($q.ExitCode -ne 0) {
             Write-Warning "could not ask gh which issues are open (exit $($q.ExitCode)) -- the resolves gate cannot check and will not block."
             return $null
         }
-        try {
-            # ASSIGN the parse result first, THEN wrap it in @(). Windows PowerShell 5.1 emits a
-            # parsed JSON array as a SINGLE pipeline object, so `@(... | ConvertFrom-Json)` collects
-            # one element that IS the whole Object[] -- and `$_.number` on an array does member
-            # enumeration, handing the [int] cast an Object[] that throws. Assigning first gives @()
-            # a real array to flatten. That throw was swallowed as "cannot check", so the gate
-            # silently never blocked while every pure unit test stayed green; only the wiring fixture
-            # caught it.
-            $parsed = ($q.Output -join "`n") | ConvertFrom-Json
-            return @(@($parsed) | ForEach-Object { [int]$_.number })
-        } catch {
-            Write-Warning "could not parse the open-issue list from gh ($($_.Exception.Message)) -- the resolves gate cannot check and will not block."
-            return $null
+        $records = ConvertFrom-OpenIssueList -Json ($q.Output -join "`n")
+        if ($null -eq $records) {
+            Write-Warning "could not parse the open-issue list from gh -- the resolves gate cannot check and will not block."
         }
+        return $records
     }
 
     # Which mentioned numbers are OPEN issues right now. $null = could not determine, which the
     # decision table treats as "do not block" (it only warns).
     $openMentions = $null
     $openAll = $null
+    # number -> the logins holding it, off the same read (issue #2284). $null while the list is unread,
+    # which the claim check at the foot of this block reads as 'unknown' rather than as 'free'.
+    $openAssignees = $null
     # WHAT THE BRANCH NAME DECLARES, FOLDED IN BESIDE WHAT THE DOCUMENT SAYS (issue #2225). The prose
     # above is optional and -Resolves is memory; the branch name is where new-branch.ps1 PUTS the number
     # when a branch is cut for an issue, and it was the one place nothing read. So a branch cut for an
@@ -858,8 +934,10 @@ if (-not $NoResolves -or $resolveList.Count -gt 0) {
     $branchOnly = @(@($branchIssue) | Where-Object { $_ -gt 0 -and $docMentions -notcontains $_ })
     $mentions = @(@($docMentions) + @($branchOnly) | Sort-Object -Unique)
     if ($mentions.Count -gt 0 -or $resolveList.Count -gt 0) {
-        $openAll = Get-OpenIssueNumbers -Repo $repo
-        if ($null -ne $openAll) {
+        $openRecords = Get-OpenIssueRecords -Repo $repo
+        if ($null -ne $openRecords) {
+            $openAll = @($openRecords.Numbers)
+            $openAssignees = $openRecords.Assignees
             $openMentions = @($mentions | Where-Object { $openAll -contains $_ })
         }
     }
@@ -956,8 +1034,16 @@ Both are honest answers; the gate only refuses to guess.
         # ahead of the number for the reason this whole family shares: `$null -ne 0` is true, so it fell
         # into the arm below and the warning came out as "(exit )". Skipping the check is the right
         # direction here and is unchanged -- what it could not say before is which of the two it was in.
+        # AND A FOURTH READING AHEAD OF THAT ONE (issue #2234), for the reason its twin in new-branch.ps1
+        # states at the same search: a gh that is not installed sets ExitCodeUnknown too, so absorbed by
+        # the arm below it would report "gh ran" about a child that never started, and advise a re-run
+        # that cannot settle anything. THE TWO SITES ARE KEPT IN STEP DELIBERATELY -- new-branch's own
+        # comment says "same repair as open-pr.ps1 makes on the same search", and a repair applied to one
+        # of them is what makes that sentence false.
         $searchUnread = ''
-        if (-not (Test-NativeExitMeasured -Capture $prSearch)) {
+        if (-not (Test-NativeCommandStarted -Capture $prSearch)) {
+            $searchUnread = 'gh is not installed here, or is not on PATH (issue #2234), so the search never ran'
+        } elseif (-not (Test-NativeExitMeasured -Capture $prSearch)) {
             $searchUnread = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the search; a re-run normally settles it'
         } elseif ($prSearch.ExitCode -ne 0) {
             $searchUnread = "exit $($prSearch.ExitCode)"
@@ -995,6 +1081,70 @@ Both are honest answers; the gate only refuses to guess.
             if ($w.IsClosed) { $says += 'is already CLOSED' }
             foreach ($p in $w.ClaimingPrs) { $says += "is already resolved by PR #$($p.Number) ($($p.State.ToLowerInvariant()))" }
             Write-Warning ("already-done check: issue #$($w.Issue) " + ($says -join ', and it ') + " -- this branch may repeat work that is already merged. If that is deliberate (a shared number, the issue reopened, cited only as context), nothing to do.")
+        }
+
+        # --- The claim check (issue #2284): an issue this PR DECLARES it closes is claimed ----------
+        #
+        # THE GAP. claim-issue is bound to the act of STARTING an issue -- its own page says so, and its
+        # examples are "fix issue 1234" and "pick up #87". An issue can enter a branch's scope without
+        # anybody starting it: a finding filed mid-branch and repaired on the branch already in flight is
+        # never claimed, so the tracker shows it unassigned and the next session is CORRECT to read it as
+        # untouched. Nothing else catches it -- new-branch's already-done check runs before a checkout
+        # that already happened, the parked-fix and title-overlap scans live inside claim-issue and it is
+        # never called, and the already-done check above finds a rival PR only once one exists.
+        #
+        # MEASURED, September 22, 2026 (#2284): #2272 was filed from
+        # fix/2248-guard-raw-foreign-text-prints, judged in scope and repaired on that branch. Another
+        # session found it unassigned, picked it up correctly, and shipped it as PR #2275. PR #2282 then
+        # went CONFLICTING on the file both had guarded -- a trunk merge, a hand conflict resolution,
+        # three documents corrected, and a second ship.
+        #
+        # SO THE CLAIM IS TAKEN AT THE MOMENT THE TOOLING CAN FIRST SEE THE ABSORPTION: the run that
+        # declares `Closes #<n>`. Not the mentioned set -- this workflow PRESCRIBES citing issues in
+        # prose, and claiming those would make the assignee field meaningless across a backlog nobody is
+        # on. Declaring that this PR closes an issue is a stronger statement than an assignee is, so this
+        # writes strictly less than the body it is about to publish already does.
+        #
+        # IT NEVER BLOCKS, on the already-done check's own reasoning: a claim that wedges a real PR costs
+        # the whole assignment (#1485), and this check cannot tell a rival from a colleague who is simply
+        # also on the thread. A foreign holder is a WARNING and the push goes on.
+        #
+        # AND A FAILED READ IS NEVER READ AS FREE. Get-ClaimGapVerdict marks an issue the open list could
+        # not account for 'unknown', which says nothing and writes nothing -- Get-AssigneeLogins' rule one
+        # layer up, because the opposite direction hands out claims on other people's work.
+        if ($resolveIssues.Count -gt 0) {
+            $claimAccount = ''
+            if ((Test-FunctionDefined 'Resolve-ClaimAccount') -and (Test-FunctionDefined 'Get-ActiveGhAccount')) {
+                # THE SAME RESOLUTION claim-issue MAKES, AND NEVER '@me' (#1315): @me binds to whatever gh
+                # is authenticated as, while the branch a second session correlates the claim with carries
+                # the GIT identity, so on a split checkout @me claims under the wrong name in silence.
+                #
+                # -RepoRoot IS NOT OPTIONAL HERE, and it is the half the code review caught: without it
+                # Get-GitUserName drops its '-C' and reads whatever the PROCESS's current directory
+                # resolves to -- this script never calls Set-Location, so that is the caller's directory,
+                # and outside a checkout it is the GLOBAL config. The two other call sites in the tree
+                # (claim-issue.ps1, check-git-identity.ps1) both thread it for that reason, and the skill
+                # page's promise -- "it claims under the account claim-issue would resolve" -- is only
+                # true while all three ask the same question of the same repository.
+                $claimAccount = (Resolve-ClaimAccount -GhAccount (Get-ActiveGhAccount) -GitUserName (Get-GitUserName -RepoRoot $repoRoot)).Account
+            }
+            foreach ($gap in @(Get-ClaimGapVerdict -Issues $resolveIssues -AssigneeMap $openAssignees -Account $claimAccount)) {
+                if ($gap.State -eq 'mine' -or $gap.State -eq 'unknown') { continue }
+                if ($gap.State -eq 'foreign') {
+                    Write-Warning ("claim check: issue #$($gap.Issue) is held by " + (($gap.Holders | ForEach-Object { "'$_'" }) -join ', ') + " and this PR declares it closes it -- two sessions may be building the same repair. Nothing is blocked; go and ask before you merge.")
+                    continue
+                }
+                if (-not $claimAccount) {
+                    Write-Warning "claim check: issue #$($gap.Issue) is unassigned and this PR declares it closes it, but there is no account to claim as (gh absent or logged out) -- the tracker will go on showing it unowned."
+                    continue
+                }
+                $claim = Invoke-NativeCapture -FilePath 'gh' -Arguments @('issue', 'edit', "$($gap.Issue)", '--repo', $repo, '--add-assignee', $claimAccount) -DiscardStderr
+                if ($claim.ExitCode -ne 0) {
+                    Write-Warning "claim check: issue #$($gap.Issue) is unassigned and this PR declares it closes it, but claiming it for '$claimAccount' failed (exit $($claim.ExitCode)) -- claim it by hand, or another session will correctly read it as untouched."
+                    continue
+                }
+                Write-Host "  claim check: issue #$($gap.Issue) was unassigned and this PR closes it -- claimed for '$claimAccount' (#2284)." -ForegroundColor DarkGray
+            }
         }
     }
 }
@@ -1678,6 +1828,87 @@ if (-not $existingPr) {
     }
 }
 
+# --- Overlap scan (issue #2315): which other open PRs change a file this branch changes -----------
+#
+# THE DEFECT. Nothing in this workflow said that another open pull request was editing the same file.
+# The first thing that did was ship-pr's forward lap, learning it from GitHub as '422 merge conflict
+# between base and head' -- after the branch had been built, reviewed, pushed and certified by CI one
+# or more times. Measured on PR #2300, September 22, 2026: the 422 arrived at forward lap 3, roughly
+# forty minutes of CI waits in, while #2308 and #2310 had been listed in `gh pr list` changing
+# .github/workflows/ci.yml since 15:01Z and 15:22Z, against a merge at 16:17Z. Resolving it took about
+# five minutes.
+#
+# NOT THE CONFLICT GUARD FIRING LATE. ship-pr refuses a CONFLICTING PR up front (#1584) and that guard
+# was correct and silent here -- 'main' had not yet gained the colliding commit, so the PR genuinely
+# read MERGEABLE. This asks a different question at a different time: not "is this PR conflicting now",
+# a fact about the trunk, but "is somebody else editing what I am editing", a fact about other open
+# BRANCHES, knowable before the trunk has moved at all. See pr-overlap-lib.ps1's header.
+#
+# WARN, NEVER REFUSE, and no -Force valve -- the machine-local gate's reasoning above, verbatim: two
+# branches touching one file is ordinary and usually harmless, and this repo declines findings-list
+# gates on their false-positive rate. SAID TWICE for the same reason that one is, at whichever ending
+# the run reaches.
+#
+# HERE, BESIDE THE LABEL GATE, AND BEFORE THE LINT AND TEST GATES. The suites are the most expensive
+# thing in this script and the whole point of the scan is to be read BEFORE time is spent on a head
+# that may not merge -- and because ship-pr's step 1 is this script, this is also the last cheap moment
+# before the certification laps begin. One `gh pr list --json files` measured at ~700ms here against
+# ~580ms for the label gate's own query, rising ~25ms per open PR (September 22, 2026).
+#
+# BOTH SIDES FAIL SILENTLY AND INDEPENDENTLY. An unreadable diff, an unreadable gh, an old gh with no
+# --json: each leaves $overlapNote empty and says one DarkGray line, because an advisory that cannot be
+# computed must not look like an advisory that found nothing to say -- and must not block either.
+#
+# COMMITTED WORK ONLY, and that is the right side rather than a gap. The scan reads HEAD, which is what
+# the push ships and therefore the only thing that can collide with anybody; an edit still sitting in
+# the working copy conflicts with nothing yet. The gate for THAT state is the backing gate further
+# down, whose subject is work missing from the commit.
+$overlapNote = ''
+$overlapTrunk = Get-BranchTrunkName
+# THE REMOTE-TRACKING REF FIRST, on park-lib's precedent: a local trunk sitting behind origin makes the
+# merge base older than it is, which pulls in paths this branch did not change and invents overlaps.
+$overlapTrunkRef = $overlapTrunk
+$overlapRemoteRef = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', '--verify', '--quiet', "refs/remotes/origin/$overlapTrunk") -DiscardStderr
+if ($overlapRemoteRef.ExitCode -eq 0) { $overlapTrunkRef = "refs/remotes/origin/$overlapTrunk" }
+# THREE DOTS: this branch against its MERGE BASE with the trunk, so a trunk that has moved on since the
+# branch was cut does not report its own commits as this branch's work -- park-lib's own wording.
+$overlapDiff = Invoke-NativeCapture -FilePath 'git' -Arguments @('-c', 'core.quotePath=true', '-C', $repoRoot, 'diff', '--name-only', "$overlapTrunkRef...HEAD") -DiscardStderr
+if ($overlapDiff.ExitCode -ne 0) {
+    Write-Host "overlap scan: could not read this branch's changed paths against $overlapTrunkRef - skipped." -ForegroundColor DarkGray
+} else {
+    $overlapMine = @(($overlapDiff.Output | Out-String) -split '\r?\n' | Where-Object { $_.Trim() })
+    if ($overlapMine.Count -eq 0) {
+        Write-Host "overlap scan: this branch changes no file against $overlapTrunkRef - nothing to compare." -ForegroundColor DarkGray
+    } else {
+        # -Utf8 because a path is DATA and routinely carries an accent (#907), and -DiscardStderr because
+        # gh's progress is not the answer. --limit is load-bearing for the same reason the label gate's
+        # is: a truncated list would report a clean scan over PRs that did not fit.
+        #
+        # NO --base, DELIBERATELY. Every other gh call in this script names 'main' literally, and passing
+        # a trunk here would be the one place a wrong answer is SILENT: a seam naming a different trunk,
+        # or a stacked PR based on a sibling branch, would filter the list down and print the clean line
+        # below over PRs that were never compared. Scanning every open PR costs a few records and cannot
+        # go quiet that way -- and a stacked PR's files are worth comparing anyway.
+        $overlapList = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @('pr', 'list', '--state', 'open', '--json', 'number,title,headRefName,files', '--limit', '100', '--repo', $repo) -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not (Test-NativeExitMeasured -Capture $overlapList) -or $overlapList.ExitCode -ne 0) {
+            Write-Host "overlap scan: could not ask gh which PRs are open in $repo ($(Get-NativeExitLabel -Capture $overlapList)) - skipped, and nothing is blocked by it." -ForegroundColor DarkGray
+        } else {
+            $overlapPrs = @(Get-OpenPrPathRecords -Json ($overlapList.Output -join "`n"))
+            # SELF BY BOTH KEYS: the number where this branch already has a PR, the head ref where it does
+            # not yet -- see Get-PrOverlapFindings for why one of the two is always the only one available.
+            $overlapSelfNumber = if ($existingPr) { [int]$existingPr.number } else { 0 }
+            $overlapFindings = @(Get-PrOverlapFindings -ChangedPaths $overlapMine -OpenPrs $overlapPrs `
+                                                       -SelfNumber $overlapSelfNumber -SelfBranch $branch)
+            if ($overlapFindings.Count -eq 0) {
+                Write-Host "overlap scan: no other open PR in $repo changes a file this branch changes ($($overlapMine.Count) path(s) compared against $($overlapPrs.Count) open PR(s))." -ForegroundColor DarkGray
+            } else {
+                $overlapNote = Format-PrOverlapNote -Findings $overlapFindings
+                Write-Warning $overlapNote
+            }
+        }
+    }
+}
+
 # --- Always-on budget gate: this branch may not grow what every session pays (issue #2037) --------
 #
 # THE FINDING IT COMES OFF. The always-on document path -- CLAUDE.md plus everything it '@'-imports --
@@ -1947,7 +2178,15 @@ Fast-forward it and read what is there before trying again:
 # unnecessary skip of a gate the merge does not depend on; it is named here rather than mechanised.
 $testsProvedByCi = ''
 if ($existingPr -and -not $SkipTests) {
-    $headSha = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
+    # NAMED FOR WHAT IT HOLDS -- A CAPTURE OBJECT -- AND NOT $headSha, WHICH WOULD COLLIDE (issue #2317,
+    # code review). Wait-CiTestCertificate below takes a [string]$HeadSha parameter, PowerShell is
+    # case-insensitive, and the scriptblocks this file hands that function run in a child of ITS scope --
+    # so a scriptblock here reading $headSha would resolve the function's own string parameter rather
+    # than this capture object. Nothing here reads it today, which is exactly why it is worth renaming:
+    # the collision is dormant, and a later edit that logs or compares the outer head inside -Reader
+    # would bind the wrong value with no error to show for it. Same class as the $reading collision that
+    # function's own docstring records, met in the one call site that introduced the mechanism.
+    $headShaCapture = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
     $prHead  = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
     $reqJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
     # `gh pr checks` EXITS NON-ZERO WHEN ANY CHECK IS FAILING OR STILL PENDING -- that is documented
@@ -1956,12 +2195,58 @@ if ($existingPr -and -not $SkipTests) {
     # The seam is read defensively: a consumer whose repo-config predates it has no such function, and
     # a missing name is the safe answer (no certificate, the gate runs) rather than an error.
     $ciCheckName = if (Test-FunctionDefined 'Get-CiTestCheckName') { Get-CiTestCheckName } else { '' }
-    $cert = Get-CiTestCertificate -HeadSha ($headSha.Output -join '') `
+    $cert = Get-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
                                   -PrHeadSha ($prHead.Output -join '') `
                                   -RequiredChecksJson ($reqJson.Output -join "`n") `
                                   -CheckName $ciCheckName
     if ($cert.Certified) {
         $testsProvedByCi = $cert.Note
+    } elseif ($cert.InFlight -and -not $NoCiWait) {
+        # THE CHECK IS RUNNING ON THIS EXACT COMMIT, SO THE POOL IS THE SECOND COPY -- issue #2317.
+        # This is the branch the read above almost always lands on when ship-pr is the caller: it runs
+        # open-pr right after the push, so the required check has just started and the certificate is
+        # refused for the one reason that is about to stop being true. Re-proving here bought nothing
+        # measurable and cost 43.3 minutes on PR #2316, because `main`'s ruleset blocks the merge on
+        # the CI check whatever a local pool decides -- so the merge could not have come sooner, only
+        # later. Every other refusal still falls through to the pool, unchanged.
+        $waitBound = [Math]::Ceiling($script:CiCertificateWaitSeconds / [double]$script:CiCertificateWaitPollSeconds)
+        Write-Host "test gate: $($cert.Note) -- waiting for it rather than re-proving the same tree locally (issue #2317)." -ForegroundColor Cyan
+        Write-Host "           up to $([int]($script:CiCertificateWaitSeconds / 60)) min, one read every $($script:CiCertificateWaitPollSeconds)s. Past that, or on any other answer, the suites run below." -ForegroundColor DarkGray
+        $waited = Wait-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
+                                         -CheckName $ciCheckName `
+                                         -MaxLaps $waitBound `
+                                         -TimeoutSeconds $script:CiCertificateWaitSeconds `
+                                         -Sleeper { Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds } `
+                                         -OnLap {
+                                             param($lap, $elapsed)
+                                             # ONE LINE PER LAP, because the alternative is the silence
+                                             # #1717 was filed on one gate over: a wait that prints
+                                             # nothing for half an hour is indistinguishable from a
+                                             # wedge, and this one has no suite output to hide behind.
+                                             Write-Host ("           still running -- read {0}, {1}s elapsed." -f $lap, [int]$elapsed) -ForegroundColor DarkGray
+                                         } `
+                                         -Reader {
+                                             # BOTH HALVES ARE RE-READ, not just the checks. The head
+                                             # was compared once above, before the wait; a push landing
+                                             # during it would leave that comparison describing a commit
+                                             # nobody is on any more, and the certificate would then be
+                                             # granted for the wrong tree. Re-reading makes that case
+                                             # come back as 'settled' and run the pool.
+                                             $lapHead = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
+                                             $lapJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
+                                             [pscustomobject]@{
+                                                 PrHeadSha          = ($lapHead.Output -join '')
+                                                 RequiredChecksJson = ($lapJson.Output -join "`n")
+                                             }
+                                         }
+        if ($waited.Certified) {
+            $testsProvedByCi = $waited.Note
+            Write-Host "test gate: CI answered after $([int]$waited.WaitedSeconds)s -- the local pool was not run (issue #2317)." -ForegroundColor DarkGray
+        } elseif ($waited.Outcome -eq 'gave-up') {
+            Write-Host "test gate: no CI certificate after $([int]$waited.WaitedSeconds)s -- $($waited.Note). The suites run below." -ForegroundColor DarkGray
+        } else {
+            Write-Host "test gate: no CI certificate for this commit -- $($waited.Note). The suites run below." -ForegroundColor DarkGray
+        }
     } else {
         Write-Host "test gate: no CI certificate for this commit -- $($cert.Note). The suites run below." -ForegroundColor DarkGray
     }
@@ -2254,6 +2539,8 @@ if ($existingPr) {
 
     # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
     if ($machineLocalNote) { Write-Warning $machineLocalNote }
+    # AND THE OVERLAP SCAN WITH IT (issue #2315), for the same reason and at the same three endings.
+    if ($overlapNote) { Write-Warning $overlapNote }
 
     Write-Host "PR #$($existingPr.number) was already open for '$branch' - the push above updated it." -ForegroundColor Green
     Write-Host "  $($existingPr.url)"
@@ -2502,6 +2789,8 @@ try {
             if ($recheckPr) {
                 # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
                 if ($machineLocalNote) { Write-Warning $machineLocalNote }
+                # AND THE OVERLAP SCAN WITH IT (issue #2315), for the same reason and at the same three endings.
+                if ($overlapNote) { Write-Warning $overlapNote }
                 Write-Host "PR #$($recheckPr.number) for '$branch' exists -- the create landed despite the reported failure. $($recheckPr.url)" -ForegroundColor Green
                 if (Test-FunctionDefined 'Write-CloseOutReceipt') {
                     Write-CloseOutReceipt -Cite "PR #$($recheckPr.number)" -Bypass (Get-GateBypassNote -SkipLint:$SkipLint -SkipTests:$SkipTests)
@@ -2524,6 +2813,8 @@ try {
 }
 # SAID TWICE (issue #1559): the machine-local note from before the gates is off-screen by now.
 if ($machineLocalNote) { Write-Warning $machineLocalNote }
+# AND THE OVERLAP SCAN WITH IT (issue #2315), for the same reason and at the same three endings.
+if ($overlapNote) { Write-Warning $overlapNote }
 Write-Host "PR created for '$branch'." -ForegroundColor Green
 
 # THE RECEIPT SHAPE, LAST (issue #1884) -- see closeout-lib.ps1. A PR opened and not yet shipped is a

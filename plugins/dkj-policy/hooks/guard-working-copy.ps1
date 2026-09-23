@@ -81,7 +81,28 @@
 #>
 $ErrorActionPreference = 'Stop'
 
-$raw = [Console]::In.ReadToEnd()
+# READ STDIN ONLY WHERE THERE IS A HANDLE TO READ, which is the guard five other members of this
+# family already carry (closeout-gate.ps1, publish-background-run.ps1, adopt-statusline.ps1,
+# show-progress.ps1, and Get-HookPayloadRaw in scripts/lib/session-cache-lib.ps1) and this one did
+# not until #2264. An UNREDIRECTED [Console]::In is a live
+# console, and ReadToEnd on one waits for a Ctrl+Z that is never coming -- so running this hook by
+# hand from a terminal, which is what anybody debugging a refusal does first, hangs on line one with
+# nothing printed. show-progress.ps1's own comment states the cost: a thing that hangs the first time
+# somebody looks at it by hand is a thing nobody will look at twice.
+#
+# THE COST IS A PROPERTY READ, which is why this is separable from the timeout half of #2264. The
+# bound belongs to the unbounded-handle case; this belongs to the no-handle case, and only the bound
+# has a per-firing price worth weighing on a hook that fires 9084 times in this repo's transcripts.
+#
+# AND DELIBERATELY NO try/catch AROUND IT, unlike the two sibling hooks that have one. Under
+# $ErrorActionPreference = 'Stop' a throw here exits non-zero, and the bash wrapper #2217 put in
+# hooks.json reads any exit code other than 0 or 2 as a start failure and refuses a payload that
+# carries agent_id and names git. Swallowing the throw into an empty payload would turn that
+# fail-CLOSED path into a fail-open one -- a change to the guarantee #2217 exists for, not a
+# tidying-up of this line. Where there is genuinely no handle there is no throw either, so the guard
+# below reaches the documented main-thread path without touching that contract.
+$raw = ''
+if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
 
 # THE CHEAP PRE-GATE, AND IT IS HERE FOR A MEASURED REASON. This hook fires on EVERY Bash and
 # PowerShell call, not once per session, and the overwhelming majority of those calls are the main
@@ -108,7 +129,13 @@ if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
     exit 0
 }
 try { . $libPath } catch {
-    [Console]::Error.WriteLine("guard-working-copy: working-copy-guard-lib.ps1 could not be loaded -- the working-copy guard is OFF for this call. $($_.Exception.Message)")
+    # THE STRIP IS INLINED, NOT A CALL, FOR THIS CATCH'S OWN REASON (#2271) -- the same one the eight
+    # SessionStart catch-alls carry. What landed here is "the lib could not be loaded", so a guard call
+    # would depend on a lib that may be exactly what is missing, and it would throw inside the catch and
+    # escape it. The three passes in the lib's order: whitespace FIRST, so no newline can forge a line,
+    # then control characters, then brackets substituted so no marker can FORM.
+    $safeLoadErr = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+    [Console]::Error.WriteLine("guard-working-copy: working-copy-guard-lib.ps1 could not be loaded -- the working-copy guard is OFF for this call. $($safeLoadErr.Trim())")
     exit 0
 }
 

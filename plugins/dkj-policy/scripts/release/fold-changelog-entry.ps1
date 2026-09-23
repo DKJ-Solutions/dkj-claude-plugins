@@ -85,10 +85,12 @@ repo-root meta docs (CONTRIBUTING.md, SECURITY.md, ...) that open with an H1 are
 mode targets exactly the named entry and is unaffected.
 
 What the fold adds is exactly what does not exist until the merge, and since August 19, 2026 it is one
-fact per place: the closing line '[PR #NN](url)', and the landing moment stamped on the 'Pull Request'
-section's own heading -- the counterpart of the creation stamp the cycle file carries. That closing line
-held ' <midDot> merged <date>' as well until that day; the heading holds the moment now -- except in a
-pre-dossier entry, which has no such heading, and where the line keeps carrying it rather than losing it.
+fact per place: the closing line '[PR #NN](url)', and the landing moment stamped on a heading -- the
+counterpart of the creation stamp the cycle file carries. That closing line held ' <midDot> merged <date>'
+as well until that day; the heading holds the moment now -- except in a pre-dossier entry, which has no
+such heading, and where the line keeps carrying it rather than losing it. WHICH HEADING CARRIES IT MOVED
+AGAIN ON AUGUST 23, 2026: from the 'Pull Request' section's own heading to the ENTRY'S OWN heading, so the
+moment it landed sits beside what landed rather than three sections further down (Set-EntryMergeStamp).
 The ENTRY'S heading is left as its author wrote it --
 the fold used to prepend '#NN <midDot> ' to the title as well, and that is gone (Dave, August 5, 2026).
 Nothing is lost by it: the number is still in the entry, on that closing line, where the url makes it
@@ -111,9 +113,10 @@ scaffolded in) are left exactly as written.
 THE DATE MOVED HERE FROM THE SCAFFOLD ON AUGUST 5, 2026 (Dave), and that half is unchanged: it is the
 FOLD's to write, because new-branch.ps1 runs when the branch is created and could only ever record the
 branch's birth date -- wrong by however many days the branch lived, in the one document whose subject is
-when things landed. WHERE in the entry it goes changed on August 19, 2026: it stamps the 'Pull Request'
-heading rather than closing the block, so the section's heading says when it landed and its last line says
-which PR it was.
+when things landed. WHERE in the entry it goes changed on August 19, 2026, and again on August 23, 2026:
+it stamps a heading rather than closing the block -- first the 'Pull Request' section's own heading, then
+(since August 23) the entry's own heading -- so the heading a reader meets first says when it landed and
+the closing line still says which PR it was.
 
 Nothing here parses that date back out, and neither does anything downstream: release-lib reads the
 TYPE off the heading by matching the known branch types rather than by counting fields from the end,
@@ -185,6 +188,29 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# THE REFUSAL VERDICT THAT SURVIVES ITS CALLER (issue #2283). A chain-ending script already prints the close-out
+# receipt when it FINISHES (#1884); this is the other half -- one unmistakable last line when it refuses. The
+# measurement, and why the exit code cannot carry this on its own, is in ship-pr.ps1's copy of this block:
+# under the 'Stop' above every Write-Error here is a TERMINATING error, so the host already exits 1, and it is
+# the CALLER that replaces that exit status with its own 0 -- a pipe, which every recorded invocation of these
+# scripts is read through (`| tail -n`, `| Select-Object -Last n`), or any wrapper ending in a second
+# command, which was measured doing the same thing to a run that was redirected to a file and not piped at
+# all. So the line below names both rather than naming the pipe, which a reader can rule out and be wrong.
+#
+# It fires only on a terminating error nothing caught, which is what every refusal in this file already is, so
+# no path that runs today changes. It prints the record on the stream the host would have used, so a caller
+# separating the streams keeps exactly what it had.
+trap {
+    $refusalRecord = $_
+    $host.UI.WriteErrorLine(($refusalRecord | Out-String).TrimEnd())
+    $host.UI.WriteErrorLine('')
+    $host.UI.WriteErrorLine('[REFUSED] fold-changelog-entry stopped at the error above -- this run did NOT finish. The error itself says what had')
+    $host.UI.WriteErrorLine('          and had not been done by then; do not read the absence of a failure elsewhere as success.')
+    $host.UI.WriteErrorLine('          THIS LINE IS THE SIGNAL, NOT THE EXIT CODE (#2283): a pipe (`| tail -n`, `| Select-Object -Last n`)')
+    $host.UI.WriteErrorLine('          or any wrapper ending in a second command hands its caller ITS status -- 0 -- and never this run''s.')
+    exit 1
+}
 
 # THE SOURCE-REPO GUARD: refuses this script when it is a released copy running in the repo that
 # maintains it. Guarded dot-source, so a tree without the lib behaves as before. Why: the lib's header.
@@ -832,8 +858,9 @@ foreach ($file in $entryFiles) {
     $entryContent = $promoted
 
     # THE HEADING IS JUST THE TITLE (Dave, August 5, 2026). The fold adds the PR link as the entry's
-    # closing line and stamps the merge moment on the 'Pull Request' heading, and touches the ENTRY's
-    # heading no further -- it used to also prepend '#NN <midDot> ' to the title, and that prepend is gone.
+    # closing line -- it used to also prepend '#NN <midDot> ' to the title, and that prepend is gone.
+    # THE MERGE STAMP DOES TOUCH THIS HEADING NOW, since August 23, 2026 (Set-EntryMergeStamp); it sat on
+    # the 'Pull Request' heading instead from August 19 to August 23.
     #
     # NOTHING IS LOST, WHICH IS WHY IT COULD GO: the number is still in the entry, on the closing
     # '[PR #NN](url)' line, where the url makes it clickable rather than merely
@@ -912,8 +939,25 @@ foreach ($file in $entryFiles) {
         $prList = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $branchForPr, '--state', 'all', '--json', 'number,url,files,mergedAt', '--limit', '1', '--repo', $repo) -DiscardStderr
         $ghCode = $prList.ExitCode
         $prJson = $prList.Output
-        if ($ghCode -ne 0) { Write-Host "  (gh pr list returned exit code $ghCode -- PR-number enrichment skipped; run gh manually for the reason.)" -ForegroundColor DarkYellow }
-        $prs = if ($ghCode -eq 0 -and $prJson) { @($prJson | ConvertFrom-Json) } else { @() }
+        # THE TWO NUMBERLESS STATES ARE READ AHEAD OF THE NUMBER (issues #2081 and #2234), because both
+        # of them leave ExitCode as $null and PowerShell interpolates that as the empty string -- so the
+        # raw form printed "returned exit code " and then told the reader to run gh manually for a
+        # reason it had not measured. The second state is the one that used to be fatal: a `gh` that is
+        # not installed THREW out of Invoke-NativeCapture, and since this line runs inside the fold it
+        # took the whole fold with it -- and its own suite red, 20+ asserts across four fixture
+        # scenarios, every one reporting a fold that never ran. The verdict here was always right; the
+        # enrichment is optional and skipping it is correct. Only the sentence needed repairing.
+        $ghMeasured = Test-NativeExitMeasured -Capture $prList
+        # AND THE TAIL IS CHOSEN, NOT FIXED. "Run gh manually for the reason" is the right next step for a
+        # gh that answered something this run could not interpret -- and a contradiction for one that is
+        # not installed, where the label has already given the whole reason and the reader has no gh to
+        # run. Caught in copy edit: the suffix was left carrying a state it was not written for.
+        if (-not $ghMeasured -or $ghCode -ne 0) {
+            $ghTail = if (-not (Test-NativeCommandStarted -Capture $prList)) { 'PR-number enrichment skipped' }
+                      else { 'PR-number enrichment skipped; run gh manually for the reason' }
+            Write-Host "  (gh pr list: $(Get-NativeExitLabel -Capture $prList) -- $ghTail.)" -ForegroundColor DarkYellow
+        }
+        $prs = if ($ghMeasured -and $ghCode -eq 0 -and $prJson) { @($prJson | ConvertFrom-Json) } else { @() }
     } else {
         $prs = @()
     }
@@ -939,21 +983,28 @@ foreach ($file in $entryFiles) {
         }
 
         # THE CLOSING LINE CARRIES THE PR ITSELF; THE HEADING ABOVE IT CARRIES WHEN IT LANDED (Dave,
-        # August 5, 2026 for the line, August 19, 2026 for the split). Built by Format-EntryFoldFooter in
-        # entry-scaffold-lib.ps1 -- the lib that owns the entry FORMAT, so the one place that writes this
-        # line is the one place a test can read it.
+        # August 5, 2026 for the line, August 19, 2026 for the split, August 23, 2026 for which heading).
+        # Built by Format-EntryFoldFooter in entry-scaffold-lib.ps1 -- the lib that owns the entry FORMAT,
+        # so the one place that writes this line is the one place a test can read it.
         #
-        # THE MOMENT IS READ ONCE AND WRITTEN IN EXACTLY ONE OF TWO PLACES. The 'Pull Request' heading
-        # takes it -- the counterpart of the creation stamp the cycle file's heading carries -- and the
-        # closing line then carries only the link, so one fact stands in one place.
+        # THE MOMENT IS READ ONCE AND WRITTEN IN EXACTLY ONE OF TWO PLACES. The entry's own heading takes
+        # it -- the counterpart of the creation stamp the cycle file's heading carries -- and the closing
+        # line then carries only the link, so one fact stands in one place.
         #
-        # UNLESS THE ENTRY HAS NO SUCH HEADING, which is a shape this script explicitly still folds rather
-        # than a hypothetical: a pre-dossier entry carried its title AS its heading and has no named
-        # sections at all. Set-EntryMergeStamp finds nothing to stamp there and returns the text unchanged,
-        # silently -- so without this test the date would simply be missing from an entry that carried one
-        # the day before, in the one document whose subject is when things landed. Test-EntryHasSection is
-        # the same reader the emptiness gate uses for "absent versus empty", so the two cannot disagree
-        # about which shape they are looking at.
+        # UNLESS THERE IS NO SUCH HEADING TO STAMP, in which case Set-EntryMergeStamp returns the text
+        # unchanged, silently -- so without this test the date would simply be missing from an entry that
+        # carried one the day before, in the one document whose subject is when things landed.
+        #
+        # THE GATE ASKS THE WRITER'S OWN QUESTION, and it did not always (issue #2259). It used to ask
+        # Test-EntryHasSection -Key 'PullRequest', which was the same question only while the stamp went on
+        # the 'Pull Request' SECTION heading; it moved to the entry's own heading on August 23, 2026 and
+        # this line did not move with it. From August 26 -- when the levels shifted and a pre-dossier
+        # entry's title-heading, promoted by the re-level step above, landed at exactly the entry level --
+        # such an entry had a heading the writer stamped AND no 'Pull Request' section for the gate to
+        # find, so the footer was given the date as well and the same moment was stated twice.
+        # Test-EntryHeadingTakesMergeStamp reads Set-EntryMergeStamp's own scan, so the pair cannot drift
+        # apart again the way a proxy did.
+        #
         # The fallback is UTC, matching Format-EntryMergeStamp's own rendering (inbound #1542): since
         # #1280 this stamp is Get-EntryInsertOffset's sort key, and a local-time fallback on one machine
         # would sort against UTC stamps written on another.
@@ -963,7 +1014,7 @@ foreach ($file in $entryFiles) {
         # the notation -- and the fallback path cannot end up spelled differently from the PR path.
         $mergeStamp = Format-EntryMergeStamp -MergedAt ([string]$prs[0].mergedAt) `
             -FallbackNow ((Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss'))
-        $stampFitsTheHeading = Test-EntryHasSection -EntryText $entryContent -Key 'PullRequest'
+        $stampFitsTheHeading = Test-EntryHeadingTakesMergeStamp -EntryText $entryContent
         $entryContent = $entryContent.TrimEnd() + "$nl$nl" + (Format-EntryFoldFooter `
             -Number $num -Url $prs[0].url `
             -MergedStamp $(if ($stampFitsTheHeading) { '' } else { $mergeStamp }))
@@ -972,8 +1023,8 @@ foreach ($file in $entryFiles) {
     else {
         # No PR: no number, no url -- and no merge date either, deliberately. There is nothing to read a
         # landing date off, and inventing one from the clock would put a fact in the changelog that
-        # nothing backs. An entry folded this way simply carries no closing line and no stamp on its
-        # 'Pull Request' heading: both facts have the same single source, so they are absent together.
+        # nothing backs. An entry folded this way simply carries no closing line and no stamp on its own
+        # heading: both facts have the same single source, so they are absent together.
         Write-Host "  No PR found for '$branchForPr' - entry without PR number/url or merge date." -ForegroundColor Yellow
     }
 

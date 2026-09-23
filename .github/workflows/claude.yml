@@ -28,6 +28,18 @@ jobs:
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
     runs-on: ubuntu-latest
+    # 60, AND THE AGENT JOBS GET THE LOOSEST CAP IN THE REPO ON PURPOSE -- issue #2296. Everywhere else
+    # in .github/workflows/ the number is ~2x a measured maximum, because the work is a script whose
+    # runtime this repo controls. Here the runtime is whatever task somebody wrote after `@claude`, so
+    # there is no maximum to measure and a tight cap would kill legitimate work rather than a wedge.
+    # What the cap still buys is the thing #2296 was filed on: a sixth of GitHub's six-hour default
+    # instead of the default. See the banner above jobs: in ci.yml for the incident.
+    #
+    # AND READ IT AS A WEDGE BOUND, NOT AS A SECURITY WINDOW. This job can mint an App token with write
+    # scopes (the NOTE below), and a single malicious write completes in seconds -- so shrinking this
+    # number closes nothing an attacker would notice. What bounds that threat is the tool allowlist
+    # further down and the comment-only triggers above, neither of which this line touches.
+    timeout-minutes: 60
     # NOTE: this block does NOT describe what the action can do. `id-token: write` lets the action
     # exchange an OIDC token for a GitHub App token of its own, which upstream documents as holding
     # Contents, Pull Requests and Issues at READ & WRITE -- including creating branches. The read-only

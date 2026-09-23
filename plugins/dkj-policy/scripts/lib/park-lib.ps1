@@ -126,6 +126,33 @@ function Get-GitParkBackingMarker {
     return $script:GitParkBackingMarker
 }
 
+function Resolve-TrunkRef {
+    <#
+        The ref a three-dot diff against the trunk should name: refs/remotes/origin/$Trunk where this
+        checkout has one, otherwise the bare local $Trunk -- and $null where NEITHER verifies, so a caller
+        can report "not measured" rather than diff against a name that does not resolve.
+
+        WHY THE REMOTE-TRACKING REF WINS (#1399): a local trunk sitting behind origin makes the merge base
+        older than it is, so '$Trunk...HEAD' reports the trunk's own commits as the branch's work. Getting
+        the order wrong over-reports rather than under-reports, which is the direction nothing notices --
+        and that is why this is one definition rather than a copy per reader (#2322). The full argument is
+        in Get-GitParkBacking's docstring.
+
+        A local, offline read: rev-parse of what the last fetch recorded, no network call. The first verify
+        answers for the common case, so the fallback costs a second git process only where origin is absent.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$Trunk
+    )
+
+    foreach ($ref in @("refs/remotes/origin/$Trunk", $Trunk)) {
+        $res = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', $ref) -DiscardStderr
+        if ($res.ExitCode -eq 0) { return $ref }
+    }
+    return $null
+}
+
 function Get-GitParkBacking {
     <#
         What is actually behind this branch's plan, as an object: files COMMITTED on the branch besides
@@ -192,22 +219,11 @@ function Get-GitParkBacking {
 
     $committed = 0
     $committedKnown = $false
-    # PREFER THE REMOTE-TRACKING REF (#1399): resolve refs/remotes/origin/$Trunk first, and only fall back
-    # to the bare local name when this checkout has no such ref. See the docstring's "THE REMOTE-TRACKING
-    # REF IS PREFERRED" section for why the bare name silently over-counts a branch's committed work.
-    # THE VERIFY RESULT IS REUSED RATHER THAN ASKED TWICE: a successful check against
-    # refs/remotes/origin/$Trunk already proves that ref resolves, so re-verifying it a line later would
-    # be a second native `git` process spawned for a question already answered -- and the common case,
-    # once this ships, is exactly the one where origin exists and is current.
-    $trunkRef = $Trunk
-    $remoteRefRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', "refs/remotes/origin/$Trunk") -DiscardStderr
-    $refRes = if ($remoteRefRes.ExitCode -eq 0) {
-        $trunkRef = "refs/remotes/origin/$Trunk"
-        $remoteRefRes
-    } else {
-        Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', $trunkRef) -DiscardStderr
-    }
-    if ($refRes.ExitCode -eq 0) {
+    # PREFER THE REMOTE-TRACKING REF (#1399), via Resolve-TrunkRef (#2322). See the docstring's "THE
+    # REMOTE-TRACKING REF IS PREFERRED" section for why the bare name silently over-counts a branch's
+    # committed work. $null means neither ref verifies, which leaves CommittedKnown false.
+    $trunkRef = Resolve-TrunkRef -RepoRoot $RepoRoot -Trunk $Trunk
+    if ($trunkRef) {
         # THREE DOTS: the branch against its MERGE BASE with the trunk, not against the trunk's tip -- so
         # a trunk that has moved on since the branch was cut does not report its own commits as this
         # branch's work.
@@ -275,8 +291,8 @@ function Get-BranchMachineLocalFindings {
         Get-GitParkBacking gives: a bare `main` that has fallen behind origin/main, then caught up via
         `git merge origin/main` (the documented, non-force way), makes `$Trunk...HEAD` include commits
         that are already upstream. refs/remotes/origin/$Trunk is advanced by that merge's own fetch, so
-        it lands on the branch's real diff. A six-line copy of that resolution rather than a shared
-        helper, deliberately: extracting it would touch Get-GitParkBacking, which is the backing gate.
+        it lands on the branch's real diff. Both readers resolve it through Resolve-TrunkRef (#2322),
+        which replaced the six-line copy each of them used to carry.
 
         core.quotePath IS FORCED ON, the language rule about reading a native command's output: the
         paths here are COMPARED against $MachineLocalPaths, and PowerShell 5.1 decodes a child's stdout
@@ -310,17 +326,9 @@ function Get-BranchMachineLocalFindings {
         return [pscustomobject]@{ Paths = @(); Known = $true }
     }
 
-    # PREFER THE REMOTE-TRACKING REF (#1399); fall back to the bare local name only where this checkout
-    # has no such ref. The successful verify is reused rather than asked twice.
-    $trunkRef = $Trunk
-    $remoteRefRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', "refs/remotes/origin/$Trunk") -DiscardStderr
-    $refRes = if ($remoteRefRes.ExitCode -eq 0) {
-        $trunkRef = "refs/remotes/origin/$Trunk"
-        $remoteRefRes
-    } else {
-        Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', $trunkRef) -DiscardStderr
-    }
-    if ($refRes.ExitCode -ne 0) {
+    # PREFER THE REMOTE-TRACKING REF (#1399), via Resolve-TrunkRef (#2322); $null means neither verifies.
+    $trunkRef = Resolve-TrunkRef -RepoRoot $RepoRoot -Trunk $Trunk
+    if (-not $trunkRef) {
         return [pscustomobject]@{ Paths = @(); Known = $false }
     }
 
