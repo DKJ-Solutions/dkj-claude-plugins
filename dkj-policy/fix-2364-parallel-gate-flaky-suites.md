@@ -51,6 +51,20 @@ gate run on this machine, and `reproduce-suite-contention.ps1` against the suite
   line. #2005 took the six 1.2s sleepers out from under that ceiling and left `s-quick` under it.
   The bound is now sized for the sibling (20s), with the sleeper (120s) and the wall-clock assert
   (<90s) scaled so the case still tells a fired bound from a waited-out one.
+- [x] `test-suite-gate.tests.ps1`, four lane-count asserts: the verdict line appends optional notes
+  after `(N lanes)` -- #2317's lane-hold note among them, printed when free memory is below the floor,
+  i.e. under the full pool. Anchoring `)` straight to `.` or `:` reds those asserts under load; three
+  failed that way in a standalone run beside a 22-lane repro. They now allow the trailing notes.
+- [x] `test-suite-gate.tests.ps1` case 9d (the issue's own four asserts): no capture survived and no
+  cause could be measured, so none is claimed. A red nested run now prints the driver's last 25
+  lines, so the next sighting carries its evidence.
+- [x] `check-plugin-integrity-fixture.ps1` `Invoke-Integrity` (the issue's scripts-suite assert): the
+  gate prints every finding only at the end, above `Summary: N error(s).`, so a child that stops
+  part-way loses them all and the scenario reads "not reported". In the report all 58 asserts ran,
+  the in-process precondition passed and only the output assert failed -- the shape of an unfinished
+  child. A run with no Summary line is now named (`[FIXTURE GATE DID NOT FINISH]`) and run once more;
+  a second unfinished run is returned as it is, so a gate that really dies still fails. Inferred, not
+  reproduced: a 22-lane focus run was stopped after one green repeat (~12 min each).
 
 ### TEST
 
