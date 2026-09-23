@@ -44,7 +44,31 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 11 minor entries** <!-- pending-tally -->
+**4 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2362-roster-sync-clean-hook-under-load · 20260923-143338Z
+
+`roster-sync.tests.ps1` read a hook child that never finished as a hook that answered wrongly: the hook
+exits 0 on every path, so its "exit 0 when clean" case failing with exit 1 under the parallel gate was a
+run that did not complete, and the runner, which captured stdout only, kept nothing that said why. It
+now captures stderr, prints that evidence on an off-contract exit, and runs the child once more. A hook
+that really stops exiting 0 still fails every assert that reads it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a test suite only; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+roster-sync: the clean-hook case tells a fixture failure from a verdict under the parallel gate
+
+[PR #2373](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2373)
+
+---
 
 ### DEPLOY: feat/2352-needs-info-message-form · 20260923-141637Z
 
