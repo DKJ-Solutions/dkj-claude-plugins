@@ -59,8 +59,8 @@ reads only the `gh issue list` payload. Repair: one fetch (the claim's own seam)
 - [x] `claim-issue.tests.ps1`: 471 passed, including the new #2392 block
 - [x] `native-capture.tests.ps1`: bounded-site count moved 78 -> 79 with its audit note; 352 pass
 - [x] `shared-scripts.tests.ps1`: 1009 passed (mirrors byte-identical); lint gate 0 errors
-- [x] Live run on this repo: 12 of 14 open issues now read `branch` with author and age, 2 `free` --
-      the report's 9 among them
+- [x] Live run on this repo: 12 of 14 open issues now read `branch` (the report's 9 among the 12) with
+      author and age, 2 `free`
 
 ### DEPLOY: fix/2392-candidates-read-remote-branches
 

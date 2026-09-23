@@ -2056,7 +2056,7 @@ function Get-RemoteIssueBranches {
             refs/remotes/<remote> answers it for the whole backlog, so the one-read property of
             Get-SweepCandidates holds.
 
-            THE CONVENTION IS Get-IssueBranchNames': '<prefix>/<n>-<short-name>', the number read only
+            THE CONVENTION IS THE SAME AS Get-IssueBranchNames': '<prefix>/<n>-<short-name>', the number read only
             from the segment right after the prefix. A branch named for the subject rather than the
             number is invisible here, as it is to that function; the claim's title-overlap scan is the
             check for that shape, and it runs at the claim.
