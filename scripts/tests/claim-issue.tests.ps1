@@ -1448,6 +1448,33 @@ Assert-True ((@(Get-SweepCandidates -Json '')).Count -eq 0) 'empty input -- noth
 Assert-True ((@(Get-SweepCandidates -Json 'nonsense')).Count -eq 0) 'unparseable input -- nothing'
 
 Write-Host ''
+Write-Host 'Get-OwnTagClaims -- what -ReleaseAll may release, and the bound on it (#2395)' -ForegroundColor Cyan
+
+$ownBacklog = @'
+[{"number":9,"title":"mine and assigned","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_9","createdAt":"2026-09-20T09:00:00Z","author":{"login":"DaveKJohn"},"body":"Picked up. <!-- claim-tag: HOST-A/DaveKJohn -->"}]},
+ {"number":7,"title":"another machine's","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_7","createdAt":"2026-09-20T09:00:00Z","author":{"login":"DaveKJohn"},"body":"<!-- claim-tag: HOST-B/DaveKJohn -->"}]},
+ {"number":5,"title":"a race both tags wrote on","assignees":[{"login":"colleague"}],"comments":[{"id":"IC_5a","createdAt":"2026-09-20T08:00:00Z","author":{"login":"colleague"},"body":"<!-- claim-tag: OTHER/colleague -->"},{"id":"IC_5b","createdAt":"2026-09-20T08:01:00Z","author":{"login":"DaveKJohn"},"body":"<!-- claim-tag: host-a/davekjohn -->"}]},
+ {"number":3,"title":"assigned but never tag-claimed","assignees":[{"login":"DaveKJohn"}],"comments":[]},
+ {"number":1,"title":"no assignees field","comments":[{"id":"IC_1","createdAt":"z","author":{"login":"DaveKJohn"},"body":"<!-- claim-tag: HOST-A/DaveKJohn -->"}]}]
+'@
+$own = @(Get-OwnTagClaims -Json $ownBacklog -Tag 'HOST-A/DaveKJohn' -Account 'DaveKJohn')
+Assert-True (($own | ForEach-Object { $_.Number }) -join ',' -eq '1,5,9') 'only the issues this tag holds, ascending -- another machine''s tag under the SAME account is not this tag''s'
+Assert-True ((@($own | Where-Object { $_.Number -eq 9 })[0]).Assigned) 'this account''s assignee beside this tag''s marker is reported, so it is dropped with it'
+$race = @($own | Where-Object { $_.Number -eq 5 })[0]
+Assert-True (@($race.Records).Count -eq 1 -and @($race.Records)[0].Id -eq 'IC_5b') 'on an issue both tags wrote on, ONLY this tag''s record is carried -- another session''s marker cannot be deleted by construction'
+Assert-True (-not $race.Assigned) 'a colleague''s assignee is not this account''s, so it is not reported for removal'
+Assert-True (@($own | Where-Object { $_.Number -eq 3 }).Count -eq 0) 'a bare assignee with no marker of this tag is whose TICKET it is, not a claim -- never released'
+Assert-True (-not (@($own | Where-Object { $_.Number -eq 1 })[0]).Assigned) 'a payload without an assignees field reads as unassigned, not as a crash'
+Assert-True ((@(Get-OwnTagClaims -Json $ownBacklog -Tag '' -Account 'DaveKJohn')).Count -eq 0) 'no tag -- nothing, rather than every marker'
+Assert-True ((@(Get-OwnTagClaims -Json '' -Tag 'HOST-A/DaveKJohn')).Count -eq 0) 'empty input -- nothing'
+Assert-True ((@(Get-OwnTagClaims -Json 'nonsense' -Tag 'HOST-A/DaveKJohn')).Count -eq 0) 'unparseable input -- nothing'
+$ownLegacy = @(Get-OwnTagClaims -Json '[{"number":4,"title":"t","assignees":[],"comments":[{"id":"IC_4","createdAt":"z","author":{"login":"DaveKJohn"},"body":"<!-- swb-lane: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Marker @('claim-tag','swb-lane'))
+Assert-True ($ownLegacy.Count -eq 1) 'a predecessor marker of this tag is released too, where the repo names it'
+$forged = @(Get-OwnTagClaims -Json '[{"number":8,"title":"t","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_8","createdAt":"z","author":{"login":"random-tracker-user"},"body":"<!-- claim-tag: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Account 'DaveKJohn')
+Assert-True ($forged.Count -eq 0) 'a marker carrying this tag but written by ANOTHER author is not this tag''s -- a planted comment cannot make -Apply drop an assignee'
+Assert-True ((@(Get-OwnTagClaims -Json $ownBacklog -Tag 'HOST-A' -Account 'DaveKJohn')).Count -eq 0) 'a tag with no account half -- nothing, since no author can be checked against it'
+
+Write-Host ''
 Write-Host 'Get-RemoteIssueBranches / Get-SweepCandidates -Branches -- a branch with no marker is not free (#2392)' -ForegroundColor Cyan
 
 $us = [string][char]0x1F
