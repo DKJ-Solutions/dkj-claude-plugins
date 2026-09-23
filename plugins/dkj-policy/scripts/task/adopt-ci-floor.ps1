@@ -388,6 +388,9 @@ function Get-WorkflowFacts {
         # that guessed that spelling would be matching on something this reader did not see.
         $wfNameMatch = [regex]::Match($text, '(?m)^name:\s*(?<name>\S[^\r\n]*)$')
         $wfName = if ($wfNameMatch.Success) { ($wfNameMatch.Groups['name'].Value -replace '\s+#.*$', '').Trim().Trim('''"') } else { '' }
+        # A BLOCK SCALAR (`name: >` or `name: |`) keeps the real name on the lines below, which this
+        # one-line reader does not follow -- so it is treated as no name rather than as the indicator.
+        if ($wfName -match '^[>|][+-]?\d*$') { $wfName = '' }
 
         $facts += [pscustomobject]@{
             Name          = $f.Name

@@ -88,6 +88,7 @@ an absent link is a fact rather than an oversight.
 | `release/ship-pr.ps1` | open → wait for CI → merge → fold, in one motion | [`ship-pr`](../skills/ship-pr/SKILL.md) |
 | `release/verify-resolved-issues.ps1` | checks that a merged PR closed what it declared | [`ship-pr`](../skills/ship-pr/SKILL.md) |
 | `release/verify-pushed-merges.ps1` | the check above, run from a push to the trunk instead of from the shipping session: resolves the pull requests that push carried and verifies each | none — invoked by a `verify-resolved.yml` CI workflow, which [`adopt-dkj-policy`](../skills/adopt-dkj-policy/SKILL.md) (Part 3) places |
+| `ci/pick-merge-on-green.ps1` | the merge-on-green sweep's first half: asks the tracker which pull request `ship-pr` armed with `merge-when-green` is owed a merge now, and hands it to `ship-pr` | none — invoked by a `merge-on-green.yml` CI workflow, which [`adopt-dkj-policy`](../skills/adopt-dkj-policy/SKILL.md) (Part 3) places |
 | `release/fold-changelog-entry.ps1` | folds the entry into `CHANGELOG.md` at the top of the list and removes the branch document | [`fold-changelog`](../skills/fold-changelog/SKILL.md) |
 | `release/cut-release.ps1` | the lockstep version bump, the release notes and the tag | [`cut-release`](../skills/cut-release/SKILL.md) |
 | `release/new-internal-note.ps1` | the tier-1 note's skeleton, which needs the development notes as input | [`cut-release`](../skills/cut-release/SKILL.md) |
