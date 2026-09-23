@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#2304's last comment names the next step: re-read the per-suite durations on CI with the split
+layout before choosing between splitting `-entries` and adding shards. The file on the trunk still
+carried the pre-split names, so the nine new `check-plugin-integrity-*` suites were charged the
+maximum and the numbers could not say which file sets the makespan.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `record-suite-durations.ps1` against three PR runs carrying the #2370 layout (35871835806,
+  35872701189, 35873943670). The trunk pushes after the fold printed no suite table, so the
+  merge-commit runs the previous re-record used were not available.
 
 ### TEST
 
+- [x] 139 rows against 139 suites in `scripts/tests/` -- none left to be charged the maximum.
+- [x] The reading: pool 7,260.5 s over 16 lanes gives a work bound of 453.8 s; the heaviest file,
+  `-entries`, is 426.1 s and below it, then `new-branch` at 380.2 s.
+
 ### DEPLOY: fix/2304-rerecord-durations-after-split
 
-**Score:**
+Re-recorded `scripts/tests/suite-durations.json` from three CI runs carrying the split
+`check-plugin-integrity-*` layout (#2304). The file still named the pre-split suites, so the nine new
+ones were charged the largest recorded value and the gate packed shards off guesses. The reading:
+the pool is 7,260.5 s over 16 lanes, a work bound of 453.8 s, and no single file reaches it any more
+-- `-entries` is heaviest at 426.1 s -- so CI is now bound by total work, not by one file. The splits
+were not free: the `check-plugin-integrity-*` family went from 2,084.3 s to 2,679.0 s of pool work
+(+594.7 s), because each file builds its own fixture. That is what the next step has to weigh, since
+another split raises the work bound it is meant to get under.
+
+**Score:** 1 -- prevents the gate packing CI shards off maximum-charged guesses for nine suites; no
+reader notices it except as CI wall-clock.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- data file only; nothing to migrate.
+
+**Score:** N/A
 
 #### Pull Request
 
