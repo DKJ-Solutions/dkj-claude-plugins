@@ -75,6 +75,38 @@ Write-Host 'Get-MergeOnGreenArmLabel -- the one spelling of the handshake' -Fore
 Assert-Equal 'merge-when-green' (Get-MergeOnGreenArmLabel) 'the arming label is the one both halves agree on'
 
 Write-Host ''
+Write-Host 'ConvertFrom-MergeOnGreenListJson -- one record per pull request, on 5.1 too (#2381)' -ForegroundColor Cyan
+
+# THE REAL PAYLOAD SHAPE, and the suite runs under whichever edition the gate uses -- on CI that is
+# Windows PowerShell 5.1, the edition that wrapped the whole array as one record.
+$oneJson   = '[{"headRefName":"fix/1-a","isCrossRepository":false,"isDraft":false,"labels":[{"id":"L1","name":"merge-when-green","description":"","color":"0e8a16"}],"mergeable":"MERGEABLE","number":2345}]'
+$threeJson = '[{"number":11,"headRefName":"a/1","labels":[]},{"number":12,"headRefName":"a/2","labels":[]},{"number":13,"headRefName":"a/3","labels":[]}]'
+
+$one = @(ConvertFrom-MergeOnGreenListJson -Json $oneJson)
+Assert-Equal 1 $one.Count 'a one-element list yields one record'
+Assert-True ($one[0].PSObject.Properties['number'] -and $one[0].number -eq 2345) `
+    'and that record IS the pull request, carrying its number -- not an array wrapped around it'
+Assert-True (Test-MergeOnGreenArmed -Record $one[0]) 'and it reads as armed through the same verdict path the sweep uses'
+
+$three = @(ConvertFrom-MergeOnGreenListJson -Json $threeJson)
+Assert-Equal 3 $three.Count 'a three-element list yields three records'
+Assert-Equal '11,12,13' (($three | ForEach-Object { $_.number }) -join ',') 'each one its own pull request, in order'
+
+Assert-Equal 0 @(ConvertFrom-MergeOnGreenListJson -Json '[]').Count 'an empty list yields no records'
+Assert-Equal 0 @(ConvertFrom-MergeOnGreenListJson -Json '').Count 'and so does empty text'
+$threw = $false
+try { $null = ConvertFrom-MergeOnGreenListJson -Json 'not json' } catch { $threw = $true }
+Assert-True $threw 'text that is not JSON throws, so the caller keeps its fail-closed "could not be parsed" verdict'
+
+# THE SCRIPT MUST GO THROUGH IT. The defect was one line in the script that no pure test could see, so
+# the guard is that the line is gone and the function is called instead.
+$pickSrc = Get-Content -LiteralPath $ScriptPath -Raw
+Assert-True ($pickSrc -match 'ConvertFrom-MergeOnGreenListJson') 'pick-merge-on-green.ps1 parses the list through the lib'
+Assert-True ($pickSrc -notmatch '\|\s*ConvertFrom-Json\)') 'and no longer pipes the payload into ConvertFrom-Json inside @()'
+Assert-True ($pickSrc -match '\(skipped\)') 'a skipped record prints a line rather than vanishing'
+Assert-True ($pickSrc -match 'none could be evaluated') 'and "armed, but no verdicts" is reported as the contradiction it is'
+
+Write-Host ''
 Write-Host 'Test-MergeOnGreenArmed' -ForegroundColor Cyan
 
 Assert-True (Test-MergeOnGreenArmed -Record (New-PrRecord)) 'a record carrying the label is armed'

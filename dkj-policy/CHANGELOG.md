@@ -44,7 +44,145 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 15 minor entries** <!-- pending-tally -->
+**6 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2333-pin-write-runners · 20260923-183716Z
+
+The three consumer runners that hold a write credential no longer run this repo's scripts at `main`.
+`adopt-ci-floor` now checks the shared scripts out for the fold, the resolves verification and
+merge-on-green at the commit the adopting plugin's release was tagged at, written as
+`ref: <sha> # v<version>`. Until now a change landing on this repo's trunk reached `FOLD_PUSH_TOKEN`'s
+contents and pull-request write in every adopted consumer on its next run, with no release in between.
+The read-only gates keep `ref: main`, where the stale-convention argument still holds. The pin has to
+move, so re-running `adopt-ci-floor` now reads every existing write runner and reports one still on
+`main` or pinned behind the version it came from, with the value to put there. It never rewrites the
+file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer that adopted the CI floor before this release keeps `ref: main` in its write runners until
+somebody edits them, because the scaffolder never rewrites a file. Re-running `adopt-ci-floor` is what
+tells them, one `ref:` line per runner. A floor adopted from now on is pinned from the start.
+
+**Score:** 2
+
+#### Pull Request
+
+The write runners adopt-ci-floor places now pin the shared scripts to a release
+
+Plugins: dkj-policy
+
+[PR #2345](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2345)
+
+---
+
+### DEPLOY: feat/2304-split-integrity-entries · 20260923-182014Z
+
+`check-plugin-integrity-entries.tests.ps1` is three suites now, and CI runs on five shards instead of
+four. The re-read durations showed the gate bound by total work (453.8s over 16 lanes) with `-entries`
+(426.1s) the file a fifth shard would stop at, so both levers go in together: the expected floor is
+`new-branch.tests.ps1` at 380.2s. All 86 asserts are preserved and were verified by running the three
+parts. Step 4 of #2304.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The first step of #2304 that moves the shard count, and the one where the issue's own ordering is
+applied rather than quoted: a split alone would have bought nothing here, and a shard alone would have
+stopped at the file this change splits. A sixth shard buys nothing until `new-branch` is split.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-entries and add a fifth CI shard: step 4 of the CI critical path
+
+[PR #2385](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2385)
+
+---
+
+### DEPLOY: fix/2379-native-capture-exitcode-flake · 20260923-181117Z
+
+`native-capture.tests.ps1` no longer goes red on #1931's 1-in-300 unmeasured exit code
+([#2379](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2379)). The exact-exit asserts on the
+Start-Process arm now re-ask a real child up to three times, and only while the lib itself reports
+`ExitCodeUnknown`. The regression they guard is a dropped `.Handle` read, which empties every attempt, so
+it still fails. The lib is unchanged: it was already reporting the race correctly. Nobody outside this
+repo's CI notices.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: test-only, never reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+native-capture.tests: re-ask an -Utf8 exit-code assert only while the lib reports ExitCodeUnknown
+
+[PR #2383](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2383)
+
+---
+
+### DEPLOY: fix/2384-run-progress-fixed-clock · 20260923-180053Z
+
+`run-progress.tests.ps1` asserted two exact elapsed strings (`+6m12s`, `+11m48s`) while taking the
+record's start and the reader's "now" from two separate clock reads. On a loaded CI runner two
+seconds passed between them, and one red suite turned the required `lint-en-tests` check red on a PR
+that never touched run-progress
+([#2384](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2384)). Both sections now read
+one instant and hand it to `Get-LiveRunProgress -NowUtc`, a parameter the lib already had. Test-only.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+run-progress tests: pin the clock the elapsed asserts read
+
+[PR #2386](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2386)
+
+---
+
+### DEPLOY: fix/2381-merge-on-green-ps51-parse · 20260923-174821Z
+
+The merge-on-green sweep could never pick an armed pull request under Windows PowerShell 5.1, which
+is what its runner uses. `ConvertFrom-Json` wrote the whole `gh pr list` array as one record with no
+number, and the sweep skipped that record without saying so. Every run then reported "0 armed pull
+request(s), none eligible yet" while PR #2345 sat armed and green. The list is now enumerated
+through a tested lib function (`ConvertFrom-MergeOnGreenListJson`). A skipped record prints a line,
+and "armed but nothing evaluated" is reported as the contradiction it is, not as a wait
+([#2381](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2381)). The script travels in
+`dkj-policy` and consumer runners fetch it at `ref: main`, so every adopted consumer's sweep starts
+merging on its next run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+merge-on-green: enumerate the armed list under PowerShell 5.1 and say why a record is skipped
+
+Plugins: dkj-policy
+
+[PR #2382](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2382)
+
+---
 
 ### DEPLOY: docs/2368-asana-mirror-write-comment · 20260923-152143Z
 
