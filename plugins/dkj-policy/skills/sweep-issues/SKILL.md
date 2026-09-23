@@ -108,6 +108,20 @@ It refuses a colleague's claim, an issue with no branch on origin, and one with 
 replaces the old marker with this tag's, comments the handover, and prints the checkout. The old machine's
 `-Verify` then reads `[NO]`, so step 6 stops it there.
 
+**The same command resumes a branch that carries NO marker** -- a session that never ran `-Tag` leaves
+only its branch on origin, and the claim's parked-fix scan then prints `NOT YOURS` over your own work
+([#2394](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2394)). `-TakeOver` checks who wrote
+the branch instead: every commit off the trunk must carry one of your names. **If you work under more
+than one account**, declare the others in `DKJ_OWN_ACCOUNTS` (the `env` block of your own
+`~/.claude/settings.json`) -- a branch on origin written by one of your declared accounts is then
+resumable through `-TakeOver`, and an undeclared author still stops you.
+
+**Leaving a machine on purpose, you can tidy first** -- `claim-issue.ps1 -Tag -ReleaseAll` lists every
+open issue this tag holds, and `-Apply` releases them, so the next machine's `-Candidates` does not read
+your old tag as `held` ([#2395](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2395)). It
+touches this tag's own markers only, never another's, and it is optional: `-TakeOver` above is what
+covers the switch you did not plan.
+
 ### 3. Build it
 
 Read the issue and its comments in full. Then the ordinary workflow, unchanged:
@@ -205,8 +219,8 @@ a card parked with a question nobody can read is a waiting room nobody knows the
 - **Push anything live, publish anything, or cut a release.** Those come from a person, always.
 - **Take an issue whose marker carries another tag** (outside `-TakeOver` above), or one whose source
   ticket it could not read.
-- **Delete another session's marker** -- except through `-TakeOver`, on this account's own issue with its
-  branch on origin. `-Release` touches this tag's own and nothing else.
+- **Delete another session's marker** -- except through `-TakeOver`, on your own issue (this account or
+  a declared one) with its branch on origin. `-Release` touches this tag's own and nothing else.
 - **Close an issue that carries the repo's parked label.** That one is with the requester.
 
 ## Requirements

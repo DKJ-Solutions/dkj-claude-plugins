@@ -44,7 +44,87 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**10 / 26 minor entries** <!-- pending-tally -->
+**11 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2394-resume-from-origin · 20260923-215115Z
+
+`claim-issue.ps1 <n> -Tag -TakeOver` now also resumes an issue that carries **no claim marker**, which is
+the common case: a session that never ran `-Tag` leaves only its branch on origin. There exactly one branch
+for the issue must be on origin, and every commit on it off the trunk must be authored under one of this
+checkout's names; one foreign author, or an author list that could not be read, refuses. A new user-level
+variable, `DKJ_OWN_ACCOUNTS`, declares the other accounts one person works under, and both `-TakeOver` and
+the parked-fix scan's `NOT YOURS` verdict count them as yours. That block now also names that route.
+`-Candidates` reading such a branch as `branch` rather than `free` landed separately, in #2392.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this changes how a session picks up its own parked work, which no subscriber of a service sees.
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -TakeOver: resume an untagged branch on origin, and count a person's declared other accounts as theirs
+
+Plugins: dkj-policy
+
+[PR #2397](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2397)
+
+---
+
+### DEPLOY: fix/2375-boardless-status-map-line · 20260923-214244Z
+
+The `asana-mirror` run printed a repo's deliberate "no project board" declaration as an empty field and a
+dangling comma, so its CI log could not tell that answer from a broken map. It now says the repo has no
+project board and that stage floors come from the issue itself.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Visible in a board-less store's `asana-mirror` CI log once its template copy is refreshed (xoxowildhearts
+declared itself board-less the day this was filed); nothing it does changes.
+
+**Score:** 1
+
+#### Pull Request
+
+asana-mirror: a board-less repo's status-map line says there is no board
+
+Plugins: dkj-policy-bwj
+
+[PR #2401](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2401)
+
+---
+
+### DEPLOY: feat/2395-release-all · 20260923-212655Z
+
+`claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
+claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
+it only lists what it would release. Markers written by any other tag are never touched, including
+another machine under the same account, and an assignee with no marker of this tag stays in place. A
+marker only counts as this tag's when the comment was actually written by this tag's account, so a
+comment somebody else posts with your tag in it cannot trigger a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -Tag -ReleaseAll
+
+Plugins: dkj-policy
+
+[PR #2400](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2400)
+
+---
 
 ### DEPLOY: fix/2338-merge-on-green-trunk-code · 20260923-211820Z
 
