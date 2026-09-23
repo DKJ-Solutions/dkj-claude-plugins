@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**35 / 56 minor entries** <!-- pending-tally -->
+**35 / 57 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2341-golive-private-link · 20260923-091512Z
+
+`build-golive-block.ps1` accepted the preview handover page -- a private `claude.ai` Artifact -- as
+`-Link`, and its own help suggested it, so the paste-ready block reached the Asana requester with a link
+they could not open (measured in `BWJ-Development/smartwatchbanden#750`). It now refuses a
+`claude.ai/artifact/` or `claude.ai/code/artifact/` link before the block is built, names a storefront
+preview URL (`Get-MarketPreviewUrls`) as the alternative, and takes `-AllowPrivateLink` for a page that
+has actually been shared. The skill page's `-Link` row now says the link must open without an account
+(#2341).
+
+**Score:** 2 -- one wrong link per affected block, caught by the owner and edited by hand; the refusal
+removes the hand edit.
+
+#### What makes this deploy extra special
+
+N/A -- the reader of the block is a store's colleague, one hop past the party running the upgrade; for
+that party it is a refusal on a mistaken argument, nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+golive-block refuses a private claude.ai artifact link
+
+Plugins: dkj-policy-bwj
+
+[PR #2344](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2344)
+
+---
 
 ### DEPLOY: fix/2339-golive-block-config-scope · 20260923-085447Z
 
