@@ -81,3 +81,5 @@ claim it by tag. Before this, the only warning came after the claim was written,
 
 #### Pull Request
 
+claim-issue -Candidates: an unmarked issue with a branch on origin reads 'branch', not 'free'
+
