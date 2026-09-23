@@ -41,11 +41,43 @@
 
 A consumer's own CLAUDE.md keeps contradicting the plugin, so the governance moves into one CLAUDE.md the dkj-policy plugin ships (plus a dkj-policy-bwj extension), and a consumer's CLAUDE.md shrinks to the import.
 
+#### Decisions (Dave, September 23, 2026)
+
+- A consumer's `CLAUDE.md` keeps a short repo block of **facts** below the import -- trunk, public or
+  not, owner, purpose -- and no rules.
+- The source repo runs the same model: its constitution moves into the plugin and it keeps only its
+  repo slot.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/dkj-policy/CLAUDE.md`: the constitution and the general working practices, moved out
+  of the root `CLAUDE.md` and made repo-neutral ("the owner" where it named Dave). The old text's
+  contradiction -- "a PR always waits for Dave's explicit word" beside the no-waiting default -- is
+  resolved in the move.
+- [x] `plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md`: the BWJ extension, pointers to its four chapters
+  only, extending and never overriding.
+- [x] Root `CLAUDE.md`: both imported by relative path (the source's own branch copy, measurable in
+  CI); the repo slot's "holds on its own" and "top half" statements rewritten.
+- [x] 14 links into the moved sections repointed, plus two dead anchors the lint found (an archived
+  release note, Tessa's lens).
+- [x] `CONTRIBUTING-portable.md`: the plugin's `CLAUDE.md` joins the top rung, and the safety rules
+  leave the "not legislated here" list.
+- [x] `consumer-prose-sessioncheck`: a `[WARNING]` with the paste-ready line, for the consumer's own
+  marketplace name, wherever a consumer's `CLAUDE.md` does not import the constitution. The exit code
+  and the two existing detectors are untouched.
+- [x] `specialists-init` scaffold: the second prose line asks for facts instead of "governance and
+  safety rules"; the old literal stays in `Legacy` so the teardown still recognises it.
+- [x] `adopt-dkj-policy` (new Part 1 subsection) and `adopt-dkj-policy-bwj` step 6: the import lines.
 
 ### TEST
+
+- [x] `consumer-prose-gate.tests.ps1`: 99/99, including the new constitution-import cases (warning
+  and exit 0 without the line, silence with an unresolved absolute line, the marketplace name read
+  off a cache-shaped path, the hook forwarding the warning).
+- [x] `teardown.tests.ps1`: the legacy scaffold line is still recognised, and a fresh bootstrap never
+  writes it.
+- [x] `check-plugin-integrity.ps1`: 0 errors. `check-always-on-budget.ps1`: the path shrank by
+  2,307 B (110,314 -> 108,007).
 
 ### DEPLOY: feat/2374-global-claude-md
 
