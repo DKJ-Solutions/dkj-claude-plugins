@@ -182,3 +182,43 @@ function Invoke-ShopifyCli {
 
     return [pscustomobject]@{ Output = $out; ExitCode = $code }
 }
+
+function Get-ThemeFileCount {
+    <#
+        How many files a theme on the store holds, or -1 where that cannot be measured. It exists for one
+        question -- has a 'shopify theme duplicate' finished filling? -- and both scripts that ask it
+        (backup-live-theme and push-preview) call this one copy. Get-ThemeFillVerdict in
+        theme-lifecycle-rules.ps1 judges the counts; this only takes them, which is why it lives beside the
+        wrapper rather than in that lib, whose header promises no CLI and no network.
+
+        THE COUNT IS TAKEN OFF A REAL PULL, and that is a measurement rather than a shortcut not taken.
+        'theme info --json' carries no file count on current CLI releases (#2033 -- @shopify/cli 4.8.0's
+        schema is fixed to id/name/role/shop/preview_url/editor_url), and 'theme list --json' carries none
+        either (only id/name/role/processing, and 'processing''s meaning is undocumented -- not something
+        this function will guess at). So a full 'theme pull' into a scratch directory is counted off what
+        actually landed on disk. A pull that fails, or a scratch directory that cannot be read back, is
+        reported as -1, which Get-ThemeFillVerdict treats as unknown.
+
+        NOT -Quiet: 'theme pull' is one of the calls that can run for minutes and stop mid-way to ask for
+        authentication -- captured, that prompt is invisible and the run reads as still in progress (this
+        file's own header).
+
+        It was a local function inside backup-live-theme.ps1 until #2348, when push-preview needed the same
+        count and a consumer had already carried a second copy of it.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Store,
+        [Parameter(Mandatory = $true)][string]$ThemeId
+    )
+    $pullPath = Join-Path ([System.IO.Path]::GetTempPath()) ('shopify-fill-check-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $pullPath -Force | Out-Null
+    try {
+        $r = Invoke-ShopifyCli -Arguments @('theme', 'pull', '--store', $Store, '--theme', $ThemeId, '--path', $pullPath)
+        if ($r.ExitCode -ne 0) { return -1 }
+        return @(Get-ChildItem -LiteralPath $pullPath -Recurse -File -ErrorAction SilentlyContinue).Count
+    } catch {
+        return -1
+    } finally {
+        Remove-Item -LiteralPath $pullPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}

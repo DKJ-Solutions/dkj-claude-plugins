@@ -223,7 +223,7 @@ when a sync went non-fast-forward. Measured on `backup/main-pre-sync-20260903`: 
 
 ### Lane 10 attributes and never deletes, by a decision already taken
 
-`scripts/README.md` settled this before the lane was written, on
+The source repo's `scripts/README.md` (since removed; the decision now sits in its system-administration lens) settled this before the lane was written, on
 [#1668](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1668): those trees are *"left
 standing on purpose: `$PID` in the leaf is what makes one attributable to a run that is no longer
 alive, and a person can clear it by hand"* -- and it names the alternative by name, *"a sweep by name

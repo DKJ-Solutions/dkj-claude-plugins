@@ -44,4 +44,121 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/remove-scripts-readme · 20260923-111221Z
+
+Removed `scripts/README.md`. The rules and measured decisions that code and docs cited it for now live
+in [Sylvester's lens](../.claude/specialists/lenses/specialist-05-15-lens.md#the-scripts-directory-is-the-source)
+and [Tycho's lens](../.claude/specialists/lenses/specialist-04-18-lens.md#a-suites-fixture-path-carries-the-pid-and-a-fresh-guid);
+the directory map and the entry-point table were dropped, because each skill page and each plugin's
+`hooks/hooks.json` already answer them. The source-repo guard's refusal now points at the lens.
+
+**Score:** 1 -- prevents a reader following the guard's printed pointer, or a code comment, to a page
+that no longer exists.
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber: the only consumer-visible change is wording in two plugin pages.
+
+**Score:** N/A
+
+#### Pull Request
+
+Remove scripts/README.md; move its cited rules to the owners' lenses
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2356](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2356)
+
+---
+
+### DEPLOY: fix/2343-ship-pr-unattended-trunk-return · 20260923-105742Z
+
+When `ship-pr` runs inside GitHub Actions, as the merge-on-green runner, it now stops before the CI wait
+unless step 2b got the checkout back onto the trunk. A second layer stops the forward lap from merging the
+branch's live remote head into the working tree. Together they close the residual window #2338's security
+review found: code pushed during the wait could land where a `FOLD_PUSH_TOKEN` checkout runs scripts
+(#2343).
+
+**Score:** 2 -- a narrow window, two failures deep; the attended path is unchanged.
+
+#### What makes this deploy extra special
+
+A consumer's merge-on-green runner runs the plugin's `ship-pr.ps1`, so it picks this up with the release
+without any change to its workflow. A pull request whose runner cannot reach the trunk now stays armed for
+the next sweep instead of merging.
+
+**Score:** 2 -- invisible unless a runner's trunk return fails, and then the merge waits half an hour.
+
+#### Pull Request
+
+ship-pr: an unattended run stops unless it is back on the trunk, so a forward lap cannot bring in an unjudged head
+
+Plugins: dkj-policy
+
+[PR #2355](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2355)
+
+---
+
+### DEPLOY: docs/2353-bwj-ticket-form · 20260923-104615Z
+
+`dkj-policy-bwj` now carries BWJ's ticket form, as step 8 of its ticket-handling page -- the form a
+request arriving from Asana takes in both stores: the Asana assignee deciding whose ticket it is, the
+seven-row header with `Reviewed` as the provenance boundary, the closed `State` and `Ball with`
+vocabularies, the section route with its two dictated gate sentences, and what `### Testing` carries.
+It lived only in `smartwatchbanden`'s tree until now, which left `xoxowildhearts` with no copy and
+the assignee rule one deletion away from being lost (#2353).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store repo can now drop its own ticket-form page and point at the plugin, and both stores read
+the same form from the version they loaded.
+
+**Score:** 2
+
+#### Pull Request
+
+dkj-policy-bwj carries the BWJ ticket form
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2354](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2354)
+
+---
+
+### DEPLOY: fix/2348-preview-context-settings · 20260923-100607Z
+
+`push-preview` created a new preview with `theme push --unpublished`, and no `theme push` uploads
+`config/settings_data.context.<market>.json` -- the CLI lists the file, never sends it, and reports
+success (CLI 4.8.0; no upload bucket matches a context file under `config/`). On a Markets store every
+preview therefore rendered every market with the global settings. A new preview is now a
+`shopify theme duplicate` of live, waited on until the copy has filled (`Get-ThemeFillVerdict`, with
+`-PollSeconds` / `-TimeoutMinutes`), and only then pushed over -- so the first push of a branch takes
+minutes longer. Where no live id is answered it falls back to the old create. A preview this checkout
+has no record of copying gets a printed notice, and so does a branch that changes a context-settings
+file, since no push can put those bytes on a theme. `Get-ThemeFileCount` moved from `backup-live-theme.ps1`
+into `shopify-cli-lib.ps1` so both callers share it (#2348).
+
+**Score:** 3 -- a Markets store's previews stop differing from live for reasons the branch did not
+cause, noticed the first time somebody compares one; the first push per branch now waits for the copy.
+
+#### What makes this deploy extra special
+
+N/A -- nothing to migrate. Existing previews keep working and are named by the notice; removing one and
+pushing again gets a copy of live.
+
+**Score:** N/A
+
+#### Pull Request
+
+push-preview creates previews by duplicating live, so per-market context settings arrive
+
+Plugins: dkj-subagents-shopify
+
+[PR #2351](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2351)
+
+---
+

@@ -20,7 +20,7 @@
 
     Not one of the three errored. Both failures produce a plausible result, and both land on the commands
     that START a piece of work, so a wrong answer propagates into everything downstream. The prose repair
-    shipped first (a sentence beside every printed command, plus the measurement in scripts/README.md);
+    shipped first (a sentence beside every printed command, plus the measurement, now in .claude/specialists/lenses/specialist-05-15-lens.md);
     this is the mechanism behind it.
 
     THE TEST IS NOT "AM I IN THE PLUGIN CACHE". It is: does the repo being operated on hold its own copy
@@ -261,7 +261,7 @@ function Assert-OwnCopy {
     Write-Host 'The copy you ran is a RELEASED snapshot, so it lags this tree by however many merges have'
     Write-Host 'landed since the last release. Measured on August 12, 2026: new-branch scaffolded a retired'
     Write-Host 'entry shape and session-status printed an empty "still open" block, neither with any error.'
-    Write-Host 'The reasoning is in scripts/README.md.'
+    Write-Host 'The reasoning is in .claude/specialists/lenses/specialist-05-15-lens.md, under "The scripts directory is the source".'
     Write-Host ''
     exit 1
 }

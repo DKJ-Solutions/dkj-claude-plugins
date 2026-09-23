@@ -24,7 +24,7 @@ the generator; the lint reports a hand edit as drift.
 The registry is `Get-SharedScriptPairs` in
 [`scripts/lib/shared-scripts-lib.ps1`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/scripts/lib/shared-scripts-lib.ps1), and it is the
 only place that knows the answer. **This page deliberately states no count of it**, and the root
-`scripts/README.md` made the same choice on the same day (#897): a prose tally of a machine-held list is wrong
+`scripts/README.md` (removed September 23, 2026) made the same choice on the same day (#897): a prose tally of a machine-held list is wrong
 when typed and wrong again after the next entry. Ask the registry instead — and note the pairs do **not** all
 land here, because a script travels to whichever plugin owns the surface that calls it.
 

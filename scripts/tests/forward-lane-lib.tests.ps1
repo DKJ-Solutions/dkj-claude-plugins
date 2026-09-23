@@ -106,6 +106,21 @@ Assert-Equal 'fetch-refspec' (Get-LocalRefForwardPlan -Head 'HEAD' -Branch 'fix/
 # NAME EQUALITY IS EXACT: a branch whose name merely contains the other is a different branch.
 Assert-Equal 'fetch-refspec' (Get-LocalRefForwardPlan -Head 'fix/x-v2' -Branch 'fix/x') 'a longer name is not the same branch'
 
+# UNATTENDED, THE MERGE ROUTE IS REFUSED -- issue #2343. It would write the live remote head, whatever was
+# pushed during the wait, into the tree the merge-on-green runner runs scripts from with FOLD_PUSH_TOKEN.
+Assert-Equal 'refuse' (Get-LocalRefForwardPlan -Head 'fix/x' -Branch 'fix/x' -Unattended) 'unattended on the shipping branch, the merge route is refused'
+Assert-Equal 'fetch-refspec' (Get-LocalRefForwardPlan -Head 'main' -Branch 'fix/x' -Unattended) '...while on the trunk the ref-only route stays open'
+Assert-Equal 'fetch-refspec' (Get-LocalRefForwardPlan -Head '' -Branch 'fix/x' -Unattended) '...and an unreadable HEAD still takes the route that touches no tree'
+
+Write-Host ''
+Write-Host 'Get-UnattendedTrunkReturnRefusal -- an unattended ship stops off the trunk (#2343)' -ForegroundColor Cyan
+
+Assert-Equal '' (Get-UnattendedTrunkReturnRefusal -TreeOnTrunk $true -Unattended $true) 'unattended and back on the trunk: it goes on'
+Assert-Equal '' (Get-UnattendedTrunkReturnRefusal -TreeOnTrunk $false -Unattended $false) 'attended and still on the branch: it goes on, as it always has'
+$offTrunk = Get-UnattendedTrunkReturnRefusal -TreeOnTrunk $false -Unattended $true
+Assert-True ([bool]$offTrunk) 'unattended and still on the branch: it stops'
+Assert-True ($offTrunk -match 'before the CI wait' -and $offTrunk -match '#2343') '...and says where, and why'
+
 Write-Host ''
 Write-Host 'Get-ForwardLapDecision -- three ways to refuse, and each says which one it is' -ForegroundColor Cyan
 
@@ -182,6 +197,15 @@ Assert-True ($ship -match "pulls/\`$pr/update-branch") 'the forward is GitHub-si
 Assert-True ($ship -match 'Get-UpdateBranchOutcome -ExitCode') '...and its answer is classified by the lib'
 Assert-True ($ship -match 'Wait-ForwardedCertificate -Pr') 'the run waits for a NEW certifying run before measuring again'
 Assert-True ($ship -match 'Get-LocalRefForwardPlan -Head \$headAtForward -Branch \$branch') 'the local ref is brought up to the forwarded head'
+Assert-True ($ship -match 'Get-LocalRefForwardPlan -Head \$headAtForward -Branch \$branch -Unattended:\$unattendedShip') '...passing whether the run is unattended (#2343)'
+Assert-True ($ship -match "if \(\`$forwardPlan -eq 'refuse'\) \{") '...and a refused plan ends the run rather than falling through to a fetch'
+# THE STOP SITS BETWEEN STEP 2B AND THE CI WAIT, reading what step 2b actually did.
+Assert-True ($ship -match "\`$unattendedShip = \(\`$env:GITHUB_ACTIONS -eq 'true'\)") 'unattended means running inside GitHub Actions'
+$stopAt = $ship.IndexOf('Get-UnattendedTrunkReturnRefusal -TreeOnTrunk $treeOnTrunk')
+$backAt = $ship.IndexOf("@('checkout', 'main')")
+$waitAt = $ship.IndexOf('waiting for the CI check(s) on PR')
+Assert-True ($stopAt -gt $backAt -and $backAt -ge 0) 'the unattended stop reads step 2b''s outcome, after the checkout attempt'
+Assert-True ($stopAt -ge 0 -and $stopAt -lt $waitAt) '...and comes before the CI wait'
 
 # THE REFUSAL #1292 ALWAYS PRINTED IS STILL THERE, with the lap note appended rather than woven in. The
 # whole point of this change is that the PREDICATE is untouched; a suite that let the refusal be
