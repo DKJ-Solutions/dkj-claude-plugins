@@ -19,8 +19,9 @@ on:
 
 permissions:
   contents: read
-  # WRITE, not read, since the prio-label sweep edits labels on this repo's own issues. It is the
-  # only write this workflow makes outside Asana, and it touches labels and nothing else.
+  # WRITE, not read, and it makes exactly two writes outside Asana, both on this repo's own issues:
+  # the prio-label sweep edits labels, and the paste-block backstop posts one comment on a closed
+  # issue that has no paste-ready block yet (inbound #2049). Nothing else on GitHub is written.
   issues: write
   # The close update names the pull request that closed the issue, which is a pull-requests read.
   pull-requests: read

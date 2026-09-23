@@ -643,7 +643,10 @@ window the rest of BWJ looks through, and the workbench is where it has to be vi
 step writes to Asana.
 
 **What it costs on the GitHub side:** the workflow's `issues:` permission is `write` rather than
-`read`. That is the only write it makes outside Asana, and it touches labels and nothing else.
+`read`. It makes exactly two writes outside Asana, both on this repo's own issues: this step's label
+edit, and the one comment
+[the step-4 backstop](#the-backstop-asana-mirror-still-writes-one-only-where-the-session-did-not)
+posts on a closed issue that has no paste-ready block yet. Nothing else on GitHub is written.
 
 ### 6. The board's sections ARE the cycle -- one card, one column per stage
 
