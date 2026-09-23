@@ -199,8 +199,8 @@ personas, gated by a release and a version bump, landing in a *session* after `p
 runners `adopt-dkj-policy` scaffolds into a consumer do not travel that way. They check this repository
 out beside the consumer's own tree and run a path into it — the read-only gates at `ref: main`, so a
 change to `check-branch-entry.ps1` is live in **every adopted consumer's next CI run**: no tag, no bump,
-no refresh, no session restart. The write runners pin a release commit instead (#2333). Strictly the sentence above stays true, because CI is not a session; the
-trap is that the paragraph reads as the whole propagation model, so a reader reasoning from it concludes
+no refresh, no session restart. The write runners pin a release commit instead (#2333). Strictly the
+sentence above stays true, because CI is not a session; the trap is that the paragraph reads as the whole propagation model, so a reader reasoning from it concludes
 that a shared gate script cannot reach a consumer before a cut — which is the opposite of what happens.
 
 **Neither the pin nor that paragraph is the defect; the missing sentence was.** `ref: main` is argued by
