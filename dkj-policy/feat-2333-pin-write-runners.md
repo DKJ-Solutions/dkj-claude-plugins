@@ -70,6 +70,10 @@ the read-only gates stay on `main` under the #1805 argument.
   is a `git ls-remote`. 219 passed, 0 failed.
 - [x] Live probe against a scratch consumer, over the network: `v5.6.0` resolved to its peeled commit
   `92f1b73d`, written into fold, resolves and merge-on-green; repo-settings kept `main`.
+- [x] Taken over from the parked PR on Dave's word (September 23, 2026): CI was red on
+  `native-capture.tests.ps1`'s deliberate count of bounded capture sites, which the new `git ls-remote`
+  raised by one. Audited (network-bounded; an unanswered read degrades the pin to the tag and says so in
+  yellow) and moved 75 -> 76 after bringing the branch up to date with `main`. 350/0 and 219/0.
 
 ### DEPLOY: feat/2333-pin-write-runners
 

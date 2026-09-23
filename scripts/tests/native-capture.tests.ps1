@@ -1825,7 +1825,11 @@ foreach ($af in $auditFiles) {
 # on one.
 # 71 -> 75 (#2347): upload-release-asset.ps1's release-id read, asset-list read, by-id delete and upload -- all four network
 # calls, each judged through Test-NativeExitMeasured / Get-NativeExitLabel.
-Assert-Equal 75 $boundedTotal 'the parser still counts 75 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 75 -> 76 (#2333): adopt-ci-floor.ps1's $lsRemote, the `git ls-remote` that resolves the release tag's
+# commit for the write runners' pin. Bounded at the shared network bound. Its failure direction is a
+# weaker pin rather than none: any read that did not answer 0 -- failed or unmeasured -- leaves the SHA
+# unresolved and the runner is pinned to the TAG instead, which the script reports in yellow.
+Assert-Equal 76 $boundedTotal 'the parser still counts 76 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
