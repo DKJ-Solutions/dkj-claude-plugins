@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2343-ship-pr-unattended-trunk-return · 20260923-105742Z
+
+When `ship-pr` runs inside GitHub Actions, as the merge-on-green runner, it now stops before the CI wait
+unless step 2b got the checkout back onto the trunk. A second layer stops the forward lap from merging the
+branch's live remote head into the working tree. Together they close the residual window #2338's security
+review found: code pushed during the wait could land where a `FOLD_PUSH_TOKEN` checkout runs scripts
+(#2343).
+
+**Score:** 2 -- a narrow window, two failures deep; the attended path is unchanged.
+
+#### What makes this deploy extra special
+
+A consumer's merge-on-green runner runs the plugin's `ship-pr.ps1`, so it picks this up with the release
+without any change to its workflow. A pull request whose runner cannot reach the trunk now stays armed for
+the next sweep instead of merging.
+
+**Score:** 2 -- invisible unless a runner's trunk return fails, and then the merge waits half an hour.
+
+#### Pull Request
+
+ship-pr: an unattended run stops unless it is back on the trunk, so a forward lap cannot bring in an unjudged head
+
+Plugins: dkj-policy
+
+[PR #2355](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2355)
+
+---
 
 ### DEPLOY: docs/2353-bwj-ticket-form · 20260923-104615Z
 
