@@ -140,6 +140,9 @@ function Invoke-Gate {
     # actually sees on their own gate run.
     $depthHeldByCaller = [Environment]::GetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', 'Process')
     [Environment]::SetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', $null, 'Process')
+    # Taken BEFORE the child starts, so every directory the child creates is newer than it -- the half
+    # of the CaptureDir lookup below that the PID cannot carry (issue #2335).
+    $launchedUtc = [DateTime]::UtcNow
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         $out = & powershell @psArgs 2>&1
@@ -175,17 +178,31 @@ function Invoke-Gate {
         # case's whole assertion. Found rather than composed since #1659: the leaf is
         # "test-suite-gate-<pid>-<guid>" now, so the PID narrows it to this run and nothing else can,
         # while the guid is what a pre-planted junction has no name to sit at. A green run matches zero
-        # and a red run exactly one; more than one would mean the PID was reused inside this run's own
-        # lifetime, which cannot happen while that process is still alive to print it.
+        # and a red run exactly one.
+        #
+        # THE PID NARROWS IT TO THIS RUN ONLY AMONG LIVE PROCESSES, and this comment used to say "nothing
+        # else can" (issue #2335). A red run's directory is RETAINED on purpose (#1636), so the temp folder
+        # carries every earlier red run's leaf -- 110 of them on the authoring machine when this was
+        # measured, three PIDs already appearing more than once -- and Windows reuses PIDs freely. A
+        # driver that drew the PID of any dead run with a kept directory then matched TWO, the '-eq 1'
+        # below returned '', and exactly the four POSITIVE retention asserts went red while the two
+        # negative ones passed: #2335's signature, red under the gate (more churn, more retained dirs) and
+        # green on the standalone re-run seconds later, under a new PID. So a hit must also be NEWER than
+        # this child's launch -- a stale leaf with the same PID predates it by construction.
         CaptureDir = $(
             $m = [regex]::Match($text, 'GATE-PID:\s*(\d+)')
-            if ($m.Success) {
-                $hit = @(Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Directory `
-                                       -Filter ("test-suite-gate-" + $m.Groups[1].Value + "-*") -ErrorAction SilentlyContinue)
-                if ($hit.Count -eq 1) { $hit[0].FullName } else { '' }
-            } else { '' }
+            if ($m.Success) { Find-GateCaptureDir -GatePid $m.Groups[1].Value -SinceUtc $launchedUtc } else { '' }
         )
     }
+}
+
+# The lookup behind Invoke-Gate's CaptureDir, a function of its own so the stale-leaf case (#2335) can be
+# asserted on a planted directory rather than waited for on a PID collision.
+function Find-GateCaptureDir {
+    param([string]$GatePid, [datetime]$SinceUtc, [string]$Root = ([System.IO.Path]::GetTempPath()))
+    $hit = @(Get-ChildItem -LiteralPath $Root -Directory -Filter ("test-suite-gate-$GatePid-*") -ErrorAction SilentlyContinue |
+             Where-Object { $_.CreationTimeUtc -ge $SinceUtc })
+    if ($hit.Count -eq 1) { $hit[0].FullName } else { '' }
 }
 
 # Folds PowerShell backtick continuations into one logical statement, so a scan judges a statement
@@ -547,6 +564,18 @@ try {
     # The empty half of the failing pair goes too: z-broken writes no stderr, so keeping a 0-byte
     # .err.txt would only pad a directory the verdict line has just recommended reading.
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $r.CaptureDir 'z-broken.tests.err.txt'))) 'and an empty capture file is not kept either'
+
+    # A STALE LEAF UNDER A REUSED PID IS NOT THIS RUN'S -- issue #2335. Planted inside $Fixture, not in the
+    # real temp folder: the lookup takes its root as a parameter, and the case needs no gate run at all.
+    $pidRoot = Join-Path $Fixture 'pid-reuse'
+    $stale   = Join-Path $pidRoot 'test-suite-gate-4242-00000000000000000000000000000000'
+    New-Item -ItemType Directory -Path $stale -Force | Out-Null
+    (Get-Item -LiteralPath $stale).CreationTimeUtc = [DateTime]::UtcNow.AddHours(-1)
+    $since = [DateTime]::UtcNow
+    Assert-Equal '' (Find-GateCaptureDir -GatePid 4242 -SinceUtc $since -Root $pidRoot) 'a dead run''s kept directory under the same PID is not taken for this run''s'
+    $fresh = Join-Path $pidRoot 'test-suite-gate-4242-ffffffffffffffffffffffffffffffff'
+    New-Item -ItemType Directory -Path $fresh -Force | Out-Null
+    Assert-Equal $fresh (Find-GateCaptureDir -GatePid 4242 -SinceUtc $since -Root $pidRoot) 'and beside it, the directory this run created is still found -- one hit, not two'
 
     # --- 4. It really is parallel, and -MaxParallel 1 really is the way back ------------------------
     #
