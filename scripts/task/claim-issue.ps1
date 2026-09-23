@@ -696,9 +696,11 @@ if ($Tag) {
         $untagged = (Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords).Code -eq 'free'
         if ($untagged -and $issueBranches.Count -eq 1) {
             $only = $issueBranches[0]
-            $fetchOne = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'fetch', '--quiet', 'origin', "+refs/heads/${only}:refs/remotes/origin/$only") `
-                                             -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-            if ($fetchOne -and (Test-NativeExitMeasured -Capture $fetchOne) -and $fetchOne.ExitCode -eq 0) {
+            # Through the one fetch seam (fetch-attempt-lib, #1860), narrowed to this branch. No
+            # -RecentFailureSeconds: a skipped retry refreshes nothing, and Fresh is what gates the read.
+            $fetchOne = Invoke-RecordedRemoteFetch -RepoRoot $repoRoot -Remote 'origin' -Refspec "+refs/heads/${only}:refs/remotes/origin/$only" `
+                                                   -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+            if ($fetchOne.Fresh) {
                 $trunkProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', '--verify', '--quiet', "origin/$trunkBranch") -DiscardStderr
                 # The local-trunk fallback errs in the safe direction: a stale trunk only ADDS commits to
                 # the range, so it can refuse a take-over it need not have, never allow one it should not.
