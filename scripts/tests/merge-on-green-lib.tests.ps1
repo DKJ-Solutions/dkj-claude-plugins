@@ -209,9 +209,9 @@ Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockV
     'an age that was never passed refuses -- fail-closed, like every other unread fact'
 Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes $settle).Eligible `
     'exactly the window is eligible'
-Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::NaN)).Eligible) 
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::NaN)).Eligible) `
     'NaN refuses -- it compares false against the window and would otherwise read as settled'
-Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::PositiveInfinity)).Eligible) 
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::PositiveInfinity)).Eligible) `
     'and so does Infinity'
 # THE CHEAPER DISQUALIFIERS STILL SPEAK FIRST: a red check must not be reported as a settle wait.
 $redFresh = Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict ([pscustomobject]@{
@@ -285,6 +285,8 @@ Assert-True ($shipRaw -notmatch [regex]::Escape("'--add-label', `$armLabel")) `
 Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'step-list gate'") 'the step-list gate disarms -- only a commit clears it'
 Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'DEPLOY lock'") 'and so does the DEPLOY lock'
 Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'merge refusal from GitHub'") 'and so does a 4xx from gh pr merge'
+Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'stale-CI check") `
+    'and so does a required check with no Actions run behind it -- the sweep would re-pick it forever'
 
 Write-Host ''
 Write-Host "ship-pr's on-the-trunk resume (#2319's third precondition)" -ForegroundColor Cyan

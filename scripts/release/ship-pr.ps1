@@ -2432,6 +2432,9 @@ resolvable Actions run (an external CI service posting its own status has no run
 way). -SkipStaleCheck ships anyway once you have confirmed by hand that 'main' has not moved in a way
 that matters, or that the check in question is not subject to this staleness mechanism.
 "@
+                # A FACT ABOUT HOW THE CHECK IS WIRED, not a CI state: every retry finds the same link, and
+                # the sweep's verdict still reads the check as green, so it would re-pick this PR (#2393).
+                Remove-ShipMergeOnGreenArmForJudgement -Gate 'stale-CI check (no Actions run behind the required check)'
                 exit 1
             }
 

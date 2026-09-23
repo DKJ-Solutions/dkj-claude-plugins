@@ -48,7 +48,8 @@
   live ship's watch returns. Without the window every ordinary ship would be handed to a second ship-pr on the
   runner, with `FOLD_PUSH_TOKEN` in its workspace. A live ship merges seconds after green, and a forward lap
   resets the clock with a new head. The cost to an orphan is one more half-hourly sweep at most.
-- **Disarm only at the two judgement gates** (step-list gate, DEPLOY lock). The picker hands over the
+- **Disarm only where a refusal repeats identically until a person acts**: the step-list gate, the DEPLOY
+  lock, a 4xx from `gh pr merge`, and a required check with no Actions run behind it (the last two were added on review). The picker hands over the
   lowest-numbered eligible PR, so one that refuses identically on every retry would starve every armed PR
   above it. A red on the forwarded head stays armed, like any red, because a re-run can clear it.
 - Not touched: `merge-on-green.yml`, and #2346's branch. Its hunks in the same two files are separate from these.
@@ -56,8 +57,8 @@
 ### CREATE
 
 - [x] `ship-pr.ps1`: `Set-ShipMergeOnGreenArm` arms just after step 2b, before step 3. The CI-refusal
-  branch now only says the PR stays armed. `Remove-ShipMergeOnGreenArmForJudgement` runs on the step-list
-  gate and the DEPLOY lock.
+  branch now only says the PR stays armed. `Remove-ShipMergeOnGreenArmForJudgement` runs at the four
+  refusals only a person can clear.
 - [x] `merge-on-green-lib.ps1`: `Get-MergeOnGreenSettleMinutes` and `Get-RequiredGreenAgeMinutes` (pure,
   handles PS 7's pre-parsed dates and the zero date of a pending check). `Get-MergeOnGreenPrVerdict` takes
   `-GreenAgeMinutes` and refuses when it is unread or under the window.
@@ -66,9 +67,9 @@
 
 ### TEST
 
-- [x] `merge-on-green-lib.tests.ps1`: 88 pass, 0 fail under Windows PowerShell 5.1. New asserts cover the
+- [x] `merge-on-green-lib.tests.ps1`: 92 pass, 0 fail under Windows PowerShell 5.1. New asserts cover the
   settle window, the age parser (slowest check, UTC, unreadable shapes, zero date), the picker reading
-  `completedAt`, and arming before step 3 plus disarming at both judgement gates (structural). PowerShell 7
+  `completedAt`, NaN/Infinity ages, and arming before step 3 plus disarming at all four refusals (structural). PowerShell 7
   is not installed on this machine, so the PS 7 date branch runs only in CI, if CI runs it.
 - [x] `ship-pr.ps1` parses clean. `gh pr checks 2390 --required --json completedAt` returns the field as ISO Z.
 
@@ -78,8 +79,9 @@
 Until now it did that only when its own CI verdict refused. So a ship that dies mid-watch, or refuses at
 step 3b on a timing state, still has its merge finished by the sweep. The sweep now takes over only a pull
 request whose required checks have been green for ten minutes, so it never races a live ship. `ship-pr`
-removes the label again at the step-list gate and the DEPLOY lock. Only a commit clears those refusals, and
-leaving the label on would starve every armed pull request numbered above it.
+removes the label again at the refusals only a person can clear: the step-list gate, the DEPLOY lock, a merge
+GitHub itself refuses, and a required check with no Actions run behind it. Leaving the label on would starve
+every armed pull request numbered above it.
 
 **Score:** 2
 

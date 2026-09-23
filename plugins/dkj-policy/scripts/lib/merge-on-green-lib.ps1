@@ -120,7 +120,9 @@ function Get-RequiredGreenAgeMinutes {
         $at = [datetime]::MinValue
         if ($value -is [datetime]) {
             # PowerShell 7's ConvertFrom-Json has already parsed the ISO string, keeping its Kind; casting
-            # it back to [string] would drop the Z and re-read it as local time.
+            # it back to [string] would drop the Z and re-read it as local time. UNTESTED HERE: CI and the
+            # suites run Windows PowerShell 5.1 only, which leaves the string, so this arm has never run
+            # in this tree. It exists for a consumer invoking the picker under pwsh.
             $at = $value
         } elseif (-not [datetime]::TryParse([string]$value, [Globalization.CultureInfo]::InvariantCulture,
                 [Globalization.DateTimeStyles]::RoundtripKind, [ref]$at)) {
