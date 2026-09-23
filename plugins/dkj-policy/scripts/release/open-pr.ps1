@@ -268,9 +268,20 @@
     Deliberately separate from -SkipLint/-SkipTests: those skip a tool, this overrules a content
     judgement, and conflating them would let a routine "skip the slow suites" also wave prose through.
 
+.PARAMETER BypassNote
+    Why this run skipped a gate, in one line. Every run that passes -SkipLint or -SkipTests writes a
+    'Gate bypass' section into the PR body -- the record the workflow asks for, which used to need a hand
+    edit of the body the DEPLOY lock reads (issue #2361) -- and this is the reason that section gives.
+    Without it the line says no reason was recorded, which is itself worth a reviewer's eye. Ignored,
+    with a warning, on a run that skipped nothing.
+
+    The section is idempotent per line and survives -RefreshBody: lines an earlier run wrote are kept,
+    and a different skip or reason on a later run is added beneath them.
+
 .PARAMETER RefreshBody
     On a branch whose PR is ALREADY OPEN, rewrite the description section of that PR's body from the
-    current changelog entry. Only that one section: the `## Resolved issues` block, anything a reviewer
+    current changelog entry. Only that one section: the `## Resolved issues` block, the 'Gate bypass'
+    section, anything a reviewer
     added, and any section a consumer's template carries that this script did not write (the "Type of
     change" boxes and the checklist, where those still exist) stay exactly as they are.
 
@@ -424,6 +435,8 @@ param(
     [switch]$NoResolves,
     [switch]$Force,
     [switch]$RefreshBody,
+    # Why a gate was skipped, recorded in the PR body's 'Gate bypass' section. See .PARAMETER BypassNote.
+    [string]$BypassNote = '',
     [switch]$GatesOnly,
     # Ask whether the test gate can be deduced away over a note-tree-only change. See .PARAMETER NoteTreeOnly.
     [switch]$NoteTreeOnly,
@@ -607,6 +620,16 @@ $info = Get-BranchInfo -Branch $branch
 # the call site tests for the function rather than assuming the dot-source took.
 $openCloseoutLib = Join-Path $PSScriptRoot '..\lib\closeout-lib.ps1'
 if (Test-Path -LiteralPath $openCloseoutLib -PathType Leaf) { . $openCloseoutLib }
+
+# THE GATE-BYPASS RECORD (issue #2361): the line this run adds to the PR body's 'Gate bypass' section, or
+# '' when it skipped nothing. The switch names come from Get-GateBypassNote -- the one copy the receipt
+# already reads -- so the body and the receipt cannot name a bypass differently. Behind the same guard as
+# the receipt: a mirror predating closeout-lib records nothing rather than failing to load.
+$bypassSkipped = if (Test-FunctionDefined 'Get-GateBypassNote') { Get-GateBypassNote -SkipLint:$SkipLint -SkipTests:$SkipTests } else { '' }
+$bypassLine = New-GateBypassLine -Skipped $bypassSkipped -Reason $BypassNote
+if ($BypassNote -and -not $bypassSkipped) {
+    Write-Warning '-BypassNote was given, but this run skipped no gate -- there is no bypass to record, so the note is ignored.'
+}
 
 # THE ENTRY LIVES IN branch/ SINCE THE SPLIT (Dave, August 6, 2026), with the root <SafeName>.md still
 # accepted as the fallback. Both exist in the wild simultaneously: a branch created before the split
@@ -2349,6 +2372,9 @@ if ($existingPr) {
     $currentBody = [string]$existingPr.body
     $newBody = $currentBody
     $edits = @()
+    # Read BEFORE any refresh, so a refresh that rewrites everything below a leading description cannot
+    # take an earlier run's bypass record with it (#2361) -- they are put back below, with this run's.
+    $priorBypassLines = @(Get-GateBypassLines -Body $currentBody)
 
     if ($RefreshBody) {
         # THE DESCRIPTION IS THE SECTION THE PLACEHOLDER SITS IN, and the template says which that is.
@@ -2466,6 +2492,13 @@ if ($existingPr) {
             }
         }
     }
+
+    # THE GATE-BYPASS SECTION, AFTER THE REFRESH for #919's reason (#2361): the lines the body carried
+    # before this run plus this run's own. Add-GateBypassLines is idempotent per line, so a body whose
+    # section survived the refresh is a no-op and one whose section was swallowed gets it back.
+    $beforeBypass = $newBody
+    $newBody = Add-GateBypassLines -Body $newBody -Lines (@($priorBypassLines) + @($bypassLine))
+    if ($newBody -ne $beforeBypass) { $edits += "the 'Gate bypass' record" }
 
     # AND THE CLOSING BLOCK GOES ON LAST, AFTER ANY REFRESH (#919) -- see the ordering note above this
     # `if`. Compared against the body as it went INTO this call rather than against $currentBody, which is
@@ -2679,6 +2712,13 @@ if (-not $Body) {
             )
         }
     }
+}
+
+# The gate-bypass record (#2361), on both paths like the closing block below. A no-op when this run
+# skipped nothing.
+if ($bypassLine) {
+    $Body = Add-GateBypassLines -Body $Body -Lines @($bypassLine)
+    Write-Host "bypass record: the PR body names $bypassSkipped in its 'Gate bypass' section." -ForegroundColor DarkGray
 }
 
 # The closing block goes in LAST, so it lands on both paths -- the auto-filled template and a -Body

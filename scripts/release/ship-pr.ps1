@@ -260,6 +260,10 @@
 .PARAMETER SkipTests
     Passed through to open-pr.ps1 (skip the test gate -- escape valve).
 
+.PARAMETER BypassNote
+    Passed through to open-pr.ps1: why -SkipLint/-SkipTests was used, written into the PR body's
+    'Gate bypass' section (issue #2361). Forwarded only when given.
+
 .PARAMETER MaxParallel
     Passed through to open-pr.ps1: how many test suites its test gate runs at once. 0 (the default)
     is not forwarded at all, so an ordinary run is byte-identical to before.
@@ -339,6 +343,7 @@ param(
     [string]$Title = '',
     [switch]$SkipLint,
     [switch]$SkipTests,
+    [string]$BypassNote = '',
     [switch]$Force,
     [switch]$NoMerge,
     [switch]$SkipStaleCheck,
@@ -868,6 +873,8 @@ $openArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $P
 if ($Title) { $openArgs += @('-Title', $Title) }
 if ($SkipLint)    { $openArgs += '-SkipLint' }
 if ($SkipTests)   { $openArgs += '-SkipTests' }
+# Forwarded only when given, as -Title is: an empty one would make open-pr record nothing anyway (#2361).
+if ($BypassNote)  { $openArgs += @('-BypassNote', $BypassNote) }
 # FORWARDED ONLY WHEN NON-ZERO, for the same reason -Title is (#506, and now #1443): open-pr's own
 # default IS 0, so passing it explicitly would be a no-op that puts a lane count on the command line of
 # every ordinary run -- and a reader of that line would take it for a deliberate choice.

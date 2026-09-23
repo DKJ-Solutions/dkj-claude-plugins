@@ -900,6 +900,70 @@ Assert-True (Test-FunctionDefined 'Get-DevelopmentEntryPattern') `
 Assert-Equal $defaultMerged (Get-PrDescription -EntryText $merged)       'the two readers agree on today DEPLOY shape'
 Assert-Equal $defaultLegacy (Get-PrDescription -EntryText $legacyDeploy) 'and on the previous one'
 Assert-Equal $defaultFenced (Get-PrDescription -EntryText $fencedDeploy) 'and on a fenced quote of it, which neither may fire on'
+
+# --- The gate-bypass section (issue #2361) -------------------------------------------------------------
+# The record a -SkipLint/-SkipTests run owes the PR body, written by open-pr instead of by a hand edit of
+# the body the DEPLOY lock reads. Pinned: the line's shape, idempotence, a second bypass appended rather
+# than replacing the first, the section's level following the body, a fenced quote not being the section,
+# survival across a refresh that dropped it, and the lock still holding once the section is there.
+# Lists are compared JOINED: Assert-Equal's -eq filters an array on its left rather than comparing it.
+Write-Host ""
+Write-Host "the gate-bypass section (#2361)" -ForegroundColor Cyan
+$bpTick = [string][char]0x60
+Assert-Equal '' (New-GateBypassLine -Skipped '' -Reason 'why') 'bypass: nothing skipped means no line, whatever the reason says'
+$bpNoReason = New-GateBypassLine -Skipped '-SkipTests' -Reason ''
+Assert-Equal ('- ' + $bpTick + '-SkipTests' + $bpTick + ' -- no reason recorded (pass -BypassNote to give one)') $bpNoReason 'bypass: a missing reason is said, and names the parameter that records one'
+$bpTwo = New-GateBypassLine -Skipped '-SkipLint and -SkipTests' -Reason "suite hangs`n## forged"
+Assert-Equal ('- ' + $bpTick + '-SkipLint' + $bpTick + ' and ' + $bpTick + '-SkipTests' + $bpTick + ' -- suite hangs ## forged') $bpTwo 'bypass: both switches named, and a newline in the reason cannot forge a heading'
+
+$bpBody = "### DEPLOY: feat/x`n`nThe change.`n`n**Score:** 1"
+$bp1 = Add-GateBypassLines -Body $bpBody -Lines @($bpNoReason)
+Assert-True ($bp1 -match '(?m)^### Gate bypass$') 'bypass: the section takes the body''s own top level (H3 here), so a refresh cannot swallow it as a child'
+Assert-True ($bp1.StartsWith($bpBody)) 'bypass: the body above the section is left exactly as it was'
+Assert-Equal $bpNoReason (@(Get-GateBypassLines -Body $bp1) -join '|') 'bypass: the reader returns the line the writer wrote'
+Assert-Equal $bp1 (Add-GateBypassLines -Body $bp1 -Lines @($bpNoReason)) 'bypass: the same line again is a no-op, byte for byte'
+Assert-Equal $bpBody (Add-GateBypassLines -Body $bpBody -Lines @('', $null)) 'bypass: nothing to add returns the body untouched'
+
+$bp2 = Add-GateBypassLines -Body $bp1 -Lines @($bpTwo)
+Assert-Equal 1 ([regex]::Matches($bp2, '(?m)^#{1,6} Gate bypass$').Count) 'bypass: a second bypass does not open a second section'
+Assert-Equal (@($bpNoReason, $bpTwo) -join '|') (@(Get-GateBypassLines -Body $bp2) -join '|') 'bypass: it is appended beneath the first, which stays on record'
+
+$bpMid = "### DEPLOY: feat/x`n`nThe change.`n`n### Gate bypass`n`n$bpNoReason`n`n### Resolved issues`n`nCloses #1"
+$bpMid2 = Add-GateBypassLines -Body $bpMid -Lines @($bpTwo)
+Assert-Equal (@($bpNoReason, $bpTwo) -join '|') (@(Get-GateBypassLines -Body $bpMid2) -join '|') 'bypass: a section followed by another gets the new line inside it, above the next heading'
+Assert-True ($bpMid2.IndexOf($bpTwo) -lt $bpMid2.IndexOf('### Resolved issues')) 'bypass: the new line lands before the next section, not at the foot of the body'
+Assert-True ($bpMid2 -match '(?m)^Closes #1$') 'bypass: and the section below it is untouched'
+
+$bpFence = $bpTick * 3
+$bpFenced = "### DEPLOY: feat/x`n`n$bpFence" + "text`n### Gate bypass`n- quoted`n$bpFence"
+Assert-Equal 0 @(Get-GateBypassLines -Body $bpFenced).Count 'bypass: a fenced quote of the section is not the section'
+
+# A refresh that rewrote everything below a leading description: the caller reads the lines first and
+# puts them back, which is what open-pr's existing-PR path does.
+$bpPrior = @(Get-GateBypassLines -Body $bp2)
+$bpRefreshed = Add-GateBypassLines -Body $bpBody -Lines $bpPrior
+Assert-Equal (@($bpNoReason, $bpTwo) -join '|') (@(Get-GateBypassLines -Body $bpRefreshed) -join '|') 'bypass: lines read before a refresh are restored after it'
+
+# FOUND IN REVIEW: a -SkipTests -NoResolves run leaves the headingless no-resolves marker directly under
+# the section, and a reader running to the next heading swept it in -- so the next refresh would have
+# welded it into the section as a bypass line.
+. (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
+$bpMarked = Add-NoResolvesMarker -Body $bp1
+Assert-Equal $bpNoReason (@(Get-GateBypassLines -Body $bpMarked) -join '|') 'bypass: the no-resolves marker below a body-final section is not read as one of its lines'
+$bpMarked2 = Add-GateBypassLines -Body $bpMarked -Lines (@(Get-GateBypassLines -Body $bpMarked) + @($bpTwo))
+Assert-True ($bpMarked2.TrimEnd().EndsWith((Get-NoResolvesMarker))) 'bypass: and a later run inserts above the marker, which stays at the foot of the body'
+Assert-Equal (@($bpNoReason, $bpTwo) -join '|') (@(Get-GateBypassLines -Body $bpMarked2) -join '|') 'bypass: with exactly the two bypass lines in the section'
+
+$bpCrlf = $bpMid -replace "`n", "`r`n"
+$bpCrlf2 = Add-GateBypassLines -Body $bpCrlf -Lines @($bpTwo)
+Assert-Equal 0 ([regex]::Matches($bpCrlf2, "(?<!`r)`n").Count) 'bypass: an insert into a CRLF body keeps every line ending CRLF'
+$bpTight = "### DEPLOY: feat/x`n`n### Gate bypass`n`n$bpNoReason`n### Resolved issues`n`nCloses #1"
+Assert-True ((Add-GateBypassLines -Body $bpTight -Lines @($bpTwo)) -match ([regex]::Escape($bpTwo) + "`n`n### Resolved issues")) 'bypass: a heading straight after the section gets its blank line back'
+
+$bpLockBody = Add-GateBypassLines -Body (Get-PrDescription -EntryText $merged) -Lines @($bpTwo)
+$bpLock = Test-DeployLock -EntryText $merged -PrBody $bpLockBody
+Assert-True ($bpLock.Applicable -and $bpLock.Locked) 'bypass: the DEPLOY lock still holds with the section appended -- it tests containment'
+
 Write-Host ""
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red

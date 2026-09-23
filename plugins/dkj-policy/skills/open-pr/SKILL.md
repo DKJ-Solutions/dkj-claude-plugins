@@ -116,7 +116,9 @@ The script:
    See [The document commit](#the-document-commit-what-the-pr-says-is-what-the-branch-carries) below.
 5. Runs the **repo's own lint gate** (via `Get-LintScript` from `repo-config`) and then **all
    test suites** (`scripts/tests/*.tests.ps1`) -- exactly like CI. An error blocks: nothing is
-   pushed and no PR is opened. `-SkipLint` / `-SkipTests` are the deliberate escape valves, and
+   pushed and no PR is opened. `-SkipLint` / `-SkipTests` are the deliberate escape valves -- a run
+   that uses one writes a **Gate bypass** section into the PR body, with `-BypassNote "<why>"` as its
+   reason, and that section survives `-RefreshBody` (#2361) -- and
    `-MaxParallel <n>` runs the suites *smaller* rather than not at all — see
    [When the test gate will not finish](#when-the-test-gate-will-not-finish--maxparallel-not--skiptests).
    The test half is skipped where **CI has already certified this exact commit** — see
