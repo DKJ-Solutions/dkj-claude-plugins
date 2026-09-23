@@ -83,5 +83,3 @@ N/A
 #### Pull Request
 
 claim-issue: a claim marker counts only when its author is the tag's own account
-
-Plugins: dkj-policy
