@@ -180,7 +180,18 @@ This label is purely a filing axis again: who raised it, and nothing else.
 
 ### 2. Then Asana -- a translation, not a copy
 
-Once the GitHub issue exists, mirror it to Asana in the project
+**Only an issue carrying the reach label gets an Asana task** (Dave, September 23, 2026,
+[#2360](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2360)). The board is where a colleague
+follows work they can look at themselves, and the reach label is already the answer to whether they will
+-- so the two are one decision, made once, in step 1. An issue without it is tier 0: GitHub-only, with no
+card, and that absence is the answer rather than a mirror that failed. Measured the day the rule was
+written, in `smartwatchbanden`: four open issues carried a card and no reach label, one of them a
+comment-only fix whose own body said *developer-only; no customer impact*. Its card sat in `Filed`, and
+the card then forced the pull request that fixed it to ship with `-NoResolves`. **Two cases are not new cards and the rule leaves them alone:** a
+ticket that arrived from Asana already has one (section 8), and an issue that gains the label later is
+mirrored at that moment.
+
+Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
 `Get-AsanaProjectGid` names. The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
