@@ -700,6 +700,8 @@ if ($Tag) {
                                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
             if ($fetchOne -and (Test-NativeExitMeasured -Capture $fetchOne) -and $fetchOne.ExitCode -eq 0) {
                 $trunkProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', '--verify', '--quiet', "origin/$trunkBranch") -DiscardStderr
+                # The local-trunk fallback errs in the safe direction: a stale trunk only ADDS commits to
+                # the range, so it can refuse a take-over it need not have, never allow one it should not.
                 $baseRef = if ($trunkProbe -and $trunkProbe.ExitCode -eq 0) { "origin/$trunkBranch" } else { $trunkBranch }
                 $authorLog = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'log', '--format=%an', "$baseRef..origin/$only") -Utf8 -DiscardStderr
                 if ($authorLog -and (Test-NativeExitMeasured -Capture $authorLog) -and $authorLog.ExitCode -eq 0 -and -not $authorLog.ShortRead) {

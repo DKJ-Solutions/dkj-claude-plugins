@@ -1867,12 +1867,13 @@ foreach ($af in $auditFiles) {
 # through Test-NativeExitMeasured: an unmeasured $heads REFUSES (the branch is the precondition), an unmeasured
 # $posted only warns (the claim is the marker, already settled). The $del delete moved into the shared
 # Remove-ClaimMarkerComments helper and is still one site.
-# 78 -> 79 (#2394): claim-issue.ps1's -TakeOver adds $fetchOne, the `git fetch origin <branch>` that brings an
-# untagged branch's commits in so their authors can be read. At the shared network bound and judged through
+# 78 -> 80 (#2394): claim-issue.ps1's -TakeOver adds $fetchOne, the `git fetch origin <branch>` that brings an
+# untagged branch's commits in so their authors can be read, and $authorLog, the `git log --format=%an` that
+# reads them. $fetchOne is at the shared network bound; $authorLog is local and carries no timeout, and is
+# counted because it passes -Utf8 (an author name is free text and can be non-ASCII). Both are judged through
 # Test-NativeExitMeasured: anything but a measured 0 leaves the author list empty, which the verdict REFUSES as
-# 'unknown-author' -- an unread author list must never read as a clean one. The author `git log` beside it is
-# local and deliberately not bounded, per the convention above.
-Assert-Equal 79 $boundedTotal 'the parser still counts 79 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 'unknown-author' -- an unread author list must never read as a clean one.
+Assert-Equal 80 $boundedTotal 'the parser still counts 80 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
