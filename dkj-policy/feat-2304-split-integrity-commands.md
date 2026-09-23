@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Step 3 of #2304. Step 2 (PR #2366) split `-links` and named `-commands` (498.3s on CI) as the next
+critical path. Same method: cut at check boundaries, balance on gate invocations, preserve every assert
+and verify by running, remove no scope.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Cut `check-plugin-integrity-commands.tests.ps1` into four: `-commands` (checks 11, 12, scenario 33),
+  `-script-rules` (checks 33, 31, 34), `-script-set` (check 37, the #1998 script-set scenarios, check 44),
+  `-fixture-guard` (check 41) -- 19/16/17/16 of 68 invocations
+- [x] Repair the cross-block read the cut exposed: the script-set scenarios assert check 31's finding and
+  took its pattern from check 31's block; `-script-set` now states it itself
+- [x] Fixture header, ci.yml's matrix comment and the carried "patterns above" references updated
 
 ### TEST
 
+- [x] Original and the four parts side by side: 132 asserts before, 42 + 27 + 28 + 35 = 132 after, all
+  green; static counts equal too (68 calls, 120 assert statements); longest part 64s against 184s
+- [x] Gates via `open-pr -GatesOnly`
+
 ### DEPLOY: feat/2304-split-integrity-commands
 
-**Score:**
+`check-plugin-integrity-commands.tests.ps1` was the CI gate's critical path once steps 1 and 2 had
+split `-docs` and `-links`: 498.3s against a 391s work bound. It is now four suites, cut at check
+boundaries and balanced on gate invocations, and side by side on one workstation the longest part took
+64s against the original's 184s. All 132 asserts are preserved and were verified by running the four
+parts. This is step 3 of #2304: the heaviest remaining file, `-entries` at 377.7s, is below the work
+bound, so from here the gate is bound by total work rather than by one file.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+This is the step where the lever changes. Until now each split moved the critical path to the next
+heaviest file; after this one no single file is above the 391s work bound, so the next saving comes from
+a shard (or a split that goes with one), not from a split alone -- which is exactly what ci.yml's matrix
+comment has said since #1358. The cut again surfaced state carried across a block boundary, this time a
+variable rather than a file, and it is stated again in the suite that reads it.
+
+**Score:** N/A
 
 #### Pull Request
 

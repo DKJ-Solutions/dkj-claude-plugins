@@ -1,25 +1,28 @@
 <#
 .SYNOPSIS
-    Shared fixture, assert helpers and gate runner for the ten check-plugin-integrity suites.
+    Shared fixture, assert helpers and gate runner for the thirteen check-plugin-integrity suites.
 
 .DESCRIPTION
     NOT NAMED *.tests.ps1 ON PURPOSE: the test gate globs that pattern, and this file asserts
-    nothing. It is dot-sourced by the ten suites that do:
+    nothing. It is dot-sourced by the thirteen suites that do:
 
-      check-plugin-integrity-links.tests.ps1        checks 4 and 28 -- the scan set, links and imports
-      check-plugin-integrity-skill-spans.tests.ps1  check 10 and scenario 16 -- the skills:all spans
-      check-plugin-integrity-plugin-spans.tests.ps1 checks 29 and 32 -- the plugin-scoped spans
-      check-plugin-integrity-plugin-links.tests.ps1 check 30 -- a plugin link must stay in its plugin
-      check-plugin-integrity-commands.tests.ps1     checks 11 and 12 -- printed commands and queries
-      check-plugin-integrity-entries.tests.ps1      checks 13, 13b, 14-16 -- entries, templates, figures
-      check-plugin-integrity-docs.tests.ps1         checks 19, 20, 20b, 20c, 25 -- consumer documents
-      check-plugin-integrity-scripts.tests.ps1      checks 18, 39, 40, 27, 35 -- the script layer
-      check-plugin-integrity-invocations.tests.ps1  checks 22, 42, 42b, 24, 26 -- printed invocations
-      check-plugin-integrity-roster.tests.ps1       checks 6b, 38, 45, 3d and -SkipCheck -- defs and names
+      check-plugin-integrity-links.tests.ps1         checks 4 and 28 -- the scan set, links and imports
+      check-plugin-integrity-skill-spans.tests.ps1   check 10 and scenario 16 -- the skills:all spans
+      check-plugin-integrity-plugin-spans.tests.ps1  checks 29 and 32 -- the plugin-scoped spans
+      check-plugin-integrity-plugin-links.tests.ps1  check 30 -- a plugin link must stay in its plugin
+      check-plugin-integrity-commands.tests.ps1      checks 11, 12 and scenario 33 -- printed commands
+      check-plugin-integrity-script-rules.tests.ps1  checks 33, 31, 34 -- barred skills, bare CLI, headers
+      check-plugin-integrity-script-set.tests.ps1    check 37, the script set (#1998), check 44
+      check-plugin-integrity-fixture-guard.tests.ps1 check 41 -- the #1934 fixture load guard
+      check-plugin-integrity-entries.tests.ps1       checks 13, 13b, 14-16 -- entries, templates, figures
+      check-plugin-integrity-docs.tests.ps1          checks 19, 20, 20b, 20c, 25 -- consumer documents
+      check-plugin-integrity-scripts.tests.ps1       checks 18, 39, 40, 27, 35 -- the script layer
+      check-plugin-integrity-invocations.tests.ps1   checks 22, 42, 42b, 24, 26 -- printed invocations
+      check-plugin-integrity-roster.tests.ps1        checks 6b, 38, 45, 3d and -SkipCheck -- defs and names
 
-    WHY THERE IS MORE THAN ONE, MEASURED THREE TIMES. The gate parallelises per FILE, so the only way
+    WHY THERE IS MORE THAN ONE, MEASURED FOUR TIMES. The gate parallelises per FILE, so the only way
     to give a heavy suite's work the idle lanes is to make it more than one file -- and the same
-    measurement has now forced the same answer at two different scales, the second of them twice.
+    measurement has now forced the same answer at two different scales, the second of them three times.
 
       #714, August 16, 2026 -- the FIRST split, one file into four. As one file this suite ran the
       gate 111 times in sequence, took 160s standalone and 196-213s inside the parallel gate -- and
@@ -41,15 +44,21 @@
       coverage counts inside one run. Side by side on one workstation the longest part took 55s
       against the original's 159s.
 
+      #2304, September 23, 2026 -- the FOURTH split, -commands into four (498.3s on CI, step 3).
+      Balanced the same way, 19/16/17/16 of its 68 invocations; check 41 stands alone because at 16
+      it was the largest single check in the file. Side by side the longest part took 64s against
+      the original's 184s.
+
     NOTHING WAS REMOVED TO BUY THE TIME, AT ANY SPLIT. The suites carry the same scenarios against
     the same fixture -- the asserts still sum to the count the single file reported, which is 188
-    across the four -docs descendants and 141 across the four -links descendants, both verified by
-    running them. Narrowing test scope was explicitly refused in #714 and is not what happened on
+    across the four -docs descendants, 141 across the four -links descendants and 132 across the
+    four -commands descendants, each verified by running them. Narrowing test scope was explicitly refused in #714 and is not what happened on
     any occasion.
 
-    BOTH #2304 SPLITS SURFACED A LATENT ORDER DEPENDENCY, and both are repaired here rather than
-    worked around by the grouping -- see the scripts\task note in New-IntegrityFixture and
-    Write-QuietRootDocuments. A scenario that inherits state an earlier scenario created only works
+    EVERY #2304 SPLIT SURFACED A LATENT ORDER DEPENDENCY, and each is repaired rather than worked
+    around by the grouping -- see the scripts\task note in New-IntegrityFixture, Write-QuietRootDocuments,
+    and the finding pattern -script-set restates because the script-set scenarios used to read it from
+    check 31's block. A scenario that inherits state an earlier scenario created only works
     while the two share a file, which is precisely the property a cost-based partition may not
     depend on.
 
