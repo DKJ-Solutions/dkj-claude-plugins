@@ -132,7 +132,7 @@ Assert-True (-not (Test-MergeOnGreenArmed -Record (New-PrRecord -Labels @('Merge
 Write-Host ''
 Write-Host 'Get-MergeOnGreenPrVerdict -- the one path that answers Eligible=$true' -ForegroundColor Cyan
 
-$ok = Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green)
+$ok = Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
 Assert-True $ok.Eligible 'armed, not a draft, MERGEABLE and every required check green -- eligible'
 Assert-True ([bool]$ok.Reason) 'and the Reason is set on the accepting path too'
 
@@ -173,7 +173,7 @@ foreach ($hit in @(
 }
 Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts\repo-config.ps1')) -MergeBlockVerdict (New-Green)).Eligible) `
     'a backslash spelling is the same path'
-Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green)).Eligible `
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
     'a path that merely NAMES scripts is not one -- the match is anchored on the directory'
 # FAIL-CLOSED ON A LIST THAT DID NOT SHOW THE WHOLE DIFF: gh returns at most 100 files per record.
 $truncated = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md') -ChangedFiles 150) -MergeBlockVerdict (New-Green)
@@ -218,7 +218,7 @@ $greenJson = '[{"name":"lint-en-tests","bucket":"pass","state":"SUCCESS","link":
 $failJson  = '[{"name":"lint-en-tests","bucket":"fail","state":"FAILURE","link":"https://x/actions/runs/2"}]'
 $pendJson  = '[{"name":"lint-en-tests","bucket":"pending","state":"IN_PROGRESS","link":"https://x/actions/runs/3"}]'
 
-Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (Get-MergeBlockVerdict -RequiredChecksJson $greenJson)).Eligible `
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (Get-MergeBlockVerdict -RequiredChecksJson $greenJson) -GreenAgeMinutes 30).Eligible `
     'a genuinely green required payload, through the real verdict function, is eligible'
 Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (Get-MergeBlockVerdict -RequiredChecksJson $failJson)).Eligible) `
     'a failing one is refused'
@@ -229,6 +229,48 @@ Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockV
 # protect. A sweep with nothing named has no green to wait for at all.
 Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (Get-MergeBlockVerdict -RequiredChecksJson '')).Eligible) `
     'an unreadable required-check list refuses -- there is no green to wait for'
+
+Write-Host ''
+Write-Host 'The settle window -- green is not yet orphaned (#2393)' -ForegroundColor Cyan
+
+# SHIP-PR ARMS BEFORE ITS OWN WAIT, and the sweep is woken by the same CI completion that ends that wait.
+# Without the window every ordinary ship would be handed to a second ship-pr while the live one merges.
+$settle = Get-MergeOnGreenSettleMinutes
+Assert-Equal 10 $settle 'the settle window is ten minutes'
+$fresh = Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 2
+Assert-True (-not $fresh.Eligible) 'green for two minutes is refused -- a live session is normally merging it'
+Assert-True ($fresh.Reason -match 'settle window') 'and the refusal names the window, so the log reads as a wait'
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green)).Eligible) `
+    'an age that was never passed refuses -- fail-closed, like every other unread fact'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes $settle).Eligible `
+    'exactly the window is eligible'
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::NaN)).Eligible) `
+    'NaN refuses -- it compares false against the window and would otherwise read as settled'
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::PositiveInfinity)).Eligible) `
+    'and so does Infinity'
+# THE CHEAPER DISQUALIFIERS STILL SPEAK FIRST: a red check must not be reported as a settle wait.
+$redFresh = Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict ([pscustomobject]@{
+    Blocked = $true; Reason = 'lint-en-tests failed'; UnfinishedRequired = @() }) -GreenAgeMinutes 1
+Assert-Equal 'lint-en-tests failed' $redFresh.Reason 'a red check is reported as red, not as a settle wait'
+
+Write-Host ''
+Write-Host 'Get-RequiredGreenAgeMinutes -- when the LAST required check finished' -ForegroundColor Cyan
+
+$now = [datetime]::new(2026, 9, 23, 20, 0, 0, [DateTimeKind]::Utc)
+$twoJson = '[{"name":"a","bucket":"pass","completedAt":"2026-09-23T19:30:00Z"},{"name":"b","bucket":"pass","completedAt":"2026-09-23T19:45:00Z"}]'
+Assert-Equal 15 (Get-RequiredGreenAgeMinutes -RequiredChecksJson $twoJson -Now $now) `
+    'the age runs from the slowest required check, not the first'
+Assert-Equal 15 (Get-RequiredGreenAgeMinutes -RequiredChecksJson $twoJson -Now $now.ToLocalTime()) `
+    'and a local Now gives the same answer -- both sides are compared in UTC'
+Assert-Equal $null (Get-RequiredGreenAgeMinutes -RequiredChecksJson '' -Now $now) 'an empty payload is unreadable'
+Assert-Equal $null (Get-RequiredGreenAgeMinutes -RequiredChecksJson '[]' -Now $now) 'and so is an empty list'
+Assert-Equal $null (Get-RequiredGreenAgeMinutes -RequiredChecksJson 'not json' -Now $now) 'and so is text that is not JSON'
+Assert-Equal $null (Get-RequiredGreenAgeMinutes -RequiredChecksJson '[{"name":"a","bucket":"pass"}]' -Now $now) `
+    'a payload fetched without completedAt is unreadable, rather than throwing'
+# A PENDING CHECK REPORTS THE ZERO DATE, and reading it as a date would make every pending PR look
+# two thousand years old -- the most settled pull request on the tracker.
+Assert-Equal $null (Get-RequiredGreenAgeMinutes -RequiredChecksJson '[{"name":"a","bucket":"pending","completedAt":"0001-01-01T00:00:00Z"}]' -Now $now) `
+    'the zero date of a pending check is unreadable, not ancient'
 
 Write-Host ''
 Write-Host 'Select-MergeOnGreenCandidate' -ForegroundColor Cyan
@@ -259,6 +301,27 @@ $pickRaw = Get-Content -LiteralPath $ScriptPath -Raw
 Assert-True ($shipRaw -match 'Get-MergeOnGreenArmLabel') 'ship-pr.ps1 reaches the label through the lib'
 Assert-True ($pickRaw -match 'Get-MergeOnGreenArmLabel') 'pick-merge-on-green.ps1 reaches the label through the lib'
 Assert-True ($shipRaw -match [regex]::Escape('..\lib\merge-on-green-lib.ps1')) 'and ship-pr.ps1 dot-sources it'
+Assert-True ($pickRaw -match 'completedAt') 'the picker asks gh for completedAt -- without it every pull request reads as unsettled'
+Assert-True ($pickRaw -match '-GreenAgeMinutes') 'and hands the age to the verdict'
+
+Write-Host ''
+Write-Host "ship-pr arms BEFORE its wait, not only on a CI refusal (#2393)" -ForegroundColor Cyan
+
+# STRUCTURAL, SAID TO BE SO: the arming is inline in ship-pr.ps1 and drives gh. What can be held from
+# here is the ORDER -- the arm call precedes step 3's heading, so a process that dies mid-watch or a
+# step-3b refusal has already armed -- and that the two judgement gates disarm.
+$armAt   = $shipRaw.IndexOf('if (Set-ShipMergeOnGreenArm)')
+$step3At = $shipRaw.IndexOf('# --- Step 3: wait for the required CI check')
+Assert-True ($armAt -gt 0 -and $step3At -gt 0 -and $armAt -lt $step3At) 'ship-pr arms before step 3 starts waiting on CI'
+Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*if \(Set-ShipMergeOnGreenArm\)") `
+    'and not under -NoMerge'
+Assert-True ($shipRaw -notmatch [regex]::Escape("'--add-label', `$armLabel")) `
+    'the old inline arming in the CI-refusal branch is gone -- the label is written through Set-ShipMergeOnGreenArm only'
+Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'step-list gate'") 'the step-list gate disarms -- only a commit clears it'
+Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'DEPLOY lock'") 'and so does the DEPLOY lock'
+Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'merge refusal from GitHub'") 'and so does a 4xx from gh pr merge'
+Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'stale-CI check") `
+    'and so does a required check with no Actions run behind it -- the sweep would re-pick it forever'
 
 Write-Host ''
 Write-Host "ship-pr's on-the-trunk resume (#2319's third precondition)" -ForegroundColor Cyan

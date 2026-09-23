@@ -125,7 +125,7 @@ foreach ($record in $armed) {
     # its Reason exact. A sweep that armed ten pull requests would cost ten reads; the merge it
     # performs costs a CI run.
     $requiredRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
-        'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link')
+        'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link,completedAt')
     $requiredJson = if ($requiredRead.ExitCode -eq 0) { ($requiredRead.Output -join "`n") } else { '' }
 
     # ChecksJson is left out deliberately: Get-MergeBlockVerdict uses it only to NAME the
@@ -133,7 +133,12 @@ foreach ($record in $armed) {
     $blockVerdict = $null
     try { $blockVerdict = Get-MergeBlockVerdict -RequiredChecksJson $requiredJson } catch { $blockVerdict = $null }
 
-    $verdict = Get-MergeOnGreenPrVerdict -Record $record -MergeBlockVerdict $blockVerdict -Label $label
+    # THE SAME PAYLOAD, READ FOR WHEN IT WENT GREEN (#2393) -- no second call. A live ship-pr armed this
+    # before its own wait, so a pull request only just green is normally being merged by that session.
+    $greenAge = $null
+    try { $greenAge = Get-RequiredGreenAgeMinutes -RequiredChecksJson $requiredJson -Now (Get-Date) } catch { $greenAge = $null }
+
+    $verdict = Get-MergeOnGreenPrVerdict -Record $record -MergeBlockVerdict $blockVerdict -GreenAgeMinutes $greenAge -Label $label
     $branch = ''
     if ($record.PSObject.Properties['headRefName']) { $branch = [string]$record.headRefName }
     $sha = ''
