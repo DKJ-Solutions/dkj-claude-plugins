@@ -295,33 +295,10 @@ if ($DryRun) {
     Write-Host '  DRY RUN: would pull the copy into a scratch directory, count its files, and repeat until'
     Write-Host '  the count settles and matches the source.'
 } else {
-    function Get-ThemeFileCount {
-        param([string]$Id)
-        # 'theme info --json' carries no file count on current CLI releases (#2033 -- @shopify/cli
-        # 4.8.0's schema is fixed to id/name/role/shop/preview_url/editor_url), and 'theme list --json'
-        # carries none either (only id/name/role/processing, and 'processing''s meaning is undocumented
-        # -- not something this function will guess at). So the count is taken off a real pull: a full
-        # 'theme pull' into a scratch directory, counted off what actually landed on disk. A count this
-        # cannot take -- the pull fails, or the scratch directory cannot be read back -- is reported as
-        # -1 and handled as unknown, exactly as before.
-        $pullPath = Join-Path ([System.IO.Path]::GetTempPath()) ('shopify-fill-check-' + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $pullPath -Force | Out-Null
-        try {
-            # Not -Quiet: 'theme pull' is one of the two calls in this plugin that can run for minutes
-            # and stop mid-way to ask for authentication -- captured, that prompt is invisible and the
-            # run reads as still in progress (shopify-cli-lib.ps1's own header). Same call shape
-            # sync-main already uses to mirror the live theme into a scratch path.
-            $r = Invoke-ShopifyCli -Arguments @('theme', 'pull', '--store', $store, '--theme', $Id, '--path', $pullPath)
-            if ($r.ExitCode -ne 0) { return -1 }
-            return @(Get-ChildItem -LiteralPath $pullPath -Recurse -File -ErrorAction SilentlyContinue).Count
-        } catch {
-            return -1
-        } finally {
-            Remove-Item -LiteralPath $pullPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    $sourceCount = Get-ThemeFileCount -Id $liveId
+    # THE COUNT IS TAKEN BY Get-ThemeFileCount IN shopify-cli-lib.ps1: a full pull, counted on disk, -1
+    # where it cannot be measured. It was a local function here until #2348, when push-preview needed the
+    # same count; the lib's docstring carries why a pull is the only source of the number.
+    $sourceCount = Get-ThemeFileCount -Store $store -ThemeId $liveId
     if ($sourceCount -lt 0) {
         Write-Error ("Could not read the LIVE theme's file count, so the copy cannot be judged complete. " +
             "The backup '$backupName' (id $backupId) exists and may be incomplete; nothing was rotated, " +
@@ -334,7 +311,7 @@ if ($DryRun) {
     $deadline = [datetime]::Now.AddMinutes($TimeoutMinutes)
     $verdict = $null
     while ([datetime]::Now -lt $deadline) {
-        $n = Get-ThemeFileCount -Id $backupId
+        $n = Get-ThemeFileCount -Store $store -ThemeId $backupId
         if ($n -ge 0) { $samples += $n }
         $verdict = Get-ThemeFillVerdict -Samples $samples -SourceFileCount $sourceCount
         Write-Host "    $($verdict.Count) file(s) -- $($verdict.Verdict)"

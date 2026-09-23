@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     Contract tests for scripts/lib/preview-theme.ps1 -- the 'shopify theme push' argument lists
-    push-preview.ps1 hands to the CLI, the flag whitelist in front of them, and the two readers of the
-    CLI's own output.
+    push-preview.ps1 hands to the CLI, the 'shopify theme duplicate' call a new preview is created with
+    (#2348), the two flag whitelists in front of them, the two readers of the CLI's own output, and the
+    per-market settings notice.
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell. Exit code 0 if everything passes, 1 on a failure.
@@ -26,6 +27,9 @@
       5. the two output readers, which are the halves that cannot be re-run: the id of a theme that was
          created-and-pushed in one call, and the theme-list lookup whose PowerShell 5.1 member-enumeration
          trap made a consumer's fallback always report 'not found'.
+      6. the create-by-copy call and the per-market settings notice (inbound #2348): 'theme push' never
+         uploads config/settings_data.context.*.json, so a new preview is a 'theme duplicate' of live,
+         and what no push can deliver is said out loud rather than left for a reviewer to discover.
 
     WHAT IT CANNOT GUARD: that the CLI still accepts this set. Only the CLI can answer that, and the lib's
     header says to re-measure with --help rather than edit the list from memory. A test cannot tell a stale
@@ -223,6 +227,71 @@ Assert-Match ($note -join ' ') '(?i)your workflow' 'it defers the carrier to the
 # inverted. If this assert ever fails, the text belongs on the policy page instead.
 Assert-True (($note -join ' ') -notmatch '(?i)bwj|smartwatchbanden|xoxowildhearts') `
     'and it names no specific repo or plugin -- the rule is generic, the carrier is the repo''s'
+
+Write-Host ""
+Write-Host "Get-ThemeDuplicateArgs -- a new preview is a copy of live (inbound #2348)" -ForegroundColor Cyan
+# 'theme push' never uploads config/settings_data.context.*.json (CLI 4.8.0: no upload bucket matches it),
+# so a preview is created by 'theme duplicate' of live, which copies every file server-side.
+$dupA = Get-ThemeDuplicateArgs -Store 'a-store.myshopify.com' -SourceThemeId '170064871700' -ThemeName 'cc-fix-some-branch'
+Assert-Equal 'theme'     $dupA[0] 'it is a theme command'
+Assert-Equal 'duplicate' $dupA[1] 'it is a duplicate, not a push'
+$t = [array]::IndexOf($dupA, '--theme')
+Assert-Equal '170064871700' $dupA[$t + 1] 'the SOURCE id follows --theme'
+$n = [array]::IndexOf($dupA, '--name')
+Assert-Equal 'cc-fix-some-branch' $dupA[$n + 1] 'the new theme''s name follows --name'
+Assert-True  ($dupA -contains '--force') '--force: "Required if non interactive", and a session has no TTY (#2031)'
+Assert-True  ($dupA -contains '--json')  '--json, because the caller reads the new id out of it'
+Assert-False ($dupA -contains '--unpublished') 'no --unpublished: that is the push that drops the context settings'
+Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceThemeId 'live' -ThemeName 'n' }) 'all digits' 'a NAME as the source is refused -- the source is the live id'
+Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceThemeId '1' -ThemeName 'fix/x' }) 'may not contain' 'a slash in the new name is refused'
+Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceThemeId '1' -ThemeName '  ' }) 'must not be blank' 'a blank name is refused'
+# THE DUPLICATE'S --json SHAPE, read in CLI 4.8.0's source (dist/chunk-ZL5LU4U2.js): on success exactly
+# {"theme":{"id","name","role","shop"}}, so the one id in it is the NEW theme's -- never the source's. Its
+# failure shapes carry a message and no id, so the reader answers empty and push-preview falls back to
+# the theme list.
+Assert-Equal '999888777' (Get-ThemeIdFromPushOutput -Output '{"theme":{"id":999888777,"name":"cc-fix-x","role":"unpublished","shop":"a-store.myshopify.com"}}') 'the duplicate''s --json yields the NEW theme''s id'
+Assert-Equal '' (Get-ThemeIdFromPushOutput -Output '{"message":"The theme ''Live'' could not be duplicated due to errors","errors":["x"],"requestId":"r"}') 'and a failed duplicate yields none'
+$dupFlags = @(Get-ThemeDuplicateFlags)
+Assert-Equal 10 $dupFlags.Count 'ten long-form flags, measured 2026-09-23 against CLI 4.8.0'
+Assert-Equal 0 (@($dupA | Where-Object { $_ -like '--*' -and $dupFlags -notcontains $_ })).Count 'every flag the call uses is in the measured set'
+Assert-Equal 0 (@($dupFlags | Where-Object { $_ -notlike '--*' })).Count 'long forms only, no short forms'
+
+Write-Host ""
+Write-Host "Test-ContextSettingsPath -- exactly the files no push delivers" -ForegroundColor Cyan
+Assert-True  (Test-ContextSettingsPath -Path 'config/settings_data.context.nl.json') 'a per-market settings file matches'
+Assert-True  (Test-ContextSettingsPath -Path 'config\settings_data.context.uk.json') 'a backslash path matches too'
+Assert-False (Test-ContextSettingsPath -Path 'config/settings_data.json') 'the global settings file does not -- push delivers it'
+Assert-False (Test-ContextSettingsPath -Path 'templates/index.context.nl.json') 'a template context file does not -- push delivers those'
+Assert-False (Test-ContextSettingsPath -Path 'sections/header-group.context.nl.json') 'nor a section-group context file'
+Assert-False (Test-ContextSettingsPath -Path '') 'an empty path answers false'
+
+Write-Host ""
+Write-Host "Get-ContextSettingsMarkets -- read off the working tree" -ForegroundColor Cyan
+$fx = Join-Path ([System.IO.Path]::GetTempPath()) ('pp-ctx-' + [guid]::NewGuid().ToString('N'))
+try {
+    Assert-Equal 0 @(Get-ContextSettingsMarkets -RepoRoot $fx).Count 'no config folder -> no markets'
+    New-Item -ItemType Directory -Path (Join-Path $fx 'config') -Force | Out-Null
+    foreach ($f in 'settings_data.json', 'settings_data.context.uk.json', 'settings_data.context.nl.json', 'settings_schema.json') {
+        Set-Content -LiteralPath (Join-Path $fx "config\$f") -Value '{}'
+    }
+    Assert-Equal 'nl,uk' (@(Get-ContextSettingsMarkets -RepoRoot $fx) -join ',') 'the two markets, sorted, and nothing else'
+} finally {
+    Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
+Write-Host "Get-PreviewSettingsNotice -- two facts, either true alone" -ForegroundColor Cyan
+Assert-Equal 0 @(Get-PreviewSettingsNotice -FillState '' -Markets @()).Count 'a repo with no per-market settings sees nothing'
+Assert-Equal 0 @(Get-PreviewSettingsNotice -FillState 'complete' -Markets @('nl', 'uk')).Count 'a verified copy of live sees nothing'
+$noRec = (@(Get-PreviewSettingsNotice -FillState '' -Markets @('nl', 'uk')) -join ' ')
+Assert-Match $noRec 'no record' 'a theme with no record says so, rather than claiming it is missing the settings'
+Assert-Match $noRec 'nl, uk' 'and names the markets'
+Assert-Match (@(Get-PreviewSettingsNotice -FillState 'short' -Markets @('nl')) -join ' ') 'not verified complete \(short\)' 'a copy that settled short says which state it is in'
+$chg = (@(Get-PreviewSettingsNotice -FillState 'complete' -Markets @('nl') -ChangedContextFiles @('config/settings_data.context.nl.json')) -join ' ')
+Assert-Match $chg 'config/settings_data\.context\.nl\.json' 'a branch changing a context file names the file, even on a verified copy'
+Assert-Match $chg 'LIVE''s values' 'and says the preview shows live''s values for it'
+Assert-True ($chg -notmatch 'no record') 'without the missing-settings note a verified copy does not need'
+Assert-True (($noRec + ' ' + $chg) -notmatch '(?i)bwj|smartwatchbanden|xoxowildhearts|loyalty') 'it names no repo and no store''s own settings'
 
 Write-Host ""
 if ($script:fail -gt 0) {
