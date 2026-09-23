@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Inbound #2339, checked against the tree before repairing: the reported cause holds. The config was
+dot-sourced inside a `& { }` scriptblock, so `Get-StorefrontMarkets` died with that scope, and
+`market-urls.ps1` then refused. One more thing the report did not mention: with `-Version` given, that
+scriptblock never ran at all, so the config was not loaded in any form.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-golive-block.ps1` dot-sources `scripts/repo-config.ps1` once, at script scope. Every
+      parameter is captured before the load, and `$repoRoot` is restored after it.
+- [x] The version half reads `Get-ChangelogPath` from that load; the scriptblock is gone.
+- [x] `dkj-policy-bwj.tests.ps1`: the driver run with `-File` and `-Path` against a fixture
+      repo-config that declares markets.
 
 ### TEST
 
+- [x] Unrepaired copy on `main`, same fixture: `this store has not declared its markets`, exit 1.
+- [x] `dkj-policy-bwj.tests.ps1` in the lane: 365 pass, 0 fail.
+
 ### DEPLOY: fix/2339-golive-block-config-scope
 
-**Score:**
+`build-golive-block.ps1` read `scripts/repo-config.ps1` inside a scriptblock, so the functions it
+defined were gone before the live-URL half ran. The config is now read once at script scope, and a suite
+case runs the driver via `-File` (#2339).
+
+**Score:** 2 -- one script in one plugin, with a suite case that holds the invocation shape.
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store running dkj-policy-bwj, the `golive-block` skill's own `-File` invocation with `-Path` failed
+with *"this store has not declared its markets"*, even though the store had declared them, so the error
+pointed at the wrong fix. It now prints one live URL per market, without the caller having to dot-source
+the config first.
+
+**Score:** 3 -- the documented invocation works for the first time with `-Path`; noticed the moment
+somebody builds a go-live block for a storefront page.
 
 #### Pull Request
+
+build-golive-block: read repo-config at script scope, so -Path finds the store's markets
 
