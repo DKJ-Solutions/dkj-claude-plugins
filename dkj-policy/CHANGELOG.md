@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/remove-scripts-readme · 20260923-111221Z
+
+Removed `scripts/README.md`. The rules and measured decisions that code and docs cited it for now live
+in [Sylvester's lens](../.claude/specialists/lenses/specialist-05-15-lens.md#the-scripts-directory-is-the-source)
+and [Tycho's lens](../.claude/specialists/lenses/specialist-04-18-lens.md#a-suites-fixture-path-carries-the-pid-and-a-fresh-guid);
+the directory map and the entry-point table were dropped, because each skill page and each plugin's
+`hooks/hooks.json` already answer them. The source-repo guard's refusal now points at the lens.
+
+**Score:** 1 -- prevents a reader following the guard's printed pointer, or a code comment, to a page
+that no longer exists.
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber: the only consumer-visible change is wording in two plugin pages.
+
+**Score:** N/A
+
+#### Pull Request
+
+Remove scripts/README.md; move its cited rules to the owners' lenses
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2356](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2356)
+
+---
 
 ### DEPLOY: fix/2343-ship-pr-unattended-trunk-return · 20260923-105742Z
 
