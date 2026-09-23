@@ -307,6 +307,32 @@ suites failing at once, none of them on an assert, is not forty-eight regression
 the harness. Re-run two or three of the named suites standalone first. Where they pass in seconds, the
 failure is contention or a stall, and the next place to look is which suite held its lane.
 
+### A suite's fixture path carries the PID and a fresh guid
+
+**Both halves, spelled `"<label>-$PID-$([guid]::NewGuid().ToString('n'))"`**, with any extension at the
+end. `test-suite-gate.tests.ps1` enforces it and names the offending `file:line`. (Moved here from
+`scripts/README.md` when that page was removed, September 23, 2026.)
+
+- **The guid makes the path unguessable.** `$PID` is neither secret nor large, and `New-Item -Force` and
+  `Remove-Item -Recurse -Force` both follow a symlink or junction, so a link pre-planted at a composed
+  leaf redirects the write *and* the teardown. Measured September 8, 2026
+  ([#1664](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1664)): **100** guid-less
+  composed paths across the suites, with **114** recursive deletes at one of them across 49 files.
+- **`$PID` makes a leftover readable**, in front of the guid exactly as `New-ScratchPath` composes it:
+  it attributes a stray directory to a run that is still alive, and the gate's capture lookup globs on
+  `<label>-<pid>-*`. It also still answers collision: the test gate is a throttled parallel scheduler,
+  and two runs sharing a fixed path tear down each other's tree mid-assert — measured August 11, 2026,
+  `connectors.tests.ps1` passed alone and failed twice when run twice at once.
+- **A variable holding a fresh guid (`$tag`, `$Guid`) also passes**, for suites needing one path per child
+  invocation; the gate suite pins those two names to a real guid of usable width via the parsed syntax.
+  A per-case `$Label` alone is not enough — it repeats across runs.
+- **Do not reach for `New-ScratchPath` in a suite.** It is the shipping-script answer
+  ([Sylvester's lens](specialist-05-15-lens.md#temp-paths-in-a-shipping-script-new-scratchpath)), and
+  wrong here: 37 of the 53 files that had to change would need a new dot-source of a 1406-line lib, and
+  its `-Directory` throws on an existing item. Measured and declined on #1664. **Counting that dot-source
+  needs care**: 18 suites name the lib on their dot-source line and 4 more reach it through a variable
+  (`. $LibPath`), so a literal grep sees 18 of 22.
+
 In short: the **how** (automated tests, regression guarding) is portable; the **what** (the
 PowerShell scripts as the test surface, and building out a suite once the lint gate warrants it)
 belongs to this repo.

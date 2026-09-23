@@ -140,6 +140,9 @@ function Invoke-Gate {
     # actually sees on their own gate run.
     $depthHeldByCaller = [Environment]::GetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', 'Process')
     [Environment]::SetEnvironmentVariable('DKJ_TEST_GATE_DEPTH', $null, 'Process')
+    # Taken BEFORE the child starts, so every directory the child creates is newer than it -- the half
+    # of the CaptureDir lookup below that the PID cannot carry (issue #2335).
+    $launchedUtc = [DateTime]::UtcNow
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         $out = & powershell @psArgs 2>&1
@@ -175,17 +178,31 @@ function Invoke-Gate {
         # case's whole assertion. Found rather than composed since #1659: the leaf is
         # "test-suite-gate-<pid>-<guid>" now, so the PID narrows it to this run and nothing else can,
         # while the guid is what a pre-planted junction has no name to sit at. A green run matches zero
-        # and a red run exactly one; more than one would mean the PID was reused inside this run's own
-        # lifetime, which cannot happen while that process is still alive to print it.
+        # and a red run exactly one.
+        #
+        # THE PID NARROWS IT TO THIS RUN ONLY AMONG LIVE PROCESSES, and this comment used to say "nothing
+        # else can" (issue #2335). A red run's directory is RETAINED on purpose (#1636), so the temp folder
+        # carries every earlier red run's leaf -- 110 of them on the authoring machine when this was
+        # measured, three PIDs already appearing more than once -- and Windows reuses PIDs freely. A
+        # driver that drew the PID of any dead run with a kept directory then matched TWO, the '-eq 1'
+        # below returned '', and exactly the four POSITIVE retention asserts went red while the two
+        # negative ones passed: #2335's signature, red under the gate (more churn, more retained dirs) and
+        # green on the standalone re-run seconds later, under a new PID. So a hit must also be NEWER than
+        # this child's launch -- a stale leaf with the same PID predates it by construction.
         CaptureDir = $(
             $m = [regex]::Match($text, 'GATE-PID:\s*(\d+)')
-            if ($m.Success) {
-                $hit = @(Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Directory `
-                                       -Filter ("test-suite-gate-" + $m.Groups[1].Value + "-*") -ErrorAction SilentlyContinue)
-                if ($hit.Count -eq 1) { $hit[0].FullName } else { '' }
-            } else { '' }
+            if ($m.Success) { Find-GateCaptureDir -GatePid $m.Groups[1].Value -SinceUtc $launchedUtc } else { '' }
         )
     }
+}
+
+# The lookup behind Invoke-Gate's CaptureDir, a function of its own so the stale-leaf case (#2335) can be
+# asserted on a planted directory rather than waited for on a PID collision.
+function Find-GateCaptureDir {
+    param([string]$GatePid, [datetime]$SinceUtc, [string]$Root = ([System.IO.Path]::GetTempPath()))
+    $hit = @(Get-ChildItem -LiteralPath $Root -Directory -Filter ("test-suite-gate-$GatePid-*") -ErrorAction SilentlyContinue |
+             Where-Object { $_.CreationTimeUtc -ge $SinceUtc })
+    if ($hit.Count -eq 1) { $hit[0].FullName } else { '' }
 }
 
 # Folds PowerShell backtick continuations into one logical statement, so a scan judges a statement
@@ -493,7 +510,11 @@ try {
     # nobody quotes that line -- the summary is the one that reaches a branch doc or a changelog entry, and
     # the seconds without the lanes are a draw from a 4.5x spread. The number is the resolved $MaxParallel
     # (clamped to the suite count here), so it is machine-dependent -- assert its shape, not its value.
-    Assert-True ($r.Text -match 'test gate: all 3 suites passed in \d+s \(\d+ lanes?\)\.') 'the summary names the lane count the seconds depend on'
+    # AND WHAT MAY FOLLOW IT IS ALLOWED THROUGH (issue #2364): the verdict appends optional notes after the
+    # lane count -- the #2317 lane-hold note among them, which a memory-starved machine prints and which
+    # is exactly the state this suite is in under the full pool. Anchoring ')' directly to '.' or ':' made
+    # these asserts red under the gate and green alone. The same '[^\r\n]*' is used at every such site.
+    Assert-True ($r.Text -match 'test gate: all 3 suites passed in \d+s \(\d+ lanes?\)[^\r\n]*\.') 'the summary names the lane count the seconds depend on'
 
     # THE ATOMIC-BLOCK ASSERT. Not "both lines are present somewhere" -- an interleaving bug satisfies
     # that. Each marker must sit on the line directly after its OWN header, which is exactly the property
@@ -526,7 +547,7 @@ try {
     Assert-True ($r.Text -match 'GATE-RESULT: False') 'one failing suite fails the whole gate'
     Assert-True ($r.Text -match '== z-broken\.tests\.ps1 == FAILED \(exit 3\)') 'its header carries the failure AND the real exit code'
     Assert-True ($r.Text -match '== a-first\.tests\.ps1 ==\r?\n') 'the passing sibling keeps its plain header'
-    Assert-True ($r.Text -match 'test gate: 1 of 2 suites FAILED in \d+s \(\d+ lanes?\): z-broken\.tests\.ps1') 'and the closing summary carries the lane count and names it (issue #1318 -- the red line too)'
+    Assert-True ($r.Text -match 'test gate: 1 of 2 suites FAILED in \d+s \(\d+ lanes?\)[^:\r\n]*: z-broken\.tests\.ps1') 'and the closing summary carries the lane count and names it (issue #1318 -- the red line too)'
     Assert-True ($r.Text -match 'MARKER-Z') 'the failing suite still prints its own output -- attributable without a second run'
 
     # A RED RUN KEEPS THE FAILING SUITE'S CAPTURE, AND ONLY THAT SUITE'S -- issue #1636. The console block
@@ -547,6 +568,18 @@ try {
     # The empty half of the failing pair goes too: z-broken writes no stderr, so keeping a 0-byte
     # .err.txt would only pad a directory the verdict line has just recommended reading.
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $r.CaptureDir 'z-broken.tests.err.txt'))) 'and an empty capture file is not kept either'
+
+    # A STALE LEAF UNDER A REUSED PID IS NOT THIS RUN'S -- issue #2335. Planted inside $Fixture, not in the
+    # real temp folder: the lookup takes its root as a parameter, and the case needs no gate run at all.
+    $pidRoot = Join-Path $Fixture 'pid-reuse'
+    $stale   = Join-Path $pidRoot 'test-suite-gate-4242-00000000000000000000000000000000'
+    New-Item -ItemType Directory -Path $stale -Force | Out-Null
+    (Get-Item -LiteralPath $stale).CreationTimeUtc = [DateTime]::UtcNow.AddHours(-1)
+    $since = [DateTime]::UtcNow
+    Assert-Equal '' (Find-GateCaptureDir -GatePid 4242 -SinceUtc $since -Root $pidRoot) 'a dead run''s kept directory under the same PID is not taken for this run''s'
+    $fresh = Join-Path $pidRoot 'test-suite-gate-4242-ffffffffffffffffffffffffffffffff'
+    New-Item -ItemType Directory -Path $fresh -Force | Out-Null
+    Assert-Equal $fresh (Find-GateCaptureDir -GatePid 4242 -SinceUtc $since -Root $pidRoot) 'and beside it, the directory this run created is still found -- one hit, not two'
 
     # --- 4. It really is parallel, and -MaxParallel 1 really is the way back ------------------------
     #
@@ -604,7 +637,7 @@ try {
     Assert-Says $ser.Flat 'one at a time' 'and says which mode it is in'
     # -MaxParallel 1 is the one deterministic lane count, so it is the one the summary can be asserted on
     # exactly: singular 'lane', not 'lanes' (issue #1318).
-    Assert-True ($ser.Text -match 'test gate: all 6 suites passed in \d+s \(1 lane\)\.') 'the summary says one lane, singular, when the valve is closed'
+    Assert-True ($ser.Text -match 'test gate: all 6 suites passed in \d+s \(1 lane\)[^\r\n]*\.') 'the summary says one lane, singular, when the valve is closed'
     Assert-Equal 0 (Get-OverlapCount -StampDir $stamps) 'serially NOTHING overlaps -- the valve really queues them'
     # The one timing assert that is safe, because it is a floor the sleeps guarantee: six 1.2s suites in
     # sequence cannot come in under 7.2s of sleeping, however fast the machine is.
@@ -701,14 +734,14 @@ try {
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'three suites plus a passing command: the gate returns true'
     Assert-Says $r.Flat 'running 1 repo test command' 'and it announces the command half separately'
     Assert-True ($r.Text -match 'CMD-MARKER-OK') 'the command''s own output is printed'
-    Assert-True ($r.Text -match 'test gate: all 4 suites passed in \d+s \(\d+ lanes?\)\.') 'the summary counts the command with the suites and still names the lane count (issue #1318)'
+    Assert-True ($r.Text -match 'test gate: all 4 suites passed in \d+s \(\d+ lanes?\)[^\r\n]*\.') 'the summary counts the command with the suites and still names the lane count (issue #1318)'
 
     $cmdBad = Join-Path $Fixture 'commands-bad.txt'
     [System.IO.File]::WriteAllText($cmdBad, "cmd /c exit 7`r`n", $Utf8NoBom)
     $r = Invoke-Gate -TestsDir $ok -CommandsFile $cmdBad
     Assert-True ($r.Text -match 'GATE-RESULT: False') 'a failing command fails the whole gate'
     Assert-True ($r.Text -match '== cmd /c exit 7 == FAILED \(exit 7\)') 'its header carries the NATIVE exit code, propagated through the child'
-    Assert-True ($r.Text -match 'test gate: 1 of 4 suites FAILED in \d+s \(\d+ lanes?\): cmd /c exit 7') 'and the closing summary carries the lane count and names the command'
+    Assert-True ($r.Text -match 'test gate: 1 of 4 suites FAILED in \d+s \(\d+ lanes?\)[^:\r\n]*: cmd /c exit 7') 'and the closing summary carries the lane count and names the command'
 
     # A repo whose whole suite is Get-TestCommands: no scripts\tests at all, and the gate still runs.
     $r = Invoke-Gate -TestsDir (Join-Path $Fixture 'no-such-dir') -CommandsFile $cmdOk
@@ -808,7 +841,7 @@ try {
     $expected = Get-TestSuiteGateLaneCount -ProcessorCount ([Environment]::ProcessorCount) -AvailableMemoryMB $stubMB
     $r = Invoke-Gate -TestsDir $ok -AvailableMemoryMB $stubMB
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'a memory-sized pool still runs its suites'
-    Assert-True ($r.Text -match "test gate: all 3 suites passed in \d+s \($($expected.Lanes) lanes?\)\.") `
+    Assert-True ($r.Text -match "test gate: all 3 suites passed in \d+s \($($expected.Lanes) lanes?\)[^\r\n]*\.") `
         'and the lanes it opened are the ones the formula chose'
 
     # --- 7c. The suite bound scales with the run's own pace (issue #2263) --------------------------
@@ -968,7 +1001,7 @@ try {
     # its real CIM body -- the one thing the stub above cannot prove.
     $r = Invoke-Gate -TestsDir $ok
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'the real, unshadowed memory read still sizes a pool that passes'
-    Assert-True ($r.Text -match 'test gate: all 3 suites passed in \d+s \(\d+ lanes?\)\.') 'and it resolves to a lane count'
+    Assert-True ($r.Text -match 'test gate: all 3 suites passed in \d+s \(\d+ lanes?\)[^\r\n]*\.') 'and it resolves to a lane count'
 
     # --- 7c. A LANE START IS HELD UNDER THE MEMORY FLOOR (issue #2317) -----------------------------
     #
@@ -1259,6 +1292,14 @@ exit -1
         "`$null = Invoke-TestSuiteGate -TestsDir '$nestInner' -Context 'the nested fixture' -MaxParallel 1`r`n" +
         "exit 0`r`n")
     $r = Invoke-Gate -TestsDir $nest -MaxParallel 1
+    # THE RUN'S OWN WORDS WHEN IT GOES RED (issue #2364). All four asserts below failed together under a
+    # 22-lane gate and passed alone, and the capture that would have said why was gone by the time the
+    # report was triaged -- so no cause could be measured. Printed only on a red nested run, which a
+    # healthy one never is, so the next sighting carries its own evidence instead of an inference.
+    if ($r.Text -notmatch 'GATE-RESULT: True') {
+        Write-Host "  [NESTED RUN WENT RED] what the driver printed (last 25 lines):" -ForegroundColor Magenta
+        foreach ($line in @($r.Lines | Select-Object -Last 25)) { Write-Host "      $line" -ForegroundColor Magenta }
+    }
     Assert-True ($r.Text -match 'GATE-RESULT: True') 'a suite that runs a gate of its own still passes'
     Assert-True ($r.Text -match 'progress \[depth 2\].+-- done i-inner\.tests\.ps1') 'the inner gate reports depth 2'
     Assert-Equal 2 (@($r.Lines | Where-Object { $_ -match 'progress \[depth 1\]' })).Count `
@@ -1287,7 +1328,7 @@ exit -1
     # THE ASSERT THAT CARRIES THE WHOLE CASE IS THE WALL CLOCK. Every other line here would also pass if
     # the gate had simply waited the sleeping suite out and then called it a failure; only the elapsed
     # time distinguishes a bound that fired from one that did not. The margin is deliberately enormous --
-    # a 60s sleeper under a 3s bound, asserted under 30s -- because this suite runs under a 16-to-30-lane
+    # a 120s sleeper under a 20s bound, asserted under 90s -- because this suite runs under a 16-to-30-lane
     # pool where a child's own bring-up has been measured at 3.25s (#1939), and a tight margin here would
     # be exactly the flaky-under-contention class this branch's other half exists to reproduce.
     Write-Host "the deadline: a suite that never returns is killed, named, and does not hold the pool" -ForegroundColor Cyan
@@ -1301,10 +1342,19 @@ exit -1
     # the last assert of this block failed over a gate that was behaving exactly right. Green on
     # 'gh run rerun --failed' and green locally, which is what an untestable ceiling looks like from
     # outside: the header asserts all passed, because the gate had attributed both timeouts correctly.
+    #
+    # AND #2005 MOVED ONLY THE SIX SLEEPERS OUT; s-quick STAYED UNDER THE SAME CEILING (issue #2364). A
+    # one-line suite is not free under the pool: a kept capture from a 22-lane gate, 68 powershell
+    # processes resident, shows s-quick killed at the 3s bound after 8.6s alongside the wedged suite --
+    # so 'keeps its plain header' and the verdict line both failed over a gate that was, again, behaving
+    # exactly right. The bound is therefore sized for the SIBLING, the one suite here that must finish:
+    # 20s is >2x the worst bring-up measured for it, and the sleeper and the wall-clock ceiling are
+    # scaled with it so the case still separates "the bound fired" (~20s) from "waited out" (120s).
+    $dlBound = 20
     $slowDir = Join-Path $Fixture 'suites-deadline'
     New-FakeSuite -Dir $slowDir -Name 's-quick.tests.ps1' -Body "Write-Host 'MARKER-QUICK'`r`nexit 0`r`n"
-    New-FakeSuite -Dir $slowDir -Name 's-wedged.tests.ps1' -Body "Write-Host 'MARKER-WEDGED'`r`nStart-Sleep -Seconds 60`r`nexit 0`r`n"
-    $to = Invoke-Gate -TestsDir $slowDir -MaxParallel 2 -SuiteTimeoutSeconds 3
+    New-FakeSuite -Dir $slowDir -Name 's-wedged.tests.ps1' -Body "Write-Host 'MARKER-WEDGED'`r`nStart-Sleep -Seconds 120`r`nexit 0`r`n"
+    $to = Invoke-Gate -TestsDir $slowDir -MaxParallel 2 -SuiteTimeoutSeconds $dlBound
     $script:KeptCaptureDirs += $to.CaptureDir
     # THE GUARD THAT KEEPS #2005 CLOSED. Every assert below reads a list of names, so a THIRD suite in
     # this pool -- a shared fixture directory again, or one added here later -- puts a second name on the
@@ -1313,12 +1363,12 @@ exit -1
     Assert-Says $to.Flat 'running all 2 test suites' `
         'the deadline case runs its own two suites and nothing else (issue #2005)'
     Assert-True ($to.Text -match 'GATE-RESULT: False') 'a suite that outlives its bound fails the gate'
-    Assert-True ($to.Seconds -lt 30) `
-        "and the run does not wait it out -- it took $([math]::Round($to.Seconds,1))s against a 60s sleeper"
+    Assert-True ($to.Seconds -lt 90) `
+        "and the run does not wait it out -- it took $([math]::Round($to.Seconds,1))s against a 120s sleeper"
     Assert-True ($to.Text -match '== s-wedged\.tests\.ps1 == TIMED OUT') 'its header says TIMED OUT'
     Assert-Says $to.Flat 'its process tree was killed' 'and reports that the tree was killed, not merely the process'
     Assert-True ($to.Text -match '== s-quick\.tests\.ps1 ==\r?\n') 'the sibling that finished keeps its plain header'
-    Assert-Says $to.Flat 'did not finish within the 3s bound: s-wedged.tests.ps1' `
+    Assert-Says $to.Flat "did not finish within the ${dlBound}s bound: s-wedged.tests.ps1" `
         'the verdict tells a suite that never answered apart from one that asserted and said no'
     # AND IT DOES NOT LET THAT BE READ AS PROOF OF A WEDGE -- issue #2255. The bound's own comment said
     # "no suite can reach it by being slow" until a 9-lane run of this repo's 121 suites timed out
@@ -1333,7 +1383,7 @@ exit -1
     # AND THE CPU READING IS THE INTEGRATION PROOF -- issue #2279. Everything asserted in this suite's
     # own CPU section is pure, driven over a fabricated machine; these three are the only place the
     # SWEEP is shown to actually take the two snapshots, fill the lane's CpuNote and print it under the
-    # suite's own header. A wedged suite here is `Start-Sleep -Seconds 60`, which is the idle-tree shape
+    # suite's own header. A wedged suite here is `Start-Sleep -Seconds 120`, which is the idle-tree shape
     # exactly -- nothing in it consumes CPU while it sits past the bound.
     Assert-Says $to.Flat 'CPU over the bound:' `
         'the timed-out lane reports what its process tree consumed (issue #2279)'
@@ -1361,7 +1411,7 @@ exit -1
     # 10b. The bound is announced, and a negative value turns it off. The second half cannot be asserted
     # by running something infinite -- that is the case the bound exists for -- so what is asserted is
     # that the gate stops CLAIMING a bound and still judges an ordinary suite correctly.
-    Assert-Says $to.Flat 'each suite is bounded at 3s' 'the run states the bound it is holding suites to'
+    Assert-Says $to.Flat "each suite is bounded at ${dlBound}s" 'the run states the bound it is holding suites to'
     $noBoundDir = Join-Path $Fixture 'suites-unbounded'
     New-FakeSuite -Dir $noBoundDir -Name 'u-one.tests.ps1' -Body "Write-Host 'MARKER-U'`r`nexit 0`r`n"
     $unbounded = Invoke-Gate -TestsDir $noBoundDir -MaxParallel 1 -SuiteTimeoutSeconds -1

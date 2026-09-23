@@ -366,12 +366,54 @@ Planned to go live with the release of <weekday> <date>, as version <vX.Y.Z>.
 Once it is live you can see it here:
 
 - <market> -- <live url>
+
+What we ask of you:
+Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.
+- Is it right? Say so, and tick off this task.
+- Is it not? Tell us two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.
 ---
 ```
 
 **The marker sits OUTSIDE the block, and the block is what gets pasted.** Everything between the two
 `---` rules travels to Asana; the marker and the framing sentence stay on GitHub. A marker inside the
 block would arrive in the Asana task as visible junk.
+
+**Who carries it across is the Asana task's ASSIGNEE** (BWJ, September 23, 2026, inbound
+[#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The assignee is the one in
+conversation with the requester, so they paste the block into the task and then close the GitHub
+issue. It is not a fixed relayer: a page naming one person as the relayer for every ticket was
+corrected on exactly that point the day it was retired.
+
+#### What the block asks of the requester -- and the two closes it separates
+
+**Five rules, from BWJ's corrections to the first blocks that actually reached Asana** (Maikel,
+September 18, 2026), carried here on inbound #2352 once the consumer page holding them was retired.
+`build-golive-block.ps1` writes the section that implements the middle three; the other two are about
+the block's position and the issue.
+
+1. **The first line says where the message comes from.** The block opens by naming the issue --
+   *"The fix for `<owner>/<repo>#<n>` is done"* -- so a reader knows from line one that there is an
+   issue behind it, rather than finding out at the foot after reading it as hand-written.
+2. **The requester judges the result themselves, and their answer closes the TASK.** Not the gates, not
+   the merge and not the session that built it: no gate proves that something *looks* right, which is
+   the same reason a visible result stops before its pull request. So the block asks for the look
+   instead of assuming it.
+3. **A rejection asks for two things, and starts a new round.** *What* is not right yet **and** *what*
+   exactly should change -- the first alone hands the next round another guess. The issue is then
+   reopened and the cycle starts again with a new result to look at.
+4. **The issue and the task close at different moments.** The issue carries the development work, which
+   is finished once the block is on the task; the task carries the colleague's question, which stays
+   open until they have answered it. Holding the issue open until then ties the tracker to the calendar
+   of somebody who does not work in it, and the difference between *"work is left here"* and *"somebody
+   is waiting on a colleague"* disappears.
+5. **The release is not a reward for an approval, and the block must not read as one.** The work is
+   already on the trunk, so it ships with the next release either way. What the look buys is **time**:
+   it is the last moment a change can still be made before a customer sees it. Written as a condition
+   (*"is it right? then it goes into the release"*) it holds out a key the reader does not have.
+
+**Without a result link the section is not written**, for the reason the missing link sentence is not
+written: there is nothing to look at before the release, and an ask to judge a result the block cannot
+point at is noise.
 
 **Three things made the old order unworkable, and the third could not be fixed inside it:**
 
@@ -393,8 +435,8 @@ September 17, 2026: of 14 open issues, **13** carried an Asana link and **6** ca
 **How this interacts with `dkj-policy`'s resolves gate, which is the half a consumer cannot infer.**
 `open-pr.ps1 -Resolves` writes `Closes #<n>` into the pull request body, so GitHub closes the issue at
 the **merge** -- before anybody has written a block, and with nobody's confirmation. So an Asana-linked
-issue ships with **`-NoResolves`** and cites the issue as context, and the person closes it by hand once
-the block is on it. A third flag that declares the citation deliberately without a closing keyword is named
+issue ships with **`-NoResolves`** and cites the issue as context, and the task's assignee closes it by
+hand once the block is on it. A third flag that declares the citation deliberately without a closing keyword is named
 in #2049 as a larger change and is not assumed here.
 
 **And since inbound
@@ -838,6 +880,55 @@ workflow's to take back.
 waiting on the ticket; a label is a change in *our* state, and commenting on it would put a note on
 the submitter's ticket every time somebody triaged the issue.
 
+#### Setting `needs-info` IS writing the question -- one act, and the issue stays open
+
+**The label moves the card to the submitter, so the question has to be on it** (inbound
+[#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352), carrying a rule that lived only
+in a consumer page until September 23, 2026). The paste-ready block of step 4 is one exit that ends
+with the requester; `needs-info` is the second, and it moves the card just as hard. Because the CI run
+above deliberately says nothing, the only message this exit ever carries is the one the session
+writes. Measured in `BWJ-Development/smartwatchbanden`,
+[#702](https://github.com/BWJ-Development/smartwatchbanden/issues/702) and
+[#721](https://github.com/BWJ-Development/smartwatchbanden/issues/721): a card sat a day in the
+blocked column with no question on it, because the procedure prescribed a message for delivered work
+only -- and a card with the submitter and no question is a waiting room nobody knows the subject of.
+
+**So the label and the comment are ONE act**, done by the session that knows what was investigated, at
+the moment the card moves -- not later, by somebody reconstructing the dossier. The comment goes on the
+issue, carries the same `<!-- asana-paste-block -->` marker below the text so the step-4 backstop never
+adds a placeholder copy, and is carried into the task by its assignee exactly like the delivered-work
+block. Its shape:
+
+```text
+<one to three plain sentences: what was investigated and what came out of it. No file names, no
+branch names, no measurement tables -- the technical account is the session's own comment above,
+and this is its translation for the person who filed the ticket.>
+
+<say explicitly that nothing was repaired, and why that is not "solved": "could not reproduce it
+today" is not "it is gone", and a report nobody could verify stays open.>
+
+What we ask of you:
+1. <the first question. Ask for what the requester CAN know -- a time, a screenshot, a reference
+   number on an error page -- never for something they would have to look up in code or a log. Say
+   per question WHY you need it; without that it reads as a form rather than a question.>
+2. <the second, if there is one. Two or three at most.>
+
+<say what happens if they no longer have the answer. There is always a next step -- a standing check
+that records it by itself next time, for example -- and it is never "then it stops here".>
+
+<!-- asana-paste-block -->
+```
+
+**The form's words follow the reader**, per [step 8's language rule](#the-language----english-form-content-follows-the-reader):
+the shape above is stated in English, and the message is written in the language of the Asana task
+and of the colleague who reads it.
+
+**This exit does NOT close the issue**, where the delivered-work exit closes it one act after the block.
+That is not an inconsistency: there the development work is finished and only the judgement is with
+the colleague, while here the work itself is stalled on something only they can supply -- which is still
+an open item of ours, and belongs in the list where work is tracked. **Nor does the session remove the
+label**: whoever brings the answer does, and the card returns to its status-derived floor.
+
 #### The daily sweep is the mechanism, not a backstop
 
 **A project status changes with no `issues:` event at all** -- somebody drags a card to `In Progress`,
@@ -893,8 +984,8 @@ instead, per the section above.
   you made by hand.
 - **Deciding a ticket is blocked on the submitter.** The `needs-info` label is the whole mechanism for
   that column, and no automation sets or clears it. Putting it on is a judgement about whether the
-  request can proceed; taking it off says the answer arrived, and the card returns to wherever the work
-  actually is.
+  request can proceed -- and it is one act with writing the question, in the form step 6 prescribes;
+  taking it off says the answer arrived, and the card returns to wherever the work actually is.
 - **Scoring the ticket.** The label follows the board and nothing here decides a priority. A task
   nobody has scored carries no prio label, and putting a number on it is the team's call to make in
   Asana -- the same shape as resolving a ticket, further down this list.
@@ -905,7 +996,7 @@ instead, per the section above.
   per unreadable task is telling you about the token, not about the tickets.
 - **Closing an Asana-linked issue, once the paste-ready block is on it.** Step 4 reverses the old
   order: the session writes the block while the issue is open, and closing it is the confirmation that
-  somebody pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
+  the task's assignee pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
   would have GitHub close the issue at the merge, with nobody having confirmed anything. Where the repo has
   stated `Get-ResolvesExemptMatchers` (inbound #2120), the resolves gate refuses that `-Resolves` instead
   of leaving it to memory.
@@ -923,6 +1014,167 @@ instead, per the section above.
   failure says anything in a log. And the board itself is not automatically enough: `GitHub - WH`
   proves a real board can still lack the field, so pointing `Get-AsanaProjectGid` at the right board is
   necessary and not sufficient -- see step 5.
+
+### 8. A ticket that arrives FROM Asana -- whose it is, and the form it takes
+
+Steps 1 to 7 run outward: a finding made here is filed on GitHub and mirrored onto the board. **Work
+also arrives the other way** -- a colleague files a request in Asana as a desired outcome, and somebody
+has to decide whether it can be built at all before a branch is worth creating. The rules for that
+layer are `dkj-policy`'s, under
+[Ticket work -- the layer before the branch](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch),
+and they deliberately leave a list of questions to the repo under
+[What your repo answers](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#what-your-repo-answers).
+**This step is BWJ's answer to that list, once for both stores**, so neither can drift from the other.
+It restates none of the rules; read those first.
+
+**It lived in `smartwatchbanden`'s own tree until September 23, 2026**, as the only copy anywhere --
+`xoxowildhearts` had none -- and moved here on inbound
+[#2353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2353), because an answer both stores
+owe is this plugin's rather than one repo's. **Its reach is the two stores.** `dkj-claude-plugins` was
+admitted to this chapter for *filing* (see the top of this page), and nothing reaches that repo from
+the Asana board as a request, so there this step has nothing to apply to.
+
+#### Whose ticket is it -- the Asana assignee decides, and nothing else does
+
+**A task on the board is not by that fact an assignment to the dev team.** Board membership says the
+ticket is tracked; it does not say the work is ours. Before a task becomes a GitHub issue -- and again
+before anybody claims that issue -- read the **assignee of the Asana task**, and answer three things:
+
+- **Is it assigned to somebody outside the dev team?** Then it is not an assignment. Either leave it
+  unmirrored, or mirror it and open it as **blocked on that person** rather than as work -- which is
+  what the `needs-info` label of step 6 says, and it parks the card in the blocked column while it is
+  true.
+- **`Ball with` is read, not assumed.** The header row below is a judgement about *who is up now*, and
+  the task's assignee is the evidence for it. `us` is an answer, not a default: if the task is on
+  somebody else's name, the answer is that name.
+- **Read the comments on the task before picking it up.** A colleague's own comments are where a
+  running experiment, a blocking bug or a decision not yet taken is written down, in plain language.
+  It is one API call, and it is the call that decides whether the ticket is ready at all.
+
+**`claim-issue` cannot make this check for you, and that is why it is written here.** It reads the
+*GitHub* assignee, which on a freshly mirrored issue is empty no matter who owns the Asana task -- so a clean
+claim says nothing about whose ticket it is.
+
+Measured in `smartwatchbanden`,
+[#722](https://github.com/BWJ-Development/smartwatchbanden/issues/722), filed September 18, 2026: four tasks
+were mirrored in as development work from one board section, and three were built and merged before
+anybody noticed they were assigned to a colleague and still in that colleague's A/B-test stage, where a CRO ticket
+is proven before development touches it. Two of the three changed the very element under test in a running
+experiment, so reaching the live theme inside its window would have handed the control group the
+variant. **The section could not tell the four apart; the assignee could** -- the fourth was assigned
+to the dev team, was built, and that was right. The experiments were described, with window and
+traffic split, in comments on the tasks nobody read.
+
+#### One issue per ticket, and everything stays in it
+
+**One GitHub issue per Asana ticket**, in the store's repo, with the Asana link in its header. The issue
+is the analysis; Asana keeps the request. `report-issue` files it and puts the card in `Filed` in one
+call, and everything after that is `asana-mirror`'s job (step 6) -- **move no card by hand.**
+
+**Everything that comes out of Asana stays in that issue** -- the request, what was worked out, what
+was measured, what went back to the requester. There is no second home for it, and the issue's own
+comments carry a round of working-out just as well as its body does. **One thing that works in a file
+breaks in an issue body: a relative path.** GitHub resolves it against the issue's URL rather than the
+repo, so it 404s -- write an absolute blob URL, and a permalink to a commit when you cite a line.
+
+#### The language -- English form, content follows the reader
+
+**The section and field names are English**, because they are the workflow and not the subject: a
+colleague who does not read Dutch can open a ticket and recognise its structure without translating
+six headings first. **The content follows whoever filed the ticket** -- the reply goes verbatim to the
+requester, and the analysis around it takes the same language, because a reply in one language under
+an analysis in another does not read. Look up who filed it before you write, rather than assuming.
+A **closed value** keeps its source language wherever it appears: `buildable` in a code span is the
+value of a field, and is never translated.
+
+#### The header -- seven rows, and `Reviewed` is the provenance boundary
+
+| row | where it comes from |
+|---|---|
+| **Asana** | the ticket id as a link, with its board column after it |
+| **Created** | date and time in Amsterdam time, the raw UTC timestamp, and by whom |
+| **Priority** | from Asana |
+| **Deadline** | from Asana -- **leave the row out when there is none** |
+| **Reviewed** | the date the four rows above were last checked against Asana |
+| **State** | our own judgement (vocabulary below) |
+| **Ball with** | our own judgement: who is up now -- read off the task's assignee, never assumed to be `us` |
+
+`Reviewed` is the portable layer's provenance boundary in BWJ's form: everything above it is a copy out
+of Asana and only true on that date, everything below it is ours and does not rot. **Followers and the
+board section are deliberately not rows** -- the first was never cited and changed silently fastest,
+and the only informative part of the second is the column, which rides along in the `Asana` row.
+
+**The `State` vocabulary is closed**, so every ticket carries the same word:
+
+```text
+draft · question ready · question asked · answer in · buildable · in build · delivered · closed
+```
+
+Eight, because four stages follow the reply. **`Ball with` is closed too, and shorter:** `us`, or the
+name of whoever is being waited on.
+
+#### The sections -- a route, not a table of contents
+
+| section | what is in it |
+|---|---|
+| `## About this ticket` | **only when there is something to say about the ticket itself**, and then at the top: it duplicates another ticket, it never got a priority, its deadline has moved twice. Otherwise the ticket opens with the request |
+| `## What we know` | collects, and only that. One `###` per source, in this order: **what the ticket asks** (the requester's own words, unedited), **what the replies worked out** (with who and when), **what we measured or looked up** (with the command, or the file and line). Only the first is always there |
+| `## Blocked` | the gate between knowing and building, in **every** ticket. Opens with **`### Do we know enough?`** and one of the two fixed sentences below, the reason after it. At *yes* that is the whole section. At *no* it carries the round as **`#### Remaining Question(s)`**, **`#### The reply`**, and once the answer lands **`#### Response (<date>)`** -- after which **`### Do we know enough now?`** judges the round again |
+| `## Development` | `### Note` for consequences worth knowing, and `### Steps`: the step list that makes the ticket buildable plus where the change lands. Once built, **`### Changelog`** and **`### Testing`** follow |
+| `## Completed` | **only once the Testing checklist is ticked, the preview is approved and the change is live.** Carries `### The final reply`. An empty `## Completed` claims a gate is open that is not |
+| `## Activity` | append-only log, newest first, one dated line per event |
+
+**`### Steps` and `### Changelog` are the branch document in ticket form, and the boundary between them
+is an agreement** (Dave, August 12, 2026): the branch document's phases and DEPLOY section are the
+**working copy for the length of the branch** -- the fold removes it -- and the ticket is the **lasting
+record**. At the merge the state is carried over, never maintained in both; two copies kept side by
+side are two versions within a week and no way to tell which is right.
+
+#### The two sentences that answer the gate
+
+Verbatim, and in Dutch because that is how they were dictated (Dave, August 12, 2026) -- a person's own
+words, quoted as written:
+
+```text
+Ja, er is genoeg info om te kunnen bouwen. Ga door naar Development.
+Nee, er is nog niet genoeg info. Ga door naar Remaining Question(s).
+```
+
+They are closed for the reason `State` is: *can this go ahead?* is answerable at a glance instead of by
+weighing a paragraph, and each names the section it points at, so the judgement is also a routing.
+**The reason goes straight after the sentence** and differs per ticket; a caveat goes *behind* it with
+an em dash, never in front, so the first words are always the answer. The *yes* sentence deliberately
+does not say "skip the questions" -- three of the first six tickets reached *yes* **through** a round
+of questions.
+
+Each gap under `#### Remaining Question(s)` closes with the question that carries it, or says it has
+none and why. An incoming answer lands under the gap it unblocks and names it.
+
+**And the standing agreement around all of it: a ticket with open questions is not built.** The
+questions go to the requester with an @-mention, and the work waits until they are answered.
+
+#### What `### Testing` has to carry
+
+Anything visible on the storefront is tested from the ticket, not only from a branch somebody has to
+check out (Dave, August 12, 2026):
+
+- **the preview theme id**, with the date it was pushed, so it is clear which state you are looking at;
+- **the URLs per market of the pages that actually changed** -- not the homepage. The handles differ per
+  market and can be read off a page's `hreflang` alternates, so there is nothing to guess;
+- **what there is to see** -- the part most often skipped. Where the change is in the page source or
+  the JSON-LD, the answer is explicitly *nothing to see by eye*, plus where to look instead;
+- **what still has to be judged, as a checklist**, unticked until it has happened. **That checklist is
+  the gate to `## Completed`.**
+
+How the preview itself is handed over is chapter three's, in
+[`PREVIEW-portable.md`](PREVIEW-portable.md).
+
+#### Measuring, here, means measuring a shop
+
+The portable layer says to look at the product before writing down a gap, and to measure more than one
+instance. In a store the product is a **theme**, so measuring is in practice a `curl` on a live page
+with a `grep` behind it, and *more than one instance* means more than one collection and, where it
+matters, more than one market.
 
 ---
 

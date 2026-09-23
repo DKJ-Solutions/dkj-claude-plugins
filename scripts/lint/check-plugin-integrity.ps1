@@ -237,9 +237,9 @@
          be registered, generated, mirrored byte-perfect and pass every gate while being invisible on the
          one page a consumer reads. That happened three times before this. The claim is the first
          backticked token of each row's first cell (the table's own 'Script' column), and the scope is
-         the marked document's OWN directory. Opt-in like 10 and 29, because the root scripts/README.md
-         is a deliberate SUBSET of the same registry and a filename-keyed rule would false-positive on
-         every lib and hook-only script there.
+         the marked document's OWN directory. Opt-in like 10 and 29, because a README beside a scripts
+         folder may deliberately list a SUBSET of the same registry (the root scripts/README.md did,
+         until it was removed on September 23, 2026), and a filename-keyed rule would false-positive there.
      33. printed instructions naming a model-barred skill: a printed message must not tell its reader to
          "run the X skill" when X's frontmatter carries 'disable-model-invocation: true'. That flag removes
          the page from the model's context entirely, so a session cannot follow the instruction -- and the
@@ -4169,10 +4169,11 @@ Write-Coverage -Category 'shopify-cli' -Checked $shopifyChecked `
 #
 # WHY OPT-IN, like both siblings and for the third time in this file. A blanket rule -- "a plugin's
 # scripts/README.md lists every mirror" -- would need an allow-list on the day it was written: the ROOT
-# scripts/README.md is a deliberate SUBSET of the same registry (only what a person invokes by hand, as
-# its own text says), so a check keyed on filename would false-positive on every lib, hook-only script and
-# generator there. That page keeps its own question open; #1491 says so explicitly, and the sentinel is
-# what lets this one be gated without answering it. Same scar tissue as check 10's prose scan (rejected at
+# scripts/README.md was a deliberate SUBSET of the same registry (only what a person invokes by hand, as
+# its own text said), so a check keyed on filename would have false-positived on every lib, hook-only
+# script and generator there. That page was removed on September 23, 2026; the opt-in stands, because
+# a README beside a scripts folder may legitimately list a subset, and the sentinel is what lets a 1:1
+# table be gated without deciding that for every other one. Same scar tissue as check 10's prose scan (rejected at
 # 147 hits) and the stale-path check (declined at 124, all false).
 #
 # BORN GREEN: 1 span, 45 claimed, 45 canonical, 0 findings at introduction -- measured on the trunk the

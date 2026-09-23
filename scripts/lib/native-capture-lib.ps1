@@ -1096,7 +1096,7 @@ function New-ScratchPath {
         $PID STAYS IN THE LEAF, in front of the GUID. It buys nothing against an attacker and is not
         there for that: it is what makes a leftover attributable to a run that is still alive, which is
         exactly what the retained-capture note (#1636) and ship-pr's fold-worktree line print for a
-        reader. scripts/README.md's fixture convention already names both spellings for that reason.
+        reader. The suite fixture convention in Tycho's lens (.claude/specialists/lenses/specialist-04-18-lens.md) names both halves for that reason.
 
         THE LABEL IS VALIDATED, because it is the one half a caller composes: ship-pr's carries a PR
         number, verify-resolved-issues' an issue number and sync-main's a branch name. A segment held to
@@ -3920,7 +3920,7 @@ function Invoke-TestSuiteGate {
             # that grows with the run's own pace, and a reader who took it as final would read the scaling
             # line below as the gate contradicting itself. An explicit -SuiteTimeoutSeconds does not
             # scale, so it is announced as the flat number it is -- which is also what keeps this run's
-            # own suite asserting 'each suite is bounded at 3s' on the -SuiteTimeoutSeconds 3 fixture.
+            # own suite asserting 'each suite is bounded at 20s' on the -SuiteTimeoutSeconds 20 fixture.
             if ($deadlineScales) {
                 Write-Host "  each suite is bounded at $(Format-GateSeconds $suiteDeadline)s to start with, rising with this run's own pace to at most $(Format-GateSeconds $script:GateSuiteTimeoutCeilingSeconds)s (issues #1941, #2263); -SuiteTimeoutSeconds -1 turns that off." -ForegroundColor DarkGray
             } else {

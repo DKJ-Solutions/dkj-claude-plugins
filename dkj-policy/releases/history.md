@@ -86,6 +86,7 @@ list sits at the **end** of the page:
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.7.0](audience/5.x/5.7.0.md) | 2026-09-23 | Minor | Minor release |
 | [5.6.0](audience/5.x/5.6.0.md) | 2026-09-21 | Minor | Every specialist file takes its specialist- name, and consumers migrate the orchestrator import once |
 | [5.5.0](audience/5.x/5.5.0.md) | 2026-09-18 | Minor | The close-out gets a gate, and the cycle's scripts stop failing silently |
 | [5.4.0](audience/5.x/5.4.0.md) | 2026-09-17 | Minor | Release version 5.4.0 |

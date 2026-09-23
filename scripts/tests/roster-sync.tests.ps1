@@ -1222,7 +1222,35 @@ try {
         [System.IO.File]::WriteAllText($p, $body)
         return $p
     }
-    function Invoke-Hook { param([string[]]$A) $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook @A; return [pscustomobject]@{ Code = $LASTEXITCODE; Out = ($o -join "`n") } }
+    # A NON-ZERO EXIT IS NOT A VERDICT FROM THIS HOOK, AND IS RUN ONCE MORE (issue #2362). The hook ends
+    # every path, its catch included, on 'exit 0', and no case below expects anything else -- so an exit
+    # of 1 means the child never reached its own script's end, not that it judged the stub. Measured
+    # once under a 22-lane gate: 'hook: exit 0 when clean' got 1 with no 'in sync' line, then the suite
+    # passed alone. Nothing survived to say why, because this runner captured stdout only and a child
+    # that dies before the script runs says so on stderr. So stderr is captured now, an off-contract
+    # exit prints its own evidence, and the child is run a second time; a second failure is returned as
+    # it is, so a hook that really stops exiting 0 still fails every assert that reads it. Same shape as
+    # Invoke-Integrity's unfinished-run retry (#2364), for the same class of run.
+    function Invoke-Hook {
+        param([string[]]$A)
+        $prevEap = $ErrorActionPreference
+        try {
+            # 'Continue' around the child: with 'Stop' in force a stderr line comes back as a terminating
+            # NativeCommandError, which would kill the suite on exactly the run this retry exists for.
+            $ErrorActionPreference = 'Continue'
+            foreach ($attempt in 1, 2) {
+                $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook @A 2>&1
+                $code = $LASTEXITCODE
+                if ($code -eq 0) { break }
+                $again = $(if ($attempt -eq 1) { 'running it once more' } else { 'returning it as it is -- the asserts below read an unfinished run' })
+                Write-Host "  [FIXTURE HOOK DID NOT FINISH] exit $code, attempt $attempt -- roster-sessioncheck.ps1 exits 0 on every path, so this child never reached its end; $again" -ForegroundColor Magenta
+                foreach ($line in @(@($o) | Select-Object -Last 8)) { Write-Host "      $line" -ForegroundColor Magenta }
+            }
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        return [pscustomobject]@{ Code = $code; Out = ((@($o) | ForEach-Object { "$_" }) -join "`n") }
+    }
 
     # H1. Check script not found -> soft notice, exit 0.
     $r = Invoke-Hook @('-CheckScriptOverride', (Join-Path $Fixture 'does-not-exist.ps1'))

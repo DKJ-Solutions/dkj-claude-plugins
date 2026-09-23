@@ -32,14 +32,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    already names.
 4. **The live URLs** -- `Get-MarketUrls` over the pages `-Path` names: the LIVE URLs, with no preview
    parameters, out of the same market table a preview pair is built from.
-5. Prints the block. With `-Post`, comments it on the issue.
+5. **The ask** -- where a `-Link` was given, a closing section asking the requester to look at the
+   result themselves: an approval ticks off the task, a rejection names what is not right AND what
+   should change and reopens the issue, and the release happens either way
+   ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
+   are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
+6. Prints the block. With `-Post`, comments it on the issue.
 
 ## The parameters
 
 | parameter | what it is for |
 |---|---|
 | `-Issue <n>` | required; a bare number, `#412`, or the issue's URL |
-| `-Link <url>` | where the result can be seen. **Omitted, that sentence is not written at all** -- see below |
+| `-Link <url>` | where the result can be seen, **openable by the requester without an account** -- a storefront preview URL (`Get-MarketPreviewUrls`) or a live page. Not the preview handover page: a `claude.ai` Artifact is private to its owner, so it is refused ([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)). **Omitted, that sentence is not written at all** -- see below |
 | `-Path <p[]>` | the storefront pages the change touched; each becomes one live URL per market |
 | `-Repo <owner/repo>` | when `GITHUB_REPOSITORY` and `gh repo view` cannot answer |
 | `-Version <X.Y.Z>` | override the prediction, or supply one where it cannot be derived |
@@ -47,12 +52,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 | `-From <date>` | the day the next release day is counted from. Today |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
 | `-Force` | post although a block already appears to be there, or its comments could not be read |
+| `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
 
 ## What it deliberately does not do
 
 - **It never writes `[ADD LINK]`.** That placeholder belongs to `asana-mirror`'s CI backstop, which
   genuinely cannot know the link. A session running this script does know it, so a link it was not
   given is a **sentence it does not write** -- a missing line, never a placeholder.
+- **It never hands the requester a link they cannot open.** The handover page is the *reviewer's*
+  surface, and it stays private until somebody shares it, so a `claude.ai/artifact/` or
+  `claude.ai/code/artifact/` `-Link` is refused. That covers printing too, because the printout is
+  what gets pasted. Measured in `BWJ-Development/smartwatchbanden#750`.
 - **It never touches Asana.** A person pastes the block into the task, and closing the issue is their
   confirmation that it landed there. That is the one decision this chapter keeps with the colleague
   who asked for the work, and a script cannot reach the Asana MCP anyway.

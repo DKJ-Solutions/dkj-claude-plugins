@@ -24,7 +24,7 @@ the generator; the lint reports a hand edit as drift.
 The registry is `Get-SharedScriptPairs` in
 [`scripts/lib/shared-scripts-lib.ps1`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/scripts/lib/shared-scripts-lib.ps1), and it is the
 only place that knows the answer. **This page deliberately states no count of it**, and the root
-`scripts/README.md` made the same choice on the same day (#897): a prose tally of a machine-held list is wrong
+`scripts/README.md` (removed September 23, 2026) made the same choice on the same day (#897): a prose tally of a machine-held list is wrong
 when typed and wrong again after the next entry. Ask the registry instead — and note the pairs do **not** all
 land here, because a script travels to whichever plugin owns the surface that calls it.
 
@@ -92,6 +92,7 @@ an absent link is a fact rather than an oversight.
 | `release/fold-changelog-entry.ps1` | folds the entry into `CHANGELOG.md` at the top of the list and removes the branch document | [`fold-changelog`](../skills/fold-changelog/SKILL.md) |
 | `release/cut-release.ps1` | the lockstep version bump, the release notes and the tag | [`cut-release`](../skills/cut-release/SKILL.md) |
 | `release/new-internal-note.ps1` | the tier-1 note's skeleton, which needs the development notes as input | [`cut-release`](../skills/cut-release/SKILL.md) |
+| `release/upload-release-asset.ps1` | attaches one document to a published Release, replacing a same-named asset by id and verifying the byte count (#2347) | [`cut-release`](../skills/cut-release/SKILL.md) |
 | `release/build-release-notes-page.ps1` | builds the hand-written notes into one browsable page, and with `-Worker` the Cloudflare Worker that serves it — it publishes nothing | [`release-notes-page`](../skills/release-notes-page/SKILL.md) |
 | `release/release-notes-page-template.html` | the page that script fills in — the one shared file here that is not a script, mirrored for the same reason a lib is: its script reads it as a sibling | none — read by the script above |
 | `lint/check-branch-entry.ps1` | gate: does this branch carry a written changelog entry? | [`check-branch-entry`](../skills/check-branch-entry/SKILL.md) |

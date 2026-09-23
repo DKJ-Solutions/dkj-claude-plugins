@@ -53,8 +53,16 @@
     checkout.
 
 .PARAMETER Link
-    Where the result can be seen -- the handover page, a live page, whatever the ticket was about.
-    Omitted, the block simply does not carry that sentence; it is never replaced by a placeholder.
+    Where the result can be seen, openable by the requester WITHOUT an account -- a storefront preview
+    URL (Get-MarketPreviewUrls), a live page, whatever the ticket was about. NOT the preview handover
+    page: a claude.ai Artifact is private to its owner, so it is refused (issue #2341) unless
+    -AllowPrivateLink says it has been shared. Omitted, the block simply does not carry that sentence;
+    it is never replaced by a placeholder.
+
+.PARAMETER AllowPrivateLink
+    Accept a claude.ai Artifact URL as -Link anyway -- for a page that has actually been shared with the
+    requester. Deliberately not -Force: that valve answers the duplicate-block check, and passing it to
+    post a second block must not also wave a private link through.
 
 .PARAMETER Path
     The storefront pages the change touched, as paths ('/products/foo'). Each becomes one live URL
@@ -83,7 +91,7 @@
     The repo root, when this is not run from inside the checkout.
 
 .EXAMPLE
-    ./build-golive-block.ps1 -Issue 412 -Link https://claude.ai/code/artifact/abc
+    ./build-golive-block.ps1 -Issue 412 -Link "https://store.example/products/foo?preview_theme_id=123&_ab=0&_fd=0&_sc=1"
     Prints the block for issue 412, with the date and version derived from this repo.
 
 .EXAMPLE
@@ -101,6 +109,7 @@ param(
     [datetime]$From = (Get-Date),
     [switch]$Post,
     [switch]$Force,
+    [switch]$AllowPrivateLink,
     [string]$RootOverride
 )
 
@@ -110,9 +119,14 @@ Set-StrictMode -Version Latest
 # Captured BEFORE the template dot-source below rebinds $Repo to its own default -- see the
 # .DESCRIPTION's "WHY IT DOT-SOURCES" paragraph, and build-backlog-page.ps1's identical guard.
 $StoreRepo   = if ($Repo) { $Repo } else { $env:GITHUB_REPOSITORY }
+$IssueArg    = $Issue
 $LinkArg     = $Link
 $PathArg     = $Path
 $VersionArg  = $Version
+$ReleaseDayArg = $ReleaseDay
+$FromArg     = $From
+$PostArg     = [bool]$Post
+$ForceArg    = [bool]$Force
 $RootArg     = $RootOverride
 
 . (Join-Path $PSScriptRoot '..\..\templates\asana-mirror.ps1')
@@ -120,6 +134,25 @@ $RootArg     = $RootOverride
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
 $repoRoot = Resolve-BwjRepoRoot -Override $RootArg
+
+# THE REPO'S SEAMS ARE LOADED ONCE, AT SCRIPT SCOPE -- issue #2339. Two halves below read them:
+# Get-ChangelogPath for the version, and Get-StorefrontMarkets, which market-urls.ps1 looks up by name
+# when -Path is given. This used to dot-source the config inside a '& { }' scriptblock for the first
+# half only, so every function it defined died with that scope and the live-URL half then refused with
+# "this store has not declared its markets" in a store that had -- naming the wrong remedy. It worked
+# only for a caller who had dot-sourced the config into the session first, which the skill's own '-File'
+# invocation never does. An 'if' opens no scope, so the functions defined here survive it.
+# StrictMode is off for the read only: repo-config.ps1 is written on the assumption that it is (the same
+# note build-backlog-page.ps1 makes). The parameters were captured above, because the file is the
+# consumer's own and may bind any name it likes.
+$configPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
+if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+    Set-StrictMode -Off
+    $resolvedRoot = $repoRoot
+    . $configPath
+    Set-StrictMode -Version Latest
+    $repoRoot = $resolvedRoot
+}
 
 function Invoke-Native {
     <# A native command whose stderr and exit code are read rather than thrown on. '2>$null' under
@@ -142,8 +175,8 @@ function Invoke-Native {
 # THE THREE SPELLINGS A PERSON ACTUALLY HAS IN HAND -- a bare number, '#123', or the URL they just
 # copied out of the browser. claim-issue.ps1 makes the same argument for accepting all three: requiring
 # one spelling only teaches the caller to strip characters this script can strip itself.
-$issueNumber = if ($Issue -match '(\d+)\s*$') { $Matches[1] } else { '' }
-if (-not $issueNumber) { throw "-Issue '$Issue' carries no issue number." }
+$issueNumber = if ($IssueArg -match '(\d+)\s*$') { $Matches[1] } else { '' }
+if (-not $issueNumber) { throw "-Issue '$IssueArg' carries no issue number." }
 
 if (-not $StoreRepo) {
     $probe = Invoke-Native { gh repo view --json nameWithOwner -q .nameWithOwner }
@@ -156,11 +189,22 @@ if (-not $StoreRepo) {
 # $IssueRef in this scope, PowerShell variable names are case-insensitive, and its default is ''.
 $targetRef = "$StoreRepo#$issueNumber"
 
+# --- The link its reader can open -------------------------------------------------------------------
+# A REFUSAL AND NOT A WARNING, and it applies to printing as much as posting: the printout IS what gets
+# pasted into the Asana task, so a warning under it would travel nowhere the requester looks (#2341).
+if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
+    Write-Host "[ERROR] -Link is a claude.ai Artifact ($LinkArg) -- private to its owner, so the requester" -ForegroundColor Red
+    Write-Host "        reading the Asana task cannot open it. The handover page is the reviewer's surface." -ForegroundColor Red
+    Write-Host "        Pass a storefront preview URL instead (Get-MarketPreviewUrls in market-urls.ps1), or" -ForegroundColor Red
+    Write-Host "        -AllowPrivateLink once the page has actually been shared with them. Nothing written." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host ""
 Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 
 # --- The date ---------------------------------------------------------------------------------------
-$goLive     = Get-NextReleaseDate -From $From -ReleaseDay $ReleaseDay
+$goLive     = Get-NextReleaseDate -From $FromArg -ReleaseDay $ReleaseDayArg
 $goLiveText = Format-GoLiveDate -Date $goLive
 Write-Host "  go live  : $goLiveText" -ForegroundColor DarkGray
 
@@ -174,20 +218,13 @@ if (-not $resolvedVersion) {
     $tagRun = Invoke-Native { git -C $repoRoot tag --list 'v*' --sort=-v:refname }
     $latestTag = if ($tagRun.Code -eq 0 -and $tagRun.Output.Count -gt 0) { ([string]$tagRun.Output[0]).Trim() } else { '' }
 
-    $changelogRel = & {
-        Set-StrictMode -Off
-        $answer = 'CHANGELOG.md'
-        $configPath = Join-Path $args[0] 'scripts\repo-config.ps1'
-        if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-            . $configPath
-            # NOT Get-Command: a bare name is parsed as a wildcard and a MISS -- the normal case for an
-            # optional seam -- pays a full PATH scan. The same inline probe publish-page.ps1 writes out.
-            if ([bool](@($ExecutionContext.InvokeCommand.GetCommands('Get-ChangelogPath', 'Function', $false)).Count)) {
-                $answer = Get-ChangelogPath
-            }
-        }
-        return $answer
-    } $repoRoot
+    # The config itself was read at script scope above (#2339). NOT Get-Command: a bare name is parsed as
+    # a wildcard and a MISS -- the normal case for an optional seam -- pays a full PATH scan. The same
+    # inline probe publish-page.ps1 writes out.
+    $changelogRel = 'CHANGELOG.md'
+    if ([bool](@($ExecutionContext.InvokeCommand.GetCommands('Get-ChangelogPath', 'Function', $false)).Count)) {
+        $changelogRel = Get-ChangelogPath
+    }
 
     $changelogPath = Join-Path $repoRoot ($changelogRel -replace '/', '\')
     $bump = $null
@@ -235,7 +272,7 @@ if (-not $LinkArg) {
     Write-Host "          placeholder on purpose -- pass -Link once you know where the result can be seen." -ForegroundColor Yellow
 }
 
-if (-not $Post) {
+if (-not $PostArg) {
     Write-Host "Printed only. Re-run with -Post to put it on $targetRef, then paste the block between the" -ForegroundColor DarkGray
     Write-Host "'---' rules into the Asana task -- and close the issue once it is there." -ForegroundColor DarkGray
     return
@@ -254,7 +291,7 @@ if ($stateRun.Code -eq 0 -and $stateRun.Output.Count -gt 0 -and ([string]$stateR
 # Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments -- the safe default for the
 # CI backstop, whose mistake would be a blind duplicate. Here the cost runs the other way, so an
 # unreadable issue is reported as exactly that and -Force is the way past it.
-if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $Force) {
+if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
     Write-Host "[ERROR] A paste-ready block already appears to be on $targetRef -- or its comments could" -ForegroundColor Red
     Write-Host "        not be read, which answers the same way. Nothing posted. Re-run with -Force." -ForegroundColor Red
     exit 1

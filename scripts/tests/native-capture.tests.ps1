@@ -1364,7 +1364,7 @@ Write-Host 'Every temp path the SHIPPING scripts compose carries a guid (#1659)'
 #
 # THE COUNT WENT FROM TWO TO THREE ON SEPTEMBER 10, 2026, and the shape of the third is why that is not
 # a weakening: tidy-machine.ps1's lane 10 ENUMERATES the temp root to attribute what is already standing
-# there, and deletes nothing -- scripts/README.md having already settled that those trees stay standing
+# there, and deletes nothing -- Sylvester's lens having already settled that those trees stay standing
 # (#1668) and named a pattern sweep as the very delete primitive New-ScratchPath exists to remove
 # (#1659). A reader is exactly what this scan is not about. What the count still catches is a fourth
 # line that WRITES.
@@ -1823,7 +1823,9 @@ foreach ($af in $auditFiles) {
 # The scan's sibling read -- the `git diff --name-only` for this branch's own paths -- is deliberately
 # NOT bounded: it touches no network, and the standing convention here bounds the calls that can hang
 # on one.
-Assert-Equal 71 $boundedTotal 'the parser still counts 71 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 71 -> 75 (#2347): upload-release-asset.ps1's release-id read, asset-list read, by-id delete and upload -- all four network
+# calls, each judged through Test-NativeExitMeasured / Get-NativeExitLabel.
+Assert-Equal 75 $boundedTotal 'the parser still counts 75 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

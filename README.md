@@ -478,8 +478,9 @@ The full picture, top-level folder by folder:
   check, the changelog/PR/release scripts (incl.
   `cut-release.ps1`), the connectors check (`check-connectors.ps1`), the agent-def generator
   (`build-agent-defs.ps1` — fills in the shared blocks from `plugins/dkj-subagents/subagent-shared/`), and the tests.
-  [`scripts/README.md`](scripts/README.md) is the directory-by-directory map, with the entry points and
-  the gates on the branch dossier. A
+  What each script does is on the page of the skill that runs it; the conventions for the directory
+  itself are in
+  [Sylvester's lens](.claude/specialists/lenses/specialist-05-15-lens.md#the-scripts-directory-is-the-source). A
   mirrored copy for consumers lives inside the plugins — the sync/check scripts in `dkj-subagents-alpha`, the
   branch/release workflow in `dkj-policy` — see its own
   [README](plugins/dkj-policy/scripts/README.md).
@@ -846,11 +847,11 @@ destination split, then 21 rows in
 [#1486](https://github.com/DaveKJohn/claude-code-specialists/issues/1486)) while every gate stayed
 green. Each repair was a hand pass, which resets the clock rather than stopping it.
 
-Opt-in for the same measured reason as the other two: the **root** `scripts/README.md` is a
-deliberate *subset* of the same registry — only what a person invokes by hand — so a blanket rule
-keyed on filename would be born needing an allow-list for every lib, hook-only script and generator
-there. The sentinel is what lets the 1:1 table be gated without first answering the subset table's
-question.
+Opt-in for the same measured reason as the other two: a README beside a scripts folder may
+deliberately list a *subset* of the same registry — the **root** `scripts/README.md` did, only what a
+person invokes by hand, until it was removed on September 23, 2026 — so a blanket rule keyed on
+filename would be born needing an allow-list. The sentinel is what lets a 1:1 table be gated without
+first deciding that for every other one.
 
 ## Where this runs: Chat, Cowork, and Claude Code
 

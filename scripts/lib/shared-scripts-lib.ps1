@@ -1220,6 +1220,16 @@ function Get-SharedScriptPairs {
             Skill  = 'cut-release'
         },
         @{
+            # The re-upload of a release attachment (#2347). Its own script because the one-liner the
+            # skill prescribed -- `gh release upload --clobber` -- failed at v5.7.0, and so did the
+            # by-name fallback; the by-id route plus a byte-count check is too long to leave as prose
+            # that every cut retypes. Documented inside the cut-release skill, where both uploads are.
+            Name   = 'upload-release-asset'
+            Source = 'scripts\release\upload-release-asset.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'cut-release'
+        },
+        @{
             # The changelog entry's scaffold wording, needed by TWO shared scripts that must not be able
             # to disagree about it: new-changelog-entry.ps1 writes it, open-pr.ps1's scaffold gate refuses
             # to ship it. A copy in each would make the gate silently miss whatever the writer changed --

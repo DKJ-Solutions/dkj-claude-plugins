@@ -210,6 +210,22 @@ jobs:
       # STILL does not go up in this change, and a reader reaching for a fifth runner should split that
       # file first for the same reason and by the same measurement.
       #
+      # AND THAT IS STEP 2, TAKEN THE SAME WAY (#2304, September 23, 2026). -links is now four as well
+      # (-links, -skill-spans, -plugin-spans, -plugin-links), cut at check boundaries and balanced on
+      # gate invocations (13/18/21/13 of its 65), all 141 of its asserts preserved and verified by
+      # running them; side by side on one workstation the longest part took 55s against the original's
+      # 159s. The next heaviest file is check-plugin-integrity-commands.tests.ps1 (498.3s), so the shard
+      # count still does not move -- -commands and -entries are steps 3 and 4.
+      #
+      # STEP 3 PUTS THE POOL AT ITS WORK BOUND (#2304, September 23, 2026). -commands is four too
+      # (-commands, -script-rules, -script-set, -fixture-guard; 19/16/17/16 of its 68 invocations, all
+      # 132 asserts preserved and verified by running them; longest part 64s against 184s side by side).
+      # The heaviest remaining file, check-plugin-integrity-entries.tests.ps1 at 377.7s, is BELOW the
+      # 391s work bound -- so from here the gate is bound by total work over 16 lanes, not by one file,
+      # and this is the point at which the paragraph above says a shard starts to buy something. Step 4
+      # (-entries) only pays together with more shards; confirm the new critical path from a CI shard
+      # log before choosing between the two.
+      #
       # AND suite-durations.json DOES NOT KNOW THE FOUR NEW NAMES YET. A suite missing from it is charged
       # the largest recorded value, so it packs early and can never be the one left last -- safe, and
       # deliberately not hand-edited: that file is regenerated from CI logs by
