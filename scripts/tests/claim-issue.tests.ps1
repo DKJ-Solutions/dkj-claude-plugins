@@ -1448,6 +1448,51 @@ Assert-True ((@(Get-SweepCandidates -Json '')).Count -eq 0) 'empty input -- noth
 Assert-True ((@(Get-SweepCandidates -Json 'nonsense')).Count -eq 0) 'unparseable input -- nothing'
 
 Write-Host ''
+Write-Host 'Get-RemoteIssueBranches / Get-SweepCandidates -Branches -- a branch with no marker is not free (#2392)' -ForegroundColor Cyan
+
+$us = [string][char]0x1F
+$refs = @(
+    "origin/HEAD${us}Dave${us}1790000000",
+    "origin/main${us}Dave${us}1790000000",
+    "origin/fix/9-live-work${us}davekokbwj${us}1790000000",
+    "origin/feat/9-older-try${us}DaveKJohn${us}1789990000",
+    "origin/fix/12-pin-7${us}x${us}1790000000",
+    "origin/docs/asana-stage-letter-codes${us}x${us}1790000000",
+    "upstream/fix/3-elsewhere${us}x${us}1790000000",
+    "origin/fix/5-mine-anyway${us}dave${us}1790000000"
+) -join "`n"
+$rb = @(Get-RemoteIssueBranches -Text $refs -Remote 'origin')
+Assert-True ((($rb | ForEach-Object { "$($_.Issue)" }) -join ',') -eq '9,9,12,5') `
+    'the number right after the prefix, on this remote only -- not HEAD, not a subject-named branch, not a number later in the name'
+Assert-True ($rb[0].Branch -eq 'origin/fix/9-live-work' -and $rb[0].Author -eq 'davekokbwj' -and $rb[0].CommitUnix -eq 1790000000) `
+    'each record carries the branch, the author and the commit time'
+Assert-True (@(Get-RemoteIssueBranches -Text '' ).Count -eq 0) 'no listing, no branches'
+Assert-True (@(Get-RemoteIssueBranches -Text "origin/fix/1-x${us}only-two-fields").Count -eq 0) 'a malformed line is skipped, not guessed at'
+$tabAuthor = @(Get-RemoteIssueBranches -Text "origin/fix/4-x${us}Ada`tLovelace${us}1790000000")
+Assert-True ($tabAuthor.Count -eq 1 -and $tabAuthor[0].Author -eq "Ada`tLovelace" -and $tabAuthor[0].CommitUnix -eq 1790000000) `
+    'a tab in the author name does not shift the fields -- the unit separator is why'
+$unknownAge = @(Get-SweepCandidates -Json '[{"number":4,"title":"t","labels":[],"comments":[]}]' -Branches @(Get-RemoteIssueBranches -Text "origin/fix/4-x${us}a${us}not-a-number") -NowUnix 1790000000)
+Assert-True ($unknownAge[0].Verdict -eq 'branch' -and $unknownAge[0].Reason -match 'at an unknown time') `
+    'an unreadable commit time reads as unknown, never as an age computed from zero'
+
+$cb = @(Get-SweepCandidates -Json $backlog -Tag 'HOST-A/dave' -SkipLabel @('needs-info') -SkipIssue @(1) -Branches $rb -NowUnix 1790000180)
+$nine = @($cb | Where-Object { $_.Number -eq 9 })[0]
+Assert-True ($nine.Verdict -eq 'branch') 'an issue with no marker but a branch on the remote reads branch, not free -- the measured 11-of-11 case'
+Assert-True ($nine.Holder -eq 'davekokbwj') 'the holder is the author of the NEWEST branch'
+Assert-True ($nine.Reason -match [regex]::Escape('origin/fix/9-live-work (+1 more)') -and $nine.Reason -match '3 minutes ago') `
+    'and the reason names that branch, that there are more, and how long ago it moved'
+Assert-True ((@($cb | Where-Object { $_.Number -eq 5 })[0]).Verdict -eq 'mine') 'a marker still wins over a branch -- this tag''s own claim stays mine'
+Assert-True ((@($cb | Where-Object { $_.Number -eq 7 })[0]).Verdict -eq 'held') 'and another tag''s marker stays held'
+Assert-True ((@($cb | Where-Object { $_.Number -eq 3 })[0]).Verdict -eq 'skipped') 'a skip is not turned into branch either'
+$cNoBranch = @(Get-SweepCandidates -Json $backlog -Tag 'HOST-A/dave')
+Assert-True ((@($cNoBranch | Where-Object { $_.Number -eq 9 })[0]).Verdict -eq 'free') 'without branch records the verdict is what it always was'
+
+Assert-True ($body -match "'for-each-ref',\s*\r?\n?\s*'--format=%\(refname:short\)%1f%\(authorname\)%1f%\(committerdate:unix\)', 'refs/remotes/origin'") `
+    '-Candidates reads origin''s branches in ONE listing for the whole backlog'
+Assert-True ($body -match "'free' below means only that no claim marker holds it") `
+    'and an unreadable listing says what free then means, rather than reading as a clean scan'
+
+Write-Host ''
 Write-Host 'claim-issue.ps1 -- tag mode, as wired (#2243)' -ForegroundColor Cyan
 
 # THE ORDER OF THE TWO WRITES IS THE RACE RULE ITSELF. The winner is the earliest MARKER, so any step
