@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 18 minor entries** <!-- pending-tally -->
+**5 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2304-split-integrity-entries · 20260923-182014Z
+
+`check-plugin-integrity-entries.tests.ps1` is three suites now, and CI runs on five shards instead of
+four. The re-read durations showed the gate bound by total work (453.8s over 16 lanes) with `-entries`
+(426.1s) the file a fifth shard would stop at, so both levers go in together: the expected floor is
+`new-branch.tests.ps1` at 380.2s. All 86 asserts are preserved and were verified by running the three
+parts. Step 4 of #2304.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The first step of #2304 that moves the shard count, and the one where the issue's own ordering is
+applied rather than quoted: a split alone would have bought nothing here, and a shard alone would have
+stopped at the file this change splits. A sixth shard buys nothing until `new-branch` is split.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-entries and add a fifth CI shard: step 4 of the CI critical path
+
+[PR #2385](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2385)
+
+---
 
 ### DEPLOY: fix/2379-native-capture-exitcode-flake · 20260923-181117Z
 
