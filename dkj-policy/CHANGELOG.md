@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 19 minor entries** <!-- pending-tally -->
+**6 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2333-pin-write-runners · 20260923-183716Z
+
+The three consumer runners that hold a write credential no longer run this repo's scripts at `main`.
+`adopt-ci-floor` now checks the shared scripts out for the fold, the resolves verification and
+merge-on-green at the commit the adopting plugin's release was tagged at, written as
+`ref: <sha> # v<version>`. Until now a change landing on this repo's trunk reached `FOLD_PUSH_TOKEN`'s
+contents and pull-request write in every adopted consumer on its next run, with no release in between.
+The read-only gates keep `ref: main`, where the stale-convention argument still holds. The pin has to
+move, so re-running `adopt-ci-floor` now reads every existing write runner and reports one still on
+`main` or pinned behind the version it came from, with the value to put there. It never rewrites the
+file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer that adopted the CI floor before this release keeps `ref: main` in its write runners until
+somebody edits them, because the scaffolder never rewrites a file. Re-running `adopt-ci-floor` is what
+tells them, one `ref:` line per runner. A floor adopted from now on is pinned from the start.
+
+**Score:** 2
+
+#### Pull Request
+
+The write runners adopt-ci-floor places now pin the shared scripts to a release
+
+Plugins: dkj-policy
+
+[PR #2345](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2345)
+
+---
 
 ### DEPLOY: feat/2304-split-integrity-entries · 20260923-182014Z
 
