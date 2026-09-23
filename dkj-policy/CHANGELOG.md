@@ -44,7 +44,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**5 / 16 minor entries** <!-- pending-tally -->
+**5 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2384-run-progress-fixed-clock · 20260923-180053Z
+
+`run-progress.tests.ps1` asserted two exact elapsed strings (`+6m12s`, `+11m48s`) while taking the
+record's start and the reader's "now" from two separate clock reads. On a loaded CI runner two
+seconds passed between them, and one red suite turned the required `lint-en-tests` check red on a PR
+that never touched run-progress
+([#2384](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2384)). Both sections now read
+one instant and hand it to `Get-LiveRunProgress -NowUtc`, a parameter the lib already had. Test-only.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+run-progress tests: pin the clock the elapsed asserts read
+
+[PR #2386](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2386)
+
+---
 
 ### DEPLOY: fix/2381-merge-on-green-ps51-parse · 20260923-174821Z
 
