@@ -60,6 +60,10 @@ different functions in the same file.
   win the race; a planted marker does not park a free issue; the comparison is case-insensitive. The one
   existing assert that read an authorless marker as a record now asserts it is dropped, and a new assert
   keeps the StrictMode coverage for a record missing `createdAt`.
+- [x] Review: Victor clean (every caller traced, including take-over and the older `swb-lane` markers).
+  Sebastian confirmed the planted-marker gap is closed. He also found a separate gap: an account can
+  backdate its OWN marker by editing an old comment of its own. That is a different attack, not
+  introduced here, and it needs a different field, so it is filed as #2402 rather than folded in.
 
 ### DEPLOY: fix/2399-claim-marker-author-check
 
