@@ -61,10 +61,13 @@ Departure from the report: `Get-ThemeFileCount` goes into `shopify-cli-lib.ps1`,
 - [x] Docs: push-preview skill page (steps, parameters, the why), Steven's manual line.
 - [x] Mirrors rebuilt (`build-shared-scripts.ps1`).
 - [x] Filed #2350: backup-live-theme breaks on an early `short` verdict that push-preview now waits through.
+- [x] Review (Victor, Edith, Sebastian): a duplicate whose id could not be read back left no
+      pending record, so a re-run could push into a filling copy -- pending is now written before the
+      call; the duplicate --json shape was read in the CLI source and pinned; copy fixes applied.
 
 ### TEST
 
-- [x] `push-preview.tests.ps1` -- 95 asserts pass, new ones cover the duplicate call, its whitelist,
+- [x] `push-preview.tests.ps1` -- 97 asserts pass, new ones cover the duplicate call and its --json shape, its whitelist,
       the context path, the markets reader and the notice.
 - [x] `theme-lifecycle-rules.tests.ps1` -- 102 pass.
 - [x] `check-plugin-integrity.ps1` -- 0 errors.
