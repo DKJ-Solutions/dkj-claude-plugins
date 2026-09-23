@@ -44,7 +44,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 6 minor entries** <!-- pending-tally -->
+**3 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2358-claim-marker-comma-split · 20260923-120648Z
+
+`claim-issue.ps1 -Marker` now splits a comma list into names. Under the documented
+`powershell -File` route a list such as `-Marker claim-tag,xoxo-lane` arrived as one literal string,
+was written as a compound marker name and read as one, so a machine passing a predecessor list could not
+see ordinary `claim-tag` claims and its own claims were invisible to every other machine. Only the first
+name is written now, every name is read, and a compound marker already written before this repair is
+still recognised whenever one of its parts is a listed name
+([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)). `-SkipLabel` and
+`-SkipIssue` had the same defect and are split the same way; `-SkipIssue` was the sharper case, since an
+`[int[]]` under `-File` read `12,34` as the single issue `1234`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer sweeping one backlog from several machines with `-Tag` stops seeing claimed issues listed
+as free after a plugin update, and the compound markers already on its issues keep holding.
+
+**Score:** 4
+
+#### Pull Request
+
+claim-issue -Marker splits a comma list, so -File callers read every predecessor name
+
+Plugins: dkj-policy
+
+[PR #2365](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2365)
+
+---
 
 ### DEPLOY: fix/2347-release-asset-reupload-by-id · 20260923-114927Z
 
