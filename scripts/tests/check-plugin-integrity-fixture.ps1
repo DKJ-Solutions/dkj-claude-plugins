@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Shared fixture, assert helpers and gate runner for the thirteen check-plugin-integrity suites.
+    Shared fixture, assert helpers and gate runner for the fifteen check-plugin-integrity suites.
 
 .DESCRIPTION
     NOT NAMED *.tests.ps1 ON PURPOSE: the test gate globs that pattern, and this file asserts
-    nothing. It is dot-sourced by the thirteen suites that do:
+    nothing. It is dot-sourced by the fifteen suites that do:
 
       check-plugin-integrity-links.tests.ps1         checks 4 and 28 -- the scan set, links and imports
       check-plugin-integrity-skill-spans.tests.ps1   check 10 and scenario 16 -- the skills:all spans
@@ -14,7 +14,9 @@
       check-plugin-integrity-script-rules.tests.ps1  checks 33, 31, 34 -- barred skills, bare CLI, headers
       check-plugin-integrity-script-set.tests.ps1    check 37, the script set (#1998), check 44
       check-plugin-integrity-fixture-guard.tests.ps1 check 41 -- the #1934 fixture load guard
-      check-plugin-integrity-entries.tests.ps1       checks 13, 13b, 14-16 -- entries, templates, figures
+      check-plugin-integrity-entries.tests.ps1       check 13 -- the entry format
+      check-plugin-integrity-branch-document.tests.ps1 check 13b and [COVERAGE] -- no leftover document
+      check-plugin-integrity-figures.tests.ps1       checks 15 and 16 -- captured samples, measured figures
       check-plugin-integrity-docs.tests.ps1          checks 19, 20, 20b, 20c, 25 -- consumer documents
       check-plugin-integrity-scripts.tests.ps1       checks 18, 39, 40, 27, 35 -- the script layer
       check-plugin-integrity-invocations.tests.ps1   checks 22, 42, 42b, 24, 26 -- printed invocations
@@ -22,7 +24,7 @@
 
     WHY THERE IS MORE THAN ONE, MEASURED FOUR TIMES. The gate parallelises per FILE, so the only way
     to give a heavy suite's work the idle lanes is to make it more than one file -- and the same
-    measurement has now forced the same answer at two different scales, the second of them three times.
+    measurement has now forced the same answer at two different scales, the second of them four times.
 
       #714, August 16, 2026 -- the FIRST split, one file into four. As one file this suite ran the
       gate 111 times in sequence, took 160s standalone and 196-213s inside the parallel gate -- and
@@ -49,10 +51,17 @@
       it was the largest single check in the file. Side by side the longest part took 64s against
       the original's 184s.
 
+      #2304, September 23, 2026 -- the FIFTH split, -entries into three (step 4). The re-read of the
+      durations (#2378) put -entries at 426.1s against a 453.8s work bound, so this split is bought
+      together with a fifth CI shard rather than on its own: over 20 lanes the work bound falls below
+      new-branch.tests.ps1 (380.2s), and it is -entries that would otherwise set the floor. Cut at check
+      boundaries -- 18 / 7 / 16 invocation sites; the seven are all -Full -- and side by side the
+      longest part took 94.5s against the original's 124.4s alone.
+
     NOTHING WAS REMOVED TO BUY THE TIME, AT ANY SPLIT. The suites carry the same scenarios against
     the same fixture -- the asserts still sum to the count the single file reported, which is 188
     across the four -docs descendants, 141 across the four -links descendants and 132 across the
-    four -commands descendants, each verified by running them. Narrowing test scope was explicitly refused in #714 and is not what happened on
+    four -commands descendants and 86 across the three -entries descendants, each verified by running them. Narrowing test scope was explicitly refused in #714 and is not what happened on
     any occasion.
 
     EVERY #2304 SPLIT SURFACED A LATENT ORDER DEPENDENCY, and each is repaired rather than worked
@@ -159,7 +168,7 @@ function Assert-True {
 # absence assert pass vacuously; it stays the default only because the scenarios do not need those three,
 # not because it is fast.
 #
-# NINE SCENARIOS PASS -Full, and this is the complete list: in the entries suite, the six check-13b
+# NINE SCENARIOS PASS -Full, and this is the complete list: in the branch-document suite, the six check-13b
 # branch-template scenarios (r13bAbsent, r13bOnBranch, r13bLeftover, r13bNameless, r13bMaster,
 # r13bMainOnMaster) and the [COVERAGE] scenario (which asserts 'agent-def' reports its count); in the docs
 # suite, the frontmatter-bom scenario and the one that writes a hook which does not parse and asserts
@@ -218,7 +227,7 @@ $deadLink = './this-file-does-not-exist-xyz.md'
 
 # THE ONE PIECE OF SCENARIO STATE TWO SUITES SHARE, and the only reason it is here rather than in a
 # scenario. The commands suite writes this quiet CONTRIBUTING.md for scenario 24 (proving history is
-# excluded); the entries suite restores it before the [COVERAGE] block, which needs a root document
+# excluded); the branch-document suite restores it before the [COVERAGE] block, which needs a root document
 # that prints no lifecycle command. While the two were one file the second use simply read the first's
 # variable, 500 lines further down. A copy in each file would be free to drift, and the drift would
 # show up as a coverage assert failing in a suite that never wrote the file.
@@ -237,7 +246,7 @@ function Write-QuietRootDocuments {
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'connectors\README.md'), "# Connectors`n`nNothing to link to here.`n", $Utf8NoBom)
 }
 
-# The fixture every one of the four suites starts from: a throwaway repo root holding the REAL
+# The fixture every one of the suites starts from: a throwaway repo root holding the REAL
 # check-plugin-integrity.ps1 and its dot-sourced libs, a marketplace declaring three plugins, a
 # canonical two-skill skillset with its depth decoy, and the generated PR template. It ends where
 # the first scenario used to begin, so each suite starts from the same canonical state instead of
@@ -361,7 +370,7 @@ function New-IntegrityFixture {
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-alpha\skills\skill-alpha\references\SKILL.md'), $skillDeepDecoyMd, $Utf8NoBom)
 }
 
-# The closing summary, identical in all four suites: one place, so four files cannot drift on how
+# The closing summary, identical in every suite: one place, so the files cannot drift on how
 # they report a failure.
 function Complete-IntegritySuite {
     # ABOVE THE VERDICT AND EVEN ON A GREEN RUN (issues #1934 and #1954): a scenario whose child died
