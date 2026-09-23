@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**34 / 54 minor entries** <!-- pending-tally -->
+**34 / 55 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2335-capturedir-pid-reuse · 20260923-081822Z
+
+`test-suite-gate.tests.ps1` could go red under the local gate on a correct gate: the lookup that finds a
+red fixture run's kept capture directory globbed `test-suite-gate-<pid>-*` and demanded exactly one hit,
+while every earlier red run's directory is kept on purpose -- 110 of them in the authoring machine's
+temp folder, PIDs already repeating. A driver drawing a dead run's PID found two and read as having kept
+nothing. The lookup now also requires the directory to be newer than the child's launch, and a planted
+stale leaf pins it (#2335).
+
+**Score:** 2 -- an intermittent false-red on one suite of the local gate, costing a re-run and a
+judgement call; the gate itself was always right.
+
+#### What makes this deploy extra special
+
+N/A -- `scripts/tests/` is not mirrored into consumers, and the gate lib is untouched.
+
+**Score:** N/A
+
+#### Pull Request
+
+test-suite-gate capture lookup: ignore a stale directory left by a reused PID
+
+[PR #2340](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2340)
+
+---
 
 ### DEPLOY: feat/2329-merge-on-green-consumer · 20260923-063821Z
 
