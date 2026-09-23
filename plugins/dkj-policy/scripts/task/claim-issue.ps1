@@ -266,7 +266,7 @@ if (-not $Candidates -and -not $ReleaseAll) {
     # relies on.
     if (($Verify -or $Release) -and -not $Tag) {
         $named = if ($Verify -and $Release) { '-Verify and -Release' } elseif ($Verify) { '-Verify' } else { '-Release' }
-        Write-Host "[ERROR] $named only mean something with -Tag -- nothing was read or written." -ForegroundColor Red
+        Write-Host "[ERROR] $named only $(if ($Verify -and $Release) { 'mean' } else { 'means' }) something with -Tag -- nothing was read or written." -ForegroundColor Red
         Write-Host '        They read and drop a TAG claim (the marker comment). The default mode claims by' -ForegroundColor Red
         Write-Host '        assignee and has nothing of this session''s to verify or release.' -ForegroundColor Red
         exit 1
@@ -444,8 +444,11 @@ if ($ReleaseAll) {
     $held = @(Get-OwnTagClaims -Json $ownJson -Tag $claimTag.Tag -Account $identity.Account -Marker $Marker)
     # A FULL PAGE MAY BE A TRUNCATED ONE: an issue past -Limit is never read, so its marker would stand
     # while the run reports success.
+    # Two statements, not @($ownJson | ConvertFrom-Json): in 5.1 ConvertFrom-Json emits the array as ONE
+    # pipeline object, so wrapping the pipeline counts 1 whatever the payload holds -- and this warning
+    # could never fire (measured in review on a two-issue payload at -Limit 2).
     $readCount = 0
-    try { $readCount = @($ownJson | ConvertFrom-Json).Count } catch { $readCount = 0 }
+    try { $parsedList = $ownJson | ConvertFrom-Json; $readCount = @($parsedList).Count } catch { $readCount = 0 }
     if ($readCount -ge $Limit) {
         Write-Host "  [limit] read $readCount open issues, which is the -Limit -- older ones were not looked at. Raise -Limit to be sure." -ForegroundColor Yellow
     }

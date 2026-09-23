@@ -53,10 +53,16 @@ tag's own markers (and this account's assignee beside them), dry-run unless `-Ap
 - [x] `Remove-ClaimMarkerComments` moved ahead of every mode; `-Release`'s assignee removal became the
       shared `Remove-ClaimAssignee` helper
 - [x] Plugin mirrors synced; `claim-issue` and `sweep-issues` skill pages state the bound
+- [x] Review (Sebastian): a marker counts as this tag's only where its comment AUTHOR is the tag's
+      account half -- a planted marker could otherwise make `-Apply` drop an assignee. The same gap in
+      `-Release`, the verdict and the race predates this branch: filed as #2399
+- [x] Review (Victor): the `-Limit` warning counted 1 on every payload (5.1 pipeline wrap) and could
+      never fire; now the two-statement form
+- [x] Review (Edith): "-Release only mean something" -> "means" for the singular refusal
 
 ### TEST
 
-- [x] `claim-issue.tests.ps1`: 483 passed, including the new #2395 block
+- [x] `claim-issue.tests.ps1`: 485 passed, including the new #2395 block and the planted-marker case
 - [x] `native-capture.tests.ps1`: bounded-site count moved 79 -> 80 with its audit note; 352 pass
 - [x] Live dry run on this repo: `[OK] no open issue carries a claim of this tag`; both refusals fire
 
@@ -65,7 +71,9 @@ tag's own markers (and this account's assignee beside them), dry-run unless `-Ap
 `claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
 claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
 it only lists what it would release. Markers written by any other tag are never touched, including
-another machine under the same account, and an assignee with no marker of this tag stays in place.
+another machine under the same account, and an assignee with no marker of this tag stays in place. A
+marker only counts as this tag's when the comment was actually written by this tag's account, so a
+comment somebody else posts with your tag in it cannot trigger a release.
 
 **Score:** 2
 

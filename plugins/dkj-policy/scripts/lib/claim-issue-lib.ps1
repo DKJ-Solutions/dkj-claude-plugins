@@ -2359,6 +2359,10 @@ function Get-OwnTagClaims {
             and colleagues' live claims and deleting them recreates the duplicate-work hazard #2207 and
             #2243 closed.
 
+            AND A MARKER COUNTS ONLY WHERE ITS AUTHOR IS THE TAG'S ACCOUNT. The tag is text inside a
+            comment, so matching it alone would let anybody who can comment plant this tag on an issue
+            and have -Apply release it. A tag with no account half returns nothing.
+
             THE ASSIGNEE IS REPORTED, NEVER DECIDED ON. Assigned says whether -Account is among the
             issue's assignees, so the caller removes the assignee a tag claim wrote beside its marker. An
             issue with this account assigned and no marker of this tag is not returned: in tag mode a
@@ -2394,6 +2398,9 @@ function Get-OwnTagClaims {
     if (-not $Json -or -not $Json.Trim()) { return @() }
     $ownTag = $Tag.Trim()
     if (-not $ownTag) { return @() }
+    $slash = $ownTag.LastIndexOf('/')
+    $tagAccount = if ($slash -ge 0) { $ownTag.Substring($slash + 1).Trim() } else { '' }
+    if (-not $tagAccount) { return @() }
     try { $parsed = $Json | ConvertFrom-Json } catch { return @() }
     if ($null -eq $parsed) { return @() }
 
@@ -2404,7 +2411,13 @@ function Get-OwnTagClaims {
         # Re-serialised into the shape Get-ClaimRecords reads, as Get-SweepCandidates does, so a comment
         # body is still read in exactly one place.
         $records = @(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @($issue.comments) }) | ConvertTo-Json -Depth 8) -Marker $Marker)
-        $own = @($records | Where-Object { $_.Tag -ieq $ownTag })
+        # THE AUTHOR MUST BE THE TAG'S OWN ACCOUNT, not only the text. The tag inside a marker is free
+        # text anybody who can comment may write, and the tags in use are printed in this repo's own
+        # docstrings -- so a marker planted by somebody else would otherwise be swept in as this tag's,
+        # and -Apply would drop an assignee on the strength of a stranger's comment. gh writes a claim
+        # comment as the gh account the tag's second half names (Get-ClaimTag), so a genuine marker
+        # always carries that author.
+        $own = @($records | Where-Object { $_.Tag -ieq $ownTag -and $_.Author -and $_.Author -ieq $tagAccount })
         if ($own.Count -eq 0) { continue }
 
         $assigned = $false

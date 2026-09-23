@@ -1468,8 +1468,11 @@ Assert-True (-not (@($own | Where-Object { $_.Number -eq 1 })[0]).Assigned) 'a p
 Assert-True ((@(Get-OwnTagClaims -Json $ownBacklog -Tag '' -Account 'DaveKJohn')).Count -eq 0) 'no tag -- nothing, rather than every marker'
 Assert-True ((@(Get-OwnTagClaims -Json '' -Tag 'HOST-A/DaveKJohn')).Count -eq 0) 'empty input -- nothing'
 Assert-True ((@(Get-OwnTagClaims -Json 'nonsense' -Tag 'HOST-A/DaveKJohn')).Count -eq 0) 'unparseable input -- nothing'
-$ownLegacy = @(Get-OwnTagClaims -Json '[{"number":4,"title":"t","assignees":[],"comments":[{"id":"IC_4","createdAt":"z","author":{"login":"m"},"body":"<!-- swb-lane: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Marker @('claim-tag','swb-lane'))
+$ownLegacy = @(Get-OwnTagClaims -Json '[{"number":4,"title":"t","assignees":[],"comments":[{"id":"IC_4","createdAt":"z","author":{"login":"DaveKJohn"},"body":"<!-- swb-lane: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Marker @('claim-tag','swb-lane'))
 Assert-True ($ownLegacy.Count -eq 1) 'a predecessor marker of this tag is released too, where the repo names it'
+$forged = @(Get-OwnTagClaims -Json '[{"number":8,"title":"t","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_8","createdAt":"z","author":{"login":"random-tracker-user"},"body":"<!-- claim-tag: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Account 'DaveKJohn')
+Assert-True ($forged.Count -eq 0) 'a marker carrying this tag but written by ANOTHER author is not this tag''s -- a planted comment cannot make -Apply drop an assignee'
+Assert-True ((@(Get-OwnTagClaims -Json $ownBacklog -Tag 'HOST-A' -Account 'DaveKJohn')).Count -eq 0) 'a tag with no account half -- nothing, since no author can be checked against it'
 
 Write-Host ''
 Write-Host 'Get-RemoteIssueBranches / Get-SweepCandidates -Branches -- a branch with no marker is not free (#2392)' -ForegroundColor Cyan

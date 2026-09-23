@@ -85,7 +85,8 @@ parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do
   **planned** device switch, so a sweep on the next machine does not read your own old tag as `held`
   ([#2395](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2395)). **It is bounded exactly
   as `-Release` is: this tag's own markers, and this account's assignee only where one of those markers
-  sits beside it.** Another tag's marker is never touched, even another machine under your own account,
+  sits beside it.** A marker counts as this tag's only when its comment was written by the tag's own
+  account, so a comment somebody else plants with your tag in it is not released. Another tag's marker is never touched, even another machine under your own account,
   and a bare assignee with no marker of this tag stays, because in tag mode that is whose ticket it is.
   **It is a dry run unless `-Apply`**: it lists what it would release and writes nothing. It is *not* the
   wipe-all it replaced -- deleting other markers recreates the duplicate-work hazard #2207 and #2243
