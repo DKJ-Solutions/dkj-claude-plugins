@@ -390,7 +390,7 @@ if ($Candidates) {
                                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     if ("$($sweepFetch.Note)") { $branchNote = "the fetch did not refresh origin's branches ($($sweepFetch.Note)) -- they may be behind." }
     $refList = Invoke-NativeCapture -FilePath 'git' -Utf8 -DiscardStderr -Arguments @('-C', $repoRoot, 'for-each-ref',
-        '--format=%(refname:short)%09%(authorname)%09%(committerdate:unix)', 'refs/remotes/origin')
+        '--format=%(refname:short)%1f%(authorname)%1f%(committerdate:unix)', 'refs/remotes/origin')
     if (-not $refList -or -not (Test-NativeExitMeasured -Capture $refList) -or $refList.ExitCode -ne 0 -or $refList.ShortRead) {
         $branchNote = "origin's branches could not be listed, so 'free' below means only that no claim marker holds it."
     } else {

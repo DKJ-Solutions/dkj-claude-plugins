@@ -2065,7 +2065,8 @@ function Get-RemoteIssueBranches {
 
         .PARAMETER Text
             The output of
-            `git for-each-ref --format=%(refname:short)%09%(authorname)%09%(committerdate:unix) refs/remotes/<remote>`.
+            `git for-each-ref --format=%(refname:short)%1f%(authorname)%1f%(committerdate:unix) refs/remotes/<remote>`.
+            Unit separator (0x1F), not a tab -- the author is free text, the reason ConvertFrom-CommitScanLog uses it.
 
         .PARAMETER Remote
             The remote the listing was taken from; its name is stripped from each ref. Default 'origin'.
@@ -2082,7 +2083,7 @@ function Get-RemoteIssueBranches {
     if (-not $Text) { return @() }
     $prefix = "$Remote/"
     foreach ($line in ($Text -split "`r?`n")) {
-        $fields = $line -split "`t"
+        $fields = $line -split [string][char]0x1F
         if ($fields.Count -lt 3) { continue }
         $ref = $fields[0].Trim()
         if (-not $ref.StartsWith($prefix) -or $ref -eq "$Remote/HEAD") { continue }
@@ -2325,7 +2326,7 @@ function Get-SweepCandidates {
                 $newest = $own[0]
                 $verdict = 'branch'
                 $holder = [string]$newest.Author
-                $age = Format-CommitAge -Seconds ($NowUnix - [long]$newest.CommitUnix)
+                $age = if ([long]$newest.CommitUnix -gt 0) { Format-CommitAge -Seconds ($NowUnix - [long]$newest.CommitUnix) } else { 'at an unknown time' }
                 $more = if ($own.Count -gt 1) { " (+$($own.Count - 1) more)" } else { '' }
                 $reason = "no claim marker, but $($newest.Branch)$more is on the remote -- $holder, $age"
             }
