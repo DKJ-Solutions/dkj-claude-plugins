@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**4 / 12 minor entries** <!-- pending-tally -->
+**4 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2304-rerecord-durations-after-split · 20260923-145307Z
+
+Re-recorded `scripts/tests/suite-durations.json` from three CI runs carrying the split
+`check-plugin-integrity-*` layout (#2304). The file still named the pre-split suites, so the nine new
+ones were charged the largest recorded value and the gate packed shards off guesses. The reading:
+the pool is 7,260.5 s over 16 lanes, a work bound of 453.8 s, and no single file reaches it any more
+-- `-entries` is heaviest at 426.1 s -- so CI is now bound by total work, not by one file. The splits
+were not free: the `check-plugin-integrity-*` family went from 2,084.3 s to 2,679.0 s of pool work
+(+594.7 s), because each file builds its own fixture. That is what the next step has to weigh, since
+another split raises the work bound it is meant to get under.
+
+**Score:** 1 -- prevents the gate packing CI shards off maximum-charged guesses for nine suites; no
+reader notices it except as CI wall-clock.
+
+#### What makes this deploy extra special
+
+N/A -- data file only; nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-record CI suite durations after the check-plugin-integrity splits
+
+[PR #2378](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2378)
+
+---
 
 ### DEPLOY: fix/2362-roster-sync-clean-hook-under-load · 20260923-143338Z
 
