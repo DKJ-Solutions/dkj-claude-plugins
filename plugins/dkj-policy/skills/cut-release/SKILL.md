@@ -124,12 +124,21 @@ capture. Measured at this repo's `v5.1.0`: the asset was 11,487 bytes against a 
 release is right on the tree, right on the tag, and wrong on the one page a reader downloads from, which
 is precisely where the argument above says a release's cost belongs.
 
-So re-copy the edited document to its unique filename and upload it over the old asset. `--clobber` is
-what makes that idempotent; without it `gh` refuses a name that already exists:
+So re-copy the edited document to its unique filename and upload it over the old asset, with the same
+script step 5 uses:
 
 ```powershell
-gh release upload vX.Y.Z <vX.Y.Z-notes-for-users.md> --clobber
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/upload-release-asset.ps1" -Tag vX.Y.Z -Path <vX.Y.Z-notes-for-users.md>
 ```
+
+**Not `gh release upload --clobber`, which this page prescribed until
+[#2347](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2347).** At this repo's `v5.7.0`, on
+gh 2.101.0, it returned `HTTP 422 ... ReleaseAsset.name already exists` and left the stale asset in place
+(15,071 B against a 15,864 B document), and the fallback a reader reaches for next, `gh release
+delete-asset`, reported the asset *not found* while the REST API listed it by that exact name. Both look
+the asset up by name first. The script reads the asset list from the API, deletes the stale copy **by
+id**, uploads without `--clobber`, and exits 1 unless the published asset has the file's exact byte count.
+That check is what #1897 lacked: the byte count had been watched by hand.
 
 **Which document that is depends on the flow, and it is not always the consumer one.** The figure goes in
 the *organisational* section, so in the merged one-document flow it is the note under
@@ -518,9 +527,14 @@ a release for a missing timestamp would be ceremony rather than a guard.
    ```powershell
    # the --notes-file is the generated body; cut-release.ps1 printed this exact line for you
    gh release create vX.Y.Z --title "Release Version vX.Y.Z" --notes-file releases/github/<dir>/vX.Y.Z.md
-   # copy each attachment to a UNIQUE filename first -- see the collision note below
-   gh release upload vX.Y.Z <vX.Y.Z-development-notes.md> [<vX.Y.Z-notes-for-users.md>]
+   # copy each attachment to a UNIQUE filename first -- see the collision note below -- then attach
+   # each one; the script verifies the published byte count against the file (#2347)
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/upload-release-asset.ps1" -Tag vX.Y.Z -Path <vX.Y.Z-development-notes.md>
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/upload-release-asset.ps1" -Tag vX.Y.Z -Path <vX.Y.Z-notes-for-users.md>
    ```
+
+   `-Repo owner/name` pins the tracker where `scripts/repo-config.ps1` has no `Get-RepoName`; without
+   either, `gh` resolves it from the checkout.
 
    **The name is `Release Version vX.Y.Z` and nothing else** (Dave, September 21, 2026). This printed a
    `<short title>` placeholder, so the release was named after whatever sentence the person cutting it

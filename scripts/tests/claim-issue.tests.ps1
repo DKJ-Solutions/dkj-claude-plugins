@@ -1279,6 +1279,60 @@ Assert-True ('<!-- a.b: X/y -->' -match (Get-ClaimMarkerPattern -Marker @('a.b')
 Assert-True ('<!-- aXb: Q/r -->' -notmatch (Get-ClaimMarkerPattern -Marker @('a.b'))) 'and the dot does not match any character'
 
 Write-Host ''
+Write-Host 'A comma list under -File -- one literal element, split into names (#2358)' -ForegroundColor Cyan
+
+$split = @(Split-ClaimMarkerNames -Marker @('claim-tag,xoxo-lane'))
+Assert-True ($split.Count -eq 2) 'one element carrying a comma list is split into its names'
+Assert-True ($split[0] -eq 'claim-tag') 'and the FIRST name stays first -- it is the one a claim writes'
+Assert-True (@(Split-ClaimMarkerNames -Marker @('claim-tag', ' xoxo-lane ,', 'claim-tag')).Count -eq 2) 'blanks are dropped and a repeated name is kept once'
+Assert-True (@(Split-ClaimMarkerNames -Marker @(' , ')).Count -eq 0) 'an all-blank list is no names, not one empty name'
+
+$fromFile = Format-ClaimComment -Tag 'HOST-B/dave' -Marker 'claim-tag,xoxo-lane'
+Assert-True ($fromFile -match '<!-- claim-tag: HOST-B/dave -->') 'a comma list handed over whole WRITES only its first name'
+Assert-True ($fromFile -notmatch 'xoxo-lane') 'and never the compound spelling nobody else reads'
+
+$ordinary = '<!-- claim-tag: HOST-A/dave -->'
+Assert-True ($ordinary -match (Get-ClaimMarkerPattern -Marker @('claim-tag,xoxo-lane'))) 'a machine passing a predecessor list is no longer blind to the ordinary claim-tag marker -- the measured symptom'
+Assert-True ('<!-- xoxo-lane: HOST-C/m -->' -match (Get-ClaimMarkerPattern -Marker @('claim-tag,xoxo-lane'))) 'and it reads the predecessor it listed'
+
+$compound = '<!-- claim-tag,xoxo-lane: HOST-D/dave -->'
+Assert-True ($compound -match (Get-ClaimMarkerPattern)) 'a compound marker already written before the repair is read by a DEFAULT sweep -- the transition'
+Assert-True ([regex]::Match($compound, (Get-ClaimMarkerPattern)).Groups['tag'].Value -eq 'HOST-D/dave') 'with the tag intact'
+Assert-True ('<!-- xoxo-lane,claim-tag: HOST-E/m -->' -match (Get-ClaimMarkerPattern)) 'whichever position the known name held in it'
+Assert-True ('<!-- other-lane,foo: HOST-F/m -->' -notmatch (Get-ClaimMarkerPattern)) 'but a compound with no known part is still not a claim'
+Assert-True ('<!-- xclaim-tag: HOST-G/m -->' -notmatch (Get-ClaimMarkerPattern)) 'and a known name is matched whole, never as a suffix of a longer one'
+
+# The premise itself, measured rather than asserted: -File really does bind a comma list as ONE
+# element of a [string[]] parameter, which is the whole reason the split has to exist.
+$bindProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("claim-marker-bind-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
+Set-Content -LiteralPath $bindProbe -Encoding ASCII -Value @(
+    'param([string[]]$Marker)'
+    ". '$($Lib -replace "'", "''")'"
+    '"{0}|{1}" -f @($Marker).Count, @(Split-ClaimMarkerNames -Marker $Marker).Count'
+)
+try {
+    $bound = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $bindProbe -Marker claim-tag,xoxo-lane | Select-Object -Last 1)
+    Assert-True ("$bound" -eq '1|2') 'under -File the list binds as ONE element, and the split turns it into two names'
+} finally { Remove-Item -LiteralPath $bindProbe -ErrorAction SilentlyContinue }
+
+# -SkipLabel and -SkipIssue sit behind the same binding. The issue list is the sharper case: an
+# [int[]] under -File reads '12,34' as the ONE number 1234, so it is declared [string[]] and parsed.
+$intProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("claim-skipissue-bind-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
+Set-Content -LiteralPath $intProbe -Encoding ASCII -Value @('param([int[]]$SkipIssue)', '"{0}|{1}" -f @($SkipIssue).Count, (@($SkipIssue) -join ";")')
+try {
+    $intBound = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $intProbe -SkipIssue 12,34 | Select-Object -Last 1)
+    Assert-True ("$intBound" -eq '1|1234') 'the hazard, measured: an [int[]] under -File binds 12,34 as the one number 1234'
+} finally { Remove-Item -LiteralPath $intProbe -ErrorAction SilentlyContinue }
+
+$claimScriptSource = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\task\claim-issue.ps1') -Raw
+Assert-True ($claimScriptSource -match '\[string\[\]\]\$SkipIssue') '-SkipIssue is declared [string[]], so no comma can be read as a thousands separator'
+Assert-True ($claimScriptSource -notmatch '\[int\[\]\]\$SkipIssue') 'and not [int[]]'
+Assert-True ($claimScriptSource -match '\$SkipLabel = @\(Split-CommaListArgument') '-SkipLabel is split the same way -Marker is'
+Assert-True ($claimScriptSource -match '-SkipIssue \$skipIssueNumbers') 'and the sweep is handed the PARSED numbers, not the raw strings'
+$labels = @(Split-CommaListArgument -Value @('needs-info,blocked'))
+Assert-True ($labels.Count -eq 2 -and $labels[1] -eq 'blocked') 'a label list in one element is split into labels'
+
+Write-Host ''
 Write-Host 'Get-ClaimRecords -- the markers on an issue' -ForegroundColor Cyan
 
 $twoClaims = @'

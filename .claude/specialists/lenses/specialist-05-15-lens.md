@@ -2124,6 +2124,77 @@ this repo's:
   refusal. The refusal is not the obstacle to route around — it is the mechanism working. Wait it out.
 - This repo is **public**: config never contains secrets.
 
+### The scripts directory is the source
+
+**`scripts/` is the canonical source of everything this repo runs, and everything under
+`plugins/*/scripts/` is a generated copy of it.** The authoritative list of what is mirrored where is
+`Get-SharedScriptPairs` in [`shared-scripts-lib.ps1`](../../../scripts/lib/shared-scripts-lib.ps1);
+[`build-shared-scripts.ps1`](../../../scripts/sync/build-shared-scripts.ps1) generates from it and lint
+check 8 holds the mirrors to it. **No count of it is stated here, deliberately** — a prose tally of a
+machine-held list is wrong when typed and wrong again after the next entry (#897). The consumer-facing
+page for the copy is [`plugins/dkj-policy/scripts/README.md`](../../../plugins/dkj-policy/scripts/README.md).
+This section is what `scripts/README.md` carried until September 23, 2026, when that page was removed
+as rarely read; its directory map and entry-point table were dropped rather than moved, because each
+script's skill page is where a reader actually looks for it, and each plugin's `hooks/hooks.json` is the
+only list of hook-invoked scripts that cannot go stale. `scripts/repo-config.ps1` sits at the top level
+rather than in a directory because it is **data, not machinery**: this repo's own answers to the seams
+the shared scripts read.
+
+- **Never *run* a shared script from the plugin cache while you are in this repo — run the copy here.**
+  The cache holds the last *released* mirror, so it lags this directory by however many merges have
+  landed since. Every shared entry point refuses outright
+  ([`source-repo-guard-lib.ps1`](../../../scripts/lib/source-repo-guard-lib.ps1)) and names the local
+  path instead — except the few the **harness** invokes from the plugin (a SessionStart or Stop hook),
+  where a refusal would fire every session or every turn. **The exempt scripts are named only in
+  [`source-repo-guard.tests.ps1`](../../../scripts/tests/source-repo-guard.tests.ps1)**, so adding one is
+  argued in a file that fails when it is wrong; that suite also derives the entry points from the
+  registry and fails on any that lacks the guard, reading the parsed syntax rather than the text
+  ([#1321](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1321)) — a whole-file match
+  on the lib's name could not tell loading the guard from a comment explaining its absence.
+  **Why it needs saying, measured August 12, 2026 against mirror `4.5.0`:** every skill page prints
+  `${CLAUDE_PLUGIN_ROOT}/scripts/…`, which the harness expands to your own cache before you read it, so
+  the command looks authoritative and points at a release. That mirror lacked `Get-ReleaseAudienceTier`
+  and `Get-ReleaseNoteRoot`: `new-branch` scaffolded the retired three-tier ladder and `session-status`
+  printed an empty "still open" block, neither with an error. **Re-syncing or bumping is not the
+  repair** — between releases this directory is ahead of the cache by definition.
+- **Never edit a file under `plugins/*/scripts/`.** Change the source here and run
+  `build-shared-scripts.ps1`; check 8 reports a hand-edited mirror as drift.
+- **CI runs from a bare checkout with no plugin cache**, so anything the lint gate or a suite reaches
+  has to resolve from `scripts/` alone — which is why a few files
+  [deliberately cannot move](../../../plugins/dkj-policy/scripts/README.md#what-deliberately-stays-in-the-consumers-root-cannot-move-here)
+  into a plugin.
+
+#### Temp paths in a shipping script: New-ScratchPath
+
+**A shipping script composes no temp path — it calls `New-ScratchPath`**
+([`native-capture-lib.ps1`](../../../scripts/lib/native-capture-lib.ps1)), which returns
+`<temp>/<label>-<pid>-<guid>`, creates it with `-Directory`, and refuses a label that is not one safe
+path segment. A fixed leaf is a name somebody else can reach first: `New-Item -ItemType Directory
+-Force` and `[System.IO.File]::WriteAllText` follow a symlink or junction, so a pre-planted link
+redirects the write, and a later recursive delete there becomes a delete primitive elsewhere. Measured
+September 8, 2026 ([#1659](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1659)):
+**seven** sites composed `<label>-$PID` by hand. A guid removes the target instead of checking for one —
+a reparse-point check has a window, and cannot apply to the temp root at all, since on macOS `/tmp` *is*
+a symlink. `native-capture.tests.ps1` enforces this over `scripts/**` outside `tests/`; the suites have
+their own equally strict rule, in [Tycho's lens](specialist-04-18-lens.md#a-suites-fixture-path-carries-the-pid-and-a-fresh-guid).
+
+#### A leftover under the temp directory is an aborted run
+
+Measured September 8, 2026 ([#1668](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1668))
+over twelve days of gate runs: 107 `fold-test-*` and 96 `new-branch-test-*` entries were standing, and
+**both suites leaked zero** when run to completion — every leftover was registered after a suite's last
+completed sweep, the signature of an interrupted run. The fix that would reach them is a sweep by name
+pattern in a shared temp directory, i.e. the same delete primitive `New-ScratchPath` exists to remove.
+**So those trees are left standing on purpose**: `$PID` in the leaf attributes one to a run that is no
+longer alive, and a person can clear it by hand. `tidy-machine`'s lane 10 attributes and never deletes
+for this reason.
+
+**Attribute before you count.** That measurement first read 413 entries as leaked fixtures; of the
+directory, 546 were `sync-pr-body-*`, written deliberately by `task/sync-main.ps1` to outlive the run
+(the same retained-on-purpose class as the gate's capture directories,
+[#1636](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1636)), and 162 were an
+unrelated tool's logs.
+
 ### How the gate checks got their shape, and the measurements behind them (August 15, 2026)
 
 *Moved here verbatim from [`CLAUDE.md`](../../../CLAUDE.md)'s lint-gate bullet, where it was 9,440 B

@@ -152,9 +152,15 @@ which blocks a card whatever the board is doing, and an issue being reopened. Da
 board**, which is what makes the *"which board?"* question inbound
 [#1217](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1217) ran into moot.
 
-The whole rule, with the field-by-field shape of the Asana variant and the cross-link markers, is in
-[`WORKFLOW-portable.md`](WORKFLOW-portable.md) -- that is the page to read, and the page to point BWJ
-colleagues at.
+**And a ticket that arrives the other way -- filed in Asana as a request -- has one form in both
+stores**: the Asana assignee decides whose ticket it is, and a seven-row header, a closed `State`
+vocabulary and a fixed route of sections carry it from *what we know* to *completed*. That is BWJ's
+answer to `dkj-policy`'s *What your repo answers* list, and it lived in `smartwatchbanden` alone until
+inbound [#2353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2353) moved it here.
+
+The whole rule, with the field-by-field shape of the Asana variant, the cross-link markers and that
+ticket form (step 8), is in [`WORKFLOW-portable.md`](WORKFLOW-portable.md) -- that is the page to read,
+and the page to point BWJ colleagues at.
 
 ## Chapter two -- the sync log, in one paragraph
 
@@ -209,7 +215,7 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 
 | what | what it holds |
 |---|---|
-| [`WORKFLOW-portable.md`](WORKFLOW-portable.md) | chapter one in prose -- ticket handling, read alongside your repo's own Asana config |
+| [`WORKFLOW-portable.md`](WORKFLOW-portable.md) | chapter one in prose -- ticket handling, read alongside your repo's own Asana config, including the form a ticket from Asana takes |
 | [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md) | chapter two in prose -- what a `sync/` branch owes, where the record lands, and what it stays out of |
 | [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id and what that still does not settle, when the handover owes a client-state reset, and why the whole pair travels as one link rather than a table |
 | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | chapter four in prose -- the push-then-cut order and what it makes the backup MEAN, the three standing approvals for deleting a theme and their bounds, and why the delete set is a prefix this repo wrote |

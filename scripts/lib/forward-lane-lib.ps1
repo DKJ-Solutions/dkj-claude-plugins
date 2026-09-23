@@ -168,15 +168,62 @@ function Get-LocalRefForwardPlan {
         AN EMPTY OR UNREADABLE HEAD TAKES THE REFSPEC ROUTE. It is the route that touches no working
         tree, so being wrong about it costs a refused fetch and a clear message, while being wrong the
         other way runs a merge in a tree whose state was never established.
+
+        UNATTENDED, THE MERGE ROUTE IS REFUSED -- issue #2343. It writes the branch's CURRENT remote head
+        into the working tree, and that head is whatever was pushed during the CI wait, not only the
+        forward GitHub made. Under the merge-on-green runner the picker judged an earlier commit, the
+        working tree is where ship-pr's later steps run scripts from, and FOLD_PUSH_TOKEN sits in its git
+        config -- so that merge would put unjudged code where a standing write token runs it. ship-pr
+        stops before the wait when step 2b did not reach the trunk, which makes this unreachable there;
+        it is kept as an independent second layer, so one mistake cannot reopen it.
+
+          'refuse'         -- HEAD is on the branch and the run is unattended
     #>
     param(
         # HEAD as `git rev-parse --abbrev-ref HEAD` printed it, or '' when that read failed.
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Head,
-        [Parameter(Mandatory = $true)][string]$Branch
+        [Parameter(Mandatory = $true)][string]$Branch,
+        # Nobody is watching this run -- in ship-pr, a run inside GitHub Actions (the merge-on-green runner).
+        [switch]$Unattended
     )
 
-    if ($Head -and $Head -eq $Branch) { return 'merge-ff-only' }
+    if ($Head -and $Head -eq $Branch) {
+        if ($Unattended) { return 'refuse' }
+        return 'merge-ff-only'
+    }
     return 'fetch-refspec'
+}
+
+function Get-UnattendedTrunkReturnRefusal {
+    <#
+    .SYNOPSIS
+        Why an unattended ship must stop after step 2b, or '' where it may go on -- issue #2343.
+
+    .DESCRIPTION
+        Step 2b's return to the trunk is a convenience for a person, so for a person a declined or
+        failed return is not fatal: the ship carries on from the branch. Unattended it is the reverse.
+        Under the merge-on-green runner the checkout holds FOLD_PUSH_TOKEN and ship-pr's later steps
+        run scripts from it, so the trunk is the one tree in which they run only code the trunk
+        already carries. A branch checkout past this point is the state in which a forward lap merges
+        the live remote head into it -- whatever was pushed during the wait. Stopping here costs
+        nothing: nothing is merged, the pull request stays armed, and the next sweep starts again from
+        a fresh runner, where step 2b's conditions normally all hold.
+
+    .PARAMETER TreeOnTrunk
+        What step 2b actually did: $true only when `git checkout main` succeeded.
+
+    .PARAMETER Unattended
+        Nobody is watching this run.
+
+    .OUTPUTS
+        [string] the refusal, or ''.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][bool]$TreeOnTrunk,
+        [Parameter(Mandatory = $true)][bool]$Unattended
+    )
+    if (-not $Unattended -or $TreeOnTrunk) { return '' }
+    return 'this run is unattended and the checkout did not return to the trunk, so the scripts ship-pr runs from here on would come from the branch -- stopping before the CI wait (issue #2343)'
 }
 
 function Get-ForwardLapDecision {

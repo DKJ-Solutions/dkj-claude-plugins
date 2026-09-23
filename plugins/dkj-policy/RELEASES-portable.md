@@ -517,8 +517,8 @@ through the
 [`cut-release` skill](https://github.com/DaveKJohn/claude-code-specialists/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md)'s
 checklist: `gh release create`
 with the **generated body** (`--notes-file` pointing at the `releases/github/<dir>/<X.Y.Z>.md` the cut already
-wrote — nothing to edit), then `gh release upload` with the full development notes **and the hand-written note,
-where the bump generated one**. Never inline the development notes — see
+wrote — nothing to edit), then `upload-release-asset.ps1` with the full development notes **and the hand-written note,
+where the bump generated one** — one call per document, each verifying the published byte count (#2347). Never inline the development notes — see
 [Tier 0 - development](#tier-0---development) for the character limit that makes that fail.
 
 **Upload the attachments under unique filenames.** Every document a release produces shares the basename

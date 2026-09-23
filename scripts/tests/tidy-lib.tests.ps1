@@ -23,7 +23,7 @@
         prune-merged.tests.ps1 carries, for the same reason;
       - no call that could close, merge or reopen a pull request;
       - nothing that deletes under the scratch root, and no -ReapScratch parameter. That lane was
-        drafted with one and it was removed rather than defended: scripts/README.md had already decided
+        drafted with one and it was removed rather than defended: Sylvester's lens had already decided
         those trees stay standing (#1668), and named a sweep by name pattern as the delete primitive
         New-ScratchPath exists to remove (#1659). A decision that lives only in prose is one draft away
         from being made again, so it is pinned here.

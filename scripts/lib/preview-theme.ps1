@@ -3,7 +3,8 @@
     The 'shopify theme push' argument lists push-preview.ps1 hands to the CLI, the flag whitelist in
     front of them, the two pure readers of the CLI's own output, and the two composers that turn a theme
     id into what the operator actually reads -- the preview URL and the handover note under a list of
-    them.
+    them. Since #2348 also the 'shopify theme duplicate' call a new preview is created with, and the
+    notice about the per-market settings files no push can deliver.
 
 .DESCRIPTION
     WHY THIS LIB EXISTS AT ALL. A consumer's push-preview built its create call inline as
@@ -100,7 +101,12 @@ function Test-ThemePushArgs {
 function Get-ThemeCreateArgs {
     <# The call that CREATES a new unpublished theme and pushes the working tree to it in one go.
        --unpublished creates it; --theme carries the NAME (not an id) for a theme that has none yet.
-       That double duty of --theme is exactly what the retired --theme-name spelling got wrong. #>
+       That double duty of --theme is exactly what the retired --theme-name spelling got wrong.
+
+       THE FALLBACK SINCE #2348, NOT THE ROUTE. A theme created this way never receives
+       config/settings_data.context.*.json (see Get-ThemeDuplicateArgs), so push-preview creates by
+       duplicating live and reaches for this only where the live id is unanswered and there is nothing
+       to copy from -- saying so, rather than refusing a preview over it. #>
     param(
         [Parameter(Mandatory = $true)][string]$Store,
         [Parameter(Mandatory = $true)][string]$ThemeName
@@ -140,9 +146,139 @@ function Get-ThemeUpdateArgs {
     $a
 }
 
+# Measured from 'shopify theme duplicate --help' on 2026-09-23, CLI 4.8.0. The same rule as the push list
+# above: long forms only, and re-measure with that command rather than editing from memory.
+$script:ThemeDuplicateFlags = @(
+    '--auth-alias',
+    '--environment',
+    '--force',
+    '--json',
+    '--name',
+    '--no-color',
+    '--password',
+    '--store',
+    '--theme',
+    '--verbose'
+)
+
+# THE FILES 'theme push' CANNOT DELIVER (#2348). Relative, with '/', the form 'git diff --name-only' gives.
+$script:ContextSettingsPattern = '^config/settings_data\.context\.([^./]+)\.json$'
+
+function Get-ThemeDuplicateFlags {
+    <# The duplicate whitelist itself, so a test can hold it against the CLI rather than against a copy. #>
+    $script:ThemeDuplicateFlags
+}
+
+function Get-ThemeDuplicateArgs {
+    <# The call that CREATES a new preview theme as a server-side copy of the live one (#2348).
+
+       WHY A COPY AND NOT 'theme push --unpublished'. Measured in a consumer on 2026-09-23 against CLI
+       4.8.0, and read in the CLI's own source: the push partitions files into upload buckets, and
+       config/settings_data.context.<market>.json fits none of them -- configDataRegex is the exact
+       '^config/settings_data\.json$' and jsonRegex is '^(?!config/).*\.json$', which excludes config/.
+       So the file is listed under "Files to be uploaded", never sent, and the push reports success. That
+       holds for EVERY push, not only the creating one, so no push can put those bytes on a theme; a
+       duplicate copies every file server-side, and the full push that follows leaves the ones it cannot
+       upload standing (it does not delete them either, since they exist locally). The preview then
+       carries the branch plus live's per-market settings -- the state a reviewer compares against.
+
+       --force AND --theme ARE BOTH REQUIRED WITHOUT A TTY ("Required if non interactive"), the lesson
+       backup-live-theme.ps1 learned first (#2031). --json because the caller reads the new id out of it. #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Store,
+        [Parameter(Mandatory = $true)][string]$SourceThemeId,
+        [Parameter(Mandatory = $true)][string]$ThemeName
+    )
+    if ($SourceThemeId -notmatch '^\d+$') {
+        throw ("Get-ThemeDuplicateArgs: -SourceThemeId must be all digits, got '$SourceThemeId'. The source " +
+            "is the live theme's id (Get-ShopifyLiveThemeId), never a name.")
+    }
+    if ([string]::IsNullOrWhiteSpace($ThemeName)) { throw "Get-ThemeDuplicateArgs: -ThemeName must not be blank." }
+    if ($ThemeName.Contains('/')) {
+        throw ("A Shopify theme name may not contain '/': '$ThemeName'. Pass the flattened form -- the " +
+            "branch with its slashes replaced by dashes (Get-BranchInfo's SafeName, where the repo has it).")
+    }
+
+    $a = @('theme', 'duplicate', '--store', $Store, '--theme', $SourceThemeId, '--name', $ThemeName, '--force', '--json')
+    $unknown = @($a | Where-Object { $_ -like '--*' } | Where-Object { $script:ThemeDuplicateFlags -notcontains $_ })
+    if ($unknown.Count -gt 0) {
+        throw ("Not a 'shopify theme duplicate' flag: " + ($unknown -join ', ') +
+            ". The accepted set was measured from 'shopify theme duplicate --help' (CLI 4.8.0).")
+    }
+    $a
+}
+
+function Test-ContextSettingsPath {
+    <# Is this one of the files 'theme push' silently skips -- config/settings_data.context.<market>.json? #>
+    param([AllowEmptyString()][AllowNull()][string]$Path)
+    if (-not $Path) { return $false }
+    return (($Path -replace '\\', '/') -match $script:ContextSettingsPattern)
+}
+
+function Get-ContextSettingsMarkets {
+    <# The market names the working tree carries a config/settings_data.context.<market>.json for, sorted.
+       Reads the disk and nothing else. Empty in a repo that runs no per-market settings, which is what
+       keeps every notice below silent there. #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $dir = Join-Path $RepoRoot 'config'
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
+    $markets = foreach ($f in @(Get-ChildItem -LiteralPath $dir -File -Filter 'settings_data.context.*.json')) {
+        $m = [regex]::Match("config/$($f.Name)", $script:ContextSettingsPattern)
+        if ($m.Success) { $m.Groups[1].Value }
+    }
+    return @($markets | Sort-Object)
+}
+
+function Get-PreviewSettingsNotice {
+    <# The lines push-preview prints after a push about the per-market settings; empty means nothing to say.
+
+       -FillState is what this checkout's git config records about the preview theme:
+         'complete' -- created here as a copy of live and verified filled;
+         'short'    -- created as a copy, but the copy settled below live's file count;
+         ''         -- no record: a theme created before #2348 (by 'push --unpublished'), created on
+                       another machine, or created without a live id to copy from.
+       -Markets are the markets the working tree carries a context-settings file for.
+       -ChangedContextFiles are the context-settings files THIS branch changes against the trunk.
+
+       TWO SEPARATE FACTS, AND EITHER CAN BE TRUE ALONE. A theme that lacks the per-market settings renders
+       every market with the global ones, so a reviewer comparing it with live sees differences the branch
+       did not cause. And a branch that changes such a file will not see that change on ANY preview,
+       because no push can deliver it -- the preview shows live's values, or none. #>
+    param(
+        [AllowEmptyString()][AllowNull()][string]$FillState = '',
+        [AllowEmptyCollection()][string[]]$Markets = @(),
+        [AllowEmptyCollection()][string[]]$ChangedContextFiles = @()
+    )
+    $lines = @()
+    $marketList = (@($Markets) -join ', ')
+
+    if ($FillState -ne 'complete' -and @($Markets).Count -gt 0) {
+        if (-not $FillState) {
+            $lines += "NOTE: this checkout has no record that this preview was created as a copy of live, so it"
+            $lines += "  may not carry the per-market settings ($marketList)."
+            $lines += '  A preview created by a plain push never gets them: theme push silently skips'
+            $lines += '  config/settings_data.context.*.json (#2348), so every market would render with the global'
+            $lines += '  settings and may differ from live without this branch causing it. Say so in the handover,'
+            $lines += '  or remove this preview and run push-preview again -- a new one is created as a copy of live.'
+        } else {
+            $lines += "NOTE: the copy of live was not verified complete ($FillState), so the per-market settings"
+            $lines += "  ($marketList) may be missing from it. The branch itself was pushed in full; do not compare"
+            $lines += '  the per-market behaviour with live blindly.'
+        }
+    }
+
+    if (@($ChangedContextFiles).Count -gt 0) {
+        $lines += 'NOTE: this branch changes per-market settings that theme push cannot upload:'
+        foreach ($f in $ChangedContextFiles) { $lines += "  - $f" }
+        $lines += '  The preview shows LIVE''s values for those markets, not this branch''s. Do not judge that'
+        $lines += '  change on the preview; name it in the handover.'
+    }
+    return $lines
+}
+
 function Get-ThemeIdFromPushOutput {
-    <# The id of the theme 'theme push --unpublished --json' just created, or '' where the output carries
-       none. Pure string in, string out.
+    <# The id of the theme 'theme push --unpublished --json' or 'theme duplicate --json' just created, or ''
+       where the output carries none. Pure string in, string out.
 
        ITS OWN FUNCTION BECAUSE IT IS THE HALF THAT CANNOT BE RE-RUN. The create call pushes at the same
        time it creates, so a missed id means the next run cannot find the theme by id and falls back to a
