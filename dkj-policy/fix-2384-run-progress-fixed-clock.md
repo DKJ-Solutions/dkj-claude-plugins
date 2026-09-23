@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Repair [#2384](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2384), which reported two
+exact elapsed asserts drifting under CI load. The reason was verified against the lib before
+repairing, and it sits one function over from where the issue puts it. `Format-RunProgressLine`
+reads no clock: it prints `ElapsedSeconds`, which `Get-LiveRunProgress` derives from its own
+`Get-Date`. That function already takes `-NowUtc`, so no lib change is needed. The repair is
+test-only, and smaller than the new parameter the issue proposed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] both exact-elapsed sections of `run-progress.tests.ps1` read one instant and pass it as `-NowUtc`
 
 ### TEST
 
+- [x] `run-progress.tests.ps1`: all 63 asserts pass
+- [x] race replayed with a 2 s sleep between write and read: pinned `+6m12s`, unpinned `+6m14s`, the issue's exact drift
+
 ### DEPLOY: fix/2384-run-progress-fixed-clock
 
-**Score:**
+`run-progress.tests.ps1` asserted two exact elapsed strings (`+6m12s`, `+11m48s`) while taking the
+record's start and the reader's "now" from two separate clock reads. On a loaded CI runner two
+seconds passed between them, and one red suite turned the required `lint-en-tests` check red on a PR
+that never touched run-progress
+([#2384](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2384)). Both sections now read
+one instant and hand it to `Get-LiveRunProgress -NowUtc`, a parameter the lib already had. Test-only.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
