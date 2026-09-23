@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**7 / 23 minor entries** <!-- pending-tally -->
+**8 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2392-candidates-read-remote-branches · 20260923-205323Z
+
+`claim-issue.ps1 -Candidates` now reads origin's branches once for the whole backlog. An open issue with
+no claim marker but a `<prefix>/<n>-<name>` branch on origin reads `branch` instead of `free`, and the
+reason names the branch, its author and how long ago it last moved. A claim marker still takes
+precedence. If the branch listing cannot be read, the run still judges from the tracker and says that
+`free` then means only "no claim marker".
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep no longer offers you an issue somebody else is already building just because they did not
+claim it by tag. Before this, the only warning came after the claim was written, one issue at a time.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue -Candidates: an unmarked issue with a branch on origin reads 'branch', not 'free'
+
+Plugins: dkj-policy
+
+[PR #2396](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2396)
+
+---
 
 ### DEPLOY: feat/2374-global-claude-md · 20260923-204008Z
 
