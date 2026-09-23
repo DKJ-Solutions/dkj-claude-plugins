@@ -949,6 +949,42 @@ Assert-True ($goLiveBare.Contains('release of Monday 21 September 2026.')) 'with
 Assert-True ($goLiveBare -notmatch 'as version') 'and no version clause at all'
 Assert-True ($goLiveBare -notmatch 'Once it is live') 'with no markets, there is no live-URL list'
 
+# A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
+# the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
+Assert-True (Test-PrivateResultLink -Link 'https://claude.ai/artifact/abc123') 'a claude.ai/artifact link is private'
+Assert-True (Test-PrivateResultLink -Link 'https://claude.ai/code/artifact/0f1e-uuid') 'a claude.ai/code/artifact link is private'
+Assert-True (Test-PrivateResultLink -Link 'HTTPS://Claude.AI/artifact/abc') 'case does not change the answer'
+Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/products/foo?preview_theme_id=1&_ab=0&_fd=0&_sc=1')) 'a storefront preview URL is openable'
+Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/pages/claude.ai/artifact/x')) 'a path that merely contains the shape is not refused'
+Assert-True (-not (Test-PrivateResultLink -Link '')) 'no link is not a private link'
+
+# AND THE DRIVER REFUSES IT BEFORE ANYTHING IS PRINTED OR POSTED -- a static read, because the driver needs gh.
+$goLiveDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\build-golive-block.ps1'))
+Assert-True ($goLiveDriver -match 'Test-PrivateResultLink -Link \$LinkArg\) -and -not \$AllowPrivateLink') 'the driver refuses a private link unless -AllowPrivateLink says it was shared'
+Assert-True ($goLiveDriver.IndexOf('Test-PrivateResultLink -Link') -lt $goLiveDriver.IndexOf('Format-GoLiveBlock -Marker')) 'and it refuses before the block is built'
+
+# THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
+# to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
+# refused with "this store has not declared its markets" in a store that had. Every case above calls the
+# libs in THIS process, which is exactly the shape that hid it.
+$glRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-golive-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path (Join-Path $glRoot 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        "function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    $glDriver = Join-Path $PluginRoot 'scripts\task\build-golive-block.ps1'
+    $glOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -RootOverride $glRoot 2>&1
+    $glCode = $LASTEXITCODE
+    $glText = (@($glOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-Equal 0 $glCode 'the driver run with -File and -Path exits 0 in a store that declares its markets'
+    Assert-True ($glText -notmatch 'has not declared its markets') 'and does not claim the store declared none'
+    Assert-True ($glText.Contains('- NL -- https://seam.example/pages/p')) 'the live URL comes from the repo-config the driver read itself'
+} finally {
+    if (Test-Path -LiteralPath $glRoot) { Remove-Item -LiteralPath $glRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
 if ($script:fail -gt 0) {
