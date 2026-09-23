@@ -96,7 +96,7 @@ running none at all gets identical behaviour.
 | function | required? | what its absence costs |
 |---|---|---|
 | `Get-ShopifyStoreDomain` | **required** | it refuses rather than guessing which store to push to. `-Store` gets you through one run; answering the seam is the durable fix. |
-| `Get-ShopifyLiveThemeId` | recommended | this script can then no longer recognise the live theme **by id**, so one of the two refusals is gone. It warns and continues rather than blocking, because a preview push is aimed at an unpublished theme and the guard hook still stands -- unlike `sync-main`, which reads *from* live and therefore cannot work at all without it. |
+| `Get-ShopifyLiveThemeId` | recommended | this script can then no longer recognise the live theme **by id**, so one of the two refusals is gone -- **and a new preview has no live theme to be copied from**, so it falls back to a plain `theme push --unpublished` and lacks every per-market settings file (#2348; the notice says so). It warns and continues rather than blocking, because a preview push is aimed at an unpublished theme and the guard hook still stands -- unlike `sync-main`, which reads *from* live and therefore cannot work at all without it. |
 | `Get-TrunkBranchName` | optional | the trunk check falls back to `main`. |
 | `Get-BranchInfo` | optional | the theme name falls back to the branch with its slashes replaced by dashes -- which is what `SafeName` answers anyway, so a repo without the seam loses nothing. |
 | `Get-ShopifyPreviewUrls` | optional | you get **one** preview URL, on the store's own domain. Answer it in a multi-market store to get one per market or locale. |

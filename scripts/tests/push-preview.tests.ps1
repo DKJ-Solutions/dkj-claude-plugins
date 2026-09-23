@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     Contract tests for scripts/lib/preview-theme.ps1 -- the 'shopify theme push' argument lists
-    push-preview.ps1 hands to the CLI, the flag whitelist in front of them, and the two readers of the
-    CLI's own output.
+    push-preview.ps1 hands to the CLI, the 'shopify theme duplicate' call a new preview is created with
+    (#2348), the two flag whitelists in front of them, the two readers of the CLI's own output, and the
+    per-market settings notice.
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell. Exit code 0 if everything passes, 1 on a failure.
@@ -238,12 +239,18 @@ $t = [array]::IndexOf($dupA, '--theme')
 Assert-Equal '170064871700' $dupA[$t + 1] 'the SOURCE id follows --theme'
 $n = [array]::IndexOf($dupA, '--name')
 Assert-Equal 'cc-fix-some-branch' $dupA[$n + 1] 'the new theme''s name follows --name'
-Assert-True  ($dupA -contains '--force') '--force: "Required if non interactive outside CI", and a session has no TTY (#2031)'
+Assert-True  ($dupA -contains '--force') '--force: "Required if non interactive", and a session has no TTY (#2031)'
 Assert-True  ($dupA -contains '--json')  '--json, because the caller reads the new id out of it'
 Assert-False ($dupA -contains '--unpublished') 'no --unpublished: that is the push that drops the context settings'
 Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceThemeId 'live' -ThemeName 'n' }) 'all digits' 'a NAME as the source is refused -- the source is the live id'
 Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceThemeId '1' -ThemeName 'fix/x' }) 'may not contain' 'a slash in the new name is refused'
 Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceThemeId '1' -ThemeName '  ' }) 'must not be blank' 'a blank name is refused'
+# THE DUPLICATE'S --json SHAPE, read in CLI 4.8.0's source (dist/chunk-ZL5LU4U2.js): on success exactly
+# {"theme":{"id","name","role","shop"}}, so the one id in it is the NEW theme's -- never the source's. Its
+# failure shapes carry a message and no id, so the reader answers empty and push-preview falls back to
+# the theme list.
+Assert-Equal '999888777' (Get-ThemeIdFromPushOutput -Output '{"theme":{"id":999888777,"name":"cc-fix-x","role":"unpublished","shop":"a-store.myshopify.com"}}') 'the duplicate''s --json yields the NEW theme''s id'
+Assert-Equal '' (Get-ThemeIdFromPushOutput -Output '{"message":"The theme ''Live'' could not be duplicated due to errors","errors":["x"],"requestId":"r"}') 'and a failed duplicate yields none'
 $dupFlags = @(Get-ThemeDuplicateFlags)
 Assert-Equal 10 $dupFlags.Count 'ten long-form flags, measured 2026-09-23 against CLI 4.8.0'
 Assert-Equal 0 (@($dupA | Where-Object { $_ -like '--*' -and $dupFlags -notcontains $_ })).Count 'every flag the call uses is in the measured set'

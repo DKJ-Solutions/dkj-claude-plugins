@@ -325,17 +325,29 @@ function Write-SettingsNotice {
     }
     $changed = @()
     if ($base) { $changed = @(git diff --name-only $base | Where-Object { Test-ContextSettingsPath -Path $_ }) }
+    elseif ($markets.Count -gt 0) {
+        # "I found no change" and "I could not look" are different sentences.
+        Write-Warning "Neither origin/$trunk nor $trunk resolves here, so this branch's own per-market settings changes were not checked."
+    }
     $notice = @(Get-PreviewSettingsNotice -FillState $FillState -Markets $markets -ChangedContextFiles $changed)
     if ($notice.Count -eq 0) { return }
     Write-Host ""
     $notice | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
 }
 
-# What this checkout knows about how the target theme was made. Read only for the theme it remembers:
-# an explicit -ThemeId, or one found by name, is a theme this run has no record of.
+# What this checkout knows about how the target theme was made. Read for the theme it remembers -- and
+# for a theme found by NAME while a copy is recorded 'pending' with no id beside it: that is a duplicate
+# an earlier run started and could not read the id of, so it may still be filling, and pushing into it
+# is the race step 5 exists for. Any other theme found by name or passed as -ThemeId has no record.
 $remembered = ([string](git config --get "branch.$branch.previewTheme")).Trim()
+$recordedFill = ([string](git config --get "branch.$branch.previewFill")).Trim()
 $fillState = ''
-if ($id -and "$id" -eq $remembered) { $fillState = ([string](git config --get "branch.$branch.previewFill")).Trim() }
+if ($id -and "$id" -eq $remembered) { $fillState = $recordedFill }
+elseif ($id -and -not $remembered -and $recordedFill -eq 'pending') {
+    $fillState = 'pending'
+    $null = git config "branch.$branch.previewTheme" $id
+    Write-Host "Found '$themeName' (id $id) by name, recorded as a copy of live still to be verified filled." -ForegroundColor Yellow
+}
 
 # 4. Still nothing: the theme is created HERE, and not when the branch was created. See the rule above.
 if (-not $id) {
@@ -363,6 +375,9 @@ if (-not $id) {
         } else {
             Write-Host "Preview theme '$themeName' created and pushed. The id was not in the output, so the next run falls back to the name lookup." -ForegroundColor Yellow
         }
+        # A stale 'pending' from an earlier duplicate attempt would otherwise stop the next push at step 5
+        # for want of a live id. '--unset' of an absent key exits 5 and writes nothing.
+        $null = git config --unset "branch.$branch.previewFill"
         Write-SettingsNotice -FillState ''
         exit 0
     }
@@ -370,6 +385,10 @@ if (-not $id) {
     Write-Host "No preview theme for '$branch' yet; creating '$themeName' as a copy of live ($liveId)." -ForegroundColor Yellow
     # LIVE IS ONLY READ HERE: a duplicate copies it into a new theme, which is unpublished by definition.
     $dupArgs = Get-ThemeDuplicateArgs -Store $store -SourceThemeId $liveId -ThemeName $themeName
+    # 'pending' IS RECORDED BEFORE THE CALL, not after it: where the new id cannot be read back, the next
+    # run finds the theme by name, and this record is the only thing that tells it the copy may still be
+    # filling (see the fill-state read above step 4).
+    $null = git config "branch.$branch.previewFill" pending
     $dup = Invoke-ShopifyCli -Arguments $dupArgs -Quiet -DiscardStderr
     if ($dup.ExitCode -ne 0) {
         Write-Error ("Creating the preview theme (a copy of live) failed. If the CLI says 'A shop may only " +
@@ -388,15 +407,14 @@ if (-not $id) {
         }
     }
     if (-not $id) {
-        Write-Error ("The copy '$themeName' was created, but its id cannot be found. Nothing was pushed. " +
-            "Re-run with -ThemeId <id>, after 'git config branch.$branch.previewTheme <id>' and " +
-            "'git config branch.$branch.previewFill pending', so the wait below runs before the push.")
+        Write-Error ("The copy '$themeName' WAS created, but its id cannot be read back yet. Nothing was " +
+            "pushed. Re-run this script: it finds the theme by name and, because the copy is recorded as " +
+            "pending, waits for it to fill before pushing.")
         exit 1
     }
-    # 'pending' FIRST, and 'complete' only once verified. A run that dies during the wait leaves the next
-    # run knowing it must wait rather than push into a half-filled copy.
+    # 'complete' only once verified. A run that dies during the wait leaves the next run knowing it must
+    # wait rather than push into a half-filled copy.
     $null = git config "branch.$branch.previewTheme" $id
-    $null = git config "branch.$branch.previewFill" pending
     $fillState = 'pending'
     Write-Host "Preview theme '$themeName' (id $id) created as a copy of live; id remembered." -ForegroundColor Green
 }
