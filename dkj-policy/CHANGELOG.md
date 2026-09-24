@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 44 minor entries** <!-- pending-tally -->
+**20 / 45 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/remove-install-uninstall · 20260924-100317Z
+
+The root `INSTALL.md` and `UNINSTALL.md` are gone. The install commands and the machine-side removal now
+live in `plugins/ADOPTION.md`, and every link, printed script message and tooling list that named either
+page points there instead. The archived release notes keep their text; their ten links to the pages now point at the last commit that still had them.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's single entry is now `plugins/ADOPTION.md`, which carries the install commands in its own
+*Installing it yourself* section. The old migration walkthroughs (old plugin names, `dkj-team-*` ids, the
+`specialist-` filenames) went with `INSTALL.md` and survive only in the release notes that introduced them.
+
+**Score:** 3
+
+#### Pull Request
+
+Remove INSTALL.md and UNINSTALL.md
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2430](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2430)
+
+---
 
 ### DEPLOY: fix/2424-ci-gate-shard-count · 20260924-095218Z
 
