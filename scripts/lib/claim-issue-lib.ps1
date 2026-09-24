@@ -1764,6 +1764,8 @@ function Get-ClaimRecords {
             edit a marker of its own into a year-old comment of its own: it passes the author check and
             wins every race on a timestamp that says nothing about when that body was written. The
             tooling never edits a claim comment, so `includesCreatedEdit` true is never a genuine claim.
+            An ABSENT flag is read as unedited, deliberately: failing closed there would drop every
+            genuine claim at once, and a backlog that reads as free is re-claimed by every sweep.
             A marker whose author reads null (a deleted or suspended account) stays dropped, so the
             issue it held reads as free -- nobody is left under that account to be mid-flight.
 
