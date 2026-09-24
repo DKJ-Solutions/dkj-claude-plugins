@@ -2341,8 +2341,8 @@ it.
 ### How the plugin tree got its current address
 
 Moved here from `.claude/rules/this-repo.md` under
-[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the current layout itself is
-[`README.md`'s](../../../README.md#repo-layout).
+[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the current layout itself is in
+[`README.md`](../../../README.md#repo-layout).
 
 Since August 3, 2026 the plugins sit **one** level down in `plugins/<plugin>/` instead of two in
 `claude-code-plugins/claude-specialists/<plugin>/`: that second level existed to hold several product
