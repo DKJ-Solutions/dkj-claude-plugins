@@ -77,14 +77,15 @@ analysis of why the split fails is on #2452 (comment 5818456726).
 - [x] Header + merge-on-green.yml comment updated to name the guard (#2452)
 - [x] Review round (Victor #19, Sebastian #23): indirect names, computed command names, the
   ScriptBlock type by name, foreign shells, fail-closed spawn sites, exact allowance counts -- every
-  measured evasion is now a fixture
+  measured evasion is now a fixture; Sebastian's re-review closed, plus the variable-held shell name
+  he raised last; Edith's copy edit applied (the Add-Type trigger surface)
 
 ### TEST
 
-- [x] `trusted-tree-seam.tests.ps1` standalone: 56 pass, 0 fail. The real token-process closure is
+- [x] `trusted-tree-seam.tests.ps1` standalone: 58 pass, 0 fail. The real token-process closure is
   40 files (36 dot-source + 3 discovered children + their libs), with three allowances pinned at exact
   counts (1, 3, 1)
-- [x] Evasion fixtures: 13 primitive shapes flagged, look-alikes (comment, mention, `Add-Type
+- [x] Evasion fixtures: 15 primitive shapes flagged, look-alikes (comment, mention, `Add-Type
   -AssemblyName`, `[SHA256]::Create()`) not flagged, 4 spawn shapes resolve or fail closed as expected
 - [x] Two real dot-sources off a child's own `$repoRoot` (`fold-changelog-entry.ps1`,
   `verify-resolved-issues.ps1`) checked against ship-pr: in trusted mode the fold gets
@@ -93,11 +94,32 @@ analysis of why the split fails is on #2452 (comment 5818456726).
 
 ### DEPLOY: feat/2452-trusted-tree-exec-guard
 
-**Score:**
+This closes issue #2452 by Dave's option 3 rather than the job split it proposed: the split was
+measured and refused on the issue, since there is no cut point in ship-pr where every read of
+PR-controlled data comes before every write. What holds instead is that the code
+`merge-on-green.yml`'s token-bearing "Ship it" step runs never turns that data into code, and
+`trusted-tree-seam.tests.ps1` now enforces this. It walks the token process, meaning the dot-source
+closure plus every `powershell -File` child (the fold, verify-resolved-issues, the always-on budget
+check) to a fixpoint. It then reads that code's AST for the enumerated string-to-code primitives:
+Invoke-Expression and kin (reached directly, module-qualified or by name), computed command names,
+Add-Type given source, the scriptblock factories, `-Command`, and foreign shells. A spawn site it
+cannot read fails closed. The only exemptions are the two gate runners that `-TrustedRoot` already
+skips, each pinned at an exact call-site count.
+
+Tier 0 is scored for the next person or session touching ship-pr, open-pr or this workflow. A
+residual exposure that was only documented is now a red test the moment somebody adds the one thing
+that would make it exploitable. Two review rounds found shapes the first cut missed, and every shape
+they found is now a fixture. The limit is stated in the suite header rather than left implicit: the
+guard is syntactic, and a name assembled from pieces and dispatched through `& $var` is out of its
+reach.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. The guard is a test in this repo's own suite and ships nothing to a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 

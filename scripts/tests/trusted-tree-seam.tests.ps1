@@ -88,8 +88,8 @@
     counts. What is flagged: Invoke-Expression/iex/Invoke-Command/icm, invoked directly, module-
     qualified, or reached BY NAME (any string whose whole value is one of those names -- which is what
     `& $n`, `& ('iex')`, Get-Command and Set-Alias all need); a command whose name is computed
-    (`& "$a-$b"`); Add-Type given source (anything but -AssemblyName); [scriptblock]::Create, the
-    ScriptBlock type by name, .NewScriptBlock, .InvokeScript, .AddScript; powershell/pwsh with -Command
+    (`& "$a-$b"`); Add-Type given source (any parameter but -AssemblyName and the common
+    -ErrorAction/-WarningAction/-PassThru); [scriptblock]::Create, the ScriptBlock type by name, .NewScriptBlock, .InvokeScript, .AddScript; powershell/pwsh with -Command
     or -EncodedCommand, directly or as an argument-list element; and cmd/bash/sh/wsl/zsh at all, direct
     or as a launcher's -FilePath. A spawn site with no -File this walk can find -- a fused
     `-ArgumentList "... -Command $x"` string, a launcher given only -Command -- is UNRESOLVED, so the
@@ -104,7 +104,9 @@
     reason and an exact call-site count, and are refused both when stale and when a new site joins one.
 
     WHAT THIS DOES NOT CLAIM: it is a syntactic guard against a maintainer ADDING a primitive, not a
-    proof that no code path could ever evaluate text. The threat it answers is that one -- the code it
+    proof that no code path could ever evaluate text. A name ASSEMBLED from pieces and then dispatched
+    through the exempt `& $var` (`$n = 'Invoke' + '-Expression'; & $n $x`) is the measured limit: each
+    piece is an innocent string, and chasing it means evaluating the code this scan only reads. The threat it answers is that one -- the code it
     scans comes from trusted-main, so an adversarial PR cannot edit it, only feed it data.
 
     Dependency-free (no Pester), same style as the rest of the suite. Pure ASCII.
@@ -546,8 +548,9 @@ function Get-ExecPrimitiveFindings {
                 & $add $c 'dynamic-command'
             }
             elseif ($n -eq 'Add-Type') {
-                # -AssemblyName loads a compiled assembly, which is not source; anything else hands Add-Type
-                # text to compile -- a named source parameter, -Path, or a positional argument.
+                # -AssemblyName loads a compiled assembly, which is not source, and the common parameters
+                # carry none; anything else hands Add-Type text to compile -- a named source parameter,
+                # -Path, or a positional argument.
                 $els = @($c.CommandElements); $bad = $false
                 for ($i = 1; $i -lt $els.Count; $i++) {
                     $e = $els[$i]
@@ -575,6 +578,19 @@ function Get-ExecPrimitiveFindings {
         foreach ($s in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $args[0].Value -match $invokeNames }, $true)) {
             $isCommandName = $s.Parent -is [System.Management.Automation.Language.CommandAst] -and $s.Parent.CommandElements[0] -eq $s
             if (-not $isCommandName) { & $add $s 'invoke-expression' }
+        }
+        # THE SAME, FOR A FOREIGN SHELL AND FOR THE SHELL'S OWN -Command (security re-review): `$e = 'cmd';
+        # & $e /c $x` and `$exe = 'powershell'; & $exe -Command $x` hide the name behind the `& $var` the
+        # header exempts. A string whose whole value is a foreign shell's name is a finding wherever it
+        # sits, and a -Command parameter on a command whose name is not a literal is one too.
+        foreach ($s in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $args[0].Value -match $foreignShells }, $true)) {
+            $isCommandName = $s.Parent -is [System.Management.Automation.Language.CommandAst] -and $s.Parent.CommandElements[0] -eq $s
+            if (-not $isCommandName) { & $add $s 'foreign-shell' }
+        }
+        foreach ($c in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] -and -not $args[0].GetCommandName() }, $true)) {
+            foreach ($e in $c.CommandElements) {
+                if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -match '^(Command|EncodedCommand|enc|ec)$') { & $add $c 'powershell-command' }
+            }
         }
         # THE SCRIPTBLOCK TYPE BY NAME: `$t = [type]'System.Management.Automation.ScriptBlock'; $t::Create(...)`
         # reaches the same factory without the [scriptblock] literal the member check below looks for.
@@ -683,6 +699,8 @@ function Read-Planted { param($Body) Invoke-Expression $Body }
         'cmd /c'                              = '& cmd /c $Body'
         'wsl bash -c'                         = '& wsl bash -c $Body'
         'Start-Process -FilePath cmd'         = 'Start-Process -FilePath ''cmd'' -ArgumentList "/c $Body"'
+        'a foreign shell held in a variable'  = '$e = ''cmd''; & $e /c $Body'
+        'powershell held in a variable'       = '$exe = ''powershell''; & $exe -NoProfile -Command $Body'
     }
     foreach ($label in $evasions.Keys) {
         $evFile = Join-Path $execFixtureDir 'fixture-evasion.ps1'
