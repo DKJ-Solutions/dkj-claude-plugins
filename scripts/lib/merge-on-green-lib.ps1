@@ -294,6 +294,44 @@ function Get-MergeOnGreenExecutedPathHit {
     return ''
 }
 
+function Get-MergeOnGreenSweepRefusal {
+    <#
+    .SYNOPSIS
+        Why the merge-on-green sweep will NEVER finish this pull request, or '' where it can -- read
+        from a `gh pr view --json files,changedFiles` payload, for ship-pr.ps1's arm message (#2436).
+
+    .DESCRIPTION
+        THE SAME PREDICATE THE PICKER REFUSES ON, NOT A SECOND ONE. ship-pr arms every pull request and
+        used to promise the sweep would finish it if the session died. For a diff the picker refuses on
+        the executed-path rule (#2338) it declines it on every sweep, so that promise was false -- measured
+        on #2436 at 32 of the last 40 merged PRs, before #2437 shrank the rule to the two repo-owned seam
+        files and an incomplete file list -- and the stranded pull request stayed armed, green and silent. This function hands ship-pr exactly
+        Get-MergeOnGreenExecutedPathHit's answer, so the sentence ship-pr prints and the verdict the
+        sweep reaches cannot drift apart.
+
+        ONLY THE PERMANENT REFUSAL. Every other thing the picker asks -- draft, mergeable, green, the
+        settle window -- is a state that changes by itself. This one changes only with a commit, which
+        is why it is the one worth saying at arm time.
+
+        FAIL-CLOSED, LIKE THE PICKER: an unreadable or unparseable payload answers with the picker's own
+        "could not be read" reason. Promising a sweep this run could not confirm is the defect being
+        repaired, so the doubt goes the same way it goes on the runner.
+
+    .PARAMETER FilesJson
+        The raw payload text.
+
+    .OUTPUTS
+        [string] the reason, or '' where the sweep can ship it.
+    #>
+    param([string]$FilesJson)
+
+    $record = $null
+    if (-not [string]::IsNullOrWhiteSpace($FilesJson)) {
+        try { $record = ConvertFrom-Json -InputObject $FilesJson } catch { $record = $null }
+    }
+    return (Get-MergeOnGreenExecutedPathHit -Record $record)
+}
+
 function Test-MergeOnGreenRequiredChecksSettled {
     <#
     .SYNOPSIS
