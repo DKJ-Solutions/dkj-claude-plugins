@@ -105,6 +105,13 @@
          them; and the source repo is never asked, because it runs those scripts by local path and is
          the one registered repo that can never produce a reference. Runs on both routes -- the disk
          and, under -RemoteRunners, the network, where it replaces what used to be deliberate silence.
+      6d. AND THE REF THOSE RUNNERS FETCH THIS TREE AT (#2337). A runner that holds a write credential
+         (a repository secret, or a `write` permission) and checks this repo out at a moving ref -- or
+         pinned at a release behind this tree's dkj-policy version -- gets an [INFO] naming the file,
+         the line and the ref: line to change. #2333 pinned those checkouts in what adopt-ci-floor.ps1
+         writes and reports a stale one when it is re-run; this is the half that reaches a consumer
+         nobody re-runs it in. The read-only runners are not judged, because they track main on
+         purpose (#1805). Same two routes as check 6.
       7. WHICH SPELLING ARE THIS CONSUMER'S LENSES WRITTEN IN? (#2289) A non-counting [LENS-RETIREMENT]
          line per connector, and a roll-up across the whole register at the foot of the run. It exists
          because the sentence that governs the #2130 dual-name layer's retirement -- "the old names are
@@ -227,6 +234,19 @@ $PluginRoots = @(Get-RepoPluginRoots -RepoRoot $RepoRoot)
 # manifests only this repo holds, not a seam a consumer configures. It only ever grows -- a name dropped
 # from it goes silent on precisely the consumer that has not migrated yet.
 $WorkflowPluginNames = @('dkj-policy', 'contributing-davekjohn', 'workflow-davekjohn')
+
+# The release a write runner's shared-scripts pin is judged against, for check 6d (#2337): the workflow
+# plugin's own version in THIS checkout, which is the version adopt-ci-floor.ps1 pins to when it runs
+# from here. Unreadable leaves it empty, and the check then still reports a moving ref -- the half that
+# needs no version -- and stays silent about a pinned one rather than calling it current.
+$WorkflowPluginVersion = ''
+try {
+    $wfPluginJson = Join-Path $RepoRoot 'plugins\dkj-policy\.claude-plugin\plugin.json'
+    if (Test-Path -LiteralPath $wfPluginJson -PathType Leaf) {
+        $v = [string]((Get-Content -LiteralPath $wfPluginJson -Raw -Encoding UTF8 | ConvertFrom-Json).version)
+        if ($v -match '^\d+\.\d+\.\d+$') { $WorkflowPluginVersion = $v }
+    }
+} catch { $WorkflowPluginVersion = '' }
 
 # The seam probe used just below. 87 lines, and it is the ONE definition of the question (#1729) --
 # the inline `Get-Command <name>` it replaced costs 32ms on a MISS, which is the case a seam probe is
@@ -523,6 +543,55 @@ function Write-RunnerPathFinding {
             'no file of that name exists anywhere here, so it was removed rather than moved'
         }
         Write-Failure "$wfName line $($judged.Line) runs '$(Format-SafePathToken -Value $judged.Path)' out of a checkout of this repo, and that path does not exist here -- $where. That runner is red on every pull request in this consumer until the path is corrected there; nothing in this repo can correct it from here.$suffix"
+    }
+}
+
+function Write-RunnerPinFinding {
+    <#
+        Check 6d's verdict about ONE workflow file (#2337): a runner that holds a write credential and
+        fetches this repo's scripts at a moving ref, or at a release behind the one this tree is on.
+
+        THE SOURCE-SIDE HALF OF #2333. That issue pinned the shared-scripts checkout of the write runners
+        adopt-ci-floor.ps1 places, and made a RE-RUN of that scaffolder in the consumer report a runner
+        still on main or behind. What neither reaches is a consumer nobody re-runs it in: every floor
+        adopted before #2333 carries `ref: main` beside FOLD_PUSH_TOKEN, and at that ref a change landing
+        on this repo's trunk runs with Contents and Pull requests write in that consumer on its next
+        merge, with no release in between. This register already reads those files for check 6, so it is
+        where the state becomes visible without anybody visiting.
+
+        ONLY A RUNNER HOLDING A CREDENTIAL IS JUDGED (Test-WorkflowHoldsWriteCredential). The read-only
+        runners stay on main on purpose (#1805), and reporting them would be this check calling the
+        scaffolder's own deliberate output a defect.
+
+        [INFO], NOT [ERROR], and the reason is the register's doctrine rather than a softening: an
+        [ERROR] here means a runner red on every pull request, which a moving ref is not -- it works, and
+        is exposed. It is also the state every consumer's own scaffolder writes until a release carries
+        #2333, so an [ERROR] would stand at every session start with no repair that consumer's tooling
+        offers yet. The message names the repair anyway: one `ref:` line, which a person can edit today.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkflowName,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][AllowNull()][string]$WorkflowText,
+        [string]$Where = ''
+    )
+
+    if (-not (Test-WorkflowHoldsWriteCredential -WorkflowText $WorkflowText)) { return }
+    $pins = @(Get-SharedScriptPin -WorkflowText $WorkflowText -RepositoryName (@($ThisRepoName) + $ThisRepoRetiredNames) -CurrentVersion $WorkflowPluginVersion)
+    if ($pins.Count -eq 0) { return }
+
+    $wfName = Format-SafePathToken -Value $WorkflowName
+    $suffix = if ($Where) { " ($Where)" } else { '' }
+    $target = if ($WorkflowPluginVersion) { "a release commit -- v$WorkflowPluginVersion is the current one ('adopt-ci-floor' prints the ref: line to paste)" } else { "a release commit of the dkj-policy plugin ('adopt-ci-floor' prints the ref: line to paste)" }
+    foreach ($pin in $pins) {
+        switch ($pin.State) {
+            'moving' {
+                $shown = if ($pin.Ref) { "'$(Format-SafePathToken -Value $pin.Ref)'" } else { 'no ref: at all (the default branch)' }
+                Write-Info "$wfName line $($pin.Line) holds a write credential and fetches this repo's scripts at $shown -- a moving ref, so a change on this repo's trunk runs there with that credential before any release (#2333). Pin that ref: line to $target.$suffix"
+            }
+            'behind' {
+                Write-Info "$wfName line $($pin.Line) holds a write credential and fetches this repo's scripts pinned at v$($pin.Version), behind v$WorkflowPluginVersion. Move that ref: line to $target.$suffix"
+            }
+        }
     }
 }
 
@@ -900,6 +969,7 @@ foreach ($mf in $manifestFiles) {
                                 continue
                             }
                             Write-RunnerPathFinding -WorkflowName $rf.Name -WorkflowText $rf.Text -Where $onBranch
+                            Write-RunnerPinFinding -WorkflowName $rf.Name -WorkflowText $rf.Text -Where $onBranch
                         }
 
                         # --- 6c OVER THE NETWORK (#1850) ------------------------------------------
@@ -1573,6 +1643,7 @@ foreach ($mf in $manifestFiles) {
                               Where-Object { $_.Extension -in @('.yml', '.yaml') } | Sort-Object Name)) {
                 $wfText = [System.IO.File]::ReadAllText($wf.FullName)
                 Write-RunnerPathFinding -WorkflowName $wf.Name -WorkflowText $wfText
+                Write-RunnerPinFinding -WorkflowName $wf.Name -WorkflowText $wfText
                 $localWorkflows += [pscustomobject]@{ Name = $wf.Name; Text = $wfText }
             }
         }
