@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**25 / 56 minor entries** <!-- pending-tally -->
+**26 / 57 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2442-plugin-versions-user-scope-shadow · 20260924-152415Z
+
+`plugin-versions` now reports a plugin as **behind** when a path-less (machine-wide) install record
+carries an older version than this checkout's own record. It used to say *versions match* while a
+session was loading the older record's skills. The row prints `claude plugin update <id> --scope
+<that record's scope>`, then a restart, and at session start it is an `[ERROR]` instead of silence.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer missing a skill that the installed version ships now gets the one command that fixes it,
+where the tool used to tell them nothing was wrong.
+
+**Score:** 2
+
+#### Pull Request
+
+plugin-versions: flag a stale path-less record that shadows this checkout's install
+
+Plugins: dkj-policy
+
+[PR #2450](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2450)
+
+---
 
 ### DEPLOY: docs/split-files-to-shrink-context · 20260924-150635Z
 
