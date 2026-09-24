@@ -17,7 +17,7 @@ the governance of the entire specialists system live here.
 
 - **`CLAUDE.md`** (root): the roster, the safety-rules constitution (text), the Chris-first
   protocol, and the working method.
-- **`README.md`** (root): how the marketplace and
+- **`plugins/ADOPTION.md`** + **`plugins/dkj-subagents/README.md`** (which absorbed the root `README.md` retired on September 24, 2026): how the marketplace and
   the plugins work; how a specialist is structured *here* is [below](#how-a-specialist-is-structured-here).
 - **`.claude/specialists/SPECIALISTS.md`** — the seam's inclusion file: the roster, the routing, and
   the two `@`-imports `CLAUDE.md` reaches them through.
@@ -25,6 +25,49 @@ the governance of the entire specialists system live here.
   in `.claude/specialists/lenses/`: creating, updating, restructuring.
 - **The agent-def *texts*** (`<plugin>/subagents/*.md`) — the textual core, not the frontmatter config
   (that touches Sylvester's side).
+
+### One product, one repository
+
+**Moved here from the root `README.md` on September 24, 2026, when that document was retired** (the
+branch `docs/retire-root-readme`) — a repo-only architectural fact, kept verbatim rather than
+retold, because a repo-only fact belongs in the lens rather than on a page a consumer reads.
+
+**Every product gets its own repository, and therefore its own marketplace.** This repository holds
+**one** product — the Claude Specialists — and that is a rule rather than a coincidence.
+
+It used to be framed the other way around: a *workshop* meant to become the home for every future
+plugin, with the specialists as its first family among more to come. That design does not survive a
+second, unrelated product, because the release train is repo-wide: one `CHANGELOG.md`, one `vX.Y.Z`
+tag, and a version bump in lockstep across every plugin. Land an unrelated product beside this one and
+it gets bumped for work it never had, one tag covers two products, and one changelog mixes two
+histories. So the next product gets its own repository and its own marketplace, and the directory
+layer that used to stand by to hold a second family here has been removed.
+
+**What was retired is the framing, not the word — decided August 15, 2026, and written down because it
+keeps being reported as drift.** The *name* went: "the workshop repo" was used in 32 places as a live
+name for this repository, next to the correct term in the same paragraph in several of them, which
+reads to a newcomer as two repositories one of which they cannot find. Those all say "the source repo"
+now. But **"the workshop" as a role word survives, in 310 places**, and deliberately: it describes what
+this side of the marketplace *does* — it is where the plugins are built — and nothing about the
+one-product rule makes that untrue. Sweeping it would be a prose-sensitive rewrite across 61 files of
+shipped plugin content, buying consistency at the price of worse sentences, and the measurement behind
+that call is in
+[#720](https://github.com/DaveKJohn/claude-code-specialists/issues/720). The three references to the
+literal old repository name `davekjohns-workshop` are the historical record of the rename and are
+correct as past tense.
+
+**The nuance, so nobody repairs the wrong thing later: lockstep *within* this product is correct.**
+The plugins are one system — a stack of teams plus an opt-in workflow — and a consumer running
+`dkj-subagents-alpha` alongside `dkj-subagents-shopify` needs matching versions. What was wrong was never the lockstep;
+it was housing unrelated products in a single release train. The lockstep in
+[`cut-release.ps1`](../../../scripts/release/cut-release.ps1) therefore needs no change, and the
+versioning problem dissolved with the reorganisation instead of needing a fix. (That script *was*
+changed later the same day, for an unrelated reason — it became a shared plugin script under
+[#417](https://github.com/DaveKJohn/claude-code-specialists/issues/417), with what differs per repo
+moved into the seam. The lockstep behaviour is untouched: the release artefacts it produces here are
+byte-identical to what the unshared script produced.)
+
+Decision by Dave, August 3, 2026.
 
 ### The two pages the workflow folder used to carry, and why they are gone
 
@@ -488,7 +531,7 @@ report, which is why the bar for a forward-looking sentence is highest exactly t
 The general model — persona vs. subagent representations, the manual/agent-def split, the
 portable-craft-vs-repo-lens split, and persona templates as a third artifact — is the plugin
 family's concept and lives in one canonical place: the root README's
-[Manuals — the split model](../../../README.md#manuals--the-split-model).
+[Manuals — the split model](../../../plugins/dkj-subagents/README.md#manuals--the-split-model).
 This section records only how that plays out **concretely in this repo**.
 
 #### The seam, and the two kinds of lens
@@ -533,7 +576,7 @@ manual sat on the always-on path. Measured before the split, his persona was 25,
 that path; three sections came off it for **5,166 B**.
 
 **What "leading" means for such a pair is different and narrower, and the root README states it** —
-[Manuals — the split model](../../../README.md#subagent-def-vs-manual--two-files-one-specialist) is this
+[Manuals — the split model](../../../plugins/dkj-subagents/README.md#subagent-def-vs-manual--two-files-one-specialist) is this
 model's one canonical home, as the section above says. In short: split by **when** each half is
 needed, not by authority. What belongs here is only what it cost *this* repo. Chris's three moved
 sections — the phase model, parallel delegation, the six inbound checks — are each unknowable at the

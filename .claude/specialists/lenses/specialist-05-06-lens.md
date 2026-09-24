@@ -224,7 +224,7 @@ What came across is this repo's own answers and its measured instances; the port
 [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md).
 
 **Repo-wide and in lockstep works because this repository holds *one* product** whose plugins are one
-system — see [One product, one repository](../../../README.md#one-product-one-repository). A second,
+system — see [One product, one repository](specialist-06-16-lens.md#one-product-one-repository). A second,
 unrelated product would get its own repository and marketplace rather than joining this release train.
 
 **Here that happens at *every* release, patch included, and the body is GENERATED** (Dave, August 4,

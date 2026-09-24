@@ -226,7 +226,9 @@ $mjPaths = @(Get-MojibakePaths -RepoRoot $repoRootForPaths)
 Assert-True ($mjPaths.Count -gt 0) 'Get-MojibakePaths returns a non-empty set'
 Assert-True (($mjPaths | Where-Object { $_ -notmatch '\.md$' }).Count -eq 0) 'Get-MojibakePaths returns only .md files'
 Assert-True (($mjPaths | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -eq 0) 'Get-MojibakePaths returns only paths that exist'
-foreach ($mustHave in @('README.md', 'CLAUDE.md')) {
+# README.md stood first here until September 24, 2026, when the root README was retired; SECURITY.md is
+# the other root document that stays.
+foreach ($mustHave in @('CLAUDE.md', 'SECURITY.md')) {
     $want = Join-Path $repoRootForPaths $mustHave
     Assert-True ($mjPaths -contains $want) "Get-MojibakePaths includes the root $mustHave"
 }

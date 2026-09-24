@@ -1820,7 +1820,7 @@ this repo's:
   test suite"* now states no number under its August 7 stamp. It read `26` there for five days — wrong on the
   day it was written, since there were 27, and wronger every suite since. **And a bare `26` is still correct
   in two other senses**: the lint's own checks (`CHANGELOG.md`) and the agent-def count
-  ([`README.md`](../../../README.md), [Ravi's lens](specialist-06-24-lens.md#why-each-circle-is-the-width-it-is)). Establish
+  ([`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md), [Ravi's lens](specialist-06-24-lens.md#why-each-circle-is-the-width-it-is)). Establish
   which noun a `26` governs before touching it; a find-and-replace here breaks correct statements to repair
   one.
 - **Renaming or moving this checkout unlinks its own plugin install — plan the re-install into the same
@@ -2184,6 +2184,118 @@ this repo's:
   it converts a transient refusal into a deliberate bypass of the safety decision that produced the
   refusal. The refusal is not the obstacle to route around — it is the mechanism working. Wait it out.
 - This repo is **public**: config never contains secrets.
+
+### Repo layout
+
+**Moved here from the root `README.md` on September 24, 2026, when that document was retired** — kept
+verbatim rather than retold, since it is a repo-only fact rather than craft. The full picture, top-level
+folder by folder:
+
+- **`.claude-plugin/marketplace.json`** — the marketplace definition: the plugins (teams and workflow alike) with their `source`.
+- **[`plugins/`](../../../plugins/)** — the plugin source, split by kind (the split, and the naming rule that
+  holds it, are under
+  [Teams and workflows — what's the difference?](../../../plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference)): the teams under
+  [`plugins/dkj-subagents/`](../../../plugins/dkj-subagents/) (`dkj-subagents-alpha`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`, `dkj-subagents-ecomm`) and
+  the policy at [`plugins/dkj-policy/`](../../../plugins/dkj-policy/) — the prime ministry's own files at that
+  root, and its one ministry `dkj-policy-bwj` a level inside it — each of those two directories carrying
+  its own README for what belongs in it
+  and the rules that govern it. One folder per plugin, each carrying
+  `agents/`/`manuals/`/`personas/`/`skills/` plus its own `plugin.json` — and beside the four teams
+  **[`plugins/dkj-subagents/subagent-shared/`](../../../plugins/dkj-subagents/subagent-shared/)**, the canonical source of the shared
+  agent-def blocks described under
+  [Shared agent-def blocks](../../../plugins/dkj-subagents/README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries). See
+  [Manuals — the split model](../../../plugins/dkj-subagents/README.md#manuals--the-split-model) for the manual/agent-def/persona split.
+  `subagent-shared/` belongs under `plugins/` rather than at the root because it is plugin *source*: its
+  generator writes those blocks into plugin agent defs. It sits under `dkj-subagents/` rather than one level
+  up because **every** file carrying a shared block is a team's — 30 agent defs and personas across the
+  four teams, none in either workflow — so a level up described a reach it does not have. It is a
+  directory inside a kind directory that is not a plugin, and nothing has to be told so: a script asks
+  the marketplace which plugins exist, and this folder is in no marketplace.
+- **[`connectors/`](../../../connectors/)** — the register of which repos have each plugin installed and whether
+  they are in sync (see its own [README](../../../connectors/README.md)). At the root, deliberately **not** under
+  `plugins/`: it is maintenance data read by `scripts/sync/check-connectors.ps1`, not payload, and it
+  must not travel along with the plugin cache.
+- **[`assets/`](../../../assets/)** — material that is neither code nor documentation, one subfolder per kind;
+  today that is [`assets/avatars/`](../../../assets/avatars/), the profile images of the GitHub accounts this
+  repo is worked on under, one PNG per account and named after it; nothing in the tree reads them. At the root for the same
+  reason as `connectors/` and with one extra property: **the marketplace clone is the whole
+  repository**, so anything here is on every machine at
+  `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
+  `claude plugin marketplace update` — no release, no version bump. Under `plugins/` the same files
+  would wait for a cut and then land in the payload of every consumer, none of which has any use for
+  them.
+- **`scripts/lib/`, `scripts/lint/`, `scripts/release/`, `scripts/sync/`, `scripts/agents/`,
+  `scripts/task/`, `scripts/tests/`** — the shared helpers (`branch-info.ps1`, `release-lib.ps1`,
+  `subagent-shared-lib.ps1`, and `plugin-tree-lib.ps1`, which answers which plugins this repo publishes
+  and where each folder sits, so no other script has to encode the layout), the lint gate + drift
+  check, the changelog/PR/release scripts (incl.
+  `cut-release.ps1`), the connectors check (`check-connectors.ps1`), the agent-def generator
+  (`build-agent-defs.ps1` — fills in the shared blocks from `plugins/dkj-subagents/subagent-shared/`), and the tests.
+  What each script does is on the page of the skill that runs it; the conventions for the directory
+  itself are in [the section right below](#the-scripts-directory-is-the-source). A
+  mirrored copy for consumers lives inside the plugins — the sync/check scripts in `dkj-subagents-alpha`, the
+  branch/release workflow in `dkj-policy` — see its own
+  [README](../../../plugins/dkj-policy/scripts/README.md).
+- **`dkj-policy/`** — the workflow's own root folder (named `contributing-davekjohn/` from August 27
+  until September 5, 2026, #1437), and since August 27, 2026 the home of
+  every document the contribution cycle produces or governs. **It carries no prose pages of its own**
+  — a `CONTRIBUTING.md` and a `README.md` sat here until
+  [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171), September 20, 2026, when a
+  per-repo restatement beside
+  [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) was retired and this repo's
+  own answers moved into the specialist lenses. What is here is
+  [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), the open branch's
+  `<branch>.md` while one is open, and `releases/` — what a cut *generated*
+  (`changelog/<X>.x/<X.Y.Z>.md`, the complete note per version, and `github/<X>.x/<X.Y.Z>.md`, that
+  version's GitHub Release body), the hand-written note per version under `audience/`, the dated list of
+  every release ever cut in
+  [`releases/history.md`](../../../dkj-policy/releases/history.md). **The folder carries no prose page of its
+  own** — this repo's seam answers sat in a `releases/README.md` until #2196 retired it, and they are in
+  the lenses of the specialists who own them:
+  [Rendall](specialist-05-06-lens.md#versioning--releases) for the release
+  decisions, [the release-notes section below](#the-release-notes-page-and-the-worker-that-serves-it)
+  for the hosted notes page. The cutting process itself travels
+  with the plugin as
+  [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md).
+- **`.claude/`** — the repo layer: `specialists/SPECIALISTS.md` (the inclusion carrying the
+  body import, the lens import and the roster), `specialists/lenses/` (this repo's own repo lenses),
+  `rules/` (path-scoped rules), and
+  `settings.json` (harness config).
+- **The root documents** — `README.md` was retired on September 24, 2026 (this section is the
+  proof of where its content went); what remains at the root is `CLAUDE.md` and `SECURITY.md` — and
+  **`.github/`** (`pull_request_template.md`, the issue templates + three workflows: `workflows/ci.yml`,
+  the CI gate that runs the lint + test suites on every PR and push to `main`, plus
+  `workflows/claude.yml` and `workflows/claude-code-review.yml`, which answer an `@claude` mention and
+  review each PR. Only `ci.yml`'s job blocks a merge).
+
+### What lives here and what doesn't
+
+**Moved here from the root `README.md` on September 24, 2026, condensed rather than moved verbatim**:
+its hook-by-hook detail already lived a second time in
+[`plugins/dkj-policy/README.md`](../../../plugins/dkj-policy/README.md)'s `hooks/` row (a genuine
+duplicate — the root page and the plugin page described the same set in the same words), so that
+duplicate is dropped here and only the frame plus the one hook the plugin page cannot name is kept.
+
+**Does live here:** the plugin folders under `plugins/` with subagent definitions and the portable
+playbook per specialist, plus — core team only — the persona templates of the main-loop specialists and
+the repo-neutral bootstrap skill `specialists-init`. Full detail:
+[`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md#manuals--the-split-model).
+
+**Doesn't:** governance (`CLAUDE.md`, the workflow rules), safety hooks, or MCP config. Those stay at
+repo level deliberately, because they differ per repo (or are safety-critical). The plugins carry **no
+safety/guardrail hooks** and **no repo-specific skills**, with a few named, repo-neutral exceptions:
+`specialists-init`, and a set of informational SessionStart hooks that never block, read-only with one
+stated exception (`claude-home-sessioncheck`, which snapshots a healthy `~/.claude` plugin
+administration so a clobber is restorable, #1609, and touches nothing in any repo). **The one hook this
+family ships that `dkj-policy/README.md`'s own table does not name is the core team's own**:
+`roster-sessioncheck` (roster-drift signalling), which ships with `dkj-subagents-alpha` rather than with
+the workflow, because it audits the roster against the plugin cache rather than against a way of
+working — everything else in the read-only set (`connector-sessioncheck`, `script-contract-sessioncheck`,
+`consumer-prose-sessioncheck`) and the two hooks that go beyond reporting (`cycle-autopark`, which
+commits and pushes a branch's development document until a PR publishes it, #900; `closeout-gate`,
+which blocks a close-out past this repo's stated band, #2050) ship with `dkj-policy` and are described
+there. **The set is not enumerated in full anywhere**: it was, as three, and went stale twice inside two
+days as hooks were added; each plugin's own `hooks/hooks.json` is the one place that cannot.
 
 ### Updating the plugins — in every other checkout of this repo
 

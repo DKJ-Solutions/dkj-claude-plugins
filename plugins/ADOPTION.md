@@ -112,6 +112,275 @@ claude plugin marketplace update dkj-claude-plugins
 claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project
 ```
 
+### Why six acts, and the measurements behind each
+
+**Step 0 above is six acts in order, and here is why there are six rather than a shorter guess** (inbound
+[#297](https://github.com/DaveKJohn/claude-code-specialists/issues/297)). This procedure used to be
+described at three entry points with three different counts — *four acts* on this page, *three acts* in
+[`specialists-init`](dkj-subagents/dkj-subagents-alpha/skills/specialists-init/SKILL.md#chicken-and-egg--step-0-is-done-by-the-user)
+and *three steps* in an earlier version of this page — the same path, no step missing anywhere, three
+different numbers. A reader following it for the first time has the count as their only check on whether
+they skipped something, and three counts remove exactly that. Two of the three were also counting
+different things: an early revision raised the count from three to four by making the refresh an act,
+while `specialists-init`'s step 0 has that refresh too and still said three. The unit is now **acts** —
+individual things you do — everywhere it is counted; verifying counts as an act because leaving it out is
+the failure the next paragraph calls silent and self-camouflaging: a reader who ticks off five and stops
+has never checked that the install exists.
+
+**The step count moved from three to four on August 3, 2026** (inbound
+[#408](https://github.com/DaveKJohn/claude-code-specialists/issues/408)). Filling the lenses was always
+part of the procedure and was disclosed in a trailing clause reading *"at your own pace"*, which reads as
+optional polish on a page that had already announced three steps — while it is in fact the largest step
+and the one where the system starts being useful. This page was renamed `QUICKSTART.md` → `ADOPTION.md`
+in the same change, for the matching reason: the label promised a size the content never had.
+
+**And it moved from three to four again on August 20, 2026** (inbound
+[#784](https://github.com/DaveKJohn/claude-code-specialists/issues/784)) — running each enabled
+plugin's `adopt-*` skill became a step of its own, because a consumer cannot infer a skill's
+existence from a plugin's presence and was meeting the rest of their adoption one session-check
+`[ERROR]` at a time. That is Step 3 below.
+
+**It was five until August 1, 2026**, when #329 made the first restart an act of its own, on every page
+describing this path at once. Folding it into act 1 would have kept the number at five, and folding it
+into another act is exactly what had kept it unwritten while it was already required.
+
+> **And if you sweep for these counts, make the sweep emphasis-tolerant** (inbound
+> [#305](https://github.com/DaveKJohn/claude-code-specialists/issues/305)). A naive sweep shaped
+> `(one|two|…|seven) (acts?|steps?)` **misses markdown emphasis**: against `specialists-init/SKILL.md` it
+> found nothing, because the text there reads `**five** steps` — the asterisks sit between the two words.
+> Written `(…)\*{0,2} \*{0,2}(acts?|steps?)` it surfaces that line, and others a naive sweep would miss
+> entirely. Two lessons worth keeping if count-linting is ever built: a sweep that returns few hits is not
+> evidence of few instances, and a file a given PR touched is not automatically covered by that PR's
+> verification.
+
+> **The marketplace is a cached clone, which is why the refresh is an act and not a formality**
+> (inbound [#282](https://github.com/DaveKJohn/claude-code-specialists/issues/282) for the behaviour,
+> [#284](https://github.com/DaveKJohn/claude-code-specialists/issues/284) for an earlier version of this
+> page having omitted it). `plugin install` compares against the consumer's cached copy of the
+> marketplace, not against the source repo: minutes after `v3.0.2` was tagged and pushed, a fresh
+> project-scoped **install** produced `3.0.1` and reported `✔ Successfully installed`. Nothing in that
+> output hints the version is stale. And the correct version of this block in `specialists-init`'s own
+> step 0b cannot cover for an omission on this page, for the same reason this page exists at all: that
+> skill does not exist until the install has happened.
+
+> **The install is not a formality, and leaving it out fails silently** (inbound
+> [#274](https://github.com/DaveKJohn/claude-code-specialists/issues/274), measured in a consumer during
+> the 3.0.0 adoption round). An install is **project-scoped** — `installed_plugins.json` keys every
+> record by `projectPath` — so the two settings keys plus a restart give you no *working* install and
+> no error. What the reader gets instead is a session with neither the skill nor the session-start
+> hooks, which is indistinguishable from a healthy one: "no hooks because the plugin is not loaded" and
+> "no hooks because all is well" print the same nothing.
+
+> **They do not, however, produce *nothing* — and that is the sharper trap** (inbound
+> [#327](https://github.com/DaveKJohn/claude-code-specialists/issues/327),
+> [#355](https://github.com/DaveKJohn/claude-code-specialists/issues/355)). Measured on a virgin
+> profile with the marketplace registered and the cache present, a **single session start** wrote a
+> full project-scoped record, with the correct `projectPath`, `version` and `gitCommitSha`, while that
+> same session loaded nothing at all: the record is written *after* the load phase, so only the next
+> session gets the plugin. Measured again after three session starts, its `installPath` named a
+> directory that **did not exist**. So a record is a claim, not evidence — run the install, and verify
+> by the **surface** (is the bootstrap skill in your slash list, did the session hooks print, does
+> Chris open the turn) rather than by the administration.
+>
+> **`--scope project` carries that same weight, and the later update is the same pair of commands:**
+> `claude plugin marketplace update <marketplace>` and then
+> **`claude plugin update <plugin>@<marketplace> --scope project`** (inbound
+> [#279](https://github.com/DaveKJohn/claude-code-specialists/issues/279), the 3.0.1 round; the refresh
+> half is inbound [#282](https://github.com/DaveKJohn/claude-code-specialists/issues/282)). All of them
+> default to `--scope user`; the install then writes a machine-wide record with no `projectPath`, and
+> the update refuses outright on a project-scoped install. Project scope is the intended model for
+> this family (Dave, July 30, 2026) — it gives each repo **its own install record**, and every other
+> document here assumes it.
+>
+> **What project scope does *not* promise is that the record stays put** (inbound
+> [#296](https://github.com/DaveKJohn/claude-code-specialists/issues/296)). A record described as
+> *"pinned to the version it was tested against"* did not survive being measured. On July 31, 2026 both
+> of `life-hub`'s project-scoped records moved `3.0.4 → 3.0.5` in a **single** write to
+> `installed_plugins.json`, their `lastUpdated` stamps 70 ms apart — while that repo's own session issued
+> no `claude plugin` command at all. Checked afterwards against every session transcript on the machine
+> for that day: **26** `claude plugin` invocations, and not one in the window the write falls in. So
+> something other than an explicit command can advance a project-scoped record, and "pinned" was a
+> property of the bookkeeping rather than of the repo. (What the same measurement *did* explain: the
+> marketplace clone moving minutes earlier was a deliberate `marketplace update` from another session on
+> the machine — that half is not mysterious.)
+>
+> Practically: project scope is still the right model and still what every document here assumes —
+> what changes is that you should **read your record rather than trust it**. On a machine with several
+> consumers and several sessions, `installed_plugins.json` is the only place your actual version is
+> written down; the install output does not name a version at all.
+>
+> **Verify with the `projectPath` record, not with `claude plugin list`** — that command is not
+> repo-scoped and has reported a plugin as `enabled`, at `project` scope, in a repo that held no install
+> record of its own and loaded nothing. The exact query is the one in
+> [Installing it yourself](#installing-it-yourself) above, act 6. This documentation
+> path is the only thing a new consumer has, because until the plugin loads, the skill that would
+> say otherwise does not exist.
+
+> **And one thing no document mentioned until this one:** every file `specialists-init` writes uses
+> **LF** line endings and `CLAUDE.md` gets **no trailing newline**, on Windows too. Harmless while
+> nothing is committed, but on a repo whose files are CRLF this is the same class of lasting diff
+> `claude plugin install` can leave behind — and the missing final newline turns any later hand-edit of
+> `CLAUDE.md` into a two-line diff. If your repo cares, normalise once after the bootstrap.
+
+## Consumption
+
+A consuming repo adds this marketplace via `extraKnownMarketplaces` in `.claude/settings.json` and
+enables the desired plugins via `enabledPlugins` — and then, because an install is **project-scoped**,
+runs `claude plugin marketplace update <marketplace>` followed by
+`claude plugin install <plugin>@<marketplace> --scope project` from that repo's root for each of
+them, exactly as [Installing it yourself](#installing-it-yourself) above walks through: the settings
+keys alone leave you without a working install, without the flag the command
+defaults to a machine-wide `user` install instead, and without the refresh it can serve an *older*
+version and still report success.
+
+**Seeing which release you're on — `plugin.json`.** Each plugin folder carries a `.claude-plugin/plugin.json`
+whose `version` is the release it belongs to, bumped in lockstep across every plugin — see
+[Versioning](dkj-policy/README.md#versioning) for the lockstep mechanics. Because
+`claude plugin update` pins the cache to a specific version, the
+cached `version` is *exactly* the installed release. The full history of that release lives in the source
+repo's `CHANGELOG.md` and `dkj-policy/releases/` — and a consumer has both, because
+the marketplace source is a git clone of the whole repository at
+`~/.claude/plugins/marketplaces/<marketplace>/`, not a per-plugin extract.
+
+That last fact is why the per-plugin `CHANGELOG.md` and `RELEASE.md` card were **retired on August 8,
+2026**. They existed to give a reader a history inside the plugin cache; measured, the reader already
+had the real one, and the 11,684 lines across those ten files were a second copy free to disagree with
+it. One repository, one product, one changelog.
+
+**One canonical channel — mind the old repo names.** The marketplace is named `dkj-claude-plugins`
+(repo `DKJ-Solutions/dkj-claude-plugins`) and that is the only channel **for a reader who registers it
+themselves**; use that name in `extraKnownMarketplaces`. If this copy reached you through an
+organisation's own marketplace, that channel is the canonical one for you and this paragraph is about
+the public source it was mirrored from — do not register a second one alongside it. The source repo has
+been renamed twice and transferred to a new owner once, and every old name and the old owner keep
+pointing at the same repo via **GitHub redirects** — the full detail, including the one condition that
+must hold for those redirects to keep working (nothing may ever be created at the old paths), is in that
+repo's own [`this-repo.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/.claude/rules/this-repo.md#repo-citation--one-owner-name).
+**There is no second source to mirror to.** However, the local marketplace clone of an old registration
+can lag behind (it was once cloned at an older commit and doesn't converge to the new `HEAD` on its
+own), so an install on that channel silently yields an older plugin version. If you run into this:
+update the marketplace registration (a marketplace update) or re-add it under `dkj-claude-plugins` — a
+fresh install should always use `DKJ-Solutions/dkj-claude-plugins`.
+
+## Which release am I on?
+
+Read the `version` in your cached `<plugin>/.claude-plugin/plugin.json`. It travels with the plugin
+cache, so once `claude plugin update` has pinned your install to a version, that number is exactly the
+release you are on. Every plugin bumps in lockstep, so any one of them answers the question.
+
+For **what changed** in that release, read the source repo's `CHANGELOG.md` and `dkj-policy/releases/`
+in the marketplace clone you already have — `~/.claude/plugins/marketplaces/dkj-claude-plugins/`. See
+[Consumption](#consumption) above for the mechanics.
+
+A newly added **skill** additionally needs a session restart before it becomes visible, and the
+skill counters `/reload-plugins`/`/reload-skills` print are not reliable evidence either way — see
+[Versioning](dkj-policy/README.md#versioning).
+
+## Invocation
+
+Once enabled, the specialists can be invoked with the **plugin name as namespace**:
+`@dkj-subagents-alpha:<name>`, `@dkj-subagents-lifehub:<name>`, `@dkj-subagents-shopify:<name>`, or `@dkj-subagents-ecomm:<name>`.
+
+## Where this runs: Chat, Cowork, and Claude Code
+
+Anthropic's Claude product has three relevant surfaces: **Chat** (a conversation), **Cowork** (a
+working-session mode — desktop generally available, web/mobile in beta as of July 2026 — for
+non-code knowledge work, positioned alongside Claude Code, which stays the tool for software
+engineering), and **Claude Code** itself. See
+[claude.com/product/cowork](https://claude.com/product/cowork) for Cowork's own positioning. This
+matters operationally: a **skill**
+bundled in a plugin works across all three surfaces, but a **subagent** or a **hook** runs only in
+Cowork and in Claude Code — in a plain Claude.ai Chat session they show up grayed out (see
+[Use plugins in Claude](https://support.claude.com/en/articles/13837440-use-plugins-in-claude)).
+Concretely for this family: the specialists roster (the subagents under Chris), the
+SessionStart hooks the enabled plugins ship (read them in each plugin's `hooks/hooks.json` — a
+hand-written list here was named as three and went stale twice inside two days) and the Stop hooks
+`cycle-autopark` and `closeout-gate`
+function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session — only the skills
+(`fold-changelog`, `open-pr`, `ship-pr`, `new-branch`, `claim-issue`, `sweep-issues`, `park`, `fix-mojibake`,
+`specialists-init`, `specialists-teardown`, `sync-roster`, `start-task`, `adopt-shopify-floor`,
+`cut-release`, `adopt-dkj-policy`,
+`release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`,
+`check-branch-entry`, `check-policy-drift`,
+`prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
+`measure-skill`, `measure-closeouts`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `publish-page`,
+`build-backlog-page`, `golive-block`,
+`orchestrator`) remain available there.
+
+**`orchestrator` is on that list for a reason worth reading twice.** Everything else there is a
+convenience that survives; that one is the *conductor*. Where the roster and the hooks fall away, it is
+what puts Chris back in the conversation — so the layer this section shows as unavailable has a route in
+through the one column that is.
+
+Skills themselves are Anthropic's general **Agent Skills** mechanism — organized folders of
+instructions/scripts/resources that an agent discovers and loads progressively (name + description
+always loaded, the `SKILL.md` body only on trigger, other resources on demand) — exactly what
+this family already uses to distribute its skills via the marketplace (see the
+[Anthropic engineering post](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
+and the [docs](https://code.claude.com/docs/en/skills)). Not confirmed: whether Cowork runs on the
+Claude Agent SDK, or whether a Cowork subagent shares its definition format with — or is
+interchangeable with — a Claude Code subagent.
+
+## Which half needs a repository — the Claude App map
+
+The section above answers *which mechanisms* a surface supports. This one answers the question that
+turned out to matter more: **which of this family's contents can do their job when there is no repository
+at all** — a Claude App user with the plugins installed and nothing checked out. The two questions look
+alike and come apart immediately: a skill is available on every surface, and a skill that ends in
+`powershell -File ...\open-pr.ps1` is available and useless.
+
+**The rule, so a new item can be classified without re-running the sweep.** Applied to the *item*,
+in order:
+
+1. **Does it ship an executable** — a `.ps1` in its own folder, or a `hooks.json` that invokes one?
+2. **Do its instructions send the reader to run one, or to read or write a path in the consuming repo?**
+3. Otherwise it is portable.
+
+Three candidate rules were weighed and this one was kept because it is the only one that can be
+*checked*: "does it shell out" misses the wrappers that shell out one level down, and "does it assume a
+git branch" is a judgement about prose. Test 1 is a directory listing; test 2 is
+`grep -rl '\.ps1' plugins --include='*.md'`, which returned **30** files against the tree on August 15,
+2026 — 28 of them true, and the two that were not are the interesting part.
+
+**The verdict has three values, not two, and that is the finding.** A binary map has to round the two
+`grep` survivors — Ravi's agent def (`06-24`, which names the shared-block generator) and Liam's
+(`04-20`, which names `new-branch.ps1`) — either into "App-safe", handing an App user a step that cannot
+run, or out of their team, losing a whole specialist over one line. Neither is right, because a
+specialist's *craft* is portable and one step of one procedure is not. So:
+
+| verdict | meaning | who |
+|---|---|---|
+| **portable** | works with no repository | the personas, manuals, and 13 of 15 `dkj-subagents-alpha` agent defs; the shared blocks in `subagent-shared/`; the `orchestrator` skill |
+| **degraded** | works, minus a named step | Ravi `06-24` and Liam `04-20` — one step each, both of them a script |
+| **repo-bound** | cannot function at all | both workflow plugins whole; `dkj-subagents-alpha`'s three PowerShell skills and its one SessionStart hook; `dkj-subagents-shopify`'s `start-task` |
+
+**What the Claude App package is: a filtered publication, not a second repository.**
+`publish-to-business.ps1` overwrites a business marketplace repo from the source on every run; since
+[#683](https://github.com/DaveKJohn/claude-code-specialists/issues/683) it publishes the subset
+`Get-BusinessMarketplacePlugins` names — the four teams — and rebuilds the
+manifest to match. The workflow is not offered there because it is not there. No per-entry hide flag was
+invented: the manifest format has none, and one would need Claude to honour it, while a plugin that did
+not travel cannot be offered by anything.
+
+**The marketplace keeps its name.** `dkj-claude-plugins` is the key in every consumer's
+`enabledPlugins` (`dkj-subagents-alpha@dkj-claude-plugins`), so the filtered marketplace is the *same*
+marketplace with fewer entries, not a second one under a new key.
+
+**The unit is the plugin, and the degraded items travel.** `dkj-subagents-alpha`'s three PowerShell skills and
+two hooks go to the App target along with everything else in that plugin, because the plugin published
+there has to be byte-identical to the plugin released here — otherwise its version number stops meaning
+one thing. They are handled where they can be handled without forking: the hooks are simply inert in a
+plain Chat session, and `v4.9.0` ([#672](https://github.com/DaveKJohn/claude-code-specialists/issues/672))
+made all three skills non-model-invocable and had each name its PowerShell dependency in its own
+description, so the model cannot walk a user into one.
+
+**How the sync stays honest.** The publication has always refused a manifest naming a folder that did
+not travel. Filtering makes the *reverse* possible — a plugin folder that travels while the manifest
+never mentions it — and that one is silent: nothing errors, Claude simply never offers it, and the
+manifest reads as a complete marketplace to anyone who checks it instead of the tree. Both directions
+are hard stops now, and a keep-list naming a plugin the manifest does not have is a third, because a
+typo there would quietly exclude the plugin it meant to keep and report success.
+
 ## What this gives you
 
 Instead of one generic Claude, you work with a **team of specialized Claudes under one Chief of
@@ -124,7 +393,7 @@ the team and its playbooks.
 The system consists of **teams and a workflow**: the repo-neutral core team `dkj-subagents-alpha` (always
 enable it), three optional add-on teams, and exactly one **way-of-working** plugin, chosen from the two
 the marketplace offers. Which specialists live in which plugin and who they are meant for is covered in
-the [root README](../README.md).
+[`dkj-subagents/README.md`](dkj-subagents/README.md).
 
 **The workflow slot is different in kind, so decide about it deliberately rather than by habit — and
 "decide" now means deciding whether to fill it at all.** One plugin answers "how does work move through
@@ -165,9 +434,10 @@ seam (which in turn imports Chris's portable body from the plugin install + his 
 two proposals for safety settings, for your own review: `settings.suggested.jsonc` (annotated — why
 each rule is there) and `settings.proposed.json` (the same rules already merged into your
 `settings.json`, so adopting them is one replacement rather than a hand-merge). The details of this
-path are in the
-[root README › Adoption](../README.md#adoption-the-bootstrap-path) — which counts the install as
-"step 0" and this one as "step 1", because it numbers from before the point where this page starts.
+path — why it takes six manual acts before the skill even exists to invoke — are under
+[Why six acts, and the measurements behind each](#why-six-acts-and-the-measurements-behind-each) above;
+this page numbers the install as "step 0" and this one as "step 1", because the underlying history
+numbers from before the point where the four steps start.
 
 > **The adoption commit lands on the trunk, and it is the one exception — it is spent by using it**
 > (inbound [#1085](https://github.com/DaveKJohn/claude-code-specialists/issues/1085)). Everything this
@@ -312,6 +582,328 @@ done — with an empty lens they simply answer out of their portable playbook.
 > files, the roster scaffold, the settings proposal and the `@`-import in **seconds**. The time here is
 > yours, spent writing — which is why it is a numbered step rather than a closing remark.
 
+## Delivering the orchestrator from the plugin — verified, deliberately not switched on
+
+Enabling the plugin delivers the **worker subagents**, but not the **conductor** (Chris) or the
+governance/hooks layer, so the skill **`specialists-init`** above (from `dkj-subagents-alpha`, the core
+team) closes that gap in a consuming repo. Because a plugin skill cannot hook itself in, the path has to
+be two-stage — install, then bootstrap — rather than one.
+
+> **One half of the old reason for this is false, and it matters for
+> [Removal: the teardown gap](#removal-the-teardown-gap) below.** The two-stage path used to be justified
+> with "a plugin injects no main-loop context and edits no `CLAUDE.md`". The second half is true and
+> documented. The first is not: a plugin **can** activate one of its own agents as the main thread via a
+> root `settings.json` — and the `@`-import is both the only reason the bootstrap exists and the single
+> worst thing left behind on uninstall. Finding:
+> [issue #215](https://github.com/DaveKJohn/claude-code-specialists/issues/215).
+
+The mechanism was read from the docs rather than assumed (July 29, 2026), because the whole bootstrap
+path turns on whether it exists:
+
+- **It does what the issue claimed.** *"Plugins can include a `settings.json` file at the plugin root
+  to apply default configuration when the plugin is enabled. Currently, only the `agent` and
+  `subagentStatusLine` keys are supported."* And: *"Setting `agent` activates one of the plugin's
+  custom agents as the main thread, applying its system prompt, tool restrictions, and model."*
+  Unknown keys are silently ignored, and `settings.json` takes priority over `settings` in
+  `plugin.json`.
+- **The compaction worry dissolves in this route rather than being small.** The context-window
+  reference flags exactly one startup block as not re-injected after `/compact` — the **skill**
+  descriptions (*"Only skills you actually invoked get preserved"*). Agent descriptions carry no such
+  flag. More decisively: a main-thread agent's body **is** the system prompt, which travels with every
+  request by construction. There is nothing left to compact away.
+- **The blocker is gone as of this release.** Chris's body used to say he *"never executes anything
+  himself"*, which is workable as a role inside a general-purpose loop and crippling as a system
+  prompt. It now forbids **unattributed** work rather than typing: every action is taken in the owning
+  specialist's name, announced first, under their craft rules — by handing off to a subagent where
+  subagents exist, and otherwise by Chris doing that specialist's work under their name. The old
+  wording was internally inconsistent anyway: his fixed ritual has always said *"execute according to
+  their trade rules"*.
+
+**So why is the switch still off?** Three reasons. The first used to be an unknown and is now a
+measured fact — which changes its weight without removing it:
+
+1. **Two enabled plugins that both set `agent`: the last one silently wins.** Settled by experiment
+   on July 29, 2026 (Claude Code 2.1.220), because it is not on the plugins page and not in the
+   reference. Two throwaway plugins, each with an `agent` in its root `settings.json` pointing at its
+   own agent, run in both orders along **both** load paths — repeated `--plugin-dir`, and the real
+   consumer path (`enabledPlugins` + `extraKnownMarketplaces`). In all four runs the **last-listed**
+   plugin won, and not merely its system prompt: the winner's `model` came through too (sonnet-5 for
+   one, haiku for the other), so the whole agent config travels. Ordering is positional, not
+   alphabetical — reversing the order reverses the winner. There is **no error and no warning**; the
+   harness knows and says so only at debug level:
+   `[DEBUG] Plugin "expbeta" overrides setting "agent" (previously set by another plugin)`.
+   So the behaviour is now written down, but the hazard is real and worse than a hard failure: a
+   consumer who enables any other plugin that also sets `agent` loses their orchestrator to
+   whichever plugin happens to sit last, with nothing on screen to say so.
+2. **It changes every consumer's main loop on their next plugin update**, from a version bump they did
+   not read. Outward-facing and effectively irreversible for anyone who pulls it before a revert.
+3. **Chris ships as a persona, not a subagent, so there is no `subagents/specialist-01-01-subagent.md` to point at.**
+   Creating one is not a formality: that file's `tools:` and `model` would become **the whole main
+   thread's** tool policy and model.
+
+The body is therefore ready and the switch is not thrown. Flipping it is Dave's call, now on a fact
+instead of an unknown: the collision resolves silently and positionally, so a consumer who enables a
+second `agent`-setting plugin gets a different orchestrator without being told.
+
+## Removal: the teardown gap
+
+> **Status: closed on July 30, 2026.** Every item of the target shape below carries its own *Settled on*
+> marker, and [issue #221](https://github.com/DaveKJohn/claude-code-specialists/issues/221) is closed. The
+> section is kept in full rather than trimmed to a verdict, because the **measurements** are the reason
+> the design ended up the way it did — the 26 orphaned lens files, the import that actively broke, the
+> 101 specialist mentions across 492 lines, the resolver that took the daily git workflow down with it.
+> A future change that finds this shape inconvenient should have to argue with the numbers, not with a
+> conclusion. What is *not* closed and deliberately so: delivering Chris from the plugin's own
+> `settings.json` ([#215](https://github.com/DaveKJohn/claude-code-specialists/issues/215)) — the mechanism
+> is verified above and the switch is Dave's to throw.
+
+**The requirement, set by Dave on July 29, 2026.** A consumer must be able to **install and uninstall
+these plugins at any moment**, and after an uninstall it must be able to *stand fully free*: no
+lingering reference to a specialist, a manual, a persona, or a roster anywhere in the repo. Adoption
+is reversible by design, not a one-way door.
+
+**Read as "no *live* reference" — the hand measurement forced that distinction, and it is the working
+reading until Dave says otherwise.** Taken literally, "no reference anywhere in the repo" is both
+unreachable and undesirable for any repo that ever adopted the plugin, because its own history records
+the adoption: measured in `davekokbwj/smartwatchbanden` (July 29, 2026), `CHANGELOG.md` (3) and
+`releases/development/*` (43) mention specialists, and every one of those is an accurate record of
+something that happened. **History is finished business, not debt, and is never rewritten** — the same
+reasoning that lets this family's archived release notes keep their original language. The requirement
+therefore bites on what is *live*: nothing that a **session loads**, a **script resolves**, or a **gate
+depends on** may still point at the plugin. That reading is what makes the goal testable, and it sorts
+the leftovers below by how much they actually cost — a resolver that throws is a different order of
+problem from a roster row nobody reads.
+
+**The bootstrap path above has no counterpart.** `specialists-init` builds up; nothing tears down. It
+was measured against the `life-hub` consumer on July 29, 2026 rather than estimated:
+
+| what an uninstall leaves | measured |
+|---|---|
+| Agent defs, manuals, persona bodies, skills, shared scripts | **gone cleanly** — plugin-owned |
+| The three `SessionStart` hooks (and, since #900, the `Stop` hook beside them) | **gone cleanly** — plugin-owned, via `${CLAUDE_PLUGIN_ROOT}` |
+| Lens files under `.claude/plugins/` | **26 git-tracked files**, now referencing nothing |
+| The two `@`-imports in `CLAUDE.md` | one **actively breaks** — it points into the marketplace cache |
+| Specialist mentions in `CLAUDE.md` | **101**, across 492 lines |
+| Scripts that exist only for specialists | e.g. `rename-specialist.ps1` |
+| `scripts/repo-config.ps1`, `scripts/lib/branch-info.ps1` | the script contract, written for the shared scripts |
+
+The half that is already right is worth stating plainly: **everything the plugin owns disappears
+correctly.** Hooks included — they are registered by the plugin's own `hooks/hooks.json`, not in the
+consumer's `settings.json`, so they leave with it. The gap is entirely on the consumer side.
+
+**One row of that table needs qualifying, though, and it is the row that reads as reassuring.** The
+shared scripts do vanish cleanly — but a consumer does not call them from nowhere. It calls them through
+a resolver of its own that locates the marketplace cache, and that resolver **throws** once the cache is
+gone. Measured in `davekokbwj/smartwatchbanden` (July 29, 2026): `scripts/lib/plugin-paths.ps1` is that
+resolver and three operational scripts dot-source it — `start-task.ps1`, `open-pr.ps1`,
+`fold-changelog-entry.ps1`. So "gone cleanly" describes the *plugin's* side of the boundary only; on the
+consumer's side the same removal takes the daily git workflow down with it. This is not clutter a
+teardown can classify away, it is a **hard runtime dependency**, created by adopting the shared-script
+model in the first place — which is why it belongs in the target shape below rather than in the skill.
+
+### Why "delete everything" is the wrong goal
+
+Consumer-side content is not one thing but three, and only one of them is disposable:
+
+1. **Plugin-owned, portable** — agent defs, manuals, personas, skills, hooks, shared scripts. Already
+   correct: it lives in the plugin and vanishes on uninstall.
+2. **Consumer-owned but plugin-shaped** — the lens files, the roster, the routing table, the chains.
+   The *repo owner* wrote this about their *own* repo, but it is built entirely on plugin concepts.
+   Valuable, and meaningless without the plugin.
+3. **Consumer-owned and genuinely independent** — the branch taxonomy in `branch-info.ps1`, the
+   changelog convention, "never directly on `main`". This survives an uninstall as a useful repo
+   agreement — but it is currently *phrased* in specialist terms ("Derek opens the PR"), which turns a
+   still-valid rule into a reference to a character that no longer exists.
+
+So a teardown that deletes indiscriminately destroys governance and repo knowledge the owner authored,
+which is worse than leaving clutter. **The actual defect is not that too much lives in the consumer —
+it is that category 2 is *woven in* rather than *bolted on*.** 101 mentions spread through one file
+cannot be removed cleanly; one import pointing at one directory can.
+
+### What exists now: the `specialists-teardown` skill
+
+**Built July 29, 2026** — the third item of the target shape below, and the half that could be built
+and tested without restructuring anything first.
+[`specialists-teardown`](dkj-subagents/dkj-subagents-alpha/skills/specialists-teardown/SKILL.md)
+is the bootstrap's mirror image: where `specialists-init` is strictly **additive** and never
+overwrites, the teardown is strictly **subtractive** and never deletes what the owner wrote.
+
+It classifies before it removes, along exactly the three categories below:
+
+| category | what happens |
+|---|---|
+| generated and untouched (a lens still carrying its `VUL-IN` marker, an unfilled script scaffold, the `@`-imports, both settings proposals) | **removed** |
+| authored by the owner (a filled-in lens) | **reported, never touched** |
+| owned by the repo anyway (a real `repo-config.ps1`, a filled branch table) | **reported as yours to keep or drop** |
+
+The `VUL-IN` marker is the test, because that is the exact contract the bootstrap writes those files
+under — its absence means somebody edited the file, which makes the file theirs. It is a content test
+rather than a timestamp or hash on purpose: a reformat or a merge does not make content authored.
+
+**Dry run by default**; `-Apply` acts. Two things it deliberately refuses to do: it never edits
+`.claude/settings.json` (disabling the plugin is the owner's act, and the bootstrap never wrote that
+file either — the symmetry cuts both ways), and it never removes roster rows or repo prose from
+`CLAUDE.md`. The only lines it touches there are the two `@`-imports, safe because an import naming a
+persona body or an extension lens is knowably bootstrap-written — the same property that let
+`check-roster-sync` stop counting them as roster rows (#227).
+
+**Measured round-trip** (`scripts/tests/teardown.tests.ps1`): bootstrap a fixture → 24 items placed →
+teardown removes 22 and keeps the 2 the owner filled in, with the owner's own `CLAUDE.md` prose intact.
+
+**What it still cannot finish, and why that is the seam's problem rather than the skill's.** A repo that
+authored lenses and roster sections is not blank afterwards: those are reported, not removed. As long as
+specialist content is woven through `CLAUDE.md` instead of sitting behind one inclusion, no script can
+finish the job without guessing where a roster row ends and the owner's prose begins.
+
+### What the ideal shape looks like
+
+- **Category 2 behind a single seam.** All specialist content reachable through one inclusion, so
+  teardown is "remove one directory and one line" instead of editing 492 lines by hand. **Settled on
+  July 29, 2026** — specified below, written by the bootstrap and matched by the teardown
+  ([#253](https://github.com/DaveKJohn/claude-code-specialists/pull/253),
+  [#254](https://github.com/DaveKJohn/claude-code-specialists/pull/254)), with the source repo migrated onto it as
+  the first consumer ([#255](https://github.com/DaveKJohn/claude-code-specialists/pull/255)). The paperwork
+  lagged a day behind the machinery: 120 occurrences of the pre-seam path across 57 files were still
+  telling every consumer the old location
+  ([#261](https://github.com/DaveKJohn/claude-code-specialists/pull/261)), and `sync-roster` was still
+  *writing* there ([#262](https://github.com/DaveKJohn/claude-code-specialists/pull/262)).
+- **Category 3 written plugin-neutrally**, so it stays true after an uninstall instead of pointing at
+  a departed persona. **Settled on July 30, 2026 — and the honest version of "settled" is worth stating,
+  because the item as written could not be done at all.** The rewording is the *owner's* governance prose:
+  a plugin that rewrote *"Derek opens the PR"* into *"changes go in via a branch and a PR"* on its way out
+  would be doing exactly the damage the three-category classification exists to prevent. What a script can
+  do is **find** them, and that is what the teardown now closes with — a **free-standing audit** listing
+  every live reference by `file:line`, split into the three cases that have different answers: an **id**
+  (a roster row — usually delete), a **name** (a still-valid rule phrased through a character — usually
+  reword), and a **plugin-only contract function** (`Get-RosterPath`/`Get-RosterIgnoredIds` — delete the
+  line, keep the file). The choice is per line, which is why it reports lines. A clean repo gets `[FREE]`,
+  and a test asserts the closed loop: apply the reword the audit advises and the audit reaches `[FREE]`,
+  so its findings are actionable rather than noise. Report-only, and it runs on a dry run too — a preview
+  that cannot say what would still be left is not an inventory.
+- **A `specialists-teardown` beside `specialists-init`.** Symmetric by construction: whatever the
+  bootstrap puts down, the teardown can take away, because it is the same inventory. **Built on
+  July 29, 2026** — see [the section above](#what-exists-now-the-specialists-teardown-skill).
+- **Shared scripts that survive their own absence.** The operational scripts are plugin-owned on
+  purpose (#81), but the consumer-side resolver that reaches them throws once the plugin is gone, so an
+  uninstall breaks the repo's git workflow rather than merely leaving debris behind. Either the resolver
+  degrades to a clear, actionable failure, or the consumer keeps local copies — and whichever it is
+  should be a stated part of adoption, since no teardown can decide it afterwards. **Settled on
+  July 29, 2026, in two steps.** The teardown first learned to *warn*: it reports every `.ps1` under
+  `scripts/` that reaches into the cache, plus what depends on it, and removes none of them. Then it
+  learned to *solve* it — `-VendorScripts` copies the shared payload into the consumer's own `scripts/`
+  (structure preserved, never overwriting), so the workflow survives the uninstall. The source repo is the
+  proof the model works: its own `scripts/` copies are byte-identical to the plugin's, asserted on every
+  test run.
+- **Consumer gates that announce when they stop applying.** A consumer that lints its own lens files
+  keeps that check after the teardown, and in the measured repo it *silently skips* the lens category
+  once the directory is gone: green, and checking nothing. Right for a deliberate teardown, wrong for an
+  accidental loss — a silent skip cannot tell an operator's removal from a bad merge or a wrong path. A
+  skip that says it skipped costs one line and keeps the gate honest.
+
+  **Settled on July 30, 2026, and the defect was sharper than this bullet described.** The gate did not
+  skip the category quietly and print nothing; it printed a **verdict with no coverage**.
+  `check-consumer-drift`'s persona section closed with *"Persona drift is INFORMATIONAL: 0 drifted."* —
+  and against a repo with no lens files at all, that was the whole output of the section. *"0 drifted of
+  0 compared"* and *"0 drifted of 4 compared"* were the same sentence. Not a false pass: a true
+  statement that reads as a different, false one, which is harder to catch than silence.
+
+  The fix is one shared, non-counting `Write-Coverage` helper in `scripts/lib/check-report-lib.ps1` —
+  plugin-owned, so it travels — and a `[COVERAGE]` line closing **every** category in
+  `check-plugin-integrity` (ten of them) and the persona section of `check-consumer-drift`. Coverage is
+  context, never a finding: it moves no exit code and no signal count, because a legitimately empty
+  category must not break its own gate. Applied to all ten deliberately — a partial rollout recreates
+  exactly the asymmetry that caused this, and the lens category (the one a teardown removes) is counted
+  separately from the scan total for the same reason.
+
+  **What this cannot reach, stated plainly rather than implied.** A consumer's *own* lint — the script
+  its `Get-LintScript` points at — is the repo owner's code. No plugin can make it honest; the helper is
+  available to it, and adopting it is the owner's act. The measured repo's silent skip lives there, and
+  it is listed here as the owner's item, not as one this family can close for them.
+- **Lens files off the plugin path.** `.claude/plugins/claude-specialists/` looks like plugin
+  property and is in fact git-tracked consumer content — which is exactly why it reads as orphaned
+  debris after an uninstall. **Settled on July 29, 2026** as part of the seam: lenses live in
+  `.claude/specialists/lenses/`, a path that says whose content it is.
+
+**Order matters here.** Every further addition woven into a consumer's `CLAUDE.md` raises the cost of
+the untangling, so the seam is worth settling before more content lands on that path — and
+[issue #215](https://github.com/DaveKJohn/claude-code-specialists/issues/215) is the same problem seen
+from the other side, not merely a token saving: a plugin-delivered Chris removes the `@`-import, which
+is the worst artifact in the table above.
+
+### The seam, specified
+
+The shape above, made concrete. **One file, one line** — a fresh consumer's whole specialist surface:
+
+```text
+<consumer>/
+├── CLAUDE.md                          # ONE specialists line, nothing else
+└── .claude/specialists/
+    ├── SPECIALISTS.md                 # the inclusion: body import, lens import, roster slot
+    └── lenses/
+        ├── specialist-01-01-lens.md
+        ├── specialist-05-05-lens.md
+        └── <group>-<id>-extension.md  # one per specialist, flat: ids are unique family-wide
+```
+
+`CLAUDE.md` carries `@.claude/specialists/SPECIALISTS.md` and nothing more. Everything that used to be
+woven through it — the two imports, the roster table, the routing, the chains — lives behind that line.
+
+**Four verified facts this rests on, each of which would have sunk it:**
+
+1. **Nested imports work.** *"Imported files can recursively import other files, with a maximum depth
+   of four hops."* The seam spends two: `CLAUDE.md` → `SPECIALISTS.md` → body/lens. A lens may still
+   import something of its own without hitting the ceiling.
+2. **A path in backticks is not an import.** *"Import parsing skips Markdown code spans and fenced code
+   blocks."* So documentation may name `` `@.claude/specialists/SPECIALISTS.md` `` freely, and only the
+   bare line loads.
+3. **The roster survives compaction.** *"Project-root CLAUDE.md survives compaction: after `/compact`,
+   Claude re-reads it from disk and re-injects it."* An import is part of that file's expansion, so the
+   roster comes back with it — unlike a `paths:`-scoped rule, which does not.
+4. **It is not a token saving, and must not be sold as one.** *"Splitting into `@path` imports helps
+   organization but doesn't reduce context, since imported files load at launch."* The seam buys
+   **removability**, nothing else.
+
+**What it changes about a teardown.** Today an authored lens survives while the import that loaded it is
+removed, leaving an orphan — and the roster is 43 lines scattered across 6 sections that no script can
+safely cut. After the seam there is exactly **one** orphan with a name: `SPECIALISTS.md`, holding the
+roster the owner wrote, reported as *"no longer loaded by anything — move what you still want into
+`CLAUDE.md`, or delete it."* An unbounded hand-editing job becomes one file and one decision.
+
+The import line is still removed even when `SPECIALISTS.md` is authored, and that is deliberate: it is
+the line that makes the content *live*, which is exactly what the requirement bites on.
+
+**Existing consumers are not moved.** The bootstrap stays strictly additive — it never relocates a file
+somebody else's repo owns — so:
+
+| consumer state | the bootstrap writes | readers accept |
+|---|---|---|
+| **fresh** (no lens anywhere) | the seam | the seam **and** all three legacy layouts |
+| **already adopted** (lenses in a legacy dir) | keeps using that dir, adds new lenses beside the existing ones | unchanged |
+
+Readers change in exactly one place: `Get-LensDirCandidates` gains the seam as its most canonical
+candidate, ahead of the three it already walks. Writers pick their target from whether a legacy tree
+exists. **Migrating is the owner's act**, five steps, none of them automatic — and **step 0 is the one that can
+cost you the tree**:
+
+0. **Check your `.gitignore` first.** If it ignores `.claude/*` with an exception for the old path (e.g.
+   `!.claude/plugins/`), add `!.claude/specialists/` and **commit that before moving anything**. Measured
+   in `davekokbwj/smartwatchbanden` on July 30, 2026: its lenses are tracked *only* because of the
+   pre-seam exception, so moving them to the seam would drop them out of version control **with nothing
+   looking wrong** — every gate stays green (the readers accept the seam, which is the point) and
+   `git status` is silent (they are ignored). Reversed order and the move lands untracked, so the commit
+   that would have captured it has nothing to capture. An ignore rule written against a path is a bet
+   that the path will not move; this is the moment that bet is called in.
+1. `git mv .claude/plugins/<family>/<plugin>/*-extension.md .claude/specialists/lenses/`
+2. Create `.claude/specialists/SPECIALISTS.md` and move the roster, routing table and chains into it.
+3. Replace the two `@`-imports in `CLAUDE.md` with the single seam line.
+4. Run the roster check and the lint gate, then restart the session.
+
+**The one fragility the seam concentrates rather than removes.** The body import resolves into the
+marketplace cache, which is *outside* the working directory, and for such an import Claude Code shows a
+one-time approval dialog — *"If you decline, the imports stay disabled and the dialog doesn't appear
+again."* That was already true of the two-line form. What changes is the blast radius: decline once and
+the single line delivers nothing, silently and permanently, until you clear that decision. Worth knowing
+before diagnosing "the specialists stopped loading" as a bug in your own repo.
 
 ## Undoing it — the half that is yours
 
