@@ -43,17 +43,56 @@ Resolve the running plugin's own subagents/ from its own root before any cached 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PluginAgentsDir` in `bootstrap.ps1`: for the running plugin itself (`$PluginName -eq
+      (Get-OwnPluginName $OwnPluginRoot)`), resolve `subagents/` (then legacy `agents/`) directly
+      under `$OwnPluginRoot`, before the parent-based sibling probe and the market-wide
+      highest-cached-version fallback. Both layouts (source: `$OwnPluginRoot` is the plugin dir
+      itself; cache: `$OwnPluginRoot` is `.../<plugin>/<version>`) resolve correctly through this
+      one direct check. Every other plugin keeps the untouched cross-plugin resolution.
+- [x] Scaffold loop in `bootstrap.ps1`: count RECOGNISED subagent defs (files that produced a
+      `$defId`), not enumerated files, per plugin; when an agents directory was found but yields
+      zero recognised defs, print a `[notice]` (Yellow) naming the plugin, the resolved directory,
+      and what was searched for -- both `Get-SpecialistFileId`/`Get-SpecialistFiles`'s two known
+      spellings (`specialist-<g>-<i>-subagent.md`, legacy `<g>-<i>-agent.md`) and the fallback
+      `*-agent.md` filter used without that lib.
+- [x] Tycho: regression test covering half 1 -- a consumer whose cache holds the OWN plugin at an
+      older version alongside a higher-numbered cached version of the same plugin (a stale running
+      payload), asserting `Get-PluginAgentsDir`/the bootstrap resolves the running version's own
+      `subagents/`, not the highest-numbered cache.
+- [x] Tycho: regression test covering half 2 -- an agents directory that exists but whose file
+      names match neither known spelling, asserting the `[notice]` fires exactly once, names the
+      plugin and the directory, and that the closing counts stay honest (no scaffold created).
+- [x] Victor: code review of both `bootstrap.ps1` changes (correctness of the own-plugin equality
+      check in both layouts, the recognised-vs-enumerated count, wording of the new notice). Sound;
+      independently reproduced 3 red asserts on the pre-fix code. The one in-branch finding -- the
+      test comment naming a different verification method than the one used -- is corrected.
 
 ### TEST
 
+Added two cases to `scripts/tests/bootstrap-drift.tests.ps1` ("own-plugin dual-version cache: the
+RUNNING payload wins, not the highest" and "an agents directory that recognises nothing prints a
+`[notice]`"). Ran the full suite: **212/212 asserts pass** on the fixed `bootstrap.ps1`. Both new
+cases were confirmed to fail against the pre-fix code: reproduced via a throwaway fixture copy built
+from `git show HEAD:.../bootstrap.ps1` (never touching the tracked working tree), where the own-plugin
+scaffold came from the wrong (higher-numbered, non-running) cached version and the `[notice]` never
+printed -- `git diff` on `bootstrap.ps1` confirmed Sylvester's fix was untouched throughout.
+
 ### DEPLOY: fix/2426-init-own-payload-subagents
 
-**Score:**
+`specialists-init` reads the subagent definitions of the payload that is actually running, rather than those
+of the highest version in the plugin cache, and says so when a directory it found holds no definition it
+recognises. Prevents a stale payload from scaffolding zero subagent lenses behind a closing count that read
+as a clean result (#2426).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `specialists-init` from an older installed payload than the newest one cached now gets a
+lens for every subagent it enables, instead of none and no word about it; where a directory still yields
+nothing, a notice names the directory and what was looked for.
+
+**Score:** 2
 
 #### Pull Request
 
