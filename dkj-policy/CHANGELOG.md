@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 4 patch entries** <!-- pending-tally -->
+**0 / 5 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2463-resolves-refuses-dossier · 20260924-213506Z
+
+`open-pr` now refuses a PR that would close an issue carrying the `dossier` label, whether the close
+comes from `-Resolves` or from a `Closes` already on the PR body. The rule that a repair of one instance
+does not close a collecting issue (#2462) used to hold only as long as somebody remembered it. The
+refusal names `-NoResolves` as the way through. The check is shared rather than seam-gated, so every PR
+that closes anything now pays one `gh issue view` per closing issue, asking for the body and the labels
+in one call. A closing keyword in a commit message is still not read by any gate.
+
+Tier 0 is scored for a session shipping a repair of one instance of a dossier.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. It is a workflow gate and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+open-pr refuses -Resolves on an issue carrying the dossier label
+
+Plugins: dkj-policy
+
+[PR #2468](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2468)
+
+---
 
 ### DEPLOY: fix/2459-update-plugins-user-shadow · 20260924-205923Z
 
