@@ -345,6 +345,13 @@ $guardExempt = @(
     # nothing repo-relative at all, so the released copy and this one are not merely both acceptable:
     # they compute the identical answer. There is no version of this script whose age can make it wrong.
     'scripts\lint\check-claude-home.ps1',
+    # SessionStart: stranded-sweep-sessioncheck (#2438). The same reason as check-git-identity.ps1 above,
+    # down to the shape of it: the hook runs it from '${CLAUDE_PLUGIN_ROOT}/scripts/lint/', the released
+    # copy, against the current repo, so Assert-OwnCopy would refuse it and thereby the hook at every
+    # session start here. No second caller either -- no CI leg, on the same reasoning check-git-identity.ps1's
+    # own row gives: this reads the tracker, not this repo's own trunk, so a runner would gain nothing a
+    # session cannot already do, and there is none.
+    'scripts\lint\check-stranded-sweep.ps1',
     'scripts\task\park-cycle.ps1',             # Stop: cycle-autopark (#900)
     # statusLine: the command Claude Code runs on its own clock (#2103). THE FIRST ENTRY HERE THAT IS
     # NOT A HOOK, and it is on this list for the hooks' own reason one settings key over: nobody invokes
