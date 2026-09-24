@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 32 minor entries** <!-- pending-tally -->
+**13 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/remove-four-readmes · 20260924-070744Z
+
+Removed three READMEs nothing reads: `plugins/README.md` and `assets/avatars/README.md` duplicated
+the root README, and the width decisions on `plugins/dkj-subagents/subagent-shared/README.md` now live in
+[Ravi's lens](../.claude/specialists/lenses/specialist-06-24-lens.md#why-each-circle-is-the-width-it-is),
+where the lint's `[tool-block]` refusal points.
+
+**Score:** 1 -- prevents a reader following the lint's printed pointer, or a link, to a page that no
+longer exists.
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber: the only plugin-visible change is one sentence in `dkj-policy`'s README.
+
+**Score:** N/A
+
+#### Pull Request
+
+Remove three READMEs nothing needs
+
+Plugins: dkj-policy
+
+[PR #2363](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2363)
+
+---
 
 ### DEPLOY: fix/2402-edited-claim-marker · 20260924-065127Z
 
