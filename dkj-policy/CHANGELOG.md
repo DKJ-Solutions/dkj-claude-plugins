@@ -44,7 +44,39 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**14 / 34 minor entries** <!-- pending-tally -->
+**15 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2409-tycho-owns-suite-population · 20260924-072644Z
+
+The test engineer's manual now makes Tycho the owner of the test-suite **population**. Before this,
+every rule in it pointed one way: add a test, add a regression test, flag a gap. Nothing covered
+justifying, merging or retiring a suite, and this repo's gate grew from 43 to 141 suites in about six
+weeks with nobody able to say why each one is needed. He now has to be able to name what every suite
+protects. He proposes merges where suites overlap and retirements where a subject has gone, and each
+retirement is stated as a trade of coverage for time. A new hard rule stops the one-suite-per-issue
+shape: a regression case goes into the suite that already owns its subject. The performance
+engineer's manual adds the matching line: the verdict is Tycho's, and Nolan supplies the per-suite
+cost table it is made against. Closes #2409; the first audit of the 141 is #2408.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Any consumer whose test gate is growing now has a named specialist who answers for its size. Asked why
+the gate needs every suite it runs, the test engineer gives a per-suite answer and proposes merges or
+retirements. Before, he added suites and never questioned them.
+
+**Score:** 2
+
+#### Pull Request
+
+Tycho owns the test-suite population, and Nolan prices it
+
+Plugins: dkj-subagents-alpha
+
+[PR #2410](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2410)
+
+---
 
 ### DEPLOY: docs/2372-sweep-no-gate-prerun · 20260924-071713Z
 
