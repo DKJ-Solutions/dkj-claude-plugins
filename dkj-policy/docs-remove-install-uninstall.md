@@ -50,6 +50,7 @@ install commands, which run before any plugin skill exists -- moves into `plugin
 - [x] Every live link repointed (README, connectors, handbook, lens, plugin READMEs, init/teardown skills, manual)
 - [x] Printed script messages repointed (bootstrap, check-connectors, check-roster-sync x2, teardown)
 - [x] Both names off `ReservedRootMd` and `$consumerDocs`; blueprint rebuilt
+- [x] consumer-doc test repointed from `UNINSTALL.md` to `ADOPTION.md` (still a listed name the fixture never creates)
 
 ### TEST
 
