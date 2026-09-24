@@ -922,6 +922,34 @@ function Get-SharedScriptPairs {
             # makes for its own reason.
         },
         @{
+            # THE STRANDED-SWEEP REPORT (issue #2438, split out of #2436's step 2). An armed pull request
+            # the picker above declines on the executed-path reason is declined FOREVER -- no sweep will
+            # ever take it, only a session running ship-pr.ps1 can -- and until this, that fact was
+            # visible only in the sweep's own CI log. This asks the same question pick-merge-on-green.ps1
+            # answers per sweep, from a session start instead: the same gh reads, the same lib
+            # (Get-MergeOnGreenStrandedVerdict, reused rather than restated), so a repo running this check
+            # sees exactly what the next sweep would see.
+            #
+            # ITS ONLY AUTOMATIC CALLER IS THE SessionStart HOOK stranded-sweep-sessioncheck.ps1. No CI
+            # leg, on the same reasoning consumer-prose-sessioncheck's row gives: a consumer's CI is not
+            # this repo's to add, and CI already sees the sweep's own log.
+            #
+            # ADVISORY, LIKE ITS SIBLINGS ABOVE (check-git-identity, check-unfolded-entry): it reports a
+            # fact about the TRACKER rather than about the diff, fails quiet on anything short of a clean
+            # read (offline, gh absent, no workflow file), and never blocks a session start.
+            #
+            # NO SKILL, on check-unfolded-entry's reasoning: the one caller is automatic and nobody
+            # invokes this as a procedure. The one command in its .SYNOPSIS answers it early.
+            Name   = 'check-stranded-sweep'
+            Source = 'scripts\lint\check-stranded-sweep.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            # A fixture root, so the suite (and the hook) can judge a tree other than the checkout.
+            SkillParamsExempt = @('RootOverride')
+            # NO MeasureArgs, on pick-merge-on-green's own reasoning: a bare run reads live tracker state
+            # over the network rather than a timeable unit of work.
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a

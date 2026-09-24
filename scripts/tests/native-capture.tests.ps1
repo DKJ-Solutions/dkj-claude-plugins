@@ -1880,7 +1880,16 @@ foreach ($af in $auditFiles) {
 # author name is free text and can be non-ASCII). Judged through Test-NativeExitMeasured: anything but a
 # measured 0 leaves the author list empty, which the verdict REFUSES as 'unknown-author'. The branch fetch
 # before it goes through Invoke-RecordedRemoteFetch, so it adds no site here.
-Assert-Equal 81 $boundedTotal 'the parser still counts 81 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 81 -> 83 (#2438): check-stranded-sweep.ps1's two reads, both bounded at the shared -TimeoutSeconds
+# (default 15s, well under hooks.json's own 120s per-hook backstop): $listRead (`gh pr list --label
+# merge-when-green ...`) and $requiredRead (`gh pr checks --required ...`, one per armed pull request).
+# Both ask Test-NativeExitMeasured about their own capture before testing the code against 0. $listRead's
+# failure direction is [SKIP], exit 0 -- offline or a transient API problem is not a finding, and the
+# worst this check can be wrong about is one more session without an answer. $requiredRead's failure
+# direction is narrower: it counts only THAT one armed pull request as unjudged (a `continue`, folded
+# into the honest judged/unjudged report this issue's review added) rather than abandoning the whole scan
+# over one bad read.
+Assert-Equal 83 $boundedTotal 'the parser still counts 83 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
