@@ -5,7 +5,9 @@
     #1389), and an inverted declaration putting this repo's own 'CLAUDE.md' above the workflow's
     contributing page (issue #1415). Merged into one script by issue #1421. Two further [WARNING]-only
     checks judge the root 'CLAUDE.md' file alone (issue #2374): whether it '@'-imports the dkj-policy
-    constitution, and whether it carries prose beyond that -- both advisory, neither moves the exit code.
+    constitution, and whether it carries prose beyond that -- and a third (issue #2444) warns where the
+    root is imports-only but no unscoped '.claude/rules/*.md' carries the repo's facts. All advisory; none
+    moves the exit code.
 
 .DESCRIPTION
     THE HOLE THIS CLOSES, and it is one hole with two shapes. Nothing else reads a consumer's CLAUDE.md:
@@ -249,6 +251,19 @@ if (@($rootProse).Count -gt 0) {
     Write-Host '          CLAUDE.md holds only ''@''-import lines now (plus an H1 title, blank lines, and HTML' -ForegroundColor Yellow
     Write-Host '          comments). Move repo facts into an unscoped .claude/rules/<name>.md, and a' -ForegroundColor Yellow
     Write-Host '          specialist''s own repo-specific rules into its lens.' -ForegroundColor Yellow
+}
+
+# THE OTHER HALF OF THE MOVE (#2444). A root CLAUDE.md cut down to imports has done the first half of
+# #2374; the second half -- the repo's facts landing in an unscoped rule -- is announced by nothing, so a
+# consumer can finish the cut with its trunk, visibility and owner stated nowhere. Judged only where the
+# root is imports-only: a root still carrying prose already gets the warning above, which names the same
+# destination, and saying it twice is noise. A [WARNING] like its two siblings, never the exit code.
+if (@($documents).Count -gt 0 -and @($rootProse).Count -eq 0 -and (Test-FunctionDefined 'Test-UnscopedRulePresent') -and
+    -not (Test-UnscopedRulePresent -Documents $documents)) {
+    Write-Host '[WARNING] this repo''s CLAUDE.md is imports-only, and no unscoped .claude/rules/*.md exists --' -ForegroundColor Yellow
+    Write-Host '          so its own facts (trunk, public or private, owner, purpose) are stated nowhere a session' -ForegroundColor Yellow
+    Write-Host '          loads. Add a .claude/rules/<name>.md with NO paths: frontmatter and state them there;' -ForegroundColor Yellow
+    Write-Host '          a paths:-scoped rule does not count, because it loads only when its files are read.' -ForegroundColor Yellow
 }
 
 if ($retired.Count -eq 0 -and $inverted.Count -eq 0) {

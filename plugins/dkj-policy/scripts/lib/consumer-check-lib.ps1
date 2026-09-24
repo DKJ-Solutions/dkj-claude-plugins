@@ -185,6 +185,25 @@ function Test-ConstitutionImported {
     return $false
 }
 
+function Test-UnscopedRulePresent {
+    <#
+        Does this always-on closure carry at least one UNSCOPED '.claude/rules/*.md' -- the place the
+        constitution sends a repo's own facts (trunk, visibility, owner, purpose) once CLAUDE.md holds
+        only imports (issue #2444)? Read off the walk's own rows: Get-AlwaysOnDocuments enqueues every
+        unscoped rule at Hop 0 with the synthetic ImportedBy '.claude/rules', and a 'paths:'-scoped rule
+        never enters the walk at all -- which is the point, since a scoped rule is gone for every turn
+        that does not touch its paths and so cannot be where the repo's facts live.
+
+        THE ROWS, NOT A SECOND DIRECTORY LISTING, so the walk stays the one definition of "unscoped" and
+        this answer can never disagree with what the always-on budget counts.
+    #>
+    param([AllowNull()][AllowEmptyCollection()][object[]]$Documents)
+    foreach ($d in @($Documents)) {
+        if ($null -ne $d -and [string]$d.ImportedBy -eq '.claude/rules') { return $true }
+    }
+    return $false
+}
+
 function Get-RootClaudeMdProseLines {
     <#
         Every line of a consumer's ROOT 'CLAUDE.md' -- the one FILE, not the '@'-import closure it may
