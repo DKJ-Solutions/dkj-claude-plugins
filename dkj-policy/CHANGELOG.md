@@ -44,7 +44,31 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**24 / 53 minor entries** <!-- pending-tally -->
+**24 / 54 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2415-local-gate-median-141 · 20260924-142922Z
+
+Nolan's lens now records the local test gate's wall-clock on the current 141-suite pool: median **229s**
+at the automatic 30 lanes and **1,215s** at `-MaxParallel 2`, n=5 each, all green, on one 32-core machine
+with the population stated. At auto lanes the makespan is one file, `new-branch.tests.ps1`, so more lanes
+buy nothing and the lever sits inside that suite; at two lanes the pool is work-bound. #2317's ~43-minute
+runs and memory reaps did not reproduce on this machine. Closes #2415.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a measurement recorded in a maintainer's lens; nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Record the local gate median on the 141-suite pool: 229s at auto lanes, 1,215s at two
+
+[PR #2445](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2445)
+
+---
 
 ### DEPLOY: fix/2438-stranded-sweep-sessioncheck · 20260924-140748Z
 
