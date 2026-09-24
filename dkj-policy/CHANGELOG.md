@@ -44,7 +44,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 45 minor entries** <!-- pending-tally -->
+**21 / 46 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2422-reusable-ci-gates · 20260924-101900Z
+
+Part 1 of `adopt-dkj-policy` no longer copies the two PR gates into a consumer
+([#2422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2422)). `branch-entry.yml` and
+`always-on-budget.yml` are now a few-line caller of a reusable workflow in this repo
+(`reusable-branch-entry.yml`, `reusable-always-on-budget.yml`). A change to the runner, its steps or its
+timeout therefore reaches every consumer on its next pull request, with no re-adopt, and the reasoning
+sits in one place. `check-connectors` recognises the `uses:` line as a reference into this tree, so a
+caller-only consumer still reads as adopted. A repo adopted earlier keeps its full copy until it deletes
+the file and re-runs Part 1.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo adopting the workflow gets two short callers instead of two 50-line runners, and later changes to
+those gates arrive without anyone re-running the adoption. An already-adopted repo sees no change unless
+it opts in.
+
+**Score:** 2
+
+#### Pull Request
+
+Ship the two PR gates as reusable workflows
+
+Plugins: dkj-policy
+
+[PR #2432](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2432)
+
+---
 
 ### DEPLOY: docs/remove-install-uninstall · 20260924-100317Z
 
