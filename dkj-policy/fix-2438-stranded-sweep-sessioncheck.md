@@ -99,6 +99,53 @@ A SessionStart check lists armed + green + settled pull requests the sweep will 
   `scripts/tests/hook-check-lib.tests.ps1`'s own docstring ("Six SessionStart hooks take the default
   path" -> seven), found while grepping for `SessionStart` — an inconsistency in prose, not an
   assertion, so nothing failed, but a wrong count reads as authority.
+- [x] Edith (review): that "-> seven" correction was itself already stale on landing -- measured NINE
+  SessionStart hooks calling `Invoke-CheckScript` (eight in `dkj-policy` plus `dkj-subagents-alpha`'s
+  `roster-sessioncheck`), not seven. Dropped the number entirely from `hook-check-lib.tests.ps1`'s
+  docstring rather than correcting it again, worded so it stays true as the family grows. Fixed this
+  file's own CREATE line above from "-> seven" to record what actually happened (nothing to tick a
+  second box for; the file itself was the inconsistency).
+- [x] Victor (review, medium): `check-stranded-sweep.ps1`'s per-PR loop had no bound on TOTAL runtime --
+  only each `gh` call carried `-TimeoutSeconds`, so an armed set larger than the ordinary 0-1 could run
+  the loop past hooks.json's own 120s per-hook timeout, and the harness would kill the check mid-scan
+  with nothing said. Added `-MaxElapsedSeconds` (default 90, measured from just before the first
+  `gh pr list` read), checked once per armed pull request before its own `gh pr checks` call; once spent,
+  every remaining record is counted unjudged rather than attempted. When anything went unjudged (budget
+  cut-off, or a per-PR required-check read failing) the run now prints an explicit `[INCOMPLETE]` marker
+  naming judged vs. total, instead of staying silent about the gap.
+- [x] Victor (review, cosmetic): the `[OK]` line's `armed.Count` used to fold in PRs whose `gh pr checks`
+  read failed and were skipped unjudged, reading as "N armed, none stranded" when N included ones never
+  actually checked. Tracked `$judgedCount`/`$unjudgedCount` explicitly (summing to `$armed.Count` on every
+  path through the loop) and only print the unchanged `[OK]` wording when `$unjudgedCount` is zero;
+  otherwise `[INCOMPLETE]` reports both numbers honestly. Same mechanism as the runtime bound above.
+- [x] Updated `stranded-sweep-sessioncheck.ps1` to forward `[INCOMPLETE]` the same way it already forwards
+  `[STRANDED]` (via `Select-CheckMarkerLine`, now given both markers) rather than letting it fall into the
+  hook's existing `[OK]`/`[SKIP]` silence -- an incomplete scan must not be silent at the one point a
+  human is present to notice it.
+- [x] Sebastian (review, advisory): the `git checkout $($s.Branch)` resume line printed a pull request's
+  own (ASCII-scrubbed-for-display) branch name unquoted. That scrub only replaces non-printable control
+  characters with `?`; `$`, `(`, `)`, `` ` ``, `;` and `|` are all printable ASCII and would sail through
+  it into a command line a reader is invited to paste. Did NOT invent a new quoting convention --
+  checked the repo's existing one first (per a mid-task correction): `ship-pr.ps1` and
+  `pr-issues-lib.ps1` already answer exactly this (issue #1594) via `Get-PasteableRef` in
+  `scripts/lib/ref-print-lib.ps1`, which judges a branch name against a narrow allowlist and returns
+  either the name itself or a placeholder (`<branch>`) plus a prose note naming the real branch outside
+  any command context. Dot-sourced that lib in `check-stranded-sweep.ps1` (already registered
+  independently in `shared-scripts-lib.ps1`, so no registry change needed) and judge the RAW branch name
+  (not the display-scrubbed one) for the checkout line specifically; the existing prose scrub is
+  unchanged for the `#N (branch) -- title` line.
+- [x] Victor (review, low): `Get-MergeOnGreenStrandedVerdict` re-derived
+  `Get-MergeOnGreenPrVerdict`'s own blocked/pending/settle-window block instead of reusing it. Extracted
+  `Test-MergeOnGreenRequiredChecksSettled` (Ready/Reason/Settle) into `merge-on-green-lib.ps1`, called
+  by both functions; `Get-MergeOnGreenPrVerdict`'s own check ORDER and behaviour are unchanged (armed /
+  draft / fork / executed-path / mergeable still run first, exactly as the existing asserts pin), and the
+  extraction only replaces its own blocked/pending/settle block with one call to the shared helper.
+  Checked `origin/fix/2436-honest-sweep-promise`'s diff again before editing: it adds
+  `Get-MergeOnGreenSweepRefusal` after `Get-MergeOnGreenExecutedPathHit` and touches `ship-pr.ps1`'s
+  CI-refusal text only, neither of which this hunk (inserted just above `Get-MergeOnGreenPrVerdict`)
+  touches or moves.
+- [x] Ran `scripts/sync/build-shared-scripts.ps1` again after all of the above -- mirrored
+  `merge-on-green-lib.ps1` and `check-stranded-sweep.ps1`.
 - [x] Checked `origin/fix/2436-honest-sweep-promise` for a ship-pr message pointing at this check: that
   branch only touches `merge-on-green-lib.ps1` (`Get-MergeOnGreenSweepRefusal`) and `ship-pr.ps1`'s own
   CI-refusal message text -- neither names a SessionStart hook or this check, and per this assignment I
@@ -165,6 +212,24 @@ A SessionStart check lists armed + green + settled pull requests the sweep will 
   (24/24) and `scripts/lint/check-plugin-integrity.ps1` (0 errors) -- all unaffected, all still green.
   No test gap left: the pure verdict, the check script's own tracker reads, and the hook's forwarding
   are all exercised without a live tracker.
+- [ ] Tycho: coverage for the four review fixes above, none of which is exercised yet.
+  `Test-MergeOnGreenRequiredChecksSettled` -- direct asserts against the extracted helper (unreadable /
+  blocked / pending / not-yet-settled / settled, and that its Reason strings match what
+  `Get-MergeOnGreenPrVerdict` printed before the extraction) -- and re-confirm
+  `Get-MergeOnGreenPrVerdict`'s existing check-order asserts still pass unchanged (they should: the
+  extraction did not move where in the function the block is reached). The `-MaxElapsedSeconds` budget
+  in `check-stranded-sweep.ps1` -- a fixture where the fake `gh pr checks` call sleeps or the budget is
+  set near-zero, so at least one armed pull request is left unjudged, asserting the `[INCOMPLETE]` marker
+  fires, names a judged count strictly less than the armed total, and the hook forwards it (not silent,
+  unlike `[OK]`/`[SKIP]`). The judged/unjudged honesty split itself -- a case with one `gh pr checks`
+  failure and zero stranded, asserting `[INCOMPLETE]` rather than the old unconditional `[OK]` wording,
+  and that the existing all-judged `[OK]` wording (`stranded-sweep-gate.tests.ps1`'s current asserts) is
+  unaffected when nothing goes unjudged. The safe-checkout quoting -- a fixture branch name carrying a
+  shell metacharacter that survives the existing `[^\x20-\x7E]` prose scrub (e.g. `fix/1;touch owned`),
+  asserting the printed `git checkout` line carries `<branch>` rather than the raw name, and that
+  `Get-PasteableRef`'s note naming the real branch appears; and confirm an ordinary branch name (this
+  workflow's own shape) still round-trips unchanged. Existing tests that pin the old `[OK]`/`git checkout`
+  text may need adjusting if any of the above changed wording they assert on verbatim.
 
 ### DEPLOY: fix/2438-stranded-sweep-sessioncheck
 
@@ -178,6 +243,16 @@ with the exact resume command (`git checkout <branch>` then `ship-pr.ps1`, verif
 param block rather than assumed), at the start of the next session in this repo. Fails quiet with no
 `.github/workflows/merge-on-green.yml`, `gh` absent or unauthenticated, or an unreadable tracker read,
 and never blocks a session start.
+
+Review pass (Victor, Sebastian): the check's own scan is now bounded in TOTAL, not only per `gh` call --
+an `-MaxElapsedSeconds` budget (default 90) stops judging further armed pull requests once spent, and
+reports an honest `judged X of Y` `[INCOMPLETE]` line (forwarded by the hook, not silent) whenever a
+budget cut-off or a per-PR read failure left anything unjudged, rather than folding that gap silently
+into "none stranded". The printed `git checkout` resume line now judges the branch name through
+`Get-PasteableRef` (ship-pr.ps1's own #1594 mechanism) instead of the display-only ASCII scrub, so a
+branch name carrying a shell metacharacter prints a safe placeholder plus a note rather than a pasteable
+command. And `Get-MergeOnGreenStrandedVerdict`'s blocked/pending/settle-window checks now share one
+helper with `Get-MergeOnGreenPrVerdict` instead of re-deriving them, so the two cannot drift apart.
 
 **Score:** 3
 
