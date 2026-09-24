@@ -219,18 +219,35 @@ function Test-MergeOnGreenArmed {
 function Get-MergeOnGreenExecutedPathHit {
     <#
     .SYNOPSIS
-        Why this pull request's diff reaches code the merge-on-green runner executes, or '' where it
-        does not -- issue #2338.
+        Why this pull request's diff reaches code the merge-on-green runner executes UNTRUSTED, from the
+        branch itself, or '' where it does not -- issue #2338, SHRUNK by #2437.
 
     .DESCRIPTION
-        THE PATHS ARE WHERE THE RUNNER READS CODE FROM, IN EITHER KIND OF REPO:
-          scripts/                every repo's repo-config.ps1 and seam libs, and the source repo's
-                                  ship-pr.ps1 with everything it loads
-          plugins/**/scripts/     the source repo's plugin mirrors of those same scripts
-          .github/                the workflows themselves
-          .workflow-scripts/      where a consumer's runner checks the plugin tree out, INSIDE its
-                                  workspace and only excluded -- and `git checkout` overwrites an
-                                  ignored file, so a branch committing one there replaces the scripts
+        UNTIL #2437, THIS MATCHED FOUR PREFIXES (scripts/, .github/, .workflow-scripts/,
+        plugins/**/scripts/), because the runner ran ship-pr.ps1 -- and everything it dot-sources --
+        FROM THE CHECKED-OUT BRANCH, with FOLD_PUSH_TOKEN in that same workspace. #2437 moved the runner
+        onto a TRUSTED tree instead: `.github/workflows/merge-on-green.yml` now checks out a token-bearing
+        copy of the trunk (`persist-credentials: false` on the branch checkout, no token there at all) and
+        runs `ship-pr.ps1` -- and every sibling lib it loads via `$PSScriptRoot` -- from THAT tree, never
+        from the branch. See that workflow's own header comments for the two-checkout shape and
+        ship-pr.ps1's `-TrustedRoot` parameter for what runs where.
+
+        WHAT SURVIVES THE SHRINK, AND WHY IT IS EXACTLY THESE TWO. `ship-pr.ps1` and `open-pr.ps1` still
+        read two files from the SHIPPED tree rather than the trusted one -- `scripts/repo-config.ps1` and
+        `scripts/lib/branch-info.ps1` -- because they are REPO-OWNED configuration, not portable plugin
+        code, and `-TrustedRoot`/`-SeamRoot` repoints exactly those two dot-sources at the trusted tree
+        too. So as of #2437 NEITHER file is executed from the branch either -- the sweep never runs a
+        PR's own version of `Get-RepoName` or the branch-prefix table. What a PR editing one of them still
+        loses is not safety but CURRENCY: the sweep ships under the TRUNK's answer to "what does this repo
+        call itself" and "which branch prefixes exist", so a PR that renames the repo or adds a prefix in
+        the same breath as it fixes something else has that rename take effect only once IT lands, not
+        while it merges. That is a staleness risk worth a session's judgement, not a security one -- which
+        is why these two stay on the list while the other three came off it (Sebastian #23's design
+        review on #2437: "the rule shrinks to the seam files, not to none").
+
+        NEITHER FILE EXISTS IN THE SOURCE REPO'S OWN SHAPE ONLY -- every consumer running this workflow
+        carries its own `scripts/repo-config.ps1` and `scripts/lib/branch-info.ps1`, so the two-name list
+        below is not source-repo-specific.
 
         FAIL-CLOSED ON AN INCOMPLETE LIST. `gh pr list --json files` returns at most 100 files, so a
         record whose files fall short of its changedFiles has not shown the whole diff, and one with no
@@ -241,7 +258,7 @@ function Get-MergeOnGreenExecutedPathHit {
         A pull request record carrying `files` and `changedFiles`.
 
     .OUTPUTS
-        [string] the reason, or '' where the diff touches none of those paths.
+        [string] the reason, or '' where the diff touches neither seam file.
     #>
     param($Record)
 
@@ -254,12 +271,16 @@ function Get-MergeOnGreenExecutedPathHit {
     if ($total -lt 0 -or $paths.Count -lt $total) {
         return "only $($paths.Count) of its changed files could be listed"
     }
+    # THE ENUMERATED LIST -- ONLY THESE TWO, since #2437's trusted-tree ship. Both are repo-owned
+    # config, never plugin payload, which is why -TrustedRoot/-SeamRoot cannot load them from a trusted
+    # tree unconditionally: a repo's OWN answer to Get-RepoName lives only on its own branches.
+    $seamFiles = @('scripts/repo-config.ps1', 'scripts/lib/branch-info.ps1')
     foreach ($p in $paths) {
         $norm = $p -replace '\\', '/'
-        if ($norm -match '^(scripts|\.github|\.workflow-scripts)/' -or $norm -match '^plugins/(.+/)?scripts/') {
+        if ($seamFiles -ccontains $norm) {
             # A path is chosen by whoever pushed the branch, and this reason is printed into a CI log.
             $shown = $norm -replace '[^\x20-\x7E]', '?'
-            return "it changes '$shown', which this runner would execute from the branch"
+            return "it changes '$shown', a repo-owned seam this runner ships under the TRUNK's answer for"
         }
     }
     return ''
@@ -401,13 +422,20 @@ function Get-MergeOnGreenPrVerdict {
         return [pscustomobject]@{ Eligible = $false; Reason = 'the head branch is on a fork -- this runner only ships branches of this repository' }
     }
 
-    # A PULL REQUEST THAT CHANGES WHAT THE SHIP RUNS IS LEFT TO A SESSION -- issue #2338. The runner
-    # checks out this head with FOLD_PUSH_TOKEN in the workspace and then executes code from it: the
-    # source repo runs the branch's own ship-pr.ps1 and libs, and every repo's ship-pr dot-sources the
-    # branch's scripts/repo-config.ps1. So "can push a branch here" would become "can run code with a PAT
-    # that bypasses the trunk ruleset" -- and the required check does not have to exercise the file that
-    # runs. Refusing such a pull request here means the only code this runner executes is code the
-    # trunk already carries. It costs nothing a session cannot do: ship-pr from a checkout still ships it.
+    # A PULL REQUEST EDITING A REPO-OWNED SEAM IS LEFT TO A SESSION -- issue #2338, SHRUNK by #2437. The
+    # runner used to check this head out with FOLD_PUSH_TOKEN in the workspace and execute ship-pr.ps1 --
+    # and everything it dot-sources -- FROM THAT BRANCH. Since #2437 it runs ship-pr.ps1 from a separate,
+    # token-free TRUSTED tree instead (see merge-on-green.yml and ship-pr.ps1's -TrustedRoot), so a PR can
+    # no longer buy code execution with a PAT that bypasses the trunk ruleset merely by pushing a branch.
+    # What is left is the two REPO-OWNED seams (scripts/repo-config.ps1, scripts/lib/branch-info.ps1),
+    # which -TrustedRoot repoints at the trusted tree too rather than executing the branch's own copy --
+    # so a PR touching one of them loses only CURRENCY (it ships under the trunk's answer, not its own),
+    # never safety. Left here anyway because that staleness is a session's judgement call, not the
+    # sweep's: ship-pr from a checkout still ships it, with the PR's own edit in effect.
+    #
+    # SEE Get-MergeOnGreenExecutedPathHit'S OWN HEADER for why exactly these two files, and Sebastian
+    # #23's design review on #2437 for the verdict that kept them enumerated rather than dropping the
+    # rule to nothing.
     $executed = Get-MergeOnGreenExecutedPathHit -Record $Record
     if ($executed) {
         return [pscustomobject]@{ Eligible = $false; Reason = "$executed -- ship it from a session" }
