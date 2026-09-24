@@ -243,6 +243,15 @@ jobs:
       # scripts/maintenance/record-suite-durations.ps1, and a typed figure is exactly the local reading
       # its own header refuses.
       #
+      # STEP 5 SPLITS new-branch, AND THE SHARD COUNT STAYS AT FIVE (#2304, September 23, 2026). Re-read
+      # over three 5-shard PR runs (35902838420, 35900890044, 35899919410): pool 6,593s, so the work bound
+      # over 20 lanes is ~330s, and new-branch.tests.ps1 at 392.5s was the one file above it. It is three
+      # now (new-branch, -document, -base; see new-branch-fixture.ps1), all 302 asserts preserved and
+      # verified by running them; side by side the longest part took 52.5s against the original's 149s.
+      # The heaviest remaining file is check-plugin-integrity-scripts.tests.ps1 at 229.4s, well under the
+      # bound, so the gate is bound by total work again -- and whether a sixth shard pays is a question
+      # for the next re-read, once suite-durations.json carries the three new names from real runs.
+      #
       # ~30s CAME OFF THE PER-FILE COST separately in #1358, by making the lint parse and walk the script
       # set once instead of twice (see Get-PsScriptCommandAsts in check-plugin-integrity.ps1): those four
       # suites are ~100% lint invocations -- 52 of them in the heaviest, at ~1.12s each on a workstation --
