@@ -75,6 +75,11 @@ function Get-SharedScriptPairs {
             Source = 'scripts\release\open-pr.ps1'
             Plugin = 'dkj-policy'
             Skill  = 'open-pr'
+            # -SeamRoot is CI-runner machinery for issue #2437's trusted-tree ship, forwarded by
+            # ship-pr.ps1's own -TrustedRoot (its own exemption, on ship-pr's registration below). Built
+            # for merge-on-green.yml, not for a session to type -- see the parameter's own doc for why.
+            # Documenting it in the skill page would invite a session to pass a tree it does not trust.
+            SkillParamsExempt = @('SeamRoot')
         },
         @{
             Name   = 'check-roster-sync'
@@ -275,6 +280,11 @@ function Get-SharedScriptPairs {
             # verify-resolved-issues too, which is why that entry points here rather than at one of
             # its own.
             Skill  = 'ship-pr'
+            # -TrustedRoot is CI-runner machinery for issue #2437's trusted-tree ship (merge-on-green.yml
+            # runs this script from a separate, token-bearing checkout of the trunk rather than from the
+            # branch). Built for that runner, not for a session to type -- see the parameter's own doc.
+            # Documenting it in the skill page would invite a session to name a tree it does not trust.
+            SkillParamsExempt = @('TrustedRoot')
         },
         @{
             # Travels with ship-pr rather than on its own merit: it IS ship-pr's step 6, and a consumer
