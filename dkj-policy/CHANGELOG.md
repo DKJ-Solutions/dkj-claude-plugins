@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 2 patch entries** <!-- pending-tally -->
+**0 / 3 patch entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2462-shared-dossier-label · 20260924-201053Z
+
+`adopt-triage-labels` now prints a `gh label create` line for `dossier` next to the four `prio-N` rungs.
+A dossier is a collecting issue: every instance of one recurring problem goes onto it as a comment, and
+only the repair of the root cause closes it. `CONTRIBUTING-portable.md` now has the rule for handling
+one: a new instance is a comment, a partial repair writes `part of #<n>` with no closing keyword, and the
+issue closes only when the root cause is fixed.
+
+Tier 0 is scored for a session filing or repairing against a recurring problem. Until now the label had
+no definition in the tree.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is a label definition and a tracker convention, and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+'dossier' ships as a shared triage label, with the rule for handling a collecting issue
+
+Plugins: dkj-policy
+
+[PR #2466](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2466)
+
+---
 
 ### DEPLOY: docs/2461-split-chris-always-on · 20260924-193506Z
 
