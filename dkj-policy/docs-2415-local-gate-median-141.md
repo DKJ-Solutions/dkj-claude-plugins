@@ -49,19 +49,32 @@ Machine: 32 logical cores, 31.8 GB RAM, Windows 11 Pro 26200.
 
 ### CREATE
 
-- [ ] Default lanes: runs measured, lane count and verdict recorded per run
-- [ ] `-MaxParallel 2`: runs measured, verdict recorded per run
-- [ ] Figures written into Nolan's lens with the population stated
+- [x] Default lanes: n=5 at 30 lanes (auto, bound by cores), all green, median 229s, range 222-244s
+- [x] `-MaxParallel 2`: n=5, all green, median 1,215s, range 1,125-1,320s
+- [x] Figures written into Nolan's lens with the population stated
 
 ### TEST
 
+- [x] Every run was a full run: the gate-evidence record was deleted before each, and every log reports
+  all 141 suites passed with its lane count
+- [x] Work sums read from the top-level duration table only (the nested `test-suite-gate` fixture row
+  `l-one.tests.ps1` excluded), 141 rows per run
+
 ### DEPLOY: docs/2415-local-gate-median-141
 
-**Score:**
+Nolan's lens now records the local test gate's wall-clock on the current 141-suite pool: median **229s**
+at the automatic 30 lanes and **1,215s** at `-MaxParallel 2`, n=5 each, all green, on one 32-core machine
+with the population stated. At auto lanes the makespan is one file, `new-branch.tests.ps1`, so more lanes
+buy nothing and the lever sits inside that suite; at two lanes the pool is work-bound. #2317's ~43-minute
+runs and memory reaps did not reproduce on this machine. Closes #2415.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a measurement recorded in a maintainer's lens; nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
