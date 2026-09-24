@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 36 minor entries** <!-- pending-tally -->
+**15 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2411-integrity-family-placement-rule · 20260924-075648Z
+
+The `check-plugin-integrity-*` test family now has a stated rule for where a new numbered check's
+scenarios go. They join the existing file that owns their subject. A new file is justified only when
+that file's CI median would exceed the gate's work bound (sum of suite medians over lanes, ~352s
+today), which is the condition every past split was actually bought on. The second half of #2411 was
+measured and does not hold: a file's own start costs ~0.3s, about 4s across fifteen files against
+the family's 2,494.6s, so merging files would buy nothing. The family's 35.5% share is set by how
+many times it runs the gate, not by how many files it has. The rule lives in the test engineer's repo
+lens, with a pointer beside the membership table in the shared fixture. Closes #2411.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- repo-internal test organisation; nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Where a new check-plugin-integrity check's tests go, and why fewer files would not help
+
+[PR #2413](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2413)
+
+---
 
 ### DEPLOY: feat/2337-connector-runner-ref · 20260924-074131Z
 
