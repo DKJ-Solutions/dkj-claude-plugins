@@ -3,6 +3,8 @@
     Guards the trusted-tree ship (issue #2437): no lib in ship-pr.ps1's or open-pr.ps1's dot-source
     closure reads a .ps1 off $repoRoot/$RepoRoot except through the one sanctioned seam ($seamRoot),
     and the wiring that makes -TrustedRoot/-SeamRoot mean what they say is present in both scripts.
+    And (issue #2452) no file the token-bearing process runs, child scripts included, turns a string
+    into code outside a named allowance.
 
 .DESCRIPTION
     CONDITION (b) OF SEBASTIAN #23's DESIGN REVIEW ON #2437, MADE STRUCTURAL. Before this branch,
@@ -69,6 +71,26 @@
     fold-changelog-entry.ps1's own -RepoRoot only ever names a tree already standing on 'main' (the
     in-place checkout, the throwaway worktree, or -TrustedRoot) -- never the PR branch -- which is a
     fact about ITS callers, verified there, not restated as a rule this suite enforces.
+
+    THE SECOND GUARD, AND IT IS WIDER (issue #2452, Dave's option 3). The dot-source rule above keeps
+    PR-controlled CODE out of merge-on-green's "Ship it" step. What stays in that step is PR-controlled
+    DATA -- the branch document, the PR title and body -- read as text by a process holding
+    FOLD_PUSH_TOKEN. Splitting the step into two jobs was measured and refused on #2452 (there is no cut
+    point where every data read precedes every write), so the guard that holds instead is "never add a
+    primitive that turns that text into code". Its scope is the TOKEN PROCESS, not the dot-source
+    closure: the same walk, plus every child script a file in it spawns with `powershell -File` (today
+    fold-changelog-entry.ps1, verify-resolved-issues.ps1 and check-always-on-budget.ps1), plus each
+    child's own dot-source closure, to a fixpoint. The children resolve their own root, so the
+    $repoRoot rule above stays scoped to the dot-source closure; the primitive scan covers both.
+
+    THE PRIMITIVES ARE FOUND ON THE AST, so a comment or a string literal naming one never counts:
+    Invoke-Expression/iex/Invoke-Command/icm; Add-Type given source (anything but -AssemblyName);
+    [scriptblock]::Create, .NewScriptBlock, .InvokeScript, .AddScript; powershell/pwsh with -Command or
+    -EncodedCommand, directly or as a '-Command' argument-list string. `& $var` IS DELIBERATELY NOT ONE:
+    the closure invokes scriptblock seams that way dozens of times (gate-lib, entry-scaffold-lib,
+    check-report-lib), and a scriptblock value is code the file already holds, not text made into code.
+    The allowances (the gate runners, which -TrustedRoot structurally skips) are keyed on file +
+    function + kind, carry their reason, and are refused once they match nothing.
 
     Dependency-free (no Pester), same style as the rest of the suite. Pure ASCII.
 #>
@@ -321,6 +343,227 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib }
         'the injected $repoRoot dot-source, reachable only through the guarded lib, IS flagged'
 } finally {
     Remove-Item -Recurse -Force -LiteralPath $seamFixtureDir -ErrorAction SilentlyContinue
+}
+
+# ---------------------------------------------------------------------------------------------------
+# THE EXECUTION-PRIMITIVE GUARD (issue #2452, Dave's option 3). See this file's header for the why.
+# ---------------------------------------------------------------------------------------------------
+
+# THE ALLOWANCES, NAMED AND REASONED -- keyed on file + enclosing function + kind, never on a line number,
+# and each one must still MATCH something (a stale allowance is refused below, so a moved or deleted
+# call site cannot leave a blanket exemption behind). Every entry here sits in a GATE RUNNER, which
+# -TrustedRoot/-SeamRoot structurally skip -- the section above asserts that forcing -- so none of them
+# runs in the token-bearing step at all. A new entry needs the same argument, written in its Reason.
+$script:ExecAllowances = @(
+    [pscustomobject]@{ File = 'native-capture-lib.ps1'; Function = 'Invoke-TestSuiteGate'; Kind = 'powershell-command'
+        Reason = 'runs Get-TestCommands (repo-config seam, loaded from trusted-main) inside the test gate, which -TrustedRoot force-skips' }
+    [pscustomobject]@{ File = 'native-capture-lib.ps1'; Function = 'Invoke-TestSuiteGate'; Kind = 'unresolved-spawn'
+        Reason = 'spawns each *.tests.ps1 suite inside the test gate, which -TrustedRoot force-skips' }
+    [pscustomobject]@{ File = 'gate-lib.ps1'; Function = 'Invoke-WorkflowGates'; Kind = 'unresolved-spawn'
+        Reason = 'spawns the lint script off $RepoRoot inside the lint gate, which -TrustedRoot force-skips' }
+)
+
+function Get-EnclosingFunctionName {
+    param($Ast)
+    for ($p = $Ast.Parent; $p; $p = $p.Parent) {
+        if ($p -is [System.Management.Automation.Language.FunctionDefinitionAst]) { return $p.Name }
+    }
+    return '<script>'
+}
+
+# THE CHILD SPAWNS OF ONE FILE: every `-File <target>` handed to a new powershell process, in either
+# shape the closure uses -- an array element (`@(..., '-File', (Join-Path $PSScriptRoot 'x.ps1'))`,
+# splatted or given to Start-Process) or a parameter on a direct `& powershell ... -File ...` call.
+# The target resolves through `Join-Path $PSScriptRoot '...'` inline or through a variable assigned that
+# way (the same table the dot-source walk builds); anything else is UNRESOLVED -- fail closed, as the walk.
+function Get-ChildSpawns {
+    param([string]$Path)
+    $tok = $null; $err = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tok, [ref]$err)
+    $text = Get-Content -LiteralPath $Path -Raw
+    $dir = Split-Path -Parent $Path
+    $name = Split-Path -Leaf $Path
+    $psrVars = @{}
+    foreach ($m in [regex]::Matches($text, "(?m)^[ \t]*\`$(\w+)\s*=\s*Join-Path\s+\`$PSScriptRoot\s+'([^']+)'")) {
+        $psrVars[$m.Groups[1].Value] = $m.Groups[2].Value
+    }
+    $targets = @()
+    foreach ($s in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $args[0].Value -eq '-File' }, $true)) {
+        if ($s.Parent -is [System.Management.Automation.Language.ArrayLiteralAst]) {
+            $els = @($s.Parent.Elements)
+            $i = [array]::IndexOf($els, $s)
+            if ($i -ge 0 -and $i + 1 -lt $els.Count) { $targets += [pscustomobject]@{ Anchor = $s; Target = $els[$i + 1] } }
+        }
+    }
+    foreach ($c in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] -and $args[0].GetCommandName() -match '^(powershell|pwsh)(\.exe)?$' }, $true)) {
+        $els = @($c.CommandElements)
+        for ($i = 0; $i -lt $els.Count - 1; $i++) {
+            if ($els[$i] -is [System.Management.Automation.Language.CommandParameterAst] -and $els[$i].ParameterName -eq 'File') {
+                $targets += [pscustomobject]@{ Anchor = $c; Target = $els[$i + 1] }
+            }
+        }
+    }
+    $resolved = @(); $unresolved = @()
+    foreach ($t in $targets) {
+        $tt = $t.Target.Extent.Text
+        $rel = $null
+        $m = [regex]::Match($tt, "Join-Path\s+\`$PSScriptRoot\s+'([^']+)'")
+        if ($m.Success) { $rel = $m.Groups[1].Value }
+        else {
+            $m = [regex]::Match($tt, "^\(?\s*(?:'`"'\s*\+\s*)?\`$(\w+)\s*(?:\+\s*'`"'\s*)?\)?$")
+            if ($m.Success -and $psrVars.ContainsKey($m.Groups[1].Value)) { $rel = $psrVars[$m.Groups[1].Value] }
+        }
+        $where = [pscustomobject]@{ File = $name; Function = (Get-EnclosingFunctionName $t.Anchor); Line = $t.Anchor.Extent.StartLineNumber; Text = $tt }
+        $full = if ($rel) { Join-Path $dir $rel } else { $null }
+        if ($full -and (Test-Path -LiteralPath $full -PathType Leaf)) { $resolved += (Resolve-Path -LiteralPath $full).Path }
+        else { $unresolved += $where }
+    }
+    return [pscustomobject]@{ Resolved = $resolved; Unresolved = $unresolved }
+}
+
+# THE TOKEN-PROCESS CLOSURE: the dot-source closure of the seeds, plus every child script any file in it
+# spawns, plus THAT child's dot-source closure, to a fixpoint. Discovered, never hand-listed -- the same
+# rule the dot-source walk above obeys, for the same reason.
+function Get-TokenProcessClosure {
+    param([string[]]$Seeds)
+    $seedSet = @{}
+    foreach ($s in $Seeds) { $seedSet[(Resolve-Path -LiteralPath $s).Path.ToLowerInvariant()] = (Resolve-Path -LiteralPath $s).Path }
+    while ($true) {
+        $walk = Get-DotSourceClosure -Seeds @($seedSet.Values)
+        $spawnUnresolved = @(); $added = $false
+        foreach ($f in $walk.Closure) {
+            $sp = Get-ChildSpawns -Path $f
+            $spawnUnresolved += $sp.Unresolved
+            foreach ($r in $sp.Resolved) {
+                if (-not $seedSet.ContainsKey($r.ToLowerInvariant())) { $seedSet[$r.ToLowerInvariant()] = $r; $added = $true }
+            }
+        }
+        if (-not $added) {
+            return [pscustomobject]@{ Closure = $walk.Closure; Children = @($seedSet.Values); DotUnresolved = $walk.Unresolved; SpawnUnresolved = $spawnUnresolved }
+        }
+    }
+}
+
+# THE PRIMITIVES -- every way a STRING becomes CODE, found on the AST, so a comment or a string literal
+# that merely NAMES one never counts. `& $var` is deliberately NOT one: the closure invokes scriptblock
+# seams that way dozens of times (gate-lib, entry-scaffold-lib, check-report-lib), and a scriptblock
+# value is code the file already holds, not text turned into code.
+function Get-ExecPrimitiveFindings {
+    param([string[]]$Files)
+    $out = @()
+    foreach ($f in $Files) {
+        $tok = $null; $err = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($f, [ref]$tok, [ref]$err)
+        $name = Split-Path -Leaf $f
+        $found = New-Object System.Collections.Generic.List[object]
+        $add = { param($node, $kind) $found.Add([pscustomobject]@{ File = $name; Function = (Get-EnclosingFunctionName $node); Kind = $kind; Line = $node.Extent.StartLineNumber }) }
+        foreach ($c in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+            $n = "$($c.GetCommandName())"
+            if ($n -match '^(Invoke-Expression|iex|Invoke-Command|icm)$') { & $add $c 'invoke-expression' }
+            elseif ($n -eq 'Add-Type') {
+                # -AssemblyName loads a compiled assembly, which is not source; anything else hands Add-Type
+                # text to compile -- a named source parameter, -Path, or a positional argument.
+                $els = @($c.CommandElements); $bad = $false
+                for ($i = 1; $i -lt $els.Count; $i++) {
+                    $e = $els[$i]
+                    if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
+                        if ($e.ParameterName -notmatch '^(AssemblyName|ErrorAction|WarningAction|PassThru)$') { $bad = $true }
+                        elseif ($e.ParameterName -ne 'PassThru' -and -not $e.Argument) { $i++ }
+                    } else { $bad = $true }
+                }
+                if ($bad) { & $add $c 'add-type-source' }
+            }
+            elseif ($n -match '^(powershell|pwsh)(\.exe)?$') {
+                foreach ($e in $c.CommandElements) {
+                    if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -match '^(Command|c|EncodedCommand|enc|e|ec)$') { & $add $c 'powershell-command' }
+                }
+            }
+        }
+        foreach ($s in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $args[0].Value -match '^-(Command|EncodedCommand)$' }, $true)) {
+            & $add $s 'powershell-command'
+        }
+        foreach ($m in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.InvokeMemberExpressionAst] }, $true)) {
+            $mn = "$($m.Member.Extent.Text)"
+            if ($mn -match '^(NewScriptBlock|InvokeScript|AddScript)$') { & $add $m 'scriptblock-from-text' }
+            elseif ($mn -eq 'Create' -and $m.Expression -is [System.Management.Automation.Language.TypeExpressionAst] -and
+                    $m.Expression.TypeName.FullName -match '^(System\.Management\.Automation\.)?scriptblock$') { & $add $m 'scriptblock-from-text' }
+        }
+        $out += $found.ToArray()
+    }
+    return $out
+}
+
+function Test-ExecAllowed {
+    param($Finding)
+    return @($script:ExecAllowances | Where-Object { $_.File -ieq $Finding.File -and $_.Function -eq $Finding.Function -and $_.Kind -eq $Finding.Kind }).Count -gt 0
+}
+
+Write-Host ''
+Write-Host 'The token-bearing process runs no string-to-code primitive (#2452)' -ForegroundColor Cyan
+
+$token = Get-TokenProcessClosure -Seeds @($ShipPath, $OpenPath)
+$childLeaves = @($token.Children | ForEach-Object { Split-Path -Leaf $_ })
+Assert-True ($token.Closure.Count -gt $closure.Count) `
+    "the token-process closure is WIDER than the dot-source closure ($($token.Closure.Count) against $($closure.Count))"
+foreach ($expected in @('fold-changelog-entry.ps1', 'verify-resolved-issues.ps1', 'check-always-on-budget.ps1')) {
+    Assert-True ($childLeaves -contains $expected) "the child spawn $expected is discovered, not hand-listed"
+}
+Assert-Equal 0 $token.DotUnresolved.Count 'every dot-source in the children''s closures is explained too (fail closed)'
+foreach ($u in $token.DotUnresolved) { Write-Host "         unresolved: $u" -ForegroundColor Red }
+
+$spawnLeft = @($token.SpawnUnresolved | Where-Object { -not (Test-ExecAllowed ([pscustomobject]@{ File = $_.File; Function = $_.Function; Kind = 'unresolved-spawn' })) })
+Assert-Equal 0 $spawnLeft.Count 'every child powershell -File the closure spawns resolves to a script this walk then scans, or is an allowed gate runner'
+foreach ($u in $spawnLeft) { Write-Host "         unresolved spawn: $($u.File):$($u.Line) [$($u.Function)] $($u.Text)" -ForegroundColor Red }
+
+$prims = @(Get-ExecPrimitiveFindings -Files $token.Closure)
+$primLeft = @($prims | Where-Object { -not (Test-ExecAllowed $_) })
+Assert-Equal 0 $primLeft.Count 'no file in the token-process closure turns a string into code outside a named allowance'
+foreach ($p in $primLeft) { Write-Host "         found: $($p.File):$($p.Line) [$($p.Function)] $($p.Kind)" -ForegroundColor Red }
+
+$observed = @($prims | ForEach-Object { "$($_.File)|$($_.Function)|$($_.Kind)" }) +
+            @($token.SpawnUnresolved | ForEach-Object { "$($_.File)|$($_.Function)|unresolved-spawn" })
+foreach ($a in $script:ExecAllowances) {
+    Assert-True ($observed -contains "$($a.File)|$($a.Function)|$($a.Kind)") `
+        "the allowance $($a.File) [$($a.Function)] $($a.Kind) still matches a call site (no stale exemption)"
+}
+
+Write-Host ''
+Write-Host 'Regression: a primitive planted in a child-spawned lib is flagged; its look-alikes are not' -ForegroundColor Cyan
+
+# A THROWAWAY FIXTURE, never the real tree: a caller spawning a child the way ship-pr.ps1 spawns the fold,
+# the child reaching a lib through the guarded two-step dot-source, and that lib carrying one real
+# primitive among the look-alikes the AST scan must NOT count -- a comment, a string, Add-Type
+# -AssemblyName, and a non-scriptblock ::Create().
+$execFixtureDir = Join-Path ([System.IO.Path]::GetTempPath()) ("trusted-tree-exec-fixture-$PID-$([guid]::NewGuid().ToString('n'))")
+New-Item -ItemType Directory -Path $execFixtureDir -Force | Out-Null
+try {
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    $fxCaller = Join-Path $execFixtureDir 'fixture-caller.ps1'
+    [System.IO.File]::WriteAllText($fxCaller, @'
+$childArgs = @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'fixture-child.ps1'))
+& powershell @childArgs
+'@, $utf8)
+    [System.IO.File]::WriteAllText((Join-Path $execFixtureDir 'fixture-child.ps1'), @'
+$lib = Join-Path $PSScriptRoot 'fixture-lib.ps1'
+if (Test-Path -LiteralPath $lib -PathType Leaf) { . $lib }
+'@, $utf8)
+    [System.IO.File]::WriteAllText((Join-Path $execFixtureDir 'fixture-lib.ps1'), @'
+# Invoke-Expression in a comment is not a primitive.
+$note = 'iex is only named here'
+Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+$h = [System.Security.Cryptography.SHA256]::Create()
+function Read-Planted { param($Body) Invoke-Expression $Body }
+'@, $utf8)
+
+    $fx = Get-TokenProcessClosure -Seeds @($fxCaller)
+    Assert-True (@($fx.Children | Where-Object { $_ -match 'fixture-child\.ps1$' }).Count -gt 0) 'the child spawn is followed'
+    Assert-True (@($fx.Closure | Where-Object { $_ -match 'fixture-lib\.ps1$' }).Count -gt 0) 'the child''s guarded dot-source is followed into the lib'
+    $fxPrims = @(Get-ExecPrimitiveFindings -Files $fx.Closure)
+    Assert-Equal 1 $fxPrims.Count 'exactly one primitive is flagged -- the planted one, none of its look-alikes'
+    Assert-True (@($fxPrims | Where-Object { $_.Kind -eq 'invoke-expression' -and $_.Function -eq 'Read-Planted' }).Count -eq 1) `
+        'the planted Invoke-Expression is the one flagged, inside its own function'
+} finally {
+    Remove-Item -Recurse -Force -LiteralPath $execFixtureDir -ErrorAction SilentlyContinue
 }
 
 Write-Host ''
