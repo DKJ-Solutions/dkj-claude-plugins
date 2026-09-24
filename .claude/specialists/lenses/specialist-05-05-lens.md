@@ -746,6 +746,35 @@ argument for recounting even when the report is your own.
 **The portable half of this rule reaches no consumer.** It travelled in the payload of the skill that
 was removed, and a repo lens does not travel. That is a gap recorded here rather than pretended away.
 
+#### The stand-verification mechanics, measured here
+
+Behind *"Verify the stand against the repo, not against a handover text"* in
+[Chris's lens](specialist-01-01-lens.md#the-dave-rules): the mechanics and the history behind the two
+checklist items that are more than a single command.
+
+**`dkj-policy/<branch>.md` sitting on the trunk is a silent half-state**, because that document exists
+only while a branch is open. Since
+[#1270](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1270)
+`check-unfolded-entry.ps1` catches it automatically, but read it yourself too: a session that starts
+mid-ship sees the transient before the fold commit lands.
+
+**Do not classify `git ls-remote --heads origin` output by hand for parked branches — run
+`scripts/task/prune-merged.ps1 -IncludeRemote` instead.** It puts every head through the same two
+proofs the local pass uses, prints the paste-ready delete command for a merged leftover and `Kept ...
+-- live work` for everything else, and touches nothing — including the working tree, since
+[#1147](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1147), so running it
+mid-assignment can no longer move the tree under a gate. Hand-derivation was itself the defect
+([#1042](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1042)), measured three times
+in two days.
+
+**Add `-DryRun` when the checkout is dirty and you are standing on a branch** — that is the one state
+the script still refuses, because a branch can be squash-merged while its work is uncommitted and the
+step-off would then drag that work onto the trunk. `-DryRun` deletes nothing, so it never has to step
+off, and the classification above is exactly the same. On the trunk or detached, a dirty tree is
+reported and the run proceeds untouched
+([#1575](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1575) — it used to refuse
+there too, on the ground of a step-off that run can never reach).
+
 #### The branch check fires on the follow-up assignment
 
 Behind *"The check runs at the start of every assignment, not every session"* in
@@ -760,6 +789,12 @@ zero.
 *"do the next thing"* — where no new session and no fresh intake prompts the ritual, and it is the
 **previous chain's success** that put you in the wrong place. A check tied to session start would
 therefore never catch it, which is why the rule is worded against the assignment instead.
+
+**And since [#1073](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1073) a chain that
+is still *shipping* leaves you there too.** `ship-pr.ps1`'s step 2b hands the primary checkout back to
+the trunk as soon as the PR exists, so a backgrounded ship no longer parks you on the branch until CI is
+done. That widens the trap above rather than narrowing it — a clean trunk now also means "a ship is in
+flight" — so the branch check matters more, not less, and it is the same check.
 
 ### Filing an issue — the layer before a branch exists
 
