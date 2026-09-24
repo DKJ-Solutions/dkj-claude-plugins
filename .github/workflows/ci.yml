@@ -252,6 +252,16 @@ jobs:
       # bound, so the gate is bound by total work again -- and whether a sixth shard pays is a question
       # for the next re-read, once suite-durations.json carries the three new names from real runs.
       #
+      # THAT RE-READ IS IN, AND IT CLOSES #2304 (September 24, 2026). Three PR runs on the step-5 layout
+      # (36004142508, 36003338063, 36001332625 -- the last red on one fixture-lib-deps assert, its timings
+      # intact): 141 suites, pool 6,807s, so the work bound over 20 lanes is ~340s, and the heaviest file
+      # is script-contract.tests.ps1 at 253.8s -- no file is within 85s of the bound. The gate is bound by
+      # total work, which was this issue's whole subject: CI went 11.5 min on one file to shards of
+      # 4.2-7.4 min, and that spread was packed with the two new names charged the maximum. A SIXTH SHARD
+      # IS PRICED, NOT BOUGHT: 6,807s over 24 lanes is ~284s, still above the heaviest file, so it would
+      # take ~57s off the bound for its own ~20s of provisioning. Read a run packed from this file first --
+      # the measured makespan, not this arithmetic, is what a sixth runner has to beat.
+      #
       # ~30s CAME OFF THE PER-FILE COST separately in #1358, by making the lint parse and walk the script
       # set once instead of twice (see Get-PsScriptCommandAsts in check-plugin-integrity.ps1): those four
       # suites are ~100% lint invocations -- 52 of them in the heaviest, at ~1.12s each on a workstation --
