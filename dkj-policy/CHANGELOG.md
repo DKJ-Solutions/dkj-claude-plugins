@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 51 minor entries** <!-- pending-tally -->
+**23 / 52 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2304-rerecord-durations-split-new-branch · 20260924-135506Z
+
+`scripts/tests/suite-durations.json` is re-recorded from three PR runs on the step-5 layout, so the gate
+now packs `new-branch-document` and `new-branch-base` from real durations instead of charging them the
+maximum. The reading closes #2304: the pool is 6,807s, the work bound over 20 lanes is ~340s, and the
+heaviest file (`script-contract.tests.ps1`) is 253.8s. No file sets the gate's makespan any more; it is
+bound by total work. CI went from 11.5 minutes on one file to shards of 4.2 to 7.4 minutes. `ci.yml`
+records the reading and prices a sixth shard at ~57s off the bound against ~20s of provisioning. The
+comment says to measure a run packed from this file before buying that shard.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: CI timing in this repo, which reaches no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-record CI suite durations after the new-branch split
+
+[PR #2441](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2441)
+
+---
 
 ### DEPLOY: feat/2304-split-new-branch-suite · 20260924-132054Z
 
