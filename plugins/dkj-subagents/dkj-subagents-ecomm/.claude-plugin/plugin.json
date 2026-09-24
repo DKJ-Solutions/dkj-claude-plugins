@@ -7,7 +7,7 @@
     "./subagents/specialist-06-27-subagent.md",
     "./subagents/specialist-06-28-subagent.md"
   ],
-  "version": "5.7.0",
+  "version": "5.8.0",
   "author": { "name": "DaveKJohn" },
   "keywords": ["specialists", "team", "claude-code", "ecommerce", "seo", "cro", "sea", "webshop"]
 }

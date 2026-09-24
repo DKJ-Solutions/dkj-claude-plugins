@@ -9,7 +9,7 @@
     "./subagents/specialist-04-03-subagent.md",
     "./subagents/specialist-04-04-subagent.md"
   ],
-  "version": "5.7.0",
+  "version": "5.8.0",
   "author": { "name": "DaveKJohn" },
   "keywords": ["specialists", "team", "claude-code", "life-hub", "brain"]
 }
