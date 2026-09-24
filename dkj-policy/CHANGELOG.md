@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 3 patch entries** <!-- pending-tally -->
+**0 / 4 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2459-update-plugins-user-shadow · 20260924-205923Z
+
+`update-plugins` now also updates a plugin's path-less user-scope record when that record sits beside
+this checkout's own. Until now one run moved the checkout's records and left those behind, so its own
+receipt reported them behind (a session can load the older one, #2442) while its summary said
+`0 failed`. Measured on v5.7.0 -> v5.8.0: 5 of 7 plugins behind straight after the run, closed by hand
+with five `--scope user` commands. The extra update is not gated on the version, because both records
+matched before the run. A path-less `managed` record is left alone.
+
+Tier 0 is scored for a session that runs `update-plugins` on a machine carrying such a shadow.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. It is a maintenance script and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+update-plugins also updates the path-less user-scope shadow
+
+Plugins: dkj-policy
+
+[PR #2467](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2467)
+
+---
 
 ### DEPLOY: feat/2462-shared-dossier-label · 20260924-201053Z
 
