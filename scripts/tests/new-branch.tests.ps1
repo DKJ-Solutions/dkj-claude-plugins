@@ -495,6 +495,7 @@ try {
     $notARepo = Join-Path ([System.IO.Path]::GetTempPath()) ("new-branch-test-$PID-z-notarepo-" + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Path (Join-Path $notARepo 'scripts\task') -Force | Out-Null
     $script:fixtures += $notARepo
+    # fixture-dep: script-not-loaded scripts/task/new-branch.ps1 -- outside a repository the script refuses before any lib loads
     Copy-Item -LiteralPath $NewBranchSrc -Destination (Join-Path $notARepo 'scripts\task\new-branch.ps1') -Force
     $rZ = Invoke-NewBranch -Dir $notARepo -Name 'docs/outside-a-repo-v1' -Title 'Outside a repo' -NoPush
     Assert-ExitCode 1 $rZ 'no repo root: exits 1 rather than dying on a null dereference'

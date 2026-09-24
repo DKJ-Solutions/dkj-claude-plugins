@@ -57,6 +57,11 @@ then split `new-branch` if it is still the floor. A partial step, so it ships wi
 
 - [x] The three suites side by side: 79 + 154 + 69 = 302 asserts, the count the single file
   reported. Longest part 52.5s against 149s for the single file, on the same workstation.
+- [x] Brought forward over 184 trunk commits (merge; `suite-durations.json` kept this branch's reading,
+  less the two `round-*` rows #2414 retired). CI then went red on `fixture-lib-deps.tests.ps1`, which
+  landed after the branch point: the "no repo root" scenario copies `new-branch.ps1` alone, and the
+  fixture's lib copies that used to share its file now sit in `new-branch-fixture.ps1`. Declared with the
+  gate's own `fixture-dep: script-not-loaded` opt-out and its reason; `fixture-lib-deps` 49/49 green.
 
 ### DEPLOY: feat/2304-split-new-branch-suite
 
