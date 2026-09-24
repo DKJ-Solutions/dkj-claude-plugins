@@ -44,7 +44,38 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**0 / 2 patch entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2461-split-chris-always-on · 20260924-193506Z
+
+Chris's always-on pair is 9.4 KB smaller (51,104 -> 41,693 B), about 3,000 tokens less per session.
+Every per-turn rule stays in the persona and the lens, in its tightest form. The dated measurements,
+the history behind step 6, the waiting incidents and the reasoning behind the claim step moved to
+[Chris's manual](../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-01-01-manual.md),
+which loads on demand. The repo's briefing and branch-check mechanics moved to Derek's lens. Headings
+that other files cite stay where they are. The two GENERATED shared blocks, ~8.2 KB of what remains,
+are left for #2464.
+
+Tier 0 is scored for every session in every consumer. The lens saving lands here now, and the persona
+saving reaches each consumer with the next release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is instruction text for sessions, and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split Chris's always-on persona and lens by when each part is needed
+
+Plugins: dkj-subagents-alpha
+
+[PR #2465](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2465)
+
+---
 
 ### DEPLOY: fix/2444-warn-missing-repo-facts-rule · 20260924-185917Z
 
