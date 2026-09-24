@@ -39,9 +39,17 @@
 
 ### PLAN
 
+Split Chris's always-on pair (#2461) by when each part is needed. Baseline at v5.8.0 + #2460:
+persona 30,899 B, lens 20,205 B, path 78,104 B. Every per-turn rule stays always-on in its tightest
+form; the reasoning, dated measurements and situational mechanics move to the manual (portable) and to
+Derek's lens (repo-specific). Headings other files cite by anchor or by name stay put.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Persona: rules kept, narrative moved to the manual (Tessa #16)
+- [ ] Lens: rules kept, briefing/branch-check mechanics moved to Derek's lens (Tessa #16)
+- [ ] Copy edit and duplication check on the diff (Edith #17, Ravi #24)
+- [ ] Re-measure the always-on path (Nolan #25)
 
 ### TEST
 
