@@ -44,9 +44,9 @@ whether the fifteen files each re-pay a fixture setup a coarser grouping would p
 
 ### CREATE
 
-- [x] Measured locally: fixture lib dot-source ~245 ms, `New-IntegrityFixture` ~30 ms (n=5), one
-  `Invoke-Integrity` ~2.4 s (n=3), ~280 call sites across the family. Per-file start is ~0.3 s x 15
-  = ~4 s of 2,494.6 s (0.2%): the re-paid-setup hypothesis does not hold.
+- [x] Measured locally: fixture lib dot-source ~245ms, `New-IntegrityFixture` ~30ms (n=5), one
+  `Invoke-Integrity` ~2.4s (n=3), ~280 call sites across the family. Per-file start is ~0.3s x 15
+  = ~4s of 2,494.6s (0.2%): the re-paid-setup hypothesis does not hold.
 - [x] Tycho's lens: the placement rule (subject file first; a new file only above the gate's work
   bound), the measurement behind "fewer files is not the lever", and the stale "seven" membership
   list replaced by a pointer to the fixture header.
@@ -60,10 +60,10 @@ whether the fifteen files each re-pay a fixture setup a coarser grouping would p
 
 The `check-plugin-integrity-*` test family now has a stated rule for where a new numbered check's
 scenarios go. They join the existing file that owns their subject. A new file is justified only when
-that file's CI median would exceed the gate's work bound (sum of suite medians over lanes, ~352 s
+that file's CI median would exceed the gate's work bound (sum of suite medians over lanes, ~352s
 today), which is the condition every past split was actually bought on. The second half of #2411 was
-measured and does not hold: a file's own start costs ~0.3 s, about 4 s across fifteen files against
-the family's 2,494.6 s, so merging files would buy nothing. The family's 35.5% share is set by how
+measured and does not hold: a file's own start costs ~0.3s, about 4s across fifteen files against
+the family's 2,494.6s, so merging files would buy nothing. The family's 35.5% share is set by how
 many times it runs the gate, not by how many files it has. The rule lives in the test engineer's repo
 lens, with a pointer beside the membership table in the shared fixture. Closes #2411.
 

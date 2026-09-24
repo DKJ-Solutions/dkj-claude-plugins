@@ -117,22 +117,23 @@ line for that file is widened to say so in the same commit.
 **A new file is justified by one measured condition: the receiving file would become the gate's
 critical path.** Concretely, its CI median would exceed the **work bound** — the sum of all suite
 medians divided by the CI lanes — read from the gate's per-suite table in the CI logs, the way
-[#2408](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2408) measured it (7,034.5 s over
-20 lanes ≈ 352 s on September 24, 2026; the family's largest file was then 245.5 s). That is the
+[#2408](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2408) measured it (7,034.5s over
+20 lanes ≈ 352s on September 24, 2026; the family's largest file was then 245.5s). That is the
 condition every past split was actually bought on (#714, #1358's decline, #2304), stated as a rule
 instead of re-derived each time. **Below it a new file buys nothing**: the critical path is somebody
-else's, and the family only gains a file. Above it, split by the three rules above — at check boundaries,
-balanced on gate invocations, asserts summed before and after.
+else's, and the family only gains a file. Above it, split the way #2304 did — cut at check boundaries and balanced on gate invocations
+(the fixture header records each cut) — and hold the three rules above, the asserts summed before and
+after first among them.
 
 **Why a coarser grouping is not also the lever, measured** (#2411, same day): the one cost a file
-pays that fewer files would pay once is its own start — dot-sourcing the fixture lib (~245 ms) and
-`New-IntegrityFixture` (~30 ms). That is ~0.3 s per file, ~4 s across fifteen, **0.2%** of the
-family's 2,494.6 s. Everything else is the gate child itself, ~2.4 s per `Invoke-Integrity` locally
+pays that fewer files would pay once is its own start — dot-sourcing the fixture lib (~245ms) and
+`New-IntegrityFixture` (~30ms). That is ~0.3s per file, ~4s across fifteen, **0.2%** of the
+family's 2,494.6s. Everything else is the gate child itself, ~2.4s per `Invoke-Integrity` locally
 across ~280 call sites, and grouping does not change how many run. So the family's **35.5% share of
 gate seconds is set by its invocation count, not its file count**; the rule above stops the file count
 climbing, and nothing short of fewer gate runs would move the share — which is narrowing coverage and
-out of scope, as the paragraph above says. The wide ranges #2411 cites (`-links` 66.5–134.5 s, `-roster` 139.3–260.8 s)
-are single slow runs of one member while its siblings stayed tight (`-fixture-guard` 242.2–247.2 s on
+out of scope, as the paragraph above says. The wide ranges #2411 cites (`-links` 66.5–134.5s, `-roster` 139.3–260.8s)
+are single slow runs of one member while its siblings stayed tight (`-fixture-guard` 242.2–247.2s on
 the same fixture), which reads as shard contention rather than a re-paid setup.
 
 ### A suite captures a child script through redirect files, never `2>&1` (September 6, 2026)

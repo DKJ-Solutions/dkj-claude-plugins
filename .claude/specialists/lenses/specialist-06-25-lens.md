@@ -692,9 +692,10 @@ with the other 39 suites still finishing at 153.2s and 41s of headroom to spare.
 spread is not a result at n=1 per configuration, and it is not proposed as one.
 
 **IT WAS BUILT THE SAME DAY, AND THE CEILING BELOW WAS ROUGHLY RIGHT** (Dave approved the split;
-`check-plugin-integrity.tests.ps1` became four suites over one shared fixture builder — **seven since
-September 22, 2026**, when `-docs` was split again on the same finding,
-[#2304](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2304); the figures in this section
+`check-plugin-integrity.tests.ps1` became four suites over one shared fixture builder — **more since
+September 22, 2026**, when `-docs` and then three further files were split again on the same finding,
+[#2304](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2304) (the current membership is in
+the shared fixture's header); the figures in this section
 are August 16's and are left as measured). Measured in the
 same harness, four post-split runs: **142.4 / 145.5 / 170.3 / 169.9s**, against 196–235s before —
 about **-25%**, and the two 170s runs came with a busier machine and a visibly larger contended sum
