@@ -192,11 +192,7 @@ whether something RESOLVES the name or merely prints it** — a citation may lag
 
 ### Structure — where everything lives
 
-The full repo layout (`.claude-plugin/`, `plugins/` incl. `dkj-subagents/subagent-shared/`, `connectors/` at the root,
-`scripts/`, `dkj-policy/` (the changelog, the contributing page and the release history since
-August 27, 2026; the folder was `contributing-davekjohn/` until September 5, 2026, #1437),
-`.claude/`, and the root docs + `.github/`) is described in
-[Sylvester's repo lens](../specialists/lenses/specialist-05-15-lens.md#repo-layout). Since August 3, 2026 the plugins sit **one** level down in
+The full repo layout, folder by folder, is in [Sylvester's repo lens](../specialists/lenses/specialist-05-15-lens.md#repo-layout). Since August 3, 2026 the plugins sit **one** level down in
 `plugins/<plugin>/` instead of two in `claude-code-plugins/claude-specialists/<plugin>/`: that second
 level existed to hold several product families side by side, which the
 [one-product rule](#specific-to-this-repo-claude-code-specialists) above retired. `connectors/` moved
@@ -423,7 +419,7 @@ The constitution, concretely implemented here:
   file already open. Writing a portable rule into the lens leaves the source thinner than the repo that
   maintains it, and nobody downstream ever receives it. **Which layer a rule belongs in, the split when
   a rule has both a portable and a local half, and the measurement behind that convention are in the
-  [specialists handbook](../specialists/README.md#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception)**
+  [technical writer's lens](../specialists/lenses/specialist-06-16-lens.md#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception)**
   — including that personas and manuals carry no repo-specific detail at all while skills carry the
   evidence behind a procedure.
 

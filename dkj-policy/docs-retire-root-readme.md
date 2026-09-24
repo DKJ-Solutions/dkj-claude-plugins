@@ -49,6 +49,7 @@ moves to the page that owns its subject, the same route #2171/#2179 took for `dk
 - [x] Archived release notes: repoint to a permalink at `123878dd`, the precedent of `5a9c004c` and `170d5f99`
 - [x] `check-plugin-integrity.ps1`: swap the retired root `README.md` for `plugins/dkj-subagents/README.md` in the consumer-facing set of checks 15/16
 - [x] Copy edit (Edith) applied: an inventory line, a directional word, a self-reference
+- [x] Merge `origin/main` (#2446/#2447 retired `.claude/specialists/README.md` meanwhile): conflicts resolved, links into both retired pages repointed, always-on path held by dropping a duplicated folder inventory from `this-repo.md`
 
 ### TEST
 

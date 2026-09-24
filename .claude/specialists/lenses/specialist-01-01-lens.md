@@ -64,7 +64,7 @@ product: agent defs, manuals, docs, and tooling.
   there too, on the ground of a step-off that run can never reach). Hand-derivation was itself the
   defect ([#1042](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1042)), measured three
   times in two days. **The instance behind each of the three modes is in the
-  [specialists handbook](../README.md#the-three-ways-a-briefing-fails-measured-here)** — the rule stays
+  [DevOps lens](specialist-05-05-lens.md#the-three-ways-a-briefing-fails-measured-here)** — the rule stays
   here, the evidence is one file away.
 - **The inbound verification, and the six ways a report fails on pickup.** An inbound item is verified
   as still standing before it is routed, and five more things are checked beside the symptom: whether its
@@ -110,7 +110,7 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
     chain leaves you on the trunk with a clean tree, which reads as "ready" rather than as one command
     away from working in the wrong place. The instance that produced this rule, and the shape of the
     trap, are in the
-    [specialists handbook](../README.md#the-branch-check-fires-on-the-follow-up-assignment).
+    [DevOps lens](specialist-05-05-lens.md#the-branch-check-fires-on-the-follow-up-assignment).
   - **And since [#1073](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1073) a chain that is
     still *shipping* leaves you there too.** `ship-pr.ps1`'s step 2b hands the primary checkout back to
     the trunk as soon as the PR exists, so a backgrounded ship no longer parks you on the branch until
