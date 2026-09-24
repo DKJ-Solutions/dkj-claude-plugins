@@ -72,11 +72,24 @@ analysis of why the split fails is on #2452 (comment 5818456726).
 
 ### CREATE
 
-- [ ] Add the discovered token-process closure + AST primitive scan to trusted-tree-seam.tests.ps1
-- [ ] Regression fixture: planted primitive in a child-spawned lib is flagged
-- [ ] Header + merge-on-green.yml comment updated to name the guard (#2452)
+- [x] Add the discovered token-process closure + AST primitive scan to trusted-tree-seam.tests.ps1
+- [x] Regression fixture: planted primitive in a child-spawned lib is flagged
+- [x] Header + merge-on-green.yml comment updated to name the guard (#2452)
+- [x] Review round (Victor #19, Sebastian #23): indirect names, computed command names, the
+  ScriptBlock type by name, foreign shells, fail-closed spawn sites, exact allowance counts -- every
+  measured evasion is now a fixture
 
 ### TEST
+
+- [x] `trusted-tree-seam.tests.ps1` standalone: 56 pass, 0 fail. The real token-process closure is
+  40 files (36 dot-source + 3 discovered children + their libs), with three allowances pinned at exact
+  counts (1, 3, 1)
+- [x] Evasion fixtures: 13 primitive shapes flagged, look-alikes (comment, mention, `Add-Type
+  -AssemblyName`, `[SHA256]::Create()`) not flagged, 4 spawn shapes resolve or fail closed as expected
+- [x] Two real dot-sources off a child's own `$repoRoot` (`fold-changelog-entry.ps1`,
+  `verify-resolved-issues.ps1`) checked against ship-pr: in trusted mode the fold gets
+  `-RepoRoot $TrustedRoot` and verify gets `-Repo`, so neither loads branch code; they belong to the
+  #2437 file rule, not this string rule
 
 ### DEPLOY: feat/2452-trusted-tree-exec-guard
 
