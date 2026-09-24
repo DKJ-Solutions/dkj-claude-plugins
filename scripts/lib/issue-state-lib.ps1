@@ -124,9 +124,9 @@ function Get-ClosedIssueSet {
 function Get-IssueBodySet {
     <#
     .SYNOPSIS
-        The BODY of each of these issues, as a hashtable of number -> text. Returns an object with
-        Bodies, Unreadable (the numbers gh could not answer for) and Truncated ($true when the resolve
-        limit was reached).
+        The BODY and the LABELS of each of these issues, as hashtables of number -> text and number ->
+        label names. Returns an object with Bodies, Labels, Unreadable (the numbers gh could not answer
+        for) and Truncated ($true when the resolve limit was reached).
 
     .DESCRIPTION
         THE IMPURE HALF OF THE RESOLVES-EXEMPT GATE (inbound #2120). The rule it feeds is
@@ -134,11 +134,15 @@ function Get-IssueBodySet {
         network; what is left here is the loop and the calls. The same split this file already makes for
         Get-ClosedIssueSet, and the reason is unchanged.
 
-        ONE 'gh issue view <n> --repo <owner/name> --json body' PER NUMBER, over the issues a PR is about
-        to declare it CLOSES -- a set of one or two on an ordinary branch, and bounded at the same
-        resolve limit as Get-ClosedIssueSet above rather than at the size of the tracker. The caller only
-        reaches this at all when the repo has stated matchers, so a repo that carves out no class of
-        issue pays nothing.
+        ONE 'gh issue view <n> --repo <owner/name> --json body,labels' PER NUMBER, over the issues a PR is
+        about to declare it CLOSES -- a set of one or two on an ordinary branch, and bounded at the same
+        resolve limit as Get-ClosedIssueSet above rather than at the size of the tracker.
+
+        THE LABELS HALF (#2463) IS WHY EVERY CLOSING PR NOW PAYS THIS READ, where only a repo with
+        matchers used to. The dossier rule -- a repair of one instance does not close a collecting issue
+        -- is shared rather than seam-gated, so it has to be checked on every PR that closes anything. It
+        rides on this call rather than on open-pr's open-issue list because that list is only fetched
+        inside the -Resolves block, and a `Closes #<n>` already on a resumed PR survives -NoResolves.
 
         -Utf8, UNLIKE Get-ClosedIssueSet ABOVE, and the difference is what is being read. That function
         reads a state field -- 'OPEN' or 'CLOSED', ASCII whatever the console code page is. This one
@@ -158,7 +162,7 @@ function Get-IssueBodySet {
 
     $batch  = Get-IssueResolveBatch -Numbers $Numbers -Limit $script:IssueStateResolveLimit
     $wanted = @($batch.Numbers)
-    $result = [pscustomobject]@{ Bodies = @{}; Unreadable = @(); Truncated = [bool]$batch.Truncated }
+    $result = [pscustomobject]@{ Bodies = @{}; Labels = @{}; Unreadable = @(); Truncated = [bool]$batch.Truncated }
     if ($wanted.Count -eq 0) { return $result }
 
     $unreadable = @()
@@ -168,7 +172,7 @@ function Get-IssueBodySet {
         # would be MERGED INTO THE PAYLOAD this function parses as JSON, and the only thing a failed
         # read produces here is a number on the Unreadable list either way.
         $q = Invoke-NativeCapture -Utf8 -FilePath 'gh' -Arguments @(
-            'issue', 'view', "$n", '--repo', $Repo, '--json', 'body'
+            'issue', 'view', "$n", '--repo', $Repo, '--json', 'body,labels'
         ) -TimeoutSeconds $TimeoutSeconds -DiscardStderr
 
         # ASKED BEFORE THE NUMBER (issue #1931): an unmeasurable exit code is $null, and both spellings
@@ -180,6 +184,15 @@ function Get-IssueBodySet {
         try {
             $parsed = (@($q.Output) -join "`n") | ConvertFrom-Json
             $result.Bodies[[int]$n] = [string]$parsed.body
+            # Probed before it is read: under StrictMode a dot-read of an absent property throws, and a
+            # label record without a name is skipped rather than taking the read down.
+            $names = @()
+            if ($parsed.PSObject.Properties['labels']) {
+                foreach ($l in @(@($parsed.labels) | Where-Object { $_ })) {
+                    if ($l.PSObject.Properties['name'] -and $l.name) { $names += [string]$l.name }
+                }
+            }
+            $result.Labels[[int]$n] = @($names)
         } catch {
             $unreadable += [int]$n
         }

@@ -1365,14 +1365,50 @@ foreach ($bad in @($exemptSeam.Rejected)) {
     Write-Warning ("Get-ResolvesExemptMatchers: ignoring " + $bad.Name + " -- " + $bad.Reason + ". The other matchers still apply.")
 }
 
-if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {
+# --- Dossier gate (issue #2463) -------------------------------------------------------------------
+# A dossier collects every instance of one recurring problem until its root cause is fixed, and a repair
+# of one instance does not close it (CONTRIBUTING-portable.md, step 1; the label is #2462's). That rule
+# was held by memory alone: the matchers above read a BODY and default to nothing, so `-Resolves
+# <dossier>` went through and the merge closed the collecting issue.
+#
+# NOT SEAM-GATED, UNLIKE THE MATCHERS, and that is the cost this gate adds: the rule is shared by every
+# repo running the workflow, so every PR that closes anything pays one `gh issue view` per closing issue
+# -- the same read the matchers already paid for, now asked for labels too, and bounded by the same
+# resolve limit. The read comes first so both checks judge one fetch.
+$bodySet = $null
+if ($closingAtMerge.Count -gt 0) {
     $bodySet = Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge
     if (@($bodySet.Unreadable).Count -gt 0) {
-        Write-Warning ("could not read the body of issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the resolves-exempt check cannot judge them and does not block on them.")
+        Write-Warning ("could not read issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the dossier and resolves-exempt checks cannot judge them and do not block on them.")
     }
     if ($bodySet.Truncated) {
-        Write-Warning ("this PR closes more issues than the resolves-exempt check reads in one run -- the oldest were not judged.")
+        Write-Warning ("this PR closes more issues than the dossier and resolves-exempt checks read in one run -- the oldest were not judged.")
     }
+
+    $dossiers = @(Get-DossierClosingFindings -Issues $closingAtMerge -Labels $bodySet.Labels)
+    if ($dossiers.Count -gt 0) {
+        $dossierList = (@($dossiers | ForEach-Object { "#$_" }) -join ', ')
+        $dossierNote = ''
+        if ($existingPr -and @(Get-ClosedIssueNumbers -Text $existingPr.body | Where-Object { $dossiers -contains $_ }).Count -gt 0) {
+            $dossierNote = "`n`nPR #$($existingPr.number) ALREADY CARRIES A CLOSING KEYWORD for it, and -NoResolves does not remove one: strip that line from the PR body (gh pr edit $($existingPr.number) --body-file <file>), because GitHub reads the body it has at merge time.`n"
+        }
+        Write-Error @"
+resolves gate: this PR would close $dossierList, which carries the '$(Get-DossierLabelName)' label - nothing pushed, no PR opened.
+
+A dossier collects every instance of one recurring problem until its root cause is fixed, and a repair
+of one instance does not close it (CONTRIBUTING-portable.md, step 1).
+
+Pick one:
+  -NoResolves   -- ship citing it as 'part of #<n>', and comment on the dossier what this instance was
+  -Resolves with only the OTHER numbers, where this run declared several
+  and if this branch fixes the root cause: still -NoResolves, then close the dossier by hand after the merge
+$dossierNote
+"@
+        exit 1
+    }
+}
+
+if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {
 
     # UNJUDGED IS REPORTED BEFORE THE VERDICT IS READ, and it is not a find: a matcher whose match did
     # not finish inside its bound answered nothing at all, so it neither blocks nor passes in silence --

@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Resolves #2463. The issue's open question, whether this is a second shape in the matcher seam or a seam of
+its own, is answered with neither: it is a check of its own and not seam-gated at all. The matchers are one
+repo's carve-out and default to nothing, while the dossier rule is shared.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `pr-issues-lib.ps1`: `Get-DossierLabelName` + the pure `Get-DossierClosingFindings`
+- [x] `issue-state-lib.ps1`: `Get-IssueBodySet` asks for `body,labels` and returns a `Labels` map
+- [x] `open-pr.ps1`: the per-issue read runs whenever the PR closes anything, and a dossier among the closing set refuses before the push
+- [x] `CONTRIBUTING-portable.md` step 1: the rule now says what enforces it, and what is still yours (commit messages)
+- [x] plugin mirrors of the three scripts synced
 
 ### TEST
 
+- [x] `pr-issues.tests.ps1`: rule asserts (label, case, key spelling, unread, sorting) and call-site asserts; the cost-model assert moved deliberately. 1136/1136
+- [x] `native-capture.tests.ps1`: bounded-site count unchanged at 83. 352/0
+- [x] Live: `Get-IssueBodySet` on #2454 + #2463 read their labels, and the rule flagged #2454 alone
+
 ### DEPLOY: fix/2463-resolves-refuses-dossier
 
-**Score:**
+`open-pr` now refuses a PR that would close an issue carrying the `dossier` label, whether the close
+comes from `-Resolves` or from a `Closes` already on the PR body. The rule that a repair of one instance
+does not close a collecting issue (#2462) used to hold only as long as somebody remembered it. The
+refusal names `-NoResolves` as the way through. The check is shared rather than seam-gated, so every PR
+that closes anything now pays one `gh issue view` per closing issue, asking for the body and the labels
+in one call. A closing keyword in a commit message is still not read by any gate.
+
+Tier 0 is scored for a session shipping a repair of one instance of a dossier.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is a workflow gate and nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 

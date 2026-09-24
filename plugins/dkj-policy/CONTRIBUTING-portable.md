@@ -165,8 +165,12 @@ it carries a `prio-N` of its own like any other issue. Three things follow from 
 - **A repair of one instance does not close it.** A PR that repairs one instance names the dossier
   without a closing keyword (`part of #<n>`), in its commits as well as its body, and leaves the dossier
   out of `open-pr`'s `-Resolves`. A keyword in a commit message closes the issue whatever prose follows it.
+  **`open-pr` refuses the PR body half** ([#2463](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2463)):
+  a PR that would close an issue carrying `dossier`, through `-Resolves` or a `Closes` already on the PR,
+  stops before the push. The commit-message half is still yours, because no gate reads it.
 - **The dossier is closed only when the root cause is repaired.** The closing comment names that repair,
-  so a reader of the thread can see which of its instances the repair explains.
+  so a reader of the thread can see which of its instances the repair explains. Because `open-pr` refuses
+  to close it, even that PR ships with `-NoResolves`, and the dossier is closed by hand after the merge.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where
