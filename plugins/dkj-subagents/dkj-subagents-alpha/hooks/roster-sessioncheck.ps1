@@ -144,7 +144,7 @@ try {
     # [ROSTER-PENDING] rides along the same way (inbound #333), and it exists because the DOCUMENTED HAPPY
     # PATH ended in nineteen [ERROR] lines: measured on a virgin profile, in the session right after a
     # completely successful specialists-init, one error per specialist saying it has no roster row. Nothing
-    # was broken -- filling the lenses is INSTALL.md's own Step 4, which that reader has not reached -- and [ERROR]
+    # was broken -- filling the lenses is ADOPTION.md's own Step 4, which that reader has not reached -- and [ERROR]
     # is the heaviest level these checks have. The cost is habituation: whoever learns to ignore nineteen
     # false errors ignores the twentieth too. Deliberately NOT folded under [BOOTSTRAP], whose advice is
     # "run specialists-init" -- advice this reader has just followed successfully.

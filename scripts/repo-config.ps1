@@ -782,13 +782,10 @@ function Get-ReleasePluginTier {
 # about whether this particular repo currently has one at its root, and the two names belong on it as long
 # as any repo reading this file might.
 $script:ReservedRootMd = @(
-    'CHANGELOG.md', 'CLAUDE.md', 'README.md', 'LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md',
-    # INSTALL.md and UNINSTALL.md moved here from plugins/ on August 14, 2026 (inbound #664). They are
-    # install plumbing, not plugin payload, so the folder boundary is what keeps them out of the set
-    # published to a business marketplace -- the same reason connectors/ sits at the root. Listing them
-    # here is not bookkeeping: without it the next unfolded-entry scan reads two permanent documents as
-    # changelog entries somebody forgot to fold.
-    'INSTALL.md', 'UNINSTALL.md'
+    'CHANGELOG.md', 'CLAUDE.md', 'README.md', 'LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md'
+    # INSTALL.md and UNINSTALL.md stood here from August 14, 2026 (inbound #664) until they were retired
+    # on September 24, 2026; the install commands moved into plugins/ADOPTION.md. Off the list with them,
+    # so one reappearing at the root is reported rather than waved through.
 )
 
 function Get-ReservedRootMd {

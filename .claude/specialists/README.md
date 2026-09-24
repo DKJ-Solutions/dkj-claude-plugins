@@ -356,8 +356,8 @@ with none found the check is skipped outright
 repo-owned seam function the newer shared scripts call and this checkout has never had; a specialist
 that arrived with the update needs a roster row and a lens, which `sync-roster` stages — and which the
 repo owner types, because that skill is reserved for explicit invocation. The measurements behind the
-two commands, and why the version number is not the code you are running, are in
-[`INSTALL.md`](../../INSTALL.md#staying-up-to-date) rather than repeated here.
+two commands are on the adoption page,
+[Installing it yourself](../../plugins/ADOPTION.md#installing-it-yourself), rather than repeated here.
 
 ## Measured instances kept off the always-on path
 
