@@ -39,21 +39,34 @@
 
 ### PLAN
 
-Point connectors/life-hub.json and the README's format example at DKJ-Solutions/life-hub after the repo's transfer
+`life-hub` was transferred from `DaveKJohn` to `DKJ-Solutions` (#2425). Verified: `gh repo view
+DKJ-Solutions/life-hub` resolves, and the register's `repo` value is not only a label -- check 1b in
+`scripts/sync/check-connectors.ps1` compares a checkout's `origin` against it, so a repointed checkout
+reads as a mismatch. Repair the live entry and the format example that mirrors it; the other hits of the
+old name are comments, fixtures and dated measurements, left as history.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/life-hub.json`: `repo` is `DKJ-Solutions/life-hub`
+- [x] `connectors/README.md`: the format example names the same owner
 
 ### TEST
 
+- [x] `check-connectors.ps1` reads the entry as `DKJ-Solutions/life-hub`; the lint + test gate runs in `open-pr`
+
 ### DEPLOY: fix/2425-life-hub-connector-owner
 
-**Score:**
+The connector register names `life-hub` under its new owner, `DKJ-Solutions/life-hub`, so the
+origin-vs-register check no longer treats a repointed checkout as a clone of something else. Prevents a
+false mismatch on the first `life-hub` checkout whose `origin` is set to the new owner.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 

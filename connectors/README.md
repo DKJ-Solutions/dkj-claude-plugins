@@ -62,7 +62,7 @@ be thorough about machines nobody uses.
 
 ```json
 {
-  "repo": "DaveKJohn/life-hub",
+  "repo": "DKJ-Solutions/life-hub",
   "visibility": "private",
   "localCheckout": "../life-hub",
   "plugins": [
