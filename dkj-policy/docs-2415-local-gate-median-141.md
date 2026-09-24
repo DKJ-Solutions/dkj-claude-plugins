@@ -78,3 +78,5 @@ N/A -- a measurement recorded in a maintainer's lens; nothing reaches a subscrib
 
 #### Pull Request
 
+Record the local gate median on the 141-suite pool: 229s at auto lanes, 1,215s at two
+
