@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**17 / 39 minor entries** <!-- pending-tally -->
+**18 / 40 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2350-backup-waits-through-short · 20260924-085451Z
+
+`backup-live-theme` failed a backup the moment two file-count samples agreed below the live theme's count,
+while `push-preview` waited such a reading out. A duplicate grows in bursts with pauses between them, so a
+pause could fail a copy that was still filling. The backup now waits until its deadline like the preview
+does, and still refuses a copy that is short when the wait is over.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify store's release-cut backup no longer fails on a copy that was only pausing, which left a
+half-copy standing and the cut step red. A copy that really stopped short is still refused, only later.
+
+**Score:** 2
+
+#### Pull Request
+
+backup-live-theme waits through a 'short' fill verdict until its deadline, as push-preview does
+
+Plugins: dkj-subagents-shopify
+
+[PR #2419](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2419)
+
+---
 
 ### DEPLOY: feat/2361-pr-bypass-note · 20260924-084152Z
 
