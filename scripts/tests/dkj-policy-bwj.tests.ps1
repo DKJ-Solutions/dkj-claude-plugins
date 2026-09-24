@@ -616,6 +616,21 @@ Assert-True ($null -eq (Get-SubmitterFromNotes -Notes $notes -Pattern '(unclosed
 $boardless = @{ FieldName = ''; Statuses = @{}; SubmitterPattern = $withPattern.SubmitterPattern }
 Assert-Equal 0 (Test-GithubStatusMap -Map $boardless).Count 'a map naming no project field validates -- "this repo has no board" is an answer, not a gap'
 
+# AND THE ONE LINE A RUN PRINTS ABOUT ITS MAP SAYS SO (#2375). It rendered the declaration as
+# "field '', ." -- a deliberate answer that read like a broken one in the CI log.
+$smRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-statusmap-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path (Join-Path $smRoot 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $smRoot 'scripts\repo-config.ps1'),
+        "function Get-GithubStatusMap { @{ FieldName = ''; Statuses = @{}; SubmitterPattern = '' } }`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    $smLine = (@(Resolve-GithubStatusMap -RepoRoot $smRoot 6>&1) | Where-Object { "$_" -match 'Status map' } | ForEach-Object { "$_" }) -join "`n"
+    Assert-True ($smLine -match 'has no project board') 'board-less: the status-map line says there is no board'
+    Assert-True ($smLine -notmatch "field ''") 'board-less: and no longer prints an empty field and a dangling comma'
+} finally {
+    if (Test-Path -LiteralPath $smRoot) { Remove-Item -LiteralPath $smRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 $bothWays = @{ FieldName = ''; Statuses = @{ 'Done' = 'InReview' }; SubmitterPattern = '' }
 Assert-True (((Test-GithubStatusMap -Map $bothWays) -join ' ') -match 'not both') 'while saying there is no board AND naming its columns is refused as a half-finished edit'
 
@@ -941,6 +956,16 @@ $goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
 Assert-True ($goLivePasted -notmatch [regex]::Escape((Get-AsanaPasteBlockMarker))) 'the marker is outside the block that gets pasted'
 Assert-True ($goLivePasted.Contains('Planned to go live')) 'and the go-live half is INSIDE it -- it is what the requester reads'
 
+# THE BLOCK ASKS FOR THE REQUESTER'S OWN LOOK (#2352), inside the pasted part, and after the facts.
+Assert-True ($goLivePasted.Contains('What we ask of you:')) 'with a link, the pasted block asks the requester to look'
+Assert-True ($goLivePasted.IndexOf('What we ask of you:') -gt $goLivePasted.IndexOf('- DE --')) 'and the ask comes after the live URLs'
+Assert-True ($goLivePasted.Contains('tick off this task')) 'an approval closes the TASK, and the requester is the one who closes it'
+Assert-True ($goLivePasted -match 'what is not right yet, and what exactly should change') 'a rejection asks for BOTH things, not only what is wrong'
+Assert-True ($goLivePasted.Contains('reopened')) 'and says the issue is reopened for a new round'
+# THE RELEASE IS NOT A REWARD: nothing in the block makes going live conditional on the answer.
+Assert-True ($goLivePasted.Contains('either way')) 'the ask says the work goes live either way'
+Assert-True ($goLivePasted -notmatch '(?i)\bif (it is|you) (right|approve)[^.]*(release|live)') 'and never ties the release to an approval'
+
 # A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED.
 $goLiveBare = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026'
 Assert-True ($goLiveBare.Contains('The fix for o/r#1 is done.')) 'with no link, the block still says the work is done'
@@ -948,6 +973,7 @@ Assert-True ($goLiveBare -notmatch 'view the result here') 'and simply omits the
 Assert-True ($goLiveBare.Contains('release of Monday 21 September 2026.')) 'with no version, the sentence names the day alone'
 Assert-True ($goLiveBare -notmatch 'as version') 'and no version clause at all'
 Assert-True ($goLiveBare -notmatch 'Once it is live') 'with no markets, there is no live-URL list'
+Assert-True ($goLiveBare -notmatch 'What we ask of you') 'with no link, there is nothing to look at, so no ask'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.

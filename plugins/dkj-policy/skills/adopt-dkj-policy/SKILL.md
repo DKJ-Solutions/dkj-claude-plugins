@@ -205,7 +205,9 @@ nothing to declare -- both consumers reached that answer independently, with not
 the expected one. An **unknown** prefix is deliberately *not* exempt: a typo would otherwise skip the gate
 in silence.
 
-**The workflow pins `ref: main` rather than a tag, and that is the one choice worth arguing.** A pinned
+**The workflow pins `ref: main` rather than a tag, and that is the one choice worth arguing** -- for this
+read-only gate; the write runners of Part 3 are pinned to a release instead, for the reason
+[given there](#the-write-runners-fetch-the-shared-scripts-at-a-release-not-at-main-issue-2333). A pinned
 gate keeps enforcing the shape it was pinned at -- and the entry's own path has moved twice, so a stale
 pin does not fail loudly, it fails the *wrong way*: refusing branches that do carry an entry at the
 current path. Tracking the tip means the gate follows the convention it enforces. Pin a tag instead if you
@@ -233,6 +235,29 @@ trade-off that puts the timing back in your hands.
 **Making the check *required* is yours.** The file makes it run and report; whether a red gate blocks a
 merge is a branch-protection setting, which is a repo decision rather than something a scaffolder should
 reach into.
+
+### And one line in your `CLAUDE.md`: the constitution (#2374)
+
+**The rules this repo runs under ship with the plugin, in [`../../CLAUDE.md`](../../CLAUDE.md).** Your own
+`CLAUDE.md` holds **only** one absolute `@`-line loading them, and nothing else:
+
+```
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md
+```
+
+**Your `CLAUDE.md` carries no prose of its own** — no facts about the repo, no rules, nothing below the
+import line. Facts about this repo only — its trunk, whether it is public, who its owner is, and what
+it is for — go in an unscoped rule your own tooling loads every session, e.g.
+`.claude/rules/this-repo.md`; a fact that belongs to one specialist alone goes in that specialist's own
+lens instead. **Remove any rule the constitution already states, wherever it currently sits.** A copy of a
+rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
+stays behind, and that is the contradiction #2374 was filed about.
+
+This run does not write the line, because it never edits a file that already exists. The
+`consumer-prose-sessioncheck` hook raises a `[WARNING]` at every session start until the line is there,
+and that warning prints the exact line for **your** marketplace name. A consumer registered before the
+September 10, 2026 rename still has its clone under `claude-code-specialists`. The line resolves after a
+`claude plugin marketplace update`: an `@`-import reads the marketplace clone, not the plugin cache.
 
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
@@ -586,6 +611,23 @@ and they are separate codes because what has been *written* by the time each fir
 A `Stood down:` line in the log is the job working, not a fold that went missing -- and every **other**
 non-zero code still fails, including a non-fast-forward the fold could **not** prove redundant (one entry
 upstream, another genuinely new), because that commit carries work your trunk does not have.
+
+### The write runners fetch the shared scripts at a release, not at `main` (issue #2333)
+
+**Part 1's `ref: main` argument stops where the credential starts.** The fold, the resolves check and
+merge-on-green each check out the plugin's scripts beside your tree and *execute* them, in a job holding
+`FOLD_PUSH_TOKEN` or `issues: write`. At `main`, anything landing on the source repo's trunk -- a bad
+merge, a compromised account -- would run beside those scopes in your repo on the next push, with no
+release in between. So those three check the scripts out at the **commit the release you adopted from was
+tagged at**, written as `ref: <sha> # v<version>`: the version comes off the plugin's own `plugin.json`,
+and the tag is resolved to a SHA because a tag can be moved and a SHA cannot. The read-only runners
+(branch-entry, repo-settings) keep `ref: main`, where the stale-convention argument above still holds.
+
+**The pin has to move, and this command is what says so.** It writes a runner once and never rewrites it,
+so re-running it reports every existing write runner that is still on `main` or pinned behind the version
+you are running -- one `ref:` line per file, and the run prints the value to put there. Where the tag
+cannot be resolved (offline), the tag itself is written and the run says so; where not even the version
+can be read, the runners fall back to `main`, and the run says that too.
 
 ### Exit code
 

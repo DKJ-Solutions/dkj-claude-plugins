@@ -1613,6 +1613,55 @@ function Get-ClaimTag {
     }
 }
 
+function Split-CommaListArgument {
+    <#
+        .SYNOPSIS
+            Turn whatever a caller passed for a list parameter into a clean list of values.
+
+        .DESCRIPTION
+            IT SPLITS ON ',' AND THAT SPLIT IS THE POINT, not the [string[]] parameter it sits behind
+            (#2358). The documented route runs through powershell.exe -File, and -File binds its
+            arguments as LITERAL strings -- so -Marker claim-tag,xoxo-lane arrives as ONE element
+            'claim-tag,xoxo-lane' even though the parameter is declared an array. The same -File lesson
+            Get-NormalizedPaths (market-urls.ps1) already carries: declaring the array is necessary and
+            NOT sufficient.
+
+            Every list this script takes -- marker names, labels, issue numbers -- has no legitimate
+            comma inside one value, so the split cannot cut a real value in two. Blanks are dropped and
+            a value given twice is kept once, first spelling first, because for -Marker the FIRST name
+            is the one a claim writes.
+
+        .OUTPUTS
+            The values, in order. Empty when nothing usable was given.
+    #>
+    param([AllowNull()][string[]]$Value)
+
+    $seen = @{}
+    foreach ($raw in @($Value)) {
+        foreach ($part in ("$raw" -split ',')) {
+            $item = $part.Trim()
+            if (-not $item -or $seen.ContainsKey($item)) { continue }
+            $seen[$item] = $true
+            $item
+        }
+    }
+}
+
+function Split-ClaimMarkerNames {
+    <#
+        .SYNOPSIS
+            The marker names in whatever a caller passed for -Marker (Split-CommaListArgument).
+
+        .DESCRIPTION
+            Unsplit, a comma list under -File was written as ONE marker name and read as one, so a
+            machine passing a predecessor list was blind to every ordinary 'claim-tag' marker and its
+            own claims were invisible to every machine that passed none (#2358). A marker name sits
+            between '<!--' and ':' in an HTML comment and so never holds a comma of its own.
+    #>
+    param([AllowNull()][string[]]$Marker)
+    Split-CommaListArgument -Value $Marker
+}
+
 function Get-ClaimMarkerPattern {
     <#
         .SYNOPSIS
@@ -1628,20 +1677,30 @@ function Get-ClaimMarkerPattern {
             predecessor is something a sweep RECOGNISES and never something it produces -- otherwise the
             older name never dies.
 
+            AND A COMPOUND NAME ALREADY WRITTEN IS READ, for the transition (#2358). Before the split
+            above existed, a comma list under -File was written verbatim -- '<!-- claim-tag,xoxo-lane:
+            TAG -->' sits on real issues. Such a marker is recognised when ANY of its comma-separated
+            parts is a name this sweep reads, so those in-flight claims hold without every consumer
+            having to list the compound spelling by hand. Nothing writes that shape any more.
+
         .PARAMETER Marker
-            One or more marker names, without the angle brackets or the colon.
+            One or more marker names, without the angle brackets or the colon. A comma list in one
+            element is split (Split-ClaimMarkerNames).
 
         .OUTPUTS
             The pattern string, with the tag in a named group 'tag'. '' when no usable name was given.
     #>
     param([AllowNull()][string[]]$Marker = @('claim-tag'))
 
-    $names = @(@($Marker) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { [regex]::Escape(([string]$_).Trim()) })
+    $names = @(Split-ClaimMarkerNames -Marker $Marker | ForEach-Object { [regex]::Escape($_) })
     if ($names.Count -eq 0) { return '' }
 
     # [^>]* rather than .*? because a marker is a single HTML comment on one line: bounding it at the
-    # first '>' means a malformed body cannot make one marker swallow the next one.
-    '<!--\s*(?:' + ($names -join '|') + ')\s*:\s*(?<tag>[^>]*?)\s*-->'
+    # first '>' means a malformed body cannot make one marker swallow the next one. The optional
+    # '<part>,' runs either side of the known name are the compound spellings described above; a part
+    # excludes whitespace, ',', ':' and '>', so it cannot reach past the marker's own colon.
+    $part = '[^\s,:>]+'
+    '<!--\s*(?:' + $part + '\s*,\s*)*(?:' + ($names -join '|') + ')(?:\s*,\s*' + $part + ')*\s*:\s*(?<tag>[^>]*?)\s*-->'
 }
 
 function Format-ClaimComment {
@@ -1663,7 +1722,10 @@ function Format-ClaimComment {
     )
 
     $tag = $Tag.Trim()
-    $name = if ($Marker -and $Marker.Trim()) { $Marker.Trim() } else { 'claim-tag' }
+    # The first NAME, never the whole string: a comma list handed over whole must not be written as one
+    # compound marker name nobody else reads (#2358).
+    $first = @(Split-ClaimMarkerNames -Marker $Marker) | Select-Object -First 1
+    $name = if ($first) { $first } else { 'claim-tag' }
     "Picked up by $tag -- an automated sweep of the open issues. <!-- ${name}: $tag -->"
 }
 
@@ -1764,7 +1826,9 @@ function Get-TagClaimVerdict {
               3. SOMEBODY ELSE HOLDS IT. One or more markers, none of them this tag. Refused -- and
                  unlike the assignee path this refusal has no override, because in a sweep it is not a
                  judgement call: a machine is mid-flight on that issue and its branch is somewhere this
-                 session cannot see.
+                 session cannot see. The one way past it is not a flag on this verdict but a separate,
+                 visible act whose preconditions check both halves of that sentence instead of assuming
+                 them -- Get-TakeOverVerdict (#2387).
 
               4. IT IS ALREADY THIS TAG'S. A resume -- a crashed session, a second pass, the approval
                  coming back hours later. Nothing to write, and it is the verdict A SWEEP'S RESUME STEP
@@ -1916,6 +1980,224 @@ function Resolve-ClaimRace {
     [pscustomobject]@{ Action = 'release'; Winner = $winner.Tag; Mine = $mine; Rivals = $rivals; Reason = $reason }
 }
 
+# --- HANDING A HELD ISSUE OVER (issue #2387) -------------------------------------------------------
+#
+# 'held' HAS NO FLAG PAST IT, AND ON ITS OWN TERMS THAT IS RIGHT: a machine is mid-flight and its branch
+# is somewhere this session cannot see (#2243). Both halves of that sentence are checkable, though, and
+# measured September 23, 2026 on machine DAVE neither held: 9 of 11 open issues read 'held', 7 of them by
+# the SAME gh account on two other machines, and every one of the 9 had its branch on origin -- which the
+# cycle-autopark Stop hook guarantees for a session that ended. The only way through was deleting the
+# other machine's marker by hand through `gh api`, the one act the sweep page forbids.
+#
+# SO THE HANDOVER IS A DELIBERATE, VISIBLE ACT WITH TWO PRECONDITIONS, and each refusal below is one of
+# the two halves of #2243's reasoning read instead of assumed:
+#
+#   THE WORK IS NOT TRAPPED ON THE OTHER MACHINE. Exactly one branch for the issue must be on origin.
+#   None means the work may exist only over there; several means this run cannot say which one to
+#   resume, and guessing is how a session resumes the wrong one.
+#
+#   THE HOLDER IS THIS SAME ACCOUNT. Taking over your own issue from another of your machines is
+#   bookkeeping; taking over a colleague's is a conversation, and a switch cannot have one -- the same
+#   line the default mode's 'taken' refusal draws.
+#
+# WHAT IT DOES NOT MEASURE is whether the other session is still alive. Nothing on the tracker can say
+# so; what the handover does instead is make the other side FIND OUT: its marker is gone, so its own
+# `-Verify` answers [NO] and a sweep's resume step stops there.
+
+function Get-IssueBranchNames {
+    <#
+        .SYNOPSIS
+            The branches on a remote that belong to one issue, out of `git ls-remote --heads` text.
+
+        .DESCRIPTION
+            THE CONVENTION IS '<prefix>/<n>-<short-name>', which is what sweep-issues' step 3 names and
+            what every branch on this tracker's origin carries. Only the segment right after the prefix
+            is read: '<n>' followed by a dash or the end. A number that merely APPEARS later in a name --
+            'fix/2338-pin-12' against issue 12 -- is a different issue's branch and must not match.
+
+            REFS ONLY UNDER refs/heads/, so a tag or a pull-request ref in a wider listing is not read as
+            a branch.
+
+        .PARAMETER Text
+            The output of `git ls-remote --heads <remote>`: '<sha><TAB>refs/heads/<name>' per line.
+
+        .PARAMETER Issue
+            The issue number.
+
+        .OUTPUTS
+            The branch names, without 'refs/heads/', in the order given. Empty when none match.
+    #>
+    param(
+        [AllowNull()][string]$Text,
+        [Parameter(Mandatory = $true)][int]$Issue
+    )
+
+    if (-not $Text) { return @() }
+    $pattern = '^[^/]+/' + $Issue + '(-|$)'
+    foreach ($line in ($Text -split "`r?`n")) {
+        $m = [regex]::Match($line, '\srefs/heads/(?<name>\S+)\s*$')
+        if (-not $m.Success) { continue }
+        $name = $m.Groups['name'].Value
+        if ($name -match $pattern) { $name }
+    }
+}
+
+function Get-RemoteIssueBranches {
+    <#
+        .SYNOPSIS
+            Every remote-tracking branch that names an issue, out of one `git for-each-ref` listing --
+            with the author and the time of its newest commit.
+
+        .DESCRIPTION
+            THE SWEEP'S HALF OF THE PARKED-FIX SCAN (issue #2392). -Candidates judged from the tracker
+            alone, so an issue somebody was working WITHOUT a claim marker read 'free' -- measured
+            September 23, 2026: 11 free of 11 open, while 9 of them had a live PR-less branch on origin.
+            The only signal arrived after the claim was written, one issue at a time. One listing of
+            refs/remotes/<remote> answers it for the whole backlog, so the one-read property of
+            Get-SweepCandidates holds.
+
+            THE CONVENTION IS THE SAME AS Get-IssueBranchNames': '<prefix>/<n>-<short-name>', the number read only
+            from the segment right after the prefix. A branch named for the subject rather than the
+            number is invisible here, as it is to that function; the claim's title-overlap scan is the
+            check for that shape, and it runs at the claim.
+
+            '<remote>/HEAD' IS SKIPPED -- it is a symbolic ref to the trunk, not somebody's branch.
+
+        .PARAMETER Text
+            The output of
+            `git for-each-ref --format=%(refname:short)%1f%(authorname)%1f%(committerdate:unix) refs/remotes/<remote>`.
+            Unit separator (0x1F), not a tab -- the author is free text, the reason ConvertFrom-CommitScanLog uses it.
+
+        .PARAMETER Remote
+            The remote the listing was taken from; its name is stripped from each ref. Default 'origin'.
+
+        .OUTPUTS
+            Records -- Issue, Branch (with the remote prefix), Author, CommitUnix -- in the order given.
+            Empty when nothing matches.
+    #>
+    param(
+        [AllowNull()][string]$Text,
+        [string]$Remote = 'origin'
+    )
+
+    if (-not $Text) { return @() }
+    $prefix = "$Remote/"
+    foreach ($line in ($Text -split "`r?`n")) {
+        $fields = $line -split [string][char]0x1F
+        if ($fields.Count -lt 3) { continue }
+        $ref = $fields[0].Trim()
+        if (-not $ref.StartsWith($prefix) -or $ref -eq "$Remote/HEAD") { continue }
+        $name = $ref.Substring($prefix.Length)
+        $m = [regex]::Match($name, '^[^/]+/(?<n>\d+)(-|$)')
+        if (-not $m.Success) { continue }
+        $unix = [long]0
+        [void][long]::TryParse($fields[2].Trim(), [ref]$unix)
+        [pscustomobject]@{
+            Issue      = [int]$m.Groups['n'].Value
+            Branch     = $ref
+            Author     = $fields[1].Trim()
+            CommitUnix = $unix
+        }
+    }
+}
+
+function Get-TakeOverVerdict {
+    <#
+        .SYNOPSIS
+            Whether this tag may take a held issue over from another machine -- read before anything is
+            written.
+
+        .DESCRIPTION
+            Get-TagClaimVerdict FIRST, UNCHANGED. A take-over is only a question for a 'held' issue:
+            every other verdict passes through under its own code, so the caller's existing handling of
+            a closed, free or already-yours issue still applies and this function adds no second copy of
+            it.
+
+            THEN THE TWO PRECONDITIONS, in the order a reader would check them by hand -- whose claim it
+            is before where the work is. A colleague's issue is refused whatever the branches say,
+            because no branch state turns their work into this session's.
+
+            THE ACCOUNT IS THE HALF AFTER THE FIRST '/'. Get-ClaimTag refuses a machine name carrying
+            the separator, so the first one is always the boundary. Compared case-insensitively, like
+            every other tag comparison in this lib.
+
+        .PARAMETER Tag
+            This session's tag (Get-ClaimTag's Tag).
+
+        .PARAMETER State
+            The issue's state -- 'OPEN' or 'CLOSED'.
+
+        .PARAMETER Records
+            The markers on the issue (Get-ClaimRecords).
+
+        .PARAMETER Branches
+            The issue's branches on origin (Get-IssueBranchNames).
+
+        .OUTPUTS
+            Code     -- Get-TagClaimVerdict's code for anything not 'held'; otherwise
+                        'foreign-account' | 'no-branch' | 'ambiguous-branch' | 'take'.
+            Holders  -- the tags that are not this one. Always an array.
+            Branch   -- the one branch to resume, on 'take'. '' otherwise.
+            Branches -- every branch that matched. Always an array.
+            Rivals   -- the marker records the take-over removes, on 'take'. Always an array.
+    #>
+    param(
+        [string]$Tag = '',
+        [string]$State = '',
+        [AllowNull()][object[]]$Records = @(),
+        [AllowNull()][string[]]$Branches = @()
+    )
+
+    $base = Get-TagClaimVerdict -Tag $Tag -State $State -Records $Records
+    $found = @(@($Branches) | Where-Object { $_ })
+    $result = [pscustomobject]@{
+        Code     = $base.Code
+        Holders  = @($base.Holders)
+        Branch   = ''
+        Branches = $found
+        Rivals   = @()
+    }
+    if ($base.Code -ne 'held') { return $result }
+
+    $myAccount = ($Tag -split '/', 2)[1]
+    $foreign = @(@($base.Holders) | Where-Object {
+        $parts = ([string]$_) -split '/', 2
+        $parts.Count -lt 2 -or ($parts[1] -ine $myAccount)
+    })
+    if ($foreign.Count -gt 0) { $result.Code = 'foreign-account'; return $result }
+    if ($found.Count -eq 0) { $result.Code = 'no-branch'; return $result }
+    if ($found.Count -gt 1) { $result.Code = 'ambiguous-branch'; return $result }
+
+    $result.Code = 'take'
+    $result.Branch = $found[0]
+    $result.Rivals = @(@($Records) | Where-Object {
+        $_ -and $_.PSObject.Properties['Tag'] -and (([string]$_.Tag).Trim() -ine $Tag)
+    })
+    return $result
+}
+
+function Format-HandoverComment {
+    <#
+        .SYNOPSIS
+            The visible comment a take-over leaves: which tag held the issue, which tag holds it now, and
+            the branch the work continues on.
+
+        .DESCRIPTION
+            IT CARRIES NO MARKER, on purpose. The claim is the new marker the ordinary claim path writes;
+            this is the record a person reads, and one that also parsed as a claim would give the issue
+            two markers for one tag.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string[]]$OldTags,
+        [Parameter(Mandatory = $true)][string]$NewTag,
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][int]$Issue
+    )
+    $old = (@($OldTags) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join ', '
+    "Handed over from $old to $NewTag -- the work continues on ``$Branch``, which is on origin. " +
+        "A session under $old that runs ``claim-issue.ps1 $Issue -Tag -Verify`` now reads [NO] and stops."
+}
+
 function Get-SweepCandidates {
     <#
         .SYNOPSIS
@@ -1958,16 +2240,28 @@ function Get-SweepCandidates {
         .PARAMETER SkipIssue
             Issue numbers held out of this round by hand.
 
+        .PARAMETER Branches
+            Get-RemoteIssueBranches' records (issue #2392). An issue no marker holds but a branch on the
+            remote names reads 'branch', not 'free': somebody worked it without -Tag, and a marker is not
+            the only way to be on an issue. A marker still wins over a branch -- 'mine' and 'held' are the
+            stronger statement, and a take-over reads the branch for itself.
+
+        .PARAMETER NowUnix
+            The current time as unix seconds, for the branch's age. Defaults to now; a test pins it.
+
         .OUTPUTS
             An array of records, ascending by number -- Number, Title, Verdict, Holder, Reason --
-            where Verdict is 'free' | 'mine' | 'held' | 'skipped'. EMPTY for empty or unparseable input.
+            where Verdict is 'free' | 'mine' | 'held' | 'branch' | 'skipped'. EMPTY for empty or
+            unparseable input.
     #>
     param(
         [string]$Json,
         [string]$Tag = '',
         [AllowNull()][string[]]$Marker = @('claim-tag'),
         [AllowNull()][string[]]$SkipLabel = @(),
-        [AllowNull()][int[]]$SkipIssue = @()
+        [AllowNull()][int[]]$SkipIssue = @(),
+        [AllowNull()][object[]]$Branches = @(),
+        [long]$NowUnix = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     )
 
     if (-not $Json -or -not $Json.Trim()) { return @() }
@@ -2023,6 +2317,21 @@ function Get-SweepCandidates {
             }
         }
 
+        if ($verdict -eq 'free') {
+            # NEWEST BRANCH FIRST, because it is the one a reader deciding "is somebody on this now?"
+            # needs; the count says whether there are more.
+            $own = @(@($Branches) | Where-Object { $_ -and $_.PSObject.Properties['Issue'] -and [int]$_.Issue -eq $number } |
+                     Sort-Object -Property CommitUnix -Descending)
+            if ($own.Count -gt 0) {
+                $newest = $own[0]
+                $verdict = 'branch'
+                $holder = [string]$newest.Author
+                $age = if ([long]$newest.CommitUnix -gt 0) { Format-CommitAge -Seconds ($NowUnix - [long]$newest.CommitUnix) } else { 'at an unknown time' }
+                $more = if ($own.Count -gt 1) { " (+$($own.Count - 1) more)" } else { '' }
+                $reason = "no claim marker, but $($newest.Branch)$more is on the remote -- $holder, $age"
+            }
+        }
+
         $out.Add([pscustomobject]@{
             Number  = $number
             Title   = $title
@@ -2032,5 +2341,97 @@ function Get-SweepCandidates {
         }) | Out-Null
     }
 
+    return @($out | Sort-Object -Property Number)
+}
+
+function Get-OwnTagClaims {
+    <#
+        .SYNOPSIS
+            Which open issues carry a claim marker of THIS tag, out of one `gh issue list` payload -- the
+            set -ReleaseAll acts on (issue #2395).
+
+        .DESCRIPTION
+            THIS TAG'S OWN MARKERS AND NOTHING ELSE, which is the whole bound. An issue another tag holds
+            is not returned at all, and on an issue both hold only this tag's records are carried -- so
+            the caller cannot delete another session's marker by construction rather than by care. The
+            same bound -Release already keeps for one issue; the owner's first proposal (#2395) was a
+            wipe of every marker and assignee, rejected because the other markers are other machines'
+            and colleagues' live claims and deleting them recreates the duplicate-work hazard #2207 and
+            #2243 closed.
+
+            AND A MARKER COUNTS ONLY WHERE ITS AUTHOR IS THE TAG'S ACCOUNT. The tag is text inside a
+            comment, so matching it alone would let anybody who can comment plant this tag on an issue
+            and have -Apply release it. A tag with no account half returns nothing.
+
+            THE ASSIGNEE IS REPORTED, NEVER DECIDED ON. Assigned says whether -Account is among the
+            issue's assignees, so the caller removes the assignee a tag claim wrote beside its marker. An
+            issue with this account assigned and no marker of this tag is not returned: in tag mode a
+            bare assignee is whose TICKET this is, not a claim, and it is not this function's to drop.
+
+            ONE READ FOR THE WHOLE BACKLOG, for the reason Get-SweepCandidates gives: a per-issue query
+            is a round-trip per issue before anything is released.
+
+        .PARAMETER Json
+            The payload text of `gh issue list --json number,title,assignees,comments`.
+
+        .PARAMETER Tag
+            This session's tag. Compared case-insensitively, as everywhere else a tag is.
+
+        .PARAMETER Account
+            The login a tag claim writes as its assignee (Resolve-ClaimAccount's answer).
+
+        .PARAMETER Marker
+            The marker names to recognise (see Get-ClaimMarkerPattern).
+
+        .OUTPUTS
+            An array of records, ascending by number -- Number, Title, Records, Assigned -- where
+            Records holds only this tag's markers and is never empty. EMPTY for empty or unparseable
+            input, or a backlog this tag holds nothing on.
+    #>
+    param(
+        [string]$Json,
+        [string]$Tag = '',
+        [string]$Account = '',
+        [AllowNull()][string[]]$Marker = @('claim-tag')
+    )
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $ownTag = $Tag.Trim()
+    if (-not $ownTag) { return @() }
+    $slash = $ownTag.LastIndexOf('/')
+    $tagAccount = if ($slash -ge 0) { $ownTag.Substring($slash + 1).Trim() } else { '' }
+    if (-not $tagAccount) { return @() }
+    try { $parsed = $Json | ConvertFrom-Json } catch { return @() }
+    if ($null -eq $parsed) { return @() }
+
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($issue in @(@($parsed) | Where-Object { $_ })) {
+        if (-not $issue.PSObject.Properties['number']) { continue }
+        if (-not $issue.PSObject.Properties['comments']) { continue }
+        # Re-serialised into the shape Get-ClaimRecords reads, as Get-SweepCandidates does, so a comment
+        # body is still read in exactly one place.
+        $records = @(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @($issue.comments) }) | ConvertTo-Json -Depth 8) -Marker $Marker)
+        # THE AUTHOR MUST BE THE TAG'S OWN ACCOUNT, not only the text. The tag inside a marker is free
+        # text anybody who can comment may write, and the tags in use are printed in this repo's own
+        # docstrings -- so a marker planted by somebody else would otherwise be swept in as this tag's,
+        # and -Apply would drop an assignee on the strength of a stranger's comment. gh writes a claim
+        # comment as the gh account the tag's second half names (Get-ClaimTag), so a genuine marker
+        # always carries that author.
+        $own = @($records | Where-Object { $_.Tag -ieq $ownTag -and $_.Author -and $_.Author -ieq $tagAccount })
+        if ($own.Count -eq 0) { continue }
+
+        $assigned = $false
+        if ($Account.Trim()) {
+            $logins = @(Get-AssigneeLogins -Json (([pscustomobject]@{ assignees = @($(if ($issue.PSObject.Properties['assignees']) { $issue.assignees })) }) | ConvertTo-Json -Depth 5))
+            $assigned = @($logins | Where-Object { $_ -ieq $Account.Trim() }).Count -gt 0
+        }
+
+        $out.Add([pscustomobject]@{
+            Number   = [int]$issue.number
+            Title    = $(if ($issue.PSObject.Properties['title']) { [string]$issue.title } else { '' })
+            Records  = $own
+            Assigned = $assigned
+        }) | Out-Null
+    }
     return @($out | Sort-Object -Property Number)
 }

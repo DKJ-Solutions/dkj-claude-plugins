@@ -64,8 +64,8 @@ first two (never commit directly to `main`, the required `lint-en-tests` check) 
 than a location. **The third is not, and that is the one the retirement nearly dropped**: *one change
 per branch, described in the PR, and the branch deleted after the merge* is kept by whoever opens the
 branch and by nothing else, and a check over the tree while this was being written found it stated in
-exactly one place — the page about to be deleted. It is in [`CLAUDE.md`](../../../CLAUDE.md) now,
-beside the other two, which is where this repo keeps its floor. **That is the portable page's own
+exactly one place — the page about to be deleted. It is in [`this-repo.md`](../../rules/this-repo.md)
+now, beside the other two, which is where this repo keeps its floor. **That is the portable page's own
 retirement instruction working as written** — *for each section, find where that rule is actually
 decided, and move anything that lives nowhere else before the file goes* — and it is worth recording
 that a migration which kept 1,300 lines of measurement intact still almost lost the one unenforced
@@ -200,7 +200,7 @@ Judged and recorded on August 15, 2026 after
 [#717](https://github.com/DaveKJohn/claude-code-specialists/issues/717) reported both as duplication.
 Both stay as they are; what follows is the note that was missing.
 
-- **The "chore is a contradiction" rule**, stated in full in [`CLAUDE.md`](../../../CLAUDE.md),
+- **The "chore is a contradiction" rule**, stated in full in [`this-repo.md`](../../rules/this-repo.md),
   [Derek's lens](specialist-05-05-lens.md), and once more as a comment in
   [`scripts/lib/branch-info.ps1`](../../../scripts/lib/branch-info.ps1). Three readers, three doors: the
   constitution, the DevOps specialist opening his own lens, and whoever is editing the prefix table
@@ -307,7 +307,7 @@ the **what** (`CLAUDE.md`, `README.md`, this specialists system with its portabl
 ### The *portable* word, and the count that came with it
 
 Behind *"Neither half is a universal baseline"* in
-[`CLAUDE.md`](../../../CLAUDE.md#the-how-daves-across-his-repos-vs-the-what-this-repo-only). Two lessons
+[`this-repo.md`](../../rules/this-repo.md#the-how-the-plugin-vs-the-what-this-repo-only). Two lessons
 from one day, August 19, 2026, and the second one is about the repair rather than the defect.
 
 **The word was wrong in three places.** `CLAUDE.md` called its own top half *portable* where it reaches
@@ -423,7 +423,7 @@ bounded repair becomes the sweep it was chosen instead of.
 ### A conditional in always-on prose needs a detector behind it, or it is not written as a conditional
 
 Behind the `merge_queue` paragraph in
-[`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation). Measured
+[`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation). Measured
 September 9, 2026 ([#1720](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1720)).
 
 **What stood there was a sentence waiting on somebody else's act**: taking the `merge_queue` rule off

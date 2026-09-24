@@ -87,6 +87,10 @@ $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "adopt-ci-floor-test-fix
 $script:pass = 0
 $script:fail = 0
 
+# The ref every write runner is handed in this suite (#2333) -- a SHA with its release beside it, the
+# shape the scaffolder writes when the tag resolves.
+$TestSharedPin = '0123456789abcdef0123456789abcdef01234567 # v1.2.3'
+
 function Assert-True {
     param([bool]$Condition, [string]$Name)
     if ($Condition) {
@@ -244,6 +248,9 @@ function New-RulesFile {
 
 function Invoke-Adopt {
     param([string]$Dir, [string[]]$ScriptArgs = @())
+    # THE WRITE RUNNERS' PIN IS SUPPLIED, NOT RESOLVED (#2333): resolving it is a git ls-remote against
+    # GitHub, and a suite must not need a network. Every call gets the test pin unless it names its own.
+    if ($ScriptArgs -notcontains '-SharedRefOverride') { $ScriptArgs = @($ScriptArgs) + @('-SharedRefOverride', $TestSharedPin) }
     $prevPd = $env:CLAUDE_PROJECT_DIR
     try {
         $env:CLAUDE_PROJECT_DIR = $Dir
@@ -437,6 +444,11 @@ try {
     Assert-True ($mergeOnGreen -like '*SHIP_BRANCH: ${{ steps.pick.outputs.branch }}*') 'the head branch arrives through env:'
     Assert-Equal 1 (@([regex]::Matches($mergeOnGreen, 'steps\.pick\.outputs\.branch')).Count) `
         'and that env: line is its ONLY expression -- never ${{ }} interpolated into a run: body, the one attacker-chosen value in the file'
+    # PINNED TO THE COMMIT THE PICKER JUDGED (#2338): ship-pr dot-sources the checkout's repo-config.ps1,
+    # so a push after the pick must stop the job rather than run unjudged code with the PAT.
+    Assert-True ($mergeOnGreen -like '*SHIP_SHA: ${{ steps.pick.outputs.sha }}*') 'the judged head commit arrives through env: too'
+    Assert-True ($mergeOnGreen -match '(?ms)git checkout --quiet \$env:SHIP_BRANCH.*?\$head -ne \$env:SHIP_SHA.*?ship-pr\.ps1 -SkipLint') `
+        'and the checkout is held to it BEFORE ship-pr runs, not after'
     Assert-True ($mergeOnGreen -like '*.git/info/exclude*') `
         'the plugin checkout is excluded locally, so ship-pr does not read the tree as dirty and detour the fold'
     Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'
@@ -756,13 +768,15 @@ try {
         'and none carries one in the long spelling either, outside the proven-inert printed advice text'
     Assert-True ($srcOutsideAdvice -notmatch "'api'[^\r\n]*rulesets") 'and it never addresses the rulesets collection directly, which is the endpoint that creates one'
 
-    # THE TWO REAL INVOCATION SITES IN THIS SCRIPT, NAMED RATHER THAN LEFT TO THE GUARD ABOVE TO FIND BY
-    # ACCIDENT: both calls this script actually makes are Invoke-NativeCapture, and both are reads (a
-    # repo lookup, and a GET of the trunk's rules). If either ever grows a write, it fails the assert
-    # above (it is not inside the carved-out advice block) -- this pair just makes the claim legible
-    # rather than only provable.
+    # THE THREE REAL INVOCATION SITES IN THIS SCRIPT, NAMED RATHER THAN LEFT TO THE GUARD ABOVE TO FIND BY
+    # ACCIDENT: every call this script actually makes is Invoke-NativeCapture, and every one is a read (a
+    # repo lookup, a GET of the trunk's rules, and -- since #2333 -- a git ls-remote resolving the write
+    # runners' release tag to its SHA). If any ever grows a write, it fails the assert above (it is not
+    # inside the carved-out advice block) -- this count just makes the claim legible rather than only
+    # provable.
     $nativeCalls = @([regex]::Matches($srcOutsideAdvice, '(?m)^.*Invoke-NativeCapture\b.*$') | ForEach-Object { $_.Value })
-    Assert-Equal 2 $nativeCalls.Count 'this script makes exactly two native calls (a repo lookup and a rules GET), both outside the advice block'
+    Assert-Equal 3 $nativeCalls.Count 'this script makes exactly three native calls (a repo lookup, a rules GET, a tag ls-remote), all outside the advice block'
+    Assert-Equal 1 (@($nativeCalls | Where-Object { $_ -match "'git'" -and $_ -match "'ls-remote'" })).Count 'and the one git call is an ls-remote, which only reads'
     foreach ($call in $nativeCalls) {
         Assert-True ($call -notmatch '(PUT|POST|PATCH|DELETE)') "native call carries no write method: $call"
     }
@@ -1051,6 +1065,46 @@ try {
         'the identical tree written with LF reads the same job name -- the two line endings now agree'
     Assert-True ($rLf.Flat -like '*REPLACE-WITH-A-JOB-ID-BELOW*') `
         'and declines the auto-fill identically, which is the behaviour CRLF was measured against'
+
+    # --- 11. The shared scripts are pinned where the credential is, and only there (#2333) -----------
+    Write-Host '-- 11. the write runners pin the shared scripts; the read-only one tracks main --' -ForegroundColor Cyan
+    # The ref of the checkout that brings THIS repo's tree in, one per runner -- not the trunk checkout
+    # above it, which legitimately says ref: <trunk>.
+    function Get-SharedRefLine {
+        param([string]$Text)
+        $m = [regex]::Match(($Text -replace "`r`n", "`n"), '(?m)^ {10}repository: DKJ-Solutions/dkj-claude-plugins\n {10}ref: (?<ref>[^\n]*)$')
+        if ($m.Success) { return $m.Groups['ref'].Value } else { return '' }
+    }
+    foreach ($w in @(@{ Name = 'fold-on-merge.yml'; Text = $fold }, @{ Name = 'verify-resolved.yml'; Text = $verify }, @{ Name = 'merge-on-green.yml'; Text = $mergeOnGreen })) {
+        Assert-Equal $TestSharedPin (Get-SharedRefLine -Text $w.Text) "$($w.Name) fetches the shared scripts at the pin, not at main"
+        Assert-True ($w.Text -like '*PINNED TO A RELEASE, NOT ref: main (issue #2333)*') "$($w.Name) argues the pin where it sits"
+    }
+    Assert-Equal 'main' (Get-SharedRefLine -Text $repoSettings) 'repo-settings.yml, which holds no write scope, still tracks main (#1805)'
+    Assert-True ($rApply.Flat -like '*`[pin`]*fetch the shared scripts at*(-SharedRefOverride)*') 'the run says which pin it wrote'
+
+    # A RE-RUN IS THE ONLY MOMENT AN EXISTING RUNNER IS LOOKED AT AGAIN, so it is where a stale pin is
+    # reported. Three existing shapes: an adoption from before #2333 (main), one pinned at an older
+    # release, and one already current -- which must stay silent.
+    $pinDir = New-FixtureConsumer -Label 'pin-rerun'
+    $null = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    $pluginVersion = [string]((Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version)
+    $pinPath = @{
+        'fold-on-merge.yml'   = 'main'
+        'verify-resolved.yml' = '0123456789abcdef0123456789abcdef01234567 # v0.0.1'
+        'merge-on-green.yml'  = ('0123456789abcdef0123456789abcdef01234567 # v' + $pluginVersion)
+    }
+    foreach ($name in $pinPath.Keys) {
+        $p = Join-Path $pinDir ".github\workflows\$name"
+        $t = [System.IO.File]::ReadAllText($p).Replace(('          ref: ' + $TestSharedPin), ('          ref: ' + $pinPath[$name]))
+        [System.IO.File]::WriteAllText($p, $t)
+    }
+    $before = [System.IO.File]::ReadAllText((Join-Path $pinDir '.github\workflows\fold-on-merge.yml'))
+    $rPin = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rPin.Flat -like "*at 'main' -- a moving ref, beside a write credential*") 'a write runner still on main is reported as a moving ref'
+    Assert-True ($rPin.Flat -like "*at v0.0.1, behind v$pluginVersion which this run came from*") 'a write runner pinned at an older release is reported as behind'
+    Assert-True ($rPin.Flat -notlike "*at v$pluginVersion, behind*") 'a write runner pinned at this release says nothing'
+    Assert-Equal 2 ([regex]::Matches($rPin.Flat, '\[pin\] it fetches')).Count 'exactly the two stale runners are reported -- not the current one, not repo-settings'
+    Assert-Equal $before ([System.IO.File]::ReadAllText((Join-Path $pinDir '.github\workflows\fold-on-merge.yml'))) 'and the file itself is left exactly as it was'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

@@ -12,7 +12,7 @@ paths:
 
 # Language — which layers are English, and the exceptions
 
-The norm itself lives in [`CLAUDE.md`](../../CLAUDE.md#language) because it governs every turn. **This
+The norm itself lives in [`this-repo.md`](this-repo.md#language) because it governs every turn. **This
 file is the per-layer detail**, path-scoped so it loads when you actually touch one of those layers
 rather than in every session.
 

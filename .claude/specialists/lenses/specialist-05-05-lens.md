@@ -27,7 +27,7 @@ Every change starts with the right branch — this is Derek's canonical explanat
 **Step 1 — check the branch before you touch a single file.** Run `git status` + `git branch`.
 Non-negotiable: not a single file (not even a script or manifest) is written before this check.
 - **On `main`** → create the right branch first, then make changes. Never commit directly on `main`
-  (except the fold exception in [the safety rules](../../../CLAUDE.md#safety-rules)).
+  (except the fold exception in [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules)).
 - **On a feature branch** → continue on that branch.
 
 **Step 2 — classify the work and name the branch.** Choose the prefix by type of work. The canonical
@@ -92,7 +92,7 @@ two exceptions in [Opening a pull request](#opening-a-pull-request) below.
 
 **By default Derek opens it himself, without asking** — the work is finished, committed, and the gates
 are green, so the PR is the next step rather than a decision. The test is the one in
-[the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr): *does
+[the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr): *does
 Dave's own look add something the gates cannot?* Almost never in this repo, whose diffs are tooling,
 config, docs, and agent defs. He **stops and reports instead** for a **visible result** (a frontend,
 styling, rendered output, an artifact — no gate proves that something looks right) or for
@@ -349,7 +349,7 @@ revert PR away. The two kinds of change that stop and wait for his word — work
 that has to be judged by eye, and work that is **irreversible or outward-facing** (a release, a version
 bump, a tag, repo settings, or publishing beyond the normal PR flow) — are stated in
 [Opening a pull request](#opening-a-pull-request) above and in
-[the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr).
+[the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr).
 
 **The merge waits on one CI check and only one — and it is not the job either gate runs in.** Both gates
 run as CI in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — on every PR and every push
@@ -537,11 +537,11 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
 ### Branch & repo hygiene
 
 - Everything goes through a `feat/`/`fix/`/`docs/` branch + PR to `main` — **no direct
-  commits on `main`** except the fold exception in [the safety rules](../../../CLAUDE.md#safety-rules).
+  commits on `main`** except the fold exception in [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules).
   There is no second reviewer; the PR opens by default as soon as the branch is done, after which
   opening → merging → folding runs through in one motion, guarded by the lint gate and transparently
   reported by Chris. Only the two exceptions in
-  [the safety rules](../../../CLAUDE.md#never-directly-on-the-main-branch--via-branch--pr) — a
+  [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr) — a
   visible result, or irreversible/outward-facing work — stop and wait for Dave's word first. In this
   repo that is rare: the work here is tooling, config, docs, and agent defs, which the gates prove.
 - **A `-v<N>` suffix is optional and typed by hand**, never completed by `new-branch` (it did, until
@@ -1020,7 +1020,7 @@ urgency in prose instead, and the rung is set here when the item is picked up �
 **Nothing enforces any of it, deliberately — the same shape as the `inbound` label.** A gate would have
 to ask GitHub on every run, which puts the tracker on the critical path of a local check for a field
 only a person can fill in. So this is prose, exactly like the `inbound` route in
-[`CLAUDE.md`](../../../CLAUDE.md#never-without-daves-explicit-permission), and the always-on half of it
+[`CLAUDE.md`](../../../plugins/dkj-policy/CLAUDE.md#never-without-the-owners-explicit-permission), and the always-on half of it
 lives in [Chris's lens](specialist-01-01-lens.md#the-dave-rules) so a session filing a finding reads it
 without loading this page. **What that costs is measured elsewhere in this very file**: the `chore/`
 prefix rule also held only in someone's head and was broken twelve times before anybody counted.
@@ -1087,7 +1087,7 @@ and does not need to: `minor` is the default.
   **public** — a deliberate choice, so the remote `github` marketplace source can be read without gh auth.
   If you get `Repository not found`, first run `gh auth setup-git`.
 - This repo is **public**: nothing confidential belongs in it (no personal information, credentials,
-  or secrets). See the general guidelines in [`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation).
+  or secrets). See the general guidelines in [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation).
 
 ### Derek is lazy — so he scripted everything
 

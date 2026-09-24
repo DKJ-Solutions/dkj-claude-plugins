@@ -44,7 +44,654 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**11 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2375-boardless-status-map-line · 20260923-214244Z
+
+The `asana-mirror` run printed a repo's deliberate "no project board" declaration as an empty field and a
+dangling comma, so its CI log could not tell that answer from a broken map. It now says the repo has no
+project board and that stage floors come from the issue itself.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Visible in a board-less store's `asana-mirror` CI log once its template copy is refreshed (xoxowildhearts
+declared itself board-less the day this was filed); nothing it does changes.
+
+**Score:** 1
+
+#### Pull Request
+
+asana-mirror: a board-less repo's status-map line says there is no board
+
+Plugins: dkj-policy-bwj
+
+[PR #2401](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2401)
+
+---
+
+### DEPLOY: feat/2395-release-all · 20260923-212655Z
+
+`claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
+claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
+it only lists what it would release. Markers written by any other tag are never touched, including
+another machine under the same account, and an assignee with no marker of this tag stays in place. A
+marker only counts as this tag's when the comment was actually written by this tag's account, so a
+comment somebody else posts with your tag in it cannot trigger a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -Tag -ReleaseAll
+
+Plugins: dkj-policy
+
+[PR #2400](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2400)
+
+---
+
+### DEPLOY: fix/2338-merge-on-green-trunk-code · 20260923-211820Z
+
+The merge-on-green runner checked out an armed pull request's head with `FOLD_PUSH_TOKEN` in the workspace
+and then ran code from that checkout, so being able to push a branch meant being able to run code with a
+token that bypasses the trunk ruleset. The picker now refuses a pull request whose diff touches code the
+runner executes, and the runner refuses any checkout other than the commit the picker judged (#2338).
+
+**Score:** 3 -- closes a privilege widening on the one runner that holds the standing write token; a
+pull request touching scripts now ships from a session instead.
+
+#### What makes this deploy extra special
+
+A consumer's scaffolded `merge-on-green.yml` ran the plugin's `ship-pr.ps1`, and that dot-sourced the
+branch's `scripts/repo-config.ps1` with the consumer's `FOLD_PUSH_TOKEN` in place. The picker fix reaches
+them as soon as their runner checks out the source's `main`. The SHA pin reaches them when
+`adopt-ci-floor` reports their runner as drifted and they re-apply it.
+
+**Score:** 3 -- a security fix to a runner consumers adopted; those who use merge-on-green will see
+script-touching pull requests left for a session.
+
+#### Pull Request
+
+merge-on-green: never run code from an armed branch that changes what the ship executes
+
+Plugins: dkj-policy
+
+[PR #2346](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2346)
+
+---
+
+### DEPLOY: docs/2376-sweep-ship-resolves · 20260923-210524Z
+
+`sweep-issues` told a session to ship with a bare `ship-pr.ps1`, which `open-pr`'s resolves gate refuses on
+every sweep branch, because the branch and its entry always name the issue. Step 5 now prints
+`ship-pr.ps1 -Resolves <n>`, names `-NoResolves` for a branch that is only one step of a larger issue, and
+step 6 points at the same command.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog no longer loses a round trip on every issue to a refusal the
+skill's own command caused.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: the ship lines name -Resolves, so a sweep branch passes open-pr's resolves gate
+
+Plugins: dkj-policy
+
+[PR #2398](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2398)
+
+---
+
+### DEPLOY: fix/2392-candidates-read-remote-branches · 20260923-205323Z
+
+`claim-issue.ps1 -Candidates` now reads origin's branches once for the whole backlog. An open issue with
+no claim marker but a `<prefix>/<n>-<name>` branch on origin reads `branch` instead of `free`, and the
+reason names the branch, its author and how long ago it last moved. A claim marker still takes
+precedence. If the branch listing cannot be read, the run still judges from the tracker and says that
+`free` then means only "no claim marker".
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep no longer offers you an issue somebody else is already building just because they did not
+claim it by tag. Before this, the only warning came after the claim was written, one issue at a time.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue -Candidates: an unmarked issue with a branch on origin reads 'branch', not 'free'
+
+Plugins: dkj-policy
+
+[PR #2396](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2396)
+
+---
+
+### DEPLOY: feat/2374-global-claude-md · 20260923-204008Z
+
+The rules a repo runs under now ship with `dkj-policy` itself: one [`CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md)
+holding the constitution and the general working practices, plus a
+[`dkj-policy-bwj` extension](../plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md) for the BWJ repos. A
+consumer's own `CLAUDE.md` now holds **only** the `@`-import line(s) and nothing else -- no rules, no
+facts, no repo block. A repo's own facts (trunk, public or not, owner, purpose) move to an unscoped
+rule such as `.claude/rules/<name>.md`, loaded every session exactly as `CLAUDE.md` was; a fact that
+belongs to one specialist alone moves to that specialist's own lens. The
+`consumer-prose-sessioncheck` hook warns at session start where the import line is missing and prints
+it for the consumer's own marketplace name; the `specialists-init` scaffold stops inviting a local
+constitution. This repo runs the same model, one step further than the branch's original plan: its
+constitution moved into the plugin, and its former repo slot -- everything specific to this repo that
+used to sit inside `CLAUDE.md` -- moved whole into `.claude/rules/this-repo.md`. Root `CLAUDE.md` is
+now a one-line title plus the three `@`-imports, and nothing else.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- a repo-governance change; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+One global CLAUDE.md shipped by dkj-policy, imported by consumers
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2390](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2390)
+
+---
+
+### DEPLOY: feat/2387-claim-takeover · 20260923-193109Z
+
+`claim-issue.ps1 <n> -Tag -TakeOver` hands a `held` issue over to this machine, deliberately and visibly,
+when the holder is this same gh account on another machine and exactly one branch for the issue is on
+origin. It removes the old marker, claims under this tag through the ordinary path, leaves a comment naming
+the old tag, the new tag and the branch, and prints the checkout, so the old machine's `-Verify` reads
+`[NO]`. A colleague's claim, an issue with no branch on origin, and one with several are each refused.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep run across several of your own machines no longer strands an issue on a machine you cannot reach:
+the work parked on origin can be picked up from any of them in one command, without deleting a marker by
+hand.
+
+**Score:** 3
+
+#### Pull Request
+
+claim-issue -Tag -TakeOver: hand a held issue over to this machine when its branch is on origin
+
+Plugins: dkj-policy
+
+[PR #2391](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2391)
+
+---
+
+### DEPLOY: fix/2388-durations-merge-advice · 20260923-191439Z
+
+`record-suite-durations.ps1`'s no-table refusal used to send the caller from a `fold:` run to the
+`merge:` run beside it. Since the merge-commit certificate (#2303), that run normally has no suite table
+either. The refusal and the `-RunId` docstring now name a PR run, the run that always has one. This prevents a
+failure that already happened twice during #2304's duration re-reads: a maintainer following the throw's
+advice to a second tableless run.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+record-suite-durations: the no-table refusal names a PR run, not a merge run
+
+[PR #2389](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2389)
+
+---
+
+### DEPLOY: feat/2333-pin-write-runners · 20260923-183716Z
+
+The three consumer runners that hold a write credential no longer run this repo's scripts at `main`.
+`adopt-ci-floor` now checks the shared scripts out for the fold, the resolves verification and
+merge-on-green at the commit the adopting plugin's release was tagged at, written as
+`ref: <sha> # v<version>`. Until now a change landing on this repo's trunk reached `FOLD_PUSH_TOKEN`'s
+contents and pull-request write in every adopted consumer on its next run, with no release in between.
+The read-only gates keep `ref: main`, where the stale-convention argument still holds. The pin has to
+move, so re-running `adopt-ci-floor` now reads every existing write runner and reports one still on
+`main` or pinned behind the version it came from, with the value to put there. It never rewrites the
+file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer that adopted the CI floor before this release keeps `ref: main` in its write runners until
+somebody edits them, because the scaffolder never rewrites a file. Re-running `adopt-ci-floor` is what
+tells them, one `ref:` line per runner. A floor adopted from now on is pinned from the start.
+
+**Score:** 2
+
+#### Pull Request
+
+The write runners adopt-ci-floor places now pin the shared scripts to a release
+
+Plugins: dkj-policy
+
+[PR #2345](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2345)
+
+---
+
+### DEPLOY: feat/2304-split-integrity-entries · 20260923-182014Z
+
+`check-plugin-integrity-entries.tests.ps1` is three suites now, and CI runs on five shards instead of
+four. The re-read durations showed the gate bound by total work (453.8s over 16 lanes) with `-entries`
+(426.1s) the file a fifth shard would stop at, so both levers go in together: the expected floor is
+`new-branch.tests.ps1` at 380.2s. All 86 asserts are preserved and were verified by running the three
+parts. Step 4 of #2304.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The first step of #2304 that moves the shard count, and the one where the issue's own ordering is
+applied rather than quoted: a split alone would have bought nothing here, and a shard alone would have
+stopped at the file this change splits. A sixth shard buys nothing until `new-branch` is split.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-entries and add a fifth CI shard: step 4 of the CI critical path
+
+[PR #2385](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2385)
+
+---
+
+### DEPLOY: fix/2379-native-capture-exitcode-flake · 20260923-181117Z
+
+`native-capture.tests.ps1` no longer goes red on #1931's 1-in-300 unmeasured exit code
+([#2379](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2379)). The exact-exit asserts on the
+Start-Process arm now re-ask a real child up to three times, and only while the lib itself reports
+`ExitCodeUnknown`. The regression they guard is a dropped `.Handle` read, which empties every attempt, so
+it still fails. The lib is unchanged: it was already reporting the race correctly. Nobody outside this
+repo's CI notices.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: test-only, never reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+native-capture.tests: re-ask an -Utf8 exit-code assert only while the lib reports ExitCodeUnknown
+
+[PR #2383](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2383)
+
+---
+
+### DEPLOY: fix/2384-run-progress-fixed-clock · 20260923-180053Z
+
+`run-progress.tests.ps1` asserted two exact elapsed strings (`+6m12s`, `+11m48s`) while taking the
+record's start and the reader's "now" from two separate clock reads. On a loaded CI runner two
+seconds passed between them, and one red suite turned the required `lint-en-tests` check red on a PR
+that never touched run-progress
+([#2384](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2384)). Both sections now read
+one instant and hand it to `Get-LiveRunProgress -NowUtc`, a parameter the lib already had. Test-only.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+run-progress tests: pin the clock the elapsed asserts read
+
+[PR #2386](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2386)
+
+---
+
+### DEPLOY: fix/2381-merge-on-green-ps51-parse · 20260923-174821Z
+
+The merge-on-green sweep could never pick an armed pull request under Windows PowerShell 5.1, which
+is what its runner uses. `ConvertFrom-Json` wrote the whole `gh pr list` array as one record with no
+number, and the sweep skipped that record without saying so. Every run then reported "0 armed pull
+request(s), none eligible yet" while PR #2345 sat armed and green. The list is now enumerated
+through a tested lib function (`ConvertFrom-MergeOnGreenListJson`). A skipped record prints a line,
+and "armed but nothing evaluated" is reported as the contradiction it is, not as a wait
+([#2381](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2381)). The script travels in
+`dkj-policy` and consumer runners fetch it at `ref: main`, so every adopted consumer's sweep starts
+merging on its next run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+merge-on-green: enumerate the armed list under PowerShell 5.1 and say why a record is skipped
+
+Plugins: dkj-policy
+
+[PR #2382](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2382)
+
+---
+
+### DEPLOY: docs/2368-asana-mirror-write-comment · 20260923-152143Z
+
+`dkj-policy-bwj`'s `asana-mirror.yml` template and its `WORKFLOW-portable.md` step 5 said the
+workflow's `issues: write` only ever edits labels. Since 5.5.0 it also posts one comment, the
+paste-block backstop on a closed issue that has no paste-ready block yet. Both passages now name the two
+writes ([#2368](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2368)). The permission
+does not change. The failure this prevents has not happened yet: a reviewer who takes the old comment at
+its word and narrows the scope to labels would break the backstop without noticing.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror: the issues: write rationale names both GitHub writes
+
+Plugins: dkj-policy-bwj
+
+[PR #2380](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2380)
+
+---
+
+### DEPLOY: docs/2360-asana-task-only-with-reach-label · 20260923-151130Z
+
+`report-issue` created a colleague-facing Asana task for every issue it filed, although step 1 had just
+decided whether a colleague would notice the finding at all. Now only an issue carrying the reach label
+gets a card; a tier-0 issue stays GitHub-only, and the report says so, so the missing card reads as a
+decision. A ticket that came from Asana keeps its card, and an issue that gains the label later is
+mirrored at that moment. The rule is stated in `WORKFLOW-portable.md` section 2.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store's board stops receiving cards for developer-only findings after the next plugin update: four
+such cards were open in `smartwatchbanden` on the day the rule was written, one of them for a
+comment-only fix whose card forced its pull request to ship without resolving the issue. Colleagues see
+fewer cards, and every card that remains is one they can check in a preview.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue: only an issue carrying the reach label gets an Asana task
+
+Plugins: dkj-policy-bwj
+
+[PR #2377](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2377)
+
+---
+
+### DEPLOY: fix/2304-rerecord-durations-after-split · 20260923-145307Z
+
+Re-recorded `scripts/tests/suite-durations.json` from three CI runs carrying the split
+`check-plugin-integrity-*` layout (#2304). The file still named the pre-split suites, so the nine new
+ones were charged the largest recorded value and the gate packed shards off guesses. The reading:
+the pool is 7,260.5 s over 16 lanes, a work bound of 453.8 s, and no single file reaches it any more
+-- `-entries` is heaviest at 426.1 s -- so CI is now bound by total work, not by one file. The splits
+were not free: the `check-plugin-integrity-*` family went from 2,084.3 s to 2,679.0 s of pool work
+(+594.7 s), because each file builds its own fixture. That is what the next step has to weigh, since
+another split raises the work bound it is meant to get under.
+
+**Score:** 1 -- prevents the gate packing CI shards off maximum-charged guesses for nine suites; no
+reader notices it except as CI wall-clock.
+
+#### What makes this deploy extra special
+
+N/A -- data file only; nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-record CI suite durations after the check-plugin-integrity splits
+
+[PR #2378](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2378)
+
+---
+
+### DEPLOY: fix/2362-roster-sync-clean-hook-under-load · 20260923-143338Z
+
+`roster-sync.tests.ps1` read a hook child that never finished as a hook that answered wrongly: the hook
+exits 0 on every path, so its "exit 0 when clean" case failing with exit 1 under the parallel gate was a
+run that did not complete, and the runner, which captured stdout only, kept nothing that said why. It
+now captures stderr, prints that evidence on an off-contract exit, and runs the child once more. A hook
+that really stops exiting 0 still fails every assert that reads it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a test suite only; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+roster-sync: the clean-hook case tells a fixture failure from a verdict under the parallel gate
+
+[PR #2373](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2373)
+
+---
+
+### DEPLOY: feat/2352-needs-info-message-form · 20260923-141637Z
+
+`dkj-policy-bwj` now carries the requester message for an issue sent back with `needs-info`, and the
+paste-ready block asks the requester for something. Both lived only in a consumer page that was deleted
+on September 23 ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)).
+`WORKFLOW-portable.md` step 6 makes setting the label and writing the question one act, and gives the
+comment's shape. The issue stays open and the label is left for whoever brings the answer. Step 4
+gains the five rules for what the block asks and names the Asana task's assignee as the one who
+carries it across and closes the issue. `build-golive-block.ps1` now ends the block with that ask
+whenever it is given a result link.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every paste-ready block a BWJ store posts after the update ends by asking the colleague who filed the
+ticket to look at the result themselves. An approval ticks off the task. A rejection names what is
+wrong and what should change, and the issue reopens. The release happens either way. A ticket sent
+back for more information now has a prescribed question on it rather than an empty card in the
+blocked column.
+
+**Score:** 3
+
+#### Pull Request
+
+The needs-info requester message and the paste-ready block's ask, carried in dkj-policy-bwj
+
+Plugins: dkj-policy-bwj
+
+[PR #2371](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2371)
+
+---
+
+### DEPLOY: feat/2304-split-integrity-commands · 20260923-140338Z
+
+`check-plugin-integrity-commands.tests.ps1` was the CI gate's critical path once steps 1 and 2 had
+split `-docs` and `-links`: 498.3s against a 391s work bound. It is now four suites, cut at check
+boundaries and balanced on gate invocations, and side by side on one workstation the longest part took
+64s against the original's 184s. All 132 asserts are preserved and were verified by running the four
+parts. This is step 3 of #2304: the heaviest remaining file, `-entries` at 377.7s, is below the work
+bound, so from here the gate is bound by total work rather than by one file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This is the step where the lever changes. Until now each split moved the critical path to the next
+heaviest file; after this one no single file is above the 391s work bound, so the next saving comes from
+a shard (or a split that goes with one), not from a split alone -- which is exactly what ci.yml's matrix
+comment has said since #1358. The cut again surfaced state carried across a block boundary, this time a
+variable rather than a file, and it is stated again in the suite that reads it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-commands into parallel suites: step 3 of the CI critical path
+
+[PR #2370](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2370)
+
+---
+
+### DEPLOY: fix/2364-parallel-gate-flaky-suites · 20260923-132216Z
+
+Three causes behind "red under the parallel gate, green alone" in two test suites, repaired in the
+suites and nowhere else. A one-line sibling in the deadline case was held to a 3s ceiling it cannot
+meet under load (8.6s measured); six lane-count asserts refused the lane-hold note a memory-starved
+run appends; and the integrity fixture read a child gate that stopped before its report as a gate
+that found nothing. The fourth symptom the issue names, the nested-gate case, has no surviving
+capture, so it now prints its own evidence when red instead of being given a guessed cause.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- test suites only; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Two suites fail under the parallel open-pr gate and pass alone
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2367](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2367)
+
+---
+
+### DEPLOY: feat/2304-split-integrity-links · 20260923-130118Z
+
+`check-plugin-integrity-links.tests.ps1` was the CI gate's critical path once step 1 had split `-docs`:
+539.2s against a 391s work bound. It is now four suites, cut at check boundaries and balanced on gate
+invocations, and side by side on one workstation the longest part took 55s against the original's
+159s. All 141 asserts are preserved and were verified by running the four parts. This is step 2 of
+#2304; the critical path moves to `-commands` (498.3s), so the shard count does not change and the
+issue stays open for steps 3 and 4.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The cut surfaced the same class of defect step 1 did, one layer up: the fixture writes no root
+documents, so checks 10, 28, 29, 30 and 32 had all been starting from the files check 4's scenario B
+happened to leave behind. Two leaned on it outright -- check 28's file-relative proof needs a root
+`CONTRIBUTING.md`, and check 32 reads that file back to restore it. It is now stated once in the fixture
+instead of inherited, which is the second time a weight-based split has found state that only held
+because two scenarios shared a file.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split check-plugin-integrity-links into parallel suites: step 2 of the CI critical path
+
+[PR #2366](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2366)
+
+---
+
+### DEPLOY: fix/2358-claim-marker-comma-split · 20260923-120648Z
+
+`claim-issue.ps1 -Marker` now splits a comma list into names. Under the documented
+`powershell -File` route a list such as `-Marker claim-tag,xoxo-lane` arrived as one literal string,
+was written as a compound marker name and read as one, so a machine passing a predecessor list could not
+see ordinary `claim-tag` claims and its own claims were invisible to every other machine. Only the first
+name is written now, every name is read, and a compound marker already written before this repair is
+still recognised whenever one of its parts is a listed name
+([#2358](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2358)). `-SkipLabel` and
+`-SkipIssue` had the same defect and are split the same way; `-SkipIssue` was the sharper case, since an
+`[int[]]` under `-File` read `12,34` as the single issue `1234`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer sweeping one backlog from several machines with `-Tag` stops seeing claimed issues listed
+as free after a plugin update, and the compound markers already on its issues keep holding.
+
+**Score:** 4
+
+#### Pull Request
+
+claim-issue -Marker splits a comma list, so -File callers read every predecessor name
+
+Plugins: dkj-policy
+
+[PR #2365](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2365)
+
+---
+
+### DEPLOY: fix/2347-release-asset-reupload-by-id · 20260923-114927Z
+
+The `cut-release` skill told the second pass to re-upload an edited release document with `gh release
+upload --clobber`. At `v5.7.0`, on gh 2.101.0, that returned `HTTP 422 ... ReleaseAsset.name already
+exists` and left the stale asset in place, and `gh release delete-asset` reported it *not found*. A new
+shared script, `upload-release-asset.ps1`, now does both uploads: it reads the Release's assets from the
+`releases/{id}/assets` endpoint (not `gh release view`, which listed none for `v5.7.0`), deletes a same-named asset **by id**, uploads without `--clobber`, and exits 1 unless the
+published asset has the file's exact byte count. The skill page and `RELEASES-portable.md` call it at
+step 5 and in the second pass (#2347).
+
+**Score:** 2 -- the old one-liner failed loudly but left the published note one revision behind, and
+the fallback a reader reached for failed too; the byte check replaces a size somebody had to watch.
+
+#### What makes this deploy extra special
+
+N/A -- the reader is whoever cuts a release in a repo running this workflow, and for them it is a
+different command at two steps of the same checklist, nothing to migrate.
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release: re-upload a Release attachment by asset id and verify its byte count
+
+Plugins: dkj-policy
+
+[PR #2357](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2357)
+
+---
 
 ### DEPLOY: docs/specialists-update-commands · 20260923-113308Z
 

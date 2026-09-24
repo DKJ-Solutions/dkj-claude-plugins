@@ -74,6 +74,23 @@ function Assert-True {
     }
 }
 
+# A REAL CHILD ON THE Start-Process ARM, RE-ASKED ONLY WHILE THE LIB ITSELF SAYS THE EXIT CODE IS NOT A
+# MEASUREMENT (issue #2379). ExitCodeUnknown is #1931's documented race -- about 1 in 300 fresh children
+# hand back a $null .ExitCode even after .Handle was read -- and an exact-exit assert that takes that
+# single answer goes red on a docs-only PR (run 35875626302, shard 4). The regression those asserts
+# guard is the OTHER empty: a dropped .Handle read, which empties EVERY attempt, so three attempts still
+# fail it every time while the race does not survive them. A timed-out or not-started capture is never
+# re-asked: neither is the race, and hiding either would be the retry-as-fix the lib's docstring refuses.
+function Invoke-MeasuredCapture {
+    param([hashtable]$Splat, [int]$Attempts = 3)
+    $r = $null
+    for ($i = 0; $i -lt $Attempts; $i++) {
+        $r = Invoke-NativeCapture @Splat
+        if ($r.TimedOut -or $r.NotStarted -or -not $r.ExitCodeUnknown) { return $r }
+    }
+    return $r
+}
+
 $sandbox = Join-Path ([System.IO.Path]::GetTempPath()) ("native-capture-tests-$PID-$([guid]::NewGuid().ToString('n'))")
 if (Test-Path -LiteralPath $sandbox) { Remove-Item -Recurse -Force -LiteralPath $sandbox }
 New-Item -ItemType Directory -Path $sandbox -Force | Out-Null
@@ -291,12 +308,28 @@ try {
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- exit codes and stderr' -ForegroundColor Cyan
 
-    $ok  = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'exit', '0')
-    $bad = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'exit', '3')
+    $ok  = Invoke-MeasuredCapture @{ Utf8 = $true; FilePath = 'cmd'; Arguments = @('/c', 'exit', '0') }
+    $bad = Invoke-MeasuredCapture @{ Utf8 = $true; FilePath = 'cmd'; Arguments = @('/c', 'exit', '3') }
     Assert-Equal 0 $ok.ExitCode  'exit 0 is reported as 0'
     # Not merely "non-zero": Start-Process -PassThru without reading .Handle returns an EMPTY
     # ExitCode once the child has exited, and empty is not 3. This is the assert that catches it.
     Assert-Equal 3 $bad.ExitCode 'a non-zero exit code is reported exactly, not as empty'
+
+    # THE RE-ASK ITSELF, PINNED IN BOTH DIRECTIONS (#2379), against a stand-in so neither half waits on a
+    # 1-in-300 race. The & call gives the stand-in a child scope, so the lib's own function is untouched.
+    & {
+        $script:askCount = 0
+        function Invoke-NativeCapture {
+            $script:askCount++
+            if ($script:askCount -lt 3) { return [pscustomobject]@{ ExitCode = $null; TimedOut = $false; NotStarted = $false; ExitCodeUnknown = $true } }
+            return [pscustomobject]@{ ExitCode = 3; TimedOut = $false; NotStarted = $false; ExitCodeUnknown = $false }
+        }
+        $raced = Invoke-MeasuredCapture @{}
+        Assert-Equal 3 $raced.ExitCode 'a race that clears within three asks yields the measured code'
+        $script:askCount = -10
+        $dropped = Invoke-MeasuredCapture @{}
+        Assert-True ($null -eq $dropped.ExitCode) 'an empty that persists (a dropped .Handle read) is still handed back empty after three asks'
+    }
 
     $merged    = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'echo oops 1>&2')
     $discarded = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'echo oops 1>&2') -DiscardStderr
@@ -443,7 +476,7 @@ try {
     # A BOUND THAT DOES NOT EXPIRE CHANGES NOTHING. This is the assert that keeps the bound from
     # becoming a second failure mode of its own: the exit code still comes back exactly, which is the
     # #907 empty-ExitCode trap the Start-Process arm has to keep clearing.
-    $inTime = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'exit', '7') -TimeoutSeconds 30
+    $inTime = Invoke-MeasuredCapture @{ FilePath = 'cmd'; Arguments = @('/c', 'exit', '7'); TimeoutSeconds = 30 }
     Assert-Equal 7 $inTime.ExitCode   'a bounded call that finishes in time reports its own exit code'
     Assert-True  (-not $inTime.TimedOut) 'and does not claim to have timed out'
 
@@ -830,7 +863,7 @@ Write-Output "GATE-VERDICT=`$ok"
     Assert-True ($null -ne $ampRun.PSObject.Properties['ShortRead']) 'the & arm returns a ShortRead field'
     Assert-True (-not $ampRun.ShortRead) 'and it is false -- the & operator reads the pipeline directly, so there is no capture file to truncate'
 
-    $utf8Run = Invoke-NativeCapture -FilePath 'git' -Arguments @('--version') -Utf8
+    $utf8Run = Invoke-MeasuredCapture @{ FilePath = 'git'; Arguments = @('--version'); Utf8 = $true }
     Assert-True ($null -ne $utf8Run.PSObject.Properties['ShortRead']) 'the -Utf8 arm returns a ShortRead field'
     Assert-True (-not $utf8Run.ShortRead) 'and an ordinary clean child is not a short read -- the probe must not cry wolf on the normal case'
     Assert-Equal 0 $utf8Run.ExitCode 'the fixture command really did succeed, so the assert above is about the read and not about a failure'
@@ -1823,7 +1856,26 @@ foreach ($af in $auditFiles) {
 # The scan's sibling read -- the `git diff --name-only` for this branch's own paths -- is deliberately
 # NOT bounded: it touches no network, and the standing convention here bounds the calls that can hang
 # on one.
-Assert-Equal 71 $boundedTotal 'the parser still counts 71 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 71 -> 75 (#2347): upload-release-asset.ps1's release-id read, asset-list read, by-id delete and upload -- all four network
+# calls, each judged through Test-NativeExitMeasured / Get-NativeExitLabel.
+# 75 -> 76 (#2333): adopt-ci-floor.ps1's $lsRemote, the `git ls-remote` that resolves the release tag's
+# commit for the write runners' pin. Bounded at the shared network bound. Its failure direction is a
+# weaker pin rather than none: any read that did not answer 0 -- failed or unmeasured -- leaves the SHA
+# unresolved and the runner is pinned to the TAG instead, which the script reports in yellow.
+# 76 -> 78 (#2387): claim-issue.ps1's -TakeOver adds $heads, the `git ls-remote --heads origin` that proves the
+# issue's branch is on origin, and $posted, the handover comment. Both at the shared network bound, both judged
+# through Test-NativeExitMeasured: an unmeasured $heads REFUSES (the branch is the precondition), an unmeasured
+# $posted only warns (the claim is the marker, already settled). The $del delete moved into the shared
+# Remove-ClaimMarkerComments helper and is still one site.
+# 78 -> 79 (#2392): claim-issue.ps1's -Candidates adds $refList, the `git for-each-ref refs/remotes/origin` that
+# names every issue with a branch on origin. Counted for its -Utf8 (author names are data), not bounded: it is a
+# local read, after the fetch that is. Judged through Test-NativeExitMeasured, and an unmeasured read never
+# refuses -- the tracker half still stands -- it prints that 'free' then means only "no claim marker".
+# 79 -> 80 (#2395): claim-issue.ps1's -ReleaseAll adds $ownList, the one `gh issue list` it releases from. At the
+# shared network bound, judged through Test-NativeExitMeasured, and an unmeasured read REFUSES: an unread backlog
+# reported as "nothing to release" would send the operator to the next machine with every marker standing. The
+# -Release $unassign moved into the shared Remove-ClaimAssignee helper and is still one site.
+Assert-Equal 80 $boundedTotal 'the parser still counts 80 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

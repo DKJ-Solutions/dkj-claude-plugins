@@ -139,3 +139,152 @@ function Get-CheckProseCorpus {
 
     return @(Get-AlwaysOnDocuments -RootDocument $root -RepoRoot $RepoRoot)
 }
+
+function Get-ConstitutionImportLine {
+    <#
+        The '@'-line a consumer's CLAUDE.md carries to load the dkj-policy constitution (issue #2374):
+        one ABSOLUTE path into the marketplace clone, never into the version-pinned cache -- the same
+        reasoning bootstrap.ps1's Get-DurablePersonaDir gives for the orchestrator import (an '@'-import
+        takes no variable, and the cache directory is purged after an update).
+
+        THE MARKETPLACE SEGMENT IS READ OFF THIS FILE'S OWN LOCATION where it can be. A consumer runs this
+        from '~/.claude/plugins/cache/<marketplace>/dkj-policy/<version>/scripts/lib', and <marketplace>
+        is the name its clone sits under -- which is not always the canonical one: a consumer registered
+        before the September 10, 2026 rename still has 'claude-code-specialists'. Anywhere else (the
+        source tree, a test) the canonical name is used.
+    #>
+    param([string]$LibDir = $PSScriptRoot)
+    $marketplace = 'dkj-claude-plugins'
+    $parts = @(($LibDir -replace '\\', '/').Split('/') | Where-Object { $_ })
+    for ($i = 0; $i -lt $parts.Count - 2; $i++) {
+        if ($parts[$i] -ieq 'cache' -and $i -gt 0 -and $parts[$i - 1] -ieq 'plugins' -and $parts[$i + 2] -ieq 'dkj-policy') {
+            # A SLUG OR NOTHING. The segment is the name a repo's own committed settings.json registered
+            # the marketplace under, and this line is forwarded into session context by the hook -- so
+            # anything but a plain slug falls back to the canonical name rather than being printed.
+            if ($parts[$i + 1] -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { $marketplace = $parts[$i + 1] }
+            break
+        }
+    }
+    return "@~/.claude/plugins/marketplaces/$marketplace/plugins/dkj-policy/CLAUDE.md"
+}
+
+function Test-ConstitutionImported {
+    <#
+        Does this always-on closure '@'-import the dkj-policy constitution (issue #2374)? Matched on the
+        tail of the resolved path -- '.../plugins/dkj-policy/CLAUDE.md' -- so the absolute marketplace
+        form, any marketplace name, and the source repo's relative form all count. A row that does NOT
+        resolve (Exists = $false) still counts: the line is written, and a clone that has not refreshed
+        yet is a lag the next 'claude plugin marketplace update' closes, not a missing import.
+    #>
+    param([AllowNull()][AllowEmptyCollection()][object[]]$Documents)
+    foreach ($d in @($Documents)) {
+        if ($null -eq $d) { continue }
+        $p = ([string]$d.Path) -replace '\\', '/'
+        if ($p -imatch '/plugins/dkj-policy/CLAUDE\.md$') { return $true }
+    }
+    return $false
+}
+
+function Get-RootClaudeMdProseLines {
+    <#
+        Every line of a consumer's ROOT 'CLAUDE.md' -- the one FILE, not the '@'-import closure it may
+        open onto -- that is neither blank, an '@'-import, a single H1 title, nor an HTML comment. Dave's
+        supersedure of issue #2374 (September 23, 2026): the root document holds ONLY '@'-import lines
+        now (plus at most that H1, blank lines, and HTML comments), and every fact about the repo moves
+        to an unscoped '.claude/rules/<name>.md', with a specialist's own repo-specific rule moving to
+        its lens. This is the detector for THAT rule.
+
+        A SECOND, INDEPENDENT DETECTOR FROM Test-ConstitutionImported ABOVE, which asks only whether the
+        one constitution line is present. A root file can import the constitution correctly and still
+        carry paragraphs of the repo's own law beneath it -- that is what this function reports, and
+        neither function's verdict implies the other's.
+
+        DELIBERATELY THE ROOT FILE ALONE, NOT THE WALKED CLOSURE. An imported document -- a rule page, a
+        lens -- is judged by the other two consumer-prose detectors (Get-RetiredDocNameMention,
+        Get-SupremacyDeclaration in entry-scaffold-lib.ps1) against their own conventions; this rule
+        applies to the root file and nowhere else. The walked -Documents rows from Get-AlwaysOnDocuments
+        carry no LINE TEXT, only metadata, so the root is read directly here -- resolved the same way
+        Get-CheckProseCorpus resolves it, via -RootDocument with the same '<RepoRoot>/CLAUDE.md' default.
+
+        FOUR THINGS COUNT AS STRUCTURE, NOT PROSE, and nothing else does:
+          - a blank line;
+          - an '@'-import line -- '@' in column 0 followed by a non-blank target, the same shape
+            Get-ImportLinePath (measure-context-lib.ps1) reads on every other walk in this family,
+            restated here rather than depended on so this function carries no load-order requirement on
+            that lib. MATCHED ON THE RAW LINE, NOT A TRIMMED ONE (Victor #19, code review): Claude Code
+            reads only a column-0 '@' as an import, so an INDENTED '@x.md' is ordinary prose to it --
+            trimming first would exempt exactly the line this rule exists to catch.
+          - ONE H1 title, and only as the FIRST non-blank line of the whole file (Victor #19, code
+            review): '#' then a space then text, not '##' or deeper, and not a SECOND such line further
+            down. Exempting every H1-shaped line unconditionally let a document smuggle a whole second
+            title's worth of text past this gate; a later line that merely looks like a heading is prose
+            that happens to start with '#'.
+          - an HTML comment -- '<!-- ... -->' on one line, or a '<!--' ... '-->' pair spanning several.
+            THE COMMENT CLOSES THE MOMENT THE LINE CONTAINS '-->', WHEREVER IT SITS (Victor #19, HIGH,
+            code review): the first cut of this function tested whether the line ENDED in '-->' (single
+            line) or merely CONTAINED one (continuation), so '<!-- x --> prose' set $inComment and never
+            cleared it, and a multi-line comment whose closing line carried trailing text did the same --
+            silently swallowing the rest of the file as an unclosed comment. Whatever text follows the
+            close marker, on either shape, is evaluated as prose (a finding at that line), never
+            re-classified as a possible import or heading: a mid-line '@' or '#' arriving after real
+            content is not at column 0 and cannot be the first non-blank line either, so prose is the
+            only shape it can honestly be read as.
+
+        Returns one row per offending line (Line, Text). Text is the CONSUMER'S OWN prose and is
+        sanitized by the CALLER exactly like the other two detectors' output -- never printed raw here.
+
+        A MISSING ROOT FILE IS @() AND NOT AN ERROR, matching Get-CheckProseCorpus: a repo with no
+        CLAUDE.md has nothing for this rule to be wrong about.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$RootDocument = ''
+    )
+
+    $root = if ($RootDocument) { $RootDocument } else { Join-Path $RepoRoot 'CLAUDE.md' }
+    if (-not (Test-Path -LiteralPath $root -PathType Leaf)) { return @() }
+
+    $text = [System.IO.File]::ReadAllText($root, [System.Text.Encoding]::UTF8)
+    $lines = $text -split "(?:\r\n|\n|\r)"
+
+    $findings = New-Object System.Collections.Generic.List[object]
+    $inComment = $false
+    # TRUE ONCE ANY NON-BLANK LINE HAS BEEN SEEN, of any shape -- an import, a comment, or prose. The H1
+    # exemption below reads this BEFORE setting it, which is what makes "first non-blank line" mean the
+    # first one in the whole file rather than merely the first one that happens to look like a heading.
+    $sawNonBlank = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $raw = [string]$lines[$i]
+
+        if ($inComment) {
+            $t = $raw.Trim()
+            $closeAt = $t.IndexOf('-->')
+            if ($closeAt -lt 0) { continue }
+            $inComment = $false
+            $after = $t.Substring($closeAt + 3).Trim()
+            if ($after -ne '') { [void]$findings.Add([pscustomobject]@{ Line = $i + 1; Text = $after }) }
+            continue
+        }
+
+        $trimmed = $raw.Trim()
+        if ($trimmed -eq '') { continue }
+
+        $isFirst = -not $sawNonBlank
+        $sawNonBlank = $true
+
+        if ($raw -match '^@\S') { continue }
+        if ($isFirst -and $trimmed -match '^#(?!#)\s+\S') { continue }
+
+        if ($trimmed -match '^<!--') {
+            $closeAt = $trimmed.IndexOf('-->')
+            if ($closeAt -lt 0) { $inComment = $true; continue }
+            $after = $trimmed.Substring($closeAt + 3).Trim()
+            if ($after -ne '') { [void]$findings.Add([pscustomobject]@{ Line = $i + 1; Text = $after }) }
+            continue
+        }
+
+        [void]$findings.Add([pscustomobject]@{ Line = $i + 1; Text = $trimmed })
+    }
+
+    return $findings.ToArray()
+}

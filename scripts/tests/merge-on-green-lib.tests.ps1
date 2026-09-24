@@ -56,7 +56,10 @@ function New-PrRecord {
         [bool]$Draft = $false,
         [string]$Mergeable = 'MERGEABLE',
         [string[]]$Labels = @('merge-when-green'),
-        [bool]$CrossRepo = $false
+        [bool]$CrossRepo = $false,
+        # A diff that touches nothing the runner executes -- the ordinary shape of an armed docs PR.
+        [string[]]$Files = @('dkj-policy/feat-1-x.md', 'README.md'),
+        [int]$ChangedFiles = -1
     )
     return [pscustomobject]@{
         number            = $Number
@@ -65,6 +68,8 @@ function New-PrRecord {
         mergeable         = $Mergeable
         isCrossRepository = $CrossRepo
         labels            = @($Labels | ForEach-Object { [pscustomobject]@{ name = $_ } })
+        files             = @($Files | ForEach-Object { [pscustomobject]@{ path = $_; additions = 1; deletions = 0 } })
+        changedFiles      = $(if ($ChangedFiles -ge 0) { $ChangedFiles } else { @($Files).Count })
     }
 }
 function New-Green { return [pscustomobject]@{ Blocked = $false; Reason = 'ok'; UnfinishedRequired = @() } }
@@ -73,6 +78,38 @@ Write-Host ''
 Write-Host 'Get-MergeOnGreenArmLabel -- the one spelling of the handshake' -ForegroundColor Cyan
 
 Assert-Equal 'merge-when-green' (Get-MergeOnGreenArmLabel) 'the arming label is the one both halves agree on'
+
+Write-Host ''
+Write-Host 'ConvertFrom-MergeOnGreenListJson -- one record per pull request, on 5.1 too (#2381)' -ForegroundColor Cyan
+
+# THE REAL PAYLOAD SHAPE, and the suite runs under whichever edition the gate uses -- on CI that is
+# Windows PowerShell 5.1, the edition that wrapped the whole array as one record.
+$oneJson   = '[{"headRefName":"fix/1-a","isCrossRepository":false,"isDraft":false,"labels":[{"id":"L1","name":"merge-when-green","description":"","color":"0e8a16"}],"mergeable":"MERGEABLE","number":2345}]'
+$threeJson = '[{"number":11,"headRefName":"a/1","labels":[]},{"number":12,"headRefName":"a/2","labels":[]},{"number":13,"headRefName":"a/3","labels":[]}]'
+
+$one = @(ConvertFrom-MergeOnGreenListJson -Json $oneJson)
+Assert-Equal 1 $one.Count 'a one-element list yields one record'
+Assert-True ($one[0].PSObject.Properties['number'] -and $one[0].number -eq 2345) `
+    'and that record IS the pull request, carrying its number -- not an array wrapped around it'
+Assert-True (Test-MergeOnGreenArmed -Record $one[0]) 'and it reads as armed through the same verdict path the sweep uses'
+
+$three = @(ConvertFrom-MergeOnGreenListJson -Json $threeJson)
+Assert-Equal 3 $three.Count 'a three-element list yields three records'
+Assert-Equal '11,12,13' (($three | ForEach-Object { $_.number }) -join ',') 'each one its own pull request, in order'
+
+Assert-Equal 0 @(ConvertFrom-MergeOnGreenListJson -Json '[]').Count 'an empty list yields no records'
+Assert-Equal 0 @(ConvertFrom-MergeOnGreenListJson -Json '').Count 'and so does empty text'
+$threw = $false
+try { $null = ConvertFrom-MergeOnGreenListJson -Json 'not json' } catch { $threw = $true }
+Assert-True $threw 'text that is not JSON throws, so the caller keeps its fail-closed "could not be parsed" verdict'
+
+# THE SCRIPT MUST GO THROUGH IT. The defect was one line in the script that no pure test could see, so
+# the guard is that the line is gone and the function is called instead.
+$pickSrc = Get-Content -LiteralPath $ScriptPath -Raw
+Assert-True ($pickSrc -match 'ConvertFrom-MergeOnGreenListJson') 'pick-merge-on-green.ps1 parses the list through the lib'
+Assert-True ($pickSrc -notmatch '\|\s*ConvertFrom-Json\)') 'and no longer pipes the payload into ConvertFrom-Json inside @()'
+Assert-True ($pickSrc -match '\(skipped\)') 'a skipped record prints a line rather than vanishing'
+Assert-True ($pickSrc -match 'none could be evaluated') 'and "armed, but no verdicts" is reported as the contradiction it is'
 
 Write-Host ''
 Write-Host 'Test-MergeOnGreenArmed' -ForegroundColor Cyan
@@ -118,6 +155,36 @@ Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Draft $true)
 $fork = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -CrossRepo $true) -MergeBlockVerdict (New-Green)
 Assert-True (-not $fork.Eligible) 'a cross-repository pull request is refused even when armed, mergeable and green'
 Assert-True ($fork.Reason -match 'fork') 'and the refusal says why'
+
+# A DIFF THAT REACHES CODE THE RUNNER EXECUTES IS LEFT TO A SESSION -- issue #2338. The runner checks this
+# head out with FOLD_PUSH_TOKEN in the workspace and then runs code from it, so every path it reads code
+# from is asked, in the source repo's shape and in a consumer's.
+foreach ($hit in @(
+    'scripts/release/ship-pr.ps1',                         # the source repo runs the branch's own copy
+    'scripts/repo-config.ps1',                             # every repo's ship-pr dot-sources this
+    'scripts/lib/branch-info.ps1',                         # and the seam libs beside it
+    'plugins/dkj-policy/scripts/lib/merge-on-green-lib.ps1', # the plugin mirror of the same code
+    '.github/workflows/merge-on-green.yml',                # the runner itself
+    '.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1' # a consumer's plugin checkout path
+)) {
+    $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $hit)) -MergeBlockVerdict (New-Green)
+    Assert-True (-not $v.Eligible) "a diff touching '$hit' is refused even when armed, mergeable and green"
+    Assert-True ($v.Reason -like "*$hit*" -and $v.Reason -match 'session') '...and the refusal names the path and the way through'
+}
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts\repo-config.ps1')) -MergeBlockVerdict (New-Green)).Eligible) `
+    'a backslash spelling is the same path'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green)).Eligible `
+    'a path that merely NAMES scripts is not one -- the match is anchored on the directory'
+# FAIL-CLOSED ON A LIST THAT DID NOT SHOW THE WHOLE DIFF: gh returns at most 100 files per record.
+$truncated = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md') -ChangedFiles 150) -MergeBlockVerdict (New-Green)
+Assert-True (-not $truncated.Eligible) 'a file list shorter than changedFiles is refused -- an unseen path is not a cleared one'
+Assert-True ($truncated.Reason -match '1 of its changed files') '...and the refusal says how much it saw'
+$noFiles = [pscustomobject]@{ number = 4; headRefName = 'feat/4-x'; isDraft = $false; mergeable = 'MERGEABLE'
+    isCrossRepository = $false; labels = @([pscustomobject]@{ name = 'merge-when-green' }) }
+Assert-True (-not (Get-MergeOnGreenPrVerdict -Record $noFiles -MergeBlockVerdict (New-Green)).Eligible) `
+    'a record fetched without the files field is refused rather than cleared'
+$ctrl = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @("scripts/x$([char]0x1b)[2J.ps1")) -MergeBlockVerdict (New-Green)
+Assert-True ($ctrl.Reason -notmatch [char]0x1b) 'a control character in a pushed path never reaches the printed reason'
 
 $conflicting = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Mergeable 'CONFLICTING') -MergeBlockVerdict (New-Green)
 Assert-True (-not $conflicting.Eligible) 'CONFLICTING is refused'

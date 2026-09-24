@@ -180,7 +180,18 @@ This label is purely a filing axis again: who raised it, and nothing else.
 
 ### 2. Then Asana -- a translation, not a copy
 
-Once the GitHub issue exists, mirror it to Asana in the project
+**Only an issue carrying the reach label gets an Asana task** (Dave, September 23, 2026,
+[#2360](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2360)). The board is where a colleague
+follows work they can look at themselves, and the reach label is already the answer to whether they will
+-- so the two are one decision, made once, in step 1. An issue without it is tier 0: GitHub-only, with no
+card, and that absence is the answer rather than a mirror that failed. Measured the day the rule was
+written, in `smartwatchbanden`: four open issues carried a card and no reach label, one of them a
+comment-only fix whose own body said *developer-only; no customer impact*. Its card sat in `Filed`, and
+the card then forced the pull request that fixed it to ship with `-NoResolves`. **Two cases are not new cards and the rule leaves them alone:** a
+ticket that arrived from Asana already has one (section 8), and an issue that gains the label later is
+mirrored at that moment.
+
+Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
 `Get-AsanaProjectGid` names. The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
@@ -366,12 +377,54 @@ Planned to go live with the release of <weekday> <date>, as version <vX.Y.Z>.
 Once it is live you can see it here:
 
 - <market> -- <live url>
+
+What we ask of you:
+Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.
+- Is it right? Say so, and tick off this task.
+- Is it not? Tell us two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.
 ---
 ```
 
 **The marker sits OUTSIDE the block, and the block is what gets pasted.** Everything between the two
 `---` rules travels to Asana; the marker and the framing sentence stay on GitHub. A marker inside the
 block would arrive in the Asana task as visible junk.
+
+**Who carries it across is the Asana task's ASSIGNEE** (BWJ, September 23, 2026, inbound
+[#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The assignee is the one in
+conversation with the requester, so they paste the block into the task and then close the GitHub
+issue. It is not a fixed relayer: a page naming one person as the relayer for every ticket was
+corrected on exactly that point the day it was retired.
+
+#### What the block asks of the requester -- and the two closes it separates
+
+**Five rules, from BWJ's corrections to the first blocks that actually reached Asana** (Maikel,
+September 18, 2026), carried here on inbound #2352 once the consumer page holding them was retired.
+`build-golive-block.ps1` writes the section that implements the middle three; the other two are about
+the block's position and the issue.
+
+1. **The first line says where the message comes from.** The block opens by naming the issue --
+   *"The fix for `<owner>/<repo>#<n>` is done"* -- so a reader knows from line one that there is an
+   issue behind it, rather than finding out at the foot after reading it as hand-written.
+2. **The requester judges the result themselves, and their answer closes the TASK.** Not the gates, not
+   the merge and not the session that built it: no gate proves that something *looks* right, which is
+   the same reason a visible result stops before its pull request. So the block asks for the look
+   instead of assuming it.
+3. **A rejection asks for two things, and starts a new round.** *What* is not right yet **and** *what*
+   exactly should change -- the first alone hands the next round another guess. The issue is then
+   reopened and the cycle starts again with a new result to look at.
+4. **The issue and the task close at different moments.** The issue carries the development work, which
+   is finished once the block is on the task; the task carries the colleague's question, which stays
+   open until they have answered it. Holding the issue open until then ties the tracker to the calendar
+   of somebody who does not work in it, and the difference between *"work is left here"* and *"somebody
+   is waiting on a colleague"* disappears.
+5. **The release is not a reward for an approval, and the block must not read as one.** The work is
+   already on the trunk, so it ships with the next release either way. What the look buys is **time**:
+   it is the last moment a change can still be made before a customer sees it. Written as a condition
+   (*"is it right? then it goes into the release"*) it holds out a key the reader does not have.
+
+**Without a result link the section is not written**, for the reason the missing link sentence is not
+written: there is nothing to look at before the release, and an ask to judge a result the block cannot
+point at is noise.
 
 **Three things made the old order unworkable, and the third could not be fixed inside it:**
 
@@ -393,8 +446,8 @@ September 17, 2026: of 14 open issues, **13** carried an Asana link and **6** ca
 **How this interacts with `dkj-policy`'s resolves gate, which is the half a consumer cannot infer.**
 `open-pr.ps1 -Resolves` writes `Closes #<n>` into the pull request body, so GitHub closes the issue at
 the **merge** -- before anybody has written a block, and with nobody's confirmation. So an Asana-linked
-issue ships with **`-NoResolves`** and cites the issue as context, and the person closes it by hand once
-the block is on it. A third flag that declares the citation deliberately without a closing keyword is named
+issue ships with **`-NoResolves`** and cites the issue as context, and the task's assignee closes it by
+hand once the block is on it. A third flag that declares the citation deliberately without a closing keyword is named
 in #2049 as a larger change and is not assumed here.
 
 **And since inbound
@@ -590,7 +643,10 @@ window the rest of BWJ looks through, and the workbench is where it has to be vi
 step writes to Asana.
 
 **What it costs on the GitHub side:** the workflow's `issues:` permission is `write` rather than
-`read`. That is the only write it makes outside Asana, and it touches labels and nothing else.
+`read`. It makes exactly two writes outside Asana, both on this repo's own issues: this step's label
+edit, and the one comment
+[the step-4 backstop](#the-backstop-asana-mirror-still-writes-one-only-where-the-session-did-not)
+posts on a closed issue that has no paste-ready block yet. Nothing else on GitHub is written.
 
 ### 6. The board's sections ARE the cycle -- one card, one column per stage
 
@@ -838,6 +894,55 @@ workflow's to take back.
 waiting on the ticket; a label is a change in *our* state, and commenting on it would put a note on
 the submitter's ticket every time somebody triaged the issue.
 
+#### Setting `needs-info` IS writing the question -- one act, and the issue stays open
+
+**The label moves the card to the submitter, so the question has to be on it** (inbound
+[#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352), carrying a rule that lived only
+in a consumer page until September 23, 2026). The paste-ready block of step 4 is one exit that ends
+with the requester; `needs-info` is the second, and it moves the card just as hard. Because the CI run
+above deliberately says nothing, the only message this exit ever carries is the one the session
+writes. Measured in `BWJ-Development/smartwatchbanden`,
+[#702](https://github.com/BWJ-Development/smartwatchbanden/issues/702) and
+[#721](https://github.com/BWJ-Development/smartwatchbanden/issues/721): a card sat a day in the
+blocked column with no question on it, because the procedure prescribed a message for delivered work
+only -- and a card with the submitter and no question is a waiting room nobody knows the subject of.
+
+**So the label and the comment are ONE act**, done by the session that knows what was investigated, at
+the moment the card moves -- not later, by somebody reconstructing the dossier. The comment goes on the
+issue, carries the same `<!-- asana-paste-block -->` marker below the text so the step-4 backstop never
+adds a placeholder copy, and is carried into the task by its assignee exactly like the delivered-work
+block. Its shape:
+
+```text
+<one to three plain sentences: what was investigated and what came out of it. No file names, no
+branch names, no measurement tables -- the technical account is the session's own comment above,
+and this is its translation for the person who filed the ticket.>
+
+<say explicitly that nothing was repaired, and why that is not "solved": "could not reproduce it
+today" is not "it is gone", and a report nobody could verify stays open.>
+
+What we ask of you:
+1. <the first question. Ask for what the requester CAN know -- a time, a screenshot, a reference
+   number on an error page -- never for something they would have to look up in code or a log. Say
+   per question WHY you need it; without that it reads as a form rather than a question.>
+2. <the second, if there is one. Two or three at most.>
+
+<say what happens if they no longer have the answer. There is always a next step -- a standing check
+that records it by itself next time, for example -- and it is never "then it stops here".>
+
+<!-- asana-paste-block -->
+```
+
+**The form's words follow the reader**, per [step 8's language rule](#the-language----english-form-content-follows-the-reader):
+the shape above is stated in English, and the message is written in the language of the Asana task
+and of the colleague who reads it.
+
+**This exit does NOT close the issue**, where the delivered-work exit closes it one act after the block.
+That is not an inconsistency: there the development work is finished and only the judgement is with
+the colleague, while here the work itself is stalled on something only they can supply -- which is still
+an open item of ours, and belongs in the list where work is tracked. **Nor does the session remove the
+label**: whoever brings the answer does, and the card returns to its status-derived floor.
+
 #### The daily sweep is the mechanism, not a backstop
 
 **A project status changes with no `issues:` event at all** -- somebody drags a card to `In Progress`,
@@ -893,8 +998,8 @@ instead, per the section above.
   you made by hand.
 - **Deciding a ticket is blocked on the submitter.** The `needs-info` label is the whole mechanism for
   that column, and no automation sets or clears it. Putting it on is a judgement about whether the
-  request can proceed; taking it off says the answer arrived, and the card returns to wherever the work
-  actually is.
+  request can proceed -- and it is one act with writing the question, in the form step 6 prescribes;
+  taking it off says the answer arrived, and the card returns to wherever the work actually is.
 - **Scoring the ticket.** The label follows the board and nothing here decides a priority. A task
   nobody has scored carries no prio label, and putting a number on it is the team's call to make in
   Asana -- the same shape as resolving a ticket, further down this list.
@@ -905,7 +1010,7 @@ instead, per the section above.
   per unreadable task is telling you about the token, not about the tickets.
 - **Closing an Asana-linked issue, once the paste-ready block is on it.** Step 4 reverses the old
   order: the session writes the block while the issue is open, and closing it is the confirmation that
-  somebody pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
+  the task's assignee pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
   would have GitHub close the issue at the merge, with nobody having confirmed anything. Where the repo has
   stated `Get-ResolvesExemptMatchers` (inbound #2120), the resolves gate refuses that `-Resolves` instead
   of leaving it to memory.

@@ -101,6 +101,26 @@
     With -Tag: drop this tag's claim -- its marker comment and its assignee, and nothing else. The
     losing side of a race runs it, and so does a session abandoning an issue it cannot finish.
 
+.PARAMETER TakeOver
+    With -Tag: take an issue another machine holds over to this one (issue #2387) -- deliberately,
+    visibly, and only where both halves of the 'held' refusal's reasoning are checked rather than
+    assumed: the holder is THIS SAME gh account on another machine, and exactly one branch for the issue
+    is on origin. It removes the holder's marker, claims under this tag through the ordinary path (marker,
+    assignee, read-back), leaves a comment naming the old tag, the new tag and the branch, and prints the
+    checkout. The old machine's -Verify then answers [NO]. A colleague's claim is refused outright.
+
+.PARAMETER ReleaseAll
+    With -Tag, and no issue number: release EVERY open issue this tag holds -- its own marker comments
+    and the assignee written beside them, and nothing else (issue #2395). The tidy-up before a PLANNED
+    device switch, so a sweep on the next machine does not read your own old tag as 'held'. DRY-RUN BY
+    DEFAULT: it lists what it would release and writes only with -Apply. Another tag's marker is never
+    touched, and a bare assignee with no marker of this tag is not a claim and stays. It is a
+    convenience, not the mechanism: -TakeOver already resumes from another machine with no prior
+    release, which is what covers the release forgotten on the departing machine.
+
+.PARAMETER Apply
+    With -ReleaseAll: actually release. Without it -ReleaseAll lists and writes nothing.
+
 .PARAMETER Candidates
     List which open issues a sweep may pick up -- free, this tag's already, held by another tag, or
     skipped with the reason. Takes no issue number and WRITES NOTHING: choosing is a separate step from
@@ -108,7 +128,9 @@
 
 .PARAMETER Marker
     The marker names a claim is recognised by. The first is the one a claim WRITES; the rest are
-    predecessors a repo still has comments under. Default: 'claim-tag'.
+    predecessors a repo still has comments under. Default: 'claim-tag'. A comma list works under
+    powershell -File too (-Marker claim-tag,swb-lane): -File binds it as one string, and the script
+    splits it into names (#2358).
 
 .PARAMETER SkipLabel
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
@@ -117,7 +139,7 @@
     With -Candidates: issue numbers held out of this round by hand.
 
 .PARAMETER Limit
-    With -Candidates: how many open issues to read. Default 100.
+    With -Candidates or -ReleaseAll: how many open issues to read. Default 100.
 
 .PARAMETER RootOverride
     Repo root to resolve repo-config.ps1 in, for the test suite. A consumer never types this: the root
@@ -137,17 +159,30 @@
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag -Verify
+
+.EXAMPLE
+    ./scripts/task/claim-issue.ps1 1234 -Tag -TakeOver
+
+.EXAMPLE
+    ./scripts/task/claim-issue.ps1 -Tag -ReleaseAll -Apply
 #>
 [CmdletBinding(DefaultParameterSetName = 'Issue')]
 param(
     [Parameter(Mandatory = $true, Position = 0, ParameterSetName = 'Issue')][string]$Issue,
-    [Parameter(ParameterSetName = 'Issue')][switch]$Tag,
+    [Parameter(ParameterSetName = 'Issue')]
+    [Parameter(ParameterSetName = 'ReleaseAll')][switch]$Tag,
     [Parameter(ParameterSetName = 'Issue')][switch]$Verify,
     [Parameter(ParameterSetName = 'Issue')][switch]$Release,
+    [Parameter(ParameterSetName = 'Issue')][switch]$TakeOver,
     [Parameter(Mandatory = $true, ParameterSetName = 'Candidates')][switch]$Candidates,
     [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipLabel = @(),
-    [Parameter(ParameterSetName = 'Candidates')][int[]]$SkipIssue = @(),
-    [Parameter(ParameterSetName = 'Candidates')][int]$Limit = 100,
+    # [string[]], not [int[]]: under -File an [int[]] reads '12,34' as the one number 1234 (a
+    # thousands separator), excluding an unrelated issue and neither of the two named (#2358).
+    [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipIssue = @(),
+    [Parameter(ParameterSetName = 'Candidates')]
+    [Parameter(ParameterSetName = 'ReleaseAll')][int]$Limit = 100,
+    [Parameter(Mandatory = $true, ParameterSetName = 'ReleaseAll')][switch]$ReleaseAll,
+    [Parameter(ParameterSetName = 'ReleaseAll')][switch]$Apply,
     [string[]]$Marker = @('claim-tag'),
     [switch]$DryRun,
     [string]$RootOverride = ''
@@ -169,6 +204,23 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'claim-is
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1')
+# -File binds '-Marker a,b' as ONE literal element, so the list is split here, once, before any read,
+# write or self-invocation sees it (#2358). An empty result falls back to the documented default.
+$Marker = @(Split-ClaimMarkerNames -Marker $Marker)
+if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
+# -SkipLabel and -SkipIssue are lists behind the same -File binding, so they are split the same way;
+# an issue number that is not one is refused rather than dropped, since a skip that silently fails is
+# a held issue handed out.
+$SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
+$skipIssueNumbers = @()
+foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {
+    $n = $s.TrimStart('#')
+    if ($n -notmatch '^[0-9]+$') {
+        Write-Host "[ERROR] -SkipIssue '$(Format-ForConsole -Text $s)' is not an issue number." -ForegroundColor Red
+        exit 1
+    }
+    $skipIssueNumbers += [int]$n
+}
 # THE FETCH-ATTEMPT RECORD (issue #1860) -- the parked-fix scan's fetch runs through it, so an
 # unreachable remote is not waited out again by new-branch.ps1 seconds later.
 . (Join-Path $PSScriptRoot '..\lib\fetch-attempt-lib.ps1')
@@ -183,7 +235,22 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'claim-is
 # -Candidates HAS NO ISSUE, which is the whole of why it is its own parameter set: it asks WHICH issue
 # rather than about one, so a mandatory number there would be a value the caller cannot have yet.
 $number = ''
-if (-not $Candidates) {
+# -ReleaseAll HAS NO ISSUE EITHER, for the mirror reason: it acts on every issue this tag holds. It is
+# refused without -Tag, like -Release -- and with -DryRun beside -Apply, since the two contradict and
+# guessing which was meant is guessing whether to write.
+if ($ReleaseAll) {
+    if (-not $Tag) {
+        Write-Host '[ERROR] -ReleaseAll only means something with -Tag -- nothing was read or written.' -ForegroundColor Red
+        Write-Host '        It drops this tag''s claim markers. The default mode claims by assignee and has no' -ForegroundColor Red
+        Write-Host '        claim of this session''s to release.' -ForegroundColor Red
+        exit 1
+    }
+    if ($Apply -and $DryRun) {
+        Write-Host '[ERROR] -Apply and -DryRun contradict each other -- name one. -ReleaseAll is a dry run unless -Apply.' -ForegroundColor Red
+        exit 1
+    }
+}
+if (-not $Candidates -and -not $ReleaseAll) {
     $raw = $Issue.Trim().TrimStart('#')
     if ($raw -match '/([0-9]+)/?$') { $raw = $Matches[1] }
     if ($raw -notmatch '^[0-9]+$') {
@@ -199,7 +266,7 @@ if (-not $Candidates) {
     # relies on.
     if (($Verify -or $Release) -and -not $Tag) {
         $named = if ($Verify -and $Release) { '-Verify and -Release' } elseif ($Verify) { '-Verify' } else { '-Release' }
-        Write-Host "[ERROR] $named only mean something with -Tag -- nothing was read or written." -ForegroundColor Red
+        Write-Host "[ERROR] $named only $(if ($Verify -and $Release) { 'mean' } else { 'means' }) something with -Tag -- nothing was read or written." -ForegroundColor Red
         Write-Host '        They read and drop a TAG claim (the marker comment). The default mode claims by' -ForegroundColor Red
         Write-Host '        assignee and has nothing of this session''s to verify or release.' -ForegroundColor Red
         exit 1
@@ -207,6 +274,13 @@ if (-not $Candidates) {
     if ($Verify -and $Release) {
         Write-Host '[ERROR] -Verify and -Release are opposite acts -- name one.' -ForegroundColor Red
         Write-Host '        -Verify reads and writes nothing; -Release drops this tag''s claim.' -ForegroundColor Red
+        exit 1
+    }
+    # -TakeOver IS A CLAIM, so it needs the tag it claims under and cannot sit beside the two acts that
+    # are not claims (#2387). Refused rather than guessed at, for the reason given above.
+    if ($TakeOver -and (-not $Tag -or $Verify -or $Release)) {
+        Write-Host '[ERROR] -TakeOver needs -Tag, and cannot be combined with -Verify or -Release -- nothing was read or written.' -ForegroundColor Red
+        Write-Host '        It hands a TAG claim over from another machine; -Verify reads and -Release drops one.' -ForegroundColor Red
         exit 1
     }
 }
@@ -243,8 +317,10 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
 $repoArgs = if ($repoName) { @('--repo', $repoName) } else { @() }
 
 $banner = if ($Candidates) { 'candidates' }
+          elseif ($ReleaseAll) { "-Tag -ReleaseAll$(if ($Apply) { ' -Apply' })" }
           elseif ($Verify) { "#$number -Tag -Verify" }
           elseif ($Release) { "#$number -Tag -Release" }
+          elseif ($TakeOver) { "#$number -Tag -TakeOver" }
           elseif ($Tag) { "#$number -Tag" }
           else { "#$number" }
 Write-Host "== claim-issue $banner$(if ($DryRun) {' -DryRun'}) -- $(if ($repoName) { $repoName } else { 'repo per gh (no Get-RepoName)' }) ==" -ForegroundColor Cyan
@@ -309,6 +385,107 @@ if ($Tag -or $Candidates) {
     Write-Host "  tag: $($claimTag.Tag)"
 }
 
+# --- THE TWO WRITES THAT UNDO A TAG CLAIM ---------------------------------------------------------
+#
+# ONE WAY TO DELETE A MARKER, used by -Release, -ReleaseAll (#2395) and -TakeOver (#2387). Returns how
+# many of the given records could NOT be deleted, so every caller reports a partial delete the same way.
+# Defined up here, ahead of every mode, because -ReleaseAll acts before the per-issue read below.
+#
+# THE GRAPHQL MUTATION RATHER THAN THE REST ROUTE, because the id in hand is the node id
+# `gh issue view --json comments` returns ('IC_...'). REST wants the numeric database id, which would
+# mean a second read of the same comments to learn a number we already have an identifier for.
+function Remove-ClaimMarkerComments {
+    param([object[]]$Records)
+    $failedCount = 0
+    foreach ($record in @($Records)) {
+        if (-not $record.Id) { $failedCount++; continue }
+        $deleteArgs = @('api', 'graphql', '-f', 'query=mutation($id:ID!){deleteIssueComment(input:{id:$id}){clientMutationId}}', '-f', "id=$($record.Id)")
+        $del = Invoke-NativeCapture -FilePath 'gh' -Arguments $deleteArgs -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not $del -or -not (Test-NativeExitMeasured -Capture $del) -or $del.ExitCode -ne 0) { $failedCount++ }
+    }
+    return $failedCount
+}
+
+# AND ONE WAY TO DROP THE ASSIGNEE A TAG CLAIM WROTE BESIDE ITS MARKER -- this checkout's own account,
+# never anybody else's. $true when gh answered 0; the callers decide what a failure costs.
+function Remove-ClaimAssignee {
+    param([string]$IssueNumber)
+    $unassign = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'edit', $IssueNumber) + $repoArgs + @('--remove-assignee', $identity.Account)) -Utf8 `
+                                     -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    return [bool]($unassign -and (Test-NativeExitMeasured -Capture $unassign) -and $unassign.ExitCode -eq 0)
+}
+
+# --- EVERY CLAIM OF THIS TAG, RELEASED (-ReleaseAll, issue #2395) ---------------------------------
+#
+# THE BOUND IS THE FEATURE. The owner first proposed wiping every marker and assignee before a device
+# switch; the red-team verdict was to build this instead. Other markers are other machines' and
+# colleagues' live claims, and in tag mode a foreign assignee is whose TICKET an issue is -- deleting
+# either recreates the duplicate-work hazard #2207 and #2243 closed, and cannot be undone. So
+# Get-OwnTagClaims returns only this tag's own records, and the assignee dropped is this checkout's own
+# and only where this tag's marker sits beside it.
+#
+# DRY-RUN UNLESS -Apply, the inverse of every other mode here, because this is the one write that
+# fans out over a whole backlog on a single command.
+#
+# A CONVENIENCE, NOT THE MECHANISM. -TakeOver resumes on another machine with no prior release, so a
+# release forgotten here costs nothing; this only keeps the next machine's -Candidates from reading
+# your own old tag as 'held' after a switch you planned.
+if ($ReleaseAll) {
+    $listArgs = @('issue', 'list') + $repoArgs + @('--state', 'open', '--limit', "$Limit", '--json', 'number,title,assignees,comments')
+    $ownList = Invoke-NativeCapture -FilePath 'gh' -Arguments $listArgs -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if (-not $ownList -or -not (Test-NativeExitMeasured -Capture $ownList) -or $ownList.ExitCode -ne 0 -or $ownList.ShortRead) {
+        # AN UNREAD BACKLOG IS NOT ONE WITH NOTHING TO RELEASE, and saying "nothing held" here would send
+        # the operator off to the next machine with every marker still standing.
+        Write-Host '[ERROR] could not read the open issues -- nothing was judged or released.' -ForegroundColor Red
+        Write-Host '        Check gh (gh auth status) and run it again.' -ForegroundColor Red
+        exit 1
+    }
+    $ownJson = @($ownList.Output) -join "`n"
+    $held = @(Get-OwnTagClaims -Json $ownJson -Tag $claimTag.Tag -Account $identity.Account -Marker $Marker)
+    # A FULL PAGE MAY BE A TRUNCATED ONE: an issue past -Limit is never read, so its marker would stand
+    # while the run reports success.
+    # Two statements, not @($ownJson | ConvertFrom-Json): in 5.1 ConvertFrom-Json emits the array as ONE
+    # pipeline object, so wrapping the pipeline counts 1 whatever the payload holds -- and this warning
+    # could never fire (measured in review on a two-issue payload at -Limit 2).
+    $readCount = 0
+    try { $parsedList = $ownJson | ConvertFrom-Json; $readCount = @($parsedList).Count } catch { $readCount = 0 }
+    if ($readCount -ge $Limit) {
+        Write-Host "  [limit] read $readCount open issues, which is the -Limit -- older ones were not looked at. Raise -Limit to be sure." -ForegroundColor Yellow
+    }
+
+    if ($held.Count -eq 0) {
+        Write-Host "[OK] no open issue carries a claim of this tag ($($claimTag.Tag)) -- nothing to release." -ForegroundColor Green
+        exit 0
+    }
+    foreach ($h in $held) {
+        $assignNote = if ($h.Assigned) { ", assignee '$($identity.Account)'" } else { '' }
+        Write-Host ("  #{0,-6} {1} marker(s){2}  {3}" -f $h.Number, @($h.Records).Count, $assignNote, (Format-ForConsole -Text $h.Title))
+    }
+
+    if (-not $Apply) {
+        Write-Host "[DRY RUN] would release $($held.Count) issue(s) held by $($claimTag.Tag) -- only this tag's markers and this account's assignee. Nothing was written." -ForegroundColor Yellow
+        Write-Host "          Release them with: claim-issue.ps1 -Tag -ReleaseAll -Apply" -ForegroundColor Yellow
+        exit 0
+    }
+
+    $stillHeld = @()
+    foreach ($h in $held) {
+        $failedMarkers = Remove-ClaimMarkerComments -Records @($h.Records)
+        if ($failedMarkers -gt 0) { $stillHeld += $h.Number }
+        # The assignee's failure is a warning, as in -Release: the marker is the claim.
+        if ($h.Assigned -and -not (Remove-ClaimAssignee -IssueNumber ([string]$h.Number))) {
+            Write-Host "  [WARNING] the assignee '$($identity.Account)' could not be removed from #$($h.Number) -- the marker is what another session reads." -ForegroundColor Yellow
+        }
+    }
+    if ($stillHeld.Count -gt 0) {
+        Write-Host "[ERROR] $($stillHeld.Count) of $($held.Count) issue(s) MAY STILL READ AS HELD: #$($stillHeld -join ', #') -- a marker could not be deleted." -ForegroundColor Red
+        Write-Host '        Run this again; it only ever touches what this tag still holds.' -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "[OK] released $($held.Count) issue(s) held by $($claimTag.Tag) -- they are free for the next machine." -ForegroundColor Green
+    exit 0
+}
+
 # --- WHICH ISSUES ARE FREE (-Candidates) ----------------------------------------------------------
 #
 # IT WRITES NOTHING, AND THAT IS THE DESIGN RATHER THAN CAUTION. Choosing and claiming are two steps
@@ -336,8 +513,29 @@ if ($Candidates) {
     # System.Object[] to SwitchParameter" AT THE CALL that produced the value. Measured while writing
     # this (#2243): the message names a type mismatch in a call whose arguments are all correct, and
     # the call is not where the fault is.
+    # THE REMOTE'S BRANCHES, READ ONCE FOR THE WHOLE BACKLOG (issue #2392). A marker is only written by
+    # a session that ran -Tag, so the tracker alone read 11 of 11 open issues as free while 9 had a live
+    # branch on origin -- and the claim's parked-fix scan then said so one issue at a time, after the
+    # write. The fetch goes through the seam the claim uses (#1860), best-effort for the same reason: a
+    # failed fetch leaves the refs already here, which is a smaller answer rather than a wrong one, and
+    # the note below says so. An unreadable listing does NOT refuse the run -- the tracker half is still
+    # true -- but it says out loud that 'free' then means only "no marker".
+    $branchNote = ''
+    $remoteBranches = @()
+    $sweepFetch = Invoke-RecordedRemoteFetch -RepoRoot $repoRoot -RecentFailureSeconds $RemoteFetchRecentFailureSeconds `
+                                             -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if ("$($sweepFetch.Note)") { $branchNote = "the fetch did not refresh origin's branches ($($sweepFetch.Note)) -- they may be behind." }
+    $refList = Invoke-NativeCapture -FilePath 'git' -Utf8 -DiscardStderr -Arguments @('-C', $repoRoot, 'for-each-ref',
+        '--format=%(refname:short)%1f%(authorname)%1f%(committerdate:unix)', 'refs/remotes/origin')
+    if (-not $refList -or -not (Test-NativeExitMeasured -Capture $refList) -or $refList.ExitCode -ne 0 -or $refList.ShortRead) {
+        $branchNote = "origin's branches could not be listed, so 'free' below means only that no claim marker holds it."
+    } else {
+        $remoteBranches = @(Get-RemoteIssueBranches -Text (@($refList.Output) -join "`n") -Remote 'origin')
+    }
+
     $sweepList = @(Get-SweepCandidates -Json (@($list.Output) -join "`n") -Tag $claimTag.Tag `
-                                       -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $SkipIssue)
+                                       -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $skipIssueNumbers -Branches $remoteBranches)
+    if ($branchNote) { Write-Host "  [branch scan] $(Format-ForConsole -Text $branchNote)" -ForegroundColor Yellow }
     if ($sweepList.Count -eq 0) {
         Write-Host '[OK] no open issues on this tracker.' -ForegroundColor Green
         exit 0
@@ -349,6 +547,7 @@ if ($Candidates) {
             'free'    { 'Green' }
             'mine'    { 'Cyan' }
             'held'    { 'DarkGray' }
+            'branch'  { 'Yellow' }
             default   { 'DarkGray' }
         }
         Write-Host $line -ForegroundColor $colour
@@ -360,8 +559,15 @@ if ($Candidates) {
 
     $free = @($sweepList | Where-Object { $_.Verdict -eq 'free' })
     $mine = @($sweepList | Where-Object { $_.Verdict -eq 'mine' })
+    $branched = @($sweepList | Where-Object { $_.Verdict -eq 'branch' })
     Write-Host ''
-    Write-Host "[OK] $($free.Count) free, $($mine.Count) already this tag's, $($sweepList.Count) open in total. Nothing was written." -ForegroundColor Green
+    Write-Host "[OK] $($free.Count) free, $($mine.Count) already this tag's, $($branched.Count) with a branch but no marker, $($sweepList.Count) open in total. Nothing was written." -ForegroundColor Green
+    if ($branched.Count -gt 0) {
+        # NOT FREE, AND NOT A REFUSAL EITHER. Somebody pushed work for it without -Tag; whether they are
+        # still on it is what the claim's parked-fix scan answers, with the author and age of every commit.
+        Write-Host "     'branch' is not free: somebody pushed work for it without a claim marker. Read that branch" -ForegroundColor Yellow
+        Write-Host '     (or ask its author) before claiming one of those.' -ForegroundColor Yellow
+    }
     if ($free.Count -gt 0) {
         # THE LOWEST NUMBER, NAMED RATHER THAN TAKEN. Oldest first is the only order six machines agree
         # on without talking to each other, so two sessions starting together collide on ONE issue and
@@ -519,6 +725,9 @@ if ($assignees.Count -gt 0) { Write-Host "  assignees: $($assignees -join ', ')"
 # messages say otherwise.
 $tagVerdict = $null
 $claimRecords = @()
+
+$takeOverFrom = @()
+$takeOverBranch = ''
 if ($Tag) {
     $claimRecords = @(Get-ClaimRecords -Json $viewJson -Marker $Marker)
     $tagVerdict = Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords
@@ -562,24 +771,12 @@ if ($Tag) {
             Write-Host "[DRY RUN] would delete $($mineRecords.Count) claim comment(s) of '$($claimTag.Tag)' and remove the assignee. Nothing was written." -ForegroundColor Yellow
             exit 0
         }
-        $failed = 0
-        foreach ($record in $mineRecords) {
-            if (-not $record.Id) { $failed++; continue }
-            # THE GRAPHQL MUTATION RATHER THAN THE REST ROUTE, because the id in hand is the node id
-            # `gh issue view --json comments` returns ('IC_...'). REST wants the numeric database id,
-            # which would mean a second read of the same comments to learn a number we already have an
-            # identifier for.
-            $deleteArgs = @('api', 'graphql', '-f', 'query=mutation($id:ID!){deleteIssueComment(input:{id:$id}){clientMutationId}}', '-f', "id=$($record.Id)")
-            $del = Invoke-NativeCapture -FilePath 'gh' -Arguments $deleteArgs -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-            if (-not $del -or -not (Test-NativeExitMeasured -Capture $del) -or $del.ExitCode -ne 0) { $failed++ }
-        }
+        $failed = Remove-ClaimMarkerComments -Records $mineRecords
 
         # The assignee goes with it, and its failure is a WARNING rather than a stop: the marker is the
         # claim, so an assignee left behind is untidy where a marker left behind is a held issue.
         if ($assignees -contains $identity.Account) {
-            $unassign = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'edit', $number) + $repoArgs + @('--remove-assignee', $identity.Account)) -Utf8 `
-                                             -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-            if (-not $unassign -or -not (Test-NativeExitMeasured -Capture $unassign) -or $unassign.ExitCode -ne 0) {
+            if (-not (Remove-ClaimAssignee -IssueNumber $number)) {
                 Write-Host "[WARNING] the assignee '$($identity.Account)' could not be removed from #$number." -ForegroundColor Yellow
                 Write-Host "          The claim itself is released -- the marker is what another session reads." -ForegroundColor Yellow
             }
@@ -606,6 +803,69 @@ if ($Tag) {
         Write-Host '         The marker comments above are. An assignee months old is whose TICKET this is.' -ForegroundColor DarkGray
     }
 
+    # -TakeOver: A HELD ISSUE HANDED OVER, DELIBERATELY (issue #2387). Get-TakeOverVerdict carries the two
+    # preconditions and the measurement behind them; this block reads origin's branches for it, refuses
+    # on anything but 'take', and on 'take' removes the holder's marker and turns the verdict into
+    # 'free' -- so the claim itself is written by exactly the path every other claim takes, race
+    # read-back included. Anything that is not 'held' passes through to the switch below untouched.
+    if ($TakeOver) {
+        $heads = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'ls-remote', '--heads', 'origin') -Utf8 -DiscardStderr `
+                                      -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not $heads -or -not (Test-NativeExitMeasured -Capture $heads) -or $heads.ExitCode -ne 0 -or $heads.ShortRead) {
+            # AN UNREAD REMOTE IS NOT A REMOTE WITHOUT THE BRANCH, and the branch is the precondition.
+            Write-Host "[ERROR] could not list origin's branches -- nothing was taken over." -ForegroundColor Red
+            Write-Host '        A take-over needs the issue''s branch provably on origin, and this run could not look.' -ForegroundColor Red
+            exit 1
+        }
+        $issueBranches = @(Get-IssueBranchNames -Text (@($heads.Output) -join "`n") -Issue ([int]$number))
+        $take = Get-TakeOverVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Branches $issueBranches
+        $holderText = Format-ForConsole -Text (@($take.Holders) -join ', ')
+        switch ($take.Code) {
+            'free' {
+                Write-Host "[REFUSED] #$number is not held by anybody -- there is nothing to take over." -ForegroundColor Red
+                Write-Host "          Claim it the ordinary way: claim-issue.ps1 $number -Tag" -ForegroundColor Red
+                exit 1
+            }
+            'foreign-account' {
+                Write-Host "[REFUSED] #$number is held by $holderText -- a different account from this one ($($claimTag.Account))." -ForegroundColor Red
+                Write-Host '          Taking over your own issue from another of your machines is bookkeeping; taking over a' -ForegroundColor Red
+                Write-Host '          colleague''s is a conversation, and a switch cannot have one. Ask them to release it.' -ForegroundColor Red
+                Write-Host "          $($facts.url)" -ForegroundColor Red
+                exit 1
+            }
+            'no-branch' {
+                Write-Host "[REFUSED] #$number is held by $holderText and no branch for it is on origin -- nothing was taken over." -ForegroundColor Red
+                Write-Host '          The work may exist only on that machine. Push it from there (or release it there),' -ForegroundColor Red
+                Write-Host "          then run this again. Looked for: <prefix>/$number-<name>." -ForegroundColor Red
+                exit 1
+            }
+            'ambiguous-branch' {
+                Write-Host "[REFUSED] #$number has $(@($take.Branches).Count) branches on origin -- this run cannot say which one to resume:" -ForegroundColor Red
+                foreach ($b in @($take.Branches)) { Write-Host "            $(Format-ForConsole -Text $b)" -ForegroundColor Red }
+                Write-Host '          Delete or merge the ones that are spent, then run this again.' -ForegroundColor Red
+                exit 1
+            }
+            'take' {
+                $branchText = Format-ForConsole -Text $take.Branch
+                if ($DryRun) {
+                    Write-Host "[DRY RUN] would take #$number over from $holderText to $($claimTag.Tag), resuming $branchText. Nothing was written." -ForegroundColor Yellow
+                    exit 0
+                }
+                $failedTake = Remove-ClaimMarkerComments -Records @($take.Rivals)
+                if ($failedTake -gt 0) {
+                    Write-Host "[ERROR] $failedTake of $(@($take.Rivals).Count) marker(s) of $holderText could not be deleted -- #$number was NOT claimed." -ForegroundColor Red
+                    Write-Host '        It may now read as held by fewer tags than before, but it still reads as held. Run this again.' -ForegroundColor Red
+                    Write-Host "        $($facts.url)" -ForegroundColor Red
+                    exit 1
+                }
+                Write-Host "  [take-over] removed the marker(s) of $holderText; claiming under $($claimTag.Tag)." -ForegroundColor Yellow
+                $takeOverFrom = @($take.Holders)
+                $takeOverBranch = [string]$take.Branch
+                $tagVerdict = [pscustomobject]@{ Action = 'claim'; Code = 'free'; Holders = @() }
+            }
+        }
+    }
+
     switch ($tagVerdict.Code) {
         'no-tag' {
             # Unreachable in practice -- the tag was proven complete before any read -- and kept because
@@ -624,6 +884,8 @@ if ($Tag) {
             Write-Host "[REFUSED] issue #$number is claimed by $(Format-ForConsole -Text (@($tagVerdict.Holders) -join ', ')) -- nothing was claimed." -ForegroundColor Red
             Write-Host '          Another machine is mid-flight on it and its branch is somewhere this session cannot' -ForegroundColor Red
             Write-Host '          see. Take the next free number instead -- claim-issue.ps1 -Candidates names it.' -ForegroundColor Red
+            Write-Host '          If the holder is THIS account on another machine and its branch is on origin, hand it' -ForegroundColor Red
+            Write-Host "          over deliberately instead: claim-issue.ps1 $number -Tag -TakeOver" -ForegroundColor Red
             Write-Host "          $($facts.url)" -ForegroundColor Red
             exit 1
         }
@@ -1237,6 +1499,20 @@ if ($Tag) {
     $rivalNote = if (@($race.Rivals).Count -gt 0) { " (ahead of $(Format-ForConsole -Text (@($race.Rivals) -join ', ')))" } else { '' }
     Write-Host "[OK] #$number claimed by $($claimTag.Tag)$rivalNote." -ForegroundColor Green
     Write-Host "     $title"
+    if ($takeOverBranch) {
+        # THE RECORD A PERSON READS, written after the claim is settled so it never announces a handover
+        # the race read-back went on to reverse. Its failure is a warning: the claim is the marker.
+        $note = Format-HandoverComment -OldTags $takeOverFrom -NewTag $claimTag.Tag -Branch $takeOverBranch -Issue ([int]$number)
+        $posted = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'comment', $number) + $repoArgs + @('--body', $note)) -Utf8 `
+                                       -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not $posted -or -not (Test-NativeExitMeasured -Capture $posted) -or $posted.ExitCode -ne 0) {
+            Write-Host '[WARNING] the handover comment did not land -- the claim did. Say so on the issue by hand.' -ForegroundColor Yellow
+        }
+        Write-Host "     Taken over from $(Format-ForConsole -Text ($takeOverFrom -join ', ')). Resume the work where it is:" -ForegroundColor Green
+        Write-Host "       git fetch origin; git checkout $(Format-ForConsole -Text $takeOverBranch)" -ForegroundColor Green
+        Write-Host "     $($facts.url)"
+        exit 0
+    }
     if ($foreignParked) {
         Write-Host '     Read the issue -- then settle the branch named above BEFORE you open one of your own.' -ForegroundColor Yellow
     } else {

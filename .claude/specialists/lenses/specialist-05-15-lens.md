@@ -310,7 +310,7 @@ infrastructure.
   measurement, not a fact the repo maintains, and the way to know which block is current is to run the
   command again. The removal above has no date of its own for exactly that reason — September 9 is when it
   was *measured*, not when it happened, and nobody can now say which. That gap is why the always-on
-  sentence in [`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation) went on
+  sentence in [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) went on
   handing out the wrong answer for a stretch nobody can now put a length on (#1720).
 
   **EVERY SENTENCE ABOVE STILL HOLDS, AND SINCE SEPTEMBER 9, 2026 SOMETHING ACTS ON IT**
@@ -1168,7 +1168,8 @@ infrastructure.
   `ci-merge-skip-lib.ps1` shows one file over, taken one step further: that one re-asks step 3b's
   question from CI by calling the identical pure functions; this one does not ask it twice at all.
 
-  **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** `CLAUDE.md` holds two
+  **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** The constitution
+  `CLAUDE.md` imports holds two
   kinds of PR back for Dave's own word — a visible result, and anything irreversible or outward-facing —
   and a runner merging every green PR would merge those too. `merge-when-green` is set at the moment
   `ship-pr`'s own CI verdict refuses, so it is a record that a session had *already begun shipping*,
@@ -1754,7 +1755,7 @@ this repo's:
   The 27 above is a dated measurement and stays 27 — the 510s-vs-159s figure beside it means nothing when
   paired with any other count. The 30 in the paragraph above is live advice about what to try next, so it
   tracks the tree. Where a sentence is dated **and** the count carries none of its argument, the count is *removed*
-  rather than refreshed: that is why [`CLAUDE.md`](../../../CLAUDE.md)'s *"`open-pr` runs the lint and every
+  rather than refreshed: that is why [`CLAUDE.md`](../../rules/this-repo.md)'s *"`open-pr` runs the lint and every
   test suite"* now states no number under its August 7 stamp. It read `26` there for five days — wrong on the
   day it was written, since there were 27, and wronger every suite since. **And a bare `26` is still correct
   in two other senses**: the lint's own checks (`CHANGELOG.md`) and the agent-def count
@@ -1798,7 +1799,7 @@ this repo's:
   comparison would report a gap on every consumer where nothing is wrong — the same shape as the
   stale-path check this repo declined at 124 findings all false. Nothing was damaged here either: a
   session read payload a few hours older than `main` carried, which for content merged the same day is
-  the ordinary state. What was wrong was the **expectation** — [`CLAUDE.md`](../../../CLAUDE.md) promised
+  the ordinary state. What was wrong was the **expectation** — [`CLAUDE.md`](../../rules/this-repo.md) promised
   the "last pushed" version — and that sentence is what the repair changed.
 
   **The same property makes this the one channel on which a file RENAMED here reaches a consumer with no
@@ -2197,7 +2198,7 @@ unrelated tool's logs.
 
 ### How the gate checks got their shape, and the measurements behind them (August 15, 2026)
 
-*Moved here verbatim from [`CLAUDE.md`](../../../CLAUDE.md)'s lint-gate bullet, where it was 9,440 B
+*Moved here verbatim from [`CLAUDE.md`](../../rules/this-repo.md)'s lint-gate bullet, where it was 9,440 B
 over 102 lines — 26% of the always-on document, paid by every session before a word of work. The
 operative rule stayed there; this is the evidence for it, and the second half of the same split that
 moved the release craft to [Rendall #06](specialist-05-06-lens.md) the day before. Nothing was reworded:
@@ -3616,7 +3617,7 @@ rather than repeated here.
 `open-pr.ps1` composes the PR body from the document, and **the gates below read it on the way**. All but
 the last run locally, before the push and before the merge; that one runs in CI, and it exists because the
 local gates are escapable by not using the scripts. The repo's own lint and test gates are separate and
-stated in the [root `CLAUDE.md`](../../../CLAUDE.md): `open-pr.ps1` runs
+stated in [`this-repo.md`](../../rules/this-repo.md): `open-pr.ps1` runs
 [`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1) and then every
 `scripts/tests/*.tests.ps1`, refusing to push on any error or failing suite.
 

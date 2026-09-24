@@ -38,8 +38,10 @@
 
 .PARAMETER RunId
     One or more GitHub Actions run ids of the CI workflow. Each must have run the sharded suites job --
-    which rules out the run on a `fold:` push to the trunk, the newest of the two runs every ship leaves
-    behind and therefore the one nearest to hand. See the throw that names it.
+    so take a PR run. Neither trunk push a ship leaves behind normally qualifies: the `fold:` push skips
+    the suites by subject (#1300), and the `merge:` push skips them whenever the merge-commit certificate
+    proves its tree was already certified (#2303), which is the ordinary case after ship-pr. See the throw
+    that names both.
 
     SEVERAL IDS UNDER `-File`: pass them as ONE comma-separated string, e.g.
     `-RunId 34583187104,34583740147`. Both `$RunId` and `$RepoRoot` are positional, so under
@@ -154,7 +156,13 @@ foreach ($id in $runIds) {
         # one at the top of `gh run list` and the one a caller reaches for; its suites jobs complete
         # green having checked out and stopped, so nothing about the run says it measured nothing.
         # Measured on #1833, whose own refresh reached for it first.
-        throw "run $id printed no per-suite duration table - is it a CI run that ran the suites job? A push to the trunk whose commit message starts with 'fold:' skips that step by design (#1300), so take the MERGE commit's run or a PR run instead."
+        # THE MERGE COMMIT'S RUN IS NO LONGER THE ALTERNATIVE (#2388). Since the merge-commit certificate
+        # (#2303) a `merge:` push skips the suites too whenever its tree was already proved fresh -- the
+        # normal case after ship-pr -- so this throw used to send the caller from one tableless run to its
+        # tableless sibling. Measured on #2345's pair, 35903739236 (merge) and 35903751020 (fold). A merge
+        # run still carries the table when the certificate refuses, but nothing on the run list says which,
+        # so the advice names the run that always has one.
+        throw "run $id printed no per-suite duration table - is it a CI run that ran the suites job? Take a PR run: a trunk push skips that step by design, the 'fold:' push by its subject (#1300) and the 'merge:' push whenever the merge-commit certificate proves its tree was already certified (#2303), which is the normal case after ship-pr."
     }
     Write-Host "  $found suite rows" -ForegroundColor DarkGray
 }
@@ -204,7 +212,7 @@ $doc = [ordered]@{
     recordedFrom = [ordered]@{
         runs    = @($runIds)
         date    = (Get-Date -Format 'yyyy-MM-dd')
-        machine = 'windows-latest (4 cores), 4 shards x 4 lanes'
+        machine = 'windows-latest (4 cores), 4 lanes per shard'
         method  = 'mean of the per-suite durations the gate printed in each shard log'
     }
     seconds = $seconds
