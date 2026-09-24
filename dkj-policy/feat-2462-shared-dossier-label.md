@@ -76,3 +76,5 @@ N/A. It is a label definition and a tracker convention, and nothing reaches a su
 
 #### Pull Request
 
+'dossier' ships as a shared triage label, with the rule for handling a collecting issue
+
