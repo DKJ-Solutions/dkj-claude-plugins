@@ -1147,8 +1147,8 @@ $cycleTaken    = ($cycleOwner -eq $branch)
 # IT STAYS, for the reason the block itself gives. What it protects is work that exists in exactly one
 # place -- edits carried into a new branch by `git checkout -b` and never committed -- and the cost of
 # keeping an unreachable guard is a few lines, while the cost of being wrong about "unreachable" is
-# somebody's uncommitted entry. new-branch.tests.ps1 scenario (n2) measures the new guarantee (a foreign
-# document is never TARGETED) rather than pretending to reach this; that is deliberate and is written up
+# somebody's uncommitted entry. new-branch-document.tests.ps1 scenario (n2) measures the new guarantee (a
+# foreign document is never TARGETED) rather than pretending to reach this; that is deliberate and is written up
 # there.
 #
 # A FOREIGN OWNER IS OVERWRITTEN, EXCEPT WHERE THE OVERWRITE WOULD BE UNRECOVERABLE -- and that

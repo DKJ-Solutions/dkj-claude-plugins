@@ -44,7 +44,310 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 49 minor entries** <!-- pending-tally -->
+**27 / 59 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2437-trusted-tree-ship · 20260924-155111Z
+
+This closes issue #2437 (following Sebastian #23's design review) and files #2449 for the consumer
+template's own, narrower version of the same class of exposure. `ship-pr.ps1` gained `-TrustedRoot`
+(forwarded to `open-pr.ps1` as `-SeamRoot`), `.github/workflows/merge-on-green.yml` now runs from two
+separate, token-isolated checkouts, `Get-MergeOnGreenExecutedPathHit` shrank to an enumerated two-file
+list, matched case- and spelling-insensitively so a renamed seam still refuses. A new closure-walking test
+(`trusted-tree-seam.tests.ps1`, which also follows guarded dot-sources) guards against a third
+`$repoRoot`-rooted dot-source reappearing silently in ship-pr's own closure, and
+`ship-pr-trusted-root.tests.ps1` proves the redirection behaviourally. The token's remaining presence
+beside PR-controlled data for the whole step predates this branch and is filed as #2452.
+
+Every specialist here maintains this repo's own CI/release tooling and reads this repo's own commits, so
+tier 0 is scored against how much clearer/safer/costlier the mechanism became for the next person (or
+session) touching `ship-pr.ps1`, `open-pr.ps1`, or this workflow.
+
+This closes a measured, session-facing cost (#2436: ~80% of merged PRs here could never be finished by
+the sweep) with a design that was reviewed BEFORE it was built rather than patched after a live incident,
+and it leaves one explicit, load-bearing judgement call (the ephemeral-credential departure from
+Sebastian's literal wording) named in three places (the yml, the lens, this document) rather than buried
+in a diff. The cost is real complexity: two checkouts, a new parameter surface on two already-large
+scripts, and one mechanism (the `GIT_CONFIG_KEY_n` credential) that is textbook-sound but has not run
+live in this repo before.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+This repo's tier-2 audience is a subscriber of the workflow -- a consumer repo running `dkj-policy`
+adopts `ship-pr.ps1`/`open-pr.ps1` on their next plugin update, and the new `-TrustedRoot`/`-SeamRoot`
+parameters are additive (empty default, every existing call site unchanged), so nothing in a consumer's
+own workflow breaks or behaves differently until THEY choose to wire up trusted-tree mode -- which only
+`adopt-ci-floor.ps1`'s scaffolded runner would ever do, and it does not yet (see #2449). So today's
+consumers see a safer `ship-pr.ps1`/`open-pr.ps1` with no action required, and the specific security
+improvement this branch makes (closing #2338 for THIS repo's own sweep) does not reach a consumer's own
+`merge-on-green.yml` until #2449 is built and adopted separately.
+
+**Score:** 2
+
+#### Pull Request
+
+merge-on-green ships from a trusted trunk tree, so the executed-path exclusion shrinks to the seam files
+
+Plugins: dkj-policy
+
+[PR #2453](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2453)
+
+---
+
+### DEPLOY: docs/2448-slim-this-repo-rule · 20260924-153842Z
+
+`.claude/rules/this-repo.md` loads into every session here and had grown to 37 KB of mechanics and
+history, most of it a second copy of what the lenses already carry. It is now 7 KB of repo facts with a
+pointer to the owning lens for each. What was not yet anywhere else moved into Sylvester's and Tessa's
+lenses first, and a contradiction in Sylvester's lens about where a session loads plugins from was
+corrected on the way ([#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448)).
+
+Two of the three always-on duplicates the issue listed are gone because this file no longer restates
+them. The third, "this repo is public", stays here as a repo fact.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The file is this repo's own rule and reaches no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Slim this-repo.md down to repo facts
+
+[PR #2451](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2451)
+
+---
+
+### DEPLOY: fix/2442-plugin-versions-user-scope-shadow · 20260924-152415Z
+
+`plugin-versions` now reports a plugin as **behind** when a path-less (machine-wide) install record
+carries an older version than this checkout's own record. It used to say *versions match* while a
+session was loading the older record's skills. The row prints `claude plugin update <id> --scope
+<that record's scope>`, then a restart, and at session start it is an `[ERROR]` instead of silence.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer missing a skill that the installed version ships now gets the one command that fixes it,
+where the tool used to tell them nothing was wrong.
+
+**Score:** 2
+
+#### Pull Request
+
+plugin-versions: flag a stale path-less record that shadows this checkout's install
+
+Plugins: dkj-policy
+
+[PR #2450](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2450)
+
+---
+
+### DEPLOY: docs/split-files-to-shrink-context · 20260924-150635Z
+
+The constitution gets a new working practice: split a file wherever the split keeps loaded context
+smaller. Content is divided by **when** it is needed. What governs every turn stays always-on, and the
+rest moves to where it loads on demand (a `paths:`-scoped rule, a manual, a skill page). The rule states
+its two limits. Halves that always load together save nothing, and a rule that must hold whichever files a
+turn touches stays always-on, because on-demand content is lost after a compaction. The always-on baseline
+is raised by 836 B on the record to carry it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy` reads the constitution through its absolute `@`-import, so its sessions
+now carry an explicit licence, and a test, for moving situational detail off the always-on path: split by
+timing, not by topic.
+
+**Score:** 3
+
+#### Pull Request
+
+Constitution: split a file wherever that keeps loaded context smaller
+
+Plugins: dkj-policy
+
+[PR #2446](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2446)
+
+---
+
+### DEPLOY: docs/merge-specialists-readme · 20260924-144731Z
+
+The specialists handbook (`.claude/specialists/README.md`) is gone, and
+[`SPECIALISTS.md`](../.claude/specialists/SPECIALISTS.md) is the one page for the roster.
+The two pages repeated the roster, the lens index and the scaffold explanation. The handbook's unique
+content moved to the lens of the specialist who owns it, so it stays on demand:
+[Tessa's](../.claude/specialists/lenses/specialist-06-16-lens.md#how-a-specialist-is-structured-here)
+for how a specialist and this directory are structured,
+[Sylvester's](../.claude/specialists/lenses/specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo)
+for the plugin-update procedure and the `Get-RosterIgnoredIds` history, and
+[Derek's](../.claude/specialists/lenses/specialist-05-05-lens.md#the-three-ways-a-briefing-fails-measured-here)
+for the measured instances behind Chris's briefing and branch-check rules. The always-on path shrinks by
+448 B, where a wholesale merge would have added ~33 KB.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- `.claude/` is this repo's own layer and ships in no plugin, so no subscriber receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Merge the specialists handbook into SPECIALISTS.md and retire the README
+
+[PR #2447](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2447)
+
+---
+
+### DEPLOY: docs/2415-local-gate-median-141 · 20260924-142922Z
+
+Nolan's lens now records the local test gate's wall-clock on the current 141-suite pool: median **229s**
+at the automatic 30 lanes and **1,215s** at `-MaxParallel 2`, n=5 each, all green, on one 32-core machine
+with the population stated. At auto lanes the makespan is one file, `new-branch.tests.ps1`, so more lanes
+buy nothing and the lever sits inside that suite; at two lanes the pool is work-bound. #2317's ~43-minute
+runs and memory reaps did not reproduce on this machine. Closes #2415.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a measurement recorded in a maintainer's lens; nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Record the local gate median on the 141-suite pool: 229s at auto lanes, 1,215s at two
+
+[PR #2445](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2445)
+
+---
+
+### DEPLOY: fix/2438-stranded-sweep-sessioncheck · 20260924-140748Z
+
+This repo's own maintainers, and any consumer running the merge-on-green sweep, could not tell a
+permanently-stranded armed pull request from an ordinary, still-being-shipped one -- both stay labelled
+`merge-when-green` and green, and the sweep's own decline reason lived only in a CI log nobody reads
+once it stops going red. A new SessionStart hook (`stranded-sweep-sessioncheck.ps1`) now reads the
+tracker the same way the sweep itself does -- reusing `Get-MergeOnGreenExecutedPathHit` and
+`Get-MergeOnGreenPrVerdict` rather than a second implementation of either -- and surfaces the finding,
+with the exact resume command (`git checkout <branch>` then `ship-pr.ps1`, verified against its actual
+param block rather than assumed), at the start of the next session in this repo. Fails quiet with no
+`.github/workflows/merge-on-green.yml`, `gh` absent or unauthenticated, or an unreadable tracker read,
+and never blocks a session start.
+
+Review pass (Victor, Sebastian): the check's own scan is now bounded in TOTAL, not only per `gh` call --
+an `-MaxElapsedSeconds` budget (default 90) stops judging further armed pull requests once spent, and
+reports an honest `judged X of Y` `[INCOMPLETE]` line (forwarded by the hook, not silent) whenever a
+budget cut-off or a per-PR read failure left anything unjudged, rather than folding that gap silently
+into "none stranded". The printed `git checkout` resume line now judges the branch name through
+`Get-PasteableRef` (ship-pr.ps1's own #1594 mechanism) instead of the display-only ASCII scrub, so a
+branch name carrying a shell metacharacter prints a safe placeholder plus a note rather than a pasteable
+command. And `Get-MergeOnGreenStrandedVerdict`'s blocked/pending/settle-window checks now share one
+helper with `Get-MergeOnGreenPrVerdict` instead of re-deriving them, so the two cannot drift apart.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer running this workflow's merge-on-green sweep will now occasionally see a `[STRANDED]` report
+at session start naming a pull request nobody would otherwise have known was permanently stuck --
+recovering work that used to require reading a CI log by hand to notice at all.
+
+**Score:** 2
+
+#### Pull Request
+
+A PR the merge-on-green sweep declines as executed-path is reported at session start
+
+Plugins: dkj-policy
+
+[PR #2443](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2443)
+
+---
+
+### DEPLOY: fix/2304-rerecord-durations-split-new-branch · 20260924-135506Z
+
+`scripts/tests/suite-durations.json` is re-recorded from three PR runs on the step-5 layout, so the gate
+now packs `new-branch-document` and `new-branch-base` from real durations instead of charging them the
+maximum. The reading closes #2304: the pool is 6,807s, the work bound over 20 lanes is ~340s, and the
+heaviest file (`script-contract.tests.ps1`) is 253.8s. No file sets the gate's makespan any more; it is
+bound by total work. CI went from 11.5 minutes on one file to shards of 4.2 to 7.4 minutes. `ci.yml`
+records the reading and prices a sixth shard at ~57s off the bound against ~20s of provisioning. The
+comment says to measure a run packed from this file before buying that shard.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: CI timing in this repo, which reaches no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-record CI suite durations after the new-branch split
+
+[PR #2441](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2441)
+
+---
+
+### DEPLOY: feat/2304-split-new-branch-suite · 20260924-132054Z
+
+`new-branch.tests.ps1` is three suites now (`new-branch`, `new-branch-document`, `new-branch-base`),
+over a shared `new-branch-fixture.ps1`. Re-read over three 5-shard runs, it was the one file above the
+gate's work bound (392.5s against ~330s over 20 lanes). With it split, the heaviest remaining file is
+229.4s and the gate is bound by total work again. All 302 asserts are preserved and were verified by
+running the three parts. `suite-durations.json` is re-recorded from those runs. Step 5 of #2304.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This split was cheap. Every scenario already built its own fixture, so nothing had to be rebuilt per
+part the way the integrity family's splits had to. Whether a sixth shard pays is for the next re-read,
+once the three new names have real durations.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split new-branch.tests.ps1, the critical-path file on five shards
+
+Plugins: dkj-policy
+
+[PR #2439](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2439)
+
+---
+
+### DEPLOY: fix/2420-thumbnail-generator-connector-owner · 20260924-131132Z
+
+The connector register now names `thumbnail-generator` under the `DKJ-Solutions` org it moved to, so
+that consumer's session check stops reporting its own origin as unregistered.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Register thumbnail-generator under its new owner
+
+[PR #2440](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2440)
+
+---
 
 ### DEPLOY: fix/2426-init-own-payload-subagents · 20260924-115135Z
 

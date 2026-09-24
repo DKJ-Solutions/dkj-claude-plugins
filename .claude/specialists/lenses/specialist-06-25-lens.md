@@ -292,7 +292,7 @@ of this measurement that clone sat ten commits behind `main` and the two files d
 12,294 B in the repo, **11,051 B actually loaded**. The table above reports what the session loads. The
 difference is not error to smooth away — it is **queued cost that arrives at the next plugin update**,
 and it is the always-on face of the consequence
-[`this-repo.md`](../../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) already records: through
+[Sylvester's lens](specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo) already records: through
 the `github` source the team sees the last *pushed* plugins. Resolve the load path before measuring it.
 
 **WHERE THE COST IS: IT IS NOT DIFFUSE, IT IS ONE SUB-ITEM.** `CLAUDE.md` stood at 875 lines in 9
@@ -1461,6 +1461,45 @@ file. Do not re-open it as a wall-clock lever.
 **Honest limit: n=1 per stdin state**, on a machine that is not CI and does not convert to it (the #1713
 rule above). What is n=2 is the regime — September 9 at 16 lanes and today at 22, both within 1.4% of
 their bound.
+
+### The local gate at 141 suites — 229s at auto lanes, 1,215s at two, n=5 each (September 24, 2026)
+
+[#2415](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2415) asked for the local gate's
+median on the current pool, because the only local figures on record were
+[#2317](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2317)'s: ~43 min per run and memory
+reaps at auto lanes, on 124–125 suites and an 18-core machine. **Neither reproduces here.**
+
+**Population.** One machine — 32 logical cores, 31.8 GB, Windows 11 Pro 26200, Windows PowerShell 5.1 —
+one tree (`f5b5a445`), all **141** suites every run. Each run went through the real entry point,
+`open-pr.ps1 -GatesOnly -SkipLint`, started from a background shell with nothing else touching the checkout,
+one at a time. **`.git/workflow-gate-evidence.json` was deleted before every run**: the gate records what it
+proved against the exact tree and skips the suites on a second run, so without that a repeat measures a
+file read. Wall clocks are the gate's own `passed in` line.
+
+| lanes | n | median | range | work (sum of per-suite rows) | verdicts |
+|---|---|---|---|---|---|
+| **30** — auto, `BoundBy: cores` (32 − 2; memory allowed more) | 5 | **229s** | 222–244s | 5,172–5,579s | 5 green |
+| **2** — `-MaxParallel 2` | 5 | **1,215s** (20.3 min) | 1,125–1,320s | 2,247–2,636s | 5 green |
+
+**At auto lanes the pool IS one file, the same regime as the 121-suite reading above, and the file has
+moved again.** `new-branch.tests.ps1` set the makespan in all five runs (222.1–243.8s, dequeued at +0.3s),
+while work ÷ lanes sits at 172–186s, below it. So adding lanes buys nothing here either. The one local lever
+at this lane count is still inside one suite, and today that suite is `new-branch`, not the
+`check-plugin-integrity-*` family.
+
+**At two lanes the pool is work-bound instead**: makespan ≈ work ÷ 2 in every run. The per-suite work is
+**less than half** the 30-lane figure (≈2,400s against ≈5,300s), so a suite runs ~2.2x slower under 30 lanes
+of contention than under two. That contention is what 30 lanes spends to finish 5.3x sooner.
+
+**What this does and does not overturn.** #2317's reaps at auto lanes did not occur in five runs at 17–18 GB
+free, so the "only `-MaxParallel 2` always finishes" reading was that machine, not the pool. It is **not**
+evidence that the reap cannot recur on a smaller box: the lane count is resolved once at t=0 from cores and
+free memory, and nothing here measured below 17 GB at the start of an auto run. The two-lane runs were
+**not all taken on an idle machine** — free memory at the start ranged 7.1–18.4 GB — which is inside the
+series' 195s spread and is stated rather than corrected for.
+
+**Honest limit: one machine, one session, n=5 per lane count.** The figures price a lever for *this* box.
+They do not convert to CI (the #1713 rule above) or to the 18- and 24-core machines earlier sections measured.
 
 ### The `-Seen` repair, re-measured — the +11% is the CALL, not the second pass (September 20, 2026)
 

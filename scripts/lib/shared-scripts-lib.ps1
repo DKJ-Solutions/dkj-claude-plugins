@@ -75,6 +75,11 @@ function Get-SharedScriptPairs {
             Source = 'scripts\release\open-pr.ps1'
             Plugin = 'dkj-policy'
             Skill  = 'open-pr'
+            # -SeamRoot is CI-runner machinery for issue #2437's trusted-tree ship, forwarded by
+            # ship-pr.ps1's own -TrustedRoot (its own exemption, on ship-pr's registration below). Built
+            # for merge-on-green.yml, not for a session to type -- see the parameter's own doc for why.
+            # Documenting it in the skill page would invite a session to pass a tree it does not trust.
+            SkillParamsExempt = @('SeamRoot')
         },
         @{
             Name   = 'check-roster-sync'
@@ -275,6 +280,11 @@ function Get-SharedScriptPairs {
             # verify-resolved-issues too, which is why that entry points here rather than at one of
             # its own.
             Skill  = 'ship-pr'
+            # -TrustedRoot is CI-runner machinery for issue #2437's trusted-tree ship (merge-on-green.yml
+            # runs this script from a separate, token-bearing checkout of the trunk rather than from the
+            # branch). Built for that runner, not for a session to type -- see the parameter's own doc.
+            # Documenting it in the skill page would invite a session to name a tree it does not trust.
+            SkillParamsExempt = @('TrustedRoot')
         },
         @{
             # Travels with ship-pr rather than on its own merit: it IS ship-pr's step 6, and a consumer
@@ -920,6 +930,34 @@ function Get-SharedScriptPairs {
             # NO MeasureArgs: a bare run lists the tracker's armed pull requests, which is a network read
             # of live state rather than a timeable unit of work -- the same declaration verify-pushed-merges
             # makes for its own reason.
+        },
+        @{
+            # THE STRANDED-SWEEP REPORT (issue #2438, split out of #2436's step 2). An armed pull request
+            # the picker above declines on the executed-path reason is declined FOREVER -- no sweep will
+            # ever take it, only a session running ship-pr.ps1 can -- and until this, that fact was
+            # visible only in the sweep's own CI log. This asks the same question pick-merge-on-green.ps1
+            # answers per sweep, from a session start instead: the same gh reads, the same lib
+            # (Get-MergeOnGreenStrandedVerdict, reused rather than restated), so a repo running this check
+            # sees exactly what the next sweep would see.
+            #
+            # ITS ONLY AUTOMATIC CALLER IS THE SessionStart HOOK stranded-sweep-sessioncheck.ps1. No CI
+            # leg, on the same reasoning consumer-prose-sessioncheck's row gives: a consumer's CI is not
+            # this repo's to add, and CI already sees the sweep's own log.
+            #
+            # ADVISORY, LIKE ITS SIBLINGS ABOVE (check-git-identity, check-unfolded-entry): it reports a
+            # fact about the TRACKER rather than about the diff, fails quiet on anything short of a clean
+            # read (offline, gh absent, no workflow file), and never blocks a session start.
+            #
+            # NO SKILL, on check-unfolded-entry's reasoning: the one caller is automatic and nobody
+            # invokes this as a procedure. The one command in its .SYNOPSIS answers it early.
+            Name   = 'check-stranded-sweep'
+            Source = 'scripts\lint\check-stranded-sweep.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            # A fixture root, so the suite (and the hook) can judge a tree other than the checkout.
+            SkillParamsExempt = @('RootOverride')
+            # NO MeasureArgs, on pick-merge-on-green's own reasoning: a bare run reads live tracker state
+            # over the network rather than a timeable unit of work.
         },
         @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for

@@ -709,6 +709,58 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   whether that fails loudly or silently on resume was not verified, so verify it before repairing it
   when that branch finally takes `main` in.
 
+#### The three ways a briefing fails, measured here
+
+Behind *"Verify the stand against the repo, not against a handover text"* in
+[Chris's lens](specialist-01-01-lens.md#the-dave-rules). Three modes, three instances, none of which
+the mode above it would have caught.
+
+**Truncated — July 29, 2026.** Dave's self-verifying start prompt arrived **three times, identically
+truncated** at the same character: it broke off mid-word inside open point 2 and resumed at the tail
+of a bullet whose subject was gone, taking one pitfall with it entirely, the opening of another, and —
+unknowably — any open points numbered after 2. Asking again did not help; the channel would not carry
+it. The visible points looked complete, which is exactly the danger.
+
+**Stale — the same day, and again on August 4, 2026.** A briefing's *expectations* go stale as well as
+its facts: that July 29 prompt kept predicting the one `[INFO]` that
+[#257](https://github.com/DKJ-Solutions/claude-code-specialists/pull/257) had already removed. On August 4
+a briefing *and* a memory note *and* every local command agreed the tree was clean while a
+fully-planned parked branch sat on the remote, overtaken hours earlier by work merged from a different
+branch — which is what put `git ls-remote --heads origin` in the checklist. Note which sources were
+wrong there: not a truncated channel this time, but two of Chris's own artefacts. That is the argument
+for reading the repo rather than for reading a *better* summary.
+
+**Transcribed — August 19, 2026.** A briefing that is complete, current, and states a **cause that does
+not exist**: a lock six minutes old, correct about its subject (inbound
+[#747](https://github.com/DKJ-Solutions/claude-code-specialists/issues/747)) and wrong about the mechanism,
+while the report it summarised had named the right line. Neither truncation nor staleness but
+*transcription*, and it survived every check in force at the time. Its rule lived in the `/handover`
+skill until that skill was removed
+([#957](https://github.com/DKJ-Solutions/claude-code-specialists/issues/957), Dave); the mode is a property
+of summaries rather than of any one command, so a recap Dave types, a `/loop` prompt, a branch
+document's PLAN section and a post-compaction summary are all the same artefact from this rule's point
+of view. What was repo-specific about it is that the report and the pickup were the same team an hour
+apart — the same shape as the fifth inbound pattern in the `triage-inbound` skill, and the same
+argument for recounting even when the report is your own.
+
+**The portable half of this rule reaches no consumer.** It travelled in the payload of the skill that
+was removed, and a repo lens does not travel. That is a gap recorded here rather than pretended away.
+
+#### The branch check fires on the follow-up assignment
+
+Behind *"The check runs at the start of every assignment, not every session"* in
+[Chris's lens](specialist-01-01-lens.md#the-gatekeepers-as-implemented-here).
+
+Measured August 10, 2026. `ship-pr.ps1` switches to `main` in order to fold, so a successful chain ends
+with the session on the trunk and the tree clean. Dave caught it after **seven** files had been edited
+there; nothing was committed, so a `git checkout -b` carried the work across intact and the cost was
+zero.
+
+**The shape is what makes it recur.** It fires on a *follow-up* assignment inside one conversation —
+*"do the next thing"* — where no new session and no fresh intake prompts the ritual, and it is the
+**previous chain's success** that put you in the wrong place. A check tied to session start would
+therefore never catch it, which is why the rule is worded against the assignment instead.
+
 ### Filing an issue — the layer before a branch exists
 
 **This was `dkj-policy/CONTRIBUTING.md`'s step 1 until #2179 retired that page**

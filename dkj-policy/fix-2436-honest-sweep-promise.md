@@ -44,6 +44,16 @@ refuse on the executed-path rule (#2338). Steps 2 and 3 are their own subjects a
 #2438 (make the stranded state visible after the session dies) and #2437 (run ship-pr from a
 trusted trunk tree). Step 4's tests ride along with step 1.
 
+#### The trunk moved underneath this branch
+
+While it was parked, #2437 and #2438 both landed on `main`. #2437 shrank the executed-path rule
+from four path prefixes to the two repo-owned seam files (`scripts/repo-config.ps1`,
+`scripts/lib/branch-info.ps1`) plus the fail-closed incomplete file list. So the false promise
+still stands, but for a minority of PRs now, not ~80%. This branch calls that same predicate, so it
+follows the shrink without any code change. Only the prose that cited the old size was corrected.
+The merge conflict in `merge-on-green-lib.ps1` was purely additive (#2438's
+`Test-MergeOnGreenRequiredChecksSettled` beside this branch's helper).
+
 ### CREATE
 
 - [x] `Get-MergeOnGreenSweepRefusal` in `merge-on-green-lib.ps1`: parses `gh pr view --json
@@ -65,16 +75,17 @@ trusted trunk tree). Step 4's tests ride along with step 1.
 ### DEPLOY: fix/2436-honest-sweep-promise
 
 `ship-pr` now promises that the merge-on-green sweep will finish a PR only when the sweep can. For a
-PR whose diff touches code the runner would execute from the branch, it names that path at arm time
-and says that, if this run does not finish, somebody has to re-run ship-pr from a session. It is
-read through the same executed-path predicate the sweep refuses on (#2338), so the two cannot disagree (#2436).
+PR the sweep refuses (one that changes a repo-owned seam file, or whose file list is too long to read
+whole), it gives the reason at arm time and says that, if this run does not finish, somebody has to
+re-run ship-pr from a session. It is read through the same executed-path predicate the sweep refuses
+on (#2338), so the two cannot disagree (#2436).
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-Anyone who runs `ship-pr` on a PR that changes scripts or workflows is now told that the automatic
-backstop will not cover it, so a green PR no longer sits unmerged while it looks owned.
+Anyone who runs `ship-pr` on a PR the automatic backstop will not cover is now told so up front, so a
+green PR no longer sits unmerged while it looks owned.
 
 **Score:** 2
 

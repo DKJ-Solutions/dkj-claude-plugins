@@ -332,6 +332,46 @@
     0 RESTORES THE OLD BEHAVIOUR -- refuse on the first stale reading and print the remedy -- and the
     refusal then says so, rather than implying the laps ran out.
 
+.PARAMETER TrustedRoot
+    Run in TRUSTED-TREE MODE (issue #2437): a path to a separate, already-checked-out copy of the
+    trunk, trusted the way $PSScriptRoot already is when this script itself runs from that tree. Empty
+    (the default) is every call site before this parameter existed, completely unchanged.
+
+    BUILT FOR merge-on-green.yml, NOT FOR A SESSION TO TYPE. That runner used to check the PR branch out
+    WITH FOLD_PUSH_TOKEN in the workspace and run this very script -- and everything it dot-sources --
+    FROM THAT BRANCH (issue #2338): a pull request touching scripts/, .github/, .workflow-scripts/ or a
+    plugin's scripts/ could not be swept, because the runner would be executing the branch's OWN version
+    of the code doing the sweeping, with a standing write credential in its environment. #2437 answers
+    that by giving the runner two separate checkouts -- the PR branch with NO token and
+    `persist-credentials: false`, and a trusted copy of the trunk carrying FOLD_PUSH_TOKEN -- and running
+    THIS script from the trusted one ($PSScriptRoot resolves there on its own, because that is where the
+    file physically is). -TrustedRoot is the one thing $PSScriptRoot cannot supply for free: the two
+    REPO-OWNED seams (scripts/repo-config.ps1, scripts/lib/branch-info.ps1) that this script and
+    open-pr.ps1 read from $repoRoot -- the checked-out branch -- rather than from beside themselves,
+    because a repo's own name and its own branch-prefix table are not portable plugin code. Passing
+    -TrustedRoot repoints those two dot-sources at this same trusted tree (forwarded to open-pr.ps1 as
+    its own -SeamRoot) and takes over the fold's tree choice below (see FOLDS FROM $TrustedRoot,
+    NEVER FROM A NEW WORKTREE, at step 5).
+
+    NAME THE LIMITATION THIS BUYS (Sebastian #23's design review on #2437): a pull request that edits
+    either seam file ships under the TRUNK's answer to it, not its own, because -TrustedRoot means
+    neither file's branch copy is ever dot-sourced at all. That is a staleness cost, never a safety one --
+    `Get-MergeOnGreenExecutedPathHit` (merge-on-green-lib.ps1) still refuses such a pull request to the
+    sweep for exactly this reason, so it still ships from a session, with the PR's own edit honoured.
+
+    STRUCTURALLY FORCES -SkipLint AND -SkipTests. gate-lib.ps1's Invoke-WorkflowGates runs the lint
+    script and every scripts\tests\*.tests.ps1 it finds FROM $RepoRoot, i.e. from the branch tree -- the
+    exact code -TrustedRoot exists to stop trusting. So this is not merely documented as "always pass
+    both switches together with this one" (a future edit to merge-on-green.yml could drop them and
+    nothing would say so): passing -TrustedRoot without -SkipLint/-SkipTests forces both to $true, with a
+    loud warning naming why, exactly as open-pr.ps1's own -SeamRoot does for the same reason.
+
+    THE FOLD, MERGE AND PUSH STILL LAND ON THE REAL TRUNK. $TrustedRoot already stands on 'main' (or
+    close to it), so step 5 folds there directly instead of spinning up a throwaway `git worktree add`
+    off $repoRoot -- which could not reach 'main' as a token-bearing, pushable ref anyway once the branch
+    tree carries neither. $TrustedRoot is never deleted or worktree-removed by this run: it is not this
+    script's to reclaim, whatever the caller does with it afterward.
+
 .EXAMPLE
     ./scripts/release/ship-pr.ps1
 
@@ -358,8 +398,26 @@ param(
     # How many times step 3b may bring the branch forward and re-certify before refusing. See
     # .PARAMETER MaxForwardLaps. 0 restores the detect-and-rebase behaviour this repo had before #2087.
     [ValidateRange(0, 10)]
-    [int]$MaxForwardLaps = 2
+    [int]$MaxForwardLaps = 2,
+    # Trusted-tree mode (issue #2437): a separate, already-checked-out trunk this script and its seams
+    # load from instead of $repoRoot. See .PARAMETER TrustedRoot.
+    [string]$TrustedRoot = ''
 )
+
+# TRUSTED-TREE MODE STRUCTURALLY FORCES THE SKIPS (issue #2437, condition (c)), BEFORE step 1 hands
+# anything to open-pr.ps1. gate-lib.ps1's Invoke-WorkflowGates runs the lint script and every
+# scripts\tests\*.tests.ps1 it finds from $RepoRoot -- the branch tree -- which is exactly what
+# -TrustedRoot exists to stop trusting, so a caller in this mode has no sound way to run those gates at
+# all. A caller that also asked NOT to skip is told so rather than silently honoured or silently
+# ignored: -TrustedRoot without both switches is very likely merge-on-green.yml losing them in a future
+# edit, not a deliberate request to run the branch's own gates from a trusted tree.
+if ($TrustedRoot) {
+    if (-not $SkipLint -or -not $SkipTests) {
+        Write-Warning "-TrustedRoot forces -SkipLint and -SkipTests: gate-lib.ps1 runs the lint script and every test suite from `$RepoRoot (the branch tree), which is exactly what -TrustedRoot exists to stop trusting. Forcing both to `$true rather than running either."
+    }
+    $SkipLint = $true
+    $SkipTests = $true
+}
 $ErrorActionPreference = 'Stop'
 
 # EVERY REFUSAL ENDS WITH A LINE THAT SURVIVES ITS CALLER (issue #2283). The report behind this one said the
@@ -430,10 +488,17 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 $repoRoot = Resolve-RepoRootOrFail -ScriptName 'ship-pr.ps1'
 Set-Location $repoRoot
 
+# THE SEAM ROOT (issue #2437): $TrustedRoot when the caller named a trusted tree to read this repo-owned
+# file from instead, $repoRoot otherwise -- every call site this parameter did not exist for, unchanged.
+# See .PARAMETER TrustedRoot for why this file specifically, and why $repoRoot stays the base for
+# everything else this script reads, writes, merges, pushes or checks out (it is still the checked-out
+# branch, and the merge, the step-list gate and the DEPLOY lock all read ITS commit).
+$seamRoot = if ($TrustedRoot) { $TrustedRoot } else { $repoRoot }
+
 # Pre-flight (#86): this script hard-requires the consumer's repo-config (unlike new-branch,
 # which treats it as optional) -- Get-RepoName has no sane default, and without it every gh call below
 # would target the wrong repo or none at all. Stop with a pointer instead of a raw dot-source error.
-$configPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
+$configPath = Join-Path $seamRoot 'scripts\repo-config.ps1'
 if (-not (Test-Path -LiteralPath $configPath)) {
     Write-Error "ship-pr cannot run -- missing repo-owned file: $configPath (Get-RepoName). This file is repo-specific and belongs in the consumer's repo root. Create it (the specialists-init bootstrap lays down a VUL-IN scaffold, or take an existing consumer / the source repo as a model) and run again afterward."
     exit 1
@@ -888,6 +953,11 @@ if ($RefreshBody) { $openArgs += '-RefreshBody' }
 # `powershell -File`, where an [int[]] parameter would silently collapse '331,332' into 331332.
 if ($Resolves) { $openArgs += @('-Resolves', $Resolves) }
 if ($NoResolves) { $openArgs += '-NoResolves' }
+# TRUSTED-TREE MODE, FORWARDED (issue #2437): open-pr.ps1 dot-sources the same two repo-owned seams
+# this script does, from its own $repoRoot -- unless told otherwise. -SeamRoot is open-pr's own name for
+# the same redirection -TrustedRoot performs here; forwarding it is what makes the whole child chain
+# read the trusted tree instead of the branch, not only this script's own dot-source above.
+if ($TrustedRoot) { $openArgs += @('-SeamRoot', $TrustedRoot) }
 Write-Host "ship-pr: opening the PR..." -ForegroundColor Cyan
 # ONE CHAIN, ONE RECEIPT (issue #1884). open-pr.ps1 is a chain ENDING when somebody runs it, and a link
 # in the middle when this script runs it -- so the conductor claims the receipt and the child says
@@ -1125,8 +1195,8 @@ function Remove-ShipMergeOnGreenArmForJudgement {
 # minutes later would be the same act through another door.
 #
 # AND THE PROMISE IS ONLY MADE WHERE THE SWEEP CAN KEEP IT (#2436). The picker refuses, on every sweep, a
-# PR whose diff reaches code the runner would execute from the branch (#2338) -- most ships in the source
-# repo. It is asked here through the picker's own predicate, so the sentence below and the sweep's verdict
+# PR whose diff reaches the executed-path rule (#2338; since #2437 the two repo-owned seam files, or a file
+# list too long to read whole). It is asked here through the picker's own predicate, so the sentence below and the sweep's verdict
 # cannot drift. The PR is still armed: the label is the record that a session began shipping it, and the
 # picker's log names the reason on each sweep. What changes is only what this run tells its operator.
 $script:SweepRefusal = ''
@@ -3354,8 +3424,16 @@ $shipMergeLanded = $true
 # removal leaves a worktree holding main -- so the NEXT ship's `git checkout main` fails on a directory
 # nobody remembers creating. Declared before the paths that call it, which is what PowerShell requires.
 function Remove-ShipFoldWorktree {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        # $true when $Path is NOT a worktree this run created -- the -TrustedRoot case (issue #2437),
+        # where $Path is the caller's own checkout and this run has no business removing it, worktree or
+        # not. A no-op rather than a refusal: every call site below passes this unconditionally, so the
+        # ordinary (non-trusted-tree) paths must keep working exactly as before.
+        [switch]$NotOwned
+    )
     if (-not $Path) { return }
+    if ($NotOwned) { return }
     $rm = Invoke-NativeCapture -FilePath 'git' -Arguments @('worktree', 'remove', $Path)
     if ($rm.ExitCode -eq 0) { return }
     # A NON-ZERO EXIT HERE DOES NOT MEAN NOTHING HAPPENED -- worktree-lane.ps1 measured that on the
@@ -3430,7 +3508,29 @@ $foldTree = $null
 # an undefined variable. $foldStoodDown is initialised for step 5c's sake on the same grounds: it asks
 # whether this run LOST the fold race, and a run that never entered it did not.
 $foldStoodDown = $false
+# WHETHER THIS RUN OWNS $foldTree AND MUST TAKE IT DOWN AFTERWARD (issue #2437). Every existing call
+# site below -- the two failure arms and the one after a successful fold -- calls Remove-ShipFoldWorktree
+# unconditionally, because until now $foldTree was ALWAYS either $null or a worktree THIS RUN created with
+# `git worktree add`. -TrustedRoot breaks that: $foldTree becomes the CALLER's own trusted checkout, which
+# this run neither created nor may remove -- it is not this script's to reclaim, whatever the caller does
+# with it afterward. $false on every path that does not enter the -TrustedRoot arm below, so nothing
+# changes for a run that never passed it.
+$foldTreeIsOwned = $false
 if (-not $foldDeferredToCi) {
+    # FOLDS FROM $TrustedRoot, NEVER FROM A NEW WORKTREE (issue #2437, condition (d)). $repoRoot is the
+    # checked-out branch, which -TrustedRoot mode never gives a token or a persisted credential -- so the
+    # ordinary InPlace/worktree choice below is unreachable here: 'git checkout main' would need a trunk
+    # this tree cannot push, and 'git worktree add' shares $repoRoot's own (token-free) git config, which
+    # would leave the fold commit with nothing to push it with either. $TrustedRoot already IS a checkout
+    # standing on (or near) 'main', carrying the token, so it needs no worktree at all -- only bringing
+    # forward, which the shared fetch + ff-only merge just below already does for whichever tree $foldRoot
+    # names. Nothing here removes or mutates $TrustedRoot: $foldTreeIsOwned stays $false, so every
+    # Remove-ShipFoldWorktree call below this point is a deliberate no-op for it.
+    if ($TrustedRoot) {
+        $trustedResolved = Resolve-Path -LiteralPath $TrustedRoot -ErrorAction SilentlyContinue
+        $foldTree = if ($trustedResolved) { $trustedResolved.ProviderPath } else { $TrustedRoot }
+        Write-Host "ship-pr: folding in the trusted tree the caller supplied (-TrustedRoot), not a new worktree: $foldTree" -ForegroundColor Cyan
+    } else {
     $headRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
     $headLine = @($headRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
     # AN UNREADABLE HEAD TAKES THE WORKTREE ROUTE, deliberately. It is the arm that leaves somebody else's
@@ -3484,6 +3584,9 @@ release trips over it. Fold from the tree that HOLDS main -- fold-changelog-entr
         }
     } else {
         $foldTree = New-ScratchPath -Label "ship-pr-fold-$pr"
+        # THIS RUN CREATED IT, SO THIS RUN TAKES IT DOWN (issue #2437) -- the one arm of the three
+        # (InPlace, this one, -TrustedRoot) where $foldTree is a worktree nothing else owns.
+        $foldTreeIsOwned = $true
         # THE SENTENCE COMES FROM THE DECISION, not from this arm (issue #1753). There are three ways to
         # reach it now -- HEAD moved, HEAD unreadable, the tree unclean -- and a hard-coded "this checkout
         # moved while CI ran" is false on two of them. The composer owns its own wording, which is also what
@@ -3518,6 +3621,7 @@ release trips over it. Fold by hand from any tree standing on an up-to-date main
         $resolved = Resolve-Path -LiteralPath $foldTree -ErrorAction SilentlyContinue
         if ($resolved) { $foldTree = $resolved.ProviderPath }
     }
+    } # end: else (no -TrustedRoot) -- issue #2437
     # The tree the rest of this step works in: this checkout, or the throwaway worktree. `-C` on every call
     # rather than two copies of the same three commands -- with $foldRoot equal to $repoRoot, which is where
     # this script already stands, it is a no-op and the in-place path runs exactly what it ran before.
@@ -3565,12 +3669,12 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
     # the sentence: `$null -ne 0` is true, so this printed the flat "git fetch of origin failed" over a fetch
     # that may have worked, and the reader was sent after a remote that was fine.
     if (-not (Test-NativeExitMeasured -Capture $fetch)) {
-        Remove-ShipFoldWorktree -Path $foldTree
+        Remove-ShipFoldWorktree -Path $foldTree -NotOwned:(-not $foldTreeIsOwned)
         Write-Error "git fetch of origin ran but its exit code could not be measured (issue #1931), so this run cannot vouch for the ref the fold would be made against. Nothing is wrong with the remote as far as this knows -- run the fold again.$mergedNotFoldedNote"
         exit 1
     }
     if ($fetch.ExitCode -ne 0) {
-        Remove-ShipFoldWorktree -Path $foldTree
+        Remove-ShipFoldWorktree -Path $foldTree -NotOwned:(-not $foldTreeIsOwned)
         if ($fetch.TimedOut) {
             Write-Error "git fetch of origin did not answer within $NativeCaptureNetworkTimeoutSeconds seconds -- see the [timeout] lines above. Fix the credential first.$mergedNotFoldedNote"
         } else {
@@ -3581,7 +3685,7 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
 
     $ff = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'merge', '--ff-only', 'origin/main')
     $ff.Output | ForEach-Object { Write-Host $_ }
-    if ($ff.ExitCode -ne 0) { Remove-ShipFoldWorktree -Path $foldTree; Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"; exit 1 }
+    if ($ff.ExitCode -ne 0) { Remove-ShipFoldWorktree -Path $foldTree -NotOwned:(-not $foldTreeIsOwned); Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"; exit 1 }
 
     # The fold, its commit AND its push are all fold-changelog-entry.ps1's job (-Push implies -Commit).
     # This used to be a fold followed by `git add -A` + commit + push right here, and that was a real
@@ -3644,7 +3748,7 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
 
     # AND IT COMES DOWN WHETHER THE FOLD SUCCEEDED OR NOT, before the exit code is judged -- the last of the
     # three paths the function above exists for.
-    Remove-ShipFoldWorktree -Path $foldTree
+    Remove-ShipFoldWorktree -Path $foldTree -NotOwned:(-not $foldTreeIsOwned)
 
     # --- THE FOLD CAN BE LOST TO A RACE AND HAVE HAPPENED ANYWAY (issue #1792) ------------------------
     #
