@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 57 minor entries** <!-- pending-tally -->
+**26 / 58 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2448-slim-this-repo-rule · 20260924-153842Z
+
+`.claude/rules/this-repo.md` loads into every session here and had grown to 37 KB of mechanics and
+history, most of it a second copy of what the lenses already carry. It is now 7 KB of repo facts with a
+pointer to the owning lens for each. What was not yet anywhere else moved into Sylvester's and Tessa's
+lenses first, and a contradiction in Sylvester's lens about where a session loads plugins from was
+corrected on the way ([#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448)).
+
+Two of the three always-on duplicates the issue listed are gone because this file no longer restates
+them. The third, "this repo is public", stays here as a repo fact.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The file is this repo's own rule and reaches no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Slim this-repo.md down to repo facts
+
+[PR #2451](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2451)
+
+---
 
 ### DEPLOY: fix/2442-plugin-versions-user-scope-shadow · 20260924-152415Z
 
