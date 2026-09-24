@@ -1089,6 +1089,17 @@ is the half of #1685 that had a deadline: a taxonomy applied only to new issues 
 two, and the older half is where the backlog actually is. Two came out at `prio-4` (#1678, #1679), three
 at `prio-3` (#1685 itself among them), four at `prio-2` and one at `prio-1`.
 
+### The kind label — `dossier`, and a repair does not close it
+
+**`dossier` (`5319E7`) marks a collecting issue**: every instance of one recurring problem is added to it
+as a comment until the root cause is found, so a repair of one instance never closes it. #2454 is the
+first one here. It is a shared way of working, not this repo's own label (Dave, September 24, 2026,
+[#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)), so it ships in
+`Get-TriageLabels` beside the rungs. A dossier still carries a `prio-N`. The handling rule — comment
+instead of a new issue, `part of #<n>` instead of a keyword, close only on the root-cause repair — is in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
+restated here.
+
 ### The reach label — `minor`, and it is a second axis, not a fifth rung
 
 **`minor` is the reach label, and it answers a different question from `prio-N`.** Priority says *when

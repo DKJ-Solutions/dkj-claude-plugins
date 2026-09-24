@@ -1224,22 +1224,31 @@ function Get-ExpectedRepoSettings {
 # create` fails outright on a label the repo does not have, so the four records below exist to be
 # composed into a paste-ready `gh label create` line by adopt-triage-labels.ps1 rather than typed by
 # hand into four separate terminals with four separate chances to mistype a hex colour.
+#
+# AND A FIFTH RECORD THAT IS NOT A RUNG: 'dossier' (issue #2462, Dave September 24, 2026). A dossier is
+# a collecting issue -- every instance of one recurring problem is added to it as a comment until the
+# root cause is found, and no single repair closes it (#2454 was the first). It is a KIND of issue, not
+# an urgency, so it sits beside the rungs rather than among them: a dossier carries a prio-* label of
+# its own like any other issue. Dave ruled it a shared way of working rather than this repo's own label,
+# which is what puts it in this seam -- the same 'copy' reasoning as the rungs, since what a dossier is
+# asserts nothing about the adopting repo. The handling rule lives in CONTRIBUTING-portable.md.
 $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-1'; Color = '006B75'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
     [pscustomobject]@{ Name = 'prio-2'; Color = 'FBCA04'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
     [pscustomobject]@{ Name = 'prio-3'; Color = 'D93F0B'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
+    [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
 )
 
 function Get-TriageLabels {
-    <# The four canonical triage-priority labels this workflow's consumers are invited to share --
-       'prio-1' (lowest) through 'prio-4' (highest) -- as an array of objects with Name, Color and
-       Description (the exact fields a `gh label create` call needs). Read by
-       adopt-triage-labels.ps1, which composes and prints the create command for whichever of the
-       four this repo's tracker is missing; it never creates a label itself. Optional in the script
-       contract -- a consumer that has not answered this seam gets the same four values from that
-       script's own built-in fallback, so an unanswered repo is already told the canonical set rather
-       than a degraded one. #>
+    <# The canonical triage labels this workflow's consumers are invited to share -- the four
+       priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'dossier', the kind label for
+       a collecting issue -- as an array of objects with Name, Color and Description (the exact fields
+       a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
+       create command for whichever of them this repo's tracker is missing; it never creates a label
+       itself. Optional in the script contract -- a consumer that has not answered this seam gets the
+       same values from that script's own built-in fallback, so an unanswered repo is already told the
+       canonical set rather than a degraded one. #>
     return @($script:TriageLabels)
 }
 
