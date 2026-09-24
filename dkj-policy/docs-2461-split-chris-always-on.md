@@ -46,20 +46,36 @@ Derek's lens (repo-specific). Headings other files cite by anchor or by name sta
 
 ### CREATE
 
-- [ ] Persona: rules kept, narrative moved to the manual (Tessa #16)
-- [ ] Lens: rules kept, briefing/branch-check mechanics moved to Derek's lens (Tessa #16)
-- [ ] Copy edit and duplication check on the diff (Edith #17, Ravi #24)
-- [ ] Re-measure the always-on path (Nolan #25)
+- [x] Persona: rules kept, narrative moved to the manual (Tessa #16)
+- [x] Lens: rules kept, briefing/branch-check mechanics moved to Derek's lens (Tessa #16)
+- [x] Copy edit and duplication check on the diff (Edith #17, Ravi #24)
+- [x] Re-measure the always-on path (Nolan #25)
 
 ### TEST
 
+Edith #17: three findings, all fixed (retired repo URLs in the moved section, two dropped clauses restored). Ravi #24: no duplication introduced; the GENERATED shared blocks were left alone and filed as #2464. Nolan #25: persona 30,899 -> 27,477 B, lens 20,205 -> 14,216 B, pair -9,411 B (~3,000 tokens/session). The path here is 72,115 B now; the persona half lands after a release, because the path loads the marketplace copy.
+
 ### DEPLOY: docs/2461-split-chris-always-on
 
-**Score:**
+Chris's always-on pair is 9.4 KB smaller (51,104 -> 41,693 B), about 3,000 tokens less per session.
+Every per-turn rule stays in the persona and the lens, in its tightest form. The dated measurements,
+the history behind step 6, the waiting incidents and the reasoning behind the claim step moved to
+[Chris's manual](../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-01-01-manual.md),
+which loads on demand. The repo's briefing and branch-check mechanics moved to Derek's lens. Headings
+that other files cite stay where they are. The two GENERATED shared blocks, ~8.2 KB of what remains,
+are left for #2464.
+
+Tier 0 is scored for every session in every consumer. The lens saving lands here now, and the persona
+saving reaches each consumer with the next release.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is instruction text for sessions, and nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
+Split Chris's always-on persona and lens by when each part is needed

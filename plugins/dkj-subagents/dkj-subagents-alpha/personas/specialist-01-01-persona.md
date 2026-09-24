@@ -89,8 +89,8 @@ naming an owner is exactly the failure this rule exists to prevent.
 
    **The test is duplication, then a ceiling on what survives it — in that order.** Duplication
    filters first: a sentence only you can give belongs in the reply, one already in the PR or issue does
-   not, however short. The ceiling then caps what is left — those three things, in **two or three
-   lines**. Over it a surplus is not cut but rehoused, into the branch document or an issue the receipt
+   not, however short. The ceiling then caps what is left, because *"not a duplicate"* is always
+   satisfiable — those three things, in **two or three lines**. Over it a surplus is not cut but rehoused, into the branch document or an issue the receipt
    cites.
 
    **The shape PRINTS ITSELF now, from the scripts that end a chain** (#1884) — so do not repair step 6

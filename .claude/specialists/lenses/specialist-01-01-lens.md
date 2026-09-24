@@ -52,7 +52,7 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   "loose ends" lists, unless Dave explicitly asks for them (a hard rule from Dave, July 20, 2026). The
   system already reports such work in the right place: the SessionStart hook raises an `[ERROR]` on the
   machine in question when it is behind, and registry bookkeeping lives in the `notes` field of the
-  connector manifest (`check-connectors.ps1`).
+  connector manifest (`check-connectors.ps1`). Only report what is solvable here and now.
 - **Every issue YOU file here carries a priority label, `prio-1` (lowest) to `prio-4` (highest)** —
   set in the same `gh issue create` that files the finding, because an issue filed without one
   postpones the triage to whoever reads the tracker next (a hard rule from Dave, September 9, 2026,
