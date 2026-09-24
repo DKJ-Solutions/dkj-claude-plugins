@@ -68,40 +68,77 @@ jobs:
     # GitHub's six-hour default.
     timeout-minutes: 45
     steps:
-      # THE TRUNK, NOT THE EVENT'S HEAD. This job is woken by a CI run for some branch and then asks the
-      # tracker which pull request is owed a merge; those are routinely different branches, and on a
-      # scheduled sweep there is no head at all. The branch the sweep picks is checked out by the ship
-      # step below, from a tree that starts on the trunk.
+      # TWO SEPARATE CHECKOUTS -- TWO SEPARATE .git DIRECTORIES -- NOT ONE CHECKOUT SWITCHED IN PLACE
+      # (issue #2437, closing #2338's exposure). Until this branch, this job checked 'main' out ONCE with
+      # FOLD_PUSH_TOKEN persisted into its workspace git config, then ran `git checkout <branch>` IN THAT
+      # SAME WORKSPACE -- so ship-pr.ps1 and everything it dot-sources ran as the BRANCH's own PowerShell,
+      # in a tree carrying a standing write credential that bypasses the main ruleset. A pull request
+      # touching scripts/, .github/, .workflow-scripts/ or a plugin's scripts/ could therefore never be
+      # swept (Get-MergeOnGreenExecutedPathHit refused it), which was ~80% of merged PRs here (#2436).
       #
-      # SHALLOW HERE, DEEPENED ONLY WHEN THERE IS SOMETHING TO SHIP. ship-pr's step 3b walks 'main'
-      # first-parent history since a certifying run's timestamp, and a shallow clone silently truncates
-      # that walk -- the one direction a staleness gate must not err in -- so the full history IS
-      # needed, but only on the runs that reach the ship step. Most sweeps find nothing and exit after
-      # one gh call; paying a full-history clone on each of them would be this job competing for the
-      # runners it exists to react to. The deepening is the ship step's first act, below.
+      # NOW: 'trusted-main' is a checkout of the TRUNK, and 'pr-branch' (added further down, once a
+      # pull request is actually picked) is a checkout of the PR's OWN head -- two independent clones,
+      # two independent git configs, sharing nothing but the same runner disk. ship-pr.ps1 -- and every
+      # sibling lib it loads via $PSScriptRoot -- runs FROM 'trusted-main' (see the Ship it step), so the
+      # code doing the sweeping is never the branch's own copy, whatever the branch's diff touches.
       #
-      # token: FOLD_PUSH_TOKEN, and actions/checkout's default persist-credentials writes it into the
-      # workspace git config -- which is what makes ship-pr's own fold commit push past the main ruleset,
-      # exactly as fold-on-merge.yml has since #1493. Pinned to a commit SHA for the same reason that
-      # file pins: a mutable tag on a step that handles a 366-day standing write token could retag its
-      # way into exfiltrating it.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # PERSIST-CREDENTIALS IS DELIBERATELY FALSE HERE TOO, unlike the single checkout this replaces.
+      # Neither tree carries a STATIC, on-disk credential: the Ship it step below supplies an EPHEMERAL,
+      # environment-only git credential (built from FOLD_PUSH_TOKEN, never written to either tree's
+      # .git/config) for the one operation that needs to push -- the fold's commit to 'main'. See that
+      # step for why an environment-only credential rather than actions/checkout's own persisted one, and
+      # for the residual exposure that choice still carries (GH_TOKEN in the step's process environment,
+      # inherited by every child process of it, same as every other step in this file already accepts for
+      # its `gh` calls). Read as unresolved without a live run: this workflow cannot be proved on its own
+      # pull request (see workflow_run's own comment above), so this exact mechanism is proven only by its
+      # first live sweep after this merges.
+      #
+      # NO TOKEN: INPUT AT ALL ON THIS CHECKOUT. The default (the job-scoped GITHUB_TOKEN) is a READ of a
+      # PUBLIC repository -- more than sufficient, and it is the narrower, hour-lived credential rather
+      # than the 366-day standing one, kept out of a step that does not need it.
+      #
+      # PINNED TO A COMMIT SHA, same reasoning as the single checkout this replaces carried: a mutable tag
+      # on a step in a job whose LATER step handles a 366-day standing write token could retag its way
+      # into exfiltrating it, even though THIS particular checkout carries no token of its own.
+      - name: Checkout the trusted trunk
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: main
-          token: ${{ secrets.FOLD_PUSH_TOKEN }}
+          path: trusted-main
+          persist-credentials: false
 
       # THE PICKER READS WITH THE JOB-SCOPED TOKEN, NOT WITH THE PAT. It only lists pull requests and
       # their checks, and an hour-lived token that expires with the run is the right credential for a
-      # read -- keeping the standing one out of every step that does not need it.
+      # read -- keeping the standing one out of every step that does not need it. RUN FROM 'trusted-main'
+      # (working-directory), which is where this script's file now lives on disk -- the workspace ROOT no
+      # longer holds a checkout at all, so a bare relative path here would resolve to nothing.
       - name: Is any armed pull request owed a merge?
         id: pick
         shell: powershell
+        working-directory: trusted-main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/pick-merge-on-green.ps1
           exit $LASTEXITCODE
+
+      # THE PR'S OWN HEAD, IN ITS OWN TREE -- carrying no token, and persist-credentials: false so
+      # nothing is written to ITS .git/config either. ref: is the picker's own output, not typed by a
+      # session -- pick-merge-on-green.ps1 has already refused any branch name outside a plain charset
+      # (the same guard the old `git checkout $env:SHIP_BRANCH` line relied on), and a `with:` input is
+      # passed to the checkout action as a parameter rather than concatenated into a shell string, so this
+      # is not the ${{ }}-in-run: hazard the Ship it step's own comment warns about.
+      #
+      # SHALLOW (the default): the SHA check just below refuses on a moved head before anything past this
+      # tree is trusted, and the Ship it step deepens THIS checkout, not this one's ref resolution.
+      - name: Checkout the picked pull request's branch
+        if: ${{ steps.pick.outputs.picked == 'true' }}
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ steps.pick.outputs.branch }}
+          path: pr-branch
+          persist-credentials: false
 
       # THE SHIP IS ship-pr.ps1 ITSELF, NOT A SECOND IMPLEMENTATION OF ITS GATES. #2319 describes a
       # runner that merges "only when the required check is green on the exact head and the staleness
@@ -110,6 +147,13 @@ jobs:
       # implementation of each -- and it means every later repair to ship-pr reaches this runner with no
       # edit here at all. It also folds (step 5) and verifies the resolves (step 6), so this job leaves
       # the trunk in exactly the state a live session would have left it in.
+      #
+      # RUN FROM 'trusted-main' (-TrustedRoot, issue #2437): the ONE thing $PSScriptRoot alone cannot
+      # give ship-pr.ps1 is the two repo-owned seams (scripts/repo-config.ps1, scripts/lib/branch-info.ps1)
+      # it and open-pr.ps1 read from $repoRoot -- see ship-pr.ps1's own .PARAMETER TrustedRoot for the
+      # full reasoning and its named limitation. CLAUDE_PROJECT_DIR points $repoRoot itself at 'pr-branch'
+      # -- the checked-out branch -- so the merge, the step-list gate, the DEPLOY lock and the push all
+      # still read and act on THAT tree's own commit, exactly as a live session would.
       #
       # GH_TOKEN IS THE PAT HERE, AND THAT IS THE WHOLE REASON THE SECRET NEEDS 'Pull requests: write'
       # ADDED TO IT. A push CAUSED BY the job-scoped GITHUB_TOKEN starts no workflow runs -- this tree
@@ -130,54 +174,83 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          CLAUDE_PROJECT_DIR: ${{ github.workspace }}/pr-branch
           SHIP_BRANCH: ${{ steps.pick.outputs.branch }}
           SHIP_PR: ${{ steps.pick.outputs.pr }}
           SHIP_SHA: ${{ steps.pick.outputs.sha }}
         run: |
-          # Commit-metadata identity only -- who authored ship-pr's fold commit. It is independent of
-          # the push credential, which the checkout step wired in: a ruleset bypass is checked against
-          # the pushing token's identity, not against the commit author. Same pair, same reason, as
-          # fold-on-merge.yml sets.
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Commit-metadata identity only -- who authored ship-pr's fold commit. It is independent of the
+          # push credential set up below: a ruleset bypass is checked against the PUSHING token's identity,
+          # not against the commit author. Same pair, same reason, as fold-on-merge.yml sets. Set in
+          # 'trusted-main', which is the tree the fold's own push runs from.
+          git -C trusted-main config user.name "github-actions[bot]"
+          git -C trusted-main config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # DEEPEN FIRST, AND WIDEN THE REFSPEC BEFORE DEEPENING. actions/checkout with a `ref:` narrows
-          # remote.origin.fetch to that one branch, so an --unshallow alone would deepen 'main' and still
-          # not know the branch this job is here to ship. Both are needed, and both are paid only on a
-          # run that has something to ship: step 3b's first-parent walk over 'main' is wrong on a
-          # truncated history, in the direction a staleness gate must not be wrong in.
-          git remote set-branches origin '*'
-          git fetch --unshallow --quiet origin
+          # THE EPHEMERAL PUSH CREDENTIAL (issue #2437, condition (d)). Neither checkout above persisted
+          # FOLD_PUSH_TOKEN to disk (both used persist-credentials: false), so as of this line NEITHER
+          # 'trusted-main' NOR 'pr-branch' can push anything -- and both need to be able to: 'pr-branch'
+          # because open-pr.ps1's own step 1 pushes the branch (a no-op push here, since the sweep only
+          # picked an already-open, already-current pull request, but `git push` still negotiates with the
+          # remote and GitHub's receive-pack endpoint requires write authorisation for that negotiation
+          # whether or not a ref actually moves), and 'trusted-main' because the fold's own commit has to
+          # reach 'main' past its ruleset.
+          #
+          # git's GIT_CONFIG_KEY_n/GIT_CONFIG_VALUE_n/GIT_CONFIG_COUNT environment triplet (documented git
+          # behaviour since 2.31) overlays config for every git process that inherits this environment --
+          # which every git call below is, along with everything ship-pr.ps1 and open-pr.ps1 spawn as
+          # children -- WITHOUT WRITING ANYTHING TO A .git/config FILE IN EITHER TREE. This is the same
+          # 'AUTHORIZATION: basic <token>' header actions/checkout's own persist-credentials would write to
+          # disk, supplied here as process memory instead: it dies with this step, in neither tree's
+          # history, and 'gh' calls already accept the equivalent exposure through GH_TOKEN above.
+          #
+          # THIS IS A DELIBERATE DEPARTURE FROM Sebastian #23's OWN WORDING on #2437 ("token-bearing
+          # checkout only for the trusted main tree"), NAMED HERE RATHER THAN SILENTLY SUBSTITUTED: his
+          # design still leaves the raw token sitting in 'trusted-main's .git/config on disk for the
+          # step's duration (residual exposure #3 in his own review). One credential, applied the same
+          # way to both trees, removes that residue everywhere rather than only in the tree his own
+          # wording named -- but it is a live judgement call, not something this branch could get signed
+          # off before building, and it is exactly the kind of choice that needs his eyes before it ships
+          # rather than after.
+          $basicAuth = [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("x-access-token:$env:GH_TOKEN"))
+          $env:GIT_CONFIG_COUNT = '1'
+          $env:GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader'
+          $env:GIT_CONFIG_VALUE_0 = "AUTHORIZATION: basic $basicAuth"
+
+          # DEEPEN 'pr-branch', AND WIDEN ITS REFSPEC BEFORE DEEPENING. actions/checkout with a `ref:`
+          # narrows remote.origin.fetch to that one branch, so an --unshallow alone would deepen the
+          # branch and still not know 'main' -- which ship-pr's step 3b needs, walking 'main' first-parent
+          # history since the certifying run's timestamp. A shallow clone silently truncates that walk,
+          # the one direction a staleness gate must not err in. 'trusted-main' does NOT need this: the
+          # fold's own fetch + ff-only merge (inside ship-pr.ps1) extends it exactly as far as 'origin/main'
+          # has moved, which needs no prior depth at all.
+          git -C pr-branch remote set-branches origin '*'
+          git -C pr-branch fetch --unshallow --quiet origin
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "could not deepen this shallow clone -- ship-pr's staleness walk would be unsound, so nothing was merged."
+            Write-Error "could not deepen the branch checkout -- ship-pr's staleness walk would be unsound, so nothing was merged."
             exit 1
           }
 
-          git checkout --quiet $env:SHIP_BRANCH
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "could not check out the head branch of PR #$($env:SHIP_PR) -- nothing was merged."
-            exit 1
-          }
-
-          # THE CODE THAT RUNS NEXT COMES FROM THIS CHECKOUT, SO IT HAS TO BE THE COMMIT THE PICKER
-          # JUDGED -- issue #2338. The picker refused any pull request whose diff touches scripts/,
-          # .github/ or a plugin's scripts/, so on that commit the branch runs only what the trunk
-          # already carries. A push landing between the pick and this line would reach the runner
-          # unjudged; here it stops the job instead, and the next sweep judges the new head.
-          $head = (git rev-parse HEAD).Trim()
+          # THE COMMIT THIS RUN ACTS ON HAS TO BE THE ONE THE PICKER JUDGED -- issue #2338, unchanged by
+          # #2437's restructure. checkout's own ref: resolved the branch NAME to whatever it pointed at
+          # when that step ran, a moment after the picker's own read; a push landing in between would
+          # reach here unjudged were it not for this line. A mismatch stops the job; the next sweep judges
+          # the new head.
+          $head = (git -C pr-branch rev-parse HEAD).Trim()
           if ($head -ne $env:SHIP_SHA) {
             Write-Error "PR #$($env:SHIP_PR)'s head moved after the pick ($($env:SHIP_SHA) -> $head) -- nothing was run or merged; the next sweep judges the new head."
             exit 1
           }
 
-          # -SkipLint -SkipTests, AND THIS IS THE ONE FLAG PAIR THIS JOB MUST NOT OMIT. ship-pr's step 1
-          # calls open-pr.ps1 even for a pull request that is already open -- it skips only the
-          # `gh pr create` and still runs the gates -- so without these the runner would spend ~43
-          # minutes re-running the whole local suite pool. Skipping it is not a shortcut past a gate: the
-          # sweep only picked this pull request BECAUSE the required check is green on its own head, and
-          # that check IS this same gate, run on GitHub, on this same commit. Running it a second time
-          # would prove nothing the certificate does not already carry -- and it is the certificate, not
-          # the local copy, that the merge is allowed on.
-          Write-Host "merge-on-green: running ship-pr.ps1 on '$env:SHIP_BRANCH' for PR #$env:SHIP_PR"
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/ship-pr.ps1 -SkipLint -SkipTests
+          # -TrustedRoot: ship-pr.ps1 (and, forwarded, open-pr.ps1) load their two repo-owned seams from
+          # 'trusted-main' instead of from 'pr-branch' -- see that parameter's own doc for what this buys
+          # and its named limitation. -SkipLint -SkipTests ARE STILL PASSED EXPLICITLY, even though
+          # -TrustedRoot now forces them structurally on its own (issue #2437, condition (c)): ship-pr's
+          # step 1 calls open-pr.ps1 even for an already-open pull request -- it skips only the
+          # `gh pr create` and still runs the gates -- so omitting them would have cost ~43 minutes
+          # re-running the whole local suite pool before the structural force existed to catch it.
+          # Skipping is not a shortcut past a gate: the sweep only picked this pull request BECAUSE the
+          # required check is green on its own head, and that check IS this same gate, run on GitHub, on
+          # this same commit -- it is the certificate, not a local copy, the merge is allowed on.
+          Write-Host "merge-on-green: running ship-pr.ps1 (trusted-tree mode) on '$env:SHIP_BRANCH' for PR #$env:SHIP_PR"
+          powershell -NoProfile -ExecutionPolicy Bypass -File trusted-main/scripts/release/ship-pr.ps1 -TrustedRoot (Join-Path $env:GITHUB_WORKSPACE 'trusted-main') -SkipLint -SkipTests
           exit $LASTEXITCODE

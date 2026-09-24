@@ -188,7 +188,7 @@ $GreenSettledChecksJson = New-CheckedJson -MinutesAgo 30
 # control character never reaches a printed reason.
 $UntrustedBranch = "fix/501-x$([char]0x1b)[2J"
 $UntrustedTitle  = "evil title$([char]0x07)bell"
-$StrandedPrJson = "[{`"number`":501,`"headRefName`":`"$UntrustedBranch`",`"title`":`"$UntrustedTitle`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
+$StrandedPrJson = "[{`"number`":501,`"headRefName`":`"$UntrustedBranch`",`"title`":`"$UntrustedTitle`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/repo-config.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
 $OrdinaryPrJson = '[{"number":77,"headRefName":"docs/77-x","title":"an ordinary docs PR","isDraft":false,"mergeable":"MERGEABLE","isCrossRepository":false,"labels":[{"name":"merge-when-green"}],"files":[{"path":"README.md","additions":1,"deletions":0}],"changedFiles":1}]'
 
 # SEVERAL ARMED, ORDINARY PULL REQUESTS -- for the -MaxElapsedSeconds budget (issue #2438): the total
@@ -205,7 +205,7 @@ $SeveralArmedJson = '[' + (
 # untouched. Alongside it, an ORDINARY branch name -- this workflow's own shape -- as the control: it
 # must still round-trip into the checkout line unchanged. Both touch an executed path so both strand.
 $HostileBranch = 'fix/601`x`;$(y)'
-$QuotingPrJson = "[{`"number`":601,`"headRefName`":`"$HostileBranch`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1},{`"number`":602,`"headRefName`":`"fix/602-safe`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
+$QuotingPrJson = "[{`"number`":601,`"headRefName`":`"$HostileBranch`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/repo-config.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1},{`"number`":602,`"headRefName`":`"fix/602-safe`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/repo-config.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
 
 try {
     # --- SKIP: no .github/workflows/merge-on-green.yml -----------------------------------------------

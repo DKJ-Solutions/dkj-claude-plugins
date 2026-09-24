@@ -1252,6 +1252,65 @@ infrastructure.
   takes. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
   `name:`, and left out rather than guessed where none declares one.
 
+  **AND SINCE #2437 THIS REPO'S OWN COPY SHIPS FROM A TRUSTED TRUNK, NOT FROM THE PR BRANCH.** Until
+  then this runner checked `main` out once with `FOLD_PUSH_TOKEN` persisted into the workspace, then
+  `git checkout <branch>` **in that same workspace** — so `ship-pr.ps1` and everything it dot-sources ran
+  as the branch's own PowerShell, in a process holding a standing write credential
+  ([#2338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2338), measured: ~80% of merged
+  PRs here touch `scripts/`, `.github/`, `.workflow-scripts/` or a plugin's `scripts/`, so
+  `Get-MergeOnGreenExecutedPathHit` refused the sweep on almost every ship). The design (Sebastian #23's
+  review, four conditions, all built before anything shipped):
+
+  - **Two checkouts, two `.git` directories, `persist-credentials: false` on both.** `trusted-main` (the
+    trunk) and `pr-branch` (the picked PR's head) share nothing but the runner's disk. `ship-pr.ps1` —
+    and every sibling lib it loads via `$PSScriptRoot` — runs from `trusted-main`; `CLAUDE_PROJECT_DIR`
+    points `$repoRoot` at `pr-branch`, so the merge, the step-list gate, the DEPLOY lock and the branch's
+    own push still act on that tree's actual commit.
+  - **`ship-pr.ps1`'s new `-TrustedRoot` parameter** (forwarded to `open-pr.ps1` as `-SeamRoot`)
+    repoints the *one* thing `$PSScriptRoot` cannot supply for free: the two REPO-OWNED seams
+    (`scripts/repo-config.ps1`, `scripts/lib/branch-info.ps1`) both scripts read from `$repoRoot` rather
+    than from beside themselves, because a repo's own name and its own branch-prefix table are not
+    portable code. **Named limitation, not silently accepted**: a PR editing either seam ships under the
+    TRUNK's answer to it, not its own — a staleness cost, never a safety one, and
+    `Get-MergeOnGreenExecutedPathHit` still refuses such a PR to the sweep for exactly this reason.
+  - **`-TrustedRoot`/`-SeamRoot` structurally force `-SkipLint`/`-SkipTests`** rather than merely
+    documenting "always pass both together with this" — `gate-lib.ps1`'s `Invoke-WorkflowGates` runs the
+    lint script and every suite from `$RepoRoot` (the branch tree), which is exactly what trusted-tree
+    mode exists to stop trusting, so a future edit to the workflow dropping the flag pair can no longer
+    reopen the hole silently.
+  - **No `git worktree add` in trusted-tree mode.** `$repoRoot` (the branch checkout) is never given a
+    token, so it cannot push a fold commit either — `$TrustedRoot` already stands on `main` and carries
+    the credential, so the fold step uses it directly (bringing it up to date with the same
+    fetch-plus-ff-only-merge every other fold arm already runs) instead of spinning up a worktree off a
+    repo that could never push it. `Remove-ShipFoldWorktree`'s new `-NotOwned` switch keeps this run from
+    ever deleting a tree it did not create.
+  - **The push credential is ephemeral, not persisted, and applied uniformly.** Neither checkout writes
+    `FOLD_PUSH_TOKEN` into its own `.git/config`; the Ship-it step instead sets git's documented
+    `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`/`GIT_CONFIG_COUNT` environment triplet, which authenticates
+    every git call the step's process tree makes — both directories, in-memory only, gone when the step
+    ends. **This is a deliberate departure from Sebastian's own literal wording** ("token-bearing
+    checkout only for the trusted main tree"), named in the workflow's own comment rather than silently
+    substituted, because his design still leaves the raw token on `trusted-main`'s disk for the step's
+    duration (his own residual-exposure #3) — one credential applied the same way to both trees removes
+    that residue everywhere instead of only where his wording named. **Unproven by anything but a live
+    run**: `workflow_run` runs the default branch's own copy of this file, so #2437 cannot be proved on
+    its own pull request, and the two-checkout layout plus this exact credential mechanism is verified
+    for the first time by this workflow's first sweep after the PR that built it merges.
+  - `Get-MergeOnGreenExecutedPathHit`'s rule shrank from four path prefixes to an enumerated two-file
+    list (the seams above, exact match); the merge-on-green-lib and stranded-sweep-gate suites assert
+    the shrink positively (every OTHER path that used to refuse is now eligible) rather than only
+    asserting what still refuses.
+  - **The scaffolded consumer template (`adopt-ci-floor.ps1`'s fourth runner) is NOT the same fix,
+    verified and left alone on purpose.** It already runs `ship-pr.ps1` from a separate, pinned,
+    token-free checkout of the *plugin* tree (issues #2329/#2333), which closes #2338 for the portable
+    code in every consumer independently of #2437 — but a consumer's own two seams are still read from
+    `github.workspace`, the single checkout that starts on the trunk with the token and is switched to
+    the picked branch in place. Filed separately as
+    [#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449) rather than folded into
+    #2437: a different file (the scaffolder template, not this repo's own workflow), a different blast
+    radius (every adopted consumer rather than this repo alone), and a design that has to reconcile with
+    #2333's SHA-pin machinery rather than starting clean.
+
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
   September 22, 2026). Until that issue no job in `.github/workflows/` declared one, so a wedged job ran

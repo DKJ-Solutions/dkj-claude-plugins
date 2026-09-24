@@ -702,6 +702,22 @@ plugin tree and act on **your** workspace through `CLAUDE_PROJECT_DIR`. Where no
 pull_request workflows declares a top-level `name:`, the `workflow_run` trigger is left out rather than
 guessed, and the schedule wakes the sweep on its own.
 
+**This template still checks the branch out into your OWN, single workspace, in place -- unlike the
+source repo's own runner since issue #2437.** `ship-pr.ps1` and every plugin lib it dot-sources already
+run from the pinned, token-free plugin checkout (the paragraph above), which closes issue #2338's
+exposure for that code. What is *not* closed here is your own two repo-owned seams --
+`scripts\repo-config.ps1` and `scripts\lib\branch-info.ps1` -- which `ship-pr.ps1`/`open-pr.ps1` still
+read from `$repoRoot`, i.e. `github.workspace`: the same directory the initial trunk checkout persisted
+`FOLD_PUSH_TOKEN` into before switching it to the picked branch in place. So a pull request editing
+either of your two seam files is executing your workspace's own copy of that file, in a job holding the
+standing PAT -- the source repo's own `Get-MergeOnGreenExecutedPathHit` still refuses exactly such a
+pull request for exactly this reason (its own two-file list is `scripts/repo-config.ps1` and
+`scripts/lib/branch-info.ps1`, unchanged in shape by #2437 -- only the FOUR-prefix rule around it
+shrank). Closing this for the template itself needs a second, token-free checkout of your own trunk
+(mirroring the plugin checkout's own isolation) and is tracked as its own piece of work rather than
+folded into #2437, since it touches every consumer's scaffolded workflow rather than the source repo's
+own copy alone -- see issue #2449.
+
 **It uses the same `FOLD_PUSH_TOKEN`, with one more scope: `Pull requests: Read and write`.** A merge
 made with the job-scoped `GITHUB_TOKEN` starts no workflow runs, so it would land the pull request and
 silence your CI on the trunk and the fold and resolves runners, all at once. Without the scope the merge
