@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 40 minor entries** <!-- pending-tally -->
+**18 / 41 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2414-retire-round-tooling · 20260924-090708Z
+
+The two test-round generators `round-tally.measure.ps1` and `round-baseline.measure.ps1` are retired,
+along with their suites
+([#2414](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2414)). The test-round
+methodology they served (#371) is no longer in use. They were the last suites guarding it, and CI loses
+roughly 25 seconds of wall-clock with them.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Both tools lived only in this repo's `scripts/tests/` and never shipped in a plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+Retire the round-tally and round-baseline test-round tooling
+
+Plugins: dkj-policy
+
+[PR #2423](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2423)
+
+---
 
 ### DEPLOY: fix/2350-backup-waits-through-short · 20260924-085451Z
 
