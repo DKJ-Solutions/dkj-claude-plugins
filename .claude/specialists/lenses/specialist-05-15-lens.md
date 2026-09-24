@@ -2139,7 +2139,7 @@ was folded into [`SPECIALISTS.md`](../SPECIALISTS.md): it is a procedure about t
 you are standing in. [`settings.json`](../../settings.json) enables **every plugin in the marketplace** —
 six of them since
 [#1573](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1573) — from a `github` marketplace
-source pointing at this repo itself, as [the seam section of `SPECIALISTS.md`](../SPECIALISTS.md#this-directory--the-seam) records.
+source pointing at this repo itself, as [the seam section of Tessa's lens](specialist-06-16-lens.md#the-seam-and-the-two-kinds-of-lens) records.
 That is what makes the update a step of its own rather than something a merge does for you, and the
 whole reason the procedure is written down instead of left to the plugin's own
 [README](../../../plugins/dkj-policy/README.md).

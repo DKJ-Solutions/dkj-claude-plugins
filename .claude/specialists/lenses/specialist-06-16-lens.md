@@ -469,10 +469,30 @@ family's concept and lives in one canonical place: the root README's
 [Manuals — the split model](../../../README.md#manuals--the-split-model).
 This section records only how that plays out **concretely in this repo**.
 
+#### The seam, and the two kinds of lens
+
+`CLAUDE.md` carries one line, `@.claude/specialists/SPECIALISTS.md`, and everything specialist-shaped
+hangs off it: `SPECIALISTS.md` and `lenses/`. A teardown is "one directory and one line". **That buys
+nothing in tokens** — an imported file loads at launch just like inline text — so it must not be sold
+that way.
+
+- **`lenses/`** holds one repo lens per specialist, `specialist-<group>-<id>-lens.md`, flat (ids are
+  unique family-wide). A **subagent lens** supplements the portable playbook the agent def points to; a
+  **persona lens** (Chris, Bianca, Derek, Rendall — they run in the main conversation) is lens-only,
+  because the portable body comes straight from the plugin install via an `@` import: Chris always,
+  Derek and Rendall on demand from that same path. Either way it holds only the `## Specific to this
+  repo` part, so every portable rule lives once, in the plugin.
+- **Subagent definitions are not local.** They come from this marketplace's own team plugins, enabled
+  in [`.claude/settings.json`](../../settings.json) (which enables all six — read the file for the list),
+  and are invoked as `@<plugin>:<name>`.
+
+**Bianca has a lens and no caller** (she is the fourth persona): nothing in Chris's routing sends an
+assignment to her, because this repo does no intake interviews. The day it does, she needs a routing row like Derek's and Rendall's.
+
 #### Persona or subagent — one specialist, two representations
 
 Which specialists here are a subagent lens vs. a persona lens (lens-only), and where their files
-live, is inventoried in [the seam section of `SPECIALISTS.md`](../SPECIALISTS.md#this-directory--the-seam) — not repeated
+live, is inventoried in [the seam section above](#the-seam-and-the-two-kinds-of-lens) — not repeated
 here. What follows are the rules that build on that split:
 
 **Rules:** where a manual and an **agent def** both exist, the **manual is leading**; the agent def is

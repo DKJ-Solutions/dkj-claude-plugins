@@ -52,30 +52,13 @@ show up grayed out); only the skills stay available in Chat. See the root README
 detail.
 
 **Loading strategy (deliberate, to save context/tokens):** only the orchestrator (Chris) is loaded
-automatically (the two `@` imports above), because he is involved in every assignment. The other
-specialists are read **on demand**, at the moment Chris assigns work to them. **The conventions behind
-a specialist** — persona vs. subagent, where a new rule goes, the stable-id system — are on-demand too,
-in [Tessa #16's lens](lenses/specialist-06-16-lens.md#how-a-specialist-is-structured-here); the
-procedure for keeping a checkout's plugins current is in
+automatically (the two `@` imports above), because he is involved in every assignment; the rest are
+read **on demand**. How a specialist, its lens and this directory are structured is in
+[Tessa #16's lens](lenses/specialist-06-16-lens.md#how-a-specialist-is-structured-here); keeping a
+checkout's plugins current, in
 [Sylvester #15's](lenses/specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo).
 
 ---
-
-### This directory — the seam
-
-`CLAUDE.md` carries one line, `@.claude/specialists/SPECIALISTS.md`, and everything specialist-shaped
-hangs off it: this file and `lenses/`. A teardown is "one directory and one line". **That buys nothing
-in tokens** — an imported file loads at launch just like inline text — so it must not be sold that way.
-
-- **`lenses/`** holds one repo lens per specialist, `specialist-<group>-<id>-lens.md`, flat (ids are
-  unique family-wide). A **subagent lens** supplements the portable playbook the agent def points to; a
-  **persona lens** (Chris, Bianca, Derek, Rendall — they run in the main conversation) is lens-only,
-  because the portable body comes straight from the plugin install via an `@` import: Chris always,
-  Derek and Rendall on demand from that same path. Either way it holds only the `## Specific to this
-  repo` part, so every portable rule lives once, in the plugin.
-- **Subagent definitions are not local.** They come from this marketplace's own team plugins, enabled
-  in [`.claude/settings.json`](../settings.json) (which enables all six — read the file for the list),
-  and are invoked as `@<plugin>:<name>`.
 
 ### The team: roster & routing
 
@@ -96,8 +79,6 @@ personas, not subagents, so they appear in **no** always-on listing — this tab
 exist for a session. Subagent descriptions are the opposite: Claude Code already loads every enabled
 plugin's into every session, so repeating them here only cost tokens (~750/session).
 **Do not restore them** — the method and the numbers are in [Nolan #25's lens](lenses/specialist-06-25-lens.md).
-**Bianca has a lens and no caller**: nothing in Chris's routing sends an assignment to her, because this
-repo does no intake interviews. The day it does, she needs a routing row like Derek's and Rendall's.
 
 The subagents of the enabled plugins, by id — their descriptions are already in context, so these lines
 are for **you** and for the roster-sync check. Each one's lens is `lenses/specialist-<id>-lens.md`.
