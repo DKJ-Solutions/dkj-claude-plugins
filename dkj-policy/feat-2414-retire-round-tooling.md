@@ -41,21 +41,39 @@
 
 The owner retired the test-round methodology (#371); remove both .measure.ps1 scripts, their suites, and every reference to them.
 
+Decided by Dave on #2414 (September 24, 2026): *retire both*. The finding held up when checked against
+the tree. The last functional change to either tool was 2026-08-02, and everything after that was
+fixture or gate maintenance. No page describes running a round with them.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Delete `scripts/tests/round-tally.measure.ps1`, `round-tally.tests.ps1`, `round-baseline.measure.ps1`, `round-baseline.tests.ps1`
+- [x] Drop both suites from `scripts/tests/suite-durations.json`
+- [x] Remove the dangling reference in `measure-skill.ps1` (source and plugin mirror, kept byte-identical)
+- [x] Correct the non-suite file count in `scripts/lib/fixture-dep-lib.ps1`'s docstring
+- [x] Mark the two examples in Tycho's lens as coming from a retired suite
+- [~] The `fix/round-tally-error-wrap-v1` example in `tidy-lib.ps1` / the `tidy-machine` skill -- left as-is: it names a historical closed PR as an example branch, not the tool
 
 ### TEST
 
+- [x] Lint and test gates via `open-pr`
+
 ### DEPLOY: feat/2414-retire-round-tooling
 
-**Score:**
+The two test-round generators `round-tally.measure.ps1` and `round-baseline.measure.ps1` are retired,
+along with their suites
+([#2414](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2414)). The test-round
+methodology they served (#371) is no longer in use. They were the last suites guarding it, and CI loses
+roughly 25 seconds of wall-clock with them.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Both tools lived only in this repo's `scripts/tests/` and never shipped in a plugin.
+
+**Score:** N/A
 
 #### Pull Request
 
 Retire the round-tally and round-baseline test-round tooling
-

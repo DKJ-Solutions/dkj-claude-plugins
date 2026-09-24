@@ -42,8 +42,7 @@
     output whose shape the CLI owns. Two cross-checks run before any figure is reported: the parsed
     rows must sum to the printed Always-on total within tolerance, and every skill named in the
     component inventory must have produced a row. Either one failing is an [ERROR] and no table is
-    printed for that plugin -- a plausible wrong number is worse than a refusal, the same reasoning
-    behind round-tally.measure.ps1's UNCLASSIFIED rule.
+    printed for that plugin -- a plausible wrong number is worse than a refusal.
 
     FAILING LOUDLY IS ONLY A VIRTUE WHERE THE FAILURE IS REAL, and this refused two of six enabled
     plugins over output that was perfectly intact (#1771). The CLI prints no per-component table at all
