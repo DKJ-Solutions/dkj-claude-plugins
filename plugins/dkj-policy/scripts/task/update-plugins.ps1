@@ -211,7 +211,7 @@ if ($DryRun) {
     # has to be edited first. The provenance that matters -- the administration failing to answer --
     # is the $scopeNotes block above, which is prose and does not pretend to be a command.
     foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
-    foreach ($s in $shadows) { Write-Host "  claude plugin update $($s.Id) --scope $($s.Scope)" }
+    foreach ($t in $shadows) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
     exit 0
 }
 
@@ -253,7 +253,18 @@ foreach ($mp in $marketplaces) {
 Write-Host ""
 Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), each at the scope it is installed at:" -ForegroundColor Cyan
 $updateFailures = 0
-foreach ($t in $targets) {
+# ONE LOOP FOR BOTH: the path-less user-scope records beside a checkout record (#2459, see the block
+# above $targets' skip report) go through the same call site as the targets, after them. They are the
+# same question -- counted as update failures like any other call -- and one site is one audited
+# bounded capture rather than two copies of it.
+$firstShadow = if ($shadows.Count -gt 0) { $shadows[0] } else { $null }
+# .ToArray() on both, not @(): Windows PowerShell 5.1 hands a generic List back from @() unchanged, and
+# List + List throws "argument types do not match" rather than concatenating.
+foreach ($t in ([object[]]$targets.ToArray() + [object[]]$shadows.ToArray())) {
+    if ($null -ne $firstShadow -and [object]::ReferenceEquals($t, $firstShadow)) {
+        Write-Host ""
+        Write-Host "  ...and $($shadows.Count) path-less user-scope record(s) beside this checkout's own, which a session can load instead (#2442):" -ForegroundColor Cyan
+    }
     Write-Host ""
     Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)"
     $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
@@ -261,23 +272,6 @@ foreach ($t in $targets) {
     if ($r.ExitCode -ne 0) {
         $updateFailures++
         Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
-    }
-}
-
-# The path-less user-scope records beside a checkout record (#2459) -- see the block above $targets'
-# skip report. Counted as update failures like any other call, because they are the same question.
-if ($shadows.Count -gt 0) {
-    Write-Host ""
-    Write-Host "  ...and $($shadows.Count) path-less user-scope record(s) beside this checkout's own, which a session can load instead (#2442):" -ForegroundColor Cyan
-    foreach ($s in $shadows) {
-        Write-Host ""
-        Write-Host "  claude plugin update $($s.Id) --scope $($s.Scope)"
-        $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $s.Id, '--scope', $s.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-        foreach ($line in @($r.Output)) { Write-Host "    $line" }
-        if ($r.ExitCode -ne 0) {
-            $updateFailures++
-            Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
-        }
     }
 }
 
