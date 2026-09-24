@@ -54,6 +54,7 @@ moves to the page that owns its subject, the same route #2171/#2179 took for `dk
 ### TEST
 
 - [x] Plugin integrity lint green locally (dead links, plugin-root links, consumer-doc set)
+- [x] Two suites asserted the root README by name (`repo-config`, `entry-scaffold`): repointed at `SECURITY.md`, both green standalone
 
 ### DEPLOY: docs/retire-root-readme
 

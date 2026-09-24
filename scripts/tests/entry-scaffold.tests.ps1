@@ -2507,7 +2507,7 @@ Assert-Equal '' $typoFindings[0].Suggested 'but no repair is suggested for it --
 # file moved into dkj-policy/ and the assert started reporting a finding it was written to prove
 # absent -- correctly, since the default destination here IS the repo root. CLAUDE.md is the substitute
 # because the point is a link that resolves at the destination, not which document it names.
-Assert-Equal 0 (@(Get-EntryLinkFindings -EntryText '[ok](CLAUDE.md) and [ok2](README.md)' -RepoRoot $repoRootForLinks)).Count 'an entry whose links are all root-relative passes'
+Assert-Equal 0 (@(Get-EntryLinkFindings -EntryText '[ok](CLAUDE.md) and [ok2](SECURITY.md)' -RepoRoot $repoRootForLinks)).Count 'an entry whose links are all root-relative passes'
 
 # THE GUIDANCE SAYS SO BEFORE THE GATE REFUSES, which is the half that reaches the author while they are
 # still writing. IT MOVED TO 'StepsGuidance' ON AUGUST 23, 2026 (Dave): no comment may stand inside the
