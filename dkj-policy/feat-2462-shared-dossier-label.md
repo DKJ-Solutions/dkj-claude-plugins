@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Dave ruled on #2462's open decision (September 24, 2026): `dossier` is a shared way of working, so it
+ships in the plugin. It joins the existing `Get-TriageLabels` seam beside the four rungs, which needs no
+new contract record, and the handling rule goes on `CONTRIBUTING-portable.md` step 1.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dossier` (`5319E7`) added to `$script:TriageLabels` in `scripts/repo-config.ps1` and to
+  `adopt-triage-labels.ps1`'s built-in fallback, both copies
+- [x] Contract record text (Returns/Default) updated in both copies of `script-contract-lib.ps1`; blueprint regenerated
+- [x] Handling rule on `CONTRIBUTING-portable.md` step 1; a pointer section in Derek's lens; the scripts README row
 
 ### TEST
 
+- [x] `adopt-triage-labels.tests.ps1` and `repo-config.tests.ps1` updated to five labels, both green
+- [x] Live run here: `Done: all 5 canonical triage label(s) already exist`
+
 ### DEPLOY: feat/2462-shared-dossier-label
 
-**Score:**
+`adopt-triage-labels` now prints a `gh label create` line for `dossier` next to the four `prio-N` rungs.
+A dossier is a collecting issue: every instance of one recurring problem goes onto it as a comment, and
+only the repair of the root cause closes it. `CONTRIBUTING-portable.md` now has the rule for handling
+one: a new instance is a comment, a partial repair writes `part of #<n>` with no closing keyword, and the
+issue closes only when the root cause is fixed.
+
+Tier 0 is scored for a session filing or repairing against a recurring problem. Until now the label had
+no definition in the tree.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is a label definition and a tracker convention, and nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
