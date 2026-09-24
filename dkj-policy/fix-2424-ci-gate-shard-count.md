@@ -39,19 +39,34 @@
 
 ### PLAN
 
+#2424: the `lint-en-tests` aggregator prints "all 4 suite shards" while the matrix runs 5. The
+verdict reads the matrix job's aggregate result and is correct; only the printed count is stale.
+Repair as the issue proposes: drop the number, so the line cannot go stale on the next shard change.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.github/workflows/ci.yml`: the green line reads `all suite shards succeeded`, with a comment
+      saying why it carries no count.
 
 ### TEST
 
+- [x] No suite asserts on that string (`grep` over `scripts/` for `CI gate green` / `suite shards`: none).
+      `ci-shard.tests.ps1` reads the matrix length and `-ShardCount`, neither of which changed.
+
 ### DEPLOY: fix/2424-ci-gate-shard-count
 
-**Score:**
+The CI gate's green line no longer states a shard count, which had gone stale at 4 while the
+matrix runs 5.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a CI log line in this repo only; no subscriber sees it.
+
+**Score:** N/A
 
 #### Pull Request
+
+ci.yml: the lint-en-tests green line no longer prints a stale shard count
 
