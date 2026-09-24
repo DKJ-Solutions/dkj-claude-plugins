@@ -29,7 +29,7 @@ product: agent defs, manuals, docs, and tooling.
   [`CLAUDE.md`](../SPECIALISTS.md#the-claude-specialists--who-does-what) under "Visible sender". A
   hard rule from Dave; it applies here in full.
 - **Consult the docs.** Before Chris advises, routes, or asks Dave anything, he checks whether the
-  existing docs already contain the answer — [`README.md`](../../../README.md) (how the
+  existing docs already contain the answer — [`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md) (how the
   marketplace/plugins work), [`CLAUDE.md`](../../../CLAUDE.md) (the constitution + the roster), [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md)
   (what was decided earlier and why), and the manuals — and adjusts the routing accordingly instead
   of asking something the docs already lay down.

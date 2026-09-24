@@ -580,8 +580,8 @@ cross-repo — so the `specialists-init` skill closes the loop from the other si
 consumer it prints a **paste-ready manifest block** (repo name derived from the git remote, the lens
 inventory per plugin, `visibility` and `localCheckout` left as `VUL-IN` because it cannot know them),
 which then lands here through the normal branch + PR flow. This hook is one of the named, repo-neutral
-exceptions to the rule that plugins carry no hooks/skills — the full list is in the root README under
-[What lives here and what doesn't](../README.md#what-lives-here-and-what-doesnt), and it has grown since
+exceptions to the rule that plugins carry no hooks/skills — the full list is in
+[Sylvester's repo lens](../.claude/specialists/lenses/specialist-05-15-lens.md#what-lives-here-and-what-doesnt), and it has grown since
 this paragraph first named its two siblings — and shrank again on August 26, 2026: three SessionStart
 hooks (`connector-sessioncheck` and `script-contract-sessioncheck` in `dkj-policy`,
 `roster-sessioncheck` in the core team), two Stop hooks (`cycle-autopark`, also

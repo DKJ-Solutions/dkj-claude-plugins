@@ -48,7 +48,7 @@ moves to the page that owns its subject, the same route #2171/#2179 took for `dk
 - [x] Delete `README.md` and repoint every live link, including the five absolute URLs in the `specialists-init` / `specialists-teardown` skill pages
 - [x] Archived release notes: repoint to a permalink at `123878dd`, the precedent of `5a9c004c` and `170d5f99`
 - [x] `check-plugin-integrity.ps1`: swap the retired root `README.md` for `plugins/dkj-subagents/README.md` in the consumer-facing set of checks 15/16
-- [ ] Copy edit (Edith) applied
+- [x] Copy edit (Edith) applied: an inventory line, a directional word, a self-reference
 
 ### TEST
 

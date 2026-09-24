@@ -9,7 +9,7 @@ themselves**. It is **not a replacement** for the safety rules or the routing.
 
 > **This repo is an outlier.** claude-code-specialists is the marketplace repo of one product; the
 > specialists system lives here as the plugins under `plugins/` — a stack of teams plus an opt-in
-> workflow (see [`../../README.md`](../../README.md)) — and the repo also consumes that system here
+> workflow (see [`plugins/dkj-subagents/README.md`](../../plugins/dkj-subagents/README.md)) — and the repo also consumes that system here
 > **itself**. It enables **all six** of the marketplace's plugins, so that the repo that ships a
 > plugin is also a repo that loads it (Dave, September 8, 2026; the reasoning and what it costs are in
 > [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists)). Only
@@ -71,8 +71,8 @@ just like inline text.
 
 The general model — persona vs. subagent representations, the manual/agent-def split, the
 portable-craft-vs-repo-lens split, and persona templates as a third artifact — is the plugin
-family's concept and lives in one canonical place: the root README's
-[Manuals — the split model](../../README.md#manuals--the-split-model).
+family's concept and lives in one canonical place:
+[Manuals — the split model](../../plugins/dkj-subagents/README.md#manuals--the-split-model).
 This section records only how that plays out **concretely in this repo**.
 
 ### Persona or subagent — one specialist, two representations
@@ -96,8 +96,8 @@ uniquely, paid for it in tokens: he is loaded on **every** turn, so every rule t
 manual sat on the always-on path. Measured before the split, his persona was 25,674 B, about 35% of
 that path; three sections came off it for **5,166 B**.
 
-**What "leading" means for such a pair is different and narrower, and the root README states it** —
-[Manuals — the split model](../../README.md#subagent-def-vs-manual--two-files-one-specialist) is this
+**What "leading" means for such a pair is different and narrower, and the plugin README states it** —
+[Manuals — the split model](../../plugins/dkj-subagents/README.md#subagent-def-vs-manual--two-files-one-specialist) is this
 model's one canonical home, as the section above says. In short: split by **when** each half is
 needed, not by authority. What belongs here is only what it cost *this* repo. Chris's three moved
 sections — the phase model, parallel delegation, the six inbound checks — are each unknowable at the

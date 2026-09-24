@@ -22,9 +22,11 @@ Claudes, each with their own craft, under one Chief of Staff — every assignmen
 
 with **Chris**, who classifies it and routes it to the right specialist (or a chain of several). The
 
-full model (roles, agent def vs. manual, invocation) is in the
+full model (roles, agent def vs. manual) is in
 
-[root README](../../README.md); Chris's own ritual is in his
+[`plugins/dkj-subagents/README.md`](../../plugins/dkj-subagents/README.md); invocation is in
+
+[`plugins/ADOPTION.md`](../../plugins/ADOPTION.md#invocation); Chris's own ritual is in his
 
 manual.
 
@@ -56,7 +58,7 @@ This automation-first rule is anchored in the character of all specialists via t
 
 mechanism described in
 
-[Shared agent-def blocks](../../README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries),
+[Shared agent-def blocks](../../plugins/dkj-subagents/README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries),
 
 not merely a repo-only convention.
 
@@ -90,9 +92,9 @@ there;
 
 they run in Claude Code and in Cowork, but not in a plain Claude.ai Chat session (there they show up
 
-grayed out). Only the skills stay available in Chat. See the root README's
+grayed out). Only the skills stay available in Chat. See the adoption page's
 
-[Where this runs](../../README.md#where-this-runs-chat-cowork-and-claude-code)
+[Where this runs](../../plugins/ADOPTION.md#where-this-runs-chat-cowork-and-claude-code)
 
 section for the sourced detail.
 

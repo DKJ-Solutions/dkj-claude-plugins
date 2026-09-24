@@ -2783,9 +2783,13 @@ $sampleChecked = 0
 #
 # AND THEN TWO, on September 24, 2026: INSTALL.md and UNINSTALL.md were retired and the install commands
 # moved into plugins/ADOPTION.md, which is the entry that already carried the samples and figures.
+#
+# AND THE ROOT README.md LEFT THE SAME DAY, retired outright. Its samples and figures travelled with its
+# sections: the adoption half into plugins/ADOPTION.md, already listed, and the marketplace architecture
+# into plugins/dkj-subagents/README.md, which takes its place here -- the #408 lesson one more time.
 $consumerDocs = @(
     'plugins\ADOPTION.md',
-    'README.md'
+    'plugins\dkj-subagents\README.md'
 )
 # What counts as saying "here is what this is bound to". A version or a year pins the capture in time; the
 # hedges pin it to a condition. Deliberately not 'measured' on its own -- that says the author saw it,

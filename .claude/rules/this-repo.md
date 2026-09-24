@@ -12,15 +12,16 @@ uses the absolute marketplace path: this repo *is* the source, so it loads the b
 `claude-code-specialists` is the **home repo of one product**: the Claude Specialists system, built and
 maintained here by Dave (DaveKJohn), and the **single source of truth** for all shareable subagent
 definitions — every consuming repo (life-hub, smartwatchbanden) points here and enables or disables
-per plugin. The full story — the plugins (teams and workflow) and how they differ, the split manual model, the
-bootstrap path, and consumption — is in the [root `README.md`](../../README.md); the drift lint is in the
+per plugin. The full story — the plugins (teams and workflow) and how they differ, the split manual
+model — is in [`plugins/dkj-subagents/README.md`](../../plugins/dkj-subagents/README.md); the bootstrap
+path and consumption are in [`plugins/ADOPTION.md`](../../plugins/ADOPTION.md); the drift lint is in the
 [connectors README](../../connectors/README.md#maintenance-drift-lint).
 
 **One product, one repository — and therefore one marketplace.** This repo used to be framed as a
 *workshop* meant to house every future plugin family; that framing was retired on August 3, 2026,
 because the release train is repo-wide and a second product would be bumped for work it never had.
 The reasoning, and which sense of the word deliberately survived, is in
-[`README.md`](../../README.md#one-product-one-repository).
+[Tessa's repo lens](../specialists/lenses/specialist-06-16-lens.md#one-product-one-repository).
 
 **The nuance, so nobody repairs the wrong thing: lockstep *within* this product is correct** and
 [`cut-release.ps1`](../../scripts/release/cut-release.ps1) needs no change. The plugins are one system — a
@@ -147,7 +148,7 @@ the tree and why neither may ever be recreated:
 Both redirects are **transfer redirects this repo does not control**, and each holds just as long as
 nothing is created at its old path — which is why neither `DaveKJohn/claude-code-specialists` nor
 `DKJ-Solutions/claude-code-specialists` may ever be recreated (the canonical-channel note in
-[`README.md`](../../README.md#consumption)). The machine layer states the current answer once, in
+[`plugins/ADOPTION.md`](../../plugins/ADOPTION.md#consumption)). The machine layer states the current answer once, in
 `scripts/repo-config.ps1`, and a fresh marketplace install uses it; this is that canon extended to
 prose.
 
@@ -195,7 +196,7 @@ The full repo layout (`.claude-plugin/`, `plugins/` incl. `dkj-subagents/subagen
 `scripts/`, `dkj-policy/` (the changelog, the contributing page and the release history since
 August 27, 2026; the folder was `contributing-davekjohn/` until September 5, 2026, #1437),
 `.claude/`, and the root docs + `.github/`) is described in
-[README.md](../../README.md#repo-layout). Since August 3, 2026 the plugins sit **one** level down in
+[Sylvester's repo lens](../specialists/lenses/specialist-05-15-lens.md#repo-layout). Since August 3, 2026 the plugins sit **one** level down in
 `plugins/<plugin>/` instead of two in `claude-code-plugins/claude-specialists/<plugin>/`: that second
 level existed to hold several product families side by side, which the
 [one-product rule](#specific-to-this-repo-claude-code-specialists) above retired. `connectors/` moved

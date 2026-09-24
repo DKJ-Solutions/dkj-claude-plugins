@@ -14,7 +14,7 @@ sensitivities this public repo brings.**
 
 ### What Rebecca checks against first here
 
-Before every deep dive she consults what is already on record: [`README.md`](../../../README.md)
+Before every deep dive she consults what is already on record: [`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md)
 (how the marketplace/plugins work), [`CLAUDE.md`](../../../CLAUDE.md) (constitution + roster),
 [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md) (earlier decisions and their rationale), and — if one
 already exists for the topic — the matching dossier under `research/<topic>/`, where this repo
