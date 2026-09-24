@@ -160,7 +160,9 @@ $ErrorActionPreference = 'Stop'
 # A path that does not exist here is skipped with a warning rather than failing the run: the
 # optional documents are allowed to disappear, the required ones are checked separately below.
 #
-# INSTALL.md AND UNINSTALL.md ARE ABSENT ON PURPOSE, and the way they are absent is the point (inbound
+# (INSTALL.md and UNINSTALL.md were retired on September 24, 2026; the paragraph below is kept as the record of why
+# they sat at the root, and its folder-boundary reasoning still holds for any future plumbing page.)
+# INSTALL.md AND UNINSTALL.md WERE ABSENT ON PURPOSE, and the way they were absent is the point (inbound
 # #664, August 14, 2026). They used to travel by sitting inside 'plugins', which is published whole --
 # so there was no entry to remove and no list that could express the choice. They now live at the repo
 # root instead, which puts them outside every published path without anything having to remember them.

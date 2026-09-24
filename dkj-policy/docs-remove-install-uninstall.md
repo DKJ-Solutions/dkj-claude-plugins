@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Dave's decision (September 24, 2026): the two root pages go. The one thing no skill can replace -- the
+install commands, which run before any plugin skill exists -- moves into `plugins/ADOPTION.md`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `git rm` INSTALL.md and UNINSTALL.md
+- [x] `plugins/ADOPTION.md`: new *Installing it yourself* section, and the machine half of the undo inline
+- [x] Ten relative links in archived release notes pinned to the last commit that had the pages (text unchanged)
+- [x] Every live link repointed (README, connectors, handbook, lens, plugin READMEs, init/teardown skills, manual)
+- [x] Printed script messages repointed (bootstrap, check-connectors, check-roster-sync x2, teardown)
+- [x] Both names off `ReservedRootMd` and `$consumerDocs`; blueprint rebuilt
 
 ### TEST
 
+- [x] Lint gate green locally (0 errors, incl. dead links); suites run as the required CI check
+
 ### DEPLOY: docs/remove-install-uninstall
 
-**Score:**
+The root `INSTALL.md` and `UNINSTALL.md` are gone. The install commands and the machine-side removal now
+live in `plugins/ADOPTION.md`, and every link, printed script message and tooling list that named either
+page points there instead. The archived release notes are left as written.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's single entry is now `plugins/ADOPTION.md`, which carries the install commands in its own
+*Installing it yourself* section. The old migration walkthroughs (old plugin names, `dkj-team-*` ids, the
+`specialist-` filenames) went with `INSTALL.md` and survive only in the release notes that introduced them.
+
+**Score:** 3
 
 #### Pull Request
 

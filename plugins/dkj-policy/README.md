@@ -233,8 +233,7 @@ stay; the skills and scripts that read them stop.
 
 ## Enabling it
 
-Part of the adoption path in [`INSTALL.md`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/INSTALL.md);
-[`UNINSTALL.md`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/UNINSTALL.md) is the mirror. It requires the core team `dkj-subagents-alpha`, which
+Part of the adoption path in [`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md). It requires the core team `dkj-subagents-alpha`, which
 every consuming repo enables anyway. Enabling or disabling it is an ordinary plugin change rather than a
 migration, and there is no second one to switch between: the two directions are **on** and **off**.
 
@@ -274,10 +273,8 @@ the same silent way
 and `install` was measured serving the *previous* version, twice — while `update` was measured refreshing
 the clone for itself, so keeping line 1 in front of it is insurance rather than a repair, because a stale
 cache is invisible by construction. Line 2 is where the flag matters: drop `--scope project` and the
-command looks in user scope and does not act on a project-scoped install at all. Both measurements — and
-why the version number is not the code you are running — are in the family's
-[Staying up to date](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/INSTALL.md#staying-up-to-date),
-which is the page to read; they are not restated here.
+command looks in user scope and does not act on a project-scoped install at all. The commands are on the family's
+[adoption page](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#installing-it-yourself); they are not restated here.
 
 **And the pair moves nothing at all between two releases, which is the limit worth knowing before you
 run it** (measured September 10, 2026, Claude Code 2.1.267,

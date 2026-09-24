@@ -651,7 +651,7 @@ if ($seamImports.Count -gt 0) {
 
             if ($liveSibling) {
                 $liveShown = Format-SafePathToken -Value $liveSibling
-                Write-Info "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- but a sibling import resolves to the same document at '$liveShown' under the other #2128 spelling. Nothing is missing from this session: this is the documented #2128 migration overlap (INSTALL.md's 'Migrating to the specialist- filenames' recipe carries both lines on purpose). Delete the dead line in $rosterRel once '$liveShown' is the spelling you are keeping."
+                Write-Info "the '@'-import '$impShown' in $rosterRel points at '$where', which does not exist -- but a sibling import resolves to the same document at '$liveShown' under the other #2128 spelling. Nothing is missing from this session: this is the documented #2128 migration overlap (that migration carries both lines on purpose). Delete the dead line in $rosterRel once '$liveShown' is the spelling you are keeping."
             } else {
                 # THE CAUSE LIST IS SPLIT BY IMPORT CLASS, because the closing instruction was wrong for one
                 # of them (#2224, September 20, 2026). A '~/'-relative import resolves into the machine-wide

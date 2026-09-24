@@ -1447,7 +1447,7 @@ Write-Host ""
 Write-Host "Done: $copied persona-lens(es) created, $kept already present; $scaffolded lens-scaffold(s) created, $lensKept already present; $scriptScaffolded script-scaffold(s) created, $scriptKept already present." -ForegroundColor Cyan
 if ($notInstalledIds.Count -gt 0) {
     # Directly under the closing count, because that count is what this line qualifies (inbound #302).
-    Write-Host "  [notice] $($notInstalledIds.Count) of the enabled plugin(s) have no install record for this path -- a session here loads none of them, so the lenses above are in place for a specialist surface this repo does not yet have. Run this from this root (Step 1 of INSTALL.md, act 4):" -ForegroundColor Yellow
+    Write-Host "  [notice] $($notInstalledIds.Count) of the enabled plugin(s) have no install record for this path -- a session here loads none of them, so the lenses above are in place for a specialist surface this repo does not yet have. Run this from this root (act 4 of 'Installing it yourself' in plugins/ADOPTION.md):" -ForegroundColor Yellow
     foreach ($id in ($notInstalledIds | Sort-Object -Unique)) {
         Write-Host "             claude plugin install $id --scope project" -ForegroundColor Yellow
     }

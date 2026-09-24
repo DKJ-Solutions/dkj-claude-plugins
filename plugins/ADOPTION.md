@@ -4,7 +4,7 @@
 separate matter and may already have been done for you: if your organisation publishes this family
 through a marketplace of its own, the registration and the install happened once, centrally, and you
 should not repeat them. If you came here to install it yourself, that half is
-[INSTALL.md](../INSTALL.md) and you do it first.
+[Installing it yourself](#installing-it-yourself) below, and you do it first.
 
 What is on *this* page is the same in both cases. The plugins give you a team; connecting it to your
 repo — the bootstrap, the roster, the lenses — is what turns that team into one that knows where it
@@ -25,8 +25,8 @@ behind it. This page tells you what to do; that one tells you why it changed.
 
 Three things have to be true, and only the first one might not be:
 
-1. **The plugins are installed *and* enabled for this repo — two acts, not one.** If you installed
-   them yourself, that is [INSTALL.md](../INSTALL.md). If they arrived through your organisation, this
+1. **The plugins are installed *and* enabled for this repo — two acts, not one.** If you install
+   them yourself, that is [Installing it yourself](#installing-it-yourself). If they arrived through your organisation, this
    is already done — the specialists appear in your session as `@dkj-subagents-alpha:<name>` subagents.
 2. **You have restarted the session since that happened.** A skill that ships inside a plugin only
    becomes available once the session has loaded the plugin.
@@ -45,12 +45,72 @@ Three things have to be true, and only the first one might not be:
 > is kept out of the model's context on purpose, and the slash command still works — so a healthy
 > session's own skill listing is *shorter* than what the plugins ship, and a number read off it proves
 > nothing. If `/specialists-init` is missing, the install record is the first thing to check; the
-> plugin-free query for it is [INSTALL.md](../INSTALL.md)'s Step 1, act 6.
+> plugin-free query for it is act 6 of [Installing it yourself](#installing-it-yourself).
 >
 > **Nothing will raise this for you, and that is structural.** The four checks in this family that
 > report *"enabled here but not installed for this path"* all ship **inside** the plugin that is not
 > installed, so the one repo they were written for is the one repo they cannot speak in. A quiet
 > session start is not an all-clear here.
+
+## Installing it yourself
+
+**Skip this section if the plugins arrived through your organisation.** Every command here names the
+**public** source `DKJ-Solutions/dkj-claude-plugins`; running them against an organisation's own channel
+does not fail loudly, it quietly adds a second channel pointing somewhere else.
+
+**1. Write your repo's own `.claude/settings.json`** (create `.claude/` beside your `README.md` if it is
+not there). Strict JSON; if you already have one, merge these two keys into it. `dkj-subagents-alpha` is
+the only plugin you need — add a line per add-on team you want, and `dkj-policy` only if you deliberately
+want that workflow.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "dkj-claude-plugins": {
+      "source": { "source": "github", "repo": "DKJ-Solutions/dkj-claude-plugins" }
+    }
+  },
+  "enabledPlugins": {
+    "dkj-subagents-alpha@dkj-claude-plugins": true
+  }
+}
+```
+
+**2. Restart your Claude Code session.** A session start is what registers the marketplace; without it
+the next command fails with `Marketplace … not found`.
+
+**3–4. Refresh, then install — from your repo's root, one install per plugin you enabled.**
+
+```powershell
+claude plugin marketplace update dkj-claude-plugins                             # never skip: install does not refresh
+claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project    # once per plugin
+```
+
+`--scope project` is not optional — without it the install goes machine-wide and writes no
+`projectPath`, with no error.
+
+**5. Restart your Claude Code session again.**
+
+**6. Verify — from your repo's root.** This query needs no plugin, which is why it is the check:
+
+```powershell
+$root = (Get-Location).Path
+(Get-Content "$env:USERPROFILE\.claude\plugins\installed_plugins.json" -Raw | ConvertFrom-Json).plugins.PSObject.Properties |
+  ForEach-Object { $n = $_.Name; $_.Value | Where-Object { $_.projectPath -eq $root } |
+    ForEach-Object {
+      $payload = if ($_.installPath -and (Test-Path -LiteralPath $_.installPath)) { 'payload present' } else { 'PAYLOAD MISSING' }
+      "$n -> $($_.scope) $($_.version) $($_.gitCommitSha) [$payload]" } }
+```
+
+**One** `project` line per plugin, ending in `payload present`. Then `/specialists-init` must be in your
+slash list, and the four steps below start.
+
+**Staying up to date** afterwards is the `update-plugins` skill (with `dkj-policy` enabled), or by hand:
+
+```powershell
+claude plugin marketplace update dkj-claude-plugins
+claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project
+```
 
 ## What this gives you
 
@@ -139,7 +199,7 @@ Done: 4 persona-lens(es) created, 0 already present; 15 lens-scaffold(s) created
 **4 personas + 15 subagent scaffolds = 19 lens files** in `.claude/specialists/lenses/`, plus 2 script
 scaffolds and 1 `@`-import. Those figures used to appear only in the skill's own `SKILL.md`, which a reader
 sees *after* invoking it — i.e. after the moment they would have needed them. This page is meticulous about
-counting everywhere else (*"the count is part of the check, not a detail"*, as the install page puts it), and this was the
+counting everywhere else (*"the count is part of the check, not a detail"*, as the install verification below puts it), and this was the
 one step where the script prints numbers with nothing to compare them against.
 
 **Read each pair as `created + already present`, not as a fixed number.** The sum is what this page
@@ -159,8 +219,8 @@ specialists, so this sample's numbers hold whether or not it is enabled alongsid
 
 **And one thing it does that no document mentioned:** every file it writes uses **LF** line endings and
 `CLAUDE.md` gets **no trailing newline**, on Windows too. Harmless while nothing is committed, but on a repo
-whose files are CRLF this is the same class of lasting diff that
-[INSTALL.md](../INSTALL.md) warns about for `claude plugin install` — and the missing final newline turns any
+whose files are CRLF this is the same class of lasting diff
+`claude plugin install` can leave behind — and the missing final newline turns any
 later hand-edit of `CLAUDE.md` into a two-line diff. If your repo cares, normalise once after the
 bootstrap.
 
@@ -268,8 +328,18 @@ classifies before it removes: a lens still carrying its `VUL-IN` marker is gener
 **you filled in is yours** and is reported rather than touched. Read the `[remove]` and `[KEEP]` lines
 rather than what is left on disk; a `[KEEP]` means *still there*, not *still working*.
 
-The full procedure, including the machine half and the states it can fail in, is
-[UNINSTALL.md](../UNINSTALL.md).
+**Off the machine** comes second, because the teardown skill ships inside the plugin you would be
+uninstalling. From your repo's root, once per plugin, then remove the `enabledPlugins` and
+`extraKnownMarketplaces` keys from your `.claude/settings.json` and restart — a leftover
+`extraKnownMarketplaces` key lets a session start rebuild the install by itself:
+
+```powershell
+claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins --scope project
+```
+
+`claude plugin marketplace remove dkj-claude-plugins` is **machine-wide**: it drops every install record
+on that marketplace, including other checkouts'. Run it only when this was the last checkout on the
+machine using the family.
 
 **What stays behind is not debt, mostly.** Your history stays — a changelog that mentions specialists
 is an accurate record of something that happened. Lenses you wrote stay, as files nothing reads any

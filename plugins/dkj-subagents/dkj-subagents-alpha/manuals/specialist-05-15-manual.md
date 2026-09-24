@@ -79,9 +79,7 @@ and safe hook construction.
   first checkout, and the CLI's failure messages in the rest name a missing plugin or the wrong
   `--scope` rather than the cause. **`remove` and `add` do not share a reach, so do not treat the pair
   as one step**: `remove` is per machine and belongs at the front, once, while `add --scope project`
-  writes into the repo it is run in and is owed to every checkout. Measured with record counts and both
-  verbatim messages in the source repo's `INSTALL.md`, under
-  *"If this machine has more than one checkout"*.
+  writes into the repo it is run in and is owed to every checkout. Measured with record counts in the source repo, issue #1820.
   **And in a TEARDOWN the same reach lands differently, because there is no `add` behind it — but do not
   say it is unrecoverable.** An install sequence repairs itself explicitly: the checkouts it stripped
   reinstall a few commands later, so the cost is a procedure that reads wrong mid-run. A teardown has no
@@ -94,8 +92,7 @@ and safe hook construction.
   at all for a checkout whose owner has since tidied that key away. So a teardown page does not merely
   warn about the reach: it tells a multi-checkout reader to **skip that step**, because the machine is not
   theirs to clear while another repo is using it, and because what makes the damage survivable is a
-  mechanism nobody promised. Written up in the source repo's `UNINSTALL.md`, under its own *"If this
-  machine has more than one checkout"*, with the self-healing table it leans on under that page's Step 3.
+  mechanism nobody promised. The source repo's adoption page states the rule in its undo section.
   **The claim to avoid is the confident one**: "nothing puts it back" was written here first and was
   false, caught in review against a table the same document already carried.
 - **Never add a permission or hook that undermines the safety rules.** The safety rules stand above
@@ -212,8 +209,7 @@ and safe hook construction.
   applies: a restart of Claude Code, deliberately scheduled as the closing step of every plugin
   migration. **This "without a restart" path does not extend to a new skill that ships inside an
   already-enabled plugin's updated version** — that only becomes available after a restart, and the
-  skill counters `/reload-plugins`/`/reload-skills` print are not evidence either way (see
-  INSTALL.md's "Staying up to date" section for the detail). Note: this applies to plugin
+  skill counters `/reload-plugins`/`/reload-skills` print are not evidence either way (measured in the source repo). Note: this applies to plugin
   content; changes to `CLAUDE.md` imports and settings still load only on a restart.
 - **A `concurrency` group's guarantee is not what `cancel-in-progress` says — that field governs only
   the IN-PROGRESS run.** A group holds at most one running job plus one *pending* one, and when a third

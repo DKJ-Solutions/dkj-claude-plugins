@@ -1775,9 +1775,8 @@ this repo's:
   plugin that did not load. The repair is `claude plugin marketplace update dkj-claude-plugins`
   followed by `claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project` from the new
   root, after which a leftover record naming the old folder is expected and inert. The mechanism, the
-  other two ways a record goes missing, and why that leftover is not a stray duplicate are in the
-  family's [INSTALL.md](../../../INSTALL.md#staying-up-to-date);
-  don't restate them here.
+  other two ways a record goes missing, and why that leftover is not a stray duplicate were in the
+  family's root `INSTALL.md`, retired on September 24, 2026; its release notes carry them.
 - **The marketplace clone follows a REFRESH, not a push — and no version check can tell you it is
   behind.** The clone is what a document named by an absolute `@`-import reads — the orchestrator's
   body, in every repo here — and it advances only on
@@ -1875,7 +1874,7 @@ this repo's:
   `dkj-team-lifehub@claude-code-specialists`: the record went, the payload stayed. **That last one
   refines rather than discovers, and the report that asked for it had it as untested** — the reason a
   report gives is checked before it is repaired, and here
-  [UNINSTALL.md](../../../UNINSTALL.md#what-is-left-behind-honestly) had already established that the
+  the since-retired `UNINSTALL.md` had already established that the
   cache directory follows the marketplace and not the install
   ([#339](https://github.com/DaveKJohn/claude-code-specialists/issues/339)). What was genuinely open
   was the per-plugin case, and that is what was run. That is the gap

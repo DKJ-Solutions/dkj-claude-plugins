@@ -2780,9 +2780,10 @@ $sampleChecked = 0
 # two checks exist for -- the bootstrap's closing line, the 4+15+2 counts, the verification snippet --
 # travelled WITH the adoption half. Listing only the pages that kept their names would have left both
 # checks reporting green over the document that now holds their subject, for the second time.
+#
+# AND THEN TWO, on September 24, 2026: INSTALL.md and UNINSTALL.md were retired and the install commands
+# moved into plugins/ADOPTION.md, which is the entry that already carried the samples and figures.
 $consumerDocs = @(
-    'INSTALL.md',
-    'UNINSTALL.md',
     'plugins\ADOPTION.md',
     'README.md'
 )
