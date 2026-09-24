@@ -904,6 +904,41 @@ function Add-GateBypassLines {
     return ($out -join $nl)
 }
 
+function Complete-SuppliedPrBody {
+    <#
+    .SYNOPSIS
+        Fills the entry's description into a caller-supplied -Body at the description placeholder, the
+        way the template auto-fill does. Returns the body unchanged where it carries no placeholder.
+
+    .DESCRIPTION
+        A -BODY USED TO SKIP THE FILL ENTIRELY (#2361, second and third measurements). open-pr fills the
+        placeholder only when it builds the body from the template itself, so a caller who passed the
+        filled-in template -- to tick a box the repo's own gate reads, or to add a note -- published a
+        body without the DEPLOY section, and ship-pr's lock refused the merge after the full CI wait. The
+        placeholder is the one line open-pr already knows how to replace, so a -Body carrying it now gets
+        the same replacement. The match is the template path's own: a whole line, exactly one of the
+        placeholders.
+
+        The body's own newline is kept, so a CRLF body stays CRLF. An empty description replaces nothing:
+        a placeholder swapped for nothing would read as a description that was written and then lost.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body,
+        [AllowEmptyString()][string]$Description,
+        [string[]]$Placeholders
+    )
+    if (-not $Body -or -not $Description -or -not $Placeholders) { return $Body }
+    $nl = if ($Body.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $src = $Body -split "\r?\n"
+    $changed = $false
+    $descText = ($Description -split "\r?\n") -join $nl
+    $out = foreach ($line in $src) {
+        if ($Placeholders -contains $line) { $changed = $true; $descText } else { $line }
+    }
+    if (-not $changed) { return $Body }
+    return (@($out) -join $nl)
+}
+
 function Get-PrDescriptionPlaceholderDefaults {
     <#
     .SYNOPSIS

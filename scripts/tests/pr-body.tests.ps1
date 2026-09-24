@@ -964,6 +964,23 @@ $bpLockBody = Add-GateBypassLines -Body (Get-PrDescription -EntryText $merged) -
 $bpLock = Test-DeployLock -EntryText $merged -PrBody $bpLockBody
 Assert-True ($bpLock.Applicable -and $bpLock.Locked) 'bypass: the DEPLOY lock still holds with the section appended -- it tests containment'
 
+# --- Complete-SuppliedPrBody: a caller's -Body gets the description at the placeholder (#2361) --------
+$sbDesc = Get-PrDescription -EntryText $merged
+$sbPlaceholder = @(Get-PrDescriptionPlaceholderDefaults)[0]
+$sbBody = "## What does this change do?`n`n$sbPlaceholder`n`n## Preview`n`n- [x] answered"
+$sbFilled = Complete-SuppliedPrBody -Body $sbBody -Description $sbDesc -Placeholders @(Get-PrDescriptionPlaceholderDefaults)
+Assert-True ($sbFilled -notmatch [regex]::Escape($sbPlaceholder)) 'supplied body: the placeholder line is replaced'
+Assert-True ($sbFilled -match '- \[x\] answered') 'supplied body: the caller''s own lines stay'
+$sbLock = Test-DeployLock -EntryText $merged -PrBody $sbFilled
+Assert-True ($sbLock.Applicable -and $sbLock.Locked) 'supplied body: once filled, the DEPLOY lock holds -- the PR #275 case'
+Assert-Equal $sbBody (Complete-SuppliedPrBody -Body $sbBody -Description '' -Placeholders @($sbPlaceholder)) 'supplied body: an empty description replaces nothing'
+$sbNote = 'Skipped the suites: CI runs them.'
+Assert-Equal $sbNote (Complete-SuppliedPrBody -Body $sbNote -Description $sbDesc -Placeholders @($sbPlaceholder)) 'supplied body: a body with no placeholder is returned untouched'
+$sbNoteLock = Test-DeployLock -EntryText $merged -PrBody $sbNote
+Assert-True ($sbNoteLock.Applicable -and -not $sbNoteLock.Locked) 'supplied body: a note-only body is what open-pr now refuses -- the PR #2363 case'
+$sbCrlf = Complete-SuppliedPrBody -Body ($sbBody -replace "`n", "`r`n") -Description $sbDesc -Placeholders @($sbPlaceholder)
+Assert-Equal 0 ([regex]::Matches($sbCrlf, "(?<!`r)`n").Count) 'supplied body: a CRLF body stays CRLF, the description included'
+
 Write-Host ""
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red

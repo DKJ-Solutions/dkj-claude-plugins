@@ -126,7 +126,9 @@ The script:
 6. Pushes the current branch and opens a PR to `main` via `gh`, with a label based on the
    branch prefix and a pre-filled PR body from `.github/pull_request_template.md` +
    the changelog entry file. If the branch already had an open PR, the push **is** the update and
-   the create is skipped.
+   the create is skipped. A `-Body` you supply gets the same description fill where it keeps the
+   template's placeholder, and one that still lacks the DEPLOY section is **refused before the gates**
+   (#2361), because the DEPLOY lock would otherwise refuse the merge after the full CI wait.
 
 ## Just the gates, and nothing else: `-GatesOnly`
 

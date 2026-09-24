@@ -81,7 +81,9 @@ different subject, and is filed as #2405.
 - [x] `pr-body.tests.ps1`: 7 asserts for `Complete-SuppliedPrBody` (fill, caller lines kept, lock holds
   once filled, empty description, untouched without placeholder, note-only body is lock-refused, CRLF) --
   236 pass
-- [ ] Code review (Victor) of the supplied-`-Body` check
+- [x] Code review (Victor) of the supplied-`-Body` check: no bugs; the duplicated comment at the old
+  placeholder site trimmed, and the refusal now lists the placeholder strings, since an exact-match
+  near-miss fills nothing and would otherwise read as a content error
 
 ### DEPLOY: feat/2361-pr-bypass-note
 
