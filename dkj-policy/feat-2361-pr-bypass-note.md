@@ -47,6 +47,15 @@ against the tree: `Get-GateBypassNote` already names the skipped switches for th
 `Test-DeployLock` tests containment, so an appended sibling section cannot trip it. Build the section into
 open-pr, modelled on the closing block.
 
+#### Resumed September 24, 2026: the issue's two later comments
+
+Two further measurements landed on #2361 after this branch was parked (BWJ-Development/xoxowildhearts
+PR #275, and PR #2363 here). Both were a caller-supplied `-Body` that skipped the placeholder fill, so it
+published without the DEPLOY section and was refused at the lock after CI. That is the same root as the
+issue title, so it is repaired here: the placeholder is filled in a `-Body` too, and a `-Body` still
+lacking the section is refused before the gates. The PS 5.1 argument split in the first comment is a
+different subject, and is filed as #2405.
+
 ### CREATE
 
 - [x] `pr-body-lib.ps1`: `New-GateBypassLine`, `Get-GateBypassLines`, `Add-GateBypassLines` (idempotent per
@@ -55,6 +64,9 @@ open-pr, modelled on the closing block.
   the lines the body already carried are read before a refresh and put back after it
 - [x] `ship-pr.ps1`: `-BypassNote` forwarded; `closeout-lib.ps1`'s receipt line says the record was written
 - [x] Plugin mirrors synced; `open-pr` and `ship-pr` skill pages name the parameter
+- [x] `pr-body-lib.ps1`: `Complete-SuppliedPrBody` fills the entry's description at the placeholder of a
+  caller-supplied `-Body`; `open-pr.ps1` runs it before the gates and refuses a `-Body` that
+  `Test-DeployLock` says does not carry the DEPLOY section (placeholder resolution moved up to serve it)
 
 ### TEST
 
@@ -66,6 +78,10 @@ open-pr, modelled on the closing block.
   refresh would have welded it in. Repaired (only list items are section lines) and pinned; also kept a
   CRLF body CRLF on insert, and a blank line above a heading that follows the section
 - [x] Gates via `open-pr -GatesOnly`
+- [x] `pr-body.tests.ps1`: 7 asserts for `Complete-SuppliedPrBody` (fill, caller lines kept, lock holds
+  once filled, empty description, untouched without placeholder, note-only body is lock-refused, CRLF) --
+  236 pass
+- [ ] Code review (Victor) of the supplied-`-Body` check
 
 ### DEPLOY: feat/2361-pr-bypass-note
 
@@ -75,6 +91,10 @@ given. The section is kept across `-RefreshBody`, and a later bypass is added be
 now the workflow asked for that record and the tooling offered no way to write it, so it took a hand edit
 of the body the DEPLOY lock reads; on PR #2357 that edit flattened the body and the merge was refused
 after a full CI wait.
+
+A body passed with `-Body` now gets the entry's description filled in at the template's placeholder, as
+the default body does. A `-Body` that still lacks the DEPLOY section is refused before the gates, instead
+of opening a PR the DEPLOY lock would refuse to merge after CI.
 
 **Score:** 3
 
