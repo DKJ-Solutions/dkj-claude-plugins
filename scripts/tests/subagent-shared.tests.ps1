@@ -270,7 +270,7 @@ try {
     Assert-True (@(Get-AgentDefTools -Content $noBash) -notcontains 'Bash') 'and a def without the tool is not obliged'
 
     # A persona is unaffected without an exemption -- it carries no tools line at all. Asserted on the
-    # real personas rather than a fixture, because the claim in subagent-shared/README.md is about them.
+    # real personas rather than a fixture, because the claim in Ravi's lens (specialist-06-24-lens.md) is about them.
     $personaWithTools = @($realPersonas | Where-Object {
         @(Get-AgentDefTools -Content ([System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8))).Count -gt 0
     })
