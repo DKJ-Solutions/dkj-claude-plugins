@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Inbound #2420: `connectors/thumbnail-generator.json` still named `DaveKJohn/thumbnail-generator`
+after the repo moved into the `DKJ-Solutions` org (thumbnail-generator PR #26). Verified before
+repairing: `gh repo view DKJ-Solutions/thumbnail-generator` resolves as the canonical name. The report's
+guess that other connectors moved too was checked: `DaveKJohn/djcylow-react` still resolves under
+its own owner, so this one entry is the whole repair.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Set `repo` to `DKJ-Solutions/thumbnail-generator` and record the move in the entry's `notes`.
 
 ### TEST
 
+- [x] `check-connectors.ps1` names the entry `DKJ-Solutions/thumbnail-generator`. The consumer checkout
+  is not on this machine, so the match with its origin is checked in that repo's own next session.
+
 ### DEPLOY: fix/2420-thumbnail-generator-connector-owner
 
-**Score:**
+The connector register now names `thumbnail-generator` under the `DKJ-Solutions` org it moved to, so
+that consumer's session check stops reporting its own origin as unregistered.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
 
 #### Pull Request
+
+Register thumbnail-generator under its new owner
 
