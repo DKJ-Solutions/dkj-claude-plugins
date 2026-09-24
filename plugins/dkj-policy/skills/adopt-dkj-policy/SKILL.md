@@ -195,9 +195,32 @@ definition of the format in every repo, free to drift from the fold that reads t
 had already drifted**: each refuses a merge over a missing significance score, which is a refusal this
 workflow deliberately places at the *release cut* instead.
 
-So the gate ships as a script, `check-branch-entry.ps1`, and this part places the six lines that call
+So the gate ships as a script, `check-branch-entry.ps1`, and this part places the few lines that call
 it. It adds no rule of its own -- it calls the same functions `open-pr` calls -- and it reports the
 significance rather than refusing on it.
+
+**What lands in your repo is a caller, not the runner**
+([#2422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2422)). Both PR gates are reusable
+workflows in the source repo (`reusable-branch-entry.yml`, `reusable-always-on-budget.yml`, `on:
+workflow_call`), and your `.github/workflows/` gets the trigger plus one `uses:` line. So a change to the
+runner, its steps or its timeout reaches you on your next pull request, with no re-adopt. Two things
+follow from GitHub's rules for a calling job: it carries **no `timeout-minutes`** (the cap sits in the
+called job), and its check reports as **`<job> / <job>`** (`branch-entry / branch-entry`), which matters
+only if you make it a required check. **A repo adopted before this change keeps its full copy** -- this
+part never overwrites a file. To take the caller, delete that file and re-run Part 1.
+
+**The branch-entry caller also holds the DEPLOY lock**
+([#2429](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2429)). The runner passes the PR
+number, so it refuses a DEPLOY section that changed after the PR opened. That is the half of the lock a PR
+merged from the GitHub UI still meets, because `ship-pr` never ran for it. It needs two lines in *your*
+caller, because a called workflow can never raise its caller's token: **`pull-requests: read`** under
+`permissions:`, and **`edited`** in the trigger's `types:`, so the check looks again after `open-pr
+-RefreshBody` edits the body. Part 1 places both. **A caller placed before #2429 keeps working unchanged**:
+it has neither line, so the runner cannot read the body and prints `[INFO] ... the DEPLOY lock was not
+checked` instead of going red. To take the lock, add the two lines by hand or delete the caller and
+re-run Part 1. **Whatever you write, keep a `permissions:` block in the caller.** The runner declares none,
+so that it can inherit `pull-requests: read`. The cost is that a caller with no block hands a job that
+runs a fetched script the repo's default token, which is read-write on older repos.
 
 **Which branches owe nothing** is a seam: `Get-EntryGateExemptPrefixes` in your `scripts/repo-config.ps1`,
 defaulting to `sync`. A mirror branch carries somebody else's work rather than your repo's, so it has
@@ -205,13 +228,14 @@ nothing to declare -- both consumers reached that answer independently, with not
 the expected one. An **unknown** prefix is deliberately *not* exempt: a typo would otherwise skip the gate
 in silence.
 
-**The workflow pins `ref: main` rather than a tag, and that is the one choice worth arguing** -- for this
+**The caller pins `@main` (and the reusable workflow `ref: main`) rather than a tag, and that is the one choice worth arguing** -- for this
 read-only gate; the write runners of Part 3 are pinned to a release instead, for the reason
 [given there](#the-write-runners-fetch-the-shared-scripts-at-a-release-not-at-main-issue-2333). A pinned
 gate keeps enforcing the shape it was pinned at -- and the entry's own path has moved twice, so a stale
 pin does not fail loudly, it fails the *wrong way*: refusing branches that do carry an entry at the
 current path. Tracking the tip means the gate follows the convention it enforces. Pin a tag instead if you
-would rather own the bump.
+would rather own the bump: name it in the caller's `uses:` line **and** pass it as `with: scripts-ref:`,
+so the runner and the script it runs come from one revision.
 
 **That argument was only ever half of the trade**
 ([#1805](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1805)). It weighs the **entry's**
@@ -235,6 +259,29 @@ trade-off that puts the timing back in your hands.
 **Making the check *required* is yours.** The file makes it run and report; whether a red gate blocks a
 merge is a branch-protection setting, which is a repo decision rather than something a scaffolder should
 reach into.
+
+### And one line in your `CLAUDE.md`: the constitution (#2374)
+
+**The rules this repo runs under ship with the plugin, in [`../../CLAUDE.md`](../../CLAUDE.md).** Your own
+`CLAUDE.md` holds **only** one absolute `@`-line loading them, and nothing else:
+
+```
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md
+```
+
+**Your `CLAUDE.md` carries no prose of its own** — no facts about the repo, no rules, nothing below the
+import line. Facts about this repo only — its trunk, whether it is public, who its owner is, and what
+it is for — go in an unscoped rule your own tooling loads every session, e.g.
+`.claude/rules/this-repo.md`; a fact that belongs to one specialist alone goes in that specialist's own
+lens instead. **Remove any rule the constitution already states, wherever it currently sits.** A copy of a
+rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
+stays behind, and that is the contradiction #2374 was filed about.
+
+This run does not write the line, because it never edits a file that already exists. The
+`consumer-prose-sessioncheck` hook raises a `[WARNING]` at every session start until the line is there,
+and that warning prints the exact line for **your** marketplace name. A consumer registered before the
+September 10, 2026 rename still has its clone under `claude-code-specialists`. The line resolves after a
+`claude plugin marketplace update`: an `@`-import reads the marketplace clone, not the plugin cache.
 
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
@@ -640,9 +687,10 @@ its exit code and its `[create]`/`[MISSING]` marker are independent of Part 3's 
 
 ### A fourth runner: merge-on-green.yml (issue #2329)
 
-**It closes a promise `ship-pr` already makes in your repo.** When `ship-pr` refuses to merge on a red or
-pending required check, it labels the pull request `merge-when-green` and says a sweep will finish the
-merge once the check turns green. `.github/workflows/merge-on-green.yml` is that sweep. Without it the
+**It closes a promise `ship-pr` already makes in your repo.** `ship-pr` labels the pull request `merge-when-green` before it
+starts waiting on CI. So whenever that run does not merge -- it refuses on a red or pending check or on
+a stale certificate, or the session dies mid-watch -- a sweep finishes the merge once the required
+check has been green for ten minutes (the window keeps the sweep from racing a live ship). `.github/workflows/merge-on-green.yml` is that sweep. Without it the
 label is set and nothing reads it, so the merge stays owed to a session exactly as before.
 
 It wakes on your CI completing (`workflow_run`, naming your own pull_request workflows by their

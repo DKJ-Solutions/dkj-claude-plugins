@@ -262,9 +262,14 @@ function Get-ThemeFillVerdict {
         else. So the verdict is 'complete' only when the last samples AGREE and the settled count has
         reached the source's.
 
-        'short' IS A REFUSAL AND NOT A WARNING, and the caller is expected to treat it as one. A
-        stable count BELOW the source means the copy stopped early -- the one state where the theme
-        looks finished and is not, which is precisely what this function exists to name.
+        'short' IS A REFUSAL AND NOT A WARNING -- ONCE THE CALLER'S DEADLINE HAS PASSED. A stable count
+        BELOW the source at the end of the wait means the copy stopped early -- the one state where the
+        theme looks finished and is not, which is precisely what this function exists to name. Before
+        the deadline it is not yet a verdict on the copy: growth comes in bursts with pauses between
+        them (#1965), and two equal samples inside a pause read as 'short' too. So a caller ends its
+        wait early only on 'complete', and refuses on 'short' only when the wait is over -- the reading
+        both callers share since #2350 (Dave, September 23, 2026), where backup-live-theme used to break
+        on the first 'short' while push-preview waited it out.
 
         THE SOURCE COUNT MAY BE UNKNOWN, and then the honest answer is 'unknown' rather than a
         cheerful 'complete'. A caller that could not read the source's file count has not measured

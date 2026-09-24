@@ -25,8 +25,8 @@ logic in `release-lib.ps1` (version bump, CHANGELOG transformation, release-note
   dependency-free (no Pester), dot-sources `release-lib.ps1` and asserts the version bump + CHANGELOG
   transformation, exit 1 on the first failure (usable in a CI gate) — and that dependency-free,
   exit-1-on-first-failure style now runs across the suite under `scripts/tests/`, which covers most
-  of what Sylvester's lens lists: the lint gate (`check-plugin-integrity-*.tests.ps1`, seven of them —
-  see [the split below](#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026)), the shared
+  of what Sylvester's lens lists: the lint gate (`check-plugin-integrity-*.tests.ps1`, a family of
+  files — see [the split below](#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026)), the shared
   agent-def blocks (`subagent-shared.tests.ps1`), the branch/changelog/release chain
   (`branch-info.tests.ps1`, `new-branch.tests.ps1`, `fold-changelog.tests.ps1`,
   `cut-release-guardrail.tests.ps1`, `park-branch.tests.ps1`), the connectors + roster machinery
@@ -59,12 +59,11 @@ logic in `release-lib.ps1` (version bump, CHANGELOG transformation, release-note
 
 ### The lint-gate suite is more than one file (August 16, 2026; split again September 22, 2026)
 
-`check-plugin-integrity.tests.ps1` is now seven suites plus a shared, non-asserting
-[`check-plugin-integrity-fixture.ps1`](../../../scripts/tests/check-plugin-integrity-fixture.ps1):
-`-links` (checks 4 and 10), `-commands` (11 and 12), `-entries` (13, 13b, coverage, the staleness
-checks), and the four `-docs` descendants — `-docs` (19, 20, 20b, 20c, 25 — consumer documents),
-`-scripts` (18, 39, 40, 27, 35 — the script layer), `-invocations` (22, 42, 42b, 24, 26 — printed
-invocations) and `-roster` (6b, 38, 45, 3d and `-SkipCheck` — defs and names).
+`check-plugin-integrity.tests.ps1` is now a family of suites plus a shared, non-asserting
+[`check-plugin-integrity-fixture.ps1`](../../../scripts/tests/check-plugin-integrity-fixture.ps1).
+**Which file holds which checks is stated once, in that fixture's header** — not here, because this
+paragraph named seven files while the family had grown to fifteen, and a membership list in a second
+place goes stale at every split.
 
 **The second split is the same finding one generation later**
 ([#2304](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2304)): `-docs` had grown to
@@ -106,6 +105,36 @@ make it more than one file. The four together run in **~51s**.
 
 **What is NOT the lever here, so nobody re-derives it:** narrowing what the suites check. That was
 explicitly refused in #714 and is not what bought the time; the same 110 gate invocations still run.
+
+### Where a new numbered check's scenarios go (September 24, 2026)
+
+**Into the existing family file that owns its subject — never into a new file by default**
+([#2411](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2411)). The subject map is the
+fixture header's table: a check about printed commands joins `-commands`, one about the script layer
+joins `-scripts`, and so on. A check whose subject no file owns joins the nearest one, and the header
+line for that file is widened to say so in the same commit.
+
+**A new file is justified by one measured condition: the receiving file would become the gate's
+critical path.** Concretely, its CI median would exceed the **work bound** — the sum of all suite
+medians divided by the CI lanes — read from the gate's per-suite table in the CI logs, the way
+[#2408](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2408) measured it (7,034.5s over
+20 lanes ≈ 352s on September 24, 2026; the family's largest file was then 245.5s). That is the
+condition every past split was actually bought on (#714, #1358's decline, #2304), stated as a rule
+instead of re-derived each time. **Below it a new file buys nothing**: the critical path is somebody
+else's, and the family only gains a file. Above it, split the way #2304 did — cut at check boundaries and balanced on gate invocations
+(the fixture header records each cut) — and hold the three rules above, the asserts summed before and
+after first among them.
+
+**Why a coarser grouping is not also the lever, measured** (#2411, same day): the one cost a file
+pays that fewer files would pay once is its own start — dot-sourcing the fixture lib (~245ms) and
+`New-IntegrityFixture` (~30ms). That is ~0.3s per file, ~4s across fifteen, **0.2%** of the
+family's 2,494.6s. Everything else is the gate child itself, ~2.4s per `Invoke-Integrity` locally
+across ~280 call sites, and grouping does not change how many run. So the family's **35.5% share of
+gate seconds is set by its invocation count, not its file count**; the rule above stops the file count
+climbing, and nothing short of fewer gate runs would move the share — which is narrowing coverage and
+out of scope, as the paragraph above says. The wide ranges #2411 cites (`-links` 66.5–134.5s, `-roster` 139.3–260.8s)
+are single slow runs of one member while its siblings stayed tight (`-fixture-guard` 242.2–247.2s on
+the same fixture), which reads as shard contention rather than a re-paid setup.
 
 ### A suite captures a child script through redirect files, never `2>&1` (September 6, 2026)
 
@@ -224,7 +253,9 @@ suite asserts.
 
 **Routing a `Write-Host` assert through the whitespace-blind reader is a LOSS, not a neutral tidy-up.**
 It asserts strictly less than `-match` does, and it destroys any assert that cares about line structure
--- `round-tally`'s `(?m)^\| v10 \| A2 extra \|` reads a generated markdown row and must keep `-match`.
+-- a line-anchored pattern such as `(?m)^\| v10 \| A2 extra \|`, which reads one generated markdown row,
+must keep `-match`. (That example came from `round-tally.tests.ps1`, retired with its tool in
+[#2414](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2414).)
 
 #### The three flatteners are not equally safe, and the ranking is measured
 
@@ -248,7 +279,8 @@ wrapped -- a property of the renderer that nothing here controls or tests. `Test
 property. So converting a suite that already joins with `''` is a **hardening**; converting one that
 does not is a **repair**.
 
-**Exactly one suite in that queue was genuinely exposed:** `round-tally.tests.ps1`, which joins its
+**Exactly one suite in that queue was genuinely exposed:** `round-tally.tests.ps1` (since retired,
+#2414), which joined its
 records with a newline (`-match` is single-line by default) and measured 51 of 480. It had already met
 this in [#1242](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1242) and answered it by
 rejoining the lines at **one** call site by hand, leaving two `Write-Warning` asserts beside it

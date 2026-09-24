@@ -1,0 +1,82 @@
+# The branch-entry gate AS A CONSUMER RUNS IT -- a reusable workflow (`on: workflow_call`), called from
+# the few-line .github/workflows/branch-entry.yml that adopt-dkj-policy's Part 1 places (issue #2422).
+#
+# WHY THIS FILE AND NOT THIS REPO'S OWN branch-entry.yml. That one runs THIS tree's scripts/lint/ copy on
+# this tree's own pull requests, so a PR changing the check is judged by the check it changes. A consumer
+# has no such copy: it checks this repository out beside its own tree and runs the plugin mirror under
+# plugins/dkj-policy/. Two different subjects, so two files -- and this one is the only definition of the
+# consumer's runner, where every consumer used to carry a full copy of it (~50 lines, half of it this
+# commentary) that the scaffolder wrote once and nothing ever corrected.
+#
+# WHAT A CALLER GETS WITHOUT RE-ADOPTING: a change to the runner, its steps, its timeout or this
+# commentary reaches every consumer calling `@main` on its next pull request. The script itself already
+# did, through the `ref: main` checkout below; the runner around it did not.
+#
+# THE github CONTEXT IS THE CALLER'S. In a called workflow `github.repository`, `github.head_ref` and
+# `github.workspace` describe the consumer's run, so the first checkout is the consumer's tree and the
+# head ref is the consumer's branch -- exactly what the copied runner read.
+#
+# `scripts-ref` DEFAULTS TO main, FOR THE #1805 REASON the copied runner states: a pinned gate goes on
+# enforcing the shape it was pinned at, and the entry's own path has moved twice. A caller that pins this
+# workflow at a tag (`...@v5.8.0`) should pass the same tag here, so the runner and the script it runs are
+# one revision rather than a pinned runner around a moving script.
+#
+# IT PASSES -Pr, SO A CONSUMER HOLDS THE DEPLOY LOCK TOO (issue #2429) -- the half a PR merged from the
+# GitHub UI still meets, which this repo's own branch-entry.yml has held since #884. Reading a PR body
+# needs `pull-requests: read`, and that scope can only come from the CALLER: a called workflow can lower
+# the caller's token, never raise it.
+#
+# SO THIS FILE DECLARES NO permissions: BLOCK, AND THAT IS THE COMPATIBILITY, NOT AN OMISSION. A called
+# workflow that asks for a scope its caller did not grant fails to start at all -- so declaring
+# `pull-requests: read` here would turn every caller scaffolded before #2429 (contents: read only) red on
+# its next PR. Declaring nothing inherits exactly what the caller granted. A caller that grants the scope
+# gets the lock; one that does not gets check-branch-entry.ps1's own "[INFO] PR #<n>'s body could not be
+# read, so the DEPLOY lock was not checked" -- the behaviour it had before, said out loud.
+#
+# THE CALLER MUST THEREFORE DECLARE ITS OWN permissions: BLOCK. This file used to cap the job at
+# `contents: read` whatever the caller did; it no longer can, so a caller with NO block runs this job --
+# which executes a script fetched from another repo -- with the repo's default token, read-write on older
+# repos. The caller Part 1 places declares `contents: read` + `pull-requests: read`; a hand-written one
+# must declare at least `contents: read`.
+#
+# THE CALLER ALSO NEEDS `edited` IN ITS TRIGGER (issue #1710): `open-pr.ps1 -RefreshBody` repairs a drifted
+# section by editing the body with no push behind it, and without `edited` the check cannot look again.
+# Both halves are what adopt-dkj-policy's Part 1 places since #2429.
+#
+# WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what `shell: powershell` is.
+name: Branch entry (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      scripts-ref:
+        description: The ref of DKJ-Solutions/dkj-claude-plugins whose shared scripts this gate runs.
+        type: string
+        required: false
+        default: main
+
+jobs:
+  branch-entry:
+    runs-on: windows-latest
+    # 10 minutes against a job that measures well under one (issue #2296). The cap lives HERE and not in
+    # the caller, because GitHub refuses timeout-minutes on a job that calls a reusable workflow.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch the shared workflow scripts
+        uses: actions/checkout@v5
+        with:
+          repository: DKJ-Solutions/dkj-claude-plugins
+          ref: ${{ inputs.scripts-ref }}
+          path: .workflow-scripts
+
+      - name: Changelog entry written, and the DEPLOY section still matches the PR
+        shell: powershell
+        env:
+          CLAUDE_PROJECT_DIR: ${{ github.workspace }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch "${{ github.head_ref }}" -Pr "${{ github.event.pull_request.number }}"
+          exit $LASTEXITCODE

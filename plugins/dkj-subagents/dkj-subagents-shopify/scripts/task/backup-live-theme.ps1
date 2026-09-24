@@ -315,8 +315,11 @@ if ($DryRun) {
         if ($n -ge 0) { $samples += $n }
         $verdict = Get-ThemeFillVerdict -Samples $samples -SourceFileCount $sourceCount
         Write-Host "    $($verdict.Count) file(s) -- $($verdict.Verdict)"
+        # ONLY 'complete' ENDS THE WAIT EARLY (Dave, September 23, 2026, #2350) -- push-preview's reading,
+        # and now this one's. A copy grows in bursts with pauses between them (#1965), and two equal
+        # samples inside such a pause read as 'short'; breaking there failed a copy that was still
+        # filling. 'short' is judged once the deadline has passed, by the check below the loop.
         if ($verdict.Verdict -eq 'complete') { break }
-        if ($verdict.Verdict -eq 'short') { break }
         Start-Sleep -Seconds $PollSeconds
     }
 

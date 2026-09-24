@@ -98,59 +98,31 @@
 
 Set-StrictMode -Version Latest
 
-function Get-SharedScriptReference {
+# One `repository:` or `path:` key, with an optional quote and an optional end-of-line comment. Shared
+# by the block walk below and by Get-SharedScriptReference, which reads `path:` out of the block it finds.
+$script:SharedCheckoutKeyPattern = '^(?<ind>[ \t]*)(?<key>repository|path):[ \t]*(?<q>["''])?(?<val>[^"''\r\n#]*?)(?(q)\k<q>)[ \t]*(#.*)?$'
+
+function Get-SharedCheckoutBlock {
     <#
-        Every script path a workflow file reaches into a checkout of $RepositoryName for.
+        Every `with:` block in $Lines whose `repository:` names $RepositoryName, as
+        @{ Repository; RepositoryLine; First; Last; Indent } -- line indexes 0-based, RepositoryLine too.
 
-        Returns one record per DISTINCT path: @{ Path; Prefix; Repository; Line }, where Path is
-        repo-relative to the checked-out tree with forward slashes ('plugins/dkj-policy/scripts/...'),
-        Prefix is the local directory the step checks it out into, Repository is the `repository:`
-        value as written (so a caller can name the owner the consumer cited), and Line is the
-        1-based line of the first reference.
-
-        Distinct by Path: fold-on-merge.yml names two scripts and would name one of them twice if a
-        step retried it, and a reader wants one finding per broken path rather than one per mention.
+        ONE RECOGNISER FOR TWO READERS (#2337). Get-SharedScriptReference reads the `path:` of these
+        blocks and Get-SharedScriptPin reads their `ref:`, and both have to agree on which block is ours
+        and where it ends -- two copies of this walk would be two places for the false negatives the
+        docstring of Get-SharedScriptReference records to come back in. The reasoning behind the walk
+        itself (name not owner, both directions, trailing comments) is stated there, where it was paid for.
     #>
     param(
-        [Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$WorkflowText,
-        # ONE OR MANY, because a rename does not reach a file another repository already holds
-        # (#1769). A consumer scaffolded before this repo was renamed still writes the old name, and
-        # its runner still WORKS -- GitHub answers the transfer redirect -- so a matcher that knows
-        # only the current name reports nothing about it and the consumer reads as clean. That is the
-        # silence this lib exists to end, arriving through the matcher itself. The caller supplies the
-        # current name plus whatever Get-RetiredRepoNames states; a single string still binds, so
-        # every existing call site is unchanged.
+        # AllowEmptyString as well as AllowEmptyCollection: a workflow split on newlines is full of blank
+        # lines, and a Mandatory [string[]] refuses an array holding one without it.
+        [Parameter(Mandatory)][AllowEmptyCollection()][AllowEmptyString()][string[]]$Lines,
         [Parameter(Mandatory)][string[]]$RepositoryName
     )
 
-    if ([string]::IsNullOrWhiteSpace($WorkflowText)) { return @() }
-
-    $lines = $WorkflowText -split "`r?`n"
-
-    # --- 1. Which local prefixes hold a checkout of this repository -----------------------------
-    # A `repository:` whose name half matches, then the `path:` of the SAME `with:` block. A checkout
-    # step with no `path:` lands in the workspace root itself, which this deliberately does NOT treat
-    # as a prefix: every reference in the file would then look like one of ours, including the
-    # consumer's own scripts. The scaffolders always write a path, so that shape is somebody else's
-    # checkout step and not this lib's business.
-    #
-    # THE BLOCK IS READ IN BOTH DIRECTIONS, AND A TRAILING COMMENT IS TOLERATED. Both were false
-    # NEGATIVES in the first cut of this lib, caught in review before it merged, and a false negative
-    # here is the whole failure this file exists to end -- arriving one layer down, inside the
-    # detector built to end it. A consumer whose runner is missed goes on reading as clean, which is
-    # indistinguishable from being clean.
-    #   * FORWARD-ONLY missed `path:` written ABOVE `repository:`. The scaffolders emit
-    #     repository/ref/path in that order, so a fresh runner was safe -- but YAML imposes no order
-    #     and this lib's own docstring anticipates hand edits, and swapping two keys is about the most
-    #     ordinary edit there is.
-    #   * ANCHORING THE VALUE AT `$` missed `repository: owner/name  # why we check it out`. An
-    #     end-of-line comment is everyday YAML, not one of the exotic shapes the header declines.
-    # Both are now covered by their own scenarios in connectors.tests.ps1.
-    $keyPattern = '^(?<ind>[ \t]*)(?<key>repository|path):[ \t]*(?<q>["''])?(?<val>[^"''\r\n#]*?)(?(q)\k<q>)[ \t]*(#.*)?$'
-
-    $prefixes = @{}
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        $m = [regex]::Match($lines[$i], $keyPattern)
+    $blocks = @()
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        $m = [regex]::Match($Lines[$i], $script:SharedCheckoutKeyPattern)
         if (-not $m.Success -or $m.Groups['key'].Value -ne 'repository') { continue }
 
         $repo = $m.Groups['val'].Value.Trim()
@@ -170,35 +142,128 @@ function Get-SharedScriptReference {
         # not end a block, so it is stepped over rather than treated as a boundary.
         $first = $i
         while ($first -gt 0) {
-            $prev = $lines[$first - 1]
+            $prev = $Lines[$first - 1]
             if (-not [string]::IsNullOrWhiteSpace($prev) -and ([regex]::Match($prev, '^[ \t]*').Value.Length -lt $indent)) { break }
             $first--
         }
         $last = $i
-        while ($last -lt $lines.Count - 1) {
-            $next = $lines[$last + 1]
+        while ($last -lt $Lines.Count - 1) {
+            $next = $Lines[$last + 1]
             if (-not [string]::IsNullOrWhiteSpace($next) -and ([regex]::Match($next, '^[ \t]*').Value.Length -lt $indent)) { break }
             $last++
         }
 
-        for ($j = $first; $j -le $last; $j++) {
-            $p = [regex]::Match($lines[$j], $keyPattern)
+        $blocks += [pscustomobject]@{
+            Repository     = $repo
+            RepositoryLine = $i
+            First          = $first
+            Last           = $last
+            Indent         = $indent
+        }
+    }
+    return @($blocks)
+}
+
+function Get-SharedScriptReference {
+    <#
+        Every path a workflow file reaches into $RepositoryName for: a script run out of a checkout of
+        it, or -- since #2422 -- a reusable workflow of it called with `uses:`.
+
+        Returns one record per DISTINCT path: @{ Path; Prefix; Repository; Line; Kind }, where Path is
+        repo-relative to that tree with forward slashes ('plugins/dkj-policy/scripts/...', or
+        '.github/workflows/reusable-branch-entry.yml' for a call), Prefix is the local directory the
+        step checks it out into ('' for a call, which checks nothing out), Repository is the owner/name
+        as written (so a caller can name the owner the consumer cited), Line is the 1-based line of the
+        first reference, and Kind is 'checkout' or 'call'.
+
+        Distinct by Path: fold-on-merge.yml names two scripts and would name one of them twice if a
+        step retried it, and a reader wants one finding per broken path rather than one per mention.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$WorkflowText,
+        # ONE OR MANY, because a rename does not reach a file another repository already holds
+        # (#1769). A consumer scaffolded before this repo was renamed still writes the old name, and
+        # its runner still WORKS -- GitHub answers the transfer redirect -- so a matcher that knows
+        # only the current name reports nothing about it and the consumer reads as clean. That is the
+        # silence this lib exists to end, arriving through the matcher itself. The caller supplies the
+        # current name plus whatever Get-RetiredRepoNames states; a single string still binds, so
+        # every existing call site is unchanged.
+        [Parameter(Mandatory)][string[]]$RepositoryName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($WorkflowText)) { return @() }
+
+    $lines = $WorkflowText -split "`r?`n"
+    $seen = @{}
+    $found = @()
+
+    # --- 0. A CALL of a reusable workflow in this repository (#2422) -------------------------------
+    # adopt-workflow-folder's two PR gates are callers now: `uses: <owner>/<name>/.github/workflows/<f>@<ref>`
+    # and no checkout step at all. That line is a path INTO this tree exactly as a checkout-and-run is --
+    # the call goes red on every pull request the day that file moves -- so it is reported the same way,
+    # with Kind telling the two apart for a caller that words them differently. Without this, a consumer
+    # holding only callers would read as having adopted nothing at all (Test-ConsumerRunnerAdoption below).
+    # Matched on the NAME half, for the reason the checkout match is: an old-owner citation still resolves.
+    $callPattern = '^[ \t]*(?:-[ \t]+)?uses:[ \t]*(?<q>["''])?(?<owner>[\w.-]+)/(?<name>[\w.-]+)/(?<rel>\.github/workflows/[\w./-]+?\.ya?ml)@(?<ref>[^"''\s#]+)(?(q)\k<q>)'
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $c = [regex]::Match($lines[$i], $callPattern)
+        if (-not $c.Success) { continue }
+        $isOurs = $false
+        foreach ($candidate in $RepositoryName) {
+            if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+            if ([string]::Equals($c.Groups['name'].Value, $candidate, [System.StringComparison]::OrdinalIgnoreCase)) { $isOurs = $true; break }
+        }
+        if (-not $isOurs) { continue }
+        $rel = $c.Groups['rel'].Value
+        if ($seen.ContainsKey($rel)) { continue }
+        $seen[$rel] = $true
+        $found += [pscustomobject]@{
+            Path       = $rel
+            Prefix     = ''
+            Repository = "$($c.Groups['owner'].Value)/$($c.Groups['name'].Value)"
+            Line       = $i + 1
+            Kind       = 'call'
+        }
+    }
+
+    # --- 1. Which local prefixes hold a checkout of this repository -----------------------------
+    # A `repository:` whose name half matches, then the `path:` of the SAME `with:` block. A checkout
+    # step with no `path:` lands in the workspace root itself, which this deliberately does NOT treat
+    # as a prefix: every reference in the file would then look like one of ours, including the
+    # consumer's own scripts. The scaffolders always write a path, so that shape is somebody else's
+    # checkout step and not this lib's business.
+    #
+    # THE BLOCK IS READ IN BOTH DIRECTIONS, AND A TRAILING COMMENT IS TOLERATED. Both were false
+    # NEGATIVES in the first cut of this lib, caught in review before it merged, and a false negative
+    # here is the whole failure this file exists to end -- arriving one layer down, inside the
+    # detector built to end it. A consumer whose runner is missed goes on reading as clean, which is
+    # indistinguishable from being clean.
+    #   * FORWARD-ONLY missed `path:` written ABOVE `repository:`. The scaffolders emit
+    #     repository/ref/path in that order, so a fresh runner was safe -- but YAML imposes no order
+    #     and this lib's own docstring anticipates hand edits, and swapping two keys is about the most
+    #     ordinary edit there is.
+    #   * ANCHORING THE VALUE AT `$` missed `repository: owner/name  # why we check it out`. An
+    #     end-of-line comment is everyday YAML, not one of the exotic shapes the header declines.
+    # Both are now covered by their own scenarios in connectors.tests.ps1. The walk itself lives in
+    # Get-SharedCheckoutBlock since #2337, shared with the ref reader.
+    $prefixes = @{}
+    foreach ($block in @(Get-SharedCheckoutBlock -Lines $lines -RepositoryName $RepositoryName)) {
+        for ($j = $block.First; $j -le $block.Last; $j++) {
+            $p = [regex]::Match($lines[$j], $script:SharedCheckoutKeyPattern)
             if (-not $p.Success -or $p.Groups['key'].Value -ne 'path') { continue }
-            if ($p.Groups['ind'].Value.Length -ne $indent) { continue }
+            if ($p.Groups['ind'].Value.Length -ne $block.Indent) { continue }
 
             $prefix = $p.Groups['val'].Value.Trim().TrimEnd('/', '\')
-            if ($prefix) { $prefixes[$prefix] = $repo }
+            if ($prefix) { $prefixes[$prefix] = $block.Repository }
             break
         }
     }
-    if ($prefixes.Count -eq 0) { return @() }
+    if ($prefixes.Count -eq 0) { return @($found) }
 
     # --- 2. Every '<prefix>/<...>.ps1' token in the file ----------------------------------------
     # Both separators are admitted and normalised to '/': the scaffolders emit forward slashes, but a
     # hand-edited runner on Windows may not, and a reference this lib fails to recognise is a finding
     # it fails to make.
-    $seen = @{}
-    $found = @()
     foreach ($prefix in $prefixes.Keys) {
         $pattern = '(?<![\w./\\-])' + [regex]::Escape($prefix) + '[/\\](?<rel>[\w./\\-]+?\.ps1)\b'
         for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -211,6 +276,7 @@ function Get-SharedScriptReference {
                     Prefix     = $prefix
                     Repository = $prefixes[$prefix]
                     Line       = $i + 1
+                    Kind       = 'checkout'
                 }
             }
         }
@@ -314,6 +380,7 @@ function Test-SharedScriptReference {
             Prefix     = $ref.Prefix
             Repository = $ref.Repository
             Line       = $ref.Line
+            Kind       = $(if ($ref.PSObject.Properties.Name -contains 'Kind') { $ref.Kind } else { 'checkout' })
             Exists     = $exists
             Escapes    = $escapes
             MovedTo    = $movedTo
@@ -321,6 +388,107 @@ function Test-SharedScriptReference {
     }
 
     return @($results)
+}
+
+function Test-WorkflowHoldsWriteCredential {
+    <#
+        Does this workflow hold something worth pinning its shared scripts against (#2337)? True where
+        it reads a repository secret other than GITHUB_TOKEN, or grants any `write` permission.
+
+        THE PIN GOES WHERE THE CREDENTIAL IS, AND SO DOES THIS CHECK. #2333 pinned the shared-scripts
+        checkout of exactly the three runners that hold one (fold-on-merge: FOLD_PUSH_TOKEN,
+        verify-resolved: issues: write, merge-on-green: FOLD_PUSH_TOKEN) and left branch-entry,
+        unfolded-entry and repo-settings on ref: main on the #1805 argument: they hold nothing, and a
+        pinned gate goes on enforcing a stale convention. A check that flagged every moving ref would
+        report those three in every consumer as defects the scaffolder writes on purpose.
+
+        READ OFF THE CONTENT, NOT THE FILENAME. The scaffolder's names are the usual case, but a consumer
+        may rename a runner, and what makes a moving ref dangerous is the credential beside it rather
+        than what the file is called. The cost is the other direction: a consumer's own read-only
+        runner that happens to read an unrelated secret is judged too, which is the safe side to err on.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$WorkflowText)
+
+    if ([string]::IsNullOrWhiteSpace($WorkflowText)) { return $false }
+    if ([regex]::IsMatch($WorkflowText, 'secrets\.(?!GITHUB_TOKEN\b)[A-Za-z_][A-Za-z0-9_]*')) { return $true }
+    if ([regex]::IsMatch($WorkflowText, '(?m)^[ \t]*[a-z-]+:[ \t]*write[ \t]*(?:#.*)?$')) { return $true }
+    if ([regex]::IsMatch($WorkflowText, '(?m)^[ \t]*permissions:[ \t]*write-all\b')) { return $true }
+    return $false
+}
+
+function Get-SharedScriptPin {
+    <#
+        The ref every checkout of $RepositoryName in this workflow fetches at, judged against
+        $CurrentVersion (issue #2337) -- the source-side half of #2333's pin.
+
+        Returns one record per checkout block: @{ Repository; Ref; Version; Line; State }, Line 1-based
+        at the `ref:` (or at the `repository:` where the block has no `ref:`), State one of:
+
+          'moving'  -- a branch name, or no `ref:` at all (actions/checkout then takes the default
+                       branch). The tip of another repository, running beside whatever this job holds.
+          'behind'  -- pinned at a release older than $CurrentVersion.
+          'current' -- pinned at $CurrentVersion or later.
+          'undated' -- a 40-hex SHA with no version beside it, or a version-shaped pin while
+                       $CurrentVersion is unknown. Pinned, but this check cannot tell how old.
+
+        THE VERSION IS READ THE WAY adopt-ci-floor.ps1 WRITES IT: `ref: <sha> # vX.Y.Z`, or a bare tag
+        `ref: vX.Y.Z` where the SHA could not be resolved. The comment is what dates a SHA, so it is
+        trusted for that and nothing else -- a SHA with a lying comment is still a SHA, and the check
+        only ever says "behind", never "safe".
+
+        A CHECKOUT WITH NO `ref:` IS MOVING, NOT UNREAD. That is actionable YAML meaning "the default
+        branch", and treating it as unknown would hand the least-pinned shape of all a silence the
+        explicit `ref: main` does not get.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$WorkflowText,
+        [Parameter(Mandatory)][string[]]$RepositoryName,
+        [AllowEmptyString()][string]$CurrentVersion = ''
+    )
+
+    if ([string]::IsNullOrWhiteSpace($WorkflowText)) { return @() }
+    $lines = $WorkflowText -split "`r?`n"
+    $refPattern = '^(?<ind>[ \t]*)ref:[ \t]*(?<q>["''])?(?<ref>[^"''\s#]*)(?(q)\k<q>)[ \t]*(?:#[ \t]*(?<tag>\S+))?'
+
+    $current = $null
+    if ($CurrentVersion -match '^v?(?<v>\d+\.\d+\.\d+)$') { $current = [version]$Matches['v'] }
+
+    $pins = @()
+    foreach ($block in @(Get-SharedCheckoutBlock -Lines $lines -RepositoryName $RepositoryName)) {
+        $ref = ''
+        $tag = ''
+        $line = $block.RepositoryLine + 1
+        for ($j = $block.First; $j -le $block.Last; $j++) {
+            $r = [regex]::Match($lines[$j], $refPattern)
+            if (-not $r.Success -or $r.Groups['ind'].Value.Length -ne $block.Indent) { continue }
+            $ref = $r.Groups['ref'].Value
+            if ($r.Groups['tag'].Success) { $tag = $r.Groups['tag'].Value }
+            $line = $j + 1
+            break
+        }
+
+        $dated = if ($tag) { $tag } else { $ref }
+        $vm = [regex]::Match($dated, '^v?(?<v>\d+\.\d+\.\d+)$')
+        $version = if ($vm.Success) { $vm.Groups['v'].Value } else { '' }
+
+        $state =
+            if ($version) {
+                if ($null -eq $current)                { 'undated' }
+                elseif ([version]$version -lt $current) { 'behind' }
+                else                                    { 'current' }
+            }
+            elseif ($ref -match '^[0-9a-fA-F]{40}$')   { 'undated' }
+            else                                       { 'moving' }
+
+        $pins += [pscustomobject]@{
+            Repository = $block.Repository
+            Ref        = $ref
+            Version    = $version
+            Line       = $line
+            State      = $state
+        }
+    }
+    return @($pins)
 }
 
 function Get-RunnerRecordField {

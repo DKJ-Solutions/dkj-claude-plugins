@@ -15,8 +15,9 @@ administration.
 
 claude-code-specialists works like a **Customer Data Platform**: all changes to shared plugin content
 (agent defs, manuals, persona bodies, skills) **land here first**, and are only then synced out to
-the connected repos — never the other way around (see the safety rules in the repo
-[`CLAUDE.md`](../CLAUDE.md)). If an improvement nevertheless originates in a consumer, that
+the connected repos — never the other way around (see the safety rules in
+[`plugins/dkj-policy/CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md), which the repo's own
+[`CLAUDE.md`](../CLAUDE.md) imports). If an improvement nevertheless originates in a consumer, that
 is an **inbound signal**: the change is first brought back here and then synced out again.
 
 **The standing inbound route** (agreed with Dave, July 16, 2026): if a session in a consuming repo
@@ -61,7 +62,7 @@ be thorough about machines nobody uses.
 
 ```json
 {
-  "repo": "DaveKJohn/life-hub",
+  "repo": "DKJ-Solutions/life-hub",
   "visibility": "private",
   "localCheckout": "../life-hub",
   "plugins": [
@@ -589,11 +590,10 @@ first that *refuses*, #2050) plus the skill
 `specialists-init`. Mind the **version gate**: consumers only receive the
 hook after a release bump plus `claude plugin marketplace update <marketplace>` and
 `claude plugin update <plugin>@<marketplace> --scope project` (neither the refresh nor the scope flag
-is optional — see [Staying up to date](../INSTALL.md#staying-up-to-date)) + session restart on
+is optional — see [Installing it yourself](../plugins/ADOPTION.md#installing-it-yourself)) + session restart on
 their side.
 
-The same gate applies to a newly added **skill** file — see
-[Staying up to date](../INSTALL.md#staying-up-to-date) in the adoption page for the full mechanics.
+The same gate applies to a newly added **skill** file.
 Watch out here in particular: the `/reload-plugins`/`/reload-skills` skill counters are no proof
 that this hook has landed for a consumer — treating a reload notice as that confirmation is exactly
 the trap from #186.

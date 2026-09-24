@@ -750,6 +750,195 @@ function Test-DeployLock {
     return [PSCustomObject]@{ Applicable = $true; Locked = $true; Heading = $heading; FirstDrift = '' }
 }
 
+# --- The gate-bypass section (issue #2361) --------------------------------------------------------------
+# THE WORKFLOW ASKED FOR A RECORD THE TOOLING COULD NOT WRITE. A deliberate -SkipLint/-SkipTests "belongs in
+# the PR body, with a clause in the receipt" -- the receipt printed that sentence -- but -Body replaces the
+# template the entry fills and -RefreshBody rewrites the body from the document, so the only route was a
+# hand edit of the one file the DEPLOY lock reads. Measured on PR #2357: `gh pr view --json body -q .body`
+# hands PowerShell an ARRAY of lines, an array written with WriteAllText comes out space-joined, the body
+# collapsed to three lines, and ship-pr's lock refused the merge only after a full CI wait. So open-pr writes
+# the section itself, as a sibling of the description like the closing block, and carries it across a
+# refresh rather than asking anybody to re-add it.
+
+function Get-GateBypassHeadingText {
+    <#
+    .SYNOPSIS
+        The heading text of the gate-bypass section, without its hashes. One definition, read by the
+        writer and the reader alike, for the reason Get-NoResolvesMarker is one.
+    #>
+    return 'Gate bypass'
+}
+
+function New-GateBypassLine {
+    <#
+    .SYNOPSIS
+        One line of the gate-bypass section: what was skipped, and why -- '' when nothing was skipped.
+
+    .DESCRIPTION
+        -Skipped is Get-GateBypassNote's output ('-SkipTests', '-SkipLint and -SkipTests'), so the
+        section names the switches in the words the operator typed, the same words the receipt uses.
+        A missing reason is SAID rather than left blank: a bypass nobody explained is itself the thing a
+        reviewer needs to see, and the line names the parameter that would have recorded one.
+    #>
+    param(
+        [AllowEmptyString()][string]$Skipped,
+        [AllowEmptyString()][string]$Reason
+    )
+    if ([string]::IsNullOrWhiteSpace($Skipped)) { return '' }
+    $why = if ([string]::IsNullOrWhiteSpace($Reason)) {
+        'no reason recorded (pass -BypassNote to give one)'
+    } else {
+        # One line, always: a newline in the reason would forge a second bullet or a heading.
+        ($Reason -replace '\s+', ' ').Trim()
+    }
+    return ('- `' + ($Skipped.Trim() -replace ' and ', '` and `') + '` -- ' + $why)
+}
+
+function Get-GateBypassLines {
+    <#
+    .SYNOPSIS
+        The lines a PR body's gate-bypass section already carries, in order -- empty when it has none.
+
+    .DESCRIPTION
+        Read so that -RefreshBody can put them back: a refresh of a body whose description is its leading
+        section rewrites everything below the description, and a record of an EARLIER run's bypass must
+        not be lost to a later run that skipped nothing. Fence-aware and level-agnostic, like every other
+        reader of a PR body here; the section ends at the next heading of any level.
+
+        ONLY LIST ITEMS ARE ITS LINES. Every line the writer puts there is a '- ' bullet, and the section
+        can be the LAST one in a body, where the next heading never comes -- so a reader taking every
+        non-blank line would sweep up whatever headingless text sits below it. The no-resolves marker is
+        exactly that: Add-NoResolvesMarker appends it at the foot with no heading, a -SkipTests -NoResolves
+        run leaves it directly under this section, and the next refresh would then weld it in as a
+        bypass line (found in review on #2361's branch).
+    #>
+    param([AllowEmptyString()][string]$Body)
+    if (-not $Body) { return @() }
+    $title = [regex]::Escape((Get-GateBypassHeadingText))
+    $inFence = $false
+    $inSection = $false
+    $lines = @()
+    foreach ($line in ($Body -split "\r?\n")) {
+        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
+        if ($inFence) { continue }
+        if ($line -match '^#{1,6}\s+\S') {
+            $inSection = [bool]($line -match ('^#{1,6}\s+' + $title + '\s*$'))
+            continue
+        }
+        if ($inSection -and $line -match '^\s*[-*]\s+\S') { $lines += $line.TrimEnd() }
+    }
+    return @($lines)
+}
+
+function Add-GateBypassLines {
+    <#
+    .SYNOPSIS
+        Adds lines to a PR body's gate-bypass section, creating the section where there is none.
+        Idempotent per line.
+
+    .DESCRIPTION
+        A line the section already carries is not added again, so re-running a skipped gate on the same
+        branch does not grow the section, while a different skip or reason on a later run is appended
+        beneath the first -- each bypass the PR went through stays on record.
+
+        THE SECTION MATCHES THE BODY'S OWN TOP LEVEL, read off its first heading outside a fence, exactly
+        as Add-ResolvesBlock reads it and for the same reason (see New-ResolvesBlock's -Level): a section
+        deeper than the description sits inside it and is deleted by the next -RefreshBody.
+
+        A BODY WITH NOTHING TO ADD IS RETURNED UNTOUCHED, byte for byte, so a caller comparing before with
+        after announces an edit only when it made one.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body,
+        [string[]]$Lines
+    )
+    $wanted = @($Lines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.TrimEnd() })
+    $have = @(Get-GateBypassLines -Body $Body)
+    $missing = @()
+    foreach ($l in $wanted) { if ($have -notcontains $l -and $missing -notcontains $l) { $missing += $l } }
+    if ($missing.Count -eq 0) { return $Body }
+
+    $title = Get-GateBypassHeadingText
+    if ($have.Count -eq 0 -and -not ($Body -match ('(?m)^#{1,6}\s+' + [regex]::Escape($title) + '\s*$'))) {
+        $level = 2
+        $inFence = $false
+        foreach ($line in (([string]$Body) -split "\r?\n")) {
+            if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
+            if ($inFence) { continue }
+            $m = [regex]::Match($line, '^(#+)\s+\S')
+            if ($m.Success) { $level = [Math]::Min(6, $m.Groups[1].Value.Length); break }
+        }
+        $block = ((@((('#' * $level) + ' ' + $title), '') + $missing) -join "`n")
+        if (-not $Body -or -not $Body.Trim()) { return $block }
+        return ($Body.TrimEnd() + "`n`n" + $block + "`n")
+    }
+
+    # The section exists: insert the new lines after its last bullet, before the next heading. The body's
+    # own newline is kept -- a CRLF body stays CRLF -- so an insert touches only the lines it adds, as the
+    # append branch above and Add-ResolvesBlock do.
+    $nl = Get-DocumentNewline -Content ([string]$Body)
+    $src = ([string]$Body) -split "\r?\n"
+    $out = New-Object System.Collections.Generic.List[string]
+    $inFence = $false
+    $inSection = $false
+    $lastInSection = -1
+    for ($i = 0; $i -lt $src.Count; $i++) {
+        $line = $src[$i]
+        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence }
+        elseif (-not $inFence -and $line -match '^#{1,6}\s+\S') {
+            $inSection = [bool]($line -match ('^#{1,6}\s+' + [regex]::Escape($title) + '\s*$'))
+            if ($inSection) { $lastInSection = $i; continue }
+        }
+        # Bullets only, for Get-GateBypassLines' reason: a headingless marker below the section is not in it.
+        if ($inSection -and -not $inFence -and $line -match '^\s*[-*]\s+\S') { $lastInSection = $i }
+    }
+    for ($i = 0; $i -lt $src.Count; $i++) {
+        $out.Add($src[$i])
+        if ($i -eq $lastInSection) {
+            if ($src[$i] -match '^#{1,6}\s+') { $out.Add('') }
+            foreach ($l in $missing) { $out.Add($l) }
+            # A heading straight after keeps its blank line above it, as everywhere else in this file.
+            if ($i + 1 -lt $src.Count -and $src[$i + 1] -match '^#{1,6}\s+\S') { $out.Add('') }
+        }
+    }
+    return ($out -join $nl)
+}
+
+function Complete-SuppliedPrBody {
+    <#
+    .SYNOPSIS
+        Fills the entry's description into a caller-supplied -Body at the description placeholder, the
+        way the template auto-fill does. Returns the body unchanged where it carries no placeholder.
+
+    .DESCRIPTION
+        A -BODY USED TO SKIP THE FILL ENTIRELY (#2361, second and third measurements). open-pr fills the
+        placeholder only when it builds the body from the template itself, so a caller who passed the
+        filled-in template -- to tick a box the repo's own gate reads, or to add a note -- published a
+        body without the DEPLOY section, and ship-pr's lock refused the merge after the full CI wait. The
+        placeholder is the one line open-pr already knows how to replace, so a -Body carrying it now gets
+        the same replacement. The match is the template path's own: a whole line, exactly one of the
+        placeholders.
+
+        The body's own newline is kept, so a CRLF body stays CRLF. An empty description replaces nothing:
+        a placeholder swapped for nothing would read as a description that was written and then lost.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body,
+        [AllowEmptyString()][string]$Description,
+        [string[]]$Placeholders
+    )
+    if (-not $Body -or -not $Description -or -not $Placeholders) { return $Body }
+    $nl = Get-DocumentNewline -Content $Body
+    $src = $Body -split "\r?\n"
+    $changed = $false
+    $descText = ($Description -split "\r?\n") -join $nl
+    $out = foreach ($line in $src) {
+        if ($Placeholders -contains $line) { $changed = $true; $descText } else { $line }
+    }
+    if (-not $changed) { return $Body }
+    return (@($out) -join $nl)
+}
+
 function Get-PrDescriptionPlaceholderDefaults {
     <#
     .SYNOPSIS

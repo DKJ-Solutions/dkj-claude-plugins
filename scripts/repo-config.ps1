@@ -481,7 +481,7 @@ function Get-MachineLocalPaths {
 # dkj-subagents-shopify is enabled here and this repo is not a store. It is on for validation: the repo
 # that ships a plugin is also a repo that loads it, so an agent def, a manifest, a frontmatter or a
 # hook that stops resolving surfaces at this repo's own session start instead of in somebody else's.
-# The repo slot in CLAUDE.md states that reason, for all four add-on teams at once.
+# The repo facts in .claude/rules/this-repo.md state that reason, for all four add-on teams at once.
 #
 # WHICH LEFT THE FLOOR CHECK ASKING A QUESTION THIS REPO CANNOT ANSWER TRUTHFULLY.
 # shopify-floor-sessioncheck.ps1 wants Get-ShopifyLiveThemeId -- the live theme's numeric id -- because
@@ -782,13 +782,10 @@ function Get-ReleasePluginTier {
 # about whether this particular repo currently has one at its root, and the two names belong on it as long
 # as any repo reading this file might.
 $script:ReservedRootMd = @(
-    'CHANGELOG.md', 'CLAUDE.md', 'README.md', 'LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md',
-    # INSTALL.md and UNINSTALL.md moved here from plugins/ on August 14, 2026 (inbound #664). They are
-    # install plumbing, not plugin payload, so the folder boundary is what keeps them out of the set
-    # published to a business marketplace -- the same reason connectors/ sits at the root. Listing them
-    # here is not bookkeeping: without it the next unfolded-entry scan reads two permanent documents as
-    # changelog entries somebody forgot to fold.
-    'INSTALL.md', 'UNINSTALL.md'
+    'CHANGELOG.md', 'CLAUDE.md', 'README.md', 'LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md'
+    # INSTALL.md and UNINSTALL.md stood here from August 14, 2026 (inbound #664) until they were retired
+    # on September 24, 2026; the install commands moved into plugins/ADOPTION.md. Off the list with them,
+    # so one reappearing at the root is reported rather than waved through.
 )
 
 function Get-ReservedRootMd {
@@ -1164,7 +1161,7 @@ $script:ExpectedRepoSettings = @(
         Field    = 'repo.visibility'
         Expected = 'public'
         Recorded = '2026-09-09'
-        Where    = 'CLAUDE.md (the repo slot: "This repo is public")'
+        Where    = '.claude/rules/this-repo.md (the repo fact: "This repo is public")'
         Why      = 'deliberate, so the remote github marketplace source can be read without gh auth -- and it is the clause this repo qualifies for a merge queue through, which most consumers do not (#1540). Going private silently breaks every consumer install and makes the no-secrets rule read as over-caution'
     },
     @{

@@ -343,6 +343,16 @@ Assert-True ([bool]$warn)                             'a cut taken before the pu
 Assert-True ($warn.Contains('push-then-cut'))         '...naming the order this workflow runs'
 Assert-True ($warn.Contains('THEME-LIFECYCLE'))       '...and where the rule is written down'
 
+# BOTH CALLERS READ 'short' THE SAME WAY (#2350, Dave, September 23, 2026): it ends a wait only once the
+# deadline has passed. backup-live-theme used to break on the first 'short' while push-preview waited it
+# out, and the loops themselves drive a live store, so no scenario here can run them. What CAN be held is
+# the shape that made them disagree: a poll loop that breaks on 'short'.
+foreach ($caller in @('scripts\task\backup-live-theme.ps1', 'scripts\task\push-preview.ps1')) {
+    $callerText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot $caller))
+    Assert-True ($callerText -match "Verdict -eq 'complete'\)\s*\{\s*break\s*\}") "$caller ends its fill wait early on 'complete'"
+    Assert-True (-not ($callerText -match "Verdict -eq 'short'\)\s*\{\s*break\s*\}")) "$caller does NOT end its fill wait on 'short' -- that is judged after the deadline"
+}
+
 if ($script:fail -eq 0) {
     Write-Host ''
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

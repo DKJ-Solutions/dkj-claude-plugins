@@ -12,14 +12,14 @@ themselves**. It is **not a replacement** for the safety rules or the routing.
 > workflow (see [`../../README.md`](../../README.md)) — and the repo also consumes that system here
 > **itself**. It enables **all six** of the marketplace's plugins, so that the repo that ships a
 > plugin is also a repo that loads it (Dave, September 8, 2026; the reasoning and what it costs are in
-> [the repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists)). Only
+> [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists)). Only
 > `dkj-subagents-alpha` (the core team) and `dkj-policy` carry real work here, so the team is small and
 > focused on maintaining this product (agent defs, manuals, docs, tooling), not the broad team of a
 > content repo. The other four are enabled for validation — and they are validation of two different
 > kinds: the three add-on teams ship specialists nothing here routes to, while `dkj-policy-bwj` ships
 > no agents at all.
 
-- The constitution remains [`../../CLAUDE.md#safety-rules`](../../CLAUDE.md#safety-rules).
+- The constitution remains [`plugins/dkj-policy/CLAUDE.md#safety-rules`](../../plugins/dkj-policy/CLAUDE.md#safety-rules), which the root `CLAUDE.md` imports.
 - **Chris still takes in and routes every assignment** — see his fixed ritual in
   [`lenses/specialist-01-01-lens.md`](lenses/specialist-01-01-lens.md).
 
@@ -268,8 +268,7 @@ webshop, a Shopify store or a personal-life repo, so [Chris does not route to
 them](lenses/specialist-01-01-lens.md#the-roster--routing-table--which-assignment-goes-to-whom) at all. **Do
 not treat those eleven as a backlog**: a filled-in lens for one of them would describe work this repo
 does not have. Same reasoning, in
-[`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo slot of
-`CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists).
+[`SPECIALISTS.md`](SPECIALISTS.md#the-team-roster--routing) and [the repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists).
 
 ## This organization changes with the team
 
@@ -330,7 +329,7 @@ started before it.
 marketplace clone**, which advances on that first command and on nothing else. So an agent def, a skill
 or a script you merged here takes effect after merge, push *and* that refresh — and **between two
 releases no version check can tell you the clone is behind**, because `version` only moves at a cut.
-[The repo slot of `CLAUDE.md`](../../CLAUDE.md#specific-to-this-repo-claude-code-specialists) states
+[The repo rule](../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) states
 both halves; this is the procedure they imply.
 
 **Everything the second command touches is per-checkout state, which is why every machine runs it
@@ -357,8 +356,8 @@ with none found the check is skipped outright
 repo-owned seam function the newer shared scripts call and this checkout has never had; a specialist
 that arrived with the update needs a roster row and a lens, which `sync-roster` stages — and which the
 repo owner types, because that skill is reserved for explicit invocation. The measurements behind the
-two commands, and why the version number is not the code you are running, are in
-[`INSTALL.md`](../../INSTALL.md#staying-up-to-date) rather than repeated here.
+two commands are on the adoption page,
+[Installing it yourself](../../plugins/ADOPTION.md#installing-it-yourself), rather than repeated here.
 
 ## Measured instances kept off the always-on path
 

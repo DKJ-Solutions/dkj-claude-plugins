@@ -444,6 +444,11 @@ try {
     Assert-True ($mergeOnGreen -like '*SHIP_BRANCH: ${{ steps.pick.outputs.branch }}*') 'the head branch arrives through env:'
     Assert-Equal 1 (@([regex]::Matches($mergeOnGreen, 'steps\.pick\.outputs\.branch')).Count) `
         'and that env: line is its ONLY expression -- never ${{ }} interpolated into a run: body, the one attacker-chosen value in the file'
+    # PINNED TO THE COMMIT THE PICKER JUDGED (#2338): ship-pr dot-sources the checkout's repo-config.ps1,
+    # so a push after the pick must stop the job rather than run unjudged code with the PAT.
+    Assert-True ($mergeOnGreen -like '*SHIP_SHA: ${{ steps.pick.outputs.sha }}*') 'the judged head commit arrives through env: too'
+    Assert-True ($mergeOnGreen -match '(?ms)git checkout --quiet \$env:SHIP_BRANCH.*?\$head -ne \$env:SHIP_SHA.*?ship-pr\.ps1 -SkipLint') `
+        'and the checkout is held to it BEFORE ship-pr runs, not after'
     Assert-True ($mergeOnGreen -like '*.git/info/exclude*') `
         'the plugin checkout is excluded locally, so ship-pr does not read the tree as dirty and detour the fold'
     Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'
@@ -1076,6 +1081,19 @@ try {
     }
     Assert-Equal 'main' (Get-SharedRefLine -Text $repoSettings) 'repo-settings.yml, which holds no write scope, still tracks main (#1805)'
     Assert-True ($rApply.Flat -like '*`[pin`]*fetch the shared scripts at*(-SharedRefOverride)*') 'the run says which pin it wrote'
+
+    # THE READER AGREES WITH THE WRITER (#2337). check-connectors judges a registered consumer's runners
+    # through consumer-runner-lib, so what this scaffolder writes has to read back as a credential-holding
+    # runner pinned at its release -- and repo-settings.yml as not judged at all. A drift between the two
+    # shapes would make check 6d either blind to every pinned runner or loud about every fresh one.
+    foreach ($w in @(@{ Name = 'fold-on-merge.yml'; Text = $fold }, @{ Name = 'verify-resolved.yml'; Text = $verify }, @{ Name = 'merge-on-green.yml'; Text = $mergeOnGreen })) {
+        Assert-True (Test-WorkflowHoldsWriteCredential -WorkflowText $w.Text) "$($w.Name) reads back as holding a write credential"
+        $pins = @(Get-SharedScriptPin -WorkflowText $w.Text -RepositoryName 'dkj-claude-plugins' -CurrentVersion '1.2.3')
+        Assert-Equal 1 $pins.Count "$($w.Name) reads back one shared-scripts checkout"
+        Assert-Equal 'current' $pins[0].State "$($w.Name) reads back as pinned at the release it was written with"
+        Assert-Equal 'behind' (@(Get-SharedScriptPin -WorkflowText $w.Text -RepositoryName 'dkj-claude-plugins' -CurrentVersion '1.2.4'))[0].State "$($w.Name) reads back as behind once a newer release exists"
+    }
+    Assert-True (-not (Test-WorkflowHoldsWriteCredential -WorkflowText $repoSettings)) 'repo-settings.yml reads back as holding no write credential, so its ref: main is never judged'
 
     # A RE-RUN IS THE ONLY MOMENT AN EXISTING RUNNER IS LOOKED AT AGAIN, so it is where a stale pin is
     # reported. Three existing shapes: an adoption from before #2333 (main), one pinned at an older

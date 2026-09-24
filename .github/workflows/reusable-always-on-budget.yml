@@ -1,0 +1,62 @@
+# The always-on budget gate AS A CONSUMER RUNS IT -- a reusable workflow (`on: workflow_call`), called
+# from the few-line .github/workflows/always-on-budget.yml that adopt-dkj-policy's Part 1 places
+# (issue #2422). A PR may not grow what every session pays before a single assignment is given:
+# CLAUDE.md plus everything it '@'-imports (issue #2037).
+#
+# WHY THIS FILE AND NOT THIS REPO'S OWN always-on-budget.yml, and what a caller gets without re-adopting:
+# the same answers reusable-branch-entry.yml gives. This repo's own gate runs this tree's scripts/lint/
+# copy; a consumer runs the plugin mirror out of a checkout of this repository, and this is now the one
+# definition of that runner instead of a copy in every consumer.
+#
+# WHAT THE CEILING IS: the consumer answers Get-AlwaysOnBudget in its own scripts/repo-config.ps1, in
+# BYTES. Unanswered, it is 100,000. A repo already over it is NOT refused on day one -- the gate holds the
+# path at a recorded baseline and refuses growth.
+#
+# NO -Record, DELIBERATELY. The ratchet's memory is lowered by the LOCAL gate, inside the branch's own
+# commit, where the change is reviewable. A CI runner that rewrote it would be the one carrier able to move
+# the baseline with nothing in any diff to say so.
+#
+# WHY THIS RUNNER AGREES WITH THE LOCAL GATE even though it has no plugin cache: the baseline records every
+# document on the path by its import target, and the check carries the recorded figure for anything it
+# cannot resolve here -- the orchestrator persona most of all.
+#
+# `scripts-ref` DEFAULTS TO main, for the reason reusable-branch-entry.yml states.
+#
+# WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what `shell: powershell` is.
+name: Always-on budget (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      scripts-ref:
+        description: The ref of DKJ-Solutions/dkj-claude-plugins whose shared scripts this gate runs.
+        type: string
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  always-on-budget:
+    runs-on: windows-latest
+    # 10 minutes, same reasoning as the branch-entry gate (issue #2296); the cap lives here because GitHub
+    # refuses timeout-minutes on a job that calls a reusable workflow.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch the shared workflow scripts
+        uses: actions/checkout@v5
+        with:
+          repository: DKJ-Solutions/dkj-claude-plugins
+          ref: ${{ inputs.scripts-ref }}
+          path: .workflow-scripts
+
+      - name: The always-on document path is inside its budget
+        shell: powershell
+        env:
+          CLAUDE_PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-always-on-budget.ps1
+          exit $LASTEXITCODE

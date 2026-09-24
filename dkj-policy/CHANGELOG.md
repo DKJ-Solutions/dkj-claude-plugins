@@ -44,7 +44,790 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**6 / 20 minor entries** <!-- pending-tally -->
+**23 / 49 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2426-init-own-payload-subagents · 20260924-115135Z
+
+`specialists-init` reads the subagent definitions of the payload that is actually running, rather than those
+of the highest version in the plugin cache, and says so when a directory it found holds no definition it
+recognises. Prevents a stale payload from scaffolding zero subagent lenses behind a closing count that read
+as a clean result (#2426).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `specialists-init` from an older installed payload than the newest one cached now gets a
+lens for every subagent it enables, instead of none and no word about it; where a directory still yields
+nothing, a notice names the directory and what was looked for.
+
+**Score:** 2
+
+#### Pull Request
+
+specialists-init reads its own payload's subagents and says when a found directory yields none
+
+Plugins: dkj-subagents-alpha
+
+[PR #2433](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2433)
+
+---
+
+### DEPLOY: fix/2429-consumer-deploy-lock · 20260924-112315Z
+
+The branch-entry gate that `adopt-dkj-policy` places in a consumer now holds the DEPLOY lock, as this
+repo's own gate does: it refuses a PR whose DEPLOY section changed after the PR opened, including one
+merged from the GitHub UI. A caller placed before this change keeps working unchanged and says the lock
+was not checked. To take the lock, add `pull-requests: read` and the `edited` trigger, or re-run Part 1.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer repo's own CI starts guarding the changelog text a PR was approved with, once its caller
+carries the two lines. Callers placed before this change see nothing new until then.
+
+**Score:** 2
+
+#### Pull Request
+
+The consumer's branch-entry gate holds the DEPLOY lock
+
+Plugins: dkj-policy
+
+[PR #2435](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2435)
+
+---
+
+### DEPLOY: fix/2428-life-hub-lifehub-lenses · 20260924-104630Z
+
+The connector register no longer lists five `dkj-subagents-lifehub` lenses for `life-hub` that its
+re-bootstrapped roster does not have, so the consumer check stops reporting them as missing. The plugin
+itself stays registered, because the consumer's settings still enable it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Register the lifehub lenses life-hub no longer has as absent
+
+[PR #2434](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2434)
+
+---
+
+### DEPLOY: feat/2422-reusable-ci-gates · 20260924-101900Z
+
+Part 1 of `adopt-dkj-policy` no longer copies the two PR gates into a consumer
+([#2422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2422)). `branch-entry.yml` and
+`always-on-budget.yml` are now a few-line caller of a reusable workflow in this repo
+(`reusable-branch-entry.yml`, `reusable-always-on-budget.yml`). A change to the runner, its steps or its
+timeout therefore reaches every consumer on its next pull request, with no re-adopt, and the reasoning
+sits in one place. `check-connectors` recognises the `uses:` line as a reference into this tree, so a
+caller-only consumer still reads as adopted. A repo adopted earlier keeps its full copy until it deletes
+the file and re-runs Part 1.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo adopting the workflow gets two short callers instead of two 50-line runners, and later changes to
+those gates arrive without anyone re-running the adoption. An already-adopted repo sees no change unless
+it opts in.
+
+**Score:** 2
+
+#### Pull Request
+
+Ship the two PR gates as reusable workflows
+
+Plugins: dkj-policy
+
+[PR #2432](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2432)
+
+---
+
+### DEPLOY: docs/remove-install-uninstall · 20260924-100317Z
+
+The root `INSTALL.md` and `UNINSTALL.md` are gone. The install commands and the machine-side removal now
+live in `plugins/ADOPTION.md`, and every link, printed script message and tooling list that named either
+page points there instead. The archived release notes keep their text; their ten links to the pages now point at the last commit that still had them.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's single entry is now `plugins/ADOPTION.md`, which carries the install commands in its own
+*Installing it yourself* section. The old migration walkthroughs (old plugin names, `dkj-team-*` ids, the
+`specialist-` filenames) went with `INSTALL.md` and survive only in the release notes that introduced them.
+
+**Score:** 3
+
+#### Pull Request
+
+Remove INSTALL.md and UNINSTALL.md
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2430](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2430)
+
+---
+
+### DEPLOY: fix/2424-ci-gate-shard-count · 20260924-095218Z
+
+The CI gate's green line no longer states a shard count, which had gone stale at 4 while the
+matrix runs 5.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a CI log line in this repo only; no subscriber sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+ci.yml: the lint-en-tests green line no longer prints a stale shard count
+
+[PR #2431](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2431)
+
+---
+
+### DEPLOY: fix/2425-life-hub-connector-owner · 20260924-093941Z
+
+The connector register names `life-hub` under its new owner, `DKJ-Solutions/life-hub`, so the
+origin-vs-register check no longer treats a repointed checkout as a clone of something else. Prevents a
+false mismatch on the first `life-hub` checkout whose `origin` is set to the new owner.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector register names life-hub under its new owner DKJ-Solutions
+
+[PR #2427](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2427)
+
+---
+
+### DEPLOY: fix/2405-open-pr-body-file · 20260924-091928Z
+
+`open-pr` takes `-BodyFile <path>`: the PR body read from a UTF-8 file, treated exactly as `-Body`. Called
+through `powershell -File`, Windows PowerShell 5.1 split a `-Body` carrying `"` characters across native
+arguments, and a fragment bound to another parameter (`-MaxParallel`, on a consumer PR). A path carries no
+quote, so it arrives intact. Passing both, naming a missing file, or an empty one is refused before anything
+runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer whose own tooling shells out to `open-pr` with a template-derived body can now pass that body
+without it being torn apart. Visible to whoever calls `open-pr` that way after the next plugin update.
+
+**Score:** 1
+
+#### Pull Request
+
+open-pr takes -BodyFile so a quote-carrying body never crosses a native command line
+
+Plugins: dkj-policy
+
+[PR #2421](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2421)
+
+---
+
+### DEPLOY: feat/2414-retire-round-tooling · 20260924-090708Z
+
+The two test-round generators `round-tally.measure.ps1` and `round-baseline.measure.ps1` are retired,
+along with their suites
+([#2414](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2414)). The test-round
+methodology they served (#371) is no longer in use. They were the last suites guarding it, and CI loses
+roughly 25 seconds of wall-clock with them.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Both tools lived only in this repo's `scripts/tests/` and never shipped in a plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+Retire the round-tally and round-baseline test-round tooling
+
+Plugins: dkj-policy
+
+[PR #2423](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2423)
+
+---
+
+### DEPLOY: fix/2350-backup-waits-through-short · 20260924-085451Z
+
+`backup-live-theme` failed a backup the moment two file-count samples agreed below the live theme's count,
+while `push-preview` waited such a reading out. A duplicate grows in bursts with pauses between them, so a
+pause could fail a copy that was still filling. The backup now waits until its deadline like the preview
+does, and still refuses a copy that is short when the wait is over.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify store's release-cut backup no longer fails on a copy that was only pausing, which left a
+half-copy standing and the cut step red. A copy that really stopped short is still refused, only later.
+
+**Score:** 2
+
+#### Pull Request
+
+backup-live-theme waits through a 'short' fill verdict until its deadline, as push-preview does
+
+Plugins: dkj-subagents-shopify
+
+[PR #2419](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2419)
+
+---
+
+### DEPLOY: feat/2361-pr-bypass-note · 20260924-084152Z
+
+A run of `open-pr` or `ship-pr` that skips a gate now records it in the PR body itself: a **Gate bypass**
+section naming the switches, with the reason given by the new `-BypassNote`, or a line saying none was
+given. The section is kept across `-RefreshBody`, and a later bypass is added beneath an earlier one. Until
+now the workflow asked for that record and the tooling offered no way to write it, so it took a hand edit
+of the body the DEPLOY lock reads; on PR #2357 that edit flattened the body and the merge was refused
+after a full CI wait.
+
+A body passed with `-Body` now gets the entry's description filled in at the template's placeholder, as
+the default body does. A `-Body` that still lacks the DEPLOY section is refused before the gates, instead
+of opening a PR the DEPLOY lock would refuse to merge after CI.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose session has to ship past a gate gets the record the workflow asks for without touching
+the PR body by hand, which is the step that broke a merge here. Visible to whoever runs `open-pr`/`ship-pr`
+with a skip switch after the next plugin update, and to anyone reviewing such a PR.
+
+**Score:** 2
+
+#### Pull Request
+
+open-pr/ship-pr: record a gate bypass in its own PR-body section that survives -RefreshBody
+
+Plugins: dkj-policy
+
+[PR #2418](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2418)
+
+---
+
+### DEPLOY: docs/2416-report-issue-type-via-patch · 20260924-082111Z
+
+`report-issue`'s step 1 prescribed `gh issue create --type`, which `gh 2.74.0` rejects as an unknown
+flag, so the create failed and no issue was filed. The step now files with the labels only and sets
+the type straight after with `gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=<Type>` --
+the route the page already used for an issue filed earlier, and one that works on old and new `gh`
+alike. `WORKFLOW-portable.md`'s classification table names the same route. Closes #2416.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer filing through `report-issue` on an older `gh` no longer has the create fail outright; the
+issue lands and is typed in the same step.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue sets the issue type after creation, since gh 2.74.0 has no --type flag
+
+Plugins: dkj-policy-bwj
+
+[PR #2417](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2417)
+
+---
+
+### DEPLOY: docs/2411-integrity-family-placement-rule · 20260924-075648Z
+
+The `check-plugin-integrity-*` test family now has a stated rule for where a new numbered check's
+scenarios go. They join the existing file that owns their subject. A new file is justified only when
+that file's CI median would exceed the gate's work bound (sum of suite medians over lanes, ~352s
+today), which is the condition every past split was actually bought on. The second half of #2411 was
+measured and does not hold: a file's own start costs ~0.3s, about 4s across fifteen files against
+the family's 2,494.6s, so merging files would buy nothing. The family's 35.5% share is set by how
+many times it runs the gate, not by how many files it has. The rule lives in the test engineer's repo
+lens, with a pointer beside the membership table in the shared fixture. Closes #2411.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- repo-internal test organisation; nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Where a new check-plugin-integrity check's tests go, and why fewer files would not help
+
+[PR #2413](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2413)
+
+---
+
+### DEPLOY: feat/2337-connector-runner-ref · 20260924-074131Z
+
+`check-connectors.ps1` now reports a registered consumer's write runner that fetches this repo's scripts at
+a moving ref, or pinned behind the current dkj-policy release
+([#2337](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2337)). This is the source-side half of
+#2333's pin: a consumer nobody re-runs `adopt-ci-floor` in no longer stays invisible on `ref: main` beside
+`FOLD_PUSH_TOKEN`. Only runners holding a credential are judged, and the finding is an `[INFO]` naming the
+file, the line and the release to pin to. Its first run found five such runners across the two BWJ
+consumers.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a maintainer-side register check, which never reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+check-connectors reports a consumer write runner on a moving or stale shared-scripts ref
+
+[PR #2412](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2412)
+
+---
+
+### DEPLOY: docs/2409-tycho-owns-suite-population · 20260924-072644Z
+
+The test engineer's manual now makes Tycho the owner of the test-suite **population**. Before this,
+every rule in it pointed one way: add a test, add a regression test, flag a gap. Nothing covered
+justifying, merging or retiring a suite, and this repo's gate grew from 43 to 141 suites in about six
+weeks with nobody able to say why each one is needed. He now has to be able to name what every suite
+protects. He proposes merges where suites overlap and retirements where a subject has gone, and each
+retirement is stated as a trade of coverage for time. A new hard rule stops the one-suite-per-issue
+shape: a regression case goes into the suite that already owns its subject. The performance
+engineer's manual adds the matching line: the verdict is Tycho's, and Nolan supplies the per-suite
+cost table it is made against. Closes #2409; the first audit of the 141 is #2408.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Any consumer whose test gate is growing now has a named specialist who answers for its size. Asked why
+the gate needs every suite it runs, the test engineer gives a per-suite answer and proposes merges or
+retirements. Before, he added suites and never questioned them.
+
+**Score:** 2
+
+#### Pull Request
+
+Tycho owns the test-suite population, and Nolan prices it
+
+Plugins: dkj-subagents-alpha
+
+[PR #2410](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2410)
+
+---
+
+### DEPLOY: docs/2372-sweep-no-gate-prerun · 20260924-071713Z
+
+`sweep-issues` step 4 told a session that a `-GatesOnly` run before the ship costs nothing. It doubles
+the wait: `open-pr` credits a recorded pass only on the identical tree (HEAD plus every uncommitted file)
+in the same worktree, and a sweep's pre-run is almost always before the commit or in another lane, so
+`ship-pr` ran the same gate again (1,400s twice on one commit, as measured). Step 4 now says to run nothing
+before a branch that ships, and keeps `-GatesOnly` for the branch that stops at a visible result, where
+it is the only gate that runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog stops paying for every gate twice on the issues it ships.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: no -GatesOnly pre-run, since ship-pr gates first and a pre-run is rarely credited
+
+Plugins: dkj-policy
+
+[PR #2407](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2407)
+
+---
+
+### DEPLOY: docs/remove-four-readmes · 20260924-070744Z
+
+Removed three READMEs nothing reads: `plugins/README.md` and `assets/avatars/README.md` duplicated
+the root README, and the width decisions on `plugins/dkj-subagents/subagent-shared/README.md` now live in
+[Ravi's lens](../.claude/specialists/lenses/specialist-06-24-lens.md#why-each-circle-is-the-width-it-is),
+where the lint's `[tool-block]` refusal points.
+
+**Score:** 1 -- prevents a reader following the lint's printed pointer, or a link, to a page that no
+longer exists.
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber: the only plugin-visible change is one sentence in `dkj-policy`'s README.
+
+**Score:** N/A
+
+#### Pull Request
+
+Remove three READMEs nothing needs
+
+Plugins: dkj-policy
+
+[PR #2363](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2363)
+
+---
+
+### DEPLOY: fix/2402-edited-claim-marker · 20260924-065127Z
+
+`claim-issue.ps1 -Tag` no longer counts a claim marker that sits in an **edited** comment. A comment
+keeps its original author and creation time when it is edited, so a marker edited into an old comment
+of one's own used to win every claim race and hold the issue indefinitely. The tooling never edits a
+claim comment, so a genuine claim is lost only if somebody edits it by hand. A marker whose author
+has been deleted or suspended is still dropped, which means the issue it held reads as free. That
+behaviour is now pinned by a test.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that sweeps its backlog with `claim-issue -Tag` could have an issue held by anybody who edited
+a claim marker into an old comment of their own. That no longer works. If you edit a genuine claim
+comment by hand, that claim is released.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue: a marker in an edited comment is not a claim
+
+Plugins: dkj-policy
+
+[PR #2406](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2406)
+
+---
+
+### DEPLOY: fix/2393-arm-merge-when-green-on-watch · 20260923-221545Z
+
+`ship-pr` now labels a pull request `merge-when-green` once it is open and before it starts waiting on CI.
+Until now it did that only when its own CI verdict refused. So a ship that dies mid-watch, or refuses at
+step 3b on a timing state, still has its merge finished by the sweep. The sweep now takes over only a pull
+request whose required checks have been green for ten minutes, so it never races a live ship. `ship-pr`
+removes the label again at the refusals only a person can clear: the step-list gate, the DEPLOY lock, a merge
+GitHub itself refuses, and a required check with no Actions run behind it. Leaving the label on would starve
+every armed pull request numbered above it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A shipped pull request no longer sits green and unmerged because the session that shipped it ended early.
+
+**Score:** 2
+
+#### Pull Request
+
+ship-pr: arm merge-when-green before the CI wait, with a settle window so the sweep never races a live ship
+
+Plugins: dkj-policy
+
+[PR #2403](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2403)
+
+---
+
+### DEPLOY: fix/2399-claim-marker-author-check · 20260923-220415Z
+
+A claim marker was taken at its word. Anybody who could comment on an issue could write one naming
+somebody else's tag, and `-Release`, the verdict, the sweep and the race all counted it. A marker now
+counts only when the comment's author is the account its tag names (#2399).
+
+**Score:** 2 -- closes a spoofing gap in tag-mode claims. Nothing changes for a genuine claim, because
+gh always writes it as that account.
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue: a claim marker counts only when its author is the tag's own account
+
+Plugins: dkj-policy
+
+[PR #2404](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2404)
+
+---
+
+### DEPLOY: feat/2394-resume-from-origin · 20260923-215115Z
+
+`claim-issue.ps1 <n> -Tag -TakeOver` now also resumes an issue that carries **no claim marker**, which is
+the common case: a session that never ran `-Tag` leaves only its branch on origin. There exactly one branch
+for the issue must be on origin, and every commit on it off the trunk must be authored under one of this
+checkout's names; one foreign author, or an author list that could not be read, refuses. A new user-level
+variable, `DKJ_OWN_ACCOUNTS`, declares the other accounts one person works under, and both `-TakeOver` and
+the parked-fix scan's `NOT YOURS` verdict count them as yours. That block now also names that route.
+`-Candidates` reading such a branch as `branch` rather than `free` landed separately, in #2392.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- this changes how a session picks up its own parked work, which no subscriber of a service sees.
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -TakeOver: resume an untagged branch on origin, and count a person's declared other accounts as theirs
+
+Plugins: dkj-policy
+
+[PR #2397](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2397)
+
+---
+
+### DEPLOY: fix/2375-boardless-status-map-line · 20260923-214244Z
+
+The `asana-mirror` run printed a repo's deliberate "no project board" declaration as an empty field and a
+dangling comma, so its CI log could not tell that answer from a broken map. It now says the repo has no
+project board and that stage floors come from the issue itself.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Visible in a board-less store's `asana-mirror` CI log once its template copy is refreshed (xoxowildhearts
+declared itself board-less the day this was filed); nothing it does changes.
+
+**Score:** 1
+
+#### Pull Request
+
+asana-mirror: a board-less repo's status-map line says there is no board
+
+Plugins: dkj-policy-bwj
+
+[PR #2401](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2401)
+
+---
+
+### DEPLOY: feat/2395-release-all · 20260923-212655Z
+
+`claim-issue.ps1 -Tag -ReleaseAll` releases every open issue this tag holds in one command: its own
+claim markers, and this account's assignee where one of those markers sits beside it. Without `-Apply`
+it only lists what it would release. Markers written by any other tag are never touched, including
+another machine under the same account, and an assignee with no marker of this tag stays in place. A
+marker only counts as this tag's when the comment was actually written by this tag's account, so a
+comment somebody else posts with your tag in it cannot trigger a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue -Tag -ReleaseAll
+
+Plugins: dkj-policy
+
+[PR #2400](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2400)
+
+---
+
+### DEPLOY: fix/2338-merge-on-green-trunk-code · 20260923-211820Z
+
+The merge-on-green runner checked out an armed pull request's head with `FOLD_PUSH_TOKEN` in the workspace
+and then ran code from that checkout, so being able to push a branch meant being able to run code with a
+token that bypasses the trunk ruleset. The picker now refuses a pull request whose diff touches code the
+runner executes, and the runner refuses any checkout other than the commit the picker judged (#2338).
+
+**Score:** 3 -- closes a privilege widening on the one runner that holds the standing write token; a
+pull request touching scripts now ships from a session instead.
+
+#### What makes this deploy extra special
+
+A consumer's scaffolded `merge-on-green.yml` ran the plugin's `ship-pr.ps1`, and that dot-sourced the
+branch's `scripts/repo-config.ps1` with the consumer's `FOLD_PUSH_TOKEN` in place. The picker fix reaches
+them as soon as their runner checks out the source's `main`. The SHA pin reaches them when
+`adopt-ci-floor` reports their runner as drifted and they re-apply it.
+
+**Score:** 3 -- a security fix to a runner consumers adopted; those who use merge-on-green will see
+script-touching pull requests left for a session.
+
+#### Pull Request
+
+merge-on-green: never run code from an armed branch that changes what the ship executes
+
+Plugins: dkj-policy
+
+[PR #2346](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2346)
+
+---
+
+### DEPLOY: docs/2376-sweep-ship-resolves · 20260923-210524Z
+
+`sweep-issues` told a session to ship with a bare `ship-pr.ps1`, which `open-pr`'s resolves gate refuses on
+every sweep branch, because the branch and its entry always name the issue. Step 5 now prints
+`ship-pr.ps1 -Resolves <n>`, names `-NoResolves` for a branch that is only one step of a larger issue, and
+step 6 points at the same command.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog no longer loses a round trip on every issue to a refusal the
+skill's own command caused.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: the ship lines name -Resolves, so a sweep branch passes open-pr's resolves gate
+
+Plugins: dkj-policy
+
+[PR #2398](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2398)
+
+---
+
+### DEPLOY: fix/2392-candidates-read-remote-branches · 20260923-205323Z
+
+`claim-issue.ps1 -Candidates` now reads origin's branches once for the whole backlog. An open issue with
+no claim marker but a `<prefix>/<n>-<name>` branch on origin reads `branch` instead of `free`, and the
+reason names the branch, its author and how long ago it last moved. A claim marker still takes
+precedence. If the branch listing cannot be read, the run still judges from the tracker and says that
+`free` then means only "no claim marker".
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep no longer offers you an issue somebody else is already building just because they did not
+claim it by tag. Before this, the only warning came after the claim was written, one issue at a time.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue -Candidates: an unmarked issue with a branch on origin reads 'branch', not 'free'
+
+Plugins: dkj-policy
+
+[PR #2396](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2396)
+
+---
+
+### DEPLOY: feat/2374-global-claude-md · 20260923-204008Z
+
+The rules a repo runs under now ship with `dkj-policy` itself: one [`CLAUDE.md`](../plugins/dkj-policy/CLAUDE.md)
+holding the constitution and the general working practices, plus a
+[`dkj-policy-bwj` extension](../plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md) for the BWJ repos. A
+consumer's own `CLAUDE.md` now holds **only** the `@`-import line(s) and nothing else -- no rules, no
+facts, no repo block. A repo's own facts (trunk, public or not, owner, purpose) move to an unscoped
+rule such as `.claude/rules/<name>.md`, loaded every session exactly as `CLAUDE.md` was; a fact that
+belongs to one specialist alone moves to that specialist's own lens. The
+`consumer-prose-sessioncheck` hook warns at session start where the import line is missing and prints
+it for the consumer's own marketplace name; the `specialists-init` scaffold stops inviting a local
+constitution. This repo runs the same model, one step further than the branch's original plan: its
+constitution moved into the plugin, and its former repo slot -- everything specific to this repo that
+used to sit inside `CLAUDE.md` -- moved whole into `.claude/rules/this-repo.md`. Root `CLAUDE.md` is
+now a one-line title plus the three `@`-imports, and nothing else.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- a repo-governance change; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+One global CLAUDE.md shipped by dkj-policy, imported by consumers
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2390](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2390)
+
+---
+
+### DEPLOY: feat/2387-claim-takeover · 20260923-193109Z
+
+`claim-issue.ps1 <n> -Tag -TakeOver` hands a `held` issue over to this machine, deliberately and visibly,
+when the holder is this same gh account on another machine and exactly one branch for the issue is on
+origin. It removes the old marker, claims under this tag through the ordinary path, leaves a comment naming
+the old tag, the new tag and the branch, and prints the checkout, so the old machine's `-Verify` reads
+`[NO]`. A colleague's claim, an issue with no branch on origin, and one with several are each refused.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep run across several of your own machines no longer strands an issue on a machine you cannot reach:
+the work parked on origin can be picked up from any of them in one command, without deleting a marker by
+hand.
+
+**Score:** 3
+
+#### Pull Request
+
+claim-issue -Tag -TakeOver: hand a held issue over to this machine when its branch is on origin
+
+Plugins: dkj-policy
+
+[PR #2391](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2391)
+
+---
+
+### DEPLOY: fix/2388-durations-merge-advice · 20260923-191439Z
+
+`record-suite-durations.ps1`'s no-table refusal used to send the caller from a `fold:` run to the
+`merge:` run beside it. Since the merge-commit certificate (#2303), that run normally has no suite table
+either. The refusal and the `-RunId` docstring now name a PR run, the run that always has one. This prevents a
+failure that already happened twice during #2304's duration re-reads: a maintainer following the throw's
+advice to a second tableless run.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+record-suite-durations: the no-table refusal names a PR run, not a merge run
+
+[PR #2389](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2389)
+
+---
 
 ### DEPLOY: feat/2333-pin-write-runners · 20260923-183716Z
 

@@ -760,6 +760,56 @@ try {
     $durMd = [System.IO.File]::ReadAllText((Join-Path $durConsumer 'CLAUDE.md'), [System.Text.Encoding]::UTF8)
     Assert-True (-not ($durMd -match '/cache/')) 'durable body path: CLAUDE.md carries no cache path at all'
 
+    # --- 2d. Own-plugin dual-version cache: the RUNNING payload wins, not the highest (#2426) -----------
+    # Reuses $cacheRoot from 2b. Two cached versions of the plugin actually running -- 1.4.0 (the one
+    # $dualBootstrap below is invoked FROM, i.e. the running payload) carries the real, full plugin
+    # (subagents/ under the current 'specialist-<g>-<i>-subagent.md' naming), 1.10.0 is a HIGHER-numbered
+    # cache that was never installed as the running version and carries a different id (04-99) under the
+    # same naming. Before #2426 the own-plugin case fell through to the untouched cross-plugin resolution,
+    # which -- finding no '<version>/<PluginName>/subagents' sibling -- walked the market-wide fallback and
+    # picked 1.10.0 for exactly the reason 2b exists: it is the semantically highest version. That is
+    # right for ANOTHER plugin living beside this one and wrong for THIS one, because the payload that
+    # actually produced the running bootstrap.ps1 is 1.4.0. This is the differential the fix closes: the
+    # scaffold must come from 1.4.0 (04-18 present) and never from 1.10.0 (04-99 absent) -- both of which
+    # fail under the pre-#2426 code, confirmed by running this suite against a throwaway copy of the tree
+    # with `git show HEAD:<path>` of the pre-fix bootstrap.ps1 swapped in, and observing this block go red.
+    Write-Host "bootstrap.ps1 -- own-plugin dual-version cache: the RUNNING payload wins, not the highest (#2426)" -ForegroundColor Cyan
+    $dualOld = Join-Path $cacheRoot 'dkj-subagents-alpha\1.4.0'
+    $dualNew = Join-Path $cacheRoot 'dkj-subagents-alpha\1.10.0'
+    New-Item -ItemType Directory -Path $dualOld -Force | Out-Null
+    Copy-Item -Path (Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\*') -Destination $dualOld -Recurse
+    New-Item -ItemType Directory -Path (Join-Path $dualNew 'subagents') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $dualNew 'subagents\specialist-04-99-subagent.md'), "---`nname: fictional`nid: 99`ngroup: 04`n---`nfixture: the higher-numbered, non-running cached version")
+    $dualConsumer = Join-Path $Fixture 'own-dual-version-consumer'
+    New-Item -ItemType Directory -Path (Join-Path $dualConsumer '.claude') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $dualConsumer '.claude\settings.json'), '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
+    $dualBootstrap = Join-Path $dualOld 'skills\specialists-init\bootstrap.ps1'
+    $rdual = Invoke-Script -Path $dualBootstrap -ScriptArgs @('-ConsumerRoot', $dualConsumer)
+    Assert-Equal 0 $rdual.Code 'own dual-version cache: bootstrap exit 0'
+    Assert-True (Test-Path -LiteralPath (Join-Path $dualConsumer "$Pp\specialist-04-18-lens.md")) 'own dual-version cache: scaffold comes from the RUNNING 1.4.0 payload'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $dualConsumer "$Pp\specialist-04-99-lens.md"))) 'own dual-version cache: the higher-numbered 1.10.0 cache is NOT used for the plugin that is actually running'
+
+    # --- 2e. A found agents directory that recognises nothing prints a [notice] and scaffolds zero (#2426) --
+    # Reuses $cachedBootstrap (the 'specialists'-named 1.4.0 copy from 2b) purely as a runnable bootstrap;
+    # the plugin under test here is a THIRD one, enabled alone so the loop only ever visits it. Its single
+    # cached version's subagents/ holds one file that passes the '*-agent.md' wildcard filter but not the
+    # id shape (no leading '<2 digits>-<2 digits>'), so Get-SpecialistFiles finds it and Get-SpecialistFileId
+    # recognises none of it -- the silent half of #2426: the directory resolves ($agentsDir -ne $null), so
+    # the loop never even reaches the "no agents/ directory" branch, and without the notice a reader had no
+    # way to tell this apart from a directory that legitimately has nothing further to scaffold.
+    Write-Host "bootstrap.ps1 -- an agents directory that recognises nothing prints a [notice] (#2426)" -ForegroundColor Cyan
+    $noticePlugin = 'dkj-subagents-noshape'
+    New-Item -ItemType Directory -Path (Join-Path $cacheRoot "$noticePlugin\1.0.0\subagents") -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $cacheRoot "$noticePlugin\1.0.0\subagents\readme-agent.md"), 'not shaped like a subagent def at all')
+    $noticeConsumer = Join-Path $Fixture 'notice-consumer'
+    New-Item -ItemType Directory -Path (Join-Path $noticeConsumer '.claude') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $noticeConsumer '.claude\settings.json'), ('{{ "enabledPlugins": {{ "{0}@dkj-claude-plugins": true }} }}' -f $noticePlugin))
+    $rnotice = Invoke-Script -Path $cachedBootstrap -ScriptArgs @('-ConsumerRoot', $noticeConsumer)
+    Assert-Equal 0 $rnotice.Code 'notice case: bootstrap exit 0'
+    Assert-True ($rnotice.Out -match 'held no file this run recognised as a subagent def') 'notice case: the [notice] fires when a found directory recognises nothing'
+    Assert-True ($rnotice.Out -match [regex]::Escape($noticePlugin)) 'notice case: the notice names the plugin'
+    Assert-True ($rnotice.Out -match '0 lens-scaffold') 'notice case: 0 scaffolds created'
+
     # --- 3. Drift on a fresh bootstrap: LENS-ONLY (no body to compare) --------------------
     Write-Host "check-consumer-drift.ps1 -- fresh lens-only bootstrap = LENS-ONLY" -ForegroundColor Cyan
     $d1 = Invoke-Script -Path $DriftLint -ScriptArgs @('-ConsumerPath', $Fixture, '-Quiet')

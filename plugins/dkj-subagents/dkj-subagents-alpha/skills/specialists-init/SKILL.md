@@ -62,9 +62,8 @@ line) and `script-contract-sessioncheck.ps1` (through `check-script-contract.ps1
 > [#297](https://github.com/DaveKJohn/claude-code-specialists/issues/297)). This page said *three acts* while
 > that one said *four* and the page carrying this procedure said *three steps* — the same path, nothing
 > missing anywhere, three different numbers, and the pages link to each other for exactly this step.
-> (That third page is [`INSTALL.md`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/INSTALL.md) today: the
-> procedure below is its install step, and the adoption steps that used to follow it now live one page
-> over.) For a reader following it the first time the count is the only check they
+> (That third page was a root `INSTALL.md` until September 24, 2026; its install step now sits in the
+> adoption page's own *Installing it yourself* section.) For a reader following it the first time the count is the only check they
 > have on whether they skipped something. The letters stay, because they are what the rest of this page
 > refers to; the number now counts the same unit as the README.
 >
@@ -80,7 +79,8 @@ line) and `script-contract-sessioncheck.ps1` (through `check-script-contract.ps1
 > short commands-only `QUICKSTART.md` beside it, then both merged into `plugins/INSTALL.md`, and since
 > August 14, 2026 split again — this time on **audience** rather than length (inbound
 > [#664](https://github.com/DaveKJohn/claude-code-specialists/issues/664)): the install plumbing stayed
-> behind as a root `INSTALL.md`, and adoption became its own page again.
+> behind as a root `INSTALL.md`, and adoption became its own page again. That root page was retired on
+> September 24, 2026, and the install commands moved into the adoption page as a section of their own.
 >
 > **Its step count went from four to three in that split, and the missing one is this skill's own
 > neighbour.** What used to be its Step 1 — enabling and installing — is the plumbing that moved out,
@@ -92,9 +92,7 @@ line) and `script-contract-sessioncheck.ps1` (through `check-script-contract.ps1
 > a real install is this skill **plus one adopt step per enabled plugin that owns repo state** — so the
 > reader met the rest of their adoption one session-check `[ERROR]` at a time. So if you are
 > cross-reading, expect **four steps** there and **six acts** here for step 0, and note that those six
-> acts are now described on a different page than the four steps. The root
-> [`INSTALL.md`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/INSTALL.md#quickstart--the-commands-and-nothing-else) quickstart counts
-> **five**, one more than the adoption page, because it still carries the install itself as its Step 1.
+> acts are condensed there into the *Installing it yourself* section ahead of the four steps.
 
 **0a — enable, then restart once.** Verify that the consumer has this in `.claude/settings.json`:
 
@@ -236,7 +234,7 @@ and a stale cache is invisible by construction because it reports success with a
 number — so the procedure guarantees freshness rather than relying on the CLI to keep doing it. This
 pair is what every "pick up the new release" pointer in this family means — in
 [`sync-roster`](../sync-roster/SKILL.md), in `scripts/sync/check-script-contract.ps1`, in the
-[adoption page](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/INSTALL.md#staying-up-to-date--the-two-commands), and in the release notes. Read a bare
+[adoption page](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#installing-it-yourself), and in the release notes. Read a bare
 `claude plugin update` anywhere as shorthand for these two lines.
 
 **0c — restart, then verify before invoking.** Verify rather than assume, because **the failure this
@@ -355,8 +353,8 @@ gh api repos/DKJ-Solutions/claude-code-specialists/tags --jq '.[] | select(.name
 
 That route has no peeling problem to worry about: the API's `.commit.sha` is the commit already, annotated
 tag or not. Equal to your record's `gitCommitSha` means you are on that release; different means you are
-on `main` — see [Staying up to date](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/INSTALL.md#staying-up-to-date) for why that happens
-without anyone asking for it, and why it is not something you can fix from here.
+on `main` — the marketplace clone tracks `main`, not the tag, so that happens without anyone asking
+for it, and it is not something you can fix from here.
 
 **One** line per plugin you enabled, each saying `project`, is the green you need — and the *count*
 carries as much of the verdict as the word does.
@@ -619,8 +617,12 @@ After the script:
    [#335](https://github.com/DaveKJohn/claude-code-specialists/issues/335) established the same reader
    model for the QUICKSTART fragment — *"the block is labelled `jsonc`, which suggests comments are
    fine"* — but its repair landed there and never reached the instruction that moves this file.
-3. **Write the governance.** The `CLAUDE.md` scaffold is bare — fill in the safety rules and the
-   working method of this repo (see an existing consumer as a model).
+3. **Write the governance.** The `CLAUDE.md` scaffold is bare. **Where `dkj-policy` is also installed,
+   do not fill this file in at all** — `CLAUDE.md` holds only the `@`-import line(s), and the safety
+   rules ship with that plugin; that plugin's own `adopt-dkj-policy` skill covers the import and where
+   this repo's own facts then go (an unscoped `.claude/rules/<name>.md`, never `CLAUDE.md` itself). Only
+   a repo running `dkj-subagents-alpha` **without** `dkj-policy` needs to write its own safety rules and
+   working method directly into the scaffold (see an existing consumer as a model).
 4. **Enable auto-delete of merged branches (#163).** Turn on the GitHub repo setting
    *"Automatically delete head branches"* (`deleteBranchOnMerge: true`) — via the repo settings UI
    or `gh api -X PATCH repos/<owner>/<repo> -F delete_branch_on_merge=true`. That makes remote

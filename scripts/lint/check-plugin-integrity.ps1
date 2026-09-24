@@ -1193,7 +1193,8 @@ $linkFiles += (Get-SpecialistFiles -Path $RepoRoot -Kind Persona -Recurse |
     Where-Object { $_.FullName -match '\\personas\\' } | Select-Object -ExpandProperty FullName)
 # THE AGENT DEFS, THE SHARED BLOCKS, AND THE TWO CONFIG-ADJACENT DOC LAYERS (#481). Every category above
 # names a shape of file, and four kinds of markdown matched none of them: */subagents/*.md (26 files),
-# plugins/dkj-subagents/subagent-shared/*.md (11), .github/**/*.md (2) and .claude/rules/*.md (1). Agent defs are the
+# plugins/dkj-subagents/subagent-shared/*.md (11), .github/**/*.md (2) and .claude/rules/*.md (2, since
+# #2374's this-repo.md joined language-layers.md). Agent defs are the
 # glaring one -- they are the largest single body of prose this repo ships, they are payload, and their
 # links had never been read by anything. Measured on the day this was added: one genuinely dead link had
 # been sitting in an agent def, plus the location-dependent CLAUDE.md links repaired alongside it.
@@ -2779,9 +2780,10 @@ $sampleChecked = 0
 # two checks exist for -- the bootstrap's closing line, the 4+15+2 counts, the verification snippet --
 # travelled WITH the adoption half. Listing only the pages that kept their names would have left both
 # checks reporting green over the document that now holds their subject, for the second time.
+#
+# AND THEN TWO, on September 24, 2026: INSTALL.md and UNINSTALL.md were retired and the install commands
+# moved into plugins/ADOPTION.md, which is the entry that already carried the samples and figures.
 $consumerDocs = @(
-    'INSTALL.md',
-    'UNINSTALL.md',
     'plugins\ADOPTION.md',
     'README.md'
 )
@@ -4704,7 +4706,7 @@ foreach ($def in @($agentDefs)) {
         if ($raw -notmatch [regex]::Escape("<!-- BEGIN shared:$blockName")) {
             Add-Error ("[tool-block] ${rel}: names '$tool' in its tools line but carries no" +
                 " 'shared:$blockName' block. That block is placed by CAPABILITY rather than by craft" +
-                " (subagent-shared/README.md says why), so holding the tool is what obliges it. Add the" +
+                " (.claude/specialists/lenses/specialist-06-24-lens.md says why), so holding the tool is what obliges it. Add the" +
                 " sentinel pair and run scripts/agents/build-agent-defs.ps1.")
             $toolBlockFindings++
         }

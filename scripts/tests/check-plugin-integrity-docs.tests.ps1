@@ -44,9 +44,9 @@ try {
     #     'continue', so a stale entry costs coverage and says nothing. Measured August 6, 2026, moving
     #     those documents into plugins/: expected-output went 5 -> 1 and measured-figure 11 -> 0 in one
     #     commit, no error anywhere, and it surfaced only because somebody read the coverage line.
-    #     The fixture never creates plugins/UNINSTALL.md, so the entry is genuinely absent here.
+    #     The fixture never creates plugins/ADOPTION.md, so the entry is genuinely absent here.
     $s4 = Invoke-Integrity -FixtureRoot $Fixture
-    Assert-True ($s4.Out -match '\[consumer-doc\].*UNINSTALL\.md') `
+    Assert-True ($s4.Out -match '\[consumer-doc\].*ADOPTION\.md') `
         'consumer-doc: a named document that does not exist is reported instead of skipped in silence'
     Assert-True ($s4.Out -match '\[consumer-doc\].*(update the list|drop the entry)') `
         'consumer-doc: and the finding names both repairs, since the list and the tree can each be the wrong one'

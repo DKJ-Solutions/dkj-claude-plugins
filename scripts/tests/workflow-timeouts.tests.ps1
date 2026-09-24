@@ -162,8 +162,16 @@ foreach ($rel in $scaffolders) {
     $text     = Get-Content -LiteralPath $path -Raw
     $runsOn   = @([regex]::Matches($text, '(?m)^\s*''?\s*runs-on:\s*\S+'))
     $timeouts = @([regex]::Matches($text, '(?m)^\s*''?\s*timeout-minutes:\s*(\d+)'))
+    # A CALLING JOB CARRIES NO CAP OF ITS OWN, and may not (#2422): GitHub refuses timeout-minutes on a job
+    # that `uses:` a reusable workflow. Its cap is the called job's, so the called file must be one of this
+    # repo's own workflows -- which the first section of this suite has already held to a cap.
+    $calls    = @([regex]::Matches($text, '(?m)^\s*''?\s*uses:\s*[\w.-]+/[\w.-]+/\.github/workflows/(?<file>[\w.-]+\.ya?ml)@'))
+    foreach ($call in $calls) {
+        $file = $call.Groups['file'].Value
+        Assert-True ($workflowFiles.Name -contains $file) "$($rel): the reusable workflow it calls ($file) is one of this repo's own, so its job cap is asserted above"
+    }
 
-    Assert-True ($runsOn.Count -gt 0) "$rel composes at least one job ($($runsOn.Count) runs-on lines)"
+    Assert-True (($runsOn.Count + $calls.Count) -gt 0) "$rel composes at least one job ($($runsOn.Count) runs-on lines, $($calls.Count) reusable-workflow calls)"
     Assert-True ($runsOn.Count -eq $timeouts.Count) `
         "$($rel): every composed job carries a cap -- $($runsOn.Count) runs-on against $($timeouts.Count) timeout-minutes"
 

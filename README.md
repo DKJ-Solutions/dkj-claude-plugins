@@ -15,10 +15,8 @@ keeping its own copies, and enables or disables **per plugin** which teams and w
 
 | I want to… | Go to |
 |---|---|
-| **connect my own repo — just the commands** | **[INSTALL.md, the quickstart half](INSTALL.md#quickstart--the-commands-and-nothing-else)** — five steps, the commands and nothing else, linking down for every caveat. |
-| **connect my own repo — and know why** | **[INSTALL.md, the adoption half](INSTALL.md#adoption--how-to-connect-your-repo)** — the full, measurement-backed adoption manual for someone who did not build this, ~47 min (August 6, 2026). Read its *Before you start* section first if the machine is new or has adopted this family before. |
-| **disconnect it again** | [UNINSTALL.md](UNINSTALL.md) — the install page's mirror: the repo teardown and the machine-side removal, in the order they have to happen. |
-| **I already adopted this, under the old plugin names** | [INSTALL.md, migrating from the old plugin names](INSTALL.md#migrating-from-the-old-plugin-names) — a third procedure, neither the quickstart nor first-time adoption: the old ids (`specialists@claude-code-specialists` and its siblings) mapped onto the new teams and workflow. |
+| **connect my own repo** | **[`plugins/ADOPTION.md`](plugins/ADOPTION.md)** — the install commands, then the four adoption steps: bootstrap, verify, adopt, fill the lenses. |
+| **disconnect it again** | [The undo section of that page](plugins/ADOPTION.md#undoing-it--the-half-that-is-yours) — the repo teardown first, the machine-side removal second. |
 | know **what this promises my repo** | [The plugin serves the consumer's repo](#the-plugin-serves-the-consumers-repo) — the specialist teams adapt to your way of working, and nothing arrives unasked; `dkj-policy` is the exception, and installing it is choosing to be governed by it. |
 | know **what the words mean** (agent, subagent, scaffold, harness) | [The vocabulary](#the-vocabulary--where-these-plugins-sit-inside-an-agent) — where these plugins sit inside an agent, and why none of them is named after an agent. |
 | know **which plugin does what** | [Teams and workflows](#teams-and-workflows--whats-the-difference) |
@@ -29,11 +27,9 @@ keeping its own copies, and enables or disables **per plugin** which teams and w
 | see **the version history** | [`releases/history.md`](dkj-policy/releases/history.md) |
 
 Everything below this table is the underlying explanation, and the page is long on purpose: it is the
-architecture record as much as the landing page. **[INSTALL.md](INSTALL.md) holds both
-entrances — its [quickstart half](INSTALL.md#quickstart--the-commands-and-nothing-else) is the
-short one, its [adoption half](INSTALL.md#adoption--how-to-connect-your-repo) the full one** —
-this file is what you read when the install page's answer was not enough, or when you are changing the
-system rather than adopting it.
+architecture record as much as the landing page. **[`plugins/ADOPTION.md`](plugins/ADOPTION.md) is the
+entrance** — this file is what you read when that page's answer was not enough, or when you are changing
+the system rather than adopting it.
 
 ## One product, one repository
 
@@ -92,7 +88,8 @@ two kinds of plugin stand in opposite relations to a consumer's own rules:
 - **`dkj-policy` is adopted BY the consumer, and it wins — on the cycle, not on everything.** The
   workflow's own page says so: *"where the two disagree, the workflow's page wins"* (Dave,
   August 14, 2026, in
-  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). [`CLAUDE.md`](CLAUDE.md) restates it
+  [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md)). This repo's own
+  [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md) restates it
   from the other side **with its scope attached**, and the scope is the half worth quoting: *"where the
   two disagree, the plugin's page wins. It does not replace anything below; it adds the workflow's own
   mechanics."* So what yields is the way work moves — the branch, the gates, the fold — and not a
@@ -252,9 +249,8 @@ were declined and the reasoning is recorded here, because it is the kind of prop
 day, under [#1698](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1698).** Every
 consumer running `dkj-team-alpha` or one of its siblings owes exactly the migration the reasoning above
 warned of: uninstall, install under the new id, the `settings.json` edit, plus its own `SPECIALISTS.md`
-`@`-import and its `connectors/` register entry. The full walkthrough is in INSTALL.md's own
-[Migrating off the `dkj-team-*` ids](INSTALL.md#migrating-off-the-dkj-team--ids-1698-september-9-2026)
-section.
+`@`-import and its `connectors/` register entry. That walkthrough lived in a root `INSTALL.md`, retired
+on September 24, 2026; the release notes of that version carry it.
 
 What the three declined renames earned instead is this section and each plugin's `displayName` — the
 label a person reads when choosing what to install. Both were free there: none of those three ids
@@ -439,9 +435,9 @@ one of the two that has never shipped a skill
 The full picture, top-level folder by folder:
 
 - **`.claude-plugin/marketplace.json`** — the marketplace definition: the plugins (teams and workflow alike) with their `source`.
-- **[`plugins/`](plugins/)** — the plugin source, split by kind (its own
-  [README](plugins/README.md) states that split side by side, with the test question that decides
-  which kind a new plugin is): the teams under
+- **[`plugins/`](plugins/)** — the plugin source, split by kind (the split, and the naming rule that
+  holds it, are under
+  [Teams and workflows — what's the difference?](#teams-and-workflows--whats-the-difference)): the teams under
   [`plugins/dkj-subagents/`](plugins/dkj-subagents/) (`dkj-subagents-alpha`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`, `dkj-subagents-ecomm`) and
   the policy at [`plugins/dkj-policy/`](plugins/dkj-policy/) — the prime ministry's own files at that
   root, and its one ministry `dkj-policy-bwj` a level inside it — each of those two directories carrying
@@ -464,7 +460,7 @@ The full picture, top-level folder by folder:
   must not travel along with the plugin cache.
 - **[`assets/`](assets/)** — material that is neither code nor documentation, one subfolder per kind;
   today that is [`assets/avatars/`](assets/avatars/), the profile images of the GitHub accounts this
-  repo is worked on under (see its own [README](assets/avatars/README.md)). At the root for the same
+  repo is worked on under, one PNG per account and named after it; nothing in the tree reads them. At the root for the same
   reason as `connectors/` and with one extra property: **the marketplace clone is the whole
   repository**, so anything here is on every machine at
   `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
@@ -510,12 +506,7 @@ The full picture, top-level folder by folder:
   body import, the lens import and the roster), `specialists/lenses/` (this repo's own repo lenses),
   the Specialists handbook `specialists/README.md` next to them, `rules/` (path-scoped rules), and
   `settings.json` (harness config; see [Consumption](#consumption)).
-- **The root documents** — this `README.md`, `CLAUDE.md` and
-  `SECURITY.md`, plus the two consumer-facing procedures [`INSTALL.md`](INSTALL.md) and
-  [`UNINSTALL.md`](UNINSTALL.md) — those sat a level down beside the plugins until
-  [#664](https://github.com/DaveKJohn/claude-code-specialists/issues/664) moved them here, which is
-  what keeps them out of the published marketplace without any exclusion list having to remember
-  them — and
+- **The root documents** — this `README.md`, `CLAUDE.md` and `SECURITY.md` — and
   **`.github/`** (`pull_request_template.md`, the issue templates + three workflows: `workflows/ci.yml`,
   the CI gate that runs the lint + test suites on every PR and push to `main`, plus
   `workflows/claude.yml` and `workflows/claude-code-review.yml`, which answer an `@claude` mention and
@@ -531,15 +522,11 @@ runs `claude plugin marketplace update <marketplace>` followed by
 them; the settings keys alone leave you without a working install, without the flag the command
 defaults to a machine-wide `user` install instead, and without the refresh it can serve an *older*
 version and still report success (see [Versioning](#versioning)). The canonical enable-a-plugin
-walkthrough (the
-settings snippet, the cache refresh, the per-plugin install, the restart, the install-record
-self-check, running the bootstrap skill) is in
-[INSTALL.md](INSTALL.md#adoption--how-to-connect-your-repo) — five steps, for those who
-didn't build the system, with its
-[quickstart half](INSTALL.md#quickstart--the-commands-and-nothing-else) as the commands-only
-front door; the way back out is its mirror,
-[UNINSTALL.md](UNINSTALL.md). This section keeps only the two marketplace-wide facts that matter
-beyond any one consumer:
+walkthrough (the settings snippet, the cache refresh, the per-plugin install, the restart, the
+install-record self-check) is in [Installing it yourself](plugins/ADOPTION.md#installing-it-yourself),
+and the way back out in the same page's
+[undo section](plugins/ADOPTION.md#undoing-it--the-half-that-is-yours). This section keeps only the two
+marketplace-wide facts that matter beyond any one consumer:
 
 **Seeing which release you're on — `plugin.json`.** Each plugin folder carries a `.claude-plugin/plugin.json`
 whose `version` is the release it belongs to, bumped in lockstep across every plugin. Because
@@ -770,7 +757,7 @@ Three rules govern when and how to reach for it:
   the span counts as a claimed skill name — so the span must close around just the skill names,
   nothing else in backticks.
 - **Only for a genuinely complete enumeration.** A deliberately partial or illustrative list (e.g.
-  INSTALL.md's slash-only subset) gets no marker — marking it would turn an intentional subset
+  a slash-only subset in a walkthrough) gets no marker — marking it would turn an intentional subset
   into a permanent false positive.
 - **Showing the syntax literally needs a fence, not inline code.** The check masks fenced code
   blocks before it looks for markers, precisely so a paragraph like this one can show the literal
@@ -1048,16 +1035,12 @@ the mechanics.
 
 A newly added **skill** additionally needs a session restart before it becomes visible, and the
 skill counters `/reload-plugins`/`/reload-skills` print are not reliable evidence either way — see
-[Staying up to date](INSTALL.md#staying-up-to-date) in the adoption page for the full detail.
+[Versioning](#versioning).
 
 ## Adoption: the bootstrap path
 
-> **New here?** The shareable beginner route is
-> [INSTALL.md](INSTALL.md#adoption--how-to-connect-your-repo) — get connected in five
-> steps, for those who didn't build the system, with its
-> [quickstart half](INSTALL.md#quickstart--the-commands-and-nothing-else) as the
-> commands-only front door and [UNINSTALL.md](UNINSTALL.md) as its mirror for the way back out. Below
-> is the underlying explanation.
+> **New here?** The shareable beginner route is [`plugins/ADOPTION.md`](plugins/ADOPTION.md) — the
+> install commands, the four adoption steps, and the way back out. Below is the underlying explanation.
 
 Enabling the plugin delivers the **worker subagents**, but not the **conductor** (Chris) or the
 governance/hooks layer, so the skill **`specialists-init`** (from `dkj-subagents-alpha`, the core team) closes
@@ -1135,7 +1118,7 @@ second `agent`-setting plugin gets a different orchestrator without being told.
   > [#297](https://github.com/DaveKJohn/claude-code-specialists/issues/297)). This procedure is described at
   > three entry points, and they used to count it as *four acts* here, *three acts* in
   > [`specialists-init`](plugins/dkj-subagents/dkj-subagents-alpha/skills/specialists-init/SKILL.md#chicken-and-egg--step-0-is-done-by-the-user)
-  > and *three steps* in the [adoption page](INSTALL.md#connecting--the-install-step) — the same path, no
+  > and *three steps* in the adoption page of that day — the same path, no
   > step missing anywhere, three different numbers. A reader following it for the first time has the
   > count as their only check on whether they skipped something, and three counts remove exactly that.
   > Two of the three were also counting different things: #284 raised this page from three to four by
@@ -1196,7 +1179,7 @@ second `agent`-setting plugin gets a different orchestrator without being told.
   > **They do not, however, produce *nothing* — and that is the sharper trap** (inbound
   > [#327](https://github.com/DaveKJohn/claude-code-specialists/issues/327),
   > [#355](https://github.com/DaveKJohn/claude-code-specialists/issues/355)). This block read *"produce
-  > no install and no error"* until September 4, 2026, and `INSTALL.md` had already retired that absolute
+  > no install and no error"* until September 4, 2026, and the install page of that day had already retired that absolute
   > — *"this page no longer claims they do nothing"* — while this one kept it. Measured on a virgin
   > profile with the marketplace registered and the cache present, a **single session start** wrote a
   > full project-scoped record, with the correct `projectPath`, `version` and `gitCommitSha`, while that
@@ -1205,7 +1188,7 @@ second `agent`-setting plugin gets a different orchestrator without being told.
   > directory that **did not exist**. So a record is a claim, not evidence — run the install, and verify
   > by the **surface** (is the bootstrap skill in your slash list, did the session hooks print, does
   > Chris open the turn) rather than by the administration. Mechanics:
-  > [Connecting — the install step](INSTALL.md#connecting--the-install-step).
+  > [Installing it yourself](plugins/ADOPTION.md#installing-it-yourself).
   >
   > **`--scope project` carries that same weight, and the later update is the same pair of commands:**
   > `claude plugin marketplace update <marketplace>` and then
@@ -1216,7 +1199,7 @@ second `agent`-setting plugin gets a different orchestrator without being told.
   > the update refuses outright on a project-scoped install. Project scope is the intended model for
   > this family (Dave, July 30, 2026) — it gives each repo **its own install record**, and every other
   > document here assumes it. Full mechanics of the refresh half:
-  > [Staying up to date](INSTALL.md#staying-up-to-date).
+  > [Installing it yourself](plugins/ADOPTION.md#installing-it-yourself).
   >
   > **What project scope does *not* promise is that the record stays put** (inbound
   > [#296](https://github.com/DaveKJohn/claude-code-specialists/issues/296)). This sentence used to say it
@@ -1234,7 +1217,7 @@ second `agent`-setting plugin gets a different orchestrator without being told.
   > what changes is that you should **read your record rather than trust it**. On a machine with several
   > consumers and several sessions, `installed_plugins.json` is the only place your actual version is
   > written down; the install output does not name a version at all. The query is under
-  > [Staying up to date](INSTALL.md#staying-up-to-date).
+  > [Installing it yourself](plugins/ADOPTION.md#installing-it-yourself).
   >
   > **Verify with the `projectPath` record, not with `claude plugin list`** — that command is not
   > repo-scoped and reported a plugin as `enabled`, at `project` scope, in this very repo while it
@@ -1560,8 +1543,7 @@ reminder is what a derivation makes unnecessary.
 5. **The docs that enumerate the plugins** — this README (the plugin count, the
    [teams-and-workflows table](#teams-and-workflows--whats-the-difference), the [invocation list](#invocation),
    the manuals list under [Manuals](#manuals--the-split-model), and whether the team is mutually
-   exclusive with the others or complementary) and [`INSTALL.md`](INSTALL.md), both
-   halves.
+   exclusive with the others or complementary) and [`plugins/ADOPTION.md`](plugins/ADOPTION.md).
 6. **The gates** — `scripts/agents/build-agent-defs.ps1 -Check`,
    [`scripts/lint/check-plugin-integrity.ps1`](scripts/lint/check-plugin-integrity.ps1), and
    the `scripts/tests/*.tests.ps1` suites, all green.
@@ -1573,7 +1555,9 @@ its own marketplace. See [One product, one repository](#one-product-one-reposito
 
 Changes to this repo go through a branch + Pull Request to `main`, and that much holds whether or not
 any plugin is installed — it is the **standard workflow**, three rules long, and it is stated in
-[`CLAUDE.md`](CLAUDE.md), which is where this repo has kept its floor since it retired its root
+[`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md), the constitution this repo's own
+`CLAUDE.md` imports and never restates; this repo's own floor sits beside the import, in
+[`.claude/rules/this-repo.md`](.claude/rules/this-repo.md), since it retired its root
 `CONTRIBUTING.md` on August 27, 2026. **The branch dossier, the changelog entry that folds at the
 merge, the significance model and the release cut are the `dkj-policy` layer on top**, and they are
 described in [`CONTRIBUTING-portable.md`](plugins/dkj-policy/CONTRIBUTING-portable.md), the page that
@@ -1588,21 +1572,20 @@ seam table, [Derek's](.claude/specialists/lenses/specialist-05-05-lens.md) for t
 layers, [Rendall's](.claude/specialists/lenses/specialist-05-06-lens.md) for the fold and the cut, and
 the [specialists handbook](.claude/specialists/README.md) for keeping a checkout's plugins current.
 
-The governance is in [`CLAUDE.md`](CLAUDE.md): the safety rules, the three direct-on-`main` exceptions
-and their bounds, and this repo's own gates. **The roster and the routing are not there** — they sit
+The safety rules and the three direct-on-`main` exceptions are the imported constitution, in
+[`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md); this repo's own gates and their bounds
+are in [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md), which the root `CLAUDE.md` does not
+carry directly — that file holds only the `@`-imports. **The roster and the routing are not there
+either** — they sit
 behind the one seam line at its foot, in
 [`.claude/specialists/SPECIALISTS.md`](.claude/specialists/SPECIALISTS.md) and the lenses beside it,
 which is what [The seam, specified](#the-seam-specified) is for.
 
 ## Want to know more?
 
-- **Connecting your own repo?** Follow
-  [INSTALL.md](INSTALL.md#adoption--how-to-connect-your-repo) — connect in five steps, for those
-  who didn't build the system, or its
-  [quickstart half](INSTALL.md#quickstart--the-commands-and-nothing-else) if you only want the
-  commands.
-- **Disconnecting it again?** [UNINSTALL.md](UNINSTALL.md) is its mirror — the repo teardown and the
-  machine-side removal, in the order they have to happen.
+- **Connecting your own repo?** Follow [`plugins/ADOPTION.md`](plugins/ADOPTION.md) — its
+  [Installing it yourself](plugins/ADOPTION.md#installing-it-yourself) section has the commands, and
+  its [undo section](plugins/ADOPTION.md#undoing-it--the-half-that-is-yours) the way back out.
 - **Releases** — the full version history is in [`releases/history.md`](dkj-policy/releases/history.md); the
   cutting-a-release mechanics travel with the workflow plugin as
   [`RELEASES-portable.md`](plugins/dkj-policy/RELEASES-portable.md), with this repo's

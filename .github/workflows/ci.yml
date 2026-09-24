@@ -447,4 +447,5 @@ jobs:
             echo "::error::CI gate failed -- lint=${{ needs.lint.result }} suites=${{ needs.suites.result }}"
             exit 1
           fi
-          echo "CI gate green: lint and all 4 suite shards succeeded."
+          # No shard count in this line: the matrix above is the one place that number lives (#2424).
+          echo "CI gate green: lint and all suite shards succeeded."

@@ -102,7 +102,7 @@ issues across the two -- and that state holds only if every filing from here on 
 
 | field | what it carries | how |
 |---|---|---|
-| **issue type** | Bug / Feature / Task | `--type Bug` -- a defect in behaviour that already exists is **Bug**, a capability the store does not have yet is **Feature**, and **Task** is everything else, which is most of it |
+| **issue type** | Bug / Feature / Task | `gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=Bug`, straight after the create -- not `gh issue create --type`, which `gh 2.74.0` rejects as an unknown flag ([#2416](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2416)). A defect in behaviour that already exists is **Bug**, a capability the store does not have yet is **Feature**, and **Task** is everything else, which is most of it |
 | **the reach label** | how far the issue reaches | one `--label`, and only where it reaches the audience tier. Absence is the answer for tier 0 and is not a missing field. Its **name** is `Get-ReachLabel`'s, default `minor` -- see below |
 | **`documentation` label** | the one content distinction the type system cannot express here | `--label documentation` on a doc finding, on top of whatever type it has |
 | **`CRO` label** | who raised it, not what it is -- store repos only | `--label CRO` on an issue filed by, or on behalf of, the CRO team (today: Johnno), on top of whatever type it has -- see below |

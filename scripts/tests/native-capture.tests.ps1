@@ -1862,7 +1862,25 @@ foreach ($af in $auditFiles) {
 # commit for the write runners' pin. Bounded at the shared network bound. Its failure direction is a
 # weaker pin rather than none: any read that did not answer 0 -- failed or unmeasured -- leaves the SHA
 # unresolved and the runner is pinned to the TAG instead, which the script reports in yellow.
-Assert-Equal 76 $boundedTotal 'the parser still counts 76 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 76 -> 78 (#2387): claim-issue.ps1's -TakeOver adds $heads, the `git ls-remote --heads origin` that proves the
+# issue's branch is on origin, and $posted, the handover comment. Both at the shared network bound, both judged
+# through Test-NativeExitMeasured: an unmeasured $heads REFUSES (the branch is the precondition), an unmeasured
+# $posted only warns (the claim is the marker, already settled). The $del delete moved into the shared
+# Remove-ClaimMarkerComments helper and is still one site.
+# 78 -> 79 (#2392): claim-issue.ps1's -Candidates adds $refList, the `git for-each-ref refs/remotes/origin` that
+# names every issue with a branch on origin. Counted for its -Utf8 (author names are data), not bounded: it is a
+# local read, after the fetch that is. Judged through Test-NativeExitMeasured, and an unmeasured read never
+# refuses -- the tracker half still stands -- it prints that 'free' then means only "no claim marker".
+# 79 -> 80 (#2395): claim-issue.ps1's -ReleaseAll adds $ownList, the one `gh issue list` it releases from. At the
+# shared network bound, judged through Test-NativeExitMeasured, and an unmeasured read REFUSES: an unread backlog
+# reported as "nothing to release" would send the operator to the next machine with every marker standing. The
+# -Release $unassign moved into the shared Remove-ClaimAssignee helper and is still one site.
+# 80 -> 81 (#2394): claim-issue.ps1's -TakeOver adds $authorLog, the `git log --format=%an` that reads an
+# untagged branch's authors. It is local and carries no timeout, and is counted because it passes -Utf8 (an
+# author name is free text and can be non-ASCII). Judged through Test-NativeExitMeasured: anything but a
+# measured 0 leaves the author list empty, which the verdict REFUSES as 'unknown-author'. The branch fetch
+# before it goes through Invoke-RecordedRemoteFetch, so it adds no site here.
+Assert-Equal 81 $boundedTotal 'the parser still counts 81 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

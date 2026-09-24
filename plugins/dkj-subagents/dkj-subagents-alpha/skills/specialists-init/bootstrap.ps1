@@ -334,7 +334,7 @@ $title
 <!-- TODO (fill in after bootstrap): replace this placeholder with the repo lens of this
      specialist -- who he or she directs or serves in THIS repo and along which agreements:
      team and routing, pipelines and gatekeepers (safety rules, branch discipline,
-     and PR rule; refer to repo-CLAUDE.md#safety-rules). The portable expertise remains in the
+     and PR rule; the rules themselves are in the dkj-policy constitution the repo CLAUDE.md imports). The portable expertise remains in the
      plugin persona; only repo-specific matters belong here. -->
 "@
     [System.IO.File]::WriteAllText($dest, ($content.TrimEnd() + "`n"), $Utf8NoBom)
@@ -362,6 +362,25 @@ function Get-OwnPluginName([string]$PluginRoot) {
 # Note dual role of $parent (Victor finding): in source layout it's family directory, in cache layout
 # plugin name directory (above version directories) -- $market resolves to proper parent root in both cases.
 function Get-PluginAgentsDir([string]$PluginName, [string]$OwnPluginRoot) {
+    # THE RUNNING PLUGIN ITSELF, RESOLVED DIRECTLY UNDER ITS OWN ROOT, BEFORE ANY OTHER PROBE (#2426).
+    # In the plugin-cache layout $OwnPluginRoot is '.../cache/<market>/<plugin>/<version>', so the
+    # parent-based probe below -- built to find OTHER plugins living beside this one under a shared
+    # parent -- can never match it: there is no '<version>/<PluginName>/subagents' sibling, only
+    # '<version>/subagents' itself, one level further in. Without this arm the own-plugin case fell
+    # straight through to the market-wide fallback further down, which picks the HIGHEST-NUMBERED
+    # cached version of the plugin -- a payload that can differ from the one actually running, and
+    # whose agent-def file names can therefore follow a naming convention (e.g. '*-agent.md' vs
+    # '*-subagent.md') this run's own recogniser does not match, silently scaffolding zero lenses for
+    # the plugin that is, by definition, running right now. In the source layout $OwnPluginRoot IS the
+    # plugin directory (skills/specialists-init/../.. resolves to it), so the same direct check is
+    # simply correct there too. Only for the plugin equal to Get-OwnPluginName -- every other plugin
+    # keeps the untouched cross-plugin resolution below.
+    if ($PluginName -eq (Get-OwnPluginName $OwnPluginRoot)) {
+        foreach ($leaf in @('subagents', 'agents')) {
+            $own = Join-Path $OwnPluginRoot $leaf
+            if (Test-Path -LiteralPath $own -PathType Container) { return (Resolve-Path -LiteralPath $own).Path }
+        }
+    }
     $parent = Split-Path $OwnPluginRoot -Parent
     foreach ($leaf in @('subagents', 'agents')) {
         $src = Join-Path $parent (Join-Path $PluginName $leaf)
@@ -504,11 +523,16 @@ foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
     # payload without the lib enumerates and recognises exactly what it did before.
     $agentFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $agentsDir -Kind Subagent) }
                   else { @(Get-ChildItem -Path $agentsDir -Filter '*-agent.md' -File) }
+    # Counted on RECOGNISED defs, not enumerated files (#2426): a directory can legitimately hold files
+    # that are not subagent defs (a README, a stray .md) and still yield zero correctly, so the notice
+    # below fires on the count that actually matters -- how many of $agentFiles produced a $defId.
+    $recognizedCount = 0
     $agentFiles | Sort-Object Name | ForEach-Object {
         $defId = if ($script:specialistLib) { Get-SpecialistFileId -Kind Subagent -Name $_.Name }
                  elseif ($_.BaseName -match '^(\d{2})-(\d{2})-agent$') { "$($Matches[1])-$($Matches[2])" }
                  else { '' }
         if (-not $defId) { return }
+        $script:recognizedCount++
         $group, $id = $defId.Split('-')
         $dest = Get-LensDest -Plugin $pluginName -Id $defId
         Add-RegisterId -Inventory $registerInventory -Plugin $pluginName -Id $defId
@@ -549,6 +573,18 @@ group: $group
         [System.IO.File]::WriteAllText($dest, $template, $Utf8NoBom)
         Write-Host "  [create] lens scaffold $lensRelDisplay/$(Get-LensWriteName -Id $defId)" -ForegroundColor Green
         $script:scaffolded++
+    }
+    if ($recognizedCount -eq 0) {
+        # A FOUND DIRECTORY THAT RECOGNISES NOTHING WAS THE SILENT HALF OF #2426: $agentsDir existed
+        # (the $null check above already passed), so the loop above never had a chance to complain --
+        # it iterated files, recognised none of them, and the closing 'N lens-scaffold(s) created, N
+        # already present' line then reads as a clean, complete run either way. This is exactly the
+        # shape a MISMATCHED payload version produces: the directory resolves, but its files follow a
+        # naming convention this run's recogniser does not match (the own-plugin fix above closes the
+        # one path that reliably produced this for the plugin actually running; a plugin OTHER than the
+        # own one still walks the cache fallback further up and can meet the same mismatch there). Say
+        # what was actually searched, in terms a reader can check against the directory themselves.
+        Write-Host "  [notice] plugin '$pluginName' agents directory '$agentsDir' held no file this run recognised as a subagent def -- looked for 'specialist-<g>-<i>-subagent.md' and the legacy '<g>-<i>-agent.md' via Get-SpecialistFiles, or (without that lib) the fallback filter '*-agent.md'. This can mean the resolved directory belongs to a payload version other than the one actually running." -ForegroundColor Yellow
     }
 }
 
@@ -968,10 +1004,13 @@ $importBody
 "@
 
 if (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
-    # The heading and the two prose lines come from Get-ClaudeMdScaffold in check-report-lib.ps1, for the
+    # The heading and the Prose row(s) come from Get-ClaudeMdScaffold in check-report-lib.ps1, for the
     # same reason $importNote does: the teardown has to RECOGNISE this exact wording to report it, and a
     # literal re-typed in a second script is what produced both instances of the accumulation bug (inbound
-    # #271, #331). Written by one script, recognised by another, defined in one place.
+    # #271, #331). Written by one script, recognised by another, defined in one place. Since September 23,
+    # 2026's second pass (issue #2374) Prose is ONE HTML COMMENT rather than prose sentences -- a root
+    # CLAUDE.md holds only '@'-import lines now, plus at most an H1 title, blank lines, and comments -- but
+    # nothing here has to change: '-join' over a one-element array is that element, unchanged.
     $sc = Get-ClaudeMdScaffold
     $scaffold = @"
 $($sc.Heading)
@@ -1444,7 +1483,7 @@ Write-Host ""
 Write-Host "Done: $copied persona-lens(es) created, $kept already present; $scaffolded lens-scaffold(s) created, $lensKept already present; $scriptScaffolded script-scaffold(s) created, $scriptKept already present." -ForegroundColor Cyan
 if ($notInstalledIds.Count -gt 0) {
     # Directly under the closing count, because that count is what this line qualifies (inbound #302).
-    Write-Host "  [notice] $($notInstalledIds.Count) of the enabled plugin(s) have no install record for this path -- a session here loads none of them, so the lenses above are in place for a specialist surface this repo does not yet have. Run this from this root (Step 1 of INSTALL.md, act 4):" -ForegroundColor Yellow
+    Write-Host "  [notice] $($notInstalledIds.Count) of the enabled plugin(s) have no install record for this path -- a session here loads none of them, so the lenses above are in place for a specialist surface this repo does not yet have. Run this from this root (act 4 of 'Installing it yourself' in plugins/ADOPTION.md):" -ForegroundColor Yellow
     foreach ($id in ($notInstalledIds | Sort-Object -Unique)) {
         Write-Host "             claude plugin install $id --scope project" -ForegroundColor Yellow
     }

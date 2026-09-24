@@ -49,18 +49,22 @@
       "PowerShell(gh run:*)",
       "PowerShell(gh label:*)",
       "PowerShell(gh workflow:*)",
-      "PowerShell(gh repo view:*)",
-
-      "Bash(./scripts/:*)",
-      "PowerShell(./scripts/:*)",
+      "PowerShell(gh repo view:*)",      
+      
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/:*)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/:*)",
-
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/release/cut-release.ps1\"*)",
+      
+      "Bash(./scripts/:*)",
+      "Bash(./scripts/release/cut-release.ps1*)",
+      "Bash(./scripts/release/publish-to-business.ps1*)",
+      "Bash(./scripts/release/ship-pr.ps1*)",
+
+      "PowerShell(./scripts/:*)",
       "PowerShell(./scripts/release/cut-release.ps1*)",
       "PowerShell(./scripts/release/publish-to-business.ps1*)",
-      "Bash(./scripts/release/cut-release.ps1*)",
-      "Bash(./scripts/release/publish-to-business.ps1*)"
+      "PowerShell(./scripts/release/ship-pr.ps1*)"
+      
     ]
   },
   "statusLine": {
