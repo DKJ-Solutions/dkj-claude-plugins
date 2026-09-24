@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Dave, September 24, 2026, after the `this-repo.md` / `language-layers.md` split was explained to him:
+record as a constitution rule that a file may be split as far as that keeps loaded context smaller.
+The principle already existed in narrower forms: the persona/manual split "by **when** they are needed" in
+the root `README.md`, and the `paths:` scoping of `language-layers.md`. This branch states it once, in the
+constitution, for every repo.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add the rule to `plugins/dkj-policy/CLAUDE.md` under General working practices, directly after
+      "be proactive about structure"
+- [x] Raise the always-on baseline on the record (`check-always-on-budget.ps1 -Raise`). The path was
+      already over the ceiling, so the gate refuses any growth, and this rule governs every turn and so
+      belongs on that path (+836 B)
 
 ### TEST
 
+- [x] `check-always-on-budget.ps1` is green after the recorded raise
+- [x] The lint and test gates run at `open-pr`
+
 ### DEPLOY: docs/split-files-to-shrink-context
 
-**Score:**
+The constitution gets a new working practice: split a file wherever the split keeps loaded context
+smaller. Content is divided by **when** it is needed. What governs every turn stays always-on, and the
+rest moves to where it loads on demand (a `paths:`-scoped rule, a manual, a skill page). The rule states
+its two limits. Halves that always load together save nothing, and a rule that must hold whichever files a
+turn touches stays always-on, because on-demand content is lost after a compaction. The always-on baseline
+is raised by 836 B on the record to carry it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running `dkj-policy` reads the constitution through its absolute `@`-import, so its sessions
+now carry an explicit licence, and a test, for moving situational detail off the always-on path: split by
+timing, not by topic.
+
+**Score:** 3
 
 #### Pull Request
 
