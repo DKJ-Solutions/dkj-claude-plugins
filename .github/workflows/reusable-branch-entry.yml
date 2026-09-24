@@ -21,10 +21,27 @@
 # workflow at a tag (`...@v5.8.0`) should pass the same tag here, so the runner and the script it runs are
 # one revision rather than a pinned runner around a moving script.
 #
-# NO -Pr, AND THEREFORE NO pull-requests: read -- the same behaviour the copied runner had. This repo's own
-# gate also holds the DEPLOY lock, which needs that scope from the CALLER (a called workflow can only lower
-# the caller's token, never raise it), so extending it to consumers is a change to every caller and is not
-# made here.
+# IT PASSES -Pr, SO A CONSUMER HOLDS THE DEPLOY LOCK TOO (issue #2429) -- the half a PR merged from the
+# GitHub UI still meets, which this repo's own branch-entry.yml has held since #884. Reading a PR body
+# needs `pull-requests: read`, and that scope can only come from the CALLER: a called workflow can lower
+# the caller's token, never raise it.
+#
+# SO THIS FILE DECLARES NO permissions: BLOCK, AND THAT IS THE COMPATIBILITY, NOT AN OMISSION. A called
+# workflow that asks for a scope its caller did not grant fails to start at all -- so declaring
+# `pull-requests: read` here would turn every caller scaffolded before #2429 (contents: read only) red on
+# its next PR. Declaring nothing inherits exactly what the caller granted. A caller that grants the scope
+# gets the lock; one that does not gets check-branch-entry.ps1's own "[INFO] PR #<n>'s body could not be
+# read, so the DEPLOY lock was not checked" -- the behaviour it had before, said out loud.
+#
+# THE CALLER MUST THEREFORE DECLARE ITS OWN permissions: BLOCK. This file used to cap the job at
+# `contents: read` whatever the caller did; it no longer can, so a caller with NO block runs this job --
+# which executes a script fetched from another repo -- with the repo's default token, read-write on older
+# repos. The caller Part 1 places declares `contents: read` + `pull-requests: read`; a hand-written one
+# must declare at least `contents: read`.
+#
+# THE CALLER ALSO NEEDS `edited` IN ITS TRIGGER (issue #1710): `open-pr.ps1 -RefreshBody` repairs a drifted
+# section by editing the body with no push behind it, and without `edited` the check cannot look again.
+# Both halves are what adopt-dkj-policy's Part 1 places since #2429.
 #
 # WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what `shell: powershell` is.
 name: Branch entry (reusable)
@@ -37,9 +54,6 @@ on:
         type: string
         required: false
         default: main
-
-permissions:
-  contents: read
 
 jobs:
   branch-entry:
@@ -57,10 +71,12 @@ jobs:
           ref: ${{ inputs.scripts-ref }}
           path: .workflow-scripts
 
-      - name: Changelog entry written
+      - name: Changelog entry written, and the DEPLOY section still matches the PR
         shell: powershell
         env:
           CLAUDE_PROJECT_DIR: ${{ github.workspace }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch "${{ github.head_ref }}"
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch "${{ github.head_ref }}" -Pr "${{ github.event.pull_request.number }}"
           exit $LASTEXITCODE
