@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The re-read #2439 left as #2304's next step: record the per-suite durations over runs on the step-5
+layout, then decide from that reading whether anything is still above the work bound.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `record-suite-durations.ps1` over PR runs 36004142508, 36003338063, 36001332625 (all on the
+      #2439 layout) -> `scripts/tests/suite-durations.json`, 141 suites, pool 6,807s
+- [x] `ci.yml`: the reading and the price of a sixth shard, below the step-5 paragraph
 
 ### TEST
 
+- [x] `ci-shard.tests.ps1` green (91 asserts) -- the suite that reads both files
+
 ### DEPLOY: fix/2304-rerecord-durations-split-new-branch
 
-**Score:**
+`scripts/tests/suite-durations.json` is re-recorded from three PR runs on the step-5 layout, so the gate
+now packs `new-branch-document` and `new-branch-base` from real durations instead of charging them the
+maximum. The reading closes #2304: the pool is 6,807s, the work bound over 20 lanes is ~340s, and the
+heaviest file (`script-contract.tests.ps1`) is 253.8s. No file sets the gate's makespan any more; it is
+bound by total work. CI went from 11.5 minutes on one file to shards of 4.2 to 7.4 minutes. `ci.yml`
+records the reading and prices a sixth shard at ~57s off the bound against ~20s of provisioning. The
+comment says to measure a run packed from this file before buying that shard.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: CI timing in this repo, which reaches no subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
