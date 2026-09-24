@@ -39,19 +39,46 @@
 
 ### PLAN
 
+#2402: after #2399 a claim marker must be written by its tag's own account, but a comment's `author`
+and `createdAt` both survive an edit -- so an account could edit its own marker into a year-old
+comment of its own and win every race. Repair as the issue proposed: drop a marker whose comment has
+`includesCreatedEdit` true (gh already returns it on every comment, so no extra call; the tooling never
+edits a claim comment). The advisory -- a null author drops the marker, so the issue reads free -- is
+kept as the behaviour and pinned by a test.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `claim-issue-lib.ps1`: `Get-ClaimRecords` skips a marker in an edited comment; docstring names
+  both #2402 decisions.
+- [x] Plugin mirror in sync (`build-shared-scripts.ps1`: nothing further to update).
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 512 passed -- the issue's measured backdating case through
+  `Get-ClaimRecords`, `Resolve-ClaimRace` (`keep`) and `Get-TagClaimVerdict` (`free`), an unedited
+  comment still read, and the null-author case pinned.
+- [x] Field verified live: `gh issue view --json comments` returns `includesCreatedEdit` on each comment.
+
 ### DEPLOY: fix/2402-edited-claim-marker
 
-**Score:**
+`claim-issue.ps1 -Tag` no longer counts a claim marker that sits in an **edited** comment. A comment
+keeps its original author and creation time when it is edited, so a marker edited into an old comment
+of one's own used to win every claim race and hold the issue indefinitely. The tooling never edits a
+claim comment, so a genuine claim is lost only if somebody edits it by hand. A marker whose author
+has been deleted or suspended is still dropped, which means the issue it held reads as free. That
+behaviour is now pinned by a test.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that sweeps its backlog with `claim-issue -Tag` could have an issue held by anybody who edited
+a claim marker into an old comment of their own. That no longer works. If you edit a genuine claim
+comment by hand, that claim is released.
+
+**Score:** 2
 
 #### Pull Request
+
+claim-issue: a marker in an edited comment is not a claim
 

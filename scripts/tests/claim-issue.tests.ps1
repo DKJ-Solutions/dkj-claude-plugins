@@ -1376,6 +1376,19 @@ Assert-True ($race.Action -eq 'keep') 'an earlier marker planted under another t
 $held = Get-TagClaimVerdict -Tag 'HOST-A/dave' -State 'OPEN' -Records @(Get-ClaimRecords -Json $planted)
 Assert-True ($held.Action -eq 'claim' -and $held.Code -eq 'free') 'and a planted marker does not park a free issue as held'
 
+# #2402: an account backdating its OWN marker by editing it into an old comment -- the issue's measured
+# case, run through the race and the verdict. createdAt survives an edit, so the edit flag is the evidence.
+$backdated = '{"comments":[{"id":"IC_old","createdAt":"2025-09-23T08:00:00Z","includesCreatedEdit":true,"author":{"login":"attacker"},"body":"old words <!-- claim-tag: ATTACKER-MACHINE/attacker -->"},{"id":"IC_new","createdAt":"2026-09-23T08:00:00Z","includesCreatedEdit":false,"author":{"login":"victim"},"body":"<!-- claim-tag: VICTIM-MACHINE/victim -->"}]}'
+$backRecords = @(Get-ClaimRecords -Json $backdated)
+Assert-True ($backRecords.Count -eq 1 -and $backRecords[0].Id -eq 'IC_new') 'a marker in an EDITED comment is not a claim, even under its author''s own tag (#2402)'
+$backRace = Resolve-ClaimRace -Tag 'VICTIM-MACHINE/victim' -Records $backRecords
+Assert-True ($backRace.Action -eq 'keep') 'so a backdated marker cannot win the race against a genuine claim made now'
+$backHeld = Get-TagClaimVerdict -Tag 'VICTIM-MACHINE/victim' -State 'OPEN' -Records @(Get-ClaimRecords -Json '{"comments":[{"id":"IC_old","createdAt":"2025-09-23T08:00:00Z","includesCreatedEdit":true,"author":{"login":"attacker"},"body":"<!-- claim-tag: ATTACKER-MACHINE/attacker -->"}]}')
+Assert-True ($backHeld.Code -eq 'free') 'and it does not hold a free issue indefinitely'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"includesCreatedEdit":false,"author":{"login":"b"},"body":"<!-- claim-tag: A/b -->"}]}')).Count -eq 1) 'an unedited comment is read as before'
+# The #2402 advisory, pinned: a null author (a deleted or suspended account) drops the marker, so the issue reads free.
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"author":null,"body":"<!-- claim-tag: A/ghost -->"}]}')).Count -eq 0) 'a marker whose author reads null is dropped -- the issue it held reads as free, by decision (#2402)'
+
 Write-Host ''
 Write-Host 'Get-TagClaimVerdict -- may this tag claim it' -ForegroundColor Cyan
 
