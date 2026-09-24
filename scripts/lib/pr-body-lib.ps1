@@ -876,7 +876,7 @@ function Add-GateBypassLines {
     # The section exists: insert the new lines after its last bullet, before the next heading. The body's
     # own newline is kept -- a CRLF body stays CRLF -- so an insert touches only the lines it adds, as the
     # append branch above and Add-ResolvesBlock do.
-    $nl = if (([string]$Body).Contains("`r`n")) { "`r`n" } else { "`n" }
+    $nl = Get-DocumentNewline -Content ([string]$Body)
     $src = ([string]$Body) -split "\r?\n"
     $out = New-Object System.Collections.Generic.List[string]
     $inFence = $false
@@ -928,7 +928,7 @@ function Complete-SuppliedPrBody {
         [string[]]$Placeholders
     )
     if (-not $Body -or -not $Description -or -not $Placeholders) { return $Body }
-    $nl = if ($Body.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $nl = Get-DocumentNewline -Content $Body
     $src = $Body -split "\r?\n"
     $changed = $false
     $descText = ($Description -split "\r?\n") -join $nl
