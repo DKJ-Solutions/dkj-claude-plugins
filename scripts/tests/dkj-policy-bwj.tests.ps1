@@ -616,6 +616,21 @@ Assert-True ($null -eq (Get-SubmitterFromNotes -Notes $notes -Pattern '(unclosed
 $boardless = @{ FieldName = ''; Statuses = @{}; SubmitterPattern = $withPattern.SubmitterPattern }
 Assert-Equal 0 (Test-GithubStatusMap -Map $boardless).Count 'a map naming no project field validates -- "this repo has no board" is an answer, not a gap'
 
+# AND THE ONE LINE A RUN PRINTS ABOUT ITS MAP SAYS SO (#2375). It rendered the declaration as
+# "field '', ." -- a deliberate answer that read like a broken one in the CI log.
+$smRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-statusmap-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path (Join-Path $smRoot 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $smRoot 'scripts\repo-config.ps1'),
+        "function Get-GithubStatusMap { @{ FieldName = ''; Statuses = @{}; SubmitterPattern = '' } }`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    $smLine = (@(Resolve-GithubStatusMap -RepoRoot $smRoot 6>&1) | Where-Object { "$_" -match 'Status map' } | ForEach-Object { "$_" }) -join "`n"
+    Assert-True ($smLine -match 'has no project board') 'board-less: the status-map line says there is no board'
+    Assert-True ($smLine -notmatch "field ''") 'board-less: and no longer prints an empty field and a dangling comma'
+} finally {
+    if (Test-Path -LiteralPath $smRoot) { Remove-Item -LiteralPath $smRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 $bothWays = @{ FieldName = ''; Statuses = @{ 'Done' = 'InReview' }; SubmitterPattern = '' }
 Assert-True (((Test-GithubStatusMap -Map $bothWays) -join ' ') -match 'not both') 'while saying there is no board AND naming its columns is refused as a half-finished edit'
 

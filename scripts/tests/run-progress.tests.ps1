@@ -76,13 +76,17 @@ Write-Host '== run-progress ==' -ForegroundColor Cyan
 
 # --- 1. the round trip, and the shape of the two lines -----------------------------------------
 $root = New-Root 'roundtrip'
-$started = (Get-Date).AddSeconds(-372).ToUniversalTime()
+# ONE INSTANT, READ ONCE (#2384). The elapsed asserts below are exact, so the start and the "now" the
+# reader derives elapsed from must come off the same clock read -- a second Get-Date drifted two
+# seconds under a loaded CI runner and turned the required check red.
+$fixedNow = (Get-Date).ToUniversalTime()
+$started = $fixedNow.AddSeconds(-372)
 Assert-True (Write-RunProgress -Id 'gate' -Label 'test gate' -Current 37 -Total 84 -Note '7 running' -StartedUtc $started -Root $root) `
     'Write-RunProgress: publishing a counted record reports success'
 Assert-True (Test-Path -LiteralPath (Join-Path $root 'gate.json') -PathType Leaf) `
     'Write-RunProgress: the record lands at <id>.json'
 
-$live = @(Get-LiveRunProgress -Root $root)
+$live = @(Get-LiveRunProgress -Root $root -NowUtc $fixedNow)
 Assert-True ($live.Count -eq 1) 'Get-LiveRunProgress: one live record comes back'
 Assert-Equal '[#####-------] 37/84  test gate (7 running)  +6m12s' (Format-RunProgressLine -Record $live[0]) `
     'Format-RunProgressLine: counts give a bar, the note rides in brackets, elapsed is derived'
@@ -95,8 +99,9 @@ Assert-True (@(Get-ChildItem -LiteralPath $root -Filter '*.tmp' -File).Count -eq
 
 # --- 2. no counts, no bar --------------------------------------------------------------------
 $root = New-Root 'nocounts'
-[void](Write-RunProgress -Id 'ship' -Label 'ship-pr: CI on PR #2103' -StartedUtc ((Get-Date).AddSeconds(-708).ToUniversalTime()) -Root $root)
-$live = @(Get-LiveRunProgress -Root $root)
+$fixedNow = (Get-Date).ToUniversalTime()
+[void](Write-RunProgress -Id 'ship' -Label 'ship-pr: CI on PR #2103' -StartedUtc ($fixedNow.AddSeconds(-708)) -Root $root)
+$live = @(Get-LiveRunProgress -Root $root -NowUtc $fixedNow)
 Assert-Equal '... ship-pr: CI on PR #2103  +11m48s' (Format-RunProgressLine -Record $live[0]) `
     'Format-RunProgressLine: a record with no counts gets elapsed and deliberately no bar'
 
