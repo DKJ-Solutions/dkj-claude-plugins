@@ -134,12 +134,37 @@ A SessionStart check lists armed + green + settled pull requests the sweep will 
   all four came back correct.
 - [x] Ran `stranded-sweep-sessioncheck.ps1 -CheckScriptOverride <a fixture printing [STRANDED] ...>` --
   the hook correctly forwarded the finding with its own headline and every line, verbatim.
-- [ ] Tycho: dedicated regression coverage for `Get-MergeOnGreenStrandedVerdict` (in
+- [x] Tycho: dedicated regression coverage for `Get-MergeOnGreenStrandedVerdict` (in
   `merge-on-green-lib.tests.ps1`, alongside its siblings) and for `check-stranded-sweep.ps1` /
   `stranded-sweep-sessioncheck.ps1` (skip paths, the `[STRANDED]` marker, untrusted-data scrubbing).
-  Left open deliberately -- this branch's assignment built the function pure and injectable
-  specifically so Tycho does not need `gh` or a live tracker to test it, and the chain's next link is
-  his, not mine.
+  Added 17 asserts to `merge-on-green-lib.tests.ps1` (110 -> 127 pass, 0 fail): the one Stranded=true
+  shape (armed, executed-path hit, green, settled), the identity check against
+  `Get-MergeOnGreenExecutedPathHit`'s own reason string (so the two cannot drift apart unnoticed), not
+  armed / draft / fork / no-executed-path-hit all reading as not-stranded, an unreadable / red / pending
+  required-check state each reading as not-stranded, and the settle-window boundary (one minute short
+  -> not stranded, exactly the window -> stranded).
+  New file `scripts/tests/stranded-sweep-gate.tests.ps1` (29 asserts, pattern reused from
+  `unfolded-entry-gate.tests.ps1` and `git-identity-gate.tests.ps1`): `check-stranded-sweep.ps1` driven
+  end to end against a fake `gh` on PATH (same mechanism as `verify-resolved-issues.tests.ps1`) --
+  every `[SKIP]` arm (no workflow file, gh absent, gh unauthenticated, repo name unresolvable, the list
+  read failing), `[OK]` with nothing armed and with an armed-but-not-stranded record, the one
+  `[STRANDED]` positive case with a control character (ESC, BEL) in the pushed branch name and title
+  confirmed scrubbed to `?` rather than reaching printed output or being silently dropped, the resume
+  command printed as two lines, and exit 0 in every case including a per-PR required-check read
+  failing. `stranded-sweep-sessioncheck.ps1` driven against stub check scripts (no `gh` needed at all):
+  silent on `[SKIP]`/`[OK]`, forwards `[STRANDED]` verbatim under its own headline, reports a crashed
+  check without ever failing the session, and handles a missing check script. Also asserted
+  `hooks.json` carries exactly one `SessionStart` entry naming this hook, as a `command` hook with a
+  positive timeout.
+  No injection seam had to be added: `check-stranded-sweep.ps1`'s three `gh` reads
+  (`Get-ActiveGhAccount`, `pr list`, `pr checks`) all resolve `gh` off PATH, so a fake `gh.cmd` ahead of
+  it on PATH is a complete seam without touching the script.
+  Ran `scripts/tests/shared-scripts.tests.ps1` (1022/1022), `measure-skill.tests.ps1` (93/93),
+  `hook-check-lib.tests.ps1` (28/28), `hook-stdin-guard.tests.ps1` (47/47),
+  `check-plugin-integrity-scripts.tests.ps1` (58/58), `check-plugin-integrity-figures.tests.ps1`
+  (24/24) and `scripts/lint/check-plugin-integrity.ps1` (0 errors) -- all unaffected, all still green.
+  No test gap left: the pure verdict, the check script's own tracker reads, and the hook's forwarding
+  are all exercised without a live tracker.
 
 ### DEPLOY: fix/2438-stranded-sweep-sessioncheck
 
