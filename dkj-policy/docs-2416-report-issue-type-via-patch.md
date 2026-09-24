@@ -41,17 +41,29 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue` step 1: file without `--type`, then set the type with `gh api --method PATCH ... -f type=`
+- [x] `WORKFLOW-portable.md` classification table: name the same `PATCH` route instead of `--type`
 
 ### TEST
 
+- [x] `gh issue create --help` on gh 2.74.0 lists no `--type`; the `PATCH` route was measured on #2414 and #2415 (the issue's own evidence)
+
 ### DEPLOY: docs/2416-report-issue-type-via-patch
 
-**Score:**
+`report-issue`'s step 1 prescribed `gh issue create --type`, which `gh 2.74.0` rejects as an unknown
+flag, so the create failed and no issue was filed. The step now files with the labels only and sets
+the type straight after with `gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=<Type>` --
+the route the page already used for an issue filed earlier, and one that works on old and new `gh`
+alike. `WORKFLOW-portable.md`'s classification table names the same route. Closes #2416.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer filing through `report-issue` on an older `gh` no longer has the create fail outright; the
+issue lands and is typed in the same step.
+
+**Score:** 3
 
 #### Pull Request
 

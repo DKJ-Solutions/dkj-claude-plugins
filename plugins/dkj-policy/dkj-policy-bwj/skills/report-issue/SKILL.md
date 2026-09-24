@@ -67,17 +67,26 @@ colleague-facing translation is a judgement call, not a transform. The full rule
 
 Apply the `dkj-subagents-alpha` filing bar in full: verify the finding still stands by reading the code, doc
 or output behind it; search the tracker for a duplicate; one subject per issue; state what you
-measured versus inferred. Then file it **classified** -- the type and the labels are set at creation,
-never left for a later pass:
+measured versus inferred. Then file it **classified** -- the labels on the create itself, and the type
+by the call straight after it, in the same step, never left for a later pass:
 
 ```bash
 gh issue create --repo <owner>/<repo> --title "<precise technical title>" --body "<full detail>" \
-  --type <Task|Bug|Feature> [--label "<reach label>"] [--label documentation]
+  [--label "<reach label>"] [--label documentation]
+# gh prints the new issue's URL; its last segment is <n>
+gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=<Task|Bug|Feature>
 ```
+
+**The type is a second call, not a `--type` flag, on purpose.** `gh issue create --type` is not on every
+`gh` this workflow meets: measured September 24, 2026
+([#2416](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2416)), `gh 2.74.0` answers it with
+`unknown flag: --type` and creates nothing. The REST `PATCH` sets the type on that `gh` and on any newer
+one, so the step names the route that works everywhere rather than a minimum version. **If the `PATCH`
+fails, the issue already exists typeless** -- re-run the same call; never file a second issue.
 
 | what to set | how to decide it |
 |---|---|
-| `--type` | **Bug** for a defect in behaviour that already exists, **Feature** for a capability the store does not have yet, **Task** for everything else -- which is most of it, doc findings included. Always one of the three; both BWJ orgs have exactly these and no others (measured September 7, 2026 -- `gh api orgs/<org>/issue-types` returns Task, Bug, Feature in `BWJ-ecommerce` and in `BWJ-Development` alike) |
+| the type (`-f type=`) | **Bug** for a defect in behaviour that already exists, **Feature** for a capability the store does not have yet, **Task** for everything else -- which is most of it, doc findings included. Always one of the three; both BWJ orgs have exactly these and no others (measured September 7, 2026 -- `gh api orgs/<org>/issue-types` returns Task, Bug, Feature in `BWJ-ecommerce` and in `BWJ-Development` alike) |
 | the reach label (`Get-ReachLabel`, default `minor`) | **only** where management or the commissioner would notice it. The test is whether that reader notices the **defect**, not whether the file renders to them: a customer-facing template with a developer-only defect is tier 0, and a build script whose breakage stops a release the business is waiting on is not. **In doubt, leave it off** |
 | `--label documentation` | on a doc finding, on top of its type -- the one content distinction the three types cannot express here |
 | `--label CRO` (store repos only) | on an issue filed by, or on behalf of, the CRO team (today: Johnno). Never in this plugin's own source repo `dkj-claude-plugins` -- it has no Shopify store for a CRO team to measure. See `WORKFLOW-portable.md`'s classification section |
@@ -97,7 +106,7 @@ Note the issue number and URL. If the finding collapses on verification, stop he
 not file a weakened version, and do not create an Asana task for a non-issue.
 
 **On an issue that is already filed** -- yours from an earlier run, or somebody else's -- the same two
-fields are set afterwards:
+fields are set with the same calls:
 
 ```bash
 gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=Bug
@@ -153,7 +162,7 @@ opt_fields: custom_field_settings.custom_field.gid,custom_field_settings.custom_
 
 **Name every subfield -- Asana's `opt_fields` takes no wildcard**, so `custom_field_settings.*`
 returns the options *absent* rather than an error, and the write then silently has nothing to send.
-Match the option whose `name` is the `--type` you passed in step 1, and send its `gid`: a
+Match the option whose `name` is the type you set in step 1, and send its `gid`: a
 **multi-select** field takes an **array** of option GIDs, a single-select the bare GID -- the BWJ
 board's is multi-select, so `["<option gid>"]`. **If the type matches no option on the board, write
 nothing and say which option was missing** -- that is a board somebody has rebuilt or renamed, and
