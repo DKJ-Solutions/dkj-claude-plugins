@@ -259,7 +259,7 @@ function Write-CloseOutReceipt {
     # clause keeps its signal -- the same reasoning every other conditional line in this workflow
     # carries, and the reason this is not folded into the three lines above.
     if (-not [string]::IsNullOrWhiteSpace($Bypass)) {
-        Write-Host "  This run skipped $($Bypass.Trim()): a deliberate gate bypass belongs in the PR body, with a clause in the receipt." -ForegroundColor DarkGray
+        Write-Host "  This run skipped $($Bypass.Trim()): open-pr recorded it in the PR body's 'Gate bypass' section (-BypassNote gives the reason); name it in the receipt too." -ForegroundColor DarkGray
     }
 
     # THE MARKER, AND IT IS THE LAST THING THIS FUNCTION DOES (issue #2050). It says "a work chain ended

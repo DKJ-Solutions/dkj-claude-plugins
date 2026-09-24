@@ -44,7 +44,94 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 36 minor entries** <!-- pending-tally -->
+**17 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2361-pr-bypass-note · 20260924-084152Z
+
+A run of `open-pr` or `ship-pr` that skips a gate now records it in the PR body itself: a **Gate bypass**
+section naming the switches, with the reason given by the new `-BypassNote`, or a line saying none was
+given. The section is kept across `-RefreshBody`, and a later bypass is added beneath an earlier one. Until
+now the workflow asked for that record and the tooling offered no way to write it, so it took a hand edit
+of the body the DEPLOY lock reads; on PR #2357 that edit flattened the body and the merge was refused
+after a full CI wait.
+
+A body passed with `-Body` now gets the entry's description filled in at the template's placeholder, as
+the default body does. A `-Body` that still lacks the DEPLOY section is refused before the gates, instead
+of opening a PR the DEPLOY lock would refuse to merge after CI.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose session has to ship past a gate gets the record the workflow asks for without touching
+the PR body by hand, which is the step that broke a merge here. Visible to whoever runs `open-pr`/`ship-pr`
+with a skip switch after the next plugin update, and to anyone reviewing such a PR.
+
+**Score:** 2
+
+#### Pull Request
+
+open-pr/ship-pr: record a gate bypass in its own PR-body section that survives -RefreshBody
+
+Plugins: dkj-policy
+
+[PR #2418](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2418)
+
+---
+
+### DEPLOY: docs/2416-report-issue-type-via-patch · 20260924-082111Z
+
+`report-issue`'s step 1 prescribed `gh issue create --type`, which `gh 2.74.0` rejects as an unknown
+flag, so the create failed and no issue was filed. The step now files with the labels only and sets
+the type straight after with `gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=<Type>` --
+the route the page already used for an issue filed earlier, and one that works on old and new `gh`
+alike. `WORKFLOW-portable.md`'s classification table names the same route. Closes #2416.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer filing through `report-issue` on an older `gh` no longer has the create fail outright; the
+issue lands and is typed in the same step.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue sets the issue type after creation, since gh 2.74.0 has no --type flag
+
+Plugins: dkj-policy-bwj
+
+[PR #2417](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2417)
+
+---
+
+### DEPLOY: docs/2411-integrity-family-placement-rule · 20260924-075648Z
+
+The `check-plugin-integrity-*` test family now has a stated rule for where a new numbered check's
+scenarios go. They join the existing file that owns their subject. A new file is justified only when
+that file's CI median would exceed the gate's work bound (sum of suite medians over lanes, ~352s
+today), which is the condition every past split was actually bought on. The second half of #2411 was
+measured and does not hold: a file's own start costs ~0.3s, about 4s across fifteen files against
+the family's 2,494.6s, so merging files would buy nothing. The family's 35.5% share is set by how
+many times it runs the gate, not by how many files it has. The rule lives in the test engineer's repo
+lens, with a pointer beside the membership table in the shared fixture. Closes #2411.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- repo-internal test organisation; nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Where a new check-plugin-integrity check's tests go, and why fewer files would not help
+
+[PR #2413](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2413)
+
+---
 
 ### DEPLOY: feat/2337-connector-runner-ref · 20260924-074131Z
 
