@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**18 / 41 minor entries** <!-- pending-tally -->
+**19 / 42 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2405-open-pr-body-file · 20260924-091928Z
+
+`open-pr` takes `-BodyFile <path>`: the PR body read from a UTF-8 file, treated exactly as `-Body`. Called
+through `powershell -File`, Windows PowerShell 5.1 split a `-Body` carrying `"` characters across native
+arguments, and a fragment bound to another parameter (`-MaxParallel`, on a consumer PR). A path carries no
+quote, so it arrives intact. Passing both, naming a missing file, or an empty one is refused before anything
+runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer whose own tooling shells out to `open-pr` with a template-derived body can now pass that body
+without it being torn apart. Visible to whoever calls `open-pr` that way after the next plugin update.
+
+**Score:** 1
+
+#### Pull Request
+
+open-pr takes -BodyFile so a quote-carrying body never crosses a native command line
+
+Plugins: dkj-policy
+
+[PR #2421](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2421)
+
+---
 
 ### DEPLOY: feat/2414-retire-round-tooling · 20260924-090708Z
 
