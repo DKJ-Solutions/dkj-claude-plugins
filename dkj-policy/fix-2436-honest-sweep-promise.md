@@ -67,7 +67,7 @@ trusted trunk tree). Step 4's tests ride along with step 1.
 `ship-pr` now promises that the merge-on-green sweep will finish a PR only when the sweep can. For a
 PR whose diff touches code the runner would execute from the branch, it names that path at arm time
 and says that, if this run does not finish, somebody has to re-run ship-pr from a session. It is
-read through the same predicate the sweep refuses on (#2436).
+read through the same executed-path predicate the sweep refuses on (#2338), so the two cannot disagree (#2436).
 
 **Score:** 2
 
