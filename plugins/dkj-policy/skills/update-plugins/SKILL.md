@@ -111,6 +111,16 @@ the scope, or holding records that **disagree** with each other (a scope mismatc
 rather than replacing one) -- the run falls back to `project` exactly as before and prints one line per
 plugin saying why, above step 1.
 
+**One scope per plugin was not enough, and a path-less user-scope record is now a second target**
+([#2459](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2459)). Where a plugin has both a
+record for this checkout and a path-less `user` record, the checkout's record wins that lookup, so the
+path-less one was never updated -- and `plugin-versions` then reported it behind in the run's own
+receipt (#2442: a session can load the older one), under a summary saying `0 failed`. Measured
+September 24, 2026, v5.7.0 -> v5.8.0: 5 of 7 plugins behind straight after the run. Step 2 now updates
+that record too, at `--scope user`. The update is **not gated on the version**, because in the measured
+run both records matched before step 2, so the gap only opened once the checkout's record had moved. A
+path-less `managed` record is left alone, since it belongs to an administrator.
+
 **This does not widen the boundary above.** That boundary is about which *tree* gets written: a
 user-scope update rewrites no repo's tree at all, and a `local`/`project` one rewrites exactly the
 checkout you are standing in.
