@@ -178,6 +178,45 @@ Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scr
 Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
     'a path that merely NAMES scripts is not one -- the match is anchored on the directory'
 
+Write-Host ''
+Write-Host 'Get-MergeOnGreenExecutedPathHit -- fail-closed on every spelling git or a case-insensitive FS could deliver (Tycho #18, item 3)' -ForegroundColor Cyan
+
+# THE THREAT MODEL: this predicate's own docstring says a PR touching either seam file loses only
+# CURRENCY, never safety, because -TrustedRoot already stops either file's branch copy from ever being
+# EXECUTED. So a variant this function fails to recognise does not let untrusted code run -- it lets the
+# sweep silently merge a PR that should have been left to a session's judgement instead. Still a real
+# finding: the function's own header says "FAIL-CLOSED ON AN INCOMPLETE LIST", and a guard whose stated
+# posture is fail-closed should be fail-closed on the shape of the path too, not only on its count.
+#
+# EACH VARIANT BELOW IS SOMETHING THE REAL DATA SOURCE CAN ACTUALLY PRODUCE: `gh pr list --json files`
+# reports a path exactly as git committed it, and git is case-SENSITIVE while the runner's own
+# filesystem (windows-latest) is not -- so a PR that `git mv`s the seam file to a different case is a
+# genuinely different git object carrying the SAME execution target once checked out there. A doubled
+# slash or surrounding whitespace is defence in depth for the same reason the count check already fails
+# closed: this function does not control what a caller hands it.
+foreach ($variant in @(
+    'Scripts/Repo-Config.ps1',          # git-legal case rename; same file on the runner's own FS
+    'SCRIPTS/REPO-CONFIG.PS1',          # the same, upper-cased throughout
+    'scripts//repo-config.ps1',         # a doubled separator
+    ' scripts/repo-config.ps1 ',        # surrounding whitespace
+    './scripts/repo-config.ps1',        # a leading './'
+    '/scripts/repo-config.ps1',         # a leading '/'
+    'SCRIPTS\Lib\Branch-Info.PS1'       # the SECOND seam file, backslash AND case together
+)) {
+    $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
+    Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- same seam file, a different spelling"
+}
+# THE NEGATIVE CONTROLS: normalisation must not become OVER-eager and start matching a path that merely
+# resembles the seam file. Anchored on the directory AND the exact filename, not a substring or prefix.
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts/repo-config2.ps1')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'a different file that merely shares the stem is NOT a hit'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts/repo-config.ps1x')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'an extra trailing character is NOT a hit'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('notscripts/repo-config.ps1')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'a directory that merely ENDS WITH "scripts" is NOT a hit'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('../scripts/repo-config.ps1')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'a leading ../ is a genuinely different (and, for a repo-relative gh path, unreachable) path -- not stripped, not a hit'
+
 # THE SHRINK ITSELF, ASSERTED POSITIVELY (issue #2437): every path the OLD four-prefix rule refused and
 # the new two-file rule does not, is now ELIGIBLE -- because the runner ships from a trusted tree and no
 # longer executes any of these from the branch at all.
@@ -544,6 +583,106 @@ Assert-True ($flowRaw -match 'GIT_CONFIG_VALUE_0') 'and its value, built from GH
 Assert-True ($flowRaw -match 'DELIBERATE DEPARTURE') `
     'the choice to apply one ephemeral credential to both trees, rather than a persisted one on trusted-main alone, is named in-file'
 Assert-True ($flowRaw -match '-TrustedRoot') 'ship-pr.ps1 is invoked in trusted-tree mode'
+
+Write-Host ''
+Write-Host "The 'Ship it' step's GIT_CONFIG_* triplet is internally consistent (Tycho #18, item 1)" -ForegroundColor Cyan
+
+# ISOLATE THE STEP'S run: BODY, so a KEY_n/VALUE_n belonging to some OTHER step (there is none today,
+# but nothing stops a future workflow edit from adding one) is never folded into this count. Anchored on
+# the step's own name, to the next top-level '- name:' at the same indentation, or the end of the file.
+$shipStepMatch = [regex]::Match($flowRaw, '(?ms)^\s{6}- name:\s*Ship it.*?(?=\r?\n\s{6}- name:|\z)')
+Assert-True $shipStepMatch.Success "the 'Ship it' step is found as its own block"
+$shipStep = $shipStepMatch.Value
+
+# GIT_CONFIG_COUNT IS THE CONTRACT: git reads exactly this many KEY_n/VALUE_n pairs (0..COUNT-1) and
+# silently ignores anything past it -- a KEY_1 left behind while COUNT stayed '1' is a no-op, not a
+# second credential, and nothing would say so.
+$countMatch = [regex]::Match($shipStep, "\`$env:GIT_CONFIG_COUNT\s*=\s*'(\d+)'")
+Assert-True $countMatch.Success 'GIT_CONFIG_COUNT is assigned a literal integer'
+$declaredCount = [int]$countMatch.Groups[1].Value
+Assert-True ($declaredCount -ge 1) 'the declared count is at least one -- a credential this step exists to supply'
+
+$keyIndices = @([regex]::Matches($shipStep, '\$env:GIT_CONFIG_KEY_(\d+)\s*=') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Unique)
+$valueIndices = @([regex]::Matches($shipStep, '\$env:GIT_CONFIG_VALUE_(\d+)\s*=') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Unique)
+$expectedIndices = @(0..($declaredCount - 1))
+
+Assert-Equal ($expectedIndices -join ',') ($keyIndices -join ',') `
+    "GIT_CONFIG_KEY_n exists for exactly indices 0..COUNT-1 ($declaredCount declared) -- no gap, no orphan"
+Assert-Equal ($expectedIndices -join ',') ($valueIndices -join ',') `
+    "GIT_CONFIG_VALUE_n exists for exactly indices 0..COUNT-1 ($declaredCount declared) -- no gap, no orphan"
+Assert-Equal $keyIndices.Count $valueIndices.Count 'every KEY_n has a matching VALUE_n and vice versa'
+
+# EVERY KEY NAME HAS THE SHAPE git config ITSELF REQUIRES (section.subsection.key, or section.key) --
+# 'not-a-valid-key' is refused by git with "key does not contain a section" (verified locally in the
+# honouring test below). A malformed key here would silently configure nothing, so the push credential
+# ship-pr's fold needs would simply not be there.
+foreach ($m in [regex]::Matches($shipStep, "\`$env:GIT_CONFIG_KEY_\d+\s*=\s*'([^']+)'")) {
+    $key = $m.Groups[1].Value
+    Assert-True ($key -match '^[A-Za-z][A-Za-z0-9-]*\..+\.[A-Za-z][A-Za-z0-9-]*$') `
+        "GIT_CONFIG_KEY '$key' has the section.subsection.key shape git config requires"
+}
+Assert-True ($shipStep -match "GIT_CONFIG_KEY_0\s*=\s*'http\.https://github\.com/\.extraheader'") `
+    'the one key configured today is the documented per-URL extraheader override'
+
+Write-Host ''
+Write-Host 'Neither checkout step is handed a token: (Tycho #18, item 1)' -ForegroundColor Cyan
+
+# EVERY actions/checkout STEP'S OWN BLOCK, generically -- not just the two named ones above, so a THIRD
+# checkout added later is covered without anyone extending this list.
+$checkoutBlocks = @([regex]::Matches($flowRaw, '(?ms)uses:\s*actions/checkout@.*?(?=\r?\n\s{6}- name:|\z)'))
+Assert-True ($checkoutBlocks.Count -eq 2) "exactly two actions/checkout steps found ($($checkoutBlocks.Count))"
+foreach ($cb in $checkoutBlocks) {
+    $pathMatch = [regex]::Match($cb.Value, 'path:\s*(\S+)')
+    $label = if ($pathMatch.Success) { $pathMatch.Groups[1].Value } else { '(unnamed)' }
+    Assert-True ($cb.Value -notmatch '(?m)^\s+token:\s') "the '$label' checkout's with: block carries no token: input"
+}
+
+Write-Host ''
+Write-Host 'Git actually honours the extracted triplet -- local-only, no network (Tycho #18, item 1)' -ForegroundColor Cyan
+
+# THE FOUR LINES ARE TAKEN VERBATIM FROM THE WORKFLOW, not retyped -- so a future edit to the formula
+# (a different header name, a different encoding) is caught here too, not only by the textual asserts
+# above. Extracted once, from the same $shipStep the triplet asserts above already isolated.
+$credLines = [regex]::Match($shipStep, '(?ms)^\s*\$basicAuth\s*=\s*\[Convert\]::ToBase64String.*?\$env:GIT_CONFIG_VALUE_0\s*=\s*"AUTHORIZATION: basic \$basicAuth"\s*$')
+Assert-True $credLines.Success 'the four-line credential-construction snippet is found verbatim in the Ship it step'
+
+$gitCmd = Get-Command git -ErrorAction SilentlyContinue
+if (-not $gitCmd) {
+    Write-Host '  [SKIP] git is not on PATH -- cannot prove the mechanism locally' -ForegroundColor Yellow
+} elseif ($credLines.Success) {
+    $probeDir = Join-Path ([System.IO.Path]::GetTempPath()) ("mog-gitcred-probe-$PID-$([guid]::NewGuid().ToString('n'))")
+    New-Item -ItemType Directory -Path $probeDir -Force | Out-Null
+    try {
+        $marker = "tycho-marker-$([guid]::NewGuid().ToString('n').Substring(0,12))"
+        $probeLines = @(
+            "`$ErrorActionPreference = 'Stop'"
+            "`$env:GH_TOKEN = '$marker'"
+            $credLines.Value.Trim()
+            'git config --get $env:GIT_CONFIG_KEY_0'
+        )
+        $probeFile = Join-Path $probeDir 'probe.ps1'
+        [System.IO.File]::WriteAllText($probeFile, ($probeLines -join "`r`n"), (New-Object System.Text.UTF8Encoding $false))
+
+        $prevEap = $ErrorActionPreference
+        $prevLoc = (Get-Location).Path
+        try {
+            $ErrorActionPreference = 'Continue'
+            Set-Location -LiteralPath $probeDir
+            $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $probeFile 2>&1
+            $code = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+            Set-Location -LiteralPath $prevLoc
+        }
+        $flat = (($out | Out-String) -replace "`r?`n", '').Trim()
+        Assert-Equal 0 $code 'the extracted snippet runs cleanly and git accepts the resulting config'
+        $expected = 'AUTHORIZATION: basic ' + [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("x-access-token:$marker"))
+        Assert-True ($flat -like "*$expected*") `
+            'git config --get reads back exactly the header the extracted snippet composed -- the env-var triplet is honoured, with nothing written to a .git/config'
+    } finally {
+        Remove-Item -Recurse -Force -LiteralPath $probeDir -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Host ''
 Write-Host 'The lib, the script and the runner are ASCII' -ForegroundColor Cyan

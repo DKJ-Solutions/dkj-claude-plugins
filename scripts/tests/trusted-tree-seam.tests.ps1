@@ -23,10 +23,44 @@
     added to either script's dot-source list is picked up automatically; nothing here has to be told
     about it by name.
 
+    THE WALK ALSO FOLLOWS THE GUARDED, TWO-STEP IDIOM (code review finding): `ship-pr.ps1` and
+    `open-pr.ps1` both dot-source `source-repo-guard-lib.ps1` as
+
+        $guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
+        if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy ... }
+
+    which is TWO lines, not one -- an assignment, then a dot-source of the VARIABLE. The original
+    single-regex walk (`. (Join-Path $PSScriptRoot '...')`) never matches the second line, so
+    `source-repo-guard-lib.ps1` -- and everything IT dot-sources the same way (11 more files, measured
+    against this tree: `git-identity-lib.ps1`, `claim-issue-lib.ps1`, `closeout-lib.ps1` and its own
+    closure, `always-on-budget-lib.ps1`, `run-progress-lib.ps1`, `branch-info.ps1`) -- was never added
+    to `$closure` at all, so the forbidden-pattern scan below never read a byte of it. PROVEN rather
+    than assumed: a line `. (Join-Path $repoRoot 'scripts\evil-payload.ps1')` planted inside
+    `source-repo-guard-lib.ps1` left the ORIGINAL (single-pattern) version of this suite fully green,
+    because the file carrying it was never discovered. The regression case near the end of this file
+    reproduces that proof against a throwaway fixture (never against the real file) and pins that the
+    CURRENT walker catches it.
+
+    HOW THE VARIABLE FORM IS RESOLVED: for each file, every `$var = Join-Path $PSScriptRoot '...'`
+    assignment is collected first (line-anchored, so a `#`-comment mentioning the same shape is never
+    mistaken for code -- the same reason the literal-form regex below is line-anchored too). A later
+    `. $var` (bare, or wrapped in `if (...) { ... }`) is then resolved through that table. Two more
+    tables are collected the same way and read for the OPPOSITE reason: `$var = Join-Path $repoRoot
+    '...'` (or `$RepoRoot`) marks `. $var` as the exact forbidden shape the section below refuses, just
+    reached through a variable instead of an inline call; `$var = Join-Path $seamRoot '...'` marks it as
+    the SANCTIONED seam (ship-pr.ps1's own `$configPath`) -- known, and skipped rather than flagged.
+
+    FAIL CLOSED ON A `. $var` THIS WALK CANNOT EXPLAIN. A variable dot-sourced without a matching
+    entry in any of the three tables -- built some other way, or built on a line this walk's own
+    assignment regex does not match -- is not silently skipped: it is recorded as UNRESOLVED, and the
+    suite refuses on a non-empty list. The alternative (skip and say nothing) is exactly the shape of
+    hole the guarded idiom above turned out to be: a file this suite believes it scanned, and does not.
+
     WHAT COUNTS AS A HIT: a live (non-comment-only) line matching a dot-source of the form
     `. (Join-Path $repoRoot '...')` or `. (Join-Path $RepoRoot '...')`, case either way -- the exact
-    shape both retired call sites used. `$seamRoot` is a different identifier, so the two rewritten
-    call sites do not match and the assertion is that NOTHING ELSE in the closure does either.
+    shape both retired call sites used -- OR a variable dot-source resolved through the forbidden table
+    above. `$seamRoot` is a different identifier, so the two rewritten call sites do not match and the
+    assertion is that NOTHING ELSE in the closure does either, in either form.
 
     NOT A CLAIM ABOUT EVERY .ps1 IN THE REPO -- deliberately scoped to the closure ship-pr.ps1 and
     open-pr.ps1 actually dot-source. A script only ever run as a CHILD PROCESS (fold-changelog-entry.ps1,
@@ -53,13 +87,26 @@ function Assert-True {
     else { $script:fail++; Write-Host "  [FAIL] $Name" -ForegroundColor Red }
 }
 
+function Assert-Equal {
+    param($Expected, $Actual, [string]$Name)
+    if ("$Expected" -eq "$Actual") { $script:pass++; Write-Host "  [PASS] $Name" -ForegroundColor Green }
+    else { $script:fail++; Write-Host "  [FAIL] $Name`n         expected: '$Expected'`n         got:      '$Actual'" -ForegroundColor Red }
+}
+
 Write-Host 'Discovering ship-pr.ps1 + open-pr.ps1''s dot-source closure' -ForegroundColor Cyan
 
 # THE WALK. $PSScriptRoot resolves per-FILE (each script's own directory), so a discovered target is
 # resolved relative to the file that named it, not to $RepoRoot or to this suite's own location.
+#
+# RETURNS Closure (the file set, same shape as before), Unresolved (a `. $var` this walk could not
+# explain -- the suite refuses on a non-empty list, see below) and ForbiddenVar (a `. $var` resolved to
+# a $repoRoot/$RepoRoot-rooted assignment -- the variable-form twin of the literal-form scan further
+# down this file). See this file's own header for why all three exist.
 function Get-DotSourceClosure {
     param([string[]]$Seeds)
     $visited = @{}
+    $unresolved = @()
+    $forbiddenVar = @()
     $queue = New-Object System.Collections.Generic.Queue[string]
     foreach ($s in $Seeds) { $queue.Enqueue((Resolve-Path -LiteralPath $s).Path) }
     while ($queue.Count -gt 0) {
@@ -69,25 +116,80 @@ function Get-DotSourceClosure {
         if (-not (Test-Path -LiteralPath $current -PathType Leaf)) { continue }
         $visited[$key] = $current
         $text = Get-Content -LiteralPath $current -Raw
-        $dir = Split-Path -Parent $current
-        foreach ($m in [regex]::Matches($text, "(?m)^\s*\.\s*\(Join-Path\s+\`$PSScriptRoot\s+'([^']+)'\)")) {
+        $dir  = Split-Path -Parent $current
+        $name = Split-Path -Leaf $current
+
+        # THREE ASSIGNMENT TABLES, LINE-ANCHORED (the same reason the literal-form regex below is
+        # anchored to the start of a line): a comment merely discussing this shape has '#' as its first
+        # non-space character, never '$', so it can never populate one of these tables.
+        $psrVars = @{}
+        foreach ($m in [regex]::Matches($text, "(?m)^[ \t]*\`$(\w+)\s*=\s*Join-Path\s+\`$PSScriptRoot\s+'([^']+)'")) {
+            $psrVars[$m.Groups[1].Value] = $m.Groups[2].Value
+        }
+        $forbidVars = @{}
+        foreach ($m in [regex]::Matches($text, "(?m)^[ \t]*\`$(\w+)\s*=\s*Join-Path\s+\`$(repoRoot|RepoRoot)\s+'([^']+)'")) {
+            $forbidVars[$m.Groups[1].Value] = $m.Groups[2].Value
+        }
+        $seamVars = @{}
+        foreach ($m in [regex]::Matches($text, "(?m)^[ \t]*\`$(\w+)\s*=\s*Join-Path\s+\`$seamRoot\s+'([^']+)'")) {
+            $seamVars[$m.Groups[1].Value] = $true
+        }
+
+        # THE LITERAL-INLINE FORM, unchanged from before.
+        foreach ($m in [regex]::Matches($text, "(?m)^[ \t]*\.\s*\(Join-Path\s+\`$PSScriptRoot\s+'([^']+)'\)")) {
             $target = Join-Path $dir $m.Groups[1].Value
             try { $resolved = (Resolve-Path -LiteralPath $target -ErrorAction Stop).Path } catch { continue }
             if (-not $visited.ContainsKey($resolved.ToLowerInvariant())) { $queue.Enqueue($resolved) }
         }
+
+        # THE GUARDED, TWO-STEP FORM: a bare '. $var' at the start of a line, or one immediately after
+        # an open brace on the same line ('if (...) { . $var; ... }') -- both real shapes in this
+        # closure today, neither reachable from inside a '#'-comment.
+        foreach ($m in [regex]::Matches($text, '(?m)(?:^[ \t]*|\{[ \t]*)\.[ \t]+\$(\w+)\b')) {
+            $v = $m.Groups[1].Value
+            $lineNo = ($text.Substring(0, $m.Index) -split "`n").Count
+            if ($psrVars.ContainsKey($v)) {
+                $target = Join-Path $dir $psrVars[$v]
+                try { $resolved = (Resolve-Path -LiteralPath $target -ErrorAction Stop).Path } catch {
+                    $unresolved += "$($name):$lineNo -> `$$v (resolved to '$target', which does not exist)"
+                    continue
+                }
+                if (-not $visited.ContainsKey($resolved.ToLowerInvariant())) { $queue.Enqueue($resolved) }
+            } elseif ($forbidVars.ContainsKey($v)) {
+                $forbiddenVar += "$($name):$lineNo -> `$$v (assigned via Join-Path `$$($forbidVars[$v]) ...)"
+            } elseif ($seamVars.ContainsKey($v)) {
+                # The sanctioned seam (ship-pr.ps1's own $configPath) -- known and asserted on
+                # separately below. Not a target to recurse into: it is the seam file itself.
+            } else {
+                # FAIL CLOSED: a '. $var' this walk cannot explain is not silently skipped.
+                $unresolved += "$($name):$lineNo -> `$$v (no matching assignment found by this walk)"
+            }
+        }
     }
-    return @($visited.Values)
+    return [pscustomobject]@{ Closure = @($visited.Values); Unresolved = $unresolved; ForbiddenVar = $forbiddenVar }
 }
 
-$closure = @(Get-DotSourceClosure -Seeds @($ShipPath, $OpenPath))
+$discovery = Get-DotSourceClosure -Seeds @($ShipPath, $OpenPath)
+$closure = $discovery.Closure
 # A FLOOR, NOT A CEILING (issue #1145's own lesson on brittle counts applied here): this asserts the
 # walk actually found something rather than silently scanning zero files -- a regex that stopped
-# matching would make every assertion below vacuously true. 20 is comfortably under the 25 measured
-# when this suite was written (September 24, 2026); a repo that trims dependencies is not a failure
-# here, a walk that finds almost nothing is.
-Assert-True ($closure.Count -ge 20) "the closure discovery found a plausible number of files ($($closure.Count))"
+# matching would make every assertion below vacuously true. 30 is comfortably under the 36 measured
+# once the guarded two-step idiom joined the walk (September 24, 2026); a repo that trims dependencies
+# is not a failure here, a walk that finds almost nothing is.
+Assert-True ($closure.Count -ge 30) "the closure discovery found a plausible number of files ($($closure.Count))"
 Assert-True (@($closure | Where-Object { $_ -ieq $ShipPath }).Count -gt 0) 'ship-pr.ps1 is in its own closure'
 Assert-True (@($closure | Where-Object { $_ -ieq $OpenPath }).Count -gt 0) 'open-pr.ps1 is in its own closure'
+Assert-True (@($closure | Where-Object { $_ -match '[\\/]source-repo-guard-lib\.ps1$' }).Count -gt 0) `
+    'the GUARDED dot-source is followed too -- source-repo-guard-lib.ps1 is in the closure'
+
+Write-Host ''
+Write-Host 'The walk explains every guarded dot-source it meets, or refuses (fail closed)' -ForegroundColor Cyan
+
+Assert-True ($discovery.Unresolved.Count -eq 0) `
+    "every '. `$var' dot-source in the closure is explained by a Join-Path assignment this walk found ($($discovery.Unresolved.Count) unresolved)"
+if ($discovery.Unresolved.Count -gt 0) {
+    foreach ($u in $discovery.Unresolved) { Write-Host "         unresolved: $u" -ForegroundColor Red }
+}
 
 Write-Host ''
 Write-Host 'No file in the closure dot-sources via $repoRoot/$RepoRoot -- only via $seamRoot' -ForegroundColor Cyan
@@ -96,7 +198,7 @@ Write-Host 'No file in the closure dot-sources via $repoRoot/$RepoRoot -- only v
 # the closure. The two sanctioned call sites use a DIFFERENT identifier ($seamRoot), so this is not an
 # allowlist of exact lines to skip -- it is a flat "zero occurrences" assertion, which is what makes a
 # THIRD such line, added anywhere in the closure without anyone touching this suite, fail loudly.
-$forbidden = '\.\s*\(Join-Path\s+\$(repoRoot|RepoRoot)\b'
+$forbidden = '(?m)^[ \t]*\.\s*\(Join-Path\s+\$(repoRoot|RepoRoot)\b'
 $hits = @()
 foreach ($file in $closure) {
     $text = Get-Content -LiteralPath $file -Raw
@@ -105,9 +207,17 @@ foreach ($file in $closure) {
         $hits += "$(Get-Item -LiteralPath $file | ForEach-Object { $_.Name }):$lineNo"
     }
 }
-Assert-True ($hits.Count -eq 0) 'no dot-source anywhere in the closure loads a .ps1 off $repoRoot/$RepoRoot directly'
+# THE VARIABLE-FORM TWIN, from the SAME walk that built $closure -- a $repoRoot/$RepoRoot dot-source
+# reached through '$var = Join-Path $repoRoot ...; . $var' is exactly as forbidden as the literal form
+# above, and the walk already found every instance of it while discovering the closure itself.
+Assert-True ($hits.Count -eq 0) 'no dot-source anywhere in the closure loads a .ps1 off $repoRoot/$RepoRoot directly (literal form)'
 if ($hits.Count -gt 0) {
     foreach ($h in $hits) { Write-Host "         found: $h" -ForegroundColor Red }
+}
+Assert-True ($discovery.ForbiddenVar.Count -eq 0) `
+    'no dot-source anywhere in the closure loads a .ps1 off $repoRoot/$RepoRoot through a variable either (guarded form)'
+if ($discovery.ForbiddenVar.Count -gt 0) {
+    foreach ($h in $discovery.ForbiddenVar) { Write-Host "         found: $h" -ForegroundColor Red }
 }
 
 Write-Host ''
@@ -170,6 +280,48 @@ Assert-True ($shipRaw -match '\$foldTreeIsOwned\s*=\s*\$true') `
     'only the worktree-creating arm marks $foldTree as owned by this run'
 $notOwnedCallCount = @([regex]::Matches($shipRaw, 'Remove-ShipFoldWorktree\s+-Path\s+\$foldTree\s+-NotOwned:')).Count
 Assert-True ($notOwnedCallCount -ge 4) "every Remove-ShipFoldWorktree call site passes -NotOwned ($notOwnedCallCount found)"
+
+Write-Host ''
+Write-Host 'Regression: the widened walk actually follows the guarded idiom into an injected line' -ForegroundColor Cyan
+
+# REPRODUCES THE PROOF FROM THIS FILE'S OWN HEADER, AGAINST A THROWAWAY FIXTURE -- never against the
+# real source-repo-guard-lib.ps1. Two files: a caller using the EXACT guarded two-step idiom
+# ship-pr.ps1/open-pr.ps1 use, and a "lib" it reaches that way carrying one forbidden line. Before the
+# widened walk this suite could not see past the caller at all; after it, both the closure membership
+# and the forbidden-pattern scan have to catch the injected line, or this section fails.
+$seamFixtureDir = Join-Path ([System.IO.Path]::GetTempPath()) ("trusted-tree-seam-fixture-$PID-$([guid]::NewGuid().ToString('n'))")
+New-Item -ItemType Directory -Path $seamFixtureDir -Force | Out-Null
+try {
+    $fixtureCaller  = Join-Path $seamFixtureDir 'fixture-caller.ps1'
+    $fixtureGuarded = Join-Path $seamFixtureDir 'fixture-guarded-lib.ps1'
+    [System.IO.File]::WriteAllText($fixtureCaller, @'
+# The exact shape ship-pr.ps1:479 and open-pr.ps1:543 use -- an assignment, then a guarded dot-source
+# of the VARIABLE, never the literal-inline form the original (pre-widened) walk matched.
+$guardLib = Join-Path $PSScriptRoot 'fixture-guarded-lib.ps1'
+if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib }
+'@, (New-Object System.Text.UTF8Encoding $false))
+    [System.IO.File]::WriteAllText($fixtureGuarded, @'
+# An otherwise innocuous guarded lib -- EXCEPT for the line below, which is reachable only through the
+# guarded caller above. A walker that never follows '. $var' would build a closure that never contains
+# this file at all, so the forbidden-pattern scan below would never read this line either.
+. (Join-Path $repoRoot 'scripts\evil-payload.ps1')
+'@, (New-Object System.Text.UTF8Encoding $false))
+
+    $fixtureDiscovery = Get-DotSourceClosure -Seeds @($fixtureCaller)
+    $fixtureGuardedResolved = (Resolve-Path -LiteralPath $fixtureGuarded).Path
+    Assert-True (@($fixtureDiscovery.Closure | Where-Object { $_ -ieq $fixtureGuardedResolved }).Count -gt 0) `
+        'the guarded lib IS discovered -- the walk followed the two-step idiom into it'
+    Assert-Equal 0 $fixtureDiscovery.Unresolved.Count 'nothing in this clean fixture is unresolved'
+
+    $fixtureHits = @()
+    foreach ($f in $fixtureDiscovery.Closure) {
+        foreach ($m in [regex]::Matches((Get-Content -LiteralPath $f -Raw), $forbidden)) { $fixtureHits += $f }
+    }
+    Assert-True (($fixtureHits.Count -gt 0) -or ($fixtureDiscovery.ForbiddenVar.Count -gt 0)) `
+        'the injected $repoRoot dot-source, reachable only through the guarded lib, IS flagged'
+} finally {
+    Remove-Item -Recurse -Force -LiteralPath $seamFixtureDir -ErrorAction SilentlyContinue
+}
 
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })

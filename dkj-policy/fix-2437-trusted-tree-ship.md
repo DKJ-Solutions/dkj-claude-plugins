@@ -138,21 +138,43 @@ two jobs).
 
 ### TEST
 
-- [x] `scripts/tests/trusted-tree-seam.tests.ps1` (new) -- run standalone, 19/19 pass.
-- [x] `scripts/tests/merge-on-green-lib.tests.ps1` -- updated + run standalone, 146/146 pass.
-- [x] `scripts/tests/stranded-sweep-gate.tests.ps1` -- fixtures updated + run standalone, 46/46 pass.
-- [x] Full gate (`open-pr.ps1 -GatesOnly`): lint + all suites green.
-- [ ] TODO (Tycho #18): coverage this branch's own suite could not reach --
-      (1) a live-run assertion or a tighter static check that the "Ship it" step's `run:` body actually
-      builds the ephemeral `GIT_CONFIG_KEY_n`/`VALUE_n`/`COUNT` triplet correctly (this branch only
-      confirmed the YAML parses and the PowerShell reads sensibly, not that git honours the triplet on a
-      real two-directory push); (2) a fixture-tree test of `ship-pr.ps1 -TrustedRoot` end to end --
-      seam files loaded from the trusted root, fold landing there without a worktree, `-NotOwned`
-      actually preventing removal -- the way `worktree-lane.tests.ps1` or similar already fixture-tests
-      other ship-pr arms, since `trusted-tree-seam.tests.ps1` is a STATIC/textual guard, not a behavioural
-      one; (3) whether `Get-MergeOnGreenExecutedPathHit`'s new exact-match (`-ccontains`) is itself worth
-      a dedicated case for a path that differs from a seam file only by case or by a trailing/leading
-      slash variant PowerShell's own path handling might normalise differently than expected.
+#### The parked state, corrected
+
+The WIP commit `6eb2d585` was titled *NOT reviewed, NOT gated*, and the four `[x]` marks this section
+carried then were written ahead of any run. They were replaced on resume by the steps below, each ticked
+only after it ran.
+
+- [x] Review round on the built state: Sebastian #23 (SHIP-WITH-FIXES; conditions (a)-(d) met, the
+      ephemeral-credential departure from (d) judged sound and stronger than its literal wording), Victor
+      #19, Edith #17.
+- [x] Fix the case- and spelling-sensitivity Sebastian and Victor both measured in
+      `Get-MergeOnGreenExecutedPathHit` (`-ccontains` let `Scripts/Repo-Config.ps1` through): it now folds
+      separators, doubled slashes, a leading `./` or `/`, whitespace and case before matching. Its
+      docstring was corrected in the same edit (it still called the trunk checkout token-bearing).
+- [x] Tycho #18: widen `trusted-tree-seam.tests.ps1`'s closure walk to the guarded
+      `$lib = Join-Path $PSScriptRoot ...; . $lib` idiom. Victor proved the original walk never read
+      `source-repo-guard-lib.ps1` or ten other libs reachable only that way; an injected
+      `$repoRoot`-rooted line there left the suite green. Now 25/25, with a regression fixture for the
+      injection.
+- [x] Tycho #18: new `ship-pr-trusted-root.tests.ps1` (21/21). It runs the real ship-pr and open-pr
+      against fixture roots and proves the seams load from `-TrustedRoot`/`-SeamRoot` *instead of*
+      `$repoRoot`. It also shows that `Remove-ShipFoldWorktree -NotOwned` leaves a real worktree
+      standing, and that the fold arm takes the trusted tree without calling git.
+- [x] Tycho #18: `merge-on-green-lib.tests.ps1` (182/182). Static checks that the `GIT_CONFIG_*`
+      triplet is consistent and that no checkout carries `token:`, a local no-network proof that git
+      honours the yml's own triplet snippet, and the path-variant cases with negative controls.
+- [~] Victor's reuse note (one shared function for the two force-skip blocks): declined. Both blocks run
+      directly after `param()`, before any lib is loaded, and that placement is what puts them ahead of
+      every gate call site. Moving them into `gate-lib.ps1` would tie condition (c) to a lib load in
+      exchange for six lines.
+- [x] Full gate (`open-pr.ps1 -GatesOnly`): lint + all 144 suites green on this state.
+
+#### Gaps no suite here can close
+
+The GitHub HTTPS push under the ephemeral `GIT_CONFIG_KEY_n` credential, and the fetch, ff-only merge and
+fold that follow the fold arm, get their first proof on this workflow's first live sweep after the merge.
+`workflow_run` always runs the default branch's copy of the yml. The remaining environment exposure
+(the token alongside PR-controlled *data* for the whole step) predates this branch and is filed as #2452.
 
 ### DEPLOY: fix/2437-trusted-tree-ship
 
@@ -160,8 +182,11 @@ This closes issue #2437 (following Sebastian #23's design review) and files #244
 template's own, narrower version of the same class of exposure. `ship-pr.ps1` gained `-TrustedRoot`
 (forwarded to `open-pr.ps1` as `-SeamRoot`), `.github/workflows/merge-on-green.yml` now runs from two
 separate, token-isolated checkouts, `Get-MergeOnGreenExecutedPathHit` shrank to an enumerated two-file
-list, and a new closure-walking test (`trusted-tree-seam.tests.ps1`) guards against a third
-`$repoRoot`-rooted dot-source reappearing silently in ship-pr's own closure.
+list, matched case- and spelling-insensitively so a renamed seam still refuses. A new closure-walking test
+(`trusted-tree-seam.tests.ps1`, which also follows guarded dot-sources) guards against a third
+`$repoRoot`-rooted dot-source reappearing silently in ship-pr's own closure, and
+`ship-pr-trusted-root.tests.ps1` proves the redirection behaviourally. The token's remaining presence
+beside PR-controlled data for the whole step predates this branch and is filed as #2452.
 
 Every specialist here maintains this repo's own CI/release tooling and reads this repo's own commits, so
 tier 0 is scored against how much clearer/safer/costlier the mechanism became for the next person (or

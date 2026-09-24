@@ -226,9 +226,9 @@ function Get-MergeOnGreenExecutedPathHit {
         UNTIL #2437, THIS MATCHED FOUR PREFIXES (scripts/, .github/, .workflow-scripts/,
         plugins/**/scripts/), because the runner ran ship-pr.ps1 -- and everything it dot-sources --
         FROM THE CHECKED-OUT BRANCH, with FOLD_PUSH_TOKEN in that same workspace. #2437 moved the runner
-        onto a TRUSTED tree instead: `.github/workflows/merge-on-green.yml` now checks out a token-bearing
-        copy of the trunk (`persist-credentials: false` on the branch checkout, no token there at all) and
-        runs `ship-pr.ps1` -- and every sibling lib it loads via `$PSScriptRoot` -- from THAT tree, never
+        onto a TRUSTED tree instead: `.github/workflows/merge-on-green.yml` now checks out a copy of the
+        trunk beside the branch (both `persist-credentials: false`, the push credential supplied only as
+        ephemeral environment config for the one step that pushes) and runs `ship-pr.ps1` -- and every sibling lib it loads via `$PSScriptRoot` -- from THAT tree, never
         from the branch. See that workflow's own header comments for the two-checkout shape and
         ship-pr.ps1's `-TrustedRoot` parameter for what runs where.
 
@@ -248,6 +248,11 @@ function Get-MergeOnGreenExecutedPathHit {
         NEITHER FILE EXISTS IN THE SOURCE REPO'S OWN SHAPE ONLY -- every consumer running this workflow
         carries its own `scripts/repo-config.ps1` and `scripts/lib/branch-info.ps1`, so the two-name list
         below is not source-repo-specific.
+
+        THE MATCH IS NORMALISED, NOT EXACT. Separators, doubled slashes, a leading './' or '/',
+        surrounding whitespace and CASE are all folded before the comparison, because a `git mv` to
+        'Scripts/Repo-Config.ps1' is the same file on a case-insensitive filesystem -- and a guard that
+        misses a spelling fails open.
 
         FAIL-CLOSED ON AN INCOMPLETE LIST. `gh pr list --json files` returns at most 100 files, so a
         record whose files fall short of its changedFiles has not shown the whole diff, and one with no
@@ -276,8 +281,11 @@ function Get-MergeOnGreenExecutedPathHit {
     # tree unconditionally: a repo's OWN answer to Get-RepoName lives only on its own branches.
     $seamFiles = @('scripts/repo-config.ps1', 'scripts/lib/branch-info.ps1')
     foreach ($p in $paths) {
-        $norm = $p -replace '\\', '/'
-        if ($seamFiles -ccontains $norm) {
+        # Fail closed on every spelling git or a case-insensitive filesystem could deliver for the same
+        # file: separators, a leading './' or '/', doubled slashes, surrounding whitespace, and CASE --
+        # a `git mv` to 'Scripts/Repo-Config.ps1' is the same seam on Windows and macOS.
+        $norm = (($p.Trim() -replace '\\', '/') -replace '/{2,}', '/') -replace '^(\./|/)+', ''
+        if ($seamFiles -contains $norm) {
             # A path is chosen by whoever pushed the branch, and this reason is printed into a CI log.
             $shown = $norm -replace '[^\x20-\x7E]', '?'
             return "it changes '$shown', a repo-owned seam this runner ships under the TRUNK's answer for"
