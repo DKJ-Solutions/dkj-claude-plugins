@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-    Reports which of this workflow's four canonical triage-priority labels ('prio-1' through
-    'prio-4') this repository's tracker is missing, and prints a paste-ready `gh label create` line
-    for each one -- never creates a label itself. Issue #1895, split from #1843.
+    Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
+    'prio-4', plus the 'dossier' kind label, #2462) this repository's tracker is missing, and prints a
+    paste-ready `gh label create` line for each one -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
     THE GAP THIS CLOSES. `.claude/specialists/lenses/specialist-01-01-lens.md` (this workflow's own source
@@ -121,10 +121,10 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 
-# --- The canonical four, with a BUILT-IN fallback ---------------------------------------------------
+# --- The canonical set, with a BUILT-IN fallback ----------------------------------------------------
 # Get-TriageLabels is Optional in the script contract, so a repo that has not yet run adopt-config (or
 # is on a plugin version older than this seam) does not define it -- and that must not read as "no
-# canonical set exists". The four values below are this repo's OWN live labels (read back from
+# canonical set exists". The values below are this repo's OWN live labels (read back from
 # `gh label list --repo DKJ-Solutions/dkj-claude-plugins` at the time this was written) and must stay
 # byte-identical to $script:TriageLabels in scripts/repo-config.ps1: the two are one answer stated
 # twice for the same reason Get-EntryFallbackType's 'Chore' is -- a consumer who has adopted the seam
@@ -134,6 +134,8 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'prio-2'; Color = 'FBCA04'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
     [pscustomobject]@{ Name = 'prio-3'; Color = 'D93F0B'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
+    # Not a rung: the kind label for a collecting issue (#2462) -- see Get-TriageLabels' own comment.
+    [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
 )
 
 # @(...) WRAPS THE WHOLE if/else, NOT JUST EACH BRANCH -- the trap this repo's own manual catalogues
@@ -186,7 +188,7 @@ function Format-SingleQuotedArg {
         single quote -- the exact escape PowerShell itself reads back as one literal quote inside a
         '...' string.
 
-        WHY THIS EXISTS AT ALL (security review finding on issue #1895's own PR). The four BUILT-IN
+        WHY THIS EXISTS AT ALL (security review finding on issue #1895's own PR). The five BUILT-IN
         canonical labels happen to carry no apostrophe, which is why this bug shipped unnoticed through
         this script's own first test pass: nothing exercised it. But Get-TriageLabels is
         Adopt = 'copy' and Optional, which means a consumer is free to answer the seam with their own
@@ -248,7 +250,7 @@ foreach ($label in $triageLabels) {
     Write-Host "  [missing] '$($label.Name)' -- $($label.Description)" -ForegroundColor Yellow
     # ESCAPED HERE, AND ONLY HERE (see Format-SingleQuotedArg's own docstring): this is the one line
     # that composes an actual command a person pastes, and Name/Color/Description all come from
-    # $triageLabels -- the built-in four today, but a consumer's own free-text Get-TriageLabels answer
+    # $triageLabels -- the built-in five today, but a consumer's own free-text Get-TriageLabels answer
     # tomorrow, which test 6 in adopt-triage-labels.tests.ps1 proves fully replaces them.
     $qName = Format-SingleQuotedArg -Value $label.Name
     $qColor = Format-SingleQuotedArg -Value $label.Color

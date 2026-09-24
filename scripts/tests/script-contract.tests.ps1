@@ -435,13 +435,13 @@ try {
 
     # --- 6g. Get-TriageLabels: absent -> [INFO] naming its built-in fallback, exit 0 (issue #1895) ---
     #     Mirrors 6c/6d: Optional in the contract, so a consumer's repo-config.ps1 without it is not
-    #     drifted -- adopt-triage-labels.ps1 already carries the same four canonical labels as its own
+    #     drifted -- adopt-triage-labels.ps1 already carries the same canonical triage labels as its own
     #     built-in fallback (see that script's tests for the duality between the two copies).
     $c = New-FixtureConsumer -StripFromRepoConfig @('Get-TriageLabels')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c)
     Assert-Equal 0 $r.Code 'Get-TriageLabels absent: exit-code 0 (a built-in fallback exists, not a breach)'
     Assert-NotMatch '\[ERROR\]' $r.Out 'Get-TriageLabels absent: no error'
-    Assert-Match "\[INFO\].*'Get-TriageLabels' missing from scripts\\repo-config\.ps1.*used by: adopt-triage-labels.*optional.*falls back to 'the same four labels, built into adopt-triage-labels\.ps1 as its own fallback" $r.Out `
+    Assert-Match "\[INFO\].*'Get-TriageLabels' missing from scripts\\repo-config\.ps1.*used by: adopt-triage-labels.*optional.*falls back to 'the same five labels, built into adopt-triage-labels\.ps1 as its own fallback" $r.Out `
         'Get-TriageLabels absent: INFO names the function, the caller, and the built-in-fallback default'
     # Still present -> [OK] (already covered generically by the happy path in test 1; made explicit
     # here too, for direct traceability with the absent-case scenario just above).
