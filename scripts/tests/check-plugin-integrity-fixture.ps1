@@ -22,6 +22,12 @@
       check-plugin-integrity-invocations.tests.ps1   checks 22, 42, 42b, 24, 26 -- printed invocations
       check-plugin-integrity-roster.tests.ps1        checks 6b, 38, 45, 3d and -SkipCheck -- defs and names
 
+    A NEW NUMBERED CHECK JOINS THE FILE ABOVE THAT OWNS ITS SUBJECT (issue #2411), and widens that
+    file's line here. A new file is justified only when the receiving file's CI median would exceed
+    the gate's work bound -- the rule and its measurement are in the test engineer's repo lens,
+    .claude/specialists/lenses/specialist-04-18-lens.md. Fewer files would not buy time: a file's own
+    start costs ~0.3s of the family's ~2,500s; the rest is gate invocations, which grouping leaves alone.
+
     WHY THERE IS MORE THAN ONE, MEASURED FOUR TIMES. The gate parallelises per FILE, so the only way
     to give a heavy suite's work the idle lanes is to make it more than one file -- and the same
     measurement has now forced the same answer at two different scales, the second of them four times.
