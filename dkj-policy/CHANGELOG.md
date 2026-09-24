@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**22 / 48 minor entries** <!-- pending-tally -->
+**23 / 49 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2426-init-own-payload-subagents · 20260924-115135Z
+
+`specialists-init` reads the subagent definitions of the payload that is actually running, rather than those
+of the highest version in the plugin cache, and says so when a directory it found holds no definition it
+recognises. Prevents a stale payload from scaffolding zero subagent lenses behind a closing count that read
+as a clean result (#2426).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `specialists-init` from an older installed payload than the newest one cached now gets a
+lens for every subagent it enables, instead of none and no word about it; where a directory still yields
+nothing, a notice names the directory and what was looked for.
+
+**Score:** 2
+
+#### Pull Request
+
+specialists-init reads its own payload's subagents and says when a found directory yields none
+
+Plugins: dkj-subagents-alpha
+
+[PR #2433](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2433)
+
+---
 
 ### DEPLOY: fix/2429-consumer-deploy-lock · 20260924-112315Z
 
