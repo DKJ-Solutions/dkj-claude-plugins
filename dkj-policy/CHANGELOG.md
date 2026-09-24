@@ -44,7 +44,40 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**16 / 38 minor entries** <!-- pending-tally -->
+**17 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2361-pr-bypass-note · 20260924-084152Z
+
+A run of `open-pr` or `ship-pr` that skips a gate now records it in the PR body itself: a **Gate bypass**
+section naming the switches, with the reason given by the new `-BypassNote`, or a line saying none was
+given. The section is kept across `-RefreshBody`, and a later bypass is added beneath an earlier one. Until
+now the workflow asked for that record and the tooling offered no way to write it, so it took a hand edit
+of the body the DEPLOY lock reads; on PR #2357 that edit flattened the body and the merge was refused
+after a full CI wait.
+
+A body passed with `-Body` now gets the entry's description filled in at the template's placeholder, as
+the default body does. A `-Body` that still lacks the DEPLOY section is refused before the gates, instead
+of opening a PR the DEPLOY lock would refuse to merge after CI.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose session has to ship past a gate gets the record the workflow asks for without touching
+the PR body by hand, which is the step that broke a merge here. Visible to whoever runs `open-pr`/`ship-pr`
+with a skip switch after the next plugin update, and to anyone reviewing such a PR.
+
+**Score:** 2
+
+#### Pull Request
+
+open-pr/ship-pr: record a gate bypass in its own PR-body section that survives -RefreshBody
+
+Plugins: dkj-policy
+
+[PR #2418](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2418)
+
+---
 
 ### DEPLOY: docs/2416-report-issue-type-via-patch · 20260924-082111Z
 
