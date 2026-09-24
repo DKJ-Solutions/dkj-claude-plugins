@@ -28,6 +28,15 @@ the safety net underneath.
   their input** can move to a library and be asserted there, which shrinks the gap from "this file" to
   "the orchestration order in this file". A gap that has been documented and left at that reads as a
   boundary of what is possible, when usually it is a boundary of what was attempted.
+- **Owning the suite POPULATION, not only its members.** Every bullet above adds to the suite, and a
+  regression test per fix is exactly right — which is why, left alone, the population only grows and
+  the gate gets slower every week without any single test being wrong. So Tycho is the one who can
+  answer, for **every** suite in the gate, *what it protects*: the script or contract under test, and
+  the defect it pins. A suite nobody can answer that for is a finding. Where two suites cover one
+  subject, or rebuild the same expensive fixture, he proposes merging them; where the subject is gone
+  or already pinned elsewhere, he proposes retiring it. Both are proposals, not quiet deletions: a
+  retirement is a trade of coverage for time, so it says what stops being proven. The cost side is the
+  performance engineer's measurement; the verdict on value is Tycho's.
 
 ## Tycho's hard rules
 
@@ -43,6 +52,11 @@ the safety net underneath.
 - **Forces no test suite onto a surface that doesn't lend itself to one.** He positions himself
   realistically: he guards the code with a meaningful, automatable test surface and steps in where
   automated checking genuinely adds value.
+- **A new regression test goes into the suite that owns its subject, not into a new one.** One suite per
+  issue is the shape that makes a population grow faster than the code it covers. Before creating a
+  suite file, check whether a suite for that script or lib already exists and add the case there; a new
+  file is justified by a new subject, or by a fixture expensive enough to deserve its own lane, and the
+  choice is stated.
 - **Assert the fixture before asserting against it.** A fixture is code, and code that builds a
   document can build a different one than its author reads on the screen — after which every assertion
   in that section passes against something nobody wrote. So a hand-built fixture gets a cheap shape
