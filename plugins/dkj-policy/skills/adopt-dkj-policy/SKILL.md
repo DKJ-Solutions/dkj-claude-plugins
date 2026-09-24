@@ -209,6 +209,19 @@ called job), and its check reports as **`<job> / <job>`** (`branch-entry / branc
 only if you make it a required check. **A repo adopted before this change keeps its full copy** -- this
 part never overwrites a file. To take the caller, delete that file and re-run Part 1.
 
+**The branch-entry caller also holds the DEPLOY lock**
+([#2429](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2429)). The runner passes the PR
+number, so it refuses a DEPLOY section that changed after the PR opened. That is the half of the lock a PR
+merged from the GitHub UI still meets, because `ship-pr` never ran for it. It needs two lines in *your*
+caller, because a called workflow can never raise its caller's token: **`pull-requests: read`** under
+`permissions:`, and **`edited`** in the trigger's `types:`, so the check looks again after `open-pr
+-RefreshBody` edits the body. Part 1 places both. **A caller placed before #2429 keeps working unchanged**:
+it has neither line, so the runner cannot read the body and prints `[INFO] ... the DEPLOY lock was not
+checked` instead of going red. To take the lock, add the two lines by hand or delete the caller and
+re-run Part 1. **Whatever you write, keep a `permissions:` block in the caller.** The runner declares none,
+so that it can inherit `pull-requests: read`. The cost is that a caller with no block hands a job that
+runs a fetched script the repo's default token, which is read-write on older repos.
+
 **Which branches owe nothing** is a seam: `Get-EntryGateExemptPrefixes` in your `scripts/repo-config.ps1`,
 defaulting to `sync`. A mirror branch carries somebody else's work rather than your repo's, so it has
 nothing to declare -- both consumers reached that answer independently, with nothing recording that it was

@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#2429: the consumer's branch-entry runner passes no `-Pr`, so a consumer PR merged from the GitHub UI
+after its DEPLOY section was edited meets no lock. Waited for #2432 (#2422) to merge, since it rewrote
+every file this touches (the owner's call, 2026-09-24). The constraint that shapes the design: a called
+workflow that declares a scope its caller did not grant fails to start, so the runner must not declare
+`pull-requests: read` itself, or every caller placed before this change goes red.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `reusable-branch-entry.yml`: passes `-Pr`, `GH_TOKEN`, `GH_REPO`; declares no `permissions:`, so it
+  inherits the caller's grant (an old caller gets the script's own `[INFO]`, not a red check)
+- [x] the caller Part 1 places (both copies of `adopt-workflow-folder.ps1`): `pull-requests: read` and the
+  `edited` trigger type
+- [x] `adopt-dkj-policy` SKILL.md: what the lock needs from a caller, and how an older caller takes it
+- [x] security review (advisory, taken): with no cap in the runner, a caller must keep its own
+  `permissions:` block -- stated in the runner's header and on the skill page; code review: no findings
 
 ### TEST
 
+- [x] `adopt-workflow-folder.tests.ps1`: four asserts over both hops -- 115 pass, 0 fail
+
 ### DEPLOY: fix/2429-consumer-deploy-lock
 
-**Score:**
+The branch-entry gate that `adopt-dkj-policy` places in a consumer now holds the DEPLOY lock, as this
+repo's own gate does: it refuses a PR whose DEPLOY section changed after the PR opened, including one
+merged from the GitHub UI. A caller placed before this change keeps working unchanged and says the lock
+was not checked. To take the lock, add `pull-requests: read` and the `edited` trigger, or re-run Part 1.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer repo's own CI starts guarding the changelog text a PR was approved with, once its caller
+carries the two lines. Callers placed before this change see nothing new until then.
+
+**Score:** 2
 
 #### Pull Request
 
