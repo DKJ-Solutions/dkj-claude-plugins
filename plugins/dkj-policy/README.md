@@ -8,9 +8,11 @@ a repo has until it chooses this one is its own way of working, which it never s
 **And once a repo has picked it up, this workflow's pages take precedence over its own — on the cycle**
 ([#1699](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1699), September 9, 2026). The
 paragraph above is about the *install*, and it is easy to read as a promise about the *obedience* too —
-it is not. The scope is the part to read carefully, and the source repo's own `CLAUDE.md` states it in
-the same breath as the precedence: the workflow's page wins where the two disagree, and *"it does not
-replace anything below; it adds the workflow's own mechanics."* So what yields is how work moves — the
+it is not. The scope is the part to read carefully, and the source repo's own
+[`.claude/rules/this-repo.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/.claude/rules/this-repo.md#claude-code-specialistss-safety-implementation)
+states it in the same breath as the precedence: *"where this section and either plugin page disagree,
+the plugin page wins,"* and the disagreement is a defect in that repo's own section, never in the
+plugin's page. So what yields is how work moves — the
 branch, the gates, the fold — and not your repo's answers about itself.
 
 **The two directions are deliberate and not in tension: nothing arrives unasked, and enabling this is
@@ -37,8 +39,8 @@ cycle for one set of repos — is a sub-directory beside them, the way
 and its own opt-in, so it is never enabled by enabling this one; nesting states the rank order, not a
 bundle. Until September 5, 2026 this directory was `plugins/workflows/` and carried a README of its own
 about the *kind*; that page is folded into this one, and what remains of it — the naming and directory
-rule the lint gate enforces — is one level up in
-[`../README.md`](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/plugins/README.md),
+rule the lint gate enforces — is in the root README under
+[Teams and workflows — what's the difference?](https://github.com/DKJ-Solutions/dkj-claude-plugins#teams-and-workflows--whats-the-difference),
 beside the same rule for teams
 ([#1467](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1467)).
 

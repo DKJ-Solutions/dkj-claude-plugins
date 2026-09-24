@@ -1330,15 +1330,21 @@ try {
             [Parameter(Mandatory)][string]$Repository,
             [Parameter(Mandatory)][string]$ScriptPath,
             [switch]$PathFirst,
-            [switch]$Commented
+            [switch]$Commented,
+            # -Ref and -Credential are check 6d's (#2337): the ref the checkout fetches at ('' writes no
+            # ref: line at all), and whether the job holds a write credential beside it.
+            [AllowEmptyString()][string]$Ref = 'main',
+            [switch]$Credential
         )
+        $refKey = if ($Ref) { @("          ref: $Ref") } else { @() }
         $withKeys = if ($PathFirst) {
-            @('          path: .workflow-scripts', ("          repository: $Repository"), '          ref: main')
+            @('          path: .workflow-scripts', ("          repository: $Repository")) + $refKey
         } elseif ($Commented) {
-            @(("          repository: $Repository  # the shared workflow scripts"), '          ref: main', '          path: .workflow-scripts   # where they land')
+            @(("          repository: $Repository  # the shared workflow scripts")) + $refKey + @('          path: .workflow-scripts   # where they land')
         } else {
-            @(("          repository: $Repository"), '          ref: main', '          path: .workflow-scripts')
+            @(("          repository: $Repository")) + $refKey + @('          path: .workflow-scripts')
         }
+        $credentialKeys = if ($Credential) { @('        env:', '          GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}') } else { @() }
         return (@(
             'name: Fixture'
             'on:'
@@ -1355,6 +1361,7 @@ try {
         ) + $withKeys + @(
             ''
             '      - shell: powershell'
+        ) + $credentialKeys + @(
             '        run: |'
             ("          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/$ScriptPath -Branch " + '"x"')
         ) -join "`n")
@@ -1367,11 +1374,13 @@ try {
             [Parameter(Mandatory)][string]$Repository,
             [Parameter(Mandatory)][string]$ScriptPath,
             [switch]$PathFirst,
-            [switch]$Commented
+            [switch]$Commented,
+            [AllowEmptyString()][string]$Ref = 'main',
+            [switch]$Credential
         )
         $dir = Join-Path $Fixture '.github\workflows'
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        [System.IO.File]::WriteAllText((Join-Path $dir $Name), (New-FixtureWorkflowText -Repository $Repository -ScriptPath $ScriptPath -PathFirst:$PathFirst -Commented:$Commented))
+        [System.IO.File]::WriteAllText((Join-Path $dir $Name), (New-FixtureWorkflowText -Repository $Repository -ScriptPath $ScriptPath -PathFirst:$PathFirst -Commented:$Commented -Ref $Ref -Credential:$Credential))
     }
 
     # 12a. The current path -- silence, and nothing about it in the output. This is the case every
@@ -1558,6 +1567,62 @@ try {
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $RepoRoot))
     Assert-NotMatch 'none of the runners' $r.Out 'source repo: not asked whether it checks itself out'
 
+    # --- 12o-12t. Check 6d: a WRITE runner fetching this tree at a moving or stale ref (#2337) ------
+    # #2333 pinned the shared-scripts checkout of the three runners that hold a credential, and made a
+    # re-run of adopt-ci-floor report a stale one. A consumer nobody re-runs it in stays on ref: main
+    # beside FOLD_PUSH_TOKEN; this is the register saying so. The version it judges against is this
+    # tree's own dkj-policy plugin.json, read here the same way so the suite survives every release.
+    $pinVersion = [string]((Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version)
+    $pinSha = '0123456789abcdef0123456789abcdef01234567'
+    $pinScript = 'plugins/dkj-policy/scripts/release/fold-changelog-entry.ps1'
+
+    # 12o. The pre-#2333 shape: a credential beside ref: main. [INFO], exit 0 -- it works, and is exposed.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-Equal 0 $r.Code 'write runner on main: exit code 0 -- a state, not a red gate'
+    Assert-Match "\[INFO\].*fold-on-merge\.yml line \d+ holds a write credential and fetches this repo's scripts at 'main' -- a moving ref" $r.Out 'write runner on main: an INFO naming the file, the line and the ref'
+    Assert-Match "v$([regex]::Escape($pinVersion)) is the current one" $r.Out 'write runner on main: names the release to pin to'
+
+    # 12p. NO ref: AT ALL is the default branch -- moving, and said as such rather than read as unknown.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref ''
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-Match 'no ref: at all \(the default branch\) -- a moving ref' $r.Out 'write runner with no ref: reported as moving'
+
+    # 12q. Pinned, but at an older release -- behind, with both versions named.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    New-FixtureWorkflow -Name 'verify-resolved.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref "$pinSha # v0.0.1"
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-Equal 0 $r.Code 'write runner behind: exit code 0'
+    Assert-Match "verify-resolved\.yml line \d+ .*pinned at v0\.0\.1, behind v$([regex]::Escape($pinVersion))" $r.Out 'write runner behind: names the pin and the current release'
+    Assert-NotMatch 'a moving ref' $r.Out 'write runner behind: not called a moving ref'
+
+    # 12r. Pinned at this release -- silence. The state adopt-ci-floor writes, so it must stay quiet.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    New-FixtureWorkflow -Name 'merge-on-green.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref "$pinSha # v$pinVersion"
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-NotMatch 'holds a write credential' $r.Out 'write runner pinned at this release: no pin finding'
+
+    # 12s. A READ-ONLY runner on main -- silence. branch-entry.yml tracks main on purpose (#1805), and
+    #      every scenario in 12a-12n is this shape, so a check that fired here would have fired there.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-NotMatch 'holds a write credential' $r.Out 'read-only runner on main: not judged'
+
+    # 12t. A SHA with no version beside it is pinned but undatable -- not called moving, not called behind.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref $pinSha
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-NotMatch 'holds a write credential' $r.Out 'bare SHA pin: no finding either way'
+
     # --- 13. Check 6b: -RemoteRunners reads an ABSENT consumer's runners over the API (#1808) ------
     # Check 6 reads the consumer's local checkout, so it inherited check 1: an absent consumer was
     # [SKIP] and its runners were not read at all -- and the consumers most likely to carry a stale
@@ -1675,6 +1740,17 @@ exit 1
     Assert-Equal 0 $r.Code 'remote read, current path: exit code 0'
     Assert-NotMatch 'does not exist here' $r.Out 'remote read, current path: no finding'
     Assert-Match 'graphql' $r.Calls 'remote read, current path: and it did look -- silence here is a verdict, not a skip'
+
+    # 13c2. CHECK 6d RIDES THE SAME ROUTE (#2337). The consumers most likely to carry a pre-#2333
+    #       ref: main are the ones nobody visits, so the pin finding has to reach them over the network
+    #       too -- with the branch it was read from, like every remote finding.
+    New-FixtureConsumer -ExtensionIds @('06-16')
+    $foldYml = New-FixtureWorkflowText -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/dkj-policy/scripts/release/fold-changelog-entry.ps1' -Credential
+    $env:GH_GRAPHQL_BODY = New-GraphQlAnswer -Files @(@{ Name = 'fold-on-merge.yml'; Text = $foldYml })
+    $mf = New-FixtureManifest -Extensions @('06-16')
+    $r = Invoke-Absent -ManifestPath $mf -Remote
+    Assert-Equal 0 $r.Code 'remote read, write runner on main: exit code 0'
+    Assert-Match "fold-on-merge\.yml line \d+ holds a write credential .*a moving ref.*read from main over the API" $r.Out 'remote read, write runner on main: the pin finding, naming the branch it read'
 
     # 13d. THE THIRD STATE, AND THE WHOLE REASON THIS IS WORTH A SWITCH. A repository the credential
     #      cannot see comes back as HTTP 200 with a null repository, an errors[] block, and exit 1 from
