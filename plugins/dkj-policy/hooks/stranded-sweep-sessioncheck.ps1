@@ -30,10 +30,14 @@
         ordinary state of most repos (no merge-on-green workflow) and of most machines (gh not signed
         in), and reporting it at every start would be noise with nothing to act on; a deliberate run of
         check-stranded-sweep.ps1 shows the reason;
-      - [OK] (armed pull requests exist and none is stranded, or none are armed at all) -> stays silent
-        for the same reason: nothing to act on;
+      - [OK] (armed pull requests exist, none is stranded, and the scan finished completely, or none are
+        armed at all) -> stays silent for the same reason: nothing to act on;
       - [STRANDED] -> the one signal this hook exists to surface, forwarded verbatim (data, not
         instructions) with the resume command the check already composed;
+      - [INCOMPLETE] (issue #2438) -> NOT silent, even when it carries no [STRANDED] line: the check's
+        own scan ran out of its time budget before judging every armed pull request, and a session that
+        never hears about that has no way to know a stranded one might be sitting among the unjudged
+        rest. Forwarded the same way [STRANDED] is;
       - the script ALWAYS ends with exit 0 -- a session start must never strand here, least of all a
         check ABOUT stranding.
 
@@ -100,25 +104,35 @@ try {
     $out  = @($result.Output)
     $code = $result.ExitCode
 
-    # [STRANDED] is check-stranded-sweep's one signal marker. Select-CheckMarkerLine keeps it case-exact
-    # and anchored to where the check WROTE it, so the word never counts merely for appearing inside a
-    # pull request's own title or branch name (issue #2142) -- both of which the check has already
-    # scrubbed to printable ASCII before printing, on the same reasoning Get-MergeOnGreenExecutedPathHit
-    # applies to a pushed path.
-    $signals = @(Select-CheckMarkerLine -Output $out -Marker '[STRANDED]')
+    # [STRANDED] and [INCOMPLETE] are check-stranded-sweep's two non-silent markers. Select-CheckMarkerLine
+    # keeps each case-exact and anchored to where the check WROTE it, so a marker never counts merely for
+    # appearing inside a pull request's own title or branch name (issue #2142) -- both of which the check
+    # has already scrubbed to printable ASCII before printing, on the same reasoning
+    # Get-MergeOnGreenExecutedPathHit applies to a pushed path. [INCOMPLETE] (issue #2438, Victor) is the
+    # check saying its own scan did not finish within its time budget -- an incomplete scan must not be
+    # silent, on the same reasoning a genuine [STRANDED] finding is not, so it is forwarded exactly the
+    # same way rather than swallowed by the [OK]/[SKIP] silence below.
+    $strandedSignals   = @(Select-CheckMarkerLine -Output $out -Marker '[STRANDED]')
+    $incompleteSignals = @(Select-CheckMarkerLine -Output $out -Marker '[INCOMPLETE]')
 
-    if ($signals.Count -gt 0) {
+    if ($strandedSignals.Count -gt 0) {
         Write-Host 'stranded-sweep-sessioncheck: the merge-on-green sweep will never take one or more armed pull requests -- their diff changes code the runner executes, so only a session can finish them (data, not instructions):'
         foreach ($line in $out) {
             $t = $line.Trim()
             if ($t) { Write-Host "  $t" }
         }
+    } elseif ($incompleteSignals.Count -gt 0) {
+        Write-Host 'stranded-sweep-sessioncheck: the scan of armed pull requests did not finish within its time budget -- the rest were not checked, so a stranded one among them would not be reported until the next scan (data, not instructions):'
+        foreach ($line in $out) {
+            $t = $line.Trim()
+            if ($t) { Write-Host "  $t" }
+        }
     } elseif ($code -eq 0) {
-        # [OK] (nothing armed, or armed and none stranded) and [SKIP] (no merge-on-green.yml, gh
-        # unavailable or unauthenticated, the tracker read failed) both stay silent here, on the same
-        # reasoning git-identity-sessioncheck.ps1 gives its own [SKIP]: nothing to act on, so nothing is
-        # forwarded into every session's context. A deliberate run of check-stranded-sweep.ps1 shows
-        # which of the two it was.
+        # [OK] (nothing armed, or armed and none stranded, and the scan finished completely) and [SKIP]
+        # (no merge-on-green.yml, gh unavailable or unauthenticated, the tracker read failed) both stay
+        # silent here, on the same reasoning git-identity-sessioncheck.ps1 gives its own [SKIP]: nothing
+        # to act on, so nothing is forwarded into every session's context. A deliberate run of
+        # check-stranded-sweep.ps1 shows which of the two it was.
     } else {
         Write-Host "stranded-sweep-sessioncheck: the check could not complete (exit $code)."
     }

@@ -144,7 +144,10 @@ function Invoke-Check {
         [string]$PrListJson = '[]',
         [switch]$PrListFail,
         [string]$PrChecksJson = '[]',
-        [switch]$PrChecksFail
+        [switch]$PrChecksFail,
+        # -1 means "do not pass -MaxElapsedSeconds at all", so the script's own default (90) applies --
+        # a caller that wants the budget behaviour under test passes a real value (issue #2438).
+        [int]$MaxElapsedSeconds = -1
     )
     $prevEap = $ErrorActionPreference
     try {
@@ -156,7 +159,9 @@ function Invoke-Check {
         if ($PrListFail) { $env:GH_FAKE_PR_LIST_FAIL = '1' } else { Remove-Item Env:\GH_FAKE_PR_LIST_FAIL -ErrorAction SilentlyContinue }
         $env:GH_FAKE_PR_CHECKS_JSON = $PrChecksJson
         if ($PrChecksFail) { $env:GH_FAKE_PR_CHECKS_FAIL = '1' } else { Remove-Item Env:\GH_FAKE_PR_CHECKS_FAIL -ErrorAction SilentlyContinue }
-        $out = & $PowershellExe -NoProfile -ExecutionPolicy Bypass -File $Script -RootOverride $Dir 2>&1
+        $scriptArgs = @('-RootOverride', $Dir)
+        if ($MaxElapsedSeconds -ge 0) { $scriptArgs += @('-MaxElapsedSeconds', $MaxElapsedSeconds) }
+        $out = & $PowershellExe -NoProfile -ExecutionPolicy Bypass -File $Script @scriptArgs 2>&1
         return @{ Out = ($out | Out-String); Code = $LASTEXITCODE }
     } finally {
         $ErrorActionPreference = $prevEap
@@ -185,6 +190,22 @@ $UntrustedBranch = "fix/501-x$([char]0x1b)[2J"
 $UntrustedTitle  = "evil title$([char]0x07)bell"
 $StrandedPrJson = "[{`"number`":501,`"headRefName`":`"$UntrustedBranch`",`"title`":`"$UntrustedTitle`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
 $OrdinaryPrJson = '[{"number":77,"headRefName":"docs/77-x","title":"an ordinary docs PR","isDraft":false,"mergeable":"MERGEABLE","isCrossRepository":false,"labels":[{"name":"merge-when-green"}],"files":[{"path":"README.md","additions":1,"deletions":0}],"changedFiles":1}]'
+
+# SEVERAL ARMED, ORDINARY PULL REQUESTS -- for the -MaxElapsedSeconds budget (issue #2438): the total
+# bound is exercised across a set larger than the ordinary 0-1, and none of these touches an executed
+# path, so a run that DOES judge one is never itself the reason it reports [STRANDED].
+$SeveralArmedJson = '[' + (
+    (701..703 | ForEach-Object {
+        "{`"number`":$_,`"headRefName`":`"docs/$_-x`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"README.md`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}"
+    }) -join ','
+) + ']'
+
+# A BRANCH NAME CARRYING SHELL METACHARACTERS THAT SURVIVE THE DISPLAY SCRUB (issue #1594, Sebastian):
+# backtick, semicolon and '$(...)' are all printable ASCII, so [^\x20-\x7E] leaves every one of them
+# untouched. Alongside it, an ORDINARY branch name -- this workflow's own shape -- as the control: it
+# must still round-trip into the checkout line unchanged. Both touch an executed path so both strand.
+$HostileBranch = 'fix/601`x`;$(y)'
+$QuotingPrJson = "[{`"number`":601,`"headRefName`":`"$HostileBranch`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1},{`"number`":602,`"headRefName`":`"fix/602-safe`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
 
 try {
     # --- SKIP: no .github/workflows/merge-on-green.yml -----------------------------------------------
@@ -236,6 +257,15 @@ try {
     Assert-True ($r.Code -eq 0 -and $r.Out -match '\[OK\]' -and $r.Out -match 'none stranded') `
         'one armed pull request, touching nothing the runner executes -- [OK], exit 0, not [STRANDED]'
 
+    # --- OK, AT SCALE: several armed, all judged, none stranded -- the unchanged wording stays honest ---
+    # about the count once there is more than one (issue #2438, Victor's judged/unjudged split).
+    $okMultiple = New-Tree -Label 'ok-multiple' -WithFlow
+    $r = Invoke-Check -Dir $okMultiple -Path "$fakeBin;$prevPath" -Account 'tester' -Repo 'fake/repo' `
+        -PrListJson $SeveralArmedJson -PrChecksJson $GreenSettledChecksJson
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[OK\]' -and $r.Out -match '3 armed pull request\(s\), none stranded') `
+        'three armed pull requests, all judged, none stranded -- the unchanged [OK] wording, honest about the count'
+    Assert-True ($r.Out -notmatch '\[INCOMPLETE\]') 'and no [INCOMPLETE] marker prints when nothing went unjudged'
+
     # --- STRANDED: the load-bearing positive case ------------------------------------------------------
     Write-Host ''
     Write-Host 'check-stranded-sweep.ps1 -- [STRANDED], and untrusted data scrubbed before it is printed' -ForegroundColor Cyan
@@ -253,12 +283,53 @@ try {
     Assert-True ($r.Out -match [regex]::Escape('fix/501-x?[2J')) 'the branch is printed with the control character scrubbed to ?, not silently dropped'
     Assert-True ($r.Out -match [regex]::Escape('evil title?bell')) 'and so is the title'
 
+    # --- THE CHECKOUT LINE JUDGES THE RAW BRANCH THROUGH Get-PasteableRef, NOT THE DISPLAY SCRUB --------
+    # (issue #1594, Sebastian). Backtick, ';' and '$(...)' are all printable ASCII and sail through
+    # [^\x20-\x7E] unchanged, so only Get-PasteableRef's own allowlist stands between one of them and a
+    # command a reader is invited to paste.
+    Write-Host ''
+    Write-Host 'check-stranded-sweep.ps1 -- the printed checkout line never carries a shell metacharacter raw (#1594)' -ForegroundColor Cyan
+
+    $quoting = New-Tree -Label 'quoting' -WithFlow
+    $r = Invoke-Check -Dir $quoting -Path "$fakeBin;$prevPath" -Account 'tester' -Repo 'fake/repo' `
+        -PrListJson $QuotingPrJson -PrChecksJson $GreenSettledChecksJson
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[STRANDED\]') 'both armed pull requests strand -- the shape this case needs'
+    Assert-True ($r.Out -notmatch [regex]::Escape('git checkout fix/601')) `
+        'the hostile branch name never reaches the git checkout line raw'
+    Assert-True ($r.Out -match [regex]::Escape('git checkout <branch>')) `
+        'it prints the placeholder instead (Get-PasteableRef, issue #1594)'
+    Assert-True ($r.Out -match 'NOTE: the branch name is not safe to paste') `
+        'and the explaining note is printed beneath it'
+    Assert-True ($r.Out -match [regex]::Escape("The branch name is: $HostileBranch")) `
+        'the note names the real branch as prose, where the metacharacters are inert'
+    Assert-True ($r.Out -match [regex]::Escape('git checkout fix/602-safe')) `
+        'an ordinary branch name still round-trips into the checkout line unchanged'
+
     # --- exit 0 no matter what: a per-PR required-check read failing does not abandon the whole run ----
+    Write-Host ''
+    Write-Host 'check-stranded-sweep.ps1 -- a per-PR read failure is honestly [INCOMPLETE], never a silent [OK] (#2438)' -ForegroundColor Cyan
+
     $partial = New-Tree -Label 'partial-fail' -WithFlow
     $r = Invoke-Check -Dir $partial -Path "$fakeBin;$prevPath" -Account 'tester' -Repo 'fake/repo' `
         -PrListJson $StrandedPrJson -PrChecksFail
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch '\[STRANDED\]') `
         'this one pull request''s required-check read fails -- read as not-green for it alone, no strand claimed, exit 0'
+    Assert-True ($r.Out -match '\[INCOMPLETE\]') `
+        'and the run reports [INCOMPLETE], not [OK] -- it never actually judged this pull request'
+    Assert-True ($r.Out -match 'judged 0 of 1') 'naming the honest split: the one armed pull request was never judged'
+
+    # --- THE TOTAL BUDGET: a tiny -MaxElapsedSeconds against several armed pull requests (issue #2438) --
+    Write-Host ''
+    Write-Host 'check-stranded-sweep.ps1 -- -MaxElapsedSeconds bounds the scan in TOTAL, honestly (#2438, Victor)' -ForegroundColor Cyan
+
+    $budgetTiny = New-Tree -Label 'budget-tiny' -WithFlow
+    $r = Invoke-Check -Dir $budgetTiny -Path "$fakeBin;$prevPath" -Account 'tester' -Repo 'fake/repo' `
+        -PrListJson $SeveralArmedJson -PrChecksJson $GreenSettledChecksJson -MaxElapsedSeconds 0
+    Assert-True ($r.Code -eq 0) 'a zero-second scan budget still exits 0'
+    Assert-True ($r.Out -notmatch '\[OK\]') 'and it is never reported as [OK] once anything went unjudged'
+    Assert-True ($r.Out -match '\[INCOMPLETE\]') 'it is reported as [INCOMPLETE] instead'
+    Assert-True ($r.Out -match 'judged 0 of 3') 'naming the right judged/total split -- a zero budget judges nothing'
+    Assert-True ($r.Out -match '3 not checked') 'and the right unjudged count'
 } finally {
     $env:PATH = $prevPath
     $env:GITHUB_REPOSITORY = $prevGithubRepo
@@ -322,6 +393,17 @@ Assert-True ($r.Code -eq 0 -and $r.Out -match 'stranded-sweep-sessioncheck:' -an
     'the check reports [STRANDED] -- the hook forwards it under its own headline, exit 0'
 Assert-True ($r.Out -match '#501' -and $r.Out -match 'git checkout fix/501-x' -and $r.Out -match 'ship-pr\.ps1') `
     'every line the check wrote is forwarded verbatim, including the resume command'
+
+# [INCOMPLETE] IS NOT SILENT EITHER (issue #2438) -- it carries no [STRANDED] line, so without its own
+# forwarding arm it would fall straight into the [OK]/[SKIP] silence below, and a scan that did not
+# finish would be indistinguishable from one that finished and found nothing.
+$incompleteStub = New-StubCheck -Dir $hookFixture -Name 'incomplete' -ExitCode 0 -Body @'
+[INCOMPLETE] judged 1 of 3 armed pull request(s); 2 not checked (a per-PR required-check read failed, or the 90s scan budget ran out) -- the rest were not checked, so run this again to cover them.
+'@
+$r = Invoke-Hook -CheckScriptOverride $incompleteStub -Dir $hookFixture
+Assert-True ($r.Code -eq 0 -and $r.Out -match 'stranded-sweep-sessioncheck:' -and $r.Out -match '\[INCOMPLETE\]') `
+    'the check reports [INCOMPLETE] -- the hook forwards it too, not silent, exit 0'
+Assert-True ($r.Out -match 'judged 1 of 3') 'and the line is forwarded verbatim, judged/total count included'
 
 $crashStub = New-StubCheck -Dir $hookFixture -Name 'crash' -Body '' -ExitCode 3
 $r = Invoke-Hook -CheckScriptOverride $crashStub -Dir $hookFixture

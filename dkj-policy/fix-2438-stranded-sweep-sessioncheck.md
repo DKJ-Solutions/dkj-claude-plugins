@@ -212,24 +212,47 @@ A SessionStart check lists armed + green + settled pull requests the sweep will 
   (24/24) and `scripts/lint/check-plugin-integrity.ps1` (0 errors) -- all unaffected, all still green.
   No test gap left: the pure verdict, the check script's own tracker reads, and the hook's forwarding
   are all exercised without a live tracker.
-- [ ] Tycho: coverage for the four review fixes above, none of which is exercised yet.
-  `Test-MergeOnGreenRequiredChecksSettled` -- direct asserts against the extracted helper (unreadable /
-  blocked / pending / not-yet-settled / settled, and that its Reason strings match what
-  `Get-MergeOnGreenPrVerdict` printed before the extraction) -- and re-confirm
-  `Get-MergeOnGreenPrVerdict`'s existing check-order asserts still pass unchanged (they should: the
-  extraction did not move where in the function the block is reached). The `-MaxElapsedSeconds` budget
-  in `check-stranded-sweep.ps1` -- a fixture where the fake `gh pr checks` call sleeps or the budget is
-  set near-zero, so at least one armed pull request is left unjudged, asserting the `[INCOMPLETE]` marker
-  fires, names a judged count strictly less than the armed total, and the hook forwards it (not silent,
-  unlike `[OK]`/`[SKIP]`). The judged/unjudged honesty split itself -- a case with one `gh pr checks`
-  failure and zero stranded, asserting `[INCOMPLETE]` rather than the old unconditional `[OK]` wording,
-  and that the existing all-judged `[OK]` wording (`stranded-sweep-gate.tests.ps1`'s current asserts) is
-  unaffected when nothing goes unjudged. The safe-checkout quoting -- a fixture branch name carrying a
-  shell metacharacter that survives the existing `[^\x20-\x7E]` prose scrub (e.g. `fix/1;touch owned`),
-  asserting the printed `git checkout` line carries `<branch>` rather than the raw name, and that
-  `Get-PasteableRef`'s note naming the real branch appears; and confirm an ordinary branch name (this
-  workflow's own shape) still round-trips unchanged. Existing tests that pin the old `[OK]`/`git checkout`
-  text may need adjusting if any of the above changed wording they assert on verbatim.
+- [x] Tycho: coverage for the four review fixes above.
+  `Test-MergeOnGreenRequiredChecksSettled` -- added 17 asserts to `merge-on-green-lib.tests.ps1`: direct
+  cases against the extracted helper (unreadable, blocked with its own Reason, pending, no age passed,
+  NaN, Infinity, one minute short of settle, exactly settle, and `.Settle` always reporting the window),
+  each pinning the exact Reason string `Get-MergeOnGreenPrVerdict` printed for that case before the
+  extraction. Then a direct identity check -- unreadable / blocked / pending / not-yet-settled fed into
+  both `Test-MergeOnGreenRequiredChecksSettled` and `Get-MergeOnGreenPrVerdict` and asserted
+  `Assert-Equal` on the Reason -- so the two cannot drift apart unnoticed. And two re-confirmations that
+  the cheaper disqualifiers still run first: a draft and an unarmed record each refuse on their own
+  reason rather than on the (unreachable) required-check block. All of `merge-on-green-lib.tests.ps1`'s
+  existing check-order asserts (armed/draft/fork/executed-path/mergeable ahead of the settle block) were
+  re-run unchanged against the refactored code and still pass -- 149 pass, 0 fail (127 -> 149).
+  The `-MaxElapsedSeconds` budget -- added to `stranded-sweep-gate.tests.ps1`: `Invoke-Check` grew an
+  optional `-MaxElapsedSeconds` passthrough (a `-1` sentinel keeps every existing call on the script's own
+  default). A tiny budget (0) against three armed, ordinary pull requests reports `[INCOMPLETE]`, never
+  `[OK]`, names `judged 0 of 3` and `3 not checked`, and still exits 0 -- deterministic (the budget check
+  fires before the first per-PR `gh pr checks` call, so no sleep-based timing was needed). No fixture
+  reaches a PARTIALLY-judged split without a controllable delay in the fake `gh`, which the existing
+  fake-gh harness does not have; the all-unjudged (budget 0) and none-unjudged (ordinary/OK) shapes
+  together already exercise every branch of the judged/unjudged accounting, so this is a deliberate,
+  narrower proof than "some judged, some not" rather than a gap -- flagging it rather than leaving it
+  silent.
+  The judged/unjudged honesty split -- the existing `partial-fail` case (one armed pull request, its
+  `gh pr checks` read failing) now additionally asserts `[INCOMPLETE]` (not `[OK]`) and `judged 0 of 1`.
+  A new `ok-multiple` case (three armed, all judged, none stranded) asserts the unchanged `[OK]` wording
+  stays honest about the count at more than one, and that no `[INCOMPLETE]` marker appears when nothing
+  went unjudged.
+  The safe-checkout quoting -- a new `quoting` case: two armed pull requests touching an executed path,
+  one with headRefName `` fix/601`x`;$(y) `` (backtick, semicolon and `$(...)` together -- all printable
+  ASCII, all untouched by the existing `[^\x20-\x7E]` scrub), one with the ordinary `fix/602-safe`. Both
+  strand; asserted the hostile branch never appears in a `git checkout` line, that line reads
+  `git checkout <branch>` instead, `Get-PasteableRef`'s note appears and names the real branch as prose,
+  and the ordinary branch's own checkout line is unaffected (`git checkout fix/602-safe`, printed as-is).
+  The hook -- added an `[INCOMPLETE]` stub case to the existing hook block: the hook forwards it under its
+  own headline (not silent, unlike `[OK]`/`[SKIP]`), verbatim including the judged/total count.
+  No existing assert needed adjusting -- none of the four review fixes changed a string an existing
+  assert pinned verbatim.
+  Ran `scripts/tests/merge-on-green-lib.tests.ps1` (149/149), `scripts/tests/stranded-sweep-gate.tests.ps1`
+  (46/46, up from 29), `scripts/tests/hook-check-lib.tests.ps1` (28/28),
+  `scripts/tests/shared-scripts.tests.ps1` (1022/1022) and `scripts/lint/check-plugin-integrity.ps1`
+  (0 errors) -- all green.
 
 ### DEPLOY: fix/2438-stranded-sweep-sessioncheck
 

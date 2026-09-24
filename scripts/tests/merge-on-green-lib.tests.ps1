@@ -354,6 +354,71 @@ Assert-True (Get-MergeOnGreenStrandedVerdict -Record $strandRecord -MergeBlockVe
     'exactly the settle window -- stranded'
 
 Write-Host ''
+Write-Host 'Test-MergeOnGreenRequiredChecksSettled -- the shared block both verdicts now call (#2438, Victor)' -ForegroundColor Cyan
+
+Assert-True ([bool](Get-Command Test-MergeOnGreenRequiredChecksSettled -ErrorAction SilentlyContinue)) `
+    'Test-MergeOnGreenRequiredChecksSettled is defined -- the extraction landed'
+
+$rUnread = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $null -GreenAgeMinutes 30
+Assert-True (-not $rUnread.Ready) 'an unreadable required-check state is not Ready'
+Assert-Equal 'the required-check state could not be read' $rUnread.Reason `
+    'the exact sentence Get-MergeOnGreenPrVerdict printed for this case before the extraction'
+
+$rBlocked = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $redReq -GreenAgeMinutes 30
+Assert-True (-not $rBlocked.Ready) 'a blocked required check is not Ready'
+Assert-Equal 'lint-en-tests failed' $rBlocked.Reason 'and it borrows the block Reason verbatim, same as before the extraction'
+
+$rPending = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $pendReq -GreenAgeMinutes 30
+Assert-True (-not $rPending.Ready) 'a required check that has not finished is not Ready'
+Assert-True ($rPending.Reason -match 'lint-en-tests') 'and it names the check still to come, same as before the extraction'
+
+$rNoAge = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict (New-Green)
+Assert-True (-not $rNoAge.Ready) 'an age that was never passed is not Ready -- fail-closed'
+Assert-Equal 'when the required checks finished could not be read, so it cannot be told from a live ship' $rNoAge.Reason `
+    'the exact sentence Get-MergeOnGreenPrVerdict printed for an unreadable age before the extraction'
+
+Assert-True (-not (Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::NaN)).Ready) `
+    'NaN is not Ready -- it compares false against the window and would otherwise read as settled'
+Assert-True (-not (Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict (New-Green) -GreenAgeMinutes ([double]::PositiveInfinity)).Ready) `
+    'and neither is Infinity'
+
+$rShort = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict (New-Green) -GreenAgeMinutes ($strandSettle - 1)
+Assert-True (-not $rShort.Ready) 'one minute short of the settle window -- not yet Ready'
+Assert-True ($rShort.Reason -match 'settle window') 'and the Reason names the window, same wording as before the extraction'
+
+$rExact = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict (New-Green) -GreenAgeMinutes $strandSettle
+Assert-True $rExact.Ready 'exactly the settle window -- Ready'
+Assert-Equal '' $rExact.Reason 'and the Reason is empty on the Ready path'
+Assert-Equal $strandSettle $rExact.Settle 'and Settle always reports the window, so a caller need not ask Get-MergeOnGreenSettleMinutes a second time'
+
+Write-Host ''
+Write-Host "Get-MergeOnGreenPrVerdict's own check order is unchanged by the extraction (#2438)" -ForegroundColor Cyan
+
+# EVERY REASON Get-MergeOnGreenPrVerdict PRINTS FOR THIS BLOCK IS THE SHARED HELPER'S OWN, so the two
+# cannot drift apart without one of these failing -- fed the SAME inputs both ways.
+Assert-Equal (Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $null).Reason `
+    (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict $null).Reason `
+    "unreadable: Get-MergeOnGreenPrVerdict's Reason is exactly Test-MergeOnGreenRequiredChecksSettled's"
+Assert-Equal (Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $redReq -GreenAgeMinutes 1).Reason `
+    (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict $redReq -GreenAgeMinutes 1).Reason `
+    'blocked: same Reason through both callers'
+Assert-Equal (Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $pendReq -GreenAgeMinutes 1).Reason `
+    (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict $pendReq -GreenAgeMinutes 1).Reason `
+    'pending: same Reason through both callers'
+Assert-Equal (Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict (New-Green) -GreenAgeMinutes ($strandSettle - 1)).Reason `
+    (Get-MergeOnGreenPrVerdict -Record (New-PrRecord) -MergeBlockVerdict (New-Green) -GreenAgeMinutes ($strandSettle - 1)).Reason `
+    'not-yet-settled: same Reason through both callers'
+
+# AND THE CHEAPER DISQUALIFIERS -- armed/draft/fork -- STILL RUN BEFORE THIS BLOCK, exactly as pinned
+# above: a draft or an unarmed record never reaches Test-MergeOnGreenRequiredChecksSettled at all, so its
+# Reason (about the required-check state) is never what a caller sees for one of those. Re-run here,
+# against the now-refactored function, to confirm the extraction did not reorder anything.
+Assert-True ((Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Draft $true) -MergeBlockVerdict $null).Reason -notmatch 'required-check') `
+    'a draft still refuses on being a draft, not on the (unreachable) required-check block'
+Assert-True ((Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Labels @('prio-3')) -MergeBlockVerdict $null).Reason -match 'not armed') `
+    'an unarmed record still refuses on not being armed, not on the (unreachable) required-check block'
+
+Write-Host ''
 Write-Host 'The two halves of the handshake name the same label' -ForegroundColor Cyan
 
 # THE WHOLE POINT OF THE CONSTANT. ship-pr.ps1 WRITES the label and pick-merge-on-green.ps1 READS it;

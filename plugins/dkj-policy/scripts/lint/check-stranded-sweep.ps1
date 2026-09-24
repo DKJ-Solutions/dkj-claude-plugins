@@ -27,13 +27,20 @@
         exit -- offline, a transient API outage, a rate limit. FAIL QUIET, not fail loud: the worst this
         check can be wrong about is a stranded pull request that goes unreported for one more session,
         which is exactly the state today, with nothing made worse.
-    Every one of the three prints one line and exits 0; only a genuine finding prints more.
+    Every one of the three prints one line and exits 0; only a genuine finding, or an incomplete scan
+    (see BOUNDED below), prints more.
 
-    BOUNDED RUNTIME. Every native call carries -TimeoutSeconds, so a hung `gh` cannot hold a session
-    start hostage -- the harness's own per-hook timeout in hooks.json is the backstop, this is the first
-    line of defence. The armed set is normally 0 or 1 (ship-pr.ps1 is this workflow's only writer of the
-    label), so the ordinary run costs at most a small, fixed number of calls -- the same shape
-    pick-merge-on-green.ps1's own docstring already argues for its per-sweep cost.
+    BOUNDED PER CALL, AND BOUNDED IN TOTAL (Victor, issue #2438). Every native call carries
+    -TimeoutSeconds, so a hung `gh` cannot hold a session start hostage on its own -- but that bounds one
+    call, not the loop: the armed set is normally 0 or 1 (ship-pr.ps1 is this workflow's only writer of
+    the label), yet nothing stopped it from being larger, and at up to $TimeoutSeconds per armed pull
+    request the loop alone could run past hooks.json's own 120s per-hook timeout, in which case the
+    harness kills this check mid-scan and a stranded pull request among the untried ones is silently
+    never reported -- the opposite of what this check exists for. -MaxElapsedSeconds is the second bound:
+    once the scan's own wall clock (measured from just before the first `gh pr list` read) reaches it, no
+    further armed pull request is judged, and the run says so explicitly with a `[INCOMPLETE]` marker
+    naming how many were judged and how many were not, rather than reporting only on the ones it reached.
+    The per-call timeout in hooks.json is still the backstop behind both.
 
     NO SEAM IS HARDCODED. The arming label (Get-MergeOnGreenArmLabel), the settle window
     (Get-MergeOnGreenSettleMinutes) and the required-check state (Get-MergeBlockVerdict, which reads
@@ -44,7 +51,14 @@
     UNTRUSTED DATA, PRINTED SAFELY. A pull request's branch name and title are chosen by whoever opened
     it, and this repository is public. Both are scrubbed to printable ASCII with the same `[^\x20-\x7E]`
     pattern Get-MergeOnGreenExecutedPathHit already uses on a pushed path, before either reaches a
-    printed line.
+    printed line. THAT SCRUB IS FOR DISPLAY ONLY, AND THE RESUME COMMAND NEEDS MORE (Sebastian, issue
+    #2438): '$', '(', ')', '`', ';' and '|' are all printable ASCII, so a branch name carrying one sails
+    through the `[^\x20-\x7E]` scrub unchanged and would otherwise reach the printed `git checkout`
+    line -- a paste-ready remedy is exactly the command a reader is invited to run verbatim. So the
+    checkout line is not built from the scrubbed name at all: it goes through Get-PasteableRef
+    (ref-print-lib.ps1, issue #1594), ship-pr.ps1's own answer to this, reused rather than restated.
+    A branch name outside its narrow allowlist prints as the placeholder '<branch>' plus a note naming
+    the real branch as prose, where shell metacharacters are inert.
 
     READ-ONLY: every `gh` call here is a read (`pr list`, `pr checks`). Nothing is merged, labelled,
     commented on or pushed.
@@ -65,13 +79,21 @@
     (Optional) how long each `gh` call gets before this check gives up on it. Default 15 -- generous for
     a `pr list`/`pr checks` read, and far under hooks.json's own 120s per-hook backstop.
 
+.PARAMETER MaxElapsedSeconds
+    (Optional) the TOTAL wall-clock budget for judging armed pull requests, measured from just before the
+    first `gh pr list` read. Default 90 -- comfortably under hooks.json's 120s per-hook timeout, leaving
+    slack for the list read itself (up to -TimeoutSeconds), scrubbing and printing. Once the budget is
+    spent, no further armed pull request is judged and the run says so via an `[INCOMPLETE]` marker
+    rather than silently reporting on only the ones it reached (issue #2438).
+
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-stranded-sweep.ps1
 #>
 [CmdletBinding()]
 param(
     [string]$RootOverride = '',
-    [int]$TimeoutSeconds = 15
+    [int]$TimeoutSeconds = 15,
+    [int]$MaxElapsedSeconds = 90
 )
 
 Set-StrictMode -Version Latest
@@ -128,6 +150,11 @@ if (-not (Get-ActiveGhAccount)) {
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\merge-on-green-lib.ps1')
+# FOR THE PRINTED RESUME COMMAND (issue #1594): Get-PasteableRef decides whether a pull request's own
+# branch name may go into the `git checkout` line this check prints, and supplies the placeholder plus
+# the explaining note when it may not -- ship-pr.ps1's own answer to a pushed branch name carrying a
+# shell metacharacter, reused rather than restated. Same unguarded dot-source as its siblings above.
+. (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
 $configPath = if ($repoRoot) { Join-Path $repoRoot 'scripts\repo-config.ps1' } else { '' }
 if ($configPath -and (Test-Path -LiteralPath $configPath -PathType Leaf)) { . $configPath }
 
@@ -142,6 +169,11 @@ if (-not $repo) {
     Write-Host '[SKIP] repo name unresolvable (Get-RepoName / GITHUB_REPOSITORY) -- nothing here can be read.'
     exit 0
 }
+
+# THE TOTAL BUDGET STARTS HERE, not at the top of the script -- everything before this point is local
+# feature-detection (file existence, Get-Command, the keyring read), none of it network-bound, so
+# counting it would only make the budget less generous for no reason (issue #2438).
+$scanStart = Get-Date
 
 # ONE READ, BOUNDED. The same --json fields the picker asks for, plus 'title' -- this check prints one,
 # the picker never needs to.
@@ -171,8 +203,19 @@ if ($armed.Count -eq 0) {
 }
 
 $stranded = @()
+$judgedCount = 0
+$unjudgedCount = 0
+$budgetExceeded = $false
 foreach ($record in $armed) {
-    if ($null -eq $record -or -not $record.PSObject.Properties['number']) { continue }
+    # THE TOTAL BUDGET, CHECKED ONCE PER ARMED PULL REQUEST, BEFORE ITS OWN gh CALL (issue #2438): once
+    # spent, every remaining record is counted as unjudged rather than attempted -- this is what keeps
+    # the loop's own worst case bounded, on top of -TimeoutSeconds bounding each individual call.
+    if (-not $budgetExceeded -and ((Get-Date) - $scanStart).TotalSeconds -ge $MaxElapsedSeconds) {
+        $budgetExceeded = $true
+    }
+    if ($budgetExceeded) { $unjudgedCount++; continue }
+
+    if ($null -eq $record -or -not $record.PSObject.Properties['number']) { $unjudgedCount++; continue }
     $number = [string]$record.number
 
     $requiredRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -TimeoutSeconds $TimeoutSeconds -Arguments @(
@@ -181,7 +224,10 @@ foreach ($record in $armed) {
             -or $requiredRead.TimedOut -or $requiredRead.ExitCode -ne 0) {
         # THIS ONE PULL REQUEST'S REQUIRED-CHECK READ FAILED -- fail closed for IT alone (read as
         # not-green, exactly as Get-MergeOnGreenPrVerdict itself reads an unreadable payload), rather
-        # than abandoning every other armed pull request in the list over one bad read.
+        # than abandoning every other armed pull request in the list over one bad read. Counted as
+        # unjudged (issue #2438, Victor): this pull request was never actually checked for stranding,
+        # so a summary that folded it silently into "none stranded" would be reporting more than it knows.
+        $unjudgedCount++
         continue
     }
     $requiredJson = ($requiredRead.Output -join "`n")
@@ -192,6 +238,7 @@ foreach ($record in $armed) {
     try { $greenAge = Get-RequiredGreenAgeMinutes -RequiredChecksJson $requiredJson -Now (Get-Date) } catch { $greenAge = $null }
 
     $verdict = Get-MergeOnGreenStrandedVerdict -Record $record -MergeBlockVerdict $blockVerdict -GreenAgeMinutes $greenAge -Label $label
+    $judgedCount++
     if (-not $verdict.Stranded) { continue }
 
     $branch = ''
@@ -202,15 +249,40 @@ foreach ($record in $armed) {
     # UNTRUSTED DATA, SCRUBBED BEFORE IT REACHES A PRINTED LINE -- the same [^\x20-\x7E] pattern
     # Get-MergeOnGreenExecutedPathHit already applies to a pushed path, applied here uniformly to every
     # value a pull request's own author chose (branch name, title), on a repository anybody may open one
-    # against.
+    # against. THIS SCRUB IS FOR PROSE, NOT FOR A COMMAND LINE (Sebastian, issue #2438) -- see
+    # Get-PasteableRef below for the separate judgement the printed `git checkout` needs.
     $branchSafe = $branch -replace '[^\x20-\x7E]', '?'
     $titleSafe  = $title -replace '[^\x20-\x7E]', '?'
 
-    $stranded += [pscustomobject]@{ Number = $number; Branch = $branchSafe; Title = $titleSafe }
+    # THE CHECKOUT LINE JUDGES THE RAW BRANCH NAME, NOT $branchSafe (issue #1594). Scrubbing control
+    # characters to '?' leaves every printable ASCII shell metacharacter -- '$', '(', ')', '`', ';', '|'
+    # -- untouched, so a branch carrying one would still reach a command line a reader is invited to
+    # paste. Get-PasteableRef is the allowlist that actually answers "is this safe to paste": the branch
+    # name itself when it is, else a placeholder plus a note naming the real branch as prose.
+    $branchPaste = Get-PasteableRef -Ref $branch
+
+    $stranded += [pscustomobject]@{
+        Number = $number; Branch = $branchSafe; Title = $titleSafe
+        CheckoutToken = $branchPaste.Token; CheckoutNote = $branchPaste.Note
+    }
+}
+
+# HONEST, EVEN WHEN THERE IS NOTHING STRANDED TO REPORT (Victor, issue #2438): $armed.Count alone used to
+# stand in for "none stranded", which folded a per-PR read failure or a budget cut-off silently into that
+# claim. $judgedCount + $unjudgedCount always equals $armed.Count, so the two together say exactly what
+# was actually checked.
+$total = $armed.Count
+$incompleteLine = ''
+if ($unjudgedCount -gt 0) {
+    $incompleteLine = "[INCOMPLETE] judged $judgedCount of $total armed pull request(s); $unjudgedCount not checked (a per-PR required-check read failed, or the ${MaxElapsedSeconds}s scan budget ran out) -- the rest were not checked, so run this again to cover them."
 }
 
 if ($stranded.Count -eq 0) {
-    Write-Host "[OK] $($armed.Count) armed pull request(s), none stranded on the executed-path reason."
+    if ($unjudgedCount -eq 0) {
+        Write-Host "[OK] $total armed pull request(s), none stranded on the executed-path reason."
+    } else {
+        Write-Host $incompleteLine
+    }
     exit 0
 }
 
@@ -222,7 +294,9 @@ foreach ($s in ($stranded | Sort-Object { [int]$_.Number })) {
     # it looks up the open pull request for the CURRENT branch (gh pr list --head <branch>), so the
     # resume form is a checkout followed by a bare run -- two commands, not one chained with '&&', which
     # Windows PowerShell 5.1 does not have.
-    Write-Host "    git checkout $($s.Branch)"
+    Write-Host "    git checkout $($s.CheckoutToken)"
+    if ($s.CheckoutNote) { Write-Host $s.CheckoutNote }
     Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/ship-pr.ps1'
 }
+if ($incompleteLine) { Write-Host $incompleteLine }
 exit 0
