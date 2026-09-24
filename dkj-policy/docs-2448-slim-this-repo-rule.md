@@ -41,19 +41,53 @@
 
 Cut the unscoped this-repo.md rule down to repo facts and move mechanics and history into the lenses that own them, so every session stops paying for a second copy.
 
+#### Coverage, measured before anything was removed
+
+Every paragraph's distinctive issue numbers and terms were grepped across the lenses of Sylvester,
+Rendall, Tessa and Derek, `README.md`, `SPECIALISTS.md`, `CONTRIBUTING-portable.md` and
+`DEVELOPMENT-portable.md`. Already covered, so dropped with a pointer: the workflow gates, the staleness
+race and merge-queue history, the post-merge fold runners, the three exceptions' mechanics, the
+one-product nuance and the layout. Not covered anywhere, so moved: the second propagation channel
+(#1851, #1805), the `Get-ShopifyRepoHasNoStore` seam (#1570, #1579), `dkj-policy-bwj`'s reach per chapter
+(#1982), the repo-citation history (#1526, #1562, #1769, `Get-RetiredRepoNames`), the folder-address
+history, and the private-consumer quoting bound (#1420).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move the uncovered passages into Sylvester's lens: the plugin-cache paragraph and the two channels
+      into "Updating the plugins", plus three new sections (the six plugins and their cost, the repo
+      citation history, how the plugin tree got its address).
+- [x] Repair the contradiction the move exposed: Sylvester's "Updating the plugins" said a session reads
+      the plugins from the marketplace clone, while this-repo.md's measurement (#1812) says it loads the
+      cache. The corrected text replaces it.
+- [x] Move the #1420 quoting bound into Tessa's lens under "The conventions she guards".
+- [x] Rewrite `.claude/rules/this-repo.md` to repo facts plus pointers, keeping every heading so the
+      inbound anchors still resolve.
+- [x] Retarget the three links whose target text moved (Tessa 06-16, Nolan 06-25, `SECURITY.md`).
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors, dead-link and anchor checks included.
+- [x] `this-repo.md`: 37,270 B to 7,195 B.
+
 ### DEPLOY: docs/2448-slim-this-repo-rule
 
-**Score:**
+`.claude/rules/this-repo.md` loads into every session here and had grown to 37 KB of mechanics and
+history, most of it a second copy of what the lenses already carry. It is now 7 KB of repo facts with a
+pointer to the owning lens for each. What was not yet anywhere else moved into Sylvester's and Tessa's
+lenses first, and a contradiction in Sylvester's lens about where a session loads plugins from was
+corrected on the way ([#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448)).
+
+Two of the three always-on duplicates the issue listed are gone because this file no longer restates
+them. The third, "this repo is public", stays here as a repo fact.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. The file is this repo's own rule and reaches no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 

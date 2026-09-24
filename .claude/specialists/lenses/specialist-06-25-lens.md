@@ -292,7 +292,7 @@ of this measurement that clone sat ten commits behind `main` and the two files d
 12,294 B in the repo, **11,051 B actually loaded**. The table above reports what the session loads. The
 difference is not error to smooth away — it is **queued cost that arrives at the next plugin update**,
 and it is the always-on face of the consequence
-[`this-repo.md`](../../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) already records: through
+[Sylvester's lens](specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo) already records: through
 the `github` source the team sees the last *pushed* plugins. Resolve the load path before measuring it.
 
 **WHERE THE COST IS: IT IS NOT DIFFUSE, IT IS ONE SUB-ITEM.** `CLAUDE.md` stood at 875 lines in 9
