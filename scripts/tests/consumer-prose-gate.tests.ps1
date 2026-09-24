@@ -689,8 +689,8 @@ try {
     Assert-True (Test-ConstitutionImported -Documents $rows) `
         'an absolute import counts even where the clone has not refreshed yet (Exists = false)'
     $r = Invoke-Script -Dir $imported
-    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch '\[WARNING\]' -and $r.Out -match '\[OK\]') `
-        'import present -- no warning, the ordinary [OK]'
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the dkj-policy constitution' -and $r.Out -match '\[OK\]') `
+        'import present -- no import warning, the ordinary [OK]'
 
     Assert-True (-not (Test-ConstitutionImported -Documents @())) 'an empty closure imports nothing'
 
@@ -848,6 +848,44 @@ try {
     $r = Invoke-Hook -Dir $withProse
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'root CLAUDE\.md carries') `
         'the hook forwards the root-prose warning beside the clean detector line, still exit 0'
+
+    # --- the repo-facts rule (#2444): imports-only, but no unscoped .claude/rules/*.md ---------------
+    Write-Host ''
+    Write-Host 'check-consumer-prose.ps1 -- the missing repo-facts rule [WARNING] (#2444)'
+    $factsMsg = 'is imports-only, and no unscoped .claude/rules/*.md exists'
+
+    # $imported is exactly the measured consumer: the cut done, the facts moved nowhere.
+    Assert-True (-not (Test-UnscopedRulePresent -Documents @(Get-AlwaysOnRows -Dir $imported))) `
+        'an imports-only closure with no rule directory carries no unscoped rule'
+    $r = Invoke-Script -Dir $imported
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape($factsMsg)) `
+        'imports-only root and no rule -- a [WARNING], exit 0'
+
+    $withRule = New-Tree -Label 'factsrule'
+    Set-Text -Dir $withRule -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
+    Set-Text -Dir $withRule -Rel '.claude/rules/this-repo.md' -Text "# This repo`n`nThe trunk is main."
+    Assert-True (Test-UnscopedRulePresent -Documents @(Get-AlwaysOnRows -Dir $withRule)) `
+        'an unscoped rule file is seen on the walked closure'
+    $r = Invoke-Script -Dir $withRule
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch [regex]::Escape($factsMsg) -and $r.Out -notmatch '\[WARNING\]') `
+        'imports-only root with an unscoped rule -- silent, no warning at all'
+
+    # A paths:-scoped rule is gone on every turn that does not touch its files, so it is no home for facts.
+    $scopedOnly = New-Tree -Label 'factsscoped'
+    Set-Text -Dir $scopedOnly -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
+    Set-Text -Dir $scopedOnly -Rel '.claude/rules/scripts.md' -Text "---`npaths:`n  - `"scripts/**`"`n---`n`n# Scripts only"
+    $r = Invoke-Script -Dir $scopedOnly
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape($factsMsg)) `
+        'only a paths:-scoped rule -- still warned, because it does not load every session'
+
+    # A root that still carries prose already gets the root-prose warning naming the same destination.
+    $r = Invoke-Script -Dir $withProse
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'root CLAUDE\.md carries' -and $r.Out -notmatch [regex]::Escape($factsMsg)) `
+        'a root with prose gets the prose warning only -- the facts warning is not said twice'
+
+    $r = Invoke-Hook -Dir $imported
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape($factsMsg)) `
+        'the hook forwards the repo-facts warning, still exit 0'
 }
 finally {
     foreach ($t in $script:trees) {
