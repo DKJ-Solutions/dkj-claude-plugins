@@ -49,6 +49,10 @@
       - no sha on one side                       -> the two versions are compared instead, and the
                                                    line says a sha was not available
       - a whole side is missing                  -> cannot determine, and the line says which side
+      - a path-less record OLDER than this
+        checkout's own one, whatever the above  -> behind: a session can load the older record
+                                                   (#2442) -> `claude plugin update <id> --scope <the
+                                                   path-less record's scope>`, then restart
 
     Every enabled plugin is listed even under lockstep, so a partial or split install state is
     visible rather than hidden behind a single headline.
@@ -709,6 +713,43 @@ foreach ($id in $ids) {
         if (-not $cloneVer)   { $missing += "no version in the clone's plugin.json" }
         if (-not $clone.Head) { $missing += 'no HEAD or sha on the clone side' }
         $verdict = "cannot determine -- $($missing -join '; ')"
+    }
+
+    # A PATH-LESS RECORD OLDER THAN THIS CHECKOUT'S OWN ONE IS A SECOND INSTALL, AND IT CAN WIN (#2442).
+    # Every verdict above is about the ONE record naming this checkout; the path-less records were read
+    # only when that record was absent. Measured September 24, 2026 in a consumer: a project record at
+    # 5.7.0 beside a path-less user-scope record at 5.0.0, and the skill set the session loaded matched
+    # 5.0.0 exactly -- while this row said "versions match (5.7.0) -- nothing to run". WHICH record the
+    # harness prefers is inferred from that one match, not from documentation, so the sentence below says
+    # "can load", not "loads". Only an OLDER path-less record is flagged: a newer one cannot be the stale
+    # side, and where this checkout's record is itself behind, the verdict above already says so.
+    #
+    # THE SCOPE IN THE COMMAND IS ONE OF Get-PluginScopeNames' LITERALS, never the file's own string --
+    # the same rule Get-PluginUpdateScope keeps. A scope the CLI does not accept withholds the command.
+    if ($recs.Count -eq 1 -and $instVer -and $pathless.Count -ge 1) {
+        $shadow = $null
+        foreach ($p in $pathless) {
+            $cmp = Compare-Version -A ([string]$p.Version) -B $instVer
+            if ($null -ne $cmp -and $cmp -lt 0) { $shadow = $p; break }
+        }
+        if ($shadow) {
+            $rawScope = [string]$shadow.Scope
+            $sScope = @(Get-PluginScopeNames | Where-Object { $_ -ieq $rawScope }) | Select-Object -First 1
+            $sLabel = if ($sScope) { "$sScope-scope" } else { 'unrecognised-scope' }
+            $sVer = [string]$shadow.Version
+            $instText = "$instText  -- AND a path-less $sLabel record at $sVer"
+            $ownVerdict = $verdict
+            $ownAction = $action
+            $wasBehind = ($code -eq 'behind')
+            $code = 'behind'
+            $verdict = "a path-less $sLabel record at $sVer sits beside this checkout's record at $instVer, and a session can load the older one (measured, #2442); this checkout's own record: $ownVerdict"
+            if ($sScope) {
+                $action = "claude plugin update $idTok --scope $sScope, then restart the session"
+                if ($wasBehind -and $ownAction) { $action = "$action; this checkout's own record too: $ownAction" }
+            } else {
+                $action = "no paste-ready command -- the path-less record names a scope this CLI does not accept; update it at the scope it was installed at, then restart the session"
+            }
+        }
     }
 
     # THE WITHHOLD SENTENCE, applied once for whichever command site above fell back to a placeholder
