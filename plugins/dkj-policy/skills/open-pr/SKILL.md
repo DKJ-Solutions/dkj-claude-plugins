@@ -129,6 +129,9 @@ The script:
    the create is skipped. A `-Body` you supply gets the same description fill where it keeps the
    template's placeholder, and one that still lacks the DEPLOY section is **refused before the gates**
    (#2361), because the DEPLOY lock would otherwise refuse the merge after the full CI wait.
+   **Calling it through `powershell -File`, pass the body as `-BodyFile <path>` instead** (#2405):
+   Windows PowerShell 5.1 splits a `-Body` that carries `"` characters across native arguments, and
+   a path carries none. The file is read as UTF-8 and then treated exactly as `-Body`.
 
 ## Just the gates, and nothing else: `-GatesOnly`
 

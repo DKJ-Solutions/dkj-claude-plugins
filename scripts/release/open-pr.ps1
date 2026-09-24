@@ -240,6 +240,20 @@
     the gates (#2361), because the DEPLOY lock would refuse its merge after CI anyway. To record a gate
     bypass, pass -BypassNote instead of hand-writing a -Body.
 
+.PARAMETER BodyFile
+    (Optional) A path to a file holding the -Body, read as UTF-8. Everything -Body does, it does -- the
+    placeholder fill and the DEPLOY-section refusal apply to the text read -- and the two are exclusive.
+
+    WHY IT EXISTS (#2405). Windows PowerShell 5.1 re-quotes each argument it hands a native command, and it
+    does not escape an embedded `"`. So `powershell -File open-pr.ps1 -Body $t`, with $t a PR template
+    carrying quotes, arrives SPLIT: measured on BWJ-Development/xoxowildhearts PR #275, a fragment bound to
+    -MaxParallel. The same split hit `gh issue create --body` while filing the issue. A path carries no
+    quote, so it crosses intact; this script already hands its own body to gh through a file for the same
+    reason. Called in-process (`& open-pr.ps1 -Body $t`) there is no native boundary and -Body is fine.
+
+    An empty file is refused rather than treated as "no -Body": an empty -Body means "fill the template",
+    and a caller who named a file did not ask for that.
+
 .PARAMETER Resolves
     (Optional) Issue numbers this PR resolves, as a string: -Resolves '331,332' (a leading '#' and
     spaces or semicolons as separators are fine too). Each number gets its own `Closes #<n>` line in
@@ -434,6 +448,8 @@
 param(
     [string]$Title = '',
     [string]$Body = '',
+    # -Body read from a UTF-8 file, so a quote-carrying body never crosses a command line. See .PARAMETER BodyFile.
+    [string]$BodyFile = '',
     [switch]$SkipLint,
     [switch]$SkipTests,
     [string]$Resolves = '',
@@ -564,6 +580,26 @@ if ($repo -match 'VUL-IN' -or (Get-LintScript) -match 'VUL-IN') {
     exit 1
 }
 
+# -BodyFile BECOMES -Body HERE, before anything reads $Body (#2405) -- so every path below, the placeholder
+# fill and the DEPLOY-section refusal included, sees one parameter and cannot tell the two routes apart.
+# A relative path resolves against the PowerShell location, not the .NET process directory, which can differ.
+if ($BodyFile) {
+    if ($Body) {
+        Write-Error 'open-pr cannot run -- -Body and -BodyFile were both passed. Pass one: -BodyFile for a body carrying quotes under powershell -File (#2405), -Body otherwise.'
+        exit 1
+    }
+    $bodyPath = if ([System.IO.Path]::IsPathRooted($BodyFile)) { $BodyFile } else { Join-Path (Get-Location).ProviderPath $BodyFile }
+    if (-not (Test-Path -LiteralPath $bodyPath -PathType Leaf)) {
+        Write-Error "open-pr cannot run -- -BodyFile names no file: $bodyPath"
+        exit 1
+    }
+    $Body = [System.IO.File]::ReadAllText($bodyPath, (New-Object System.Text.UTF8Encoding $false))
+    if (-not $Body.Trim()) {
+        Write-Error "open-pr cannot run -- -BodyFile is empty: $bodyPath. Drop -BodyFile to have open-pr fill the PR template itself."
+        exit 1
+    }
+}
+
 # -GatesOnly: the gates, and nothing else (issue #1156). Placed HERE deliberately -- after both
 # pre-flights, which are exactly the conditions the gates need (repo-config present, and filled in
 # rather than still at VUL-IN), and BEFORE the branch check just below it, which is the one thing
@@ -580,7 +616,7 @@ if ($GatesOnly) {
     # change exists to replace. Named, not refused: the run is still exactly what was asked for.
     $ignored = @()
     if ($Title)       { $ignored += '-Title' }
-    if ($Body)        { $ignored += '-Body' }
+    if ($Body)        { $ignored += $(if ($BodyFile) { '-BodyFile' } else { '-Body' }) }
     if ($Resolves)    { $ignored += '-Resolves' }
     if ($NoResolves)  { $ignored += '-NoResolves' }
     if ($Force)       { $ignored += '-Force' }
