@@ -44,7 +44,50 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 52 minor entries** <!-- pending-tally -->
+**24 / 53 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2438-stranded-sweep-sessioncheck · 20260924-140748Z
+
+This repo's own maintainers, and any consumer running the merge-on-green sweep, could not tell a
+permanently-stranded armed pull request from an ordinary, still-being-shipped one -- both stay labelled
+`merge-when-green` and green, and the sweep's own decline reason lived only in a CI log nobody reads
+once it stops going red. A new SessionStart hook (`stranded-sweep-sessioncheck.ps1`) now reads the
+tracker the same way the sweep itself does -- reusing `Get-MergeOnGreenExecutedPathHit` and
+`Get-MergeOnGreenPrVerdict` rather than a second implementation of either -- and surfaces the finding,
+with the exact resume command (`git checkout <branch>` then `ship-pr.ps1`, verified against its actual
+param block rather than assumed), at the start of the next session in this repo. Fails quiet with no
+`.github/workflows/merge-on-green.yml`, `gh` absent or unauthenticated, or an unreadable tracker read,
+and never blocks a session start.
+
+Review pass (Victor, Sebastian): the check's own scan is now bounded in TOTAL, not only per `gh` call --
+an `-MaxElapsedSeconds` budget (default 90) stops judging further armed pull requests once spent, and
+reports an honest `judged X of Y` `[INCOMPLETE]` line (forwarded by the hook, not silent) whenever a
+budget cut-off or a per-PR read failure left anything unjudged, rather than folding that gap silently
+into "none stranded". The printed `git checkout` resume line now judges the branch name through
+`Get-PasteableRef` (ship-pr.ps1's own #1594 mechanism) instead of the display-only ASCII scrub, so a
+branch name carrying a shell metacharacter prints a safe placeholder plus a note rather than a pasteable
+command. And `Get-MergeOnGreenStrandedVerdict`'s blocked/pending/settle-window checks now share one
+helper with `Get-MergeOnGreenPrVerdict` instead of re-deriving them, so the two cannot drift apart.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer running this workflow's merge-on-green sweep will now occasionally see a `[STRANDED]` report
+at session start naming a pull request nobody would otherwise have known was permanently stuck --
+recovering work that used to require reading a CI log by hand to notice at all.
+
+**Score:** 2
+
+#### Pull Request
+
+A PR the merge-on-green sweep declines as executed-path is reported at session start
+
+Plugins: dkj-policy
+
+[PR #2443](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2443)
+
+---
 
 ### DEPLOY: fix/2304-rerecord-durations-split-new-branch · 20260924-135506Z
 
