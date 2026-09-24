@@ -504,7 +504,7 @@ The full picture, top-level folder by folder:
 - **`.claude/`** — the repo layer, on the seam described under
   [The seam, specified](#the-seam-specified): `specialists/SPECIALISTS.md` (the inclusion carrying the
   body import, the lens import and the roster), `specialists/lenses/` (this repo's own repo lenses),
-  the Specialists handbook `specialists/README.md` next to them, `rules/` (path-scoped rules), and
+  `rules/` (path-scoped rules), and
   `settings.json` (harness config; see [Consumption](#consumption)).
 - **The root documents** — this `README.md`, `CLAUDE.md` and `SECURITY.md` — and
   **`.github/`** (`pull_request_template.md`, the issue templates + three workflows: `workflows/ci.yml`,
@@ -1570,7 +1570,7 @@ day; both are retired, and each answer now sits in the lens of the specialist wh
 [Sylvester's](.claude/specialists/lenses/specialist-05-15-lens.md) for the pull-request gates and the
 seam table, [Derek's](.claude/specialists/lenses/specialist-05-05-lens.md) for the issue and merge
 layers, [Rendall's](.claude/specialists/lenses/specialist-05-06-lens.md) for the fold and the cut, and
-the [specialists handbook](.claude/specialists/README.md) for keeping a checkout's plugins current.
+[Sylvester's](.claude/specialists/lenses/specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo) for keeping a checkout's plugins current too.
 
 The safety rules and the three direct-on-`main` exceptions are the imported constitution, in
 [`plugins/dkj-policy/CLAUDE.md`](plugins/dkj-policy/CLAUDE.md); this repo's own gates and their bounds

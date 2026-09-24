@@ -44,7 +44,90 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**24 / 53 minor entries** <!-- pending-tally -->
+**25 / 56 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/split-files-to-shrink-context · 20260924-150635Z
+
+The constitution gets a new working practice: split a file wherever the split keeps loaded context
+smaller. Content is divided by **when** it is needed. What governs every turn stays always-on, and the
+rest moves to where it loads on demand (a `paths:`-scoped rule, a manual, a skill page). The rule states
+its two limits. Halves that always load together save nothing, and a rule that must hold whichever files a
+turn touches stays always-on, because on-demand content is lost after a compaction. The always-on baseline
+is raised by 836 B on the record to carry it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy` reads the constitution through its absolute `@`-import, so its sessions
+now carry an explicit licence, and a test, for moving situational detail off the always-on path: split by
+timing, not by topic.
+
+**Score:** 3
+
+#### Pull Request
+
+Constitution: split a file wherever that keeps loaded context smaller
+
+Plugins: dkj-policy
+
+[PR #2446](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2446)
+
+---
+
+### DEPLOY: docs/merge-specialists-readme · 20260924-144731Z
+
+The specialists handbook (`.claude/specialists/README.md`) is gone, and
+[`SPECIALISTS.md`](../.claude/specialists/SPECIALISTS.md) is the one page for the roster.
+The two pages repeated the roster, the lens index and the scaffold explanation. The handbook's unique
+content moved to the lens of the specialist who owns it, so it stays on demand:
+[Tessa's](../.claude/specialists/lenses/specialist-06-16-lens.md#how-a-specialist-is-structured-here)
+for how a specialist and this directory are structured,
+[Sylvester's](../.claude/specialists/lenses/specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo)
+for the plugin-update procedure and the `Get-RosterIgnoredIds` history, and
+[Derek's](../.claude/specialists/lenses/specialist-05-05-lens.md#the-three-ways-a-briefing-fails-measured-here)
+for the measured instances behind Chris's briefing and branch-check rules. The always-on path shrinks by
+448 B, where a wholesale merge would have added ~33 KB.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- `.claude/` is this repo's own layer and ships in no plugin, so no subscriber receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Merge the specialists handbook into SPECIALISTS.md and retire the README
+
+[PR #2447](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2447)
+
+---
+
+### DEPLOY: docs/2415-local-gate-median-141 · 20260924-142922Z
+
+Nolan's lens now records the local test gate's wall-clock on the current 141-suite pool: median **229s**
+at the automatic 30 lanes and **1,215s** at `-MaxParallel 2`, n=5 each, all green, on one 32-core machine
+with the population stated. At auto lanes the makespan is one file, `new-branch.tests.ps1`, so more lanes
+buy nothing and the lever sits inside that suite; at two lanes the pool is work-bound. #2317's ~43-minute
+runs and memory reaps did not reproduce on this machine. Closes #2415.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a measurement recorded in a maintainer's lens; nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Record the local gate median on the 141-suite pool: 229s at auto lanes, 1,215s at two
+
+[PR #2445](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2445)
+
+---
 
 ### DEPLOY: fix/2438-stranded-sweep-sessioncheck · 20260924-140748Z
 
