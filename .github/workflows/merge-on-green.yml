@@ -89,7 +89,12 @@ jobs:
       # step for why an environment-only credential rather than actions/checkout's own persisted one, and
       # for the residual exposure that choice still carries (GH_TOKEN in the step's process environment,
       # inherited by every child process of it, same as every other step in this file already accepts for
-      # its `gh` calls). Read as unresolved without a live run: this workflow cannot be proved on its own
+      # its `gh` calls). That process does read PR-controlled DATA (the branch document, the PR body) as
+      # text, and a job split to keep the token away from it was measured and refused on #2452; what
+      # guards it instead is scripts/tests/trusted-tree-seam.tests.ps1, which refuses the enumerated
+      # string-to-code primitives (its header lists them) in the code this step runs, child scripts
+      # included -- a syntactic guard against one being ADDED, since that code comes from trusted-main.
+      # Read as unresolved without a live run: this workflow cannot be proved on its own
       # pull request (see workflow_run's own comment above), so this exact mechanism is proven only by its
       # first live sweep after this merges.
       #
