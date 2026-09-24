@@ -59,7 +59,7 @@ install commands, which run before any plugin skill exists -- moves into `plugin
 
 The root `INSTALL.md` and `UNINSTALL.md` are gone. The install commands and the machine-side removal now
 live in `plugins/ADOPTION.md`, and every link, printed script message and tooling list that named either
-page points there instead. The archived release notes are left as written.
+page points there instead. The archived release notes keep their text; their ten links to the pages now point at the last commit that still had them.
 
 **Score:** 2
 
