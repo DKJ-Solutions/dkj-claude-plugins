@@ -2239,7 +2239,7 @@ if ($checks.ExitCode -ne 0) {
         # are all "CI has not said yes yet", none a judgement on the branch, so none of them disarms.
         if (-not $NoMerge) {
             if ($script:SweepRefusal) {
-                Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)', but the merge-on-green sweep will NOT finish it: $($script:SweepRefusal) -- once the required check is green, re-run ship-pr from a session (issue #2436)." -ForegroundColor Yellow
+                Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)', but the merge-on-green sweep will NOT finish it: $($script:SweepRefusal) -- once the required check is green, re-run ship-pr from a session (issues #2338, #2436)." -ForegroundColor Yellow
             } else {
                 Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)' -- once the required check is green, the merge-on-green sweep finishes it (issue #2319)." -ForegroundColor DarkCyan
             }
