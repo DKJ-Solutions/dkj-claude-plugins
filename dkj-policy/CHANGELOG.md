@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 47 minor entries** <!-- pending-tally -->
+**22 / 48 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2429-consumer-deploy-lock · 20260924-112315Z
+
+The branch-entry gate that `adopt-dkj-policy` places in a consumer now holds the DEPLOY lock, as this
+repo's own gate does: it refuses a PR whose DEPLOY section changed after the PR opened, including one
+merged from the GitHub UI. A caller placed before this change keeps working unchanged and says the lock
+was not checked. To take the lock, add `pull-requests: read` and the `edited` trigger, or re-run Part 1.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer repo's own CI starts guarding the changelog text a PR was approved with, once its caller
+carries the two lines. Callers placed before this change see nothing new until then.
+
+**Score:** 2
+
+#### Pull Request
+
+The consumer's branch-entry gate holds the DEPLOY lock
+
+Plugins: dkj-policy
+
+[PR #2435](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2435)
+
+---
 
 ### DEPLOY: fix/2428-life-hub-lifehub-lenses · 20260924-104630Z
 
