@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Dave, September 24, 2026: retire the root `README.md` entirely, with no stub (option A). Every section first
+moves to the page that owns its subject, the same route #2171/#2179 took for `dkj-policy/README.md`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rehome each root section: marketplace architecture into `plugins/dkj-subagents/README.md`, consumption/adoption/teardown into `plugins/ADOPTION.md`, versioning and the skills policy into `plugins/dkj-policy/README.md`, repo-only facts into Tessa's and Sylvester's lenses
+- [x] Delete `README.md` and repoint every live link, including the five absolute URLs in the `specialists-init` / `specialists-teardown` skill pages
+- [x] Archived release notes: repoint to a permalink at `123878dd`, the precedent of `5a9c004c` and `170d5f99`
+- [x] `check-plugin-integrity.ps1`: swap the retired root `README.md` for `plugins/dkj-subagents/README.md` in the consumer-facing set of checks 15/16
+- [ ] Copy edit (Edith) applied
 
 ### TEST
 
+- [x] Plugin integrity lint green locally (dead links, plugin-root links, consumer-doc set)
+
 ### DEPLOY: docs/retire-root-readme
 
-**Score:**
+The root `README.md` is gone. Its content now lives on the pages that own each subject: the marketplace
+architecture in `plugins/dkj-subagents/README.md`; consumption, adoption, where it runs and the teardown gap in
+`plugins/ADOPTION.md`; versioning and the skills policy in `plugins/dkj-policy/README.md`; the repo-only facts
+(one product, one repository, the repo layout) in the technical-writer and system-administration lenses. Every
+live link was repointed. The archived release notes now link to a permalink of the README as it last stood.
+The lint's consumer-facing set now reads `plugins/dkj-subagents/README.md` where it read the root page.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The repository's GitHub landing page no longer renders a README. A consumer finds the adoption and teardown
+material in `plugins/ADOPTION.md`, and the links in the shipped `specialists-init` / `specialists-teardown`
+pages now point there.
+
+**Score:** 2
 
 #### Pull Request
 
