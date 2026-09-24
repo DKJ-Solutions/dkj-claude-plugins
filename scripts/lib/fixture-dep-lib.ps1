@@ -607,8 +607,8 @@ function Get-FixtureDepReport {
         could see and was structurally blind to the eighth.
 
         AND WIDENING IS BORN GREEN, which is why it is this repair rather than the more thorough one.
-        The three other non-suite files here (fresh-consumer, round-baseline and round-tally .measure.ps1)
-        contain no Copy-Item at all, so they are not subjects and cost one substring test each; the
+        The one other non-suite file here (fresh-consumer.measure.ps1) contains no Copy-Item at all, so
+        it is not a subject and costs one substring test; the
         builder itself reports 0 findings today. The alternative weighed in #1865 -- follow each suite's
         own dot-sources, so a builder is reached because a suite LOADS it rather than because of where it
         sits -- is strictly more correct and strictly more code, and buys nothing this tree can measure

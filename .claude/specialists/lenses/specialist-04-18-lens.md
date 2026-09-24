@@ -253,7 +253,9 @@ suite asserts.
 
 **Routing a `Write-Host` assert through the whitespace-blind reader is a LOSS, not a neutral tidy-up.**
 It asserts strictly less than `-match` does, and it destroys any assert that cares about line structure
--- `round-tally`'s `(?m)^\| v10 \| A2 extra \|` reads a generated markdown row and must keep `-match`.
+-- a line-anchored pattern such as `(?m)^\| v10 \| A2 extra \|`, which reads one generated markdown row,
+must keep `-match`. (That example came from `round-tally.tests.ps1`, retired with its tool in
+[#2414](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2414).)
 
 #### The three flatteners are not equally safe, and the ranking is measured
 
@@ -277,7 +279,8 @@ wrapped -- a property of the renderer that nothing here controls or tests. `Test
 property. So converting a suite that already joins with `''` is a **hardening**; converting one that
 does not is a **repair**.
 
-**Exactly one suite in that queue was genuinely exposed:** `round-tally.tests.ps1`, which joins its
+**Exactly one suite in that queue was genuinely exposed:** `round-tally.tests.ps1` (since retired,
+#2414), which joined its
 records with a newline (`-match` is single-line by default) and measured 51 of 480. It had already met
 this in [#1242](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1242) and answered it by
 rejoining the lines at **one** call site by hand, leaving two `Write-Warning` asserts beside it

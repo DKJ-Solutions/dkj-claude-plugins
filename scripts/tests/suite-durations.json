@@ -129,8 +129,6 @@
                     "repo-root-lib.tests.ps1":  4.9,
                     "repo-settings-gate.tests.ps1":  45.5,
                     "roster-sync.tests.ps1":  121,
-                    "round-baseline.tests.ps1":  24.3,
-                    "round-tally.tests.ps1":  8.6,
                     "run-progress.tests.ps1":  9.4,
                     "script-contract.tests.ps1":  256.7,
                     "seam-lib.tests.ps1":  5.4,
