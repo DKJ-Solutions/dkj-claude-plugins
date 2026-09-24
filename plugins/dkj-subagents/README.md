@@ -3,8 +3,7 @@
 **Every plugin in this directory is a team: a set of specialists a repo can enable.** Its sibling
 [`../dkj-policy/`](../dkj-policy/) holds the other kind of plugin, which answers a different question —
 not *who* the specialists are, but *how* work moves through the repo. That split is the organising
-idea behind both directories: it is put side by side one level up, in
-[`../README.md`](../README.md), and argued in full in the root README under
+idea behind both directories, and it is argued in full in the root README under
 [Teams and workflows — what's the difference?](../../README.md#teams-and-workflows--whats-the-difference).
 
 ## What is in here
