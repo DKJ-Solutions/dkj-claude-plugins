@@ -39,9 +39,42 @@
 
 ### PLAN
 
+Dave chose option 3 on #2452 (2026-09-24): no job split. Instead a guard refuses any
+string-to-code execution primitive in the code the token-bearing "Ship it" step runs. The
+analysis of why the split fails is on #2452 (comment 5818456726).
+
+#### Where I left off (parked 2026-09-24)
+
+- **Home:** a new section in `scripts/tests/trusted-tree-seam.tests.ps1`, reusing its
+  `Get-DotSourceClosure` walk rather than a second walk.
+- **Scope is WIDER than that suite's closure.** The token process also runs child scripts:
+  `fold-changelog-entry.ps1` (ship-pr step 5, reads the branch document), `verify-resolved-issues.ps1`
+  (step 6, reads the PR body), and `scripts/lint/check-always-on-budget.ps1` (open-pr:2124, runs even in
+  trusted mode, reads the PR branch's CLAUDE.md). Discover them by following `-File (Join-Path
+  $PSScriptRoot ...)` spawns, inline and via variable, to a fixpoint. Do not hand-list them. Keep the
+  existing `$repoRoot` dot-source rule scoped to the dot-source closure only: children resolve their
+  own root.
+- **Detection is AST-based** (`Parser::ParseFile`), so comments and string literals never count. The
+  probe is in the session scratchpad, not the tree; rebuild it from this list. It flags:
+  `Invoke-Expression`/`iex`/`Invoke-Command`/`icm`; `Add-Type` ONLY with
+  `-TypeDefinition`/`-MemberDefinition`/a positional source (`-AssemblyName` is fine);
+  `[scriptblock]::Create`; `.NewScriptBlock`/`.InvokeScript`; `powershell`/`pwsh` with
+  `-Command`/`-EncodedCommand`; a `'-Command'`/`'-EncodedCommand'` string constant.
+- **`& $var` is deliberately NOT in scope.** Measured: dozens of legitimate scriptblock-seam calls
+  (`gate-lib`, `entry-scaffold-lib`, `check-report-lib`). Say so in the suite header.
+- **Measured hits over scripts/lib, release, lint today:** `plugin-tree-lib.ps1:128` and
+  `check-plugin-integrity.ps1:601` (`Add-Type -AssemblyName`, which the refined rule drops), and
+  `native-capture-lib.ps1:4667`, a real `powershell -Command` over `Get-TestCommands` strings (repo
+  seam data). It sits in the test gate, which `-TrustedRoot` force-skips. The next step is to decide
+  whether it is in the discovered closure. If it is, it needs a narrow, reasoned allowance (the seam
+  comes from trusted-main, the gate is structurally skipped), plus a regression fixture proving
+  that a planted `iex` is caught.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Add the discovered token-process closure + AST primitive scan to trusted-tree-seam.tests.ps1
+- [ ] Regression fixture: planted primitive in a child-spawned lib is flagged
+- [ ] Header + merge-on-green.yml comment updated to name the guard (#2452)
 
 ### TEST
 
