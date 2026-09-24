@@ -208,13 +208,38 @@ try {
     # scaffolder's output against itself and stays green when the script moves in this tree. It did move
     # (plugins/workflows/contributing-davekjohn/ -> plugins/dkj-policy/), every suite stayed green, and
     # two consumers were red on every pull request for five days before anybody noticed.
-    $gateRel = '.github\workflows\branch-entry.yml'
-    Assert-True (Test-Path -LiteralPath (Join-Path $c2 $gateRel) -PathType Leaf) '-Apply: the branch-entry gate workflow is placed'
+    #
+    # AND SINCE #2422 THE DEPENDENCY HAS TWO HOPS, so both are followed. The placed file is a CALLER of a
+    # reusable workflow in this repo, and that workflow is what checks this repo out and runs the script.
+    # Asserting only the first hop would leave the #1805 shape open one file further in: the reusable
+    # workflow could name a moved script and every consumer would go red with this suite green.
     . (Join-Path $RepoRoot 'scripts\lib\consumer-runner-lib.ps1')
-    $gateRefs = @(Get-SharedScriptReference -WorkflowText ([System.IO.File]::ReadAllText((Join-Path $c2 $gateRel), [System.Text.Encoding]::UTF8)) -RepositoryName 'dkj-claude-plugins')
-    Assert-Equal 1 $gateRefs.Count '-Apply: the gate reaches exactly one script out of a checkout of this repo'
-    foreach ($judged in @(Test-SharedScriptReference -Reference $gateRefs -SourceRoot $RepoRoot)) {
-        Assert-True $judged.Exists "-Apply: the gate runs '$($judged.Path)', and that path EXISTS in this tree"
+    foreach ($gate in @('branch-entry', 'always-on-budget')) {
+        $gateRel = ".github\workflows\$gate.yml"
+        $gateAbs = Join-Path $c2 $gateRel
+        Assert-True (Test-Path -LiteralPath $gateAbs -PathType Leaf) "-Apply: the $gate gate workflow is placed"
+        if (-not (Test-Path -LiteralPath $gateAbs -PathType Leaf)) { continue }
+        $gateText = [System.IO.File]::ReadAllText($gateAbs, [System.Text.Encoding]::UTF8)
+
+        $calls = @(Get-SharedScriptReference -WorkflowText $gateText -RepositoryName 'dkj-claude-plugins')
+        Assert-Equal 1 $calls.Count "-Apply: the $gate caller reaches exactly one path into this repo"
+        Assert-Equal 'call' ([string]@($calls | ForEach-Object { $_.Kind })[0]) "-Apply: the $gate caller reaches it by a reusable-workflow CALL, not a checkout of its own"
+        # GitHub refuses timeout-minutes (and runs-on/steps) on a job that calls a reusable workflow, so a
+        # caller carrying one is a workflow that fails to load in every consumer.
+        Assert-True ($gateText -notmatch '(?m)^\s*(timeout-minutes|runs-on|steps):') "-Apply: the $gate caller carries no runner keys a calling job may not have"
+
+        foreach ($judged in @(Test-SharedScriptReference -Reference $calls -SourceRoot $RepoRoot)) {
+            Assert-True $judged.Exists "-Apply: the $gate caller calls '$($judged.Path)', and that workflow EXISTS in this tree"
+            if (-not $judged.Exists) { continue }
+            $called = [System.IO.File]::ReadAllText((Join-Path $RepoRoot ($judged.Path -replace '/', '\')), [System.Text.Encoding]::UTF8)
+            Assert-True ($called -match '(?m)^\s*workflow_call:') "-Apply: '$($judged.Path)' is a reusable workflow (on: workflow_call)"
+            $scripts = @(Get-SharedScriptReference -WorkflowText $called -RepositoryName 'dkj-claude-plugins' | Where-Object { $_.Kind -eq 'checkout' })
+            Assert-Equal 1 $scripts.Count "-Apply: '$($judged.Path)' runs exactly one script out of a checkout of this repo"
+            foreach ($s in @(Test-SharedScriptReference -Reference $scripts -SourceRoot $RepoRoot)) {
+                Assert-True $s.Exists "-Apply: '$($judged.Path)' runs '$($s.Path)', and that path EXISTS in this tree"
+                Assert-True ($s.Path -like 'plugins/*') "-Apply: '$($s.Path)' is the published plugin mirror, not this repo's own scripts/ copy"
+            }
+        }
     }
 
     # --- THE PR TEMPLATE, THE SECOND FILE PLACED OUTSIDE THE FOLDER (#1843) -----------------------

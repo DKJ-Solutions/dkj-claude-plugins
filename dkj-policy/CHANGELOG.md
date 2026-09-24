@@ -44,7 +44,60 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**20 / 45 minor entries** <!-- pending-tally -->
+**21 / 47 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2428-life-hub-lifehub-lenses · 20260924-104630Z
+
+The connector register no longer lists five `dkj-subagents-lifehub` lenses for `life-hub` that its
+re-bootstrapped roster does not have, so the consumer check stops reporting them as missing. The plugin
+itself stays registered, because the consumer's settings still enable it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Register the lifehub lenses life-hub no longer has as absent
+
+[PR #2434](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2434)
+
+---
+
+### DEPLOY: feat/2422-reusable-ci-gates · 20260924-101900Z
+
+Part 1 of `adopt-dkj-policy` no longer copies the two PR gates into a consumer
+([#2422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2422)). `branch-entry.yml` and
+`always-on-budget.yml` are now a few-line caller of a reusable workflow in this repo
+(`reusable-branch-entry.yml`, `reusable-always-on-budget.yml`). A change to the runner, its steps or its
+timeout therefore reaches every consumer on its next pull request, with no re-adopt, and the reasoning
+sits in one place. `check-connectors` recognises the `uses:` line as a reference into this tree, so a
+caller-only consumer still reads as adopted. A repo adopted earlier keeps its full copy until it deletes
+the file and re-runs Part 1.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo adopting the workflow gets two short callers instead of two 50-line runners, and later changes to
+those gates arrive without anyone re-running the adoption. An already-adopted repo sees no change unless
+it opts in.
+
+**Score:** 2
+
+#### Pull Request
+
+Ship the two PR gates as reusable workflows
+
+Plugins: dkj-policy
+
+[PR #2432](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2432)
+
+---
 
 ### DEPLOY: docs/remove-install-uninstall · 20260924-100317Z
 
