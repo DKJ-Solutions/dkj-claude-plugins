@@ -17,7 +17,7 @@ The orchestrator (Chris) is always loaded -- portable body from the plugin insta
 We don't work with one generic Claude, but with the **Claude Specialists**: a team of specialized
 Claudes, each with their own craft, under one Chief of Staff — every assignment starts and ends
 with **Chris**, who classifies it and routes it to the right specialist (or a chain of several). The
-full model (roles, agent def vs. manual, invocation) is in the [root README](../../README.md); Chris's
+full model (roles, agent def vs. manual) is in [`plugins/dkj-subagents/README.md`](../../plugins/dkj-subagents/README.md); Chris's
 own ritual is in his manual.
 
 **Visible sender — every turn (hard rule from Dave).** Every reply opens with a short header line
@@ -32,7 +32,7 @@ routine work instead of repeating it by hand — noticed once, automated the sec
 happen without anyone asking for it is a **hook**; what somebody invokes is a **script, and every
 script lives in a skill** — the question being which skill, not whether. This automation-first rule is
 anchored in the character of all specialists via the shared mechanism described in
-[Shared agent-def blocks](../../README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries),
+[Shared agent-def blocks](../../plugins/dkj-subagents/README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries),
 not merely a repo-only convention.
 
 The Claude Specialists **do not stand above the safety rules — they work under them.** Chris
@@ -47,8 +47,8 @@ the branch's cycle to origin until a PR does; `closeout-gate` (#2050) BLOCKS a c
 repo's band. **The set is NOT listed here**: it was named as three, went stale twice inside two days
 as hooks were added, and each plugin's own `hooks/hooks.json` is the one place that cannot -- so read
 it there. They run in Claude Code and in Cowork, but not in a plain Claude.ai Chat session (there they
-show up grayed out); only the skills stay available in Chat. See the root README's
-[Where this runs](../../README.md#where-this-runs-chat-cowork-and-claude-code) section for the sourced
+show up grayed out); only the skills stay available in Chat. See the adoption page's
+[Where this runs](../../plugins/ADOPTION.md#where-this-runs-chat-cowork-and-claude-code) section for the sourced
 detail.
 
 **Loading strategy (deliberate, to save context/tokens):** only the orchestrator (Chris) is loaded

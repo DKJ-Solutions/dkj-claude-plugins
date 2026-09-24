@@ -44,7 +44,63 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**27 / 59 minor entries** <!-- pending-tally -->
+**29 / 61 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2436-honest-sweep-promise · 20260924-173614Z
+
+`ship-pr` now promises that the merge-on-green sweep will finish a PR only when the sweep can. For a
+PR the sweep refuses (one that changes a repo-owned seam file, or whose file list is too long to read
+whole), it gives the reason at arm time and says that, if this run does not finish, somebody has to
+re-run ship-pr from a session. It is read through the same executed-path predicate the sweep refuses
+on (#2338), so the two cannot disagree (#2436).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Anyone who runs `ship-pr` on a PR the automatic backstop will not cover is now told so up front, so a
+green PR no longer sits unmerged while it looks owned.
+
+**Score:** 2
+
+#### Pull Request
+
+ship-pr promises the merge-on-green sweep only where the sweep will not refuse it
+
+Plugins: dkj-policy
+
+[PR #2456](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2456)
+
+---
+
+### DEPLOY: docs/retire-root-readme · 20260924-171244Z
+
+The root `README.md` is gone. Its content now lives on the pages that own each subject: the marketplace
+architecture in `plugins/dkj-subagents/README.md`; consumption, adoption, where it runs and the teardown gap in
+`plugins/ADOPTION.md`; versioning and the skills policy in `plugins/dkj-policy/README.md`; the repo-only facts
+(one product, one repository, the repo layout) in the technical-writer and system-administration lenses. Every
+live link was repointed. The archived release notes now link to a permalink of the README as it last stood.
+The lint's consumer-facing set now reads `plugins/dkj-subagents/README.md` where it read the root page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The repository's GitHub landing page no longer renders a README. A consumer finds the adoption and teardown
+material in `plugins/ADOPTION.md`, and the links in the shipped `specialists-init` / `specialists-teardown`
+pages now point there.
+
+**Score:** 2
+
+#### Pull Request
+
+Retire the root README; rehome its content in the lenses and plugin pages
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha
+
+[PR #2455](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2455)
+
+---
 
 ### DEPLOY: fix/2437-trusted-tree-ship · 20260924-155111Z
 

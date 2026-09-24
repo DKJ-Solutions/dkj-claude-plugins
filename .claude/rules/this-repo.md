@@ -17,7 +17,7 @@ them, and this file points there
 
 - **The home repo of one product** — the Claude Specialists system — and the **single source of truth**
   for every shareable subagent definition. One product, one repository, one marketplace, and lockstep
-  versioning *within* it is correct: [`README.md`](../../README.md#one-product-one-repository).
+  versioning *within* it is correct: [Tessa's lens](../specialists/lenses/specialist-06-16-lens.md#one-product-one-repository).
 - **It consumes itself, with every plugin in the marketplace enabled** in
   [`.claude/settings.json`](../settings.json) (Dave, September 8, 2026) — for validation: the repo that
   ships a plugin is also a repo that loads it. Only the core team and `dkj-policy` have real work here,
@@ -49,7 +49,7 @@ renames, `Get-RetiredRepoNames` and the one-command `origin` fix are in
 
 ### Structure — where everything lives
 
-The layout is in [`README.md`](../../README.md#repo-layout); how the tree reached it is in
+The layout is in [Sylvester's lens](../specialists/lenses/specialist-05-15-lens.md#repo-layout); how the tree reached it is in
 [Sylvester's lens](../specialists/lenses/specialist-05-15-lens.md#how-the-plugin-tree-got-its-current-address).
 
 ### claude-code-specialists's safety implementation

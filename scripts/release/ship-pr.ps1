@@ -1193,11 +1193,26 @@ function Remove-ShipMergeOnGreenArmForJudgement {
 #
 # NOT UNDER -NoMerge, which says in so many words that this run is not to merge. Arming a sweep to do it
 # minutes later would be the same act through another door.
+#
+# AND THE PROMISE IS ONLY MADE WHERE THE SWEEP CAN KEEP IT (#2436). The picker refuses, on every sweep, a
+# PR whose diff reaches the executed-path rule (#2338; since #2437 the two repo-owned seam files, or a file
+# list too long to read whole). It is asked here through the picker's own predicate, so the sentence below and the sweep's verdict
+# cannot drift. The PR is still armed: the label is the record that a session began shipping it, and the
+# picker's log names the reason on each sweep. What changes is only what this run tells its operator.
+$script:SweepRefusal = ''
 if (-not $NoMerge) {
     $armLabel = Get-MergeOnGreenArmLabel
+    $filesRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
+        'pr', 'view', "$pr", '--repo', $repo, '--json', 'files,changedFiles')
+    $script:SweepRefusal = Get-MergeOnGreenSweepRefusal -FilesJson $(if ($filesRead.ExitCode -eq 0) { $filesRead.Output -join "`n" } else { '' })
     if (Set-ShipMergeOnGreenArm) {
-        Write-Host "ship-pr: armed PR #$pr with '$armLabel' -- if this run does not finish, the merge-on-green sweep does once the required check has been green for $(Get-MergeOnGreenSettleMinutes) minutes (issues #2319, #2393)." -ForegroundColor DarkCyan
-        Write-Host "  It re-runs every gate this script runs, including the staleness check and the DEPLOY lock. To disarm: gh pr edit $pr --remove-label $armLabel" -ForegroundColor DarkGray
+        if ($script:SweepRefusal) {
+            Write-Host "ship-pr: armed PR #$pr with '$armLabel', but the merge-on-green sweep will NOT finish it: $($script:SweepRefusal) (issues #2338, #2436)." -ForegroundColor Yellow
+            Write-Host "  If this run does not finish, nothing else will -- re-run ship-pr from a session: scripts\release\ship-pr.ps1" -ForegroundColor Yellow
+        } else {
+            Write-Host "ship-pr: armed PR #$pr with '$armLabel' -- if this run does not finish, the merge-on-green sweep does once the required check has been green for $(Get-MergeOnGreenSettleMinutes) minutes (issues #2319, #2393)." -ForegroundColor DarkCyan
+            Write-Host "  It re-runs every gate this script runs, including the staleness check and the DEPLOY lock. To disarm: gh pr edit $pr --remove-label $armLabel" -ForegroundColor DarkGray
+        }
     } else {
         Write-Warning "could not arm PR #$pr with '$armLabel', so if this run does not finish the merge stays owed to a session -- 'gh pr edit $pr --add-label $armLabel' arms it by hand (issue #2319)."
     }
@@ -2293,7 +2308,11 @@ if ($checks.ExitCode -ne 0) {
         # merge was owed to a session that had exited. A red, a run that never started and a dropped watch
         # are all "CI has not said yes yet", none a judgement on the branch, so none of them disarms.
         if (-not $NoMerge) {
-            Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)' -- once the required check is green, the merge-on-green sweep finishes it (issue #2319)." -ForegroundColor DarkCyan
+            if ($script:SweepRefusal) {
+                Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)', but the merge-on-green sweep will NOT finish it: $($script:SweepRefusal) -- once the required check is green, re-run ship-pr from a session (issues #2338, #2436)." -ForegroundColor Yellow
+            } else {
+                Write-Host "ship-pr: PR #$pr stays armed with '$(Get-MergeOnGreenArmLabel)' -- once the required check is green, the merge-on-green sweep finishes it (issue #2319)." -ForegroundColor DarkCyan
+            }
         }
 
         # THREE WORDINGS, ONE VERDICT. The two below are #1044's; the middle one is #1219's, and the

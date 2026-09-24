@@ -588,7 +588,7 @@ only while it says when each one was opened.
 
    **What batching buys and what it costs, on the same data.** The saving is simulated against the **real
    73 merge timestamps**; the delivery cost is *measured* as merge → next tag, because
-   [`README.md`](../../../README.md#versioning) states that a merge without a release is invisible to
+   [`plugins/dkj-policy/README.md`](../../../plugins/dkj-policy/README.md#versioning) states that a merge without a release is invisible to
    consumers. Today that latency is **mean 7.45h**, median 5.72h, p90 17.40h, max 25.29h.
 
    | cadence | releases | gate time /10 days | saves | mean latency | costs | per hour of latency |

@@ -34,7 +34,7 @@ deeper, and no note's prose was touched — so several of them still describe th
 exceptions in [`language-layers.md`](../../.claude/rules/language-layers.md).
 
 > **Named `davekjohns-workshop` until August 3, 2026.** The marketplace was renamed with the
-> [one-product decision](../../README.md#one-product-one-repository); the older notes under
+> [one-product decision](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/123878dd51f7e06861777805402ce46a55375e41/README.md#one-product-one-repository); the older notes under
 > `changelog/` still carry the old name and are deliberately not rewritten — they are history.
 
 ## What is not on this page
