@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**13 / 33 minor entries** <!-- pending-tally -->
+**14 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2372-sweep-no-gate-prerun · 20260924-071713Z
+
+`sweep-issues` step 4 told a session that a `-GatesOnly` run before the ship costs nothing. It doubles
+the wait: `open-pr` credits a recorded pass only on the identical tree (HEAD plus every uncommitted file)
+in the same worktree, and a sweep's pre-run is almost always before the commit or in another lane, so
+`ship-pr` ran the same gate again (1,400s twice on one commit, as measured). Step 4 now says to run nothing
+before a branch that ships, and keeps `-GatesOnly` for the branch that stops at a visible result, where
+it is the only gate that runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog stops paying for every gate twice on the issues it ships.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: no -GatesOnly pre-run, since ship-pr gates first and a pre-run is rarely credited
+
+Plugins: dkj-policy
+
+[PR #2407](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2407)
+
+---
 
 ### DEPLOY: docs/remove-four-readmes · 20260924-070744Z
 
