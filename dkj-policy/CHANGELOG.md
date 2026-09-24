@@ -44,7 +44,29 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 42 minor entries** <!-- pending-tally -->
+**19 / 43 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2425-life-hub-connector-owner · 20260924-093941Z
+
+The connector register names `life-hub` under its new owner, `DKJ-Solutions/life-hub`, so the
+origin-vs-register check no longer treats a repointed checkout as a clone of something else. Prevents a
+false mismatch on the first `life-hub` checkout whose `origin` is set to the new owner.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector register names life-hub under its new owner DKJ-Solutions
+
+[PR #2427](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2427)
+
+---
 
 ### DEPLOY: fix/2405-open-pr-body-file · 20260924-091928Z
 
