@@ -44,7 +44,28 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 49 minor entries** <!-- pending-tally -->
+**23 / 50 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2420-thumbnail-generator-connector-owner · 20260924-131132Z
+
+The connector register now names `thumbnail-generator` under the `DKJ-Solutions` org it moved to, so
+that consumer's session check stops reporting its own origin as unregistered.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Register thumbnail-generator under its new owner
+
+[PR #2440](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2440)
+
+---
 
 ### DEPLOY: fix/2426-init-own-payload-subagents · 20260924-115135Z
 
