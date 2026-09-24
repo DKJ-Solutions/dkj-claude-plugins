@@ -39,19 +39,33 @@
 
 ### PLAN
 
+Inbound #2428, verified before routing: life-hub's roster PR (DKJ-Solutions/life-hub#378) merged
+2026-09-24, and its `main` carries exactly the 19 `dkj-subagents-alpha` lenses and none of the five
+`dkj-subagents-lifehub` ones, while its `.claude/settings.json` still enables that plugin. The register
+follows reality: keep the plugin block, empty its inventory, record the measurement in `notes`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/life-hub.json`: `dkj-subagents-lifehub` extensions emptied to `[]`; `notes` records the
+  re-measurement, why the plugin block stays, and why `dkj-policy-bwj`/`dkj-subagents-shopify` stay out
 
 ### TEST
 
+- [x] manifest parses; `scripts/tests/connectors.tests.ps1` -- 436 pass, 0 fail
+
 ### DEPLOY: fix/2428-life-hub-lifehub-lenses
 
-**Score:**
+The connector register no longer lists five `dkj-subagents-lifehub` lenses for `life-hub` that its
+re-bootstrapped roster does not have, so the consumer check stops reporting them as missing. The plugin
+itself stays registered, because the consumer's settings still enable it.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
