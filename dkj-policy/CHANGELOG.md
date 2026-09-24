@@ -44,7 +44,56 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**26 / 58 minor entries** <!-- pending-tally -->
+**27 / 59 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2437-trusted-tree-ship · 20260924-155111Z
+
+This closes issue #2437 (following Sebastian #23's design review) and files #2449 for the consumer
+template's own, narrower version of the same class of exposure. `ship-pr.ps1` gained `-TrustedRoot`
+(forwarded to `open-pr.ps1` as `-SeamRoot`), `.github/workflows/merge-on-green.yml` now runs from two
+separate, token-isolated checkouts, `Get-MergeOnGreenExecutedPathHit` shrank to an enumerated two-file
+list, matched case- and spelling-insensitively so a renamed seam still refuses. A new closure-walking test
+(`trusted-tree-seam.tests.ps1`, which also follows guarded dot-sources) guards against a third
+`$repoRoot`-rooted dot-source reappearing silently in ship-pr's own closure, and
+`ship-pr-trusted-root.tests.ps1` proves the redirection behaviourally. The token's remaining presence
+beside PR-controlled data for the whole step predates this branch and is filed as #2452.
+
+Every specialist here maintains this repo's own CI/release tooling and reads this repo's own commits, so
+tier 0 is scored against how much clearer/safer/costlier the mechanism became for the next person (or
+session) touching `ship-pr.ps1`, `open-pr.ps1`, or this workflow.
+
+This closes a measured, session-facing cost (#2436: ~80% of merged PRs here could never be finished by
+the sweep) with a design that was reviewed BEFORE it was built rather than patched after a live incident,
+and it leaves one explicit, load-bearing judgement call (the ephemeral-credential departure from
+Sebastian's literal wording) named in three places (the yml, the lens, this document) rather than buried
+in a diff. The cost is real complexity: two checkouts, a new parameter surface on two already-large
+scripts, and one mechanism (the `GIT_CONFIG_KEY_n` credential) that is textbook-sound but has not run
+live in this repo before.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+This repo's tier-2 audience is a subscriber of the workflow -- a consumer repo running `dkj-policy`
+adopts `ship-pr.ps1`/`open-pr.ps1` on their next plugin update, and the new `-TrustedRoot`/`-SeamRoot`
+parameters are additive (empty default, every existing call site unchanged), so nothing in a consumer's
+own workflow breaks or behaves differently until THEY choose to wire up trusted-tree mode -- which only
+`adopt-ci-floor.ps1`'s scaffolded runner would ever do, and it does not yet (see #2449). So today's
+consumers see a safer `ship-pr.ps1`/`open-pr.ps1` with no action required, and the specific security
+improvement this branch makes (closing #2338 for THIS repo's own sweep) does not reach a consumer's own
+`merge-on-green.yml` until #2449 is built and adopted separately.
+
+**Score:** 2
+
+#### Pull Request
+
+merge-on-green ships from a trusted trunk tree, so the executed-path exclusion shrinks to the seam files
+
+Plugins: dkj-policy
+
+[PR #2453](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2453)
+
+---
 
 ### DEPLOY: docs/2448-slim-this-repo-rule · 20260924-153842Z
 
