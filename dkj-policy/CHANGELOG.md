@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**24 / 55 minor entries** <!-- pending-tally -->
+**25 / 56 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/split-files-to-shrink-context · 20260924-150635Z
+
+The constitution gets a new working practice: split a file wherever the split keeps loaded context
+smaller. Content is divided by **when** it is needed. What governs every turn stays always-on, and the
+rest moves to where it loads on demand (a `paths:`-scoped rule, a manual, a skill page). The rule states
+its two limits. Halves that always load together save nothing, and a rule that must hold whichever files a
+turn touches stays always-on, because on-demand content is lost after a compaction. The always-on baseline
+is raised by 836 B on the record to carry it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy` reads the constitution through its absolute `@`-import, so its sessions
+now carry an explicit licence, and a test, for moving situational detail off the always-on path: split by
+timing, not by topic.
+
+**Score:** 3
+
+#### Pull Request
+
+Constitution: split a file wherever that keeps loaded context smaller
+
+Plugins: dkj-policy
+
+[PR #2446](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2446)
+
+---
 
 ### DEPLOY: docs/merge-specialists-readme · 20260924-144731Z
 
