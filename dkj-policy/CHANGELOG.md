@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**23 / 50 minor entries** <!-- pending-tally -->
+**23 / 51 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2304-split-new-branch-suite · 20260924-132054Z
+
+`new-branch.tests.ps1` is three suites now (`new-branch`, `new-branch-document`, `new-branch-base`),
+over a shared `new-branch-fixture.ps1`. Re-read over three 5-shard runs, it was the one file above the
+gate's work bound (392.5s against ~330s over 20 lanes). With it split, the heaviest remaining file is
+229.4s and the gate is bound by total work again. All 302 asserts are preserved and were verified by
+running the three parts. `suite-durations.json` is re-recorded from those runs. Step 5 of #2304.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+This split was cheap. Every scenario already built its own fixture, so nothing had to be rebuilt per
+part the way the integrity family's splits had to. Whether a sixth shard pays is for the next re-read,
+once the three new names have real durations.
+
+**Score:** N/A
+
+#### Pull Request
+
+Split new-branch.tests.ps1, the critical-path file on five shards
+
+Plugins: dkj-policy
+
+[PR #2439](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2439)
+
+---
 
 ### DEPLOY: fix/2420-thumbnail-generator-connector-owner · 20260924-131132Z
 
