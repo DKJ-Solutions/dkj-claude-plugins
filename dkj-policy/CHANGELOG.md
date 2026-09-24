@@ -44,7 +44,28 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**19 / 43 minor entries** <!-- pending-tally -->
+**19 / 44 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2424-ci-gate-shard-count · 20260924-095218Z
+
+The CI gate's green line no longer states a shard count, which had gone stale at 4 while the
+matrix runs 5.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a CI log line in this repo only; no subscriber sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+ci.yml: the lint-en-tests green line no longer prints a stale shard count
+
+[PR #2431](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2431)
+
+---
 
 ### DEPLOY: fix/2425-life-hub-connector-owner · 20260924-093941Z
 
