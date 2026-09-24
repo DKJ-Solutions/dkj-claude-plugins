@@ -46,12 +46,131 @@ function Get-MergeOnGreenArmLabel {
         IRREVERSIBLE OR OUTWARD-FACING. A runner that merged every green pull request would merge
         those two as well, which is the one outcome this whole mechanism must not produce.
 
-        ship-pr.ps1 is the only writer, and it writes this at the moment its own CI verdict refuses.
-        So the label is not a preference a reviewer sets: it is the record that a session had
-        already begun shipping this branch when CI took the decision away from it. A pull request
-        kept back for the owner never had ship-pr run on it, so it can never carry this.
+        ship-pr.ps1 is the only writer, and it writes this once the pull request is open and before it
+        starts waiting on CI (#2393; until then only at the moment its own CI verdict refused, which
+        left every other ending -- a process that died mid-watch, a step-3b refusal -- unarmed). So
+        the label is not a preference a reviewer sets: it is the record that a session had already
+        begun shipping this branch. A pull request kept back for the owner never had ship-pr run on
+        it, so it can never carry this.
     #>
     return $script:MergeOnGreenArmLabel
+}
+
+function Get-MergeOnGreenSettleMinutes {
+    <#
+    .SYNOPSIS
+        How long every required check must have been green before the sweep may take an armed pull
+        request over -- issue #2393.
+
+    .DESCRIPTION
+        WHY THERE IS A WINDOW AT ALL. Since #2393 ship-pr arms BEFORE its CI wait, so a live session's
+        pull request is armed while that session is still watching. The sweep is woken by CI
+        completing -- the same moment that watch returns -- so without a window every ordinary ship
+        would be handed to a second ship-pr on the runner while the live one merges it. Step 5c would
+        absorb the doubled fold, but the runner would still have been started for nothing, and with a
+        standing write token in its workspace.
+
+        TEN MINUTES, AND WHAT IT HAS TO COVER. A live ship merges seconds after green: step 3b's
+        staleness read and the step-4 gates are local reads plus a handful of gh calls. A forward lap
+        pushes a new head, which starts a new CI run, so the required checks are no longer green and
+        the window starts over on the new head -- a lap never runs out this clock. Ten minutes is
+        therefore generous on the live side, and on the dead side it costs one extra half-hourly sweep
+        at the outside.
+    #>
+    return 10
+}
+
+function Get-RequiredGreenAgeMinutes {
+    <#
+    .SYNOPSIS
+        Minutes since the LAST required check finished, from a `gh pr checks --required --json
+        name,bucket,completedAt` payload -- $null where that cannot be read.
+
+    .DESCRIPTION
+        THE LAST ONE, because the pull request only became green when the slowest required check
+        finished; the earlier ones say nothing about when the watch returned.
+
+        $null ON ANYTHING SHORT OF A CLEAN READ, and the caller refuses on $null. An empty payload, a
+        check with no completedAt, one that is still pending (GitHub reports completedAt as the zero
+        date there) -- none of them is evidence the settle window has passed.
+
+    .PARAMETER RequiredChecksJson
+        The raw payload.
+
+    .PARAMETER Now
+        The current time, passed in so this stays pure.
+
+    .OUTPUTS
+        [double] or $null.
+    #>
+    param(
+        [string]$RequiredChecksJson,
+        [datetime]$Now
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RequiredChecksJson)) { return $null }
+    try { $parsed = ConvertFrom-Json -InputObject $RequiredChecksJson } catch { return $null }
+    $checks = @($parsed | ForEach-Object { $_ })
+    if ($checks.Count -eq 0) { return $null }
+
+    $latest = $null
+    foreach ($check in $checks) {
+        if ($null -eq $check -or -not $check.PSObject.Properties['completedAt']) { return $null }
+        $value = $check.completedAt
+        $at = [datetime]::MinValue
+        if ($value -is [datetime]) {
+            # PowerShell 7's ConvertFrom-Json has already parsed the ISO string, keeping its Kind; casting
+            # it back to [string] would drop the Z and re-read it as local time. UNTESTED HERE: CI and the
+            # suites run Windows PowerShell 5.1 only, which leaves the string, so this arm has never run
+            # in this tree. It exists for a consumer invoking the picker under pwsh.
+            $at = $value
+        } elseif (-not [datetime]::TryParse([string]$value, [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::RoundtripKind, [ref]$at)) {
+            # RoundtripKind keeps the trailing Z as UTC, so the subtraction below is between two UTC times.
+            return $null
+        }
+        $at = $at.ToUniversalTime()
+        if ($at.Year -lt 2000) { return $null }
+        if ($null -eq $latest -or $at -gt $latest) { $latest = $at }
+    }
+    return ($Now.ToUniversalTime() - $latest).TotalMinutes
+}
+
+function ConvertFrom-MergeOnGreenListJson {
+    <#
+    .SYNOPSIS
+        The records of one `gh pr list --json ...` payload, ENUMERATED -- one element per pull request,
+        under Windows PowerShell 5.1 as under 7.
+
+    .DESCRIPTION
+        WHY THIS IS A FUNCTION AND NOT ONE LINE IN THE SCRIPT (#2381). The sweep read the list as
+        `@($text | ConvertFrom-Json)`. Under 5.1 -- which is what the runner's `powershell` is --
+        ConvertFrom-Json writes a JSON array down the pipeline as ONE Object[] instead of enumerating
+        it, so `@(...)` wrapped it: one "record" that was the whole array, with no `number` property.
+        The loop skipped it without a word and every sweep reported "0 armed pull request(s), none
+        eligible yet" while PR #2345 sat armed and green. It held for ANY number of armed pull requests,
+        so under 5.1 the sweep could never pick anything.
+
+        The repair is to take the parse result as a value first and enumerate it explicitly, which
+        behaves the same on both editions. It lives here because the lib's suite is what can feed it a
+        real one- and multi-element payload; the script's own line was invisible to every test.
+
+    .PARAMETER Json
+        The payload text.
+
+    .OUTPUTS
+        The records, written to the pipeline one by one -- collect them with @(...). Nothing for an
+        empty list. THROWS on text that is not JSON, so the caller keeps its own fail-closed "could
+        not be parsed" verdict.
+    #>
+    param([string]$Json)
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    $parsed = ConvertFrom-Json -InputObject $Json
+    if ($null -eq $parsed) { return @() }
+    # The ForEach-Object is the enumeration 5.1 skips. NO unary comma on the way out: callers collect
+    # with @(...), and a comma would hand that one element -- the array -- and re-create the defect.
+    return @($parsed | ForEach-Object { $_ })
 }
 
 function Test-MergeOnGreenArmed {
@@ -97,6 +216,55 @@ function Test-MergeOnGreenArmed {
     return $false
 }
 
+function Get-MergeOnGreenExecutedPathHit {
+    <#
+    .SYNOPSIS
+        Why this pull request's diff reaches code the merge-on-green runner executes, or '' where it
+        does not -- issue #2338.
+
+    .DESCRIPTION
+        THE PATHS ARE WHERE THE RUNNER READS CODE FROM, IN EITHER KIND OF REPO:
+          scripts/                every repo's repo-config.ps1 and seam libs, and the source repo's
+                                  ship-pr.ps1 with everything it loads
+          plugins/**/scripts/     the source repo's plugin mirrors of those same scripts
+          .github/                the workflows themselves
+          .workflow-scripts/      where a consumer's runner checks the plugin tree out, INSIDE its
+                                  workspace and only excluded -- and `git checkout` overwrites an
+                                  ignored file, so a branch committing one there replaces the scripts
+
+        FAIL-CLOSED ON AN INCOMPLETE LIST. `gh pr list --json files` returns at most 100 files, so a
+        record whose files fall short of its changedFiles has not shown the whole diff, and one with no
+        file list at all has shown none of it. Both refuse: a path this function did not see is not a
+        path it cleared.
+
+    .PARAMETER Record
+        A pull request record carrying `files` and `changedFiles`.
+
+    .OUTPUTS
+        [string] the reason, or '' where the diff touches none of those paths.
+    #>
+    param($Record)
+
+    if ($null -eq $Record -or -not $Record.PSObject.Properties['files'] -or $null -eq $Record.files) {
+        return 'its changed files could not be read'
+    }
+    $paths = @(@($Record.files) | ForEach-Object { if ($_ -and $_.PSObject.Properties['path']) { [string]$_.path } })
+    $total = -1
+    if ($Record.PSObject.Properties['changedFiles']) { $total = [int]$Record.changedFiles }
+    if ($total -lt 0 -or $paths.Count -lt $total) {
+        return "only $($paths.Count) of its changed files could be listed"
+    }
+    foreach ($p in $paths) {
+        $norm = $p -replace '\\', '/'
+        if ($norm -match '^(scripts|\.github|\.workflow-scripts)/' -or $norm -match '^plugins/(.+/)?scripts/') {
+            # A path is chosen by whoever pushed the branch, and this reason is printed into a CI log.
+            $shown = $norm -replace '[^\x20-\x7E]', '?'
+            return "it changes '$shown', which this runner would execute from the branch"
+        }
+    }
+    return ''
+}
+
 function Get-MergeOnGreenPrVerdict {
     <#
     .SYNOPSIS
@@ -120,13 +288,17 @@ function Get-MergeOnGreenPrVerdict {
 
     .PARAMETER Record
         A pull request record from
-        `gh pr list --json number,headRefName,isDraft,mergeable,labels,isCrossRepository`.
+        `gh pr list --json number,headRefName,headRefOid,isDraft,mergeable,labels,isCrossRepository,files,changedFiles`.
 
     .PARAMETER MergeBlockVerdict
         Get-MergeBlockVerdict's own object for THIS pull request, formed from its own
         `gh pr checks --required` payload. Reused rather than re-derived: it is the function
         ship-pr.ps1's step 3 uses to decide whether a green watch is really green, including the
         UnfinishedRequired field inbound #1549 added for exactly that decision. $null refuses.
+
+    .PARAMETER GreenAgeMinutes
+        Get-RequiredGreenAgeMinutes' answer for THIS pull request. $null -- unreadable, or not passed
+        -- refuses, like every other fact this verdict cannot read (#2393).
 
     .PARAMETER Label
         The arming label; defaults to Get-MergeOnGreenArmLabel.
@@ -137,6 +309,7 @@ function Get-MergeOnGreenPrVerdict {
     param(
         $Record,
         $MergeBlockVerdict,
+        $GreenAgeMinutes = $null,
         [string]$Label = (Get-MergeOnGreenArmLabel)
     )
 
@@ -164,6 +337,18 @@ function Get-MergeOnGreenPrVerdict {
     if ($Record.PSObject.Properties['isCrossRepository']) { $crossRepo = [bool]$Record.isCrossRepository }
     if ($crossRepo) {
         return [pscustomobject]@{ Eligible = $false; Reason = 'the head branch is on a fork -- this runner only ships branches of this repository' }
+    }
+
+    # A PULL REQUEST THAT CHANGES WHAT THE SHIP RUNS IS LEFT TO A SESSION -- issue #2338. The runner
+    # checks out this head with FOLD_PUSH_TOKEN in the workspace and then executes code from it: the
+    # source repo runs the branch's own ship-pr.ps1 and libs, and every repo's ship-pr dot-sources the
+    # branch's scripts/repo-config.ps1. So "can push a branch here" would become "can run code with a PAT
+    # that bypasses the trunk ruleset" -- and the required check does not have to exercise the file that
+    # runs. Refusing such a pull request here means the only code this runner executes is code the
+    # trunk already carries. It costs nothing a session cannot do: ship-pr from a checkout still ships it.
+    $executed = Get-MergeOnGreenExecutedPathHit -Record $Record
+    if ($executed) {
+        return [pscustomobject]@{ Eligible = $false; Reason = "$executed -- ship it from a session" }
     }
 
     $mergeable = ''
@@ -200,7 +385,19 @@ function Get-MergeOnGreenPrVerdict {
         return [pscustomobject]@{ Eligible = $false; Reason = "a required check has not finished: $($pending -join ', ')" }
     }
 
-    return [pscustomobject]@{ Eligible = $true; Reason = 'armed, not a draft, mergeable, and every required check is green on its own head' }
+    # GREEN IS NOT YET ORPHANED (#2393). ship-pr arms before its own wait, so a pull request that has
+    # only just gone green is normally being merged by the live session that armed it -- and this sweep
+    # was woken by that same CI completion. Get-MergeOnGreenSettleMinutes carries the reasoning.
+    $settle = Get-MergeOnGreenSettleMinutes
+    # NaN and Infinity compare false against every number, so '-lt' alone would read them as settled.
+    if ($null -eq $GreenAgeMinutes -or [double]::IsNaN([double]$GreenAgeMinutes) -or [double]::IsInfinity([double]$GreenAgeMinutes)) {
+        return [pscustomobject]@{ Eligible = $false; Reason = 'when the required checks finished could not be read, so it cannot be told from a live ship' }
+    }
+    if ([double]$GreenAgeMinutes -lt $settle) {
+        return [pscustomobject]@{ Eligible = $false; Reason = ("green for {0:N0} minute(s), under the {1}-minute settle window -- a live ship-pr may still be merging it" -f [math]::Floor([double]$GreenAgeMinutes), $settle) }
+    }
+
+    return [pscustomobject]@{ Eligible = $true; Reason = "armed, not a draft, touches no code the runner executes, mergeable, and every required check has been green on its own head for at least $settle minutes" }
 }
 
 function Select-MergeOnGreenCandidate {

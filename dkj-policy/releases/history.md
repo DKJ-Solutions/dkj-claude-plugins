@@ -57,7 +57,8 @@ is. Everything a release *produces* belongs to the workflow and is one layer up,
 
 That is the layering this repo uses throughout: the root holds what is true regardless, and the
 `contributing-davekjohn` layer adds what the workflow brings. Where the two disagree, the workflow page
-wins — the same rule [`CONTRIBUTING-portable.md`](../../plugins/dkj-policy/CONTRIBUTING-portable.md) and [`CLAUDE.md`](../../CLAUDE.md) state.
+wins — the same rule [`CONTRIBUTING-portable.md`](../../plugins/dkj-policy/CONTRIBUTING-portable.md) and
+[`.claude/rules/this-repo.md`](../../.claude/rules/this-repo.md) state.
 
 ## The release list
 

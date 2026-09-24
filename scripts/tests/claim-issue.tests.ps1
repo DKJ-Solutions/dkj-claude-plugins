@@ -673,6 +673,9 @@ Assert-True (@($foreignReport | Where-Object { $_ -match 'origin/docs/1874-previ
 Assert-True (@($foreignReport | Where-Object { $_ -match 'ASK THEM BEFORE YOU WRITE ANYTHING' }).Count -eq 1) 'it says what to do instead of describing the state'
 Assert-True (@($foreignReport | Where-Object { $_ -match 'empty by design' }).Count -eq 1) 'and it names the trap: the park commit content is exactly what cannot answer this'
 Assert-True ($foreignReport[$foreignReport.Count - 1] -match 'mid-flight') 'the verdict is last, where the reader stops'
+Assert-True (@($foreignReport | Where-Object { $_ -match "'maikel-bwj' is one of YOUR OWN accounts" }).Count -eq 1 -and
+             @($foreignReport | Where-Object { $_ -match 'claim-issue\.ps1 1874 -Tag -TakeOver' }).Count -eq 1) `
+    'and it names the one route past it -- declare your own account, resume with -TakeOver (#2394)'
 # REFUSAL-SHAPED, NOT A REFUSAL. The scan matches any commit NAMING the issue, and a colleague
 # mentioning one in a commit of their own is ordinary -- so the closing caveat stays put.
 Assert-True (@($foreignReport | Where-Object { $_ -match 'the claim stands either way' }).Count -eq 1) 'the claim still stands -- this scan cannot tell a fix from a mention'
@@ -1355,7 +1358,23 @@ Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"body":"<!-- claim-tag: --
 
 $noFields = '{"comments":[{"body":"<!-- claim-tag: A/b -->"}]}'
 $r = @(Get-ClaimRecords -Json $noFields)
-Assert-True ($r.Count -eq 1 -and $r[0].Author -eq '' -and $r[0].CreatedAt -eq '') 'a record missing author and createdAt is read, not thrown on -- 5.1 throws on an absent property under StrictMode'
+Assert-True ($r.Count -eq 0) 'a record missing author and createdAt is not thrown on -- 5.1 throws on an absent property under StrictMode -- and, with no author to tie it to its tag, is not a claim (#2399)'
+$noCreated = @(Get-ClaimRecords -Json '{"comments":[{"author":{"login":"b"},"body":"<!-- claim-tag: A/b -->"}]}')
+Assert-True ($noCreated.Count -eq 1 -and $noCreated[0].CreatedAt -eq '' -and $noCreated[0].Id -eq '') 'a record missing createdAt and id is still read when its author is the tag''s account'
+
+# #2399: the tag is free text, so the author the tracker recorded is what makes it a claim. The first
+# fixture is the issue's own measured case, run against the unmodified lib.
+$planted = '{"comments":[{"id":"IC_7","createdAt":"2026-09-23T09:00:00Z","author":{"login":"random-tracker-user"},"body":"<!-- claim-tag: DAVE-KOK-BWJ/DaveKJohn -->"}]}'
+Assert-True ((@(Get-ClaimRecords -Json $planted)).Count -eq 0) 'a marker planted by another account is not a claim -- the measured #2399 case'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"author":{"login":"davekjohn"},"body":"<!-- claim-tag: HOST/DaveKJohn -->"}]}')).Count -eq 1) 'the author comparison is case-insensitive, as every login comparison here is'
+Assert-True ((@(Get-ClaimRecords -Json '{"comments":[{"author":{"login":"nohalf"},"body":"<!-- claim-tag: nohalf -->"}]}')).Count -eq 0) 'a tag with no account half ties to nobody and is not a claim'
+$mixed = '{"comments":[{"id":"IC_1","createdAt":"2026-09-23T08:00:00Z","author":{"login":"mallory"},"body":"<!-- claim-tag: HOST-A/dave -->"},{"id":"IC_2","createdAt":"2026-09-23T08:05:00Z","author":{"login":"dave"},"body":"<!-- claim-tag: HOST-A/dave -->"}]}'
+$mixedRecords = @(Get-ClaimRecords -Json $mixed)
+Assert-True ($mixedRecords.Count -eq 1 -and $mixedRecords[0].Id -eq 'IC_2') 'beside a genuine marker, only the genuine one is returned -- so -Release deletes nothing it did not write'
+$race = Resolve-ClaimRace -Tag 'HOST-A/dave' -Records @(Get-ClaimRecords -Json ('{"comments":[{"id":"IC_0","createdAt":"2026-09-23T07:00:00Z","author":{"login":"mallory"},"body":"<!-- claim-tag: HOST-B/erin -->"},{"id":"IC_2","createdAt":"2026-09-23T08:05:00Z","author":{"login":"dave"},"body":"<!-- claim-tag: HOST-A/dave -->"}]}'))
+Assert-True ($race.Action -eq 'keep') 'an earlier marker planted under another tag cannot win the race against a real claim'
+$held = Get-TagClaimVerdict -Tag 'HOST-A/dave' -State 'OPEN' -Records @(Get-ClaimRecords -Json $planted)
+Assert-True ($held.Action -eq 'claim' -and $held.Code -eq 'free') 'and a planted marker does not park a free issue as held'
 
 Write-Host ''
 Write-Host 'Get-TagClaimVerdict -- may this tag claim it' -ForegroundColor Cyan
@@ -1448,6 +1467,78 @@ Assert-True ((@(Get-SweepCandidates -Json '')).Count -eq 0) 'empty input -- noth
 Assert-True ((@(Get-SweepCandidates -Json 'nonsense')).Count -eq 0) 'unparseable input -- nothing'
 
 Write-Host ''
+Write-Host 'Get-OwnTagClaims -- what -ReleaseAll may release, and the bound on it (#2395)' -ForegroundColor Cyan
+
+$ownBacklog = @'
+[{"number":9,"title":"mine and assigned","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_9","createdAt":"2026-09-20T09:00:00Z","author":{"login":"DaveKJohn"},"body":"Picked up. <!-- claim-tag: HOST-A/DaveKJohn -->"}]},
+ {"number":7,"title":"another machine's","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_7","createdAt":"2026-09-20T09:00:00Z","author":{"login":"DaveKJohn"},"body":"<!-- claim-tag: HOST-B/DaveKJohn -->"}]},
+ {"number":5,"title":"a race both tags wrote on","assignees":[{"login":"colleague"}],"comments":[{"id":"IC_5a","createdAt":"2026-09-20T08:00:00Z","author":{"login":"colleague"},"body":"<!-- claim-tag: OTHER/colleague -->"},{"id":"IC_5b","createdAt":"2026-09-20T08:01:00Z","author":{"login":"DaveKJohn"},"body":"<!-- claim-tag: host-a/davekjohn -->"}]},
+ {"number":3,"title":"assigned but never tag-claimed","assignees":[{"login":"DaveKJohn"}],"comments":[]},
+ {"number":1,"title":"no assignees field","comments":[{"id":"IC_1","createdAt":"z","author":{"login":"DaveKJohn"},"body":"<!-- claim-tag: HOST-A/DaveKJohn -->"}]}]
+'@
+$own = @(Get-OwnTagClaims -Json $ownBacklog -Tag 'HOST-A/DaveKJohn' -Account 'DaveKJohn')
+Assert-True (($own | ForEach-Object { $_.Number }) -join ',' -eq '1,5,9') 'only the issues this tag holds, ascending -- another machine''s tag under the SAME account is not this tag''s'
+Assert-True ((@($own | Where-Object { $_.Number -eq 9 })[0]).Assigned) 'this account''s assignee beside this tag''s marker is reported, so it is dropped with it'
+$race = @($own | Where-Object { $_.Number -eq 5 })[0]
+Assert-True (@($race.Records).Count -eq 1 -and @($race.Records)[0].Id -eq 'IC_5b') 'on an issue both tags wrote on, ONLY this tag''s record is carried -- another session''s marker cannot be deleted by construction'
+Assert-True (-not $race.Assigned) 'a colleague''s assignee is not this account''s, so it is not reported for removal'
+Assert-True (@($own | Where-Object { $_.Number -eq 3 }).Count -eq 0) 'a bare assignee with no marker of this tag is whose TICKET it is, not a claim -- never released'
+Assert-True (-not (@($own | Where-Object { $_.Number -eq 1 })[0]).Assigned) 'a payload without an assignees field reads as unassigned, not as a crash'
+Assert-True ((@(Get-OwnTagClaims -Json $ownBacklog -Tag '' -Account 'DaveKJohn')).Count -eq 0) 'no tag -- nothing, rather than every marker'
+Assert-True ((@(Get-OwnTagClaims -Json '' -Tag 'HOST-A/DaveKJohn')).Count -eq 0) 'empty input -- nothing'
+Assert-True ((@(Get-OwnTagClaims -Json 'nonsense' -Tag 'HOST-A/DaveKJohn')).Count -eq 0) 'unparseable input -- nothing'
+$ownLegacy = @(Get-OwnTagClaims -Json '[{"number":4,"title":"t","assignees":[],"comments":[{"id":"IC_4","createdAt":"z","author":{"login":"DaveKJohn"},"body":"<!-- swb-lane: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Marker @('claim-tag','swb-lane'))
+Assert-True ($ownLegacy.Count -eq 1) 'a predecessor marker of this tag is released too, where the repo names it'
+$forged = @(Get-OwnTagClaims -Json '[{"number":8,"title":"t","assignees":[{"login":"DaveKJohn"}],"comments":[{"id":"IC_8","createdAt":"z","author":{"login":"random-tracker-user"},"body":"<!-- claim-tag: HOST-A/DaveKJohn -->"}]}]' -Tag 'HOST-A/DaveKJohn' -Account 'DaveKJohn')
+Assert-True ($forged.Count -eq 0) 'a marker carrying this tag but written by ANOTHER author is not this tag''s -- a planted comment cannot make -Apply drop an assignee'
+Assert-True ((@(Get-OwnTagClaims -Json $ownBacklog -Tag 'HOST-A' -Account 'DaveKJohn')).Count -eq 0) 'a tag with no account half -- nothing, since no author can be checked against it'
+
+Write-Host ''
+Write-Host 'Get-RemoteIssueBranches / Get-SweepCandidates -Branches -- a branch with no marker is not free (#2392)' -ForegroundColor Cyan
+
+$us = [string][char]0x1F
+$refs = @(
+    "origin/HEAD${us}Dave${us}1790000000",
+    "origin/main${us}Dave${us}1790000000",
+    "origin/fix/9-live-work${us}davekokbwj${us}1790000000",
+    "origin/feat/9-older-try${us}DaveKJohn${us}1789990000",
+    "origin/fix/12-pin-7${us}x${us}1790000000",
+    "origin/docs/asana-stage-letter-codes${us}x${us}1790000000",
+    "upstream/fix/3-elsewhere${us}x${us}1790000000",
+    "origin/fix/5-mine-anyway${us}dave${us}1790000000"
+) -join "`n"
+$rb = @(Get-RemoteIssueBranches -Text $refs -Remote 'origin')
+Assert-True ((($rb | ForEach-Object { "$($_.Issue)" }) -join ',') -eq '9,9,12,5') `
+    'the number right after the prefix, on this remote only -- not HEAD, not a subject-named branch, not a number later in the name'
+Assert-True ($rb[0].Branch -eq 'origin/fix/9-live-work' -and $rb[0].Author -eq 'davekokbwj' -and $rb[0].CommitUnix -eq 1790000000) `
+    'each record carries the branch, the author and the commit time'
+Assert-True (@(Get-RemoteIssueBranches -Text '' ).Count -eq 0) 'no listing, no branches'
+Assert-True (@(Get-RemoteIssueBranches -Text "origin/fix/1-x${us}only-two-fields").Count -eq 0) 'a malformed line is skipped, not guessed at'
+$tabAuthor = @(Get-RemoteIssueBranches -Text "origin/fix/4-x${us}Ada`tLovelace${us}1790000000")
+Assert-True ($tabAuthor.Count -eq 1 -and $tabAuthor[0].Author -eq "Ada`tLovelace" -and $tabAuthor[0].CommitUnix -eq 1790000000) `
+    'a tab in the author name does not shift the fields -- the unit separator is why'
+$unknownAge = @(Get-SweepCandidates -Json '[{"number":4,"title":"t","labels":[],"comments":[]}]' -Branches @(Get-RemoteIssueBranches -Text "origin/fix/4-x${us}a${us}not-a-number") -NowUnix 1790000000)
+Assert-True ($unknownAge[0].Verdict -eq 'branch' -and $unknownAge[0].Reason -match 'at an unknown time') `
+    'an unreadable commit time reads as unknown, never as an age computed from zero'
+
+$cb = @(Get-SweepCandidates -Json $backlog -Tag 'HOST-A/dave' -SkipLabel @('needs-info') -SkipIssue @(1) -Branches $rb -NowUnix 1790000180)
+$nine = @($cb | Where-Object { $_.Number -eq 9 })[0]
+Assert-True ($nine.Verdict -eq 'branch') 'an issue with no marker but a branch on the remote reads branch, not free -- the measured 11-of-11 case'
+Assert-True ($nine.Holder -eq 'davekokbwj') 'the holder is the author of the NEWEST branch'
+Assert-True ($nine.Reason -match [regex]::Escape('origin/fix/9-live-work (+1 more)') -and $nine.Reason -match '3 minutes ago') `
+    'and the reason names that branch, that there are more, and how long ago it moved'
+Assert-True ((@($cb | Where-Object { $_.Number -eq 5 })[0]).Verdict -eq 'mine') 'a marker still wins over a branch -- this tag''s own claim stays mine'
+Assert-True ((@($cb | Where-Object { $_.Number -eq 7 })[0]).Verdict -eq 'held') 'and another tag''s marker stays held'
+Assert-True ((@($cb | Where-Object { $_.Number -eq 3 })[0]).Verdict -eq 'skipped') 'a skip is not turned into branch either'
+$cNoBranch = @(Get-SweepCandidates -Json $backlog -Tag 'HOST-A/dave')
+Assert-True ((@($cNoBranch | Where-Object { $_.Number -eq 9 })[0]).Verdict -eq 'free') 'without branch records the verdict is what it always was'
+
+Assert-True ($body -match "'for-each-ref',\s*\r?\n?\s*'--format=%\(refname:short\)%1f%\(authorname\)%1f%\(committerdate:unix\)', 'refs/remotes/origin'") `
+    '-Candidates reads origin''s branches in ONE listing for the whole backlog'
+Assert-True ($body -match "'free' below means only that no claim marker holds it") `
+    'and an unreadable listing says what free then means, rather than reading as a clean scan'
+
+Write-Host ''
 Write-Host 'claim-issue.ps1 -- tag mode, as wired (#2243)' -ForegroundColor Cyan
 
 # THE ORDER OF THE TWO WRITES IS THE RACE RULE ITSELF. The winner is the earliest MARKER, so any step
@@ -1517,6 +1608,90 @@ Assert-True ($body -match 'Format-ForConsole -Text \$race\.Winner') 'and the rac
 # against "somebody else's" and half a tag cannot tell them apart (#701).
 Assert-True ($body.IndexOf('there is no complete claim tag') -lt $body.IndexOf('# --- WHAT THE TRACKER SAYS')) `
     'an incomplete tag is refused before the tracker is read at all'
+Write-Host ''
+Write-Host 'Get-IssueBranchNames / Get-TakeOverVerdict / Format-HandoverComment -- handing a held issue over (#2387)' -ForegroundColor Cyan
+
+$heads = @"
+aaa`trefs/heads/main
+bbb`trefs/heads/fix/2338-merge-on-green-trunk-code
+ccc`trefs/heads/feat/23380-other-issue
+ddd`trefs/heads/fix/12-pin-2338
+eee`trefs/tags/fix/2338-a-tag
+fff`trefs/heads/docs/2338
+"@
+$names = @(Get-IssueBranchNames -Text $heads -Issue 2338)
+Assert-True ($names.Count -eq 2 -and $names[0] -eq 'fix/2338-merge-on-green-trunk-code' -and $names[1] -eq 'docs/2338') `
+    'the number right after the prefix, followed by a dash or the end -- not a longer number, not later in the name, not a tag'
+Assert-True (@(Get-IssueBranchNames -Text '' -Issue 1).Count -eq 0) 'no text, no branches'
+
+$rival = [pscustomobject]@{ Tag = 'DESKTOP-X/davekokbwj'; CreatedAt = '2026-09-23T10:00:00Z'; Id = 'IC_1' }
+$colleague = [pscustomobject]@{ Tag = 'LAPTOP/maikel-bwj'; CreatedAt = '2026-09-23T10:00:00Z'; Id = 'IC_2' }
+$mine = [pscustomobject]@{ Tag = 'DAVE/davekokbwj'; CreatedAt = '2026-09-23T11:00:00Z'; Id = 'IC_3' }
+
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'take' -and $v.Branch -eq 'fix/2338-x' -and @($v.Rivals).Count -eq 1 -and $v.Rivals[0].Id -eq 'IC_1') `
+    'same account on another machine, one branch on origin -- take, and remove exactly that marker'
+$v = Get-TakeOverVerdict -Tag 'DAVE/DaveKokBWJ' -State 'OPEN' -Records @($rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'take') 'the account half is compared case-insensitively'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($colleague) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'foreign-account' -and @($v.Rivals).Count -eq 0) 'a colleague''s claim is refused whatever the branches say'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival, $colleague) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'foreign-account') 'one foreign holder among several is enough to refuse'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Branches @()
+Assert-True ($v.Code -eq 'no-branch') 'no branch on origin -- the work may exist only on that machine'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Branches @('fix/2338-a', 'feat/2338-b')
+Assert-True ($v.Code -eq 'ambiguous-branch' -and @($v.Branches).Count -eq 2 -and -not $v.Branch) 'two branches -- refused rather than guessed'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @()
+Assert-True ($v.Code -eq 'free') 'nothing held and no branch passes through as free'
+
+# --- the untagged case and the declared own accounts (#2394) ---
+$self = @('davekokbwj', 'davekokbwj', 'davekokbwj')
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-x') -SelfNames $self -BranchAuthors @('davekokbwj', 'DaveKokBWJ')
+Assert-True ($v.Code -eq 'take-untagged' -and $v.Branch -eq 'fix/2338-x' -and @($v.Authors).Count -eq 1 -and @($v.Rivals).Count -eq 0) `
+    'no marker, one branch, every author is self -- resume it, authors de-duplicated case-insensitively, no marker to remove'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-x') -SelfNames $self -BranchAuthors @('davekokbwj', 'maikel-bwj')
+Assert-True ($v.Code -eq 'foreign-author' -and @($v.Foreign).Count -eq 1 -and $v.Foreign[0] -eq 'maikel-bwj') 'one undeclared author on the branch is enough to refuse'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-x') -SelfNames ($self + 'maikel-bwj') -BranchAuthors @('davekokbwj', 'maikel-bwj')
+Assert-True ($v.Code -eq 'take-untagged') 'and a declared own account turns that same branch into a resume'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-x') -SelfNames $self -BranchAuthors @()
+Assert-True ($v.Code -eq 'unknown-author') 'an unread author list is refused, never read as clean'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-x') -SelfNames @() -BranchAuthors @('davekokbwj')
+Assert-True ($v.Code -eq 'unknown-author') 'and so is an empty self -- Test-SelfAuthored''s "no verdict" must not become a take'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @() -Branches @('fix/2338-a', 'feat/2338-b') -SelfNames $self -BranchAuthors @('davekokbwj')
+Assert-True ($v.Code -eq 'ambiguous-branch') 'two untagged branches -- refused rather than guessed, like the held case'
+
+$otherAccount = [pscustomobject]@{ Tag = 'OFFICE/DaveKJohn'; CreatedAt = '2026-09-23T10:00:00Z'; Id = 'IC_4' }
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($otherAccount) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'foreign-account') 'an undeclared other account still holds the issue as a colleague would'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($otherAccount) -Branches @('fix/2338-x') -OwnAccounts @('davekjohn')
+Assert-True ($v.Code -eq 'take' -and $v.Rivals[0].Id -eq 'IC_4') 'a declared own account is bookkeeping, compared case-insensitively'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($otherAccount, $colleague) -Branches @('fix/2338-x') -OwnAccounts @('DaveKJohn')
+Assert-True ($v.Code -eq 'foreign-account') 'and declaring one account does not make a second, undeclared holder yours'
+
+$own = @(Get-OwnAccountNames -Value ' DaveKJohn, maikel-bwj,,DaveKJohn, bad/name ')
+Assert-True ($own.Count -eq 2 -and $own[0] -eq 'DaveKJohn' -and $own[1] -eq 'maikel-bwj') 'DKJ_OWN_ACCOUNTS: split, trimmed, blanks and repeats dropped, a name with / dropped'
+Assert-True (@(Get-OwnAccountNames -Value $null).Count -eq 0 -and @(Get-OwnAccountNames -Value '').Count -eq 0) 'nothing declared, nothing widened'
+
+$note = Format-HandoverComment -OldTags @() -NewTag 'DAVE/davekokbwj' -Branch 'fix/2338-x' -Issue 2338 -Authors @('DaveKJohn')
+Assert-True ($note -match 'no claim marker' -and $note -match 'DaveKJohn' -and $note -match 'fix/2338-x' -and $note -match 'DAVE/davekokbwj') `
+    'the untagged handover names the new tag, the branch and whose commits it was resumed from'
+Assert-True ($body -match 'Get-OwnAccountNames -Value \$env:DKJ_OWN_ACCOUNTS') 'the script reads the declaration from the user-level variable, not repo config'
+Assert-True ($body -match '\$selfNames = @\(\$identity\.GitUserName, \$identity\.Account\) \+ \$ownAccounts') 'and the parked-fix scan counts the declared accounts as self'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($mine, $rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'already-yours') 'already this tag''s passes through as a resume'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'CLOSED' -Records @($rival) -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'closed') 'a closed issue is refused on its own code'
+
+$note = Format-HandoverComment -OldTags @('DESKTOP-X/davekokbwj') -NewTag 'DAVE/davekokbwj' -Branch 'fix/2338-x' -Issue 2338
+Assert-True ($note -match 'DESKTOP-X/davekokbwj' -and $note -match 'DAVE/davekokbwj' -and $note -match 'fix/2338-x' -and $note -match '2338 -Tag -Verify') `
+    'the handover comment names the old tag, the new tag, the branch and the verify line'
+Assert-True (@(Get-ClaimRecords -Json (([pscustomobject]@{ comments = @([pscustomobject]@{ body = $note; id = 'IC_9' }) }) | ConvertTo-Json -Depth 5)).Count -eq 0) `
+    'and it carries no marker, so it is never read as a second claim'
+
+Assert-True ($body -match "ParameterSetName = 'Issue'\)\]\[switch\]\`$TakeOver") 'the script takes -TakeOver in the issue set'
+Assert-True ($body -match '-TakeOver needs -Tag') 'and refuses it without -Tag or beside -Verify/-Release'
+Assert-True ($body.IndexOf('Remove-ClaimMarkerComments -Records @($take.Rivals)') -lt $body.IndexOf('# THE MARKER GOES FIRST')) `
+    'the holder''s marker is removed before this tag''s is written, so the race read-back sees only this one'
 foreach ($path in @($Script, $Lib, $IdLib)) {
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
