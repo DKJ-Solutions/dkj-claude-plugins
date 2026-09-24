@@ -32,7 +32,9 @@
     AND THREE FILES OUTSIDE IT (inbound #789; issues #1843, #2037):
 
         .github/workflows/branch-entry.yml   the CI gate that holds every PR to carrying a written
-                                             entry, by calling the shipped check-branch-entry.ps1
+                                             entry -- a few-line caller of the source's reusable
+                                             workflow, which runs the shipped check-branch-entry.ps1
+                                             (#2422; the budget gate below takes the same shape)
         .github/workflows/always-on-budget.yml  the CI gate that holds every PR to not growing the
                                              always-on document path -- CLAUDE.md plus its '@'-import
                                              closure, which every session pays before a single
@@ -208,7 +210,7 @@ $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
 # push an unwritten entry and ship-pr refuses to merge on an unresolved step, but both are LOCAL, and a
 # branch pushed by hand or a PR opened in the GitHub UI meets neither. Both existing consumers therefore
 # wrote a CI gate from scratch, against the same convention, and both had already drifted from it. So the
-# gate ships as a script and this places the six lines that call it. Precedent for a plugin placing a
+# gate ships as a script and this places the few lines that call it (a caller since #2422). Precedent for a plugin placing a
 # workflow: adopt-shopify-floor writes .github/workflows/theme-check.yml.
 #
 # IT TRACKS main RATHER THAN A TAG, which is the one choice here worth arguing. A pinned gate keeps
@@ -233,24 +235,31 @@ $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
 # this command's own suite, which now DERIVES the emitted path from the emitted file and asserts it
 # exists here, where the three literal asserts in adopt-ci-floor.tests.ps1 compared the output
 # against itself and stayed green through the move.
+#
+# AND SINCE #2422 IT PLACES A CALLER, NOT THE RUNNER. Everything above argued for ONE definition of the
+# check and then wrote the runner around it -- runner, both checkouts, the path, the ref and half a page
+# of commentary -- into every consumer, once, where nothing corrected it afterwards. So the runner is a
+# reusable workflow in the source now (.github/workflows/reusable-branch-entry.yml, `on: workflow_call`)
+# and what lands here is the trigger and one `uses:` line. The `ref: main` argument travels with it
+# unchanged: the caller names `@main`, and the reusable workflow checks the scripts out at `main` too.
+# check-connectors' check 6 still sees the consumer, because consumer-runner-lib reads a `uses:` of a
+# workflow in this repo as a reference into this tree, exactly as it reads a checkout step.
+#
+# NO timeout-minutes IN THE CALLER, and that is GitHub's rule rather than a gap: a job that calls a
+# reusable workflow may carry only the keys a call takes, and timeout-minutes is not one. The cap lives in
+# the called job, where workflow-timeouts.tests.ps1 holds it.
 $entryGateWorkflow = @(
     '# Every PR into the trunk carries a WRITTEN changelog entry.',
     '#',
-    '# The check itself is not in this file: it is check-branch-entry.ps1, shipped by the',
-    '# dkj-policy plugin, which calls the same two functions open-pr calls locally. That is the',
-    '# point -- there is one definition of "written" in the system, and this is not a second one. A gate',
-    '# hand-written in shell is a second definition, free to drift from the fold that reads the first.',
-    '#',
-    '# WHY THE HEAD REF IS PASSED EXPLICITLY: a pull_request checkout is a detached merge commit, so',
-    '# ''git rev-parse --abbrev-ref HEAD'' answers ''HEAD'' there. The script refuses rather than guessing.',
-    '#',
-    '# WHY WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what ''shell: powershell'' is.',
+    '# The runner is not in this file: it is a reusable workflow in DKJ-Solutions/dkj-claude-plugins,',
+    '# which runs check-branch-entry.ps1 -- the same two functions open-pr calls locally. One definition',
+    '# of the gate, and a change to it reaches this repo without re-adopting. Its reasoning is written there.',
     '#',
     '# WHICH BRANCHES OWE NOTHING: answer Get-EntryGateExemptPrefixes in scripts/repo-config.ps1. It',
     '# defaults to ''sync'' -- a mirror branch carries somebody else''s work, so it has nothing to declare.',
     '#',
-    '# THE PINNED REF is deliberately a moving branch: a pinned gate enforces the shape it was pinned at,',
-    '# and the entry path has moved twice. Pin a tag instead if you would rather own the bump.',
+    '# @main IS DELIBERATE: a pinned gate enforces the shape it was pinned at, and the entry path has moved',
+    '# twice. To pin, name a tag in `uses:` AND pass the same tag as `with: scripts-ref:`.',
     'name: Branch entry',
     '',
     'permissions:',
@@ -262,29 +271,7 @@ $entryGateWorkflow = @(
     '',
     'jobs:',
     '  branch-entry:',
-    '    runs-on: windows-latest',
-    '    # 10 minutes against a job that measures well under one (issue #2296). A job with no',
-    '    # timeout-minutes runs to GitHub''s SIX-HOUR default, and a gate that runs on every pull request',
-    '    # is the worst place to spend it: a wedge does not fail the branch, it leaves the check',
-    '    # unreported, which reads as "still running" to every gate and to every person.',
-    '    timeout-minutes: 10',
-    '    steps:',
-    '      - uses: actions/checkout@v5',
-    '',
-    '      - name: Fetch the shared workflow scripts',
-    '        uses: actions/checkout@v5',
-    '        with:',
-    '          repository: DKJ-Solutions/dkj-claude-plugins',
-    '          ref: main',
-    '          path: .workflow-scripts',
-    '',
-    '      - name: Changelog entry written',
-    '        shell: powershell',
-    '        env:',
-    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
-    '        run: |',
-    '          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch "${{ github.head_ref }}"',
-    '          exit $LASTEXITCODE'
+    '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main'
 )
 
 # THE SECOND PR GATE THIS COMMAND PLACES (issue #2037): a PR may not grow what every session pays before
@@ -305,29 +292,22 @@ $entryGateWorkflow = @(
 # move the baseline with nothing in any diff to say so.
 #
 # THE PINNED REF is the same moving branch branch-entry.yml above uses, for the reason argued there at
-# length, and the exposure it names applies here identically: this command writes the path once, at
-# adoption, and check-connectors.ps1's check 6 is what notices later if the path moves.
+# length, and since #2422 it is the same caller shape too: the runner is
+# .github/workflows/reusable-always-on-budget.yml in the source, and check-connectors.ps1's check 6 reads
+# the `uses:` line the way it reads a checkout step, so it still notices if that file moves.
 $alwaysOnGateWorkflow = @(
     '# The always-on budget: a PR may not grow what every session pays before a single assignment is',
     '# given -- CLAUDE.md plus everything it ''@''-imports.',
     '#',
-    '# The check itself is not in this file: it is check-always-on-budget.ps1, shipped by the',
-    '# dkj-policy plugin, which reads the same verdict open-pr reads locally and the session hook',
-    '# reports at start. One definition, three carriers.',
+    '# The runner is not in this file: it is a reusable workflow in DKJ-Solutions/dkj-claude-plugins,',
+    '# which runs check-always-on-budget.ps1 -- the same verdict open-pr reads locally and the session',
+    '# hook reports at start. Its reasoning is written there.',
     '#',
     '# WHAT THE CEILING IS: answer Get-AlwaysOnBudget in scripts/repo-config.ps1, in BYTES. Unanswered,',
-    '# it is 100,000. A repo already over it is NOT refused on day one -- the gate holds the path at a',
-    '# recorded baseline and refuses growth, so a repo converges on the ceiling instead of failing',
-    '# against it from a standing start.',
+    '# it is 100,000. A repo already over it is held at a recorded baseline rather than refused.',
     '#',
-    '# WHY THIS RUNNER AGREES WITH THE LOCAL GATE even though it has no plugin cache: the baseline',
-    '# records every document on the path by its import target, and the check carries the recorded',
-    '# figure for anything it cannot resolve here -- the orchestrator persona most of all, which a',
-    '# runner has no marketplace clone to read.',
-    '#',
-    '# WHY WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what ''shell: powershell'' is.',
-    '#',
-    '# THE PINNED REF is deliberately a moving branch, for the reason branch-entry.yml states.',
+    '# @main IS DELIBERATE, for the reason branch-entry.yml states. To pin, name a tag in `uses:` AND',
+    '# pass the same tag as `with: scripts-ref:`.',
     'name: Always-on budget',
     '',
     'permissions:',
@@ -339,26 +319,7 @@ $alwaysOnGateWorkflow = @(
     '',
     'jobs:',
     '  always-on-budget:',
-    '    runs-on: windows-latest',
-    '    # 10 minutes, same reasoning as the branch-entry gate beside it (issue #2296).',
-    '    timeout-minutes: 10',
-    '    steps:',
-    '      - uses: actions/checkout@v5',
-    '',
-    '      - name: Fetch the shared workflow scripts',
-    '        uses: actions/checkout@v5',
-    '        with:',
-    '          repository: DKJ-Solutions/dkj-claude-plugins',
-    '          ref: main',
-    '          path: .workflow-scripts',
-    '',
-    '      - name: The always-on document path is inside its budget',
-    '        shell: powershell',
-    '        env:',
-    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
-    '        run: |',
-    '          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-always-on-budget.ps1',
-    '          exit $LASTEXITCODE'
+    '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-always-on-budget.yml@main'
 )
 
 # CHANGELOG.md (issue #885, group A): this folder's own pending-changes list, isolated from any
@@ -426,7 +387,7 @@ $changelogIntro = @(
 )
 
 # THE SECOND FILE THIS COMMAND PLACES OUTSIDE THE FOLDER, and unlike the gate above it is a COPY rather
-# than six lines calling a shipped script (issue #1843). GitHub reads a PR template only from
+# than a few lines calling a shipped workflow (issue #1843). GitHub reads a PR template only from
 # .github/pull_request_template.md in the consumer's own repo, so this is the one file in the whole cycle
 # that cannot be imported -- CONTRIBUTING-portable.md said exactly that, and then left the copying to a
 # person, which this change ends and that page now records. Nothing anywhere had stated a reason for

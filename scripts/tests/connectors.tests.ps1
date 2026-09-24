@@ -1522,6 +1522,44 @@ try {
     Assert-Equal 0 $r.Code 'adopted consumer: exit code 0'
     Assert-NotMatch 'none of the runners' $r.Out 'adopted consumer: no adoption finding'
 
+    # 12j2. ADOPTED THROUGH A CALLER (#2422). Part 1's gates are now a `uses:` of a reusable workflow in
+    #       this repo with no checkout step at all. Before the matcher learned that line, this consumer --
+    #       the shape every fresh adoption now has -- produced no reference and read as having adopted
+    #       NOTHING, which is 12k's [INFO] fired at a repo that did everything right.
+    function New-FixtureCallerWorkflow {
+        param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Uses)
+        $dir = Join-Path $Fixture '.github\workflows'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $dir $Name), (@(
+            'name: Fixture caller'
+            'on:'
+            '  pull_request:'
+            '    branches: [main]'
+            'jobs:'
+            '  branch-entry:'
+            "    uses: $Uses"
+        ) -join "`n"))
+    }
+    New-FixtureConsumer -ExtensionIds @()
+    Set-FixtureEnabledPlugins -Ids @($wfPlugin)
+    New-FixtureCallerWorkflow -Name 'branch-entry.yml' -Uses 'DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main'
+    $mf = New-FixtureManifest -Extensions @() -Plugin $wfPlugin
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-Equal 0 $r.Code 'caller-only consumer: exit code 0'
+    Assert-NotMatch 'none of the runners' $r.Out 'caller-only consumer: read as adopted, not as reaching into this tree nowhere'
+    Assert-NotMatch 'does not exist here' $r.Out 'caller-only consumer: the reusable workflow it calls exists, so no path finding'
+
+    # 12j3. A CALLER NAMING A REUSABLE WORKFLOW THIS TREE NO LONGER HAS is #1805 one hop further in: red on
+    #       every pull request there, and worded as a CALL -- that consumer has no checkout to correct.
+    New-FixtureConsumer -ExtensionIds @()
+    Set-FixtureEnabledPlugins -Ids @($wfPlugin)
+    New-FixtureCallerWorkflow -Name 'branch-entry.yml' -Uses 'DKJ-Solutions/claude-code-specialists/.github/workflows/reusable-nothing-of-this-name.yml@main'
+    $mf = New-FixtureManifest -Extensions @() -Plugin $wfPlugin
+    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
+    Assert-Equal 1 $r.Code 'caller of a missing reusable workflow: exit code 1'
+    Assert-Match 'calls the reusable workflow ''\.github/workflows/reusable-nothing-of-this-name\.yml'' in this repo, and that path does not exist here' $r.Out 'caller of a missing reusable workflow: worded as a call, retired repo name matched'
+    Assert-NotMatch 'out of a checkout of this repo, and' $r.Out 'caller of a missing reusable workflow: not described as a checkout it does not have'
+
     # 12k. WORKFLOWS, BUT NOT ONE OF THEM CHECKS THIS REPOSITORY OUT. This is djcylow-react's shape,
     #      and before #1850 it was indistinguishable from 12j. [INFO] and exit 0, not [ERROR]: both
     #      halves of adopt-dkj-policy are optional, so this is a state that may be a decision -- the
