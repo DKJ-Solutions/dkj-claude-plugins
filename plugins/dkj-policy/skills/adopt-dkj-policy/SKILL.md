@@ -195,9 +195,19 @@ definition of the format in every repo, free to drift from the fold that reads t
 had already drifted**: each refuses a merge over a missing significance score, which is a refusal this
 workflow deliberately places at the *release cut* instead.
 
-So the gate ships as a script, `check-branch-entry.ps1`, and this part places the six lines that call
+So the gate ships as a script, `check-branch-entry.ps1`, and this part places the few lines that call
 it. It adds no rule of its own -- it calls the same functions `open-pr` calls -- and it reports the
 significance rather than refusing on it.
+
+**What lands in your repo is a caller, not the runner**
+([#2422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2422)). Both PR gates are reusable
+workflows in the source repo (`reusable-branch-entry.yml`, `reusable-always-on-budget.yml`, `on:
+workflow_call`), and your `.github/workflows/` gets the trigger plus one `uses:` line. So a change to the
+runner, its steps or its timeout reaches you on your next pull request, with no re-adopt. Two things
+follow from GitHub's rules for a calling job: it carries **no `timeout-minutes`** (the cap sits in the
+called job), and its check reports as **`<job> / <job>`** (`branch-entry / branch-entry`), which matters
+only if you make it a required check. **A repo adopted before this change keeps its full copy** -- this
+part never overwrites a file. To take the caller, delete that file and re-run Part 1.
 
 **Which branches owe nothing** is a seam: `Get-EntryGateExemptPrefixes` in your `scripts/repo-config.ps1`,
 defaulting to `sync`. A mirror branch carries somebody else's work rather than your repo's, so it has
@@ -205,13 +215,14 @@ nothing to declare -- both consumers reached that answer independently, with not
 the expected one. An **unknown** prefix is deliberately *not* exempt: a typo would otherwise skip the gate
 in silence.
 
-**The workflow pins `ref: main` rather than a tag, and that is the one choice worth arguing** -- for this
+**The caller pins `@main` (and the reusable workflow `ref: main`) rather than a tag, and that is the one choice worth arguing** -- for this
 read-only gate; the write runners of Part 3 are pinned to a release instead, for the reason
 [given there](#the-write-runners-fetch-the-shared-scripts-at-a-release-not-at-main-issue-2333). A pinned
 gate keeps enforcing the shape it was pinned at -- and the entry's own path has moved twice, so a stale
 pin does not fail loudly, it fails the *wrong way*: refusing branches that do carry an entry at the
 current path. Tracking the tip means the gate follows the convention it enforces. Pin a tag instead if you
-would rather own the bump.
+would rather own the bump: name it in the caller's `uses:` line **and** pass it as `with: scripts-ref:`,
+so the runner and the script it runs come from one revision.
 
 **That argument was only ever half of the trade**
 ([#1805](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1805)). It weighs the **entry's**

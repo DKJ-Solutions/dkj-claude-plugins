@@ -542,7 +542,11 @@ function Write-RunnerPathFinding {
         } else {
             'no file of that name exists anywhere here, so it was removed rather than moved'
         }
-        Write-Failure "$wfName line $($judged.Line) runs '$(Format-SafePathToken -Value $judged.Path)' out of a checkout of this repo, and that path does not exist here -- $where. That runner is red on every pull request in this consumer until the path is corrected there; nothing in this repo can correct it from here.$suffix"
+        # A CALL READS DIFFERENTLY FROM A CHECKOUT (#2422): the consumer names a reusable workflow of this
+        # repo in `uses:` and checks nothing out, so "out of a checkout" would describe a step it has not got.
+        $how = if ($judged.Kind -eq 'call') { 'calls the reusable workflow' } else { 'runs' }
+        $from = if ($judged.Kind -eq 'call') { 'in this repo' } else { 'out of a checkout of this repo' }
+        Write-Failure "$wfName line $($judged.Line) $how '$(Format-SafePathToken -Value $judged.Path)' $from, and that path does not exist here -- $where. That runner is red on every pull request in this consumer until the path is corrected there; nothing in this repo can correct it from here.$suffix"
     }
 }
 

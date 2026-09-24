@@ -166,13 +166,15 @@ function Get-SharedCheckoutBlock {
 
 function Get-SharedScriptReference {
     <#
-        Every script path a workflow file reaches into a checkout of $RepositoryName for.
+        Every path a workflow file reaches into $RepositoryName for: a script run out of a checkout of
+        it, or -- since #2422 -- a reusable workflow of it called with `uses:`.
 
-        Returns one record per DISTINCT path: @{ Path; Prefix; Repository; Line }, where Path is
-        repo-relative to the checked-out tree with forward slashes ('plugins/dkj-policy/scripts/...'),
-        Prefix is the local directory the step checks it out into, Repository is the `repository:`
-        value as written (so a caller can name the owner the consumer cited), and Line is the
-        1-based line of the first reference.
+        Returns one record per DISTINCT path: @{ Path; Prefix; Repository; Line; Kind }, where Path is
+        repo-relative to that tree with forward slashes ('plugins/dkj-policy/scripts/...', or
+        '.github/workflows/reusable-branch-entry.yml' for a call), Prefix is the local directory the
+        step checks it out into ('' for a call, which checks nothing out), Repository is the owner/name
+        as written (so a caller can name the owner the consumer cited), Line is the 1-based line of the
+        first reference, and Kind is 'checkout' or 'call'.
 
         Distinct by Path: fold-on-merge.yml names two scripts and would name one of them twice if a
         step retried it, and a reader wants one finding per broken path rather than one per mention.
@@ -192,6 +194,37 @@ function Get-SharedScriptReference {
     if ([string]::IsNullOrWhiteSpace($WorkflowText)) { return @() }
 
     $lines = $WorkflowText -split "`r?`n"
+    $seen = @{}
+    $found = @()
+
+    # --- 0. A CALL of a reusable workflow in this repository (#2422) -------------------------------
+    # adopt-workflow-folder's two PR gates are callers now: `uses: <owner>/<name>/.github/workflows/<f>@<ref>`
+    # and no checkout step at all. That line is a path INTO this tree exactly as a checkout-and-run is --
+    # the call goes red on every pull request the day that file moves -- so it is reported the same way,
+    # with Kind telling the two apart for a caller that words them differently. Without this, a consumer
+    # holding only callers would read as having adopted nothing at all (Test-ConsumerRunnerAdoption below).
+    # Matched on the NAME half, for the reason the checkout match is: an old-owner citation still resolves.
+    $callPattern = '^[ \t]*(?:-[ \t]+)?uses:[ \t]*(?<q>["''])?(?<owner>[\w.-]+)/(?<name>[\w.-]+)/(?<rel>\.github/workflows/[\w./-]+?\.ya?ml)@(?<ref>[^"''\s#]+)(?(q)\k<q>)'
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $c = [regex]::Match($lines[$i], $callPattern)
+        if (-not $c.Success) { continue }
+        $isOurs = $false
+        foreach ($candidate in $RepositoryName) {
+            if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+            if ([string]::Equals($c.Groups['name'].Value, $candidate, [System.StringComparison]::OrdinalIgnoreCase)) { $isOurs = $true; break }
+        }
+        if (-not $isOurs) { continue }
+        $rel = $c.Groups['rel'].Value
+        if ($seen.ContainsKey($rel)) { continue }
+        $seen[$rel] = $true
+        $found += [pscustomobject]@{
+            Path       = $rel
+            Prefix     = ''
+            Repository = "$($c.Groups['owner'].Value)/$($c.Groups['name'].Value)"
+            Line       = $i + 1
+            Kind       = 'call'
+        }
+    }
 
     # --- 1. Which local prefixes hold a checkout of this repository -----------------------------
     # A `repository:` whose name half matches, then the `path:` of the SAME `with:` block. A checkout
@@ -225,14 +258,12 @@ function Get-SharedScriptReference {
             break
         }
     }
-    if ($prefixes.Count -eq 0) { return @() }
+    if ($prefixes.Count -eq 0) { return @($found) }
 
     # --- 2. Every '<prefix>/<...>.ps1' token in the file ----------------------------------------
     # Both separators are admitted and normalised to '/': the scaffolders emit forward slashes, but a
     # hand-edited runner on Windows may not, and a reference this lib fails to recognise is a finding
     # it fails to make.
-    $seen = @{}
-    $found = @()
     foreach ($prefix in $prefixes.Keys) {
         $pattern = '(?<![\w./\\-])' + [regex]::Escape($prefix) + '[/\\](?<rel>[\w./\\-]+?\.ps1)\b'
         for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -245,6 +276,7 @@ function Get-SharedScriptReference {
                     Prefix     = $prefix
                     Repository = $prefixes[$prefix]
                     Line       = $i + 1
+                    Kind       = 'checkout'
                 }
             }
         }
@@ -348,6 +380,7 @@ function Test-SharedScriptReference {
             Prefix     = $ref.Prefix
             Repository = $ref.Repository
             Line       = $ref.Line
+            Kind       = $(if ($ref.PSObject.Properties.Name -contains 'Kind') { $ref.Kind } else { 'checkout' })
             Exists     = $exists
             Escapes    = $escapes
             MovedTo    = $movedTo
