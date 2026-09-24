@@ -235,6 +235,11 @@
 .PARAMETER Body
     (Optional) PR description. Default: the filled-in .github/pull_request_template.md.
 
+    A -Body that keeps the template's description placeholder gets the entry's description filled in there,
+    as the default body does. A -Body that ends up without this branch's DEPLOY section is refused before
+    the gates (#2361), because the DEPLOY lock would refuse its merge after CI anyway. To record a gate
+    bypass, pass -BypassNote instead of hand-writing a -Body.
+
 .PARAMETER Resolves
     (Optional) Issue numbers this PR resolves, as a string: -Resolves '331,332' (a leading '#' and
     spaces or semicolons as separators are fine too). Each number gets its own `Closes #<n>` line in
@@ -268,9 +273,20 @@
     Deliberately separate from -SkipLint/-SkipTests: those skip a tool, this overrules a content
     judgement, and conflating them would let a routine "skip the slow suites" also wave prose through.
 
+.PARAMETER BypassNote
+    Why this run skipped a gate, in one line. Every run that passes -SkipLint or -SkipTests writes a
+    'Gate bypass' section into the PR body -- the record the workflow asks for, which used to need a hand
+    edit of the body the DEPLOY lock reads (issue #2361) -- and this is the reason that section gives.
+    Without it the line says no reason was recorded, which is itself worth a reviewer's eye. Ignored,
+    with a warning, on a run that skipped nothing.
+
+    The section is idempotent per line and survives -RefreshBody: lines an earlier run wrote are kept,
+    and a different skip or reason on a later run is added beneath them.
+
 .PARAMETER RefreshBody
     On a branch whose PR is ALREADY OPEN, rewrite the description section of that PR's body from the
-    current changelog entry. Only that one section: the `## Resolved issues` block, anything a reviewer
+    current changelog entry. Only that one section: the `## Resolved issues` block, the 'Gate bypass'
+    section, anything a reviewer
     added, and any section a consumer's template carries that this script did not write (the "Type of
     change" boxes and the checklist, where those still exist) stay exactly as they are.
 
@@ -424,6 +440,8 @@ param(
     [switch]$NoResolves,
     [switch]$Force,
     [switch]$RefreshBody,
+    # Why a gate was skipped, recorded in the PR body's 'Gate bypass' section. See .PARAMETER BypassNote.
+    [string]$BypassNote = '',
     [switch]$GatesOnly,
     # Ask whether the test gate can be deduced away over a note-tree-only change. See .PARAMETER NoteTreeOnly.
     [switch]$NoteTreeOnly,
@@ -608,6 +626,16 @@ $info = Get-BranchInfo -Branch $branch
 $openCloseoutLib = Join-Path $PSScriptRoot '..\lib\closeout-lib.ps1'
 if (Test-Path -LiteralPath $openCloseoutLib -PathType Leaf) { . $openCloseoutLib }
 
+# THE GATE-BYPASS RECORD (issue #2361): the line this run adds to the PR body's 'Gate bypass' section, or
+# '' when it skipped nothing. The switch names come from Get-GateBypassNote -- the one copy the receipt
+# already reads -- so the body and the receipt cannot name a bypass differently. Behind the same guard as
+# the receipt: a mirror predating closeout-lib records nothing rather than failing to load.
+$bypassSkipped = if (Test-FunctionDefined 'Get-GateBypassNote') { Get-GateBypassNote -SkipLint:$SkipLint -SkipTests:$SkipTests } else { '' }
+$bypassLine = New-GateBypassLine -Skipped $bypassSkipped -Reason $BypassNote
+if ($BypassNote -and -not $bypassSkipped) {
+    Write-Warning '-BypassNote was given, but this run skipped no gate -- there is no bypass to record, so the note is ignored.'
+}
+
 # THE ENTRY LIVES IN branch/ SINCE THE SPLIT (Dave, August 6, 2026), with the root <SafeName>.md still
 # accepted as the fallback. Both exist in the wild simultaneously: a branch created before the split
 # carries the root form, and consumers receive these scripts through a plugin update rather than by
@@ -762,6 +790,69 @@ if (-not $existingPr) {
             Write-Host "A follow-up cycle on the same subject gets its own branch -- name it with a -v2 suffix by hand." -ForegroundColor DarkGray
             exit 0
         }
+    }
+}
+
+# --- Which template lines are the description placeholder ------------------------------------------
+# #101: the description placeholder(s) are overridable via an optional repo-config function, so a
+# consumer with its own PR template text does not need a wrapper. Guard via Get-Command so a
+# repo-config.ps1 that does not define it (this repo's own, and every existing consumer) keeps exactly
+# today's behavior. Which of the two sources the list came from is kept for the warning further down:
+# "your repo-config answered this" and "the built-in list answered this" send the reader to different
+# files, and that is the first thing they need in order to repair it.
+#
+# RESOLVED ONCE, ABOVE EVERY PATH THAT READS IT: the template auto-fill, -RefreshBody (#865, which has to
+# know where the placeholder sits to tell a description heading from a form heading), and since #2361 the
+# supplied -Body check just below, which runs before the gates. A second copy of this resolution is how
+# this repo's accumulation bugs start.
+$descPlaceholderSource = 'the built-in list'
+$descPlaceholders = if (Test-FunctionDefined 'Get-PrDescriptionPlaceholder') {
+    $descPlaceholderSource = 'Get-PrDescriptionPlaceholder in scripts/repo-config.ps1'
+    @(Get-PrDescriptionPlaceholder)
+} else {
+    # RECOGNISE SIX, WRITE ONE (#538) -- the list itself moved to pr-body-lib.ps1 on August 10, 2026
+    # (#573). It was three literals inside this script, which meant nothing outside it could read them:
+    # the reference template the plugin now ships could not be held against the list that has to
+    # recognise it, and that gap IS the defect #573 reported.
+    @(Get-PrDescriptionPlaceholderDefaults)
+}
+
+# --- A supplied -Body must carry the DEPLOY section the lock will read (#2361) ----------------------
+# A -Body skipped the placeholder fill, so it published without the DEPLOY section and ship-pr's lock
+# refused the merge only after the full CI wait -- measured on BWJ-Development/xoxowildhearts PR #275 and
+# on PR #2363 here. So the placeholder is filled in a -Body as well (Complete-SuppliedPrBody), and a body
+# that still does not carry the section is refused NOW, before the gates, with the same Test-DeployLock
+# ship-pr and the CI gate call -- one definition of "carries the section", asked at the earliest moment
+# the answer is known. Create path only: on an open PR the push is the update and -Body is not written.
+# An entry with no DEPLOY heading comes back not applicable, exactly as it does at the lock.
+if ($Body -and -not $existingPr -and $entryText) {
+    $suppliedBody = Complete-SuppliedPrBody -Body $Body -Description $entryDescription -Placeholders $descPlaceholders
+    if ($suppliedBody -ne $Body) {
+        Write-Host '-Body carried the description placeholder, so the entry''s description was filled in there.' -ForegroundColor DarkGray
+        $Body = $suppliedBody
+    }
+    $suppliedLock = Test-DeployLock -EntryText $entryText -PrBody $Body
+    if ($suppliedLock.Applicable -and -not $suppliedLock.Locked) {
+        # The match is exact, whole-line, so a pasted placeholder one character off fills nothing -- name
+        # the strings it was compared against, as the template path's near-miss warning does.
+        $placeholderList = ($descPlaceholders | ForEach-Object { "    $_" }) -join "`n"
+        Write-Error @"
+open-pr will not open this PR -- the -Body passed does not carry this branch's DEPLOY section (#2361).
+
+ship-pr's DEPLOY lock and the CI 'Branch entry' check both require the PR body to contain that section,
+so this PR could never merge, and it would only find out after the full CI wait.
+The first line of the section the body is missing:
+    $($suppliedLock.FirstDrift)
+
+Choose one:
+  - drop -Body, and open-pr builds the body from the PR template and the entry itself;
+  - keep the template's description placeholder in the -Body, and open-pr fills it in; or
+  - to record why a gate was skipped, use -BypassNote rather than -Body.
+The placeholder must be one of these lines exactly ($descPlaceholderSource):
+$placeholderList
+Nothing was pushed and no PR was opened.
+"@
+        exit 1
     }
 }
 
@@ -2289,29 +2380,8 @@ if ($push.ExitCode -ne 0) {
     exit 1
 }
 
-# --- Which template lines are the description placeholder ------------------------------------------
-# #101: the description placeholder(s) are overridable via an optional repo-config function, so a
-# consumer with its own PR template text does not need a wrapper. Guard via Get-Command so a
-# repo-config.ps1 that does not define it (this repo's own, and every existing consumer) keeps exactly
-# today's behavior. Which of the two sources the list came from is kept for the warning further down:
-# "your repo-config answered this" and "the built-in list answered this" send the reader to different
-# files, and that is the first thing they need in order to repair it.
-#
-# RESOLVED HERE, ABOVE BOTH PATHS, since issue #865. It used to sit inside the create path, which was
-# enough while only that path needed it -- but -RefreshBody now has to know where the placeholder sits
-# in order to tell a description heading from a form heading (see below), and a second copy of this
-# resolution is how this repo's accumulation bugs start.
-$descPlaceholderSource = 'the built-in list'
-$descPlaceholders = if (Test-FunctionDefined 'Get-PrDescriptionPlaceholder') {
-    $descPlaceholderSource = 'Get-PrDescriptionPlaceholder in scripts/repo-config.ps1'
-    @(Get-PrDescriptionPlaceholder)
-} else {
-    # RECOGNISE SIX, WRITE ONE (#538) -- the list itself moved to pr-body-lib.ps1 on August 10, 2026
-    # (#573). It was three literals inside this script, which meant nothing outside it could read them:
-    # the reference template the plugin now ships could not be held against the list that has to
-    # recognise it, and that gap IS the defect #573 reported.
-    @(Get-PrDescriptionPlaceholderDefaults)
-}
+# The description placeholders ($descPlaceholders) are resolved above the gates since #2361 -- see the
+# supplied -Body block after the merged-PR check.
 
 # --- Already open? Then the push was the update, and there is nothing to create -------------------
 # Exits 0 on purpose: this is a SUCCESSFUL outcome, and ship-pr.ps1 reads that exit code to decide
@@ -2349,6 +2419,9 @@ if ($existingPr) {
     $currentBody = [string]$existingPr.body
     $newBody = $currentBody
     $edits = @()
+    # Read BEFORE any refresh, so a refresh that rewrites everything below a leading description cannot
+    # take an earlier run's bypass record with it (#2361) -- they are put back below, with this run's.
+    $priorBypassLines = @(Get-GateBypassLines -Body $currentBody)
 
     if ($RefreshBody) {
         # THE DESCRIPTION IS THE SECTION THE PLACEHOLDER SITS IN, and the template says which that is.
@@ -2466,6 +2539,13 @@ if ($existingPr) {
             }
         }
     }
+
+    # THE GATE-BYPASS SECTION, AFTER THE REFRESH for #919's reason (#2361): the lines the body carried
+    # before this run plus this run's own. Add-GateBypassLines is idempotent per line, so a body whose
+    # section survived the refresh is a no-op and one whose section was swallowed gets it back.
+    $beforeBypass = $newBody
+    $newBody = Add-GateBypassLines -Body $newBody -Lines (@($priorBypassLines) + @($bypassLine))
+    if ($newBody -ne $beforeBypass) { $edits += "the 'Gate bypass' record" }
 
     # AND THE CLOSING BLOCK GOES ON LAST, AFTER ANY REFRESH (#919) -- see the ordering note above this
     # `if`. Compared against the body as it went INTO this call rather than against $currentBody, which is
@@ -2679,6 +2759,13 @@ if (-not $Body) {
             )
         }
     }
+}
+
+# The gate-bypass record (#2361), on both paths like the closing block below. A no-op when this run
+# skipped nothing.
+if ($bypassLine) {
+    $Body = Add-GateBypassLines -Body $Body -Lines @($bypassLine)
+    Write-Host "bypass record: the PR body names $bypassSkipped in its 'Gate bypass' section." -ForegroundColor DarkGray
 }
 
 # The closing block goes in LAST, so it lands on both paths -- the auto-filled template and a -Body

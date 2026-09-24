@@ -116,7 +116,9 @@ The script:
    See [The document commit](#the-document-commit-what-the-pr-says-is-what-the-branch-carries) below.
 5. Runs the **repo's own lint gate** (via `Get-LintScript` from `repo-config`) and then **all
    test suites** (`scripts/tests/*.tests.ps1`) -- exactly like CI. An error blocks: nothing is
-   pushed and no PR is opened. `-SkipLint` / `-SkipTests` are the deliberate escape valves, and
+   pushed and no PR is opened. `-SkipLint` / `-SkipTests` are the deliberate escape valves -- a run
+   that uses one writes a **Gate bypass** section into the PR body, with `-BypassNote "<why>"` as its
+   reason, and that section survives `-RefreshBody` (#2361) -- and
    `-MaxParallel <n>` runs the suites *smaller* rather than not at all — see
    [When the test gate will not finish](#when-the-test-gate-will-not-finish--maxparallel-not--skiptests).
    The test half is skipped where **CI has already certified this exact commit** — see
@@ -124,7 +126,9 @@ The script:
 6. Pushes the current branch and opens a PR to `main` via `gh`, with a label based on the
    branch prefix and a pre-filled PR body from `.github/pull_request_template.md` +
    the changelog entry file. If the branch already had an open PR, the push **is** the update and
-   the create is skipped.
+   the create is skipped. A `-Body` you supply gets the same description fill where it keeps the
+   template's placeholder, and one that still lacks the DEPLOY section is **refused before the gates**
+   (#2361), because the DEPLOY lock would otherwise refuse the merge after the full CI wait.
 
 ## Just the gates, and nothing else: `-GatesOnly`
 
