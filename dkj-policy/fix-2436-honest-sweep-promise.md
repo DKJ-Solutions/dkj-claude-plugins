@@ -82,5 +82,3 @@ backstop will not cover it, so a green PR no longer sits unmerged while it looks
 
 ship-pr promises the merge-on-green sweep only where the sweep will not refuse it
 
-Plugins: dkj-policy
-
