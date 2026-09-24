@@ -44,7 +44,29 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**21 / 46 minor entries** <!-- pending-tally -->
+**21 / 47 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2428-life-hub-lifehub-lenses · 20260924-104630Z
+
+The connector register no longer lists five `dkj-subagents-lifehub` lenses for `life-hub` that its
+re-bootstrapped roster does not have, so the consumer check stops reporting them as missing. The plugin
+itself stays registered, because the consumer's settings still enable it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping and ships to no subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Register the lifehub lenses life-hub no longer has as absent
+
+[PR #2434](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2434)
+
+---
 
 ### DEPLOY: feat/2422-reusable-ci-gates · 20260924-101900Z
 
