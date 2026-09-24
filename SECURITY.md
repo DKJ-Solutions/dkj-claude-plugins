@@ -3,7 +3,7 @@
 `claude-code-specialists` is the public marketplace repo for Dave (DaveKJohn)'s Claude Code plugins
 (the Claude Specialists system): plugin/agent definitions, manuals, PowerShell scripts, docs, and
 CI config. It's public **by design**, and by the same design it holds **no secrets, credentials,
-or personal data** — see [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md#specific-to-this-repo-claude-code-specialists).
+or personal data** — see [`.claude/rules/this-repo.md`](.claude/rules/this-repo.md#claude-code-specialistss-safety-implementation).
 Nothing in here is meant to be confidential in the first place.
 
 ## Reporting a vulnerability

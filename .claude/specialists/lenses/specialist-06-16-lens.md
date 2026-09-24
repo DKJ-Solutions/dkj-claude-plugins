@@ -181,6 +181,27 @@ answers that only the owning specialist has to keep true.
   because it is the lesson: *the discipline came first and the gate followed it*. A marker named in
   prose is still best written as prose (*"the plugin-scoped span"*), and a fence is still the only way
   to show one literally. What changed is that forgetting now costs a red gate instead of a quiet pass.
+- **A measurement taken in a *private* consumer quotes only what the finding needs — the matched
+  fragment, never the surrounding sentence** (Dave, September 5, 2026, on
+  [#1420](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1420); moved here from
+  `.claude/rules/this-repo.md` under [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448),
+  which keeps a one-line pointer). The convention that a measurement cites its instance verbatim is not
+  weakened by this and must not be: a citation is auditable and a paraphrase is not, and this tree has
+  scar tissue from measurements rewritten until nothing in them was checkable. What is bounded is the
+  *excerpt*. The **repo name, the file and the line** are published as before — they are already in
+  `connectors/` and in the `dkj-policy-bwj` skill — and they are what carries the provenance, so the
+  quote itself shrinks to the characters the check, the count or the argument actually turns on.
+  Everything the finding does not read is the consumer's own wording and stays in the consumer's own
+  tree.
+
+  **The test is mechanical: could the finding be re-verified without this character?** In the
+  supremacy-declaration case the check reads an adjacency — `` `CLAUDE.md` `` beside `wins`/`wint` —
+  which is the check's own pattern rather than anybody's prose, so that clause is cited and the
+  governance sentence around it is not. **A test fixture is held to the same bound and is not an
+  exception**, because a matcher reads structure: a fixture needs the shape the finding turns on, and
+  the consumer's remaining words are decoration that a public repository then keeps forever. The reason
+  the bound is worth having at all is asymmetry — a public quote cannot be withdrawn, and the next
+  measurement reaches for as long an excerpt as the last one was allowed.
 
 ### Boundaries with the other roles
 
@@ -422,8 +443,9 @@ bounded repair becomes the sweep it was chosen instead of.
 
 ### A conditional in always-on prose needs a detector behind it, or it is not written as a conditional
 
-Behind the `merge_queue` paragraph in
-[`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation). Measured
+Behind the `merge_queue` paragraph that stood in `this-repo.md` until
+[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448) moved it to
+[Sylvester's lens](specialist-05-15-lens.md#what-sylvester-owns-here). Measured
 September 9, 2026 ([#1720](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1720)).
 
 **What stood there was a sentence waiting on somebody else's act**: taking the `merge_queue` rule off
