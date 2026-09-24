@@ -1,15 +1,15 @@
 {
     "schema":  1,
-    "bytes":  108005,
+    "bytes":  107985,
     "recorded":  "2026-09-24",
-    "reason":  "Constitution gains the split-for-context rule Dave asked for (September 24, 2026); it governs every turn, so it belongs on the always-on path.",
+    "reason":  "",
     "note":  "LF bytes of the always-on document path. Written by the always-on budget gate -- see always-on-budget-lib.ps1. Do not hand-edit this to make room: the gate lowers it on its own and raises it only behind -Raise, with a reason.",
     "documents":  {
-                      ".claude/rules/this-repo.md":  37270,
-                      ".claude/specialists/SPECIALISTS.md":  9998,
+                      ".claude/rules/this-repo.md":  37144,
+                      ".claude/specialists/SPECIALISTS.md":  10060,
                       "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md":  30899,
                       "CLAUDE.md":  149,
-                      "lenses/specialist-01-01-lens.md":  20161,
+                      "lenses/specialist-01-01-lens.md":  20205,
                       "plugins/dkj-policy/CLAUDE.md":  7970,
                       "plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md":  1558
                   }
