@@ -44,7 +44,44 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**29 / 61 minor entries** <!-- pending-tally -->
+**29 / 62 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2452-trusted-tree-exec-guard · 20260924-174747Z
+
+This closes issue #2452 by Dave's option 3 rather than the job split it proposed: the split was
+measured and refused on the issue, since there is no cut point in ship-pr where every read of
+PR-controlled data comes before every write. What holds instead is that the code
+`merge-on-green.yml`'s token-bearing "Ship it" step runs never turns that data into code, and
+`trusted-tree-seam.tests.ps1` now enforces this. It walks the token process, meaning the dot-source
+closure plus every `powershell -File` child (the fold, verify-resolved-issues, the always-on budget
+check) to a fixpoint. It then reads that code's AST for the enumerated string-to-code primitives:
+Invoke-Expression and kin (reached directly, module-qualified or by name), computed command names,
+Add-Type given source, the scriptblock factories, `-Command`, and foreign shells. A spawn site it
+cannot read fails closed. The only exemptions are the two gate runners that `-TrustedRoot` already
+skips, each pinned at an exact call-site count.
+
+Tier 0 is scored for the next person or session touching ship-pr, open-pr or this workflow. A
+residual exposure that was only documented is now a red test the moment somebody adds the one thing
+that would make it exploitable. Two review rounds found shapes the first cut missed, and every shape
+they found is now a fixture. The limit is stated in the suite header rather than left implicit: the
+guard is syntactic, and a name assembled from pieces and dispatched through `& $var` is out of its
+reach.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. The guard is a test in this repo's own suite and ships nothing to a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+A lint check refuses any execution primitive in the merge-on-green trusted-tree closure
+
+[PR #2457](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2457)
+
+---
 
 ### DEPLOY: fix/2436-honest-sweep-promise · 20260924-173614Z
 
