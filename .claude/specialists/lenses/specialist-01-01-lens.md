@@ -85,6 +85,12 @@ product: agent defs, manuals, docs, and tooling.
   of the connector manifest (visible on a deliberate run of
   `check-connectors.ps1`). The same philosophy as the quieter session start from PR #99: only report
   what is solvable here and now.
+- **A process killed for low memory is always recorded, as a new instance on the dossier
+  [#2454](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2454)** (a hard rule from Dave,
+  September 24, 2026). This applies whether Claude Code's background-shell reaper or the OS did the kill.
+  Record what was killed, by whom, what it cost, and what was measured, and label what was only inferred.
+  Eight earlier issues were closed while the kills kept recurring, so each new case is evidence, not
+  noise. Open a fresh issue only once #2454 is closed.
 - **Every issue YOU file here carries a priority label, `prio-1` (lowest) to `prio-4` (highest)** —
   set in the same `gh issue create` that files the finding, because an issue filed without one
   postpones the triage to whoever reads the tracker next (a hard rule from Dave, September 9, 2026,

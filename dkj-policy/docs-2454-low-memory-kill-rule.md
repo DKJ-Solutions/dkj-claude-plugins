@@ -41,17 +41,27 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add the rule to the Dave rules in Chris's lens: every low-memory kill is recorded as an instance on #2454
 
 ### TEST
 
+- [x] Always-on budget holds; the lint gate runs in open-pr
+
 ### DEPLOY: docs/2454-low-memory-kill-rule
 
-**Score:**
+Chris's lens now makes it a standing Dave rule that every process killed for low memory, by Claude Code's
+reaper or by the OS, is recorded as a new instance on the dossier
+[#2454](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2454): what was killed, by whom, the
+cost, and what was measured. Eight earlier issues on the subject were closed while the kills kept coming
+back, so the evidence now collects in one place until the cause is fixed.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this is a working rule for sessions in this repo, and no plugin consumer sees it.
+
+**Score:** N/A
 
 #### Pull Request
 
