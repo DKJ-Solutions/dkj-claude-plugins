@@ -44,7 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 37 minor entries** <!-- pending-tally -->
+**16 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2416-report-issue-type-via-patch · 20260924-082111Z
+
+`report-issue`'s step 1 prescribed `gh issue create --type`, which `gh 2.74.0` rejects as an unknown
+flag, so the create failed and no issue was filed. The step now files with the labels only and sets
+the type straight after with `gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=<Type>` --
+the route the page already used for an issue filed earlier, and one that works on old and new `gh`
+alike. `WORKFLOW-portable.md`'s classification table names the same route. Closes #2416.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer filing through `report-issue` on an older `gh` no longer has the create fail outright; the
+issue lands and is typed in the same step.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue sets the issue type after creation, since gh 2.74.0 has no --type flag
+
+Plugins: dkj-policy-bwj
+
+[PR #2417](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2417)
+
+---
 
 ### DEPLOY: docs/2411-integrity-family-placement-rule · 20260924-075648Z
 
