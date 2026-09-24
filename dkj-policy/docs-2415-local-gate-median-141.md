@@ -39,9 +39,19 @@
 
 ### PLAN
 
+Issue #2415: record the local test gate's wall-clock on the current 141-suite pool, at the default
+lane count and at `-MaxParallel 2`, per Nolan's population rules (n, median, range, machine, lane
+count), so a lever for the local gate can be priced. Measured through the real entry point
+(`open-pr.ps1 -GatesOnly -SkipLint`), one run at a time, nothing else touching the checkout while
+a run is in flight. The figures land in Nolan's lens.
+
+Machine: 32 logical cores, 31.8 GB RAM, Windows 11 Pro 26200.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Default lanes: runs measured, lane count and verdict recorded per run
+- [ ] `-MaxParallel 2`: runs measured, verdict recorded per run
+- [ ] Figures written into Nolan's lens with the population stated
 
 ### TEST
 
