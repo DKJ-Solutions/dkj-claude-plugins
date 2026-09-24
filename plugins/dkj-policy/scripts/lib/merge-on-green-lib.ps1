@@ -265,6 +265,68 @@ function Get-MergeOnGreenExecutedPathHit {
     return ''
 }
 
+function Test-MergeOnGreenRequiredChecksSettled {
+    <#
+    .SYNOPSIS
+        Is the required-check state readable, not blocked, not pending, and green for at least the
+        settle window? -- the one block Get-MergeOnGreenPrVerdict and Get-MergeOnGreenStrandedVerdict
+        used to each spell out on their own (Victor, issue #2438), extracted so the two cannot drift.
+
+    .DESCRIPTION
+        THE FOUR CHECKS, IN THE SAME ORDER BOTH CALLERS ALREADY RAN THEM: the required-check state is
+        readable at all, it is not Blocked, nothing required is still UnfinishedRequired, and the age
+        the checks have been green is readable and at least Get-MergeOnGreenSettleMinutes. Neither
+        caller's own order changes: Get-MergeOnGreenPrVerdict still asks armed/draft/fork/executed-path/
+        mergeable first and only reaches this block after all of them pass, exactly as before.
+
+    .PARAMETER MergeBlockVerdict
+        Get-MergeBlockVerdict's own object, from its own `gh pr checks --required` payload. $null reads
+        as unreadable.
+
+    .PARAMETER GreenAgeMinutes
+        Get-RequiredGreenAgeMinutes' answer. $null, NaN or Infinity reads as unreadable, the same
+        fail-closed reading both callers already gave it.
+
+    .OUTPUTS
+        [pscustomobject] Ready (bool), Reason (string, set only when Ready is $false -- the exact
+        sentence Get-MergeOnGreenPrVerdict printed for this block before the extraction), Settle
+        (the minutes value, so a caller composing its own success sentence need not ask a second time).
+    #>
+    param($MergeBlockVerdict, $GreenAgeMinutes = $null)
+
+    $settle = Get-MergeOnGreenSettleMinutes
+
+    if ($null -eq $MergeBlockVerdict) {
+        return [pscustomobject]@{ Ready = $false; Reason = 'the required-check state could not be read'; Settle = $settle }
+    }
+    if ($MergeBlockVerdict.PSObject.Properties['Blocked'] -and $MergeBlockVerdict.Blocked) {
+        $why = ''
+        if ($MergeBlockVerdict.PSObject.Properties['Reason']) { $why = [string]$MergeBlockVerdict.Reason }
+        if (-not $why) { $why = 'a required check is not green' }
+        return [pscustomobject]@{ Ready = $false; Reason = $why; Settle = $settle }
+    }
+
+    # NOT BLOCKED IS NOT THE SAME AS GREEN (#1549's hole on the other caller): a required check that has
+    # not REGISTERED yet fails nothing, so Blocked is $false while the certificate a sweep exists to
+    # spend does not exist yet.
+    $pending = @()
+    if ($MergeBlockVerdict.PSObject.Properties['UnfinishedRequired']) { $pending = @($MergeBlockVerdict.UnfinishedRequired) }
+    if ($pending.Count -gt 0) {
+        return [pscustomobject]@{ Ready = $false; Reason = "a required check has not finished: $($pending -join ', ')"; Settle = $settle }
+    }
+
+    # GREEN IS NOT YET ORPHANED (#2393). NaN and Infinity compare false against every number, so '-lt'
+    # alone would read them as settled.
+    if ($null -eq $GreenAgeMinutes -or [double]::IsNaN([double]$GreenAgeMinutes) -or [double]::IsInfinity([double]$GreenAgeMinutes)) {
+        return [pscustomobject]@{ Ready = $false; Reason = 'when the required checks finished could not be read, so it cannot be told from a live ship'; Settle = $settle }
+    }
+    if ([double]$GreenAgeMinutes -lt $settle) {
+        return [pscustomobject]@{ Ready = $false; Reason = ("green for {0:N0} minute(s), under the {1}-minute settle window -- a live ship-pr may still be merging it" -f [math]::Floor([double]$GreenAgeMinutes), $settle); Settle = $settle }
+    }
+
+    return [pscustomobject]@{ Ready = $true; Reason = ''; Settle = $settle }
+}
+
 function Get-MergeOnGreenPrVerdict {
     <#
     .SYNOPSIS
@@ -364,40 +426,24 @@ function Get-MergeOnGreenPrVerdict {
     # there. That is the posture a sweep wants unchanged: with nothing named there is no green to wait
     # for, so "merge on green" has no trigger at all and the honest answer is to leave the pull request
     # to a person.
-    if ($null -eq $MergeBlockVerdict) {
-        return [pscustomobject]@{ Eligible = $false; Reason = 'the required-check state could not be read' }
-    }
-    if ($MergeBlockVerdict.PSObject.Properties['Blocked'] -and $MergeBlockVerdict.Blocked) {
-        $why = ''
-        if ($MergeBlockVerdict.PSObject.Properties['Reason']) { $why = [string]$MergeBlockVerdict.Reason }
-        if (-not $why) { $why = 'a required check is not green' }
-        return [pscustomobject]@{ Eligible = $false; Reason = $why }
-    }
-
+    #
     # NOT BLOCKED IS NOT THE SAME AS GREEN, and this is the exact hole inbound #1549 measured on the
     # other caller. A required check that has not REGISTERED yet fails nothing, so Blocked is $false
     # while the certificate this sweep exists to spend does not exist -- ship-pr would then be started
-    # only to sit through the whole wait itself. Reading the field rather than the verdict is what
-    # #1549 added it for.
-    $pending = @()
-    if ($MergeBlockVerdict.PSObject.Properties['UnfinishedRequired']) { $pending = @($MergeBlockVerdict.UnfinishedRequired) }
-    if ($pending.Count -gt 0) {
-        return [pscustomobject]@{ Eligible = $false; Reason = "a required check has not finished: $($pending -join ', ')" }
-    }
-
+    # only to sit through the whole wait itself.
+    #
     # GREEN IS NOT YET ORPHANED (#2393). ship-pr arms before its own wait, so a pull request that has
     # only just gone green is normally being merged by the live session that armed it -- and this sweep
-    # was woken by that same CI completion. Get-MergeOnGreenSettleMinutes carries the reasoning.
-    $settle = Get-MergeOnGreenSettleMinutes
-    # NaN and Infinity compare false against every number, so '-lt' alone would read them as settled.
-    if ($null -eq $GreenAgeMinutes -or [double]::IsNaN([double]$GreenAgeMinutes) -or [double]::IsInfinity([double]$GreenAgeMinutes)) {
-        return [pscustomobject]@{ Eligible = $false; Reason = 'when the required checks finished could not be read, so it cannot be told from a live ship' }
-    }
-    if ([double]$GreenAgeMinutes -lt $settle) {
-        return [pscustomobject]@{ Eligible = $false; Reason = ("green for {0:N0} minute(s), under the {1}-minute settle window -- a live ship-pr may still be merging it" -f [math]::Floor([double]$GreenAgeMinutes), $settle) }
+    # was woken by that same CI completion.
+    #
+    # ALL FOUR OF THE ABOVE ARE ONE SHARED BLOCK (Victor, #2438): Test-MergeOnGreenRequiredChecksSettled,
+    # reused rather than restated by Get-MergeOnGreenStrandedVerdict too, so the two cannot drift apart.
+    $settled = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $MergeBlockVerdict -GreenAgeMinutes $GreenAgeMinutes
+    if (-not $settled.Ready) {
+        return [pscustomobject]@{ Eligible = $false; Reason = $settled.Reason }
     }
 
-    return [pscustomobject]@{ Eligible = $true; Reason = "armed, not a draft, touches no code the runner executes, mergeable, and every required check has been green on its own head for at least $settle minutes" }
+    return [pscustomobject]@{ Eligible = $true; Reason = "armed, not a draft, touches no code the runner executes, mergeable, and every required check has been green on its own head for at least $($settled.Settle) minutes" }
 }
 
 function Select-MergeOnGreenCandidate {
@@ -431,4 +477,91 @@ function Select-MergeOnGreenCandidate {
     })
     if ($eligible.Count -eq 0) { return $null }
     return @($eligible | Sort-Object { [int]$_.Number } | Select-Object -First 1)[0]
+}
+
+function Get-MergeOnGreenStrandedVerdict {
+    <#
+    .SYNOPSIS
+        Is this armed pull request STRANDED -- ready in every way the sweep can act on, except that its
+        diff touches a path the runner executes, so no sweep will EVER take it and only a session
+        running ship-pr.ps1 can (issue #2438, split out of #2436's step 2).
+
+    .DESCRIPTION
+        WHY THIS IS ITS OWN FUNCTION AND NOT A NEW BRANCH IN Get-MergeOnGreenPrVerdict. That function's
+        order is deliberate -- cheapest disqualifier first, so its Reason names what a person would
+        notice first -- and Get-MergeOnGreenExecutedPathHit is asked BEFORE mergeable, before the
+        required-check state and before the settle window. So an armed pull request that has NOT yet
+        gone green also reports the executed-path Reason there, and that function alone cannot say
+        whether it would otherwise be ready. Reordering it would answer that, but it would also change
+        which Reason every OTHER executed-path pull request reports mid-sweep -- a change to live
+        picker behaviour this issue does not ask for, and one the existing suite pins against (several
+        assertions there construct a record that is armed and touches an executed path while passing no
+        -GreenAgeMinutes at all, and still expect the executed-path Reason back).
+
+        SO THIS ASKS FROM THE OUTSIDE, REUSING RATHER THAN RESTATING. Get-MergeOnGreenExecutedPathHit
+        decides whether the path reason applies at all -- the one fact Get-MergeOnGreenPrVerdict cannot
+        expose once it has returned early on it. Get-MergeOnGreenPrVerdict itself then confirms that
+        executed-path is genuinely the reason THIS pull request is declined right now: not armed, a
+        draft or a fork all report a DIFFERENT Reason there, and comparing the verdict's Reason against
+        the exact string Get-MergeOnGreenExecutedPathHit composes is what tells the two apart without
+        restating the armed/draft/cross-repo checks a second time. Only once that identity holds does
+        this read the two facts the verdict never reached for such a record -- whether the required
+        checks are green (Get-MergeBlockVerdict's own Blocked/UnfinishedRequired fields) and whether
+        that green has stood for the settle window (Get-RequiredGreenAgeMinutes against
+        Get-MergeOnGreenSettleMinutes) -- which is exactly what Get-MergeOnGreenPrVerdict would have
+        read next had the executed-path check not returned first.
+
+        PURE, and every fact is a parameter, exactly like the function this reuses -- no git, no gh, no
+        environment; the reads live in the caller (a SessionStart check, in this issue's case).
+
+    .PARAMETER Record
+        A pull request record, in the shape Get-MergeOnGreenPrVerdict and Get-MergeOnGreenExecutedPathHit
+        themselves read (labels, isDraft, isCrossRepository, files, changedFiles).
+
+    .PARAMETER MergeBlockVerdict
+        Get-MergeBlockVerdict's own object for THIS pull request, from its own `gh pr checks --required`
+        payload. $null reads as not-green, the same fail-closed reading Get-MergeOnGreenPrVerdict gives it.
+
+    .PARAMETER GreenAgeMinutes
+        Get-RequiredGreenAgeMinutes' answer for THIS pull request. $null -- unreadable, or not passed --
+        reads as not-settled, for the same reason.
+
+    .PARAMETER Label
+        The arming label; defaults to Get-MergeOnGreenArmLabel.
+
+    .OUTPUTS
+        [pscustomobject] Stranded (bool), Reason (string, set only when Stranded is $true -- the same
+        sentence Get-MergeOnGreenPrVerdict would print for this pull request today).
+    #>
+    param(
+        $Record,
+        $MergeBlockVerdict,
+        $GreenAgeMinutes = $null,
+        [string]$Label = (Get-MergeOnGreenArmLabel)
+    )
+
+    $notStranded = [pscustomobject]@{ Stranded = $false; Reason = '' }
+
+    # THE ONE FACT Get-MergeOnGreenPrVerdict CANNOT EXPOSE FOR SUCH A RECORD. Asked first and asked
+    # directly, because everything below only matters once this is non-empty.
+    $hit = Get-MergeOnGreenExecutedPathHit -Record $Record
+    if (-not $hit) { return $notStranded }
+
+    # CONFIRM THE VERDICT DECLINES ON THIS REASON, EXACTLY -- not on "not armed", "a draft" or "a fork",
+    # which are all checked earlier in Get-MergeOnGreenPrVerdict and would report a DIFFERENT Reason
+    # here. String identity against the exact sentence Get-MergeOnGreenExecutedPathHit composes is what
+    # tells these apart without re-deriving the armed/draft/cross-repo checks a second time.
+    $verdict = Get-MergeOnGreenPrVerdict -Record $Record -MergeBlockVerdict $MergeBlockVerdict `
+        -GreenAgeMinutes $GreenAgeMinutes -Label $Label
+    if ($verdict.Eligible -or $verdict.Reason -ne "$hit -- ship it from a session") { return $notStranded }
+
+    # THE VERDICT RETURNED BEFORE READING EITHER OF THESE TWO -- reached here only because the Reason
+    # matched exactly, so this pull request already passed every check Get-MergeOnGreenPrVerdict makes
+    # AHEAD of the executed-path one (armed, not a draft, not a fork). It is stranded only once these
+    # also hold -- the two checks the picker would have made NEXT, read through the SAME shared block
+    # Get-MergeOnGreenPrVerdict itself calls (Victor, #2438), so the two cannot drift apart.
+    $settled = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $MergeBlockVerdict -GreenAgeMinutes $GreenAgeMinutes
+    if (-not $settled.Ready) { return $notStranded }
+
+    return [pscustomobject]@{ Stranded = $true; Reason = "$hit -- ship it from a session" }
 }

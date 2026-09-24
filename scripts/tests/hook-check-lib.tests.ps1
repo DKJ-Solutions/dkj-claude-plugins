@@ -10,15 +10,17 @@
     wrong answer is precisely what a suite is for: every one of them leaves a hook reporting a clean
     check, so nothing downstream goes red to announce the drift.
 
-    THE SEVEN CALLERS MAKE IT WORTH MORE THAN ITS SIZE. Six SessionStart hooks take the default path
-    and cycle-autopark takes -MergeAllStreams, so one regression here is seven hooks at once -- and
-    hook output is the one class of defect that shows up as SILENCE in a session rather than as a
-    failure anybody chases.
+    THE CALLERS MAKE IT WORTH MORE THAN ITS SIZE. Every SessionStart hook in this family takes the
+    default path except cycle-autopark, which takes -MergeAllStreams -- and that family only grows, so a
+    stated count here would go stale with the next hook added (Edith, issue #2438: measured at nine,
+    already wrong the day it would have been written). One regression in either path is every hook that
+    takes it, at once -- and hook output is the one class of defect that shows up as SILENCE in a session
+    rather than as a failure anybody chases.
 
     WHAT #1641 ADDED, and why the pre-existing behaviour is pinned here too rather than only the new
     switches: that change restructured the capture pipeline for EVERY caller (an assignment became an
-    append inside the pipeline, so -OutputTo could work), so the six hooks that never pass a new
-    parameter still run through rewritten code.
+    append inside the pipeline, so -OutputTo could work), so a hook that never passes a new parameter
+    still runs through rewritten code.
 
     THE FIXTURES ARE STUBS, deliberately -- no check script, no git, no repo. What is pinned is the
     lib's own contract; each real check has its own suite.

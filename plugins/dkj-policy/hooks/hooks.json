@@ -45,6 +45,11 @@
           },
           {
             "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/stranded-sweep-sessioncheck.ps1\"",
+            "timeout": 120
+          },
+          {
+            "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/consumer-prose-sessioncheck.ps1\"",
             "timeout": 120
           },
