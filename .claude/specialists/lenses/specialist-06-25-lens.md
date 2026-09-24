@@ -292,7 +292,7 @@ of this measurement that clone sat ten commits behind `main` and the two files d
 12,294 B in the repo, **11,051 B actually loaded**. The table above reports what the session loads. The
 difference is not error to smooth away — it is **queued cost that arrives at the next plugin update**,
 and it is the always-on face of the consequence
-[`CLAUDE.md`](../../../CLAUDE.md#specific-to-this-repo-claude-code-specialists) already records: through
+[`this-repo.md`](../../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) already records: through
 the `github` source the team sees the last *pushed* plugins. Resolve the load path before measuring it.
 
 **WHERE THE COST IS: IT IS NOT DIFFUSE, IT IS ONE SUB-ITEM.** `CLAUDE.md` stood at 875 lines in 9
@@ -346,7 +346,7 @@ in **both**, while the significance rubric (13 references), the `highlights/` re
 **The last one is this section**, and it is worth having on its own: the first two are a judgement about
 the governance document and the third is arithmetic. **The honest counter-argument to the second, kept
 beside it:** the growth these notes keep recording is
-[the repo's own rule](../../../CLAUDE.md#general-working-practices) working as designed — lessons are
+[the repo's own rule](../../../plugins/dkj-policy/CLAUDE.md#general-working-practices) working as designed — lessons are
 secured in the docs — and moving the evidence does not stop it, it only redirects where it lands.
 
 ### The Claude Code best-practices page, held against this repo (August 14, 2026)
@@ -635,7 +635,7 @@ only while it says when each one was opened.
      standing rule that removes the freedom to ship on demand. Had the ceiling been four hours a day the
      same table would have argued the other way — which is precisely why counting it first was worth doing.
    - **There was never a mechanism to change, only a habit.** A release happens on Dave's explicit request
-     ([`CLAUDE.md`](../../../CLAUDE.md#never-without-daves-explicit-permission)), so the 16 releases in the
+     ([`CLAUDE.md`](../../../plugins/dkj-policy/CLAUDE.md#never-without-the-owners-explicit-permission)), so the 16 releases in the
      window were 16 requests. A cadence policy could only ever have been a self-imposed constraint on his
      own asking, plus a brief telling Rendall to propose fewer. Both were declined.
    - **The counterweight ran in the same direction, which is unusual and worth noting.** Batching would
@@ -1618,7 +1618,7 @@ together are 0.65 ms, so this always-on path is the lens walk and nothing else.
   and the gate that runs them is `open-pr.ps1`, so the *script* half of any repair is
   [Sylvester #15](specialist-05-15-lens.md)'s and the *coverage* half is Tycho's.
 - **The safety rules are not Nolan's to trade.** The three gates exist because
-  [`CLAUDE.md`](../../../CLAUDE.md#claude-code-specialistss-safety-implementation) says so, and several
+  [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) says so, and several
   of them were built after a measured failure. Nolan may quantify what one costs and put a
   coverage-for-time trade on the table with both sides numbered; whether to take it is Dave's.
 

@@ -132,6 +132,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           SHIP_BRANCH: ${{ steps.pick.outputs.branch }}
           SHIP_PR: ${{ steps.pick.outputs.pr }}
+          SHIP_SHA: ${{ steps.pick.outputs.sha }}
         run: |
           # Commit-metadata identity only -- who authored ship-pr's fold commit. It is independent of
           # the push credential, which the checkout step wired in: a ruleset bypass is checked against
@@ -155,6 +156,17 @@ jobs:
           git checkout --quiet $env:SHIP_BRANCH
           if ($LASTEXITCODE -ne 0) {
             Write-Error "could not check out the head branch of PR #$($env:SHIP_PR) -- nothing was merged."
+            exit 1
+          }
+
+          # THE CODE THAT RUNS NEXT COMES FROM THIS CHECKOUT, SO IT HAS TO BE THE COMMIT THE PICKER
+          # JUDGED -- issue #2338. The picker refused any pull request whose diff touches scripts/,
+          # .github/ or a plugin's scripts/, so on that commit the branch runs only what the trunk
+          # already carries. A push landing between the pick and this line would reach the runner
+          # unjudged; here it stops the job instead, and the next sweep judges the new head.
+          $head = (git rev-parse HEAD).Trim()
+          if ($head -ne $env:SHIP_SHA) {
+            Write-Error "PR #$($env:SHIP_PR)'s head moved after the pick ($($env:SHIP_SHA) -> $head) -- nothing was run or merged; the next sweep judges the new head."
             exit 1
           }
 

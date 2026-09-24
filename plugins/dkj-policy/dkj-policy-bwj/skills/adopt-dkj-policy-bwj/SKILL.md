@@ -509,9 +509,18 @@ the model reads a stale column -- which looks exactly like a board that works.
 
 ## 6 -- point the repo's governance at the rule
 
-Add a line to the repo's `CLAUDE.md` (or a repo lens) pointing at
-`~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-policy-bwj/WORKFLOW-portable.md`
-so a session reads the BWJ ticket rule the same way it reads the other portable pages.
+Import the BWJ extension of the constitution in the repo's `CLAUDE.md`, on the line **directly
+below** the `dkj-policy` import that `adopt-dkj-policy` asks for
+([#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374)):
+
+```
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md
+```
+
+That file points at all four chapters, so a session reads the BWJ rules the same way it reads the
+constitution. Where the repo's clone sits under an older marketplace name, use that name, as the
+`dkj-policy` import does. Remove any older line that pointed at `WORKFLOW-portable.md` directly,
+because the extension replaces it.
 
 ## 7 -- scaffold the sync-log folder (chapter two)
 

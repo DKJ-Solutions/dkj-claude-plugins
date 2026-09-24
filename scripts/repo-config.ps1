@@ -481,7 +481,7 @@ function Get-MachineLocalPaths {
 # dkj-subagents-shopify is enabled here and this repo is not a store. It is on for validation: the repo
 # that ships a plugin is also a repo that loads it, so an agent def, a manifest, a frontmatter or a
 # hook that stops resolving surfaces at this repo's own session start instead of in somebody else's.
-# The repo slot in CLAUDE.md states that reason, for all four add-on teams at once.
+# The repo facts in .claude/rules/this-repo.md state that reason, for all four add-on teams at once.
 #
 # WHICH LEFT THE FLOOR CHECK ASKING A QUESTION THIS REPO CANNOT ANSWER TRUTHFULLY.
 # shopify-floor-sessioncheck.ps1 wants Get-ShopifyLiveThemeId -- the live theme's numeric id -- because
@@ -1164,7 +1164,7 @@ $script:ExpectedRepoSettings = @(
         Field    = 'repo.visibility'
         Expected = 'public'
         Recorded = '2026-09-09'
-        Where    = 'CLAUDE.md (the repo slot: "This repo is public")'
+        Where    = '.claude/rules/this-repo.md (the repo fact: "This repo is public")'
         Why      = 'deliberate, so the remote github marketplace source can be read without gh auth -- and it is the clause this repo qualifies for a merge queue through, which most consumers do not (#1540). Going private silently breaks every consumer install and makes the no-secrets rule read as over-caution'
     },
     @{

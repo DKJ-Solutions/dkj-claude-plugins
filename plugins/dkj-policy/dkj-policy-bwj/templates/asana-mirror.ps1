@@ -972,6 +972,14 @@ function Resolve-GithubStatusMap {
         return $default
     }
 
+    # THE BOARD-LESS ANSWER GETS ITS OWN SENTENCE (#2375). Test-GithubStatusMap has just accepted an empty
+    # FieldName as the declaration #1536 made possible -- and this, the one line a run prints about its
+    # map, used to render that declaration as "field '', ." : a deliberate answer that read like a broken
+    # one. Same wording as the stage-floor line further down, so the log says it the same way twice.
+    if (-not ([string]$own.FieldName)) {
+        Write-Host "  Status map from scripts/repo-config.ps1: this repo has no project board, so stage floors derive from the issue itself."
+        return $own
+    }
     $pairs = @(@($own.Statuses.Keys) | Sort-Object | ForEach-Object { "$_ -> $($own.Statuses[$_])" })
     Write-Host "  Status map from scripts/repo-config.ps1: field '$($own.FieldName)', $($pairs -join ', ')."
     return $own

@@ -442,9 +442,10 @@ has the one-line form and the reasoning.
 
 **Whether a finished branch is allowed to run through that motion on its own, or has to wait for a person's
 word, is your repo's rule** — and one of the few things on this page that no seam can answer, because it is
-a governance decision rather than a configuration value. Write it in your own `CONTRIBUTING.md` or
-`CLAUDE.md` and link it from there; a contributor who has to guess will guess from whichever repo they last
-worked in.
+a governance decision rather than a configuration value. Write it in your own `CONTRIBUTING.md`, where you
+still carry one, or in an unscoped repo rule such as `.claude/rules/<name>.md` — never in `CLAUDE.md`
+itself, which holds only the `@`-imports — and link it from there; a contributor who has to guess will guess
+from whichever repo they last worked in.
 
 #### The staleness race, and what this workflow does about it
 
@@ -1091,7 +1092,10 @@ there, so the root page is the whole of your floor and this page sits directly a
 recommendation.** On August 27, 2026 it deleted its root `CONTRIBUTING.md` and kept the floor in its
 `CLAUDE.md`, on the grounds that an always-on document already stated the same three rules — never
 directly on the trunk, a branch + PR, the required CI check — and a second copy is a thing to keep in
-sync rather than a safety net. **Nothing in this workflow depends on that choice**: every gate reads your
+sync rather than a safety net. **Since September 23, 2026 (#2374) that always-on document is an unscoped
+repo rule instead** (`.claude/rules/this-repo.md`), because `CLAUDE.md` itself now holds only the
+`@`-imports; the reasoning is unchanged — an always-on page, not a contributing page nobody is made to
+read. **Nothing in this workflow depends on that choice**: every gate reads your
 branch's own `<branch>.md`, never a contributing page, so both answers work.
 
 **The recommendation is still the root page, for two reasons that have nothing to do with the gates.**
@@ -1136,7 +1140,7 @@ writing, and no gate could flag it, because no gate reads a contributing page or
 — and the middle rank is real only for as long as your repo still carries the page it names:**
 
 ```
-the plugin's portable pages + skills   (the shared law)
+the plugin's CLAUDE.md, portable pages + skills   (the shared law)
         >  dkj-policy/CONTRIBUTING.md  (this repo's answers to its seams -- ONLY where you still
                                         carry one; #2171 stopped scaffolding it, so a fresh
                                         adoption has no middle rank at all)
@@ -1171,9 +1175,18 @@ consumer's copy does — not on the day it is written, but on the day this block
 
 **Scoped as narrowly as it should be.** This ranking governs only what the plugin actually legislates —
 the branch/PR/release mechanics, the gates, the tier model, the shapes described on these portable pages.
-A repo's own rules that the plugin has no opinion on — its live theme's id, its store domain, its
-front-end tokens, the safety rules it runs under — are not in that set at all, and nothing here outranks
-them. Restating that scope matters because the failure this section describes looks exactly like
+A repo's own facts that the plugin has no opinion on — its live theme's id, its store domain, its
+front-end tokens — are not in that set at all, and nothing here outranks them. **The safety rules left
+that list on September 23, 2026**
+([#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374)): they are now legislated by
+the plugin's own [`CLAUDE.md`](CLAUDE.md), which sits on the top rung beside this page. A consumer's
+`CLAUDE.md` holds **only** the `@`-import lines — this one, plus a companion extension where one is
+installed, plus any other plugin import
+(`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/CLAUDE.md`) — **and nothing else**.
+Facts about the repo that the plugin has no opinion on (its trunk, whether it is public, who owns it,
+what it is for) go in an unscoped rule your own tooling loads every session, e.g.
+`.claude/rules/<name>.md`; a fact that belongs to one specialist alone goes in that specialist's own
+lens. Restating that scope matters because the failure this section describes looks exactly like
 diligence: a repo folds a shared rule into its always-on `CLAUDE.md` *in order to* keep one document
 self-contained, and the fold is where the divergence gets in.
 
@@ -1243,8 +1256,9 @@ deliberately DELEGATES, with no seam and no page of its own answering it either.
 `cut-release/SKILL.md`'s "Which comes first, the cut or the push" block is the measured instance: it
 declines to build a `Get-LiveStageCutOrder` seam on purpose — the order is a sentence a person walks
 past in a checklist, not a value any script reads — and tells a repo running the non-default order to
-state that order **in its own `CLAUDE.md`**, because the standing rule authorising it has to live there
-anyway. Read against the three moves above, that instruction looks like the forbidden one: it is not
+state that order **in its own always-on repo rule** (an unscoped page such as `.claude/rules/<name>.md`,
+never `CLAUDE.md` itself, which carries only the `@`-imports), because the standing rule authorising it
+has to live somewhere a session reads every time. Read against the three moves above, that instruction looks like the forbidden one: it is not
 pointing at the law, there is no seam to hold this repo's answer to, and staying silent would leave the
 order genuinely undocumented anywhere a reader could find it. It is none of the three because the
 premise behind the three does not hold here — there is no shared prose *for* a consumer's page to

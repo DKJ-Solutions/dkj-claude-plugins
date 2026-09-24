@@ -671,7 +671,7 @@ this is exactly the file where out-of-band changes are routine.
    recognise the new placeholder alongside the two legacy ones"* is real work on a branch. Separating the two
    needs an exclusion list, which is the shape this repo has been bitten by often enough to stop reaching
    for it (see the declined checks in the source repo's
-   [`CLAUDE.md`](https://github.com/DaveKJohn/claude-code-specialists/blob/main/CLAUDE.md#claude-code-specialistss-safety-implementation)).
+   [`.claude/rules/this-repo.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/.claude/rules/this-repo.md#claude-code-specialistss-safety-implementation)).
    The convention is cheap to follow and the failure is self-correcting: write it as a step and the gate
    stops you.
 6. **Fill in every tier the DEPLOY section carries once TEST is resolved, and before the PR.** How far the

@@ -32,7 +32,7 @@
 $ErrorActionPreference = 'Stop'
 
 function Write-PickVerdict {
-    param([bool]$Picked, [string]$Reason, [string]$Pr = '', [string]$Branch = '')
+    param([bool]$Picked, [string]$Reason, [string]$Pr = '', [string]$Branch = '', [string]$Sha = '')
 
     $value = if ($Picked) { 'true' } else { 'false' }
     Write-Host "merge-on-green: picked=$value -- $Reason"
@@ -40,6 +40,9 @@ function Write-PickVerdict {
         Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "picked=$value"
         Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "pr=$Pr"
         Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "branch=$Branch"
+        # The head commit the verdict was formed on (#2338): the runner refuses to run anything from a
+        # checkout that is not this commit, so a push after the pick cannot bring new code with it.
+        Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "sha=$Sha"
     }
 }
 
@@ -85,7 +88,7 @@ if (-not $repo) {
 # be an owed merge no sweep can ever see, and the page costs one call whatever its size.
 $listRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
     'pr', 'list', '--state', 'open', '--label', $label, '--limit', '100', '--repo', $repo,
-    '--json', 'number,headRefName,isDraft,mergeable,labels,isCrossRepository')
+    '--json', 'number,headRefName,headRefOid,isDraft,mergeable,labels,isCrossRepository,files,changedFiles')
 if ($listRead.ExitCode -ne 0) {
     Write-PickVerdict -Picked $false -Reason "the list of '$label' pull requests could not be read"
     exit 0
@@ -122,7 +125,7 @@ foreach ($record in $armed) {
     # its Reason exact. A sweep that armed ten pull requests would cost ten reads; the merge it
     # performs costs a CI run.
     $requiredRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
-        'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link')
+        'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link,completedAt')
     $requiredJson = if ($requiredRead.ExitCode -eq 0) { ($requiredRead.Output -join "`n") } else { '' }
 
     # ChecksJson is left out deliberately: Get-MergeBlockVerdict uses it only to NAME the
@@ -130,15 +133,23 @@ foreach ($record in $armed) {
     $blockVerdict = $null
     try { $blockVerdict = Get-MergeBlockVerdict -RequiredChecksJson $requiredJson } catch { $blockVerdict = $null }
 
-    $verdict = Get-MergeOnGreenPrVerdict -Record $record -MergeBlockVerdict $blockVerdict -Label $label
+    # THE SAME PAYLOAD, READ FOR WHEN IT WENT GREEN (#2393) -- no second call. A live ship-pr armed this
+    # before its own wait, so a pull request only just green is normally being merged by that session.
+    $greenAge = $null
+    try { $greenAge = Get-RequiredGreenAgeMinutes -RequiredChecksJson $requiredJson -Now (Get-Date) } catch { $greenAge = $null }
+
+    $verdict = Get-MergeOnGreenPrVerdict -Record $record -MergeBlockVerdict $blockVerdict -GreenAgeMinutes $greenAge -Label $label
     $branch = ''
     if ($record.PSObject.Properties['headRefName']) { $branch = [string]$record.headRefName }
+    $sha = ''
+    if ($record.PSObject.Properties['headRefOid']) { $sha = [string]$record.headRefOid }
 
     Write-Host ("  #{0} ({1}): {2} -- {3}" -f $number, (Get-DisplayRef -Ref $branch), $(if ($verdict.Eligible) { 'ELIGIBLE' } else { 'waiting' }), $verdict.Reason)
 
     $verdicts += [pscustomobject]@{
         Number   = $number
         Branch   = $branch
+        Sha      = $sha
         Eligible = $verdict.Eligible
         Reason   = $verdict.Reason
     }
@@ -163,10 +174,14 @@ if ($null -eq $pick) {
 # nothing stops a leading '-', which turns the argument into a flag -- so the charset is asserted here
 # and a name outside it refuses the whole pick rather than being sanitised into something else. The
 # set is deliberately narrower than git's: every branch this workflow creates is <prefix>/<name>.
+if ($pick.Sha -notmatch '^[0-9a-f]{40}$') {
+    Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head commit could not be read, so there is no commit to pin the ship to -- the next sweep asks again"
+    exit 0
+}
 if ($pick.Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
     Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head branch is not a plain name this runner will put on a command line -- merge it by hand"
     exit 0
 }
 
-Write-PickVerdict -Picked $true -Reason "PR #$($pick.Number) on '$($pick.Branch)' is owed a merge -- handing it to ship-pr" -Pr $pick.Number -Branch $pick.Branch
+Write-PickVerdict -Picked $true -Reason "PR #$($pick.Number) on '$($pick.Branch)' is owed a merge -- handing it to ship-pr" -Pr $pick.Number -Branch $pick.Branch -Sha $pick.Sha
 exit 0

@@ -236,6 +236,29 @@ trade-off that puts the timing back in your hands.
 merge is a branch-protection setting, which is a repo decision rather than something a scaffolder should
 reach into.
 
+### And one line in your `CLAUDE.md`: the constitution (#2374)
+
+**The rules this repo runs under ship with the plugin, in [`../../CLAUDE.md`](../../CLAUDE.md).** Your own
+`CLAUDE.md` holds **only** one absolute `@`-line loading them, and nothing else:
+
+```
+@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md
+```
+
+**Your `CLAUDE.md` carries no prose of its own** — no facts about the repo, no rules, nothing below the
+import line. Facts about this repo only — its trunk, whether it is public, who its owner is, and what
+it is for — go in an unscoped rule your own tooling loads every session, e.g.
+`.claude/rules/this-repo.md`; a fact that belongs to one specialist alone goes in that specialist's own
+lens instead. **Remove any rule the constitution already states, wherever it currently sits.** A copy of a
+rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
+stays behind, and that is the contradiction #2374 was filed about.
+
+This run does not write the line, because it never edits a file that already exists. The
+`consumer-prose-sessioncheck` hook raises a `[WARNING]` at every session start until the line is there,
+and that warning prints the exact line for **your** marketplace name. A consumer registered before the
+September 10, 2026 rename still has its clone under `claude-code-specialists`. The line resolves after a
+`claude plugin marketplace update`: an `@`-import reads the marketplace clone, not the plugin cache.
+
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
 The release machinery finds the folder through a `decide` seam in your `scripts/repo-config.ps1`
@@ -640,9 +663,10 @@ its exit code and its `[create]`/`[MISSING]` marker are independent of Part 3's 
 
 ### A fourth runner: merge-on-green.yml (issue #2329)
 
-**It closes a promise `ship-pr` already makes in your repo.** When `ship-pr` refuses to merge on a red or
-pending required check, it labels the pull request `merge-when-green` and says a sweep will finish the
-merge once the check turns green. `.github/workflows/merge-on-green.yml` is that sweep. Without it the
+**It closes a promise `ship-pr` already makes in your repo.** `ship-pr` labels the pull request `merge-when-green` before it
+starts waiting on CI. So whenever that run does not merge -- it refuses on a red or pending check or on
+a stale certificate, or the session dies mid-watch -- a sweep finishes the merge once the required
+check has been green for ten minutes (the window keeps the sweep from racing a live ship). `.github/workflows/merge-on-green.yml` is that sweep. Without it the
 label is set and nothing reads it, so the merge stays owed to a session exactly as before.
 
 It wakes on your CI completing (`workflow_run`, naming your own pull_request workflows by their
