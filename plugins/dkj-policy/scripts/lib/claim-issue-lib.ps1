@@ -1759,6 +1759,16 @@ function Get-ClaimRecords {
             the tracker itself recorded. A tag with no account half, or a comment with no author, is
             dropped for the same reason: nothing ties it to the session it names.
 
+            A MARKER IN AN EDITED COMMENT IS NOT RETURNED EITHER (#2402). A comment's author AND its
+            createdAt are both fixed when it is created and an edit changes neither, so an account can
+            edit a marker of its own into a year-old comment of its own: it passes the author check and
+            wins every race on a timestamp that says nothing about when that body was written. The
+            tooling never edits a claim comment, so `includesCreatedEdit` true is never a genuine claim.
+            An ABSENT flag is read as unedited, deliberately: failing closed there would drop every
+            genuine claim at once, and a backlog that reads as free is re-claimed by every sweep.
+            A marker whose author reads null (a deleted or suspended account) stays dropped, so the
+            issue it held reads as free -- nobody is left under that account to be mid-flight.
+
         .PARAMETER Json
             The payload text of `gh issue view --json comments` (or one element of `gh issue list`'s).
 
@@ -1813,6 +1823,12 @@ function Get-ClaimRecords {
         $slash = $tag.LastIndexOf('/')
         $tagAccount = if ($slash -ge 0) { $tag.Substring($slash + 1).Trim() } else { '' }
         if (-not $tagAccount -or -not $author -or ($author -ine $tagAccount)) { continue }
+
+        # AN EDITED COMMENT'S BODY IS NO EVIDENCE OF WHEN IT WAS WRITTEN (#2402): createdAt survives the
+        # edit, so a marker edited into an old comment would win every race. gh returns the flag on
+        # every comment at no extra call; the tooling never edits a claim comment, so dropping it costs
+        # a genuine claim only when a person edits one by hand.
+        if ($comment.PSObject.Properties['includesCreatedEdit'] -and [bool]$comment.includesCreatedEdit) { continue }
 
         $records.Add([pscustomobject]@{
             Tag       = $tag
