@@ -44,4 +44,34 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**0 / 1 patch entry** <!-- pending-tally -->
+
+### DEPLOY: fix/2444-warn-missing-repo-facts-rule · 20260924-185917Z
+
+A consumer whose root `CLAUDE.md` is imports-only now hears about it at session start when no unscoped
+`.claude/rules/*.md` exists. `consumer-prose-sessioncheck` prints a `[WARNING]` saying the repo's
+trunk, visibility, owner and purpose are stated nowhere a session loads, and where to put them. A
+`paths:`-scoped rule does not silence it, because that rule is gone on every turn that does not touch
+its files. The finding the report measured was made by hand, and this makes it automatic.
+
+Tier 0 is scored for a session in a consumer that has just done the #2374 cut. It closes the one gap
+the cut's own checks could not see.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. It is an advisory session check and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+A consumer's imports-only CLAUDE.md now warns when no unscoped rule carries the repo's facts
+
+Plugins: dkj-policy
+
+[PR #2460](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2460)
+
+---
+
