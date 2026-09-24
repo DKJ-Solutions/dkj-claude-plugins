@@ -34,6 +34,10 @@ The verbatim-shared blocks run on **build-and-lint** (built July 2026):
 - **Generator:** `scripts/agents/build-agent-defs.ps1` fills the blocks; `-Check` reports drift.
 - **Gate:** `check-plugin-integrity.ps1` (check 7) fails as soon as a marked region deviates from its
   source. Details in the [Sylvester #15 lens](specialist-05-15-lens.md).
+- **Adding a block:** write the canonical text as `<name>.md` in `subagent-shared/` — the body only, no
+  sentinels and no heading; add an empty `<!-- BEGIN shared:<name> … -->` / `<!-- END shared:<name> -->`
+  pair to each agent def or persona that should carry it; run `build-agent-defs.ps1`, then the lint gate.
+  The directory listing is the enumeration of blocks, and the filename is the `<name>` in the sentinel.
 
 Current shared blocks, sourced one file each under `subagent-shared/`, fall into four tiers by how far
 each one reaches: **universal** — `inbound-behaviour` and `laziness-automation` (every agent def
@@ -82,6 +86,69 @@ before proposing to change it"*, which no carrier is exempt from. A block whose 
 one question (*how do I file what I found*) is coherent, and splitting it to save one bullet's bytes
 would trade a real cost for a real seam. What the measurement is worth is the paragraph above it: the
 bar, so the next bullet is weighed rather than appended.
+
+### Why each circle is the width it is
+
+*Moved here from `subagent-shared/README.md` when that page was removed (September 23, 2026); the
+lint's `[tool-block]` refusal points at this section.* Four blocks sit outside the craft tiers above,
+and each width was a decision rather than a default.
+
+**The BEGIN line is generated too, and it deliberately points nowhere.** It reads
+`<!-- BEGIN shared:<name> -- GENERATED, do not edit here -->`, and that wording has one source:
+`Format-SharedBeginSentinel` in
+[`subagent-shared-lib.ps1`](../../../scripts/lib/subagent-shared-lib.ps1). Until August 14, 2026 the
+expander copied the line through unchanged, so it sat hand-maintained in **178** places saying
+`GENERATED, edit subagent-shared/<name>.md` — a path that resolves in this repo and nowhere else, so for
+a consumer it pointed at a file they do not have, three lines above an `inbound-behaviour` block saying
+*"You do not modify the shared core locally"* (inbound
+[#669](https://github.com/DKJ-Solutions/claude-code-specialists/issues/669) C2). Both remedies #669
+proposed were declined: shipping this directory hands a consumer a file that is not the source, and
+repointing at this repo adds 178 references to a repo the reader cannot write to (C4 of the same
+report). For the only reader who can act — a maintainer here — `shared:<name>` maps to
+`subagent-shared/<name>.md` by construction. Dropping the pointer took those lines from **17,332 to
+13,027 bytes**. The builder and lint check 7 both compare the whole file against the expander's
+output, so a reworded sentinel is rebuilt by the one and reported by the other, with no exemption list.
+
+**`filecontent-boundary` is in all 26 agent defs rather than in a circle.** Inbound
+[#668](https://github.com/DKJ-Solutions/claude-code-specialists/issues/668) proposed only the
+specialists that *act* on file content. Measured against the roster, that line does not hold: **all 26
+carry `Read`, `Grep` and `Glob`**, and a specialist that greps a file and reports what it found has
+already relayed the content into a context that acts on it. A boundary with a hole shaped like *"I was
+only looking"* is not one. `webcontent-boundary` is the deliberate contrast — it sits in the two agents
+holding fetch tools and can lean on *you went and fetched this*; file content did not arrive because
+anyone reached for it, so this block says instead that **a file being present says nothing about who
+wrote it or why**. No persona carries it: a persona runs in a main loop whose own `CLAUDE.md` answers
+for that tree.
+
+**`lens-optional` has the same 26 carriers, for the mirror-image reason.** Inbound
+[#669](https://github.com/DKJ-Solutions/claude-code-specialists/issues/669) C1 measured all four
+specialists on that assessment hitting the same friction first: look for the repo lens, fail to find
+it, continue on the plugin source. Every agent def names its lens in its opening sentence, so the width
+follows the pointer. A persona cannot be in that position — it is loaded *through* the consuming repo's
+`CLAUDE.md`, so reading it is proof a repo exists. The per-file half of the repair sits in those
+opening sentences (*"if it has one"*); either half alone would leave a specialist deciding for itself
+what a missing file means.
+
+**`working-copy-boundary`'s circle is a TOOL, not a craft**: the agent defs whose `tools:` line names
+`Bash`, and no persona. Measured September 8, 2026
+([#1665](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1665)): a code review ran
+`git stash`, hit a conflict popping other sessions' entries, and settled it with
+`git checkout HEAD -- <file>` on three files that were the orchestrating session's uncommitted work.
+Its report said the tree was clean, which was true of the commit and wrong about the work. The reviewer
+read its boundary correctly — *"does not correct the code and does not land it"*, and a stash does
+neither — so the gap was a rule whose subject was the wrong verb. The report proposed "the reviewers";
+that was wrong twice: it counted Marlowe #29, who holds no `Bash`, and **most carriers are not reviewers
+at all** (app developer, test engineer, system administrator, refactoring, and all three
+`dkj-subagents-ecomm` specialists). The first draft of the correction miscounted by craft the same way,
+and only `grep` over `tools:` got it right. The DevOps engineer and the release manager ship as
+personas whose craft *is* mutating the working copy, so they are excluded by design. **Because the
+circle is decidable, a check keeps it**: lint check 36 reads `Get-ToolRequiredSharedBlocks` in
+[`subagent-shared-lib.ps1`](../../../scripts/lib/subagent-shared-lib.ps1) — a `tool -> block` table —
+and reports any agent def naming the tool without the block, so a specialist gaining `Bash` later cannot
+sit silently outside it. The reverse is deliberately unchecked. Dispatching reviewers into their own
+worktree instead is a separate question,
+[#1667](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1667) — not an alternative,
+since a reviewer sometimes reviews uncommitted work.
 
 ### Working method in this repo
 

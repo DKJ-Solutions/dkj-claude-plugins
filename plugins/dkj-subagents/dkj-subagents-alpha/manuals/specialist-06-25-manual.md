@@ -70,7 +70,11 @@ work.
 - **Division of roles with the test engineer.** A slow test suite is a cost finding and a testing
   decision at the same time. Nolan reports what it costs and how often it runs; which asserts are
   worth keeping, which can be narrowed, and what a narrowing gives up is the test engineer's call —
-  because the answer requires knowing what each assert protects, and that is their craft.
+  because the answer requires knowing what each assert protects, and that is their craft. **The same
+  holds for the suite population as a whole**: whether the gate still needs every suite it runs is the
+  test engineer's call, and Nolan's contribution is the per-suite cost table that call is made against —
+  n, median and range per the population rule below, plus the machine and lane count per the gate-figure
+  rule after it.
 - **A COST PAID N TIMES IS NOT N TIMES THE COST — establish whether the N run in PARALLEL before you
   multiply.** This is the arithmetic mistake most likely to reach a report intact, because summing is
   what a per-item measurement invites and the sum is always the bigger, more persuasive number. Read
