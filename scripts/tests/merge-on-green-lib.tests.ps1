@@ -47,6 +47,10 @@ function Assert-True {
 Assert-True (Test-Path -LiteralPath $LibPath) 'merge-on-green-lib.ps1 exists at its registered source path'
 . $LibPath
 . $PrLibPath
+# Test-FunctionDefined (issue #1729), NOT a raw Get-Command probe -- section 5's own gate below refuses
+# exactly that idiom for a hyphenated function name outside its named exceptions, and this file is not
+# one of them.
+. (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
 # ---------------------------------------------------------------------------------------------
 function New-PrRecord {
@@ -356,7 +360,7 @@ Assert-True (Get-MergeOnGreenStrandedVerdict -Record $strandRecord -MergeBlockVe
 Write-Host ''
 Write-Host 'Test-MergeOnGreenRequiredChecksSettled -- the shared block both verdicts now call (#2438, Victor)' -ForegroundColor Cyan
 
-Assert-True ([bool](Get-Command Test-MergeOnGreenRequiredChecksSettled -ErrorAction SilentlyContinue)) `
+Assert-True (Test-FunctionDefined 'Test-MergeOnGreenRequiredChecksSettled') `
     'Test-MergeOnGreenRequiredChecksSettled is defined -- the extraction landed'
 
 $rUnread = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $null -GreenAgeMinutes 30

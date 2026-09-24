@@ -146,6 +146,16 @@ A SessionStart check lists armed + green + settled pull requests the sweep will 
   touches or moves.
 - [x] Ran `scripts/sync/build-shared-scripts.ps1` again after all of the above -- mirrored
   `merge-on-green-lib.ps1` and `check-stranded-sweep.ps1`.
+- [x] Full gate (`open-pr.ps1 -GatesOnly`) caught three suites the assignment above never ran: fixed
+  `scripts/tests/merge-on-green-lib.tests.ps1`'s new `Get-Command Test-MergeOnGreenRequiredChecksSettled`
+  probe to `Test-FunctionDefined` (issue #1729's own rule, dot-sourcing `command-probe-lib.ps1`);
+  bumped `scripts/tests/native-capture.tests.ps1`'s bounded-site count 81 -> 83 with an audit comment for
+  `check-stranded-sweep.ps1`'s `$listRead`/`$requiredRead` (both already judged through
+  `Test-NativeExitMeasured`, so `$unguarded.Count` stayed 0); and added
+  `scripts\lint\check-stranded-sweep.ps1` to `source-repo-guard.tests.ps1`'s `$guardExempt` list, on the
+  same reasoning as `check-git-identity.ps1` -- its only caller is a SessionStart hook running the
+  released copy against the current repo, so `Assert-OwnCopy` would take the hook down here, and it has
+  no CI leg. Re-ran the full gate after: 140/140 suites, lint 0 error(s).
 - [x] Checked `origin/fix/2436-honest-sweep-promise` for a ship-pr message pointing at this check: that
   branch only touches `merge-on-green-lib.ps1` (`Get-MergeOnGreenSweepRefusal`) and `ship-pr.ps1`'s own
   CI-refusal message text -- neither names a SessionStart hook or this check, and per this assignment I
