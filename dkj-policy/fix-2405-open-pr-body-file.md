@@ -39,21 +39,41 @@
 
 ### PLAN
 
+#### Stacked on feat/2361-pr-bypass-note
+
+Cut from `origin/feat/2361-pr-bypass-note` by Dave's choice (option A), because that branch rewrites the
+same `-Body` path in `open-pr.ps1`. This PR ships after #2361's lands, and its diff reads clean once it has.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `open-pr.ps1` (root + mirror): `-BodyFile <path>`, read as UTF-8 into `$Body` before `-GatesOnly` and
+      the supplied-body fill; refuses `-Body` with `-BodyFile`, a missing file and an empty one
+- [x] `.PARAMETER BodyFile` docstring and the `open-pr` skill page name the PS 5.1 split and the route past it
 
 ### TEST
 
+- [x] `gate-lib.tests.ps1`: the resolution sits above `-GatesOnly` and the fill; the three refusals run for
+      real and exit 1 with their reason -- 261 pass, 0 fail
+- [x] Smoke: a quote-carrying body file under `powershell -File ... -GatesOnly` exits 0 and names `-BodyFile`
+      as ignored
+
 ### DEPLOY: fix/2405-open-pr-body-file
 
-**Score:**
+`open-pr` takes `-BodyFile <path>`: the PR body read from a UTF-8 file, treated exactly as `-Body`. Called
+through `powershell -File`, Windows PowerShell 5.1 split a `-Body` carrying `"` characters across native
+arguments, and a fragment bound to another parameter (`-MaxParallel`, on a consumer PR). A path carries no
+quote, so it arrives intact. Passing both, naming a missing file, or an empty one is refused before anything
+runs.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose own tooling shells out to `open-pr` with a template-derived body can now pass that body
+without it being torn apart. Visible to whoever calls `open-pr` that way after the next plugin update.
+
+**Score:** 1
 
 #### Pull Request
 
 open-pr takes -BodyFile so a quote-carrying body never crosses a native command line
-

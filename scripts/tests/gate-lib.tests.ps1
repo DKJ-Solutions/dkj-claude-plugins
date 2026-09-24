@@ -1141,6 +1141,47 @@ exit __EXIT__
     Assert-True ($gatesOnlyRegion -match '-NoteTreeOnly:\$NoteTreeOnly') 'and that site is the -GatesOnly one, which is the case it was measured on'
     Assert-True ($openPr -match '-NoteTreeOnly applies to -GatesOnly only') 'the PR path says the flag was ignored instead of silently dropping it'
 
+    # --- -BodyFile: a quote-carrying body that never crosses a native command line (issue #2405) -----
+    Write-Host "`n== -BodyFile becomes -Body before anything reads it, and refuses what it cannot read ==" -ForegroundColor Cyan
+
+    # WHERE IT RESOLVES IS THE WHOLE GUARANTEE: above -GatesOnly and above the supplied-body fill, every
+    # path below sees one $Body and cannot tell the two routes apart.
+    $idxBodyFile     = $openPr.IndexOf('if ($BodyFile) {')
+    $idxGatesOnlyBf  = $openPr.IndexOf('if ($GatesOnly) {')
+    $idxSuppliedFill = $openPr.IndexOf('Complete-SuppliedPrBody -Body $Body')
+    Assert-True ($idxBodyFile -ge 0 -and $idxGatesOnlyBf -ge 0 -and $idxSuppliedFill -ge 0) 'all three landmarks are found'
+    Assert-True ($idxBodyFile -lt $idxGatesOnlyBf) '-BodyFile resolves before -GatesOnly, so the ignored-list names it'
+    Assert-True ($idxBodyFile -lt $idxSuppliedFill) 'and before the supplied-body fill and DEPLOY check, so both apply to the file''s text'
+
+    # THE REFUSALS, RUN FOR REAL: each exits before -GatesOnly, so nothing is gated, pushed or written.
+    $bfDir = Join-Path $FixtureRoot 'bodyfile'
+    New-Item -ItemType Directory -Force -Path $bfDir | Out-Null
+    $bfQuoted = Join-Path $bfDir 'quoted.md'
+    $bfEmpty  = Join-Path $bfDir 'empty.md'
+    [System.IO.File]::WriteAllText($bfQuoted, 'A body with "quotes" and -MaxParallel "4" in it', (New-Object System.Text.UTF8Encoding $false))
+    [System.IO.File]::WriteAllText($bfEmpty, "  `r`n", (New-Object System.Text.UTF8Encoding $false))
+    $openPrPath = Join-Path $RepoRoot 'scripts\release\open-pr.ps1'
+    $bfCases = @(
+        @{ Name = 'both -Body and -BodyFile'; Args = @('-Body', 'x', '-BodyFile', $bfQuoted); Says = '-Body and -BodyFile were both passed' },
+        @{ Name = 'a missing file';           Args = @('-BodyFile', (Join-Path $bfDir 'nope.md')); Says = '-BodyFile names no file' },
+        @{ Name = 'an empty file';            Args = @('-BodyFile', $bfEmpty); Says = '-BodyFile is empty' }
+    )
+    Push-Location -LiteralPath $RepoRoot
+    $savedEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        foreach ($case in $bfCases) {
+            $out = (& powershell -NoProfile -ExecutionPolicy Bypass -File $openPrPath @($case.Args) -GatesOnly 2>&1 | Out-String)
+            $code = $LASTEXITCODE
+            Assert-Equal 1 $code "-BodyFile refuses $($case.Name) with exit 1"
+            # Compared with all whitespace removed: an error record is wrapped at the console width, mid-word.
+            Assert-True (($out -replace '\s', '').Contains(($case.Says -replace '\s', ''))) "and says why: '$($case.Says)'"
+        }
+    } finally {
+        $ErrorActionPreference = $savedEap
+        Pop-Location
+    }
+
 } finally {
     if (Test-Path -LiteralPath $FixtureRoot) {
         Remove-Item -Recurse -Force -LiteralPath $FixtureRoot -ErrorAction SilentlyContinue
