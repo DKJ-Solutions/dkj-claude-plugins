@@ -422,7 +422,7 @@ The constitution, concretely implemented here:
   file already open. Writing a portable rule into the lens leaves the source thinner than the repo that
   maintains it, and nobody downstream ever receives it. **Which layer a rule belongs in, the split when
   a rule has both a portable and a local half, and the measurement behind that convention are in the
-  [specialists handbook](../specialists/README.md#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception)**
+  [technical writer's lens](../specialists/lenses/specialist-06-16-lens.md#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception)**
   — including that personas and manuals carry no repo-specific detail at all while skills carry the
   evidence behind a procedure.
 

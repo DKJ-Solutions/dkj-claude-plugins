@@ -39,21 +39,48 @@
 
 ### PLAN
 
+Dave: `.claude/specialists/README.md` and `SPECIALISTS.md` felt heavily duplicated -- merge them and
+delete the README. Chosen route (Dave): de-duplicate into `SPECIALISTS.md` and distribute the unique,
+on-demand content to the owning lenses, because `SPECIALISTS.md` is on the always-on path and a
+wholesale merge would have added ~33 KB to every session and breached the 100 KB budget.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `SPECIALISTS.md`: one roster, a short seam section, the Bianca "no caller" note; the doubled blank lines removed
+- [x] Tessa's lens: "How a specialist is structured here" (persona vs subagent, where a new rule goes, stable id)
+- [x] Sylvester's lens: the plugin-update procedure and "Why `Get-RosterIgnoredIds` is empty"
+- [x] Derek's lens: the three ways a briefing fails, and the branch check on the follow-up assignment
+- [x] Every inbound link repointed (root README, `this-repo.md`, Chris's and Tessa's lenses, four archived release notes' link targets only)
+- [x] `.claude/specialists/README.md` deleted
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors (the dead-link scan found the four release-note links, now retargeted)
+- [x] `check-roster-sync.ps1`: 0 errors, no orphan tokens
+- [x] Always-on path measured: `SPECIALISTS.md` 10,446 B -> 11,517 B; the 33.6 KB handbook stays off it
+
 ### DEPLOY: docs/merge-specialists-readme
 
-**Score:**
+The specialists handbook (`.claude/specialists/README.md`) is gone, and
+[`SPECIALISTS.md`](../.claude/specialists/SPECIALISTS.md) is the one page for the roster and the seam.
+The two pages repeated the roster, the lens index and the scaffold explanation. The handbook's unique
+content moved to the lens of the specialist who owns it, so it stays on demand:
+[Tessa's](../.claude/specialists/lenses/specialist-06-16-lens.md#how-a-specialist-is-structured-here)
+for how a specialist is structured,
+[Sylvester's](../.claude/specialists/lenses/specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo)
+for the plugin-update procedure and the `Get-RosterIgnoredIds` history, and
+[Derek's](../.claude/specialists/lenses/specialist-05-05-lens.md#the-three-ways-a-briefing-fails-measured-here)
+for the measured instances behind Chris's briefing and branch-check rules. The always-on path grows by
+1,071 B, where a wholesale merge would have added ~33 KB.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- `.claude/` is this repo's own layer and ships in no plugin, so no subscriber receives it.
+
+**Score:** N/A
 
 #### Pull Request
 
 Merge the specialists handbook into SPECIALISTS.md and retire the README
-

@@ -17,8 +17,8 @@ the governance of the entire specialists system live here.
 
 - **`CLAUDE.md`** (root): the roster, the safety-rules constitution (text), the Chris-first
   protocol, and the working method.
-- **`README.md`** (root) + **`.claude/specialists/README.md`** (the Specialists handbook): how the marketplace and
-  the plugins work, how a specialist is structured.
+- **`README.md`** (root): how the marketplace and
+  the plugins work; how a specialist is structured *here* is [below](#how-a-specialist-is-structured-here).
 - **`.claude/specialists/SPECIALISTS.md`** — the seam's inclusion file: the roster, the routing, and
   the two `@`-imports `CLAUDE.md` reaches them through.
 - **The manuals in the plugins** (`<plugin>/manuals/specialist-<group>-<id>-manual.md`) and the **repo lenses**
@@ -39,15 +39,15 @@ consumer, and PR #2179 removed this repo's own copies — *because otherwise the
 one CONTRIBUTING" is false in the very repo that ships it.* A consumer adopted before that day still
 carries both pages and nothing deletes them; `adopt-workflow-folder.ps1` reports them as legacy and
 leaves them untouched on every re-run. What a repo answers for itself now goes into the lens of the specialist who owns that answer —
-which is this file's own rule, [*"where a new rule goes"*](../README.md#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception),
+which is this file's own rule, [*"where a new rule goes"*](#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception),
 applied to a whole page.
 
 **Where the ~1,300 lines went**, because a reader looking for one of them needs the address rather than
 the history: the branch-document mechanics, the pull-request gates and the seam-answer table are
 [Sylvester's](specialist-05-15-lens.md); the issue layer, the claim measurements and the merge step are
 [Derek's](specialist-05-05-lens.md); the fold, the cut and the live-stage no-op are
-[Rendall's](specialist-05-06-lens.md); the self-consumption and plugin-update procedure is the
-[Specialists handbook's](../README.md). The portable half was never in either page and did not move:
+[Rendall's](specialist-05-06-lens.md); the self-consumption and plugin-update procedure is
+[Sylvester's](specialist-05-15-lens.md#updating-the-plugins--in-every-other-checkout-of-this-repo) too. The portable half was never in either page and did not move:
 it is [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md), and the
 duplication between it and a per-repo restatement is what #2171 retired.
 
@@ -266,7 +266,7 @@ same shape and carry no such note.
 ### Citations for rules whose portable half carries no attribution
 
 Her manual states the craft timelessly, which means the *who and when* of a decision cannot live
-there — the layer table in the [Specialists handbook](../README.md) measures exactly that and would
+there — the [layer table below](#where-a-new-rule-goes--the-source-is-the-default-the-lens-is-the-exception) measures exactly that and would
 otherwise be false about her own manual. The citations belong here:
 
 - **"State the core in full; let a deviating consumer record its deviation in its own lens" —
@@ -460,3 +460,131 @@ went wrong. What the sentence corrupted was a **session's reasoning** — it wou
 enqueue and the fold to arrive from `fold-on-merge.yml`, when in fact this session's own step 5 folds.
 That is the class of defect an always-on document is uniquely able to cause and uniquely unable to
 report, which is why the bar for a forward-looking sentence is highest exactly there.
+
+### How a specialist is structured here
+
+The general model — persona vs. subagent representations, the manual/agent-def split, the
+portable-craft-vs-repo-lens split, and persona templates as a third artifact — is the plugin
+family's concept and lives in one canonical place: the root README's
+[Manuals — the split model](../../../README.md#manuals--the-split-model).
+This section records only how that plays out **concretely in this repo**.
+
+#### Persona or subagent — one specialist, two representations
+
+Which specialists here are a subagent lens vs. a persona lens (lens-only), and where their files
+live, is inventoried in [the seam section of `SPECIALISTS.md`](../SPECIALISTS.md#this-directory--the-seam) — not repeated
+here. What follows are the rules that build on that split:
+
+**Rules:** where a manual and an **agent def** both exist, the **manual is leading**; the agent def is
+the executable abbreviation. The *principle* and the manuals belong to
+[Tessa #16](specialist-06-16-lens.md); the agent-def config (frontmatter, tools, model) belongs to
+[Sylvester #15](specialist-05-15-lens.md). **Chris remains a persona** — he is the only one who can
+**ask** Dave anything. [Tessa #16](specialist-06-16-lens.md) guards the two-part manual split
+(portable body vs. repo lens) on every change here.
+
+**A persona may back a manual too, and that pairing is leading in neither direction**
+([#1017](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1017), August 28, 2026). Until
+that day the lint gate's check 6b required an agent def behind every manual, so the two sentences
+above read together as *"the leading half is the manual, and Chris may not have one"* — and Chris,
+uniquely, paid for it in tokens: he is loaded on **every** turn, so every rule the gate kept out of a
+manual sat on the always-on path. Measured before the split, his persona was 25,674 B, about 35% of
+that path; three sections came off it for **5,166 B**.
+
+**What "leading" means for such a pair is different and narrower, and the root README states it** —
+[Manuals — the split model](../../../README.md#subagent-def-vs-manual--two-files-one-specialist) is this
+model's one canonical home, as the section above says. In short: split by **when** each half is
+needed, not by authority. What belongs here is only what it cost *this* repo. Chris's three moved
+sections — the phase model, parallel delegation, the six inbound checks — are each unknowable at the
+start of a turn, which is exactly why none of them was ever worth a session's context. Bianca, Derek
+and Rendall have no manual and are untouched in both directions, so this changed one file's loading
+and nothing else about how the four personas work here.
+
+#### Where a new rule goes — the source is the default, the lens is the exception
+
+**This repo is the source of the specialists system, so a lesson learned here belongs in the shared
+source unless it genuinely only applies here** (Dave, August 4, 2026). The lens exists for what a
+*consumer* would have to differ on — not as the convenient place to write things down because it is the
+file already open. Writing a portable rule into the lens is how the source ends up thinner than the repo
+that maintains it: measured that day, Rendall #06's portable persona was **1,700 bytes** while his repo
+lens had grown to **26,914** — sixteen times larger, holding the release craft itself rather than
+anything specific to this repo.
+
+**Which of the three layers a rule belongs in follows from what the layer already carries**, a
+convention the repo has held consistently rather than one invented here. Re-measured **August 15,
+2026** across `dkj-subagents-alpha`'s **15 manuals, 4 personas and 4 skills** — count each category with
+`grep -rho` over `manuals/`, `personas/` and `skills/`, and the table reproduces:
+
+| layer | holds | repo-specific detail (measured) |
+|---|---|---|
+| **persona / manual** | the craft itself, stated timelessly | **none** across all 19 files — 0 issue numbers, 0 repo names, 0 person names. The one `vX.Y.Z` a regex finds is Rendall's *"How he sounds"* line, an invented example of speech rather than a real version |
+| **skill** | a procedure, with the evidence that shaped it | **yes** — **250** such references across the 4 skills (137 issue numbers, 93 repo names, 15 versions, 5 person names), e.g. a measured character limit attributed to the consumer repo it was hit in |
+| **repo lens** | what this repo does differently, and the local measurement | yes |
+
+**The previous figures are kept here as the thing that went wrong, because the failure is instructive**:
+this table read *"14 manuals, 4 personas and 9 skills"* and *"103 references across the 9 skills"*, and
+by August 15 none of the three counts held — a manual had been added, and the August 8 workflow split
+had moved nine of `dkj-subagents-alpha`'s skills into `dkj-policy`, leaving four. **`.claude/rules/this-repo.md` points at
+this table as the evidence for the whole source-vs-lens doctrine**, so a reader who checked it found the
+numbers wrong and had no way to tell whether the doctrine was wrong with them. The claim itself was
+false too, by exactly two person names — both now moved to the lens that should have held them, which
+is the convention this table describes, applied to itself.
+
+**A measurement in a document that nothing regenerates goes stale silently.** State the date and the
+method, as above, so the next reader can re-run it in one command instead of trusting it.
+
+So the practical test for a lesson learned: **is it a timeless statement about the craft** → persona or
+manual, stripped of every number. **Is it a procedure step someone will walk, whose reason rests on a
+measurement** → the skill, measurement included; that is why the skills carry evidence and the manuals
+do not. **Is it only true here** → the lens. When the same rule has both a portable half and a local
+half, split it: the rule and its generic reason go to the source, and the lens keeps a short citation
+naming where it was measured.
+
+**A consequence worth knowing before you reach for the lens out of habit:** a rule written in the source
+reaches every consumer through the next release, while the same rule in the lens reaches nobody but this
+repo — and the two are indistinguishable while you are typing.
+
+#### Stable id + group — the filename is `<group>-<id>`
+
+Every specialist has a fixed, numeric **`id`** (permanent identity, never changes) and belongs to a
+**group** (organizational unit: **01 = Leadership, 02 = Staff, 03+ = teams**). The repo layer is
+named `<group>-<id>-extension.md`; the portable playbook `specialist-<group>-<id>-manual.md` and the
+subagent def `specialist-<group>-<id>-subagent.md` live in the plugin. **Name, emoji, and title are labels** — they
+may change freely; the filename and link paths hang off `id`/`group`, not the name. **The lint gate
+guards this** ([Sylvester #15](specialist-05-15-lens.md)): every filename matches the
+frontmatter (`id:` and `group:`).
+
+**So a rename never breaks a reference — it only leaves the name behind in prose**, and
+[`scripts/sync/find-specialist-mentions.ps1`](../../../scripts/sync/find-specialist-mentions.ps1) is the
+tool for that half. Run it bare for the overview (which rename is cheap and which is not), or with
+`-Name <specialist>` for every live mention grouped by the layer it sits in: **context** (read by a
+model each session), **docs** (read by a human on GitHub), **scripts** and **tests** (where the one
+rename this repo has done deliberately *kept* the old name as attribution), and **history** (counted,
+never rewritten — the published-record rule). It also splits each layer into **link text** and
+**prose**, because those are two different decisions: the link target already carries the id, so the
+text beside it is reading aid, while a name in prose is the content itself.
+
+**It is a tool, not a gate, and that was decided rather than defaulted into** (August 13, 2026). A
+check matching on names is the shape this repo has already been bitten by — the name-matching
+candidate measured for the entry-format check produced six findings, all six false. Worse, Sean →
+Sebastian (`a437df9`, July 22, 2026) deliberately left mentions standing, so a gate would need an
+exemption list holding exactly what that rename decided to keep. **A gate that is argued with is a
+gate that gets switched off.** This one prints; the reader decides.
+
+**The measurement that made it worth building:** a rename's cost is not uniform. Measured with the
+script itself, against the tree as it stood before the branch that added it, Chris had **179** live
+mentions across 59 files against Sebastian's **46** across 18 — a factor of four. Nothing before this
+could tell you that number *before* you started.
+
+**The same pass answered the question that prompted it**, which was whether the name in a link should
+become the id (`[#16]`) or the filename (`[specialist-06-16-lens]`) so a rename would need no edit there.
+Three measurements against that same tree said no:
+
+| | |
+|---|---|
+| link text is a small share | **97 of 1,291** live mentions — 7.5%, so it reaches a fourteenth of the problem |
+| `#16` is already taken | **2,404** `#nnn` references outside `releases/` and `CHANGELOG.md`; `#12` is both Gwen and a PR number |
+| the filename form costs more | 88 link texts of the form `[Name #NN]` average **10.3** characters against 15 for `<gg>-<ii>-extension` — **+46%**, in files loaded every session |
+
+And roughly a quarter of those link texts are grammatically part of the sentence
+(`[Rendall #06](…)'s domain`, `[Tessa #16](…) guards the split`), where a bare id or filename reads as
+a file doing a person's work.
