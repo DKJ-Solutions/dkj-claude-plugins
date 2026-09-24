@@ -1171,10 +1171,16 @@ exit __EXIT__
     $ErrorActionPreference = 'Continue'
     try {
         foreach ($case in $bfCases) {
-            $out = (& powershell -NoProfile -ExecutionPolicy Bypass -File $openPrPath @($case.Args) -GatesOnly 2>&1 | Out-String)
+            # Each stderr line is taken as its own TEXT, never as PS 5.1's rendering of it: `2>&1` turns the
+            # first native stderr line into a NativeCommandError record whose At/CategoryInfo block lands
+            # between line 1 and line 2 -- and where line 1 ends depends on the checkout path's length. On
+            # CI's shorter path that break fell inside the phrase asserted below (#2405's own first run).
+            $out = (& powershell -NoProfile -ExecutionPolicy Bypass -File $openPrPath @($case.Args) -GatesOnly 2>&1 |
+                ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { "$_" } } |
+                Out-String)
             $code = $LASTEXITCODE
             Assert-Equal 1 $code "-BodyFile refuses $($case.Name) with exit 1"
-            # Compared with all whitespace removed: an error record is wrapped at the console width, mid-word.
+            # Compared with all whitespace removed: the child wraps its error record at the console width, mid-word.
             Assert-True (($out -replace '\s', '').Contains(($case.Says -replace '\s', ''))) "and says why: '$($case.Says)'"
         }
     } finally {
