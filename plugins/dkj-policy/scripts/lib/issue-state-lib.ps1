@@ -183,15 +183,17 @@ function Get-IssueBodySet {
 
         try {
             $parsed = (@($q.Output) -join "`n") | ConvertFrom-Json
-            $result.Bodies[[int]$n] = [string]$parsed.body
             # Probed before it is read: under StrictMode a dot-read of an absent property throws, and a
-            # label record without a name is skipped rather than taking the read down.
+            # label record without a name is skipped rather than taking the read down. Both halves are
+            # composed BEFORE either is written, so a throw leaves the number Unreadable and nowhere else.
             $names = @()
             if ($parsed.PSObject.Properties['labels']) {
                 foreach ($l in @(@($parsed.labels) | Where-Object { $_ })) {
                     if ($l.PSObject.Properties['name'] -and $l.name) { $names += [string]$l.name }
                 }
             }
+            $bodyText = [string]$parsed.body
+            $result.Bodies[[int]$n] = $bodyText
             $result.Labels[[int]$n] = @($names)
         } catch {
             $unreadable += [int]$n

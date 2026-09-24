@@ -1307,6 +1307,7 @@ function Get-DossierClosingFindings {
     }
     return [int[]]@($hits)
 }
+
 function Get-TargetIssueWarnings {
     <#
     .SYNOPSIS
