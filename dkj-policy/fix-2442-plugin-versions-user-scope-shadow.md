@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #2442: `plugin-versions` said *versions match* for a checkout whose project record was current
+while a path-less user-scope record for the same plugin sat two releases behind. The session loaded the
+older skill set. Reason verified in the code: a single record for this checkout decided the row, and
+`$pathless` was read only when that record was absent. `roster-sessioncheck` is left alone. The
+`-Brief` `[ERROR]` already reaches session start through connector-sessioncheck, so one reader is enough.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugin-versions.ps1` (and its plugin mirror): after the verdict chain, a path-less record older
+      than this checkout's own record turns the row `behind`, keeping the checkout's own verdict inside
+      the sentence, and prints `claude plugin update <id> --scope <that record's scope>`, then a restart.
+      A scope the CLI does not accept withholds the command.
+- [x] `plugin-versions` skill page: one row in the *handles without failing* table.
 
 ### TEST
 
+- [x] `plugin-versions.tests.ps1` scenarios 37/37b (the measured shape, default view and `-Brief`), 37c
+      (same or newer path-less version stays silent), 37d (unrecognised scope withholds the command):
+      254 pass, 0 fail.
+
 ### DEPLOY: fix/2442-plugin-versions-user-scope-shadow
 
-**Score:**
+`plugin-versions` now reports a plugin as **behind** when a path-less (machine-wide) install record
+carries an older version than this checkout's own record. It used to say *versions match* while a
+session was loading the older record's skills. The row prints `claude plugin update <id> --scope
+<that record's scope>`, then a restart, and at session start it is an `[ERROR]` instead of silence.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer missing a skill that the installed version ships now gets the one command that fixes it,
+where the tool used to tell them nothing was wrong.
+
+**Score:** 2
 
 #### Pull Request
 
+plugin-versions: flag a stale path-less record that shadows this checkout's install
