@@ -44,7 +44,36 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 31 minor entries** <!-- pending-tally -->
+**13 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2402-edited-claim-marker · 20260924-065127Z
+
+`claim-issue.ps1 -Tag` no longer counts a claim marker that sits in an **edited** comment. A comment
+keeps its original author and creation time when it is edited, so a marker edited into an old comment
+of one's own used to win every claim race and hold the issue indefinitely. The tooling never edits a
+claim comment, so a genuine claim is lost only if somebody edits it by hand. A marker whose author
+has been deleted or suspended is still dropped, which means the issue it held reads as free. That
+behaviour is now pinned by a test.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that sweeps its backlog with `claim-issue -Tag` could have an issue held by anybody who edited
+a claim marker into an old comment of their own. That no longer works. If you edit a genuine claim
+comment by hand, that claim is released.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue: a marker in an edited comment is not a claim
+
+Plugins: dkj-policy
+
+[PR #2406](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2406)
+
+---
 
 ### DEPLOY: fix/2393-arm-merge-when-green-on-watch · 20260923-221545Z
 
