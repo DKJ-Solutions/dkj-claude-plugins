@@ -39,19 +39,48 @@
 
 ### PLAN
 
+Step 1 of #2436's plan: ship-pr stops promising the merge-on-green sweep for a PR the sweep will
+refuse on the executed-path rule (#2338). Steps 2 and 3 are their own subjects and are filed as
+#2438 (make the stranded state visible after the session dies) and #2437 (run ship-pr from a
+trusted trunk tree). Step 4's tests ride along with step 1.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-MergeOnGreenSweepRefusal` in `merge-on-green-lib.ps1`: parses `gh pr view --json
+      files,changedFiles` and returns `Get-MergeOnGreenExecutedPathHit`'s answer. One predicate,
+      fail-closed on an unreadable payload like the picker.
+- [x] `ship-pr.ps1` reads it once before arming. On a refusal the arm message and the CI-refusal
+      message say the sweep will NOT finish it and to re-run ship-pr from a session. The PR is still
+      armed, because the label is the record that a ship began.
+- [x] Plugin mirrors copied byte-identical.
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1`: the helper and the picker agree on #2433's shape, #2435's
+      shape, a docs PR and a truncated list; empty or non-JSON payloads refuse; structural asserts
+      that both promise sites branch on the refusal and that it is read before the arm. 122/122 pass.
+- [x] Live check against real payloads: #2433 returns the exact reason the sweep logged, and #2434
+      returns none.
+
 ### DEPLOY: fix/2436-honest-sweep-promise
 
-**Score:**
+`ship-pr` now promises that the merge-on-green sweep will finish a PR only when the sweep can. For a
+PR whose diff touches code the runner would execute from the branch, it names that path at arm time
+and says that, if this run does not finish, somebody has to re-run ship-pr from a session. It is
+read through the same predicate the sweep refuses on (#2436).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Anyone who runs `ship-pr` on a PR that changes scripts or workflows is now told that the automatic
+backstop will not cover it, so a green PR no longer sits unmerged while it looks owned.
+
+**Score:** 2
 
 #### Pull Request
+
+ship-pr promises the merge-on-green sweep only where the sweep will not refuse it
+
+Plugins: dkj-policy
 

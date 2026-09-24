@@ -313,8 +313,41 @@ Write-Host "ship-pr arms BEFORE its wait, not only on a CI refusal (#2393)" -For
 $armAt   = $shipRaw.IndexOf('if (Set-ShipMergeOnGreenArm)')
 $step3At = $shipRaw.IndexOf('# --- Step 3: wait for the required CI check')
 Assert-True ($armAt -gt 0 -and $step3At -gt 0 -and $armAt -lt $step3At) 'ship-pr arms before step 3 starts waiting on CI'
-Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*if \(Set-ShipMergeOnGreenArm\)") `
+Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*.{0,600}?if \(Set-ShipMergeOnGreenArm\)") `
     'and not under -NoMerge'
+
+Write-Host ''
+Write-Host "ship-pr promises the sweep only where the sweep can keep it (#2436)" -ForegroundColor Cyan
+
+# THE SAME PREDICATE ON BOTH SIDES: whatever the picker refuses as executed-path, ship-pr's helper must
+# refuse with the identical reason, fed the `gh pr view --json files,changedFiles` shape ship-pr reads.
+foreach ($case in @(
+    @{ Files = @('README.md', 'scripts/tests/bootstrap-drift.tests.ps1') },   # #2433's shape
+    @{ Files = @('.github/workflows/reusable-branch-entry.yml') },            # #2435's shape
+    @{ Files = @('README.md', 'dkj-policy/fix-1-x.md') },                     # a docs PR the sweep can ship
+    @{ Files = @('README.md'); ChangedFiles = 150 }                           # a list that did not show the whole diff
+)) {
+    $rec = if ($case.ContainsKey('ChangedFiles')) { New-PrRecord -Files $case.Files -ChangedFiles $case.ChangedFiles } else { New-PrRecord -Files $case.Files }
+    $json = [pscustomobject]@{ files = $rec.files; changedFiles = $rec.changedFiles } | ConvertTo-Json -Depth 5 -Compress
+    Assert-Equal (Get-MergeOnGreenExecutedPathHit -Record $rec) (Get-MergeOnGreenSweepRefusal -FilesJson $json) `
+        "ship-pr's refusal and the picker's agree for [$($case.Files -join ', ')]"
+}
+Assert-Equal '' (Get-MergeOnGreenSweepRefusal -FilesJson '{"files":[{"path":"README.md"}],"changedFiles":1}') `
+    'a diff the runner never executes gets no refusal -- the sweep promise stands'
+Assert-True ((Get-MergeOnGreenSweepRefusal -FilesJson '{"files":[{"path":"scripts/repo-config.ps1"}],"changedFiles":1}') -match 'scripts/repo-config\.ps1') `
+    'an executed-path diff is refused, naming the path'
+# FAIL-CLOSED LIKE THE PICKER: a promise this run could not confirm is the defect being repaired.
+Assert-True ((Get-MergeOnGreenSweepRefusal -FilesJson '') -match 'could not be read') 'an unread payload refuses the promise'
+Assert-True ((Get-MergeOnGreenSweepRefusal -FilesJson 'not json') -match 'could not be read') 'and so does one that is not JSON'
+
+# STRUCTURAL: both promise sites branch on the refusal, which is read before the arm call.
+$refusalAt = $shipRaw.IndexOf('Get-MergeOnGreenSweepRefusal -FilesJson')
+Assert-True ($refusalAt -gt 0 -and $refusalAt -lt $armAt) 'ship-pr reads the sweep refusal before it arms'
+Assert-True ($shipRaw -match "'--json', 'files,changedFiles'") 'from the same two fields the picker judges'
+Assert-True ($shipRaw -match '(?s)if \(\$script:SweepRefusal\) \{[^}]*will NOT finish it[^}]*\} else \{[^}]*the merge-on-green sweep does once') `
+    'the arm message promises the sweep only when there is no refusal'
+Assert-True ($shipRaw -match '(?s)if \(\$script:SweepRefusal\) \{[^}]*will NOT finish it[^}]*\} else \{[^}]*the merge-on-green sweep finishes it') `
+    'and so does the CI-refusal message'
 Assert-True ($shipRaw -notmatch [regex]::Escape("'--add-label', `$armLabel")) `
     'the old inline arming in the CI-refusal branch is gone -- the label is written through Set-ShipMergeOnGreenArm only'
 Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'step-list gate'") 'the step-list gate disarms -- only a commit clears it'
