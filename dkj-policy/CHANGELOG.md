@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**15 / 35 minor entries** <!-- pending-tally -->
+**15 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2337-connector-runner-ref · 20260924-074131Z
+
+`check-connectors.ps1` now reports a registered consumer's write runner that fetches this repo's scripts at
+a moving ref, or pinned behind the current dkj-policy release
+([#2337](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2337)). This is the source-side half of
+#2333's pin: a consumer nobody re-runs `adopt-ci-floor` in no longer stays invisible on `ref: main` beside
+`FOLD_PUSH_TOKEN`. Only runners holding a credential are judged, and the finding is an `[INFO]` naming the
+file, the line and the release to pin to. Its first run found five such runners across the two BWJ
+consumers.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a maintainer-side register check, which never reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+check-connectors reports a consumer write runner on a moving or stale shared-scripts ref
+
+[PR #2412](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2412)
+
+---
 
 ### DEPLOY: docs/2409-tycho-owns-suite-population · 20260924-072644Z
 
