@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Dave, September 24, 2026: the test gate is at 141 suites and nobody owns the population. Tycho gets
+that ownership and Nolan supplies the cost. The first audit is tracked separately in #2408.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Tycho's portable manual: a "What Tycho covers" bullet on owning the suite population, plus a hard rule that a regression test goes into its subject's suite rather than a new one
+- [x] Nolan's portable manual: extend the division of roles with the test engineer to cover the population, with Nolan supplying the per-suite cost table
 
 ### TEST
 
+- [ ] Edith copy edit on the diff
+
 ### DEPLOY: docs/2409-tycho-owns-suite-population
 
-**Score:**
+The test engineer's manual now makes Tycho the owner of the test-suite **population**. Before this,
+every rule in it pointed one way: add a test, add a regression test, flag a gap. Nothing covered
+justifying, merging or retiring a suite, and this repo's gate grew from 43 to 141 suites in about five
+weeks with nobody able to say why each one is needed. He now has to be able to name what every suite
+protects. He proposes merges where suites overlap and retirements where a subject has gone, and each
+retirement is stated as a trade of coverage for time. A new hard rule stops the one-suite-per-issue
+shape: a regression case goes into the suite that already owns its subject. The performance
+engineer's manual adds the matching line: the verdict is Tycho's, and Nolan supplies the per-suite
+cost table it is made against. Closes #2409; the first audit of the 141 is #2408.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Any consumer whose test gate is growing now has a named specialist who answers for its size. Asked why
+the gate needs every suite it runs, the test engineer gives a per-suite answer and proposes merges or
+retirements. Before, he added suites and never questioned them.
+
+**Score:** 2
 
 #### Pull Request
 
