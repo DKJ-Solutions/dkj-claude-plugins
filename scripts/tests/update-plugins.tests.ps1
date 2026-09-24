@@ -51,6 +51,10 @@
       11 a record stating no scope at all               -> falls back to project exactly as before, AND
                                                              says so, in a block printed ABOVE step 1
                                                              rather than inside step 2's own output
+      12 a path-less user record beside a checkout      -> both are updated ('--scope project' and
+         record (#2459)                                      '--scope user'); a path-less MANAGED one
+                                                             is not; the summary counts the shadow
+      13 -DryRun with that shadow                       -> both commands printed, nothing ran
 
     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
     for .ps1).
@@ -470,6 +474,44 @@ try {
     Assert-Has $r 'Scope could not be read from the install administration for 1 plugin(s)' '11: and the fallback is stated rather than silent'
     Assert-Has $r 'states no scope' '11: the line names what the administration failed to say'
     Assert-Before $r 'Scope could not be read' 'Step 1/3' '11: stated BEFORE step 1, so it cannot scroll past inside step 2'
+
+    # --- 12. a path-less user-scope record BESIDE this checkout's own: both are updated (#2459) ----
+    #     The measured state: a project record and a path-less user record for the same plugin, at
+    #     the SAME version before the run. Only the project record used to move, and the receipt then
+    #     called the path-less one behind. No version is written here on purpose -- the update is not
+    #     gated on one, because the gap only opens after step 2 has moved the checkout's record.
+    Write-Host "12. a path-less user-scope shadow beside a checkout record is updated too" -ForegroundColor Cyan
+    $c = New-Case 'shadow'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'user' } )
+        $ID2 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'managed' } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '12: exit 0'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '12: the checkout''s own record is updated'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope user" '12: AND the path-less user-scope record beside it'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '12: the other plugin''s own record is updated'
+    Assert-Lacks $r "plugin update $ID2 --scope managed" '12: a path-less MANAGED record is not this run''s to move'
+    Assert-Lacks $r "plugin update $ID2 --scope user" '12: and no user-scope call is invented where no user record exists'
+    Assert-Summary $r '2 plugin(s) updated (plus 1 path-less user-scope record(s)), 0 failed' '12: the summary counts the shadow separately'
+
+    # --- 13. -DryRun prints the shadow's command too ------------------------------------------------
+    Write-Host "13. -DryRun prints the shadow's command too" -ForegroundColor Cyan
+    $c = New-Case 'shadow-dry'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'user' } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
+    Assert-CleanExit -Run $r -Label '13: exit 0'
+    Assert-Has   $r "claude plugin update $ID1 --scope project" '13: the checkout record''s command is printed'
+    Assert-Has   $r "claude plugin update $ID1 --scope user" '13: and the shadow''s command beside it'
+    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '13: and nothing ran'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Resolves #2459. `Get-PluginUpdateScope` answers one scope per plugin and prefers the checkout's own
+record, so a path-less `user` record beside it was never updated. Step 2 now adds it as a second target.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `update-plugins.ps1` (root + plugin mirror): collect the path-less `user` records beside a checkout record, update them in step 2 and print them under `-DryRun`; the summary counts them separately
+- [x] `update-plugins` SKILL.md: say why one scope per plugin was not enough
 
 ### TEST
 
+- [x] `update-plugins.tests.ps1` scenarios 12 (both records updated, `managed` left alone, summary) and 13 (`-DryRun`): 73 pass, 0 fail
+
 ### DEPLOY: fix/2459-update-plugins-user-shadow
 
-**Score:**
+`update-plugins` now also updates a plugin's path-less user-scope record when that record sits beside
+this checkout's own. Until now one run moved the checkout's records and left those behind, so its own
+receipt reported them behind (a session can load the older one, #2442) while its summary said
+`0 failed`. Measured on v5.7.0 -> v5.8.0: 5 of 7 plugins behind straight after the run, closed by hand
+with five `--scope user` commands. The extra update is not gated on the version, because both records
+matched before the run. A path-less `managed` record is left alone.
+
+Tier 0 is scored for a session that runs `update-plugins` on a machine carrying such a shadow.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is a maintenance script and nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
