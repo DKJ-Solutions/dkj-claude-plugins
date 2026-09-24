@@ -44,7 +44,147 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**12 / 31 minor entries** <!-- pending-tally -->
+**15 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2337-connector-runner-ref · 20260924-074131Z
+
+`check-connectors.ps1` now reports a registered consumer's write runner that fetches this repo's scripts at
+a moving ref, or pinned behind the current dkj-policy release
+([#2337](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2337)). This is the source-side half of
+#2333's pin: a consumer nobody re-runs `adopt-ci-floor` in no longer stays invisible on `ref: main` beside
+`FOLD_PUSH_TOKEN`. Only runners holding a credential are judged, and the finding is an `[INFO]` naming the
+file, the line and the release to pin to. Its first run found five such runners across the two BWJ
+consumers.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a maintainer-side register check, which never reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+check-connectors reports a consumer write runner on a moving or stale shared-scripts ref
+
+[PR #2412](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2412)
+
+---
+
+### DEPLOY: docs/2409-tycho-owns-suite-population · 20260924-072644Z
+
+The test engineer's manual now makes Tycho the owner of the test-suite **population**. Before this,
+every rule in it pointed one way: add a test, add a regression test, flag a gap. Nothing covered
+justifying, merging or retiring a suite, and this repo's gate grew from 43 to 141 suites in about six
+weeks with nobody able to say why each one is needed. He now has to be able to name what every suite
+protects. He proposes merges where suites overlap and retirements where a subject has gone, and each
+retirement is stated as a trade of coverage for time. A new hard rule stops the one-suite-per-issue
+shape: a regression case goes into the suite that already owns its subject. The performance
+engineer's manual adds the matching line: the verdict is Tycho's, and Nolan supplies the per-suite
+cost table it is made against. Closes #2409; the first audit of the 141 is #2408.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Any consumer whose test gate is growing now has a named specialist who answers for its size. Asked why
+the gate needs every suite it runs, the test engineer gives a per-suite answer and proposes merges or
+retirements. Before, he added suites and never questioned them.
+
+**Score:** 2
+
+#### Pull Request
+
+Tycho owns the test-suite population, and Nolan prices it
+
+Plugins: dkj-subagents-alpha
+
+[PR #2410](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2410)
+
+---
+
+### DEPLOY: docs/2372-sweep-no-gate-prerun · 20260924-071713Z
+
+`sweep-issues` step 4 told a session that a `-GatesOnly` run before the ship costs nothing. It doubles
+the wait: `open-pr` credits a recorded pass only on the identical tree (HEAD plus every uncommitted file)
+in the same worktree, and a sweep's pre-run is almost always before the commit or in another lane, so
+`ship-pr` ran the same gate again (1,400s twice on one commit, as measured). Step 4 now says to run nothing
+before a branch that ships, and keeps `-GatesOnly` for the branch that stops at a visible result, where
+it is the only gate that runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session sweeping a consumer's backlog stops paying for every gate twice on the issues it ships.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-issues: no -GatesOnly pre-run, since ship-pr gates first and a pre-run is rarely credited
+
+Plugins: dkj-policy
+
+[PR #2407](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2407)
+
+---
+
+### DEPLOY: docs/remove-four-readmes · 20260924-070744Z
+
+Removed three READMEs nothing reads: `plugins/README.md` and `assets/avatars/README.md` duplicated
+the root README, and the width decisions on `plugins/dkj-subagents/subagent-shared/README.md` now live in
+[Ravi's lens](../.claude/specialists/lenses/specialist-06-24-lens.md#why-each-circle-is-the-width-it-is),
+where the lint's `[tool-block]` refusal points.
+
+**Score:** 1 -- prevents a reader following the lint's printed pointer, or a link, to a page that no
+longer exists.
+
+#### What makes this deploy extra special
+
+Nothing reaches a subscriber: the only plugin-visible change is one sentence in `dkj-policy`'s README.
+
+**Score:** N/A
+
+#### Pull Request
+
+Remove three READMEs nothing needs
+
+Plugins: dkj-policy
+
+[PR #2363](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2363)
+
+---
+
+### DEPLOY: fix/2402-edited-claim-marker · 20260924-065127Z
+
+`claim-issue.ps1 -Tag` no longer counts a claim marker that sits in an **edited** comment. A comment
+keeps its original author and creation time when it is edited, so a marker edited into an old comment
+of one's own used to win every claim race and hold the issue indefinitely. The tooling never edits a
+claim comment, so a genuine claim is lost only if somebody edits it by hand. A marker whose author
+has been deleted or suspended is still dropped, which means the issue it held reads as free. That
+behaviour is now pinned by a test.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that sweeps its backlog with `claim-issue -Tag` could have an issue held by anybody who edited
+a claim marker into an old comment of their own. That no longer works. If you edit a genuine claim
+comment by hand, that claim is released.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue: a marker in an edited comment is not a claim
+
+Plugins: dkj-policy
+
+[PR #2406](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2406)
+
+---
 
 ### DEPLOY: fix/2393-arm-merge-when-green-on-watch · 20260923-221545Z
 
