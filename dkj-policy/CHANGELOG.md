@@ -2,7 +2,43 @@
 
 ## [Unreleased]
 
-**5 / 16 minor entries** <!-- pending-tally -->
+**6 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2487-ci-floor-metered-minutes · 20260925-125507Z
+
+The CI-floor runners no longer spend Actions minutes on pushes that have nothing to do
+([#2487](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2487)). `fold-on-merge` and
+`verify-resolved` skip, at job level, a push carrying exactly one commit whose subject starts with
+`fold:`. A job skipped by `if:` is not billed, and about half of a trunk's pushes are folds. This
+applies to both the source's own workflows and the templates `adopt-ci-floor` places. Anything
+else, a batch under a fold head included, still runs. The `merge-on-green` template now sweeps
+every 3 hours instead of every 30 minutes (8 jobs a day instead of 48), and `workflow_run` stays
+the ordinary path. `adopt-ci-floor` now prints what each runner it places costs on a metered
+repo. The "half-hourly" wording in the sweep's shared scripts now fits either cadence
+([#2492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2492)). Moving the runners to
+`ubuntu-latest` + `pwsh` is left to
+[#2488](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2488).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A private consumer's CI floor stops using up the plan's included Actions minutes. The consumer that
+reported it lost every Actions job to the spending limit. `adopt-ci-floor` never overwrites a runner
+that is already there, so a consumer that placed the floor before this release must apply the new
+`if:` and schedule by hand. The other way is to remove the three files and re-run the adoption.
+
+**Score:** 4
+
+#### Pull Request
+
+The CI floor stops spending a private repo's Actions minutes on fold pushes and a half-hourly sweep
+
+Plugins: dkj-policy
+
+[PR #2498](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2498)
+
+---
 
 ### DEPLOY: fix/2493-step4-refusals-lead-with-checkout · 20260925-122924Z
 
