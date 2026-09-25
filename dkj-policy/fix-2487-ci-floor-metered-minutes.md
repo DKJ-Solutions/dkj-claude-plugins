@@ -53,16 +53,25 @@ rather than riding along.
 
 ### CREATE
 
-- [ ] Job-level skip of a single-commit `fold:` push in `fold-on-merge.yml` and `verify-resolved.yml`: the consumer templates in `adopt-ci-floor.ps1` and the source's own copies
-- [ ] `merge-on-green` consumer template: sparser schedule, with `workflow_run` staying the ordinary path
-- [ ] `adopt-ci-floor` prints what the runners it places cost a private (metered) repo
-- [ ] Plugin mirror of `adopt-ci-floor.ps1` kept identical
-- [ ] Separate issue filed for `ubuntu-latest` + `pwsh`
+- [x] Job-level skip of a single-commit `fold:` push in `fold-on-merge.yml` and `verify-resolved.yml`: the consumer templates in `adopt-ci-floor.ps1` and the source's own copies
+- [x] `merge-on-green` consumer template: sparser schedule, with `workflow_run` staying the ordinary path
+- [x] `adopt-ci-floor` prints what the runners it places cost a private (metered) repo
+- [x] Plugin mirror of `adopt-ci-floor.ps1` kept identical
+- [x] Separate issue filed for `ubuntu-latest` + `pwsh` -- already stood as #2488 on pickup
 
 ### TEST
 
-- [ ] `adopt-ci-floor.tests.ps1` asserts the skip, the schedule and the cost note
+- [x] `adopt-ci-floor.tests.ps1` asserts the skip, the schedule and the cost note
 - [ ] Lint + suites green (via open-pr)
+
+#### Filed on pickup, out of scope for this branch
+
+`scripts/ci/pick-merge-on-green.ps1`, `scripts/lib/merge-on-green-lib.ps1` and `scripts/release/ship-pr.ps1`
+describe the sweep's schedule as "half-hourly" in three places -- true for the source repo, which keeps
+that cadence, and no longer true for a consumer running the sparser template this branch places. Filed
+as [#2492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2492) rather than repaired here:
+those are shared-library docstrings read by both callers, and rewording them needs its own pass rather
+than riding along on this branch's diff.
 
 ### DEPLOY: fix/2487-ci-floor-metered-minutes
 
