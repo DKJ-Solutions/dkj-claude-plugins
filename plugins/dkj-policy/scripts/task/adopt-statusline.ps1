@@ -109,6 +109,7 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'adopt-st
 # the repo that publishes THIS workflow is refused -- #998's narrowing, and the reason a consumer who
 # publishes some other product is not turned away here.
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\document-newline-lib.ps1')
 if (Test-IsWorkflowSourceRepo -RepoRoot $repoRoot) {
     Write-Host 'REFUSED: this repo publishes this workflow, so it is its source rather than a consumer.' -ForegroundColor Red
     Write-Host 'The source runs scripts/task/show-progress.ps1 from its own tree by a repo-relative path.'
@@ -306,7 +307,7 @@ function Add-StatusLineMember {
     param([AllowEmptyString()][string]$Text, [string]$Command, [int]$Interval)
     $close = $Text.LastIndexOf('}')
     if ($close -lt 0) { return $null }
-    $eol  = $(if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" })
+    $eol  = Get-DocumentNewline -Content $Text
     $unit = '  '
     # A bare '{' line followed by the first member is the ordinary shape. Where the first member shares
     # the '{' line, the first indented member line elsewhere is the next-best reading of the file's unit.
