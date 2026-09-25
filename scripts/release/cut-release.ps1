@@ -1218,7 +1218,9 @@ if (Test-Path -LiteralPath $relReadmePath) {
     # THE HEAD IS RE-APPLIED BEFORE THE HEADER IS FOUND (issue #2489). Everything above the first '<n>.x'
     # section becomes the fixed title, so every repo's list reads the same above its releases -- and the
     # header match below cannot land in prose, because there is none left above the first section.
-    $rm = Set-ReleaseHistoryCanonicalHead -Content (Get-Content -LiteralPath $relReadmePath -Raw -Encoding UTF8)
+    # It is the snapshot read above, which already carries that head: one read of the file, so the list the
+    # guardrails judged is the list the row is written into.
+    $rm = $historyContent
     $rmNl = Get-DocumentNewline -Content $rm
     $headerRe = [regex]"(?m)^\| Version \| Date \| Type \| Title \|\r?\n\|[-| ]+\|\r?\n"
     $hm = $headerRe.Match($rm)

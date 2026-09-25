@@ -517,7 +517,7 @@ In one motion, on a clean `main`:
 page is `# Release history` and then one `<n>.x` section per major, newest first, each over a table whose
 header is `Version | Date | Type | Title`. Nothing sits above the first section: whatever a repo wrote there
 is replaced by the title at its next cut, for the same reason the changelog's intro was. The source repo's
-had grown to about 85 lines, and one sentence of it described a release block the cut had stopped writing
+intro had grown to about 85 lines, and one sentence of it described a release block the cut had stopped writing
 weeks earlier. Three things about that shape are load-bearing:
 
 - **The row lands in the first table of the page**, so the current major's section is the top one.
