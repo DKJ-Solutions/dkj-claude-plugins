@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Issue #2491: the changelog release note (`# Changelog Releases`) carries a `**Date:**` / `**Type:**` pair
+between its H1 and its `## Version X.Y.Z (Mon dd, yyyy)` heading, and the pair adds nothing -- the heading
+states the date, and the type is the version's own shape. Its one reader is `new-internal-note.ps1`, which
+has to get both some other way, and keep reading every note already published with the pair.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Build-ReleaseNotes` writes no pair, and its `-Type` parameter is retired (the cut no longer passes it)
+- [x] `Get-NoteVersionHeadingMeta` reads the date and type back out of the version heading
+- [x] `new-internal-note.ps1` reads the pair first and the heading where the pair is absent
+- [x] plugin mirrors of the three scripts copied across
 
 ### TEST
 
+- [x] `release-lib.tests.ps1`: no pair, the retired parameter asserted absent, and the heading reader
+      round-tripped through the note the lib writes (Major / Minor / Patch, undated, no heading) -- 561 passed
+- [x] `internal-note.tests.ps1`: a note with no pair yields the same date and type, no placeholder, no
+      warning, for a minor and a patch -- 120 passed
+- [x] `cut-release-guardrail.tests.ps1` 111 passed; `check-plugin-integrity.ps1` 0 errors
+
 ### DEPLOY: fix/2491-drop-notes-date-type
 
-**Score:**
+The changelog release note a cut writes (`releases/changelog/<X>.x/<X.Y.Z>.md`) no longer carries the
+`**Date:**` and `**Type:**` lines under `# Changelog Releases`. The `## Version X.Y.Z (Mon dd, yyyy)`
+heading already says both. `new-internal-note.ps1` now reads the date and type from that heading when the
+lines are missing, so the internal note it builds is unchanged, and notes published before this still read
+exactly as they did. `Build-ReleaseNotes` no longer takes `-Type`.
+
+**Score:** 1 -- prevents a duplicate that could disagree with its own heading; nothing has broken yet.
 
 #### What makes this deploy extra special
 
-**Score:**
+From your next release, the changelog release note starts straight with its title and version heading,
+without the two metadata lines. Nothing to do: the internal note still fills in its date and type.
+
+**Score:** 2
 
 #### Pull Request
 

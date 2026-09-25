@@ -1051,7 +1051,7 @@ if ($SummaryFile) {
 # tagged, immutable document. Get-EntryLinkPrefix answers both halves at once and is shared with the draft
 # below, so the two documents cannot disagree about where the entry text came from.
 $notesLinkPrefix = Get-EntryLinkPrefix -NoteRelPath $notesRelPath -ChangelogRelPath $changelogRel
-$notesContent = Build-ReleaseNotes -TierGroups $tierGroups -Version $new -Date $today -Type $typeLabel `
+$notesContent = Build-ReleaseNotes -TierGroups $tierGroups -Version $new -Date $today `
     -Title $Title -Summary $summaryText -LinkPrefix $notesLinkPrefix
 # THE CHANGELOG IS EMPTIED, AND NOTHING IS WRITTEN BACK INTO IT (August 5, 2026). This call used to hand
 # over the version, the date, the type, the notes path and three seam values to rebuild a release block and

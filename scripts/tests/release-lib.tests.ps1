@@ -691,10 +691,28 @@ Assert-Equal 'Version 1.0.0' (Format-ReleaseVersionHeading -Version '1.0.0' -Dat
 
 Write-Host "Build-ReleaseNotes -TierGroups (the record)" -ForegroundColor Cyan
 $groups = @(Get-PullRequestEntriesByTier -Content $sample)
-$notes = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Type 'Minor' -Title 'A title'
+$notes = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Title 'A title'
 Assert-Match $notes '^# Changelog Releases' 'a constant H1 -- the version is stated by the H2 that owns the entries, not twice'
-Assert-Match $notes '\*\*Date:\*\* 2026-08-05' 'date line'
-Assert-Match $notes '\*\*Type:\*\* Minor' 'type line'
+# NO '**Date:**'/'**Type:**' PAIR (#2491, September 25, 2026): the date is the H2's own, and the type is the
+# version's shape, so the pair repeated what the next heading already says.
+Assert-NoMatch $notes '\*\*Date:\*\*' 'no date line -- the version heading carries the date'
+Assert-NoMatch $notes '\*\*Type:\*\*' 'no type line -- the version number carries the type'
+Assert-NoParameter -Command 'Build-ReleaseNotes' -Names @('Type')
+# AND THE READER GETS BOTH BACK FROM THE HEADING (Get-NoteVersionHeadingMeta) -- round-tripped through the
+# note this lib just wrote, so the two halves cannot drift apart without this turning red.
+$meta = Get-NoteVersionHeadingMeta -Text $notes
+Assert-Equal '2026-08-05' $meta.Date 'the date reads back out of the version heading in ISO form'
+Assert-Equal 'Minor' $meta.Type 'and X.Y.0 reads as a minor'
+Assert-Equal 'Major' (Get-NoteVersionHeadingMeta -Text '## Version 5.0.0 (Sep 11, 2026)').Type 'X.0.0 reads as a major'
+Assert-Equal 'Patch' (Get-NoteVersionHeadingMeta -Text '## Version 5.8.1 (Sep 25, 2026)').Type 'a patch component reads as a patch'
+$undated = Get-NoteVersionHeadingMeta -Text '## Version 5.8.1'
+Assert-Equal '' $undated.Date 'a heading with no date yields no date rather than a guess'
+Assert-Equal 'Patch' $undated.Type 'and still yields the type'
+Assert-Equal '' (Get-NoteVersionHeadingMeta -Text '## Version 5.8.1 (25-09-2026)').Date 'a date in a form the writer never writes is not guessed at'
+$none = Get-NoteVersionHeadingMeta -Text "# Changelog Releases`n`nNo heading here."
+Assert-Equal '' $none.Type 'no version heading: no type'
+Assert-Equal '' $none.Date 'and no date'
+Assert-Match $notes '(?m)^# Changelog Releases\n\nA title\n\n## Version 3\.5\.0 \(Aug 05, 2026\)$' 'the H1 is followed by the title and then the version heading, nothing between'
 Assert-Match $notes 'A title' 'title included'
 # THE LEVELS ARE CHANGELOG.md'S OWN (#881, August 25, 2026) -- AND THEY ARE READ FROM THE FORMAT RATHER
 # THAN SPELLED OUT HERE (#1369, September 4, 2026). #881 asserted the literal '##', which was the entry
@@ -731,7 +749,7 @@ foreach ($label in 'Features', 'Fixes', 'Maintenance') {
 Assert-Match $notes ('(?m)^' + $es + ' ' + $TypeRx + '$') 'the type is stated inside the entry instead'
 # An empty tier is omitted rather than printed as a heading with nothing under it.
 $sparse = @([pscustomobject]@{ Tier = 2; Entries = @($e22) }, [pscustomobject]@{ Tier = 1; Entries = @() })
-$sparseNotes = Build-ReleaseNotes -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$sparseNotes = Build-ReleaseNotes -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $sparseNotes "(?m)^$eh #22 " 'a tier with entries is rendered'
 Assert-NoMatch $sparseNotes 'Tier 1' 'a tier with no entries contributes nothing, not an empty section'
 Assert-NoMatch $sparseNotes '(?m)^---$' 'and no dangling rule where its boundary would have been'
@@ -741,29 +759,29 @@ Write-Host "Build-ReleaseNotes -- ranked from tier 1 up, and deliberately not at
 # never asked for a score in the first place. Unranked means DOCUMENT ORDER -- the order the fold left --
 # so tier 0 inherits a defined order rather than losing one.
 $t1Group = @([pscustomobject]@{ Tier = 1; Entries = @($low, $high) })
-Assert-Match (Build-ReleaseNotes -TierGroups $t1Group -Version '3.5.0' -Date '2026-08-05' -Type 'Minor') `
+Assert-Match (Build-ReleaseNotes -TierGroups $t1Group -Version '3.5.0' -Date '2026-08-05') `
     "(?s)(?m)^$eh #3 .*^$eh #1 " 'a tier-1 group is ranked by its own score'
 $t0Group = @([pscustomobject]@{ Tier = 0; Entries = @($e20, $e21) })
-Assert-Match (Build-ReleaseNotes -TierGroups $t0Group -Version '3.5.0' -Date '2026-08-05' -Type 'Minor') `
+Assert-Match (Build-ReleaseNotes -TierGroups $t0Group -Version '3.5.0' -Date '2026-08-05') `
     "(?s)(?m)^$eh #20 .*^$eh #21 " 'a tier-0 group keeps document order -- the record is not re-sorted'
 
 Write-Host "Build-ReleaseNotes -Entries (arrival order, for a repo that declares no tier)" -ForegroundColor Cyan
 # SINCE #881 THIS DIFFERS FROM -TierGroups IN ORDER ONLY. Both render at these levels; a repo whose
 # entries declare nothing has no tier to rank on, so the arrival order is all there is to keep.
-$flatNotes = Build-ReleaseNotes -Entries $entries -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$flatNotes = Build-ReleaseNotes -Entries $entries -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $flatNotes "(?m)^$eh #22 " 'flat: entries sit at the level they were written at'
 Assert-Match $flatNotes ('(?m)^' + $es + ' ' + $WhatRx + '$') 'flat: their sections one below it'
 Assert-Match $flatNotes "(?m)^$vh Version 3\.5\.0 \(Aug 05, 2026\)`$" 'flat: the version heading is written here too'
 Assert-NoMatch $flatNotes 'Tier \d - ' 'flat: no tier heading is invented'
 # -TierGroups wins when both arrive, which is what the doc promises.
-$bothArgs = Build-ReleaseNotes -Entries @($e21) -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$bothArgs = Build-ReleaseNotes -Entries @($e21) -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $bothArgs "(?m)^$eh #22 " '-TierGroups wins if both are given'
 Assert-NoMatch $bothArgs '#21 ' 'and -Entries is then ignored rather than merged in'
 
 Write-Host "Build-ReleaseNotes -- link rewriting" -ForegroundColor Cyan
 $linkEntry = New-FlatEntry -Heading "#9 $midDot Something" -Rows @('| 1 | 2 | fine |') `
     -Body 'See [the lint](scripts/lint/x.ps1) and [the site](https://example.com) and [#heading](#heading).' -Pr 9
-$ln = Build-ReleaseNotes -Entries @($linkEntry) -Version '0.2.1' -Date '2026-07-14' -Type 'Patch' -LinkPrefix '../../../'
+$ln = Build-ReleaseNotes -Entries @($linkEntry) -Version '0.2.1' -Date '2026-07-14' -LinkPrefix '../../../'
 Assert-Match $ln '\[the lint\]\(\.\./\.\./\.\./scripts/lint/x\.ps1\)' 'a link relative to the changelog gets the ../../../ prefix'
 Assert-Match $ln '\[the site\]\(https://example\.com\)' 'external link untouched'
 Assert-Match $ln '\[#heading\]\(#heading\)' 'anchor link untouched'
@@ -777,7 +795,7 @@ Assert-Match $ln '\[PR #9\]\(https://example\.test/9\)' 'PR link untouched'
 # skipping precisely the links the gate had just dictated, and they landed dead in a tagged document.
 $upEntry = New-FlatEntry -Heading "#10 $midDot Up" -Rows @('| 1 | 2 | fine |') `
     -Body 'See [the lint](../scripts/lint/x.ps1) and [absolute](/x.md).' -Pr 10
-$up = Build-ReleaseNotes -Entries @($upEntry) -Version '0.2.2' -Date '2026-08-28' -Type 'Patch' -LinkPrefix '../../../'
+$up = Build-ReleaseNotes -Entries @($upEntry) -Version '0.2.2' -Date '2026-08-28' -LinkPrefix '../../../'
 Assert-Match $up '\[the lint\]\(\.\./\.\./\.\./\.\./scripts/lint/x\.ps1\)' `
     "a '../' link is prefixed as well -- its own '..' segments still resolve, one directory further up"
 Assert-Match $up '\[absolute\]\(/x\.md\)' 'an absolute link is still left alone -- no directory resolves it'
@@ -908,19 +926,19 @@ Assert-Equal '../dkj-policy/releases/audience/4.x/4.9.0.md' (Get-RelativeLinkPat
     'and the same for a release that has a hand-written note -- the shape 30 rows already had'
 Assert-Equal 'CHANGELOG.md' (Get-RelativeLinkPath -FromDir '' -To 'CHANGELOG.md') `
     'an empty from-dir returns the path itself'
-$lnTier = Build-ReleaseNotes -TierGroups @([pscustomobject]@{ Tier = 1; Entries = @($linkEntry) }) -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$lnTier = Build-ReleaseNotes -TierGroups @([pscustomobject]@{ Tier = 1; Entries = @($linkEntry) }) -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $lnTier '\[the lint\]\(\.\./\.\./\.\./scripts/lint/x\.ps1\)' 'root-relative links get the prefix inside a tier group too'
 
 Write-Host "Build-ReleaseNotes -Summary (a milestone release carries an authored block)" -ForegroundColor Cyan
 # The arc across many releases fits in neither -Title (one sentence) nor the entries (per-PR), and
 # hand-editing a generated file is not a repeatable release. Assertions are about POSITION and
 # BOUNDARY, because that is what makes an authored block readable as authored.
-$plain = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Type 'Minor' -Title 'A title'
-Assert-Equal $plain (Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Type 'Minor' -Title 'A title' -Summary '') 'no -Summary: output byte-identical to the call without the parameter'
+$plain = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Title 'A title'
+Assert-Equal $plain (Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Title 'A title' -Summary '') 'no -Summary: output byte-identical to the call without the parameter'
 $sum = "## What 3.x was about`r`n`r`nA sentence with CRLF endings and a [root link](README.md)."
-$ms = Build-ReleaseNotes -TierGroups $groups -Version '4.0.0' -Date '2026-08-05' -Type 'Major' -Title 'A milestone' -Summary $sum
+$ms = Build-ReleaseNotes -TierGroups $groups -Version '4.0.0' -Date '2026-08-05' -Title 'A milestone' -Summary $sum
 Assert-Match $ms '## What 3\.x was about' 'summary: the authored heading is present'
-Assert-Match $ms '(?s)\*\*Type:\*\* Major.*A milestone.*## What 3\.x was about' 'summary: sits after the header and the title line'
+Assert-Match $ms '(?s)^# Changelog Releases\n\nA milestone.*## What 3\.x was about' 'summary: sits after the header and the title line'
 Assert-Match $ms '(?s)## What 3\.x was about.*\n---\n.*## #22 ' 'summary: separated from the generated entries by a horizontal rule'
 Assert-NoMatch $ms "`r" 'summary: CRLF input is normalized to LF like every other block in this file'
 # A root-relative link inside the SUMMARY is deliberately NOT rewritten: unlike an entry (which was
@@ -1023,7 +1041,7 @@ $dossier = @(
 # the cut has emptied CHANGELOG.md; a strip that reached them would delete the audit trail instead of
 # sparing a reader.
 $dossierGroups = @([pscustomobject]@{ Tier = 2; Heading = 'Tier 2 - consumers'; Entries = @($dossier); Declared = 1 })
-$dossierNotes = Build-ReleaseNotes -TierGroups $dossierGroups -Version '4.2.0' -Date '2026-08-10' -Type 'Minor'
+$dossierNotes = Build-ReleaseNotes -TierGroups $dossierGroups -Version '4.2.0' -Date '2026-08-10'
 Assert-Match $dossierNotes 'Branch ID'   'the development notes KEEP the branch id'
 Assert-Match $dossierNotes 'Branch type' 'and the branch type'
 Assert-Match $dossierNotes 'PR #99'      'and the PR number'
@@ -1103,7 +1121,6 @@ foreach ($doc in @(
     $dirty = @(($doc.Text -split "`n") | Where-Object { $_ -match '[ \t]+$' })
     Assert-Equal 0 $dirty.Count "$($doc.Name): no generated line ends in whitespace"
 }
-Assert-Match $notes '(?m)^\*\*Date:\*\* 2026-08-05\\$' 'the hard break survives as a backslash rather than being dropped'
 # THE HAND-WRITTEN DRAFT IS THE ONE THAT BREAKS BOTH LABELS, and it is asserted separately because the
 # report named three emitting lines where there are four -- '**Type:**' one line below the third was
 # missed, which is the standing lesson that a count in a report is whatever the reporter's search matched.
