@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 19 minor entries** <!-- pending-tally -->
+**6 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2483-empty-native-output-null-cast · 20260925-135943Z
+
+`push-preview` no longer crashes on Windows PowerShell 5.1 on a branch's first preview push
+([#2483](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2483)). Under 5.1 a `[string]`
+cast of a git read that prints nothing is `$null`, not `''`, so the `.Trim()` on the remembered theme id
+threw before anything was printed -- on exactly the lazy-creation path the script exists for, with no
+workaround for a new branch. Every such read in the three shipped Shopify scripts now interpolates
+instead, and a suite assert refuses the old idiom coming back.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+N/A -- a store's own customers never see a preview push.
+
+**Score:** N/A
+
+#### Pull Request
+
+push-preview no longer crashes on PS 5.1 when a git read prints nothing
+
+Plugins: dkj-subagents-shopify
+
+[PR #2503](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2503)
+
+---
 
 ### DEPLOY: fix/2481-fixture-git-transport-retry · 20260925-132744Z
 
