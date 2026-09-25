@@ -298,6 +298,15 @@ try {
     }
     Assert-Equal 0 $r.Code 'and exits 0 -- an unbuilt floor on a queueless trunk is a to-do, not a defect'
 
+    # --- 1b. The cost note (issue #2487) -- printed every run, dry run included --------------------
+    Write-Host '-- 1b. the run says what this floor costs on a metered (private) repo (#2487) --' -ForegroundColor Cyan
+    Assert-True ($r.Flat -like '*METERED*') 'the run names the metered/billed distinction'
+    Assert-True ($r.Flat -like '*rounded UP to a whole minute*') 'and that a job is billed rounded up, whatever its real runtime'
+    Assert-True ($r.Flat -like '*Windows minute*costs more*Linux*') 'and that a Windows minute costs more than a Linux one'
+    Assert-True ($r.Flat -like '*fold-on-merge.yml*verify-resolved.yml*trunk push*') 'and names what starts the fold/resolves jobs'
+    Assert-True ($r.Flat -like '*repo-settings.yml*') 'and the repo-settings schedule'
+    Assert-True ($r.Flat -like '*merge-on-green.yml*') 'and the merge-on-green schedule'
+
     # --- 2. -Apply places every runner, pointing at the PLUGIN tree --------------------------------
     Write-Host '-- 2. -Apply places every runner, reaching their scripts through the plugin tree --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'apply'
@@ -394,6 +403,22 @@ try {
     Assert-True ($r.Flat -like '*actions/checkout FAILS*') 'and says an absent/under-scoped token fails the checkout, not the push (inbound #1539)'
     Assert-True ($r.Flat -like '*every later step*skipped*') 'naming the tell -- every later step skipped -- so the checkout is ruled out first'
 
+    # --- 2c2. Job-level skip of a fold-only push (issue #2487) -- both halves of the condition ---------
+    # A JOB skipped by if: is not billed at all, unlike a step skipped inside a running job -- so the
+    # condition lives at job level (right after runs-on:), not on a step. Both readers must carry it.
+    $foldOnlySkip = '${{ !(startsWith(github.event.head_commit.message, ''fold:'') && github.event.commits[0].id == github.event.head_commit.id) }}'
+    Write-Host '-- 2c2. the fold and resolves runners skip a lone fold: push at the job level (#2487) --' -ForegroundColor Cyan
+    Assert-True ($fold.Contains($foldOnlySkip)) 'the fold runner carries the job-level fold-only skip condition, verbatim'
+    Assert-True ($verify.Contains($foldOnlySkip)) 'and so does the resolves runner'
+    foreach ($runnerText in @(@{ Name = 'fold-on-merge.yml'; Text = $fold }, @{ Name = 'verify-resolved.yml'; Text = $verify })) {
+        # 4-SPACE INDENT, NOT 8: every job-level key here (runs-on:, timeout-minutes:, steps:) sits at
+        # 4 spaces; a step's own if: (inside a '- name: ...' list item) sits at 8. So this is the one
+        # indent that proves the condition decides whether the JOB runs at all, not a single step of it
+        # -- which is the whole reason it is unbilled rather than merely skipped work inside a billed job.
+        Assert-True ($runnerText.Text -match '(?m)^    if: \$\{\{ !\(startsWith\(github\.event\.head_commit\.message, ''fold:''\)') `
+            "$($runnerText.Name): the skip condition sits at JOB level (4-space indent), not on a step"
+    }
+
     # --- 2d. The reminder's NEGATIVE twin: silent when the fold runner is not the one created --------
     # Section 2 above proves the reminder FIRES when the fold runner is created (all three files fresh
     # together). That alone is only half the property this flag exists for (the fix behind #1904's
@@ -455,6 +480,10 @@ try {
     Assert-True ($mergeOnGreen -match '(?m)^\s*group:\s*merge-on-green\s*$') 'one sweep at a time, repo-wide'
     Assert-True ($mergeOnGreen -like '*cancel-in-progress: false*') 'and never cancelled -- it merges and folds'
     Assert-True ($mergeOnGreen -match '(?m)^\s+-\s+cron:') 'the schedule is present -- the durable half of the three triggers'
+    # SPARSER THAN THE SOURCE'S OWN HALF-HOURLY SWEEP (#2487): a private consumer is billed per scheduled
+    # job start, so the consumer template trades latency it rarely needs for roughly 1/6th the jobs.
+    Assert-True ($mergeOnGreen -match '(?m)^\s+-\s+cron:\s+''0 \*/3 \* \* \*''\s*$') 'the consumer template''s schedule is every 3 hours, not half-hourly'
+    Assert-True ($mergeOnGreen -notmatch '\*/30 \* \* \* \*') 'and never the source repo''s own half-hourly cadence'
     # THE WAKE LIST IS READ OFF THE TREE: the fixture's own ci.yml is `name: CI`.
     Assert-True ($mergeOnGreen -match '(?m)^\s+workflows:\s*\["CI"\]\s*$') `
         'workflow_run names this repo''s own pull_request workflow, read off its top-level name:'
@@ -469,7 +498,7 @@ try {
     $unnamedMog = [System.IO.File]::ReadAllText((Join-Path $unnamedDir '.github\workflows\merge-on-green.yml'))
     Assert-True ($unnamedMog -notmatch 'workflow_run:') 'an unnamed pull_request workflow leaves workflow_run out rather than guessing its name'
     Assert-True ($unnamedMog -match '(?m)^\s+-\s+cron:') 'and the schedule still wakes the sweep'
-    Assert-True ($rUnnamed.Flat -like '*only the*half-hourly schedule wakes it*') 'and the run says so'
+    Assert-True ($rUnnamed.Flat -like '*only the*every-3-hours schedule wakes it*') 'and the run says so'
 
     # THE REMINDER'S OWN NEGATIVE TWIN: a repo missing only this runner is told about the scope it needs.
     $onlyMogDir = New-FixtureConsumer -Label 'onlymog'

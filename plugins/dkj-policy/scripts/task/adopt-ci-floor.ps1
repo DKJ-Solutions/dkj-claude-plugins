@@ -698,6 +698,25 @@ $foldRunner = @(
     'jobs:',
     '  fold-on-merge:',
     '    runs-on: windows-latest',
+    '    # SKIP A FOLD-ONLY PUSH AT THE JOB LEVEL, NOT WITH A STEP-LEVEL if: -- A JOB SKIPPED BY if: IS',
+    '    # NOT BILLED AT ALL, WHERE A SKIPPED STEP STILL PAYS FOR THE RUNNER STARTING (issue #2487,',
+    '    # metered Actions minutes in a private consumer). About half of all trunk pushes here are',
+    '    # `fold:` commits -- this job''s OWN OUTPUT, carrying nothing left to fold. The source repo''s',
+    '    # own ci.yml already couples to this exact format for the same reason, so this is a second',
+    '    # reader of an existing rule rather than a new coupling.',
+    '    #',
+    '    # EXACTLY ONE COMMIT, NOT MERELY A `fold:` SUBJECT ON THE HEAD. A `git push` can carry several',
+    '    # commits at once, and github.event.head_commit is only the LAST of them -- a batch push whose',
+    '    # head happens to be a fold commit can still carry real, unfolded work earlier in the same push,',
+    '    # which this job must not skip. github.event.commits[0].id == github.event.head_commit.id is',
+    '    # true only when the push carries exactly that one commit; commits[0] always exists once a push',
+    '    # carries any commit at all, and an empty array reads it as null, which never equals a real SHA',
+    '    # -- so a push this expression cannot classify RUNS, fail-open like every other guard here.',
+    '    #',
+    '    # SAFE HERE BECAUSE A FOLD COMMIT IS THIS JOB''S OWN OUTPUT: skipping fold-all mode on it costs',
+    '    # nothing. Whatever it would have folded is still unfolded on the trunk, and the next trunk',
+    '    # push -- whatever it is -- runs this job again and folds it then.',
+    '    if: ${{ !(startsWith(github.event.head_commit.message, ''fold:'') && github.event.commits[0].id == github.event.head_commit.id) }}',
     '    # 10 minutes against a job that measures well under one (issue #2296). Without it a wedge here',
     '    # runs to GitHub''s six-hour default while holding a PAT that bypasses the trunk ruleset -- and',
     '    # nobody is watching this runner, because its whole reason for existing is that the shipping',
@@ -845,6 +864,28 @@ $resolvesRunner = @(
     'jobs:',
     '  verify-resolved:',
     '    runs-on: windows-latest',
+    '    # SKIP A FOLD-ONLY PUSH AT THE JOB LEVEL -- A JOB SKIPPED BY if: IS NOT BILLED AT ALL (issue',
+    '    # #2487). This file''s own header already names the cost this closes: a PAT push (from the fold',
+    '    # runner''s own commit) triggers this workflow same as any other, so every shipped branch already',
+    '    # starts this job twice. See fold-on-merge.yml''s matching comment for why exactly one commit,',
+    '    # not merely a `fold:` subject on the head, and why this is a second reader of an existing rule',
+    '    # rather than a new coupling.',
+    '    #',
+    '    # SAFE HERE BECAUSE A DIRECTLY-PUSHED FOLD COMMIT RESOLVES NO PULL REQUEST. This job reads the',
+    '    # pushed RANGE and resolves each commit''s own PR to verify its closing keywords; a fold commit',
+    '    # is authored straight onto the trunk by this repo''s own tooling and carries no PR of its own --',
+    '    # this job''s own run on the MERGE that triggered that fold already verified whatever that PR',
+    '    # closed. A lone fold-commit push has nothing here to resolve.',
+    '    #',
+    '    # NOT SYMMETRIC WITH fold-on-merge.yml, AND WORTH SAYING SO. That job''s skip self-heals: fold-all',
+    '    # mode re-reads the trunk TIP on the next push, so anything a skipped run would have folded is',
+    '    # still there to find. This job reads only the pushed before..sha RANGE, so a skipped push''s',
+    '    # resolves check is gone for good, not merely deferred. BOUNDED rather than open-ended: ship-pr',
+    '    # always writes its merge commit as `merge: <branch> (#N)`, and this repo''s own fold commits are',
+    '    # always pushed alone -- so the only way to hit this is a directly-pushed, single-commit push',
+    '    # from OUTSIDE ship-pr whose subject happens to start with `fold:` (a hand-titled squash merge,',
+    '    # say), which would then permanently lose whatever pull request it closed.',
+    '    if: ${{ !(startsWith(github.event.head_commit.message, ''fold:'') && github.event.commits[0].id == github.event.head_commit.id) }}',
     '    # 10 minutes, same reasoning as the fold runner (issue #2296) -- and this one holds issues:',
     '    # write, so the six-hour default would be six hours of an unattended job carrying a write scope.',
     '    timeout-minutes: 10',
@@ -1002,7 +1043,8 @@ $repoSettingsRunner = @(
 # the skeleton above is about to be placed with exactly that name. Each is refused unless
 # Test-QuotedScalarSafe vouches for it, because it lands inside a double-quoted YAML scalar. Where none
 # survives, the workflow_run trigger is left out rather than guessed, and the schedule carries the sweep
-# on its own -- at most half an hour later, which is the backstop's whole job anyway.
+# on its own -- at most three hours later here (#2487; the source repo's own copy stays half-hourly,
+# where that latency costs nothing), which is the backstop's whole job anyway.
 $mogWakeNames = @($workflows | Where-Object { $_.OnPullRequest -and $_.WorkflowName } | ForEach-Object { $_.WorkflowName })
 if ($ciSkeletonOffered) { $mogWakeNames += 'CI' }
 $mogWakeNames = @($mogWakeNames | Where-Object { Test-QuotedScalarSafe -Value $_ } | Sort-Object -Unique)
@@ -1067,8 +1109,15 @@ $mergeOnGreenRunner = @(
     'on:'
 ) + $mogWakeLines + @(
     '  schedule:',
-    '    # Every 30 minutes: a backstop for what workflow_run misses, not the ordinary path.',
-    '    - cron: ''*/30 * * * *''',
+    '    # Every 3 hours: a backstop for what workflow_run misses, not the ordinary path -- sparser than',
+    '    # the source repo''s own half-hourly sweep (issue #2487). workflow_run wakes this the moment CI',
+    '    # finishes, which is the ordinary path here too; the schedule only has to catch what that',
+    '    # trigger misses. The source repo is public, so a windows-latest job costs it nothing on a',
+    '    # standard runner and 30 minutes buys latency for free; a private repo is billed per scheduled',
+    '    # job START, rounded up to a whole minute, whether or not anything is owed a merge. Half-hourly',
+    '    # there is 48 jobs/day, roughly 1,440 billed minutes/month; every 3 hours is 8/day, roughly',
+    '    # 240/month.',
+    '    - cron: ''0 */3 * * *''',
     '  workflow_dispatch:',
     '',
     'concurrency:',
@@ -1539,9 +1588,27 @@ if ($mergeOnGreenRunnerCreated) {
         foreach ($n in $mogWakeNames) { Write-Host "    $(Get-DisplayRef -Ref $n)" -ForegroundColor DarkGray }
     } else {
         Write-Host '    (none -- no pull_request workflow here declares a usable top-level name:, so only the' -ForegroundColor DarkGray
-        Write-Host '    half-hourly schedule wakes it; add a workflow_run trigger by hand if you want it sooner)' -ForegroundColor DarkGray
+        Write-Host '    every-3-hours schedule wakes it; add a workflow_run trigger by hand if you want it sooner)' -ForegroundColor DarkGray
     }
 }
+Write-Host ''
+
+# 3. WHAT THIS FLOOR COSTS ON A METERED (PRIVATE) REPO (issue #2487). PURE STATIC TEXT -- no repo-
+# visibility check and no network call: this script already refuses to guess at anything it cannot
+# read from the tree or a token, and "is this repo private" is exactly that kind of guess. A follow-up
+# (#2488) considers ubuntu-latest + pwsh for the runners whose scripts allow it, which would lower the
+# per-minute rate further; that migration is out of this script's scope.
+Write-Host '-- 3. what this floor costs on a metered (private) repo --' -ForegroundColor Cyan
+Write-Host '  Actions minutes are FREE and unlimited on a PUBLIC repo''s standard runners. On a PRIVATE' -ForegroundColor DarkGray
+Write-Host '  repo they are METERED against your plan''s included allowance and billed past it: every job' -ForegroundColor DarkGray
+Write-Host '  is billed rounded UP to a whole minute even where it runs in seconds, and a Windows minute' -ForegroundColor DarkGray
+Write-Host '  costs more than a Linux one -- every runner this floor places is windows-latest.' -ForegroundColor DarkGray
+Write-Host '  What starts a billed job, per runner:' -ForegroundColor DarkGray
+Write-Host '    fold-on-merge.yml + verify-resolved.yml -- one job EACH per trunk push that is not a lone' -ForegroundColor DarkGray
+Write-Host '      fold: commit (skipped at the job level on that push, unbilled -- see section 2 above).' -ForegroundColor DarkGray
+Write-Host '    repo-settings.yml -- 1 scheduled job/day, about 30/month.' -ForegroundColor DarkGray
+Write-Host '    merge-on-green.yml -- 8 scheduled jobs/day, about 240/month, PLUS one per completed run' -ForegroundColor DarkGray
+Write-Host '      of every workflow named in its workflow_run trigger, above.' -ForegroundColor DarkGray
 Write-Host ''
 
 # 4. THE QUEUE, LAST, NEVER PULLED HERE -- AND NEVER REPORTED AS A GAP (issues #1540, #1546).
@@ -1553,7 +1620,7 @@ Write-Host ''
 #    for a control that is not rendered. Measured: this workflow's own source repo is public on plan
 #    'free' and qualifies through the public clause, which is why the policy looked universal to the one
 #    repo that set it. A missing queue is now the ORDINARY state and prints as a note.
-Write-Host '-- 3. the queue (optional -- not this workflow''s policy) --' -ForegroundColor Cyan
+Write-Host '-- 4. the queue (optional -- not this workflow''s policy) --' -ForegroundColor Cyan
 if (-not $queueReadable) {
     Write-Host "  [skip]    the trunk's rules could not be read here -- no gh, no network, or a token that" -ForegroundColor DarkGray
     Write-Host '            cannot read rulesets. That is not "no queue": nothing above assumed either way.' -ForegroundColor DarkGray

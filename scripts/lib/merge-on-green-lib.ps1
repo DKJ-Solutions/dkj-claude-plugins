@@ -74,8 +74,9 @@ function Get-MergeOnGreenSettleMinutes {
         staleness read and the step-4 gates are local reads plus a handful of gh calls. A forward lap
         pushes a new head, which starts a new CI run, so the required checks are no longer green and
         the window starts over on the new head -- a lap never runs out this clock. Ten minutes is
-        therefore generous on the live side, and on the dead side it costs one extra half-hourly sweep
-        at the outside.
+        therefore generous on the live side, and on the dead side it costs one extra scheduled sweep
+        at the outside -- the calling workflow's own cadence (issue #2487: */30 on the source repo,
+        sparser on a metered consumer's template).
     #>
     return 10
 }
@@ -407,7 +408,7 @@ function Get-MergeOnGreenPrVerdict {
 
         MERGEABLE='UNKNOWN' REFUSES, AND THAT IS NOT PESSIMISM. GitHub computes mergeability lazily
         and reports UNKNOWN while it is still doing so, so the state means "ask again", which is
-        exactly what a sweep on a half-hourly cadence is for. Treating it as mergeable would
+        exactly what the scheduled sweep is for. Treating it as mergeable would
         start ship-pr against a pull request that may be CONFLICTING, and ship-pr would then spend
         its whole CI wait on a branch that can never merge.
 
