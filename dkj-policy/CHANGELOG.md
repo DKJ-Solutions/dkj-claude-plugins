@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 21 minor entries** <!-- pending-tally -->
+**6 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2502-oem-encoding-helper · 20260925-142909Z
+
+The test gate's three readers of a suite's capture files (the print, the silent-suite check and the
+retention decision) now take their decode from one helper, `Get-NativeCaptureOemEncoding`, instead of
+three copies of the same OEM-codepage lookup
+([#2502](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2502)). This changes no behaviour.
+It prevents a later edit from changing one decode and not the other two, which would bring back the
+print-versus-retention disagreement #2295 repaired. A suite assert refuses a second lookup.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- an internal refactor of the test gate; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+native-capture-lib: one helper for the capture files' OEM decode
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2506](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2506)
+
+---
 
 ### DEPLOY: fix/2500-silent-suite-failure · 20260925-140938Z
 
