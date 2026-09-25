@@ -28,8 +28,9 @@
                    names. Not re-derived from the entries: the fold computes that number and writes
                    it into the document, and the tier parser that produces it lives in dkj-policy's
                    libs, which this plugin's scripts may not reach.
-      the URLs     Get-MarketUrls over the pages -Path names -- the LIVE URLs, with no preview
-                   parameters, from the same market table a preview pair is built from.
+      the URLs     Get-MarketUrls over the pages -Path names, from the same market table a preview
+                   pair is built from -- PINNED TO THE LIVE THEME ID where one resolves (#2477), since
+                   a bare URL renders the preview in any browser that opened the result link first.
 
     EVERY ONE OF THEM IS A PROJECTION AND THE BLOCK SAYS 'Planned to', never 'will'. A tier-1 entry
     landing on the Friday turns a predicted patch into a minor, and a release can slip. Where a fact
@@ -69,6 +70,11 @@
     per market. Omitted, the block carries no live-URL list -- which is the right answer in a repo
     that serves no storefront.
 
+.PARAMETER LiveThemeId
+    The live theme's id, to pin the live URLs to. Defaults to the repo's Get-ShopifyLiveThemeId seam
+    (Get-ControlThemeId in market-urls.ps1). Where neither answers, the URLs stay bare and the block's
+    label says how to read them before the release.
+
 .PARAMETER Version
     Override the predicted version, or supply one where it cannot be derived (no v* tag, a changelog
     whose tally has been translated, a major somebody has decided to cut).
@@ -104,6 +110,7 @@ param(
     [string]$Repo,
     [string]$Link,
     [string[]]$Path,
+    [string]$LiveThemeId,
     [string]$Version,
     [System.DayOfWeek]$ReleaseDay = [System.DayOfWeek]::Monday,
     [datetime]$From = (Get-Date),
@@ -122,6 +129,7 @@ $StoreRepo   = if ($Repo) { $Repo } else { $env:GITHUB_REPOSITORY }
 $IssueArg    = $Issue
 $LinkArg     = $Link
 $PathArg     = $Path
+$LiveThemeIdArg = $LiveThemeId
 $VersionArg  = $Version
 $ReleaseDayArg = $ReleaseDay
 $FromArg     = $From
@@ -250,18 +258,35 @@ Write-Host "  version  : $(if ($resolvedVersion) { "v$resolvedVersion" } else { 
 # ONLY WHERE -Path SAYS SO. A block with no pages named carries no list, which is the correct answer in
 # a repo that serves no storefront -- and Get-MarketUrls is left unloaded there rather than being called
 # and caught, so a repo with no markets is never asked a question it has no answer to.
-$liveUrls = @()
+#
+# PINNED TO THE LIVE THEME ID WHERE ONE RESOLVES (#2477). The result link is normally a storefront
+# preview, and the bare URL renders that preview on any domain where it was opened first -- so a
+# requester comparing the two tabs before the release can conclude the change is already live. A URL
+# naming the live id is a true comparison now and the live page after the release, because a live push
+# keeps the theme's id. Get-ControlThemeId throws rather than guess; that throw is caught HERE only,
+# because an unpinned list is still a correct list once it is live -- the block's label says the rest.
+$liveUrls   = @()
+$livePinned = $false
 if ($PathArg -and @($PathArg).Count -gt 0) {
     . (Join-Path $PSScriptRoot '..\lib\market-urls.ps1')
     $liveUrls = @(Get-MarketUrls -Path $PathArg)
-    Write-Host "  live urls: $($liveUrls.Count) ($(@($PathArg).Count) page(s) x markets)" -ForegroundColor DarkGray
+    $liveId   = ''
+    try { $liveId = Get-ControlThemeId -LiveThemeId $LiveThemeIdArg } catch { $liveId = '' }
+    if ($liveId) {
+        $liveUrls = @($liveUrls | ForEach-Object {
+            [pscustomobject]@{ Market = $_.Market; Path = $_.Path; Url = Add-PreviewQuery -Url $_.Url -ThemeId $liveId }
+        })
+        $livePinned = $true
+    }
+    $pinNote = if ($livePinned) { "pinned to live theme $liveId" } else { 'bare -- no live theme id (pass -LiveThemeId, or add Get-ShopifyLiveThemeId)' }
+    Write-Host "  live urls: $($liveUrls.Count) ($(@($PathArg).Count) page(s) x markets), $pinNote" -ForegroundColor DarkGray
 } else {
     Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
 }
 
 # --- The block ----------------------------------------------------------------------------------------
 $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
-    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls
+    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls -LivePinned:$livePinned
 
 Write-Host ""
 Write-Host $block

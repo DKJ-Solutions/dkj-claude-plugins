@@ -39,19 +39,50 @@
 
 ### PLAN
 
+`build-golive-block.ps1` pins the paste-ready block's live URLs to the live theme id, so a requester who
+opened the preview result link first is not shown the preview again on the "live" links.
+
+#### Verification (#2477)
+
+- Symptom stands: `Get-MarketUrls` at `build-golive-block.ps1:256` returns bare URLs, and the result
+  link is a preview URL that sets the per-domain cookie (`PREVIEW-portable.md`, the control URL section).
+- Repair chosen: the issue's first option, folded into the existing list rather than a second list. A
+  URL pinned to the live id is a comparison before the release and the live page after it, because a
+  live push keeps the theme's id. `Get-ControlThemeId` already resolves it (`-LiveThemeId`, else
+  `Get-ShopifyLiveThemeId`).
+- Where no id resolves, the list stays bare (never a guessed id) and its label carries the second
+  option: open these in a private window before the release.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `golive-block-rules.ps1`: `Format-GoLiveBlock -LivePinned` picks the list's label; the unpinned label carries the private-window caveat only beside a result link
+- [x] `build-golive-block.ps1`: `-LiveThemeId`, resolved through `Get-ControlThemeId`; the URLs pinned where it answers, bare and said so where it does not
+- [x] Suite: the three labels, and the driver run with no id, with the seam, and with `-LiveThemeId`
+- [x] WORKFLOW-portable (the facts table and the block example), PREVIEW-portable (the paragraph that left this to the script), golive-block SKILL.md
+- [~] Is the change visible in the frontend / storefront? No -- the storefront renders nothing differently; the text of a GitHub comment changes
 
 ### TEST
 
+- `dkj-policy-bwj.tests.ps1` standalone: 395 asserts green, the new ones included; the lint and test gate through `open-pr`, then CI.
+
 ### DEPLOY: fix/2477-golive-live-urls-pinned
 
-**Score:**
+`golive-block`'s live URLs are now pinned to the live theme id wherever the store names one
+(`-LiveThemeId`, or `Get-ShopifyLiveThemeId` in `scripts/repo-config.ps1`). A bare storefront URL
+renders the preview in any browser that opened the result link first, so both tabs agreed and the
+change could look live before the release. Where no id resolves, the URLs stay bare and the block tells
+the requester to open them in a private window until the release.
+
+**Score:** 2 -- one script and its label; nothing a developer here calls changes.
 
 #### What makes this deploy extra special
 
-**Score:**
+A store running `golive-block` hands its requester live links that show what is live now, even after
+they opened the preview, and the same links show the change once it ships. A store with no live-id seam
+gets a label saying how to read them instead.
+
+**Score:** 2
 
 #### Pull Request
 
+golive-block pins the block's live URLs to the live theme id

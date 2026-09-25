@@ -202,6 +202,16 @@ function Format-GoLiveBlock {
           -Version      omitted -> the release sentence names the day and no number.
           -LiveUrl      empty   -> no live-URL list. A repo that has declared no storefront markets
                         has nothing truthful to put there.
+          -LivePinned   whether -LiveUrl's URLs name the live theme id. It decides the list's label,
+                        and the label is the repair of issue #2477 (see below).
+
+        THE LIVE LIST IS READ BEFORE THE RELEASE, AND A BARE URL LIES THEN (#2477). The result link is
+        normally a storefront PREVIEW, which sets a per-domain cookie, and a bare storefront URL keeps
+        rendering that preview once it has been opened -- the trap PREVIEW-portable.md measured. So a
+        requester who opens the result and then a live URL sees the change in both tabs and can
+        conclude it is already live. Pinned to the live id, the same URL is a true comparison now and
+        the live page after the release (a live push keeps the theme's id), so it is labelled as both.
+        Unpinned, the list says when it cannot be trusted, and how to read it anyway.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Marker,
@@ -209,7 +219,8 @@ function Format-GoLiveBlock {
         [Parameter(Mandatory = $true)][string]$GoLiveDate,
         [string]$ResultLink,
         [string]$Version,
-        [object[]]$LiveUrl = @()
+        [object[]]$LiveUrl = @(),
+        [switch]$LivePinned
     )
 
     $release = if ($Version) {
@@ -235,7 +246,14 @@ function Format-GoLiveBlock {
 
     $rows = @($LiveUrl | Where-Object { $_ })
     if ($rows.Count -gt 0) {
-        $lines += 'Once it is live you can see it here:'
+        if ($LivePinned) {
+            $lines += 'Until then, these links show what is live now, to compare against -- and once it is live, you can see the change here:'
+        } elseif (-not $ResultLink) {
+            # No result link in the block, so no link of its own to set the cookie with.
+            $lines += 'Once it is live you can see it here:'
+        } else {
+            $lines += 'Once it is live you can see it here. Before then, open these in a private window: a browser that has opened the result link keeps showing the result on these pages, not what is live.'
+        }
         $lines += ''
         foreach ($row in $rows) {
             $label = if ($row.PSObject.Properties['Market'] -and $row.Market) { [string]$row.Market } else { 'live' }

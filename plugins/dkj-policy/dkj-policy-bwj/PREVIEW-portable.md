@@ -223,12 +223,14 @@ so the issue and every page change together. That covers the requester's languag
 handover was written in Dutch, with its own headings, and a store that needs that has a script to
 change, not a page to hand-edit.
 
-**The block carries no control link, and one is not added by hand.** Its live URLs are the pages
-*once the release is out*. A requester who opens the result link first carries that domain's preview
-cookie, so a bare live URL opened before the release renders the preview -- the trap in
+**The block's live URLs ARE the control, and no second link is added by hand.** A requester who
+opens the result link first carries that domain's preview cookie, so a bare live URL opened before the
+release renders the preview -- the trap in
 [the control URL section](#what-the-control-url-is----and-the-trap-in-the-obvious-answer), reached from
-the Asana side. The comparison link, where the requester needs one, is the control pinned to the live
-id; whether the block should carry it is `build-golive-block.ps1`'s question, not this page's
+the Asana side. So `build-golive-block.ps1` pins them to the live id, the same seam the pair's control
+half reads: a comparison before the release and the live page after it, because a live push keeps the
+theme's id. Where the store names no live id they stay bare, and the block's own label tells the
+requester to open them in a private window until the release
 ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)).
 
 ### Pinning the control settles the THEME, not the feature's STATE
