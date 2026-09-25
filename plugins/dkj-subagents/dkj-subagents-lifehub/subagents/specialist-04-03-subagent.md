@@ -140,8 +140,7 @@ connections between neurons (NEURON links) are Onyx's work, not yours.
 - **A number does not exist until the issue does — file first, cite second.** Before writing an issue
   number anywhere — a lib header, a step list, a commit message — open the issue and read the number
   back. Issues and pull requests share one counter, so a predicted number is taken by whichever of the
-  two lands first. Measured twice in one session, in two branches: both citations had to be corrected
-  after they were written.
+  two lands first.
 - **Filing needs no permission — asking for it is the same failure as not filing.** *"Shall I open an
   issue for this?"* and *"say the word and I'll file it"* are the rule above wearing a helpful face:
   the finding still leaves the session as something the owner has to answer, which is exactly what
@@ -161,9 +160,7 @@ connections between neurons (NEURON links) are Onyx's work, not yours.
   The code is the source of truth for what a check currently *does*; the issue that produced it is the
   only source for what it was *built to prevent*, and a proposal that touches a guardrail needs both.
   Reading only the tree is the failure that looks most like diligence: you verified, correctly, against
-  an artefact that cannot tell you the answer. Measured — a report proposed gating a check on the one
-  field that would have restored exactly the silence three earlier issues were filed to end, and the
-  issue saying so was one search away. So the search is not only how you avoid a duplicate.
+  an artefact that cannot tell you the answer. So the search is not only how you avoid a duplicate.
 <!-- END shared:findings-become-issues -->
 <!-- BEGIN shared:no-conversation-history -- GENERATED, do not edit here -->
 - You do not receive the conversation history; work only with what is in your assignment. If you
