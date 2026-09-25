@@ -708,8 +708,9 @@ Write-Host "Today's shape: entries at H3 under a version heading" -ForegroundCol
 # used to become a bullet with a fabricated type, which is the failure this suite already carries a standing
 # check for.
 #
-# THE H1 NO LONGER NAMES THE VERSION EITHER, so this also proves nothing here was reading it: the metadata
-# pair below it is what the script parses, and that pair is exactly why it stayed in the document.
+# THE H1 NO LONGER NAMES THE VERSION EITHER, so this also proves nothing here was reading it. The metadata
+# pair below it is the shape every note published before #2491 carries, and it is still read first; the
+# block after this one covers the notes cut since, which carry no pair at all.
 $todayNotes = @"
 # Changelog Releases
 
@@ -788,10 +789,52 @@ Assert-True ($todayDoc -notmatch 'Repo-internal housekeeping') `
 Assert-True ($todayDoc -notmatch "(?m)^- (\[[^\]]+\] )?Version 4\.30\.0") "today's shape: the version heading is not carried over as a bullet"
 Assert-True ($todayDoc -notmatch 'Changelog Releases') "today's shape: nor is the constant H1"
 Assert-Equal 2 (@([regex]::Matches($todayDoc, '(?m)^- \[')).Count) "today's shape: exactly two bullets"
-# The metadata pair is still read out of the document, which is why it survived the header change.
+# Where the pair is present it is what the date and type are read from -- a published note's internal note
+# comes out as it always did.
 Assert-True ($todayDoc -match '2026-09-04') "today's shape: the date is carried over from the '**Date:**' line"
 Assert-True ($todayDoc -match 'Minor')      "today's shape: and the type from the '**Type:**' line"
 Remove-Item -Recurse -Force -LiteralPath $today -ErrorAction SilentlyContinue
+
+Write-Host "Today's shape without the metadata pair (#2491): date and type come from the version heading" -ForegroundColor Cyan
+# release-lib stopped writing '**Date:**'/'**Type:**' on September 25, 2026, because the version heading
+# already states both. So a note cut from then on carries only the heading, and the internal note has to
+# come out exactly as complete as before -- no '(fill in)', no warning. The type is the version's SHAPE, so
+# a patch-shaped version is asserted too: 'Minor' alone could pass on a hard-coded default.
+$noPairNotes = $todayNotes -replace "\*\*Date:\*\* 2026-09-04\\\r?\n\*\*Type:\*\* Minor\r?\n\r?\n", ''
+Assert-True ($noPairNotes -notmatch '\*\*(Date|Type):\*\*') 'no-pair fixture: the pair really is gone from it'
+$noPair = New-Fixture -Label 'no-pair' -NotesContent $noPairNotes -Version '4.30.0' -NotesDir '4.x'
+$rn = Invoke-Script -Dir $noPair -Version '4.30.0'
+Assert-Equal 0 $rn.Code 'no pair: exit 0'
+$noPairDoc = [System.IO.File]::ReadAllText((Join-Path $noPair 'dkj-policy\releases\internal\4.x\4.30.0.md'))
+Assert-True ($noPairDoc -match '\*\*Date:\*\* 2026-09-04\\') 'no pair: the date is read back out of the version heading, in ISO form'
+Assert-True ($noPairDoc -match '\*\*Type:\*\* Minor\\')      'no pair: and the type from the version number'
+Assert-True ($noPairDoc -notmatch '\(fill in\)')             'no pair: nothing is left as a placeholder'
+Assert-True ($rn.Flat -notmatch 'fill in the (date|type) by hand') 'no pair: and no warning is printed'
+Remove-Item -Recurse -Force -LiteralPath $noPair -ErrorAction SilentlyContinue
+
+$patchNotes = $noPairNotes -replace 'Version 4\.30\.0 \(Sep 04, 2026\)', 'Version 4.30.2 (Sep 06, 2026)'
+$patch = New-Fixture -Label 'no-pair-patch' -NotesContent $patchNotes -Version '4.30.2' -NotesDir '4.x'
+$rp = Invoke-Script -Dir $patch -Version '4.30.2'
+Assert-Equal 0 $rp.Code 'no pair, patch: exit 0'
+$patchDoc = [System.IO.File]::ReadAllText((Join-Path $patch 'dkj-policy\releases\internal\4.x\4.30.2.md'))
+Assert-True ($patchDoc -match '\*\*Date:\*\* 2026-09-06\\') 'no pair, patch: the date follows the heading'
+Assert-True ($patchDoc -match '\*\*Type:\*\* Patch\\')      'no pair, patch: and a patch-shaped version reads as Patch'
+Remove-Item -Recurse -Force -LiteralPath $patch -ErrorAction SilentlyContinue
+
+# A STATED TYPE BEATS THE SHAPE. 'cut-release.ps1 -Version 4.30.0 -Type patch' is legal where a repo's
+# numbering diverges, and the version heading alone would read 4.30.0 as a Minor. The release history's row
+# is what the cut writes from the stated type, so it is asked first; this row disagrees with the shape on
+# purpose, which is the only way the assert can tell which of the two was read.
+$stated = New-Fixture -Label 'no-pair-stated' -NotesContent $noPairNotes -Version '4.30.0' -NotesDir '4.x'
+New-Item -ItemType Directory -Path (Join-Path $stated 'releases') -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $stated 'releases\README.md'),
+    "# Releases`n`n### 4.x`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n| [4.30.0](changelog/4.x/4.30.0.md) | 2026-09-04 | Patch | Stated |`n",
+    $Utf8NoBom)
+$rs = Invoke-Script -Dir $stated -Version '4.30.0'
+Assert-Equal 0 $rs.Code 'stated type: exit 0'
+$statedDoc = [System.IO.File]::ReadAllText((Join-Path $stated 'dkj-policy\releases\internal\4.x\4.30.0.md'))
+Assert-True ($statedDoc -match '\*\*Type:\*\* Patch\\') "stated type: the history row's Type wins over the version's shape"
+Remove-Item -Recurse -Force -LiteralPath $stated -ErrorAction SilentlyContinue
 
 # And the all-tier-0 case in the flat shape: the warning still names the reason rather than reporting a
 # parse failure, which is the one thing the container heading used to be needed for.

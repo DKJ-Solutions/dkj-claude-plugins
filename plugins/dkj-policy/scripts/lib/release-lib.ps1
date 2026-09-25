@@ -1160,6 +1160,25 @@ function Get-OverviewLatestVersion {
     return $null
 }
 
+function Get-OverviewRowType {
+    <# The Type cell -- 'Major', 'Minor' or 'Patch' -- of the release overview's row for one version, or
+       '' where no row names it. Pure string in, string out.
+
+       WHY THIS EXISTS (#2491). The changelog release note stopped carrying a '**Type:**' line, and its
+       version heading only gives the type by SHAPE. That is the declared type on every ordinary cut, but
+       'cut-release.ps1 -Type' states one for a repo whose numbering diverges, and nothing holds the
+       statement to the shape -- so this row, which the cut writes from the declared type, is the record
+       a reader asks first. Both version-cell shapes Get-OverviewLatestVersion accepts are accepted here. #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$ReadmeContent,
+        [Parameter(Mandatory)][string]$Version
+    )
+    $v = [regex]::Escape($Version)
+    $m = [regex]::Match($ReadmeContent, "(?m)^\|[^|\r\n]*(?<![\d.])$v(?![\d.])[^|\r\n]*\|[^|\r\n]*\|[ \t]*(Major|Minor|Patch)[ \t]*\|")
+    if ($m.Success) { return $m.Groups[1].Value }
+    return ''
+}
+
 # The audience each tier is named after in a generated document. ONE MAP, so the release notes and any
 # later reader of a tier number agree about what it means.
 #
@@ -1271,6 +1290,45 @@ function Format-ReleaseVersionHeading {
     return "Version $Version ($shown)"
 }
 
+function Get-NoteVersionHeadingMeta {
+    <#
+        Pure: the inverse of Format-ReleaseVersionHeading -- reads the FIRST 'Version X.Y.Z (Mon dd, yyyy)'
+        heading out of a changelog release note and returns
+
+          Date  'yyyy-MM-dd', or '' when the heading carries no date or one that does not parse
+          Type  'Major', 'Minor' or 'Patch', from the version's own shape, or '' with no heading at all
+
+        WHY IT EXISTS (Dave, issue #2491, September 25, 2026). The note used to carry a '**Date:**' and
+        '**Type:**' pair above that heading, and new-internal-note.ps1 read the pair. The pair added
+        nothing -- the heading states the date, and the type is what the version number already is -- so
+        it was dropped, and this is where the reader gets both now.
+
+        THE TYPE IS READ FROM THE SHAPE because a cut bumps exactly one component and zeroes the ones
+        below it (Get-BumpType is the same rule read from two versions): X.0.0 is a major, X.Y.0 a minor,
+        and anything with a patch component a patch. The date is parsed EXACTLY with the invariant
+        culture, the same two rules its writer applies, so no machine's locale can change the answer.
+
+        THE SHAPE IS NOT THE DECLARED TYPE WHERE A CUT WAS TOLD ONE. 'cut-release.ps1 -Version X.Y.Z -Type
+        <t>' states the type rather than inferring it, and nothing holds that statement to the number's
+        shape. The one durable record of a stated type is the release history's row, so a reader that has
+        that row asks Get-OverviewRowType first and this function second -- new-internal-note.ps1 does.
+
+        EACH COMPONENT IS AT MOST NINE DIGITS, so the [int] cast below cannot overflow: an oversized
+        heading does not match, and the caller takes the same '(fill in)' route as for no heading at all.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    $m = [regex]::Match($Text, '(?m)^#+[ \t]+Version[ \t]+(\d{1,9})\.(\d{1,9})\.(\d{1,9})(?:[ \t]+\(([^)]*)\))?[ \t]*$')
+    if (-not $m.Success) { return [pscustomobject]@{ Date = ''; Type = '' } }
+    $type = if ([int]$m.Groups[3].Value -gt 0) { 'Patch' } elseif ([int]$m.Groups[2].Value -gt 0) { 'Minor' } else { 'Major' }
+    $date = ''
+    $parsed = [datetime]::MinValue
+    if ($m.Groups[4].Success -and [datetime]::TryParseExact($m.Groups[4].Value.Trim(), 'MMM dd, yyyy',
+            [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsed)) {
+        $date = $parsed.ToString('yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+    return [pscustomobject]@{ Date = $date; Type = $type }
+}
+
 function Build-ReleaseNotes {
     <#
         Builds the full changelog notes -- the tier-0 <changelog root>/<X>.x/<X.Y.Z>.md file, which is
@@ -1311,9 +1369,14 @@ function Build-ReleaseNotes {
         THE VERSION HEADING IS THE OTHER HALF (see Format-ReleaseVersionHeading). Entries at H3 under an H1
         would skip a level, so the release they landed in occupies H2 -- and the document's own H1 becomes
         the constant it always effectively was, since the version is now stated by the heading that owns it
-        rather than twice in four lines. The metadata pair below it STAYS: new-internal-note.ps1 reads
-        '**Date:**' and '**Type:**' out of this document to build the internal note, so dropping them would
-        degrade a consumer's two-document flow to '(fill in)' and a warning.
+        rather than twice in four lines.
+
+        AND THE METADATA PAIR IS GONE WITH IT (Dave, issue #2491, September 25, 2026). '**Date:**' and
+        '**Type:**' sat between the H1 and that H2 and added nothing to it: the date is in the H2 itself,
+        and the type is the version's own shape, since a cut bumps exactly one component. It was kept
+        once because new-internal-note.ps1 read the pair out of this document -- that reader still reads
+        the pair first, for every note published before this repair, and takes both from the version
+        heading where the pair is absent (Get-NoteVersionHeadingMeta).
     #>
     param(
         [AllowEmptyCollection()][string[]]$Entries = @(),
@@ -1321,7 +1384,6 @@ function Build-ReleaseNotes {
         $TierGroups = $null,
         [Parameter(Mandatory)][string]$Version,
         [Parameter(Mandatory)][string]$Date,
-        [Parameter(Mandatory)][string]$Type,
         [string]$Title = '',
         # An AUTHORED block placed between the one-line title and the generated entries -- for a
         # milestone release whose point is the arc across many releases rather than the diff since the
@@ -1394,11 +1456,9 @@ function Build-ReleaseNotes {
     # THE H1 IS A CONSTANT AND THE VERSION SITS IN THE H2 (Dave, #1369) -- 'Changelog Releases', the wording
     # from the issue, chosen to mirror CHANGELOG.md's own '# Changelog'. It reads as the name of the document
     # FAMILY rather than of one release, which is what lets the version be stated once, by the heading that
-    # owns the entries beneath it, instead of in an H1 and a date line four lines above it.
-    #
-    # THE HARD BREAK IS A BACKSLASH, NOT TWO SPACES (inbound #1100) -- see Build-AudienceNote below for the
-    # measurement and why the break itself is kept.
-    $header = "# Changelog Releases`n`n**Date:** $Date\`n**Type:** $Type`n`n$titleLine$summaryBlock"
+    # owns the entries beneath it, instead of in an H1 and a date line four lines above it -- and with no
+    # '**Date:**'/'**Type:**' pair between the two either (#2491, see the docstring).
+    $header = "# Changelog Releases`n`n$titleLine$summaryBlock"
     # The container the entries hang under, so H1 -> H3 does not skip a level. Written even for a release
     # with no pending entry at all: the heading states which release this document IS, which is exactly the
     # question an empty one still has to answer.
