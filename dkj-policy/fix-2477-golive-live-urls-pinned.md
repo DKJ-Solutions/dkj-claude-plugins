@@ -56,14 +56,14 @@ opened the preview result link first is not shown the preview again on the "live
 ### CREATE
 
 - [x] `golive-block-rules.ps1`: `Format-GoLiveBlock -LivePinned` picks the list's label; the unpinned label carries the private-window caveat only beside a result link
-- [x] `build-golive-block.ps1`: `-LiveThemeId`, resolved through `Get-ControlThemeId`; the URLs pinned where it answers, bare and said so where it does not
-- [x] Suite: the three labels, and the driver run with no id, with the seam, and with `-LiveThemeId`
+- [x] `build-golive-block.ps1`: `-LiveThemeId`, resolved through `Get-ControlThemeId`; the URLs pinned through `Get-MarketPreviewUrls` where it answers, bare where it does not, with its reason printed
+- [x] Suite: the three labels, and the driver run with no id, with the seam, with `-LiveThemeId`, and with a seam that throws (its message is printed, the URLs stay bare)
 - [x] WORKFLOW-portable (the facts table and the block example), PREVIEW-portable (the paragraph that left this to the script), golive-block SKILL.md
 - [~] Is the change visible in the frontend / storefront? No -- the storefront renders nothing differently; the text of a GitHub comment changes
 
 ### TEST
 
-- `dkj-policy-bwj.tests.ps1` standalone: 395 asserts green, the new ones included; the lint and test gate through `open-pr`, then CI.
+- `dkj-policy-bwj.tests.ps1` standalone: 398 asserts green, the new ones included; the lint and test gate through `open-pr`, then CI.
 
 ### DEPLOY: fix/2477-golive-live-urls-pinned
 

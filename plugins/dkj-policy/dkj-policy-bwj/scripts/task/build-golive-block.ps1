@@ -269,17 +269,24 @@ $liveUrls   = @()
 $livePinned = $false
 if ($PathArg -and @($PathArg).Count -gt 0) {
     . (Join-Path $PSScriptRoot '..\lib\market-urls.ps1')
-    $liveUrls = @(Get-MarketUrls -Path $PathArg)
-    $liveId   = ''
-    try { $liveId = Get-ControlThemeId -LiveThemeId $LiveThemeIdArg } catch { $liveId = '' }
+    # THE CAUGHT MESSAGE IS PRINTED, NOT REPLACED. A seam that exists and throws -- an expired token, a
+    # bug in the store's own function -- is a different fault from a seam nobody declared, and one
+    # generic hint would name the wrong remedy for it.
+    $liveId    = ''
+    $liveError = ''
+    try { $liveId = Get-ControlThemeId -LiveThemeId $LiveThemeIdArg } catch { $liveError = $_.Exception.Message }
     if ($liveId) {
-        $liveUrls = @($liveUrls | ForEach-Object {
-            [pscustomobject]@{ Market = $_.Market; Path = $_.Path; Url = Add-PreviewQuery -Url $_.Url -ThemeId $liveId }
-        })
+        $liveUrls   = @(Get-MarketPreviewUrls -ThemeId $liveId -Path $PathArg)
         $livePinned = $true
+    } else {
+        $liveUrls = @(Get-MarketUrls -Path $PathArg)
     }
-    $pinNote = if ($livePinned) { "pinned to live theme $liveId" } else { 'bare -- no live theme id (pass -LiveThemeId, or add Get-ShopifyLiveThemeId)' }
+    $pinNote = if ($livePinned) { "pinned to live theme $liveId" } else { 'bare -- no live theme id' }
     Write-Host "  live urls: $($liveUrls.Count) ($(@($PathArg).Count) page(s) x markets), $pinNote" -ForegroundColor DarkGray
+    if ($liveError) {
+        Write-Host "[WARNING] The live URLs are not pinned: $liveError" -ForegroundColor Yellow
+        Write-Host "          The block labels them for that, so it stays correct -- but a bare URL is the weaker link." -ForegroundColor Yellow
+    }
 } else {
     Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
 }

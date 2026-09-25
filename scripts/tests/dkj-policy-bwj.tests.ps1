@@ -1040,6 +1040,18 @@ try {
         -Path '/pages/p' -LiveThemeId '99' -RootOverride $glRoot 2>&1
     $glArgText = (@($glArgOut | ForEach-Object { "$_" }) -join "`n")
     Assert-True ($glArgText.Contains('preview_theme_id=99&')) '-LiveThemeId wins over the seam'
+
+    # A SEAM THAT THROWS IS NOT A SEAM NOBODY DECLARED: its own message reaches the run, not a generic hint.
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        ("function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }`r`n" +
+         "function Get-ShopifyLiveThemeId { throw 'token expired' }`r`n"),
+        (New-Object System.Text.UTF8Encoding $false))
+    $glErrOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -RootOverride $glRoot 2>&1
+    $glErrText = (@($glErrOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-Equal 0 $LASTEXITCODE 'a throwing live-id seam still yields a block'
+    Assert-True ($glErrText.Contains('not pinned: token expired')) 'and the run prints the seam''s own reason'
+    Assert-True ($glErrText -notmatch 'preview_theme_id') 'with the URLs left bare rather than guessed'
 } finally {
     if (Test-Path -LiteralPath $glRoot) { Remove-Item -LiteralPath $glRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }

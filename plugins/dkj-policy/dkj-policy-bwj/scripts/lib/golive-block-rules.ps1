@@ -202,7 +202,7 @@ function Format-GoLiveBlock {
           -Version      omitted -> the release sentence names the day and no number.
           -LiveUrl      empty   -> no live-URL list. A repo that has declared no storefront markets
                         has nothing truthful to put there.
-          -LivePinned   whether -LiveUrl's URLs name the live theme id. It decides the list's label,
+          -LivePinned   whether the -LiveUrl rows name the live theme id. It decides the list's label,
                         and the label is the repair of issue #2477 (see below).
 
         THE LIVE LIST IS READ BEFORE THE RELEASE, AND A BARE URL LIES THEN (#2477). The result link is
