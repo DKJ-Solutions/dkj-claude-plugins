@@ -81,8 +81,8 @@ function Invoke-FixtureGit {
         # THE EXIT CODE IS READ, NOT DISCARDED (issue #1635). It used to go to Out-Null with the output,
         # so a failed fixture command was indistinguishable from a working one -- and a half-built repo
         # then makes every assert below it measure the wrong thing.
-        $out = & git -C $Dir @GitArgs 2>&1
-        Assert-FixtureGitOk -Code $LASTEXITCODE -GitArgs (@('-C', $Dir) + @($GitArgs)) -Output $out
+        # And a push whose transport breaks under the parallel gate is retried once (issue #2481).
+        Invoke-FixtureGitNative -Arguments (@('-C', $Dir) + @($GitArgs))
     } finally { $ErrorActionPreference = $prev }
 }
 
