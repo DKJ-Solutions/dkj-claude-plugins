@@ -84,3 +84,4 @@ the file changes, and no entry is touched.
 
 #### Pull Request
 
+CHANGELOG.md carries one fixed head, with no intro prose
