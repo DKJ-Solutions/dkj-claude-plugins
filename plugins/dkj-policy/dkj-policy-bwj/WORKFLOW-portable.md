@@ -191,6 +191,13 @@ the card then forced the pull request that fixed it to ship with `-NoResolves`. 
 ticket that arrived from Asana already has one (section 8), and an issue that gains the label later is
 mirrored at that moment.
 
+**A hook holds this, because the sentence alone did not** (inbound
+[#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). Two days after #2360,
+`smartwatchbanden#770` got a card with only `documentation` on it, on the plugin version that carried the
+rule. `hooks/guard-asana-mirror.ps1` now refuses any Asana create-task call whose task cites a GitHub
+issue without the reach label. Where it cannot read the labels, it lets the call through with a warning.
+The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
+
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
 `Get-AsanaProjectGid` names. The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
