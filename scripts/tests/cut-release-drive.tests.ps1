@@ -479,9 +479,11 @@ try {
     $note7 = Join-Path $root7 'dkj-policy\releases\changelog\1.x\1.4.1.md'
     Assert-True (Test-Path -LiteralPath $note7) 'stated type: the changelog note was written'
     if (Test-Path -LiteralPath $note7) {
-        Assert-Match '(?m)^\*\*Type:\*\*\s*Patch' (Get-Content -LiteralPath $note7 -Raw) 'stated type: and it is labelled Patch -- the type the author stated, not the one the baseline implied'
+        # THE NOTE CARRIES NO '**Type:**' LINE SINCE #2491, so the stated type's one record is the overview row
+        # asserted below -- which is where new-internal-note.ps1 reads it from (Get-OverviewRowType).
+        Assert-True ((Get-Content -LiteralPath $note7 -Raw) -notmatch '(?m)^\*\*Type:\*\*') 'stated type: the note carries no Type line (#2491)'
     }
-    Assert-Match '(?m)^\|\s*\[?1\.4\.1[^|]*\|[^|]*\|\s*Patch\s*\|' (Get-Content -LiteralPath (Join-Path $root7 'releases\README.md') -Raw) 'stated type: the overview row carries the same label'
+    Assert-Match '(?m)^\|\s*\[?1\.4\.1[^|]*\|[^|]*\|\s*Patch\s*\|' (Get-Content -LiteralPath (Join-Path $root7 'releases\README.md') -Raw) 'stated type: the overview row is labelled Patch -- the type the author stated, not the one the baseline implied'
     # -Type and -Bump are two answers to one question, and the refusal is the same call the -Version/-Bump
     # pair already makes.
     $r8 = Invoke-Cut -Root $root7 -Arguments @('-Bump', 'patch', '-Type', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
