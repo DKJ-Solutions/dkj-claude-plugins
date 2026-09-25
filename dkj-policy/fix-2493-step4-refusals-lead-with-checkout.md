@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Issue #2493 (inbound, measured on a consumer's PR): `ship-pr.ps1`'s DEPLOY lock refused and prescribed
+`open-pr.ps1 -RefreshBody` -- but step 2b (#1073) had already handed the primary checkout back to `main`,
+so the remedy met open-pr's "You are on main". The reason is verified in the code: step 2b runs at
+`$trunkReturn` before the CI wait, both step-4 refusals run after it. The step-list gate beside the lock
+has the same defect ("Commit, and re-run" needs the branch too), so both are repaired here, the way #1588
+repaired the stale-CI remedy: lead with `git checkout <paste-safe token>`, printed unconditionally.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `$step4CheckoutBlock` in `ship-pr.ps1`: the checkout (paste-safe token plus its note), with a lead
+      sentence that follows `$treeOnTrunk` so it never claims a move step 2b declined
+- [x] the DEPLOY lock and the step-list gate refusals both carry it
+- [x] plugin mirror rebuilt (`build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] `ref-print-lib.tests.ps1`: the block names the token and appends the note, and each of the two
+      refusals carries it -- 471 passed; `ship-pr.ps1` parses clean
+- [ ] reviewed: Victor, Sebastian, Edith
+
 ### DEPLOY: fix/2493-step4-refusals-lead-with-checkout
 
-**Score:**
+When `ship-pr` refuses a merge at the DEPLOY lock or the step-list gate, the refusal now starts with the
+`git checkout <branch>` the fix needs. Both refusals fire after `ship-pr` has already moved the checkout
+back to `main`, so the remedy they printed (commit, or `open-pr.ps1 -RefreshBody`) failed with "You are
+on main" until the branch was checked out by hand.
+
+**Score:** 2 -- a refusal's own remedy failed on first use; noticed only by somebody who hits the lock.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nothing changes for a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
+
+ship-pr's step-4 refusals lead with the checkout the fix needs
 
