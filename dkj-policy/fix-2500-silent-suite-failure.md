@@ -39,19 +39,53 @@
 
 ### PLAN
 
+#2500 asked two things. **Why was no output kept?** The retention block drops a 0-byte capture file by
+design, so "no output kept" meant the suite wrote nothing to either stream -- and nothing on the
+verdict said so. A suite that writes nothing never reached its own first line
+(`session-cache-lib.tests.ps1` opens with a `Write-Host`; a throw or a parse error before that would
+print to stderr). So it has measured nothing, the same state #1723's lone re-run exists for.
+
+**Does the suite have a contention-sensitive fixture of its own?** Measured: no sign of one.
+`reproduce-suite-contention.ps1 -Suite session-cache-lib.tests.ps1 -Repeat 10 -MaxParallel 22`
+passed 10 of 10 under 22 lanes of real sibling suites, in 3.4-4.2s each. #2481's failing run ended at
+1.6s, faster than any full pass, which fits a process that died before the suite's body rather than a
+fixture inside it. The exit code of that run was not recorded, so the process-start cause stays
+inferred.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `native-capture-lib.ps1`: `Test-GateSuiteSilent` (settle-aware, like the retention read), and a
+      SILENT verdict in the reap loop routed into the crash path's lone re-run; excluded from the pace
+      sample and marked on the timing row as a crash is
+- [x] Re-run wording names a silent exit as one (banner, pass line, `SILENT AGAIN`); the banner stays
+      byte-identical when nothing was silent
+- [x] Green verdict names a silent exit cleared by its re-run; red verdict says which suites wrote
+      nothing, so an absent kept-output line is explained
+- [x] Mirrors regenerated (`build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] `test-suite-gate.tests.ps1` 8g: silent once, then green on the re-run; silent every time, red
+      with `SILENT AGAIN` and the no-output line; `Test-GateSuiteSilent` in-process (empty, missing,
+      one byte). Suite: 342 pass, 0 fail
+- [x] Focus reproduction of `session-cache-lib.tests.ps1`, 10 repeats under 22 lanes: all green
+
 ### DEPLOY: fix/2500-silent-suite-failure
 
-**Score:**
+The test gate no longer reports a suite that exited non-zero **without writing a single byte** as a
+plain `FAILED`, with no output shown and none kept. Such a suite never reached its own first line, so
+the gate now marks it `SILENT`, re-runs it alone once (as it already does for a crash), and names it
+on the verdict: as cleared on a green run, or as having written nothing to keep on a red one. A suite
+silent on its re-run too is red. A suite that printed anything at all is judged exactly as before and
+never re-run ([#2500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2500)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the test gate runs inside the repos that adopt this workflow; no subscriber of a service sees it.
+
+**Score:** N/A
 
 #### Pull Request
 

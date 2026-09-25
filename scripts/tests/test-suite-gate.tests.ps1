@@ -1171,6 +1171,41 @@ exit -1
     Assert-True ($r.Flat -notmatch 'CRASHED') 'and nothing calls it a crash'
     Assert-True ($r.Text -notmatch 'MARKER-SECOND-CHANCE') 'the pass it had waiting was never reached'
 
+    # 8g. A NON-ZERO EXIT THAT WROTE NOTHING IS NOT A VERDICT EITHER (issue #2500).
+    #
+    # WHAT WENT WRONG. #2481's 22-lane gate reported session-cache-lib.tests.ps1 'FAILED' after 1.6s,
+    # printed no block for it, and named no kept output -- because the retention rule drops a 0-byte
+    # capture -- and the suite passed alone straight afterwards. A suite that wrote not one byte never
+    # reached its own first line, so there was nothing to read and nothing that said so. The fixture
+    # writes nothing on its first run and exits 1, which is the whole shape the gate can observe.
+    Write-Host "a suite that exits non-zero without writing a byte -- no verdict, re-run alone, and said so" -ForegroundColor Cyan
+    $silentOnce   = Join-Path $Fixture 'suites-silent-once'
+    $silentMarker = Join-Path $Fixture 'silent-once.marker'
+    New-FakeSuite -Dir $silentOnce -Name 'mute.tests.ps1' -Body @"
+if (Test-Path -LiteralPath '$silentMarker') { Write-Host 'MARKER-SILENT-RETRY'; exit 0 }
+Set-Content -LiteralPath '$silentMarker' -Value 'seen'
+exit 1
+"@
+    New-FakeSuite -Dir $silentOnce -Name 'z-good.tests.ps1' -Body "Write-Host 'MARKER-GOOD'`r`nexit 0`r`n"
+    $r = Invoke-Gate -TestsDir $silentOnce
+    if ($r.CaptureDir) { $script:KeptCaptureDirs += $r.CaptureDir }
+    Assert-True ($r.Text -match 'GATE-RESULT: True') 'a silent exit cleared by its lone re-run does not fail the gate'
+    Assert-Says $r.Flat 'SILENT (exit 1)' 'the pool run says SILENT, not FAILED'
+    Assert-True ($r.Flat -notmatch 'FAILED \(exit 1\)') 'and never reports the silent exit as a failed verdict'
+    Assert-Says $r.Flat '0 crashed, 1 exited without writing a byte' 'the re-run banner counts it as silent rather than as a crash'
+    Assert-Says $r.Flat 'was a silent exit, not a verdict' 'the re-run line names what the pool run was'
+    Assert-Says $r.Text 'MARKER-SILENT-RETRY' "and the re-run's own output is printed"
+    Assert-Says $r.Flat 'exited in the pool without writing a byte and passed alone: mute.tests.ps1' 'the GREEN verdict names it'
+    Assert-True ($r.Flat -notmatch 'crashed in the pool and passed alone') 'and does not call it a crash there'
+
+    $silentAlways = Join-Path $Fixture 'suites-silent-always'
+    New-FakeSuite -Dir $silentAlways -Name 'mute-always.tests.ps1' -Body "exit 1`r`n"
+    $r = Invoke-Gate -TestsDir $silentAlways
+    if ($r.CaptureDir) { $script:KeptCaptureDirs += $r.CaptureDir }
+    Assert-True ($r.Text -match 'GATE-RESULT: False') 'a suite silent alone as well fails the gate -- a re-run cannot mask a deterministic silence'
+    Assert-Says $r.Flat 'SILENT AGAIN' 'and the second silence is named as one'
+    Assert-Says $r.Flat 'so no output exists to keep: mute-always.tests.ps1' 'the RED verdict says why nothing was kept, instead of leaving it to be guessed'
+
     # 8f. The discriminator itself, in-process: the NTSTATUS window, not a list of known codes.
     . $LibPath
     Assert-True (Test-GateSuiteCrashed -ExitCode -1073741819) '0xC0000005 (access violation) reads as a crash'
@@ -1192,6 +1227,16 @@ exit -1
     Assert-Equal '0xC0000005' (Format-GateExitCode -ExitCode -1073741819) 'a crash code is printed as hex'
     Assert-Equal '0xFFFFFFFF' (Format-GateExitCode -ExitCode -1) 'a negative that is not a crash still prints as hex -- the formatter judges nothing'
     Assert-Equal '1' (Format-GateExitCode -ExitCode 1) 'an ordinary one is printed as itself'
+
+    # Test-GateSuiteSilent, in-process (issue #2500): empty and missing are silent, one character is not.
+    $silentDir = Join-Path $Fixture 'silent-probe'
+    New-Item -ItemType Directory -Path $silentDir -Force | Out-Null
+    $emptyOut = Join-Path $silentDir 'e.out.txt'; [System.IO.File]::WriteAllText($emptyOut, '', $Utf8NoBom)
+    $emptyErr = Join-Path $silentDir 'e.err.txt'; [System.IO.File]::WriteAllText($emptyErr, '', $Utf8NoBom)
+    $saidErr  = Join-Path $silentDir 's.err.txt'; [System.IO.File]::WriteAllText($saidErr, 'x', $Utf8NoBom)
+    Assert-True (Test-GateSuiteSilent -Path @($emptyOut, $emptyErr) -SettleMilliseconds 0) 'two empty capture files are silent'
+    Assert-True (Test-GateSuiteSilent -Path @($emptyOut, (Join-Path $silentDir 'missing.txt')) -SettleMilliseconds 0) 'a missing file counts as nothing written'
+    Assert-True (-not (Test-GateSuiteSilent -Path @($emptyOut, $saidErr) -SettleMilliseconds 0)) 'one byte on stderr is not silence -- a throw before the header is a verdict to read'
 
     # AND THE REPO ITSELF MUST NOT HOLD ONE, which is the measurement the docstring cites. A suite or
     # lib exiting negative would land in the window's blind spot by accident rather than by design.
