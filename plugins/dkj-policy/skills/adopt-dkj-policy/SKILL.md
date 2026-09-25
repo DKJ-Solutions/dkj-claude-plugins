@@ -855,6 +855,20 @@ placed either way, so wiring it up later is a settings edit and nothing else.
 A settings file that does not **parse** is refused outright rather than repaired: the run exits 1, the
 file is left byte for byte as it was, and the block is printed.
 
+**Adding the key leaves every other byte alone** (#2505). The member is inserted as text before the
+closing brace, in your file's own indent and line ending, and a BOM stays if there was one. It is not a
+parse-and-rewrite: Windows PowerShell 5.1's serialiser re-pads every line and drops blank ones, which
+turned a one-key addition into a full-file diff nobody could review. The result is parsed back before it
+is written, and if it is not your keys plus `statusLine`, nothing is written and the block is printed.
+
+### Commit the shim with the settings change
+
+The committed `settings.json` names `.claude/statusline/dkj-progress.ps1`, so a checkout that does not
+receive the shim gets a status line pointing at a missing file. A `.gitignore` that ignores `.claude/*`
+with a list of exceptions hides it without a word, so every run asks `git check-ignore` about the shim's
+path, dry runs included. On a hit it prints the rule that matched and the exception that fixes it
+(`!.claude/statusline/`). It warns and does not edit your `.gitignore`.
+
 ### Afterwards
 
 With something running you get a bar; with nothing running, the directory, the branch and the model:

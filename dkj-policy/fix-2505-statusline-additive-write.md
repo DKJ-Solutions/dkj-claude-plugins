@@ -43,17 +43,40 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verified both reasons in the tree: `-Apply` round-tripped the file through `ConvertTo-Json`
+  (line 310), and nothing asked git about the shim.
+- [x] `adopt-statusline.ps1`: the key is inserted as text before the root's closing brace, in the
+  file's indent unit, line ending and BOM state, and the result is parsed back before it is written.
+- [x] `adopt-statusline.ps1`: `git check-ignore -v` on the shim path on every run, dry runs included,
+  printing the matched rule and the `!.claude/statusline/` exception on a hit.
+- [x] Found on the way and repaired: `-Apply` crashed under StrictMode on a `{}` settings file
+  (`.PSObject.Properties.Name` over zero members), so the reads go through `Get-MemberNames`.
+- [x] Plugin mirror synced; the `adopt-dkj-policy` skill page says what both behaviours are.
 
 ### TEST
 
+- [x] `adopt-statusline.tests.ps1`: exact-text asserts for LF/2-space, CRLF/tab and blank-line
+  files, a kept BOM, an empty object, and an ignored vs. an excepted shim in a real git fixture:
+  65/65 green.
+
 ### DEPLOY: fix/2505-statusline-additive-write
 
-**Score:**
+`adopt-statusline -Apply` now adds the `statusLine` key to `.claude/settings.json` without touching the
+rest of the file ([#2505](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2505)). It used to
+parse the file and write it back. Windows PowerShell 5.1 re-padded every line and dropped blank ones, so
+a one-key addition became a diff of the whole file. Now the member is inserted in the file's own indent
+and line ending, and a BOM is kept. The run also warns when git ignores the shim it places, for example
+under a `.claude/*` rule, and names the `!.claude/statusline/` exception. Without that exception, other
+checkouts got a status line pointing at a file they never received. An empty `{}` settings file no
+longer crashes the run.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a setup command a repo's maintainer runs; nothing a subscriber runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
