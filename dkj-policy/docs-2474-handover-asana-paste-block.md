@@ -41,19 +41,39 @@
 
 PREVIEW-portable's handover shape gains a fourth block: the golive-block paste-ready text, embedded with a copy button, and the sensitivity section states which URLs may reach the requester.
 
+#### Inbound verification (#2474)
+
+- Symptom stands: "The shape of the handover" named three blocks and said nothing about the requester's message.
+- Reasoning refined: the message is not an undefined format. It is the paste-ready block `build-golive-block.ps1` already prints, and its link rule is already enforced there (#2341). So the repair embeds that printout and does not add the consumer's Dutch headings as a second format (the issue's own item 3).
+- Split off: the block's bare live URLs hit the preview-cookie trap when opened before the release. Filed as #2477 on the script, not patched by hand on the page.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] PREVIEW-portable: the fourth block in the shape table, plus a subsection on why it is golive-block's printout
+- [x] PREVIEW-portable: the link rule in the sensitivity section (storefront URLs only, never the handover link)
+- [x] PREVIEW-portable: the mechanism note gains the copy button and its required select fallback
+- [x] golive-block SKILL.md names the page that embeds its printout
+- [~] Is the change visible in the frontend / storefront? No -- a policy page and a skill page; nothing renders differently
 
 ### TEST
 
+- Lint gate (`-SkipTests`, per this machine's memory limit) plus CI.
+
 ### DEPLOY: docs/2474-handover-asana-paste-block
 
-**Score:**
+A preview handover page now carries a fourth block: the Asana paste-ready block from
+`golive-block`, embedded as printed, with a copy button. The requester reads the Asana task and cannot
+open the private page, so the page now holds the message they actually get, from the same run that
+posts it on the issue. The page also says which URLs that block may carry: storefront URLs only, never
+the handover link.
+
+**Score:** 2 -- a handover session gets one step fewer to do by hand; the block's wording is unchanged.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the requester reads the same block as before; only where the session copies it from changes.
+
+**Score:** N/A
 
 #### Pull Request
 

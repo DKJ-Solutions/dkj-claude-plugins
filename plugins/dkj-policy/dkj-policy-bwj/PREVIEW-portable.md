@@ -187,19 +187,49 @@ closed on the measurement above).
 
 ## The shape of the handover
 
-Three blocks on the page, and each is there because the other two cannot supply it:
+Four blocks on the page, and each is there because the other three cannot supply it:
 
 | block | what it holds |
 |---|---|
 | **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open, and a clean-browser start where the route depends on one. No URL can say this, and a change that is invisible without it reads as *not shipped* |
 | **one card per market** | the market code and its domain, a **QR code to the preview**, the preview and control links as text beneath it, and the expected copy in that market's language where the change has copy in it |
 | **what is proven, and what is asked** | which gates ran and what they verified mechanically, then the one question the reviewer is being asked. This is the half that makes the link a self-contained handover rather than a bookmark needing the transcript beside it |
+| **the paste-ready block, for the requester** | where the issue has a linked Asana task: the block `build-golive-block.ps1` prints, **as it prints it** -- the text between its two `---` rules, in a `<pre>`, with a copy button -- and one line above it naming the Asana task it is for and why the page itself is not linked. The other three blocks are for the **reviewer**; this one is for the **requester**, who reads the Asana task and cannot open this page |
 
 Two things the cards inherit from the consumer's own preview rule rather than restating:
 
 - **Per market**, because these stores serve several and a change can land differently in each.
 - **Of the concretely changed page** -- a set of homepages is already refused there, and a control that
   is not the changed page controls nothing.
+
+### The fourth block is the paste-ready block, not a second format
+
+**The requester reads the Asana task, and the handover page is private to its owner.** So the message
+that actually reaches them was being written after every handover by hand, somewhere else -- while the
+one surface the owner is already looking at did not carry it. Measured in `xoxowildhearts` on
+September 25, 2026 (inbound [#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)):
+a handover that added the message as a fourth block, with a copy button, did the job.
+
+**That message already has a format, and it has one owner.** It is the paste-ready block of
+[`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work)
+-- where to look, when it is planned to go live, what is asked of the requester -- and
+`build-golive-block.ps1` writes it. **Embed its printout; do not compose a block of your own beside
+it.** Run it without `-Post` to print the text for the page, and with `-Post` for the issue: one script
+on the same inputs, so the block on the issue and the block on the page cannot drift apart. A hand-written
+block with its own headings is the second copy of one rule that this workflow keeps removing.
+
+**Where the block needs different words, the change goes into the script**, through the inbound route,
+so the issue and every page change together. That covers the requester's language too: the measured
+handover was written in Dutch, with its own headings, and a store that needs that has a script to
+change, not a page to hand-edit.
+
+**The block carries no control link, and one is not added by hand.** Its live URLs are the pages
+*once the release is out*. A requester who opens the result link first carries that domain's preview
+cookie, so a bare live URL opened before the release renders the preview -- the trap in
+[the control URL section](#what-the-control-url-is----and-the-trap-in-the-obvious-answer), reached from
+the Asana side. The comparison link, where the requester needs one, is the control pinned to the live
+id; whether the block should carry it is `build-golive-block.ps1`'s question, not this page's
+([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)).
 
 ### Pinning the control settles the THEME, not the feature's STATE
 
@@ -269,7 +299,7 @@ produces -- without them the preview holds only through the cookie and is lost a
 click, and the reviewer is then on live believing they are on the preview. That matters more on a QR
 than anywhere else, because the scan is their only entry point.
 
-### The one mechanism note, and why a policy page carries it
+### The mechanism notes, and why a policy page carries them
 
 **A QR served as an image from a QR-image API does not render, and says nothing when it fails.** A
 published Artifact runs under a content-security policy that permits external **scripts** from a short
@@ -278,9 +308,16 @@ list of CDNs and blocks everything else -- images included, from every host. So 
 blank squares with no error anywhere. The two shapes that do work: render the code **client-side** from
 a QR library loaded as a script from an allowlisted CDN, or embed it as a `data:` URI in the page.
 
-This is mechanism on a policy page, deliberately and once. A rule that prescribes a carrier and omits
-the single constraint that makes the carrier fail *silently* is not a rule anybody can follow, and this
-is the worst kind to leave out: the page looks published, and the reviewer is the one who finds out.
+**The copy button on the paste-ready block needs no external host, and it needs a fallback.** It is
+`navigator.clipboard.writeText`, which a published Artifact can call without loading anything -- but a
+page served in a sandboxed frame can have the clipboard API refused, and then the button does nothing
+visible. So a refusal selects the block's text for a manual copy instead. **The fallback is required,
+not decoration**: without it, the one block meant to be carried across is the one that cannot be.
+
+This is mechanism on a policy page, deliberately and only where the carrier fails *silently*. A rule
+that prescribes a carrier and omits the constraint that makes it fail without an error is not a rule
+anybody can follow, and this is the worst kind to leave out: the page looks published, and the reader
+is the one who finds out.
 
 ### And the link is as sensitive as the URLs it encodes
 
@@ -299,6 +336,15 @@ shared, so treat the link the way you would treat the URLs on it: to the reviewe
 This paragraph exists because the section above it reads as complete without it. *"Render it
 client-side"* is a full answer to a rendering problem, and a later editor taking the CSP as the whole
 reason picks whichever library renders -- including one that phones home.
+
+**The paste-ready block reads the preview-URL rule from the other direction, and carries storefront
+URLs only.** The preview URL on it goes to the person who asked for the work, through the store's own
+task. That is what *never leaves the page* means: no service that renders, shortens or processes the
+URL ever receives it. It never meant that no person does. **The handover link itself never goes in the block**: the page is private, so an Asana-only
+colleague cannot open it, and a link that looks like the answer and opens nothing is worse than none.
+`build-golive-block.ps1` enforces that half already -- a `claude.ai` Artifact as its `-Link` is refused
+([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)) -- which is one more reason
+the page embeds its printout rather than a block composed beside it.
 
 ## The step that asks the question -- always last under `### CREATE`
 

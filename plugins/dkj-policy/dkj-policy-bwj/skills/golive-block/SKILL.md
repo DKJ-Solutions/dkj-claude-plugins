@@ -94,7 +94,10 @@ past it.
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md), chapter one, under *The paste-ready block*. The
 other cycle step this plugin adds -- the storefront-visibility step, last under `### CREATE` -- is in
 [`PREVIEW-portable.md`](../../PREVIEW-portable.md), and both are indexed in
-[the README](../../README.md#what-the-cycle-gains-here).
+[the README](../../README.md#what-the-cycle-gains-here). **The same printout is that page's fourth
+block** -- a preview handover embeds it, with a copy button, rather than composing its own
+([#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)), so run it without `-Post`
+for the page and with `-Post` for the issue.
 
 ## Requirements in the consumer
 
