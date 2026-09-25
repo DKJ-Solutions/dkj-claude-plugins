@@ -474,8 +474,11 @@ Assert-NoParameter -Command 'Convert-ChangelogForRelease' `
     -Names @('Version', 'Date', 'Type', 'NotesRelPath', 'LiveMarker', 'HistoryMode', 'HistoryRelPath', 'TierSections', 'Wording')
 $emptied = Convert-ChangelogForRelease -Content $sample
 Assert-Match $emptied '(?m)^# Changelog$' 'the title survives'
-Assert-Match $emptied 'listed in \[releases/README\.md\]' "the intro's own pointer to the release history survives"
-Assert-NoMatch $emptied '(?m)^## ' 'no entry heading is left'
+# THE HEAD IS THE FIXED ONE (issue #2486): the sample's intro prose -- its pointer to the release history
+# included -- is replaced by Get-ChangelogHeadLines, so a cut leaves every repo's head byte-identical.
+Assert-NoMatch $emptied 'listed in \[releases/README\.md\]' 'the intro prose does not survive the cut'
+Assert-Equal ((@(Get-ChangelogHeadLines) -join "`n") + "`n") $emptied 'what is left is exactly the fixed head'
+Assert-NoMatch $emptied (Get-EntryHeadingPattern).Replace('^', '(?m)^') 'no entry heading is left'
 foreach ($pr in 20, 21, 22) {
     Assert-NoMatch $emptied "#$pr $midDot" "entry #$pr is cleared out of the changelog"
 }
@@ -484,11 +487,12 @@ foreach ($pr in 20, 21, 22) {
 Assert-NoMatch $emptied 'Latest Release' 'no release block heading is written'
 Assert-NoMatch $emptied '(?m)^\*\*v\d' 'no bold version line'
 Assert-NoMatch $emptied 'for the full release notes' 'and no pointer to a notes file'
-# THE INTRO IS NOT REGENERATED -- it is the head as the document had it, which is what lets a repo say
-# whatever it likes up there, in whatever language, and keep it across every cut.
+# A REPO'S OWN INTRO NO LONGER SURVIVES A CUT (issue #2486, reversing the verbatim pass-through). That
+# pass-through is how the consumers' intros came to say different things about one mechanism.
 $ownIntro = "# Journal de bord`n`nTout ce qui a ete fusionne depuis la derniere version."
-Assert-Match (Convert-ChangelogForRelease -Content (New-FlatChangelog -Entries @($e21) -Intro $ownIntro)) `
-    'Tout ce qui a ete fusionne' "a repo's own intro passes through verbatim -- no template rewrites it"
+$ownOut = Convert-ChangelogForRelease -Content (New-FlatChangelog -Entries @($e21) -Intro $ownIntro)
+Assert-NoMatch $ownOut 'Tout ce qui a ete fusionne' "a repo's own intro is replaced by the fixed head"
+Assert-Match $ownOut '(?m)^# Changelog$' 'and its own title with it'
 # CRLF is preserved: the root CHANGELOG is CRLF and a cut must not restyle the whole file.
 $crlfOut = Convert-ChangelogForRelease -Content ($sample -replace "`n", "`r`n")
 Assert-Match $crlfOut "`r`n" 'a CRLF document stays CRLF'

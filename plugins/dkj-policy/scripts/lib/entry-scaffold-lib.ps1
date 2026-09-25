@@ -3816,6 +3816,74 @@ function Get-ChangelogUnreleasedPattern {
         [regex]::Escape((Get-ChangelogUnreleasedLabel)) + '\s*$')
 }
 
+# --- THE HEAD IS FIXED, AND IT CARRIES NO PROSE (issue #2486) -------------------------------------
+#
+# Dave, September 25, 2026: the text between '# Changelog' and the pending heading drifted between
+# consumers until every repo said something different about the same mechanism -- and a page each repo
+# says differently turns into misinformation over time. The repair is that there is no text there at all,
+# so the head is byte-identical in every repo running this workflow.
+#
+# WHY EVERY WRITER RE-APPLIES IT RATHER THAN ONLY THE SCAFFOLD. adopt-workflow-folder.ps1 is additive and
+# never touches a CHANGELOG.md that already exists, so a scaffold-only repair reaches no consumer that has
+# ever adopted -- which is every consumer the drift was measured in. The fold runs on every merge and the
+# cut at every release, so both re-apply the head and a drifted intro converges on the next merge. The
+# mechanism a repo used to explain in that prose is on the portable pages, which travel with the plugin.
+function Get-ChangelogHeadLines {
+    <# The fixed head of CHANGELOG.md: the title, a blank line, and the pending heading. Nothing else. #>
+    return @('# Changelog', '', (Get-ChangelogUnreleasedHeading))
+}
+
+function Set-ChangelogCanonicalHead {
+    <#
+        Pure: CHANGELOG.md with everything above its pending heading replaced by the fixed head. Content
+        in, content out; nothing is written and nothing is thrown.
+
+        THREE SHAPES, the same three Set-ChangelogPendingSummary anchors on:
+
+          1. a pending heading -- everything above it is replaced by the title; the heading and everything
+                                 below it (the tally, the entries) are untouched.
+          2. entries, no heading -- a repo scaffolded before #1518. The whole head is replaced and the
+                                 pending heading is placed above the first entry, so the tally that
+                                 Set-ChangelogPendingSummary writes next lands beneath it.
+          3. neither            -- an intro and nothing else. The fixed head is the whole document.
+
+        A tally line sitting in an old intro (the pre-#1518 anchor put it above the first entry) is
+        removed with the rest of the head; the caller re-derives it under the heading afterwards, which
+        is why both the fold and the cut call this BEFORE Set-ChangelogPendingSummary.
+
+        FENCE-AWARE, because the intro it replaces may quote an entry heading or the pending heading inside
+        a fence to document the format -- this repo's own did -- and the boundary must not land in it.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+
+    $nl = Get-DocumentNewline -Content $Content
+    $lines = @($Content -split "`r?`n")
+    $fenced = Get-FencedLineFlags -Lines $lines
+    $head = @(Get-ChangelogHeadLines)
+    $pendingRx = Get-ChangelogUnreleasedPattern
+    $entryRx = Get-EntryHeadingPattern
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($fenced[$i]) { continue }
+        if ($lines[$i] -match $pendingRx) {
+            return ((@($head[0..($head.Count - 2)]) + @($lines[$i..($lines.Count - 1)])) -join $nl)
+        }
+        if ($lines[$i] -match $entryRx) {
+            # A pending heading BELOW an entry is misplaced -- a hand edit -- and keeping it would leave two
+            # of them for every reader anchored on that pattern. It is dropped rather than used as the
+            # boundary, because replacing everything above it would take the entries above it with it.
+            $tail = @()
+            for ($j = $i; $j -lt $lines.Count; $j++) {
+                if ((-not $fenced[$j]) -and $lines[$j] -match $pendingRx) { continue }
+                $tail += $lines[$j]
+            }
+            return (($head + @('') + $tail) -join $nl)
+        }
+    }
+
+    return (($head -join $nl) + $nl)
+}
+
 # --- THE PENDING TALLY, WRITTEN UNDER THE PENDING HEADING (issue #1515) ---------------------------
 #
 # What Dave asked for is the one question CHANGELOG.md could not answer without counting by hand: how

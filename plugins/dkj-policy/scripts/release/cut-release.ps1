@@ -1055,9 +1055,9 @@ $notesContent = Build-ReleaseNotes -TierGroups $tierGroups -Version $new -Date $
     -Title $Title -Summary $summaryText -LinkPrefix $notesLinkPrefix
 # THE CHANGELOG IS EMPTIED, AND NOTHING IS WRITTEN BACK INTO IT (August 5, 2026). This call used to hand
 # over the version, the date, the type, the notes path and three seam values to rebuild a release block and
-# one section per tier. There is no block and there are no sections: the intro stays as the repo wrote it,
-# the entries this release just consumed are removed, and the only thing left saying where releases live is
-# the pointer in that intro -- which is why this now takes the content and nothing else.
+# one section per tier. There is no block and there are no sections: the entries this release just consumed
+# are removed and the head is re-applied as the fixed one -- the title and the pending heading, no intro prose
+# (issue #2486) -- which is why this now takes the content and nothing else.
 $changelogNew = Convert-ChangelogForRelease -Content $changelogRaw
 
 # AND THE PENDING TALLY IS RESET WITH THEM (issue #1515). The line sits in the document's HEAD, which is

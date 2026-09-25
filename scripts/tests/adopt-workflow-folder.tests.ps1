@@ -323,8 +323,10 @@ try {
     # would also turn red for a repo that legitimately overrode the level. The constant is the claim.
     $clText = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\CHANGELOG.md'), [System.Text.Encoding]::UTF8)
     $entryHashes = '#' * (Get-EntryHeadingLevel)
-    Assert-Match ('one `' + $entryHashes + '` per change') $clText '-Apply: the changelog intro states the heading level the fold writes'
-    Assert-True ($clText -notmatch 'one `#{1,2}` per change') '-Apply: and no longer states a shallower one'
+    # SUPERSEDED BY #2486: there is no intro sentence left to go stale. The scaffolded document IS the fixed
+    # head, byte for byte, which retires the #1098 defect by removing the sentence it lived in.
+    Assert-Equal ((@(Get-ChangelogHeadLines) -join "`n") + "`n") ($clText -replace "`r`n", "`n") '-Apply: the scaffolded changelog is exactly the fixed head (#2486)'
+    Assert-True ($clText -notmatch 'per change') '-Apply: and carries no intro prose about the entry level'
 
     # AND IT CARRIES THE PENDING HEADING (issue #1518). It did not until September 6, 2026: the intro was
     # followed straight by the entries, the pre-August-26 flat shape, while entry-scaffold-lib called this
@@ -339,7 +341,7 @@ try {
     # the sentence went stale again.
     $unreleased = Get-ChangelogUnreleasedHeading
     Assert-Match ([regex]::Escape($unreleased)) $clText '-Apply: the scaffolded changelog carries the pending heading'
-    Assert-Match ('sits under `' + [regex]::Escape($unreleased) + '`') $clText '-Apply: and the intro sentence points the reader at it'
+    Assert-True ($clText -notmatch 'sits under') '-Apply: and no intro sentence points at it -- there is no intro (#2486)'
 
     # IT IS THE LAST LINE, AND THAT IS THE PLACEMENT RULE RATHER THAN TIDINESS. The first fold into an
     # entry-less document appends at the END of the content (fold-changelog-entry's $listStart fallback), so

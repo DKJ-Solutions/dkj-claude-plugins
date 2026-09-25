@@ -618,13 +618,16 @@ function Convert-ChangelogForRelease {
         the intro points at in one line -- hand-written prose in a file the repo owns, so it needs no seam
         and cannot go stale at a cut that no longer touches it.
 
-        THE INTRO IS NOT REGENERATED, which is the property that makes the above safe. It is the head as
-        the document already had it, passed through verbatim -- so whatever a repo says about itself up
-        there survives every cut, in whatever language it wrote it.
+        THE HEAD IS THE FIXED ONE, NOT THE REPO'S OWN (issue #2486, September 25, 2026). This used to pass
+        the intro through verbatim, so whatever a repo wrote about itself survived every cut -- which is
+        exactly how the intros of the consumers came to say different things about one mechanism. It is
+        now re-applied by Set-ChangelogCanonicalHead, the same function the fold and the scaffold use, so a
+        cut leaves the head byte-identical to every other repo's. The pending heading and the tally line
+        beneath it are kept; the caller re-derives the tally.
     #>
     param([Parameter(Mandatory)][string]$Content)
     $s = Split-Changelog -Content $Content
-    return ((@($s.Head) -join $s.Nl).TrimEnd() + $s.Nl)
+    return (Set-ChangelogCanonicalHead -Content ((@($s.Head) -join $s.Nl).TrimEnd() + $s.Nl))
 }
 
 function Set-ReleaseInternalNoteLink {
