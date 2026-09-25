@@ -428,6 +428,16 @@ foreach ($site in @(
     Assert-True ($site.Text.Contains($site.Needle)) "names the token, not the raw ref -- $($site.Label)"
 }
 
+# THE TWO STEP-4 REFUSALS LEAD WITH THE SAME CHECKOUT (#2493). Both fire after step 2b moved the tree to
+# 'main', and each prescribes work on the branch -- so each must carry the block, not only define it.
+Assert-True ($shipText.Contains("`$step4CheckoutBlock = @`"`n`$step4CheckoutLead`n`n  git checkout `$(`$branchPaste.Token)`$branchPasteNoteBlock")) 'ship-pr: the step-4 checkout block names the token and appends the note'
+foreach ($gate in @('step-list gate: ', 'DEPLOY lock: $shipProgressRelShown')) {
+    $at = $shipText.IndexOf($gate)
+    $end = if ($at -ge 0) { $shipText.IndexOf('"@', $at) } else { -1 }
+    $refusal = if ($end -gt $at) { $shipText.Substring($at, $end - $at) } else { '' }
+    Assert-True ($refusal.Contains('$step4CheckoutBlock')) "ship-pr: the '$($gate.Split(':')[0])' refusal leads with the checkout (#2493)"
+}
+
 # AND THE NOTE IS PRINTED AT EVERY ONE OF THEM. A placeholder with no explanation is worse than the
 # original defect: the reader is handed a command that cannot work and told nothing about why.
 Assert-True (([regex]::Matches($shipText, [regex]::Escape('$branchPaste.Note'))).Count -ge 3) 'ship-pr.ps1 prints the note at its Write-Host/Write-Warning sites'
