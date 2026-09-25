@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 13 minor entries** <!-- pending-tally -->
+**4 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2489-fixed-release-history-head · 20260925-112932Z
+
+The release list (`dkj-policy/releases/history.md` unless repointed) now has one fixed head:
+`# Release history` and nothing else above the first `<n>.x` section. The cut re-applies it where it
+inserts the new row, and the adopt output prints it instead of leaving the head to each repo. In this repo
+the list's 85-line intro is gone. The structure it explained is on `RELEASES-portable.md`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+At your next release cut, anything you wrote above the first `<n>.x` section of your release list
+disappears and is replaced by the title `# Release history`. If something written there mattered, move it
+to a page you own before you cut. The sections, their tables and every row are untouched.
+
+**Score:** 3
+
+#### Pull Request
+
+The release list carries one fixed head, with no intro prose
+
+Plugins: dkj-policy
+
+[PR #2494](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2494)
+
+---
 
 ### DEPLOY: fix/2486-empty-changelog-intro · 20260925-110208Z
 
