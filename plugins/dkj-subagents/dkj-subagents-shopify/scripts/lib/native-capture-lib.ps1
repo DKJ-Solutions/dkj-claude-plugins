@@ -892,6 +892,54 @@ function Format-GateExitCode {
     return "$ExitCode"
 }
 
+function Test-GateSuiteSilent {
+    <#
+        DID THIS SUITE WRITE ANYTHING AT ALL? -- issue #2500. $true when every capture file named is
+        missing or holds zero characters once a lingering writer has been given the settle budget.
+
+        WHY THE GATE ASKS. A suite that exits non-zero has, by the gate's own doctrine, measured the tree
+        and said no -- which is why an ordinary failure is never re-run. That holds for a suite that GOT
+        somewhere. It does not hold for one that wrote not one byte to either stream: a .tests.ps1 opens
+        by printing its own header, a throw before that is printed to stderr, and a parse error is too.
+        A non-zero exit with both files empty therefore means the process never reached the suite's
+        first line -- the same "the pool has measured nothing about this suite yet" state #1723 built the
+        lone re-run for, arriving with an exit code outside Test-GateSuiteCrashed's NTSTATUS window.
+
+        MEASURED ONCE, NOT REPRODUCED. #2481's 22-lane gate reported session-cache-lib.tests.ps1 FAILED
+        after 1.6s and kept no output for it, and the suite passed alone straight afterwards. The kept-
+        output rule drops an EMPTY file (a 0-byte file would name a directory with nothing to read), so
+        "no output kept" was the gate saying, silently, that the suite wrote nothing. That suite's first
+        statement after its variable block is a Write-Host.
+
+        A RE-RUN CANNOT MASK A DETERMINISTIC SILENT FAILURE, which is the licence. A suite that fails
+        without a word every time fails without a word alone as well, and is red. What a re-run can
+        clear is a process that never started properly under load -- and that is not a verdict to mask.
+        A suite CAN hand itself this re-run by exiting 1 without a word, the same way it can land inside
+        Test-GateSuiteCrashed's window; accepted on that function's own ground -- a suite wanting a green
+        gate has `exit 0` available and needs none of this. 8c's and 8e's promise (a suite that SAID no is never
+        retried) is untouched, because a single byte on either stream keeps a suite out of this path.
+
+        SETTLE-AWARE for the reason the retention block gives (#2295): WaitForExit returning says the
+        CHILD exited, not that Start-Process's own copy into the file has caught up.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Path,
+        [int]$SettleMilliseconds = $script:NativeCaptureSettleMilliseconds
+    )
+    $oem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    foreach ($f in @($Path)) {
+        if (-not $f -or -not (Test-Path -LiteralPath $f)) { continue }
+        $read = Read-NativeCaptureFile -Path $f -Encoding $oem -SettleMilliseconds $SettleMilliseconds
+        if ($read.Text.Length -gt 0) { return $false }
+        # AND ZERO BYTES ON DISK, not only zero characters decoded (Sebastian's review of #2500): the
+        # reader's StreamReader consumes a leading UTF-8 BOM as an encoding marker, so a file holding
+        # exactly those three bytes decodes to '' -- and "a single byte keeps a suite out of this path"
+        # has to be true of bytes. Read after the settle above, so a late flush is already on disk.
+        if ((Get-Item -LiteralPath $f).Length -gt 0) { return $false }
+    }
+    return $true
+}
+
 function Format-GateSeconds {
     <#
         The elapsed-seconds figure Invoke-TestSuiteGate prints, FORMATTED INVARIANTLY -- and that is not
@@ -3861,6 +3909,11 @@ function Invoke-TestSuiteGate {
     # crash that was cleared by its re-run has to reach the GREEN verdict too: that is the line a session
     # copies into a branch document, and 'all 85 suites passed' is not the whole of what happened.
     $crashedNames = New-Object System.Collections.ArrayList
+    # THE SUITES THAT EXITED NON-ZERO WITHOUT WRITING A BYTE -- issue #2500. Kept apart from $crashedNames
+    # because the two are different facts about the run (an NTSTATUS against an empty pair of files), and
+    # routed through the same lone re-run. On a red run this is also what explains an absent kept-output
+    # line, which until #2500 said nothing at all.
+    $silentNames = New-Object System.Collections.ArrayList
     # PER-SUITE DURATIONS, RECORDED RATHER THAN RECONSTRUCTED -- issue #1358. This function used to time
     # only the whole pool, and it buffers each suite's output until that suite exits, so the ONLY per-suite
     # signal in a log was the timestamp of a completed suite's first line: a FINISH time. Subtracting the
@@ -4304,6 +4357,14 @@ function Invoke-TestSuiteGate {
                     # this one is "the process was still running when the pool stopped waiting", which
                     # is a fact about the suite. Checking TimedOut first is what keeps them apart.
                     $codeUnknown = (-not $d.TimedOut) -and ($null -eq $code)
+                    # A NON-ZERO EXIT THAT WROTE NOTHING IS NOT A VERDICT -- issue #2500; see
+                    # Test-GateSuiteSilent. Decided HERE, before the timing row and the pace sample, because
+                    # both read it: a process that died 1.6s into a suite is the same lie about the file's
+                    # cost a crash is. The files are read only for a non-zero, non-crash exit, so a green
+                    # suite pays nothing for this.
+                    $silent = (-not $d.TimedOut) -and (-not $codeUnknown) -and ($code -ne 0) -and
+                              (-not (Test-GateSuiteCrashed -ExitCode $code)) -and
+                              (Test-GateSuiteSilent -Path @($d.OutFile, $d.ErrFile))
                     # RECORDED HERE, WHERE BOTH ENDS ARE KNOWN. Reaping is the only moment this loop holds
                     # a suite's start and its finish at once; after $running.Remove the start offset is gone.
                     $suiteTimings.Add([pscustomobject]@{
@@ -4326,6 +4387,10 @@ function Invoke-TestSuiteGate {
                         # give. The row keeps the honest 2s and says CRASHED beside it; the lone re-run
                         # prints its own seconds, which is where that file's real cost is legible.
                         Crashed     = $false
+                        # A SILENT EXIT (#2500) IS FLAGGED BESIDE IT, NOT AS IT: its 1.6s is the same lie
+                        # about the file's cost, but calling it CRASHED would send a reader looking for an
+                        # NTSTATUS that never happened (Victor's review).
+                        Silent      = $silent
                     }) | Out-Null
 
                     # THE PACE SAMPLE THIS SUITE CONTRIBUTES -- issue #2263, and it is taken here for the
@@ -4342,7 +4407,7 @@ function Invoke-TestSuiteGate {
                     #
                     # KEYED ON THE FILE NAME AND NOT $d.Name, because in a focus run the label tells five
                     # copies of one file apart (#1944) and none of those labels is a key in the hints map.
-                    if ($costHints -and -not $d.TimedOut -and -not $codeUnknown) {
+                    if ($costHints -and -not $d.TimedOut -and -not $codeUnknown -and -not $silent) {
                         $paceKey = [System.IO.Path]::GetFileName($d.Path)
                         if ($paceKey -and $costHints.ContainsKey($paceKey)) {
                             $paceExpectedSeconds += [double]$costHints[$paceKey]
@@ -4415,7 +4480,7 @@ function Invoke-TestSuiteGate {
                         if ($d.Decides -and -not $focusMode) {
                             $crashedNames.Add($d.Name) | Out-Null
                             $crashedSuites.Add([pscustomobject]@{
-                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
+                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming; Silent = $false
                             }) | Out-Null
                         } elseif ($d.Decides) {
                             $failedNames.Add($d.Name) | Out-Null
@@ -4437,13 +4502,29 @@ function Invoke-TestSuiteGate {
                         if ($d.Decides -and -not $focusMode) {
                             $crashedNames.Add($d.Name) | Out-Null
                             $crashedSuites.Add([pscustomobject]@{
-                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming
+                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = $crashedTiming; Silent = $false
                             }) | Out-Null
                         } elseif ($d.Decides) {
                             $failedNames.Add($d.Name) | Out-Null
                         }
                         $failedCaptureFiles.Add($d.OutFile) | Out-Null
                         $failedCaptureFiles.Add($d.ErrFile) | Out-Null
+                    } elseif ($silent) {
+                        # EXITED NON-ZERO HAVING WRITTEN NOTHING -- issue #2500. Routed into the crash
+                        # path's lone re-run, gated exactly as a crash is and for the same two reasons.
+                        # Until #2500 this was 'FAILED (exit N)' followed by no block and, on the verdict,
+                        # no kept-output line either: three silences in a row about one suite.
+                        $itemVerdict = "silent (exit $code)"
+                        Write-Host "== $($d.Name) == SILENT (exit $code) -- the process exited without writing a byte to stdout or stderr, so it never reached the suite's first line; no verdict (issue #2500)$loadNote" -ForegroundColor Magenta
+                        if ($d.Decides -and -not $focusMode) {
+                            $silentNames.Add($d.Name) | Out-Null
+                            $crashedSuites.Add([pscustomobject]@{
+                                Name = $d.Name; Path = $d.Path; ExitCode = $code; Timing = ($suiteTimings | Where-Object { $_.Name -eq $d.Name } | Select-Object -Last 1); Silent = $true
+                            }) | Out-Null
+                        } elseif ($d.Decides) {
+                            $silentNames.Add($d.Name) | Out-Null
+                            $failedNames.Add($d.Name) | Out-Null
+                        }
                     } else {
                         $itemVerdict = "failed (exit $code)"
                         Write-Host "== $($d.Name) == FAILED (exit $code)$loadNote" -ForegroundColor Red
@@ -4514,7 +4595,16 @@ function Invoke-TestSuiteGate {
             if ($crashedSuites.Count -gt 0) {
                 $word = if ($crashedSuites.Count -eq 1) { 'suite' } else { 'suites' }
                 Write-Host ''
-                Write-Host "test gate: $($crashedSuites.Count) $word CRASHED in the pool -- the process died without a verdict, so each is re-run ALONE (issue #1723)." -ForegroundColor Magenta
+                # THE BANNER IS BYTE-IDENTICAL WHEN NOTHING WAS SILENT, so a run with only crashes reads as
+                # it always did; a silent exit (#2500) is counted separately because it is a different fact.
+                $silentRetryCount = @($crashedSuites | Where-Object { $_.Silent }).Count
+                if ($silentRetryCount -eq 0) {
+                    Write-Host "test gate: $($crashedSuites.Count) $word CRASHED in the pool -- the process died without a verdict, so each is re-run ALONE (issue #1723)." -ForegroundColor Magenta
+                } else {
+                    Write-Host ("test gate: $($crashedSuites.Count) $word ended in the pool without a verdict -- " +
+                        "$($crashedSuites.Count - $silentRetryCount) crashed, $silentRetryCount exited without writing a byte -- " +
+                        "so each is re-run ALONE (issues #1723, #2500).") -ForegroundColor Magenta
+                }
                 foreach ($c in $crashedSuites) {
                     $retryOut = Join-Path $captureDir ($c.Name + '.retry.out.txt')
                     $retryErr = Join-Path $captureDir ($c.Name + '.retry.err.txt')
@@ -4537,6 +4627,8 @@ function Invoke-TestSuiteGate {
                     # this one): Format-GateExitCode takes a non-nullable [int] and would throw on it, so
                     # the label is built without calling it when there is nothing to format.
                     $poolExitLabel = if ($null -eq $c.ExitCode) { 'unmeasurable exit code' } else { "exit $(Format-GateExitCode -ExitCode $c.ExitCode)" }
+                    # WHAT THE POOL RUN WAS, in the words the lines below use -- a crash or a silent exit (#2500).
+                    $poolKind = if ($c.Silent) { 'silent exit' } else { 'crash' }
                     if ($rcUnknown) {
                         # A SECOND UNMEASURABLE READ IS TREATED AS A SECOND CRASH, on the same "ONCE"
                         # doctrine the comment above this block already states for a genuine crash: the
@@ -4549,13 +4641,19 @@ function Invoke-TestSuiteGate {
                     } elseif ($rc -eq 0) {
                         # GREEN, AND THE CRASH STILL GETS SAID. The pool's own timing row is corrected
                         # so the per-suite table does not carry a FAILED flag for a suite that passed.
-                        Write-Host "== $($c.Name) == re-ran ALONE and PASSED in ${retrySecs}s -- the pool's $poolExitLabel was a crash, not a verdict" -ForegroundColor Yellow
+                        Write-Host "== $($c.Name) == re-ran ALONE and PASSED in ${retrySecs}s -- the pool's $poolExitLabel was a $poolKind, not a verdict" -ForegroundColor Yellow
                         if ($null -ne $c.Timing) { $c.Timing.Failed = $false }
                     } elseif ($crashedAgain) {
                         Write-Host "== $($c.Name) == CRASHED AGAIN alone after ${retrySecs}s (exit $(Format-GateExitCode -ExitCode $rc)) -- this is the suite or the engine, not the pool" -ForegroundColor Red
                         $failedNames.Add($c.Name) | Out-Null
+                    } elseif (Test-GateSuiteSilent -Path @($retryOut, $retryErr)) {
+                        # SILENT ALONE AS WELL -- issue #2500. Deterministic, so it is the suite rather than
+                        # the pool, and red; said in those words so nobody goes looking for an assert.
+                        Write-Host "== $($c.Name) == re-ran alone and was SILENT AGAIN in ${retrySecs}s (exit $rc) -- it fails before its first line even with no contention, so this is the suite, not the pool" -ForegroundColor Red
+                        if ($silentNames -notcontains $c.Name) { $silentNames.Add($c.Name) | Out-Null }
+                        $failedNames.Add($c.Name) | Out-Null
                     } else {
-                        Write-Host "== $($c.Name) == re-ran alone and FAILED in ${retrySecs}s (exit $rc) -- the crash hid a real verdict" -ForegroundColor Red
+                        Write-Host "== $($c.Name) == re-ran alone and FAILED in ${retrySecs}s (exit $rc) -- the $poolKind hid a real verdict" -ForegroundColor Red
                         $failedNames.Add($c.Name) | Out-Null
                     }
                     # The re-run's own output, whichever way it went: on a pass it is the evidence that
@@ -4709,6 +4807,7 @@ function Invoke-TestSuiteGate {
             # and unlike a crash there is no lone re-run below carrying the real cost (issue #1941).
             $flag   = if ($t.TimedOut) { " TIMED OUT -- this is the bound, not the file's cost; nothing re-ran it" }
                       elseif ($t.Crashed) { ' CRASHED -- died this far in; real cost is in the lone re-run above' }
+                      elseif ($t.Silent) { ' SILENT -- exited without writing a byte; real cost is in the lone re-run above' }
                       elseif ($t.Failed) { ' FAILED' } else { '' }
             Write-Host ("  {0,8}s  {1,-$nameWidth}  started +{2}s{3}{4}" -f `
                 (Format-GateSeconds $t.Duration -Decimals 1), $t.Name,
@@ -4819,6 +4918,11 @@ function Invoke-TestSuiteGate {
                 Write-Host ("           crash output kept at $retainedCaptureDir") -ForegroundColor Magenta
             }
         }
+        # AND A SILENT EXIT CLEARED BY ITS RE-RUN IS NAMED THE SAME WAY -- issue #2500. There is no output
+        # to keep for it, which is exactly why the line has to exist: nothing else on disk says it happened.
+        if ($silentNames.Count -gt 0) {
+            Write-Host ("           exited in the pool without writing a byte and passed alone: " + (@($silentNames | Sort-Object) -join ', ')) -ForegroundColor Magenta
+        }
         return $true
     }
     $namesInOrder = @($failedNames | Sort-Object) -join ', '
@@ -4866,6 +4970,12 @@ function Invoke-TestSuiteGate {
     # nothing was kept -- a commands-only gate, or a suite that failed without writing a byte.
     if ($retainedCaptureDir) {
         Write-Host ("           output kept at $retainedCaptureDir") -ForegroundColor Red
+    }
+    # THE ABSENCE OF KEPT OUTPUT IS SAID, NOT LEFT TO BE INFERRED -- issue #2500. A 0-byte capture is
+    # dropped by design, so a suite that wrote nothing is missing from the directory above (or there is
+    # no directory at all), and until #2500 nothing told a reader why. #2481's report had to guess.
+    if ($silentNames.Count -gt 0) {
+        Write-Host ("           wrote nothing to stdout or stderr, so no output exists to keep: " + (@($silentNames | Sort-Object) -join ', ')) -ForegroundColor Red
     }
     return $false
 }
