@@ -44,7 +44,31 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 5 patch entries** <!-- pending-tally -->
+**0 / 6 patch entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2464-drop-shared-block-narrative · 20260925-074054Z
+
+The shared "findings become issues" block in every agent def and persona loses two sentences
+that only told the story behind a rule. The rules stay word for word. That saves ~0.4 KB per
+copy, across 30 files, and Chris's always-on persona is one of them.
+
+**Score:** 1 -- trims the per-dispatch and always-on cost. No behaviour changes.
+
+#### What makes this deploy extra special
+
+N/A -- a subscriber sees the same rules; only the anecdotes are gone.
+
+**Score:** N/A
+
+#### Pull Request
+
+Drop the two pure-narrative sentences from the findings-become-issues shared block
+
+Plugins: dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2472](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2472)
+
+---
 
 ### DEPLOY: fix/2463-resolves-refuses-dossier · 20260924-213506Z
 
