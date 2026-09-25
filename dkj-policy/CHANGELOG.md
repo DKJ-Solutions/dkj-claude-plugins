@@ -44,7 +44,32 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 7 patch entries** <!-- pending-tally -->
+**0 / 8 patch entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2471-cut-order-in-repo-rule · 20260925-081859Z
+
+`cut-release`'s cut-order block now tells a repo that pushes live before it cuts to write that order in
+an always-on repo rule (`.claude/rules/<name>.md`) or the release manager's lens, not in `CLAUDE.md`,
+which since #2374 carries only `@`-imports. It now agrees with the constitution and with
+`CONTRIBUTING-portable.md`.
+
+**Score:** 2 -- removes a contradiction a push-then-cut consumer hit while bringing its `CLAUDE.md` down to imports only (#2471).
+
+#### What makes this deploy extra special
+
+N/A -- a wording fix in a skill page; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release points the cut order at a repo rule, not CLAUDE.md
+
+Plugins: dkj-policy
+
+[PR #2475](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2475)
+
+---
 
 ### DEPLOY: fix/2470-stranded-sweep-fake-gh-timeout · 20260925-080053Z
 
