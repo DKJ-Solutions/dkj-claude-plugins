@@ -2955,6 +2955,22 @@ $shipProgressRel  = Resolve-BranchFilePath -Kind Cycle -Reader $shipCycleRead -B
 $shipCycleRefShown    = Get-DisplayRef -Ref $shipCycleRef
 $shipProgressRelShown = Get-DisplayRef -Ref $shipProgressRel
 $shipCycleText    = & $shipCycleRead $shipProgressRel
+# BOTH STEP-4 REFUSALS LEAD WITH A CHECKOUT, FOR #1588'S REASON ONE GATE LATER (issue #2493). Each one
+# prescribes a commit on the branch -- and the DEPLOY lock also `open-pr.ps1 -RefreshBody` -- but step 2b
+# has already handed the primary checkout back to 'main', so the remedy as written met open-pr's
+# "You are on main" (measured on a consumer's PR, September 25, 2026). Printed unconditionally, as the
+# stale-CI remedy's is: where step 2b declined to move, the line is a harmless no-op -- only the sentence
+# above it follows $treeOnTrunk, so it never claims a move that did not happen.
+$step4CheckoutLead = if ($treeOnTrunk) {
+    "This run has already moved the tree back to 'main' (step 2b), so the fix starts on the branch:"
+} else {
+    'The fix is made on the branch, so it starts there:'
+}
+$step4CheckoutBlock = @"
+$step4CheckoutLead
+
+  git checkout $($branchPaste.Token)$branchPasteNoteBlock
+"@
 if ($null -ne $shipCycleText) {
     $shipSteps = @(Get-BranchProgressFindings -Text $shipCycleText)
     if ($shipSteps.Count -gt 0) {
@@ -2967,6 +2983,8 @@ if ($null -ne $shipCycleText) {
 step-list gate: $shipProgressRelShown at $shipCycleRefShown still has unresolved steps - PR #$pr is NOT merged.
 
 $shipDetail
+
+$step4CheckoutBlock
 
 Each finding above says what resolves it. Commit, and re-run. CI has already passed, so a re-run picks
 up from here. There is no -Force for this gate.
@@ -3061,7 +3079,11 @@ DEPLOY lock: $shipProgressRelShown at $shipCycleRefShown has changed since PR #$
 $lockDrift
 
 The DEPLOY section is fixed when the PR opens: it is what the review approved, and step 5 folds it
-verbatim into CHANGELOG.md and from there into the release notes. Choose one:
+verbatim into CHANGELOG.md and from there into the release notes.
+
+$step4CheckoutBlock
+
+Then choose one:
 
   - put the section back to what PR #$pr published, commit, and re-run; or
   - deliberately republish it -- open-pr.ps1 -RefreshBody rewrites the PR body from the document, so

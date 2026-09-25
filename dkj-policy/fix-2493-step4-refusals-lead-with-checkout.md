@@ -57,14 +57,14 @@ repaired the stale-CI remedy: lead with `git checkout <paste-safe token>`, print
 
 - [x] `ref-print-lib.tests.ps1`: the block names the token and appends the note, and each of the two
       refusals carries it -- 471 passed; `ship-pr.ps1` parses clean
-- [ ] reviewed: Victor, Sebastian, Edith
+- [x] reviewed: Victor and Sebastian (no findings), Edith (three wording nits, applied)
 
 ### DEPLOY: fix/2493-step4-refusals-lead-with-checkout
 
-When `ship-pr` refuses a merge at the DEPLOY lock or the step-list gate, the refusal now starts with the
+When `ship-pr` refuses a merge at the DEPLOY lock or the step-list gate, its remedy now leads with the
 `git checkout <branch>` the fix needs. Both refusals fire after `ship-pr` has already moved the checkout
-back to `main`, so the remedy they printed (commit, or `open-pr.ps1 -RefreshBody`) failed with "You are
-on main" until the branch was checked out by hand.
+back to `main`, so their remedies -- a commit, and for the DEPLOY lock also `open-pr.ps1 -RefreshBody` --
+failed with "You are on main" until the branch was checked out by hand.
 
 **Score:** 2 -- a refusal's own remedy failed on first use; noticed only by somebody who hits the lock.
 
