@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Inbound #2471: `cut-release/SKILL.md`'s "No seam, deliberately" block tells a push-then-cut consumer to
+state its order in its own `CLAUDE.md`, which the constitution has restricted to `@`-imports since
+#2374. Checked against the tree: the symptom holds (lines 677 and 684). `CONTRIBUTING-portable.md`'s
+fourth-move paragraph was already moved to "always-on repo rule", so `cut-release` is the only page left
+out of step. Other `own CLAUDE.md` hits in `plugins/` either address repos without `dkj-policy`
+(shopify `start-task`) or mean the imported constitution, so they stay as they are.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Point both `cut-release` sentences at an unscoped `.claude/rules/<name>.md` or the release
+      manager's lens, matching `CONTRIBUTING-portable.md`'s wording.
 
 ### TEST
 
+- [x] Lint + suites via `open-pr`'s gate.
+
 ### DEPLOY: docs/2471-cut-order-in-repo-rule
 
-**Score:**
+`cut-release`'s cut-order block now tells a repo that pushes live before it cuts to write that order in
+an always-on repo rule (`.claude/rules/<name>.md`) or the release manager's lens, not in `CLAUDE.md`,
+which since #2374 carries only `@`-imports. It now agrees with the constitution and with
+`CONTRIBUTING-portable.md`.
+
+**Score:** 2 -- removes a contradiction a push-then-cut consumer hit while bringing its `CLAUDE.md` down to imports only (#2471).
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a wording fix in a skill page; nothing a subscriber runs changes.
+
+**Score:** N/A
 
 #### Pull Request
+
+cut-release points the cut order at a repo rule, not CLAUDE.md
 

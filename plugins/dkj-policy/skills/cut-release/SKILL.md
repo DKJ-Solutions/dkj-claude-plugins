@@ -674,14 +674,16 @@ releases behind, on a version cut four weeks earlier.
 contract record, a blueprint entry and asserts to carry a value **no script reads** — the order is a
 sentence a person walks past in a checklist, where `Get-LiveStage` gates whether the block prints at
 all. The condition above is answerable from the description already in `Get-LiveStage`, and a repo
-running the non-default order states it in its own `CLAUDE.md`, where the standing rule that a
-live push authorises its own closing cut has to live anyway. Revisit if a second live-stage consumer
+running the non-default order states it in its own always-on repo rule — an unscoped page such as
+`.claude/rules/<name>.md`, or the release manager's lens, and never `CLAUDE.md` itself, which carries
+only the `@`-imports since [#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374) —
+where the standing rule that a live push authorises its own closing cut has to live anyway. Revisit if a second live-stage consumer
 ever wants the checklist to render in its order rather than say which orders exist.
 
 **This instruction is the measured instance of `CONTRIBUTING-portable.md`'s fourth move, not an
 exception to its corollary against restating shared law.** That page's ranking section polices copies
 of a law the plugin states somewhere; this block deliberately states none, and asks the consumer's own
-`CLAUDE.md` to carry the only answer that will ever exist. See that page's "A fourth move exists"
+repo rule to carry the only answer that will ever exist. See that page's "A fourth move exists"
 paragraph (inbound #1388) if the two ever read as disagreeing again.
 
 **This is not new to the tree, which is what settled it.** `dkj-subagents-shopify`'s webshop-manager manual
