@@ -56,8 +56,9 @@
 ### TEST
 
 - [x] `adopt-statusline.tests.ps1`: exact-text asserts for LF/2-space, CRLF/tab and blank-line
-  files, a kept BOM, an empty object, and an ignored vs. an excepted shim in a real git fixture:
-  65/65 green.
+  files, a first member on the brace line, a kept BOM, an empty object, an ignored vs. an excepted
+  shim in a real git fixture, and the unknown verdict outside a work tree:
+  68/68 green (two gaps from code review closed on the branch).
 
 ### DEPLOY: fix/2505-statusline-additive-write
 

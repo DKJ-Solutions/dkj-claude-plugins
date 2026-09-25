@@ -308,7 +308,10 @@ function Add-StatusLineMember {
     if ($close -lt 0) { return $null }
     $eol  = $(if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" })
     $unit = '  '
+    # A bare '{' line followed by the first member is the ordinary shape. Where the first member shares
+    # the '{' line, the first indented member line elsewhere is the next-best reading of the file's unit.
     $first = [regex]::Match($Text, '^\s*\{[ \t]*\r?\n([ \t]+)"')
+    if (-not $first.Success) { $first = [regex]::Match($Text, '(?m)^([ \t]+)"') }
     if ($first.Success) { $unit = $first.Groups[1].Value }
     $head = $Text.Substring(0, $close).TrimEnd()
     $tail = $Text.Substring($close)

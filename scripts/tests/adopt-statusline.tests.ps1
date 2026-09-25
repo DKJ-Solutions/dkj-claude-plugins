@@ -234,6 +234,15 @@ Assert-True ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
 Assert-True ($null -ne ((Get-Content -LiteralPath $bomPath -Raw -Encoding UTF8 | ConvertFrom-Json).statusLine)) `
     'bytes: and the file behind it still parses with the statusLine in it'
 
+# The first member on the '{' line: the unit is read off the next indented member, not defaulted.
+$root = New-FixtureRepo 'inline-first'
+$original = "{ `"a`": 1,`n    `"b`": 2`n}`n"
+Write-Utf8 (Join-Path $root '.claude\settings.json') $original
+$null = Invoke-Adopt -Root $root -Apply
+$written = [System.IO.File]::ReadAllText((Join-Path $root '.claude\settings.json'))
+Assert-True ($written -ceq (Get-ExpectedInsert -Original $original -Unit '    ' -Eol "`n")) `
+    'bytes: a first member on the brace line still gets the file''s own 4-space unit'
+
 # An empty object takes the member with no comma in front of it.
 $root = New-FixtureRepo 'empty-object'
 Write-Utf8 (Join-Path $root '.claude\settings.json') "{}`n"
@@ -269,6 +278,12 @@ $root = New-GitFixture -Label 'visible' -Gitignore ".claude/*`n!.claude/settings
 $res = Invoke-Adopt -Root $root
 Assert-True ($res.Output -notmatch 'IGNORES') 'visible shim: an exception that covers it prints no warning'
 Assert-True ($res.Output -notmatch 'could not ask git') 'visible shim: and no unknown either -- git answered'
+
+# Outside a work tree git answers 128, which is unknown -- said as such, never read as "not ignored".
+$root = New-FixtureRepo 'no-git'
+$res = Invoke-Adopt -Root $root
+Assert-True ($res.Output -match 'could not ask git') 'no git repo: the check says it could not ask, rather than passing silently'
+Assert-True ($res.Output -notmatch 'IGNORES') 'no git repo: and claims no ignore rule either'
 
 Write-Host ''
 Write-Host '== the shim contract ==' -ForegroundColor Cyan
