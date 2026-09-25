@@ -39,19 +39,46 @@
 
 ### PLAN
 
+Inbound #2497: Ian's and Onyx's agent-defs and Ian's manual still prescribe a `RAW/` + `PRETTY/` +
+README-index brain layout that the consumer has retired. Verified against the consumer checkout by
+structure only (directory and file names, not content): no `RAW/` or `PRETTY/`, zero `README.md`
+under `Brains/`, 44 `NEURON.md`. The repair is the issue's second option: the texts defer to the
+brain's own navigation files and the lens instead of naming a layout. Hard-coding the new layout
+would only set up the next drift, and portable pages carry no repo-specific layout.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Ian's agent-def: the description and working method now defer to the brain's navigation
+  files, forbid adding a layout the brain does not have, and hand NEURON-link indexing to Onyx.
+- [x] Onyx's agent-def: the `RAW/` path and the README/RAW→PRETTY boundary are gone.
+- [x] Ian's manual: README-as-navigation is now navigation files named by the consumer's convention,
+  and "mirror reference" is now "cross-reference".
+- [x] Sylvester's lens: the historical example naming `PRETTY/[Emotie]/README.md` as a life-hub
+  folder now says it *was* one, since this branch makes the present tense false.
 
 ### TEST
 
+- [x] `RAW|PRETTY|README` grep over `plugins/dkj-subagents/dkj-subagents-lifehub` now has no layout
+  hits.
+- [x] Copy edit (Edith #17).
+- [x] The lint and test gates through `open-pr`.
+
 ### DEPLOY: fix/2497-lifehub-brain-layout
 
-**Score:**
+The lifehub information architect and ontologist no longer tell a dispatched agent to write
+README indexes and RAW/PRETTY mirror copies. They read and follow the brain's own navigation files
+(a `NEURON.md` per folder, as the repo lens names them) and never add a layout the brain does not
+already have.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+Closes #2497
 
