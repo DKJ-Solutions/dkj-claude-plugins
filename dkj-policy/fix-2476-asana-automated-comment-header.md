@@ -79,3 +79,4 @@ N/A -- the colleagues who read the Asana board are not subscribers of this plugi
 
 #### Pull Request
 
+Agent-written Asana comments open with an automated-message header
