@@ -3833,6 +3833,13 @@ function Get-ChangelogHeadLines {
     return @('# Changelog', '', (Get-ChangelogUnreleasedHeading))
 }
 
+function Get-ReleaseHistoryHeadLines {
+    <# The fixed head of the release list (issue #2489): the title and a blank line. Nothing else. The cut
+       re-applies it through Set-ReleaseHistoryCanonicalHead in release-lib.ps1; it lives here, beside the
+       changelog's head, because adopt-workflow-folder.ps1 prints it and loads this lib rather than that one. #>
+    return @('# Release history', '')
+}
+
 function Set-ChangelogCanonicalHead {
     <#
         Pure: CHANGELOG.md with everything above its pending heading replaced by the fixed head. Content

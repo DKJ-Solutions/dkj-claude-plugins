@@ -1016,6 +1016,51 @@ function Format-RankedEntries {
 $script:OverviewTableHeaderRe = [regex]"(?m)^\| Version \| Date \| Type \| Title \|\r?\n\|[-| ]+\|\r?\n"
 $script:OverviewMajorHeadingRe = '(?m)^(#{3,4})\s+(\d+)\.x\s*$'
 
+# --- THE RELEASE LIST'S HEAD IS FIXED, AND IT CARRIES NO PROSE (issue #2489) ----------------------
+#
+# The same drift #2486 removed from CHANGELOG.md, one file over. No script wrote the text above the first
+# '<n>.x' section: adopt-workflow-folder.ps1 told each consumer to create the file by hand and the cut only
+# inserted rows, so every repo's head was its own. Measured in the source repo at 2790c757: about 85 lines
+# of prose, one sentence of it already false (it described a release block the cut stopped writing on
+# August 5, 2026) and one link with an empty target. The repair is that there is no prose there at all,
+# and the cut -- the one writer every repo's list has -- re-applies the head where it inserts the row.
+#
+# WHAT IT KEEPS. Everything from the first '<n>.x' heading down: the sections, their tables, and anything a
+# repo put BETWEEN sections, which is below the head and so not this function's business. The heading level
+# is kept too -- '###' and '####' are both valid (Get-OverviewTargetMajor explains why), and rewriting one to
+# the other would be a layout decision this function has no business making.
+#
+# AND WHAT IT LEAVES ALONE. A list with no '<n>.x' heading is returned unchanged. The guardrail is off for
+# that file anyway, and the part below the head cannot be located, so the head cannot be either -- replacing
+# the whole document, as the changelog's version does, would delete rows here, where the changelog's has
+# nothing below its head to lose.
+#
+# The head's own lines are Get-ReleaseHistoryHeadLines in entry-scaffold-lib.ps1, beside the changelog's,
+# because adopt-workflow-folder.ps1 prints them and loads that lib rather than this one.
+function Set-ReleaseHistoryCanonicalHead {
+    <#
+        Pure: the release list with everything above its first '<n>.x' section heading replaced by the fixed
+        head. Content in, content out; nothing is written and nothing is thrown.
+
+        The boundary is the first heading OverviewMajorHeadingRe matches -- the pattern the two readers use,
+        so the head ends exactly where their view of the list begins. FENCE-AWARE, because the prose it
+        replaces may quote a '<n>.x' heading inside a fence to document the format, and the boundary must
+        not land there. Unchanged where no such heading exists (see the header above).
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+
+    $nl = Get-DocumentNewline -Content $Content
+    $lines = @($Content -split "`r?`n")
+    $fenced = Get-FencedLineFlags -Lines $lines
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($fenced[$i]) { continue }
+        if ($lines[$i] -match $script:OverviewMajorHeadingRe) {
+            return ((@(Get-ReleaseHistoryHeadLines) + @($lines[$i..($lines.Count - 1)])) -join $nl)
+        }
+    }
+    return $Content
+}
+
 function Get-OverviewSectionHeading {
     <# The literal major-section heading a new row would land under ('#### 3.x'), or $null when the
        overview carries no table. Pure string in, string out.

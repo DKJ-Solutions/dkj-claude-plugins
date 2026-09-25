@@ -350,6 +350,10 @@ try {
     # The history table gains its own row -- the cut inserts it, so nobody adds one by hand.
     $history = Get-Content -LiteralPath (Join-Path $root 'releases\README.md') -Raw
     Assert-Match '1\.4\.1' $history 'happy path: the release history table gained a row for this version'
+    # And the fixture's own intro is gone, replaced by the fixed head (issue #2489): the cut is the writer
+    # every repo's list has, so it is the one that re-applies it.
+    Assert-Match '\A# Release history\r?\n\r?\n#### 1\.x' $history 'happy path: the intro above the first section is replaced by the fixed head'
+    Assert-True ($history -notmatch 'A fixture release page') 'happy path: and none of the intro prose survives'
 
     # Commit + tag on the trunk, which is the irreversible half of the exception this script runs under.
     Assert-Match 'v1\.4\.1' (Get-GitOut -Root $root -GitArgs @('tag','--list')) 'happy path: the tag exists'

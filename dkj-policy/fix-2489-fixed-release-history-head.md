@@ -39,19 +39,57 @@
 
 ### PLAN
 
+Issue #2489, the same shape as #2486 one file over: the release list (`Get-ReleaseHistoryPath`) gets a
+fixed head, `# Release history` and nothing else above the first `<n>.x` section. The cut re-applies it
+where it inserts the row, because the cut is the one writer every repo's list has. The adopt output prints
+the same head. It still does not scaffold the file, for #786's reason: the major in the first heading is a
+version decision.
+
+The two readers the issue flagged were checked first. `Get-OverviewTargetMajor` and
+`Get-OverviewSectionHeading` only read `<n>.x` headings between the top of the file and the first table, so
+the prose was never theirs. Where no `<n>.x` heading exists the function changes nothing. The body cannot
+be located then, and replacing the whole document the way the changelog's head does would delete rows.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Set-ReleaseHistoryCanonicalHead` in `release-lib.ps1`, fence-aware, bounded by the same heading
+  pattern the two readers use; `Get-ReleaseHistoryHeadLines` in `entry-scaffold-lib.ps1` beside the
+  changelog's head, because the adopt script loads that lib and not `release-lib`.
+- [x] `cut-release.ps1` applies it to the snapshot the guardrails read and in the row inserter.
+- [x] `adopt-workflow-folder.ps1` prints the head in its template and says nothing goes above the section.
+- [x] This repo's `dkj-policy/releases/history.md`: the 85-line intro replaced by the fixed head (written
+  by the function itself). The load-bearing structure it explained moved to `RELEASES-portable.md`.
+- [x] `adopt-dkj-policy` skill: the template shows the head.
+- [x] Plugin mirrors synced (all four pairs were identical at HEAD before the copy).
 
 ### TEST
 
+- [x] `release-lib.tests.ps1`: 11 new asserts (replacement, the readers unchanged, lower rows and
+  between-section prose kept, idempotent, fenced example, no section left alone, empty, CRLF). 562 pass.
+- [x] `cut-release-drive.tests.ps1`: the happy path asserts that a real cut replaced the fixture's intro.
+  60 pass.
+- [x] `adopt-workflow-folder.tests.ps1` 115 pass, `entry-scaffold.tests.ps1` 881 pass.
+
 ### DEPLOY: fix/2489-fixed-release-history-head
 
-**Score:**
+The release list (`dkj-policy/releases/history.md` unless repointed) now has one fixed head:
+`# Release history` and nothing else above the first `<n>.x` section. The cut re-applies it where it
+inserts the new row, and the adopt output prints it instead of leaving the head to each repo. In this repo
+the list's 85-line intro is gone. The structure it explained is on `RELEASES-portable.md`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+At your next release cut, anything you wrote above the first `<n>.x` section of your release list
+disappears and is replaced by the title `# Release history`. If something written there mattered, move it
+to a page you own before you cut. The sections, their tables and every row are untouched.
+
+**Score:** 3
 
 #### Pull Request
+
+The release list carries one fixed head, with no intro prose
+
+Plugins: dkj-policy
 

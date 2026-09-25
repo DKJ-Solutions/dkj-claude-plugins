@@ -603,12 +603,19 @@ Write-Host 'chance of writing into a file this workflow does not own. Repoint th
 Write-Host 'root file instead if you would rather keep one list.' -ForegroundColor Yellow
 Write-Host ''
 Write-Host "AND THAT FILE IS YOURS TO CREATE, before your first cut: $historyRelPath" -ForegroundColor Cyan
-Write-Host '  It needs a section heading naming your first major and a table header under it:'
+Write-Host '  It is exactly this -- the fixed title, a section heading naming your first major, and a table'
+Write-Host '  header under it:'
 Write-Host ''
+# The title is the one the cut re-applies (Get-ReleaseHistoryHeadLines, issue #2489), read rather than
+# restated so the file this prints and the file the cut writes cannot disagree.
+foreach ($headLine in @(Get-ReleaseHistoryHeadLines)) { Write-Host "    $headLine".TrimEnd() }
 Write-Host '    #### 1.x'
 Write-Host ''
 Write-Host '    | Version | Date | Type | Title |'
 Write-Host '    |---|---|---|---|'
+Write-Host ''
+Write-Host 'WRITE NOTHING ABOVE THAT SECTION HEADING: every cut replaces whatever sits there with the title'
+Write-Host 'above (issue #2489), so every repo''s list reads the same. How the list works is on RELEASES-portable.md.'
 Write-Host ''
 Write-Host 'THIS COMMAND DOES NOT SCAFFOLD IT, and that is a decision rather than an omission (inbound'
 Write-Host '#786). A file that exists with a table but no <major>.x heading reads as DONE to cut-release:'

@@ -513,6 +513,21 @@ In one motion, on a clean `main`:
 4. commits that directly on `main` (`release: vX.Y.Z`) and sets an annotated tag `vX.Y.Z`;
 5. pushes `main` + the tag (unless `-NoPush` for inspection first).
 
+**The release list has a fixed head too, and the cut re-applies it where it inserts the row** (#2489). The
+page is `# Release history` and then one `<n>.x` section per major, newest first, each over a table whose
+header is `Version | Date | Type | Title`. Nothing sits above the first section: whatever a repo wrote there
+is replaced by the title at its next cut, for the same reason the changelog's intro was. The source repo's
+had grown to about 85 lines, and one sentence of it described a release block the cut had stopped writing
+weeks earlier. Three things about that shape are load-bearing:
+
+- **The row lands in the first table of the page**, so the current major's section is the top one.
+- **The guardrail reads the last `<n>.x` heading above that table** and refuses a row filed under the
+  wrong major. `###` and `####` are both accepted, because how deeply the list is nested is a layout
+  choice, but the `<n>.x` text is not decoration.
+- **So a new major's section is opened by hand, before its first release is cut**, directly above the
+  previous one and at the same level. The cut refuses rather than filing a `v4.0.0` row under `3.x`, and
+  its refusal prints the section to add.
+
 **Closing step, after the script and after the hand-written note has merged, where the bump wrote one:
 publish a GitHub Release.** Not run by `cut-release.ps1` and not automated; the release manager walks
 through the
