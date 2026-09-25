@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**1 / 11 minor entries** <!-- pending-tally -->
+**2 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2482-asana-mirror-reach-gate · 20260925-095235Z
+
+`dkj-policy-bwj` now ships a hook, `hooks/guard-asana-mirror.ps1`, that enforces `report-issue`'s rule
+that only an issue carrying the reach label gets an Asana task. It fires on every Asana create-task
+call, reads the labels of each GitHub issue the task cites on an admitted repo, and refuses the call
+where the reach label (`Get-ReachLabel`, default `minor`) is missing. Where `gh` cannot answer, it lets
+the call through with a warning naming the issue it did not check. Until now the rule was a sentence,
+and `smartwatchbanden#770`, a developer-only issue, got a card on the version that carried it.
+
+**Score:** 3 -- a session in a store repo is stopped the moment it tries to mirror a tier-0 issue, where before nothing stopped it.
+
+#### What makes this deploy extra special
+
+Colleagues on the Asana board stop receiving cards for developer-only work, and a fix for such an issue
+closes it at the merge again rather than waiting for somebody to paste a block into a card that should
+never have existed.
+
+**Score:** 2
+
+#### Pull Request
+
+
+A hook refuses an Asana task for an issue without the reach label
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2484](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2484)
+
+---
 
 ### DEPLOY: fix/2477-golive-live-urls-pinned · 20260925-090324Z
 
