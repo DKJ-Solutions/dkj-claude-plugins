@@ -349,11 +349,19 @@ repair one level up.
 does not scaffold it:
 
 ```markdown
+# Release history
+
 #### 1.x
 
 | Version | Date | Type | Title |
 |---|---|---|---|
 ```
+
+**That is the whole file: nothing goes above the section heading.** The title is the list's fixed head, and
+every cut re-applies it, replacing whatever a repo wrote there
+([#2489](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2489)). When every repo wrote its own
+intro, those intros drifted apart, the same drift #2486 removed from `CHANGELOG.md`. How the list works is on
+`RELEASES-portable.md`, which travels with the plugin.
 
 Two reasons, and the first is the one that matters. A file that exists with a table but **no
 `<major>.x` heading reads as done** to `cut-release`: the row lands in it, while the guardrail that

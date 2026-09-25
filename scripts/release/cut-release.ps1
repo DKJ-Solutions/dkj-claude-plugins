@@ -627,8 +627,11 @@ if ($new -eq $current) { Write-Error "New version ($new) equals the current one 
 # further down -- and a gate that runs after the first write is not a gate. One read, one snapshot, so
 # the two cannot end up judging different versions of the same document.
 $relReadmePath = Join-Path $repoRoot ($historyRelPath -replace '/', '\')
+# AND THE SNAPSHOT IS THE LIST WITH ITS FIXED HEAD ALREADY APPLIED (issue #2489), the same transform the
+# row inserter below applies before it writes. Prose above the first '<n>.x' section is replaced at this
+# cut, so a table header a repo quoted in that prose must not be what the guardrails judge.
 $historyContent = if (Test-Path -LiteralPath $relReadmePath) {
-    Get-Content -LiteralPath $relReadmePath -Raw -Encoding UTF8
+    Set-ReleaseHistoryCanonicalHead -Content (Get-Content -LiteralPath $relReadmePath -Raw -Encoding UTF8)
 } else { $null }
 
 # --- Guardrail: the baseline agrees with the RECORDED release numbering (inbound #802) -----------
@@ -1212,7 +1215,12 @@ $rowTargetRel = if ($cutNote) { "$noteRootRelPath/$notesDirName/$new.md" } else 
 $versionTarget = Get-RelativeLinkPath -FromDir $historyDirRel -To $rowTargetRel
 $newRow = "| [$new]($versionTarget) | $today | $typeLabel | $shortTitle |"
 if (Test-Path -LiteralPath $relReadmePath) {
-    $rm = Get-Content -LiteralPath $relReadmePath -Raw -Encoding UTF8
+    # THE HEAD IS RE-APPLIED BEFORE THE HEADER IS FOUND (issue #2489). Everything above the first '<n>.x'
+    # section becomes the fixed title, so every repo's list reads the same above its releases -- and the
+    # header match below cannot land in prose, because there is none left above the first section.
+    # It is the snapshot read above, which already carries that head: one read of the file, so the list the
+    # guardrails judged is the list the row is written into.
+    $rm = $historyContent
     $rmNl = Get-DocumentNewline -Content $rm
     $headerRe = [regex]"(?m)^\| Version \| Date \| Type \| Title \|\r?\n\|[-| ]+\|\r?\n"
     $hm = $headerRe.Match($rm)

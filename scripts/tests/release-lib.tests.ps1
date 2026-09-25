@@ -1759,6 +1759,30 @@ Assert-Equal '3' (Get-OverviewTargetMajor -ReadmeContent $tiers) "a 'Tier 1 - de
 # there told the reader to add a heading the guardrail would not recognise.
 Assert-Equal '### 2.x'  (Get-OverviewSectionHeading -ReadmeContent $lvl3)  'the heading is reported verbatim at three hashes'
 Assert-Equal '#### 7.x' (Get-OverviewSectionHeading -ReadmeContent $lvl4)  'and verbatim at four'
+
+# Set-ReleaseHistoryCanonicalHead (issue #2489): everything above the first '<n>.x' heading becomes the
+# fixed title, and the two readers above answer exactly what they answered on the prose-carrying page.
+$fixedHistoryHead = (@(Get-ReleaseHistoryHeadLines) -join "`n")
+$twoSectionsSet = Set-ReleaseHistoryCanonicalHead -Content $twoSections
+Assert-Equal $true ($twoSectionsSet.StartsWith("$fixedHistoryHead`n### 2.x")) 'history head: the intro prose and its headings are replaced by the fixed title, directly above the first section'
+Assert-Equal '2' (Get-OverviewTargetMajor -ReadmeContent $twoSectionsSet) 'history head: the guardrail still reads the top section with no prose above it'
+Assert-Equal '### 2.x' (Get-OverviewSectionHeading -ReadmeContent $twoSectionsSet) 'history head: and the heading level it quotes back is kept'
+Assert-Match $twoSectionsSet ([regex]::Escape('| [1.18.0](development/1.x/1.18.0.md)')) 'history head: rows in lower sections are untouched'
+Assert-Equal $twoSectionsSet (Set-ReleaseHistoryCanonicalHead -Content $twoSectionsSet) 'history head: idempotent -- a second run changes nothing'
+# The boundary is the FIRST '<n>.x' heading, so a section with prose and no table (the $prosey shape) is
+# kept whole: it is below the head, and what a repo writes between sections is not the head.
+Assert-Match (Set-ReleaseHistoryCanonicalHead -Content $prosey) 'Prose only, no table here\.' 'history head: prose BETWEEN sections survives'
+Assert-Equal '2' (Get-OverviewTargetMajor -ReadmeContent (Set-ReleaseHistoryCanonicalHead -Content $prosey)) 'history head: and the target major is unchanged by it'
+# A '<n>.x' heading quoted inside a fence in the intro is documentation, not the boundary.
+$fencedHistory = "# Mine`n`nOpen a section like this:`n`n``````markdown`n#### 9.x`n```````n`n$lvl4"
+Assert-Equal "$fixedHistoryHead`n$lvl4" (Set-ReleaseHistoryCanonicalHead -Content $fencedHistory) 'history head: a fenced example heading in the intro is replaced with the rest of it'
+# No '<n>.x' heading: the body cannot be located, so nothing is touched -- replacing the whole document, as
+# the changelog's head does, would delete rows here.
+$ungrouped = "# Mine`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n| 1.0.0 | 2026-01-01 | Major | First |`n"
+Assert-Equal $ungrouped (Set-ReleaseHistoryCanonicalHead -Content $ungrouped) 'history head: a list with no section heading is returned unchanged'
+Assert-Equal '' (Set-ReleaseHistoryCanonicalHead -Content '') 'history head: and so is an empty document'
+$historyCrlf = Set-ReleaseHistoryCanonicalHead -Content ($twoSections -replace "`n", "`r`n")
+Assert-Equal $true ($historyCrlf.StartsWith("# Release history`r`n`r`n### 2.x`r`n")) 'history head: a CRLF document keeps CRLF'
 Assert-Equal '#### 3.x' (Get-OverviewSectionHeading -ReadmeContent $tiers) 'the Tier heading is skipped here as well'
 Assert-Equal $null (Get-OverviewSectionHeading -ReadmeContent "# Empty`n`nNo table.") 'no table -> $null, matching Get-OverviewTargetMajor'
 # The two functions read the SAME match, so they can never disagree about which section is the target.
