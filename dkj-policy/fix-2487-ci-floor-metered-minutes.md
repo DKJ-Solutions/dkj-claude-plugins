@@ -39,11 +39,30 @@
 
 ### PLAN
 
+Inbound #2487, from `BWJ-Development/smartwatchbanden` (private, Team plan): the runners
+`adopt-ci-floor` places used up the included Actions minutes. Checked on pickup against the
+tree: the symptom stands. `fold-on-merge` and `verify-resolved` run on every trunk push on
+`windows-latest`, and `merge-on-green` runs on `*/30` on `windows-latest`. The source's reason
+for not skipping fold pushes (`verify-resolved.yml`: "one short job", and "coupling to a format
+it does not own") has **expired for a metered repo**. The coupling is already accepted in
+`ci.yml:399`, which skips on `startsWith(head_commit.message, 'fold:')`.
+
+Scope: proposals 1, 2 and 4 from the report. Proposal 3 (`ubuntu-latest` + `pwsh`) is a
+runtime migration of scripts that target Windows PowerShell 5.1, so it gets its own issue
+rather than riding along.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Job-level skip of a single-commit `fold:` push in `fold-on-merge.yml` and `verify-resolved.yml`: the consumer templates in `adopt-ci-floor.ps1` and the source's own copies
+- [ ] `merge-on-green` consumer template: sparser schedule, with `workflow_run` staying the ordinary path
+- [ ] `adopt-ci-floor` prints what the runners it places cost a private (metered) repo
+- [ ] Plugin mirror of `adopt-ci-floor.ps1` kept identical
+- [ ] Separate issue filed for `ubuntu-latest` + `pwsh`
 
 ### TEST
+
+- [ ] `adopt-ci-floor.tests.ps1` asserts the skip, the schedule and the cost note
+- [ ] Lint + suites green (via open-pr)
 
 ### DEPLOY: fix/2487-ci-floor-metered-minutes
 
