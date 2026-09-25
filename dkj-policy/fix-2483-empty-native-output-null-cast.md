@@ -43,17 +43,35 @@ A [string] cast of an empty native-command result is $null under Windows PowerSh
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace every `([string](<git read>)).Trim()` in the three shipped Shopify scripts
+  (push-preview x6, sweep-preview-themes x1, sync-main x2) with `"$(<git read>)".Trim()`, mirrors synced
+  byte-identical. The report named two sites; the consumer's follow-up comment named four; the grep
+  found nine, of which five (the `git config --get`, `rev-parse --verify --quiet` and `merge-base`
+  reads) can actually print nothing -- the four `rev-parse HEAD` reads are repaired for consistency.
 
 ### TEST
 
+- [x] Reproduced the reason on 5.1.26100: `[string]` of an empty `git config --get` is `$null`.
+- [x] `push-preview.tests.ps1` pins the idiom in two halves -- an empty interpolated read trims to `''`,
+  and no shipped script still trims a `[string]`-cast native read. Verified the guard matches the
+  pre-fix source (it would have been red).
+
 ### DEPLOY: fix/2483-empty-native-output-null-cast
 
-**Score:**
+`push-preview` no longer crashes on Windows PowerShell 5.1 on a branch's first preview push
+([#2483](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2483)). Under 5.1 a `[string]`
+cast of a git read that prints nothing is `$null`, not `''`, so the `.Trim()` on the remembered theme id
+threw before anything was printed -- on exactly the lazy-creation path the script exists for, with no
+workaround for a new branch. Every such read in the three shipped Shopify scripts now interpolates
+instead, and a suite assert refuses the old idiom coming back.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a store's own customers never see a preview push.
+
+**Score:** N/A
 
 #### Pull Request
 
