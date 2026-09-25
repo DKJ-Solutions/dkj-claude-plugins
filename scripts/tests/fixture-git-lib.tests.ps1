@@ -139,6 +139,65 @@ try {
     $threw = $false
     try { Invoke-FixtureGitIn } catch { $threw = $true }
     Assert-True $threw 'Invoke-FixtureGitIn with no arguments throws'
+
+    # --- 7. which failures earn a retry (issue #2481) ----------------------------------------------
+    #
+    # Only a push or a fetch whose OUTPUT shows the transport breaking. The exclusions carry the weight:
+    # a commit that failed may have half-happened and a clone leaves its directory behind, so a retry
+    # there would hide the broken fixture the failure counter exists to report.
+    Write-Host "`n== 7. a transport break on push/fetch is transient; everything else is not ==" -ForegroundColor Cyan
+    $sideband = 'send-pack: unexpected sideband packet'
+    Assert-True  (Test-FixtureGitTransientFailure -Code 128 -GitArgs @('-C', 'x', 'push', '-q', '-u', 'origin', 'main') -Output $sideband) 'the #2481 push, behind -C, is transient'
+    Assert-True  (Test-FixtureGitTransientFailure -Code 128 -GitArgs @('-c', 'k=v', 'fetch', 'origin') -Output 'fatal: the remote end hung up unexpectedly') 'a fetch behind -c whose remote hung up is transient'
+    Assert-True  (-not (Test-FixtureGitTransientFailure -Code 0 -GitArgs @('push') -Output $sideband)) 'exit 0 is never a failure'
+    Assert-True  (-not (Test-FixtureGitTransientFailure -Code 1 -GitArgs @('push', 'origin', 'main') -Output '! [rejected] main -> main (fetch first)')) 'a push git REFUSED is not a transport break'
+    Assert-True  (-not (Test-FixtureGitTransientFailure -Code 128 -GitArgs @('commit', '-m', 'x') -Output $sideband)) 'a commit is never retried, whatever it printed'
+    Assert-True  (-not (Test-FixtureGitTransientFailure -Code 128 -GitArgs @('clone', 'a', 'b') -Output 'early EOF')) 'a clone is never retried -- it leaves its target behind'
+    Assert-True  (-not (Test-FixtureGitTransientFailure -Code 128 -GitArgs @('push') -Output $null)) 'no output, no evidence, no retry'
+    Assert-Equal 'push' (Get-FixtureGitVerb -GitArgs @('-C', 'dir', '-c', 'a=b', 'push', 'origin')) 'the verb is found behind both global options'
+
+    # --- 8. the retry itself: once, said, and counted apart from the failures ------------------------
+    #
+    # A PowerShell function named git shadows the native one for `& git` inside the lib, which is the
+    # only way to make a transport break happen on demand. It sets $global:LASTEXITCODE because a
+    # function does not set it on its own.
+    Write-Host "`n== 8. Invoke-FixtureGitNative retries a transport break exactly once ==" -ForegroundColor Cyan
+    $script:fakeGitCalls = 0
+    $script:fakeGitFailures = 1
+    function script:git {
+        $script:fakeGitCalls++
+        if ($script:fakeGitCalls -le $script:fakeGitFailures) {
+            $global:LASTEXITCODE = 128
+            return 'error: send-pack: unexpected sideband packet'
+        }
+        $global:LASTEXITCODE = 0
+        return 'Everything up-to-date'
+    }
+    try {
+        $failBefore  = Get-FixtureGitFailureCount
+        $retryBefore = Get-FixtureGitRetryCount
+        $out = Invoke-FixtureGitNative -Arguments @('-C', 'x', 'push', '-q', 'origin', 'main') 6>&1 | Out-String
+        Assert-Equal 2 $script:fakeGitCalls 'one break, one retry: git ran twice'
+        Assert-Equal $failBefore (Get-FixtureGitFailureCount) 'a retry that succeeded is not a broken fixture'
+        Assert-Equal ($retryBefore + 1) (Get-FixtureGitRetryCount) 'but it is counted as a retry'
+        Assert-Says $out '[FIXTURE GIT RETRY] exit 128' 'and it says so'
+
+        $script:fakeGitCalls = 0
+        $script:fakeGitFailures = 5
+        $out = Invoke-FixtureGitNative -Arguments @('push', 'origin', 'main') 6>&1 | Out-String
+        Assert-Equal 2 $script:fakeGitCalls 'a transport that breaks twice is not retried a third time'
+        Assert-Equal ($failBefore + 1) (Get-FixtureGitFailureCount) 'and the second break is judged as a failure'
+
+        $script:fakeGitCalls = 0
+        $script:fakeGitFailures = 5
+        $out = Invoke-FixtureGitNative -Arguments @('commit', '-m', 'x') 6>&1 | Out-String
+        Assert-Equal 1 $script:fakeGitCalls 'a commit is run once, even with the transport wording in its output'
+
+        $summary = Write-FixtureGitSummary 6>&1 | Out-String
+        Assert-Says $summary 'were retried after a transport break' 'the summary names the retries'
+    } finally {
+        Remove-Item -Path Function:\git -ErrorAction SilentlyContinue
+    }
 }
 finally {
     if (Test-Path -LiteralPath $NotARepo) { Remove-Item -Recurse -Force -LiteralPath $NotARepo -ErrorAction SilentlyContinue }

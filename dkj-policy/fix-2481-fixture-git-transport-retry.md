@@ -39,19 +39,45 @@
 
 ### PLAN
 
+#2481 asked whether to retry the failure or lower the lane count. The answer here is a retry: the
+failure is one local push in 144 suites, and a lower lane count would slow every run on every machine
+to avoid it.
+
+The second suite #2481 named, `session-cache-lib.tests.ps1`, has no captured cause and nothing
+pointing at git transport, so it is split out as #2500 rather than claimed as fixed here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fixture-git-lib.ps1`: `Test-FixtureGitTransientFailure` (a push or fetch whose output shows the
+      transport breaking), `Invoke-FixtureGitNative` (one retry, printed and counted), retries named in
+      `Write-FixtureGitSummary`
+- [x] The seven suite-local git helpers with the plain `$out = & git ...; Assert-FixtureGitOk` body call
+      it instead (`prune-merged`, `backing-gate`, `machine-local-gate`, `fetch-attempt`, `gate-lib`,
+      `remote-ahead-lib`, `sync-main`)
+- [~] `connector-sessioncheck` and `plugin-versions`: dropped -- their helpers return git's output as a
+      value, so they are a different shape and are not the suite #2481 measured
 
 ### TEST
 
+- [x] `fixture-git-lib.tests.ps1` groups 7 and 8: which failures earn a retry, and the retry itself run
+      against a shadowing `git` function -- once, counted apart from failures, never for a commit
+
 ### DEPLOY: fix/2481-fixture-git-transport-retry
 
-**Score:**
+The test gate retries a fixture `git push` or `git fetch` once when its transport breaks mid-transfer
+(`unexpected sideband packet`, a remote that hung up, early EOF), instead of failing a suite whose
+asserts all passed. The retry is printed as `[FIXTURE GIT RETRY]` and counted in the suite's fixture
+summary, separately from failures. A commit, a clone, or a push that git refused is never retried, and a
+second break is judged as a failure exactly as before
+([#2481](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2481)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the test fixtures live in this repo only and ship to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
