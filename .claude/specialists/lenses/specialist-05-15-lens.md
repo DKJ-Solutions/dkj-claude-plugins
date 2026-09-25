@@ -2670,7 +2670,7 @@ instance means adopting a rule born with 349.
 **The reason is structural, and it is about what this repo is.** Being a plugin source, most paths it
 names correctly describe *somebody else's* repo: `.claude/extensions/…` is the legacy lens location this
 family deliberately still documents for unmigrated consumers, `config/settings_data.json` is a Shopify
-store's file named in `dkj-subagents-shopify`'s manual, `PRETTY/[Emotie]/README.md` is a life-hub folder. All three
+store's file named in `dkj-subagents-shopify`'s manual, `PRETTY/[Emotie]/README.md` named a life-hub folder (the consumer has since retired it, and #2497 removed the line from the plugin's text). All three
 answer "no such file here", exactly as the stale title does — and **the difference is whose repo the line
 is about, which the line never says**. An existence check reads "describes a consumer" as "stale", and no
 regex recovers that distinction. Do not revive it behind an exemption list: that is the shape this repo has
