@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**2 / 12 minor entries** <!-- pending-tally -->
+**3 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2486-empty-changelog-intro · 20260925-110208Z
+
+`CHANGELOG.md` now has one fixed head -- `# Changelog` and the `## [Unreleased]` heading, no intro prose --
+and the fold, the cut and the adopt scaffold all write exactly that. Whatever a repo had written above the
+pending heading is replaced on the next fold, so every repo's head is identical.
+
+In this repo the changelog's intro paragraphs are gone. The fold also stops being able to place an entry
+inside a code fence quoted in an intro, because it re-applies the head before it looks for the list.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+On the first merge after updating the plugin, the text you wrote under `# Changelog` in
+`dkj-policy/CHANGELOG.md` disappears and does not come back. It is replaced by the same two lines every other
+repo has. If something written there mattered, move it to a page you own before you update. Nothing else in
+the file changes, and no entry is touched.
+
+**Score:** 3
+
+#### Pull Request
+
+CHANGELOG.md carries one fixed head, with no intro prose
+
+Plugins: dkj-policy
+
+[PR #2490](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2490)
+
+---
 
 ### DEPLOY: fix/2482-asana-mirror-reach-gate · 20260925-095235Z
 
