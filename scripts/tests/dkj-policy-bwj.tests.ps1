@@ -322,7 +322,7 @@ $notPlanned = New-MirrorComment -IssueRef 'o/r#1' -Event 'closed' -StateReason '
 Assert-True ($notPlanned -match 'as not planned')        'a not-planned close says so'
 Assert-True ($notPlanned -match 'nothing to test')       'and tells the requester there is nothing to test'
 Assert-True ($notPlanned -notmatch 'ready to test')      'rather than asking them to test something that was never built'
-Assert-True ($notPlanned.StartsWith((Get-MirrorCommentMarker -IssueRef 'o/r#1'))) 'and it still carries the de-duplication marker'
+Assert-True ($notPlanned.Contains((Get-MirrorCommentMarker -IssueRef 'o/r#1'))) 'and it still carries the de-duplication marker'
 
 $reopened = New-MirrorComment -IssueRef 'BWJ-ecommerce/smartwatchbanden#388' -Event 'reopened'
 Assert-True ($reopened -match 'has been reopened')                                              'the reopen update says so'
@@ -335,9 +335,21 @@ Assert-True ($reopened -match 'not a request to test')                          
 # the de-duplication key is the close update's own opening sentence, and it names the issue --
 # so two issues mirrored onto one task never mask each other
 $marker = Get-MirrorCommentMarker -IssueRef 'BWJ-ecommerce/smartwatchbanden#388'
-Assert-True ($closed.StartsWith($marker)) 'the marker is the first thing the close update says'
+Assert-True ($closed.Contains($marker)) 'the close update carries the marker'
 Assert-True ($marker -match '#388')       'and it names the issue'
 Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-ecommerce/smartwatchbanden#390')) 'two issues get two different markers'
+
+# every comment opens with the automated-message header (#2476): Asana shows it as written by the
+# token's owner, so without it a colleague reads a machine update as that person's own words
+$header = Get-MirrorCommentHeader
+Assert-True ($header -match '^\[Automated message\]') 'the header announces an automated message first'
+foreach ($update in @($closed, $byHand, $notPlanned, $reopened)) {
+    Assert-Equal $header (($update -split "`n")[0]) 'every mirror comment has the header as its first line'
+}
+# and the header never shifts the de-duplication key: the sweep matches the marker as a substring,
+# so an update written before the header existed and one written after both read as already posted
+Assert-True (-not $header.Contains($marker)) 'the header does not itself carry the marker'
+Assert-True ($closed.IndexOf($marker) -gt $header.Length) 'the marker follows the header, unchanged'
 
 # issue-ref parsing for the reconciliation sweep
 Assert-Equal 'BWJ-ecommerce/smartwatchbanden#42' (Get-IssueRefFromNotes -Notes 'see https://github.com/BWJ-ecommerce/smartwatchbanden/issues/42 for detail') 'Get-IssueRefFromNotes pulls owner/repo#n from a GitHub URL'

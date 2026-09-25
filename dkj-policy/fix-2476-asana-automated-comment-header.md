@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#### Inbound verification (#2476)
+
+- Symptom stands: `New-MirrorComment` opened every update with the bare marker sentence, and nothing on the workflow page or in `report-issue` set a disclosure form for a session's own Asana comment.
+- Proposed repair narrowed: `New-AsanaPasteBlockComment` writes to the GitHub issue, not to Asana, and a person pastes the block into the task. That is the person's own message, so it takes no header.
+- De-dup risk checked: `Test-MirrorUpdatePosted` matches the marker as a substring (`Contains`), so a header line above it keeps old and new updates de-duplicating alike.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-mirror.ps1`: `Get-MirrorCommentHeader`, prepended to all three `New-MirrorComment` shapes (closed, not planned, reopened); the marker is unchanged
+- [x] WORKFLOW-portable step 2: the rule, both writers, the header's language, and that an MCP-posted comment cannot be edited afterwards
+- [x] `report-issue` SKILL.md: the rule where the write would happen
+- [~] Is the change visible in the frontend / storefront? No -- the Asana comment text changes; no storefront renders it
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: the header is line one of every update shape, and the marker follows it unchanged (all 390 asserts green)
+- [x] Lint gate (`-SkipTests`, per this machine's memory limit) plus CI
+
 ### DEPLOY: fix/2476-asana-automated-comment-header
 
-**Score:**
+Every comment the `asana-mirror` CI posts on an Asana task now opens with an `[Automated message]`
+line, and the workflow page now requires the same of a session writing a comment through the Asana
+MCP. Both post under a person's account, so without that line a colleague read a machine update as
+that person's own words. De-duplication is unchanged, so tasks that already carry an update do not get
+a second one.
+
+A store repo posts the header once its `.github/scripts/asana-mirror.ps1` copy is refreshed from the
+release. Until then it keeps posting the old text, and the session rule applies as soon as the page
+is installed.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the colleagues who read the Asana board are not subscribers of this plugin.
+
+**Score:** N/A
 
 #### Pull Request
 

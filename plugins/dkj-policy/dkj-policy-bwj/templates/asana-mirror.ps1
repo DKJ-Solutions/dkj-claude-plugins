@@ -146,7 +146,7 @@
     headings English while the analysis under them follows whoever filed the ticket.
 
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
-    New-MirrorComment, Get-MirrorCommentMarker, New-AsanaCommentRequest, Get-IssueRefFromNotes,
+    New-MirrorComment, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
     Get-AsanaPasteBlockMarker, Get-AsanaPasteBlockLead, New-AsanaPasteBlockComment,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
@@ -424,6 +424,19 @@ function Get-MirrorCommentMarker {
     return "GitHub issue $IssueRef is closed"
 }
 
+function Get-MirrorCommentHeader {
+    <#
+        The first line of every comment this script writes to Asana. Pure.
+
+        Asana shows a comment as written by the account whose token posted it, and ASANA_PAT belongs
+        to a person -- so without this line a colleague reads the update as that person's own words
+        (Dave, September 25, 2026, inbound #2476). It sits ABOVE the marker sentence rather than in
+        place of it: Test-MirrorUpdatePosted matches the marker as a substring, so comments written
+        before this header existed and comments written after it de-duplicate alike.
+    #>
+    return '[Automated message] Posted by the GitHub-Asana mirror workflow -- not written by the person whose account it shows.'
+}
+
 function New-MirrorComment {
     <#
         The comment text for one event. Pure -- no network.
@@ -455,9 +468,12 @@ function New-MirrorComment {
 
     $parts = $IssueRef -split '#'
     $url = "https://github.com/$($parts[0])/issues/$($parts[1])"
+    $header = Get-MirrorCommentHeader
 
     if ($Event -eq 'reopened') {
         return @(
+            $header,
+            '',
             "GitHub issue $IssueRef has been reopened.",
             $url,
             '',
@@ -469,6 +485,8 @@ function New-MirrorComment {
 
     if ($StateReason -eq 'not_planned') {
         return @(
+            $header,
+            '',
             "$marker, as not planned: this is not going to be built.",
             $url,
             '',
@@ -476,7 +494,7 @@ function New-MirrorComment {
         ) -join "`n"
     }
 
-    $lines = @("$marker`: the work behind this ticket is built and ready to test.", $url, '')
+    $lines = @($header, '', "$marker`: the work behind this ticket is built and ready to test.", $url, '')
 
     if ($ClosedBy.Count -gt 0) {
         $lines += if ($ClosedBy.Count -eq 1) { 'Closed by pull request:' } else { 'Closed by pull requests:' }
