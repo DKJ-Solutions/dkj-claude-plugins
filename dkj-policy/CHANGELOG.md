@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**6 / 17 minor entries** <!-- pending-tally -->
+**6 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2497-lifehub-brain-layout · 20260925-131018Z
+
+The lifehub information architect and ontologist no longer tell a dispatched agent to write
+README indexes and RAW/PRETTY mirror copies. They read and follow the brain's own navigation files
+(a `NEURON.md` per folder, as the repo lens names them) and never add a layout the brain does not
+already have.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Closes #2497
+
+Plugins: dkj-subagents-lifehub
+
+[PR #2499](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2499)
+
+---
 
 ### DEPLOY: fix/2487-ci-floor-metered-minutes · 20260925-125507Z
 
