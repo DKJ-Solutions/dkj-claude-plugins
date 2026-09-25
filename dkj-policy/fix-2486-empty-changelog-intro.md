@@ -39,19 +39,48 @@
 
 ### PLAN
 
+Issue #2486 (Dave): the prose between `# Changelog` and the pending heading drifts between consumers, so
+it carries no text at all. The intro has three writers -- the scaffold, the fold and the cut -- and only
+the fold and the cut run in a repo that has already adopted, so all three apply one fixed head.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ChangelogHeadLines` + `Set-ChangelogCanonicalHead` in `entry-scaffold-lib.ps1`: one definition
+      of the head, pure, fence-aware, CRLF-preserving
+- [x] the fold re-applies it BEFORE computing the insert point -- its list-start regex is not fence-aware,
+      and a fenced intro put the entry inside the fence (measured: the entry was lost when the head was
+      reset afterwards)
+- [x] the cut (`Convert-ChangelogForRelease`) re-applies it instead of passing the intro through
+- [x] the scaffold (`adopt-workflow-folder.ps1`) writes the fixed head and nothing else
+- [x] this repo's own `CHANGELOG.md` head emptied; the plugin mirrors copied byte for byte
+- [x] the portable pages that promised a surviving intro: RELEASES, CONTRIBUTING, fold-changelog,
+      cut-release
 
 ### TEST
 
+- [x] new unit asserts for the three shapes, the fence, CRLF and idempotence (`entry-scaffold.tests.ps1`)
+- [x] the asserts that pinned a verbatim intro retargeted to the fixed head (fold, release-lib, scaffold)
+- [x] the full gate through `open-pr`
+
 ### DEPLOY: fix/2486-empty-changelog-intro
 
-**Score:**
+`CHANGELOG.md` now has one fixed head -- `# Changelog` and the `## [Unreleased]` heading, no intro prose --
+and the fold, the cut and the adopt scaffold all write exactly that. Whatever a repo had written above the
+pending heading is replaced on the next fold, so every repo's head is identical.
+
+In this repo the changelog's intro paragraphs are gone. The fold also stops being able to place an entry
+inside a code fence quoted in an intro, because it re-applies the head before it looks for the list.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+On the first merge after updating the plugin, the text you wrote under `# Changelog` in
+`dkj-policy/CHANGELOG.md` disappears and does not come back. It is replaced by the same two lines every other
+repo has. If something written there mattered, move it to a page you own before you update. Nothing else in
+the file changes, and no entry is touched.
+
+**Score:** 3
 
 #### Pull Request
 

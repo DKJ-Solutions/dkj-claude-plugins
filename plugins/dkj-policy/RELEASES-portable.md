@@ -80,7 +80,7 @@ using it: the maximum says which tier numbers are valid to *parse* — 97 entrie
 written under the cumulative ladder — while the audience says which are *asked*. An extra answered tier is
 accepted, never refused, so no finished dossier became unopenable on the day the knob landed.
 
-**`CHANGELOG.md` has no sections to file into** (Dave, August 5, 2026). It is an intro followed by one `###`
+**`CHANGELOG.md` has no sections to file into** (Dave, August 5, 2026). It is a fixed head (`# Changelog` and the pending `## [Unreleased]` heading, no intro prose) followed by one `###`
 per change, ranked furthest-reach-first and, within a tier, highest-significance-first — so what the three
 `## Tier N - Pull Requests` sections used to say visually is now the ordering, and each entry states its own
 reach in its opening section — directly under the DEPLOY heading for tier 0, and under
@@ -496,12 +496,14 @@ In one motion, on a clean `main`:
 2. generates the full release notes in `changelog/<dir>/<X.Y.Z>.md` (from the folded entries, grouped by
    tier and, within a tier, a flat list in the ranked order the fold left), adds a row to the release list
    on the page `Get-ReleaseHistoryPath` names — `dkj-policy/releases/history.md` unless you repointed it
-   — and **empties `CHANGELOG.md` down to its intro** — that intro passes through
-   verbatim, so whatever the repo says about itself up there survives every cut. A cut writes no release
+   — and **empties `CHANGELOG.md` down to its fixed head** — the title and the pending heading, and
+   nothing else. There is no intro prose to keep: every repo's head is identical, because an intro each repo
+   wrote for itself drifted until each said something different about one mechanism (#2486), and the fold
+   re-applies the same head on every merge. A cut writes no release
    block: the section that used to hold one had grown in the source repo to 434 of the changelog's 1,062
    lines across 72 blocks
    each saying no more than "see the notes", while its release list already carried all 72 with a date, a
-   type and a title. What replaced it is the intro's own one-line pointer to the release list;
+   type and a title. The release list is found where `Get-ReleaseHistoryPath` names it;
 3. **(retired, August 8, 2026)** step 3 used to append, per plugin, the entries that touched it to a
    **per-plugin `CHANGELOG.md`** and regenerate that plugin's **`RELEASE.md`** card — a second copy of a
    history the consumer already receives, since a marketplace source arrives as a git clone of the whole

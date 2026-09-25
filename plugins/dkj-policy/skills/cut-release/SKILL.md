@@ -848,9 +848,9 @@ owes this text. Write it there, and the cut carries it outward for you.
   `Get-ReleaseCategoryTitles` labelled the release-notes categories, and the grouping is gone;
   `Get-ReleaseLiveMarker`, `Get-ReleaseHistoryMode` and `Get-ChangelogReleaseWording` (#462) all described
   the release **block** a cut used to append to `CHANGELOG.md`, and a cut writes none. The capability behind
-  that last one is not being taken away from the non-English repo that asked for it: what replaced the
-  generated block is the changelog intro's own one-line pointer to the release history — hand-written prose
-  in a file the repo owns outright, so it needs no seam to be in their language.
+  that last one went with the block: since #2486 the changelog carries no intro prose either, so nothing in
+  it is generated or hand-written in a repo's own language — the release list is where
+  `Get-ReleaseHistoryPath` names it.
 - **`Get-LintScript` is the one that is NOT optional, and the cut now reads it.** The release route does not
   travel via a PR, so this is the only gate it meets; before August 5, 2026 the cut looked for the *source*
   repo's lint script by a fixed path and skipped the gate with a warning wherever it did not find one

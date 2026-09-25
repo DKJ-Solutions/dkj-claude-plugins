@@ -548,8 +548,13 @@ Write-Host "The intro is written below, never over" -ForegroundColor Cyan
 #      There is no configured heading to insert after any more, so the boundary between the intro and the
 #      list is derived structurally -- the first entry heading. Getting that wrong writes an entry into the
 #      middle of the intro, which is why it is asserted rather than assumed.
-Assert-True ((Get-ChangelogIntro -Changelog $changelogText).TrimEnd() -eq $script:FixtureIntro.TrimEnd()) `
-    'the intro is byte-identical after the fold'
+# THE HEAD IS THE FIXED ONE AFTER THE FOLD, NOT THE FIXTURE'S OWN (issue #2486). The fold used to pass the intro
+# through byte-identical; it now re-applies Get-ChangelogHeadLines, so a consumer's drifted intro converges on
+# its next merge. The fixture's prose is gone and the pending heading has been placed.
+$fixedHead = (@(Get-ChangelogHeadLines) -join "`n")
+Assert-Equal $fixedHead (Get-ChangelogIntro -Changelog $changelogText).TrimEnd() `
+    'the head is the fixed one after the fold -- title and pending heading, nothing else'
+Assert-True ($changelogText -notmatch 'furthest reach first') 'and the fixture''s own intro prose is gone'
 
 # AND THE ONE LINE THE FOLD MAY WRITE INTO THE HEAD IS THERE, AND COUNTS (issue #1515). The assert above
 # proves the prose survives; this proves the tally was actually refreshed rather than merely tolerated by
@@ -565,8 +570,8 @@ $tallyTotalRx = '(\d+) \S+ (?:entry|entries)\*\*'
 Assert-True ($tallyLines[0] -match $tallyTotalRx) 'and it states how many entries are pending'
 Assert-Equal (@(Get-ChangelogEntryBlocks -Content $changelogText).Count) ([int]([regex]::Match($tallyLines[0], $tallyTotalRx).Groups[1].Value)) `
     'and the number it states is the number of entries actually in the document'
-Assert-True ((Get-Changelog -Dir $dir).IndexOf('Demo thing') -gt $script:FixtureIntro.TrimEnd().Length) `
-    'and the entry sits below all of it'
+Assert-True ((Get-Changelog -Dir $dir).IndexOf('Demo thing') -gt (Get-Changelog -Dir $dir).IndexOf($foldPendH)) `
+    'and the entry sits below the pending heading'
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host "A changelog with nothing pending yet -- the first entry opens the list" -ForegroundColor Cyan
@@ -1126,7 +1131,7 @@ foreach ($rnName in @('README.md', 'CONTRIBUTING.md')) {
 # no trace of itself or of the other two pages having been folded INTO it.
 Assert-True ($clRN -match 'Folded the week before') 'reserved names: CHANGELOG.md keeps the entries it already held'
 Assert-True ($clRN -match 'Folded yesterday') 'reserved names: both of them'
-Assert-True ((Get-ChangelogIntro -Changelog $clRN).TrimEnd() -eq $script:FixtureIntro.TrimEnd()) 'reserved names: and its intro is untouched'
+Assert-Equal (@(Get-ChangelogHeadLines) -join "`n") (Get-ChangelogIntro -Changelog $clRN).TrimEnd() 'reserved names: and its head is the fixed one (#2486)'
 Assert-Equal 3 @(Get-EntryOrder -Changelog $clRN).Count 'reserved names: exactly THREE entries -- the two it held plus the one real dossier, and nothing else'
 Assert-True ($clRN -notmatch "the workflow's own folder in this repo") 'reserved names: README.md was not spliced into CHANGELOG.md'
 Assert-True ($clRN -notmatch '2\.1\. Create the branch') 'reserved names: nor CONTRIBUTING.md'
@@ -1330,7 +1335,10 @@ New-EntryFile -Dir $dirPFQ -Name 'feat-allowed.md' -Title 'Lands normally' -Rows
 $rPFQ = Invoke-Fold -Dir $dirPFQ -Branch 'feat/allowed'
 Assert-Equal 0 $rPFQ.ExitCode                                                   'fenced: the fold runs'
 Assert-True ((Get-Changelog -Dir $dirPFQ) -match 'Lands normally')              'fenced: and the entry lands'
-Assert-True ((Get-Changelog -Dir $dirPFQ) -match '(?m)^## Pull Requests\s*$')   'fenced: the quoted heading is still there, untouched inside its fence'
+# The fenced intro is replaced by the fixed head (#2486) -- and that is also what keeps the entry out of the
+# fence: the fold's list-start regex is not fence-aware, so the head is re-applied before it runs.
+Assert-True ((Get-Changelog -Dir $dirPFQ) -notmatch '(?m)^## Pull Requests\s*$')  'fenced: the quoted intro is gone with the rest of the head'
+Assert-True ((Get-Changelog -Dir $dirPFQ) -notmatch '```')                           'fenced: and no fence is left for the entry to have landed in'
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host "-RepoRoot on a git WORKTREE folds and pushes, and the primary checkout is untouched" -ForegroundColor Cyan

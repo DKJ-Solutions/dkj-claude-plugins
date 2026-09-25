@@ -2992,6 +2992,40 @@ Assert-Equal $tallyInlineSet (Set-ChangelogPendingSummary -Content $tallyInlineS
 Assert-True (Test-ChangelogTallyIsQuoted -Line ('see `' + (Get-ChangelogPendingSummaryMarker) + '`')) 'tally: quoted marker reads as quoted'
 Assert-True (-not (Test-ChangelogTallyIsQuoted -Line ('**1 / 1 minor entry** ' + (Get-ChangelogPendingSummaryMarker)))) 'tally: a real tally line does not'
 
+# THE FIXED HEAD (issue #2486). Everything above the pending heading is replaced by Get-ChangelogHeadLines,
+# so every repo running this workflow carries the same head. The three shapes Set-ChangelogPendingSummary
+# anchors on, each asserted, plus the fence and the CRLF a real document brings with it.
+$fixedHead = @(Get-ChangelogHeadLines)
+Assert-Equal '# Changelog' $fixedHead[0] 'head: the title is the first line'
+Assert-Equal (Get-ChangelogUnreleasedHeading) $fixedHead[-1] 'head: the pending heading is the last line, so the first fold lands beneath it'
+Assert-Equal 3 $fixedHead.Count 'head: and there is nothing between them but one blank line'
+
+$headWithPending = (@('# Journal', '', 'Some prose a repo wrote.', '', '---', '', $tallyH, '',
+    ('**1 minor entry** ' + (Get-ChangelogPendingSummaryMarker)), '', (New-TallyEntry -Branch 'feat/h1-v1' -Tier 0)) -join "`n")
+$headWithPendingSet = Set-ChangelogCanonicalHead -Content $headWithPending
+Assert-True ($headWithPendingSet.StartsWith(($fixedHead -join "`n") + "`n")) 'head: shape 1 -- the prose above the pending heading is replaced'
+Assert-True ($headWithPendingSet -notmatch 'Some prose|Journal|(?m)^---$') 'head: and none of it survives'
+Assert-True ($headWithPendingSet -match [regex]::Escape((Get-ChangelogPendingSummaryMarker))) 'head: the tally under the heading is kept'
+Assert-True ($headWithPendingSet -match 'feat/h1-v1') 'head: and so is the entry'
+Assert-Equal $headWithPendingSet (Set-ChangelogCanonicalHead -Content $headWithPendingSet) 'head: idempotent -- a second run changes nothing'
+
+$headNoPending = (@('# Changelog', '', 'Pre-1518 intro.', '', (New-TallyEntry -Branch 'feat/h2-v1' -Tier 0)) -join "`n")
+$headNoPendingSet = Set-ChangelogCanonicalHead -Content $headNoPending
+Assert-True ($headNoPendingSet.StartsWith(($fixedHead -join "`n") + "`n`n" + $eH)) 'head: shape 2 -- no pending heading: it is placed above the first entry'
+Assert-True ($headNoPendingSet -notmatch 'Pre-1518') 'head: and the old intro is gone'
+
+Assert-Equal (($fixedHead -join "`n") + "`n") (Set-ChangelogCanonicalHead -Content "# Changelog`n`nIntro only.`n") `
+    'head: shape 3 -- an intro and nothing else becomes the fixed head alone'
+Assert-Equal (($fixedHead -join "`n") + "`n") (Set-ChangelogCanonicalHead -Content '') 'head: and so does an empty document'
+
+$headFenced = (@('# Changelog', '', '```markdown', $tallyH, ($eH + ' DEPLOY: quoted'), '```', '', $tallyH, '',
+    (New-TallyEntry -Branch 'feat/h3-v1' -Tier 0)) -join "`n")
+$headFencedSet = Set-ChangelogCanonicalHead -Content $headFenced
+Assert-True ($headFencedSet -notmatch 'DEPLOY: quoted') 'head: fence-aware -- a heading quoted in the intro is not the boundary'
+Assert-True ($headFencedSet -match 'feat/h3-v1') 'head: and the real entry below the real heading survives'
+
+$headCrlf = Set-ChangelogCanonicalHead -Content ($headWithPending -replace "`n", "`r`n")
+Assert-True ($headCrlf -match "`r`n" -and $headCrlf -notmatch "[^`r]`n") 'head: a CRLF document stays CRLF throughout'
 # A HUMAN'S PARAGRAPH UNDER THE PENDING HEADING IS NOT EATEN. This is the reason the line carries a
 # marker at all instead of being recognised by position, and the fold pushes straight to the trunk.
 $tallyProse = (@('# Changelog', '', $tallyH, '', 'A note somebody wrote here by hand.', '', (New-TallyEntry -Branch 'feat/g-v1' -Tier 0)) -join "`n")

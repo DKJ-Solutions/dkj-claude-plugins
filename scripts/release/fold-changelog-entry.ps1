@@ -1028,6 +1028,17 @@ foreach ($file in $entryFiles) {
         Write-Host "  No PR found for '$branchForPr' - entry without PR number/url or merge date." -ForegroundColor Yellow
     }
 
+    # THE HEAD IS RE-APPLIED FIRST (issue #2486). Every fold writes the fixed head -- the title and the
+    # pending heading, no prose -- so a consumer whose intro drifted converges on its next merge; the
+    # scaffold alone could not, because it never touches a CHANGELOG.md that exists. A tally line an old
+    # intro carried goes with it and is re-derived under the heading below.
+    #
+    # BEFORE THE LIST START IS FOUND, AND THE ORDER IS LOAD-BEARING. The regex below is not fence-aware, so
+    # an intro quoting an entry heading inside a fence put the insert point INSIDE that fence -- the entry
+    # landed in a code block. Re-applying the head afterwards would then remove it with the rest of the
+    # intro: measured on this suite's fenced fixture, where the entry vanished. With no intro left there is
+    # no fence above the list for the regex to trip on.
+    $changelogContent = Set-ChangelogCanonicalHead -Content $changelogContent
     # WHERE THE LIST BEGINS, derived structurally rather than read from a configured heading. Everything
     # above the FIRST entry heading is the document's intro; from there down is the ranked list. That one
     # regex replaces the seam, the '## Pull Requests' fallback and the "could not find the heading --
