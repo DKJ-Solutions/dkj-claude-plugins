@@ -44,7 +44,37 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 9 patch entries** <!-- pending-tally -->
+**0 / 10 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2476-asana-automated-comment-header · 20260925-085442Z
+
+Every comment the `asana-mirror` CI posts on an Asana task now opens with an `[Automated message]`
+line, and the workflow page now requires the same of a session writing a comment through the Asana
+MCP. Both post under a person's account, so without that line a colleague read a machine update as
+that person's own words. De-duplication is unchanged, so tasks that already carry an update do not get
+a second one.
+
+A store repo posts the header once its `.github/scripts/asana-mirror.ps1` copy is refreshed from the
+release. Until then it keeps posting the old text, and the session rule applies as soon as the page
+is installed.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the colleagues who read the Asana board are not subscribers of this plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+Agent-written Asana comments open with an automated-message header
+
+Plugins: dkj-policy-bwj
+
+[PR #2479](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2479)
+
+---
 
 ### DEPLOY: docs/2474-handover-asana-paste-block · 20260925-082903Z
 
