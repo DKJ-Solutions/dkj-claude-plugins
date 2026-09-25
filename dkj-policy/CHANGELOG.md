@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 22 minor entries** <!-- pending-tally -->
+**6 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2505-statusline-additive-write · 20260925-150200Z
+
+`adopt-statusline -Apply` now adds the `statusLine` key to `.claude/settings.json` without touching the
+rest of the file ([#2505](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2505)). It used to
+parse the file and write it back. Windows PowerShell 5.1 re-padded every line and dropped blank ones, so
+a one-key addition became a diff of the whole file. Now the member is inserted in the file's own indent
+and line ending, and a BOM is kept. The run also warns when git ignores the shim it places, for example
+under a `.claude/*` rule, and names the `!.claude/statusline/` exception. Without that exception, other
+checkouts got a status line pointing at a file they never received. An empty `{}` settings file no
+longer crashes the run.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a setup command a repo's maintainer runs; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+adopt-statusline writes additively and reports an ignored shim
+
+Plugins: dkj-policy
+
+[PR #2510](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2510)
+
+---
 
 ### DEPLOY: fix/2502-oem-encoding-helper · 20260925-142909Z
 
