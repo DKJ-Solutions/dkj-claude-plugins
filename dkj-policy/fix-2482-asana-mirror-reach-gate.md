@@ -39,11 +39,37 @@
 
 ### PLAN
 
+Inbound #2482, verified on pickup. The **symptom** stands: `BWJ-Development/smartwatchbanden#770` has
+only `documentation`, and the reporter's closing comment records the marker that was removed and the card
+deleted by hand. The **reason** stands too: `report-issue` has no script, and the plugin ships no hook,
+so step 2's reach-label gate is a sentence and nothing else.
+
+Proposed repair 1 is built here, in the hook form. It does not lean on a session remembering to run a
+helper, which was the failure being repaired.
+
+#### Proposed repair 2, declined with its reason
+
+The report proposed making the `-Resolves` refusal depend on the reach label, on the reasoning that *an
+Asana marker on a non-reach issue is itself the defect*. That does not hold for every case. A ticket that
+**arrived from Asana** carries a card legitimately whether or not it has the reach label
+(`WORKFLOW-portable.md` section 8). It must still wait for the paste-ready block before it closes, and
+keying the exemption on the label would let its merge close it first. The "real place" the report names
+already exists as well: since #2120, `open-pr`'s resolves gate reads `Get-ResolvesExemptMatchers`, and
+the consumer's `guard-resolves-asana` bridge is what that seam replaces. With repair 1 in place, a
+tier-0 issue gets no marker in the first place, so nothing is left for the exemption to misfire on.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/asana-mirror-gate.ps1`: which URLs count as a mirror, and the three verdicts
+- [x] `hooks/guard-asana-mirror.ps1` + `hooks/hooks.json`: a PreToolUse hook on `mcp__*Asana*__create_task*`
+- [x] report-issue step 2, `WORKFLOW-portable.md` section 2 and the bwj README name the hook
+- [x] `Get-ReachLabel`'s contract row names the hook as a reader (both byte-identical copies)
 
 ### TEST
+
+- [x] `scripts/tests/guard-asana-mirror.tests.ps1`: 35 asserts over the lib, the hook's network-free paths, and the registration
+- [x] Live smoke run: `smartwatchbanden#770` refused (exit 2), `#764` (carries `minor`) admitted, an unreadable issue passed with a warning
+- [x] `check-plugin-integrity.ps1` at 0 errors; `hook-stdin-guard`, `hook-fail-closed` and `dkj-policy-bwj` suites green
 
 ### DEPLOY: fix/2482-asana-mirror-reach-gate
 
