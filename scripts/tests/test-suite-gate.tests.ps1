@@ -1171,7 +1171,7 @@ exit -1
     Assert-True ($r.Flat -notmatch 'CRASHED') 'and nothing calls it a crash'
     Assert-True ($r.Text -notmatch 'MARKER-SECOND-CHANCE') 'the pass it had waiting was never reached'
 
-    # 8g. A NON-ZERO EXIT THAT WROTE NOTHING IS NOT A VERDICT EITHER (issue #2500).
+    # 8h. A NON-ZERO EXIT THAT WROTE NOTHING IS NOT A VERDICT EITHER (issue #2500).
     #
     # WHAT WENT WRONG. #2481's 22-lane gate reported session-cache-lib.tests.ps1 'FAILED' after 1.6s,
     # printed no block for it, and named no kept output -- because the retention rule drops a 0-byte
@@ -1197,6 +1197,8 @@ exit 1
     Assert-Says $r.Text 'MARKER-SILENT-RETRY' "and the re-run's own output is printed"
     Assert-Says $r.Flat 'exited in the pool without writing a byte and passed alone: mute.tests.ps1' 'the GREEN verdict names it'
     Assert-True ($r.Flat -notmatch 'crashed in the pool and passed alone') 'and does not call it a crash there'
+    Assert-Says $r.Flat 'SILENT -- exited without writing a byte; real cost is in the lone re-run above' 'the per-suite table flags the row as SILENT'
+    Assert-True ($r.Flat -cnotmatch 'CRASHED') 'and nothing anywhere in the run says CRASHED (Victor: the table used to)'
 
     $silentAlways = Join-Path $Fixture 'suites-silent-always'
     New-FakeSuite -Dir $silentAlways -Name 'mute-always.tests.ps1' -Body "exit 1`r`n"
@@ -1237,6 +1239,8 @@ exit 1
     Assert-True (Test-GateSuiteSilent -Path @($emptyOut, $emptyErr) -SettleMilliseconds 0) 'two empty capture files are silent'
     Assert-True (Test-GateSuiteSilent -Path @($emptyOut, (Join-Path $silentDir 'missing.txt')) -SettleMilliseconds 0) 'a missing file counts as nothing written'
     Assert-True (-not (Test-GateSuiteSilent -Path @($emptyOut, $saidErr) -SettleMilliseconds 0)) 'one byte on stderr is not silence -- a throw before the header is a verdict to read'
+    $bomOnly = Join-Path $silentDir 'bom.out.txt'; [System.IO.File]::WriteAllBytes($bomOnly, [byte[]](0xEF, 0xBB, 0xBF))
+    Assert-True (-not (Test-GateSuiteSilent -Path @($bomOnly, $emptyErr) -SettleMilliseconds 0)) 'a file holding only a UTF-8 BOM is not silence -- it decodes to nothing, but it is three bytes'
 
     # AND THE REPO ITSELF MUST NOT HOLD ONE, which is the measurement the docstring cites. A suite or
     # lib exiting negative would land in the window's blind spot by accident rather than by design.

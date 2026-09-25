@@ -56,7 +56,7 @@ inferred.
 
 - [x] `native-capture-lib.ps1`: `Test-GateSuiteSilent` (settle-aware, like the retention read), and a
       SILENT verdict in the reap loop routed into the crash path's lone re-run; excluded from the pace
-      sample and marked on the timing row as a crash is
+      sample and flagged SILENT on the per-suite timing row; a BOM-only capture is not silent
 - [x] Re-run wording names a silent exit as one (banner, pass line, `SILENT AGAIN`); the banner stays
       byte-identical when nothing was silent
 - [x] Green verdict names a silent exit cleared by its re-run; red verdict says which suites wrote

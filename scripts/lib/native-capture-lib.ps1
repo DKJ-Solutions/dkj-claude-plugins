@@ -916,7 +916,7 @@ function Test-GateSuiteSilent {
         clear is a process that never started properly under load -- and that is not a verdict to mask.
         A suite CAN hand itself this re-run by exiting 1 without a word, the same way it can land inside
         Test-GateSuiteCrashed's window; accepted on that function's own ground -- a suite wanting a green
-        gate has `exit 0` available and needs none of this. 8e's promise (a suite that SAID no is never
+        gate has `exit 0` available and needs none of this. 8c's and 8e's promise (a suite that SAID no is never
         retried) is untouched, because a single byte on either stream keeps a suite out of this path.
 
         SETTLE-AWARE for the reason the retention block gives (#2295): WaitForExit returning says the
@@ -931,6 +931,11 @@ function Test-GateSuiteSilent {
         if (-not $f -or -not (Test-Path -LiteralPath $f)) { continue }
         $read = Read-NativeCaptureFile -Path $f -Encoding $oem -SettleMilliseconds $SettleMilliseconds
         if ($read.Text.Length -gt 0) { return $false }
+        # AND ZERO BYTES ON DISK, not only zero characters decoded (Sebastian's review of #2500): the
+        # reader's StreamReader consumes a leading UTF-8 BOM as an encoding marker, so a file holding
+        # exactly those three bytes decodes to '' -- and "a single byte keeps a suite out of this path"
+        # has to be true of bytes. Read after the settle above, so a late flush is already on disk.
+        if ((Get-Item -LiteralPath $f).Length -gt 0) { return $false }
     }
     return $true
 }
@@ -4381,7 +4386,11 @@ function Invoke-TestSuiteGate {
                         # sets the makespan, so an unmarked 2s row is the one wrong answer it must not
                         # give. The row keeps the honest 2s and says CRASHED beside it; the lone re-run
                         # prints its own seconds, which is where that file's real cost is legible.
-                        Crashed     = $silent
+                        Crashed     = $false
+                        # A SILENT EXIT (#2500) IS FLAGGED BESIDE IT, NOT AS IT: its 1.6s is the same lie
+                        # about the file's cost, but calling it CRASHED would send a reader looking for an
+                        # NTSTATUS that never happened (Victor's review).
+                        Silent      = $silent
                     }) | Out-Null
 
                     # THE PACE SAMPLE THIS SUITE CONTRIBUTES -- issue #2263, and it is taken here for the
@@ -4798,6 +4807,7 @@ function Invoke-TestSuiteGate {
             # and unlike a crash there is no lone re-run below carrying the real cost (issue #1941).
             $flag   = if ($t.TimedOut) { " TIMED OUT -- this is the bound, not the file's cost; nothing re-ran it" }
                       elseif ($t.Crashed) { ' CRASHED -- died this far in; real cost is in the lone re-run above' }
+                      elseif ($t.Silent) { ' SILENT -- exited without writing a byte; real cost is in the lone re-run above' }
                       elseif ($t.Failed) { ' FAILED' } else { '' }
             Write-Host ("  {0,8}s  {1,-$nameWidth}  started +{2}s{3}{4}" -f `
                 (Format-GateSeconds $t.Duration -Decimals 1), $t.Name,
