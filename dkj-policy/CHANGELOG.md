@@ -44,7 +44,33 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 8 patch entries** <!-- pending-tally -->
+**0 / 9 patch entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2474-handover-asana-paste-block · 20260925-082903Z
+
+A preview handover page now carries a fourth block: the Asana paste-ready block from
+`golive-block`, embedded as printed, with a copy button. The requester reads the Asana task and cannot
+open the private page, so the page now holds the message they actually get, from the same run that
+posts it on the issue. The page also says which URLs that block may carry: storefront URLs only, never
+the handover link.
+
+**Score:** 2 -- a handover session gets one step fewer to do by hand; the block's wording is unchanged.
+
+#### What makes this deploy extra special
+
+N/A -- the requester reads the same block as before; only where the session copies it from changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The handover page carries the Asana paste-ready block as its fourth block
+
+Plugins: dkj-policy-bwj
+
+[PR #2478](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2478)
+
+---
 
 ### DEPLOY: docs/2471-cut-order-in-repo-rule · 20260925-081859Z
 
