@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 20 minor entries** <!-- pending-tally -->
+**6 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2500-silent-suite-failure · 20260925-140938Z
+
+The test gate no longer reports a suite that exited non-zero **without writing a single byte** as a
+plain `FAILED`, with no output shown and none kept. Such a suite never reached its own first line, so
+the gate now marks it `SILENT`, re-runs it alone once (as it already does for a crash), and names it
+on the verdict: as cleared on a green run, or as having written nothing to keep on a red one. A suite
+silent on its re-run too is red. A suite that printed anything at all is judged exactly as before and
+never re-run ([#2500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2500)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the test gate runs inside the repos that adopt this workflow; no subscriber of a service sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+A suite that exits non-zero without writing a byte is re-run alone and reported as SILENT, instead of FAILED with no output
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2504](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2504)
+
+---
 
 ### DEPLOY: fix/2483-empty-native-output-null-cast · 20260925-135943Z
 
