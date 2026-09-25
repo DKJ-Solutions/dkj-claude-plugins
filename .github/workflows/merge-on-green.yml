@@ -42,6 +42,11 @@ on:
     # windows-latest job on a repo that has MEASURED runner-queue contention (#2296: a shard sitting
     # 38 minutes in_progress; #2317: the gate cost of waiting). 48 extra jobs a day is a backstop; 96
     # would be this runner competing with the CI it exists to react to.
+    #
+    # THIS REPO STAYS AT THIS CADENCE; adopt-ci-floor.ps1's consumer template places it sparser instead,
+    # every 3 hours (issue #2487) -- this repo is public, so a standard-runner job costs nothing and 30
+    # minutes buys latency for free, while a private consumer is billed per scheduled job start whether
+    # or not anything is owed a merge, so half-hourly there is worth trading for latency it rarely needs.
     - cron: '*/30 * * * *'
   workflow_dispatch:
 

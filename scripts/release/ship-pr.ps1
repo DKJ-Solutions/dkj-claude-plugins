@@ -1185,7 +1185,7 @@ function Remove-ShipMergeOnGreenArmForJudgement {
 # completing, which is the same moment this run's watch returns -- so an armed PR would otherwise be handed
 # to a second ship-pr while this one merges it. pick-merge-on-green.ps1 therefore refuses a PR whose required
 # checks finished less than Get-MergeOnGreenSettleMinutes ago: a live session merges within seconds of
-# green, a dead one never does, and the half-hourly schedule finishes the dead one.
+# green, a dead one never does, and the next scheduled sweep finishes the dead one.
 #
 # DISARMED AGAIN ONLY WHERE A REFUSAL IS A JUDGEMENT ON THE BRANCH -- the step-list gate and the DEPLOY lock
 # at step 4. Those refuse identically on every re-run until somebody commits, and the picker hands over the

@@ -58,20 +58,17 @@ rather than riding along.
 - [x] `adopt-ci-floor` prints what the runners it places cost a private (metered) repo
 - [x] Plugin mirror of `adopt-ci-floor.ps1` kept identical
 - [x] Separate issue filed for `ubuntu-latest` + `pwsh` -- already stood as #2488 on pickup
+- [x] #2492 (this branch's own contradiction, small enough to fix inside the assignment): reworded the
+  six "half-hourly" / "half an hour later" sites in `scripts/ci/pick-merge-on-green.ps1`,
+  `scripts/lib/merge-on-green-lib.ps1` and `scripts/release/ship-pr.ps1` to name "the scheduled sweep"
+  generically, true for both the source's `*/30` and a consumer's `0 */3`; left `ship-pr.ps1`'s other
+  "half an hour" (the $maxRequiredWaitSec/1800s check-registration budget, unrelated to the sweep
+  cadence) untouched. Plugin mirrors of all three kept byte-identical.
 
 ### TEST
 
 - [x] `adopt-ci-floor.tests.ps1` asserts the skip, the schedule and the cost note
 - [ ] Lint + suites green (via open-pr)
-
-#### Filed on pickup, out of scope for this branch
-
-`scripts/ci/pick-merge-on-green.ps1`, `scripts/lib/merge-on-green-lib.ps1` and `scripts/release/ship-pr.ps1`
-describe the sweep's schedule as "half-hourly" in three places -- true for the source repo, which keeps
-that cadence, and no longer true for a consumer running the sparser template this branch places. Filed
-as [#2492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2492) rather than repaired here:
-those are shared-library docstrings read by both callers, and rewording them needs its own pass rather
-than riding along on this branch's diff.
 
 ### DEPLOY: fix/2487-ci-floor-metered-minutes
 

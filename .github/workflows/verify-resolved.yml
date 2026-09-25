@@ -59,11 +59,20 @@
 # harmless here anyway (the second finds every issue already closed), but a per-SHA group serialises
 # nothing at all, which is not a property to rely on by accident.
 #
-# IT COSTS A SECOND RUN PER SHIP, KNOWINGLY. fold-on-merge.yml pushes the fold commit as a PAT, and a
-# PAT push triggers workflows where the default GITHUB_TOKEN's would not -- so every shipped branch
-# starts this job twice: once on the merge, once on the fold. The second resolves no pull request from
-# the fold commit and exits green in seconds. Naming it rather than gating on the fold's commit message,
-# which would couple this file to a format it does not own for a saving of one short job.
+# IT USED TO COST A SECOND RUN PER SHIP, KNOWINGLY, AND THAT REASONING HAS EXPIRED FOR A METERED REPO
+# (issue #2487, September 25, 2026). fold-on-merge.yml pushes the fold commit as a PAT, and a PAT push
+# triggers workflows where the default GITHUB_TOKEN's would not -- so every shipped branch started this
+# job twice: once on the merge, once on the fold, the second resolving no pull request and exiting green
+# in seconds. The reason given for accepting rather than skipping it was "coupling this file to a format
+# it does not own, for a saving of one short job" -- correct where Actions is free (this repo, public,
+# standard runners), and wrong where it is metered: measured in BWJ-Development/smartwatchbanden
+# (private, Team plan), fold-on-merge and verify-resolved together ran 530 times in 25 days, about half
+# of them on a `fold:` push with nothing to verify, each paying a full windows-latest job start. The
+# coupling is also no longer this file's alone to weigh: ci.yml already gates its own suites on
+# startsWith(github.event.head_commit.message, 'fold:') (line 399), so this job now reads a format the
+# tree already depends on elsewhere rather than one it alone would have owned. So a fold-only push is
+# now skipped at the JOB level -- see the if: on the job below -- which is unbilled rather than merely
+# short.
 #
 # WINDOWS, like every other workflow that runs these scripts: they target Windows PowerShell 5.1, so
 # this runs under `shell: powershell` (5.1) rather than pwsh.
@@ -89,6 +98,21 @@ concurrency:
 jobs:
   verify-resolved:
     runs-on: windows-latest
+    # SKIP A FOLD-ONLY PUSH AT THE JOB LEVEL -- A JOB SKIPPED BY if: IS NOT BILLED AT ALL (issue #2487).
+    # See the header above for why the reasoning that used to accept this run rather than skip it has
+    # expired for a metered repo.
+    #
+    # EXACTLY ONE COMMIT, NOT MERELY A `fold:` SUBJECT ON THE HEAD -- see fold-on-merge.yml's matching
+    # comment for the full reasoning; both files read the same two-part condition the same way, so a
+    # batch push whose head is a fold commit but which also carries other work still runs.
+    #
+    # SAFE HERE BECAUSE A DIRECTLY-PUSHED FOLD COMMIT RESOLVES NO PULL REQUEST. This job reads the
+    # pushed RANGE and resolves each commit's own PR to verify its closing keywords; a fold commit is
+    # authored straight onto the trunk by this repo's own tooling and carries no PR of its own -- this
+    # job's own run on the MERGE that triggered that fold already verified whatever that PR closed. A
+    # lone fold-commit push has nothing here to resolve: it is the "second run" the header above named,
+    # now made unbilled instead of merely short.
+    if: ${{ !(startsWith(github.event.head_commit.message, 'fold:') && github.event.commits[0].id == github.event.head_commit.id) }}
     # 10 MINUTES, AND THE CAP IS A WEDGE DETECTOR RATHER THAN A PERFORMANCE BUDGET -- issue #2296. A job
     # with no timeout-minutes runs to GitHub's SIX-HOUR default; this one measures under a minute over its
     # 20 most recent successful runs, so 10 is an order of magnitude of headroom and still bounds a wedge.

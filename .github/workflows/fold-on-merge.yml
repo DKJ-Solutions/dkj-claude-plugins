@@ -162,6 +162,26 @@ concurrency:
 jobs:
   fold-on-merge:
     runs-on: windows-latest
+    # SKIP A FOLD-ONLY PUSH AT THE JOB LEVEL, NOT WITH A STEP-LEVEL if: -- A JOB SKIPPED BY if: IS NOT
+    # BILLED AT ALL, WHERE A SKIPPED STEP STILL PAYS FOR THE RUNNER STARTING (issue #2487, metered
+    # Actions minutes in a private consumer). Measured in BWJ-Development/smartwatchbanden (private,
+    # Team plan): fold-on-merge and verify-resolved together ran 530 times in 25 days, and about half of
+    # all trunk pushes in that window were `fold:` commits -- this job's OWN OUTPUT, carrying nothing
+    # left to fold. ci.yml already couples to this exact format for the same reason (line 399), so this
+    # is a second reader of an existing rule, not a new coupling.
+    #
+    # EXACTLY ONE COMMIT, NOT MERELY A `fold:` SUBJECT ON THE HEAD. A `git push` can carry several
+    # commits at once, and github.event.head_commit is only the LAST of them -- a batch push whose head
+    # happens to be a fold commit can still carry real, unfolded work earlier in the same push, which
+    # this job must not skip. github.event.commits[0].id == github.event.head_commit.id is true only
+    # when the push carries exactly that one commit. commits[0] always exists once a push carries any
+    # commit at all; an empty array reads commits[0] as null, which never equals a real SHA -- so a push
+    # this expression cannot classify RUNS, fail-open like every other guard on this page.
+    #
+    # SAFE HERE BECAUSE A FOLD COMMIT IS THIS JOB'S OWN OUTPUT. Skipping fold-all mode on it costs
+    # nothing: whatever it would have folded is still unfolded on the trunk, and the next trunk push --
+    # whatever it is -- runs this job again and folds it then, exactly as fold-all mode always has.
+    if: ${{ !(startsWith(github.event.head_commit.message, 'fold:') && github.event.commits[0].id == github.event.head_commit.id) }}
     # 10 MINUTES, AND THE CAP IS A WEDGE DETECTOR RATHER THAN A PERFORMANCE BUDGET -- issue #2296. A job
     # with no timeout-minutes runs to GitHub's SIX-HOUR default; this one measures under a minute over its
     # 20 most recent successful runs, so 10 is an order of magnitude of headroom and still bounds a wedge.
