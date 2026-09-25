@@ -294,6 +294,19 @@ Assert-True ($chg -notmatch 'no record') 'without the missing-settings note a ve
 Assert-True (($noRec + ' ' + $chg) -notmatch '(?i)bwj|smartwatchbanden|xoxowildhearts|loyalty') 'it names no repo and no store''s own settings'
 
 Write-Host ""
+Write-Host "An empty native read -- the PowerShell 5.1 null cast (inbound #2483)" -ForegroundColor Cyan
+# ([string](<native command>)).Trim() THREW on every first preview push: a git read that prints nothing
+# casts to $null under 5.1, not ''. The script itself cannot run here (it refuses the source repo), so
+# the idiom is pinned in two halves: what it yields, and that no shipped script still uses the old one.
+$emptyRead = "$(git config --get 'branch.no-such-branch-2483.previewTheme')".Trim()
+Assert-Equal '' $emptyRead 'an interpolated empty git read trims to an empty string, not a throw'
+$castPattern = '\(\[string\]\((&\s*)?(git|gh)\s[^()]*\)\)\.Trim\(\)'
+foreach ($rel in 'scripts\task\push-preview.ps1', 'scripts\task\sweep-preview-themes.ps1', 'scripts\task\sync-main.ps1') {
+    $src = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\..\$rel") -Raw
+    Assert-True ($src -notmatch $castPattern) "$rel trims no [string]-cast native read"
+}
+
+Write-Host ""
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1
