@@ -46,7 +46,8 @@ on:
     # THIS REPO STAYS AT THIS CADENCE; adopt-ci-floor.ps1's consumer template places it sparser instead,
     # every 3 hours (issue #2487) -- this repo is public, so a standard-runner job costs nothing and 30
     # minutes buys latency for free, while a private consumer is billed per scheduled job start whether
-    # or not anything is owed a merge, so half-hourly there is worth trading for latency it rarely needs.
+    # or not anything is owed a merge -- so on a private consumer the latency is worth giving up:
+    # half-hourly is 48 billed jobs/day, every 3 hours is 8.
     - cron: '*/30 * * * *'
   workflow_dispatch:
 

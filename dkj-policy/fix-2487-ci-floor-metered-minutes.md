@@ -57,9 +57,9 @@ rather than riding along.
 - [x] `merge-on-green` consumer template: sparser schedule, with `workflow_run` staying the ordinary path
 - [x] `adopt-ci-floor` prints what the runners it places cost a private (metered) repo
 - [x] Plugin mirror of `adopt-ci-floor.ps1` kept identical
-- [x] Separate issue filed for `ubuntu-latest` + `pwsh` -- already stood as #2488 on pickup
+- [x] Separate issue filed for `ubuntu-latest` + `pwsh` -- #2488
 - [x] #2492 (this branch's own contradiction, small enough to fix inside the assignment): reworded the
-  six "half-hourly" / "half an hour later" sites in `scripts/ci/pick-merge-on-green.ps1`,
+  five "half-hourly" / "half an hour later" sites in `scripts/ci/pick-merge-on-green.ps1`,
   `scripts/lib/merge-on-green-lib.ps1` and `scripts/release/ship-pr.ps1` to name "the scheduled sweep"
   generically, true for both the source's `*/30` and a consumer's `0 */3`; left `ship-pr.ps1`'s other
   "half an hour" (the $maxRequiredWaitSec/1800s check-registration budget, unrelated to the sweep
@@ -68,15 +68,33 @@ rather than riding along.
 ### TEST
 
 - [x] `adopt-ci-floor.tests.ps1` asserts the skip, the schedule and the cost note
-- [ ] Lint + suites green (via open-pr)
+- [x] Lint + suites green -- run by open-pr, which refuses the push on any failure; the touched suites and `check-plugin-integrity.ps1` were green beforehand
 
 ### DEPLOY: fix/2487-ci-floor-metered-minutes
 
-**Score:**
+The CI-floor runners no longer spend Actions minutes on pushes that have nothing to do
+([#2487](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2487)). `fold-on-merge` and
+`verify-resolved` skip, at job level, a push carrying exactly one commit whose subject starts with
+`fold:`. A job skipped by `if:` is not billed, and about half of a trunk's pushes are folds. This
+applies to both the source's own workflows and the templates `adopt-ci-floor` places. Anything
+else, a batch under a fold head included, still runs. The `merge-on-green` template now sweeps
+every 3 hours instead of every 30 minutes (8 jobs a day instead of 48), and `workflow_run` stays
+the ordinary path. `adopt-ci-floor` now prints what each runner it places costs on a metered
+repo. The "half-hourly" wording in the sweep's shared scripts now fits either cadence
+([#2492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2492)). Moving the runners to
+`ubuntu-latest` + `pwsh` is left to
+[#2488](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2488).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A private consumer's CI floor stops using up the plan's included Actions minutes. The consumer that
+reported it lost every Actions job to the spending limit. `adopt-ci-floor` never overwrites a runner
+that is already there, so a consumer that placed the floor before this release must apply the new
+`if:` and schedule by hand. The other way is to remove the three files and re-run the adoption.
+
+**Score:** 4
 
 #### Pull Request
 
