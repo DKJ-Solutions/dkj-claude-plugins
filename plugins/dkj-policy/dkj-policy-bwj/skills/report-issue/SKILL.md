@@ -206,6 +206,14 @@ by re-running this skill's steps 2-3.
   needed unless you created the task before you had the issue URL; in that case edit the task notes
   to add it.
 
+**This procedure writes no comment on the task.** If you do write one, for example on a ticket that
+already existed, **its first line says it is an automated message and not written by the account
+holder personally**, in the colleague's language, and the content comes after it. The MCP posts as
+the person who connected it and cannot edit or delete a comment afterwards, so a comment without that
+line reads as that person's own words for good. The rule and its reason are in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-comment-an-agent-writes-on-a-task-says-so-in-its-first-line)
+([#2476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2476)).
+
 ## Step 4 -- report
 
 Give both URLs and stop -- or, for an issue without the reach label, the issue URL and the sentence

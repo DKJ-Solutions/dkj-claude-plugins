@@ -258,6 +258,33 @@ an empty one -- an empty field says *unknown*, a wrong one says *this* -- and th
 authoritative to the colleague looking at it. GitHub stays leading here as everywhere above: the
 card is corrected to match the issue, never the issue to match the card.
 
+#### A comment an agent writes on a task says so in its FIRST line
+
+**No agent writes a comment on an Asana task unless its very first line says it is an automated
+message** (Dave, September 25, 2026, inbound
+[#2476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2476)). Asana shows a comment as
+written by the account that posted it, and neither writer below posts under an account of its own: a
+session writes through the Asana MCP as the person who connected it, and the CI mirror writes with
+`ASANA_PAT`, which also belongs to a person. So a comment without that line reads to a colleague as
+that person's own words, and they did not write it. Measured in `BWJ-Development/smartwatchbanden` the
+day the rule was written: a session running `report-issue` on an existing ticket posted a
+colleague-facing comment, and the story's author read as the owner's own name with nothing in the
+text to say otherwise.
+
+- **A session** writes the line in the colleague's language, [as everything addressed to them
+  is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
+  by the account holder personally. For example, *"🤖 Automatische reactie (Claude) -- niet
+  persoonlijk geschreven door Dave."* The content comes after it and never before.
+- **The CI mirror** opens every update with `Get-MirrorCommentHeader`, above the marker sentence
+  step 4's de-duplication reads. The header sits above the marker and does not replace it, so updates
+  written before the header existed still de-duplicate.
+
+**Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
+a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
+session posts without the line stays that way. **A block a person pastes by hand** (step 4's
+paste-ready block, the `needs-info` question) is that person's own message once they post it, and it
+takes no header: the rule covers what an agent writes, not what a person chooses to send.
+
 ### 3. Cross-link both ways
 
 The link is stored on both sides, and one half is machine-readable because the automation in step 4
