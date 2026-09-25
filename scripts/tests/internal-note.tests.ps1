@@ -821,6 +821,21 @@ Assert-True ($patchDoc -match '\*\*Date:\*\* 2026-09-06\\') 'no pair, patch: the
 Assert-True ($patchDoc -match '\*\*Type:\*\* Patch\\')      'no pair, patch: and a patch-shaped version reads as Patch'
 Remove-Item -Recurse -Force -LiteralPath $patch -ErrorAction SilentlyContinue
 
+# A STATED TYPE BEATS THE SHAPE. 'cut-release.ps1 -Version 4.30.0 -Type patch' is legal where a repo's
+# numbering diverges, and the version heading alone would read 4.30.0 as a Minor. The release history's row
+# is what the cut writes from the stated type, so it is asked first; this row disagrees with the shape on
+# purpose, which is the only way the assert can tell which of the two was read.
+$stated = New-Fixture -Label 'no-pair-stated' -NotesContent $noPairNotes -Version '4.30.0' -NotesDir '4.x'
+New-Item -ItemType Directory -Path (Join-Path $stated 'releases') -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $stated 'releases\README.md'),
+    "# Releases`n`n### 4.x`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n| [4.30.0](changelog/4.x/4.30.0.md) | 2026-09-04 | Patch | Stated |`n",
+    $Utf8NoBom)
+$rs = Invoke-Script -Dir $stated -Version '4.30.0'
+Assert-Equal 0 $rs.Code 'stated type: exit 0'
+$statedDoc = [System.IO.File]::ReadAllText((Join-Path $stated 'dkj-policy\releases\internal\4.x\4.30.0.md'))
+Assert-True ($statedDoc -match '\*\*Type:\*\* Patch\\') "stated type: the history row's Type wins over the version's shape"
+Remove-Item -Recurse -Force -LiteralPath $stated -ErrorAction SilentlyContinue
+
 # And the all-tier-0 case in the flat shape: the warning still names the reason rather than reporting a
 # parse failure, which is the one thing the container heading used to be needed for.
 $flatZeroNotes = @"

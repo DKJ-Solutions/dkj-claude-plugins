@@ -229,11 +229,19 @@ function Get-MetaLine {
 # 2026). release-lib.ps1 no longer writes the pair -- the heading 'Version X.Y.Z (Mon dd, yyyy)' already
 # states both -- so a note cut from now on is read through Get-NoteVersionHeadingMeta. Every note published
 # before that carries the pair, and it is still read first, so their internal notes come out unchanged.
-# Neither answering gets the '(fill in)' placeholder and a warning rather than a silently blank line.
+# THE TYPE ASKS THE RELEASE HISTORY'S ROW BEFORE THE HEADING: the heading gives the type by the version's
+# shape, and a cut run with -Type states one that nothing holds to that shape -- the row records what was
+# stated. Where no source answers, that field gets the '(fill in)' placeholder and a warning, not a blank.
 $headingMeta = Get-NoteVersionHeadingMeta -Text $dev
 $date = Get-MetaLine -Text $dev -Label 'Date'
 if (-not $date) { $date = $headingMeta.Date }
 $typeLabel = Get-MetaLine -Text $dev -Label 'Type'
+if (-not $typeLabel) {
+    $metaHistoryFile = Join-Path $RepoRoot ((Get-SeamValue -Name 'Get-ReleaseHistoryPath' -Default 'releases/README.md') -replace '/', '\')
+    if (Test-Path -LiteralPath $metaHistoryFile -PathType Leaf) {
+        $typeLabel = Get-OverviewRowType -ReadmeContent ([System.IO.File]::ReadAllText($metaHistoryFile, [System.Text.Encoding]::UTF8)) -Version $verNum
+    }
+}
 if (-not $typeLabel) { $typeLabel = $headingMeta.Type }
 if (-not $date) {
     Write-Warning "No dated version heading and no '**Date:**' line in $devRel -- fill in the date by hand."

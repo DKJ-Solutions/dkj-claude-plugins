@@ -712,6 +712,14 @@ Assert-Equal '' (Get-NoteVersionHeadingMeta -Text '## Version 5.8.1 (25-09-2026)
 $none = Get-NoteVersionHeadingMeta -Text "# Changelog Releases`n`nNo heading here."
 Assert-Equal '' $none.Type 'no version heading: no type'
 Assert-Equal '' $none.Date 'and no date'
+# NINE DIGITS PER COMPONENT, so the [int] cast cannot overflow: an oversized heading is no heading.
+Assert-Equal '' (Get-NoteVersionHeadingMeta -Text '## Version 1.99999999999.0 (Sep 25, 2026)').Type 'an oversized component does not match, and does not throw'
+# THE STATED TYPE LIVES IN THE HISTORY ROW (Get-OverviewRowType), which a reader asks before the shape.
+$rowDoc = "| Version | Date | Type | Title |`n|---|---|---|---|`n| [4.30.1](changelog/4.x/4.30.1.md) | 2026-09-05 | Minor | x |`n| `4.30.0` | 2026-09-04 | Patch | y |`n"
+Assert-Equal 'Patch' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '4.30.0') 'the row for that version is read, in a backticked cell'
+Assert-Equal 'Minor' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '4.30.1') 'and in a linked cell'
+Assert-Equal '' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '4.3.0') 'a version that is only a PREFIX of a row''s does not match it'
+Assert-Equal '' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '9.9.9') 'no row: empty, so the caller falls back to the shape'
 Assert-Match $notes '(?m)^# Changelog Releases\n\nA title\n\n## Version 3\.5\.0 \(Aug 05, 2026\)$' 'the H1 is followed by the title and then the version heading, nothing between'
 Assert-Match $notes 'A title' 'title included'
 # THE LEVELS ARE CHANGELOG.md'S OWN (#881, August 25, 2026) -- AND THEY ARE READ FROM THE FORMAT RATHER

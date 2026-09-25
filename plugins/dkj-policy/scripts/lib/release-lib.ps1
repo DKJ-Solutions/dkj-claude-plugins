@@ -1115,6 +1115,25 @@ function Get-OverviewLatestVersion {
     return $null
 }
 
+function Get-OverviewRowType {
+    <# The Type cell -- 'Major', 'Minor' or 'Patch' -- of the release overview's row for one version, or
+       '' where no row names it. Pure string in, string out.
+
+       WHY THIS EXISTS (#2491). The changelog release note stopped carrying a '**Type:**' line, and its
+       version heading only gives the type by SHAPE. That is the declared type on every ordinary cut, but
+       'cut-release.ps1 -Type' states one for a repo whose numbering diverges, and nothing holds the
+       statement to the shape -- so this row, which the cut writes from the declared type, is the record
+       a reader asks first. Both version-cell shapes Get-OverviewLatestVersion accepts are accepted here. #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$ReadmeContent,
+        [Parameter(Mandatory)][string]$Version
+    )
+    $v = [regex]::Escape($Version)
+    $m = [regex]::Match($ReadmeContent, "(?m)^\|[^|\r\n]*(?<![\d.])$v(?![\d.])[^|\r\n]*\|[^|\r\n]*\|[ \t]*(Major|Minor|Patch)[ \t]*\|")
+    if ($m.Success) { return $m.Groups[1].Value }
+    return ''
+}
+
 # The audience each tier is named after in a generated document. ONE MAP, so the release notes and any
 # later reader of a tier number agree about what it means.
 #
@@ -1243,9 +1262,17 @@ function Get-NoteVersionHeadingMeta {
         below it (Get-BumpType is the same rule read from two versions): X.0.0 is a major, X.Y.0 a minor,
         and anything with a patch component a patch. The date is parsed EXACTLY with the invariant
         culture, the same two rules its writer applies, so no machine's locale can change the answer.
+
+        THE SHAPE IS NOT THE DECLARED TYPE WHERE A CUT WAS TOLD ONE. 'cut-release.ps1 -Version X.Y.Z -Type
+        <t>' states the type rather than inferring it, and nothing holds that statement to the number's
+        shape. The one durable record of a stated type is the release history's row, so a reader that has
+        that row asks Get-OverviewRowType first and this function second -- new-internal-note.ps1 does.
+
+        EACH COMPONENT IS AT MOST NINE DIGITS, so the [int] cast below cannot overflow: an oversized
+        heading does not match, and the caller takes the same '(fill in)' route as for no heading at all.
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
-    $m = [regex]::Match($Text, '(?m)^#+[ \t]+Version[ \t]+(\d+)\.(\d+)\.(\d+)(?:[ \t]+\(([^)]*)\))?[ \t]*$')
+    $m = [regex]::Match($Text, '(?m)^#+[ \t]+Version[ \t]+(\d{1,9})\.(\d{1,9})\.(\d{1,9})(?:[ \t]+\(([^)]*)\))?[ \t]*$')
     if (-not $m.Success) { return [pscustomobject]@{ Date = ''; Type = '' } }
     $type = if ([int]$m.Groups[3].Value -gt 0) { 'Patch' } elseif ([int]$m.Groups[2].Value -gt 0) { 'Minor' } else { 'Major' }
     $date = ''

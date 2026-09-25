@@ -48,31 +48,37 @@ has to get both some other way, and keep reading every note already published wi
 
 - [x] `Build-ReleaseNotes` writes no pair, and its `-Type` parameter is retired (the cut no longer passes it)
 - [x] `Get-NoteVersionHeadingMeta` reads the date and type back out of the version heading
-- [x] `new-internal-note.ps1` reads the pair first and the heading where the pair is absent
+- [x] `new-internal-note.ps1` reads the pair first; where it is absent, the type from the release history's row
+      (`Get-OverviewRowType`, which records a type stated with `cut-release.ps1 -Type`), then the heading
+- [x] each heading component capped at nine digits, so an oversized one cannot overflow the `[int]` cast
 - [x] plugin mirrors of the three scripts copied across
 
 ### TEST
 
-- [x] `release-lib.tests.ps1`: no pair, the retired parameter asserted absent, and the heading reader
-      round-tripped through the note the lib writes (Major / Minor / Patch, undated, no heading) -- 561 passed
+- [x] `release-lib.tests.ps1`: no pair, the retired parameter asserted absent, the heading reader
+      round-tripped through the note the lib writes (Major / Minor / Patch, undated, no heading, oversized),
+      and the history-row reader -- 566 passed
 - [x] `internal-note.tests.ps1`: a note with no pair yields the same date and type, no placeholder, no
-      warning, for a minor and a patch -- 120 passed
+      warning, for a minor and a patch, and a history row stating a type wins over the shape -- 122 passed
 - [x] `cut-release-guardrail.tests.ps1` 111 passed; `check-plugin-integrity.ps1` 0 errors
+- [x] reviewed: Victor (the stated `-Type` case, repaired), Sebastian (the overflow, repaired), Edith
 
 ### DEPLOY: fix/2491-drop-notes-date-type
 
 The changelog release note a cut writes (`releases/changelog/<X>.x/<X.Y.Z>.md`) no longer carries the
-`**Date:**` and `**Type:**` lines under `# Changelog Releases`. The `## Version X.Y.Z (Mon dd, yyyy)`
-heading already says both. `new-internal-note.ps1` now reads the date and type from that heading when the
-lines are missing, so the internal note it builds is unchanged, and notes published before this still read
+`**Date:**` and `**Type:**` lines under `# Changelog Releases`: the `## Version X.Y.Z (Mon dd, yyyy)`
+heading already says both. Where those lines are missing, `new-internal-note.ps1` takes the date from that
+heading and the type from the release history's row, falling back to the version's shape, so the internal
+note it builds is unchanged, including for a cut run with `-Type`. Notes published before this still read
 exactly as they did. `Build-ReleaseNotes` no longer takes `-Type`.
 
 **Score:** 1 -- prevents a duplicate that could disagree with its own heading; nothing has broken yet.
 
 #### What makes this deploy extra special
 
-From your next release, the changelog release note starts straight with its title and version heading,
-without the two metadata lines. Nothing to do: the internal note still fills in its date and type.
+From your next release, the changelog release note goes from its `# Changelog Releases` heading straight
+to its title and version heading, without the two metadata lines between them. Nothing to do: the
+internal note still fills in its date and type.
 
 **Score:** 2
 
