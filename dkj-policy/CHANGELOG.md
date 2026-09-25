@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**6 / 18 minor entries** <!-- pending-tally -->
+**6 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2481-fixture-git-transport-retry · 20260925-132744Z
+
+The test gate retries a fixture `git push` or `git fetch` once when its transport breaks mid-transfer
+(`unexpected sideband packet`, a remote that hung up, early EOF), instead of failing a suite whose
+asserts all passed. The retry is printed as `[FIXTURE GIT RETRY]` and counted in the suite's fixture
+summary, separately from failures. A commit, a clone, or a push that git refused is never retried, and a
+second break is judged as a failure exactly as before
+([#2481](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2481)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the test fixtures live in this repo only and ship to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+A fixture git push that breaks in transport under the parallel gate is retried once, instead of failing the suite
+
+[PR #2501](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2501)
+
+---
 
 ### DEPLOY: fix/2497-lifehub-brain-layout · 20260925-131018Z
 
