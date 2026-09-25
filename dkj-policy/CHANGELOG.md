@@ -44,7 +44,35 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 10 patch entries** <!-- pending-tally -->
+**1 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2477-golive-live-urls-pinned · 20260925-090324Z
+
+`golive-block`'s live URLs are now pinned to the live theme id wherever the store names one
+(`-LiveThemeId`, or `Get-ShopifyLiveThemeId` in `scripts/repo-config.ps1`). A bare storefront URL
+renders the preview in any browser that opened the result link first, so both tabs agreed and the
+change could look live before the release. Where no id resolves, the URLs stay bare and the block tells
+the requester to open them in a private window until the release.
+
+**Score:** 2 -- one script and its label; nothing a developer here calls changes.
+
+#### What makes this deploy extra special
+
+A store running `golive-block` hands its requester live links that show what is live now, even after
+they opened the preview, and the same links show the change once it ships. A store with no live-id seam
+gets a label saying how to read them instead.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block pins the block's live URLs to the live theme id
+
+Plugins: dkj-policy-bwj
+
+[PR #2480](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2480)
+
+---
 
 ### DEPLOY: fix/2476-asana-automated-comment-header · 20260925-085442Z
 
