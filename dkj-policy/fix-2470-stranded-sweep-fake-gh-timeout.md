@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#2470's filed cause was the 90 s `-MaxElapsedSeconds` budget. Reproduced against the real check,
+the reachable clock is the 15 s per-call `-TimeoutSeconds`, which the suite never passed: a fake
+`gh` slower than it reads `[SKIP]` or `[INCOMPLETE]`, never `[OK]`. The correction is on the issue.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `stranded-sweep-gate.tests.ps1`: `Invoke-Check` passes `-TimeoutSeconds 120` to every run
 
 ### TEST
 
+- [x] Suite alone 46/46; a 3 s fake with `-TimeoutSeconds 2` gives `[SKIP]`, and with 120 gives `[OK]`
+
 ### DEPLOY: fix/2470-stranded-sweep-fake-gh-timeout
 
-**Score:**
+`stranded-sweep-gate.tests.ps1` no longer refuses a push when the parallel test gate is under
+load. Its fake `gh` launches a fresh `powershell.exe`, and under 22 lanes that could outrun the
+check's 15 s per-call timeout. The suite now gives every run a 120 s bound, because none of its
+cases tests that timeout.
+
+**Score:** 2 -- removes a spurious red from `open-pr`'s gate (#2470), in the same class as #2077 and #2458.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a test-suite change; nothing a subscriber runs is touched.
+
+**Score:** N/A
 
 #### Pull Request
 
