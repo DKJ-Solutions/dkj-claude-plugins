@@ -3869,7 +3869,15 @@ function Set-ChangelogCanonicalHead {
             return ((@($head[0..($head.Count - 2)]) + @($lines[$i..($lines.Count - 1)])) -join $nl)
         }
         if ($lines[$i] -match $entryRx) {
-            return (($head + @('') + @($lines[$i..($lines.Count - 1)])) -join $nl)
+            # A pending heading BELOW an entry is misplaced -- a hand edit -- and keeping it would leave two
+            # of them for every reader anchored on that pattern. It is dropped rather than used as the
+            # boundary, because replacing everything above it would take the entries above it with it.
+            $tail = @()
+            for ($j = $i; $j -lt $lines.Count; $j++) {
+                if ((-not $fenced[$j]) -and $lines[$j] -match $pendingRx) { continue }
+                $tail += $lines[$j]
+            }
+            return (($head + @('') + $tail) -join $nl)
         }
     }
 

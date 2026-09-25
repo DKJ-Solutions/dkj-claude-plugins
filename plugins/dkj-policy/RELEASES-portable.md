@@ -503,7 +503,7 @@ In one motion, on a clean `main`:
    block: the section that used to hold one had grown in the source repo to 434 of the changelog's 1,062
    lines across 72 blocks
    each saying no more than "see the notes", while its release list already carried all 72 with a date, a
-   type and a title. The release list is found where `Get-ReleaseHistoryPath` names it;
+   type and a title;
 3. **(retired, August 8, 2026)** step 3 used to append, per plugin, the entries that touched it to a
    **per-plugin `CHANGELOG.md`** and regenerate that plugin's **`RELEASE.md`** card — a second copy of a
    history the consumer already receives, since a marketplace source arrives as a git clone of the whole

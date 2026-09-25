@@ -615,7 +615,7 @@ retired with the per-tier shape** on September 7, 2026 (`Lead`, `Bucket`, `Audie
 replaced them are `Share` and `NoShare`. Only keys the defaults carry are read, so an answer for a retired
 key is silently *inert* rather than an error — if you had translated the old line, re-answer it. The line ends with an HTML comment that identifies it as
 machine-written — that marker is the only thing a later run replaces, so a note of your own in that space
-is never overwritten. (There is no intro above that heading to quote it in any more: the fold re-applies a
+is never overwritten. (There is no longer an intro above that heading to quote it in: the fold re-applies a
 fixed head, #2486.)
 
 ---

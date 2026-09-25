@@ -544,7 +544,7 @@ Assert-True (Test-Path -LiteralPath (Join-Path $rnDir 'CONTRIBUTING.md')) 'reser
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $dirRC $rnPaths.File))) 'reserved commit: the real dossier is removed after folding'
 
 # ---------------------------------------------------------------------------------------------------
-Write-Host "The intro is written below, never over" -ForegroundColor Cyan
+Write-Host "The head is replaced by the fixed one, and the entry lands below it" -ForegroundColor Cyan
 #      There is no configured heading to insert after any more, so the boundary between the intro and the
 #      list is derived structurally -- the first entry heading. Getting that wrong writes an entry into the
 #      middle of the intro, which is why it is asserted rather than assumed.

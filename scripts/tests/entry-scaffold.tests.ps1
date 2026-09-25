@@ -3024,6 +3024,15 @@ $headFencedSet = Set-ChangelogCanonicalHead -Content $headFenced
 Assert-True ($headFencedSet -notmatch 'DEPLOY: quoted') 'head: fence-aware -- a heading quoted in the intro is not the boundary'
 Assert-True ($headFencedSet -match 'feat/h3-v1') 'head: and the real entry below the real heading survives'
 
+# A PENDING HEADING BELOW AN ENTRY (a hand edit) is dropped, not duplicated -- and not used as the boundary,
+# which would delete the entry above it. Found in review of #2486.
+$headMisplaced = (@('# Changelog', '', 'Old intro.', '', (New-TallyEntry -Branch 'feat/h4-v1' -Tier 0), '', $tallyH, '') -join "`n")
+$headMisplacedSet = Set-ChangelogCanonicalHead -Content $headMisplaced
+Assert-Equal 1 @([regex]::Matches($headMisplacedSet, '(?m)' + (Get-ChangelogUnreleasedPattern).TrimStart('^').Insert(0, '^'))).Count `
+    'head: a pending heading below an entry is not duplicated'
+Assert-True ($headMisplacedSet -match 'feat/h4-v1') 'head: and the entry above it survives'
+Assert-True ($headMisplacedSet.StartsWith(($fixedHead -join "`n") + "`n`n" + $eH)) 'head: and the one heading left is the fixed head''s'
+
 $headCrlf = Set-ChangelogCanonicalHead -Content ($headWithPending -replace "`n", "`r`n")
 Assert-True ($headCrlf -match "`r`n" -and $headCrlf -notmatch "[^`r]`n") 'head: a CRLF document stays CRLF throughout'
 # A HUMAN'S PARAGRAPH UNDER THE PENDING HEADING IS NOT EATEN. This is the reason the line carries a
