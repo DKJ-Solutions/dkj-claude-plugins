@@ -39,9 +39,27 @@
 
 ### PLAN
 
+Unblocked 2026-09-25: #2487 landed as PR #2498. Measure first, because #2488 itself says the size of the
+script changes is inferred, and no session machine here has `pwsh` or WSL -- so the measurement runs on
+`ubuntu-latest` itself, as a temporary push-triggered probe on this branch
+(`.github/workflows/linux-runner-probe.yml` + `.github/probe-2488.ps1`).
+
+#### Found statically, before the probe
+
+- Beyond what the issue lists: the runner path launches CHILD processes by the literal name
+  `powershell`, which does not exist on `ubuntu-latest` -- `ship-pr.ps1` L986 (open-pr), L3768 (fold),
+  L3907 (verify-resolved-issues) and `verify-pushed-merges.ps1` L236. Either a host-resolving helper or a
+  `powershell` -> `pwsh` shim in the runner; the probe's two passes separate that from real
+  5.1-versus-7 differences.
+- `merge-on-green` cannot be proved on its own PR (workflow_run runs the default branch's file), and it
+  drives the largest code path (`ship-pr.ps1`, 4099 lines, plus open-pr, the fold and their libs).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Probe on ubuntu-latest: the nine suites of the runner path, twice (without and with a shim), plus
+  the three read-only runner steps
+- [ ] Size the repair from the probe, and decide the shape (all four runners, or phased)
+- [ ] Remove the probe files before the PR
 
 ### TEST
 

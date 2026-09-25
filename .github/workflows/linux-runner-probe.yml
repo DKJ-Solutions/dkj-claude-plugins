@@ -1,0 +1,67 @@
+# TEMPORARY MEASUREMENT FOR #2488 -- removed before this branch's PR is opened.
+#
+# #2488 asks whether the CI-floor runners can move from windows-latest + Windows PowerShell 5.1 to
+# ubuntu-latest + pwsh, and says itself that how much the scripts need changing was inferred, not
+# checked. No session machine here has pwsh or WSL, so the measurement runs where the runners would.
+#
+# TWO PASSES OVER THE SAME SUITES. Pass A runs them as they are, so a child process launched as
+# `powershell` fails for want of the executable. Pass B adds a `powershell` -> pwsh shim first, so what
+# still fails there is a real 5.1-versus-7 or Windows-versus-Linux difference rather than the name.
+name: Linux runner probe (#2488)
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  push:
+    branches: ['fix/2488-*']
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Versions
+        shell: pwsh
+        run: |
+          $PSVersionTable | Format-Table -AutoSize | Out-String | Write-Host
+          git --version; gh --version
+          Write-Host "powershell on PATH: $([bool](Get-Command powershell -ErrorAction SilentlyContinue))"
+
+      - name: Pass A -- suites as they are
+        shell: pwsh
+        continue-on-error: true
+        run: ./.github/probe-2488.ps1 -Pass A
+
+      - name: Shim powershell -> pwsh
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
+      - name: Pass B -- suites with the shim
+        shell: pwsh
+        continue-on-error: true
+        run: ./.github/probe-2488.ps1 -Pass B
+
+      - name: Runner steps, read-only
+        shell: pwsh
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $env:GITHUB_OUTPUT = Join-Path ([IO.Path]::GetTempPath()) 'probe-output.txt'
+          foreach ($cmd in @(
+              @('scripts/lint/check-unfolded-entry.ps1', '-Branch', 'main'),
+              @('scripts/ci/pick-merge-on-green.ps1'),
+              @('scripts/lint/check-repo-settings.ps1', '-RequireRead')
+          )) {
+              Write-Host "::group::$($cmd -join ' ')"
+              pwsh -NoProfile -File @cmd
+              Write-Host "exit $LASTEXITCODE"
+              Write-Host '::endgroup::'
+          }
