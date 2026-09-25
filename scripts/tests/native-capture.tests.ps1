@@ -777,7 +777,7 @@ try {
 
     # THE DECODE IS UNCHANGED BY THE SWAP, asserted rather than assumed -- the old site named the
     # encoding as Get-Content's own '-Encoding Oem' and the new one resolves the OEM code page itself.
-    $oemHere = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $oemHere = Get-NativeCaptureOemEncoding
     $oemProbe = Join-Path $sandbox 'oem-decode.txt'
     [System.IO.File]::WriteAllBytes($oemProbe, [byte[]]@(0x61, 0x82, 0x62))   # 'a', a high byte, 'b'
     Assert-Equal (Get-Content -LiteralPath $oemProbe -Raw -Encoding Oem) `
@@ -792,6 +792,10 @@ try {
     $gateBody = $libSource.Substring($libSource.IndexOf('function Invoke-TestSuiteGate'))
     Assert-True ($gateBody -notmatch 'Get-Content[^\r\n]*-Encoding Oem') 'Invoke-TestSuiteGate reads no capture file with a plain Get-Content'
     Assert-True (@([regex]::Matches($gateBody, 'Write-GateCaptureBlock')).Count -ge 2) 'both of its capture-printing sites -- the pool and the crash re-run -- go through the helper'
+
+    # ONE DEFINITION OF THE CAPTURE DECODE (#2502): the OEM lookup was written out at three readers of
+    # the same files, and they must agree (#2295). Pinned so a fourth reader cannot copy the idiom back in.
+    Assert-Equal 1 @([regex]::Matches($libSource, 'TextInfo\.OEMCodePage')).Count 'the OEM code page is looked up in exactly one place -- Get-NativeCaptureOemEncoding'
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-TestSuiteGate -- a lane is never handed the gate''s own stdin (#2233)' -ForegroundColor Cyan

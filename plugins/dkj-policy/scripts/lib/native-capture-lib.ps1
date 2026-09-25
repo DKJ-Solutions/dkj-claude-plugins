@@ -892,6 +892,19 @@ function Format-GateExitCode {
     return "$ExitCode"
 }
 
+function Get-NativeCaptureOemEncoding {
+    <#
+        THE ONE ENCODING EVERY GATE CAPTURE FILE IS DECODED WITH -- issue #2502. A redirected Windows
+        PowerShell child writes its output in the OEM code page ([Console]::OutputEncoding), so that is
+        what the gate reads its capture files back in. Three readers decode the same files --
+        Write-GateCaptureBlock prints them, Test-GateSuiteSilent asks whether they hold anything, and
+        Invoke-TestSuiteGate's retention block decides whether to keep them -- and they must agree, which
+        is the reason #2295 gave for making the retention read match the print read. One definition is
+        what keeps a later edit from changing one decode and not the other two.
+    #>
+    [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+}
+
 function Test-GateSuiteSilent {
     <#
         DID THIS SUITE WRITE ANYTHING AT ALL? -- issue #2500. $true when every capture file named is
@@ -926,7 +939,7 @@ function Test-GateSuiteSilent {
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Path,
         [int]$SettleMilliseconds = $script:NativeCaptureSettleMilliseconds
     )
-    $oem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $oem = Get-NativeCaptureOemEncoding
     foreach ($f in @($Path)) {
         if (-not $f -or -not (Test-Path -LiteralPath $f)) { continue }
         $read = Read-NativeCaptureFile -Path $f -Encoding $oem -SettleMilliseconds $SettleMilliseconds
@@ -1106,7 +1119,7 @@ function Write-GateCaptureBlock {
     # reached a suite's output from a document it was reading. Get-Content's own `-Encoding Oem`
     # resolves to this same code page, so the swap changes the decode by nothing -- asserted in the
     # suite rather than assumed here.
-    $oem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $oem = Get-NativeCaptureOemEncoding
 
     foreach ($f in @($Path)) {
         if (-not (Test-Path -LiteralPath $f)) { continue }
@@ -4714,7 +4727,7 @@ function Invoke-TestSuiteGate {
             # NativeCaptureFile's probe waits (bounded, $script:NativeCaptureSettleMilliseconds) for a
             # lingering writer to release before it is read as empty, exactly as the print already does --
             # so the retention decision can no longer disagree with what the console just showed.
-            $captureOem = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+            $captureOem = Get-NativeCaptureOemEncoding
             if (Test-Path -LiteralPath $captureDir) {
                 $keep = @()
                 foreach ($f in @($failedCaptureFiles)) {
