@@ -65,7 +65,7 @@ inferred.
 
 ### TEST
 
-- [x] `test-suite-gate.tests.ps1` 8g: silent once, then green on the re-run; silent every time, red
+- [x] `test-suite-gate.tests.ps1` 8h: silent once, then green on the re-run; silent every time, red
       with `SILENT AGAIN` and the no-output line; `Test-GateSuiteSilent` in-process (empty, missing,
       one byte). Suite: 342 pass, 0 fail
 - [x] Focus reproduction of `session-cache-lib.tests.ps1`, 10 repeats under 22 lanes: all green
