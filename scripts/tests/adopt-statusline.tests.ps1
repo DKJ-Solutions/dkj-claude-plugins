@@ -34,6 +34,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Script   = Join-Path $RepoRoot 'scripts\task\adopt-statusline.ps1'
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 
 $script:pass  = 0
 $script:fail  = 0
@@ -182,6 +183,108 @@ $res = Invoke-Adopt -Root $root -Apply
 $shimAfter = Get-Content -LiteralPath (Join-Path $root '.claude\statusline\dkj-progress.ps1') -Raw
 Assert-True ($shimBefore -ceq $shimAfter) 're-run: the shim is not rewritten'
 Assert-True ($res.Output -match '\[keep\]') 're-run: and the run says it kept what was there'
+
+# --- 6b. additive means the BYTES, not only the keys (#2505) --------------------------------------
+# Case 5 asserts that every key survives, and it passed all along while the file around those keys was
+# re-serialised: Windows PowerShell 5.1's ConvertTo-Json column-pads every member and drops blank lines,
+# so a consumer's one-key addition to a 163-line file came back as a 164-line diff. So these compare the
+# written TEXT against the exact text an insert must produce -- the original, untouched, up to its
+# closing brace, with the member in the file's own indent and line ending.
+function Get-ExpectedInsert {
+    param([string]$Original, [string]$Unit, [string]$Eol)
+    $close = $Original.LastIndexOf('}')
+    $head  = $Original.Substring(0, $close).TrimEnd()
+    $member = @(
+        "$Unit`"statusLine`": {"
+        "$Unit$Unit`"type`": `"command`","
+        "$Unit$Unit`"command`": `"powershell -NoProfile -ExecutionPolicy Bypass -File \`".claude/statusline/dkj-progress.ps1\`"`","
+        "$Unit$Unit`"refreshInterval`": 2"
+        "$Unit}"
+    ) -join $Eol
+    return ($head + ',' + $Eol + $member + $Eol + $Original.Substring($close))
+}
+
+$root = New-FixtureRepo 'bytes'
+$original = "{`n  `"env`": {`n    `"KEEP`": `"1`"`n  },`n  `"permissions`": {`n    `"allow`": [`n      `"Bash(git status:*)`",`n`n      `"Bash(git log:*)`"`n    ]`n  }`n}`n"
+Write-Utf8 (Join-Path $root '.claude\settings.json') $original
+$res = Invoke-Adopt -Root $root -Apply
+$written = [System.IO.File]::ReadAllText((Join-Path $root '.claude\settings.json'))
+Assert-True ($res.ExitCode -eq 0) 'bytes: exits 0'
+Assert-True ($written -ceq (Get-ExpectedInsert -Original $original -Unit '  ' -Eol "`n")) `
+    'bytes: the file is the original text plus the inserted member, and nothing else changed'
+Assert-True ($written -match "\*\)`",`n`n      `"Bash") 'bytes: a blank line inside an array survives'
+Assert-True ($written -notmatch '"env":  \{') 'bytes: no ConvertTo-Json column padding appears'
+
+# CRLF and a tab indent: the member follows the file, not a house style.
+$root = New-FixtureRepo 'crlf-tab'
+$original = "{`r`n`t`"env`": {`r`n`t`t`"KEEP`": `"1`"`r`n`t}`r`n}`r`n"
+Write-Utf8 (Join-Path $root '.claude\settings.json') $original
+$null = Invoke-Adopt -Root $root -Apply
+$written = [System.IO.File]::ReadAllText((Join-Path $root '.claude\settings.json'))
+Assert-True ($written -ceq (Get-ExpectedInsert -Original $original -Unit "`t" -Eol "`r`n")) `
+    'bytes: a CRLF, tab-indented file gets the member in CRLF and tabs'
+
+# A BOM is part of what was there.
+$root = New-FixtureRepo 'bom'
+$bomPath = Join-Path $root '.claude\settings.json'
+New-Item -ItemType Directory -Path (Split-Path -Parent $bomPath) -Force | Out-Null
+[System.IO.File]::WriteAllText($bomPath, "{`n  `"env`": {}`n}`n", (New-Object System.Text.UTF8Encoding($true)))
+$null = Invoke-Adopt -Root $root -Apply
+$bytes = [System.IO.File]::ReadAllBytes($bomPath)
+Assert-True ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) 'bytes: a BOM that was there is still there'
+Assert-True ($null -ne ((Get-Content -LiteralPath $bomPath -Raw -Encoding UTF8 | ConvertFrom-Json).statusLine)) `
+    'bytes: and the file behind it still parses with the statusLine in it'
+
+# The first member on the '{' line: the unit is read off the next indented member, not defaulted.
+$root = New-FixtureRepo 'inline-first'
+$original = "{ `"a`": 1,`n    `"b`": 2`n}`n"
+Write-Utf8 (Join-Path $root '.claude\settings.json') $original
+$null = Invoke-Adopt -Root $root -Apply
+$written = [System.IO.File]::ReadAllText((Join-Path $root '.claude\settings.json'))
+Assert-True ($written -ceq (Get-ExpectedInsert -Original $original -Unit '    ' -Eol "`n")) `
+    'bytes: a first member on the brace line still gets the file''s own 4-space unit'
+
+# An empty object takes the member with no comma in front of it.
+$root = New-FixtureRepo 'empty-object'
+Write-Utf8 (Join-Path $root '.claude\settings.json') "{}`n"
+$res = Invoke-Adopt -Root $root -Apply
+$emptyRaw = [System.IO.File]::ReadAllText((Join-Path $root '.claude\settings.json'))
+Assert-True ($res.ExitCode -eq 0) 'empty object: exits 0'
+Assert-True ($emptyRaw -notmatch '\{\s*,') 'empty object: no leading comma'
+Assert-True ("$(($emptyRaw | ConvertFrom-Json).statusLine.type)" -eq 'command') 'empty object: the statusLine is placed'
+
+# --- 6c. a shim git cannot see is said out loud (#2505) --------------------------------------------
+# The consumer's shape: '.claude/*' ignored, with exceptions that do not cover statusline/. The shim is
+# written, git status never lists it, and the committed settings.json names a file no other checkout gets.
+function New-GitFixture {
+    param([string]$Label, [string]$Gitignore)
+    $dir = New-FixtureRepo $Label
+    Invoke-FixtureGitIn $dir init -q
+    Write-Utf8 (Join-Path $dir '.gitignore') $Gitignore
+    return $dir
+}
+
+$root = New-GitFixture -Label 'ignored' -Gitignore ".claude/*`n!.claude/settings.json`n"
+$res = Invoke-Adopt -Root $root
+Assert-True ($res.Output -match 'WARNING\] git IGNORES') 'ignored shim: a dry run already warns'
+Assert-True ($res.Output -match [regex]::Escape('.gitignore:1:.claude/*')) 'ignored shim: and names the rule that matched'
+Assert-True ($res.Output -match [regex]::Escape('!.claude/statusline/')) 'ignored shim: and the exception that fixes it'
+$res = Invoke-Adopt -Root $root -Apply
+Assert-True ($res.ExitCode -eq 0) 'ignored shim: a warning, not a refusal'
+Assert-True ($res.Output -match 'WARNING\] git IGNORES') 'ignored shim: -Apply warns too'
+Assert-True ((Get-Content -LiteralPath (Join-Path $root '.gitignore') -Raw) -ceq ".claude/*`n!.claude/settings.json`n") `
+    'ignored shim: the .gitignore is left exactly as it was'
+
+$root = New-GitFixture -Label 'visible' -Gitignore ".claude/*`n!.claude/settings.json`n!.claude/statusline/`n"
+$res = Invoke-Adopt -Root $root
+Assert-True ($res.Output -notmatch 'IGNORES') 'visible shim: an exception that covers it prints no warning'
+Assert-True ($res.Output -notmatch 'could not ask git') 'visible shim: and no unknown either -- git answered'
+
+# Outside a work tree git answers 128, which is unknown -- said as such, never read as "not ignored".
+$root = New-FixtureRepo 'no-git'
+$res = Invoke-Adopt -Root $root
+Assert-True ($res.Output -match 'could not ask git') 'no git repo: the check says it could not ask, rather than passing silently'
+Assert-True ($res.Output -notmatch 'IGNORES') 'no git repo: and claims no ignore rule either'
 
 Write-Host ''
 Write-Host '== the shim contract ==' -ForegroundColor Cyan
@@ -356,8 +459,14 @@ foreach ($tree in $script:trees) {
 }
 
 Write-Host ''
+# A BROKEN FIXTURE FAILS THE RUN (issue #1635): the ignore cases read a repo git init had to build.
+$fixtureBroken = Write-FixtureGitSummary -Subject 'adopt-statusline.ps1'
 if ($script:fail -gt 0) {
     Write-Host "FAILED: $($script:fail) of $($script:pass + $script:fail) asserts failed." -ForegroundColor Red
+    exit 1
+}
+if ($fixtureBroken) {
+    Write-Host "FAILED: every assert passed, but $(Get-FixtureGitFailureCount) fixture git command(s) did not." -ForegroundColor Red
     exit 1
 }
 Write-Host "OK: all $($script:pass) asserts passed." -ForegroundColor Green

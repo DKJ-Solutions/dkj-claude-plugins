@@ -45,6 +45,23 @@
     and prints the block for you to place by hand. Composing two statuslines is not on the table --
     there is one key, and merging two commands' output is a decision only the repo's owner can make.
 
+    ADDITIVE MEANS THE BYTES, NOT ONLY THE KEYS (#2505). Until September 25, 2026 the key was added by
+    a ConvertFrom-Json / ConvertTo-Json round trip. Every key survived -- which is what the suite
+    asserted -- and every line did not: Windows PowerShell 5.1's serialiser column-pads each member and
+    drops blank lines, so in BWJ-Development/xoxowildhearts a one-key addition to a 163-line file came
+    back as a 164-line full-file diff nobody could review. So the member is now INSERTED as text before
+    the root object's closing brace, in the file's own indent and line ending, with a BOM kept where
+    there was one -- and the result is parsed back before it is written, so an insert that produced
+    anything but the same keys plus statusLine writes nothing at all.
+
+    AND IT SAYS SO WHEN GIT CANNOT SEE THE SHIM (#2505). A repo that ignores '.claude/*' with a list of
+    exceptions -- the same consumer's shape -- hides the shim from 'git status' while the committed
+    settings.json names it, so every other checkout gets a statusLine pointing at a file it never
+    received. Nothing errors anywhere. 'git check-ignore' is asked about the shim's path on every run,
+    dry runs included, and a hit prints the rule that matched and the exception line that fixes it. It
+    warns and edits no .gitignore: the ignore file is the repo's own, and which exception it wants is
+    not this command's to choose.
+
     REFUSED IN THE REPO THAT PUBLISHES THIS WORKFLOW. The source runs show-progress.ps1 from its own
     tree by a repo-relative path, which is the one arrangement the shim must not be written over: the
     source IS the payload, so resolving an install record to find itself would be a loop through the
@@ -92,6 +109,7 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'adopt-st
 # the repo that publishes THIS workflow is refused -- #998's narrowing, and the reason a consumer who
 # publishes some other product is not turned away here.
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\document-newline-lib.ps1')
 if (Test-IsWorkflowSourceRepo -RepoRoot $repoRoot) {
     Write-Host 'REFUSED: this repo publishes this workflow, so it is its source rather than a consumer.' -ForegroundColor Red
     Write-Host 'The source runs scripts/task/show-progress.ps1 from its own tree by a repo-relative path.'
@@ -252,13 +270,63 @@ if (Test-Path -LiteralPath $shimAbs -PathType Leaf) {
 # REFUSE-AND-PRINT, NEVER REPLACE. statusLine is singular per settings file -- see the header.
 $existingSettings = $null
 $settingsReadable = $true
+$settingsText     = ''
+$settingsHadBom   = $false
 if (Test-Path -LiteralPath $settingsAbs -PathType Leaf) {
     try {
-        $raw = Get-Content -LiteralPath $settingsAbs -Raw -Encoding UTF8
-        if ("$raw".Trim()) { $existingSettings = $raw | ConvertFrom-Json }
+        # BYTES, so a BOM can be written back exactly as it was found -- the insert below promises to
+        # leave everything it did not add alone, and a BOM is part of everything.
+        $bytes = [System.IO.File]::ReadAllBytes($settingsAbs)
+        $settingsHadBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+        $offset = $(if ($settingsHadBom) { 3 } else { 0 })
+        $settingsText = (New-Object System.Text.UTF8Encoding($false)).GetString($bytes, $offset, $bytes.Length - $offset)
+        if ($settingsText.Trim()) { $existingSettings = $settingsText | ConvertFrom-Json }
     } catch {
         $settingsReadable = $false
     }
+}
+
+function Get-MemberNames {
+    <# The top-level member names of a parsed settings object -- none for $null and for '{}'. Callers
+       wrap the call in @(), since a function returning @() hands back $null. Not
+       '.PSObject.Properties.Name': under StrictMode that member enumeration THROWS on an object with
+       no properties, which crashed -Apply on an empty settings file (#2505). #>
+    param($Object)
+    if ($null -eq $Object) { return @() }
+    return @($Object.PSObject.Properties | ForEach-Object { $_.Name })
+}
+
+function Add-StatusLineMember {
+    <# Insert the statusLine member into a settings file's TEXT, before the root object's closing brace,
+       and return the new text -- or $null where the text has no closing brace to insert before.
+
+       Everything that was there stays byte for byte (#2505): the member is written in the file's own
+       indent unit (read off its first member, two spaces where there is none) and its own line ending,
+       and the text after the closing brace -- a trailing newline, or none -- is kept as found. The
+       caller has already parsed the text, so the last '}' in it IS the root's: valid JSON ends there. #>
+    param([AllowEmptyString()][string]$Text, [string]$Command, [int]$Interval)
+    $close = $Text.LastIndexOf('}')
+    if ($close -lt 0) { return $null }
+    $eol  = Get-DocumentNewline -Content $Text
+    $unit = '  '
+    # A bare '{' line followed by the first member is the ordinary shape. Where the first member shares
+    # the '{' line, the first indented member line elsewhere is the next-best reading of the file's unit.
+    $first = [regex]::Match($Text, '^\s*\{[ \t]*\r?\n([ \t]+)"')
+    if (-not $first.Success) { $first = [regex]::Match($Text, '(?m)^([ \t]+)"') }
+    if ($first.Success) { $unit = $first.Groups[1].Value }
+    $head = $Text.Substring(0, $close).TrimEnd()
+    $tail = $Text.Substring($close)
+    # An empty root ends its head in the '{' itself; anything else ends in a member, which takes a comma.
+    $sep  = $(if ($head.EndsWith('{')) { '' } else { ',' })
+    $cmd  = ($Command -replace '\\', '\\') -replace '"', '\"'
+    $member = @(
+        "$unit`"statusLine`": {"
+        "$unit$unit`"type`": `"command`","
+        "$unit$unit`"command`": `"$cmd`","
+        "$unit$unit`"refreshInterval`": $Interval"
+        "$unit}"
+    ) -join $eol
+    return ($head + $sep + $eol + $member + $eol + $tail)
 }
 
 # refreshInterval IS IN SECONDS, NOT MILLISECONDS (#2163). This carried 2000 until September 19, 2026,
@@ -285,7 +353,7 @@ if (-not $settingsReadable) {
 }
 
 $hasStatusLine = $false
-if ($existingSettings -and (@($existingSettings.PSObject.Properties.Name) -contains 'statusLine')) { $hasStatusLine = $true }
+if (@(Get-MemberNames $existingSettings) -contains 'statusLine') { $hasStatusLine = $true }
 
 if ($hasStatusLine) {
     Write-Host "  [keep]  $settingsRel already defines a statusLine -- left exactly as it is." -ForegroundColor Yellow
@@ -297,23 +365,76 @@ if ($hasStatusLine) {
     Write-Host '          The shim above is in place either way, so wiring it up later is a settings'
     Write-Host '          edit and nothing else.'
 } elseif ($Apply) {
-    $settings = if ($existingSettings) { $existingSettings } else { [pscustomobject]@{} }
-    $settings | Add-Member -MemberType NoteProperty -Name 'statusLine' -Value ([pscustomobject]@{
-        type            = 'command'
-        command         = $statusLineCommand
-        refreshInterval = $refreshIntervalSeconds
-    })
+    # A missing or blank file is an empty object, so a new file comes out of the same insert as an
+    # existing one rather than out of a second writer with a layout of its own.
+    $baseText = $(if ($null -ne $existingSettings) { $settingsText } else { "{`n}`n" })
+    $newText  = Add-StatusLineMember -Text $baseText -Command $statusLineCommand -Interval $refreshIntervalSeconds
+
+    # PARSED BACK BEFORE IT IS WRITTEN. The insert is text surgery on somebody else's file, so what it
+    # produced has to be the same keys plus statusLine -- anything else means the surgery misread the
+    # file, and then the honest outcome is the original left alone and the block printed.
+    $before = @(Get-MemberNames $existingSettings)
+    $verified = $false
+    if ($newText) {
+        try {
+            $parsed = $newText | ConvertFrom-Json
+            $after  = @(Get-MemberNames $parsed)
+            $verified = ("$($parsed.statusLine.command)" -ceq $statusLineCommand) -and
+                        ($after.Count -eq $before.Count + 1) -and
+                        (@($before | Where-Object { $after -notcontains $_ }).Count -eq 0)
+        } catch { $verified = $false }
+    }
+    if (-not $verified) {
+        Write-Host "  [refuse] $settingsRel -- the insert could not be verified, so nothing was changed." -ForegroundColor Red
+        Write-Host '           Place the block by hand:'
+        Write-Host ''
+        Write-Host $blockForPrinting
+        exit 1
+    }
+
     $settingsDir = Split-Path -Parent $settingsAbs
     if (-not (Test-Path -LiteralPath $settingsDir -PathType Container)) {
         New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
     }
-    $json = ($settings | ConvertTo-Json -Depth 20)
-    [System.IO.File]::WriteAllText($settingsAbs, (($json -replace "`r`n", "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host "  [write] $settingsRel -- statusLine added" -ForegroundColor Green
+    [System.IO.File]::WriteAllText($settingsAbs, $newText, (New-Object System.Text.UTF8Encoding($settingsHadBom)))
+    Write-Host "  [write] $settingsRel -- statusLine added, the rest of the file untouched" -ForegroundColor Green
 } else {
     Write-Host "  [would write] $settingsRel -- statusLine added:"
     Write-Host ''
     Write-Host $blockForPrinting
+}
+
+# --- 3. can git see the shim? ----------------------------------------------------------------------
+# A shim git ignores is a shim no other checkout receives, while the settings.json they DO receive names
+# it -- see the header (#2505). Asked on a dry run too: the path is the same whether or not it exists
+# yet, and a dry run is where the reader decides whether to apply. Exit 0 is "ignored", 1 is "not
+# ignored"; anything else (no git, not a work tree) is said as unknown rather than read as clean.
+$ignoreHit  = ''
+$ignoreCode = -1
+$savedEap = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $ignoreHit  = "$(& git -C $repoRoot -c core.quotePath=true check-ignore -v -- $shimRel 2>$null)".Trim()
+    $ignoreCode = $LASTEXITCODE
+} catch {
+    $ignoreCode = -1
+} finally {
+    $ErrorActionPreference = $savedEap
+}
+
+if ($ignoreCode -eq 0) {
+    # -v prints '<source>:<line>:<pattern><TAB><path>'; the part before the tab is the rule that matched.
+    $rule = Format-SafePathToken -Value (($ignoreHit -split "`t")[0])
+    Write-Host ''
+    Write-Host "  [WARNING] git IGNORES $shimRel -- matched by: $rule" -ForegroundColor Yellow
+    Write-Host "            settings.json names this file, so every other checkout would get a statusLine"
+    Write-Host '            pointing at a file it never received. Add an exception after that rule, e.g.:'
+    Write-Host '                !.claude/statusline/'
+    Write-Host '            and commit the shim with the settings change. Your .gitignore was not edited.'
+} elseif ($ignoreCode -ne 1) {
+    Write-Host ''
+    Write-Host "  [note] could not ask git whether $shimRel is ignored -- check it yourself before committing:" -ForegroundColor Yellow
+    Write-Host "         git check-ignore -v $shimRel"
 }
 
 Write-Host ''
