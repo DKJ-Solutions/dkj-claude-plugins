@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#2464 proposed moving ~1 KB of narrative per file out of the two generated shared blocks. The
+earlier attempt, recorded on the issue, measured the full split at ~0.5 KB per file (a pointer
+costs back most of what it moves), found that most candidates are operative guidance, and found
+that an on-demand home would need four uncontrolled copies. What was left standing is the two
+sentences that are pure narrative, and those are dropped outright. The issues they came from
+still hold the evidence.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `subagent-shared/findings-become-issues.md`: drop "Measured twice in one session..." and
+      "Measured -- a report proposed gating a check..."
+- [x] Regenerate the 30 stamped copies through `build-agent-defs.ps1`
 
 ### TEST
 
+- [x] `build-agent-defs.ps1 -Check` in sync; `git grep` finds neither sentence left under `plugins/`
+
 ### DEPLOY: docs/2464-drop-shared-block-narrative
 
-**Score:**
+The shared "findings become issues" block in every agent def and persona loses two sentences
+that only told the story behind a rule. The rules stay word for word. That saves ~0.4 KB per
+copy, across 30 files, and Chris's always-on persona is one of them.
+
+**Score:** 1 -- trims the per-dispatch and always-on cost. No behaviour changes.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a subscriber sees the same rules; only the anecdotes are gone.
+
+**Score:** N/A
 
 #### Pull Request
 
