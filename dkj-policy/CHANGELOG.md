@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**5 / 15 minor entries** <!-- pending-tally -->
+**5 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2493-step4-refusals-lead-with-checkout · 20260925-122924Z
+
+When `ship-pr` refuses a merge at the DEPLOY lock or the step-list gate, its remedy now leads with the
+`git checkout <branch>` the fix needs. Both refusals fire after `ship-pr` has already moved the checkout
+back to `main`, so their remedies -- a commit, and for the DEPLOY lock also `open-pr.ps1 -RefreshBody` --
+failed with "You are on main" until the branch was checked out by hand.
+
+**Score:** 2 -- a refusal's own remedy failed on first use; noticed only by somebody who hits the lock.
+
+#### What makes this deploy extra special
+
+N/A -- nothing changes for a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+ship-pr's step-4 refusals lead with the checkout the fix needs
+
+Plugins: dkj-policy
+
+[PR #2496](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2496)
+
+---
 
 ### DEPLOY: fix/2491-drop-notes-date-type · 20260925-120740Z
 
