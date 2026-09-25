@@ -18,7 +18,7 @@ description: >-
 
 This skill has **no script of its own** -- it is a procedure over `gh` and the Asana MCP, because the
 colleague-facing translation is a judgement call, not a transform. **One of its rules is held by a hook
-rather than by this page**: step 2's reach-label gate (see there). The full rule it implements is in
+rather than by this page**: the reach-label gate in step 2 below. The full rule it implements is in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md); this page is the steps.
 
 ## Before you start

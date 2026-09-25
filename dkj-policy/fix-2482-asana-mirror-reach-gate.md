@@ -67,17 +67,31 @@ tier-0 issue gets no marker in the first place, so nothing is left for the exemp
 
 ### TEST
 
-- [x] `scripts/tests/guard-asana-mirror.tests.ps1`: 35 asserts over the lib, the hook's network-free paths, and the registration
+- [x] `scripts/tests/guard-asana-mirror.tests.ps1`: 44 asserts over the lib, the hook's network-free paths, the raw-payload pre-gate, and the registration
+- [x] Review: Victor (escaped-slash pre-gate, `labels: null`, one read budget under the 30s ceiling), Sebastian (an Int32 overflow crashed out of the fail-open path), Edith (`plugin.json` still called every chapter "policy rather than mechanism") -- all repaired on this branch
 - [x] Live smoke run: `smartwatchbanden#770` refused (exit 2), `#764` (carries `minor`) admitted, an unreadable issue passed with a warning
 - [x] `check-plugin-integrity.ps1` at 0 errors; `hook-stdin-guard`, `hook-fail-closed` and `dkj-policy-bwj` suites green
 
 ### DEPLOY: fix/2482-asana-mirror-reach-gate
 
-**Score:**
+`dkj-policy-bwj` now ships a hook, `hooks/guard-asana-mirror.ps1`, that enforces `report-issue`'s rule
+that only an issue carrying the reach label gets an Asana task. It fires on every Asana create-task
+call, reads the labels of each GitHub issue the task cites on an admitted repo, and refuses the call
+where the reach label (`Get-ReachLabel`, default `minor`) is missing. Where `gh` cannot answer, it lets
+the call through with a warning naming the issue it did not check. Until now the rule was a sentence,
+and `smartwatchbanden#770`, a developer-only issue, got a card on the version that carried it.
+
+**Score:** 3 -- a session in a store repo is stopped the moment it tries to mirror a tier-0 issue, where before nothing stopped it.
 
 #### What makes this deploy extra special
 
-**Score:**
+Colleagues on the Asana board stop receiving cards for developer-only work, and a fix for such an issue
+closes it at the merge again rather than waiting for somebody to paste a block into a card that should
+never have existed.
+
+**Score:** 2
 
 #### Pull Request
 
+
+A hook refuses an Asana task for an issue without the reach label

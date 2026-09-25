@@ -42,10 +42,14 @@ function Get-MirroredIssueRefs {
         $owner = $m.Groups[1].Value
         $repo  = $m.Groups[2].Value
         if ($script:AsanaMirrorAdmittedRepos -notcontains $repo.ToLowerInvariant()) { continue }
-        $ref = "$owner/$repo#$($m.Groups[3].Value)"
+        # A digit run past Int32 is no GitHub issue, and a bare [int] cast on it THROWS -- which crashed
+        # the hook out of its own fail-open path (Sebastian's review, #2482). Skipped, not cast.
+        $number = 0
+        if (-not [int]::TryParse($m.Groups[3].Value, [ref]$number) -or $number -lt 1) { continue }
+        $ref = "$owner/$repo#$number"
         if (-not $refs.Contains($ref.ToLowerInvariant())) {
             $refs[$ref.ToLowerInvariant()] = [pscustomobject]@{
-                Owner = $owner; Repo = $repo; Number = [int]$m.Groups[3].Value; Ref = $ref
+                Owner = $owner; Repo = $repo; Number = $number; Ref = $ref
             }
         }
     }
@@ -88,5 +92,8 @@ function ConvertFrom-GhIssueLabels {
     if (-not $Json) { return $null }
     try { $obj = $Json | ConvertFrom-Json } catch { return $null }
     if ($null -eq $obj -or -not ($obj.PSObject.Properties.Name -contains 'labels')) { return $null }
+    # A JSON null is not an empty list: piped, $null runs the block once and yields @(''), which would
+    # read as 'refuse' (Victor's review, #2482).
+    if ($null -eq $obj.labels) { return $null }
     return ,([string[]]@($obj.labels | ForEach-Object { [string]$_.name }))
 }

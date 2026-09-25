@@ -77,6 +77,8 @@ Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/BWJ-Development
 Assert-Equal 1 @(Get-MirroredIssueRefs -Text 'https://github.com/DKJ-Solutions/DKJ-Claude-Plugins/issues/1').Count 'the repo name is matched case-insensitively'
 Assert-Equal 2 @(Get-MirroredIssueRefs -Text 'https://github.com/a/xoxowildhearts/issues/1 https://github.com/b/smartwatchbanden/issues/2').Count 'two admitted repos in one task are two mirrored issues'
 Assert-Equal 0 @(Get-MirroredIssueRefs -Text '').Count 'empty text is no mirror'
+Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/a/smartwatchbanden/issues/12345678901234567890').Count 'a digit run past Int32 is skipped, not cast into a throw (#2482 review)'
+Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/a/smartwatchbanden/issues/0').Count 'issue 0 does not exist and is not a mirror'
 
 Assert-Equal 'admit'   (Get-AsanaMirrorVerdict -Labels @('documentation', 'minor') -ReachLabel 'minor') 'the reach label on the issue admits it'
 Assert-Equal 'admit'   (Get-AsanaMirrorVerdict -Labels @('Minor') -ReachLabel 'minor') 'case-insensitively, as GitHub matches labels'
@@ -91,6 +93,7 @@ $empty = ConvertFrom-GhIssueLabels -Json '{"labels":[]}'
 Assert-True ($null -ne $empty -and @($empty).Count -eq 0) 'an issue with no labels parses to an EMPTY list, not to unknown'
 Assert-True ($null -eq (ConvertFrom-GhIssueLabels -Json 'not json')) 'an unparseable reply is unknown'
 Assert-True ($null -eq (ConvertFrom-GhIssueLabels -Json '{"state":"OPEN"}')) 'a reply without a labels field is unknown'
+Assert-True ($null -eq (ConvertFrom-GhIssueLabels -Json '{"labels":null}')) 'a JSON null for labels is unknown, not an empty list (#2482 review)'
 
 $ti = Get-AsanaMirrorToolInputText -Raw '{"tool_name":"x","tool_input":{"tasks":[{"notes":"https:\/\/github.com\/a\/smartwatchbanden\/issues\/9"}]}}'
 Assert-Equal 1 @(Get-MirroredIssueRefs -Text $ti).Count 'an escaped URL in the payload is matched in its decoded form'
@@ -108,6 +111,20 @@ Assert-Equal 0 $r.Code 'a task citing an issue on a repo report-issue does not a
 
 $r = Invoke-Hook 'github.com/a/smartwatchbanden/issues/1 but not json'
 Assert-Equal 0 $r.Code 'an unparseable payload passes rather than blocking every Asana write'
+
+$r = Invoke-Hook '{"tool_name":"mcp__claude_ai_Asana__create_tasks","tool_input":{"tasks":[{"name":"x","notes":"https://github.com/a/smartwatchbanden/issues/12345678901234567890"}]}}'
+Assert-Equal 0 $r.Code 'an oversized issue number exits 0, not the crash exit 1 (#2482 review)'
+Assert-True ($r.Err -notmatch 'at line|\.ps1:') 'and prints no stack trace'
+
+# The pre-gate runs on the RAW payload, before any decode, so it is read out of the hook's source and
+# held against both spellings. A process run cannot show it: past the pre-gate, a real issue costs a gh
+# call, and this suite makes none.
+$hookText = Get-Content -Raw -LiteralPath $Hook
+$preGate  = [regex]::Match($hookText, "if \(\`$raw -notmatch '([^']+)'\)").Groups[1].Value
+Assert-True ($preGate -ne '') 'the hook carries a raw-payload pre-gate'
+Assert-True ('"notes":"https:\/\/github.com\/a\/smartwatchbanden\/issues\/9"' -match $preGate) 'the pre-gate lets a JSON-escaped issue URL through to the lib (#2482 review)'
+Assert-True ('"notes":"https://github.com/a/smartwatchbanden/issues/9"' -match $preGate) 'and a plain one'
+Assert-True (-not ('"notes":"see github.com for details"' -match $preGate)) 'and still stops a payload naming no issue'
 
 # --- 3. The registration ----------------------------------------------------------------------------
 Write-Host 'hooks.json registration' -ForegroundColor Cyan

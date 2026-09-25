@@ -45,7 +45,9 @@ $raw = ''
 if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
 
 # THE CHEAP PRE-GATE. No issue URL in the payload means no mirror, and no lib load or gh call is spent.
-if ($raw -notmatch 'github\.com/[^/\s"]+/[^/\s"]+/issues/[0-9]+') { exit 0 }
+# The slashes may arrive JSON-escaped ('\/'), so the pre-gate allows for that. The precise match is
+# the lib's, on the DECODED tool_input. This test only has to never miss one (Victor's review, #2482).
+if ($raw -notmatch 'github\.com\\?/[^\s"]{1,200}?issues\\?/[0-9]') { exit 0 }
 
 $libPath = Join-Path $PSScriptRoot '..\scripts\lib\asana-mirror-gate.ps1'
 if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
@@ -53,6 +55,14 @@ if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
     exit 0
 }
 . $libPath
+
+# ANY UNEXPECTED THROW FROM HERE ON IS THE DELIBERATE FAIL-OPEN, NOT A CRASH. Without this an exception
+# exits 1 -- non-blocking to the harness, so the call still went through -- but with a raw stack trace
+# carrying local paths and none of the "not checked" warning this design relies on (#2482's review).
+trap {
+    [Console]::Error.WriteLine('guard-asana-mirror: an unexpected error stopped the check -- the reach-label gate did NOT judge this call. Confirm by hand that the issue it mirrors carries the reach label.')
+    exit 0
+}
 
 $refs = @(Get-MirroredIssueRefs -Text (Get-AsanaMirrorToolInputText -Raw $raw))
 if ($refs.Count -eq 0) { exit 0 }
@@ -102,10 +112,17 @@ function Get-IssueLabelsBounded {
     }
 }
 
+# ONE BUDGET FOR ALL THE READS, under hooks.json's 30s ceiling. A per-read bound alone lets two slow
+# reads outlast the ceiling, and then the harness decides rather than this file (Victor's review, #2482).
+# A read the budget can no longer cover is 'unknown', which takes the warned fail-open below.
+$deadline = [DateTime]::UtcNow.AddSeconds(25)
 $refused = @()
 $unknown = @()
 foreach ($r in $refs) {
-    $labels = Get-IssueLabelsBounded -Number $r.Number -Owner $r.Owner -Repo $r.Repo
+    $leftMs = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+    $labels = if ($leftMs -gt 1000) {
+        Get-IssueLabelsBounded -Number $r.Number -Owner $r.Owner -Repo $r.Repo -TimeoutMs ([Math]::Min(20000, $leftMs))
+    } else { $null }
     switch (Get-AsanaMirrorVerdict -Labels $labels -ReachLabel $reachLabel) {
         'refuse'  { $refused += $r.Ref }
         'unknown' { $unknown += $r.Ref }
