@@ -401,9 +401,9 @@ Paste the block into the Asana task, so the requester knows where to look and wh
 The fix for <owner>/<repo>#<n> is done. You can view the result here: <the actual link>
 
 Planned to go live with the release of <weekday> <date>, as version <vX.Y.Z>.
-Once it is live you can see it here:
+Until then, these links show what is live now, to compare against -- and once it is live, you can see the change here:
 
-- <market> -- <live url>
+- <market> -- <live url, pinned to the live theme id>
 
 What we ask of you:
 Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.
@@ -502,7 +502,7 @@ cycle -- the other is the storefront-visibility step in
 |---|---|
 | **when it goes live** | the next release day. BWJ cuts on **Mondays**, so it is the next Monday -- strictly the next one, never today, because a Monday's release is cut before the day's work closes |
 | **which version** | the newest `vX.Y.Z` tag, bumped by what the pending changelog has earned -- patch where everything pending is tier 0, minor where anything reaches further |
-| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, with the preview half left off |
+| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, **pinned to the live theme id** wherever the store names it -- the control half of that pair -- so the same link is a comparison before the release and the live page after it ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)). A bare URL renders the preview in any browser that opened the result link first, so where no live id resolves the list stays bare and its label says to open it in a private window before the release |
 
 **It is written by a script, because all three are derivable and none of them is a judgement** --
 [`build-golive-block.ps1`](skills/golive-block/SKILL.md), which prints the block and, with `-Post`,

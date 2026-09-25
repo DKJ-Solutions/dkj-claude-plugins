@@ -962,6 +962,20 @@ Assert-True ($goLiveBlock.Contains('as version v1.4.0.')) 'it names the version 
 Assert-True ($goLiveBlock.Contains('- NL -- https://example.invalid/nl/p')) 'one live URL per market, labelled by market'
 Assert-True ($goLiveBlock.Contains('- DE -- https://example.invalid/de/p')) 'and the market order is the table order'
 
+# AN UNPINNED LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL
+# renders the preview in any browser that opened the result link first, so both tabs would agree.
+Assert-True ($goLiveBlock.Contains('open these in a private window')) 'unpinned, beside a result link, the list carries the cookie caveat'
+Assert-True ($goLiveBlock -notmatch 'to compare against') 'and does not call itself a comparison'
+$goLivePinned = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026' `
+    -ResultLink 'https://example.invalid/preview' -LivePinned `
+    -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/nl/p?preview_theme_id=9' })
+Assert-True ($goLivePinned.Contains('what is live now, to compare against')) 'pinned to the live id, the list is labelled as a comparison now'
+Assert-True ($goLivePinned.Contains('once it is live, you can see the change here')) 'and as the live page after the release'
+Assert-True ($goLivePinned -notmatch 'private window') 'and needs no caveat'
+$goLiveNoLink = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026' `
+    -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/nl/p' })
+Assert-True ($goLiveNoLink.Contains("Once it is live you can see it here:`n")) 'with no result link there is no link of its own to set the cookie, so no caveat'
+
 # THE MARKER SITS OUTSIDE THE PASTED BLOCK -- the same property the backstop's own copy is held to,
 # for the same reason: everything between the rules lands in a colleague's ticket.
 $goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
@@ -1019,6 +1033,37 @@ try {
     Assert-Equal 0 $glCode 'the driver run with -File and -Path exits 0 in a store that declares its markets'
     Assert-True ($glText -notmatch 'has not declared its markets') 'and does not claim the store declared none'
     Assert-True ($glText.Contains('- NL -- https://seam.example/pages/p')) 'the live URL comes from the repo-config the driver read itself'
+    Assert-True ($glText -notmatch 'preview_theme_id') 'with no live theme id anywhere, the live URL stays bare -- never a guessed id'
+    Assert-True ($glText.Contains('bare -- no live theme id')) 'and the run says why it is bare'
+
+    # PINNED TO THE LIVE ID WHERE THE SEAM NAMES ONE (#2477) -- the same seam the control half of a
+    # preview pair reads, so a store that republishes has one place to correct.
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        ("function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }`r`n" +
+         "function Get-ShopifyLiveThemeId { '4242' }`r`n"),
+        (New-Object System.Text.UTF8Encoding $false))
+    $glPinOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -Link 'https://seam.example/pages/p?preview_theme_id=1&_ab=0&_fd=0&_sc=1' -RootOverride $glRoot 2>&1
+    $glPinText = (@($glPinOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with a live-id seam exits 0'
+    Assert-True ($glPinText.Contains('- NL -- https://seam.example/pages/p?preview_theme_id=4242&')) 'the live URL names the live theme id the seam answers'
+    Assert-True ($glPinText.Contains('what is live now, to compare against')) 'and the list is labelled as the comparison it now is'
+    $glArgOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -LiveThemeId '99' -RootOverride $glRoot 2>&1
+    $glArgText = (@($glArgOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-True ($glArgText.Contains('preview_theme_id=99&')) '-LiveThemeId wins over the seam'
+
+    # A SEAM THAT THROWS IS NOT A SEAM NOBODY DECLARED: its own message reaches the run, not a generic hint.
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        ("function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }`r`n" +
+         "function Get-ShopifyLiveThemeId { throw 'token expired' }`r`n"),
+        (New-Object System.Text.UTF8Encoding $false))
+    $glErrOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -RootOverride $glRoot 2>&1
+    $glErrText = (@($glErrOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-Equal 0 $LASTEXITCODE 'a throwing live-id seam still yields a block'
+    Assert-True ($glErrText.Contains('not pinned: token expired')) 'and the run prints the seam''s own reason'
+    Assert-True ($glErrText -notmatch 'preview_theme_id') 'with the URLs left bare rather than guessed'
 } finally {
     if (Test-Path -LiteralPath $glRoot) { Remove-Item -LiteralPath $glRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
