@@ -147,7 +147,13 @@ function Invoke-Check {
         [switch]$PrChecksFail,
         # -1 means "do not pass -MaxElapsedSeconds at all", so the script's own default (90) applies --
         # a caller that wants the budget behaviour under test passes a real value (issue #2438).
-        [int]$MaxElapsedSeconds = -1
+        [int]$MaxElapsedSeconds = -1,
+        # THE PER-CALL BOUND IS PASSED GENEROUSLY, NEVER LEFT AT THE SCRIPT'S 15s DEFAULT (issue #2470).
+        # The fake gh is a .cmd that launches a fresh powershell.exe, and under the parallel open-pr gate
+        # (22 lanes) that launch alone can outrun 15s -- the list read then times out into [SKIP], or a
+        # checks read into [INCOMPLETE], and an [OK] assert goes red for a race the tree had no part in.
+        # No case here tests the per-call timeout, so this suite has no reason to be exposed to it.
+        [int]$TimeoutSeconds = 120
     )
     $prevEap = $ErrorActionPreference
     try {
@@ -159,7 +165,7 @@ function Invoke-Check {
         if ($PrListFail) { $env:GH_FAKE_PR_LIST_FAIL = '1' } else { Remove-Item Env:\GH_FAKE_PR_LIST_FAIL -ErrorAction SilentlyContinue }
         $env:GH_FAKE_PR_CHECKS_JSON = $PrChecksJson
         if ($PrChecksFail) { $env:GH_FAKE_PR_CHECKS_FAIL = '1' } else { Remove-Item Env:\GH_FAKE_PR_CHECKS_FAIL -ErrorAction SilentlyContinue }
-        $scriptArgs = @('-RootOverride', $Dir)
+        $scriptArgs = @('-RootOverride', $Dir, '-TimeoutSeconds', $TimeoutSeconds)
         if ($MaxElapsedSeconds -ge 0) { $scriptArgs += @('-MaxElapsedSeconds', $MaxElapsedSeconds) }
         $out = & $PowershellExe -NoProfile -ExecutionPolicy Bypass -File $Script @scriptArgs 2>&1
         return @{ Out = ($out | Out-String); Code = $LASTEXITCODE }
