@@ -91,5 +91,3 @@ to a page you own before you cut. The sections, their tables and every row are u
 
 The release list carries one fixed head, with no intro prose
 
-Plugins: dkj-policy
-
