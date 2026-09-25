@@ -643,7 +643,7 @@ function Write-SyncReconciliationBase {
         return
     }
 
-    $trunkSha = ([string](& git rev-parse HEAD)).Trim()
+    $trunkSha = "$(& git rev-parse HEAD)".Trim()
     if ($trunkSha -notmatch '^[0-9a-f]{40}$') {
         Write-Host 'Could not read the current commit, so the trunk content could not be put back afterwards. Nothing written.' -ForegroundColor Red
         return
@@ -846,7 +846,7 @@ if (-not $DryRun) {
 
 # --- 2. the trunk, fast-forwarded ------------------------------------------------------------------
 if ($DryRun) {
-    $onBranch = ([string](& git rev-parse --abbrev-ref HEAD)).Trim()
+    $onBranch = "$(& git rev-parse --abbrev-ref HEAD)".Trim()
     Write-Host ''
     Write-Host "[1/6] dry run -- staying on $onBranch, checking out and pulling nothing." -ForegroundColor Yellow
 } else {
