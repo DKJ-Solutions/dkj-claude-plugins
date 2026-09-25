@@ -34,6 +34,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Script   = Join-Path $RepoRoot 'scripts\task\adopt-statusline.ps1'
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 
 $script:pass  = 0
 $script:fail  = 0
@@ -258,7 +259,7 @@ Assert-True ("$(($emptyRaw | ConvertFrom-Json).statusLine.type)" -eq 'command') 
 function New-GitFixture {
     param([string]$Label, [string]$Gitignore)
     $dir = New-FixtureRepo $Label
-    $null = & git -C $dir init -q 2>&1
+    Invoke-FixtureGitIn $dir init -q
     Write-Utf8 (Join-Path $dir '.gitignore') $Gitignore
     return $dir
 }
@@ -458,8 +459,14 @@ foreach ($tree in $script:trees) {
 }
 
 Write-Host ''
+# A BROKEN FIXTURE FAILS THE RUN (issue #1635): the ignore cases read a repo git init had to build.
+$fixtureBroken = Write-FixtureGitSummary -Subject 'adopt-statusline.ps1'
 if ($script:fail -gt 0) {
     Write-Host "FAILED: $($script:fail) of $($script:pass + $script:fail) asserts failed." -ForegroundColor Red
+    exit 1
+}
+if ($fixtureBroken) {
+    Write-Host "FAILED: every assert passed, but $(Get-FixtureGitFailureCount) fixture git command(s) did not." -ForegroundColor Red
     exit 1
 }
 Write-Host "OK: all $($script:pass) asserts passed." -ForegroundColor Green
