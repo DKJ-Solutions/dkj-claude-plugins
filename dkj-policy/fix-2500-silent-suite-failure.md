@@ -89,3 +89,4 @@ N/A -- the test gate runs inside the repos that adopt this workflow; no subscrib
 
 #### Pull Request
 
+A suite that exits non-zero without writing a byte is re-run alone and reported as SILENT, instead of FAILED with no output
