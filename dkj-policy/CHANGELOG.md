@@ -44,7 +44,30 @@ replaces, so anything else written in this space is left alone.
 
 ## [Unreleased]
 
-**0 / 6 patch entries** <!-- pending-tally -->
+**0 / 7 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2470-stranded-sweep-fake-gh-timeout · 20260925-080053Z
+
+`stranded-sweep-gate.tests.ps1` no longer refuses a push when the parallel test gate is under
+load. Its fake `gh` launches a fresh `powershell.exe`, and under 22 lanes that could outrun the
+check's 15 s per-call timeout. The suite now gives every run a 120 s bound, because none of its
+cases tests that timeout.
+
+**Score:** 2 -- removes a spurious red from `open-pr`'s gate (#2470), in the same class as #2077 and #2458.
+
+#### What makes this deploy extra special
+
+N/A -- a test-suite change; nothing a subscriber runs is touched.
+
+**Score:** N/A
+
+#### Pull Request
+
+stranded-sweep-gate suite gives its fake gh a per-call timeout no load can reach
+
+[PR #2473](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2473)
+
+---
 
 ### DEPLOY: docs/2464-drop-shared-block-narrative · 20260925-074054Z
 
