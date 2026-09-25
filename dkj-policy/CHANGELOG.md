@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**4 / 14 minor entries** <!-- pending-tally -->
+**5 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2491-drop-notes-date-type · 20260925-120740Z
+
+The changelog release note a cut writes (`releases/changelog/<X>.x/<X.Y.Z>.md`) no longer carries the
+`**Date:**` and `**Type:**` lines under `# Changelog Releases`: the `## Version X.Y.Z (Mon dd, yyyy)`
+heading already says both. Where those lines are missing, `new-internal-note.ps1` takes the date from that
+heading and the type from the release history's row, falling back to the version's shape, so the internal
+note it builds is unchanged, including for a cut run with `-Type`. Notes published before this still read
+exactly as they did. `Build-ReleaseNotes` no longer takes `-Type`.
+
+**Score:** 1 -- prevents a duplicate that could disagree with its own heading; nothing has broken yet.
+
+#### What makes this deploy extra special
+
+From your next release, the changelog release note goes from its `# Changelog Releases` heading straight
+to its title and version heading, without the two metadata lines between them. Nothing to do: the
+internal note still fills in its date and type.
+
+**Score:** 2
+
+#### Pull Request
+
+The changelog release note drops its Date and Type lines
+
+Plugins: dkj-policy
+
+[PR #2495](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2495)
+
+---
 
 ### DEPLOY: fix/2489-fixed-release-history-head · 20260925-112932Z
 
