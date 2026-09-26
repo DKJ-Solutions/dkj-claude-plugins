@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 34 minor entries** <!-- pending-tally -->
+**9 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2531-adopt-writes-constitution-import · 20260926-132005Z
+
+`adopt-workflow-folder.ps1`, Part 1 of `adopt-dkj-policy`, now writes the constitution import
+(`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/CLAUDE.md`) into the consumer's
+`CLAUDE.md`. Until now it only asked for the line and left the rest to a session-start warning. The line
+goes directly above the first `@`-import, is appended when the file has no import, or becomes the whole
+of a new `CLAUDE.md`. The file's line endings and byte-order mark are kept. When the constitution is
+already imported, under any marketplace name or through a file `CLAUDE.md` imports, nothing is written.
+Before this, a consumer could run for weeks without the rules in context, because a warning does not
+change what a session knows. The same gap for the BWJ extension import is filed as
+[#2532](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2532).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+adopt-dkj-policy writes the constitution import into CLAUDE.md instead of asking for it
+
+Plugins: dkj-policy
+
+[PR #2535](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2535)
+
+---
 
 ### DEPLOY: feat/2509-prepare-release · 20260926-125520Z
 
