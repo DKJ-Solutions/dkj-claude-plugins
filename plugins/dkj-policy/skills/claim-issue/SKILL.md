@@ -530,16 +530,16 @@ question the owner is for.
 ## A parking label: the issue waits on an answer, not a builder
 
 **The sweep route and this route used to disagree about one label.** [`sweep-issues`](../sweep-issues/SKILL.md)
-chooses with `-Candidates -SkipLabel needs-info,needs-decision`, so an issue parked with somebody else is skipped
-there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
+chooses with `-Candidates -SkipLabel needs-info,needs-decision`, so an issue parked with somebody else is
+skipped there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
 the moment a person named it. Measured in a consumer, September 26, 2026
 ([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)): an issue ending in an open
 choice for the owner was left alone by a sweep, and claimed through this route by a session that then
 picked one of the two options itself and shipped it.
 
 **So the issue read asks for `labels` too, and holds them against `-SkipLabel`** -- `needs-info` and
-`needs-decision` by default on this route, the labels the sweep skips on; passing `-SkipLabel` replaces the default. On a
-claim or a resume where one matches, it prints a `PARKED:` verdict naming the label, the closing
+`needs-decision` by default on this route, the labels the sweep skips on; passing `-SkipLabel` replaces
+the default. On a claim or a resume where one matches, it prints a `PARKED:` verdict naming the label, the closing
 `[OK]` points at that verdict instead of *the work starts here*, and the forward line says to read the
 issue for its open question rather than to open the branch.
 

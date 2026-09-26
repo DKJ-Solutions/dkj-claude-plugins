@@ -2,7 +2,8 @@
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
     'prio-4', plus the 'dossier' kind label, #2462, and the 'needs-decision' parking label, #2519)
-    this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one -- never creates a label itself. Issue #1895, split from #1843.
+    this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
+    -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
     THE GAP THIS CLOSES. `.claude/specialists/lenses/specialist-01-01-lens.md` (this workflow's own source

@@ -221,9 +221,9 @@ if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # a held issue handed out.
 $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # THE SINGLE-ISSUE ROUTE HONOURS THE SWEEP'S PARKING LABEL BY DEFAULT (issue #2518). sweep-issues passes
-# '-SkipLabel needs-info,needs-decision' on its own command line; a person naming one issue passes nothing, so without a
-# default the route where somebody says "fix issue N" was the one route blind to it. -Candidates keeps
-# its empty default: the sweep names its labels itself. 'needs-decision' joined in #2519: an issue waiting
+# '-SkipLabel needs-info,needs-decision' on its own command line; a person naming one issue passes
+# nothing, so without a default the route where somebody says "fix issue N" was the one route blind to
+# it. -Candidates keeps its empty default: the sweep names its labels itself. 'needs-decision' joined in #2519: an issue waiting
 # on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in dkj-policy-bwj
 # that label means blocked on the SUBMITTER and moves the mirrored Asana card.
 if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
