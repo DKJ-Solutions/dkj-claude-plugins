@@ -304,8 +304,9 @@ created it.
 - **A task that is completed, or carries a human comment, is not offered for deletion at all.** It is
   the colleague's record of a request and what became of it, and a card that should not have existed
   is repaired by **unlinking** it: remove the `Asana:` line and the `asana-task` marker from the
-  GitHub issue (step 3) and leave the task where it is. The same goes for a task someone other than
-  the agent's own account created, or one that also sits in a project other than the board.
+  GitHub issue (step 3) and leave the task where it is. The same goes for a task a colleague created
+  rather than the account the session or the mirror writes through, and for one that also sits in a
+  project other than the board.
 - **Any other task can be offered, and the offer shows the state it was read with.** Each option
   names the task's state (open, no comments, the board only, created by whom) beside its title. A
   question built from the issue's labels alone asks the owner to judge a card they cannot see.

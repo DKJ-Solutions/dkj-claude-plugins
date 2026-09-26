@@ -141,7 +141,7 @@ board that stalls whenever the tracker is unreachable costs the whole colleague-
 delete, read the task on the Asana side: whether it is completed, whether it has human comments, which
 projects it sits in, and who created it. A task that is completed or carries a human comment is never
 offered for deletion. Unlink it from the issue instead. Any other offer shows that state beside the
-title. The rule and the task it cost are in
+title. The rule and the case behind it are in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-task-is-read-before-it-is-offered-for-deletion-and-a-task-a-person-has-worked-is-never-deleted).
 
 Compose the task body from the fixed skeleton -- plain language, outcome-framed, no code or repo

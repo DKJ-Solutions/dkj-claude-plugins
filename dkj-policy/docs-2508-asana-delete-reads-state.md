@@ -59,6 +59,8 @@ for.
 
 ### TEST
 
+- [x] Copy edit (Edith): three findings, all repaired -- "the agent's own account" contradicted the
+  comment rule above it, an ambiguous "the task it cost", and one repo name without backticks.
 - [x] Lint gate via open-pr (`-SkipTests`, per this machine's memory limit; CI runs the suites).
 
 ### DEPLOY: docs/2508-asana-delete-reads-state
@@ -69,7 +71,7 @@ requires it to read the task first: whether it is completed, whether it has huma
 projects it sits in, and who created it. A task that is completed or carries a human comment is never
 offered for deletion. The card is unlinked from the issue instead. Every other offer shows that state
 beside the title. `report-issue` points to the rule where it used to say that a wrong card is deleted
-by hand. This prevents a repeat of the smartwatchbanden case, where a colleague's completed request was
+by hand. This prevents a repeat of the `smartwatchbanden` case, where a colleague's completed request was
 deleted and nobody noticed for two days.
 
 **Score:** 2
