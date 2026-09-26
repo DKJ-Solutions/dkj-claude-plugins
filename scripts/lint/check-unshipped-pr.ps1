@@ -160,6 +160,9 @@ foreach ($record in $open) {
 
     # THE CHEAP DISQUALIFIERS FIRST, WITHOUT A NETWORK CALL: a draft, a fork, or an armed pull request a
     # sweep owns is declined by the verdict whatever the checks say, so its `gh pr checks` is not spent.
+    # The synthetic "maximally green" inputs are safe because they can only err one way: a decline here
+    # is always one of the record's own disqualifiers, and anything Test-MergeOnGreenRequiredChecksSettled
+    # might add later only makes the precheck pass MORE often, which spends the real read below.
     $precheck = Get-UnshippedPrVerdict -Record $record -MergeBlockVerdict ([pscustomobject]@{ Blocked = $false; Reason = ''; UnfinishedRequired = @() }) `
         -GreenAgeMinutes ([double]::MaxValue) -SweepExists $sweepExists
     if (-not $precheck.Unshipped) { $judgedCount++; continue }
