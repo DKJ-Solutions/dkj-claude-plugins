@@ -449,8 +449,21 @@ if (-not $sinceTag) {
             foreach ($r in $g.Group) { Write-Host "            $($r.Path)" -ForegroundColor DarkGray }
         }
 
+        # A PATH THAT IS NOT SAFE TO PASTE REFUSES HERE, AT STEP 3, AND NOT AT THE COMMAND (#2514). Step
+        # 8 prints the push for a person to paste, and a theme filename off a sync branch is text nobody
+        # in this repo typed -- '$(...)', ';' or a newline in one runs when the line is pasted. Refusing
+        # this early is the cost-ordering rule: the backup at step 7 is skipped once anything has
+        # refused, so a push that can never be printed does not first cost eight minutes and a theme
+        # slot. Each refused path is NAMED through Format-SafePathToken, which strips the control
+        # characters a newline attack needs; the name is a display, never part of a command.
+        $unsafePush = @(Get-LivePushUnsafePaths -Paths $pushFiles)
+
         if ($pushFiles.Count -eq 0) {
             Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD lives on a theme, so there is nothing to push. This release is code and docs only."
+        } elseif ($unsafePush.Count -gt 0) {
+            $named = (@($unsafePush | Select-Object -First 5) | ForEach-Object { "'$(Format-SafePathToken -Value $_)'" }) -join ', '
+            $more  = if ($unsafePush.Count -gt 5) { ", and $($unsafePush.Count - 5) more" } else { '' }
+            Add-Step -Name 'push list' -State 'refuse' -Detail "$($unsafePush.Count) theme path(s) are not safe to print inside a command a person pastes: $named$more. Only letters (Latin accents included), digits, '.', '_', '/' and '-' are printed. Rename the file on the theme, or push it by hand after reading its name byte by byte."
         } else {
             Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) to push, out of $($changed.Count) changed."
         }
@@ -635,8 +648,15 @@ if ($alreadyRefused.Count -gt 0 -and -not $SkipBackup) {
 Write-Host ''
 Write-Host '[8/9] the push command -- without the authorisation marker' -ForegroundColor Cyan
 
-$pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles
-if (-not $pushCommand) {
+# NOT COMPOSED WHEN STEP 3 FOUND A PATH UNSAFE TO PASTE (#2514). Format-LivePushCommand throws on one,
+# as the backstop for any caller that skipped the check; this caller did not skip it, so it reports the
+# step instead of letting the throw end the run before the verdict.
+$pushCommand = ''
+$unsafeAtCommand = @(Get-LivePushUnsafePaths -Paths $pushFiles)
+if ($unsafeAtCommand.Count -eq 0) { $pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles }
+if ($unsafeAtCommand.Count -gt 0) {
+    Add-Step -Name 'command' -State 'skip' -Detail "not composed: $($unsafeAtCommand.Count) path(s) in the push list are not safe to paste, and the push-list step names them."
+} elseif (-not $pushCommand) {
     Add-Step -Name 'command' -State 'skip' -Detail 'no push list, so no command was composed. A theme push without --only pushes the WHOLE theme, which is never printed from here.'
 } else {
     Add-Step -Name 'command' -State 'pass' -Detail 'composed, one --only per file.'

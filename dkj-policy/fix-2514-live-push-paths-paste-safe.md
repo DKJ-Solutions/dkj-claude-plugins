@@ -39,19 +39,52 @@
 
 ### PLAN
 
+Verified against the tree before the repair: `Format-LivePushCommand` space-joins `--only <path>`
+with no check, and `live-preflight.ps1` loads no paste-safety check at all. The issue's claim that
+`prepare-release` already applies `Test-PathPasteSafe` holds only on the parked, unmerged
+`feat/2509-prepare-release`, not on the trunk. That changes nothing here.
+
+#### The accent question the issue left open
+
+Decided for a letter class. `Test-PathPasteSafe` is ASCII only, and #821 measured an accented theme
+filename in a real consumer store through `sync-main`. An ASCII-only check would refuse that store's
+live push with no remedy but renaming a file the theme editor created. So the push path gets its own
+pattern: the ref set plus the Latin letters U+00C0-U+017F without the multiplication and division
+signs, matched case-sensitively. It stops before Latin Extended-B, because that is where letters that
+display as `|` and `!` begin.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-LivePushUnsafePaths` in `live-push-rules.ps1`, and `Format-LivePushCommand` throws on an unsafe path as the backstop for any caller
+- [x] `live-preflight.ps1` refuses at step 3, so step 7's backup is skipped, names the paths through `Format-SafePathToken`, and step 8 reports the command as not composed
+- [x] both files mirrored byte-for-byte into `dkj-subagents-shopify`
+- [x] the `live-preflight` skill page documents the third failure and the step-3 refusal
 
 ### TEST
 
+- [x] `live-push-rules.tests.ps1`: the three measured shapes plus the other shell metacharacters, bidi, combining mark, Extended-B lookalike, the multiplication sign and the Kelvin sign are refused; ordinary and Latin-accented paths pass; the throw carries no path
+- [x] lint + all suites green through `open-pr`
+
 ### DEPLOY: fix/2514-live-push-paths-paste-safe
 
-**Score:**
+The live push command `live-preflight` prints can no longer carry a theme path that runs something
+when the line is pasted. Step 3 now refuses a push list holding a path outside letters (Latin accents
+included), digits, `.`, `_`, `/` and `-`, and names each such path with its control characters
+stripped. That happens before the backup, so a refused run costs no theme slot.
+`Format-LivePushCommand` throws on such a path too, so no other caller can print one. The check is
+`Get-LivePushUnsafePaths` in `live-push-rules.ps1`
+([#2514](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2514)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store running `live-preflight` is no longer handed a push command that could run a crafted theme
+filename such as `assets/$(calc.exe).css` when somebody pastes it. That filename can arrive through a
+theme-editor sync without anyone having push rights. Nothing has exploited this yet, and ordinary and
+accented filenames push exactly as before.
+
+**Score:** 1
 
 #### Pull Request
 

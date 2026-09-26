@@ -166,6 +166,37 @@ Assert-Equal '' (Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId 
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''
+Write-Host 'Paste safety -- a path that would run when pasted never reaches the command (#2514)' -ForegroundColor Cyan
+
+# THE THREE MEASURED SHAPES, each of which the unchecked command printed as-is.
+$subexpr = 'assets/$(calc.exe).css'
+$semi    = 'assets/a;calc.css'
+$newline = "assets/a`ncalc.css"
+foreach ($bad in @($subexpr, $semi, $newline, 'assets/a b.css', 'assets/a|b.css', 'assets/a&b.css', 'assets/`a.css', "assets/a'b.css", '-x/a.css', ('assets/a' + [char]0x202E + 'b.css'), ('assets/e' + [char]0x0301 + '.css'), ('assets/x' + [char]0x01C0 + 'y.css'), ('assets/' + [char]0x00D7 + '.css'), ('assets/' + [char]0x212A + '.css'))) {
+    $u = @(Get-LivePushUnsafePaths -Paths @('sections/header.liquid', $bad))
+    Assert-Equal 1 $u.Count "refused: $($bad -replace '[^\x20-\x7E]', '?')"
+}
+
+# WHAT MUST STILL PASS. The ordinary theme path, and the accented one #821 measured in a consumer store:
+# refusing that would block its live push for as long as the file is in the range.
+$ok = @('sections/header.liquid', 'assets/theme.min.css', 'snippets/product_card-v2.liquid', 'locales/en.default.json', ('assets/caf' + [char]0x00E9 + '.css'), ('templates/' + [char]0x00C5 + 'rhus.json'))
+Assert-Equal 0 @(Get-LivePushUnsafePaths -Paths $ok).Count 'ordinary and Latin-accented theme paths are all safe'
+Assert-Equal 0 @(Get-LivePushUnsafePaths -Paths $null).Count 'a null list has nothing unsafe in it'
+Assert-Equal 0 @(Get-LivePushUnsafePaths -Paths @('', '  ')).Count 'nor does a list of blanks, which the command drops anyway'
+Assert-Equal 2 @(Get-LivePushUnsafePaths -Paths @($semi, 'assets/ok.css', $subexpr)).Count 'every unsafe path is returned, not only the first'
+Assert-Equal $semi (@(Get-LivePushUnsafePaths -Paths @($semi, 'assets/ok.css', $subexpr)))[0] '...in input order'
+
+# THE BACKSTOP. A caller that skipped the check gets a throw, never a command -- and the throw names a
+# count, not the path, because the path is exactly the text that must not reach a console unguarded.
+$thrown = $null
+try { [void](Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only @('sections/header.liquid', $subexpr)) } catch { $thrown = $_.Exception.Message }
+Assert-True ($null -ne $thrown) 'Format-LivePushCommand throws on a path unsafe to paste'
+Assert-True ($null -ne $thrown -and -not $thrown.Contains('calc')) '...and the message does not carry the path'
+$accented = Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only @('assets/caf' + [char]0x00E9 + '.css')
+Assert-True ($accented.Contains('--only assets/caf' + [char]0x00E9 + '.css')) 'an accented path is composed like any other'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
 Write-Host 'The verdict -- a skip is not a pass, and an unreadable state is a refusal' -ForegroundColor Cyan
 
 $allPass = Get-LivePreflightVerdict -Steps @(
