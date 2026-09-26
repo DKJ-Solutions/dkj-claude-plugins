@@ -73,6 +73,11 @@
 # its caller anyway.
 . (Join-Path $PSScriptRoot 'fetch-attempt-lib.ps1')
 
+# THE FENCE STATE (issue #2536): Get-NextFenceState, which Get-FencedLineFlags -- the one fence reader of
+# the entry format -- now walks with. Same unconditional, $PSScriptRoot-relative shape as the leaves above,
+# and likewise a leaf with no dependencies of its own.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 # The English fallbacks, and the ONLY copy of them. new-branch.ps1 held these literals until
 # the gate needed the same list; it now reads them from here.
 #
@@ -216,10 +221,13 @@ function Get-FencedLineFlags {
         difference is exactly what "two answers that can drift" means, found by comparing them rather than
         by anything failing. The union rule wins, so the tilde form is now honoured everywhere.
 
-        Deliberately simple: a line whose first non-space characters are ``` or ~~~ toggles the state.
-        That is CommonMark's own rule for the common cases and needs no parser. Nested fences of the same
-        kind are not a thing in CommonMark, and an unclosed fence leaves the tail flagged as fenced --
-        which is the safe direction for every caller here, since it can only cause a missed finding, never
+        The state comes from Get-NextFenceState (fence-lib.ps1, #2536), with -AnyIndent: a block closes
+        only on a run of the same character at least as long as its opener. This was a plain toggle until
+        then, on the premise that nested fences of the same kind do not occur in CommonMark -- but a longer
+        fence wrapping a shorter one of the same character is exactly that case, and it is how an entry
+        quotes an example that itself carries a fence. The toggle closed the block at the inner fence and
+        read the rest of the example as structure. An unclosed fence still leaves the tail flagged as
+        fenced -- the safe direction for every caller here, since it can only cause a missed finding, never
         a false accusation against text somebody did write.
 
         The name is deliberately NOT entry-specific: release-lib's readers scan a whole CHANGELOG rather
@@ -231,14 +239,11 @@ function Get-FencedLineFlags {
     param([AllowEmptyString()][AllowEmptyCollection()][string[]]$Lines = @())
     if ($null -eq $Lines) { return @() }
     $flags = New-Object 'bool[]' $Lines.Count
-    $inFence = $false
+    $fence = ''
     for ($i = 0; $i -lt $Lines.Count; $i++) {
-        if ($Lines[$i] -match '^\s*(```|~~~)') {
-            $flags[$i] = $true          # the marker belongs to the block
-            $inFence = -not $inFence
-        } else {
-            $flags[$i] = $inFence
-        }
+        # Before OR after: the opener and the closer belong to the block, as the body does.
+        $was = $fence; $fence = Get-NextFenceState -Line $Lines[$i] -Fence $fence -AnyIndent
+        $flags[$i] = [bool]($was -or $fence)
     }
     return $flags
 }
@@ -7767,15 +7772,15 @@ function Get-DevelopmentShapeFindings {
     $phaseMark = '#' * $phaseLevel
     $subMark   = '#' * ($phaseLevel + 1)
 
-    $inShapeFence = $false
+    $shapeFence = ''
     $shapeLineNo = 0
     $topHeadings = @()
     $preambleStrays = @()
     $seenFirstTop = $false
     foreach ($shapeLine in [regex]::Split($Text, '\r?\n')) {
         $shapeLineNo++
-        if ($shapeLine -match '^\s{0,3}(?:`{3,}|~{3,})') { $inShapeFence = -not $inShapeFence; continue }
-        if ($inShapeFence) { continue }
+        $shapeWas = $shapeFence; $shapeFence = Get-NextFenceState -Line $shapeLine -Fence $shapeFence
+        if ($shapeWas -or $shapeFence) { continue }
         if ($shapeLine -match $phaseRx) {
             $seenFirstTop = $true
             $topHeadings += [pscustomobject]@{ Line = $shapeLineNo; Text = $Matches[1].Trim() }

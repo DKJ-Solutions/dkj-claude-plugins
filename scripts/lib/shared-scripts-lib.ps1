@@ -529,6 +529,28 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE ONE FENCE TRACKER (#2536), Get-NextFenceState. A leaf with no dependencies, mirrored
+            # into each plugin that carries a reader of it: dkj-policy (measure-context-lib, pr-body-lib,
+            # pr-issues-lib, entry-scaffold-lib), dkj-policy-bwj (measure-context-lib-bwj) and
+            # dkj-subagents-alpha (check-roster-sync).
+            Name    = 'fence-lib'
+            Source  = 'scripts\lib\fence-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'fence-lib-bwj'
+            Source  = 'scripts\lib\fence-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'fence-lib-alpha'
+            Source  = 'scripts\lib\fence-lib.ps1'
+            Plugin  = 'dkj-subagents-alpha'
+            LibOnly = $true
+        },
+        @{
             # Get-NextFenceState for claude-md-import-lib-bwj's writer (#2532); nothing else in
             # dkj-policy-bwj loads it.
             Name    = 'measure-context-lib-bwj'

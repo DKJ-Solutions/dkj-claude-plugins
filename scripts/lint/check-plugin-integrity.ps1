@@ -1004,15 +1004,11 @@ Write-Coverage -Category 'written-name' -Checked $wnChecked `
 # link it is checked (a) that the linked file exists, and (b) if the link has a #anchor: that anchor
 # exists as a heading in the target file (GitHub slug rules). External http(s)/mailto links are skipped.
 
-function Test-FenceDelimiterLine {
-    # A single source for what counts as a fenced-code-block delimiter line, so the fence syntax
-    # (currently ``` -- three-plus backticks, optionally indented) only ever needs to change in ONE
-    # place. Shared by Get-HeadingSlugs (below) and Get-FenceMaskedText (check 10): both need to
-    # toggle "am I inside a fence" per line, and a later fence-syntax change (tildes, four
-    # backticks, ...) must not risk drifting between two independent hardcoded patterns.
-    param([string]$Line)
-    return [bool]($Line -match '^\s*```')
-}
+# Every fence walk in this file -- Get-HeadingSlugs, Get-FenceMaskedText, checks 12, 15 and 16 -- tracks
+# the state with Get-NextFenceState (fence-lib.ps1, loaded through measure-context-lib above), with
+# -AnyIndent because a fence inside a list item sits deeper than three spaces. It replaced this file's own
+# Test-FenceDelimiterLine under #2536: that one knew backticks only, and flipped a boolean per delimiter,
+# so a four-backtick block quoting a three-backtick example closed at the inner fence.
 
 function ConvertTo-GhSlug {
     # Converts a heading text to a GitHub anchor slug.
@@ -1032,10 +1028,10 @@ function Get-HeadingSlugs {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $slugs }
     $lines = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) -split "`r?`n"
     $counts = @{}
-    $inFence = $false
+    $fence = ''
     foreach ($line in $lines) {
-        if (Test-FenceDelimiterLine -Line $line) { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         if ($line -match '^#{1,6}\s+(.*)$') {
             $base = ConvertTo-GhSlug -Text $Matches[1]
             if (-not $base) { continue }
@@ -1840,18 +1836,17 @@ function Get-FenceMaskedText {
     # Masks fenced ```-code blocks with SAME-LENGTH whitespace (newlines untouched), so the caller
     # can keep using character offsets into the RETURNED text to derive correct line numbers -- the
     # length and every newline position stay identical to the input, only non-newline characters
-    # inside a fence become spaces. Uses the SAME fence-toggle detection (Test-FenceDelimiterLine,
-    # flip a boolean per line) that Get-HeadingSlugs already uses above -- one shared pattern, not
-    # two independently hardcoded ones. It cannot reuse Get-HeadingSlugs's RESULT directly, though:
+    # inside a fence become spaces. Uses the SAME fence tracker (Get-NextFenceState) that
+    # Get-HeadingSlugs already uses above -- one shared definition, not two independently hardcoded
+    # ones. It cannot reuse Get-HeadingSlugs's RESULT directly, though:
     # that function drops fenced lines outright (fine there -- it never reports a line number),
     # whereas this needs a same-shape mask, not a shorter string.
     param([string]$Text)
     $parts = [regex]::Split($Text, '(\r\n|\r|\n)')
-    $inFence = $false
+    $fence = ''
     for ($k = 0; $k -lt $parts.Length; $k += 2) {
-        $isFenceLine = Test-FenceDelimiterLine -Line $parts[$k]
-        if ($isFenceLine) { $inFence = -not $inFence }
-        if ($isFenceLine -or $inFence) {
+        $was = $fence; $fence = Get-NextFenceState -Line $parts[$k] -Fence $fence -AnyIndent
+        if ($was -or $fence) {
             $parts[$k] = ($parts[$k] -replace '.', ' ')
         }
     }
@@ -2251,21 +2246,20 @@ foreach ($lf in ($lifecycleFiles | Sort-Object -Unique)) {
     $rel = $lf.Substring($RepoRoot.Length).TrimStart('\', '/')
     $content = [System.IO.File]::ReadAllText($lf, [System.Text.Encoding]::UTF8)
     $irLines = $content -split "`r?`n"
-    # Fenced blocks, walked with the SHARED fence-toggle primitive (Test-FenceDelimiterLine) that
+    # Fenced blocks, walked with the SHARED fence tracker (Get-NextFenceState) that
     # Get-HeadingSlugs and Get-FenceMaskedText already use -- one fence notion in this file, not a third
     # hand-rolled one. The mask itself is no use here: it replaces a fence's contents with whitespace, and
     # this check needs exactly those contents.
-    $inFence = $false
+    $fence = ''
     $blockBody = @()
     $blockLine = 0
     for ($i = 0; $i -lt $irLines.Count; $i++) {
-        if (Test-FenceDelimiterLine -Line $irLines[$i]) {
-            if (-not $inFence) {
-                $inFence = $true
+        $was = $fence; $fence = Get-NextFenceState -Line $irLines[$i] -Fence $fence -AnyIndent
+        if ($was -xor $fence) {
+            if ($fence) {
                 $blockBody = @()
                 $blockLine = $i + 2   # 1-based line of the first line INSIDE the fence
             } else {
-                $inFence = $false
                 $body = ($blockBody -join "`n")
                 if ($body -match 'installed_plugins\.json' -and $body -match 'ConvertFrom-Json') {
                     $irChecked++
@@ -2279,7 +2273,7 @@ foreach ($lf in ($lifecycleFiles | Sort-Object -Unique)) {
             }
             continue
         }
-        if ($inFence) { $blockBody += $irLines[$i] }
+        if ($fence) { $blockBody += $irLines[$i] }
     }
 }
 # The skip count belongs in BOTH branches, which the test suite established rather than the design: an
@@ -2818,11 +2812,13 @@ foreach ($rel in $consumerDocs) {
     if (-not (Test-Path -LiteralPath $full)) { continue }
     $lines = [System.IO.File]::ReadAllLines($full, [System.Text.Encoding]::UTF8)
     $open = -1
+    $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if (-not (Test-FenceDelimiterLine -Line $lines[$i])) { continue }
-        if ($open -lt 0) { $open = $i; continue }
+        $was = $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if (-not $was -and $fence) { $open = $i; continue }
+        if (-not $was -or $fence) { continue }
         $close = $i
-        $lang = ($lines[$open] -replace '^\s*```', '').Trim().ToLowerInvariant()
+        $lang = ($lines[$open] -replace '^\s*(`{3,}|~{3,})', '').Trim().ToLowerInvariant()
         $open2 = $open; $open = -1
         # A block with a language is a command to run, not an expectation to match.
         if ($lang -ne '' -and $lang -ne 'text') { continue }
@@ -2902,10 +2898,10 @@ foreach ($rel in $consumerDocs) {
     $lines = [System.IO.File]::ReadAllLines($full, [System.Text.Encoding]::UTF8)
     # Fenced blocks belong to check 15. Counting them here would double-report the same sample and would
     # also flag command output that is deliberately verbatim.
-    $inFence = $false
+    $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if (Test-FenceDelimiterLine -Line $lines[$i]) { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         if ($lines[$i] -notmatch $figurePattern) { continue }
         $figureChecked++
         # The block this line sits in ...

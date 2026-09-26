@@ -251,6 +251,8 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\document-newline-lib.ps
 # fetch-attempt-lib.ps1 likewise (#1860): entry-scaffold-lib.ps1 dot-sources it for
 # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
 Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\fetch-attempt-lib.ps1') -Force
+# fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
+Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\fence-lib.ps1') -Force
 Copy-Item -LiteralPath $ParkLibSrc -Destination (Join-Path $fixture 'scripts\lib\park-lib.ps1') -Force
 Copy-Item -LiteralPath $PorcelainSrc -Destination (Join-Path $fixture 'scripts\lib\git-porcelain-lib.ps1') -Force
 Copy-Item -LiteralPath $PrIssuesLibSrc -Destination (Join-Path $fixture 'scripts\lib\pr-issues-lib.ps1') -Force
@@ -799,7 +801,9 @@ Assert-True ($withProse -match 'And a sentence the author added\.') 'and the pro
 # An entry that QUOTES the section heading inside a fence keeps the quoted copy: the entries documenting
 # this format do exactly that, and this is the fifth matcher in this lib that has to tell a use from a
 # mention.
-$quotedHeading = "## A title`n`n$h $($sect['What'])`n`nIt looks like this:`n`n``````text`n$h $($sect['Significance'])`n``````\n`n$h $($sect['Significance'])`n`n| Tier | Significance | Why |`n|---|---|---|`n| 1 | 3 | colleagues |`n`n$h $($sect['Type'])`n`nDocs`n"
+# Its closing fence read '```\n' -- a literal backslash-n, not a newline -- until #2536: the plain toggle
+# closed on it anyway, and a CommonMark closer takes nothing after the run but whitespace.
+$quotedHeading = "## A title`n`n$h $($sect['What'])`n`nIt looks like this:`n`n``````text`n$h $($sect['Significance'])`n```````n`n$h $($sect['Significance'])`n`n| Tier | Significance | Why |`n|---|---|---|`n| 1 | 3 | colleagues |`n`n$h $($sect['Type'])`n`nDocs`n"
 $quotedOut = Remove-EntryImpactTable -EntryText $quotedHeading
 Assert-Equal 1 ([regex]::Matches($quotedOut, [regex]::Escape($sect['Significance'])).Count) 'strip: the fenced copy of the heading survives while the real one goes'
 Assert-True ($quotedOut -notmatch '\| Tier \| Significance \| Why \|') 'and the real table is still removed'
@@ -946,11 +950,16 @@ Assert-True ($foldLibText -notmatch [regex]::Escape('(Get-EntryHeadingLevel) + 1
 # by looking at nothing -- the same class as the fixture that did not contain what it was written to
 # contain, one screen up. Checked against the previous revision before being trusted: the old form appeared
 # 3 times there and the union rule 0, which is what makes the counts below evidence rather than decoration.
+#
+# Since #2536 the rule itself lives in fence-lib.ps1 (Get-NextFenceState), so this lib writes it ZERO times:
+# Get-FencedLineFlags walks with that function, and fence-lib.tests.ps1 guards the whole tree against a
+# plain toggle coming back.
 $tick3 = ([string][char]0x60) * 3
-$unionMatcher = "-match '^\s*(" + $tick3      # the one rule, inside Get-FencedLineFlags
+$unionMatcher = "-match '^\s*(" + $tick3      # the rule Get-FencedLineFlags wrote until #2536
 $inlineMatcher = "-match '^\s*" + $tick3 + "'" # the shape the three walks used
-Assert-Equal 1 (@([regex]::Matches($escLibText, [regex]::Escape($unionMatcher))).Count) 'one owner: the fence rule is written exactly once, and it is the union rule'
+Assert-Equal 0 (@([regex]::Matches($escLibText, [regex]::Escape($unionMatcher))).Count) 'one owner: this lib no longer writes a fence rule of its own'
 Assert-Equal 0 (@([regex]::Matches($escLibText, [regex]::Escape($inlineMatcher))).Count) 'one owner: and no reader tests for a fence inline any more'
+Assert-True ($escLibText -match 'Get-NextFenceState -Line \$Lines\[\$i\]') 'one owner: Get-FencedLineFlags walks with the shared tracker'
 
 # --- The entry-boundary readers moved down too, and for the same reason ----------------------------
 # Get-EntryHeadingPattern and Split-EntryBlocks joined Get-FencedLineFlags here on August 10, 2026
@@ -2110,12 +2119,12 @@ $blankDoc = (Format-Development -Branch 'feat/blank-arc-v1' -Intent 'parked mid-
 Remove-Item -Path Function:\Get-BranchFileWordingOverrides
 $arcTitleRx = '^#{1,' + (Get-BranchCycleHeadingLevel) + '}\s'
 $arcPhaseRx = '^#{' + (Get-BranchCycleSectionLevel) + '}\s+\S'
-$arcFence   = $false
+$arcFence   = ''
 $arcSeen    = $false
 $arcStrays  = 0
 foreach ($arcLine in @($blankDoc -split "`n")) {
-    if ($arcLine -match '^\s{0,3}(?:`{3,}|~{3,})') { $arcFence = -not $arcFence; continue }
-    if ($arcFence) { continue }
+    $arcWas = $arcFence; $arcFence = Get-NextFenceState -Line $arcLine -Fence $arcFence
+    if ($arcWas -or $arcFence) { continue }
     if ($arcLine -match $arcPhaseRx) { $arcSeen = $true; continue }
     if ($arcLine -match $arcTitleRx) { continue }
     if ((-not $arcSeen) -and $arcLine.Trim() -ne '' -and $arcLine -notmatch '^\s*>') { $arcStrays++ }

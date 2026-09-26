@@ -58,6 +58,10 @@
     the standing convention for every lib in this directory.
 #>
 
+# Get-NextFenceState lives in fence-lib.ps1 (#2536), a leaf every other fence reader loads too; this lib
+# reached it first (#2534), so its callers here and the libs that dot-source this one keep the name.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 # The documented ceiling on '@'-import nesting. The seam spends two hops (CLAUDE.md -> SPECIALISTS.md
 # -> body/lens), so a lens may still import something of its own and stay inside it.
 $script:MeasureContextMaxHops = 4
@@ -329,46 +333,6 @@ function Split-FileIntoByteLines {
         })
     }
     return $lines
-}
-
-function Get-NextFenceState {
-    <#
-        The fence state AFTER one line, given the state before it: '' outside a fenced code block, or the
-        run that opened the block ('```', '````', '~~~', ...) while inside one. The fence tracker of the
-        always-on walk: the section split, the import walk, check 28's import scan and the adoption's
-        constitution-import scan all call it. Other fence trackers elsewhere in the tree are still plain
-        toggles, and moving them is #2536's work rather than this function's claim.
-
-        Tracked because a fenced block in these documents routinely CONTAINS lines that start with '#' or
-        '@' -- a skill page showing a document's shape, a README showing a heading tree, a page quoting an
-        import line. Read as headings those invent sections; read as imports they add bytes to the budget
-        and can make a quoted constitution line count as imported.
-
-        CommonMark, not a toggle (#2534). An opener is three or more backticks or tildes after at most
-        three leading spaces; a backtick opener's info string may not itself contain a backtick. A block
-        closes ONLY on a run of the SAME character at least as long as its opener, with nothing after it
-        but whitespace. A plain toggle read the inner fence of a four-backtick block wrapping a
-        three-backtick example as the end of the block, and walked the rest of the example as structure.
-        An unclosed block runs to the end of the document, as it does in CommonMark.
-
-        The caller skips a line when the state before OR after it is non-empty -- that covers the opener,
-        the body and the closer in one test:
-            $was = $fence; $fence = Get-NextFenceState -Line $text -Fence $fence
-            if ($was -or $fence) { continue }
-    #>
-    param(
-        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line,
-        [AllowEmptyString()][string]$Fence = ''
-    )
-    if ($Line -notmatch '^\s{0,3}(`{3,}|~{3,})(.*)$') { return $Fence }
-    $run  = $Matches[1]
-    $rest = $Matches[2]
-    if ($Fence) {
-        if ($run[0] -eq $Fence[0] -and $run.Length -ge $Fence.Length -and $rest.Trim().Length -eq 0) { return '' }
-        return $Fence
-    }
-    if ($run[0] -eq '`' -and $rest.Contains('`')) { return '' }
-    return $run
 }
 
 function Get-DocumentSections {
