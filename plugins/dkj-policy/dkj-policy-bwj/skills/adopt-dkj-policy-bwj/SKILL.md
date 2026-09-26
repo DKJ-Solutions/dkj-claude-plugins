@@ -537,6 +537,9 @@ That file points at all four chapters, so a session reads the BWJ rules the same
 constitution. **The one thing left to you:** remove any older line that pointed at
 `WORKFLOW-portable.md` directly, because the extension replaces it. The script only adds.
 
+Until the line is there, dkj-policy's `consumer-prose-sessioncheck` warns at session start in a repo
+whose own settings enable `dkj-policy-bwj`, and names this step.
+
 ## 7 -- scaffold the sync-log folder (chapter two)
 
 Chapter two's record needs somewhere to land before the first `sync/` branch ever runs. If

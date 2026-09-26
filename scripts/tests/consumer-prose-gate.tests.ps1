@@ -711,6 +711,54 @@ try {
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'contradicts the plugin' -and $r.Out -match 'does not import the dkj-policy constitution') `
         'the hook forwards the warning inside the [ERROR] report as well, still exit 0'
 
+    # --- the extension import (#2538) --------------------------------------------------------------
+    # Warned only where the repo's OWN settings enable dkj-policy-bwj and the closure does not import the
+    # extension. Every fixture imports the constitution, so the only warning in play is this one.
+    Write-Host ''
+    Write-Host 'extension import (#2538)'
+    $constLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
+    $extLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md"
+    $bwjSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": true } }'
+
+    $bwjMissing = New-Tree -Label 'bwjmissing'
+    Set-Text -Dir $bwjMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjMissing -Rel '.claude/settings.json' -Text $bwjSettings
+    $r = Invoke-Script -Dir $bwjMissing
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-bwj, but its CLAUDE\.md does not import the extension' -and
+                 $r.Out -match 'adopt-extension-import\.ps1' -and $r.Out -match [regex]::Escape('/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md')) `
+        'bwj enabled, no extension import -- a [WARNING] naming the adopter and the paste-ready line, still exit 0'
+    $r = Invoke-Hook -Dir $bwjMissing
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'does not import the extension') `
+        'the hook forwards the extension warning, still exit 0'
+
+    $bwjImported = New-Tree -Label 'bwjimported'
+    Set-Text -Dir $bwjImported -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine`n$extLine"
+    Set-Text -Dir $bwjImported -Rel '.claude/settings.json' -Text $bwjSettings
+    $r = Invoke-Script -Dir $bwjImported
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
+        'bwj enabled and the extension imported -- no warning'
+
+    $bwjLocal = New-Tree -Label 'bwjlocal'
+    Set-Text -Dir $bwjLocal -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjLocal -Rel '.claude/settings.local.json' -Text $bwjSettings
+    $r = Invoke-Script -Dir $bwjLocal
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'does not import the extension') `
+        'an enable in settings.local.json is the repo''s own too -- warned'
+
+    $bwjOff = New-Tree -Label 'bwjoff'
+    Set-Text -Dir $bwjOff -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjOff -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": false } }'
+    $r = Invoke-Script -Dir $bwjOff
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
+        'dkj-policy-bwj present but disabled -- no warning'
+
+    $bwjBadJson = New-Tree -Label 'bwjbadjson'
+    Set-Text -Dir $bwjBadJson -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjBadJson -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy-bwj@dkj-claude-plugins": true, } '
+    $r = Invoke-Script -Dir $bwjBadJson
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension' -and $r.Out -match '\[OK\]') `
+        'an unparseable settings.json is not an enable and does not take the check down'
+
     # --- the root-prose rule (#2374, superseded September 23, 2026) --------------------------------
     # Dave's second pass the same day: a root CLAUDE.md holds ONLY '@'-import lines now (plus at most an
     # H1 title, blank lines, and HTML comments). This is the detector for that rule

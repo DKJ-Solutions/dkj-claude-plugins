@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2538 left open whether `consumer-prose-sessioncheck` should warn when a `dkj-policy-bwj` repo lacks the
+extension import. Dave's "fix issue 2538" (September 27, 2026) answers yes, in the shape the issue
+proposed: only where the plugin is enabled, through `Test-BwjExtensionImported`, naming
+`adopt-extension-import.ps1`. Verified by reading: `check-consumer-prose.ps1` had no extension branch, and
+`Get-EnabledPlugins` (check-report-lib) already separates the repo's own enables as `RepoEnabledIds`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-consumer-prose.ps1`: a fourth `[WARNING]` where `RepoEnabledIds` holds `dkj-policy-bwj@*` and the closure does not import the extension; it names the adopter and prints `Get-BwjExtensionImportLine`; never the exit code, wrapped against a malformed settings layer; mirror synced
+- [x] `adopt-dkj-policy-bwj` SKILL.md step 6: one sentence saying the session check warns until the line is there
 
 ### TEST
 
+- [x] `consumer-prose-gate.tests.ps1`: enabled + missing warns (script and hook), enabled + imported is quiet, an enable in `settings.local.json` warns, a disabled plugin is quiet, an unparseable settings.json is quiet and does not take the check down (135 asserts green)
+
 ### DEPLOY: feat/2538-warn-missing-bwj-extension-import
 
-**Score:**
+`consumer-prose-sessioncheck` now warns at session start when a repo enables `dkj-policy-bwj` in its own
+settings but its `CLAUDE.md` does not import that plugin's extension. Until now the four BWJ chapters
+could be missing from context with no signal at all. The warning names the `adopt-dkj-policy-bwj` step
+that writes the line (`adopt-extension-import.ps1 -Apply`) and prints the line to add by hand. An enable
+arriving only from your machine-wide settings is not judged, and the warning never changes the exit code.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. A session-start check does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
+
+consumer-prose-sessioncheck warns when a dkj-policy-bwj repo lacks the extension import
 
