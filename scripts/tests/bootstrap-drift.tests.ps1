@@ -269,12 +269,56 @@ try {
         Assert-Equal 0 $rc.Code '.claude junction: exit 0 -- refusing some writes is not a failed run'
         Assert-Equal 0 @(Get-ChildItem -LiteralPath $cOut -Recurse -Force).Count '.claude junction: nothing was written through it'
         Assert-True ($rc.Out -match '\[refused\] \.claude[\\/]settings\.suggested\.jsonc') '.claude junction: the annotated proposal is reported refused'
-        Assert-True ($rc.Out -match '\[refused\] \.claude[\\/]settings\.proposed\.json') '.claude junction: the merged proposal is reported refused'
+        # Since #2549 the merge is stopped one step earlier, at the READ of settings.json through the junction,
+        # so the merged proposal never reaches its own write refusal.
+        Assert-True ($rc.Out -match '\[notice\][^\r\n]*settings\.json is reached through a symlink or junction[^\r\n]*no merged proposal was written') '.claude junction: the merged proposal is not composed -- the read is refused'
         Assert-True ($rc.Out -notmatch '\[create\][^\r\n]*settings\.(suggested|proposed)') '.claude junction: neither proposal is announced as placed'
         Assert-True ($rc.Out -match 'No settings proposal was written this run') '.claude junction: step 3 says there is nothing to copy from'
     } finally {
         & cmd /c rmdir "$(Join-Path $cRoot '.claude')" | Out-Null
         foreach ($d in $cRoot, $cOut) { if (Test-Path -LiteralPath $d) { Remove-Item -Recurse -Force -LiteralPath $d } }
+    }
+
+    # AND THE READ SIDE (issue #2549): a settings.json reached through a reparse point is not read at all,
+    # so its keys cannot ride into the merged proposal. A junctioned .claude/ whose target HOLDS a
+    # settings.json needs no privilege; a file symlink at settings.json itself needs Developer Mode or
+    # elevation, and is skipped where neither is available.
+    Write-Host "bootstrap.ps1 -- settings.json behind a reparse point is not read into the merge" -ForegroundColor Cyan
+    $rRoot = "$Fixture-settings-read"
+    $rOut = "$Fixture-settings-read-outside"
+    foreach ($d in $rRoot, $rOut) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    [System.IO.File]::WriteAllText((Join-Path $rOut 'settings.json'), '{ "outsideSecret": "leaked" }')
+    & cmd /c mklink /J "$(Join-Path $rRoot '.claude')" "$rOut" | Out-Null
+    try {
+        $rr = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $rRoot)
+        Assert-Equal 0 $rr.Code 'settings read, junctioned .claude: exit 0'
+        Assert-True ($rr.Out -match '\[notice\][^\r\n]*settings\.json is reached through a symlink or junction') 'settings read, junctioned .claude: the read is refused and named'
+        Assert-Equal 1 @(Get-ChildItem -LiteralPath $rOut -Recurse -Force).Count 'settings read, junctioned .claude: nothing was written beside the linked settings.json'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $rRoot '.claude')" | Out-Null
+        foreach ($d in $rRoot, $rOut) { if (Test-Path -LiteralPath $d) { Remove-Item -Recurse -Force -LiteralPath $d } }
+    }
+
+    $sRoot = "$Fixture-settings-symlink"
+    $sOut = "$Fixture-settings-symlink-outside.json"
+    New-Item -ItemType Directory -Path (Join-Path $sRoot '.claude') -Force | Out-Null
+    [System.IO.File]::WriteAllText($sOut, '{ "outsideSecret": "leaked" }')
+    $sLink = Join-Path $sRoot '.claude\settings.json'
+    $symlinked = $false
+    try { New-Item -ItemType SymbolicLink -Path $sLink -Target $sOut -ErrorAction Stop | Out-Null; $symlinked = $true } catch { }
+    try {
+        if (-not $symlinked) {
+            Write-Host '  [SKIP] file symlinks cannot be created on this machine (no Developer Mode or elevation)' -ForegroundColor Yellow
+        } else {
+            $rs = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $sRoot)
+            Assert-Equal 0 $rs.Code 'settings read, symlinked settings.json: exit 0'
+            Assert-True ($rs.Out -match '\[notice\][^\r\n]*settings\.json is reached through a symlink or junction') 'settings read, symlinked settings.json: the read is refused and named'
+            Assert-True (-not (Test-Path -LiteralPath (Join-Path $sRoot '.claude\settings.proposed.json'))) 'settings read, symlinked settings.json: no merged proposal was written'
+            Assert-True (Test-Path -LiteralPath (Join-Path $sRoot '.claude\settings.suggested.jsonc') -PathType Leaf) 'settings read, symlinked settings.json: the annotated proposal is still offered'
+        }
+    } finally {
+        if (Test-Path -LiteralPath $sRoot) { Remove-Item -Recurse -Force -LiteralPath $sRoot }
+        if (Test-Path -LiteralPath $sOut) { Remove-Item -Force -LiteralPath $sOut }
     }
 
     # ONLY THE ANNOTATED LEAF refused: a reparse point at that one path, .claude/ itself real. The merged
