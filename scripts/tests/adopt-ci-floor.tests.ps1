@@ -307,6 +307,31 @@ try {
     Assert-True ($r.Flat -like '*repo-settings.yml*') 'and the repo-settings schedule'
     Assert-True ($r.Flat -like '*merge-on-green.yml*') 'and the merge-on-green schedule'
 
+    # --- 1c. A junctioned .github/workflows is refused, not written through (#2546) ----------------
+    # Test-Path follows a junction, so every runner would land in its target. The fixture's ci.yml moves
+    # out there with it, so the run still reads a workflow. A junction needs no privilege; it is removed
+    # with rmdir before the fixture teardown, whose recursive delete would otherwise empty the target.
+    Write-Host '-- 1c. a junctioned .github/workflows: every runner it would create is refused (#2546) --' -ForegroundColor Cyan
+    $dir = New-FixtureConsumer -Label 'junction'
+    $jWorkflows = Join-Path $dir '.github\workflows'
+    $jOutside = Join-Path $Fixture 'junction-outside'
+    New-Item -ItemType Directory -Path $jOutside -Force | Out-Null
+    Move-Item -LiteralPath (Join-Path $jWorkflows 'ci.yml') -Destination $jOutside
+    Remove-Item -LiteralPath $jWorkflows
+    & cmd /c mklink /J "$jWorkflows" "$jOutside" | Out-Null
+    try {
+        $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+        Assert-Equal 0 $r.Code 'junction: exits 0 -- a refusal is not a failed run'
+        Assert-Equal 'ci.yml' ((@(Get-ChildItem -LiteralPath $jOutside -Recurse -Force | ForEach-Object Name)) -join ',') 'junction: nothing is written through it'
+        Assert-True ($r.Flat -like '*`[refused`] .github/workflows/fold-on-merge.yml*') 'junction: a runner is reported refused'
+        Assert-True ($r.Flat -like '*runner(s) refused*') 'junction: and the summary counts the refusals'
+        # With the queue ACTIVE a refused queue runner is a live defect, exactly like a missing one.
+        $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOn, '-Apply')
+        Assert-Equal 1 $r.Code 'junction, queue on: a refused queue runner is a live defect (exit 1), not a clean run'
+    } finally {
+        & cmd /c rmdir "$jWorkflows" | Out-Null
+    }
+
     # --- 2. -Apply places every runner, pointing at the PLUGIN tree --------------------------------
     Write-Host '-- 2. -Apply places every runner, reaching their scripts through the plugin tree --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'apply'

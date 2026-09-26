@@ -206,6 +206,9 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # definition of "safe to paste" and of the prose-display strip; a fourth hand-rolled copy of either is
 # exactly what pr-issues.tests.ps1's THREE-libs assert exists to catch.
 . (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
+# Get-WriteTargetReparsePoint (issue #2546): a runner this floor creates is refused when its path passes
+# through a symlink or junction -- a junctioned .github/ -- because the write would land outside the repo.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
 
 # THE SOURCE OF *THIS* WORKFLOW arranges its runners by hand -- see the header -- so this command
 # refuses there. Below the dot-sources because the test lives in seam-lib, and still before anything is
@@ -1509,8 +1512,20 @@ $kept = 0
 $foldRunnerCreated = $false
 $mergeOnGreenRunnerCreated = $false
 $writeRunnerCreated = $false
+$refused = 0
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
+    # BEFORE the existence test, as in adopt-workflow-folder (#2540): Test-Path follows a reparse point, so
+    # a dangling symlink reads as absent and a junctioned .github/ takes the write outside the repo.
+    $reparse = Get-WriteTargetReparsePoint -Path $abs -Root $repoRoot
+    if ($reparse) {
+        $refused++
+        # A refused queue runner is as absent as a missing one, under -Apply too since nothing places it --
+        # so it counts toward the live-defect exit code rather than turning an incomplete floor into exit 0.
+        if ($queueActive -and $t.QueueRelated) { $liveDefects++ }
+        Write-Host "  [refused] $($t.Rel) -- reached through a symlink or junction ($reparse), so writing it would land outside the repo; place it by hand" -ForegroundColor Yellow
+        continue
+    }
     if (Test-Path -LiteralPath $abs) {
         $kept++
         Write-Host "  [exists]  $($t.Rel) -- left as it is" -ForegroundColor DarkGray
@@ -1653,6 +1668,9 @@ if ($Apply) {
     Write-Host "Done: $created runner(s) created, $kept left as they were." -ForegroundColor Green
 } else {
     Write-Host "Would create $created runner(s); $kept already exist. Re-run with -Apply." -ForegroundColor Yellow
+}
+if ($refused -gt 0) {
+    Write-Host "$refused runner(s) refused -- reached through a symlink or junction; see the [refused] lines above." -ForegroundColor Yellow
 }
 
 # EXIT 1 ONLY ON A LIVE DEFECT, and the distinction is the whole point of the two vocabularies above. A
