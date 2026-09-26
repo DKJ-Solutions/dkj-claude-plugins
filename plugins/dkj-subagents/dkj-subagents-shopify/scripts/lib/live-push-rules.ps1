@@ -110,7 +110,10 @@ function Get-LivePushRows {
         [AllowNull()][AllowEmptyCollection()][string[]]$ThemeDirectories = $null
     )
 
-    $dirs = @($ThemeDirectories)
+    # THROUGH A PIPELINE, NOT @($ThemeDirectories). Under Windows PowerShell 5.1 a [string[]] parameter
+    # left at $null stays $null inside @(), and '.Count' on $null throws under a StrictMode caller --
+    # measured the first time prepare-release.ps1 (which runs strict) called this with no directories.
+    $dirs = @($ThemeDirectories | Where-Object { $_ })
     if ($dirs.Count -eq 0) { $dirs = Get-ShopifyThemeDirectoryNames }
 
     # A HASHSET FOR THE SYNC SET, KEYED ON THE NORMALISED SPELLING. A caller may have read those paths
@@ -171,6 +174,90 @@ function Get-LivePushRows {
     }
 
     return @($rows)
+}
+
+function Get-SyncMergeCommits {
+    <#
+    .SYNOPSIS
+        Out of a range's log, the commits that name a sync branch in their subject. Returns one row per
+        such commit -- Sha, FirstParent, IsMerge -- and nothing for the rest.
+
+    .DESCRIPTION
+        THE FIRST HALF OF SYNC PROVENANCE, and a lib function rather than a loop inside a script since
+        #2509: live-preflight.ps1 and dkj-policy-bwj's prepare-release.ps1 both derive a push list, and
+        two copies of "which commits came in through a sync" are free to disagree about which files the
+        push leaves out.
+
+        -LogLines IS `git log --format=%H%x09%P%x09%s` OUTPUT, one commit per line. The caller runs git;
+        this only reads what came back.
+
+        TWO MERGE SHAPES, BECAUSE TWO WORKFLOWS EXIST. A merge commit carries the branch name in its
+        subject ('merge: sync/2026-09-20 (#123)'), and a squash merge has no merge commit at all -- there
+        the single commit's own subject is what names the branch. IsMerge tells the caller which: for a
+        merge, the commits it brought in are FirstParent..Sha, which only git can list; for a squash, the
+        commit is the whole of it. A repo using neither shape gets no rows, and then nothing is excluded
+        -- the safe direction, since a push list one file too LONG re-pushes bytes that are already right.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$LogLines,
+        [string]$SyncPrefix = ''
+    )
+
+    $rows = @()
+    if (-not $SyncPrefix) { return $rows }
+    foreach ($line in @($LogLines)) {
+        if ($null -eq $line) { continue }
+        $f = ([string]$line) -split "`t", 3
+        if ($f.Count -lt 3) { continue }
+        if ($f[2] -notmatch [regex]::Escape($SyncPrefix)) { continue }
+        $parents = @(($f[1] -split '\s+') | Where-Object { $_ })
+        $rows += [pscustomobject]@{
+            Sha         = $f[0].Trim()
+            FirstParent = $(if ($parents.Count -ge 1) { $parents[0] } else { '' })
+            IsMerge     = ($parents.Count -ge 2)
+        }
+    }
+    return @($rows)
+}
+
+function Get-SyncOwnedPaths {
+    <#
+    .SYNOPSIS
+        The paths a range touched ONLY through sync commits. Returns them '/'-separated.
+
+    .DESCRIPTION
+        THE SECOND HALF OF SYNC PROVENANCE (#2509, out of live-preflight.ps1 for the reason
+        Get-SyncMergeCommits gives). -WalkLines is `git log --format=COMMIT%x09%H --name-only` output,
+        with any quoted paths ALREADY DECODED by the caller -- this file reads no git and decodes nothing,
+        so it stays dependency-free like the rest of it.
+
+        EVERY TOUCHING COMMIT, NOT ANY. A file a sync mirrored AND this repo then changed itself is this
+        repo's to push. The direction of that asymmetry is deliberate: treating it as sync-owned would
+        drop a real change out of the push list silently, and a short push list is the failure nobody
+        sees until a customer does.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$WalkLines,
+        [AllowNull()][AllowEmptyCollection()][string[]]$SyncCommits
+    )
+
+    $sync = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($s in @($SyncCommits)) { if ($s) { [void]$sync.Add(([string]$s).Trim()) } }
+    if ($sync.Count -eq 0) { return @() }
+
+    $bySync = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $byUs   = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $current = ''
+    foreach ($raw in @($WalkLines)) {
+        if ($null -eq $raw) { continue }
+        $line = ([string]$raw).Trim()
+        if (-not $line) { continue }
+        if ($line.StartsWith("COMMIT`t")) { $current = $line.Substring(7).Trim(); continue }
+        if (-not $current) { continue }
+        $p = $line -replace '\\', '/'
+        if ($sync.Contains($current)) { [void]$bySync.Add($p) } else { [void]$byUs.Add($p) }
+    }
+    return @($bySync | Where-Object { -not $byUs.Contains($_) })
 }
 
 function Get-HighestReleaseTag {

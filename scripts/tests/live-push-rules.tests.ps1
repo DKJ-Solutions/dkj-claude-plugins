@@ -134,6 +134,30 @@ Assert-Equal 'not-a-theme-path' $outside[0].Kind 'the theme-path test runs befor
 $mixed = @(Get-LivePushRows -ChangedPaths @('sections/header.liquid') -SyncOwnedPaths @('sections\header.liquid'))
 Assert-Equal 'sync-owned' $mixed[0].Kind 'provenance matches across separator spellings'
 
+# WHICH COMMITS CAME IN THROUGH A SYNC (#2509: out of live-preflight.ps1, so prepare-release reads the same
+# rule). Both merge shapes, and the commit that merely mentions nothing sync-shaped is not a row.
+$heads = @(Get-SyncMergeCommits -SyncPrefix 'sync/' -LogLines @(
+    "m1`tp1 p2`tmerge: sync/2026-09-20 (#123)",
+    "s1`tp3`tsync/2026-09-21: mirror live (#124)",
+    "f1`tp4`tfeat: a filter",
+    'not a log line'))
+Assert-Equal 2 $heads.Count 'two sync-shaped commits, one of each merge shape, and nothing else'
+Assert-True ($heads[0].IsMerge -and $heads[0].FirstParent -eq 'p1') 'a merge names its first parent, so the caller can list what it brought in'
+Assert-True (-not $heads[1].IsMerge) 'a squash is the whole of its own sync'
+Assert-Equal 0 @(Get-SyncMergeCommits -SyncPrefix '' -LogLines @("m1`tp1 p2`tmerge: sync/x")).Count 'no prefix, no sync commits -- the direction that excludes nothing'
+
+# WHICH PATHS ONLY THOSE COMMITS TOUCHED. EVERY touching commit, not any: a file the sync mirrored and this
+# repo then changed itself is this repo's to push.
+$walk = @("COMMIT`tours", 'sections/header.liquid', "COMMIT`tsyncA", 'sections/header.liquid', 'sections/b.liquid', 'sections\c.liquid')
+$owned = @(Get-SyncOwnedPaths -WalkLines $walk -SyncCommits @('syncA') | Sort-Object)
+Assert-Equal 'sections/b.liquid|sections/c.liquid' ($owned -join '|') 'only the paths no non-sync commit touched, with separators normalised'
+Assert-Equal 0 @(Get-SyncOwnedPaths -WalkLines $walk -SyncCommits @()).Count 'no sync commits, nothing sync-owned'
+
+# UNDER A StrictMode CALLER, WITH NO DIRECTORIES PASSED (#2509). @() of a $null [string[]] stays $null in
+# Windows PowerShell 5.1, and '.Count' on it threw the first time a strict script called this.
+$strictRows = & { Set-StrictMode -Version Latest; @(Get-LivePushRows -ChangedPaths @('sections/a.liquid')) }
+Assert-Equal 'theme-file' $strictRows[0].Kind 'a strict caller gets the default eight directories, not a throw'
+
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''
 Write-Host 'The release tag -- compared as a version, which is the whole reason it is a function' -ForegroundColor Cyan
