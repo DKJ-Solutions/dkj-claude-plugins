@@ -39,19 +39,43 @@
 
 ### PLAN
 
+The issue left the direction open between three options. The choice here is the session route's own
+frame, cut down to what CI can know. Calling `Format-GoLiveBlock` is not possible, because the template
+ships standalone into a consumer's `.github/` without the plugin's libs. So the template carries a copy
+of the words, and the suite holds that copy equal to `Get-GoLiveBlockText`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `New-AsanaPasteBlockComment` writes the Dutch header line plus `TE BEKIJKEN OP` with the
+  `[ADD LINK]` sentence, and no other section
+- [x] `WORKFLOW-portable.md`'s backstop section states the new shape and why it is a copy
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: the backstop's pasted block, line by line, and its parity with
+  `Get-GoLiveBlockText` (448 asserts green)
+
 ### DEPLOY: fix/2513-backstop-dutch-paste-block
 
-**Score:**
+The CI backstop in `asana-mirror.ps1` no longer posts the old English sentence (`The fix for
+<repo>#<n> is done. You can view the result here: [ADD LINK]`). It posts the frame the session route
+writes since #2507: the Dutch opening line `— automatisch bericht vanuit GitHub #<n>` and the
+`TE BEKIJKEN OP` section, with `[ADD LINK]` still standing where the link goes. The sections CI cannot
+fill are left out rather than placeholdered. The template carries a copy of those words, because it
+ships without the plugin's libs, and `dkj-policy-bwj.tests.ps1` now holds that copy equal to
+`Get-GoLiveBlockText`. The two writers of one block therefore cannot drift apart again. The marker and
+the lead sentence the de-duplication matches on are unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store that re-adopts the template gets a backstop block in its colleagues' language and in the
+same shape as the session's own. So a person no longer has to rewrite it before pasting it into Asana.
+It reaches the store only on that re-adoption, and only on the rare close where the session skipped
+its own block.
+
+**Score:** 2
 
 #### Pull Request
 
