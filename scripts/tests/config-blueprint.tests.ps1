@@ -419,8 +419,8 @@ Remove-Item -Recurse -Force -LiteralPath $bare -ErrorAction SilentlyContinue
 # The append into the seam lib and the proposal write are both refused. The fixture's scripts/ is moved
 # out and replaced by a junction to it, so the run still reads the libs it needs. A junction needs no
 # privilege; it is removed with rmdir, never recursively, or the delete would empty its target.
-$jFixture = Join-Path $Fixture '..\config-blueprint-test-junction'
-$jOutside = Join-Path $Fixture '..\config-blueprint-test-junction-outside'
+$jFixture = "$Fixture-junction"
+$jOutside = "$Fixture-junction-outside"
 New-ConsumerFixture -Path $jFixture
 if (Test-Path -LiteralPath $jOutside) { Remove-Item -Recurse -Force -LiteralPath $jOutside }
 Move-Item -LiteralPath (Join-Path $jFixture 'scripts') -Destination $jOutside
@@ -432,7 +432,7 @@ try {
     Assert-Match '\[refused\] scripts[\\/]repo-config\.ps1' $r.Out 'junction: the dry run already names the refusal'
     # A drive-rooted -ProposalPath is refused as outside the repo; Join-Path used to glue it onto the root
     # as a two-drive string that crashed the run in GetFullPath.
-    $absProposal = Join-Path ([System.IO.Path]::GetTempPath()) "config-blueprint-abs-$PID.md"
+    $absProposal = Join-Path $Fixture 'config-blueprint-abs.md'
     $r = Invoke-Adopt -ConsumerRoot (Resolve-Path -LiteralPath $jFixture).Path -ScriptArgs @('-ProposalPath', $absProposal)
     Assert-Equal 0 $r.Code 'junction: an absolute proposal path does not crash the run'
     Assert-Match ('\[refused\] ' + [regex]::Escape($absProposal)) $r.Out 'junction: and it is refused as outside the repo'
