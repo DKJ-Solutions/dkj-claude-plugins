@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**9 / 39 minor entries** <!-- pending-tally -->
+**9 / 40 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2542-deep-fence-closes-on-dedent · 20260926-181635Z
+
+A PR body's gate-bypass section is no longer lost below a line of pasted output. Terminal output indented
+four spaces and starting with three backticks is an indented code block on GitHub, but the workflow's
+markdown readers treated it as a fence that never closed. Everything below it counted as quoted. So
+`Get-GateBypassLines` read no bypass section, and `Add-GateBypassLines` dropped a new bypass line without
+an error. A fence opened deeper than three spaces now ends at the first line indented less than any list
+container could allow. That applies to every reader sharing `Get-NextFenceState`: the PR-body scans, the
+resolves reader, the entry format, open-pr's template scan, the roster check and the lint gate. The reverse also holds now: a fence line
+indented four or more spaces no longer closes a block opened at column 0, so a gate-bypass section quoted
+inside a code block cannot be read as, or refreshed into, a real one. Separately, a body that only quotes the gate-bypass heading in a code block now gets a real section appended instead
+of an unchanged body.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Workflow tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+A deep fence ends when its container does, so a gate-bypass line is not dropped
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha
+
+[PR #2544](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2544)
+
+---
 
 ### DEPLOY: fix/2536-fence-trackers-commonmark · 20260926-154028Z
 
