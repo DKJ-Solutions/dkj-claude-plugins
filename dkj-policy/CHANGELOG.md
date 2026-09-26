@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**7 / 30 minor entries** <!-- pending-tally -->
+**7 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2525-unarmed-stranded-pr-sessioncheck · 20260926-114854Z
+
+A new SessionStart hook, `unshipped-pr-sessioncheck`, lists your own open pull requests that are green,
+settled and not armed with `merge-when-green`, with the command that resumes each ship
+([#2525](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2525)). Until now a ship that died
+before arming left such a pull request, with its branch document stranded off the trunk, and nothing
+reported it: `stranded-sweep-sessioncheck` reads armed pull requests only. PR #2515 sat that way for
+about two and a half hours. The report also says the pull request may be held back on purpose
+(`ship-pr -NoMerge`), because the tracker cannot tell the two apart. It runs in a repo without a
+merge-on-green sweep too, where the label changes nothing.
+
+Scored for a session starting in a repo that runs this workflow. It sees a line only when a
+pull request is actually owed a merge.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is a session-start report, and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+A session start now reports your green pull requests that no sweep will merge
+
+Plugins: dkj-policy
+
+[PR #2527](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2527)
+
+---
 
 ### DEPLOY: fix/2507-golive-block-colleague-language · 20260926-111318Z
 
