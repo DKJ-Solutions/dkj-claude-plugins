@@ -1076,6 +1076,7 @@ try {
 # obligation, which fix is flagged, and that no runbook line can carry an authorisation marker.
 Write-Host "`n-- prepare-release --" -ForegroundColor Cyan
 . (Join-Path $PluginRoot 'scripts\lib\live-push-rules.ps1')
+. (Join-Path $PluginRoot 'scripts\lib\ref-print-lib.ps1')
 . (Join-Path $PluginRoot 'scripts\lib\prepare-release-rules.ps1')
 
 $prDot = [char]0x00B7
@@ -1134,6 +1135,18 @@ Assert-True ($prEmpty -notmatch 'shopify theme (push|pull)') 'an empty push list
 $prNoId = (Format-ReleaseRunbook -Store 's.myshopify.com' -PushFiles @('sections/a.liquid')) -join "`n"
 Assert-True ($prNoId -notmatch 'shopify theme push') 'with no live theme id, no push is composed at all'
 Assert-Equal '' (Format-VerificationPullCommand -Store 's' -ThemeId '1' -Path 'p' -Only @()) 'an empty pull list composes no pull'
+# A PATH THAT IS NOT PASTE-SAFE COMPOSES NO COMMAND AT ALL (this branch's security review). A theme file can
+# reach the repo through a sync from the theme editor, and #1594 measured that quoting does not close the
+# class -- so the runbook refuses to print a push or pull around it, and names the path instead.
+foreach ($evil in @('assets/x.css; calc', 'assets/$(calc).css', "assets/a`ncalc.css", 'assets/a|b.css')) {
+    $evilBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @('sections/ok.liquid', $evil)) -join "`n"
+    Assert-True ($evilBook -notmatch 'shopify theme (push|pull)') "no push or pull is composed around '$($evil -replace "`n", '\n')'"
+}
+$evilBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @("assets/a$([char]27)[31m.css")) -join "`n"
+Assert-True ($evilBook.Contains('cannot be pasted safely')) 'the refusal says why'
+Assert-True (-not $evilBook.Contains([char]27)) 'and the path it names has its control characters stripped'
+$prCtl = @([pscustomobject]@{ Branch = 'feat/1-x'; Sentence = "Once live, stop it.$([char]27)[2J" })
+Assert-True (-not ((Format-ReleaseRunbook -Obligations $prCtl) -join "`n").Contains([char]27)) 'entry prose reaches the runbook with its control characters stripped'
 
 # THE DRIVER, STATICALLY: it runs no theme write and reads no marker, and it refuses in this source repo.
 $prDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\prepare-release.ps1'))

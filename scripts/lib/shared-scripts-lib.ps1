@@ -1025,6 +1025,18 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE THIRD MIRROR (inbound #2509's security review, September 26, 2026). prepare-release.ps1
+            # prints a paste-ready runbook whose push and pull commands carry theme paths out of git diff,
+            # and a theme path can reach the repo through a sync from the theme editor -- so a filename
+            # holding `;` or `$(...)` would run when the runbook line is pasted. #1594 measured that quoting
+            # does not close that class; Test-PathPasteSafe does, by refusing to print the path at all.
+            # ConvertTo-ConsoleStrippedText rides along for the PR titles and entry prose it echoes.
+            Name    = 'ref-print-lib-bwj'
+            Source  = 'scripts\lib\ref-print-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
             # THE FUNCTION-TABLE PROBE (issue #1729). A leaf with no dependencies of its own, like
             # ref-print-lib above, which is what makes it safe for the three libs below it to load
             # first. It is mirrored because those three are: entry-scaffold-lib, native-capture-lib and

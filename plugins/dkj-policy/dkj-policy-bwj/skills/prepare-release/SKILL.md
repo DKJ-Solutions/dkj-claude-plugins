@@ -3,7 +3,8 @@ name: prepare-release
 description: >-
   Stage a store release days ahead of release day, so the day itself is push, verify, cut. Use it when
   the release is coming up and you want to be ready now -- "the release goes out on Monday, get me
-  ready". It reads the trunk, the pending changelog entries and the bump they add up to, derives the
+  ready". It reads the trunk, the pending changelog entries and the bump they add up to, flags scores
+  worth a second look, derives the
   theme push list by the same rules live-preflight uses, runs an early drift read, collects the
   go-live obligations buried in entry prose, lists open pull requests that could still ride along, and
   prints the release-day runbook. Read-only: it never pushes, cuts, tags, or writes the authorisation
@@ -44,7 +45,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    weekend.
 8. **The runbook** -- the day in order: preflight, push, verification pull, obligations, preview sweep,
    cut, backup, release-notes page. Every fact the run derived is filled in; one it could not derive is
-   named as missing, never guessed.
+   named as missing, never guessed. **A theme path that is not paste-safe composes no command at all**
+   -- a name holding `;` or `$(...)` would run when the line is pasted, and #1594 measured that quoting
+   does not close that class -- so the run names the path and flags the push list instead. An accented
+   theme filename is refused the same way; `live-preflight` composes the real command on the day.
 
 The exit code is a summary: `0` when nothing needs attention, `1` when something does. A step that
 could not measure is reported as skipped and named, never counted as passing.
@@ -86,8 +90,8 @@ could not measure is reported as skipped and named, never counted as passing.
 
 ## Requirements in the consumer
 
-`git`, and `gh` authenticated for the check runs and the open pull requests. Either one missing is a
-skipped step, not a crash. The seams it reads from `scripts/repo-config.ps1`, all optional:
+`git`, which every step reads. `gh`, authenticated, for the check runs and the open pull requests --
+missing, logged out or offline, those two report as skipped rather than stopping the run. The seams it reads from `scripts/repo-config.ps1`, all optional:
 `Get-ShopifyThemeEstateStore`, `Get-ShopifyLiveThemeId`, `Get-TrunkBranchName`,
 `Get-ShopifySyncBranchPrefix`, `Get-ChangelogPath`, `Get-ShopifyDriftCheckPath`,
 `Get-ReleaseAudienceTier` and `Get-RepoName`. It refuses to run in this plugin's own source repo, which

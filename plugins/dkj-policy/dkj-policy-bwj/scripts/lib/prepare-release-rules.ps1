@@ -27,6 +27,10 @@
       the push list live-push-rules.ps1, mirrored into this plugin from its one source (#2509) so the
                     list prepared on Friday is derived by the same rules as the one pushed on Monday.
 
+    NEEDS ref-print-lib.ps1 LOADED FIRST -- the driver and the suite both dot-source it -- for
+    Test-PathPasteSafe and ConvertTo-ConsoleStrippedText, which the runbook applies to every path and
+    every piece of entry prose it prints.
+
     Pure ASCII (repo convention for .ps1).
 #>
 
@@ -268,7 +272,14 @@ function Format-ReleaseRunbook {
     )
 
     $files = @(@($PushFiles) | Where-Object { $_ })
-    $haveTarget = [bool]($Store -and $LiveThemeId)
+    # NO COMMAND IS COMPOSED AROUND A PATH THAT IS NOT PASTE-SAFE (this branch's security review). The
+    # paths come out of git diff, and a theme file can reach the repo through a sync from the theme
+    # editor, so a name holding `;` or `$(...)` would run the moment a person pastes the line. #1594
+    # measured that quoting does not close that class in every shell; Test-PathPasteSafe (ref-print-lib,
+    # which the driver loads) refuses the path instead. An accented theme name is refused too -- the
+    # safe direction, since live-preflight composes the real command on the day.
+    $unsafe = @($files | Where-Object { -not (Test-PathPasteSafe -Path $_) })
+    $haveTarget = [bool]($Store -and $LiveThemeId -and $unsafe.Count -eq 0)
     $ver = if ($TargetVersion) { "v$TargetVersion" } else { 'the next version' }
     $out = @()
     $out += "# Release-day runbook -- $ver$(if ($ReleaseDate) { ", $ReleaseDate" })"
@@ -287,6 +298,10 @@ function Format-ReleaseRunbook {
         $out += "   $push"
         $out += '   Refused as it stands: the authorisation marker your repo states is added by a person, to this'
         $out += '   exact command, and no script writes it. Use the command live-preflight prints on the day.'
+    } elseif ($unsafe.Count -gt 0) {
+        $out += "   (not composed -- $($unsafe.Count) path(s) cannot be pasted safely into a command line:"
+        foreach ($u in $unsafe) { $out += "    $(ConvertTo-ConsoleStrippedText -Text $u)" }
+        $out += '    read them before the day; a name like that on a theme is itself worth a question)'
     } elseif (-not $haveTarget) {
         $out += '   (not composed -- no store domain or no live theme id is known to this run)'
     } else {
@@ -302,7 +317,9 @@ function Format-ReleaseRunbook {
 
     $obl = @($Obligations | Where-Object { $_ })
     $out += "4. Go-live obligations -- $($obl.Count) candidate(s) found in the entries' prose (a candidate list, not a complete one):"
-    foreach ($o in $obl) { $out += "   - [ ] $($o.Branch): $($o.Sentence)" }
+    # Entry prose is foreign text in a document meant to be read beside commands, so a control or format
+    # character is stripped before it can repaint what the reader sees (ref-print-lib, #2024).
+    foreach ($o in $obl) { $out += "   - [ ] $(ConvertTo-ConsoleStrippedText -Text $o.Branch): $(ConvertTo-ConsoleStrippedText -Text $o.Sentence)" }
     if ($obl.Count -eq 0) { $out += '   (none found -- read the entries before assuming there are none)' }
     $out += ''
 

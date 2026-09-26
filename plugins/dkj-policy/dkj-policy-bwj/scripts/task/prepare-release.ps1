@@ -102,6 +102,7 @@ $ReleaseDayArg = $ReleaseDay; $PatternArg = @($ObligationPattern); $OutFileArg =
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\live-push-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\golive-block-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\prepare-release-rules.ps1')
 
@@ -140,13 +141,19 @@ function Get-Seam {
 
 function Invoke-Native {
     <# A native command whose stderr and exit code are read rather than thrown on -- the try/finally
-       shape repo-root-lib.ps1 documents, which the repo-wide redirect guard exonerates. #>
+       shape repo-root-lib.ps1 documents, which the repo-wide redirect guard exonerates.
+       AND A CATCH, because a MISSING executable is not an exit code: it throws CommandNotFoundException,
+       which would take the run down at the first gh call instead of reporting that step as skipped --
+       measured by this branch's copy edit. It comes back as a failed call (-1) with no output. #>
     param([Parameter(Mandatory = $true)][scriptblock]$Command)
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
+    $out = @()
     try {
         $out  = & $Command 2>$null
         $code = $LASTEXITCODE
+    } catch {
+        $code = -1
     } finally {
         $ErrorActionPreference = $prev
     }
@@ -265,7 +272,7 @@ if (-not (Test-Path -LiteralPath $changelogFull -PathType Leaf)) {
     $changelogText = [System.IO.File]::ReadAllText($changelogFull)
     $entries = @(Get-PendingChangelogEntries -Changelog $changelogText)
     $bump = Get-PendingBumpFromTally -Changelog $changelogText
-    foreach ($e in $entries) { Write-Host "    $($e.Branch)" -ForegroundColor DarkGray }
+    foreach ($e in $entries) { Write-Host "    $(ConvertTo-ConsoleStrippedText -Text $e.Branch)" -ForegroundColor DarkGray }
     if ($sinceTag -and $bump) { $targetVersion = Step-SemVer -Current ($sinceTag -replace '^v', '') -Bump $bump }
     if ($entries.Count -eq 0) {
         Add-Step -Name 'scope' -State 'attention' -Detail "nothing is pending in '$changelogRel' -- there is no release to prepare."
@@ -287,7 +294,7 @@ if ($entries.Count -eq 0) {
     Add-Step -Name 'scores' -State 'skip' -Detail "the check applies at audience tier 1 and this repo answers '$audience' -- see Get-EntryScoreNotes."
 } else {
     $notes = @(Get-EntryScoreNotes -Entries $entries -AudienceTier $audience)
-    foreach ($n in $notes) { Write-Host "    $($n.Branch): $($n.Note)" -ForegroundColor Yellow }
+    foreach ($n in $notes) { Write-Host "    $(ConvertTo-ConsoleStrippedText -Text $n.Branch): $(ConvertTo-ConsoleStrippedText -Text $n.Note)" -ForegroundColor Yellow }
     if ($notes.Count -gt 0) { Add-Step -Name 'scores' -State 'attention' -Detail "$($notes.Count) entr(y/ies) to confirm -- advisory; the cut's tier gate decides." }
     else { Add-Step -Name 'scores' -State 'ready' -Detail 'no score looks out of place.' }
 }
@@ -326,13 +333,18 @@ if (-not $sinceTag) {
         Write-Host "  $sinceTag..HEAD changed $($changed.Count) file(s)."
         foreach ($r in @($rows | Where-Object { $_.Push })) {
             $new = if ($added.Contains(($r.Path -replace '\\', '/'))) { '  (NEW on the theme)' } else { '' }
-            Write-Host "    push  $($r.Path)$new" -ForegroundColor Green
+            Write-Host "    push  $(ConvertTo-ConsoleStrippedText -Text $r.Path)$new" -ForegroundColor Green
         }
         foreach ($g in @($rows | Where-Object { -not $_.Push } | Group-Object -Property Kind)) {
             Write-Host "    held  $($g.Count) file(s): $($g.Group[0].Reason)" -ForegroundColor DarkGray
         }
         $newCount = @($pushFiles | Where-Object { $added.Contains(($_ -replace '\\', '/')) }).Count
-        if ($pushFiles.Count -eq 0) {
+        # A PATH THAT IS NOT PASTE-SAFE STOPS THE RUNBOOK COMPOSING A COMMAND AROUND IT (see
+        # Format-ReleaseRunbook), and it is named here so the reason is not only in the runbook.
+        $unsafe = @($pushFiles | Where-Object { -not (Test-PathPasteSafe -Path $_) })
+        if ($unsafe.Count -gt 0) {
+            Add-Step -Name 'push list' -State 'attention' -Detail "$($unsafe.Count) of $($pushFiles.Count) theme path(s) cannot be pasted safely into a command line, so the runbook composes no push or pull. Read them: $(@($unsafe | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', ')"
+        } elseif ($pushFiles.Count -eq 0) {
             Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD lives on a theme -- this release is code and docs only, with no live push."
         } else {
             Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) to push, $newCount of them new on the theme, out of $($changed.Count) changed."
@@ -380,7 +392,7 @@ Write-Host ''
 Write-Host '[6/8] obligations -- what must happen once this is live' -ForegroundColor Cyan
 
 $obligations = @(Get-GoLiveObligations -Entries $entries -Patterns $PatternArg)
-foreach ($o in $obligations) { Write-Host "    - $($o.Branch): $($o.Sentence)" }
+foreach ($o in $obligations) { Write-Host "    - $(ConvertTo-ConsoleStrippedText -Text $o.Branch): $(ConvertTo-ConsoleStrippedText -Text $o.Sentence)" }
 if ($entries.Count -eq 0) {
     Add-Step -Name 'obligations' -State 'skip' -Detail 'no pending entries to read.'
 } else {
@@ -400,7 +412,7 @@ if ($prs.Code -ne 0) {
 } else {
     foreach ($l in $prs.Lines) {
         $f = $l -split "`t", 4
-        if ($f.Count -ge 4) { Write-Host "    #$($f[0])  $($f[1])$(if ($f[2] -eq 'true') { '  (draft)' })  -- $($f[3])" }
+        if ($f.Count -ge 4) { Write-Host "    #$($f[0])  $(ConvertTo-ConsoleStrippedText -Text $f[1])$(if ($f[2] -eq 'true') { '  (draft)' })  -- $(ConvertTo-ConsoleStrippedText -Text $f[3])" }
     }
     if ($prs.Lines.Count -eq 0) { Add-Step -Name 'open work' -State 'ready' -Detail "no open pull request against '$trunk'." }
     else { Add-Step -Name 'open work' -State 'attention' -Detail "$($prs.Lines.Count) open pull request(s) -- decide now whether each rides along; one merged after this run is not in the list above." }

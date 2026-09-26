@@ -60,16 +60,43 @@ scripts may not reach another plugin's libs. Resolved with the registry: `live-p
   verification pull and the runbook
 - [x] `prepare-release.ps1`: the eight read-only steps and the runbook, `-OutFile`
 - [x] `skills/prepare-release/SKILL.md` and the README skill row
-- [ ] Review findings from the code, security and copy passes applied
+- [x] Review findings from the code, security and copy passes applied: paste-unsafe theme paths compose no
+  command (`ref-print-lib` mirrored in for `Test-PathPasteSafe`), echoed foreign text is stripped, and a
+  missing `gh` is a skipped step rather than a crash
+
 ### TEST
+
+- [x] `live-push-rules.tests.ps1`: both sync-provenance functions, both merge shapes, and the strict-mode
+  call with no directories -- 64 pass
+- [x] `dkj-policy-bwj.tests.ps1`: pending entries, the tier-1 score note, obligations, the runbook with no
+  marker, paste-unsafe paths composing no command, stripped foreign text, and the source-repo refusal
+  -- 445 pass
+- [x] The driver run against a scratch store fixture: a sync-owned file held back, a new file marked, the
+  accented path decoded and then refused as paste-unsafe, both obligations found, and a fake drift check
+  receiving the list as a two-element array
+- [x] The code review fuzz-compared the extracted sync provenance with the inline original: 800 inputs, 0
+  mismatches
 
 ### DEPLOY: feat/2509-prepare-release
 
-**Score:**
+A new dkj-policy-bwj skill, `prepare-release`, stages a store release days ahead of release day
+([#2509](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2509)). It is read-only. It checks the
+trunk, lists what is pending and the bump it makes, derives the theme push list by `live-preflight`'s own
+rules, runs an early drift read, collects the go-live obligations out of entry prose, lists open pull
+requests, and prints the release-day runbook. Its runbook composes no command around a theme path that
+is not paste-safe. `live-preflight`'s sync provenance now comes from two shared lib functions, with
+unchanged behaviour, and `Get-LivePushRows` no longer throws under a StrictMode caller.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store gets its release day prepared on the Friday by one command, instead of assembling it from five
+lens sections and a hand-run diff. A third-party edit on live, or a go-live obligation such as stopping an
+experiment, is found before the weekend rather than on the morning.
+
+**Score:** 3
 
 #### Pull Request
 
+prepare-release stages a store release ahead of release day
