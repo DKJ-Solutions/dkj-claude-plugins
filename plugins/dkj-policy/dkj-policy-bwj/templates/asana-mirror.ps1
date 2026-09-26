@@ -624,7 +624,11 @@ function New-AsanaPasteBlockComment {
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
-    $number = if ($IssueRef -match '#(\d+)\s*$') { $Matches[1] } else { $IssueRef }
+    # $IssueRef is always the workflow-built 'owner/repo#<n>' (ISSUE_REF in asana-mirror.yml, or
+    # "$Repo#<n>" in the sweeps), never free text -- so it is split the way the rest of this file
+    # splits it. The pasted header carries only the number, so the full ref goes in the framing
+    # sentence above the rules, where the old block used to name it.
+    $number = ($IssueRef -split '#')[1]
     $dash   = [string][char]0x2014
 
     return @(
