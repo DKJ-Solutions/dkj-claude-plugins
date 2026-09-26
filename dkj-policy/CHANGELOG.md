@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**7 / 26 minor entries** <!-- pending-tally -->
+**7 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2516-paste-safe-case-sensitive · 20260926-095203Z
+
+The two shared "safe to paste" guards no longer let a look-alike letter through
+([#2516](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2516)). `Test-RefPasteSafe` and
+`Test-PathPasteSafe` matched their ASCII allowlists case-insensitively. Under case folding the Kelvin
+sign (U+212A) matches `k`, so a branch name or path carrying it was judged safe to print into a command
+line. Git accepts that character in a branch name. Both guards now match case-sensitively, like
+`live-preflight`'s newer check already did. Every plain-ASCII value that passed before still passes.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- an internal guard in the workflow scripts; no subscriber of a service runs anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+The paste-safe guards match case-sensitively, so the Kelvin sign is refused
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2522](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2522)
+
+---
 
 ### DEPLOY: fix/2518-claim-issue-reads-parking-label · 20260926-094216Z
 
