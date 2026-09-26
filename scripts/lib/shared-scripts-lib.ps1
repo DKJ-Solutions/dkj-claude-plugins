@@ -973,6 +973,18 @@ function Get-SharedScriptPairs {
             SkillParamsExempt = @('RootOverride')
         },
         @{
+            # THE BOUNDED PR SCAN THE TWO ROWS ABOVE SHARE (issue #2526): the list read, the per-PR
+            # required-check read under a total budget, the judged/unjudged split and the display-safe
+            # finding. Both checks carried it as a ~100-line copy until then, so a repair to the pattern
+            # had to land twice by hand. Mirrored because both checks dot-source it unguarded.
+            #
+            # NO CONTRACT ROW: nothing in it is repo-owned -- the filter and the verdict are the caller's.
+            Name    = 'pr-scan-lib'
+            Source  = 'scripts\lib\pr-scan-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a

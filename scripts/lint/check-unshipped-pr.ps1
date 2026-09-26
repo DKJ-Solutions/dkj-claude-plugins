@@ -13,8 +13,9 @@
 
     ONE PURE FUNCTION DOES THE JUDGING: Get-UnshippedPrVerdict in merge-on-green-lib.ps1, which reads
     the required-check state and the settle window through the same block the picker and the stranded
-    verdict share. This script's own job is only the reads it needs: the open pull requests this
-    account authored, and each one's required checks.
+    verdict share. The reads it needs -- the open pull requests this account authored, and each one's
+    required checks -- are made by Invoke-BoundedPrScan (pr-scan-lib.ps1, issue #2526), shared with
+    check-stranded-sweep.ps1, so this script keeps only its filter, its verdict and its prose.
 
     WHOSE PULL REQUESTS: the active gh account's (`gh pr list --author <login>`), because that is the
     account ship-pr.ps1 opens them under. A colleague's green pull request is theirs to ship, and a
@@ -107,6 +108,7 @@ if (-not $account) {
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\merge-on-green-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\pr-scan-lib.ps1')
 $configPath = if ($repoRoot) { Join-Path $repoRoot 'scripts\repo-config.ps1' } else { '' }
 if ($configPath -and (Test-Path -LiteralPath $configPath -PathType Leaf)) { . $configPath }
 
@@ -121,101 +123,52 @@ if (-not $repo) {
 $flowPath = if ($repoRoot) { Join-Path $repoRoot '.github\workflows\merge-on-green.yml' } else { '' }
 $sweepExists = [bool]($flowPath -and (Test-Path -LiteralPath $flowPath -PathType Leaf))
 
-$scanStart = Get-Date
+# THE BOUNDED SCAN IS SHARED WITH check-stranded-sweep.ps1 (issue #2526): the list read, the per-PR
+# required-check read, both budgets and the honest judged/unjudged split, the display scrub and the
+# checkout token live in Invoke-BoundedPrScan. What is this check's own is the filter (this account's
+# pull requests), the precheck, the verdict, and the prose.
+$scan = Invoke-BoundedPrScan -Repo $repo -ListFilter @('--author', $account) `
+    -JsonFields 'number,headRefName,title,isDraft,labels,isCrossRepository' `
+    -TimeoutSeconds $TimeoutSeconds -MaxElapsedSeconds $MaxElapsedSeconds -Precheck {
+        param($Record)
+        # THE CHEAP DISQUALIFIERS FIRST, WITHOUT A NETWORK CALL: a draft, a fork, or an armed pull request
+        # a sweep owns is declined by the verdict whatever the checks say, so its `gh pr checks` is not
+        # spent. The synthetic "maximally green" inputs are safe because they can only err one way: a
+        # decline here is always one of the record's own disqualifiers, and anything
+        # Test-MergeOnGreenRequiredChecksSettled might add later only makes the precheck pass MORE often,
+        # which spends the real read.
+        $precheck = Get-UnshippedPrVerdict -Record $Record -MergeBlockVerdict ([pscustomobject]@{ Blocked = $false; Reason = ''; UnfinishedRequired = @() }) `
+            -GreenAgeMinutes ([double]::MaxValue) -SweepExists $sweepExists
+        return [bool]$precheck.Unshipped
+    } -Judge {
+        param($Record, $MergeBlockVerdict, $GreenAgeMinutes)
+        # A repo with NO required check never reaches a report: with no certificate there is no green to
+        # date, so Get-RequiredGreenAgeMinutes returns $null and this check cannot tell a settled pull
+        # request from a live one there.
+        $verdict = Get-UnshippedPrVerdict -Record $Record -MergeBlockVerdict $MergeBlockVerdict -GreenAgeMinutes $GreenAgeMinutes -SweepExists $sweepExists
+        if ($verdict.Unshipped) { return @{ GreenMinutes = [math]::Floor([double]$GreenAgeMinutes) } }
+        return $null
+    }
 
-$listRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -TimeoutSeconds $TimeoutSeconds -Arguments @(
-    'pr', 'list', '--state', 'open', '--author', $account, '--limit', '100', '--repo', $repo,
-    '--json', 'number,headRefName,title,isDraft,labels,isCrossRepository')
-if (-not (Test-NativeCommandStarted -Capture $listRead) -or -not (Test-NativeExitMeasured -Capture $listRead) `
-        -or $listRead.TimedOut -or $listRead.ExitCode -ne 0) {
+if ($scan.Status -eq 'ListFailed') {
     Write-Host '[SKIP] the list of open pull requests could not be read -- offline, or a transient gh/API problem.'
     exit 0
 }
-
-$open = @()
-try {
-    $open = @(ConvertFrom-MergeOnGreenListJson -Json ($listRead.Output -join "`n"))
-} catch {
+if ($scan.Status -eq 'ParseFailed') {
     Write-Host '[SKIP] the list of open pull requests could not be parsed.'
     exit 0
 }
-
-if ($open.Count -eq 0) {
+if ($scan.Total -eq 0) {
     Write-Host "[OK] no open pull request authored by this account -- nothing can be left unshipped."
     exit 0
 }
 
-$unshipped = @()
-$judgedCount = 0
-$unjudgedCount = 0
-$budgetExceeded = $false
-foreach ($record in $open) {
-    if (-not $budgetExceeded -and ((Get-Date) - $scanStart).TotalSeconds -ge $MaxElapsedSeconds) {
-        $budgetExceeded = $true
-    }
-    if ($budgetExceeded) { $unjudgedCount++; continue }
-
-    if ($null -eq $record -or -not $record.PSObject.Properties['number']) { $unjudgedCount++; continue }
-    $number = [string]$record.number
-
-    # THE CHEAP DISQUALIFIERS FIRST, WITHOUT A NETWORK CALL: a draft, a fork, or an armed pull request a
-    # sweep owns is declined by the verdict whatever the checks say, so its `gh pr checks` is not spent.
-    # The synthetic "maximally green" inputs are safe because they can only err one way: a decline here
-    # is always one of the record's own disqualifiers, and anything Test-MergeOnGreenRequiredChecksSettled
-    # might add later only makes the precheck pass MORE often, which spends the real read below.
-    $precheck = Get-UnshippedPrVerdict -Record $record -MergeBlockVerdict ([pscustomobject]@{ Blocked = $false; Reason = ''; UnfinishedRequired = @() }) `
-        -GreenAgeMinutes ([double]::MaxValue) -SweepExists $sweepExists
-    if (-not $precheck.Unshipped) { $judgedCount++; continue }
-
-    $requiredRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -TimeoutSeconds $TimeoutSeconds -Arguments @(
-        'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link,completedAt')
-    if (-not (Test-NativeCommandStarted -Capture $requiredRead) -or -not (Test-NativeExitMeasured -Capture $requiredRead) `
-            -or $requiredRead.TimedOut -or $requiredRead.ExitCode -ne 0) {
-        # FAIL CLOSED FOR THIS ONE PULL REQUEST, counted as unjudged -- the same honest split
-        # check-stranded-sweep.ps1 reports (#2438). A repo with NO required check never reaches a report
-        # either way: with no certificate there is no green to date, so Get-RequiredGreenAgeMinutes
-        # returns $null and this check cannot tell a settled pull request from a live one there.
-        $unjudgedCount++
-        continue
-    }
-    $requiredJson = ($requiredRead.Output -join "`n")
-
-    $blockVerdict = $null
-    try { $blockVerdict = Get-MergeBlockVerdict -RequiredChecksJson $requiredJson } catch { $blockVerdict = $null }
-    $greenAge = $null
-    try { $greenAge = Get-RequiredGreenAgeMinutes -RequiredChecksJson $requiredJson -Now (Get-Date) } catch { $greenAge = $null }
-
-    $verdict = Get-UnshippedPrVerdict -Record $record -MergeBlockVerdict $blockVerdict -GreenAgeMinutes $greenAge -SweepExists $sweepExists
-    $judgedCount++
-    if (-not $verdict.Unshipped) { continue }
-
-    $branch = ''
-    if ($record.PSObject.Properties['headRefName']) { $branch = [string]$record.headRefName }
-    $title = ''
-    if ($record.PSObject.Properties['title']) { $title = [string]$record.title }
-    $branchPaste = Get-PasteableRef -Ref $branch
-
-    $unshipped += [pscustomobject]@{
-        Number = $number
-        Branch = ($branch -replace '[^\x20-\x7E]', '?')
-        Title  = ($title -replace '[^\x20-\x7E]', '?')
-        GreenMinutes = [math]::Floor([double]$greenAge)
-        CheckoutToken = $branchPaste.Token; CheckoutNote = $branchPaste.Note
-    }
-}
-
-$total = $open.Count
-$incompleteLine = ''
-if ($unjudgedCount -gt 0) {
-    $incompleteLine = "[INCOMPLETE] judged $judgedCount of $total open pull request(s); $unjudgedCount not checked (a required-check read failed, or the ${MaxElapsedSeconds}s scan budget ran out) -- run this again to cover them."
-}
+$incompleteLine = Get-PrScanIncompleteLine -Scan $scan -Noun 'open' -MaxElapsedSeconds $MaxElapsedSeconds
+$unshipped = @($scan.Findings)
 
 if ($unshipped.Count -eq 0) {
-    if ($unjudgedCount -eq 0) {
-        Write-Host "[OK] $total open pull request(s) by this account, none green and unshipped."
-    } else {
-        Write-Host $incompleteLine
-    }
+    if ($incompleteLine) { Write-Host $incompleteLine }
+    else { Write-Host "[OK] $($scan.Total) open pull request(s) by this account, none green and unshipped." }
     exit 0
 }
 
@@ -223,11 +176,7 @@ Write-Host "[UNSHIPPED] $($unshipped.Count) open pull request(s) by this account
 foreach ($u in ($unshipped | Sort-Object { [int]$_.Number })) {
     $titlePart = if ($u.Title) { " -- $($u.Title)" } else { '' }
     Write-Host "  #$($u.Number) ($($u.Branch)), green for $($u.GreenMinutes) minute(s)$titlePart"
-    # SHIP-PR.PS1 RESUMES THE OPEN PULL REQUEST OF THE CURRENT BRANCH, so the resume is a checkout and a
-    # bare run: two lines, not one chained with '&&', which Windows PowerShell 5.1 does not have.
-    Write-Host "    git checkout $($u.CheckoutToken)"
-    if ($u.CheckoutNote) { Write-Host $u.CheckoutNote }
-    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/ship-pr.ps1'
+    Get-PrScanResumeLines -Finding $u | ForEach-Object { Write-Host $_ }
 }
 Write-Host '  Either a ship died before it armed the pull request, or it is held back on purpose for the owner''s word (ship-pr -NoMerge) -- the tracker cannot tell which. Resume the first; leave the second.'
 if ($incompleteLine) { Write-Host $incompleteLine }
