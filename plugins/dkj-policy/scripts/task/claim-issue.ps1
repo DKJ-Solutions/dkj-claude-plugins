@@ -137,6 +137,9 @@
 
 .PARAMETER SkipLabel
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
+    With an issue number: the labels that make the claim WARN that the issue is parked (#2518) --
+    it still claims, and the closing line points at the warning instead of "the work starts here".
+    Default on that route: 'needs-info', the label sweep-issues skips on.
 
 .PARAMETER SkipIssue
     With -Candidates: issue numbers held out of this round by hand.
@@ -178,7 +181,8 @@ param(
     [Parameter(ParameterSetName = 'Issue')][switch]$Release,
     [Parameter(ParameterSetName = 'Issue')][switch]$TakeOver,
     [Parameter(Mandatory = $true, ParameterSetName = 'Candidates')][switch]$Candidates,
-    [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipLabel = @(),
+    [Parameter(ParameterSetName = 'Candidates')]
+    [Parameter(ParameterSetName = 'Issue')][string[]]$SkipLabel = @(),
     # [string[]], not [int[]]: under -File an [int[]] reads '12,34' as the one number 1234 (a
     # thousands separator), excluding an unrelated issue and neither of the two named (#2358).
     [Parameter(ParameterSetName = 'Candidates')][string[]]$SkipIssue = @(),
@@ -215,6 +219,13 @@ if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # an issue number that is not one is refused rather than dropped, since a skip that silently fails is
 # a held issue handed out.
 $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
+# THE SINGLE-ISSUE ROUTE HONOURS THE SWEEP'S PARKING LABEL BY DEFAULT (issue #2518). sweep-issues passes
+# '-SkipLabel needs-info' on its own command line; a person naming one issue passes nothing, so without a
+# default the route where somebody says "fix issue N" was the one route blind to it. -Candidates keeps
+# its empty default: the sweep names its labels itself.
+if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
+    $SkipLabel = @('needs-info')
+}
 $skipIssueNumbers = @()
 foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {
     $n = $s.TrimStart('#')
@@ -609,7 +620,10 @@ if ($Candidates) {
 # AND THE COMMENTS ARE ASKED FOR ONLY IN TAG MODE (issue #2243), where they ARE the claim. The default
 # path does not read them: they are unbounded text on a call every pickup makes, and a field nothing
 # downstream reads is payload bought for nothing.
-$viewFields = if ($Tag) { 'number,title,state,url,assignees,body,comments' } else { 'number,title,state,url,assignees,body' }
+#
+# AND THE LABELS ARE ASKED FOR ON BOTH (issue #2518): a short list, and the one field that says an issue
+# is parked with somebody else -- which the sweep route has always honoured and this route never read.
+$viewFields = if ($Tag) { 'number,title,state,url,assignees,body,comments,labels' } else { 'number,title,state,url,assignees,body,labels' }
 $view = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', $number) + $repoArgs + @('--json', $viewFields)) -Utf8 -DiscardStderr `
                              -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
 # AND IT RE-ASKS ONCE WHEN THE EXIT CODE WAS NOT A MEASUREMENT (issue #1931, audited under #2081). This
@@ -720,6 +734,10 @@ $titleWords = @(Get-SignificantWords -Text ([string]$facts.title))
 
 Write-Host "  #$($facts.number)  $($facts.state)  $title"
 if ($assignees.Count -gt 0) { Write-Host "  assignees: $($assignees -join ', ')" }
+
+# THE PARKING LABEL (issue #2518), read here while $facts is in hand and printed further down, beside
+# the other pickup verdicts, so a refusal (closed, taken) pays nothing for it.
+$parkingLabels = @(Select-ParkingLabels -Labels @(Get-IssueLabelNames -Issue $facts) -SkipLabel $SkipLabel)
 
 # --- MAY IT BE CLAIMED, BY THIS TAG (issue #2243) -------------------------------------------------
 #
@@ -1322,6 +1340,21 @@ if ($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') {
     }
 }
 
+# --- IS IT PARKED WITH SOMEBODY ELSE (issue #2518) -------------------------------------------------
+#
+# A WARNING, NEVER A REFUSAL, on the bound every pickup signal here keeps (#1485): a label can be stale,
+# and a claim that blocks costs the whole assignment. Measured in a consumer, September 26, 2026: the
+# sweep route stopped on an issue ending in a choice for the owner, while this route claimed the same
+# kind of issue, printed "the work starts here", and the session chose between the options itself.
+# Only 'claim' and 'skip' reach it -- a closed or taken issue is not going to be worked either way.
+$parked = $false
+if (($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') -and $parkingLabels.Count -gt 0) {
+    $parked = $true
+    foreach ($line in @(Format-ParkingLabelNote -Issue ([int]$number) -Labels $parkingLabels)) {
+        Write-Host "  $line" -ForegroundColor Yellow
+    }
+}
+
 switch ($verdict.Code) {
     'no-account' {
         Write-Host '[ERROR] gh names no active account here, so there is nobody to claim this as.' -ForegroundColor Red
@@ -1378,6 +1411,10 @@ switch ($verdict.Code) {
         if ($prerequisiteFound) {
             Write-Host '     AND CHECK THE ORDER: a branch above carries a file this issue names and the trunk' -ForegroundColor Yellow
             Write-Host '     does not -- see the prerequisite verdict before you carry this any further.' -ForegroundColor Yellow
+        }
+        if ($parked) {
+            Write-Host '     AND IT IS PARKED: see the parking-label verdict above -- the answer is owed before' -ForegroundColor Yellow
+            Write-Host '     you carry this any further, and it is not yours to give.' -ForegroundColor Yellow
         }
         Write-Host "     $($facts.url)"
         exit 0
@@ -1705,10 +1742,11 @@ $confirmed = if ($landed) { '' } else { ' (unconfirmed -- see the warning above)
 # the first would send a reader to a block that settles the wrong one. Naming neither by falling back
 # to 'the work starts here' is the failure #1878 measured; naming one of two is the same failure, at
 # half the size.
-$opening = if ($foreignParked -and $prerequisiteFound) { ' -- but read the parked-fix and prerequisite verdicts above before you start.' }
-           elseif ($foreignParked) { ' -- but read the parked-fix verdict above before you start.' }
-           elseif ($prerequisiteFound) { ' -- but read the prerequisite verdict above before you start.' }
-           else { ' -- the work starts here.' }
+#
+# AND THE PARKING LABEL IS A THIRD (#2518), so the headline is composed in the lib from the three flags
+# rather than by an if-chain here that would need a branch per combination -- and the lib is the half a
+# suite can hold behaviourally.
+$opening = Format-ClaimOpening -ForeignParked:$foreignParked -PrerequisiteFound:$prerequisiteFound -Parked:$parked
 Write-Host "[OK] #$number claimed for '$($identity.Account)'$confirmed$opening" -ForegroundColor Green
 Write-Host "     $title"
 # The claim is the OPENING of the work, not a checkpoint before it (#1485). Every other line this
@@ -1724,6 +1762,11 @@ if ($foreignParked) {
     Write-Host '     Read the issue -- then settle the branch named above BEFORE you open one of your' -ForegroundColor Yellow
     Write-Host '     own. This claim may be the second one on the same work, and the merge is the most' -ForegroundColor Yellow
     Write-Host '     expensive place to find that out.' -ForegroundColor Yellow
+} elseif ($parked) {
+    # NOT "open the branch in this same turn": that line is right for a free issue and is exactly the
+    # sentence #2518 measured a session acting on for a parked one.
+    Write-Host '     Read the issue for the open question. Where it is answered, remove the label and open' -ForegroundColor Yellow
+    Write-Host '     the branch (new-branch); where it is not, the answer is owed first, and it is not yours.' -ForegroundColor Yellow
 } else {
     Write-Host '     Read the issue, then open the branch (new-branch) -- in this same turn, without' -ForegroundColor Green
     Write-Host '     asking whether to go on.' -ForegroundColor Green

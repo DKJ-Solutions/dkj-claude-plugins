@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**7 / 25 minor entries** <!-- pending-tally -->
+**7 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2518-claim-issue-reads-parking-label · 20260926-094216Z
+
+`claim-issue` on a single issue now reads the issue's labels. Where one parks the issue with somebody
+else -- `needs-info` by default, the label `sweep-issues` already skips on; `-SkipLabel` replaces the
+default -- it prints a `PARKED:` verdict, and the closing `[OK]` points at that verdict instead of
+saying *the work starts here*. It still claims: a label can be stale, so this warns and never refuses
+([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)). Which label an owner's
+open choice should carry when it is filed is
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a pickup step inside the workflow; no subscriber of a service sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue warns when the named issue carries a parking label
+
+Plugins: dkj-policy
+
+[PR #2521](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2521)
+
+---
 
 ### DEPLOY: fix/2514-live-push-paths-paste-safe · 20260926-085714Z
 
