@@ -39,19 +39,49 @@
 
 ### PLAN
 
+#2534, filed from the #2531 branch: `Test-IsFenceLine` was used as a plain toggle, so a four-backtick
+block wrapping a three-backtick example closed at the inner fence, and the lines after it were read as
+headings and `@`-imports. Verified on pickup by reading the code. The issue named two walk sites; a grep
+found a third with the same toggle, check 28 in `check-plugin-integrity.ps1`, so all three move.
+
+The repair is one CommonMark tracker in `measure-context-lib.ps1`, `Get-NextFenceState`, which returns
+the state after a line (`''` outside, the opening run inside). `Test-IsFenceLine` is removed rather
+than kept beside it, so there is one definition. `adopt-workflow-folder.ps1`'s local tracker from
+#2531 now calls it too.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `measure-context-lib.ps1`: `Get-NextFenceState` replaces `Test-IsFenceLine`; `Get-DocumentSections`
+  and `Get-AlwaysOnDocuments` use it.
+- [x] `check-plugin-integrity.ps1` check 28: the import scan uses it.
+- [x] `adopt-workflow-folder.ps1`: dot-sources the lib at file scope and drops its own tracker.
+- [x] Plugin mirrors rebuilt with `build-shared-scripts.ps1`.
 
 ### TEST
 
+- [x] `measure-always-on.tests.ps1`: a nested-fence document (no invented section, bytes still sum, no
+  import walked) and nine one-line asserts on the tracker's rules. 97 passed.
+- [x] `adopt-workflow-folder.tests.ps1`: 140 passed, its own nested-fence case included.
+- [x] `check-plugin-integrity.ps1`: 0 errors.
+
 ### DEPLOY: fix/2534-commonmark-fence-tracker
 
-**Score:**
+The always-on walk now tracks code fences the CommonMark way. A fence closes only on a run of the same
+character at least as long as the one that opened it, so a four-backtick block that wraps a
+three-backtick example no longer ends at the inner fence. Before this, an `@`-line or a `#` line inside
+such an example could be counted as an import or a heading. That affected the always-on budget, the
+consumer-prose session check, the "constitution imported" verdict and the import check in the lint
+gate. There is now one fence tracker, `Get-NextFenceState` in `measure-context-lib.ps1`, and every walk
+calls it, including the constitution-import scan in `adopt-workflow-folder.ps1`. No consumer is known to
+have hit the miscount yet; this closes it before one does.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Lint and measurement tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
 
