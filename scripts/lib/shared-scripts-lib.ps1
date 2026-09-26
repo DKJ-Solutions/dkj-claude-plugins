@@ -1211,6 +1211,18 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE THIRD MIRROR (inbound #2509, September 26, 2026), on the precedent one entry up:
+            # dkj-policy-bwj's prepare-release.ps1 reads a release's changed THEME paths out of git, and a
+            # theme is exactly where a path with a byte above 0x7F turns up. Without Convert-GitQuotedPath
+            # that path reaches the push list mis-decoded by the console code page and matches nothing on
+            # live. Mirrored rather than reached across, for that entry's reason: separately versioned
+            # plugins, and a cross-plugin path breaks silently on a version mismatch.
+            Name    = 'git-porcelain-lib-bwj'
+            Source  = 'scripts\lib\git-porcelain-lib.ps1'
+            Plugin = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
             # Issue #1069, August 29, 2026. Mirrored because BOTH its callers are: ship-pr.ps1 asks it
             # whether another worktree holds the trunk (before the merge, and again when handing the trunk
             # back afterwards), and prune-merged.ps1 asks it which worktree to name when its fast-forward
@@ -2074,6 +2086,21 @@ function Get-SharedScriptPairs {
             Name    = 'live-push-rules'
             Source  = 'scripts\lib\live-push-rules.ps1'
             Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
+            # THE SAME RULES, MIRRORED A SECOND TIME -- into dkj-policy-bwj, for prepare-release.ps1 (inbound
+            # #2509, September 26, 2026). That script derives the push list days before release day, and
+            # the issue asked for it to reuse the preflight's derivation rather than copy it. The plugin's
+            # scripts may not reach a second plugin's libs -- a store forwards to them from the plugin
+            # cache, where dkj-subagents-shopify's folder is not a sibling path anybody can rely on -- so
+            # the reuse is a registered mirror: one source, held byte-identical in both plugins by check 8.
+            #
+            # A MIRROR AND NOT A MOVE. The preflight still owns these rules, and nothing in dkj-policy-bwj
+            # edits them; a change lands in scripts/lib/live-push-rules.ps1 and reaches both copies.
+            Name    = 'live-push-rules-bwj'
+            Source  = 'scripts\lib\live-push-rules.ps1'
+            Plugin  = 'dkj-policy-bwj'
             LibOnly = $true
         },
         @{

@@ -62,6 +62,8 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
                    'skills\report-issue\SKILL.md', 'skills\adopt-dkj-policy-bwj\SKILL.md',
                    'skills\golive-block\SKILL.md',
                    'scripts\lib\golive-block-rules.ps1', 'scripts\task\build-golive-block.ps1',
+                   'skills\prepare-release\SKILL.md', 'scripts\lib\prepare-release-rules.ps1',
+                   'scripts\task\prepare-release.ps1',
                    'templates\asana-mirror.yml', 'templates\asana-mirror.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
 }
@@ -94,7 +96,7 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'agents'))) 'ca
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'manuals'))) 'carries no manuals/ (workflow rule)'
 
 # skill folder name matches its frontmatter name:
-foreach ($skill in @('report-issue', 'adopt-dkj-policy-bwj', 'golive-block')) {
+foreach ($skill in @('report-issue', 'adopt-dkj-policy-bwj', 'golive-block', 'prepare-release')) {
     $txt = Get-Content -LiteralPath (Join-Path $PluginRoot "skills\$skill\SKILL.md") -Raw
     $nm  = [regex]::Match($txt, '(?m)^name:\s*(\S+)\s*$')
     Assert-Equal $skill $nm.Groups[1].Value "skill '$skill' frontmatter name matches its folder"
@@ -1067,6 +1069,79 @@ try {
 } finally {
     if (Test-Path -LiteralPath $glRoot) { Remove-Item -LiteralPath $glRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
+
+# --- prepare-release (inbound #2509) ------------------------------------------------------------
+# THE RULES ARE PURE AND THE DRIVER IS NOT: the driver reads git, gh and the Shopify CLI, so what is pinned
+# here is everything it decides from values already read -- which entries are pending, which sentence is an
+# obligation, which fix is flagged, and that no runbook line can carry an authorisation marker.
+Write-Host "`n-- prepare-release --" -ForegroundColor Cyan
+. (Join-Path $PluginRoot 'scripts\lib\live-push-rules.ps1')
+. (Join-Path $PluginRoot 'scripts\lib\prepare-release-rules.ps1')
+
+$prDot = [char]0x00B7
+$prChangelog = (@(
+    '# Changelog', '', 'Intro prose that mentions ### DEPLOY: not/an-entry.', '',
+    '## [Unreleased]', '', '**2 / 3 minor entries** <!-- pending-tally -->', '',
+    "### DEPLOY: feat/12-strap-filter $prDot 20260925-100000Z", '',
+    'A filter on the strap page. Once this is live, stop Convert experience 1004205630.', '',
+    '**Score:** 3', '', '#### What makes this deploy extra special', '',
+    'Management sees it. After the release nobody has to do anything here.', '', '**Score:** 2', '',
+    '#### Pull Request', '', 'x', '', '---', '',
+    "### DEPLOY: ``fix/13-cart-bug`` $prDot 20260925-110000Z", '',
+    'Fixes the cart. After the release, turn off the app setting for bundles.', '',
+    '**Score:** 2 -- a reason', '', '#### What makes this deploy extra special', '', '**Score:** 1', '',
+    '#### Pull Request', '', 'y', '', '---', '',
+    "### DEPLOY: fix/14-typo $prDot 20260925-120000Z", '', 'A typo in the golive-block output.', '',
+    '**Score:** 1', '', '#### What makes this deploy extra special', '', '**Score:** N/A -- nobody sees it', '',
+    '## Releases', '', '### DEPLOY: fix/1-old-and-released', '', 'Once this is live, released long ago.'
+) -join "`n")
+
+$prEntries = @(Get-PendingChangelogEntries -Changelog $prChangelog)
+Assert-Equal 3 $prEntries.Count 'three pending entries -- the intro and the released section are not pending'
+Assert-Equal 'feat/12-strap-filter' $prEntries[0].Branch 'the branch is what follows DEPLOY:, up to the timestamp'
+Assert-Equal 'fix/13-cart-bug' $prEntries[1].Branch 'an older, backtick-quoted heading reads the same branch'
+Assert-Equal '2' $prEntries[0].HigherScore 'the reach score is read from the first #### that is not the Pull Request'
+Assert-Equal '2 -- a reason' $prEntries[1].Tier0Score 'the entry''s own score is read above its first ####'
+Assert-True (Test-ScoreIsNone -Score $prEntries[2].HigherScore) 'N/A with a reason still reads as no reach'
+Assert-Equal 0 @(Get-PendingChangelogEntries -Changelog "# Changelog`n`n## Releases`n`n### DEPLOY: x").Count 'no pending heading, no entries'
+
+# THE SCORE NOTE, AND ONLY AT AUDIENCE TIER 1 -- measured noisy at tier 2 (6 of 23 in this repo, all correct).
+$prNotes = @(Get-EntryScoreNotes -Entries $prEntries -AudienceTier 1)
+Assert-Equal 1 $prNotes.Count 'one fix/ entry scores reach; the feat/ one and the N/A fix are not flagged'
+Assert-Equal 'fix/13-cart-bug' $prNotes[0].Branch '...and it is the one that scored'
+Assert-Equal 0 @(Get-EntryScoreNotes -Entries $prEntries -AudienceTier 2).Count 'a tier-2 repo gets no note at all'
+Assert-Equal 0 @(Get-EntryScoreNotes -Entries $prEntries).Count 'an unstated audience gets no note either'
+
+# THE OBLIGATIONS: the entry's own text only, one row per sentence, and never a skill NAME.
+$prObl = @(Get-GoLiveObligations -Entries $prEntries)
+Assert-Equal 2 $prObl.Count 'two obligations -- the reach section''s "after the release" and the golive-block name are not'
+Assert-True ($prObl[0].Sentence -eq 'Once this is live, stop Convert experience 1004205630.') 'the sentence is returned whole, markdown stripped'
+Assert-Equal 'fix/13-cart-bug' $prObl[1].Branch '...each under the entry it came from'
+Assert-Equal 1 @(Get-GoLiveObligations -Entries $prEntries -Patterns @('(?i)\bbundles\b')).Count '-Patterns replaces the defaults rather than extending them'
+
+# THE RUNBOOK: every command composed, none carrying a marker, and an empty push list composing none.
+$prBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @('sections/a.liquid', 'snippets/b.liquid') `
+    -Bump 'minor' -TargetVersion '1.3.0' -ReleaseDate 'Monday 28 September 2026' -Obligations $prObl) -join "`n"
+Assert-True $prBook.Contains('shopify theme push --store s.myshopify.com --theme 42 --only sections/a.liquid --only snippets/b.liquid --allow-live') 'the push is composed one --only per file'
+Assert-True $prBook.Contains('shopify theme pull --store s.myshopify.com --theme 42 --path') 'the verification pull reads the same files back'
+Assert-True ($prBook -notmatch '(?m)--allow-live\s+#') 'no command line carries a trailing marker comment'
+Assert-True ($prBook -cnotmatch '[A-Z]+-[A-Z-]*AUTHORI[SZ]ED') 'and no marker-shaped token (e.g. <STORE>-LIVE-PUSH-AUTHORIZED) appears anywhere in the runbook'
+Assert-True $prBook.Contains('-Bump minor') 'the cut is named with the bump the tally gave'
+Assert-True $prBook.Contains('audience note') 'a minor names the audience note it owes'
+Assert-True $prBook.Contains('- [ ] feat/12-strap-filter: Once this is live') 'the obligations become a checklist'
+$prEmpty = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @()) -join "`n"
+Assert-True ($prEmpty -notmatch 'shopify theme (push|pull)') 'an empty push list composes no push and no pull -- a bare push is the whole theme'
+$prNoId = (Format-ReleaseRunbook -Store 's.myshopify.com' -PushFiles @('sections/a.liquid')) -join "`n"
+Assert-True ($prNoId -notmatch 'shopify theme push') 'with no live theme id, no push is composed at all'
+Assert-Equal '' (Format-VerificationPullCommand -Store 's' -ThemeId '1' -Path 'p' -Only @()) 'an empty pull list composes no pull'
+
+# THE DRIVER, STATICALLY: it runs no theme write and reads no marker, and it refuses in this source repo.
+$prDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\prepare-release.ps1'))
+Assert-True ($prDriver -notmatch "(?m)^[^#]*\b(theme',\s*'(push|publish|delete|duplicate)|shopify theme (push|publish|delete))") 'the driver invokes no theme push, publish, delete or duplicate'
+Assert-True ($prDriver -notmatch 'Get-ShopifyLivePushMarker|LIVE-PUSH-AUTHORIZED') 'the driver never reads the authorisation marker'
+$prRun = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\prepare-release.ps1') 2>&1
+Assert-Equal 1 $LASTEXITCODE 'run in the plugin''s own source repo, the driver refuses'
+Assert-True ((@($prRun | ForEach-Object { "$_" }) -join "`n").Contains('publishes plugins')) '...and says why'
 
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""

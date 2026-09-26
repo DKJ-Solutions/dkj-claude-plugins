@@ -387,26 +387,15 @@ if (-not $sinceTag) {
         # --- SYNC PROVENANCE ------------------------------------------------------------------------
         # A SYNC IS ONE-WAY, so a file whose only history in this range came in through one is already
         # on live -- pushing it back is a no-op on a good day, and on the day the third party has edited
-        # again since, it silently reverts their work.
-        #
-        # TWO MERGE SHAPES, BECAUSE TWO WORKFLOWS EXIST. A merge commit carries the branch name in its
-        # subject ('merge: sync/2026-09-20 (#123)'), and a squash merge has no merge commit at all --
-        # there the single commit's own subject is what names the branch. Both are read; a repo using
-        # neither simply produces an empty set, and then nothing is excluded, which is the safe
-        # direction: a push list that is one file too LONG re-pushes bytes that are already correct.
-        $syncCommits = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-        $headCaps = @(Get-GitLines (Invoke-Git -Arguments @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD")))
-        foreach ($line in $headCaps) {
-            $f = $line -split "`t", 3
-            if ($f.Count -lt 3) { continue }
-            $sha = $f[0]; $parents = @(($f[1] -split '\s+') | Where-Object { $_ }); $subject = $f[2]
-            if ($subject -notmatch [regex]::Escape($syncPrefix)) { continue }
-            if ($parents.Count -ge 2) {
-                # A merge: the commits it brought in are its second-parent side, up to the merge base.
-                foreach ($s in (Get-GitLines (Invoke-Git -Arguments @('rev-list', "$($parents[0])..$sha")))) { [void]$syncCommits.Add($s) }
-            } else {
-                [void]$syncCommits.Add($sha)
-            }
+        # again since, it silently reverts their work. Which commits came in through a sync, and which
+        # paths only they touched, are Get-SyncMergeCommits and Get-SyncOwnedPaths in the lib (#2509):
+        # dkj-policy-bwj's prepare-release derives the same list days earlier, from the same two rules.
+        $syncCommits = @()
+        $heads = @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Get-GitLines (Invoke-Git -Arguments @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD"))))
+        foreach ($h in $heads) {
+            # A merge: the commits it brought in are its second-parent side, up to the merge base.
+            if ($h.IsMerge) { $syncCommits += @(Get-GitLines (Invoke-Git -Arguments @('rev-list', "$($h.FirstParent)..$($h.Sha)"))) }
+            else            { $syncCommits += $h.Sha }
         }
 
         # ONE LOG WALK, AND NO PATH IS EVER HANDED BACK TO GIT. The obvious shape here is a `git log
@@ -417,21 +406,8 @@ if (-not $sinceTag) {
         # decode, and costs one call instead of one per file.
         $syncOwned = @()
         if ($syncCommits.Count -gt 0) {
-            $touchedBySync = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-            $touchedByUs   = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-            $current = ''
             $walk = Invoke-Git -Arguments @('log', '--no-renames', '--format=COMMIT%x09%H', '--name-only', "$sinceTag..HEAD")
-            foreach ($line in (Get-GitLines $walk)) {
-                if ($line.StartsWith("COMMIT`t")) { $current = $line.Substring(7); continue }
-                if (-not $current) { continue }
-                $p = (Convert-GitQuotedPath -Path $line) -replace '\\', '/'
-                if ($syncCommits.Contains($current)) { [void]$touchedBySync.Add($p) } else { [void]$touchedByUs.Add($p) }
-            }
-            # EVERY touching commit, not any -- a file a sync mirrored AND this repo then changed itself
-            # is this repo's to push. The direction of that asymmetry is deliberate: treating it as
-            # sync-owned would drop a real change out of the push list silently, and a short push list is
-            # the failure nobody sees until a customer does.
-            foreach ($p in $touchedBySync) { if (-not $touchedByUs.Contains($p)) { $syncOwned += $p } }
+            $syncOwned = @(Get-SyncOwnedPaths -WalkLines (Get-GitPaths $walk) -SyncCommits $syncCommits)
         }
 
         $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned)
