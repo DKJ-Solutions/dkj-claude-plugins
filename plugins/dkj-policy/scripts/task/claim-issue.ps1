@@ -139,7 +139,8 @@
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
     With an issue number: the labels that make the claim WARN that the issue is parked (#2518) --
     it still claims, and the closing line points at the warning instead of "the work starts here".
-    Default on that route: 'needs-info', the label sweep-issues skips on.
+    Default on that route: 'needs-info' and 'needs-decision', the labels sweep-issues skips on --
+    blocked on the submitter, and waiting on the owner's choice (#2519).
 
 .PARAMETER SkipIssue
     With -Candidates: issue numbers held out of this round by hand.
@@ -158,7 +159,7 @@
     ./scripts/task/claim-issue.ps1 '#1234' -DryRun
 
 .EXAMPLE
-    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel needs-info
+    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel needs-info,needs-decision
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag
@@ -220,11 +221,13 @@ if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # a held issue handed out.
 $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # THE SINGLE-ISSUE ROUTE HONOURS THE SWEEP'S PARKING LABEL BY DEFAULT (issue #2518). sweep-issues passes
-# '-SkipLabel needs-info' on its own command line; a person naming one issue passes nothing, so without a
-# default the route where somebody says "fix issue N" was the one route blind to it. -Candidates keeps
-# its empty default: the sweep names its labels itself.
+# '-SkipLabel needs-info,needs-decision' on its own command line; a person naming one issue passes
+# nothing, so without a default the route where somebody says "fix issue N" was the one route blind to
+# it. -Candidates keeps its empty default: the sweep names its labels itself. 'needs-decision' joined in #2519: an issue waiting
+# on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in dkj-policy-bwj
+# that label means blocked on the SUBMITTER and moves the mirrored Asana card.
 if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
-    $SkipLabel = @('needs-info')
+    $SkipLabel = @('needs-info', 'needs-decision')
 }
 $skipIssueNumbers = @()
 foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {

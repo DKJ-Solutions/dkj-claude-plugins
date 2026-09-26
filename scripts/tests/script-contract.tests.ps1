@@ -441,7 +441,7 @@ try {
     $r = Invoke-Ps @('-ConsumerPathOverride', $c)
     Assert-Equal 0 $r.Code 'Get-TriageLabels absent: exit-code 0 (a built-in fallback exists, not a breach)'
     Assert-NotMatch '\[ERROR\]' $r.Out 'Get-TriageLabels absent: no error'
-    Assert-Match "\[INFO\].*'Get-TriageLabels' missing from scripts\\repo-config\.ps1.*used by: adopt-triage-labels.*optional.*falls back to 'the same five labels, built into adopt-triage-labels\.ps1 as its own fallback" $r.Out `
+    Assert-Match "\[INFO\].*'Get-TriageLabels' missing from scripts\\repo-config\.ps1.*used by: adopt-triage-labels.*optional.*falls back to 'the same six labels, built into adopt-triage-labels\.ps1 as its own fallback" $r.Out `
         'Get-TriageLabels absent: INFO names the function, the caller, and the built-in-fallback default'
     # Still present -> [OK] (already covered generically by the happy path in test 1; made explicit
     # here too, for direct traceability with the absent-case scenario just above).
