@@ -226,6 +226,37 @@ try {
     # Propose-only, like every other bootstrap output: nothing may be written into the consumer.
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $Fixture 'connectors'))) 'register proposal: writes no connectors/ dir into the consumer'
 
+    # --- 1b'. Created files never pass through a junction (issue #2540) -----------------------------
+    # A consumer of its own, beside $Fixture, so the blocks below keep reading run 1's tree. The seam
+    # directory and scripts/ are junctions to empty directories outside it: Test-Path follows a junction,
+    # so without the guard every lens, SPECIALISTS.md and the script scaffold would land out there. A
+    # junction needs no privilege; each is removed with rmdir, never recursively, or the delete would
+    # empty its target.
+    Write-Host "bootstrap.ps1 -- a junctioned seam and scripts/: the files it would create there are refused" -ForegroundColor Cyan
+    $jRoot = "$Fixture-junction"
+    $jOutSeam = "$Fixture-junction-outside-seam"
+    $jOutScripts = "$Fixture-junction-outside-scripts"
+    foreach ($d in $jRoot, $jOutSeam, $jOutScripts) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    New-Item -ItemType Directory -Path (Join-Path $jRoot '.claude') -Force | Out-Null
+    & cmd /c mklink /J "$(Join-Path $jRoot $Seam)" "$jOutSeam" | Out-Null
+    & cmd /c mklink /J "$(Join-Path $jRoot 'scripts')" "$jOutScripts" | Out-Null
+    try {
+        $rj = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $jRoot)
+        Assert-Equal 0 $rj.Code 'junction: exit 0 -- refusing some writes is not a failed run'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath $jOutSeam -Recurse -Force).Count 'junction: nothing was written through the seam junction'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath $jOutScripts -Recurse -Force).Count 'junction: nothing was written through the scripts/ junction'
+        Assert-True ($rj.Out -match '\[refused\] lens-only [^\r\n]*specialist-01-01-lens\.md') 'junction: a persona lens is reported refused'
+        Assert-True ($rj.Out -match '\[refused\] lens scaffold ') 'junction: a subagent lens scaffold is reported refused'
+        Assert-True ($rj.Out -match '\[refused\] \.claude/specialists/SPECIALISTS\.md') 'junction: SPECIALISTS.md is reported refused'
+        Assert-True ($rj.Out -match '\[refused\] script scaffold scripts/repo-config\.ps1') 'junction: the repo-config scaffold is reported refused'
+        Assert-True ($rj.Out -match 'file\(s\) refused') 'junction: the summary counts the refusals'
+        Assert-True (Test-Path -LiteralPath (Join-Path $jRoot 'CLAUDE.md') -PathType Leaf) 'junction: CLAUDE.md, outside both junctions, is still created'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $jRoot $Seam)" | Out-Null
+        & cmd /c rmdir "$(Join-Path $jRoot 'scripts')" | Out-Null
+        foreach ($d in $jRoot, $jOutSeam, $jOutScripts) { if (Test-Path -LiteralPath $d) { Remove-Item -Recurse -Force -LiteralPath $d } }
+    }
+
     # --- 1c. scripts/ scaffolds (#86) -- THE CORE-ONLY SHAPE ---------------------------------------
     # SPLIT INTO TWO CASES ON AUGUST 8, 2026, when the branch/release workflow became its own opt-in
     # plugin. What the bootstrap writes now depends on whether the consumer enabled that pack, and this

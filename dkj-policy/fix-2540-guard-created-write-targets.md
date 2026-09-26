@@ -57,6 +57,7 @@ reporting assumes the file was written.
 
 - [x] `adopt-workflow-folder.tests.ps1`: a junctioned `.github/` -- nothing lands outside, the refusal is named and counted, the changelog is still created (148 asserts green)
 - [x] `bootstrap-drift.tests.ps1`: a junctioned seam directory and `scripts/` -- nothing lands outside either, each create site reports `[refused]`, CLAUDE.md is still created (all new asserts green)
+- [x] Victor (code review) and Sebastian (security review): no blocking findings; Sebastian's sweep found three more adoption scripts with the same pattern, filed as #2546
 - [x] `check-plugin-integrity.ps1`: 0 errors after the mirror rebuild (the one bootstrap-suite failure was that lint assert, from the stale mirror)
 
 ### DEPLOY: fix/2540-guard-created-write-targets

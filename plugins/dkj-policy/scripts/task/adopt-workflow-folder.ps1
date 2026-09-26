@@ -130,7 +130,7 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # Get-WriteTargetReparsePoint (issue #2533): the two writes into files this repo already has -- the
 # repo-config.ps1 seam append below and the CLAUDE.md import further down -- are refused when the file, or
 # a directory between it and the repo root, is a symlink or junction, because the write would land outside
-# the repo.
+# the repo. Since #2540 the files this run CREATES are held to the same check, in the placement loop below.
 . (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
 
 # THE SOURCE OF *THIS* WORKFLOW arranges that folder by hand -- see the header -- so this command refuses
@@ -442,8 +442,19 @@ if (-not $Apply) { Write-Host '  DRY RUN -- nothing is written. Re-run with -App
 
 $created = 0
 $kept = 0
+$refused = 0
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
+    # BEFORE the existence test (issue #2540): Test-Path follows a reparse point, so a dangling symlink at
+    # the target reads as absent and the write below would create the link's target, and a junctioned
+    # .github/ or dkj-policy/ would take the file outside the repo. Refused and reported, like #2533's two
+    # writes into existing files.
+    $reparse = Get-WriteTargetReparsePoint -Path $abs -Root $repoRoot
+    if ($reparse) {
+        $refused++
+        Write-Host "  [refused] $($t.Rel) -- reached through a symlink or junction ($reparse), so writing it would land outside the repo; place it by hand" -ForegroundColor Yellow
+        continue
+    }
     if (Test-Path -LiteralPath $abs) {
         $kept++
         Write-Host "  [exists]  $($t.Rel) -- left as it is" -ForegroundColor DarkGray
@@ -605,6 +616,9 @@ if ($Apply) {
     Write-Host "Done: $created file(s) created, $kept left as they were." -ForegroundColor Green
 } else {
     Write-Host "Would create $created file(s); $kept already exist. Re-run with -Apply." -ForegroundColor Yellow
+}
+if ($refused -gt 0) {
+    Write-Host "$refused file(s) refused -- reached through a symlink or junction; see the [refused] lines above." -ForegroundColor Yellow
 }
 
 # --- What only this repo can answer, said out loud rather than left to be discovered ---------------

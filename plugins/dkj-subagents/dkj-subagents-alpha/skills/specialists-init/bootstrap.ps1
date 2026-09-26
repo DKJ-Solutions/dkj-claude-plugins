@@ -153,6 +153,35 @@ if ((Split-Path $pdParent -Leaf) -match '^\d+\.\d+\.\d+') {
 # that sets a repo up in the first place -- so it falls back to the same literal the lib returns.
 $lensLib = Join-Path $PSScriptRoot '../../scripts/lib/check-report-lib.ps1'
 if (Test-Path -LiteralPath $lensLib -PathType Leaf) { . $lensLib }
+
+# NEVER THROUGH A SYMLINK OR JUNCTION (issues #2533, #2540). Every file this run creates -- the lenses, the
+# script scaffolds, SPECIALISTS.md, CLAUDE.md -- is checked first: Test-Path follows a reparse point, so a
+# dangling symlink reads as "absent" and the write creates its target, and a junctioned .claude/ or scripts/
+# takes the file outside the repo. Loaded guarded from this plugin's own mirror, like check-report-lib above:
+# an older payload without it keeps its previous behaviour.
+$writeTargetLib = Join-Path $PSScriptRoot '..\..\scripts\lib\write-target-lib.ps1'
+if (Test-Path -LiteralPath $writeTargetLib -PathType Leaf) { . $writeTargetLib }
+$script:refusedWrites = 0
+function Get-WriteReparse([string]$Path) {
+    <# The reparse point a write to -Path would pass through, or $null -- always $null without the lib. #>
+    if (-not (Get-Command Get-WriteTargetReparsePoint -ErrorAction SilentlyContinue)) { return $null }
+    Get-WriteTargetReparsePoint -Path $Path -Root $ConsumerRoot
+}
+function New-DirectoryInside([string]$Path) {
+    <# mkdir -p, except where the directory would be created through a reparse point: then nothing is
+       created, and each file under it reports its own [refused] line through Test-WriteRefused. #>
+    if ((Get-WriteReparse $Path) -or (Test-Path -LiteralPath $Path)) { return }
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+}
+function Test-WriteRefused([string]$Path, [string]$Label) {
+    <# $true (and one [refused] line) when -Path, or a directory between it and the consumer root, is a
+       reparse point; $false otherwise, and always $false when the lib is absent. #>
+    $reparse = Get-WriteReparse $Path
+    if (-not $reparse) { return $false }
+    $script:refusedWrites++
+    Write-Host "  [refused] $Label -- reached through a symlink or junction ($reparse), so it was NOT written; writing it would land outside the repo." -ForegroundColor Yellow
+    return $true
+}
 $family = if (Get-Command Get-LensFamily -ErrorAction SilentlyContinue) { Get-LensFamily } else { 'claude-specialists' }
 # Durable body path: the written @-import must NEVER point to the version-pinned cache. The cache
 # (~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/) is ephemeral -- after a plugin update,
@@ -279,7 +308,7 @@ function Add-RegisterId {
 # --- 1. Persona lenses (LENS-ONLY), never overwritten --------------------------------------
 # Destination comes from Get-LensDest: the seam for a fresh consumer, the existing tree otherwise.
 $personaDest = Split-Path (Get-LensDest -Plugin $personaPlugin -Id '01-01') -Parent
-if (-not (Test-Path -LiteralPath $personaDest)) { New-Item -ItemType Directory -Path $personaDest -Force | Out-Null }
+New-DirectoryInside $personaDest
 
 $copied = 0; $kept = 0
 $personaFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $personaDir -Kind Persona) }
@@ -294,6 +323,7 @@ $personaFiles | Sort-Object Name | ForEach-Object {
     $g, $id = $personaId.Split('-')
     $dest = Get-LensDest -Plugin $personaPlugin -Id $personaId
     Add-RegisterId -Inventory $registerInventory -Plugin $personaPlugin -Id $personaId
+    if (Test-WriteRefused -Path $dest -Label "lens-only $lensRelDisplay/$(Split-Path $dest -Leaf)") { return }
     $existing = Get-ExistingLensPath -Plugin $personaPlugin -Id $personaId
     if ($existing) {
         Write-Host "  [keep]  $(Split-Path $existing -Leaf) already exists -- not overwritten." -ForegroundColor DarkGray
@@ -518,7 +548,7 @@ foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
         continue
     }
     $pluginPad = Split-Path (Get-LensDest -Plugin $pluginName -Id '00-00') -Parent
-    if (-not (Test-Path -LiteralPath $pluginPad)) { New-Item -ItemType Directory -Path $pluginPad -Force | Out-Null }
+    New-DirectoryInside $pluginPad
     # The whole directory, both spellings (#2130) -- and the fallback is this loop's own anchor, so a
     # payload without the lib enumerates and recognises exactly what it did before.
     $agentFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $agentsDir -Kind Subagent) }
@@ -536,6 +566,7 @@ foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
         $group, $id = $defId.Split('-')
         $dest = Get-LensDest -Plugin $pluginName -Id $defId
         Add-RegisterId -Inventory $registerInventory -Plugin $pluginName -Id $defId
+        if (Test-WriteRefused -Path $dest -Label "lens scaffold $lensRelDisplay/$(Split-Path $dest -Leaf)") { return }
         if (Get-ExistingLensPath -Plugin $pluginName -Id $defId) { $script:lensKept++; return }
         $midDot = [char]0x00B7
         # Rename-proof (issue #145): the header carries the STABLE '<group>-<id>' slug, never the
@@ -876,6 +907,7 @@ $scriptScaffolded = 0; $scriptKept = 0
 $repoConfigDerived = $false
 foreach ($s in $scriptScaffolds) {
     $dest = Join-Path $ConsumerRoot $s.Rel
+    if (Test-WriteRefused -Path $dest -Label "script scaffold $($s.Rel)") { continue }
     if (Test-Path -LiteralPath $dest -PathType Leaf) {
         Write-Host "  [keep]   $($s.Rel) already exists -- not overwritten." -ForegroundColor DarkGray
         # KEEPING IT IS RIGHT; SAYING NOTHING ELSE IS NOT (inbound #271). These addresses are occupied in
@@ -898,8 +930,7 @@ foreach ($s in $scriptScaffolds) {
         $scriptKept++
         continue
     }
-    $destDir = Split-Path $dest -Parent
-    if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+    New-DirectoryInside (Split-Path $dest -Parent)
     [System.IO.File]::WriteAllText($dest, ($s.Content.TrimEnd() + "`n"), $Utf8NoBom)
     $note = ''
     if ($s.Rel -eq 'scripts/repo-config.ps1' -and $derivedRepo) {
@@ -955,8 +986,10 @@ $importNoteSeam = $importNote + ' from `lenses/`.'
 if ($seamMode) {
     # The inclusion itself. Never overwritten -- once the owner has put their roster in here it is
     # authored content, exactly like a filled-in lens.
-    if (-not (Test-Path -LiteralPath $seam.Dir)) { New-Item -ItemType Directory -Path $seam.Dir -Force | Out-Null }
-    if (Test-Path -LiteralPath $seam.Inclusion -PathType Leaf) {
+    New-DirectoryInside $seam.Dir
+    if (Test-WriteRefused -Path $seam.Inclusion -Label "$($seam.RelDir)/SPECIALISTS.md") {
+        # Nothing to add: the [refused] line above names it, and the CLAUDE.md import below still points at it.
+    } elseif (Test-Path -LiteralPath $seam.Inclusion -PathType Leaf) {
         Write-Host "  [keep]   $($seam.RelDir)/SPECIALISTS.md already exists -- not overwritten." -ForegroundColor DarkGray
     } else {
         # The TITLE deliberately carries no (VUL-IN): only the roster slot does. Filling in the roster
@@ -1006,16 +1039,8 @@ $importBody
 # NEVER THROUGH A SYMLINK OR JUNCTION (issue #2533). A CLAUDE.md that is a symlink -- dangling or not --
 # would have the write below land wherever it points, outside the repo. Get-WriteTargetReparsePoint reads
 # the entry from its parent's listing, so a link to a missing file is caught too, where Test-Path below
-# would read it as "no CLAUDE.md" and create the link's target. Loaded guarded from this plugin's own
-# mirror, like check-report-lib above: an older payload without it keeps its previous behaviour.
-$claudeMdReparse = $null
-$writeTargetLib = Join-Path $PSScriptRoot '..\..\scripts\lib\write-target-lib.ps1'
-if (Test-Path -LiteralPath $writeTargetLib -PathType Leaf) {
-    . $writeTargetLib
-    $claudeMdReparse = Get-WriteTargetReparsePoint -Path $claudeMd -Root $ConsumerRoot
-}
-
-if ($claudeMdReparse) {
+# would read it as "no CLAUDE.md" and create the link's target. The lib is loaded guarded at the top.
+if (Get-WriteReparse $claudeMd) {
     Write-Host "  [refused] CLAUDE.md is a symlink or junction, so the orchestrator import was NOT written -- add it by hand:" -ForegroundColor Yellow
     Write-Host "            $guardImport" -ForegroundColor Yellow
 } elseif (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
@@ -1496,6 +1521,9 @@ if ($settingsRefusal) {
 # --- Report ----------------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "Done: $copied persona-lens(es) created, $kept already present; $scaffolded lens-scaffold(s) created, $lensKept already present; $scriptScaffolded script-scaffold(s) created, $scriptKept already present." -ForegroundColor Cyan
+if ($script:refusedWrites -gt 0) {
+    Write-Host "$($script:refusedWrites) file(s) refused -- reached through a symlink or junction; see the [refused] lines above." -ForegroundColor Yellow
+}
 if ($notInstalledIds.Count -gt 0) {
     # Directly under the closing count, because that count is what this line qualifies (inbound #302).
     Write-Host "  [notice] $($notInstalledIds.Count) of the enabled plugin(s) have no install record for this path -- a session here loads none of them, so the lenses above are in place for a specialist surface this repo does not yet have. Run this from this root (act 4 of 'Installing it yourself' in plugins/ADOPTION.md):" -ForegroundColor Yellow

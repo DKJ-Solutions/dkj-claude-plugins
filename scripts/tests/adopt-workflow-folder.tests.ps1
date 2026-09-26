@@ -520,6 +520,24 @@ try {
         & cmd /c rmdir "$(Join-Path $c9j 'scripts')" | Out-Null
     }
 
+    # A JUNCTIONED .github/ DIRECTORY (issue #2540). The files this run CREATES are held to the same check:
+    # Test-Path follows the junction, so without it the CI workflows would be written into its target.
+    Write-Host "adopt-workflow-folder -- .github/ is a junction: the files it would create there are refused" -ForegroundColor Cyan
+    $c9g = New-FixtureConsumer -Label 'create-junction'
+    $c9gOut = Join-Path $Fixture 'create-junction-outside'
+    New-Item -ItemType Directory -Path $c9gOut -Force | Out-Null
+    & cmd /c mklink /J "$(Join-Path $c9g '.github')" "$c9gOut" | Out-Null
+    try {
+        $r9g = Invoke-Adopt -Dir $c9g -ScriptArgs @('-Apply')
+        Assert-Equal 0 $r9g.Code 'create junction: exit 0 -- refusing some writes is not a failed run'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath $c9gOut -Recurse -Force).Count 'create junction: nothing was written outside the repo'
+        Assert-Match '\[refused\]\s+\.github/workflows/branch-entry\.yml' $r9g.Flat 'create junction: the run names the refused file'
+        Assert-Match 'file\(s\) refused' $r9g.Flat 'create junction: the summary counts the refusals'
+        Assert-True (Test-Path -LiteralPath (Join-Path $c9g 'dkj-policy\CHANGELOG.md')) 'create junction: a file outside the junction is still created'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $c9g '.github')" | Out-Null
+    }
+
     # NO LIB TO WRITE INTO. specialists-init owns that file's existence, exactly as adopt-config says when
     # it stops -- so this run scaffolds the folder and reports the seam instead of half-creating a lib.
     Write-Host "adopt-workflow-folder -- no repo-config.ps1: the folder still lands, the seam is reported" -ForegroundColor Cyan
