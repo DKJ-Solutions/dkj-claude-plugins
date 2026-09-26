@@ -55,7 +55,8 @@ waited on #2527, which is where the second copy came from.
 ### CREATE
 
 - [x] `scripts/lib/pr-scan-lib.ps1`: `Invoke-BoundedPrScan` (the list read, an optional precheck, the
-      per-PR required-check read, both budgets, the judged/unjudged split), `New-PrScanFinding`
+      per-PR required-check read, both budgets, the judged/unjudged split), `Test-PrScanReadAnswered`
+      (whether a gh read answered cleanly), `New-PrScanFinding`
       (the display scrub plus `Get-PasteableRef`), `Get-PrScanIncompleteLine` and `Get-PrScanResumeLines`.
 - [x] Both checks call it. Their scan bodies went from ~130 lines to ~50.
 - [x] Registered as a `LibOnly` row in `shared-scripts-lib.ps1`, and the mirror rebuilt.
@@ -76,8 +77,8 @@ PR-scan scaffold twice. It now lives once, in `scripts/lib/pr-scan-lib.ps1` (`In
 the filtered list read, the per-PR required-check read under a per-call and a total budget, the honest
 judged/unjudged split, the display scrub and the paste-safe checkout token. Each check keeps only its
 list filter, its verdict and its report prose, so a repair to the pattern now lands once. What the checks
-report is unchanged, apart from one wording: `check-unshipped-pr.ps1`'s `[INCOMPLETE]` line now reads
-the same as its sibling's.
+report is unchanged, apart from the `[INCOMPLETE]` line: the two checks worded it slightly differently,
+and both now print one shared wording.
 
 **Score:** 2
 
