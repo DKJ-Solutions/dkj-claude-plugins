@@ -257,6 +257,49 @@ try {
         foreach ($d in $jRoot, $jOutSeam, $jOutScripts) { if (Test-Path -LiteralPath $d) { Remove-Item -Recurse -Force -LiteralPath $d } }
     }
 
+    # And .claude/ ITSELF a junction (issue #2545): the two settings proposals are refused as well, and
+    # step 3 of the next steps says there is nothing to copy from rather than naming a file never written.
+    Write-Host "bootstrap.ps1 -- a junctioned .claude/: the two settings proposals are refused too" -ForegroundColor Cyan
+    $cRoot = "$Fixture-claude-junction"
+    $cOut = "$Fixture-claude-junction-outside"
+    foreach ($d in $cRoot, $cOut) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    & cmd /c mklink /J "$(Join-Path $cRoot '.claude')" "$cOut" | Out-Null
+    try {
+        $rc = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $cRoot)
+        Assert-Equal 0 $rc.Code '.claude junction: exit 0 -- refusing some writes is not a failed run'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath $cOut -Recurse -Force).Count '.claude junction: nothing was written through it'
+        Assert-True ($rc.Out -match '\[refused\] \.claude[\\/]settings\.suggested\.jsonc') '.claude junction: the annotated proposal is reported refused'
+        Assert-True ($rc.Out -match '\[refused\] \.claude[\\/]settings\.proposed\.json') '.claude junction: the merged proposal is reported refused'
+        Assert-True ($rc.Out -notmatch '\[create\][^\r\n]*settings\.(suggested|proposed)') '.claude junction: neither proposal is announced as placed'
+        Assert-True ($rc.Out -match 'No settings proposal was written this run') '.claude junction: step 3 says there is nothing to copy from'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $cRoot '.claude')" | Out-Null
+        foreach ($d in $cRoot, $cOut) { if (Test-Path -LiteralPath $d) { Remove-Item -Recurse -Force -LiteralPath $d } }
+    }
+
+    # ONLY THE ANNOTATED LEAF refused: a reparse point at that one path, .claude/ itself real. The merged
+    # proposal is still written, and step 3 must not tell the reader to delete "both" or that the
+    # annotated file "stays".
+    Write-Host "bootstrap.ps1 -- only settings.suggested.jsonc is a reparse point: step 3 names one proposal" -ForegroundColor Cyan
+    $lRoot = "$Fixture-leaf-junction"
+    $lOut = "$Fixture-leaf-junction-outside"
+    foreach ($d in (Join-Path $lRoot '.claude'), $lOut) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    $lLeaf = Join-Path $lRoot '.claude\settings.suggested.jsonc'
+    & cmd /c mklink /J "$lLeaf" "$lOut" | Out-Null
+    try {
+        $rl = Invoke-Script -Path $Bootstrap -ScriptArgs @('-ConsumerRoot', $lRoot)
+        Assert-Equal 0 $rl.Code 'leaf junction: exit 0'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath $lOut -Recurse -Force).Count 'leaf junction: nothing was written through it'
+        Assert-True ($rl.Out -match '\[refused\] \.claude[\\/]settings\.suggested\.jsonc') 'leaf junction: the annotated proposal is reported refused'
+        Assert-True (Test-Path -LiteralPath (Join-Path $lRoot '.claude\settings.proposed.json') -PathType Leaf) 'leaf junction: the merged proposal is still written'
+        Assert-True ($rl.Out -notmatch 'delete both proposals') 'leaf junction: step 3 does not say "delete both proposals"'
+        Assert-True ($rl.Out -notmatch 'annotated settings\.suggested\.jsonc stays') 'leaf junction: nor that the annotated file stays'
+        Assert-True ($rl.Out -match 'annotated\s+proposal was NOT written') 'leaf junction: it says the annotated proposal was not written'
+    } finally {
+        & cmd /c rmdir "$lLeaf" | Out-Null
+        foreach ($d in $lRoot, $lOut) { if (Test-Path -LiteralPath $d) { Remove-Item -Recurse -Force -LiteralPath $d } }
+    }
+
     # --- 1c. scripts/ scaffolds (#86) -- THE CORE-ONLY SHAPE ---------------------------------------
     # SPLIT INTO TWO CASES ON AUGUST 8, 2026, when the branch/release workflow became its own opt-in
     # plugin. What the bootstrap writes now depends on whether the consumer enabled that pack, and this
