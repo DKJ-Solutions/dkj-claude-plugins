@@ -39,19 +39,62 @@
 
 ### PLAN
 
+#2533, filed from the #2531 security review: the adoptions write into files a consumer already has
+without checking for a reparse point, so a `CLAUDE.md` that is a symlink, or a `scripts/` directory
+that is a junction, would have the write land outside the repo. Verified on pickup by reading the write
+sites: `adopt-workflow-folder.ps1` (the `repo-config.ps1` seam append and, since #2532, the shared
+`Add-ClaudeMdImportLine`), `adopt-extension-import.ps1` (the same writer), and `bootstrap.ps1`
+(the orchestrator import into `CLAUDE.md`, which the issue inferred and a read confirmed).
+
+The guard goes in its own leaf lib rather than in `check-report-lib.ps1` as the issue suggests.
+`check-report-lib` loads a sibling `repo-root-lib.ps1` unguarded, and `dkj-policy-bwj` ships its own file
+under that name, so the bwj writer could not load it. The guard judges every directory between the file
+and the repo root, not only the file, because a junctioned `scripts/` holds a plain `repo-config.ps1`.
+It reads each entry from its parent's listing, because `Test-Path` follows a link and reads a symlink to
+a missing file as "no file here", and creating that file would create the link's target.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/write-target-lib.ps1` (new): `Get-WriteTargetReparsePoint`. Mirrored into
+  dkj-policy, dkj-policy-bwj and dkj-subagents-alpha; row added to `plugins/dkj-policy/scripts/README.md`.
+- [x] `claude-md-import-lib.ps1`: `Add-ClaudeMdImportLine` takes a mandatory `-Root` and returns
+  `refused` before reading or writing anything.
+- [x] `adopt-workflow-folder.ps1`: the seam append gets a fourth condition, and the refused case is
+  reported; the `CLAUDE.md` write reports a refusal with the line to add by hand.
+- [x] `adopt-extension-import.ps1` and `bootstrap.ps1`: the same refusal for their `CLAUDE.md` write.
 
 ### TEST
 
+- [x] `write-target-lib.tests.ps1` (new): a plain file, a missing path, a path outside the root, a `..`
+  escape, a file under a junctioned directory, the junction itself, and a root that itself sits under a
+  junction (not judged). 8 passed. The file-symlink cases (linked and dangling) skip on this machine,
+  which cannot create file symlinks without Developer Mode or elevation, and say so rather than pass.
+- [x] `adopt-workflow-folder.tests.ps1`: a junctioned `scripts/` leaves the seam unanswered and the file
+  outside untouched. 143 passed.
+- [x] `bwj-extension-import.tests.ps1` 27 passed; `bootstrap-drift.tests.ps1` 212 passed;
+  `shared-scripts.tests.ps1` 1084 passed; `check-plugin-integrity.ps1` 0 errors.
+- [~] A test of the `CLAUDE.md` refusal end to end: dropped. `CLAUDE.md` sits at the repo root, so only
+  a file symlink can redirect it, and this machine cannot create one. The guard function is tested on
+  the same shape where the machine allows it.
+
 ### DEPLOY: fix/2533-adoption-write-reparse-guard
 
-**Score:**
+The adoptions no longer write through a symlink or junction. Before each write into a file the consumer
+already has, `adopt-dkj-policy`, `adopt-dkj-policy-bwj` and `specialists-init` check whether the file,
+or any directory between it and the repo root, is a reparse point. When it is, nothing is written and
+the run says what to add by hand. Before this, a `CLAUDE.md` that was a symlink, or a `scripts/`
+directory that was a junction, would have had the write land outside the repo. The check is
+`Get-WriteTargetReparsePoint` in `write-target-lib.ps1`, and it also catches a symlink whose target does
+not exist. No consumer is known to link its governance files this way; this closes the path before one
+does.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
 
