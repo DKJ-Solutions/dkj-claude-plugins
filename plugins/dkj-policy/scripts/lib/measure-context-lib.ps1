@@ -331,13 +331,44 @@ function Split-FileIntoByteLines {
     return $lines
 }
 
-function Test-IsFenceLine {
-    <# A code-fence delimiter: three or more backticks or tildes at the start of a line, optionally with
-       an info string. Tracked because a fenced block in these documents routinely CONTAINS lines that
-       start with '#' -- a skill page showing a document's shape, a README showing a heading tree. Read
-       as headings, those invent sections that do not exist and move bytes into them. #>
-    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
-    return [bool]($Line -match '^\s{0,3}(?:`{3,}|~{3,})')
+function Get-NextFenceState {
+    <#
+        The fence state AFTER one line, given the state before it: '' outside a fenced code block, or the
+        run that opened the block ('```', '````', '~~~', ...) while inside one. The fence tracker of the
+        always-on walk: the section split, the import walk, check 28's import scan and the adoption's
+        constitution-import scan all call it. Other fence trackers elsewhere in the tree are still plain
+        toggles, and moving them is #2536's work rather than this function's claim.
+
+        Tracked because a fenced block in these documents routinely CONTAINS lines that start with '#' or
+        '@' -- a skill page showing a document's shape, a README showing a heading tree, a page quoting an
+        import line. Read as headings those invent sections; read as imports they add bytes to the budget
+        and can make a quoted constitution line count as imported.
+
+        CommonMark, not a toggle (#2534). An opener is three or more backticks or tildes after at most
+        three leading spaces; a backtick opener's info string may not itself contain a backtick. A block
+        closes ONLY on a run of the SAME character at least as long as its opener, with nothing after it
+        but whitespace. A plain toggle read the inner fence of a four-backtick block wrapping a
+        three-backtick example as the end of the block, and walked the rest of the example as structure.
+        An unclosed block runs to the end of the document, as it does in CommonMark.
+
+        The caller skips a line when the state before OR after it is non-empty -- that covers the opener,
+        the body and the closer in one test:
+            $was = $fence; $fence = Get-NextFenceState -Line $text -Fence $fence
+            if ($was -or $fence) { continue }
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line,
+        [AllowEmptyString()][string]$Fence = ''
+    )
+    if ($Line -notmatch '^\s{0,3}(`{3,}|~{3,})(.*)$') { return $Fence }
+    $run  = $Matches[1]
+    $rest = $Matches[2]
+    if ($Fence) {
+        if ($run[0] -eq $Fence[0] -and $run.Length -ge $Fence.Length -and $rest.Trim().Length -eq 0) { return '' }
+        return $Fence
+    }
+    if ($run[0] -eq '`' -and $rest.Contains('`')) { return '' }
+    return $run
 }
 
 function Get-DocumentSections {
@@ -361,7 +392,7 @@ function Get-DocumentSections {
 
     $lines = Split-FileIntoByteLines -Path $Path
     $sections = New-Object System.Collections.Generic.List[object]
-    $inFence = $false
+    $fence = ''
     $lineNo = 0
 
     $current = [pscustomobject]@{
@@ -373,10 +404,11 @@ function Get-DocumentSections {
 
     foreach ($line in $lines) {
         $lineNo++
-        if (Test-IsFenceLine $line.Text) { $inFence = -not $inFence }
+        $wasFence = $fence
+        $fence = Get-NextFenceState -Line $line.Text -Fence $fence
 
         $isHeading = $false
-        if (-not $inFence -and $line.Text -match '^(#{1,6})\s+(\S.*?)\s*$') {
+        if (-not ($wasFence -or $fence) -and $line.Text -match '^(#{1,6})\s+(\S.*?)\s*$') {
             $level = $Matches[1].Length
             if ($level -le $MaxLevel) { $isHeading = $true }
         }
@@ -621,10 +653,11 @@ function Get-AlwaysOnDocuments {
         if (-not $exists) { continue }
         if ($item.Hop -ge $MaxHops) { continue }
 
-        $inFence = $false
+        $fence = ''
         foreach ($line in (Split-FileIntoByteLines -Path $item.Path)) {
-            if (Test-IsFenceLine $line.Text) { $inFence = -not $inFence; continue }
-            if ($inFence) { continue }
+            $wasFence = $fence
+            $fence = Get-NextFenceState -Line $line.Text -Fence $fence
+            if ($wasFence -or $fence) { continue }
             $target = Get-ImportLinePath -Line $line.Text
             if (-not $target) { continue }
             $resolved = Resolve-ImportPath -Target $target -ImportingFile $item.Path

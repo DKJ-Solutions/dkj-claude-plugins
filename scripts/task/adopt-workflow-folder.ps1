@@ -570,9 +570,11 @@ if ($writeNoteRootSeam) {
 # ONE SCAN, FENCE-AWARE, FOR BOTH QUESTIONS -- is the line already there, and where does it go. A fenced
 # block is quoted text: the adopt-dkj-policy skill page itself shows this very line inside one, so a
 # consumer quoting it must not read as having imported it, and the line must never be inserted into a
-# quoted example. Fences are tracked the CommonMark way -- a block closes only on a run of the SAME
-# character at least as long as the one that opened it -- because a four-backtick block routinely wraps a
-# three-backtick example, and a plain toggle (Test-IsFenceLine's) reads the inner fence as the end.
+# quoted example. Fences are tracked by Get-NextFenceState (measure-context-lib.ps1), the one CommonMark
+# tracker the always-on walk uses too (#2534) -- a block closes only on a run of the SAME character at
+# least as long as the one that opened it, because a four-backtick block routinely wraps a three-backtick
+# example. Loaded at file scope rather than through Get-CheckProseCorpus, which dot-sources it into its
+# own function scope and so leaves nothing defined here.
 #
 # INSERTED, NEVER REWRITTEN. The line goes directly above the first '@'-import, because the constitution
 # names its own import first and a companion extension on the line below it; with no import at all it is
@@ -583,6 +585,7 @@ if ($writeNoteRootSeam) {
 # only this line -- specialists-init appends the orchestrator import to it afterwards, as it does to any
 # existing file.
 . (Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\measure-context-lib.ps1')
 $constitutionLine = Get-ConstitutionImportLine
 $claudeMdPath     = Join-Path $repoRoot 'CLAUDE.md'
 $claudeMdExists   = Test-Path -LiteralPath $claudeMdPath -PathType Leaf
@@ -591,16 +594,12 @@ if ($claudeMdExists) {
     $claudeMdText  = [System.IO.File]::ReadAllText($claudeMdPath)
     $claudeMdLines = [System.Collections.Generic.List[string]]::new([string[]]@($claudeMdText -split '(?<=\n)' | Where-Object { $_ -ne '' }))
     $firstImport = -1
-    $fence = $null
+    $fence = ''
     for ($i = 0; $i -lt $claudeMdLines.Count; $i++) {
         $bare = $claudeMdLines[$i].TrimEnd("`r", "`n")
-        if ($bare -match '^\s{0,3}(`{3,}|~{3,})') {
-            $run = $Matches[1]
-            if ($null -eq $fence) { $fence = $run; continue }
-            if ($run[0] -eq $fence[0] -and $run.Length -ge $fence.Length -and $bare.Trim() -eq $run) { $fence = $null }
-            continue
-        }
-        if ($null -ne $fence -or $bare -notmatch '^\s*@\S') { continue }
+        $wasFence = $fence
+        $fence = Get-NextFenceState -Line $bare -Fence $fence
+        if ($wasFence -or $fence -or $bare -notmatch '^\s*@\S') { continue }
         if ($firstImport -lt 0) { $firstImport = $i }
         if ($bare -imatch '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$') { $constitutionImported = $true; break }
     }

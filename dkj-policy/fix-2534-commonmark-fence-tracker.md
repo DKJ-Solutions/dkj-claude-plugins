@@ -56,6 +56,9 @@ than kept beside it, so there is one definition. `adopt-workflow-folder.ps1`'s l
 - [x] `check-plugin-integrity.ps1` check 28: the import scan uses it.
 - [x] `adopt-workflow-folder.ps1`: dot-sources the lib at file scope and drops its own tracker.
 - [x] Plugin mirrors rebuilt with `build-shared-scripts.ps1`.
+- [x] Review pass: Victor found no correctness defect. He noted that seven other fence trackers in the
+  tree are still plain toggles, so the new docstring now says it serves the always-on walk, not every
+  walk. Filed #2536 for the rest.
 
 ### TEST
 
