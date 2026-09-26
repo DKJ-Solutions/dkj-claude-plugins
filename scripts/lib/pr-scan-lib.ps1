@@ -52,6 +52,16 @@ function Invoke-BoundedPrScan {
         THE BUDGET STARTS HERE, just before the list read: everything a caller does before this call is
         local feature detection, and counting it would only make the budget less generous.
 
+    .PARAMETER Repo
+        The owner/name every gh call is pinned to with --repo.
+
+    .PARAMETER TimeoutSeconds
+        How long each gh call gets before it counts as failed. Default 15.
+
+    .PARAMETER MaxElapsedSeconds
+        The total wall-clock budget, measured from just before the list read. Once spent, no further
+        record is judged and each remaining one counts as unjudged. Default 90.
+
     .PARAMETER ListFilter
         The arguments that select which pull requests are read, e.g. @('--label', 'merge-when-green')
         or @('--author', 'somebody'). '--state open' and '--limit 100' are always sent.
