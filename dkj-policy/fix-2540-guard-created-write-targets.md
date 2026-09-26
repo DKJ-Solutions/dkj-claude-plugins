@@ -39,19 +39,47 @@
 
 ### PLAN
 
+#2533 put `Get-WriteTargetReparsePoint` in front of the adoption writes into files a consumer already
+has. The writes that CREATE a file still tested absence with `Test-Path`, which follows a reparse point.
+Verified by reading the sites: adopt-workflow-folder's placement loop, and bootstrap's persona-lens loop,
+subagent-lens loop, script-scaffold loop and `SPECIALISTS.md` inclusion. The script-scaffold loop was not
+named in the issue; it writes `scripts/repo-config.ps1`, the exact junction case the lib's own header
+names, so it is in scope. The two `.claude/settings.*` artifacts are left out and filed as #2545: their
+reporting assumes the file was written.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] adopt-workflow-folder: each placement target is checked before the existence test; a hit prints `[refused]`, is counted, and the summary names the count
+- [x] bootstrap: the lib is loaded once at the top; `Test-WriteRefused` guards the four create sites, `New-DirectoryInside` stops the mkdir that precedes them from creating a directory through a junction, and the CLAUDE.md guard uses the same helper
+- [x] the shared-script mirror rebuilt (`build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] `adopt-workflow-folder.tests.ps1`: a junctioned `.github/` -- nothing lands outside, the refusal is named and counted, the changelog is still created (148 asserts green)
+- [x] `bootstrap-drift.tests.ps1`: a junctioned seam directory and `scripts/` -- nothing lands outside either, each create site reports `[refused]`, CLAUDE.md is still created (all new asserts green)
+- [x] `check-plugin-integrity.ps1`: 0 errors after the mirror rebuild (the one bootstrap-suite failure was that lint assert, from the stale mirror)
+
 ### DEPLOY: fix/2540-guard-created-write-targets
 
-**Score:**
+The adoption commands no longer create files through a symlink or junction. `adopt-workflow-folder` and
+`specialists-init`'s bootstrap tested whether a file they were about to create existed with `Test-Path`,
+which follows a reparse point. So a junctioned `.github/`, `dkj-policy/`, `.claude/specialists/` or
+`scripts/` had the new file written outside the repo, and a dangling symlink at the target read as
+absent, so the write created whatever it pointed at. Every such create now goes through
+`Get-WriteTargetReparsePoint` first, as the writes into existing files have since #2533. A hit is
+reported as `[refused]`, the file is left for placing by hand, and the run's summary counts the
+refusals. The rest of the run carries on. Bootstrap also no longer creates a missing lens directory
+through a junction. The two `.claude/settings.*` suggestion files are not covered yet (#2545).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
+
+Adoption writes that create a file refuse a symlink or junction too
 
