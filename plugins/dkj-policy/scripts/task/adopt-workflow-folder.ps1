@@ -127,6 +127,11 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # cut and the fold now read, so the paths this folder's own docs name can never disagree
 # with where the workflow actually reads and writes.
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
+# Get-WriteTargetReparsePoint (issue #2533): the two writes into files this repo already has -- the
+# repo-config.ps1 seam append below and the CLAUDE.md import further down -- are refused when the file, or
+# a directory between it and the repo root, is a symlink or junction, because the write would land outside
+# the repo.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
 
 # THE SOURCE OF *THIS* WORKFLOW arranges that folder by hand -- see the header -- so this command refuses
 # there. It sits below the dot-sources because the test it needs lives in seam-lib, and it still runs
@@ -199,7 +204,10 @@ if (Test-Path -LiteralPath $fallbackAbs -PathType Container) {
     $noteRootHasNotes = $null -ne (Get-ChildItem -LiteralPath $fallbackAbs -Filter '*.md' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
 $repoConfigExists  = Test-Path -LiteralPath $repoConfig -PathType Leaf
-$writeNoteRootSeam = (-not $noteRootAnswered) -and (-not $noteRootHasNotes) -and $repoConfigExists
+# A FOURTH CONDITION (issue #2533): repo-config.ps1 is not reached through a symlink or junction. Where it
+# is, the seam is left unanswered and the instruction at the end of the run says how to answer it by hand.
+$repoConfigReparse = if ($repoConfigExists) { Get-WriteTargetReparsePoint -Path $repoConfig -Root $repoRoot } else { $null }
+$writeNoteRootSeam = (-not $noteRootAnswered) -and (-not $noteRootHasNotes) -and $repoConfigExists -and (-not $repoConfigReparse)
 # COERCED TO A STRING AND FALLBACK-GUARDED. This value comes out of a function in somebody else's file,
 # so it can be $null or empty however carefully the contract is worded -- and every use below is a string
 # operation that would throw under this script's strict mode rather than report anything useful.
@@ -545,6 +553,8 @@ if ($writeNoteRootSeam) {
     }
 } elseif ($noteRootAnswered) {
     Write-Host "  [seam]     Get-ReleaseNoteRoot is already answered here ('$noteRootRelPath') -- left as it is" -ForegroundColor DarkGray
+} elseif ($repoConfigReparse) {
+    Write-Host "  [refused]  Get-ReleaseNoteRoot left UNANSWERED -- scripts/repo-config.ps1 is reached through a symlink or junction ($repoConfigReparse), so writing it would land outside the repo" -ForegroundColor Yellow
 } elseif ($noteRootHasNotes) {
     Write-Host "  [seam]     Get-ReleaseNoteRoot left UNANSWERED -- you already have notes at $noteRootFallback/" -ForegroundColor Yellow
 } else {
@@ -578,11 +588,12 @@ $constitutionLine = Get-ConstitutionImportLine
 $claudeMdPath     = Join-Path $repoRoot 'CLAUDE.md'
 $constitutionElsewhere = (Test-Path -LiteralPath $claudeMdPath -PathType Leaf) -and
     (Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot))
-$constitutionAction = Add-ClaudeMdImportLine -Path $claudeMdPath -Line $constitutionLine `
+$constitutionAction = Add-ClaudeMdImportLine -Path $claudeMdPath -Root $repoRoot -Line $constitutionLine `
     -ImportedPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' -ImportedElsewhere:$constitutionElsewhere -Apply:$Apply
 
 switch ($constitutionAction) {
     'kept'   { Write-Host '  [keep]     CLAUDE.md already imports the dkj-policy constitution -- left as it is' -ForegroundColor DarkGray }
+    'refused' { Write-Host "  [refused]  CLAUDE.md is a symlink or junction, so the constitution import was NOT written -- add it by hand: $constitutionLine" -ForegroundColor Yellow }
     'create' { $verb = if ($Apply) { '[created]' } else { '[create] ' }
                Write-Host "  $verb  CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green }
     default  { $verb = if ($Apply) { '[added]  ' } else { '[add]    ' }

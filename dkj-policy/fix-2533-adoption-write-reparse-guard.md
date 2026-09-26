@@ -62,6 +62,10 @@ a missing file as "no file here", and creating that file would create the link's
 - [x] `adopt-workflow-folder.ps1`: the seam append gets a fourth condition, and the refused case is
   reported; the `CLAUDE.md` write reports a refusal with the line to add by hand.
 - [x] `adopt-extension-import.ps1` and `bootstrap.ps1`: the same refusal for their `CLAUDE.md` write.
+- [x] Review pass: Victor and Sebastian found no defect. Both noted that the writes that CREATE a file
+  (the adopter's scaffold targets, bootstrap's lens scaffolds and `SPECIALISTS.md`) still follow a
+  junctioned directory or a dangling symlink. That is outside this issue, which names the writes into
+  existing files, so it is filed as #2540.
 
 ### TEST
 

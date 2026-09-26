@@ -18,6 +18,9 @@
     ALREADY THERE is the line on an '@'-line of CLAUDE.md outside a fence, under any marketplace name, or
     anywhere in the '@'-import closure (Get-AlwaysOnDocuments). Then nothing is written.
 
+    NEVER THROUGH A SYMLINK OR JUNCTION (#2533): when CLAUDE.md is one, nothing is written and the run
+    prints the line to add by hand.
+
     WHAT IT DOES NOT DO: remove an older line that pointed at WORKFLOW-portable.md directly. Deleting a
     line from somebody's governance file is a person's act; step 6 on the skill page says so.
 
@@ -53,18 +56,19 @@ Write-Host "== adopt-extension-import$(if (-not $Apply) { ' (dry run)' }) -- $ro
 
 $elsewhere = (Test-Path -LiteralPath $claudeMd -PathType Leaf) -and
     (Test-BwjExtensionImported -Documents @(Get-AlwaysOnDocuments -RootDocument $claudeMd -RepoRoot $root))
-$action = Add-ClaudeMdImportLine -Path $claudeMd -Line $line `
+$action = Add-ClaudeMdImportLine -Path $claudeMd -Root $root -Line $line `
     -ImportedPattern '^\s*@\S*/dkj-policy/dkj-policy-bwj/CLAUDE\.md\s*$' `
     -AfterPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' `
     -ImportedElsewhere:$elsewhere -Apply:$Apply
 
 switch ($action) {
     'kept'   { Write-Host '  [keep]     CLAUDE.md already imports the dkj-policy-bwj extension -- left as it is' -ForegroundColor DarkGray }
+    'refused' { Write-Host "  [refused]  CLAUDE.md is a symlink or junction, so the extension import was NOT written -- add it by hand: $line" -ForegroundColor Yellow }
     'create' { $verb = if ($Apply) { '[created]' } else { '[create] ' }
                Write-Host "  $verb  CLAUDE.md, holding the extension import: $line" -ForegroundColor Green }
     default  { $verb = if ($Apply) { '[added]  ' } else { '[add]    ' }
                Write-Host "  $verb  the extension import to CLAUDE.md: $line" -ForegroundColor Green }
 }
-if (-not $Apply -and $action -ne 'kept') {
+if (-not $Apply -and $action -notin @('kept', 'refused')) {
     Write-Host 'Dry run: nothing written. Re-run with -Apply.' -ForegroundColor Yellow
 }

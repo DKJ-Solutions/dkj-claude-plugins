@@ -1003,7 +1003,22 @@ $importTail
 $importBody
 "@
 
-if (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
+# NEVER THROUGH A SYMLINK OR JUNCTION (issue #2533). A CLAUDE.md that is a symlink -- dangling or not --
+# would have the write below land wherever it points, outside the repo. Get-WriteTargetReparsePoint reads
+# the entry from its parent's listing, so a link to a missing file is caught too, where Test-Path below
+# would read it as "no CLAUDE.md" and create the link's target. Loaded guarded from this plugin's own
+# mirror, like check-report-lib above: an older payload without it keeps its previous behaviour.
+$claudeMdReparse = $null
+$writeTargetLib = Join-Path $PSScriptRoot '..\..\scripts\lib\write-target-lib.ps1'
+if (Test-Path -LiteralPath $writeTargetLib -PathType Leaf) {
+    . $writeTargetLib
+    $claudeMdReparse = Get-WriteTargetReparsePoint -Path $claudeMd -Root $ConsumerRoot
+}
+
+if ($claudeMdReparse) {
+    Write-Host "  [refused] CLAUDE.md is a symlink or junction, so the orchestrator import was NOT written -- add it by hand:" -ForegroundColor Yellow
+    Write-Host "            $guardImport" -ForegroundColor Yellow
+} elseif (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
     # The heading and the Prose row(s) come from Get-ClaudeMdScaffold in check-report-lib.ps1, for the
     # same reason $importNote does: the teardown has to RECOGNISE this exact wording to report it, and a
     # literal re-typed in a second script is what produced both instances of the accumulation bug (inbound

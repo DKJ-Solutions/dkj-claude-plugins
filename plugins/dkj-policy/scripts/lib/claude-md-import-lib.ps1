@@ -21,9 +21,9 @@
     in its own plugin. consumer-check-lib.ps1 loads this file at file scope, so its callers keep
     reaching Get-ConstitutionImportLine and Test-ConstitutionImported through it as before.
 
-    ONE DEPENDENCY, LOADED WHERE IT IS USED: Add-ClaudeMdImportLine dot-sources measure-context-lib.ps1
-    from its own directory for Get-NextFenceState (#2534), inside the function, so loading this file
-    costs nothing and defines nothing else.
+    TWO DEPENDENCIES, LOADED WHERE THEY ARE USED: Add-ClaudeMdImportLine dot-sources
+    write-target-lib.ps1 (#2533) and measure-context-lib.ps1 (Get-NextFenceState, #2534) from its own
+    directory, inside the function, so loading this file costs nothing and defines nothing else.
 
     Dot-source it $PSScriptRoot-relative:
 
@@ -105,7 +105,7 @@ function Test-BwjExtensionImported {
 function Add-ClaudeMdImportLine {
     <#
         Puts one '@'-import line into a consumer's CLAUDE.md, or reports that it is already there.
-        Returns the action as a word: 'kept', 'create', 'insert' or 'append'. Writes only with -Apply, so
+        Returns the action as a word: 'kept', 'create', 'insert', 'append' or 'refused'. Writes only with -Apply, so
         a dry run gets the same answer without a byte changing.
 
         ALREADY THERE is -ImportedPattern matched on an '@'-line of the file outside a fence, OR
@@ -130,15 +130,25 @@ function Add-ClaudeMdImportLine {
         back with nothing, so not one existing byte changes -- a file that mixes LF and CRLF keeps both.
         The new line takes the terminator of the line it lands beside (or the file's first one when
         appended), and a byte-order mark is kept.
+
+        NEVER THROUGH A SYMLINK OR JUNCTION (#2533). When -Path, or a directory between it and -Root, is a
+        reparse point, the answer is 'refused' and nothing is read or written: the write would land
+        outside the repo. Checked before the existence test, because a symlink to a missing file reads as
+        "no CLAUDE.md" and creating it would create the link's target. Get-WriteTargetReparsePoint
+        (write-target-lib.ps1) is loaded from this file's own directory, like measure-context-lib.
     #>
     param(
         [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Root,
         [Parameter(Mandatory)][string]$Line,
         [Parameter(Mandatory)][string]$ImportedPattern,
         [string]$AfterPattern = '',
         [switch]$ImportedElsewhere,
         [switch]$Apply
     )
+
+    . (Join-Path $PSScriptRoot 'write-target-lib.ps1')
+    if (Get-WriteTargetReparsePoint -Path $Path -Root $Root) { return 'refused' }
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {

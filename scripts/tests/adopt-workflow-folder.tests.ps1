@@ -501,6 +501,25 @@ try {
     Assert-Equal 1 ([regex]::Matches($cfg9, 'function Get-ReleaseNoteRoot').Count) 'seam answered: their function was not duplicated or overwritten'
     Assert-Match 'already answered here' $r9.Flat 'seam answered: the run reports it as left alone'
 
+    # A JUNCTIONED scripts/ DIRECTORY (issue #2533). The append would land in the junction's target,
+    # outside the repo, so the seam is refused and the file out there is untouched. A junction needs no
+    # privilege, so this always runs; it is removed with rmdir, never recursively, or the delete would
+    # empty its target.
+    Write-Host "adopt-workflow-folder -- scripts/ is a junction: the seam write is refused" -ForegroundColor Cyan
+    $c9j = New-FixtureConsumer -Label 'seam-junction'
+    $c9jOut = Join-Path $Fixture 'seam-junction-outside'
+    New-Item -ItemType Directory -Path $c9jOut -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $c9jOut 'repo-config.ps1'), "# outside`n", (New-Object System.Text.UTF8Encoding($false)))
+    & cmd /c mklink /J "$(Join-Path $c9j 'scripts')" "$c9jOut" | Out-Null
+    try {
+        $r9j = Invoke-Adopt -Dir $c9j -ScriptArgs @('-Apply')
+        Assert-Equal 0 $r9j.Code 'seam junction: exit 0 -- refusing one write is not a failed run'
+        Assert-Equal "# outside`n" ([System.IO.File]::ReadAllText((Join-Path $c9jOut 'repo-config.ps1'))) 'seam junction: the file outside the repo is untouched'
+        Assert-Match '\[refused\]\s+Get-ReleaseNoteRoot left UNANSWERED' $r9j.Flat 'seam junction: the run says it refused, and why'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $c9j 'scripts')" | Out-Null
+    }
+
     # NO LIB TO WRITE INTO. specialists-init owns that file's existence, exactly as adopt-config says when
     # it stops -- so this run scaffolds the folder and reports the seam instead of half-creating a lib.
     Write-Host "adopt-workflow-folder -- no repo-config.ps1: the folder still lands, the seam is reported" -ForegroundColor Cyan
