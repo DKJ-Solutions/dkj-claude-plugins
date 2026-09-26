@@ -537,7 +537,7 @@ function Add-BarredSkillFinding {
 . (Join-Path $PSScriptRoot '..\lib\pr-body-lib.ps1')
 
 # measure-context-lib supplies the '@'-import parser check 28 resolves imports with: Get-ImportLinePath,
-# Resolve-ImportPath and Test-IsFenceLine. Reused rather than restated so the gate and
+# Resolve-ImportPath and Get-NextFenceState. Reused rather than restated so the gate and
 # scripts/maintenance/measure-always-on.ps1 cannot drift on what an import means or where it resolves from
 # -- the three rules are subtle enough that two implementations would eventually disagree, and the one that
 # matters resolves relative to the IMPORTING FILE rather than to the repo root. It sets no strict mode of
@@ -3713,12 +3713,13 @@ foreach ($lf in $importScanFiles) {
     # hundred documents and the gate runs on every PR and again inside its own fixture suites.
     if (-not $importAnyLine.IsMatch($importText)) { continue }
     $importRel = $lf.Replace($RepoRoot, '.')
-    $importInFence = $false
+    $importFence = ''
     $importLineNo = 0
     foreach ($importLine in [regex]::Split($importText, '\r?\n')) {
         $importLineNo++
-        if (Test-IsFenceLine $importLine) { $importInFence = -not $importInFence; continue }
-        if ($importInFence) { continue }
+        $importWasFence = $importFence
+        $importFence = Get-NextFenceState -Line $importLine -Fence $importFence
+        if ($importWasFence -or $importFence) { continue }
         $importTarget = Get-ImportLinePath -Line $importLine
         if (-not $importTarget) { continue }
         if ($importTarget -match '\s') { $importNotAPath++; continue }
