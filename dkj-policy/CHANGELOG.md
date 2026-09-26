@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**6 / 24 minor entries** <!-- pending-tally -->
+**7 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2514-live-push-paths-paste-safe · 20260926-085714Z
+
+The live push command `live-preflight` prints can no longer carry a theme path that runs something
+when the line is pasted. Step 3 now refuses a push list holding a path outside letters (Latin accents
+included), digits, `.`, `_`, `/` and `-`, and names each such path with its control characters
+stripped. That happens before the backup, so a refused run costs no theme slot.
+`Format-LivePushCommand` throws on such a path too, so no other caller can print one. The check is
+`Get-LivePushUnsafePaths` in `live-push-rules.ps1`
+([#2514](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2514)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store running `live-preflight` is no longer handed a push command that could run a crafted theme
+filename such as `assets/$(calc.exe).css` when somebody pastes it. That filename can arrive through a
+theme-editor sync without anyone having push rights. Nothing has exploited this yet, and ordinary and
+accented filenames push exactly as before.
+
+**Score:** 1
+
+#### Pull Request
+
+live-preflight refuses a push list whose paths are not safe to paste
+
+Plugins: dkj-subagents-shopify
+
+[PR #2517](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2517)
+
+---
 
 ### DEPLOY: docs/2508-asana-delete-reads-state · 20260926-081811Z
 
