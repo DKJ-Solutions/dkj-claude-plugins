@@ -126,7 +126,7 @@ $configPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     Set-StrictMode -Off
     $resolvedRoot = $repoRoot
-    try { . $configPath } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $($_.Exception.Message)" }
+    # THE EXCEPTION'S TYPE, NEVER ITS MESSAGE, in all three warnings below: a message is text the consumer's
     Set-StrictMode -Version Latest
     $repoRoot = $resolvedRoot
 }
@@ -136,7 +136,7 @@ function Get-Seam {
        inline probe build-golive-block.ps1 writes: Get-Command on a MISS pays a full PATH scan. #>
     param([Parameter(Mandatory = $true)][string]$Name, $Default = '')
     if (@($ExecutionContext.InvokeCommand.GetCommands($Name, 'Function', $false)).Count -eq 0) { return $Default }
-    try { return (& $Name) } catch { Write-Warning "$Name threw: $($_.Exception.Message)"; return $Default }
+    try { return (& $Name) } catch { Write-Warning "$Name threw $($_.Exception.GetType().Name) -- call it directly to see the error."; return $Default }
 }
 
 function Invoke-Native {
@@ -378,7 +378,7 @@ if ($SkipDriftArg) {
         $driftExit = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
     } catch {
         $driftExit = -1
-        Write-Warning "the drift check threw: $($_.Exception.Message)"
+        Write-Warning "the drift check threw $($_.Exception.GetType().Name) -- run it directly to see the error."
     }
     if ($driftExit -eq 0) {
         Add-Step -Name 'drift' -State 'ready' -Detail "no drift on the $($pushFiles.Count) file(s) today. It runs again, for real, on the day."
