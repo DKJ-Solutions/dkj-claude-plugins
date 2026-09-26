@@ -217,6 +217,60 @@ function Get-HighestReleaseTag {
     return $best
 }
 
+# What a theme path may contain before it is printed inside a command a person pastes (#2514). The ref
+# pattern of ref-print-lib.ps1 (letters, digits, '.', '_', '/', '-', first character alphanumeric) PLUS
+# the Latin letters of U+00C0-U+017E, the multiplication and division signs excepted. Written as regex
+# escapes so this file stays ASCII. The reasoning is in Get-LivePushUnsafePaths' docstring.
+$script:LivePushPathPattern = '^[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017E][A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017E._/-]*$'
+
+function Get-LivePushUnsafePaths {
+    <#
+    .SYNOPSIS
+        The paths of a push list that may NOT be printed inside the push command, in input order.
+        Empty means every path is safe to paste.
+
+    .DESCRIPTION
+        THE PUSH COMMAND IS PRINTED FOR A PERSON TO PASTE, SO EVERY PATH IN IT IS TEXT A SHELL WILL
+        PARSE (#2514). The paths come from `git diff --name-only`, and a theme file reaches the repo
+        through a sync branch from the theme editor, so planting a name needs no push rights at all.
+        Measured on the function extracted verbatim: `assets/$(calc.exe).css` is printed as-is and
+        PowerShell evaluates the subexpression when the pasted line runs; a bare `;` splits the line
+        into two statements; an embedded newline splits the printed command itself. git's own quoting
+        never fires for these -- core.quotePath escapes only bytes above 0x7F, `"`, `\` and control
+        characters -- and #1594 measured that quoting does not close the class anyway. Refusing to
+        print the path does.
+
+        WHY NOT Test-PathPasteSafe ITSELF. That pattern is ASCII only, and a theme filename with an
+        accent is not hypothetical: #821 measured one in a consumer store, through sync-main. An
+        ASCII-only check would refuse that store's live push for as long as the file is in the range,
+        with nothing the operator could do short of renaming a file the theme editor created. So this
+        admits the Latin letters of U+00C0-U+017E on top of the ref pattern's set. No letter is special
+        to PowerShell, bash or cmd, so admitting them opens nothing that executes. The range stops
+        inside Latin Extended-A on purpose, because a command a person reads before pasting must read
+        as what it does: its last letter, U+017F LONG S, reads as an `f`, and past it are letters that
+        DISPLAY as punctuation (U+01C0-U+01C3 read as `|` and `!`) and scripts that reorder a line. A decomposed accent (a letter plus a combining mark) is
+        refused, which is the fail-safe direction. The match is case-SENSITIVE (-cmatch) so the
+        Kelvin sign cannot pass as a `k` under case folding.
+
+        NOT A DISPLAY GUARD. It decides what may go into a command; how a refused path is NAMED to the
+        reader is the caller's concern.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$Paths
+    )
+
+    $unsafe = @()
+    foreach ($p in @($Paths)) {
+        if ($null -eq $p) { continue }
+        $t = ([string]$p).Trim()
+        if (-not $t) { continue }
+        if ($t -cnotmatch $script:LivePushPathPattern) { $unsafe += $t }
+    }
+    # Unwrapped on purpose: every caller takes this as @(...), and ', $unsafe' would hand an empty
+    # result back as ONE item -- an empty array -- that @() then counts.
+    return $unsafe
+}
+
 function Format-LivePushCommand {
     <#
     .SYNOPSIS
@@ -245,6 +299,12 @@ function Format-LivePushCommand {
         `theme push` without one pushes the WHOLE theme -- the single most destructive thing this file
         could ever produce by accident. A caller with an empty list has nothing to push and is told so
         by the verdict; it is never handed a command.
+
+        A PATH THAT IS NOT SAFE TO PASTE IS A THROW, NOT A COMMAND (#2514). The check a caller should
+        run first is Get-LivePushUnsafePaths, which lets it refuse with the paths named; this throw is
+        the backstop that holds for a caller that did not, so no caller can print a command that runs
+        something other than the push. The message carries a count, never the paths, because a path
+        that failed the check is exactly the text that must not reach a console unguarded.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Store,
@@ -254,6 +314,11 @@ function Format-LivePushCommand {
 
     $files = @(@($Only) | ForEach-Object { if ($null -ne $_) { ([string]$_).Trim() } } | Where-Object { $_ })
     if ($files.Count -eq 0) { return '' }
+
+    $unsafe = @(Get-LivePushUnsafePaths -Paths $files)
+    if ($unsafe.Count -gt 0) {
+        throw "Format-LivePushCommand: $($unsafe.Count) path(s) are not safe to paste into a command; run Get-LivePushUnsafePaths first and refuse with them named."
+    }
 
     $parts = @('shopify', 'theme', 'push', '--store', $Store, '--theme', $ThemeId)
     foreach ($f in $files) { $parts += @('--only', $f) }
