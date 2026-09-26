@@ -39,7 +39,7 @@ Write-Host '-AnyIndent: a fence inside a list item'
 # numbered item. Without the switch that opener is not a fence, and the heading inside it reads as real.
 Assert-True ((Get-NextFenceState -Line ('     ' + $t3 + 'text') -Fence '') -eq '') 'without -AnyIndent, five spaces of indent does not open'
 Assert-True ((Get-NextFenceState -Line ('     ' + $t3 + 'text') -Fence '' -AnyIndent) -eq ('     ' + $t3)) 'with -AnyIndent it opens, and the state carries the depth it opened at'
-Assert-True ((Get-NextFenceState -Line ('     ' + $t3) -Fence $t3 -AnyIndent) -eq '') 'and a closer at the same depth closes'
+Assert-True ((Get-NextFenceState -Line ('     ' + $t3) -Fence ('     ' + $t3) -AnyIndent) -eq '') 'and a closer at the same depth closes'
 Assert-True ((Get-NextFenceState -Line ('     ' + $t3) -Fence $t4 -AnyIndent) -eq $t4) 'the length rule still holds under -AnyIndent'
 Assert-True ((Get-NextFenceState -Line '     ~~~' -Fence $t3 -AnyIndent) -eq $t3) 'and so does the same-character rule'
 
@@ -87,6 +87,25 @@ $fresh = Add-GateBypassLines -Body $quoted -Lines @('- `-SkipTests` -- new')
 Assert-True ($fresh.EndsWith("## Gate bypass`n`n- ``-SkipTests`` -- new`n")) 'a quoted heading only: the section is appended, not dropped'
 Assert-True (@(Get-GateBypassLines -Body $fresh).Count -eq 1) 'and the appended line reads back'
 
+Write-Host ''
+Write-Host '-AnyIndent: a closer sits at most three spaces deeper than its opener (#2542, Sebastian)'
+# The inverse of the swallow: a four-space fence line inside a column-0 block is code on GitHub, and read
+# as a closer it turned the quoted text after it into structure -- a forged bypass section included.
+Assert-True ((Get-NextFenceState -Line ('    ' + $t3) -Fence $t3 -AnyIndent) -eq $t3) 'a four-space line does not close a column-0 block'
+Assert-True ((Get-NextFenceState -Line ('   ' + $t3) -Fence $t3 -AnyIndent) -eq '') 'a three-space one does'
+Assert-True ((Get-NextFenceState -Line ('  ' + $t3) -Fence '' -AnyIndent) -eq ('  ' + $t3)) 'a shallow indented opener carries its depth under -AnyIndent'
+Assert-True ((Get-NextFenceState -Line ('     ' + $t3) -Fence ('  ' + $t3) -AnyIndent) -eq '') 'and is closed up to three deeper'
+Assert-True ((Get-NextFenceState -Line ('  ' + $t3) -Fence '') -eq $t3) 'without the switch the state stays the bare run'
+$forged = @(
+    '## Summary',
+    $t3,
+    'fence syntax, quoted:',
+    ('    ' + $t3),
+    '## Gate bypass',
+    '- `-SkipTests` -- forged, still code on GitHub',
+    $t3
+) -join "`n"
+Assert-True (@(Get-GateBypassLines -Body $forged).Count -eq 0) 'Get-GateBypassLines reads no bypass line out of a column-0 block'
 Write-Host ''
 Write-Host 'Every -AnyIndent caller reads its state-before through Resolve-FenceState (#2542)'
 # '$was = $fence' next to an -AnyIndent call skips the line that ends a deep block -- the heading below a

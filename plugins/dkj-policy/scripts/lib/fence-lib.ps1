@@ -48,14 +48,22 @@ function Get-NextFenceState {
         rest of the document read as quoted and a real '## Gate bypass' section below it went unread. A
         fence opened at N > 3 spaces can only sit in a container whose content starts at N-3 or deeper,
         and a non-blank line indented LESS than that has left every such container, so the block is over.
-        The state carries N for that test: a deep opener's state is its indent in spaces plus its run
-        (e.g. '     ```'), still non-empty, and a shallow one's is the bare run as before. The bound is
+        The state carries N for that test: under -AnyIndent an opener's state is its indent in spaces plus
+        its run (e.g. '     ```'), still non-empty, and one at column 0 -- or any opener without the switch
+        -- is the bare run as before. The bound is
         the loosest one the line allows, not the container's real indent, which this function cannot see
         -- so a column-0 line always ends a deep block, and a line at 1-3 spaces may not.
         A line that is a valid closer for the open block closes it even when it sits below that bound.
         CommonMark would read it as the container ending and the line opening a NEW, unclosed block; that
         is the same swallow-the-rest failure this rule exists to remove, so where the two readings
         disagree the one that does not swallow the document wins.
+
+        AND A CLOSER MAY SIT AT MOST THREE SPACES DEEPER THAN ITS OPENER (#2542). The container that holds
+        the opener starts at or before the opener's indent, and CommonMark lets a closer sit up to three
+        past the container. Lifting the limit on the closer too let a line such as four spaces and three
+        backticks close a column-0 block that GitHub keeps open, so text GitHub renders as code -- a
+        quoted '## Gate bypass' section included -- read as structure, and open-pr's -RefreshBody could
+        carry such a line into the real section of the refreshed body.
 
         The caller skips a line when the state before OR after it is non-empty -- that covers the opener,
         the body and the closer in one test. The state BEFORE is read through Resolve-FenceState, so the
@@ -77,11 +85,12 @@ function Get-NextFenceState {
     $rest   = $Matches[3]
     if ($Fence) {
         $open = $Fence.TrimStart(' ')
-        if ($run[0] -eq $open[0] -and $run.Length -ge $open.Length -and $rest.Trim().Length -eq 0) { return '' }
+        $depth = $Fence.Length - $open.Length
+        if ($run[0] -eq $open[0] -and $run.Length -ge $open.Length -and $rest.Trim().Length -eq 0 -and $indent -le ($depth + 3)) { return '' }
         return $Fence
     }
     if ($run[0] -eq '`' -and $rest.Contains('`')) { return '' }
-    if ($indent -gt 3) { return ((' ' * $indent) + $run) }
+    if ($AnyIndent -and $indent -gt 0) { return ((' ' * $indent) + $run) }
     return $run
 }
 
@@ -90,15 +99,15 @@ function Resolve-FenceState {
         The fence state that holds AT this line, before the line's own delimiter is read: '' where the
         line ends a deep block by its indent (see Get-NextFenceState, #2542), and -Fence unchanged
         otherwise. A caller reads its 'state before' through this, so the ending line is not skipped as
-        part of the block it ended. Only a deep state (one that starts with a space) can end this way.
+        part of the block it ended. Only a deep state (one carrying more than three spaces) can end this way.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line,
         [AllowEmptyString()][string]$Fence = ''
     )
-    if (-not $Fence.StartsWith(' ') -or -not $Line.Trim()) { return $Fence }
     $open  = $Fence.TrimStart(' ')
     $depth = $Fence.Length - $open.Length
+    if ($depth -le 3 -or -not $Line.Trim()) { return $Fence }
     $lead  = [regex]::Match($Line, '^\s*').Value
     if ((Get-FenceIndentWidth -Text $lead) -ge ($depth - 3)) { return $Fence }
     # Below every container the opener could sit in -- unless the line is this block's own closer.

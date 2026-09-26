@@ -57,6 +57,11 @@ new `Resolve-FenceState` gives callers the state *at* a line, so the line that e
 skipped as part of it. A valid closer below the bound still closes. Reading it as a new, unclosed opener
 (strict CommonMark) is the same swallow-the-rest failure.
 
+The security review found the mirror image, which also predates this branch: a closer at any indent closed a
+column-0 block, so a four-space fence line inside a quoted example turned a quoted `## Gate bypass` into a
+real one, and `-RefreshBody` could carry it into the refreshed body. Same primitive, same bound: a closer may
+sit at most three spaces deeper than its opener, so every `-AnyIndent` opener now records its depth.
+
 `Add-GateBypassLines` now decides between insert and append from one fence-aware scan. A body that only
 quotes the heading in a fence gets a new section instead of a silent no-op.
 
@@ -65,13 +70,15 @@ quotes the heading in a fence gets a new section instead of a silent no-op.
 - [x] `fence-lib.ps1`: deep opener carries its depth; `Resolve-FenceState` and `Get-FenceIndentWidth` added
 - [x] All 17 `-AnyIndent` call sites read their state-before through `Resolve-FenceState` (pr-body-lib 8, check-plugin-integrity 5, pr-issues-lib, entry-scaffold-lib, open-pr, check-roster-sync)
 - [x] check-plugin-integrity's two transition loops (record-query, consumer-doc samples) annotated: a block ended by indent goes unjudged
+- [x] Closer bound: at most three spaces deeper than its opener; every `-AnyIndent` opener carries its depth
 - [x] `Add-GateBypassLines`: the append branch reads the same fence-aware scan as the insert branch
 - [x] Mirrors regenerated (`build-shared-scripts.ps1`)
 
 ### TEST
 
 - [x] `fence-lib.tests.ps1`: the deep-block bound, the column-0 closer, tabs, the measured gate-bypass case through both readers, the quoted-heading append, and a tree-wide guard against a bare `$was = $fence` beside `-AnyIndent` (falsified against the old shape)
-- [x] fence-lib, pr-body and measure-always-on green locally
+- [x] The closer bound, including a forged bypass section inside a column-0 block that must read as nothing
+- [x] fence-lib, pr-body, pr-issues, entry-scaffold and measure-always-on green locally
 
 ### DEPLOY: fix/2542-deep-fence-closes-on-dedent
 
@@ -81,8 +88,9 @@ markdown readers treated it as a fence that never closed. Everything below it co
 `Get-GateBypassLines` read no bypass section, and `Add-GateBypassLines` dropped a new bypass line without
 an error. A fence opened deeper than three spaces now ends at the first line indented less than any list
 container could allow. That applies to every reader sharing `Get-NextFenceState`: the PR-body scans, the
-resolves reader, the entry format, open-pr's template scan, the roster check and the lint gate. Separately,
-a body that only quotes the gate-bypass heading in a code block now gets a real section appended instead
+resolves reader, the entry format, open-pr's template scan, the roster check and the lint gate. The reverse also holds now: a fence line
+indented four or more spaces no longer closes a block opened at column 0, so a gate-bypass section quoted
+inside a code block cannot be read as, or refreshed into, a real one. Separately, a body that only quotes the gate-bypass heading in a code block now gets a real section appended instead
 of an unchanged body.
 
 **Score:** 1
