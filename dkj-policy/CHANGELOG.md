@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**9 / 35 minor entries** <!-- pending-tally -->
+**9 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2534-commonmark-fence-tracker · 20260926-140401Z
+
+The always-on walk now tracks code fences the CommonMark way. A fence closes only on a run of the same
+character at least as long as the one that opened it, so a four-backtick block that wraps a
+three-backtick example no longer ends at the inner fence. Before this, an `@`-line or a `#` line inside
+such an example could be counted as an import or a heading. That affected the always-on budget, the
+consumer-prose session check, the "constitution imported" verdict and the import check in the lint
+gate. There is now one fence tracker, `Get-NextFenceState` in `measure-context-lib.ps1`, and every walk
+calls it, including the constitution-import scan in `adopt-workflow-folder.ps1`. No consumer is known to
+have hit the miscount yet; this closes it before one does.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Lint and measurement tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+One CommonMark fence tracker for the always-on walks (#2534)
+
+Plugins: dkj-policy
+
+[PR #2537](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2537)
+
+---
 
 ### DEPLOY: fix/2531-adopt-writes-constitution-import · 20260926-132005Z
 
