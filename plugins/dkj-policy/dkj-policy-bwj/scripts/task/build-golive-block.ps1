@@ -32,6 +32,17 @@
                    pair is built from -- PINNED TO THE LIVE THEME ID where one resolves (#2477), since
                    a bare URL renders the preview in any browser that opened the result link first.
 
+    THE BLOCK IS WRITTEN IN THE COLLEAGUE'S LANGUAGE, IN THE SHAPE BWJ SENDS (#2507). -Language picks
+    the words (Dutch by default: BWJ's board is Dutch); the sections are the reference block's -- what
+    changed, where to look, when it goes live, what is deliberately not in it, what we ask. The facts
+    above are the script's; the prose sections are the session's, handed in through -ProseFile.
+
+    AND IT KEEPS THOSE CHARACTERS INTACT ON THE WAY OUT. Windows PowerShell 5.1 pipes a string into a
+    native command through $OutputEncoding, which is ASCII there, so piping the block into gh turned
+    every accent and dash into '?'. The post therefore goes through a UTF-8 file, and -OutFile writes
+    the same bytes for a caller that embeds the block elsewhere -- the console printout is for reading,
+    and a console code page may not carry every character.
+
     EVERY ONE OF THEM IS A PROJECTION AND THE BLOCK SAYS 'Planned to', never 'will'. A tier-1 entry
     landing on the Friday turns a predicted patch into a minor, and a release can slip. Where a fact
     cannot be derived it is left out rather than guessed -- see golive-block-rules.ps1's header.
@@ -85,6 +96,19 @@
 .PARAMETER From
     The day the next release day is counted from. Today, unless a test or a caller says otherwise.
 
+.PARAMETER Language
+    The language of the Asana task, which is the language of the block between the rules: 'nl' (the
+    default) or 'en'. The framing sentence above the rules stays English -- it is read on GitHub.
+
+.PARAMETER ProseFile
+    A UTF-8 text file with the session's own prose for the block, under section lines '[changed]',
+    '[where]' and '[not-included]' (ConvertFrom-GoLiveProse). Omitted, those sections are not written,
+    and the run warns that the block does not say what changed.
+
+.PARAMETER OutFile
+    Also write the whole comment to this path as UTF-8 -- the faithful copy for a page that embeds the
+    block, where the console printout may have lost characters to its code page.
+
 .PARAMETER Post
     Also post the block as a comment on the issue. Without it the block is printed and nothing is
     written anywhere.
@@ -114,6 +138,9 @@ param(
     [string]$Version,
     [System.DayOfWeek]$ReleaseDay = [System.DayOfWeek]::Monday,
     [datetime]$From = (Get-Date),
+    [ValidateSet('nl', 'en')][string]$Language = 'nl',
+    [string]$ProseFile,
+    [string]$OutFile,
     [switch]$Post,
     [switch]$Force,
     [switch]$AllowPrivateLink,
@@ -133,6 +160,9 @@ $LiveThemeIdArg = $LiveThemeId
 $VersionArg  = $Version
 $ReleaseDayArg = $ReleaseDay
 $FromArg     = $From
+$LanguageArg = $Language
+$ProseArg    = $ProseFile
+$OutFileArg  = $OutFile
 $PostArg     = [bool]$Post
 $ForceArg    = [bool]$Force
 $RootArg     = $RootOverride
@@ -208,12 +238,29 @@ if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
     exit 1
 }
 
+# --- The session's prose ----------------------------------------------------------------------------
+# READ AS UTF-8 AND REFUSED WHOLE ON A FORMAT ERROR: a section line the parser does not know would
+# otherwise drop the paragraph under it, and the block would ship without the part the session wrote.
+$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @() }
+if ($ProseArg) {
+    if (-not (Test-Path -LiteralPath $ProseArg -PathType Leaf)) {
+        Write-Host "[ERROR] -ProseFile '$ProseArg' does not exist. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    try {
+        $prose = ConvertFrom-GoLiveProse -Text ([System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $ProseArg).ProviderPath, [System.Text.Encoding]::UTF8))
+    } catch {
+        Write-Host "[ERROR] -ProseFile: $($_.Exception.Message) Nothing written." -ForegroundColor Red
+        exit 1
+    }
+}
+
 Write-Host ""
 Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 
 # --- The date ---------------------------------------------------------------------------------------
 $goLive     = Get-NextReleaseDate -From $FromArg -ReleaseDay $ReleaseDayArg
-$goLiveText = Format-GoLiveDate -Date $goLive
+$goLiveText = Format-GoLiveDate -Date $goLive -Language $LanguageArg
 Write-Host "  go live  : $goLiveText" -ForegroundColor DarkGray
 
 # --- The version ------------------------------------------------------------------------------------
@@ -293,14 +340,27 @@ if ($PathArg -and @($PathArg).Count -gt 0) {
 
 # --- The block ----------------------------------------------------------------------------------------
 $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
-    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls -LivePinned:$livePinned
+    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls -LivePinned:$livePinned `
+    -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded
 
 Write-Host ""
 Write-Host $block
 Write-Host ""
 
+# UTF-8 WITHOUT A BOM, for both files below: the block is the colleague's language, and a BOM would
+# arrive in a pasted comment as an invisible first character.
+$utf8 = New-Object System.Text.UTF8Encoding $false
+if ($OutFileArg) {
+    [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutFileArg), $block, $utf8)
+    Write-Host "  written  : $OutFileArg (UTF-8 -- the faithful copy; the console above may have lost characters)" -ForegroundColor DarkGray
+}
+
+if (@($prose.Changed).Count -eq 0) {
+    Write-Host "[WARNING] No [changed] section in -ProseFile, so the block does not say what changed -- the" -ForegroundColor Yellow
+    Write-Host "          first thing its reader looks for. That prose is the session's to write, not the script's." -ForegroundColor Yellow
+}
 if (-not $LinkArg) {
-    Write-Host "[WARNING] No -Link given, so the block says only that the fix is done. It writes no" -ForegroundColor Yellow
+    Write-Host "[WARNING] No -Link given, so the block names no result to look at. It writes no" -ForegroundColor Yellow
     Write-Host "          placeholder on purpose -- pass -Link once you know where the result can be seen." -ForegroundColor Yellow
 }
 
@@ -329,17 +389,22 @@ if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
     exit 1
 }
 
-# Body through stdin, never as an inline argument -- the reason every multi-line gh call in this family
-# does: a shell mangles embedded newlines and quoting silently rather than loudly. The same shape as
-# Add-GithubIssueComment beside it, which is not reused because its own success line is the backstop's
+# Body through a FILE, never as an inline argument -- a shell mangles embedded newlines and quoting
+# silently rather than loudly -- and not through stdin either (#2507): Windows PowerShell 5.1 encodes a
+# pipe into a native command with $OutputEncoding, ASCII there, so every accent and dash in the
+# colleague's language arrived on the issue as '?'. A UTF-8 file is read by gh byte for byte.
+# Add-GithubIssueComment beside it is not reused because its own success line is the backstop's
 # ("the session that shipped the work did not"), and this IS that session.
+$bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) "golive-block-$PID-$([guid]::NewGuid().ToString('n')).md"
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 try {
-    $block | & gh issue comment $issueNumber --repo $StoreRepo --body-file - 2>$null | Out-Null
+    [System.IO.File]::WriteAllText($bodyFile, $block, $utf8)
+    & gh issue comment $issueNumber --repo $StoreRepo --body-file $bodyFile 2>$null | Out-Null
     $postCode = $LASTEXITCODE
 } finally {
     $ErrorActionPreference = $prevEap
+    Remove-Item -LiteralPath $bodyFile -Force -ErrorAction SilentlyContinue
 }
 if ($postCode -ne 0) {
     Write-Host "[ERROR] Posting the comment on $targetRef failed (gh exit $postCode)." -ForegroundColor Red
