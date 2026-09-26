@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 38 minor entries** <!-- pending-tally -->
+**9 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2536-fence-trackers-commonmark · 20260926-154028Z
+
+The workflow's markdown readers now track fenced code blocks the CommonMark way. A block closes only on
+a run of the same character at least as long as the one that opened it. Before this, a four-backtick
+block quoting a three-backtick example closed at the inner fence, and the rest of the example was read
+as real structure. That covered PR-body section and heading scans, the resolves reader, the changelog
+entry format, open-pr's template scan, the roster check's import scan and the lint gate's anchor and
+sample checks. Tilde fences are now recognised by the lint gate, which knew only backticks. All of them
+share one definition, `Get-NextFenceState` in `fence-lib.ps1`. No real document is known to have been
+misread; the repo's own test fixtures quote nested fences, so a PR body or entry quoting them was the
+likeliest place for it to happen.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Workflow tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+Move the remaining fence trackers to the CommonMark fence state
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha
+
+[PR #2543](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2543)
+
+---
 
 ### DEPLOY: fix/2533-adoption-write-reparse-guard · 20260926-150037Z
 
