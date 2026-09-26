@@ -1399,7 +1399,7 @@ $settingsRefusal = $null
 # refused exactly like a file that does not parse: no merged proposal, the annotated one still offered.
 $settingsReparse = Get-WriteReparse $settingsPath
 if ($settingsReparse) {
-    $settingsRefusal = "is reached through a symlink or junction ($settingsReparse), so it was not read"
+    $settingsRefusal = "is reached through a symlink or junction ($settingsReparse) and was not read"
 } elseif (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
     $parsed = $null
     try {
