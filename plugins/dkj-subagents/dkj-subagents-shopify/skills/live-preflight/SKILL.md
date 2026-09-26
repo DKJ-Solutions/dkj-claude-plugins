@@ -94,9 +94,11 @@ three.
 So **step 3 refuses** a push list holding any path outside letters, digits, `.`, `_`, `/` and `-`, and
 names each refused path with its control characters stripped. It refuses at step 3 and not at the
 command because of the cost ordering below: the backup is then skipped. **Latin accents
-(U+00C0-U+017F) are admitted**, because a theme filename with one is real (#821 measured one through
+(U+00C0-U+017E) are admitted**, because a theme filename with one is real (#821 measured one through
 `sync-main`) and refusing it would block that store's live push with nothing to do but rename a file
-the theme editor made. Past that range are letters that display as punctuation, so they are refused.
+the theme editor made. The long s (U+017F) that ends Latin Extended-A reads as an `f`, and past it are
+letters that display as punctuation, so those are refused. Every path the push list prints, pushed or
+held, goes through the same control-character strip.
 `Format-LivePushCommand` throws on such a path as well, so no caller can print one.
 
 ## The nine steps, and why they are in this order
@@ -105,7 +107,7 @@ the theme editor made. Past that range are letters that display as punctuation, 
 |---|---|---|
 | 1 | **trunk** -- clean, on the trunk, level with `origin` | anything else. A live push ships what is *merged*. |
 | 2 | **gates** -- the repo's own lint and tests | one of them fails. |
-| 3 | **push list** -- derived from the range | nothing in the range lives on a theme, or a theme path is not safe to paste (below). |
+| 3 | **push list** -- derived from the range | nothing in the range lives on a theme, or a theme path is not safe to paste (failure 3 above). |
 | 4 | **version** -- what the pending entries owe, and the target | never; it reports. |
 | 5 | **live theme** -- by configured **id** and by the **role** the store reports | the two disagree, or the id is not in the list. |
 | 6 | **drift** -- the check, with the list as an array | the check says the live files are not what this repo thinks. |

@@ -172,7 +172,7 @@ Write-Host 'Paste safety -- a path that would run when pasted never reaches the 
 $subexpr = 'assets/$(calc.exe).css'
 $semi    = 'assets/a;calc.css'
 $newline = "assets/a`ncalc.css"
-foreach ($bad in @($subexpr, $semi, $newline, 'assets/a b.css', 'assets/a|b.css', 'assets/a&b.css', 'assets/`a.css', "assets/a'b.css", '-x/a.css', ('assets/a' + [char]0x202E + 'b.css'), ('assets/e' + [char]0x0301 + '.css'), ('assets/x' + [char]0x01C0 + 'y.css'), ('assets/' + [char]0x00D7 + '.css'), ('assets/' + [char]0x212A + '.css'))) {
+foreach ($bad in @($subexpr, $semi, $newline, 'assets/a b.css', 'assets/a|b.css', 'assets/a&b.css', 'assets/`a.css', "assets/a'b.css", '-x/a.css', ('assets/a' + [char]0x202E + 'b.css'), ('assets/e' + [char]0x0301 + '.css'), ('assets/x' + [char]0x01C0 + 'y.css'), ('assets/' + [char]0x00D7 + '.css'), ('assets/' + [char]0x212A + '.css'), ('asset' + [char]0x017F + '/foo.css'))) {
     $u = @(Get-LivePushUnsafePaths -Paths @('sections/header.liquid', $bad))
     Assert-Equal 1 $u.Count "refused: $($bad -replace '[^\x20-\x7E]', '?')"
 }

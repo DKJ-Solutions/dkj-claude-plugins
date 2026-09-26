@@ -49,14 +49,15 @@ with no check, and `live-preflight.ps1` loads no paste-safety check at all. The 
 Decided for a letter class. `Test-PathPasteSafe` is ASCII only, and #821 measured an accented theme
 filename in a real consumer store through `sync-main`. An ASCII-only check would refuse that store's
 live push with no remedy but renaming a file the theme editor created. So the push path gets its own
-pattern: the ref set plus the Latin letters U+00C0-U+017F without the multiplication and division
-signs, matched case-sensitively. It stops before Latin Extended-B, because that is where letters that
-display as `|` and `!` begin.
+pattern: the ref set plus the Latin letters U+00C0-U+017E without the multiplication and division
+signs, matched case-sensitively. It stops one short of the end of Latin Extended-A, because U+017F
+LONG S reads as an `f` (Sebastian's review), and past it are letters that display as `|` and `!`.
 
 ### CREATE
 
 - [x] `Get-LivePushUnsafePaths` in `live-push-rules.ps1`, and `Format-LivePushCommand` throws on an unsafe path as the backstop for any caller
 - [x] `live-preflight.ps1` refuses at step 3, so step 7's backup is skipped, names the paths through `Format-SafePathToken`, and step 8 reports the command as not composed
+- [x] step 3's `push` and `held` lines print each path through `Format-SafePathToken` too, since they print before the check and whatever it decides (Sebastian's review)
 - [x] both files mirrored byte-for-byte into `dkj-subagents-shopify`
 - [x] the `live-preflight` skill page documents the third failure and the step-3 refusal
 

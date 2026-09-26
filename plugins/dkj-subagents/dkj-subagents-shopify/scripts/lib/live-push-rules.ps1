@@ -219,9 +219,9 @@ function Get-HighestReleaseTag {
 
 # What a theme path may contain before it is printed inside a command a person pastes (#2514). The ref
 # pattern of ref-print-lib.ps1 (letters, digits, '.', '_', '/', '-', first character alphanumeric) PLUS
-# the Latin letters of U+00C0-U+017F, the multiplication and division signs excepted. Written as regex
+# the Latin letters of U+00C0-U+017E, the multiplication and division signs excepted. Written as regex
 # escapes so this file stays ASCII. The reasoning is in Get-LivePushUnsafePaths' docstring.
-$script:LivePushPathPattern = '^[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F][A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017F._/-]*$'
+$script:LivePushPathPattern = '^[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017E][A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017E._/-]*$'
 
 function Get-LivePushUnsafePaths {
     <#
@@ -244,11 +244,11 @@ function Get-LivePushUnsafePaths {
         accent is not hypothetical: #821 measured one in a consumer store, through sync-main. An
         ASCII-only check would refuse that store's live push for as long as the file is in the range,
         with nothing the operator could do short of renaming a file the theme editor created. So this
-        admits the Latin letters of U+00C0-U+017F on top of the ref pattern's set. No letter is special
-        to PowerShell, bash or cmd, so admitting them opens nothing that executes. The range stops at
-        Latin Extended-A on purpose: past it are letters that DISPLAY as punctuation (U+01C0-U+01C3 read
-        as `|` and `!`) and scripts that reorder a printed line, and a command a person reads before
-        pasting must read as what it does. A decomposed accent (a letter plus a combining mark) is
+        admits the Latin letters of U+00C0-U+017E on top of the ref pattern's set. No letter is special
+        to PowerShell, bash or cmd, so admitting them opens nothing that executes. The range stops
+        inside Latin Extended-A on purpose, because a command a person reads before pasting must read
+        as what it does: its last letter, U+017F LONG S, reads as an `f`, and past it are letters that
+        DISPLAY as punctuation (U+01C0-U+01C3 read as `|` and `!`) and scripts that reorder a line. A decomposed accent (a letter plus a combining mark) is
         refused, which is the fail-safe direction. The match is case-SENSITIVE (-cmatch) so the
         Kelvin sign cannot pass as a `k` under case folding.
 

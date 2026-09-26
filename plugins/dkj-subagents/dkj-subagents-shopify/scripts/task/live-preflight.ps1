@@ -26,7 +26,7 @@
        beside this file cannot produce one even if a later caller asked it to.
     ------------------------------------------------------------------------------------------------
 
-    THE TWO FAILURES IT MECHANISES, because they are the reason it is a script and not a checklist:
+    THE THREE FAILURES IT MECHANISES, because they are the reason it is a script and not a checklist:
 
       DERIVING THE PUSH LIST. The consumer's range v2.43.0..HEAD held 61 changed files, of which 11
       lived in the eight theme directories; the other 50 were scripts, tests and docs that do not exist
@@ -38,6 +38,12 @@
       check snapshotted zero files and printed a green "safe to push". The rollback artefact for that
       release did not exist and nothing said so. Step 6 calls the check IN THIS PROCESS with a real
       array, which is a mistake a caller that owns the list cannot make.
+
+      PRINTING A PATH NOBODY HERE TYPED (#2514). The push command is printed for a person to paste, and
+      a theme filename off a sync branch can carry '$(...)', ';' or a newline that runs or splits the
+      line. Step 3 refuses a list holding any path outside Get-LivePushUnsafePaths' set -- before the
+      backup, so a refused run costs no theme slot -- and names each one with its control characters
+      stripped.
 
     THE ORDER IS COST-ORDERED, AND #2228 ASKED FOR THAT EXPLICITLY. The backup polls until the copy is
     provably complete and that took roughly EIGHT MINUTES in the consumer's store, so it runs after
@@ -89,7 +95,8 @@
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/live-push-rules.tests.ps1 pins the
     rules this script invokes: the eight theme directories, the push-list classification in all three of
     its verdicts, the numeric tag pick that lexical sorting gets wrong, the push command's shape and its
-    refusal to produce one for an empty list, and the verdict fold including the state a skip is in.
+    refusal to produce one for an empty list, the paste-safety check on its measured shapes and on the
+    accented paths it must still admit, and the verdict fold including the state a skip is in.
 
     THIS SCRIPT ITSELF IS NOT DRIVEN, for the reason push-preview.ps1 and backup-live-theme.ps1 give:
     every path in it reaches git, the Shopify CLI against a real store, or a consumer's repo-config, and
@@ -439,14 +446,17 @@ if (-not $sinceTag) {
         $held = @($rows | Where-Object { -not $_.Push })
 
         Write-Host "  $sinceTag..HEAD changed $($changed.Count) file(s)."
-        foreach ($r in ($rows | Where-Object { $_.Push })) { Write-Host "    push  $($r.Path)" -ForegroundColor Green }
+        # EVERY PATH PRINTED HERE GOES THROUGH Format-SafePathToken (#2514). These are the same foreign
+        # names the paste check below refuses, printed before it runs and whatever it decides -- so an
+        # escape sequence in one would repaint the very list a reader is judging.
+        foreach ($r in ($rows | Where-Object { $_.Push })) { Write-Host "    push  $(Format-SafePathToken -Value $r.Path)" -ForegroundColor Green }
         # EVERY HELD ROW IS PRINTED TOO, grouped rather than silent: a list that showed only the keepers
         # would be unfalsifiable, because the files it must never push are exactly the rows it would not
         # print. Grouped by reason so 50 script paths read as one fact and not as fifty.
         $byKind = $held | Group-Object -Property Kind
         foreach ($g in $byKind) {
             Write-Host "    held  $($g.Count) file(s): $($g.Group[0].Reason)" -ForegroundColor DarkGray
-            foreach ($r in $g.Group) { Write-Host "            $($r.Path)" -ForegroundColor DarkGray }
+            foreach ($r in $g.Group) { Write-Host "            $(Format-SafePathToken -Value $r.Path)" -ForegroundColor DarkGray }
         }
 
         # A PATH THAT IS NOT SAFE TO PASTE REFUSES HERE, AT STEP 3, AND NOT AT THE COMMAND (#2514). Step
